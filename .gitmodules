@@ -1,9 +1,9 @@
-[submodule "Dependencies/STINGRAY-STUDIO-2003"]
-	path = Dependencies/STINGRAY-STUDIO-2003
+[submodule "Sources/sdk/STINGRAY"]
+	path = Sources/sdk/STINGRAY
 	url = https://github.com/jmfrank63/STINGRAY-STUDIO-2003.git
-[submodule "Dependencies/bink"]
-	path = Dependencies/bink
+[submodule "Sources/sdk/BINK"]
+	path = Sources/sdk/BINK
 	url = https://github.com/jmfrank63/bink.git
-[submodule "Dependencies/fmod-3.75"]
-	path = Dependencies/fmod-3.75
+[submodule "Sources/sdk/FMOD"]
+	path = Sources/sdk/FMOD
 	url = https://github.com/jmfrank63/fmod-3.75.git
