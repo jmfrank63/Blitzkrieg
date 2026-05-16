@@ -6,7 +6,6 @@
 #include "resource.h"
 #include "DialogMemory.h"
 #include "WndUtils.h"
-#include <hash_map>
 
 /*
 BOOL CALLBACK DlgProcMemory( HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lParam );
@@ -58,7 +57,7 @@ int CDialogMemory::OnWndMsg( HWND hwndDlg, UINT message, WPARAM wParam, LPARAM l
 			ListView_AddColumn( hwndListFull, "Frees", nPart10 );
 			ListView_AddColumn( hwndListFull, "AllocMem", nPart10 );
 			ListView_AddColumn( hwndListFull, "FreedMem", nPart10 );
-			std::hash_map<std::string, SExternalDebugAllocStat> mapSumm;
+			std::unordered_map<std::string, SExternalDebugAllocStat> mapSumm;
 			for( const SExternalDebugAllocStat *it = m_pAllocStatBegin; it != m_pAllocStatEnd; ++it )
 			{
 				int nNewLine = ListView_AddItem( hwndListFull, it->pszFileName, LPARAM(it), 2000000 );
@@ -93,7 +92,7 @@ int CDialogMemory::OnWndMsg( HWND hwndDlg, UINT message, WPARAM wParam, LPARAM l
 			ListView_AddColumn( hwndListSumm, "Frees", nPart10 );
 			ListView_AddColumn( hwndListSumm, "AllocMem", nPart10 );
 			ListView_AddColumn( hwndListSumm, "FreedMem", nPart10 );
-			for( std::hash_map<std::string, SExternalDebugAllocStat>::const_iterator i = mapSumm.begin();
+			for( std::unordered_map<std::string, SExternalDebugAllocStat>::const_iterator i = mapSumm.begin();
 					i != mapSumm.end(); ++i )
 			{
 				int nNewLine = ListView_AddItem( hwndListSumm, const_cast<char*>(i->first.c_str()), 0, 2000000 );

@@ -178,6 +178,23 @@ void STDCALL DiagOutput( LPCTSTR szFmt, ... );
 #define SETDIAGASSERTOPTIONS(x)
 #define ADDDIAGASSERTMODULE(x)
 
+#ifdef TRACE
+#undef TRACE
+#endif
+
+#ifdef TRACE0
+#undef TRACE0
+#endif
+#ifdef TRACE1
+#undef TRACE1
+#endif
+#ifdef TRACE2
+#undef TRACE2
+#endif
+#ifdef TRACE3
+#undef TRACE3
+#endif
+
 #ifdef __cplusplus
 //inline void TraceOutput(LPCTSTR, ...) { }
 #define TRACE   (void)0

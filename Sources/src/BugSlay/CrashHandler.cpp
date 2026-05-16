@@ -63,7 +63,7 @@ void STDCALL AddIgnoreModule( const char *pszModuleName )
 {
 	ignoremodules.push_back( pszModuleName );
 	std::string &szString = ignoremodules.back();
-	std::transform( szString.begin(), szString.end(), szString.begin(), std::ptr_fun(MSVCMustDie_tolower) );
+    std::transform( szString.begin(), szString.end(), szString.begin(), MSVCMustDie_tolower );
 }
 /*//////////////////////////////////////////////////////////////////////
                     File Scope Function Declarations
@@ -1080,7 +1080,7 @@ void InitSymEng()
 			{
 				std::string szName = szModName;
 				szName = szName.substr( szName.rfind( '\\' ) + 1 );
-				std::transform( szName.begin(), szName.end(), szName.begin(), std::ptr_fun(MSVCMustDie_tolower) );
+                std::transform( szName.begin(), szName.end(), szName.begin(), MSVCMustDie_tolower );
 				if ( std::find( ignoremodules.begin(), ignoremodules.end(), szName ) != ignoremodules.end() )
 					continue;
 			}

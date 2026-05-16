@@ -11,7 +11,7 @@ void __stl_debug_message( const char *pszFormat, ... )
   va_list va;
 	// 
   va_start( va, pszFormat );
-  vsprintf( buff, pszFormat, va );
+	vsprintf_s( buff, sizeof(buff), pszFormat, va );
   va_end( va );
 
 	szSTLDebugMessages.push_back( buff );

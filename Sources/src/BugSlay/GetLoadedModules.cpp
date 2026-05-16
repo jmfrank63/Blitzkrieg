@@ -10,6 +10,7 @@
 // The documentation for this function is in BugSlayer.h.
 BOOL STDCALL GetLoadedModules( DWORD dwPID, UINT uiCount, HMODULE *paModArray, LPUINT puiRealCount )
 {
+  typedef BOOL (WINAPI *GET_VERSION_EX_A_PROC)( LPOSVERSIONINFOA );
   // Do the debug checking.
   ASSERT( NULL != puiRealCount );
   ASSERT( FALSE == IsBadWritePtr(puiRealCount , sizeof(UINT)) );
@@ -38,7 +39,8 @@ BOOL STDCALL GetLoadedModules( DWORD dwPID, UINT uiCount, HMODULE *paModArray, L
   memset( &stOSVI , NULL , sizeof(OSVERSIONINFO) );
   stOSVI.dwOSVersionInfoSize = sizeof( OSVERSIONINFO );
 
-  BOOL bRet = GetVersionEx( &stOSVI );
+  GET_VERSION_EX_A_PROC pGetVersionExA = reinterpret_cast<GET_VERSION_EX_A_PROC>( GetProcAddress( GetModuleHandleA( "kernel32.dll" ), "GetVersionExA" ) );
+  BOOL bRet = ( pGetVersionExA != 0 ) ? pGetVersionExA( &stOSVI ) : FALSE;
   ASSERT( TRUE == bRet );
   if ( FALSE == bRet )
   {

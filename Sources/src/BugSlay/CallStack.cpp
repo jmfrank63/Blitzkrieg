@@ -219,7 +219,7 @@ EBSUReport STDCALL NBugSlayer::ReportAssert( const char *pszCondition, const cha
 	for ( CCallStackEntryList::const_iterator pos = entries.begin(); pos != entries.end(); ++pos )
 	{
 		char buff[1024];
-		sprintf( buff, "%s(%d): %s\n", pos->szFileName.c_str(), pos->nLineNumber, pos->szFunctionName.c_str() );
+		sprintf_s( buff, sizeof(buff), "%s(%d): %s\n", pos->szFileName.c_str(), pos->nLineNumber, pos->szFunctionName.c_str() );
 		OutputDebugString( buff );
 	}
 	OutputDebugString( "CallStack entries dump done\n" );
@@ -236,7 +236,7 @@ EBSUReport STDCALL NBugSlayer::ReportAssertHR( HRESULT dxrval, const char *pszDe
 	                                                             const char *pszFileName, int nLineNumber, bool bForceMode )
 {
 	char buff[1024];
-	sprintf( buff, "(0x%X) %s", dxrval, DXErrorToString(dxrval) );
+	sprintf_s( buff, sizeof(buff), "(0x%08X) %s", static_cast<unsigned int>(dxrval), DXErrorToString(dxrval) );
 	return ReportAssert( buff, pszDescription, pszFileName, nLineNumber, bForceMode );
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -248,9 +248,9 @@ LONG STDCALL CrashHandlerFilter( EXCEPTION_POINTERS *pExPtrs )
 	// form <description> for unhandled exception
 	char buff[128];
 	if ( !entries.empty() )
-		sprintf( buff, "First-chance exception in %s: 0x%.8X: %s.", entries.front().szModuleName.c_str(), pExPtrs->ExceptionRecord->ExceptionCode, ConvertSimpleException(pExPtrs->ExceptionRecord->ExceptionCode) );
+		sprintf_s( buff, sizeof(buff), "First-chance exception in %s: 0x%.8X: %s.", entries.front().szModuleName.c_str(), pExPtrs->ExceptionRecord->ExceptionCode, ConvertSimpleException(pExPtrs->ExceptionRecord->ExceptionCode) );
 	else
-		sprintf( buff, "Unhandled Exception (0x%X) at the 0x%X", pExPtrs->ExceptionRecord->ExceptionCode, pExPtrs->ExceptionRecord->ExceptionAddress );
+		sprintf_s( buff, sizeof(buff), "Unhandled Exception (0x%08X) at 0x%p", pExPtrs->ExceptionRecord->ExceptionCode, pExPtrs->ExceptionRecord->ExceptionAddress );
 	// trace debug info
 	OutputDebugString( "*********************************************************************************************************\n" );
 	OutputDebugString( buff );
@@ -261,7 +261,7 @@ LONG STDCALL CrashHandlerFilter( EXCEPTION_POINTERS *pExPtrs )
 	for ( CCallStackEntryList::const_iterator pos = entries.begin(); pos != entries.end(); ++pos )
 	{
 		char buff[1024];
-		sprintf( buff, "%s(%d): %s\n", pos->szFileName.c_str(), pos->nLineNumber, pos->szFunctionName.c_str() );
+		sprintf_s( buff, sizeof(buff), "%s(%d): %s\n", pos->szFileName.c_str(), pos->nLineNumber, pos->szFunctionName.c_str() );
 		OutputDebugString( buff );
 	}
 	OutputDebugString( "CallStack entries dump done\n" );

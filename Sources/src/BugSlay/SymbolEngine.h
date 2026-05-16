@@ -379,7 +379,9 @@ public:
                             IN PSYM_ENUMSYMBOLS_CALLBACK EnumSymbolsCallback,
                             IN PVOID UserContext )
   {
-    return ::SymEnumerateSymbols( m_hProcess, BaseOfDll, EnumSymbolsCallback, UserContext );
+    typedef BOOL (WINAPI *SYM_ENUMERATE_SYMBOLS_PROC)( HANDLE, DWORD, PSYM_ENUMSYMBOLS_CALLBACK, PVOID );
+    SYM_ENUMERATE_SYMBOLS_PROC pSymEnumerateSymbols = reinterpret_cast<SYM_ENUMERATE_SYMBOLS_PROC>( GetProcAddress( GetModuleHandleA( "imagehlp.dll" ), "SymEnumerateSymbols" ) );
+    return ( pSymEnumerateSymbols != 0 ) ? pSymEnumerateSymbols( m_hProcess, BaseOfDll, EnumSymbolsCallback, UserContext ) : FALSE;
   }
 
   BOOL SymGetSymFromAddr( IN  DWORD dwAddr,

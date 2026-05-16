@@ -43,10 +43,10 @@ public:
 			buff[0] = 0;
       for ( std::list<std::string>::const_iterator pos = szErrors.begin(); pos != szErrors.end(); ++pos )
 			{
-				strcat( buff, pos->c_str() );
-				strcat( buff, " <= " );
+				strcat_s( buff, sizeof(buff), pos->c_str() );
+				strcat_s( buff, sizeof(buff), " <= " );
 			}
-			strcat( buff, "WinMain" );
+			strcat_s( buff, sizeof(buff), "WinMain" );
       szErrorString = buff;
       bStringChanged = false;
     }
@@ -58,7 +58,7 @@ public:
     va_list va;
 	  // compose error string
     va_start( va, pszFormat );
-    vsprintf( buffer, pszFormat, va );
+	vsprintf_s( buffer, sizeof(buffer), pszFormat, va );
     va_end( va );
     //
     szErrors.push_back( buffer );
@@ -135,13 +135,13 @@ void ThrowExceptionHR( HRESULT dxrval, const char *pszFormat, ... ) throw ( ICom
   va_list va;
 	// compose error string
   va_start( va, pszFormat );
-  vsprintf( buffer, pszFormat, va );
+	vsprintf_s( buffer, sizeof(buffer), pszFormat, va );
   va_end( va );
 	//
-	sprintf( buff1, "(0x%X) ", dxrval );
-	strcat( buffer, "\n" );
-	strcat( buffer, buff1 );
-	strcat( buffer, DXErrorToString(dxrval) );
+	sprintf_s( buff1, sizeof(buff1), "(0x%08p) ", reinterpret_cast<void*>(static_cast<uintptr_t>(dxrval)) );
+	strcat_s( buffer, sizeof(buffer), "\n" );
+	strcat_s( buffer, sizeof(buffer), buff1 );
+	strcat_s( buffer, sizeof(buffer), DXErrorToString(dxrval) );
 	//
 	CCommonException* pException = new CCommonException( buffer, dxrval );
 	int nRetCode = ShowError( buffer );
@@ -159,7 +159,7 @@ void ThrowException( const char *pszFormat, ... ) throw ( ICommonException* )
   va_list va;
 	// compose error string
   va_start( va, pszFormat );
-  vsprintf( buffer, pszFormat, va );
+	vsprintf_s( buffer, sizeof(buffer), pszFormat, va );
   va_end( va );
 	//
 	CCommonException* pException = new CCommonException( buffer );
@@ -178,7 +178,7 @@ void ThrowGuardException( const char *pszFormat, ... ) throw ( IGuardException* 
   va_list va;
 	// compose error string
   va_start( va, pszFormat );
-  vsprintf( buffer, pszFormat, va );
+	vsprintf_s( buffer, sizeof(buffer), pszFormat, va );
   va_end( va );
 	//
 	CGuardException* pException = new CGuardException( buffer );
@@ -192,13 +192,13 @@ bool ReportErrorHR( HRESULT dxrval, const char *pszFormat, ... )
   va_list va;
 	// compose error string
   va_start( va, pszFormat );
-  vsprintf( buffer, pszFormat, va );
+	vsprintf_s( buffer, sizeof(buffer), pszFormat, va );
   va_end( va );
 	//
-	sprintf( buff1, "(0x%X) ", dxrval );
-	strcat( buffer, "\n" );
-	strcat( buffer, buff1 );
-	strcat( buffer, DXErrorToString(dxrval) );
+	sprintf_s( buff1, sizeof(buff1), "(0x%08p) ", reinterpret_cast<void*>(static_cast<uintptr_t>(dxrval)) );
+	strcat_s( buffer, sizeof(buffer), "\n" );
+	strcat_s( buffer, sizeof(buffer), buff1 );
+	strcat_s( buffer, sizeof(buffer), DXErrorToString(dxrval) );
 	//
 	int nRetCode = ShowError( buffer );
 	if ( nRetCode == IDRETRY )
@@ -214,7 +214,7 @@ bool ReportError( const char *pszFormat, ... )
   va_list va;
 	// compose error string
   va_start( va, pszFormat );
-  vsprintf( buffer, pszFormat, va );
+	vsprintf_s( buffer, sizeof(buffer), pszFormat, va );
   va_end( va );
 	//
 	int nRetCode = ShowError( buffer );
@@ -233,13 +233,13 @@ bool ReportWarningHR( HRESULT dxrval, const char *pszFormat, ... )
   va_list va;
 	// compose error string
   va_start( va, pszFormat );
-  vsprintf( buffer, pszFormat, va );
+	vsprintf_s( buffer, sizeof(buffer), pszFormat, va );
   va_end( va );
 	//
-	sprintf( buff1, "(0x%X) ", dxrval );
-	strcat( buffer, "\n" );
-	strcat( buffer, buff1 );
-	strcat( buffer, DXErrorToString(dxrval) );
+	sprintf_s( buff1, sizeof(buff1), "(0x%08p) ", reinterpret_cast<void*>(static_cast<uintptr_t>(dxrval)) );
+	strcat_s( buffer, sizeof(buffer), "\n" );
+	strcat_s( buffer, sizeof(buffer), buff1 );
+	strcat_s( buffer, sizeof(buffer), DXErrorToString(dxrval) );
 	//
 	ShowWarning( buffer );
 
@@ -251,7 +251,7 @@ bool ReportWarning( const char *pszFormat, ... )
   va_list va;
 	// compose error string
   va_start( va, pszFormat );
-  vsprintf( buffer, pszFormat, va );
+	vsprintf_s( buffer, sizeof(buffer), pszFormat, va );
   va_end( va );
 	//
 	ShowWarning( buffer );
@@ -266,13 +266,13 @@ bool ReportInfoHR( HRESULT dxrval, const char *pszFormat, ... )
   va_list va;
 	// compose error string
   va_start( va, pszFormat );
-  vsprintf( buffer, pszFormat, va );
+	vsprintf_s( buffer, sizeof(buffer), pszFormat, va );
   va_end( va );
 	//
-	sprintf( buff1, "(0x%X) ", dxrval );
-	strcat( buffer, "\n" );
-	strcat( buffer, buff1 );
-	strcat( buffer, DXErrorToString(dxrval) );
+	sprintf_s( buff1, sizeof(buff1), "(0x%08p) ", reinterpret_cast<void*>(static_cast<uintptr_t>(dxrval)) );
+	strcat_s( buffer, sizeof(buffer), "\n" );
+	strcat_s( buffer, sizeof(buffer), buff1 );
+	strcat_s( buffer, sizeof(buffer), DXErrorToString(dxrval) );
 	//
 	ShowReport( buffer );
 
@@ -284,7 +284,7 @@ bool ReportInfo( const char *pszFormat, ... )
   va_list va;
 	// compose error string
   va_start( va, pszFormat );
-  vsprintf( buffer, pszFormat, va );
+	vsprintf_s( buffer, sizeof(buffer), pszFormat, va );
   va_end( va );
 	//
 	ShowReport( buffer );

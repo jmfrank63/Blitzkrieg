@@ -131,7 +131,7 @@ BOOL STDCALL DiagAssert( DWORD dwOverrideOpts, LPCTSTR szMsg, LPCSTR szFile, DWO
 
   // Get the module name.
   if ( 0 == GetModuleFileName(0, szModName, MAX_PATH) )
-    _tcscpy( szModName, _T("<unknown application>") );
+    _tcscpy_s( szModName, _countof(szModName), _T("<unknown application>") );
 
   // Build the message.
   pCurrPos += (wsprintf ( szBuff                                 ,
@@ -197,7 +197,7 @@ void STDCALL DiagOutput ( LPCTSTR szFmt , ... )
   va_list  args ;
 
   va_start( args , szFmt );
-  _vstprintf( szOutBuff , szFmt , args ) ;
+  _vsntprintf_s( szOutBuff , _countof(szOutBuff), _TRUNCATE, szFmt , args ) ;
   OutputDebugString( szOutBuff );
   va_end( args );
 
@@ -330,7 +330,7 @@ static void DoStackTrace( LPTSTR szString, DWORD dwSize, DWORD dwNumSkip )
 
     if ( FALSE == g_cSym.SymInitialize(hProcess, 0, FALSE) )
     {
-      TRACE( "DiagAssert : Unable to initialize the symbol engine!!!\n" );
+      TRACE0( "DiagAssert : Unable to initialize the symbol engine!!!\n" );
 #ifdef _DEBUG
       DebugBreak();
 #endif
@@ -399,7 +399,7 @@ static void DoStackTrace( LPTSTR szString, DWORD dwSize, DWORD dwNumSkip )
       dwSymSize = ConvertAddress( *loop , szSym );
       if ( dwSizeLeft < dwSymSize )
         break;
-      _tcscpy( szCurrPos , szSym );
+      _tcscpy_s( szCurrPos, dwSizeLeft / sizeof(TCHAR), szSym );
       szCurrPos += dwSymSize;
       dwSizeLeft -= dwSymSize;
     }

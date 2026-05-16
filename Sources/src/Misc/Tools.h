@@ -684,10 +684,6 @@ inline float fabs2( const float x )
 {
 	return x*x;
 }
-inline float fabs( float x )
-{
-	return fabsf( x );
-}
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TYPE> 
 inline bool Normalize( TYPE &x, TYPE &y )
@@ -752,10 +748,6 @@ inline void GetLineEq( const float x1, const float y1, const float x2, const flo
 	*pC = tc * rcsq;
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-inline float cos( float fVal ) { return static_cast<float>( cos( double(fVal) ) ); }
-inline float sin( float fVal ) { return static_cast<float>( sin( double(fVal) ) ); }
-inline float acos( float fVal ) { return static_cast<float>( acos( double(fVal) ) ); }
-inline float asin( float fVal ) { return static_cast<float>( asin( double(fVal) ) ); }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define MINIMIZE_INT( nToMin, nHow )  \
 	_asm mov ecx, nToMin                \
