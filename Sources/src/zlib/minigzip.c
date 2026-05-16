@@ -34,6 +34,11 @@
 #if defined(MSDOS) || defined(OS2) || defined(WIN32)
 #  include <fcntl.h>
 #  include <io.h>
+#  if defined(_MSC_VER)
+#    define setmode _setmode
+#    define fileno _fileno
+#    define unlink _unlink
+#  endif
 #  define SET_BINARY_MODE(file) setmode(fileno(file), O_BINARY)
 #else
 #  define SET_BINARY_MODE(file)
@@ -200,10 +205,19 @@ void file_compress(file, mode)
     FILE  *in;
     gzFile out;
 
+#ifdef _MSC_VER
+    strcpy_s(outfile, sizeof(outfile), file);
+    strcat_s(outfile, sizeof(outfile), GZ_SUFFIX);
+
+    if (fopen_s(&in, file, "rb") != 0) {
+        in = NULL;
+    }
+#else
     strcpy(outfile, file);
     strcat(outfile, GZ_SUFFIX);
 
     in = fopen(file, "rb");
+#endif
     if (in == NULL) {
         perror(file);
         exit(1);
@@ -231,7 +245,11 @@ void file_uncompress(file)
     gzFile in;
     int len = strlen(file);
 
+#ifdef _MSC_VER
+    strcpy_s(buf, sizeof(buf), file);
+#else
     strcpy(buf, file);
+#endif
 
     if (len > SUFFIX_LEN && strcmp(file+len-SUFFIX_LEN, GZ_SUFFIX) == 0) {
         infile = file;
@@ -240,14 +258,24 @@ void file_uncompress(file)
     } else {
         outfile = file;
         infile = buf;
+#ifdef _MSC_VER
+        strcat_s(infile, sizeof(buf), GZ_SUFFIX);
+#else
         strcat(infile, GZ_SUFFIX);
+#endif
     }
     in = gzopen(infile, "rb");
     if (in == NULL) {
         fprintf(stderr, "%s: can't gzopen %s\n", prog, infile);
         exit(1);
     }
+#ifdef _MSC_VER
+    if (fopen_s(&out, outfile, "wb") != 0) {
+        out = NULL;
+    }
+#else
     out = fopen(outfile, "wb");
+#endif
     if (out == NULL) {
         perror(file);
         exit(1);
@@ -275,7 +303,11 @@ int main(argc, argv)
     gzFile file;
     char outmode[20];
 
+#ifdef _MSC_VER
+    strcpy_s(outmode, sizeof(outmode), "wb6 ");
+#else
     strcpy(outmode, "wb6 ");
+#endif
 
     prog = argv[0];
     argc--, argv++;
