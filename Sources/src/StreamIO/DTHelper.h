@@ -18,6 +18,8 @@
 #endif // ZDATA
 
 #ifndef ZEND
+#include <unordered_map>
+#include <unordered_set>
 #define ZEND
 #endif // ZEND
 
@@ -50,11 +52,11 @@ class CTreeAccessor
 	template <class T1, class T2, class T3, class T4>
 		int __cdecl TestDataPath( std::map<T1, T2, T3, T4> * ) { return 0; }
 	template <class T1, class T2, class T3, class T4, class T5>
-		int __cdecl TestDataPath( std::hash_map<T1, T2, T3, T4, T5> * ) { return 0; }
+		int __cdecl TestDataPath( std::unordered_map<T1, T2, T3, T4, T5> * ) { return 0; }
 	template <class T1, class T2, class T3, class T4, class T5>
-		int __cdecl TestDataPath( std::hash_multimap<T1, T2, T3, T4, T5> * ) { return 0; }
+		int __cdecl TestDataPath( std::unordered_multimap<T1, T2, T3, T4, T5> * ) { return 0; }
 	template <class T1, class T2, class T3, class T4>
-		int __cdecl TestDataPath( std::hash_set<T1, T2, T3, T4> * ) { return 0; }
+		int __cdecl TestDataPath( std::unordered_set<T1, T2, T3, T4> * ) { return 0; }
 	template <class T1, class T2, class T3>
 		int __cdecl TestDataPath( std::set<T1, T2, T3> * ) { return 0; }
 	template <class T1, class T2, class T3, class T4, class T5>
@@ -228,7 +230,7 @@ class CTreeAccessor
 			pSS->FinishContainerChunk();
 		}
 	template <class T, class T1, class T2, class T3, class T4, class T5>
-		void __cdecl AddInternal( const DTChunkID idChunk, T *p, std::hash_map<T1, T2, T3, T4, T5> *pData ) 
+		void __cdecl AddInternal( const DTChunkID idChunk, T *p, std::unordered_map<T1, T2, T3, T4, T5> *pData ) 
 		{
 			if ( pSS->StartContainerChunk( idChunk ) == 0 )
 				return;
@@ -237,7 +239,7 @@ class CTreeAccessor
 			pSS->FinishContainerChunk();
 		}
 	template <class T, class T1, class T2, class T3, class T4, class T5>
-		void __cdecl AddInternal( const DTChunkID idChunk, T* p, std::hash_multimap<T1, T2, T3, T4, T5> *pData )
+		void __cdecl AddInternal( const DTChunkID idChunk, T* p, std::unordered_multimap<T1, T2, T3, T4, T5> *pData )
 		{
 			if ( pSS->StartContainerChunk( idChunk ) == 0 )
 				return;
@@ -284,14 +286,14 @@ class CTreeAccessor
 				data.push( *it );
 		}
 	template <class T, class T1, class T2, class T3, class T4>
-		void __cdecl AddInternal( const DTChunkID idChunk, T *p, std::hash_set<T1, T2, T3, T4> *pData ) 
+		void __cdecl AddInternal( const DTChunkID idChunk, T *p, std::unordered_set<T1, T2, T3, T4> *pData ) 
 		{
 			std::vector<T1> elements;
 			// hash_set => vector
 			if ( !IsReading() )
 			{
 				elements.reserve( pData->size() );
-				for ( std::hash_set<T1, T2, T3, T4>::iterator it = pData->begin(); it != pData->end(); ++it )
+			for ( std::unordered_set<T1, T2, T3, T4>::iterator it = pData->begin(); it != pData->end(); ++it )
 					elements.push_back( *it );
 			}
 			// add container
@@ -523,7 +525,7 @@ class CTreeAccessor
 		}
 	// hash_map
 	template <class T1, class T2, class T3, class T4, class T5> 
-		void DoHashMap( std::hash_map<T1, T2, T3, T4, T5> &data, const int nExtSize )
+	void DoHashMap( std::unordered_map<T1, T2, T3, T4, T5> &data, const int nExtSize )
 		{
 			if ( IsReading() )
 			{
@@ -539,7 +541,7 @@ class CTreeAccessor
 			else
 			{
 				int i = 0;
-				for ( std::hash_map<T1, T2, T3, T4, T5>::iterator it = data.begin(); it != data.end(); ++it, ++i )
+			for ( std::unordered_map<T1, T2, T3, T4, T5>::iterator it = data.begin(); it != data.end(); ++it, ++i )
 				{
 					pSS->SetChunkCounter( i );
 					T1 idx = it->first;
@@ -550,7 +552,7 @@ class CTreeAccessor
 		}
 	// hash_multimap
 	template <class T1, class T2, class T3, class T4, class T5>
-		void DoHashMultiMap( std::hash_multimap<T1, T2, T3, T4, T5> &data, const int nExtSize )
+		void DoHashMultiMap( std::unordered_multimap<T1, T2, T3, T4, T5> &data, const int nExtSize )
 		{
 			if ( IsReading() )
 			{
@@ -564,13 +566,13 @@ class CTreeAccessor
 					T2 value;
 					Add( "data", &value );
 
-					data.insert( std::hash_multimap<T1, T2, T3, T4, T5>::value_type( idx, value ) );
+					data.insert( std::unordered_multimap<T1, T2, T3, T4, T5>::value_type( idx, value ) );
 				}
 			}
 			else
 			{
 				int i = 0;
-				for ( std::hash_multimap<T1, T2, T3, T4, T5>::iterator it = data.begin(); it != data.end(); ++it, ++i )
+				for ( std::unordered_multimap<T1, T2, T3, T4, T5>::iterator it = data.begin(); it != data.end(); ++it, ++i )
 				{
 					pSS->SetChunkCounter( i );
 					T1 idx = it->first;
@@ -662,10 +664,10 @@ public:
 	operator IDataTree*() const { return pSS; }
 	IDataTree* operator->() const { return pSS; }
 	// comparison operators
-	bool operator==( const CTreeAccessor &ptr ) const { return ( pSS == ptr.pSS ); }
-	bool operator==( IDataTree *pNewObject ) const { return ( pSS == pNewObject ); }
-	bool operator!=( const CTreeAccessor &ptr ) const { return ( pSS != ptr.pSS ); }
-	bool operator!=( IDataTree *pNewObject ) const { return ( pSS != pNewObject ); }
+	bool operator==( const CTreeAccessor &ptr ) const { return ( pSS.GetPtr() == ptr.pSS.GetPtr() ); }
+	bool operator==( IDataTree *pNewObject ) const { return ( pSS.GetPtr() == pNewObject ); }
+	bool operator!=( const CTreeAccessor &ptr ) const { return ( pSS.GetPtr() != ptr.pSS.GetPtr() ); }
+	bool operator!=( IDataTree *pNewObject ) const { return ( pSS.GetPtr() != pNewObject ); }
 	// 
 	bool IsReading() const { return pSS->IsReading(); }
 	// add raw data of specified size (in bytes)

@@ -1,7 +1,6 @@
 ; BugSlayer.def : Declares the module parameters for the DLL.
 
 LIBRARY      "BugSlay"
-DESCRIPTION  'Bug slaying utilites'
 
 EXPORTS
     ; Explicit exports can go here

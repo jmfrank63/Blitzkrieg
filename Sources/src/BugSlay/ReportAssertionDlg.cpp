@@ -120,7 +120,7 @@ BOOL CALLBACK ReportAssertionDlgProc( HWND hwndDlg, UINT message, WPARAM wParam,
 				ListView_SetItemText( hwndList, nNewLine, 3, const_cast<char*>(it->szCondition.c_str()) );
 				ListView_SetItemText( hwndList, nNewLine, 1, const_cast<char*>(it->szFunctionName.c_str()) );
 				char buf[100];
-				itoa( it->nLineNumber, buf, 10 );
+				_itoa_s( it->nLineNumber, buf, sizeof(buf), 10 );
 				ListView_SetItemText( hwndList, nNewLine, 2, buf );
 			}
 		}

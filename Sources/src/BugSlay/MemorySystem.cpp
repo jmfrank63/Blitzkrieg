@@ -7,8 +7,8 @@ struct SAllocInfo
 	DWORD dwAddresses[nNumCallstackEntries];
 	int nSize;
 };
-typedef std::hash_map<void*, SAllocInfo, SDefaultPtrHash> CAllocsInfoMap;
-typedef std::hash_map<DWORD, bool> CIgnoredMap;
+typedef std::unordered_map<void*, SAllocInfo, SDefaultPtrHash> CAllocsInfoMap;
+typedef std::unordered_map<DWORD, bool> CIgnoredMap;
 typedef std::list<std::string> CIgnoredPathList;
 static CAllocsInfoMap *pAllocs = 0;
 static CIgnoredMap *pIgnored = 0;
@@ -20,7 +20,7 @@ namespace NMemTools
 	inline int MSVCMustDie_toupper( int a ) { return toupper(a); }
 	void ToLower( std::string &szString ) 
 	{ 
-		std::transform( szString.begin(), szString.end(), szString.begin(), std::ptr_fun(MSVCMustDie_tolower) ); 
+		std::transform( szString.begin(), szString.end(), szString.begin(), MSVCMustDie_tolower ); 
 	}
 };
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -101,7 +101,7 @@ static bool IsFileIgnored( const char *pszFileName )
 		}
 	}
 	// also, we don't need to capture this source file
-	return stricmp( __FILE__, pszFileName ) == 0;
+	return _stricmp( __FILE__, pszFileName ) == 0;
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // проверить, удовлетворяет ли этот адрес возврата нашим требованиям (т.е. не находится ли он в игнорируемом файле)
@@ -109,7 +109,7 @@ static bool IsAddressFits( DWORD dwAddress )
 {
 	if ( pIgnored == 0 )
 		pIgnored = new CIgnoredMap;
-	std::hash_map<DWORD, bool>::iterator i = pIgnored->find( dwAddress );
+	std::unordered_map<DWORD, bool>::iterator i = pIgnored->find( dwAddress );
 	if ( i == pIgnored->end() )
 	{
 		const char *pszFileName = 0;
@@ -184,7 +184,7 @@ struct SFileLocationEqual
 		return (key1.first == key2.first) && (key1.second == key2.second);
 	}
 };
-typedef std::hash_map<SFileLocationKey, SAllocStats, SFileLocationHashFunc, SFileLocationEqual> CAllocStatsMap;
+typedef std::unordered_map<SFileLocationKey, SAllocStats, SFileLocationHashFunc, SFileLocationEqual> CAllocStatsMap;
 typedef std::pair<SFileLocationKey, SAllocStats> CMemStats;
 typedef std::list<CMemStats> CMemStatsList;
 
@@ -229,7 +229,7 @@ void STDCALL NBugSlayer::MemSystemDumpStats()
 				//
 				if ( pszFileName == 0 )
 				{
-					sprintf( szBuf, "unknown: block = %d\n", info.nSize );
+					sprintf_s( szBuf, sizeof(szBuf), "unknown: block = %d\n", info.nSize );
 					OutputDebugString( szBuf );
 					nTotal += info.nSize;
 				}
@@ -252,13 +252,13 @@ void STDCALL NBugSlayer::MemSystemDumpStats()
 	//
 	for ( CMemStatsList::const_iterator it = sortedstats.begin(); it != sortedstats.end(); ++it )
 	{
-		sprintf( szBuf, "%s(%d): max block = %d, block(s) = %d, total bytes = %d\n", 
+		sprintf_s( szBuf, sizeof(szBuf), "%s(%d): max block = %d, block(s) = %d, total bytes = %d\n", 
 			it->first.first.c_str(), it->first.second, it->second.nMax, it->second.nNumber, it->second.nTotal );
 		OutputDebugString( szBuf );
 		nTotal += it->second.nTotal;
 	}
 	//
-	sprintf( szBuf, "total allocated %d bytes\n", nTotal );
+	sprintf_s( szBuf, sizeof(szBuf), "total allocated %d bytes\n", nTotal );
 	OutputDebugString( szBuf );
 	OutputDebugString( "***********************************************   Memory dump ends    ********************************************************\n" );
 }
