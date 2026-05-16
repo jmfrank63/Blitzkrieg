@@ -289,8 +289,8 @@ public:
 	void PushCFunction(lua_CFunction f)			{  lua_pushcclosure(m_state, f, 0);  }
 	int CloneTag(int t)							{  lua_copytagmethods(m_state, lua_newtag(m_state), t);  }
 
-	bool IsFunction(int index)					{  return lua_isfunction(m_state, index);  }
-	bool IsCFunction(int index)				{ return lua_iscfunction(m_state, index); }
+	bool IsFunction(int index)					{  return lua_isfunction(m_state, index) != 0;  }
+	bool IsCFunction(int index)				{ return lua_iscfunction(m_state, index) != 0; }
 	bool IsString(int index)					{  return lua_isstring(m_state, index) != 0;  }
 	bool IsNumber(int index)					{ return lua_isnumber(m_state, index) != 0; }
 	bool IsTable(int index)						{  return lua_istable(m_state, index);  }

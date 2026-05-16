@@ -73,7 +73,7 @@ static void lookahead (LexState *ls) {
 static void error_expected (LexState *ls, int token) {
   char buff[100], t[TOKEN_LEN];
   luaX_token2str(token, t);
-  sprintf(buff, "`%.20s' expected", t);
+  sprintf_s(buff, sizeof(buff), "`%.20s' expected", t);
   luaK_error(ls, buff);
 }
 
@@ -108,7 +108,7 @@ static void check_match (LexState *ls, int what, int who, int where) {
       char t_what[TOKEN_LEN], t_who[TOKEN_LEN];
       luaX_token2str(what, t_what);
       luaX_token2str(who, t_who);
-      sprintf(buff, "`%.20s' expected (to close `%.20s' at line %d)",
+      sprintf_s(buff, sizeof(buff), "`%.20s' expected (to close `%.20s' at line %d)",
               t_what, t_who, where);
       luaK_error(ls, buff);
     }
