@@ -1,0 +1,175 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Common">
+      <UniqueIdentifier>{927b9309-003e-4340-910a-0d3dede7e132}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;rc;def;r;odl;idl;hpj;bat;h;hpp;hxx;hm;inl</Extensions>
+    </Filter>
+    <Filter Include="Random Map Generator">
+      <UniqueIdentifier>{bc12d467-c5c9-4962-8ca0-185417d20661}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Random Map Generator\External Builders">
+      <UniqueIdentifier>{2659e2eb-3190-42a7-9a03-a9724f61fd0d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Random Map Generator\Headers">
+      <UniqueIdentifier>{8134e41e-c156-488e-941f-18d7ecc7c176}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Random Map Generator\Sources">
+      <UniqueIdentifier>{cc84e873-fe9b-4c91-a336-b0816bdb8520}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Specific.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="StdAfx.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="stl_user_config.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="BetaSpline.h">
+      <Filter>Random Map Generator\External Builders</Filter>
+    </ClInclude>
+    <ClInclude Include="Builders.h">
+      <Filter>Random Map Generator\External Builders</Filter>
+    </ClInclude>
+    <ClInclude Include="PNoise.h">
+      <Filter>Random Map Generator\External Builders</Filter>
+    </ClInclude>
+    <ClInclude Include="TerrainBuilder.h">
+      <Filter>Random Map Generator\External Builders</Filter>
+    </ClInclude>
+    <ClInclude Include="TerrainGenerator.h">
+      <Filter>Random Map Generator\External Builders</Filter>
+    </ClInclude>
+    <ClInclude Include="Bresenham_Types.h">
+      <Filter>Random Map Generator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="IB_Types.h">
+      <Filter>Random Map Generator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="LA_Types.h">
+      <Filter>Random Map Generator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="MapInfo_Types.h">
+      <Filter>Random Map Generator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="MiniMap_Types.h">
+      <Filter>Random Map Generator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Polygons_Types.h">
+      <Filter>Random Map Generator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Registry_Types.h">
+      <Filter>Random Map Generator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource_Types.h">
+      <Filter>Random Map Generator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="RMG_Types.h">
+      <Filter>Random Map Generator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="RP_Types.h">
+      <Filter>Random Map Generator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="VA_Types.h">
+      <Filter>Random Map Generator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="VSO_Types.h">
+      <Filter>Random Map Generator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="WV_Types.h">
+      <Filter>Random Map Generator\Headers</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="StdAfx.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="BetaSpline.cpp">
+      <Filter>Random Map Generator\External Builders</Filter>
+    </ClCompile>
+    <ClCompile Include="PNoise.cpp">
+      <Filter>Random Map Generator\External Builders</Filter>
+    </ClCompile>
+    <ClCompile Include="TerrainBuilder.cpp">
+      <Filter>Random Map Generator\External Builders</Filter>
+    </ClCompile>
+    <ClCompile Include="TerrainGenerator.cpp">
+      <Filter>Random Map Generator\External Builders</Filter>
+    </ClCompile>
+    <ClCompile Include="IB_Methods.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="IB_StaticMethods.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="LA_Methods.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="MapInfo_CheckSums.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="MapInfo_Consts.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="MapInfo_Methods.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="MapInfo_StaticMethods.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="MapInfo_StaticMethods_MiniMapCreation.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="MapInfo_StaticMethods_RMGeneration.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="MapInfo_StaticMethods_SoundsCreation.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="MiniMap_Methods.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Polygons_Methods.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Registry_Sources.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource_Functions.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource_Methods.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource_StaticMethods.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="RMG_Consts.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="RMG_Methods.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="RMG_StaticMethods.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="RP_Methods.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="VA_Methods.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="VA_StaticMethods.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="VSO_Methods.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="VSO_StaticMethods.cpp">
+      <Filter>Random Map Generator\Sources</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

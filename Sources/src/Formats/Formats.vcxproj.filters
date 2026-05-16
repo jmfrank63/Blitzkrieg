@@ -1,0 +1,103 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Common">
+      <UniqueIdentifier>{11783c49-26fb-49d4-9dae-7b6c450fe364}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;rc;def;r;odl;idl;hpj;bat;h;hpp;hxx;hm;inl</Extensions>
+    </Filter>
+    <Filter Include="Formats">
+      <UniqueIdentifier>{d2344636-674c-423a-ac7d-2b32470ae14d}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="fmtShader.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Specific.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="StdAfx.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="stl_user_config.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="fmtAIGeneral.h">
+      <Filter>Formats</Filter>
+    </ClInclude>
+    <ClInclude Include="fmtAnimation.h">
+      <Filter>Formats</Filter>
+    </ClInclude>
+    <ClInclude Include="fmtEffect.h">
+      <Filter>Formats</Filter>
+    </ClInclude>
+    <ClInclude Include="fmtFont.h">
+      <Filter>Formats</Filter>
+    </ClInclude>
+    <ClInclude Include="fmtMap.h">
+      <Filter>Formats</Filter>
+    </ClInclude>
+    <ClInclude Include="fmtMesh.h">
+      <Filter>Formats</Filter>
+    </ClInclude>
+    <ClInclude Include="fmtSaveLoad.h">
+      <Filter>Formats</Filter>
+    </ClInclude>
+    <ClInclude Include="fmtSound.h">
+      <Filter>Formats</Filter>
+    </ClInclude>
+    <ClInclude Include="fmtSprite.h">
+      <Filter>Formats</Filter>
+    </ClInclude>
+    <ClInclude Include="fmtTerrain.h">
+      <Filter>Formats</Filter>
+    </ClInclude>
+    <ClInclude Include="fmtTexture.h">
+      <Filter>Formats</Filter>
+    </ClInclude>
+    <ClInclude Include="fmtUnitCreation.h">
+      <Filter>Formats</Filter>
+    </ClInclude>
+    <ClInclude Include="fmtVSO.h">
+      <Filter>Formats</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="StdAfx.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="fmtAIGeneral.cpp">
+      <Filter>Formats</Filter>
+    </ClCompile>
+    <ClCompile Include="fmtAnimation.cpp">
+      <Filter>Formats</Filter>
+    </ClCompile>
+    <ClCompile Include="fmtEffect.cpp">
+      <Filter>Formats</Filter>
+    </ClCompile>
+    <ClCompile Include="fmtFont.cpp">
+      <Filter>Formats</Filter>
+    </ClCompile>
+    <ClCompile Include="fmtMap.cpp">
+      <Filter>Formats</Filter>
+    </ClCompile>
+    <ClCompile Include="fmtMesh.cpp">
+      <Filter>Formats</Filter>
+    </ClCompile>
+    <ClCompile Include="fmtSound.cpp">
+      <Filter>Formats</Filter>
+    </ClCompile>
+    <ClCompile Include="fmtSprite.cpp">
+      <Filter>Formats</Filter>
+    </ClCompile>
+    <ClCompile Include="fmtTerrain.cpp">
+      <Filter>Formats</Filter>
+    </ClCompile>
+    <ClCompile Include="fmtUnitCreation.cpp">
+      <Filter>Formats</Filter>
+    </ClCompile>
+    <ClCompile Include="fmtVSO.cpp">
+      <Filter>Formats</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

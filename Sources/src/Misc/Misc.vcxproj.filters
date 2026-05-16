@@ -1,0 +1,154 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Tools">
+      <UniqueIdentifier>{0508dc23-e717-4f71-8304-1615af4195f6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Common">
+      <UniqueIdentifier>{8846d00f-7575-423c-be15-524560ae809e}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;cpp;c;cxx;rc;def;r;odl;idl;hpj;bat</Extensions>
+    </Filter>
+    <Filter Include="Base">
+      <UniqueIdentifier>{3a6d09e5-f705-48c9-9c26-74b5a53ffe99}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Base\VarSystem">
+      <UniqueIdentifier>{19a24962-4e31-4402-8de2-a46ea0847513}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Thread">
+      <UniqueIdentifier>{3cbc70ed-365a-40c5-a421-5d916f8cd837}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="2Darray.h">
+      <Filter>Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="2DArrayRLEWrapper.h">
+      <Filter>Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="AreaMap.h">
+      <Filter>Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="BitData.h">
+      <Filter>Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="Checker.h">
+      <Filter>Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="CheckSums.h">
+      <Filter>Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="FileUtils.h">
+      <Filter>Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="FreeIDs.h">
+      <Filter>Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="Geometry.h">
+      <Filter>Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="HPTimer.h">
+      <Filter>Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="Intersection.h">
+      <Filter>Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="Spline.h">
+      <Filter>Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="StrProc.h">
+      <Filter>Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="Tools.h">
+      <Filter>Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="TypeConvertor.h">
+      <Filter>Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="Win32Helper.h">
+      <Filter>Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="Win32Random.h">
+      <Filter>Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="Specific.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="StdAfx.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="stl_user_config.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="TimeMeter.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="VarSystem.h">
+      <Filter>Base\VarSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="VarSystemInternal.h">
+      <Filter>Base\VarSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="VSHelper.h">
+      <Filter>Base\VarSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="Basic.h">
+      <Filter>Base</Filter>
+    </ClInclude>
+    <ClInclude Include="BasicObjectFactory.h">
+      <Filter>Base</Filter>
+    </ClInclude>
+    <ClInclude Include="BasicShare.h">
+      <Filter>Base</Filter>
+    </ClInclude>
+    <ClInclude Include="HashFuncs.h">
+      <Filter>Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Manipulator.h">
+      <Filter>Base</Filter>
+    </ClInclude>
+    <ClInclude Include="MemorySystem.h">
+      <Filter>Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Thread.h">
+      <Filter>Thread</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="FileUtils.cpp">
+      <Filter>Tools</Filter>
+    </ClCompile>
+    <ClCompile Include="FreeIDs.cpp">
+      <Filter>Tools</Filter>
+    </ClCompile>
+    <ClCompile Include="GRect.cpp">
+      <Filter>Tools</Filter>
+    </ClCompile>
+    <ClCompile Include="HPTimer.cpp">
+      <Filter>Tools</Filter>
+    </ClCompile>
+    <ClCompile Include="Spline.cpp">
+      <Filter>Tools</Filter>
+    </ClCompile>
+    <ClCompile Include="StrProc.cpp">
+      <Filter>Tools</Filter>
+    </ClCompile>
+    <ClCompile Include="Win32Random.cpp">
+      <Filter>Tools</Filter>
+    </ClCompile>
+    <ClCompile Include="StdAfx.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="BasicObjectFactory.cpp">
+      <Filter>Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Manipulator.cpp">
+      <Filter>Base</Filter>
+    </ClCompile>
+    <ClCompile Include="MemorySystem.cpp">
+      <Filter>Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Thread.cpp">
+      <Filter>Thread</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
