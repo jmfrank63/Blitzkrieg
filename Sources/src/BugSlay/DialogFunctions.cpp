@@ -28,18 +28,18 @@ void FillStackList( HWND hwndCallStack, const CCallStackEntryList &aStack )
 		char buf[100];
 		int nNewLine = ListView_AddItem( hwndCallStack, GetFileName(pos->szFileName), LPARAM(&(*pos)), 2000000 );
 		ListView_SetItemText( hwndCallStack, nNewLine, 1, CC(pos->szFunctionName) );
-		itoa( pos->nLineNumber, buf, 10 );
+		_itoa_s( pos->nLineNumber, buf, sizeof(buf), 10 );
 		ListView_SetItemText( hwndCallStack, nNewLine, 2, buf );
 		ListView_SetItemText( hwndCallStack, nNewLine, 3, CC(pos->szModuleName) );
 		buf[0] = '0';
 		buf[1] = 'x';
-		itoa( pos->params[0], &buf[2], 16 );
+		_itoa_s( pos->params[0], &buf[2], sizeof(buf) - 2, 16 );
 		ListView_SetItemText( hwndCallStack, nNewLine, 4, buf );
-		itoa( pos->params[1], &buf[2], 16 );
+		_itoa_s( pos->params[1], &buf[2], sizeof(buf) - 2, 16 );
 		ListView_SetItemText( hwndCallStack, nNewLine, 5, buf );
-		itoa( pos->params[2], &buf[2], 16 );
+		_itoa_s( pos->params[2], &buf[2], sizeof(buf) - 2, 16 );
 		ListView_SetItemText( hwndCallStack, nNewLine, 6, buf );
-		itoa( pos->params[3], &buf[2], 16 );
+		_itoa_s( pos->params[3], &buf[2], sizeof(buf) - 2, 16 );
 		ListView_SetItemText( hwndCallStack, nNewLine, 7, buf );
 	}			
 }
@@ -86,7 +86,7 @@ bool SetWindowText( HWND hwndDlg, const int nElementID, const char *pszString )
 bool SetWindowText( HWND hwndDlg, const int nElementID, const int nValue )
 {
 	char buff[32];
-	sprintf( buff, "%d", nValue );
+	sprintf_s( buff, sizeof(buff), "%d", nValue );
 	return SetWindowText( hwndDlg, nElementID, buff );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -131,7 +131,8 @@ void WriteReportToFile( const char *pszFileName, const char *pszCondition, const
 	if ( _access(szFileName.c_str(), 0) == 0 ) 
 		return;
 	//
-	if ( FILE *file = fopen(szFileName.c_str(), "at") ) 
+	FILE *file = 0;
+	if ( fopen_s(&file, szFileName.c_str(), "at") == 0 && file != 0 ) 
 	{
 		fprintf( file, "%s\n", pszCondition );
 		fprintf( file, "%s\n\n", pszDescription );

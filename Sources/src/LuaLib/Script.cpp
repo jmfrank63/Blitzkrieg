@@ -183,7 +183,8 @@ static void IndentFile(FILE* file, unsigned int indentLevel)
 {
 	// Write out indentation.
 	char spaces[500];
-	for (unsigned int i = 0; i < indentLevel; ++i)
+	unsigned int i;
+	for (i = 0; i < indentLevel; ++i)
 		spaces[i] = ' ';
 	spaces[i] = 0;
 	fputs(spaces, file);
@@ -205,8 +206,6 @@ static void WriteObject(Script& script, FILE* file, const char* name,
 	{
 		return;
 	}
-
-	using Script::Object;
 
 	// Indent the line the number of spaces for the current indentation level.
 	const unsigned int INDENT_SIZE = 4;
@@ -248,8 +247,8 @@ static void WriteObject(Script& script, FILE* file, const char* name,
 			Script::AutoBlock block(script);
 
 			// Grab index 1 and index 2 of the table.
-			Object value1 = table.GetByIndex(1);
-			Object value2 = table.GetByIndex(2);
+			Script::Object value1 = table.GetByIndex(1);
+			Script::Object value2 = table.GetByIndex(2);
 
 			// If they both exist, then there is a sequential list.
 			if (!value1.IsNil()  &&  !value2.IsNil())
@@ -262,7 +261,7 @@ static void WriteObject(Script& script, FILE* file, const char* name,
 					Script::AutoBlock block(script);
 
 					// Try retrieving the table entry at upperIndex.
-					Object value = table.GetByIndex(upperIndex);
+					Script::Object value = table.GetByIndex(upperIndex);
 
 					// If it doesn't exist, then exit the loop.
 					if (value.IsNil())
@@ -295,8 +294,8 @@ static void WriteObject(Script& script, FILE* file, const char* name,
 			char keyName[255];
 
 			// Retrieve the table entry's key and value.
-			Object key = script.GetObject(script.GetTop() - 1);
-			Object value = script.GetObject(script.GetTop());
+			Script::Object key = script.GetObject(script.GetTop() - 1);
+			Script::Object value = script.GetObject(script.GetTop());
 
 			// Is the key a number?
 			if (key.IsNumber())
@@ -321,12 +320,12 @@ static void WriteObject(Script& script, FILE* file, const char* name,
 				}
 
 				// Build the table entry name for the number.
-				sprintf(keyName, "[%.16g]", key.GetNumber());
+				sprintf_s(keyName, sizeof(keyName), "[%.16g]", key.GetNumber());
 			}
 			else
 			{
 				// Build the table entry name for the string key name.
-				strcpy(keyName, key.GetString());
+				strcpy_s(keyName, sizeof(keyName), key.GetString());
 			}
 
 			// If we wrote a sequential list, the value we're about to write
@@ -388,7 +387,9 @@ static void WriteObject(Script& script, FILE* file, const char* name,
 void Script::SaveText(const char* filename)
 {
 	// Open the text file to write the script state to.
-	FILE* file = fopen(filename, "wt");
+	FILE* file = NULL;
+	if (fopen_s(&file, filename, "wt") != 0)
+		file = NULL;
 
 	// For safety, just in case we leave something behind on the script stack.
 	AutoBlock block(*this);

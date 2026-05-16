@@ -163,7 +163,7 @@ BOOL STDCALL HookImportedFunctionsByName( HMODULE hModule,
 			UINT i;
       for ( i=0; i<uiCount; i++ )
       {
-        if ( ( paHookArray[i].szFunc[0] == pByName->Name[0] ) && ( 0 == strcmpi(paHookArray[i].szFunc, (char*)pByName->Name) ) )
+        if ( ( paHookArray[i].szFunc[0] == pByName->Name[0] ) && ( 0 == _strcmpi(paHookArray[i].szFunc, (char*)pByName->Name) ) )
         {
           // If the proc is NULL, kick out, otherwise go
           //  ahead and hook it.
@@ -188,7 +188,7 @@ BOOL STDCALL HookImportedFunctionsByName( HMODULE hModule,
         if ( 0 != paOrigFuncs )
           paOrigFuncs[i] = (PROC)pRealThunk->u1.Function;
         // Do the actual hook.
-        pRealThunk->u1.Function = (PDWORD)paHookArray[i].pProc;
+        pRealThunk->u1.Function = reinterpret_cast<DWORD_PTR>( paHookArray[i].pProc );
 
         DWORD dwOldProtect;
 
@@ -271,7 +271,7 @@ static PIMAGE_IMPORT_DESCRIPTOR GetNamedImportDescriptor( HMODULE hModule, LPCST
   while ( 0 != pImportDesc->Name )
   {
     PSTR szCurrMod = MakePtr( PSTR, pDOSHeader, pImportDesc->Name );
-    if ( 0 == stricmp(szCurrMod , szImportMod) )
+    if ( 0 == _stricmp(szCurrMod , szImportMod) )
     {
       // Found it.
       break;

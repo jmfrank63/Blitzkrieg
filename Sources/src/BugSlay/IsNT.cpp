@@ -18,6 +18,7 @@ static BOOL g_bIsNT = TRUE ;
 
 BOOL STDCALL IsNT()
 {
+  typedef BOOL (WINAPI *GET_VERSION_EX_A_PROC)( LPOSVERSIONINFOA );
   if ( TRUE == g_bHasVersion )
     return ( TRUE == g_bIsNT );
 
@@ -26,7 +27,8 @@ BOOL STDCALL IsNT()
   memset( &stOSVI, 0, sizeof(OSVERSIONINFO) );
   stOSVI.dwOSVersionInfoSize = sizeof( OSVERSIONINFO );
 
-  BOOL bRet = GetVersionEx( &stOSVI );
+  GET_VERSION_EX_A_PROC pGetVersionExA = reinterpret_cast<GET_VERSION_EX_A_PROC>( GetProcAddress( GetModuleHandleA( "kernel32.dll" ), "GetVersionExA" ) );
+  BOOL bRet = ( pGetVersionExA != 0 ) ? pGetVersionExA( &stOSVI ) : FALSE;
   ASSERT( TRUE == bRet );
   if ( FALSE == bRet )
   {

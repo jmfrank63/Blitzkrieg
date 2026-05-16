@@ -49,7 +49,7 @@ void luaX_init (lua_State *L) {
 void luaX_checklimit (LexState *ls, int val, int limit, const char *msg) {
   if (val > limit) {
     char buff[100];
-    sprintf(buff, "too many %.50s (limit=%d)", msg, limit);
+    sprintf_s(buff, sizeof(buff), "too many %.50s (limit=%d)", msg, limit);
     luaX_error(ls, buff, ls->t.token);
   }
 }
@@ -79,13 +79,13 @@ void luaX_token2str (int token, char *s) {
     s[1] = '\0';
   }
   else
-    strcpy(s, token2string[token-FIRST_RESERVED]);
+    strcpy_s(s, TOKEN_LEN, token2string[token-FIRST_RESERVED]);
 }
 
 
 static void luaX_invalidchar (LexState *ls, int c) {
   char buff[8];
-  sprintf(buff, "0x%02X", c);
+  sprintf_s(buff, sizeof(buff), "0x%02X", c);
   luaX_syntaxerror(ls, "invalid control char", buff);
 }
 

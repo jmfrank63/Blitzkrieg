@@ -43,7 +43,7 @@ typedef LUA_NUM_TYPE Number;
 
 /* function to convert a Number to a string */
 #define NUMBER_FMT	"%.16g"		/* LUA_NUMBER */
-#define lua_number2str(s,n)	sprintf((s), NUMBER_FMT, (n))
+#define lua_number2str(s,n)	sprintf_s((s), 32, NUMBER_FMT, (n))
 
 /* function to convert a string to a Number */
 #define lua_str2number(s,p)	strtod((s), (p))
