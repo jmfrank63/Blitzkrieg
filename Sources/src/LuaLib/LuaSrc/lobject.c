@@ -84,7 +84,7 @@ void luaO_verror (lua_State *L, const char *fmt, ...) {
   va_list argp;
   char buff[MAX_VERROR];  /* to hold formatted message */
   va_start(argp, fmt);
-  vsprintf(buff, fmt, argp);
+  vsprintf_s(buff, sizeof(buff), fmt, argp);
   va_end(argp);
   lua_error(L, buff);
 }
@@ -92,7 +92,7 @@ void luaO_verror (lua_State *L, const char *fmt, ...) {
 
 void luaO_chunkid (char *out, const char *source, int bufflen) {
   if (*source == '=') {
-    strncpy(out, source+1, bufflen);  /* remove first char */
+    strncpy_s(out, bufflen, source+1, _TRUNCATE);  /* remove first char */
     out[bufflen-1] = '\0';  /* ensures null termination */
   }
   else {
@@ -103,23 +103,23 @@ void luaO_chunkid (char *out, const char *source, int bufflen) {
       l = strlen(source);
       if (l>bufflen) {
         source += (l-bufflen);  /* get last part of file name */
-        sprintf(out, "file `...%.99s'", source);
+        sprintf_s(out, bufflen + sizeof("file `...%s'"), "file `...%.99s'", source);
       }
       else
-        sprintf(out, "file `%.99s'", source);
+        sprintf_s(out, bufflen + sizeof("file `...%s'"), "file `%.99s'", source);
     }
     else {
       int len = strcspn(source, "\n");  /* stop at first newline */
       bufflen -= sizeof("string \"%.*s...\"");
       if (len > bufflen) len = bufflen;
       if (source[len] != '\0') {  /* must truncate? */
-        strcpy(out, "string \"");
+        strcpy_s(out, bufflen + sizeof("string \"%.*s...\""), "string \"");
         out += strlen(out);
-        strncpy(out, source, len);
-        strcpy(out+len, "...\"");
+        strncpy_s(out, len + 1, source, len);
+        strcpy_s(out+len, bufflen + sizeof("string \"%.*s...\"") - len, "...\"");
       }
       else
-        sprintf(out, "string \"%.99s\"", source);
+        sprintf_s(out, bufflen + sizeof("string \"%.*s...\""), "string \"%.99s\"", source);
     }
   }
 }
