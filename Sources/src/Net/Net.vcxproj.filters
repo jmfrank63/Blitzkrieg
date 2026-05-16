@@ -1,0 +1,143 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Common">
+      <UniqueIdentifier>{d87869c6-0bbd-4faf-9548-773bd5211262}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;rc;def;r;odl;idl;hpj;bat;h;hpp;hxx;hm;inl</Extensions>
+    </Filter>
+    <Filter Include="NetDriver">
+      <UniqueIdentifier>{6672adf4-082d-4ae5-91e7-4fcdd3f9f0cd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Interface">
+      <UniqueIdentifier>{a195aa1f-b55b-4266-b385-35c766e6d415}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="A5 streams">
+      <UniqueIdentifier>{1b9f13d7-1771-434e-9644-7ce35ce44f57}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GameSpy">
+      <UniqueIdentifier>{3df32193-fc38-4ed8-9466-2fd235b566a6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GameSpy\QueryReporting">
+      <UniqueIdentifier>{b80acace-1d2f-48d7-8261-0f759739b490}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GameSpy\ServersList">
+      <UniqueIdentifier>{481cd9f7-2432-4f0e-ba58-403c0de195d1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource">
+      <UniqueIdentifier>{b39edb1c-1e90-47ee-bb79-5bd40fd0a061}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="GlobalsLoader.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="StdAfx.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="NetA4.cpp">
+      <Filter>NetDriver</Filter>
+    </ClCompile>
+    <ClCompile Include="NetAcks.cpp">
+      <Filter>NetDriver</Filter>
+    </ClCompile>
+    <ClCompile Include="NetConnection.cpp">
+      <Filter>NetDriver</Filter>
+    </ClCompile>
+    <ClCompile Include="NetDriverConsts.cpp">
+      <Filter>NetDriver</Filter>
+    </ClCompile>
+    <ClCompile Include="NetLogin.cpp">
+      <Filter>NetDriver</Filter>
+    </ClCompile>
+    <ClCompile Include="NetLowest.cpp">
+      <Filter>NetDriver</Filter>
+    </ClCompile>
+    <ClCompile Include="NetPeer2Peer.cpp">
+      <Filter>NetDriver</Filter>
+    </ClCompile>
+    <ClCompile Include="NetServerInfo.cpp">
+      <Filter>NetDriver</Filter>
+    </ClCompile>
+    <ClCompile Include="NetStream.cpp">
+      <Filter>NetDriver</Filter>
+    </ClCompile>
+    <ClCompile Include="NetObjectFactory.cpp">
+      <Filter>Interface</Filter>
+    </ClCompile>
+    <ClCompile Include="Streams.cpp">
+      <Filter>A5 streams</Filter>
+    </ClCompile>
+    <ClCompile Include="GSQueryReportingDriver.cpp">
+      <Filter>GameSpy\QueryReporting</Filter>
+    </ClCompile>
+    <ClCompile Include="GSServersList.cpp">
+      <Filter>GameSpy\ServersList</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Specific.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="StdAfx.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="stl_user_config.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="NetA4.h">
+      <Filter>NetDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="NetAcks.h">
+      <Filter>NetDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="NetDriverConsts.h">
+      <Filter>NetDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="NetLogin.h">
+      <Filter>NetDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="NetLowest.h">
+      <Filter>NetDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="NetPeer2Peer.h">
+      <Filter>NetDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="NetServerInfo.h">
+      <Filter>NetDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="NetStream.h">
+      <Filter>NetDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="NetDriver.h">
+      <Filter>Interface</Filter>
+    </ClInclude>
+    <ClInclude Include="NetObjectFactory.h">
+      <Filter>Interface</Filter>
+    </ClInclude>
+    <ClInclude Include="Streams.h">
+      <Filter>A5 streams</Filter>
+    </ClInclude>
+    <ClInclude Include="GSQueryReportingDriver.h">
+      <Filter>GameSpy\QueryReporting</Filter>
+    </ClInclude>
+    <ClInclude Include="GSServersList.h">
+      <Filter>GameSpy\ServersList</Filter>
+    </ClInclude>
+    <ClInclude Include="GSConsts.h">
+      <Filter>GameSpy</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Resource</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="net.rc">
+      <Filter>Resource</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="net.def">
+      <Filter>Common</Filter>
+    </CustomBuild>
+  </ItemGroup>
+</Project>

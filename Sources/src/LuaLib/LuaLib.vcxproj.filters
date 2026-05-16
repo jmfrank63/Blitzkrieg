@@ -1,0 +1,128 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="LuaSrc">
+      <UniqueIdentifier>{339fc00a-c01b-4a60-9bd7-5e4874db8eeb}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="LuaSrc\lapi.c">
+      <Filter>LuaSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="LuaSrc\lcode.c">
+      <Filter>LuaSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="LuaSrc\ldebug.c">
+      <Filter>LuaSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="LuaSrc\ldo.c">
+      <Filter>LuaSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="LuaSrc\lfunc.c">
+      <Filter>LuaSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="LuaSrc\lgc.c">
+      <Filter>LuaSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="LuaSrc\llex.c">
+      <Filter>LuaSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="LuaSrc\lmem.c">
+      <Filter>LuaSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="LuaSrc\lobject.c">
+      <Filter>LuaSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="LuaSrc\lparser.c">
+      <Filter>LuaSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="LuaSrc\lstate.c">
+      <Filter>LuaSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="LuaSrc\lstring.c">
+      <Filter>LuaSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="LuaSrc\ltable.c">
+      <Filter>LuaSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="LuaSrc\ltm.c">
+      <Filter>LuaSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="LuaSrc\lundump.c">
+      <Filter>LuaSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="LuaSrc\lvm.c">
+      <Filter>LuaSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="LuaSrc\lzio.c">
+      <Filter>LuaSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="Script.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="LuaSrc\lapi.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaSrc\lcode.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaSrc\ldebug.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaSrc\ldo.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaSrc\lfunc.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaSrc\lgc.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaSrc\llex.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaSrc\llimits.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaSrc\lmem.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaSrc\lobject.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaSrc\lopcodes.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaSrc\lparser.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaSrc\lstate.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaSrc\lstring.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaSrc\ltable.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaSrc\ltm.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaSrc\lua.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaSrc\luadebug.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaSrc\lundump.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaSrc\lvm.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaSrc\lzio.h">
+      <Filter>LuaSrc</Filter>
+    </ClInclude>
+    <ClInclude Include="Script.h" />
+  </ItemGroup>
+</Project>

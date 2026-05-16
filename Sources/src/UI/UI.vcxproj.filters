@@ -1,0 +1,263 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Common">
+      <UniqueIdentifier>{91e1bb8f-8c4c-4db4-b4fe-6e1bb383aa54}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;rc;def;r;odl;idl;hpj;bat;h;hpp;hxx;hm;inl</Extensions>
+    </Filter>
+    <Filter Include="UI">
+      <UniqueIdentifier>{4f2e7fb8-09f4-447b-9c9c-7900dc263fdf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UI\Base">
+      <UniqueIdentifier>{15f010d7-0efa-4c74-9ed6-63211d987231}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UI\Elements">
+      <UniqueIdentifier>{3bd57ed0-77a3-48cb-8390-3a20c79bcc5b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UI\Elements\ColorTextScroll">
+      <UniqueIdentifier>{20a28431-a49f-4f72-8090-ce7e8c993c2b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UI\Complex">
+      <UniqueIdentifier>{18edae7d-a7e3-43f4-91eb-f8615c4ae9e1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UI\Complex\ComplexScroll">
+      <UniqueIdentifier>{1d657802-8d4f-43dd-a117-f9ab6686c921}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UI\Mask Manager">
+      <UniqueIdentifier>{73d0b3f3-2937-4dea-bfe4-b63f7f9d0403}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource">
+      <UniqueIdentifier>{a266815c-09b0-47f9-99f0-2b388cfae665}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="GlobalsLoader.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="StdAfx.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="UIBasic.cpp">
+      <Filter>UI\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="UIBasicM.cpp">
+      <Filter>UI\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="UIInternal.cpp">
+      <Filter>UI\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="UIInternalM.cpp">
+      <Filter>UI\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="UIColorTextScroll.cpp">
+      <Filter>UI\Elements\ColorTextScroll</Filter>
+    </ClCompile>
+    <ClCompile Include="UIButton.cpp">
+      <Filter>UI\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="UIConsole.cpp">
+      <Filter>UI\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="UICreditsScroller.cpp">
+      <Filter>UI\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="UIDialog.cpp">
+      <Filter>UI\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="UIEdit.cpp">
+      <Filter>UI\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="UIMessageBox.cpp">
+      <Filter>UI\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="UIMiniMap.cpp">
+      <Filter>UI\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="UINumberIndicator.cpp">
+      <Filter>UI\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="UIScreen.cpp">
+      <Filter>UI\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="UIScrollText.cpp">
+      <Filter>UI\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="UISlider.cpp">
+      <Filter>UI\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="UIStatusBar.cpp">
+      <Filter>UI\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="UITimeCounter.cpp">
+      <Filter>UI\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="UIVideoButton.cpp">
+      <Filter>UI\Elements</Filter>
+    </ClCompile>
+    <ClCompile Include="UIComplexScroll.cpp">
+      <Filter>UI\Complex\ComplexScroll</Filter>
+    </ClCompile>
+    <ClCompile Include="UIComboBox.cpp">
+      <Filter>UI\Complex</Filter>
+    </ClCompile>
+    <ClCompile Include="UIList.cpp">
+      <Filter>UI\Complex</Filter>
+    </ClCompile>
+    <ClCompile Include="UIListSorter.cpp">
+      <Filter>UI\Complex</Filter>
+    </ClCompile>
+    <ClCompile Include="UIMedals.cpp">
+      <Filter>UI\Complex</Filter>
+    </ClCompile>
+    <ClCompile Include="UIObjectiveScreen.cpp">
+      <Filter>UI\Complex</Filter>
+    </ClCompile>
+    <ClCompile Include="UIObjMap.cpp">
+      <Filter>UI\Complex</Filter>
+    </ClCompile>
+    <ClCompile Include="UIShortcutBar.cpp">
+      <Filter>UI\Complex</Filter>
+    </ClCompile>
+    <ClCompile Include="UITree.cpp">
+      <Filter>UI\Complex</Filter>
+    </ClCompile>
+    <ClCompile Include="MaskManager.cpp">
+      <Filter>UI\Mask Manager</Filter>
+    </ClCompile>
+    <ClCompile Include="UIMask.cpp">
+      <Filter>UI\Mask Manager</Filter>
+    </ClCompile>
+    <ClCompile Include="UIObjectFactory.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Specific.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="StdAfx.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="stl_user_config.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="UIBasic.h">
+      <Filter>UI\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="UIBasicM.h">
+      <Filter>UI\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="UIBridge.h">
+      <Filter>UI\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="UIInternal.h">
+      <Filter>UI\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="UIInternalM.h">
+      <Filter>UI\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="UIColorTextScroll.h">
+      <Filter>UI\Elements\ColorTextScroll</Filter>
+    </ClInclude>
+    <ClInclude Include="UIButton.h">
+      <Filter>UI\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="UIConsole.h">
+      <Filter>UI\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="UICreditsScroller.h">
+      <Filter>UI\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="UIDialog.h">
+      <Filter>UI\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="UIEdit.h">
+      <Filter>UI\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="UIMessageBox.h">
+      <Filter>UI\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="UIMiniMap.h">
+      <Filter>UI\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="UINumberIndicator.h">
+      <Filter>UI\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="UIScreen.h">
+      <Filter>UI\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="UIScrollText.h">
+      <Filter>UI\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="UISlider.h">
+      <Filter>UI\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="UIStatusBar.h">
+      <Filter>UI\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="UITimeCounter.h">
+      <Filter>UI\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="UIVideoButton.h">
+      <Filter>UI\Elements</Filter>
+    </ClInclude>
+    <ClInclude Include="UIComplexScroll.h">
+      <Filter>UI\Complex\ComplexScroll</Filter>
+    </ClInclude>
+    <ClInclude Include="UIComboBox.h">
+      <Filter>UI\Complex</Filter>
+    </ClInclude>
+    <ClInclude Include="UIList.h">
+      <Filter>UI\Complex</Filter>
+    </ClInclude>
+    <ClInclude Include="UIListSorter.h">
+      <Filter>UI\Complex</Filter>
+    </ClInclude>
+    <ClInclude Include="UIMedals.h">
+      <Filter>UI\Complex</Filter>
+    </ClInclude>
+    <ClInclude Include="UIObjectiveScreen.h">
+      <Filter>UI\Complex</Filter>
+    </ClInclude>
+    <ClInclude Include="UIObjMap.h">
+      <Filter>UI\Complex</Filter>
+    </ClInclude>
+    <ClInclude Include="UIShortcutBar.h">
+      <Filter>UI\Complex</Filter>
+    </ClInclude>
+    <ClInclude Include="UITree.h">
+      <Filter>UI\Complex</Filter>
+    </ClInclude>
+    <ClInclude Include="MaskManager.h">
+      <Filter>UI\Mask Manager</Filter>
+    </ClInclude>
+    <ClInclude Include="MaskSystem.h">
+      <Filter>UI\Mask Manager</Filter>
+    </ClInclude>
+    <ClInclude Include="UIMask.h">
+      <Filter>UI\Mask Manager</Filter>
+    </ClInclude>
+    <ClInclude Include="UI.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="UIMessages.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="UIObjectFactory.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Resource</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="UI.rc">
+      <Filter>Resource</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="UI.def">
+      <Filter>Common</Filter>
+    </CustomBuild>
+  </ItemGroup>
+</Project>

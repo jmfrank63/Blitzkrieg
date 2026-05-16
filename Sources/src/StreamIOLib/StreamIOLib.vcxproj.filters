@@ -1,0 +1,157 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Common">
+      <UniqueIdentifier>{202d9677-81ba-4c65-acf1-75de2b5a3cdb}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;rc;def;r;odl;idl;hpj;bat;h;hpp;hxx;hm;inl</Extensions>
+    </Filter>
+    <Filter Include="StreamIO">
+      <UniqueIdentifier>{f46f4910-a94e-46db-930a-8988dc4a6514}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="StreamIO\Zip">
+      <UniqueIdentifier>{a920b5a0-71ed-4ef4-a21d-caed5ac74915}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DBIO">
+      <UniqueIdentifier>{0f307dee-2296-4eef-ab1f-17609aed0172}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DBIO\Ini">
+      <UniqueIdentifier>{4a81185d-1265-4d89-9125-a06777d71d1c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DBIO\XML">
+      <UniqueIdentifier>{b4b616c2-9d21-4ad4-8505-cde00c68f1d1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SaveLoad">
+      <UniqueIdentifier>{390ba3a8-5281-4250-ade8-528eff22980f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SaveLoad\Structure Saver">
+      <UniqueIdentifier>{e0eb2661-2f40-4803-ada6-5fdbd0496a3b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SaveLoad\Data Tree">
+      <UniqueIdentifier>{858bd676-e47d-4a17-9fa5-75179347d3d9}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Specific.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="StdAfx.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="stl_user_config.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="ZipFile.h">
+      <Filter>StreamIO\Zip</Filter>
+    </ClInclude>
+    <ClInclude Include="ZipFileSystem.h">
+      <Filter>StreamIO\Zip</Filter>
+    </ClInclude>
+    <ClInclude Include="CommonFileSystem.h">
+      <Filter>StreamIO</Filter>
+    </ClInclude>
+    <ClInclude Include="FileAttribs.h">
+      <Filter>StreamIO</Filter>
+    </ClInclude>
+    <ClInclude Include="FileSystem.h">
+      <Filter>StreamIO</Filter>
+    </ClInclude>
+    <ClInclude Include="MemFileSystem.h">
+      <Filter>StreamIO</Filter>
+    </ClInclude>
+    <ClInclude Include="ModFileSystem.h">
+      <Filter>StreamIO</Filter>
+    </ClInclude>
+    <ClInclude Include="ProgressHook.h">
+      <Filter>StreamIO</Filter>
+    </ClInclude>
+    <ClInclude Include="SaveLoadSystem.h">
+      <Filter>StreamIO</Filter>
+    </ClInclude>
+    <ClInclude Include="StreamAdaptor.h">
+      <Filter>StreamIO</Filter>
+    </ClInclude>
+    <ClInclude Include="StreamIO.h">
+      <Filter>StreamIO</Filter>
+    </ClInclude>
+    <ClInclude Include="StreamIOHelper.h">
+      <Filter>StreamIO</Filter>
+    </ClInclude>
+    <ClInclude Include="DataBase.h">
+      <Filter>DBIO\Ini</Filter>
+    </ClInclude>
+    <ClInclude Include="IniFile.h">
+      <Filter>DBIO\Ini</Filter>
+    </ClInclude>
+    <ClInclude Include="DataTableXML.h">
+      <Filter>DBIO\XML</Filter>
+    </ClInclude>
+    <ClInclude Include="Streams.h">
+      <Filter>SaveLoad\Structure Saver</Filter>
+    </ClInclude>
+    <ClInclude Include="StructureSaver2.h">
+      <Filter>SaveLoad\Structure Saver</Filter>
+    </ClInclude>
+    <ClInclude Include="DataTreeXML.h">
+      <Filter>SaveLoad\Data Tree</Filter>
+    </ClInclude>
+    <ClInclude Include="DTHelper.h">
+      <Filter>SaveLoad</Filter>
+    </ClInclude>
+    <ClInclude Include="SSHelper.h">
+      <Filter>SaveLoad</Filter>
+    </ClInclude>
+    <ClInclude Include="StructureSaver.h">
+      <Filter>SaveLoad</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="StdAfx.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="ZipFile.cpp">
+      <Filter>StreamIO\Zip</Filter>
+    </ClCompile>
+    <ClCompile Include="ZipFileSystem.cpp">
+      <Filter>StreamIO\Zip</Filter>
+    </ClCompile>
+    <ClCompile Include="CommonFileSystem.cpp">
+      <Filter>StreamIO</Filter>
+    </ClCompile>
+    <ClCompile Include="FileSystem.cpp">
+      <Filter>StreamIO</Filter>
+    </ClCompile>
+    <ClCompile Include="GetSLS.cpp">
+      <Filter>StreamIO</Filter>
+    </ClCompile>
+    <ClCompile Include="MemFileSystem.cpp">
+      <Filter>StreamIO</Filter>
+    </ClCompile>
+    <ClCompile Include="ModFileSystem.cpp">
+      <Filter>StreamIO</Filter>
+    </ClCompile>
+    <ClCompile Include="SaveLoadSystem.cpp">
+      <Filter>StreamIO</Filter>
+    </ClCompile>
+    <ClCompile Include="DataBase.cpp">
+      <Filter>DBIO\Ini</Filter>
+    </ClCompile>
+    <ClCompile Include="IniFile.cpp">
+      <Filter>DBIO\Ini</Filter>
+    </ClCompile>
+    <ClCompile Include="DataTableXML.cpp">
+      <Filter>DBIO\XML</Filter>
+    </ClCompile>
+    <ClCompile Include="Streams.cpp">
+      <Filter>SaveLoad\Structure Saver</Filter>
+    </ClCompile>
+    <ClCompile Include="StructureSaver2.cpp">
+      <Filter>SaveLoad\Structure Saver</Filter>
+    </ClCompile>
+    <ClCompile Include="DataTreeXML.cpp">
+      <Filter>SaveLoad\Data Tree</Filter>
+    </ClCompile>
+    <ClCompile Include="Singleton.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

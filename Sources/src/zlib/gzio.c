@@ -105,7 +105,11 @@ local gzFile gz_open (path, mode, fd)
     if (s->path == NULL) {
         return destroy(s), (gzFile)Z_NULL;
     }
+#ifdef _MSC_VER
+    strcpy_s(s->path, strlen(path) + 1, path); /* do this early for debugging */
+#else
     strcpy(s->path, path); /* do this early for debugging */
+#endif
 
     s->mode = '\0';
     do {
@@ -153,7 +157,17 @@ local gzFile gz_open (path, mode, fd)
     s->stream.avail_out = Z_BUFSIZE;
 
     errno = 0;
-    s->file = fd < 0 ? F_OPEN(path, fmode) : (FILE*)fdopen(fd, fmode);
+    if (fd < 0) {
+#ifdef _MSC_VER
+        if (fopen_s(&s->file, path, fmode) != 0) {
+            s->file = NULL;
+        }
+#else
+        s->file = F_OPEN(path, fmode);
+#endif
+    } else {
+        s->file = (FILE*)fdopen(fd, fmode);
+    }
 
     if (s->file == NULL) {
         return destroy(s), (gzFile)Z_NULL;
@@ -198,7 +212,11 @@ gzFile ZEXPORT gzdopen (fd, mode)
     char name[20];
 
     if (fd < 0) return (gzFile)Z_NULL;
+#ifdef _MSC_VER
+    sprintf_s(name, sizeof(name), "<fd:%d>", fd); /* for debugging */
+#else
     sprintf(name, "<fd:%d>", fd); /* for debugging */
+#endif
 
     return gz_open (name, mode, fd);
 }
@@ -529,7 +547,10 @@ int ZEXPORTVA gzprintf (gzFile file, const char *format, /* args */ ...)
     int len;
 
     va_start(va, format);
-#ifdef HAS_vsnprintf
+#ifdef _MSC_VER
+    (void)_vsnprintf_s(buf, sizeof(buf), _TRUNCATE, format, va);
+    buf[sizeof(buf) - 1] = '\0';
+#elif defined(HAS_vsnprintf)
     (void)vsnprintf(buf, sizeof(buf), format, va);
 #else
     (void)vsprintf(buf, format, va);
@@ -868,8 +889,17 @@ const char*  ZEXPORT gzerror (file, errnum)
 
     TRYFREE(s->msg);
     s->msg = (char*)ALLOC(strlen(s->path) + strlen(m) + 3);
+#ifdef _MSC_VER
+    if (s->msg != NULL) {
+        size_t msg_len = strlen(s->path) + strlen(m) + 3;
+        strcpy_s(s->msg, msg_len, s->path);
+        strcat_s(s->msg, msg_len, ": ");
+        strcat_s(s->msg, msg_len, m);
+    }
+#else
     strcpy(s->msg, s->path);
     strcat(s->msg, ": ");
     strcat(s->msg, m);
+#endif
     return (const char*)s->msg;
 }

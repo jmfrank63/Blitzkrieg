@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)'=='.vcxproj'">
+	<VCProjectVersion Condition="'$(VCProjectVersion)'==''">$(VisualStudioVersion)</VCProjectVersion>
+	<PlatformToolset Condition="'$(PlatformToolset)'=='' and '$(DefaultPlatformToolset)'!=''">$(DefaultPlatformToolset)</PlatformToolset>
+  </PropertyGroup>
+</Project>

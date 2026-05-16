@@ -1,0 +1,137 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="AutoRun Dialog">
+      <UniqueIdentifier>{7b5cb653-f9eb-43dd-90d7-0b6e2d93fc7d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{5332ffe3-3ace-4ccb-8bda-550f397ba1ae}</UniqueIdentifier>
+      <Extensions>ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe</Extensions>
+    </Filter>
+    <Filter Include="Common">
+      <UniqueIdentifier>{bf5f3c16-9a39-4fdf-ae28-67b819ad2fe8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ARDataStorage">
+      <UniqueIdentifier>{0de4858e-b6c0-40a1-9ecc-de7f0bbd1045}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ARDataStorage\ARBitmap">
+      <UniqueIdentifier>{50f9de3d-ccc2-41f6-bb8c-20224c88bc5e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ARDataStorage\ARText">
+      <UniqueIdentifier>{b8e3eec3-95d2-46b2-b9f3-704a0cb89a83}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ARDataStorage\ARConfiguration">
+      <UniqueIdentifier>{0840fac2-7376-46ee-9051-03cc9b81dff0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ARDataStorage\ARSound">
+      <UniqueIdentifier>{5224f330-f44e-4469-b5fa-aa6f7cb5c50f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Misc">
+      <UniqueIdentifier>{2b2ead28-9f1e-4e8d-9c6f-3bd3b28d5b54}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Types">
+      <UniqueIdentifier>{17dde8b8-63dc-4c28-87ac-e247916426a0}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="AutoRunDialog.cpp">
+      <Filter>AutoRun Dialog</Filter>
+    </ClCompile>
+    <ClCompile Include="AutoRun.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="StdAfx.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="ARBitmap.cpp">
+      <Filter>ARDataStorage\ARBitmap</Filter>
+    </ClCompile>
+    <ClCompile Include="ARText.cpp">
+      <Filter>ARDataStorage\ARText</Filter>
+    </ClCompile>
+    <ClCompile Include="ARConfiguration.cpp">
+      <Filter>ARDataStorage\ARConfiguration</Filter>
+    </ClCompile>
+    <ClCompile Include="ARSound.cpp">
+      <Filter>ARDataStorage\ARSound</Filter>
+    </ClCompile>
+    <ClCompile Include="DataStorage.cpp">
+      <Filter>ARDataStorage</Filter>
+    </ClCompile>
+    <ClCompile Include="FileUtils.cpp">
+      <Filter>Misc</Filter>
+    </ClCompile>
+    <ClCompile Include="IniFile.cpp">
+      <Filter>Misc</Filter>
+    </ClCompile>
+    <ClCompile Include="StrProc.cpp">
+      <Filter>Misc</Filter>
+    </ClCompile>
+    <ClCompile Include="ZipFile.cpp">
+      <Filter>Misc</Filter>
+    </ClCompile>
+    <ClCompile Include="AR_Consts.cpp">
+      <Filter>Types</Filter>
+    </ClCompile>
+    <ClCompile Include="AR_Methods.cpp">
+      <Filter>Types</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AutoRunDialog.h">
+      <Filter>AutoRun Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource.h">
+      <Filter>Resource Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AutoRun.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="StdAfx.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="ARBitmap.h">
+      <Filter>ARDataStorage\ARBitmap</Filter>
+    </ClInclude>
+    <ClInclude Include="ARText.h">
+      <Filter>ARDataStorage\ARText</Filter>
+    </ClInclude>
+    <ClInclude Include="ARConfiguration.h">
+      <Filter>ARDataStorage\ARConfiguration</Filter>
+    </ClInclude>
+    <ClInclude Include="ARSound.h">
+      <Filter>ARDataStorage\ARSound</Filter>
+    </ClInclude>
+    <ClInclude Include="DataStorage.h">
+      <Filter>ARDataStorage</Filter>
+    </ClInclude>
+    <ClInclude Include="FileUtils.h">
+      <Filter>Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="IniFile.h">
+      <Filter>Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="StrProc.h">
+      <Filter>Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="ZipFile.h">
+      <Filter>Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="AR_Types.h">
+      <Filter>Types</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="AutoRun.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="res\autorun.ico">
+      <Filter>Resource Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="res\AutoRun.rc2">
+      <Filter>Resource Files</Filter>
+    </CustomBuild>
+  </ItemGroup>
+</Project>
