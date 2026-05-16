@@ -1,0 +1,20 @@
+﻿  lapi.c
+  lcode.c
+  ldebug.c
+  ldo.c
+  lfunc.c
+  lgc.c
+  llex.c
+  lmem.c
+  lobject.c
+  lparser.c
+  lstate.c
+  lstring.c
+  ltable.c
+  ltm.c
+  lundump.c
+  lvm.c
+  lzio.c
+  Generating Code...
+  Script.cpp
+  LuaLib.vcxproj -> C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\LuaLib\Release\LuaLib.lib

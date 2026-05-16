@@ -1,0 +1,25 @@
+﻿  Spline.cpp
+c:\users\jmfra\projects\zig\blitzkrieg\sources\src\misc\Spline.h(123): error C2666: 'pow' : 6 overloads have similar conversions
+          C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\include\math.h(583): could be 'long double pow(long double,int)'
+          C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\include\math.h(581): or       'long double pow(long double,long double)'
+          C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\include\math.h(535): or       'float pow(float,int)'
+          C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\include\math.h(533): or       'float pow(float,float)'
+          C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\include\math.h(497): or       'double pow(double,int)'
+          C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\include\math.h(122): or       'double pow(double,double)'
+          while trying to match the argument list '(float, double)'
+  StrProc.cpp
+StrProc.cpp(216): error C2668: 'log10' : ambiguous call to overloaded function
+          C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\include\math.h(577): could be 'long double log10(long double)'
+          C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\include\math.h(529): or       'float log10(float)'
+          C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\include\math.h(121): or       'double log10(double)'
+          while trying to match the argument list '(int)'
+StrProc.cpp(217): error C2668: 'pow' : ambiguous call to overloaded function
+          C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\include\math.h(583): could be 'long double pow(long double,int)'
+          C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\include\math.h(535): or       'float pow(float,int)'
+          C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\include\math.h(497): or       'double pow(double,int)'
+          while trying to match the argument list '(int, int)'
+StrProc.cpp(222): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+          C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\include\string.h(110) : see declaration of 'strcat'
+StrProc.cpp(226): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+          C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\include\string.h(110) : see declaration of 'strcat'
+  Generating Code...

@@ -285,7 +285,7 @@ inline TYPE ToDegree( const TYPE angle )
 }
 inline float NormalizeAngleInDegree( const float angle )
 {
-	return static_cast<float>( fmod( angle, 360.0 ) );
+	return fmodf( angle, 360.0f );
 }
 inline int NormalizeAngleInDegree( const int angle )
 {
@@ -293,15 +293,15 @@ inline int NormalizeAngleInDegree( const int angle )
 }
 inline float SignumNormalizeAngleInDegree( const float angle )
 {
-	return static_cast<float>( fmod( angle + 180*Sign(angle),  360 ) - 180 * Sign( angle ) );
+	return fmodf( angle + 180.0f * Sign(angle), 360.0f ) - 180.0f * Sign( angle );
 }
 inline float NormalizeAngleInRadian( const float angle )
 {
-	return static_cast<float>( fmod( angle, 2.0*PI ) + ( angle < 0 ? 2.0*PI : 0 ) );
+	return fmodf( angle, FP_2PI ) + ( angle < 0.0f ? FP_2PI : 0.0f );
 }
 inline float SignumNormalizeAngleInRadian( const float angle )
 {
-	return static_cast<float>( fmod( angle + PI, 2.0*PI ) + ( angle < -PI ? PI : -PI ) );
+	return fmodf( angle + FP_PI, FP_2PI ) + ( angle < -FP_PI ? FP_PI : -FP_PI );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ************************************************************************************************************************ //

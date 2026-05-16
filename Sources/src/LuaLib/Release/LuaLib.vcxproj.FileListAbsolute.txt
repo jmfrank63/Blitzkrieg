@@ -1,0 +1,1 @@
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\LuaLib\Release\LuaLib.lib

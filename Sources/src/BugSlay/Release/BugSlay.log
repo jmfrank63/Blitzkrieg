@@ -1,0 +1,24 @@
+﻿  StdAfx.cpp
+  AllocAndFillProcessModuleList.cpp
+  BSUFunctions.cpp
+  BugSlayer.cpp
+  CallStack.cpp
+  CrashHandler.cpp
+  DiagAssert.cpp
+  DialogFunctions.cpp
+  DialogMemory.cpp
+  DumbPow2Alloc.cpp
+  GetLoadedModules.cpp
+  HookImportedFunctionByName.cpp
+  IsNT.cpp
+  MemDumperValidator.cpp
+  MemorySystem.cpp
+  NT4ProcessInfo.cpp
+  Notification.cpp
+  ReportAssertionDlg.cpp
+  ReportExceptionDlg.cpp
+  STLDebugTerminate.cpp
+  TLHELPProcessInfo.cpp
+  Generating Code...
+     Creating library .\Release\BugSlay.lib and object .\Release\BugSlay.exp
+  BugSlay.vcxproj -> C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\BugSlay\Release\BugSlay.dll
