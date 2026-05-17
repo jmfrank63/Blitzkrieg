@@ -5,20 +5,20 @@
   CallStack.cpp
   CrashHandler.cpp
   DiagAssert.cpp
-  DialogFunctions.cpp
-  DialogMemory.cpp
-  DumbPow2Alloc.cpp
   GetLoadedModules.cpp
   HookImportedFunctionByName.cpp
   IsNT.cpp
   MemDumperValidator.cpp
-  MemorySystem.cpp
-  NT4ProcessInfo.cpp
   Notification.cpp
-  ReportAssertionDlg.cpp
-  ReportExceptionDlg.cpp
+  NT4ProcessInfo.cpp
   STLDebugTerminate.cpp
   TLHELPProcessInfo.cpp
+  DialogFunctions.cpp
+  DialogMemory.cpp
+  ReportAssertionDlg.cpp
+  ReportExceptionDlg.cpp
+  DumbPow2Alloc.cpp
+  MemorySystem.cpp
   Generating Code...
      Creating library .\Release\BugSlay.lib and object .\Release\BugSlay.exp
-  BugSlay.vcxproj -> C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\BugSlay\Release\BugSlay.dll
+  BugSlay.vcxproj -> C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\BugSlay\Release\BugSlay.dll
