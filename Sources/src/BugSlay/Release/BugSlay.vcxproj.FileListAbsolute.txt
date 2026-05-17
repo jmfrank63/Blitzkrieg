@@ -1,2 +1,1 @@
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\BugSlay\Release\BugSlay.dll
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\BugSlay\Release\BugSlay.dll
