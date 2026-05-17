@@ -61,7 +61,7 @@ bool CDataTreeXML::Open( IDataStream *_pStream, DTChunkID idBaseNode )
 		CStreamCOMAdaptor comstream( pStream );
 		if ( xmlDocument->load( static_cast<IStream*>(&comstream) ) )
 		{
-			nodes.push_back( SCOMPtr<IXMLDOMNodePtr>() );
+			nodes.push_back( SCOMPtr<MSXML2::IXMLDOMNodePtr>() );
 			nodes.back().data = xmlDocument;
 			xmlCurrNode = xmlDocument;
 			return StartChunk( idBaseNode );
@@ -69,7 +69,7 @@ bool CDataTreeXML::Open( IDataStream *_pStream, DTChunkID idBaseNode )
 	}
 	else
 	{
-		IXMLDOMProcessingInstructionPtr pPI = xmlDocument->createProcessingInstruction( "xml", "version=\"1.0\"" );
+		MSXML2::IXMLDOMProcessingInstructionPtr pPI = xmlDocument->createProcessingInstruction( "xml", "version=\"1.0\"" );
 		xmlDocument->appendChild( pPI );
 		return StartChunk( idBaseNode );
 	}
@@ -85,7 +85,7 @@ int CDataTreeXML::StartChunk( DTChunkID idChunk )
 	{
 		if ( xmlCurrNode != 0 )
 		{
-			nodes.push_back( SCOMPtr<IXMLDOMNodePtr>() );
+			nodes.push_back( SCOMPtr<MSXML2::IXMLDOMNodePtr>() );
 			nodes.back().data = xmlCurrNode;
 		}
 		if ( xmlCurrNode == 0 ) 
@@ -110,7 +110,7 @@ int CDataTreeXML::StartChunk( DTChunkID idChunk )
 	{
 		if ( xmlCurrElement != 0 )
 		{
-			elements.push_back( SCOMPtr<IXMLDOMElementPtr>() );
+			elements.push_back( SCOMPtr<MSXML2::IXMLDOMElementPtr>() );
 			elements.back().data = xmlCurrElement;
 		}
 		xmlCurrElement = xmlDocument->createElement( idChunk );
@@ -159,9 +159,9 @@ int CDataTreeXML::StartContainerChunk( DTChunkID idChunk )
 	{
 		if ( xmlCurrNode->selectSingleNode(szChunkName.c_str()) != 0 ) 
 		{
-			nodes.push_back( SCOMPtr<IXMLDOMNodePtr>() );
+			nodes.push_back( SCOMPtr<MSXML2::IXMLDOMNodePtr>() );
 			nodes.back().data = xmlCurrNode;
-			IXMLDOMNodeListPtr xmlNodesList = xmlCurrNode->selectNodes( (szChunkName + "/item").c_str() );
+			MSXML2::IXMLDOMNodeListPtr xmlNodesList = xmlCurrNode->selectNodes( (szChunkName + "/item").c_str() );
 			nodelists.push_back( SNodeslList() );
 			nodelists.back().nodes.data = xmlNodesList;
 			nodelists.back().nCurrElement = -1;
@@ -174,11 +174,11 @@ int CDataTreeXML::StartContainerChunk( DTChunkID idChunk )
 	{
 		if ( xmlCurrElement != 0 )
 		{	
-			elements.push_back( SCOMPtr<IXMLDOMElementPtr>() );
+			elements.push_back( SCOMPtr<MSXML2::IXMLDOMElementPtr>() );
 			elements.back().data = xmlCurrElement;
 		}
-		IXMLDOMElementPtr xmlArrayBase = xmlDocument->createElement( szChunkName.c_str() );
-		arrbases.push_back( SCOMPtr<IXMLDOMElementPtr>() );
+		MSXML2::IXMLDOMElementPtr xmlArrayBase = xmlDocument->createElement( szChunkName.c_str() );
+		arrbases.push_back( SCOMPtr<MSXML2::IXMLDOMElementPtr>() );
 		arrbases.back().data = xmlArrayBase;
 		if ( xmlCurrElement )
 			xmlCurrElement->appendChild( xmlArrayBase );
@@ -221,7 +221,7 @@ int CDataTreeXML::CountChunks( DTChunkID idChunk )
 	if ( IsReading() )
 	{
 		const std::string szChunkName = idChunk[0] == '\0' ? "data" : idChunk;
-		IXMLDOMNodeListPtr xmlNodesList = xmlCurrNode->selectNodes( (szChunkName + "/item").c_str() );
+		MSXML2::IXMLDOMNodeListPtr xmlNodesList = xmlCurrNode->selectNodes( (szChunkName + "/item").c_str() );
 		return xmlNodesList->length;
 	}
 	else
@@ -272,7 +272,7 @@ bool CDataTreeXML::StringData( char *pData )
 	{
 		if ( xmlCurrElement )
 		{
-			IXMLDOMCharacterDataPtr xmlText = xmlDocument->createTextNode( pData );
+			MSXML2::IXMLDOMCharacterDataPtr xmlText = xmlDocument->createTextNode( pData );
 			xmlCurrElement->appendChild( xmlText);
 			return true;
 		}
@@ -286,7 +286,7 @@ bool CDataTreeXML::StringData( WORD *pData )
 	{
 		if ( xmlCurrNode )
 		{
-			wcscpy( pData, (const wchar_t*)xmlCurrNode->text );
+			wcscpy( reinterpret_cast<wchar_t*>(pData), (const wchar_t*)xmlCurrNode->text );
 			return true;
 		}
 	}
@@ -294,7 +294,7 @@ bool CDataTreeXML::StringData( WORD *pData )
 	{
 		if ( xmlCurrElement )
 		{
-			IXMLDOMCharacterDataPtr xmlText = xmlDocument->createTextNode( pData );
+			MSXML2::IXMLDOMCharacterDataPtr xmlText = xmlDocument->createTextNode( reinterpret_cast<const wchar_t*>(pData) );
 			xmlCurrElement->appendChild( xmlText);
 			return true;
 		}
@@ -306,7 +306,7 @@ bool CDataTreeXML::DataChunk( DTChunkID idChunk, int *pData )
 {
 	if ( IsReading() )
 	{
-		if ( IXMLDOMNodePtr pNode = GetTextNode( idChunk ) )
+		if ( MSXML2::IXMLDOMNodePtr pNode = GetTextNode( idChunk ) )
 		{
 			sscanf( (const char*)pNode->text, "%i", pData );
 			return true;
@@ -327,7 +327,7 @@ bool CDataTreeXML::DataChunk( DTChunkID idChunk, double *pData )
 {
 	if ( IsReading() )
 	{
-		if ( IXMLDOMNodePtr pNode = GetTextNode( idChunk ) )
+		if ( MSXML2::IXMLDOMNodePtr pNode = GetTextNode( idChunk ) )
 		{
 			sscanf( (const char*)pNode->text, "%lg", pData );
 			return true;

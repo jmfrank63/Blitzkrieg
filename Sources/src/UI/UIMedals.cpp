@@ -4,25 +4,25 @@
 #include "UIMessages.h"
 #include "UIMedals.h"
 
-const int LEFT_SPACE = 3;				//отступ слева от края контрола
-const int TOP_SPACE = 2;				//отступ сверху и снизу от края контрола
-const int MULT = 20;						//на сколько перемещается ScrollBar при нажатии на кнопку
+const int LEFT_SPACE = 3;				//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+const int TOP_SPACE = 2;				//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+const int MULT = 20;						//пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ScrollBar пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 const int MEDAL = 10;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMedals::UpdatePositions()
 {
 	int nY = -pScrollBar->GetPosition();
 
-	//обновляем вертикальные позиции для каждой медали
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	for ( int i=0; i<nMedalsCount; i++ )
 	{
-		//Медаль
+		//пїЅпїЅпїЅпїЅпїЅпїЅ
 		CUIStaticBridge *pStatic = checked_cast<CUIStaticBridge *> ( GetChildByID( MEDAL + i * 2 ) );
 		NI_ASSERT( pStatic != 0 );
 		
 		if ( nY + pStatic->vPos.y + pStatic->vSize.y <= nSpace || nY + pStatic->vPos.y >= wndRect.Height() - nSpace )
 		{
-			//окошко совсем невидимое
+			//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 			pStatic->ShowWindow( UI_SW_HIDE );
 		}
 		else
@@ -36,16 +36,16 @@ void CUIMedals::UpdatePositions()
 			rect.x2 = rect.x1 + pStatic->vSize.x;
 			rect.y2 = rect.y1 + pStatic->vSize.y;
 			
-			//проверим, может быть видно только часть окна
+			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 			if ( rect.y1 < wndRect.y1 + nSpace )
 			{
-				//верхний край обрезан
+				//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 				mapa.y1 += ( wndRect.y1 + nSpace - rect.y1 ) / fTextureSizeY;
 				rect.y1 = wndRect.y1 + nSpace;
 			}
 			else if ( rect.y2 > wndRect.y2 - nSpace )
 			{
-				//нижний край обрезан
+				//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 				mapa.y2 -= ( rect.y2 - wndRect.y2 + nSpace ) / fTextureSizeY;
 				rect.y2 = wndRect.y2 - nSpace;
 			}
@@ -59,12 +59,12 @@ void CUIMedals::UpdatePositions()
 			pStatic->UpdateSubRects();
 		}
 
-		//Текст под медалью
+		//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		pStatic = checked_cast<CUIStaticBridge *> ( GetChildByID( MEDAL + i * 2 + 1 ) );
 		NI_ASSERT( pStatic != 0 );
 		if ( nY + pStatic->vPos.y + pStatic->vSize.y <= nSpace || nY + pStatic->vPos.y >= wndRect.Height() - nSpace )
 		{
-			//окошко совсем невидимое
+			//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 			pStatic->ShowWindow( UI_SW_HIDE );
 		}
 		else
@@ -77,16 +77,16 @@ void CUIMedals::UpdatePositions()
 			rect.y2 = rect.y1 + pStatic->vSize.y;
 			
 			/*
-			//проверим, может быть видно только часть окна
+			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 			if ( rect.y1 < wndRect.y1 + nSpace )
 			{
-				//верхний край обрезан
+				//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 				mapa.y1 += ( wndRect.y1 + nSpace - rect.y1 ) / fTextureSizeY;
 				rect.y1 = wndRect.y1 + nSpace;
 			}
 			else if ( rect.y2 > wndRect.y2 - nSpace )
 			{
-				//нижний край обрезан
+				//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 				mapa.y2 -= ( rect.y2 - wndRect.y2 ) / fTextureSizeY;
 				rect.y2 = wndRect.y2 - nSpace;
 			}
@@ -111,11 +111,11 @@ void CUIMedals::ComputeHPositions()
 	rect.top = wndRect.top;
 	rect.bottom = rect.top + 10;	//10 - temp
 
-	//вычисляем позиции для каждой медали
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	int nMaxY = 0;
 	for ( int i=0; i<nMedalsCount; i++ )
 	{
-		//Медаль
+		//пїЅпїЅпїЅпїЅпїЅпїЅ
 		CUIStaticBridge *pStatic = checked_cast<CUIStaticBridge *> ( GetChildByID( MEDAL + i * 2 ) );
 		NI_ASSERT( pStatic != 0 );
 		if ( nX + pStatic->vSize.x + nHSubSpace + nSpace + wndRect.x1 > wndRect.x2 )
@@ -124,7 +124,7 @@ void CUIMedals::ComputeHPositions()
 			nY = nMaxY + nVSubSpace;
 			nMaxY = 0;
 		}
-		pStatic->vPos.x = nX;		//позиции не изменяются и потом используются для скроллирования, а rect может изменяться
+		pStatic->vPos.x = nX;		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅ rect пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		pStatic->vPos.y = nY;
 		rect.x1 = wndRect.x1 + nX;
 		rect.x2 = rect.x1 + pStatic->vSize.x;
@@ -133,7 +133,7 @@ void CUIMedals::ComputeHPositions()
 		pStatic->wndRect = rect;
 		nX = rect.x2 + nHSubSpace;
 		
-		//Текст под медалью
+		//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		pStatic = checked_cast<CUIStaticBridge *> ( GetChildByID( MEDAL + i * 2 + 1 ) );
 		NI_ASSERT( pStatic != 0 );
 		float fTemp = ( rect.x2 - rect.x1 - pStatic->vSize.x ) / 2;
@@ -142,7 +142,7 @@ void CUIMedals::ComputeHPositions()
 		rect.y1 = rect.y2 + nVTextSpace;
 		rect.y2 = rect.y1 + pStatic->vSize.y;
 		pStatic->wndRect = rect;
-		pStatic->vPos.x = rect.x1 - wndRect.x1;		//позиции не изменяются и потом используются для скроллирования, а rect может изменяться
+		pStatic->vPos.x = rect.x1 - wndRect.x1;		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅ rect пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		pStatic->vPos.y = rect.y1 - wndRect.y1;
 		
 		if ( rect.y2 - wndRect.y1 > nMaxY )
@@ -161,8 +161,8 @@ void CUIMedals::ComputeHPositions()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMedals::UpdateScrollbar()
 {
-	//проверим, видимый ли ScrollBar
-	//Подсчитаем общую высоту медалек
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ ScrollBar
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
 #ifdef OLD
 	int nSum = 0;
@@ -172,9 +172,9 @@ void CUIMedals::UpdateScrollbar()
 		if ( !it->pGfxText )
 			continue;
 		
-		int nHeight = it->pGfxText->GetNumLines();				//число строк в данном тексте
-		nHeight *= it->pGfxText->GetLineSpace();					//высота одной строчки
-		//теперь в nHeight содержится высота данного текста в пикселах
+		int nHeight = it->pGfxText->GetNumLines();				//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+		nHeight *= it->pGfxText->GetLineSpace();					//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ nHeight пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		nSum += nHeight;
 		i++;
 		if (!( i & 0x01 ))
@@ -188,14 +188,14 @@ void CUIMedals::UpdateScrollbar()
 		pScrollBar->ShowWindow( UI_SW_HIDE );
 		return;
 		*/
-		//скроллбар теперь всегда видимый
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		pScrollBar->SetMinValue( 0 );
 		pScrollBar->SetMaxValue( 0 );
 	}
 
 
-	//ScrollBar видимый
-	//заново пересчитываю высоту текста
+	//ScrollBar пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	nSum = 0;
 	i = 0;
 	for ( CTextList::iterator it=textes.begin(); it!=textes.end(); ++it )
@@ -204,9 +204,9 @@ void CUIMedals::UpdateScrollbar()
 			continue;
 		it->pGfxText->SetWidth( wndRect.Width() - nSpace*2 - pScrollBar->GetSize().x );
 		
-		int nHeight = it->pGfxText->GetNumLines();				//число строк в данном тексте
-		nHeight *= it->pGfxText->GetLineSpace();					//высота одной строчки
-		//теперь в nHeight содержится высота данного текста в пикселах
+		int nHeight = it->pGfxText->GetNumLines();				//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+		nHeight *= it->pGfxText->GetLineSpace();					//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ nHeight пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		nSum += nHeight;
 		i++;
 		if (!( i & 0x01 ))
@@ -231,7 +231,7 @@ void CUIMedals::Visit( interface ISceneVisitor *pVisitor )
 		return;
 	CSimpleWindow::Visit( pVisitor );
 
-	// рисуем детей
+	// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	for ( CWindowList::reverse_iterator ri = childList.rbegin(); ri != childList.rend(); ++ri )
 	{
 		CSimpleWindow *pWindow = dynamic_cast<CSimpleWindow *> ( ri->GetPtr() );
@@ -243,7 +243,7 @@ void CUIMedals::Visit( interface ISceneVisitor *pVisitor )
 			(*ri)->Visit( pVisitor );
 		else
 		{
-			//рисуем текст
+			//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 			if ( !pWindow->states[pWindow->nCurrentState].pGfxText )
 				continue;
 
@@ -268,7 +268,7 @@ void CUIMedals::Draw( IGFX *pGFX )
 		return;
 	CSimpleWindow::Draw( pGFX );
 
-	//рисуем детей
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	pGFX->SetShadingEffect( 3 );
 	for ( CWindowList::reverse_iterator ri=childList.rbegin(); ri!=childList.rend(); ri++ )
 	{
@@ -281,7 +281,7 @@ void CUIMedals::Draw( IGFX *pGFX )
 			(*ri)->Draw( pGFX );
 		else
 		{
-			//рисуем текст
+			//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 			if ( !pWindow->states[pWindow->nCurrentState].pGfxText )
 				continue;
 
@@ -308,7 +308,7 @@ int CUIMedals::operator&( IDataTree &ss )
 	
 	if ( saver.IsReading() )
 	{
-		//инициализируем pScrollBar
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ pScrollBar
 		pScrollBar = dynamic_cast<CUIScrollBar *>( GetChildByID(1) );
 		NI_ASSERT_T( pScrollBar != 0, "Can't find scroll bar" );
 	}
@@ -350,7 +350,7 @@ void CUIMedals::InitMaps()
 	medalMaps.clear();
 	for ( int i=0; i<nMedalsCount; i++ )
 	{
-		//Медаль
+		//пїЅпїЅпїЅпїЅпїЅпїЅ
 		CUIStaticBridge *pStatic = checked_cast<CUIStaticBridge *> ( GetChildByID( MEDAL + i * 2 ) );
 		NI_ASSERT( pStatic != 0 );
 		medalMaps.push_back( pStatic->states[0].subStates[0].subRects[0].mapa );
@@ -359,13 +359,13 @@ void CUIMedals::InitMaps()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMedals::Reposition( const CTRect<float> &rcParent )
 {
-	//обновим позицию скроллбара
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	CVec2 size = pScrollBar->GetSize();
 	pScrollBar->SetPos( CVec2(size.x, 0) );
 	pScrollBar->SetSize( CVec2(size.x, GetSize().y ) );
 	CMultipleWindow::Reposition( rcParent );
 	/*
-	//обновим текст
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	IText *pText = states[0].pGfxText->GetText();
 	SetWindowText( 0, pText->GetString() );
 	*/
@@ -373,11 +373,11 @@ void CUIMedals::Reposition( const CTRect<float> &rcParent )
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIMedals::ProcessMessage( const SUIMessage &msg )
 {
-	//Scroll Text обрабатывает NOTIFY сообщения от ScrollBar
+	//Scroll Text пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ NOTIFY пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ ScrollBar
 	switch( msg.nMessageCode )
 	{
 	case UI_NOTIFY_POSITION_CHANGED:
-		// подвинем текст
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		UpdatePositions();
 		return true;
 	case UI_NOTIFY_WINDOW_CLICKED:
@@ -396,7 +396,7 @@ bool CUIMedals::ProcessMessage( const SUIMessage &msg )
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMedals::ClearMedals()
 {
-	CObj<IUIElement> pSave = GetChildByID( 1 );		//это Scroll Bar
+	CObj<IUIElement> pSave = GetChildByID( 1 );		//пїЅпїЅпїЅ Scroll Bar
 	RemoveAllChildren();
 	AddChild( pSave );
 	nMedalsCount = 0;
@@ -426,7 +426,7 @@ void CUIMedals::AddMedal( IGFXTexture *pTexture, const CTRect<float> &mapImageRe
 	}
 	pMedal->vPos = VNULL2;
 	pMedal->vSize = CVec2( mapImageRect.x1, mapImageRect.y1 );
-	pMedal->SetWindowID( 2 * nMedalsCount + MEDAL );			//четные ID - изображения медалек
+	pMedal->SetWindowID( 2 * nMedalsCount + MEDAL );			//пїЅпїЅпїЅпїЅпїЅпїЅ ID - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	AddChild( pMedal );
 	
 	pMedal = dynamic_cast<CUIStaticBridge*>( pFactory->CreateObject( UI_STATIC ) );
@@ -435,7 +435,7 @@ void CUIMedals::AddMedal( IGFXTexture *pTexture, const CTRect<float> &mapImageRe
 	pMedal->vPos = VNULL2;
 	pMedal->vSize.x = pMedal->states[0].pGfxText->GetWidth();
 	pMedal->vSize.y = pMedal->states[0].pGfxText->GetLineSpace();
-	pMedal->SetWindowID( 2 * nMedalsCount + 1 + MEDAL );	//нечетные ID - текст
+	pMedal->SetWindowID( 2 * nMedalsCount + 1 + MEDAL );	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ID - пїЅпїЅпїЅпїЅпїЅ
 	AddChild( pMedal );
 	
 	nMedalsCount++;
@@ -455,7 +455,7 @@ void CUIMedals::ShowWindow( int _nCmdShow )
 	if ( !_nCmdShow )
 		return;
 
-	//добавляем медальки
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	ClearMedals();
 	const SMedalStats *pStats = NGDB::GetGameStats<SMedalStats>( "medals\\1\\1", IObjectsDB::MEDAL );
 /*	SMedalStats stats;

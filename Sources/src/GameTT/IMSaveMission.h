@@ -15,16 +15,16 @@ class CInterfaceIMSaveMission : public CInterfaceBaseList
 	// disable explicit destruction
 	virtual ~CInterfaceIMSaveMission();
 	
-	std::hash_map<int/*nUserData*/, std::string/*file name*/ > szSaves;
+	std::unordered_map<int/*nUserData*/, std::string/*file name*/ > szSaves;
 
 	void OnSelectionChanged();
 	void Save();
 protected:
 	CInterfaceIMSaveMission() {}
 	
-	//перегружаемые мной функции
-	virtual bool FillListItem( IUIListRow *pRow, const std::string &szFullFileName, bool *pSelectedItem = 0 );		//заполняем текущую строчку в списке
-	virtual bool OnOk( const std::string &szFullFileName );															//пользователь выбрал файл, обработаем выбор
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	virtual bool FillListItem( IUIListRow *pRow, const std::string &szFullFileName, bool *pSelectedItem = 0 );		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	virtual bool OnOk( const std::string &szFullFileName );															//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 
 	virtual bool IsIgnoreSelection() const { return true; }														// user may not select, but enter to edit box
 	virtual bool OnOk();

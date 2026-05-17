@@ -12,7 +12,7 @@
 void CLanChat::InitInGameChat( INetDriver *_pNetDriver )
 {
 	pNetDriver = _pNetDriver;
-	std::hash_set<BYTE> messages;
+	std::unordered_set<BYTE> messages;
 	messages.insert( BYTE( NGM_CHAT_MESSAGE ) );
 
 	pNetDriver->AddChannel( 1, messages );

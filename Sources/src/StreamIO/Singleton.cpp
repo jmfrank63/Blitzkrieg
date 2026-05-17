@@ -32,7 +32,7 @@ GETTEMPRAWBUFFER_HOOK g_pfnGlobalGetTempRawBuffer = GetTempRawBuffer_Hook;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSingleton : public ISingleton
 {
-	typedef std::hash_map< int, CPtr<IRefCount> > CObjectIDs;
+	typedef std::unordered_map< int, CPtr<IRefCount> > CObjectIDs;
 	CObjectIDs objects;
 public:
 	CSingleton();
@@ -97,7 +97,7 @@ bool CSingleton::UnRegister( IRefCount *pObj )
 {
 	for ( CObjectIDs::iterator it = objects.begin(); it != objects.end(); ++it )
 	{
-		if ( it->second == pObj )
+		if ( it->second.GetPtr() == pObj )
 		{
 			objects.erase( it );
 			return true;

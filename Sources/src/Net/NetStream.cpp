@@ -174,7 +174,7 @@ void CStreamTracker::Erase( const std::vector<PACKET_ID> &pkts )
 	for ( int i = 0; i < pkts.size(); ++i )
 	{
 		PACKET_ID nPkt = pkts[i];
-		std::hash_map< PACKET_ID, PACKET_ID >::iterator k = reassign.find( nPkt );
+		std::unordered_map< PACKET_ID, PACKET_ID >::iterator k = reassign.find( nPkt );
 		if ( k != reassign.end() )
 			reassign.erase( k );
 	}
@@ -187,7 +187,7 @@ void CStreamTracker::Commit( const std::vector<PACKET_ID> &pkts )
 		PACKET_ID nPkt = pkts[i];
 		for(;;)
 		{
-			std::hash_map< PACKET_ID, PACKET_ID >::iterator k = reassign.find( nPkt );
+			std::unordered_map< PACKET_ID, PACKET_ID >::iterator k = reassign.find( nPkt );
 			if ( k == reassign.end() )
 				break;
 #ifdef LOG

@@ -57,7 +57,7 @@ void CGraph::ComputePath( const int _v1, const int _v2 )
 	v1 = _v1;
 	v2 = _v2;
 
-	std::hash_set<int> waitingSet;
+	std::unordered_set<int> waitingSet;
 	for ( int i = 0; i < GetNNodes(); ++i )
 	{
 		dst[i] = -1;
@@ -71,7 +71,7 @@ void CGraph::ComputePath( const int _v1, const int _v2 )
 	{
 		int nBestNode = -1;
 		float fBestDist = 0.0f;
-		for ( std::hash_set<int>::const_iterator iter = waitingSet.begin(); iter != waitingSet.end(); ++iter )
+		for ( std::unordered_set<int>::const_iterator iter = waitingSet.begin(); iter != waitingSet.end(); ++iter )
 		{
 			if ( dst[*iter] != -1 && ( nBestNode == -1 || dst[*iter] < fBestDist ) )
 			{
@@ -80,7 +80,7 @@ void CGraph::ComputePath( const int _v1, const int _v2 )
 			}
 		}
 
-		// больше вершин, связных с v1, нет, либо нашли путь до v2
+		// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ v1, пїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ v2
 		if ( nBestNode == -1 || nBestNode == v2 )
 			bFinished = true;
 		else

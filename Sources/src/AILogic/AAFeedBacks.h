@@ -7,7 +7,7 @@ class CAAFeedBacks
 {
 	DECLARE_SERIALIZE;
 	typedef std::list<int/*Planes unique id*/> CTargetList;
-	typedef std::hash_map<int/*AA Unique ID*/,CTargetList>  CAAFeedBacksList;
+	typedef std::unordered_map<int/*AA Unique ID*/,CTargetList>  CAAFeedBacksList;
 
 
 	CAAFeedBacksList feedbacks;

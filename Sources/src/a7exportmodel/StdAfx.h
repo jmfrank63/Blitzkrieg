@@ -31,8 +31,8 @@ typedef __int64 int64;									// due to lack of 'long long' type support
 #include <map>
 #include <set>
 #include <crtdbg.h>
-#include <hash_map>
-#include <hash_set>
+#include <unordered_map>
+#include <unordered_set>
 #include <queue>
 // define pragma once
 #if _MSC_VER > 1000

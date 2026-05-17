@@ -16,6 +16,12 @@ interface IText : public ISharedResource
 	virtual const WORD* STDCALL GetString() const = 0;
 	virtual const int STDCALL GetLength() const = 0;
 	virtual void STDCALL SetText( const WORD *pszText ) = 0;
+	// wchar_t overload for modern code
+	inline void STDCALL SetText( const wchar_t *pszText ) 
+	{ 
+		static_assert( sizeof(wchar_t) == sizeof(WORD), "wchar_t and WORD size mismatch" ); 
+		SetText( reinterpret_cast<const WORD*>( pszText ) ); 
+	}
 	//
 	virtual bool STDCALL IsChanged() const = 0;
 	virtual void STDCALL ResetChanged() = 0;

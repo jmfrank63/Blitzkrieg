@@ -59,7 +59,7 @@ void FillUnitInfoItem( const SUnitBaseRPGStats *pRPG, IUIDialog *pItem, int nInd
 {
 	IUIElement *pHelpButton = pItem->GetChildByID( 10000 );
 	if ( pHelpButton )
-		pHelpButton->SetWindowID( 20000 + nIndex );		//для энциклопедии
+		pHelpButton->SetWindowID( 20000 + nIndex );		//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	pItem->SetWindowID( nIndex );
 	FillUnitInfoItemNoIDs( pRPG, pItem, nIndex, bFillCommanderName, pszCommanderName );
 }
@@ -74,7 +74,7 @@ void FillUnitInfoItemNoIDs( const SUnitBaseRPGStats *pRPG, IUIDialog *pItem, int
 	const SGDBObjectDesc *pObjectDesc = GetSingleton<IObjectsDB>()->GetDesc( pRPG->szParentName.c_str() );
 	CPtr<IText> p1 = pTextM->GetDialog( (pObjectDesc->szPath + "\\name").c_str() );
 	
-	//установим имя юнита
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	IUIElement *pElement = pItem->GetChildByID( 20 );
 	pElement->SetWindowText( 0, p1->GetString() );
 
@@ -82,7 +82,7 @@ void FillUnitInfoItemNoIDs( const SUnitBaseRPGStats *pRPG, IUIDialog *pItem, int
 	
 	IText * pCommanderName = 0;
 
-	//имя командира
+	//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	if ( bFillCommanderName )
 	{
 		IScenarioUnit *pUnit = pPlayerInfo->GetUnit( nIndex );
@@ -100,13 +100,13 @@ void FillUnitInfoItemNoIDs( const SUnitBaseRPGStats *pRPG, IUIDialog *pItem, int
 	if ( bFillCommanderName )
 	{
 		IScenarioUnit *pUnit = pPlayerInfo->GetUnit( nIndex );
-		//узнаем уровень юнита
+		//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		const int nLevel = pUnit->GetValue( STUT_LEVEL );
 		NI_ASSERT_T( nLevel >= 0 && nLevel < 4, "Unit's level is out of bounds" );
 		IUIElement *pElement = pItem->GetChildByID( 30 + nLevel );
 		if ( pElement )
 		{
-			//узнаем текущий и следующий уровень опыта юнита
+			//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 			const int nExp = pUnit->GetValue( STUT_EXP );
 			const int nExpNextLevel = pUnit->GetValue( STUT_EXP_NEXT_LEVEL );
 			//
@@ -120,7 +120,7 @@ void FillUnitInfoItemNoIDs( const SUnitBaseRPGStats *pRPG, IUIDialog *pItem, int
 	}
 
 
-	//выведем статсы юнита
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	{
 		static std::wstring szText;
 		IUIElement *pElement = 0;
@@ -148,11 +148,11 @@ void FillUnitInfoItemNoIDs( const SUnitBaseRPGStats *pRPG, IUIDialog *pItem, int
 	}
 
 	//
-	//установим картинку юнита
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	IUIElement *pPicture = pItem->GetChildByID( 11 );
-	//установим map для картинки
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ map пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	pPicture->SetWindowMap( rcTechnicsInfoPanelMap );
-	//загрузим и установим текстуру
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	IGFXTexture *pTexture = pTM->GetTexture( (pObjectDesc->szPath + "\\icon").c_str() );
 	pPicture->SetWindowTexture( pTexture );
 
@@ -197,7 +197,7 @@ void CInterfaceAddUnitToMission::StartInterface()
 bool CInterfaceAddUnitToMission::AddDefaultSlotsToST()
 {
 	NI_ASSERT_T( FALSE, "OLD INTERFACE" );
-	//считываем инфу об количестве свободных мест из данных карты
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	/*std::string szMissionName = GetGlobalVar( "Mission.Current.Name", "" );
 	NI_ASSERT_T( szMissionName.size() != 0, "Can not read mission name" );
 	if ( szMissionName.size() == 0 )
@@ -222,7 +222,7 @@ bool CInterfaceAddUnitToMission::AddDefaultSlotsToST()
 	if ( !bRes )
 		return false;
 
-	typedef std::hash_map<int, int> CMissionAIClasses;
+	typedef std::unordered_map<int, int> CMissionAIClasses;
 	CMissionAIClasses missionAIClasses;
 	for ( int i=0; i<mapObjects.size(); i++ )
 	{
@@ -251,7 +251,7 @@ bool CInterfaceAddUnitToMission::AddDefaultSlotsToST()
 			const SUnitBaseRPGStats *pRPG = pST->GetUnitRPGStats( z );
 			if ( pRPG->GetRPGClass() == unitClasses[i].nClass && !pST->IsUnitKilled( z ) )
 			{
-				//добавим item с такими RPG stats
+				//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ item пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ RPG stats
 				m_missionSlots[i].push_back( z );
 				
 				nActiveType++;
@@ -263,12 +263,12 @@ bool CInterfaceAddUnitToMission::AddDefaultSlotsToST()
 		nNumTypes = min( nActiveType, nNumTypes );
 		for ( int k=nActiveType; k<nNumTypes; k++ )
 		{
-			//добавим пустой item
+			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ item
 			m_missionSlots[i].push_back( -1 );
 		}
 	}
 
-	//проходим по результирующему массиву и добавляем юниты в миссию
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	for ( int i=0; i<m_missionSlots.size(); i++ )
 	{
 		for ( int k=0; k<m_missionSlots[i].size(); k++ )
@@ -293,7 +293,7 @@ void CInterfaceAddUnitToMission::DisplaySlotsFromST()
 	NI_ASSERT_T( pSB != 0, "ShortcutBar is not initialized" );
 	pSB->Clear();
 	
-	//отображаем данные из m_missionSlots на экране
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ m_missionSlots пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	for ( int i=0; i<m_missionSlots.size(); i++ )
 	{
 		if ( m_missionSlots[i].empty() )
@@ -311,7 +311,7 @@ void CInterfaceAddUnitToMission::DisplaySlotsFromST()
 		
 		for ( int k=0; k<m_missionSlots[i].size(); k++ )
 		{
-			//добавим item с такими RPG stats
+			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ item пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ RPG stats
 			IUIDialog *pItem = checked_cast<IUIDialog *>( pSB->AddItem() );
 
 			if ( m_missionSlots[i][k] == -1 )
@@ -324,7 +324,7 @@ void CInterfaceAddUnitToMission::DisplaySlotsFromST()
 				NI_ASSERT_T( p1 != 0, NStr::Format( "Can not get text by key: emptyslot" ) );
 				pItem->SetWindowText( 0, p1->GetString() );
 
-				//уберем картинку
+				//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 				IUIElement *pPicture = pItem->GetChildByID( 11 );
 				pPicture->ShowWindow( UI_SW_HIDE );
 			}
@@ -371,11 +371,11 @@ void CInterfaceAddUnitToMission::UpdateUnitsList()
 	NI_ASSERT( pSelBar != 0 );
 	IUIElement *pSelElement = pSB->GetItem( nBar, nItem );
 	NI_ASSERT( pSelElement != 0 );
-	//в выбранном баре хранится тип юнитов
-	//в выбранном итеме хранится индекс выбранного юнита
+	//пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	//пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	
-	//заполняем choose ShortcutBar
-	//добавим бар с типом юнитов
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ choose ShortcutBar
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	{
 		IUIElement *pBar = pCSB->AddBar();
 		std::string szKey = NStr::Format( "textes\\RPGClasses\\class%d", pSelBar->GetWindowID() );
@@ -387,7 +387,7 @@ void CInterfaceAddUnitToMission::UpdateUnitsList()
 		pBar->SetWindowText( 1, pText->GetString() );
 	}
 
-	//узнаем какие юниты такого типа уже добавлены в миссию
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	std::list<int> addedUnits;
 	for ( int i=0; i<pSB->GetNumberOfItems(nBar); i++ )
 	{
@@ -397,25 +397,25 @@ void CInterfaceAddUnitToMission::UpdateUnitsList()
 			addedUnits.push_back( nIndex );
 	}
 	
-	//добавим юниты такого типа
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 	int nNumUnits = pST->GetNumUnits();
 	{
-		//добавим item для отмены выбора
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ item пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		IUIDialog *pItem = checked_cast<IUIDialog *>( pCSB->AddItem() );
 		pItem->GetChildByID( 10000 )->SetWindowID( 20000 + (-1) );
 		CPtr<IText> pText = pTextM->GetString( "clearunit" );
 		pItem->SetWindowID( -1 );
 
-		//установим имя юнита
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		pItem->SetWindowText( 0, pText->GetString() );
 
-		//уберем картинку
+		//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		IUIElement *pPicture = pItem->GetChildByID( 11 );
 		pPicture->ShowWindow( UI_SW_HIDE );
 
 		if ( pSelElement->GetWindowID() == -1 )
 		{
-			//выделяем этот item
+			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ item
 			pCSB->SetSelectionItem( 0, 0 );
 		}
 	}
@@ -424,11 +424,11 @@ void CInterfaceAddUnitToMission::UpdateUnitsList()
 		const SUnitBaseRPGStats *pRPG = pST->GetUnitRPGStats( z );
 		if ( pRPG->GetRPGClass() == pSelBar->GetWindowID() && !pST->IsUnitKilled( z ) )
 		{
-			//добавим item с такими RPG stats
+			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ item пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ RPG stats
 			IUIDialog *pItem = checked_cast<IUIDialog *>( pCSB->AddItem() );
 			FillUnitInfoItem( pRPG, pItem, z, false );
 			
-			//определим, добавлен ли этот юнит в миссию
+			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 			if ( z == pSelElement->GetWindowID() )
 			{
 				EnableItem( pItem, true );
@@ -487,7 +487,7 @@ void CInterfaceAddUnitToMission::SelectItem()
 	NI_ASSERT( pItem != 0 );
 	
 	ITextManager *pTextM = GetSingleton<ITextManager>();
-	//информируем об отмене
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	if ( pItem->GetWindowID() != -1 )
 	{
 		pST->RemoveUnitFromMission( pItem->GetWindowID() );
@@ -496,20 +496,20 @@ void CInterfaceAddUnitToMission::SelectItem()
 	pItem->SetWindowID( pCEl->GetWindowID() );
 	if ( pCEl->GetWindowID() == -1 )
 	{
-		//отмена выбора юнита
+		//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		CPtr<IText> pText = pTextM->GetString( "emptyslot" );
 		NI_ASSERT_T( pText != 0, NStr::Format( "Can not get text by key: emptyslot" ) );
 		pItem->SetWindowText( 0, pText->GetString() );
 		
-		//установим имя юнита
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		IUIElement *pElement = pItem->GetChildByID( 20 );
 		pElement->SetWindowText( 0, L"" );
 		
-		//имя командира
+		//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		pElement = pItem->GetChildByID( 21 );
 		pElement->SetWindowText( 0, L"" );
 		
-		//уберем картинку
+		//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		IUIElement *pPicture = pItem->GetChildByID( 11 );
 		pPicture->ShowWindow( UI_SW_HIDE );
 		
@@ -517,19 +517,19 @@ void CInterfaceAddUnitToMission::SelectItem()
 	}
 	else
 	{
-		//установим имя юнита
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		pItem->SetWindowText( 0, L"" );
 
 		IUIElement *pElement = pItem->GetChildByID( 20 );
 		IUIElement *pCElement = pCEl->GetChildByID( 20 );
 		pElement->SetWindowText( 0, pCElement->GetWindowText( 0 ) );
 		
-		//имя командира
+		//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		pElement = pItem->GetChildByID( 21 );
 		pCElement = pCEl->GetChildByID( 21 );
 		pElement->SetWindowText( 0, pCElement->GetWindowText( 0 ) );
 		
-		//установим картинку юнита
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		IUIElement *pPicture = pItem->GetChildByID( 11 );
 		pPicture->ShowWindow( UI_SW_SHOW );
 		IUIElement *pCPicure = pCEl->GetChildByID( 11 );
@@ -551,7 +551,7 @@ bool CInterfaceAddUnitToMission::ProcessMessage( const SGameMessage &msg )
 	{
 		case IMC_CANCEL:
 		{
-			//произвести обновление
+			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 			//choose shortcut bar
 			IScenarioTracker *pST = GetSingleton<IScenarioTracker>();
 			IUIShortcutBar *pSB = checked_cast<IUIShortcutBar *> ( pUIScreen->GetChildByID( 100 ) );
@@ -604,7 +604,7 @@ bool CInterfaceAddUnitToMission::ProcessMessage( const SGameMessage &msg )
 	
 	if ( msg.nEventID >= 20000 && msg.nEventID < 21000 )
 	{
-		//вызовем энциклопедию
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		std::string szTemp = NStr::Format( "%d;", E_UNIT );
 		
 		const SUnitBaseRPGStats *pRPG = GetSingleton<IScenarioTracker>()->GetUnitRPGStats( msg.nEventID - 20000 );

@@ -20,7 +20,7 @@ struct SSimpleFilter
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 };
-typedef std::hash_map<std::string, SSimpleFilter> TFilterHashMap;
+typedef std::unordered_map<std::string, SSimpleFilter> TFilterHashMap;
 
 int CALLBACK FiltersCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

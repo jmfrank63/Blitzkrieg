@@ -493,8 +493,8 @@ void CTabAIGeneralDialog::GetUnitsCountByScriptID( int nScriptID, int nSide, CTe
 	IAIEditor* pAIEditor = GetSingleton<IAIEditor>();
 	std::set<IRefCount*> squads;
 	
-	//не сквады
-	for ( std::hash_map<SMapObject*, SEditorObjectItem*, SDefaultPtrHash>::const_iterator objectsIterator = pFrame->m_objectsAI.begin(); objectsIterator != pFrame->m_objectsAI.end(); ++objectsIterator )
+	//пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	for ( std::unordered_map<SMapObject*, SEditorObjectItem*, SDefaultPtrHash>::const_iterator objectsIterator = pFrame->m_objectsAI.begin(); objectsIterator != pFrame->m_objectsAI.end(); ++objectsIterator )
 	{
 		IRefCount *pSquad = GetSingleton<IAIEditor>()->GetFormationOfUnit( objectsIterator->first->pAIObj );
 		if ( !pSquad )
@@ -519,7 +519,7 @@ void CTabAIGeneralDialog::GetUnitsCountByScriptID( int nScriptID, int nSide, CTe
 		}
 	}
 	
-	//собрали всевозможные сквады, теперь пробежимся по ним
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ
 	for( std::set< IRefCount* >::iterator squadIterator = squads.begin(); squadIterator != squads.end(); ++squadIterator )
 	{
 		IRefCount **pUnits;

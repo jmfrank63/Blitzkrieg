@@ -9,10 +9,10 @@ class CGlobalVars : public IGlobalVars
 {
 	OBJECT_NORMAL_METHODS( CGlobalVars );
 	//
-	typedef std::hash_map<std::string, std::string> CValuesMap;
+	typedef std::unordered_map<std::string, std::string> CValuesMap;
 	CValuesMap values;
 	
-	typedef std::hash_map<std::string, std::wstring> CWValuesMap;
+	typedef std::unordered_map<std::string, std::wstring> CWValuesMap;
 	CWValuesMap wValues;
 public:
 	virtual const char* STDCALL GetVar( const char *pszValueName ) const
@@ -93,13 +93,13 @@ public:
 	//
 	virtual void STDCALL SetVar( const char *pszValueName, const WORD *pszValue )
 	{
-		wValues[pszValueName] = pszValue;
+		wValues[pszValueName] = reinterpret_cast<const wchar_t*>(pszValue);
 	}
 
 	virtual const WORD* STDCALL GetWVar( const char *pszValueName ) const
 	{
 		CWValuesMap::const_iterator pos = wValues.find( pszValueName );
-		return pos == wValues.end() ? 0 : pos->second.c_str();
+		return pos == wValues.end() ? 0 : reinterpret_cast<const WORD*>(pos->second.c_str());
 	}
 
 	virtual void STDCALL RemoveWVar( const char *pszValueName )
@@ -128,7 +128,7 @@ public:
 	virtual int STDCALL operator&( IStructureSaver &ss )
 	{
 		CSaverAccessor saver = &ss;
-		// CRAP{ не сохраняем video mode в сейве и options
+		// CRAP{ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ video mode пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ options
 		if ( saver.IsReading() ) 
 		{
 			std::list< std::pair<std::string, std::string> > vals2restore;

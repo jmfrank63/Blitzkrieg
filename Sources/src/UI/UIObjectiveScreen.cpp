@@ -16,7 +16,7 @@ int CUIObjectiveScreen::operator&( IDataTree &ss )
 	
 	if ( saver.IsReading() )
 	{
-		//инициализируем pSB
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ pSB
 		pSB = checked_cast<IUIShortcutBar *> ( GetChildByID(10) );
 		//		NI_ASSERT_T( pSB != 0, "Can't find ShortcutBar with ID 10" );
 	}
@@ -32,7 +32,7 @@ int CUIObjectiveScreen::operator&( IStructureSaver &ss )
 	
 	if ( saver.IsReading() )
 	{
-		//инициализируем pSB
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ pSB
 		CPtr<IUIElement> pElement;
 		saver.Add( 3, &pElement );
 		pSB = checked_cast<IUIShortcutBar *> ( pElement.GetPtr() );
@@ -70,7 +70,7 @@ void CUIObjectiveScreen::ShowWindow( int _nCmdShow )
 		return;
 	}
 	
-	//считаем Objectives
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ Objectives
 	ITextManager *pTM = GetSingleton<ITextManager>();
 	CPtr<IDataStorage> pStorage = GetSingleton<IDataStorage>();
 
@@ -97,7 +97,7 @@ void CUIObjectiveScreen::ShowWindow( int _nCmdShow )
 			
 			nObjectiveState = GetGlobalVar( szObjName.c_str(), nDefault );
 			if ( nObjectiveState == -1 )
-				continue;		//objective не виден
+				continue;		//objective пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		}
 */
 
@@ -109,7 +109,7 @@ void CUIObjectiveScreen::ShowWindow( int _nCmdShow )
 		
 		nObjectiveState = GetGlobalVar( szObjName.c_str(), nDefault );
 		if ( nObjectiveState == -1 )
-			continue;		//objective не виден
+			continue;		//objective пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		
 		//Add bar
 		IUIDialog *pDialog = checked_cast<IUIDialog *> ( pSB->AddBar() );
@@ -151,7 +151,7 @@ void CUIObjectiveScreen::ShowWindow( int _nCmdShow )
 
 		//Add text item
 		CPtr<IText> p2 = pTM->GetDialog( pStats->objectives[i].szDescriptionText.c_str() );
-		NI_ASSERT_TF( p2 != 0, NStr::Format( "There is no file %s", pStats->objectives[i].szDescriptionText ), continue );		//не нашла ресурс
+		NI_ASSERT_TF( p2 != 0, NStr::Format( "There is no file %s", pStats->objectives[i].szDescriptionText ), continue );		//пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		pSB->AddTextItem( p2->GetString() );
 	}
 	pSB->InitialUpdate();

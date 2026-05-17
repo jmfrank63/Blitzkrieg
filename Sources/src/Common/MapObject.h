@@ -74,10 +74,10 @@ struct SMapObject : public IMapObj
 {
 	DECLARE_SERIALIZE;
 public:
-	CPtr<IRefCount> pAIObj;								// AI unit для связи с AI
-	CPtr<IVisObj> pVisObj;								// visual object - то, что рисуетс
-	CPtr<IVisObj> pShadow;								// тень от этого объекта. может быть равна нулю!!!
-	CGDBPtr<SGDBObjectDesc> pDesc;				// game DB entry - структурка из игровой базы данных, описывающая объект
+	CPtr<IRefCount> pAIObj;								// AI unit пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ AI
+	CPtr<IVisObj> pVisObj;								// visual object - пїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	CPtr<IVisObj> pShadow;								// пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ!!!
+	CGDBPtr<SGDBObjectDesc> pDesc;				// game DB entry - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	CGDBPtr<SHPObjectRPGStats> pRPG;			// RPG stats for all objects and units
 	BYTE diplomacy;												// diplomacy settings for this object
 	bool bCanSelect;											// can object be selected?
@@ -206,7 +206,7 @@ interface IMOUnit : public IMOContainer
 	// CRAP{ for animations testing
 	virtual void STDCALL AddAnimation( const SUnitBaseRPGStats::SAnimDesc *pDesc ) = 0;
 	// CRAP}
-	// для асков
+	// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	virtual void STDCALL AIUpdateAcknowledgement( const EUnitAckType eAck, interface IClientAckManager *pAckManager, const int nSet ) = 0;
 	virtual void STDCALL AIUpdateBoredAcknowledgement( const struct SAIBoredAcknowledgement &ack, interface IClientAckManager *pAckManager ) = 0;
 	// remove all sounds that attached to this unit
@@ -230,10 +230,10 @@ interface IMOSquad : public IMOContainer
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::list< CPtr<SMapObject> > CMapObjectsList;
 typedef std::list<SMapObject*> CMapObjectsPtrList;
-typedef std::hash_map<IRefCount*, CObj<SMapObject>, SDefaultPtrHash> CMapObjectsMap;
-typedef std::hash_set<SMapObject*, SDefaultPtrHash> CMapObjectsSet;
+typedef std::unordered_map<IRefCount*, CObj<SMapObject>, SDefaultPtrHash> CMapObjectsMap;
+typedef std::unordered_set<SMapObject*, SDefaultPtrHash> CMapObjectsSet;
 //
-typedef std::hash_map<IRefCount*, CPtr<SBridgeSpanObject>, SDefaultPtrHash> CBridgeSpanObjectsMap;
+typedef std::unordered_map<IRefCount*, CPtr<SBridgeSpanObject>, SDefaultPtrHash> CBridgeSpanObjectsMap;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IText* GetLocalName( const SGDBObjectDesc *pDesc );
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

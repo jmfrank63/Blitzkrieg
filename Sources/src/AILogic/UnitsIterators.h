@@ -103,7 +103,7 @@ class CGlobalIter
 	int nCurParty;
 	int nParties;
 	std::vector<BYTE> parties;
-	std::hash_set<int> visitedUnits;
+	std::unordered_set<int> visitedUnits;
 public:
 	CGlobalIter() : parties( 3/*SAIConsts::MAX_NUM_OF_PARTIES*/ ) { }
 	CGlobalIter( const BYTE cStartDipl, const BYTE cFilter ) : parties( 3/*SAIConsts::MAX_NUM_OF_PARTIES*/ ) { Init( cStartDipl, cFilter ); }

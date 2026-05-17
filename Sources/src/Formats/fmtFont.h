@@ -35,8 +35,8 @@ struct SFontFormat
 		int operator&( IStructureSaver &ss );
 	};
 	//
-	typedef std::hash_map<WORD, SCharDesc> CCharacterMap;
-	typedef std::hash_map<DWORD, float> CKernMap;
+	typedef std::unordered_map<WORD, SCharDesc> CCharacterMap;
+	typedef std::unordered_map<DWORD, float> CKernMap;
 	//
 	std::string szFaceName;								// face name of the font
 	SFontMetrics metrics;									// font metrics

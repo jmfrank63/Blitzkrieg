@@ -4,8 +4,8 @@
 #include "SampleSounds.h"
 #include "StreamFadeOff.h"
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-typedef std::hash_map<ISound*, int, SDefaultPtrHash> CSoundChannelMap;
-typedef std::hash_map<int, CPtr<ISound> > CChannelSoundMap;
+typedef std::unordered_map<ISound*, int, SDefaultPtrHash> CSoundChannelMap;
+typedef std::unordered_map<int, CPtr<ISound> > CChannelSoundMap;
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoundEngine : public ISFX
 {

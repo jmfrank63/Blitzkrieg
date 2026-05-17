@@ -143,7 +143,7 @@ void CSoldier::SetInTransport( class CMilitaryCar *pUnit )
 {
 	pObjInside = pUnit;
 	eInsideType = EOIO_TRANSPORT;
-	// на броне
+	// пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	if ( pUnit->GetStats()->IsArmor() || pUnit->GetStats()->IsSPG() )
 		SetToFirePlace();
 	else
@@ -194,7 +194,7 @@ void CSoldier::MoveToEntrenchFireplace( const CVec3 &coord, const int _nSlot )
 
 	slotInfo.nSlot = _nSlot;
 
-	// CRAP{ чтобы не падала
+	// CRAP{ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	if ( IsInEntrenchment() )
 	{
 	// CRAP}
@@ -495,7 +495,7 @@ void CSoldier::Segment()
 			pBuilding->GetGunInFireSlot( GetSlot(), i )->Segment();
 	}
 
-	//для инженеров ( было, теперь все сканируют )
+	//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ( пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ )
 	if (	/*pStats->type == RPG_TYPE_ENGINEER && EUSN_CLEAR_MINE == GetFormation()->GetState()->GetName() &&*/
 				curTime - lastMineCheck > SConsts::ENGINEER_MINE_CHECK_PERIOD )
 	{
@@ -530,7 +530,7 @@ void CSoldier::FreezeSegment()
 		}
 	}
 
-	// обстрел закончился
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	if ( bLying && ( !IsInFormation() || GetFormation()->IsAllowedStandUp() ) && curTime - lastHit >= SConsts::TIME_OF_LYING_UNDER_FIRE + Random( 0.0f, SConsts::STAND_LIE_RANDOM_DELAY ) )
 		StandUp();
 
@@ -563,7 +563,7 @@ const float CSoldier::GetMaxPossibleSpeed() const
 	else
 		fSpeed = CAIUnit::GetMaxPossibleSpeed();
 
-	// в формации
+	// пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	if ( IsFree() && IsValidObj( pFormation ) )
 		fSpeed *= pFormation->GetCurSpeedBonus();
 
@@ -736,7 +736,7 @@ float CSoldier::GetSightMultiplier() const
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CSoldier::GetSightRadius() const
 {
-	// если в атакуемом объекте, то ничего не видно
+	// пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	if ( IsInBuilding() && GetBuilding()->IsAnyAttackers() || IsInEntrenchment() && GetEntrenchment()->IsAnyAttackers() )
 		return 0;
 	else if ( fOwnSightRadius > 0 )
@@ -749,7 +749,7 @@ void CSoldier::PrepareToDelete()
 {
 	if ( IsAlive() )
 	{
-		// удалить из статич. объекта, если нужно
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		if ( IsInBuilding() )
 			GetBuilding()->DelInsider( this );
 		else if ( IsInEntrenchment() )
@@ -757,7 +757,7 @@ void CSoldier::PrepareToDelete()
 		else if ( IsInTransport() )
 			GetTransportUnit()->DelPassenger( this );
 
-		// удалить из формации, если нужно
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		if ( IsInFormation() )
 		{
 			pFormation->DelUnit( GetFormationSlot() );
@@ -1120,7 +1120,7 @@ void CSniper::Segment()
 		lastVisibilityCheck = curTime;
 		bVisible = false;
 		const float fMaxVisRadius = 30 * SConsts::TILE_SIZE;
-		std::hash_set<SVector, STilesHash> visitedTiles;
+		std::unordered_set<SVector, STilesHash> visitedTiles;
 
 		SSniperTrace sniperTracer( this );
 		const SVector curCenterTile( GetTile() );

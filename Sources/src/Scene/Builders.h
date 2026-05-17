@@ -128,7 +128,7 @@ void CreateCrosses( const float fX, const float fY, const STerrainPatchInfo &pat
 										const STilesetDesc &tileset, const SCrossetDesc &crosset, 
 										const float fNoiseSizeX, const float fNoiseSizeY, struct STerrainPatch *pPatch );
 //
-void CreateWarFog( const float fX, const float fY, int nStartX, int nStartY, const std::hash_map<DWORD, DWORD> &visibilities, 
+void CreateWarFog( const float fX, const float fY, int nStartX, int nStartY, const std::unordered_map<DWORD, DWORD> &visibilities, 
 									 const STerrainInfo &info, struct STerrainPatch *pPatch );
 void CreateMarker( const float fX, const float fY, const std::vector< CTPoint<int> > &marker, const STerrainInfo &info,
 									 IGFXVertices *pVertices, IGFXIndices *pIndices );

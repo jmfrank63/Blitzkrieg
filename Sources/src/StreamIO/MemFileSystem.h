@@ -66,7 +66,7 @@ class CMemFileSystem : public IDataStorage
 	OBJECT_MINIMAL_METHODS( CMemFileSystem );
 	std::string szBase;
 	DWORD dwStorageAccessMode;
-	typedef std::hash_map< std::string, CPtr<IDataStream> > CStreamsMap;
+	typedef std::unordered_map< std::string, CPtr<IDataStream> > CStreamsMap;
 	CStreamsMap streams;
 public:
 	CMemFileSystem( DWORD dwAccessMode );

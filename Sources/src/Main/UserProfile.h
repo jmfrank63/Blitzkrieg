@@ -8,7 +8,7 @@
 struct STemplateUsage
 {
 	int nCount;
-	std::hash_map<std::string, int> graphs;
+	std::unordered_map<std::string, int> graphs;
 	//
 	int operator&( IDataTree &ss )
 	{
@@ -62,25 +62,25 @@ class CUserProfile : public CTRefCount<IUserProfile>
 	OBJECT_SERVICE_METHODS( CUserProfile );
 
 	// user variables
-	typedef std::hash_map<std::string, int> CVariables;
+	typedef std::unordered_map<std::string, int> CVariables;
 	CVariables variables;
 	// help screens tracking
 	//std::list<int> helpscreens;					// called help screens
-	typedef std::hash_map<int/*interface ID*/,WORD/*help mask*/> CHelpscenes;
+	typedef std::unordered_map<int/*interface ID*/,WORD/*help mask*/> CHelpscenes;
 	CHelpscenes helpscreens;
 	// cutscenes
 	std::vector<std::string> cutscenes;		// available cutscenes
 	// templates usage statistics
-	typedef std::hash_map<std::string, STemplateUsage> CTemplateUsageMap;
+	typedef std::unordered_map<std::string, STemplateUsage> CTemplateUsageMap;
 	CTemplateUsageMap templates;					// templates usage statistics
 	std::vector<int> templateAngles;			// angles usage statistics
 	// chat relations
-	typedef std::hash_map<std::wstring, enum EPlayerRelation> CChatRelations;
+	typedef std::unordered_map<std::wstring, enum EPlayerRelation> CChatRelations;
 	CChatRelations chatRelations;
 	// MOD support
 	std::string szMOD;										// MOD name
 	// load count
-	typedef std::hash_map<GUID, int, SGUIDHashFunc, SGUIDEqual> CLoadsMap;
+	typedef std::unordered_map<GUID, int, SGUIDHashFunc, SGUIDEqual> CLoadsMap;
 	CLoadsMap loadCounters;
 	//
 	bool bChanged;												// was user profile changed?

@@ -30,7 +30,7 @@ const std::string GetSourceControlName( const SProject *pProject, const std::str
 		szSourceName = pProject->szSourceControl + szFilePath.substr( szFilePath.rfind('\\') + 1 );
 	else
 		szSourceName = pProject->szSourceControl + szFilePath.substr( pProject->szPathName.size(), std::string::npos );
-	std::replace_if( szSourceName.begin(), szSourceName.end(), std::bind2nd( std::equal_to<char>(), '\\' ), '/' );
+	std::replace_if( szSourceName.begin(), szSourceName.end(), [](char c){ return c == '\\'; }, '/' );
 	return szSourceName;
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

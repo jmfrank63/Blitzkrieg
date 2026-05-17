@@ -7,9 +7,9 @@ template < class TKey, class TValue, int NClassTypeID, class THash = std::hash<T
 class CBasicShare
 {
 public:	
-	typedef std::hash_map< TKey, CObj<TValue>, THash > CDataHash;
-	typedef CDataHash::iterator iterator;
-	typedef CDataHash::const_iterator const_iterator;
+	typedef std::unordered_map< TKey, CObj<TValue>, THash > CDataHash;
+	typedef typename CDataHash::iterator iterator;
+	typedef typename CDataHash::const_iterator const_iterator;
 private:
 	int nID;															// data identifier for this share
 	CDataHash data;												// data
@@ -156,9 +156,9 @@ public:
 	//
 	const TKey* GetKey( TValue *pValue )
 	{
-		for ( CDataHash::const_iterator it = data.begin(); it != data.end(); ++it )
+		for ( typename CDataHash::const_iterator it = data.begin(); it != data.end(); ++it )
 		{
-			if ( it->second == pValue )
+			if ( it->second.GetPtr() == pValue )
 				return &( it->first );
 		}
 		return 0;

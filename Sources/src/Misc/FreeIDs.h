@@ -3,6 +3,9 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#include <unordered_set>
+#include <vector>
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //*******************************************************************
 //*											Free Identifiers														*
 //*******************************************************************
@@ -12,7 +15,7 @@ class CFreeIds
 	enum { NUM_OF_ELEMENTS = 200 };
 
 	//CRAP{ for testing
-	std::hash_set<int> givenIDs;
+	std::unordered_set<int> givenIDs;
 	//CRAP}
 	
 	std::vector<int> nexts;
@@ -54,7 +57,7 @@ public:
 		{
 			std::vector<WORD> nextsWord;
 			std::vector<WORD> predsWord;
-			std::hash_set<WORD> givenIDsWord;
+			std::unordered_set<WORD> givenIDsWord;
 
 			saver.Add( 1, &nextsWord );
 			saver.Add( 2, &predsWord );

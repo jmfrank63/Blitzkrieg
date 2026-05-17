@@ -80,14 +80,14 @@ class CScreen : public CWindow, public IScreen
 
 	//CRAP{ for observers to start work
 	typedef std::list< CPtr<IGMObserver> > CObserversList;
-	typedef std::hash_map<std::string, CObserversList> CObservers;
+	typedef std::unordered_map<std::string, CObserversList> CObservers;
 	CObservers observers;
 	//CRAP}
 	
 	// all possible command sequiences possible on this screen
 	// when some window generates command sequience it only 
 	// sends it's id
-	typedef std::hash_map<std::string, SUICommandSequence> CCommandSequiences;
+	typedef std::unordered_map<std::string, SUICommandSequence> CCommandSequiences;
 	CCommandSequiences commandSequiences;
 	
 	void ProcessStateSequiences( const NTimer::STime timeDiff );

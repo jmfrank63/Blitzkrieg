@@ -41,8 +41,8 @@ protected:
 
 public:
 	
-	//std::hash_map<MAKELPARAM(номер сезона, номер_тайла), номер_картинки в листе>
-	std::hash_map<int, int> seasonTilesIndices;
+	//std::unordered_map<MAKELPARAM(пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ_пїЅпїЅпїЅпїЅпїЅ), пїЅпїЅпїЅпїЅпїЅ_пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ>
+	std::unordered_map<int, int> seasonTilesIndices;
 	void CreateTilesList( const std::string &rszSeasonFolder, int nSelectedTileIndex );
 
 	//MODs support

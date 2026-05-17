@@ -25,7 +25,7 @@ class CCursor : public ICursor
 	CPtr<ITextureManager> pTM;
 	//
 	EUpdateMode eUpdateMode;							// update mode - from Windows and from IInput
-	typedef std::hash_map<int, SCursorMode> CCursorsModeMap;
+	typedef std::unordered_map<int, SCursorMode> CCursorsModeMap;
 	CCursorsModeMap modes;								// all loaded modes
 	SCursorMode *pMode;										// current mode
 	int nCurrMode;												// current mode index

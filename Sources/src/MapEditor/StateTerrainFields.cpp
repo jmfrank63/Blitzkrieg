@@ -136,7 +136,7 @@ void CFieldsEditState::OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags, CTempla
 				pFrame->RedrawWindow();
 			}
 		}
-		//не надо
+		//пїЅпїЅ пїЅпїЅпїЅпїЅ
 		//pFrame->RedrawWindow();
 	}
 }
@@ -233,7 +233,7 @@ void CFieldsAddState::OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags, CTemplat
 				pFrame->RedrawWindow();
 			}
 		}
-		//не надо
+		//пїЅпїЅ пїЅпїЅпїЅпїЅ
 		//pFrame->RedrawWindow();
 	}
 }
@@ -392,7 +392,7 @@ void CFieldsState::PlaceField( bool bPlace )
 					polygon = cutPolygon;
 				}
 
-				//подчистим все чтобы не было обидно больно
+				//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 				if ( pFrame->dlg ) 
 				{
 					pFrame->dlg->DestroyWindow();
@@ -408,11 +408,11 @@ void CFieldsState::PlaceField( bool bPlace )
 
 				pFrame->m_currentMovingObjectPtrAI = 0;
 				pFrame->m_currentMovingObjectsAI.clear();
-				//подчистили вроде
+				//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 				//remove objects
 				if ( pTabTerrainFieldsDialog->resizeDialogOptions.nParameters[1] > 0 )
 				{
-					//пока пропустили
+					//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 				}
 
 				SRMFieldSet fieldSet;
@@ -440,7 +440,7 @@ void CFieldsState::PlaceField( bool bPlace )
 
 					if ( bFillTerrain )
 					{
-						std::hash_map<LPARAM, float> distances;
+						std::unordered_map<LPARAM, float> distances;
 						const std::list<std::list<CVec2> > exclusivePolygons;
 						
 						//fill terrain

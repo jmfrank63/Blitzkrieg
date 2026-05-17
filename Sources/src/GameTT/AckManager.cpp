@@ -301,7 +301,7 @@ void CClientAckManager::AddAcknowledgement( interface IMOUnit *pUnit, const enum
 			return;
 	}
 
-	//выяснить какой тип у этого аска
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 	NI_ASSERT_T( acksInfo.find( eAck ) != acksInfo.end(), NStr::Format( "unredistered Ack %d", eAck ) );
 	NI_ASSERT_T( pUnit->IsValid(), "added ack from invalid unit" );
 
@@ -322,17 +322,17 @@ void CClientAckManager::AddAcknowledgement( interface IMOUnit *pUnit, const enum
 		break;
 	case ACKT_NEGATIVE:
 		{
-			// найти все позитивы в очереди и убрать.
+			// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.
 			CAckPredicate  pr( acksInfo, ACKT_POSITIVE );
 			CAcks::iterator positives = std::remove_if( unitAcks[pUnit].acks.begin(), unitAcks[pUnit].acks.end(), pr );
 			if ( positives == unitAcks[pUnit].acks.end() ) 
 			{
-				// ни одного Positive, Negative игнорировать
+				// пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ Positive, Negative пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 			}
 			else
 			{
 				unitAcks[pUnit].acks.erase( positives, unitAcks[pUnit].acks.end() );
-				// добавить этот аск в очередь
+				// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 				unitAcks[pUnit].acks.push_back( ack );
 			}
 		}
@@ -380,7 +380,7 @@ void CClientAckManager::AddAcknowledgement( interface IMOUnit *pUnit, const enum
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 DWORD CClientAckManager::GetMessageColor( enum CClientAckManager::EAcknowledgementColor eColor )
 {
-	//CRAP{ сезон спрашивать как положено
+	//CRAP{ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	switch ( eColor) 
 	{
 	case ACOL_INFORMATION:
@@ -427,7 +427,7 @@ void CClientAckManager::Update( interface IScene * pScene )
 
 	if ( !pTimer->IsPaused() )
 	{
-		for ( std::hash_map<int, CBoredUnitsContainer>::iterator it = boredUnits.begin(); it != boredUnits.end(); ++it )
+		for ( std::unordered_map<int, CBoredUnitsContainer>::iterator it = boredUnits.begin(); it != boredUnits.end(); ++it )
 		{
 			const EUnitAckType eType = static_cast<EUnitAckType>( (*it).first );
 			(*it).second.SendAck( curTime, eType, this, acksInfo[eType].nTimeAfterPrevious  );
@@ -466,12 +466,12 @@ void CClientAckManager::Update( interface IScene * pScene )
 				SAck &addedAck = *ack.acks.begin();
 				const SUnitAckInfo & currentAskInfo = acksInfo[addedAck.eAck];
 				
-				// если время для позитивного не пришло
+				// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 				if ( currentAskInfo.eType == ACKT_POSITIVE && ack.timeRun > curTime )
 					continue;
 				
-				//проверить не запущен ли уже Ack данного типа.
-				// если играется, то звук не запускать.
+				//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ Ack пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ.
+				// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
 				if ( acksPresence.find(addedAck.eAck) == acksPresence.end() ||
 						 curTime - acksPresence[int(addedAck.eAck)] >= currentAskInfo.nTimeAfterPrevious )
 				{

@@ -51,9 +51,9 @@ public:
 	//usese tempBuffer
 	virtual void STDCALL SetSelectionOption( const std::vector<SOptionDropListValue> &szSelections, const int nDefault );
 	virtual void STDCALL SetSliderOption( const int nMin, const int nMax, const int nDefault );
-	virtual void STDCALL SetTextOption( const WORD *pszEntry );
+	virtual void STDCALL SetTextOption( const wchar_t *pszEntry );
 	virtual void STDCALL SetTextNumericOption( const int nEntry );
-	virtual void STDCALL SetTextGameSpyOption( const WORD *pszEntry );
+	virtual void STDCALL SetTextGameSpyOption( const wchar_t *pszEntry );
 
 	virtual void STDCALL ResetSelection();
 	virtual void STDCALL ResetSlider();
@@ -64,8 +64,8 @@ public:
 	//interface IUIGetOptionsFromUI
 	virtual int STDCALL GetSelectionOption() const;
 	virtual int STDCALL GetSliderOption() const ;
-	virtual const WORD * STDCALL GetTextOption () const ;
-	virtual const WORD * STDCALL GetTextGameSpyOption() const ;
+	virtual const wchar_t * STDCALL GetTextOption () const ;
+	virtual const wchar_t * STDCALL GetTextGameSpyOption() const ;
 	virtual const int STDCALL GetTextNumericOption() const;
 };
 typedef std::list<SOptionDesc> OptionDescs;

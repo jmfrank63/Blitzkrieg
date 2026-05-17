@@ -19,7 +19,7 @@ class CCustomMessageReaction
 		}
 	};
 
-	typedef std::hash_map<std::string, SReactionDescriptor> CReactions;
+	typedef std::unordered_map<std::string, SReactionDescriptor> CReactions;
 	CReactions reactions;
 public:
 

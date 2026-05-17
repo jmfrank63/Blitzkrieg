@@ -11,7 +11,7 @@
 #include "FileUtils.h"
 #include "AutoRunDialog.h"
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-bool SARButton::Load( const std::string &rszName, CIniFile& rIniFile, std::hash_map<std::string, SARMenu> *pMenus, const SARMainSection &rMainSection )
+bool SARButton::Load( const std::string &rszName, CIniFile& rIniFile, std::unordered_map<std::string, SARMenu> *pMenus, const SARMainSection &rMainSection )
 {
 	char pBuffer[0xFFF];
 	dwPresentState = static_cast<DWORD>( rIniFile.GetInt( rszName.c_str(), "PresentState", GAME_INSTALLED | GAME_NOT_INSTALLED ) );	
@@ -73,7 +73,7 @@ bool SARButton::Load( const std::string &rszName, CIniFile& rIniFile, std::hash_
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-bool SARMenu::Load( const std::string &rszName, CIniFile& rIniFile, std::hash_map<std::string, SARMenu> *pMenus,  const SARMainSection &rMainSection )
+bool SARMenu::Load( const std::string &rszName, CIniFile& rIniFile, std::unordered_map<std::string, SARMenu> *pMenus,  const SARMainSection &rMainSection )
 {
 	buttons.clear();
 	char pBuffer[0xFFF];

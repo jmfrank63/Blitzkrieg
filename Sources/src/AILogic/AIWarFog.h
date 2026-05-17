@@ -313,7 +313,7 @@ class CGlobalWarFog
 	std::vector<BYTE> miniMapSums;
 
 	// open script areas
-	std::hash_set<std::string> areas;
+	std::unordered_set<std::string> areas;
 	CArray2D1Bit areasOpenTiles;
 
 	//

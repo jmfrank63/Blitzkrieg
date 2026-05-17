@@ -37,7 +37,7 @@ public:
 		return false;
 	}
 
-	// устанавливает параметры для той же точки на обратном ребре ( (v1, v2) -> (v2, v1) )
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ ( (v1, v2) -> (v2, v1) )
 	void Reverse( IEdge *pReversedEdge );
 
 	//
@@ -53,7 +53,7 @@ struct SEdgeLessFunctional
 	bool operator ()( const CPtr<CEdgePoint> &point1, const CPtr<CEdgePoint> &point2 ) const { return point1->Less( *point2 ); }
 };
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// расстояние между точками на одном ребре
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 const float fabs( CEdgePoint *p1, CEdgePoint *p2 );
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IEdge : public IRefCount
@@ -78,9 +78,9 @@ interface IEdge : public IRefCount
 	virtual const CVec2 GetFirst2DPoint() const = 0;
 	virtual const CVec2 GetLast2DPoint() const = 0;
 
-	// длина для графа
+	// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	virtual const float GetLength() const = 0;
-	// расстояние между двумя точками на этом ребре
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	virtual const float GetLength( CEdgePoint *p1, CEdgePoint *p2 ) = 0;
 	virtual void GetClosestPoints( const CVec2 &vPoint, std::list< CPtr<CEdgePoint> > *pPoints, float *pfMinDist, const float fTolerance = SConsts::CLOSEST_TO_RAILROAD_POINT_TOLERANCE ) = 0;
 
@@ -107,13 +107,13 @@ class CSplineEdge : public IEdge
 
 	std::vector<SEdgePart> edgeParts;
 
-	// номера вершин начала и конца ребра
+	// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	int v1, v2;
 	float fEdgeLength;
 
-	// длина части nPart от fBegin до fEnd
+	// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ nPart пїЅпїЅ fBegin пїЅпїЅ fEnd
 	const float CalculateLengthOfEdgePart( const int nPart, const float fBegin, const float fEnd );
-	// длина всего ребра
+	// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	void CalculateEdgeLength();
 	void Init( CEdgePoint *p1, CEdgePoint *p2 );
 	CEdgePoint* MakeIndentOnOneSpline( const CVec2 &vPointToMeasureDist, const int nPart, const float fTBegin, const float fTEnd, float fDist );
@@ -143,7 +143,7 @@ public:
 	virtual const CVec2 GetLast2DPoint() const;
 
 	virtual const float GetLength() const { NI_ASSERT_T( fEdgeLength >= 0.0f, "Edge length hasn't been initialized" ); return fEdgeLength; }
-	// расстояние между двумя точками на этом ребре
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	virtual const float GetLength( CEdgePoint *p1, CEdgePoint *p2 );
 	virtual void GetClosestPoints( const CVec2 &vPoint, std::list< CPtr<CEdgePoint> > *pPoints, float *pfMinDist, const float fTolerance = SConsts::CLOSEST_TO_RAILROAD_POINT_TOLERANCE );
 
@@ -176,7 +176,7 @@ class CZeroEdge : public IEdge
 	float fLength;
 public:
 	CZeroEdge() : fLength( -1.0f ) { }
-	// переход от точки p1 одного ребра до точки p2 другого ребра по нулевому ребру
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ p1 пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ p2 пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	CZeroEdge( CEdgePoint *p1, CEdgePoint *p2 );
 
 	IEdge* CreateEdge( CEdgePoint *p1, CEdgePoint *p2 );
@@ -200,7 +200,7 @@ public:
 	virtual const CVec2 GetLast2DPoint() const { return vFirstPoint + vDir * fTEnd; }
 
 	virtual const float GetLength() const { NI_ASSERT_T( fLength >= 0.0f, "Edge length hasn't been initialized" ); return 0; }
-	// расстояние между двумя точками на этом ребре
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	virtual const float GetLength( CEdgePoint *p1, CEdgePoint *p2 ) { return 0; }
 	virtual void GetClosestPoints( const CVec2 &vPoint, std::list< CPtr<CEdgePoint> > *pPoints, float *pfMinDist, const float fTolerance = SConsts::CLOSEST_TO_RAILROAD_POINT_TOLERANCE );
 
@@ -217,7 +217,7 @@ class CRailroad : public CSplineEdge
 	std::vector< CPtr<CEdgePoint> > intersectionPoints;
 	int nIntersectionPoints;
 
-	std::hash_map< CPtr<CEdgePoint>, int, SDefaultPtrHash > intersectionPointToGraphNode;
+	std::unordered_map< CPtr<CEdgePoint>, int, SDefaultPtrHash > intersectionPointToGraphNode;
 public:
 	CRailroad() : nIntersectionPoints( 0 ), intersectionPoints( 10 ) { }
 	explicit CRailroad( const struct SVectorStripeObject &edgeDescriptor ) : nIntersectionPoints( 0 ), intersectionPoints( 10 ), CSplineEdge( edgeDescriptor ) { }
@@ -277,14 +277,14 @@ class CRailroadGraph : public CGraph
 {
 	DECLARE_SERIALIZE;
 
-	std::hash_map< DWORD, CObj<IEdge> > edges;
+	std::unordered_map< DWORD, CObj<IEdge> > edges;
 	std::vector< CObj<CEdgePoint> > edgeNodes;
 
 	//
-	void LookForPoint( const int v, const CVec2 &vDir, std::hash_set<int> *pVisitedPoints, std::list<SPointInfo> *pPointsList );
-	// возвращает v2 такую, что поезд с ребра с направлением vDir мог проехать на ребро ( v, v2 ) и dir был как можно ближе с vDir
-	// если v2 не найдена, то возвращает -1
-	void GetMovablePoint( const int v, const CVec2 &vDir, std::hash_set<int> *pVisitedPoints, std::list<SPointInfo> *pPointsList );
+	void LookForPoint( const int v, const CVec2 &vDir, std::unordered_set<int> *pVisitedPoints, std::list<SPointInfo> *pPointsList );
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ v2 пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ vDir пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ ( v, v2 ) пїЅ dir пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ vDir
+	// пїЅпїЅпїЅпїЅ v2 пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ -1
+	void GetMovablePoint( const int v, const CVec2 &vDir, std::unordered_set<int> *pVisitedPoints, std::list<SPointInfo> *pPointsList );
 public:
 	CRailroadGraph() : edgeNodes( 10 ) { }
 	void Clear();
@@ -292,12 +292,12 @@ public:
 	void AddEdge( IEdge *pEdge );
 	virtual const float GetEdgeLength( const int v1, const int v2 );
 
-	// vConnectionNode - ближайшие вершины должны лежать в той же компоненте связности, что и vConnectionNode, если vConnectionNode == -1, то в любой
+	// vConnectionNode - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅ vConnectionNode, пїЅпїЅпїЅпїЅ vConnectionNode == -1, пїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ
 	void GetClosestPoints( const CVec2 &vPoint, std::list< CPtr<CEdgePoint> > *pPoints, float *pfMinDist, const int vConnectionNode, const float fTolerance = SConsts::CLOSEST_TO_RAILROAD_POINT_TOLERANCE );
 
-	// ребро по двум вершинам
+	// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	IEdge* GetEdge( const int v1, const int v2 );
-	// edgePoint по вершине
+	// edgePoint пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	CEdgePoint* GetEdgePoint( const int v ) const;
 
 	CEdgePoint* MakeIndent( const CVec2 &vDir, CEdgePoint *pPoint, const float fDist );

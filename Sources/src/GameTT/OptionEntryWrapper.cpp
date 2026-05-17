@@ -199,14 +199,14 @@ void CUIOption::ResetSlider()
 		pSlider->SetHelpContext( 0, pHelpContext->GetString() );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void CUIOption::SetTextOption( const WORD *pszEntry )
+void CUIOption::SetTextOption( const wchar_t *pszEntry )
 {
 	pSubDialog = checked_cast<IUIDialog*>( pDialog->GetChildByID( E_SUBDIALOG_TEXTEDIT ) );
 	szInitialText = pszEntry;
 	ResetTextEntry();
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void CUIOption::SetTextGameSpyOption( const WORD *pszEntry )
+void CUIOption::SetTextGameSpyOption( const wchar_t *pszEntry )
 {
 	pSubDialog = checked_cast<IUIDialog*>( pDialog->GetChildByID( E_SUBDIALOG_TEXTEDIT_GAMESPY ) );
 	szInitialText = pszEntry;
@@ -269,13 +269,13 @@ const int CUIOption::GetTextNumericOption() const
 	return NStr::ToInt( szEntry );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-const WORD * CUIOption::GetTextGameSpyOption() const
+const wchar_t * CUIOption::GetTextGameSpyOption() const
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX ) );
 	return pStatic->GetWindowText( 0 );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-const WORD * CUIOption::GetTextOption () const
+const wchar_t * CUIOption::GetTextOption () const
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX ) );
 	return pStatic->GetWindowText( 0 );

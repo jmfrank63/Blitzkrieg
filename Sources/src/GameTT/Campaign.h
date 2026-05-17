@@ -13,7 +13,7 @@ class CInterfaceCampaign : public CInterfaceInterMission
 	OBJECT_NORMAL_METHODS( CInterfaceCampaign );
 	DECLARE_SERIALIZE;
 	//
-	typedef std::hash_map< std::string, int > CChapterNameToButtonIndex;
+	typedef std::unordered_map< std::string, int > CChapterNameToButtonIndex;
 	CChapterNameToButtonIndex chapterNameToButtonIndexMap;
 	// input
 	NInput::CCommandRegistrator commandMsgs;

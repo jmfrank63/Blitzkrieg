@@ -15,8 +15,8 @@ protected:
 	std::vector<CUnitTypesVector> unitsArray;
 	const int nSides;
 
-	std::hash_map< int/*nWindowID*/, const SGDBObjectDesc * > gdbByWindowID;
-	std::hash_map< const SUnitBaseRPGStats *, int/*WindowID*/, SDefaultPtrHash > windowIDs;
+	std::unordered_map< int/*nWindowID*/, const SGDBObjectDesc * > gdbByWindowID;
+	std::unordered_map< const SUnitBaseRPGStats *, int/*WindowID*/, SDefaultPtrHash > windowIDs;
 
 	void FillUnitsList( const int nType, IUIShortcutBar *pSB, interface IMovieProgressHook *pProgress = 0, const bool bFillName = false );
 	CInterfaceUnitsEncyclopediaBase( const int _nSides )

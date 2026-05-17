@@ -273,7 +273,7 @@ void CRMGFieldObjectsDialog::FillAvailableObjects( const std::string &rszFilter 
 			const SGDBObjectDesc *pAllDesc = pODB->GetAllDescs(); 
 
 			std::vector<std::string> objects;
-			std::hash_map<std::string, int> objectsIndices;
+			std::unordered_map<std::string, int> objectsIndices;
 			
 			for ( int nObjectIndex = 0; nObjectIndex < nObjectsCount; ++nObjectIndex )
 			{
@@ -410,7 +410,7 @@ void CRMGFieldObjectsDialog::FillShellObjectsList( int nSelectedShell )
 		{
 			const SRMObjectSetShell &rObjectSetShell = pRMFieldSet->objectsShells[nSelectedShell];
 
-			//по объектам пробегаем
+			//пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 			for ( int nObjectIndex = 0; nObjectIndex < rObjectSetShell.objects.size(); ++nObjectIndex )
 			{
 				const std::string szSelectedObjectName = rObjectSetShell.objects[nObjectIndex];

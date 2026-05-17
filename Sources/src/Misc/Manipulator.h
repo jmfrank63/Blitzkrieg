@@ -66,7 +66,7 @@ struct SPropDesc
 // properties set
 struct SProperties
 {
-	typedef std::hash_map< std::string, CPtr<SBaseProperty> > CPropertiesMap;
+	typedef std::unordered_map< std::string, CPtr<SBaseProperty> > CPropertiesMap;
 	typedef std::list<SPropDesc> CPropertiesList;
 	CPropertiesMap propMap;							// properties map for a fast access
 	CPropertiesList propList;						// properties list for a sequential access
@@ -95,7 +95,7 @@ struct SProperties
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CPropertiesRegister
 {
-	typedef std::hash_map<std::string, NProperty::SProperties> CRegistersMap;
+	typedef std::unordered_map<std::string, NProperty::SProperties> CRegistersMap;
 	CRegistersMap registers;
 public:
 	bool HasRegister( const std::string &szRegister ) const { return registers.find( szRegister ) != registers.end(); }
@@ -248,7 +248,7 @@ class CMultiManipulator : public IMultiManipulator
 	//
 	typedef std::vector< CPtr<IManipulator> > CManipulatorsList;
 	CManipulatorsList manipulators;
-	typedef std::hash_map<std::string, SMultiManipulatorProperty> CPropsMap;
+	typedef std::unordered_map<std::string, SMultiManipulatorProperty> CPropsMap;
 	CPropsMap propsMap;
 	bool bPropsAlreadyBuilt;
 	//

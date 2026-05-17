@@ -33,12 +33,12 @@ public:
 		virtual int STDCALL operator&( interface IStructureSaver &ss ) { 	CSaverAccessor saver = &ss; saver.Add( 1, &pObj ); saver.Add( 2, &nParam ); return 0; }
 	};
 private:
-	typedef std::hash_map< int, int> CAnimationSet;
+	typedef std::unordered_map< int, int> CAnimationSet;
 
-	typedef std::hash_map< int, SSimpleUpdate> CSimpleUpdatesSet;
-	typedef std::hash_map< int, CObj<IUpdatableObj> > CComplexUpdatesSet;
+	typedef std::unordered_map< int, SSimpleUpdate> CSimpleUpdatesSet;
+	typedef std::unordered_map< int, CObj<IUpdatableObj> > CComplexUpdatesSet;
 
-	// simpleUpdate - те actions, у которых на конце 1, complexUpdates - те actions, у которых на конце 0
+	// simpleUpdate - пїЅпїЅ actions, пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ 1, complexUpdates - пїЅпїЅ actions, пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ 0
 	std::vector<CSimpleUpdatesSet> simpleUpdates;
 	std::vector<CComplexUpdatesSet> complexUpdates;
 	
@@ -48,7 +48,7 @@ private:
 	CComplexUpdatesSet garbage;
 	CComplexUpdatesSet updatedPlacements;
 
-	// чтобы удалять updates placement только после того, как они пришли к Юре
+	// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ updates placement пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅ
 	bool bPlacementsUpdated;
 	bool bDestroying;
 
@@ -56,7 +56,7 @@ private:
 	bool bGameFinishUpdateSend;
 	//
 	void DestroyContents();
-	// в зависимости от типа update добавляет его в нужный массив - simpleUpdates или complexUpdates
+	// пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ update пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ - simpleUpdates пїЅпїЅпїЅ complexUpdates
 	void AddUpdate( const EActionNotify updateType, IUpdatableObj *pObj, const int nParam );
 public:
 	CUpdater();
@@ -68,7 +68,7 @@ public:
 	void EndUpdates();
 
 	void Update( const enum EActionNotify updateType, IUpdatableObj *pObj, const int nParam = -1 );
-	// для объекта, который состоит из нескольких частей.
+	// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.
 	//void UpdateComplexObject( const EActionNotify eAction, IUpdatableObj * pObj );
 	void DelUpdate( const enum EActionNotify updateType, IUpdatableObj *pObj );
 	void DelActionUpdates( IUpdatableObj *pObj );

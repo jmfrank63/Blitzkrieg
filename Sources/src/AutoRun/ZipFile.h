@@ -18,7 +18,7 @@ class CZipFile
 	int m_nEntries;												// Number of entries.
 	const SZipFileHeader **m_papDir;			// Pointers to the dir entries in pDirData.
 	NFile::CFile zipfile;									// main zip file
-	typedef std::hash_map<std::string, int> CFilesMap;
+	typedef std::unordered_map<std::string, int> CFilesMap;
 	CFilesMap files;											// map <file name> ==> <file index>
 public:
 	CZipFile() : m_nEntries(0) {  }

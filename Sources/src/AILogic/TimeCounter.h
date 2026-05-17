@@ -11,8 +11,8 @@ class CTimeCounter
 	std::vector<NHPTimer::STime> startTimes;
 	std::vector<std::string> names;
 
-	std::hash_map<std::string, double> szCounters;
-	std::hash_map<std::string, NHPTimer::STime> szStartTimes;
+	std::unordered_map<std::string, double> szCounters;
+	std::unordered_map<std::string, NHPTimer::STime> szStartTimes;
 
 	NTimer::STime printTime;
 	int nMaxIndex;
@@ -22,9 +22,9 @@ class CTimeCounter
 public:
 	CTimeCounter();
 
-	// bStart true - начать counter, false - закончить
+	// bStart true - пїЅпїЅпїЅпїЅпїЅпїЅ counter, false - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	void Count( const int nName, const bool bStart );
-	// медленный и неточный, bStart true - начать counter, false - закончить
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, bStart true - пїЅпїЅпїЅпїЅпїЅпїЅ counter, false - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	void Count( const std::string &szName, const bool bStart );
 
 	void PrintCounters();

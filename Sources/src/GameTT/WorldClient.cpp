@@ -1285,7 +1285,7 @@ void CWorldClient::AssignSelectionGroup( int nIndex )
 	// assign selection group index for all objects in this group
 	CCollectObjectsSelectiorVisitor visitor;
 	selunits.Visit( &visitor );
-	typedef std::hash_set<IMOUnit*, SDefaultPtrHash> CUnitsSet;
+	typedef std::unordered_set<IMOUnit*, SDefaultPtrHash> CUnitsSet;
 	CUnitsSet unitset;
 	for ( CMapObjectsList::iterator it = visitor.GetObjects().begin(); it != visitor.GetObjects().end(); ++it )
 	{
@@ -1797,7 +1797,7 @@ void CWorldClient::OnMouseMove( const CVec2 &vPos, interface IUIElement *pUIPick
 	{
 		GetSingleton<ICursor>()->SetMode( 0 );
 		SetStatusBar( 0 );
-		CTRect<float> rcOut; // это просто затычка, можно не заполнять
+		CTRect<float> rcOut; // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		if ( bSetPlayerTooltip )
 			pScene->SetToolTip( 0, VNULL2, rcOut, 0x00000000 );
 		bSetPlayerTooltip = false;
@@ -2118,7 +2118,7 @@ void CWorldClient::ReportObjectiveStateChanged( int nObjective, int nState )
 
 				pHeaderText = pTexMan->GetDialog( pMission->objectives[nObjective].szHeader.c_str() );
 				pDescriptionText = pTexMan->GetDialog( pMission->objectives[nObjective].szDescriptionText.c_str() );
-				//ставим метку
+				//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 				if ( IUIScreen *pUIScreen = pScene->GetMissionScreen() )
 				{
 					if ( IUIMiniMap *pUIMiniMap = checked_cast<IUIMiniMap*>( pUIScreen->GetChildByID( 20000 ) ) )

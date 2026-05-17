@@ -11,8 +11,8 @@ interface IUISetOptionsToUI
 	//usese tempBuffer
 	virtual void STDCALL SetSelectionOption( const std::vector<SOptionDropListValue> &szSelections, const int nDefault ) = 0;
 	virtual void STDCALL SetSliderOption( const int nMin, const int nMax, const int nDefault ) = 0;
-	virtual void STDCALL SetTextOption( const WORD *pszEntry ) = 0;
-	virtual void STDCALL SetTextGameSpyOption( const WORD *pszEntry ) = 0;
+	virtual void STDCALL SetTextOption( const wchar_t *pszEntry ) = 0;
+	virtual void STDCALL SetTextGameSpyOption( const wchar_t *pszEntry ) = 0;
 	virtual void STDCALL SetTextNumericOption( const int nEnntry ) = 0;
 
 	virtual void STDCALL ResetSelection() = 0;
@@ -26,9 +26,9 @@ interface IUIGetOptionsFromUI
 {
 	virtual int STDCALL GetSelectionOption()  const = 0;
 	virtual int STDCALL GetSliderOption() const = 0;
-	virtual const WORD * STDCALL GetTextOption () const = 0;
+	virtual const wchar_t * STDCALL GetTextOption () const = 0;
 	virtual const int STDCALL GetTextNumericOption() const = 0;
-	virtual const WORD * STDCALL GetTextGameSpyOption() const = 0;
+	virtual const wchar_t * STDCALL GetTextGameSpyOption() const = 0;
 };
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EOptionsType
@@ -144,7 +144,7 @@ class COptionTextEntry : public COption
 	std::wstring szText;
 public:
 	COptionTextEntry() {  }
-	COptionTextEntry( const char *pszName, const bool _bInstant, const WORD *_pszText)	: COption( pszName, _bInstant ), szText( _pszText ) {  }
+	COptionTextEntry( const char *pszName, const bool _bInstant, const wchar_t *_pszText)	: COption( pszName, _bInstant ), szText( _pszText ) {  }
 	virtual void STDCALL Set( interface IUISetOptionsToUI *pSet )
 		{ pSet->SetTextOption( szText.c_str() ); }
 	virtual void STDCALL Get( interface IUIGetOptionsFromUI *pGet )
@@ -164,7 +164,7 @@ class COptionTextEntryGameSpyCharacters : public COption
 	std::wstring szText;
 public:
 	COptionTextEntryGameSpyCharacters() {  }
-	COptionTextEntryGameSpyCharacters( const char *pszName, const bool _bInstant, const WORD *_pszText )	: COption( pszName, _bInstant ), szText( _pszText ) {  }
+	COptionTextEntryGameSpyCharacters( const char *pszName, const bool _bInstant, const wchar_t *_pszText )	: COption( pszName, _bInstant ), szText( _pszText ) {  }
 	virtual void STDCALL Set( interface IUISetOptionsToUI *pSet )
 		{ pSet->SetTextGameSpyOption( szText.c_str() ); }
 	virtual void STDCALL Get( interface IUIGetOptionsFromUI *pGet )

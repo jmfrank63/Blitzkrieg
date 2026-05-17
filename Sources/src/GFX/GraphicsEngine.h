@@ -25,7 +25,7 @@ class CStateChangesTracker
 		DWORD dwNeedValue;									// value to setup
 	};
 	//
-	std::hash_map<DWORD, SState> allstates;
+	std::unordered_map<DWORD, SState> allstates;
 	std::list<SState*> changedstates;
 public:
 	// iterating
@@ -49,7 +49,7 @@ public:
 	}
 	void ClearStates()
 	{
-		for ( std::hash_map<DWORD, SState>::iterator it = allstates.begin(); it != allstates.end(); ++it )
+		for ( std::unordered_map<DWORD, SState>::iterator it = allstates.begin(); it != allstates.end(); ++it )
 			it->second.dwNeedValue = it->second.dwCurrValue = -1;
 		changedstates.clear();
 	}
@@ -101,9 +101,9 @@ class CGraphicsEngine : public IGFX
 	CPtr2<CStaticVB> pSVB;								// solid vertex buffer with static allocator
 	CPtr2<CStaticIB> pSIB;								// solid index buffer with static allocator
 	// temp buffers
-	std::hash_map<DWORD, CPtr2<CTempVB> > tempVBs;
+	std::unordered_map<DWORD, CPtr2<CTempVB> > tempVBs;
 	CPtr2<CTempVB> pTVB;
-	std::hash_map<DWORD, CPtr2<CTempIB> > tempIBs;
+	std::unordered_map<DWORD, CPtr2<CTempIB> > tempIBs;
 	CPtr2<CTempIB> pTIB;
 	bool bUseOptimizedBuffers;
 	// dynamic buffers
@@ -119,7 +119,7 @@ class CGraphicsEngine : public IGFX
 	// textures tracker
 	std::vector<IGFXBaseTexture*> usedtextures;
 	// CRAP{ for shaders testing
-	typedef std::hash_map<int, CShader> CShadersMap;
+	typedef std::unordered_map<int, CShader> CShadersMap;
 	CShadersMap shaders;
 	// CRAP}
 	// fonts

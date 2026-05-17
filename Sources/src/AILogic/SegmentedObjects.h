@@ -23,7 +23,7 @@ class CContainer
 	DECLARE_SERIALIZE;
 
 	CListsSet<TPObj> container;
-	std::hash_set<int> registerdObjects;
+	std::unordered_set<int> registerdObjects;
 
 	typedef TPObj TObjType;
 public:

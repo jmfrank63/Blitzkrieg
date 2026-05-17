@@ -161,8 +161,8 @@ class CInputAPI : public CTRefCount<IInput>
 	typedef std::vector<SDevice> CDevicesList;
 	typedef std::list<STextMessage> CCharsList;
 	typedef std::list<SGameMessage> CMessagesList;
-	typedef std::hash_map<int, CControl*> CControlIDsMap;
-	typedef std::hash_map<std::string, CControl*> CControlNamesMap;
+	typedef std::unordered_map<int, CControl*> CControlIDsMap;
+	typedef std::unordered_map<std::string, CControl*> CControlNamesMap;
 	struct SStoredControl
 	{
 		CControl *pControl;									//

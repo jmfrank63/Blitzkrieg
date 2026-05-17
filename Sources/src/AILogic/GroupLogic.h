@@ -18,7 +18,7 @@ class CGroupLogic : public IRefCount
 	DECLARE_SERIALIZE;
 
 	CFreeIds groupIds;
-	std::hash_set<int> registeredGroups;
+	std::unordered_set<int> registeredGroups;
 	CQueuesSet< CPtr<CCommonUnit> > groupUnits;
 	std::list< CPtr<CCommonUnit> > followingUnits;
 
@@ -43,16 +43,16 @@ class CGroupLogic : public IRefCount
 	};
 	typedef std::list< std::list<SAmbushInfo> > CAmbushGroups;
 	CAmbushGroups ambushGroups;
-	std::hash_set<int> ambushUnits;
+	std::unordered_set<int> ambushUnits;
 	NTimer::STime lastAmbushCheck;
 
 	//
 	void DelGroup( const int nGroup );
 	void DivideBySubGroups( const SAIUnitCmd &command, const int nGroup );
 
-	// скорости юнитов в follow
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ follow
 	void SegmentFollowingUnits();
-	// обработка застрявших из-зи коллизий юнитов
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ-пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	void StayTimeSegment();
 
 	void ProcessGridCommand( const CVec2 &vGridCenter, const CVec2 &vGridDir, const int nGroup, bool bPlaceInQueue );
@@ -85,7 +85,7 @@ public:
 	void InsertUnitCommand( const SAIUnitCmd &command, class CCommonUnit *pUnit );
 	void PushFrontUnitCommand( const SAIUnitCmd &command, class CCommonUnit *pUnit );
 	
-	// послать updates на shoot areas для всех юнитов в группе
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ updates пїЅпїЅ shoot areas пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	void UpdateAllAreas( const int nGroup, const EActionNotify eAction );
 
 	void Segment();

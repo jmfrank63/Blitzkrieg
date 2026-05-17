@@ -1,15 +1,14 @@
 #ifndef __XML_READER_H__
 #define __XML_READER_H__
 
-#import "msxml.dll"
-using namespace MSXML;
+#include "MSXMLImport.h"
 
 typedef pair<string, string> CXMLValue;
 typedef vector< CXMLValue > CXMLValuesVector;
 
 struct SXMLValue
 {
-	bool bString;			//если 0 то number если 1 то string
+	bool bString;			//пїЅпїЅпїЅпїЅ 0 пїЅпїЅ number пїЅпїЅпїЅпїЅ 1 пїЅпїЅ string
 	string szName;
 	string szVal;
 	

@@ -5,10 +5,10 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMemoryConsumeCheck
 {
-	typedef std::hash_map<int /*nConsumeID*/, MEMORYSTATUS > CRememberedStatus;
+	typedef std::unordered_map<int /*nConsumeID*/, MEMORYSTATUS > CRememberedStatus;
 	CRememberedStatus rememberedStatus;
 	
-	typedef std::hash_map<int /*nConsumeID*/, double /*memory used*/> CMemoryUsed;
+	typedef std::unordered_map<int /*nConsumeID*/, double /*memory used*/> CMemoryUsed;
 	CMemoryUsed memoryUsed;
 	CMemoryUsed memoryUsedSummed;
 

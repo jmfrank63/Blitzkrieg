@@ -5,15 +5,31 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SDefaultPtrHash
 {
-	int operator()( const void *pData ) const { return reinterpret_cast<int>( pData ); }
+	enum
+	{
+		bucket_size = 1
+	};
+
+	size_t operator()( const void *pData ) const
+	{
+		return reinterpret_cast<size_t>( pData );
+	}
+
+	bool operator()( const void *lhs, const void *rhs ) const
+	{
+		return lhs < rhs;
+	}
 };
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SPtrHash
 {
 	template <class T>
-		int operator()( const CPtr<T> &a ) const { return int( a.GetPtr() ); }
+		size_t operator()( const CPtr<T> &a ) const { return reinterpret_cast<size_t>( a.GetPtr() ); }
 	template <class T>
-		int operator()( const CObj<T> &a ) const { return int( a.GetPtr() ); }
+		size_t operator()( const CObj<T> &a ) const { return reinterpret_cast<size_t>( a.GetPtr() ); }
+
+	typedef size_t size_type;
+	typedef ptrdiff_t difference_type;
 };
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __HASHFUNCS_H__

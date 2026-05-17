@@ -106,7 +106,7 @@ void CCommander::EnumWorkersInternal( const enum EForceType eType, IWorkerEnumer
 		if ( prBest.pBest )
 		{
 			pEn->EnumWorker( prBest.pBest, eType );
-			CommonUnits::iterator added = std::find_if( pUnits->begin(), pUnits->end(), std::bind2nd(std::equal_to<CCommonUnit*>(), prBest.pBest));
+			CommonUnits::iterator added = std::find_if( pUnits->begin(), pUnits->end(), [&prBest](CCommonUnit* unit){ return unit == prBest.pBest; });
 			pUnits->erase( added );
 		}
 	}

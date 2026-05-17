@@ -5,8 +5,8 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CBasicObjectFactory : public IObjectFactory
 {
-	typedef std::hash_map<int, ObjectFactoryNewFunc> CNewFuncsMap;
-	typedef std::hash_map<const type_info*, int, SDefaultPtrHash> CRTTIMap;
+	typedef std::unordered_map<int, ObjectFactoryNewFunc> CNewFuncsMap;
+	typedef std::unordered_map<const type_info*, int, SDefaultPtrHash> CRTTIMap;
 	// таблица функций для создания новых объектов
 	CNewFuncsMap newfuncs;
 	CRTTIMap rttis;

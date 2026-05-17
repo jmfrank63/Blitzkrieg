@@ -22,7 +22,7 @@ class CGamePlaying : public IGamePlaying
 	int nOurID;
 	std::vector<bool> lags;
 
-	std::hash_map<int, int> clientID2LogicID;
+	std::unordered_map<int, int> clientID2LogicID;
 
 	std::vector<BYTE> diplomacies;
 	bool bStartGameReceived;

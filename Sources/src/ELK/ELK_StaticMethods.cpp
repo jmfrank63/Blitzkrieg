@@ -159,7 +159,7 @@ void CELK::FromText( const CString &rstrText, std::vector<BYTE> *pBuffer, int nC
 		wszText = wszText.substr( 0, nLastIndex + 1 );
 	}
 	
-	//минус 0 на конце
+	//пїЅпїЅпїЅпїЅпїЅ 0 пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	pBuffer->resize( 2 + ( wszText.size() - 1 ) * sizeof( wchar_t ) );
 	( *pBuffer )[0] = 0xFF;
 	( *pBuffer )[1] = 0xFE;
@@ -493,7 +493,7 @@ bool CELK::ExportToPAK( const std::string &rszELKPath,
 			}
 			pFileStream = 0;
 			
-			//обновляем набор символов
+			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 			CString strSymbols;
 			GetTranslatedText( szTempFileName, &strSymbols, nCodePage, true );
 			if ( !strSymbols.IsEmpty() )
@@ -565,10 +565,10 @@ bool CELK::ExportToPAK( const std::string &rszELKPath,
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CImportFromPAKEraseFile
 {
-	std::hash_set<std::string> *pUsedPaths;
+	std::unordered_set<std::string> *pUsedPaths;
 
 public:
-	CImportFromPAKEraseFile( std::hash_set<std::string> *_pUsedPaths ) : pUsedPaths( _pUsedPaths )
+	CImportFromPAKEraseFile( std::unordered_set<std::string> *_pUsedPaths ) : pUsedPaths( _pUsedPaths )
 	{
 		NI_ASSERT_T( pUsedPaths != 0,
 								 NStr::Format( _T( "CImportFromPAKEraseFile, invalid parameters: %x" ), pUsedPaths ) );
@@ -638,9 +638,9 @@ bool CELK::ImportFromPAK( const std::string &rszPAKPath, const std::string &rszE
 			pwndProgressDialog->SetProgressMessage( NStr::Format( _T( "Updating ELK Database..." ) ) );
 		}
 
-		std::hash_set<std::string> usedPaths;
+		std::unordered_set<std::string> usedPaths;
 
-		//переводим TXT в ELK
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ TXT пїЅ ELK
 		for ( std::list<std::string>::const_iterator nameIterator = enumFilesInDataStorageParameter[0].fileNames.begin(); nameIterator != enumFilesInDataStorageParameter[0].fileNames.end(); ++nameIterator )
 		{
 			if ( CPtr<IDataStream> pStream = pStorage->OpenStream( nameIterator->c_str(), STREAM_ACCESS_READ ) )
@@ -718,7 +718,7 @@ bool CELK::ImportFromPAK( const std::string &rszPAKPath, const std::string &rszE
 			}
 		}
 
-		//обновляем дескрипшны
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		for ( int nParameterIndex = 1; nParameterIndex < enumFilesInDataStorageParameter.size(); ++nParameterIndex )
 		{
 			for ( std::list<std::string>::const_iterator nameIterator = enumFilesInDataStorageParameter[nParameterIndex].fileNames.begin(); nameIterator != enumFilesInDataStorageParameter[nParameterIndex].fileNames.end(); ++nameIterator )
@@ -950,7 +950,7 @@ bool CELK::ImportFromXLS( const CELK &rELK, const std::string &rszXLSPath, std::
 			{
 				std::string szELKElementName = strFileName;
 				szELKElementName = szELKElementName.substr( 0, szELKElementName.find( '\\' ) );
-				std::hash_map<std::string, int>::const_iterator elkElementNameIterator = rELK.elementNames.find( szELKElementName );
+				std::unordered_map<std::string, int>::const_iterator elkElementNameIterator = rELK.elementNames.find( szELKElementName );
 				if ( elkElementNameIterator != rELK.elementNames.end() )
 				{
 					nElementIndex = elkElementNameIterator->second; 
@@ -1198,7 +1198,7 @@ bool CELK::UpdateELK( const std::string &rszPath, const std::string &rszPAKFileN
 
 	std::string szFolder = rszPath.substr( 0, rszPath.rfind( '\\' ) + 1 );
 	
-	std::hash_map<std::string, int> files;
+	std::unordered_map<std::string, int> files;
 	
 	if ( !rszPAKFileName.empty() )
 	{
@@ -1229,7 +1229,7 @@ bool CELK::UpdateELK( const std::string &rszPath, const std::string &rszPAKFileN
 	}
 	else
 	{
-		//ищем все новые апдейты и их последние версии
+		//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		for ( NFile::CFileIterator _NFileIterator( NStr::Format( _T( "%s*%s" ), szFolder.c_str(), UPD_EXTENTION ) ); !_NFileIterator.IsEnd(); ++_NFileIterator )
 		{
 			int nNumber = -1;
@@ -1246,7 +1246,7 @@ bool CELK::UpdateELK( const std::string &rszPath, const std::string &rszPAKFileN
 						nNumber = -1;
 					}
 				}
-				std::hash_map<std::string, int>::const_iterator fileIterator = files.find( szFileTitle );
+				std::unordered_map<std::string, int>::const_iterator fileIterator = files.find( szFileTitle );
 				if ( fileIterator != files.end() )
 				{
 					if ( fileIterator->second < nNumber )
@@ -1266,7 +1266,7 @@ bool CELK::UpdateELK( const std::string &rszPath, const std::string &rszPAKFileN
 	for ( std::vector<SELKElement>::iterator elementIterator = elk.elements.begin(); elementIterator != elk.elements.end(); )
 	{
 		std::string szFileName = elementIterator->szPath.substr( elementIterator->szPath.rfind( '\\' ) + 1 );
-		std::hash_map<std::string, int>::iterator fileIterator = files.find( szFileName );
+		std::unordered_map<std::string, int>::iterator fileIterator = files.find( szFileName );
 		if ( fileIterator != files.end() )
 		{
 			if ( ( !rszPAKFileName.empty() ) || ( elementIterator->nLastUpdateNumber < fileIterator->second ) )
@@ -1326,7 +1326,7 @@ bool CELK::UpdateELK( const std::string &rszPath, const std::string &rszPAKFileN
 	}
 
 	//Add New ELK Elements
-	for ( std::hash_map<std::string, int>::const_iterator fileIterator = files.begin(); fileIterator != files.end(); ++fileIterator )
+	for ( std::unordered_map<std::string, int>::const_iterator fileIterator = files.begin(); fileIterator != files.end(); ++fileIterator )
 	{
 		elk.elements.push_back( SELKElement() );
 		SELKElement &rELKElement = elk.elements.back();
@@ -1456,7 +1456,7 @@ bool CFontGen::EstimateTextureSize( SFontInfo &fi, DWORD dwNumChars )
 void CFontGen::MeasureFont( HDC hdc, SFontInfo &fi, std::vector<WORD> &chars, bool bSingleByte, int nCodePage )
 {
   GetTextMetrics( hdc, &fi.tm );
-	//сортировка
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	if ( std::find( chars.begin(), chars.end(), fi.tm.tmDefaultChar ) == chars.end() )
 	{
 		chars.push_back( fi.tm.tmDefaultChar );

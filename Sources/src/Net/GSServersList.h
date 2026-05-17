@@ -93,7 +93,7 @@ public:
 	virtual sockaddr* STDCALL GetSockAddr() { NI_ASSERT_T( false, "wrong call" ); return 0; }
 
 	// auxiliary multichannel functions
-	virtual void STDCALL AddChannel( const int nChannelID, const std::hash_set<BYTE> &channelMessages ) { NI_ASSERT_T( false, "wrong call" ); }
+	virtual void STDCALL AddChannel( const int nChannelID, const std::unordered_set<BYTE> &channelMessages ) { NI_ASSERT_T( false, "wrong call" ); }
 	virtual void STDCALL RemoveChannel( const int nChannelID ) { NI_ASSERT_T( false, "wrong call" ); }
 
 	virtual bool STDCALL GetChannelMessage( EMessage *pMsg, int *pClientID, int *received, IDataStream *pPkt, const int nChannel ) { NI_ASSERT_T( false, "wrong call" ); return false; }

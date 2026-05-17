@@ -31,7 +31,7 @@ public:
 
 protected:
 	CImageList bridgesImageList;
-	std::hash_map<int, std::string> bridgesMap;
+	std::unordered_map<int, std::string> bridgesMap;
 
 	void CreateBridgesList();
 

@@ -31,7 +31,7 @@ public:
 
 protected:
 	CImageList fencesImageList;
-	std::hash_map<int, std::string> fencesMap;
+	std::unordered_map<int, std::string> fencesMap;
 
 	void CreateFencesList();
 

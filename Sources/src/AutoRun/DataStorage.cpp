@@ -53,7 +53,7 @@ bool CDataStorage::Load( const std::string &rszFileName, CDC *pDC )
 
 void CDataStorage::SetCodePage( int nCodePage )
 {
-	for ( std::hash_map<std::string, CARText>::iterator textIterator = texts.begin(); textIterator != texts.end(); ++textIterator )
+	for ( std::unordered_map<std::string, CARText>::iterator textIterator = texts.begin(); textIterator != texts.end(); ++textIterator )
 	{
 		textIterator->second.SetCodePage( nCodePage );
 	}

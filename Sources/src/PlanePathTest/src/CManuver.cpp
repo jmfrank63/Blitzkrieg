@@ -32,7 +32,7 @@ extern CUpdater updater;
 class CManuverVisualizeDEBUG
 {
 	typedef std::list< CObj<CGivenPassabilityStObject> > CMarkers;
-	std::hash_map< IPlane*, CMarkers, SDefaultPtrHash > planeMarkers;
+	std::unordered_map< IPlane*, CMarkers, SDefaultPtrHash > planeMarkers;
 
 	CPtr<IObjectsDB> pIDB;
 
@@ -51,7 +51,7 @@ public:
 	
 	void Init( IPathFraction *_pPath, IPlane *pPlane )
 	{
-		std::hash_map< IPlane*, CMarkers, SDefaultPtrHash >::iterator marker = planeMarkers.find( pPlane );
+		std::unordered_map< IPlane*, CMarkers, SDefaultPtrHash >::iterator marker = planeMarkers.find( pPlane );
 		if ( planeMarkers.end() != marker )
 		{
 			CMarkers &markers = marker->second;

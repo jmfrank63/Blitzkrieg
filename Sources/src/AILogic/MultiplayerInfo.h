@@ -36,7 +36,7 @@ class CMultiplayerInfo
 	int nAttackingParty;
 	int nFlagsAtTheMap;
 
-	std::vector< std::hash_set<int> > capturedByPartyFlags;
+	std::vector< std::unordered_set<int> > capturedByPartyFlags;
 
 	//
 	void CheckWinConditions();
@@ -59,7 +59,7 @@ public:
 	void FlagCaptured( const int nParty, const int nFlagID );
 	void UnitsKilled( const int nKillerPlayer, const float fUnitsPrice, const int nKilledUnitsPlayer );
 
-	// время, требуемое для того, чтобы флаг, в радиусе которого только юниты одного игрока, перешёл этому игроку
+	// пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	const NTimer::STime GetTimeToCaptureObject() const;
 
 	void AddFlagAtTheMap() { ++nFlagsAtTheMap; }

@@ -149,9 +149,9 @@ struct SAttitude
 	EPlanesAttitude atts;
 	std::string forLoad;
 	
-	void Convert( const std::hash_map<std::string,int> &loadHelper )
+	void Convert( const std::unordered_map<std::string,int> &loadHelper )
 	{
-		std::hash_map<std::string,int>::const_iterator it = loadHelper.find( forLoad );
+		std::unordered_map<std::string,int>::const_iterator it = loadHelper.find( forLoad );
 		NI_ASSERT_T( it != loadHelper.end(), NStr::Format( "cannot find value for \"%s\"", forLoad.c_str() ) );
 		atts = EPlanesAttitude(it->second);
 		forLoad.clear();
@@ -166,7 +166,7 @@ struct SAttitude
 struct SSingleHeightSingleOurSpeedAttitude
 {
 	std::vector<SAttitude> atts;
-	void Convert( const std::hash_map<std::string,int> &loadHelper )
+	void Convert( const std::unordered_map<std::string,int> &loadHelper )
 	{
 		for ( int i = 0; i < atts.size(); ++i )
 			atts[i].Convert( loadHelper );
@@ -183,7 +183,7 @@ struct SSingleHeightAttitude
 	std::vector<SSingleHeightSingleOurSpeedAttitude> atts;
 	CParameterRange range;
 	
-	void Convert( const std::hash_map<std::string,int> &loadHelper )
+	void Convert( const std::unordered_map<std::string,int> &loadHelper )
 	{
 		for ( int i = 0; i < atts.size(); ++i )
 			atts[i].Convert( loadHelper );
@@ -215,7 +215,7 @@ class CManuverBuilder
 
 	// manuvers
 	typedef std::list<int> CManuverIndices;
-	typedef std::hash_map<int/*EPlanesAttitude*/, CManuverIndices> CManuvers;
+	typedef std::unordered_map<int/*EPlanesAttitude*/, CManuverIndices> CManuvers;
 	CManuvers manuvers;
 
 	// choose manuver to perform. return 0 if none chousen

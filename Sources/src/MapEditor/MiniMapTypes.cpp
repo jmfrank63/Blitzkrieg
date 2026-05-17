@@ -197,7 +197,7 @@ void CUnitsSelection::Update( CDC *pDC )
 						{
 							IObjectsDB *pGDB = GetSingleton<IObjectsDB>();
 							std::set<IRefCount*> squads;
-							for ( std::hash_map< SMapObject*, SEditorObjectItem*, SDefaultPtrHash >::iterator objectsIterator = pFrame->m_objectsAI.begin(); objectsIterator != pFrame->m_objectsAI.end(); ++objectsIterator )
+							for ( std::unordered_map< SMapObject*, SEditorObjectItem*, SDefaultPtrHash >::iterator objectsIterator = pFrame->m_objectsAI.begin(); objectsIterator != pFrame->m_objectsAI.end(); ++objectsIterator )
 							{
 								IRefCount *pSquad = pAIEditor->GetFormationOfUnit( objectsIterator->first->pAIObj );
 								if ( pSquad )
@@ -341,7 +341,7 @@ void CMiniMapTerrain::UpdateColor()
 				const STerrainInfo &rTerrainInfo = dynamic_cast<ITerrainEditor*>( pTerrain )->GetTerrainInfo();
 				const STilesetDesc &rTilesetDesc = dynamic_cast<ITerrainEditor*>( pTerrain )->GetTilesetDesc();
 				
-				//загружаем картинку в память:
+				//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ:
 				//rTerrainInfo.szTilesetDesc;
 				IImageProcessor *pImageProcessor = GetImageProcessor();
 				IDataStorage *pStorage = GetSingleton<IDataStorage>();

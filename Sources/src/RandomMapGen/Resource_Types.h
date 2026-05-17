@@ -272,14 +272,14 @@ bool LoadTypedSuperLatestDataResource( const std::string &rszResourceFileName, c
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern bool SaveImageToTGAImageResource( interface IImage *pImage, const std::string &rszTGAImageResourceFileName );
-//форматы сжатия для карт ( minimap )
+//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ ( minimap )
 extern bool SaveImageToDDSImageResource( interface IImage *pImage, const std::string &rszDDSImageResourceFileName,
 																				 EGFXPixelFormat nCompressedFormat = GFXPF_DXT1,
 																				 EGFXPixelFormat nLowFormat = GFXPF_ARGB0565,
 																				 EGFXPixelFormat nHighFormat = GFXPF_ARGB8888 );
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//использовать только для единичной загрузки киртинок.т к. создается ImageProcessor
+//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.пїЅ пїЅ. пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ImageProcessor
 extern interface IImage* LoadImageFromTGAImageResource( const std::string &rszTGAImageResourceFileName );
 extern interface IImage* LoadImageFromDDSImageResource( const std::string &rszDDSImageResourceFileName );
 
@@ -295,7 +295,7 @@ struct SEnumFilesInDataStorageParameter
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-typedef std::hash_map<std::string, std::set<std::string> > TEnumFolders;
+typedef std::unordered_map<std::string, std::set<std::string> > TEnumFolders;
 struct SEnumFolderStructureParameter
 {
 	int nIgnoreFolderCount;
