@@ -1,0 +1,4 @@
+﻿  StdAfx.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\stdafx.h(21,10): error C1083: Cannot open include file: 'stl/_config.h': No such file or directory
+  (compiling source file 'StdAfx.cpp')
+  
