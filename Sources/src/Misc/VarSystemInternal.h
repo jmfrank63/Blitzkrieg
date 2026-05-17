@@ -177,7 +177,7 @@ struct SSerialVarEqFunctional
 template <class TVarSystem>
 struct SEmptySorter
 {
-	void Sort( std::list<TVarSystem::CVarsMap::const_iterator> &lst ) const {  }
+	void Sort( std::list<typename TVarSystem::CVarsMap::const_iterator> &lst ) const {  }
 };
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ************************************************************************************************************************ //
@@ -192,7 +192,7 @@ template <class TVar, class TBase>
 class CTVarSystem : public TBase
 {
 public:
-	typedef std::hash_map<std::string, TVar> CVarsMap;
+	typedef std::unordered_map<std::string, TVar> CVarsMap;
 	typedef TVar CVar;
 private:
 	struct SSerialVar : public TVar
@@ -359,8 +359,8 @@ public:
 		return 0;
 	}
 	//
-	CVarsMap::const_iterator begin() const { return variables.begin(); }
-	CVarsMap::const_iterator end() const { return variables.end(); }
+	typename CVarsMap::const_iterator begin() const { return variables.begin(); }
+	typename CVarsMap::const_iterator end() const { return variables.end(); }
 };
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TVar>
@@ -369,21 +369,21 @@ struct SVarAccepter
 	const bool operator()( const TVar &var ) const { return true; } 
 };
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-template < class TVarSystem, class TBase, class TSorter = SEmptySorter<TVarSystem>, class TVarAccepter = SVarAccepter<TVarSystem::CVar> >
+template < class TVarSystem, class TBase, class TSorter = SEmptySorter<TVarSystem>, class TVarAccepter = SVarAccepter<typename TVarSystem::CVar> >
 class CTVarSystemIterator : public TBase
 {
 public:
-	typedef std::list<TVarSystem::CVarsMap::const_iterator> CPosList;
+	typedef std::list<typename TVarSystem::CVarsMap::const_iterator> CPosList;
 private:
 	CPosList positions;										// all positions, sorted by some criterion
-	CPosList::const_iterator pos;					// current iteration position
+	typename CPosList::const_iterator pos;					// current iteration position
 protected:
-	const TVarSystem::CVarsMap::const_iterator& GetIt() const { return *pos; }
+	const typename TVarSystem::CVarsMap::const_iterator& GetIt() const { return *pos; }
 public:
 	CTVarSystemIterator( const TVarSystem *pVS, TVarAccepter &accepter )
 	{
 		TSorter sorter;
-		for ( TVarSystem::CVarsMap::const_iterator it = pVS->begin(); it != pVS->end(); ++it )
+		for ( typename TVarSystem::CVarsMap::const_iterator it = pVS->begin(); it != pVS->end(); ++it )
 		{
 			if ( accepter(it->second) ) 
 				positions.push_back( it );

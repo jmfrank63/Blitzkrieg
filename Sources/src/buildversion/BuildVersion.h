@@ -16,7 +16,7 @@ struct SProject
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CBuildVersion
 {
-	typedef std::hash_map<std::string, SProject> CProjectsMap;
+	typedef std::unordered_map<std::string, SProject> CProjectsMap;
 	CProjectsMap mapProjects;							// all found projects
 	//
 	bool LoadDSW( const char *pszFileName, bool bGetLatestVersion = false );

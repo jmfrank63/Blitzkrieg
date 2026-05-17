@@ -122,7 +122,7 @@ void CFormationCenter::Segment()
 	}
 	
 	CVec2 oldDir = dir;
-	// все update частотой в AI_SEGMENT_DURATION
+	// пїЅпїЅпїЅ update пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ AI_SEGMENT_DURATION
 	NTimer::STime timeDiff = SConsts::AI_SEGMENT_DURATION * GetPathSegmentsPeriod();
 	const CVec3 center3D = pSmoothPath->GetPoint( timeDiff );
 	theSupremeBeing.UnitChangedPosition( this, CVec2( center3D.x, center3D.y ) );
@@ -609,7 +609,7 @@ void CFormation::StopTurning()
 bool CFormation::CanCommandBeExecuted( class CAICommand *pCommand )
 {
 	const int &nCmd = pCommand->ToUnitCmd().cmdType;
-	// проверять на возможность исполнения только user команды
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ user пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	if ( nCmd < 1000 )
 	{
 		NI_ASSERT_T( nCmd >= 0 && nCmd < availCommands.GetSize(), NStr::Format( "Wrong command ( %d )\n", nCmd ) );
@@ -619,16 +619,16 @@ bool CFormation::CanCommandBeExecuted( class CAICommand *pCommand )
 
 	if ( nCmd == ACTION_COMMAND_FORM_FORMATION )
 	{
-		// нельзя собрать, если не single formation
+		// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅ single formation
 		if ( Size() > 1 )
 			return false;
 
-		// нельзя собрать, если раньше не была разобрана
+		// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		CFormation *pOldFormation = (*this)[0]->GetMemFormation();
 		if ( pOldFormation == 0 )
 			return false;
 
-		// нельзя собрать, если кто-то в транспорте
+		// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ-пїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		for ( int i = 0; i < pOldFormation->Size(); ++i )
 		{
 			if ( (*pOldFormation)[i]->IsInTransport() )
@@ -647,7 +647,7 @@ bool CFormation::CanCommandBeExecuted( class CAICommand *pCommand )
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormation::CanCommandBeExecutedByStats( int nCmd ) const
 {
-	// проверять на возможность исполнения только user команды
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ user пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	if ( nCmd < 1000 )
 	{
 		NI_ASSERT_T( nCmd >= 0 && nCmd < availCommands.GetSize(), NStr::Format( "Wrong command ( %d )\n", nCmd ) );
@@ -722,7 +722,7 @@ void CFormation::Enable()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::DelUnit( const BYTE cPos )
 {
-	// убрать из юнитов
+	// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	for ( int i = cPos; i < nUnits - 1; ++i )
 		units[i] = units[i+1];
 
@@ -865,7 +865,7 @@ void CFormation::PrepareToDelete()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::Disappear()
 {
-	// т.к. последний юнит формации вызовет эту функцию, то общее удаление формации выполняется только тогда
+	// пїЅ.пїЅ. пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	if ( Size() != 0 )
 	{
 		while ( Size() != 0 )
@@ -877,7 +877,7 @@ void CFormation::Disappear()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::Die( const bool fromExplosion, const float fDamage )
 {
-	// т.к. последний юнит формации вызовет эту функцию, то общее удаление формации выполняется только тогда	
+	// пїЅ.пїЅ. пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ	
 	if ( Size() != 0 )
 	{
 		while ( Size() != 0 )
@@ -1042,8 +1042,8 @@ void CFormation::ProcessLoadCommand( CAICommand *pCommand, bool bPlaceInQueue )
 		}
 		
 		std::set<int> objects;
-		std::hash_map<int, CAICommand*> object2Command;
-		std::hash_set<int> formations;
+		std::unordered_map<int, CAICommand*> object2Command;
+		std::unordered_set<int> formations;
 
 		const int nGroup = GetNGroup();
 		bool bPushFront = false;
@@ -1093,7 +1093,7 @@ void CFormation::ProcessLoadCommand( CAICommand *pCommand, bool bPlaceInQueue )
 		}
 
 		std::vector<SEdge> edges( objects.size() * formations.size() );
-		std::hash_map<int, int> availableSeats;
+		std::unordered_map<int, int> availableSeats;
 		int cnt = 0;
 		for ( std::set<int>::iterator iterObjects = objects.begin(); iterObjects != objects.end(); ++iterObjects )
 		{
@@ -1101,7 +1101,7 @@ void CFormation::ProcessLoadCommand( CAICommand *pCommand, bool bPlaceInQueue )
 			availableSeats[*iterObjects] = GetLoadInfo( object2Command[*iterObjects], availSeatsFunctor, (int*)0 );
 			
 			SGetLoadPoint loadPointFunctor;
-			for ( std::hash_set<int>::iterator iterForms = formations.begin(); iterForms != formations.end(); ++iterForms )
+			for ( std::unordered_set<int>::iterator iterForms = formations.begin(); iterForms != formations.end(); ++iterForms )
 			{
 				NI_ASSERT_T( cnt < edges.size(), NStr::Format( "Wrong cnt (%d), size (%d)", cnt, edges.size() ) );
 				edges[cnt].pFormation = ::GetObjectByUniqueIdSafe<CFormation>( *iterForms );

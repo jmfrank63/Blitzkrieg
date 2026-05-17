@@ -222,6 +222,8 @@ struct SGFXLVertex
 		};
 	};
 	//
+	SGFXLVertex() : x(0), y(0), z(0), color(0), specular(0), tu(0), tv(0) {}
+	//
 	void Setup( float _x, float _y, float _z, DWORD _color, DWORD _specular, float _tu, float _tv )
 	{
 		x = _x;

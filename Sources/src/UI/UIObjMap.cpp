@@ -35,14 +35,14 @@ void CUIObjMap::Visit( interface ISceneVisitor *pVisitor )
 
 	CSimpleWindow::Visit( pVisitor );
 	pVisitor->VisitUICustom( dynamic_cast<IUIElement*>(this) );
-	// рисуем детей
+	// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	for ( CWindowList::reverse_iterator ri=childList.rbegin(); ri!=childList.rend(); ri++ )
 		(*ri)->Visit( pVisitor );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIObjMap::Draw( IGFX *pGFX )
 {
-	// рисуем карту
+	// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	if ( pMapTexture )
 	{
 		pGFX->SetShadingEffect( 3 );

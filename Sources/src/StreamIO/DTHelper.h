@@ -100,7 +100,7 @@ class CTreeAccessor
 		void __cdecl CallObjectSerialize( const DTChunkID idChunk, T *pData, SGenericNumber<1> *pp )
 		{
 			NI_ASSERT_T( sizeof(T) <= 4, NStr::Format("Complex object of type \"%s\" have no serialization operator", typeid(*pData).name()) );
-			AddRawData( idChunk, pData, sizeof(T) );
+			AddRawData( idChunk, const_cast<void*>(static_cast<const void*>(pData)), sizeof(T) );
 		}
 	// simple built-in data specialization
 	template <> 
@@ -184,7 +184,7 @@ class CTreeAccessor
 				int nSize = pSS->GetChunkSize();
 				pData->resize( nSize );
 			}
-			pSS->StringData( const_cast<T2*>( pData->c_str() ) );
+			pSS->StringData( reinterpret_cast<WORD*>(const_cast<T2*>( pData->c_str() )) );
 			//
 			if ( nVal != -1 )
 				pSS->FinishChunk();

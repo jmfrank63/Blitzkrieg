@@ -282,7 +282,7 @@ void CreateCrosses( const float fX, const float fY, const STerrainPatchInfo &pat
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
-void CreateWarFog( const float fX, const float fY, int nStartX, int nStartY, const std::hash_map<DWORD, DWORD> &visibilities, 
+void CreateWarFog( const float fX, const float fY, int nStartX, int nStartY, const std::unordered_map<DWORD, DWORD> &visibilities, 
 									 const STerrainInfo &info, struct STerrainPatch *pPatch )
 {
 	const CArray2D<SVertexAltitude> &heights = info.altitudes;
@@ -324,7 +324,7 @@ void CreateWarFog( const float fX, const float fY, int nStartX, int nStartY, con
 }
 */
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void CreateWarFog( const float fX, const float fY, int nStartX, int nStartY, const std::hash_map<DWORD, DWORD> &visibilities, 
+void CreateWarFog( const float fX, const float fY, int nStartX, int nStartY, const std::unordered_map<DWORD, DWORD> &visibilities, 
 									 const STerrainInfo &info, struct STerrainPatch *pPatch )
 {
 	const CArray2D<SVertexAltitude> &heights = info.altitudes;
@@ -462,7 +462,7 @@ void CreateAIMarker( const float fX, const float fY, const STerrainInfo &info,
 		const DWORD dwSpecular = 0xff000000;
 		for ( int k = 0; k < nMarkerSize; ++k )
 		{
-			// humans, track, half-track, wheel <= цвета: от тёмно-зелёного (128) до светло-зелёного (255)
+			// humans, track, half-track, wheel <= пїЅпїЅпїЅпїЅпїЅ: пїЅпїЅ пїЅпїЅпїЅпїЅ-пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (128) пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ-пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (255)
 			// 3, 2, 1, 0
 			DWORD dwColor = marker[k].pass == 0 ? 0 : ( DWORD( 255UL - (GetMSB(DWORD(marker[k].pass)) + 1) * 32 ) << 8 ) | 0x80000000;
 			

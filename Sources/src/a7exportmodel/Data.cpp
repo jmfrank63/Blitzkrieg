@@ -18,7 +18,7 @@ namespace NConverter
 	SAABBFormat aabb;
 	std::vector<SAABBFormat> aabb_as;
 	std::vector<SAABBFormat> aabb_ds;
-	typedef std::hash_map<int, int> CIndexMap;
+	typedef std::unordered_map<int, int> CIndexMap;
 	CIndexMap mapAABB_AIndices;
 	CIndexMap mapAABB_DIndices;
 
@@ -62,7 +62,7 @@ int GetAABB_DIndex( int nAABB ) { return GetAABBIndex( mapAABB_DIndices, nAABB )
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SetActiveMesh( const char *pszName )
 {
-	// посмотрим, а нет ли у нас уже такого меша
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅ пїЅпїЅпїЅ пїЅпїЅ пїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 	for ( int i=0; i != meshes.size(); ++i )
 	{
 		if ( meshes[i].szName == pszName )
@@ -123,7 +123,7 @@ struct SMeshesLessFunctional
 };
 bool SaveModel( std::string &szFileName )
 {
-	std::replace_if( szFileName.begin(), szFileName.end(), std::bind2nd( std::equal_to<char>(), '/' ), '\\' );
+	std::replace_if( szFileName.begin(), szFileName.end(), [](char c){ return c == '/'; }, '\\' );
 	// check for extension alerady exist and add it
 	int nPos = szFileName.rfind( '.' );
 	if ( nPos != std::string::npos )
@@ -143,7 +143,7 @@ bool SaveModel( std::string &szFileName )
 	//
 	// sort meshes by index
 	std::sort( meshes.begin(), meshes.end(), SMeshesLessFunctional() );
-	// вычислить для каждого меша miniball и AABB
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ miniball пїЅ AABB
 	using namespace MiniBall;
 	for ( std::vector<SMeshFormat>::iterator it = meshes.begin(); it != meshes.end(); ++it )
 	{

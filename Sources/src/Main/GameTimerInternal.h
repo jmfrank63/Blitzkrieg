@@ -145,7 +145,7 @@ class CGameTimer : public IGameTimer
 	CPtr<ISegmentTimer> pGameSegmentTimer;
 	CPtr<ISegmentTimer> pSyncSegmentTimer;
 	// pauses map
-	typedef std::hash_map<int, int> CPausesMap;
+	typedef std::unordered_map<int, int> CPausesMap;
 	CPausesMap gamepauses;								// game pauses map
 	CPausesMap syncpauses;								// sync pauses map
 	int nPauseReason;											// highest game pause reason

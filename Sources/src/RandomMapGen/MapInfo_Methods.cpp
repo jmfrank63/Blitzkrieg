@@ -136,7 +136,7 @@ int CMapInfo::operator&( IStructureSaver &ss )
 
 	if ( saver.IsReading() )
 	{
-		// CRAP{ Когда нет массива diplomacies
+		// CRAP{ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ diplomacies
 		FillDefaultDiplomacies();
 		// CRAP}
 		if ( szSeasonFolder.empty() )
@@ -188,7 +188,7 @@ int CMapInfo::operator&( IDataTree &ss )
 
 	if ( saver.IsReading() )
 	{
-		// CRAP{ Когда нет массива diplomacies
+		// CRAP{ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ diplomacies
 		FillDefaultDiplomacies();
 		// CRAP}
 		if ( szSeasonFolder.empty() )
@@ -387,7 +387,7 @@ bool CMapInfo::FillTerrain( int nTileIndex )
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-bool CMapInfo::FillTileSet( const std::list<CVec2> &rInclusivePolygon, const std::list<std::list<CVec2> > &rExclusivePolygons, const CRMTileSet &rTileSet, std::hash_map<LPARAM, float> *pDistances )
+bool CMapInfo::FillTileSet( const std::list<CVec2> &rInclusivePolygon, const std::list<std::list<CVec2> > &rExclusivePolygons, const CRMTileSet &rTileSet, std::unordered_map<LPARAM, float> *pDistances )
 {
 	if ( IDataStorage* pDataStorage = GetSingleton<IDataStorage>() )
 	{
@@ -405,7 +405,7 @@ bool CMapInfo::FillObjectSet( const std::list<CVec2> &rInclusivePolygon, const s
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-bool CMapInfo::FillProfilePattern( const std::list<CVec2> &rInclusivePolygon, const std::list<std::list<CVec2> > &rExclusivePolygons, const SVAGradient &rGradient, const CTPoint<int> &rPatternSize, float fPositiveRatio, std::hash_map<LPARAM, float> *pDistances )
+bool CMapInfo::FillProfilePattern( const std::list<CVec2> &rInclusivePolygon, const std::list<std::list<CVec2> > &rExclusivePolygons, const SVAGradient &rGradient, const CTPoint<int> &rPatternSize, float fPositiveRatio, std::unordered_map<LPARAM, float> *pDistances )
 {
 	return FillProfilePattern( &terrain, rInclusivePolygon, rExclusivePolygons, rGradient, rPatternSize, fPositiveRatio, pDistances );
 }
@@ -429,7 +429,7 @@ bool CMapInfo::MakeRoad( const SRoadPoint &rFrom, const SRoadPoint &rTo, int nRo
 /**
 bool CMapInfo::UpdateTerrainRoads( const CTRect<int> &rUpdateRect )
 {
-	//считываем информацию о расположении дорожных тайлов
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	if ( IDataStorage* pDataStorage = GetSingleton<IDataStorage>() )
 	{
 		SRoadsetDesc roadsetDesc;
@@ -501,7 +501,7 @@ bool CMapInfo::UpdateTerrainRoads( const CTRect<int> &rUpdateRect )
 /**/
 
 	/**
-	// CRAP{ Когда нет массива diplomacies
+	// CRAP{ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ diplomacies
 	if ( saver.IsReading() )
 	{
 		if ( (  diplomacies.GetSizeX() == 0 ) || 
@@ -532,7 +532,7 @@ bool CMapInfo::UpdateTerrainRoads( const CTRect<int> &rUpdateRect )
 	/**/
 
 	/**
-	// CRAP{ Когда нет массива diplomacies
+	// CRAP{ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ diplomacies
 	if ( saver.IsReading() )
 	{
 		if ( (  diplomacies.GetSizeX() == 0 ) || 

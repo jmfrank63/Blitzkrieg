@@ -79,7 +79,7 @@ DWORD CAsyncImageList::Fill()
 		DWORD dwStatus = Fill( nImageIndex );
 			
 		::EnterCriticalSection( &criticalSection );
-		for ( std::hash_map<int, IAsyncImageListCallback* >::iterator callbackIterator = callbackHashMap.begin(); callbackIterator != callbackHashMap.end(); ++callbackIterator )
+		for ( std::unordered_map<int, IAsyncImageListCallback* >::iterator callbackIterator = callbackHashMap.begin(); callbackIterator != callbackHashMap.end(); ++callbackIterator )
 		{
 			callbackIterator->second->Callback( nImageIndex, dwStatus );
 		}
@@ -158,7 +158,7 @@ bool CAsyncImageList::Create( int nImageCount, const CTPoint<int> &rImageSize )
 	//NStr::DebugTrace( "CAsyncImageList::Create(): bitmap1 %d\n", dwTime );
 	dwTime = GetTickCount();
 
-	//Создаем HBITMAP чтобы прогрузить её в image list
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ HBITMAP пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅ image list
 	BITMAPINFO bitmapInfo;
 	bitmapInfo.bmiHeader.biSize  = sizeof( bitmapInfo.bmiHeader );
 	bitmapInfo.bmiHeader.biWidth  = rImageSize.x;

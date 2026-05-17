@@ -65,7 +65,7 @@ void CManuverStateDescriptor::Init( const enum EPlanesAttitude _att, interface I
 /////////////////////////////////////////////////////////////////////////////
 void CManuverBuilder::Init()
 {
-	std::hash_map<std::string,int> loadHelper;
+	std::unordered_map<std::string,int> loadHelper;
 	// manuver ID
 	STRING_ENUM_ADD( loadHelper, EMID_GENERIC )
 	STRING_ENUM_ADD( loadHelper, EMID_STEEPCLIMB )

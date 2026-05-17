@@ -34,7 +34,7 @@ class CTrainPathUnit : public IRefCount, public IBasePathUnit
 	bool bFrontDir;
 	bool bCanMove;
 
-	std::hash_set<int> damagedTrackCarriages;
+	std::unordered_set<int> damagedTrackCarriages;
 
 	CPtr<IStaticPath> pPathToMove;
 public:

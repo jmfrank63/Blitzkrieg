@@ -74,7 +74,7 @@ class CMessageQueue : public IRefCount
 	OBJECT_COMPETE_METHODS( CMessageQueue );
 	//
 	std::list<SGameMessage> messages;
-	typedef std::hash_map<std::string, CObj<CGameEvent> > CEventsMap;
+	typedef std::unordered_map<std::string, CObj<CGameEvent> > CEventsMap;
 	CEventsMap events;
 public:
 	void STDCALL AddMessage( const SGameMessage &msg )

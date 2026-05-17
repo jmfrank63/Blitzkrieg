@@ -40,9 +40,9 @@ bool CDataTableXML::Open( IDataStream *_pStream, const char *pszBaseNode )
 		}
 		else 
 		{ 
-			IXMLDOMProcessingInstructionPtr pPI = xmlDocument->createProcessingInstruction( "xml", "version=\"1.0\"" );
+			MSXML2::IXMLDOMProcessingInstructionPtr pPI = xmlDocument->createProcessingInstruction( "xml", "version=\"1.0\"" );
 			xmlDocument->appendChild( pPI );
-			IXMLDOMElementPtr pElement = xmlDocument->createElement( pszBaseNode );
+			MSXML2::IXMLDOMElementPtr pElement = xmlDocument->createElement( pszBaseNode );
 			xmlDocument->appendChild( pElement );
 		}
 		return true;
@@ -61,13 +61,13 @@ bool CDataTableXML::Open( IDataStream *_pStream, const char *pszBaseNode )
 // **
 // ************************************************************************************************************************ //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-IXMLDOMNodePtr CDataTableXML::GetNode( const std::string &szName )
+MSXML2::IXMLDOMNodePtr CDataTableXML::GetNode( const std::string &szName )
 {
 	const int nPos = szName.rfind( '/' );
 	const std::string szRestName = szName.substr( nPos + 1 );
-	if ( IXMLDOMNodePtr xmlCurrNode = xmlRootNode->selectSingleNode(szName.substr(0, nPos).c_str()) )
+	if ( MSXML2::IXMLDOMNodePtr xmlCurrNode = xmlRootNode->selectSingleNode(szName.substr(0, nPos).c_str()) )
 	{
-		if ( IXMLDOMNodePtr xmlNode = xmlCurrNode->attributes->getNamedItem(szRestName.c_str()) ) 
+		if ( MSXML2::IXMLDOMNodePtr xmlNode = xmlCurrNode->attributes->getNamedItem(szRestName.c_str()) ) 
 			return xmlNode;
 		else
 			return xmlCurrNode->selectSingleNode( szRestName.c_str() );
@@ -89,7 +89,7 @@ int CDataTableXML::GetRowNames( char *pszBuffer, int nBufferSize )
 	try
 	{
 		int nTotalSize = 0;
-		IXMLDOMNodeListPtr pNodes = xmlRootNode->childNodes;
+		MSXML2::IXMLDOMNodeListPtr pNodes = xmlRootNode->childNodes;
 		for ( int i=0; i<pNodes->length; ++i )
 		{
 			std::string szName = pNodes->item[i]->nodeName;
@@ -110,7 +110,7 @@ int CDataTableXML::GetEntryNames( const char *pszRow, char *pszBuffer, int nBuff
 	try
 	{
 		int nTotalSize = 0;
-		IXMLDOMNodePtr pNode = xmlRootNode->selectSingleNode( pszRow );
+		MSXML2::IXMLDOMNodePtr pNode = xmlRootNode->selectSingleNode( pszRow );
 		// attributes
 		for ( int i=0; i<pNode->attributes->length; ++i )
 		{
@@ -118,7 +118,7 @@ int CDataTableXML::GetEntryNames( const char *pszRow, char *pszBuffer, int nBuff
 			nTotalSize += AddToBuffer( szName, pszBuffer, nBufferSize, nTotalSize );
 		}
 		// named nodes
-		IXMLDOMNodeListPtr pNodes = pNode->childNodes;
+		MSXML2::IXMLDOMNodeListPtr pNodes = pNode->childNodes;
 		for ( int i=0; i<pNodes->length; ++i )
 		{
 			std::string szName = pNodes->item[i]->nodeName;
@@ -127,7 +127,7 @@ int CDataTableXML::GetEntryNames( const char *pszRow, char *pszBuffer, int nBuff
 			else
 			{
 				std::string szRowName = std::string(pszRow) + "/" + szName;
-				std::replace_if( szRowName.begin(), szRowName.end(), std::bind2nd(std::equal_to<char>(), '.'), '/' );
+				std::replace_if( szRowName.begin(), szRowName.end(), [](char c){ return c == '.'; }, '/' );
 				//
 				char buffer[65536];
 				const int nSize = GetEntryNames( szRowName.c_str(), buffer, 65536 );
@@ -137,7 +137,7 @@ int CDataTableXML::GetEntryNames( const char *pszRow, char *pszBuffer, int nBuff
 					while ( (*pos != 0) && (pos - buffer <= nSize) )
 					{
 						std::string szNewName = szName + "/" + pos;
-						std::replace_if( szNewName.begin(), szNewName.end(), std::bind2nd(std::equal_to<char>(), '/'), '.' );
+						std::replace_if( szNewName.begin(), szNewName.end(), [](char c){ return c == '/'; }, '.' );
 						nTotalSize += AddToBuffer( szNewName, pszBuffer, nBufferSize, nTotalSize );
 						pos = std::find( pos, (const char*)(buffer) + nSize, '\0' ) + 1;
 					}
@@ -162,7 +162,7 @@ int CDataTableXML::GetEntryNames( const char *pszRow, char *pszBuffer, int nBuff
 int CDataTableXML::GetInt( const char *pszRow, const char *pszEntry, int defval )
 {
 	const std::string szName = MakeName( pszRow, pszEntry );
-	if ( IXMLDOMNodePtr pNode = GetNode(szName) )
+	if ( MSXML2::IXMLDOMNodePtr pNode = GetNode(szName) )
 		return atoi( pNode->text );
 	else
 		return defval;
@@ -170,7 +170,7 @@ int CDataTableXML::GetInt( const char *pszRow, const char *pszEntry, int defval 
 double CDataTableXML::GetDouble( const char *pszRow, const char *pszEntry, double defval )
 {
 	const std::string szName = MakeName( pszRow, pszEntry );
-	if ( IXMLDOMNodePtr pNode = GetNode(szName) )
+	if ( MSXML2::IXMLDOMNodePtr pNode = GetNode(szName) )
 		return atof( pNode->text );
 	else
 		return defval;
@@ -178,7 +178,7 @@ double CDataTableXML::GetDouble( const char *pszRow, const char *pszEntry, doubl
 const char* CDataTableXML::GetString( const char *pszRow, const char *pszEntry, const char *defval, char *pszBuffer, int nBufferSize )
 {
 	const std::string szName = MakeName( pszRow, pszEntry );
-	if ( IXMLDOMNodePtr pNode = GetNode(szName) )
+	if ( MSXML2::IXMLDOMNodePtr pNode = GetNode(szName) )
 	{
 		std::string szString = pNode->text;
 		NI_ASSERT_TF( nBufferSize >= szString.size(), "Buffer too small to fill all string", return 0 );
@@ -191,7 +191,7 @@ const char* CDataTableXML::GetString( const char *pszRow, const char *pszEntry, 
 int CDataTableXML::GetRawData( const char *pszRow, const char *pszEntry, void *pBuffer, int nBufferSize )
 {
 	const std::string szName = MakeName( pszRow, pszEntry );
-	if ( IXMLDOMNodePtr pNode = GetNode(szName) )
+	if ( MSXML2::IXMLDOMNodePtr pNode = GetNode(szName) )
 	{
 		std::string szBuffer = pNode->text;
 		NI_ASSERT_TF( nBufferSize >= szBuffer.size(), "Buffer too small to fill all string", return 0 );
@@ -219,16 +219,16 @@ void CDataTableXML::SetDouble( const char *pszRow, const char *pszEntry, double 
 void CDataTableXML::SetString( const char *pszRow, const char *pszEntry, const char *val )
 {	
 	NI_ASSERT_T( false, "Still not implemented" );
-	if ( IXMLDOMNodePtr pNode = xmlRootNode->selectSingleNode( pszRow ) )
+	if ( MSXML2::IXMLDOMNodePtr pNode = xmlRootNode->selectSingleNode( pszRow ) )
 	{
-		IXMLDOMCharacterDataPtr xmlText = xmlDocument->createTextNode( val );
+		MSXML2::IXMLDOMCharacterDataPtr xmlText = xmlDocument->createTextNode( val );
 		pNode->appendChild( xmlText );
 	}
 	else
 	{
-		IXMLDOMElementPtr pElement = xmlDocument->createElement( pszRow );
+		MSXML2::IXMLDOMElementPtr pElement = xmlDocument->createElement( pszRow );
 		xmlRootNode->appendChild( pElement );
-		IXMLDOMCharacterDataPtr xmlText = xmlDocument->createTextNode( val );
+		MSXML2::IXMLDOMCharacterDataPtr xmlText = xmlDocument->createTextNode( val );
 		pElement->appendChild( xmlText );
 	}
 	SetModified();

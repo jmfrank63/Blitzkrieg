@@ -105,7 +105,7 @@ protected:
 public:
 	TFilterHashMap m_allFilters;
 	CImageList objectsImageList;
-	std::hash_map<std::string, int> objectsImageIndices;
+	std::unordered_map<std::string, int> objectsImageIndices;
 
 	afx_msg void OnButtonNewFilter();
 	afx_msg void OnDiplomacyButton();

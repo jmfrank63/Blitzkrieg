@@ -9,7 +9,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NStr
 {
-	static std::hash_map<char, char> brackets;   // map with open bracket <=> close bracket respection
+	static std::unordered_map<char, char> brackets;   // map with open bracket <=> close bracket respection
 	static char cBracketTypes[8] = "({[\" ";     // all available brackets (open)
 	static const int NUM_BRACKET_TYPES = 4;      // number of available brackets
 	static int nCodePage = 1252;
@@ -17,7 +17,7 @@ namespace NStr
 	void InitStringProcessor();
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// проинициализировать внутренние структуры string processor'а
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ string processor'пїЅ
 void NStr::InitStringProcessor()
 {
 	brackets['('] = ')';
@@ -25,7 +25,7 @@ void NStr::InitStringProcessor()
 	brackets['{'] = '}';
 	brackets['\"'] = '\"';
 }
-// это вспомогательная структура для автоматической инициализации string processor'а
+// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ string processor'пїЅ
 struct SStrProcInit
 {
 	SStrProcInit() { NStr::InitStringProcessor(); }
@@ -37,24 +37,24 @@ bool NStr::IsOpenBracket( const char cSymbol )
 	return brackets.find( cSymbol ) != brackets.end();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// добавить новую пару скобок
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 void NStr::AddBrackets( const char cOpenBracket, const char cCloseBracket )
 {
 	brackets[cOpenBracket] = cCloseBracket;
 }
-// удалить пару скобок
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 void NStr::RemoveBrackets( const char cOpenBracket, const char cCloseBracket )
 {
 	brackets.erase( cOpenBracket );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// получить закрывающую скобку по открывающей
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 const char NStr::GetCloseBracket( const char cOpenBracket )
 {
 	return brackets[cOpenBracket];
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// разделить строку на массив строк по заданному разделителю
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 void NStr::SplitString( const std::string &szString, std::vector<std::string> &szVector, const char cSeparator )
 {
 	int nPos = 0, nLastPos = 0;
@@ -69,7 +69,7 @@ void NStr::SplitString( const std::string &szString, std::vector<std::string> &s
 	} while( nPos != std::string::npos );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// разделить строку на массив строк по заданному разделителю с учётом скобок одной вложенности
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 void NStr::SplitStringWithBrackets( const std::string &szString, std::vector<std::string> &szVector, const char cSeparator )
 {
 	int nPos = 0, nLastPos = 0;
@@ -94,7 +94,7 @@ void NStr::SplitStringWithBrackets( const std::string &szString, std::vector<std
 	} while( nPos != std::string::npos );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// разделить строку на массив строк по заданному разделителю с учётом скобок любой вложенности
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 void NStr::SplitStringWithMultipleBrackets( const std::string &szString, std::vector<std::string> &szVector, const char cSeparator )
 {
 	std::stack<char> stackBrackets;
@@ -125,13 +125,13 @@ void NStr::SplitStringWithMultipleBrackets( const std::string &szString, std::ve
 		szVector.push_back( szString.substr( nLastPos ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// найти закрывающую скобку без учёта внутренних скобок
+// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 int NStr::FindCloseBracket( const std::string &szString, int nPos, const char cOpenBracket )
 {
 	return szString.find( brackets[cOpenBracket], nPos );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// найти закрывающую скобку с учётом внутренних скобок
+// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 int NStr::FindMultipleCloseBracket( const std::string &szString, int nPos, const char cOpenBracket )
 {
 	std::stack<char> stackBrackets;
@@ -153,7 +153,7 @@ int NStr::FindMultipleCloseBracket( const std::string &szString, int nPos, const
 	return std::string::npos;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// отрезать все символы 'cTrim' справа
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ 'cTrim' пїЅпїЅпїЅпїЅпїЅпїЅ
 void NStr::TrimRight( std::string &szString, const char cTrim )
 {
 	int nPos = szString.find_last_not_of( cTrim );
@@ -177,7 +177,7 @@ void NStr::TrimRight( std::string &szString, const char *pszTrim )
 		szString.erase( nPos + 1, std::string::npos );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// вырезать все символы 'cTrim' из строки
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ 'cTrim' пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 class CSymbolCheckFunctional
 {
 private:
@@ -199,7 +199,7 @@ void NStr::TrimInside( std::string &szString, const char *pszTrim )
   szString.erase( std::remove_if(szString.begin(), szString.end(), CSymbolCheckFunctional(pszTrim)), szString.end() );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// преобразовать целое в строку, разделяя каждые три знака (три порядка) специальным разделителем (.)
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ) пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (.)
 void NStr::ToDotString( std::string *pDst, int nVal, const char cSeparator )
 {
 	char buff[32], buff2[32];
@@ -218,7 +218,7 @@ void NStr::ToDotString( std::string *pDst, int nVal, const char cSeparator )
   *pDst = buff;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// форматирование строки
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 const char* __cdecl NStr::Format( const char *pszFormat, ... )
 {
   static char buff[2048];
@@ -383,16 +383,16 @@ void NStr::ToUnicode( std::wstring *pRes, const std::string &szSrc )
 		delete[] pszBuf;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// привести к верхнему или нижнему регистру
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 // MSVCMustDie_* are required to keep compiler happy when default calling conversion is __fastcall
 inline int MSVCMustDie_tolower( int a ) { return tolower(a); } 
 inline int MSVCMustDie_toupper( int a ) { return toupper(a); }
 void NStr::ToLower( std::string &szString ) 
 { 
-	std::transform( szString.begin(), szString.end(), szString.begin(), std::ptr_fun(MSVCMustDie_tolower) ); 
+	std::transform( szString.begin(), szString.end(), szString.begin(), [](int c){ return tolower(c); } ); 
 }
 void NStr::ToUpper( std::string &szString ) 
 { 
-	std::transform( szString.begin(), szString.end(), szString.begin(), std::ptr_fun(MSVCMustDie_toupper) ); 
+	std::transform( szString.begin(), szString.end(), szString.begin(), [](int c){ return toupper(c); } ); 
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

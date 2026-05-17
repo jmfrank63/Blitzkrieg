@@ -174,7 +174,7 @@ bool CZipFile::Init( IDataStream *pZipStream )
 		{
 			pfh += sizeof( fh );
 			// Convert UNIX slashes to DOS backlashes.
-			std::replace_if( pfh, pfh + fh.wFileNameLen, std::bind2nd( std::equal_to<char>(), '/' ), '\\' );
+			std::replace_if( pfh, pfh + fh.wFileNameLen, [](char c){ return c == '/'; }, '\\' );
 			// Skip name, extra and comment fields.
 			pfh += fh.wFileNameLen + fh.wExtraLen + fh.wCommentLen;
 		}

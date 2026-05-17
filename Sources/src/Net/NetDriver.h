@@ -151,7 +151,7 @@ interface INetDriver : public IRefCount
 	virtual sockaddr* STDCALL GetSockAddr() = 0;
 
 	// auxiliary multichannel functions
-	virtual void STDCALL AddChannel( const int nChannelID, const std::hash_set<BYTE> &channelMessages ) = 0;
+	virtual void STDCALL AddChannel( const int nChannelID, const std::unordered_set<BYTE> &channelMessages ) = 0;
 	virtual void STDCALL RemoveChannel( const int nChannelID ) = 0;
 
 	virtual bool STDCALL GetChannelMessage( EMessage *pMsg, int *pClientID, int *received, IDataStream *pPkt, const int nChannel ) = 0;

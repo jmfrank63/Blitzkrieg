@@ -15,16 +15,16 @@ enum EResupplyType
 	_ERT_COUNT						= 5,
 };
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// главная логика
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 class CSupremeBeing
 {
 	DECLARE_SERIALIZE;
-	typedef std::hash_map<int, CPtr<CGeneral> > Generals;
+	typedef std::unordered_map<int, CPtr<CGeneral> > Generals;
 	Generals generals;
 	typedef std::list< CPtr<IGeneralDelayedTask> > DelayedTasks;
 	DelayedTasks delayedTasks;
 
-	std::hash_set<int/*Link ID*/> ironmans;
+	std::unordered_set<int/*Link ID*/> ironmans;
 
 public:
 	void Segment();
@@ -32,13 +32,13 @@ public:
 
 	void SetUnitVisible( class CAIUnit *pUnit, const int nGeneralParty, const bool bVisible );
 	
-	// когда зенитка начинает атаку нашего самолета
+	// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	void SetAAVisible( class CAIUnit *pUnit, const int nGeneralParty, const bool bVisible );
 	
 	// creates number of generals
-	// каждый генерал знает о юнитах, которые являются мобильным резервом
+	// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	void Init( const struct SAIGeneralMapInfo &mapInfo );
-	// раздать юниты генералам
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	void GiveNewUnitsToGenerals( const std::list<class CCommonUnit*> &pUnits );
 
 	bool IsMobileReinforcement( int nParty, int nGroup ) const;
@@ -48,7 +48,7 @@ public:
 	bool MustShootToObstacles( const int nPlayer );
 	void RegisterDelayedTask( interface IGeneralDelayedTask *pTask );
 	
-	// для очагов сопротивления
+	// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	void UpdateEnemyUnitInfo( class CAIUnitInfoForGeneral *pInfo,
 		const NTimer::STime lastVisibleTimeDelta, const CVec2 &vLastVisiblePos,
 		const NTimer::STime lastAntiArtTimeDelta, const CVec2 &vLastVisibleAntiArtCenter, const float fDistToLastVisibleAntiArt );

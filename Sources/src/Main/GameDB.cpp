@@ -26,13 +26,13 @@ class CObjectsDB : public IObjectsDB
 {
 	OBJECT_NORMAL_METHODS( CObjectsDB );
 	//
-	typedef std::hash_map<const IGDBObject*, const SCommonRPGStats*, SDefaultPtrHash> CObjectsRPGMap;
-	typedef std::hash_map<std::string, SCommonRPGStats*> CAddStatsMap;
-	typedef std::hash_map<std::string, SBasicGameStats*> CGameStatsMap;
-	typedef std::hash_map<int, SAIExpLevel> CAIExpLevelsMap;
-	typedef std::hash_map<std::string, const SAIExpLevel*> CAIExpLevelsByNameMap;
+	typedef std::unordered_map<const IGDBObject*, const SCommonRPGStats*, SDefaultPtrHash> CObjectsRPGMap;
+	typedef std::unordered_map<std::string, SCommonRPGStats*> CAddStatsMap;
+	typedef std::unordered_map<std::string, SBasicGameStats*> CGameStatsMap;
+	typedef std::unordered_map<int, SAIExpLevel> CAIExpLevelsMap;
+	typedef std::unordered_map<std::string, const SAIExpLevel*> CAIExpLevelsByNameMap;
 	//
-	typedef std::hash_map<std::string, const SGDBObjectDesc*> CObjDescMap;
+	typedef std::unordered_map<std::string, const SGDBObjectDesc*> CObjDescMap;
 	std::vector<SGDBObjectDesc> objects;	// all object entries
 	CObjDescMap objmap;										// objects map
 	CObjectsRPGMap rpgs;									// RPG stats
@@ -61,7 +61,7 @@ public:
 	virtual const SGDBObjectDesc* STDCALL GetDesc( int nIndex ) const { return &( objects[nIndex] ); }
 	virtual const SGDBObjectDesc* STDCALL GetDesc( const char *pszName ) const 
 	{ 
-		std::hash_map<std::string, const SGDBObjectDesc*>::const_iterator pos = objmap.find( pszName );
+		std::unordered_map<std::string, const SGDBObjectDesc*>::const_iterator pos = objmap.find( pszName );
 		return pos != objmap.end() ? pos->second : 0; 
 	}
 	//
@@ -212,8 +212,8 @@ bool CObjectsDB::LoadDB()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGDBAutoMagic
 {
-	typedef std::hash_map<int, std::string> CIntToStrMap;
-	typedef std::hash_map<std::string, int> CStrToIntMap;
+	typedef std::unordered_map<int, std::string> CIntToStrMap;
+	typedef std::unordered_map<std::string, int> CStrToIntMap;
 	// vis type
 	CIntToStrMap vistostr;
 	CStrToIntMap strtovis;

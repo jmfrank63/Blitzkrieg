@@ -16,9 +16,6 @@
 #define _STLP_DEBUG_MESSAGE 1
 //
 #ifndef __AFX__
-#define WIN32_LEAN_AND_MEAN							// Exclude rarely-used stuff from Windows headers
-#include "stl_user_config.h"
-#include <stl/_config.h>
 
 #include <comutil.h>
 #include <assert.h>
@@ -32,8 +29,7 @@
 #else
 #define _STLP_USE_MFC 1
 #include "stl_user_config.h"
-#include <stl/_config.h>
-
+//
 #include <afxwin.h>											// MFC core and standard components
 #include <afxext.h>											// MFC extensions
 #include <afxdtctl.h>										// MFC support for Internet Explorer 4 Common Controls
@@ -52,8 +48,8 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <hash_map>
-#include <hash_set>
+#include <unordered_map>
+#include <unordered_set>
 #include <set>
 #include <queue>
 //
@@ -97,6 +93,7 @@ typedef unsigned __int64 QWORD;					// quadra word
 #include "..\StreamIO\SSHelper.h"				// strucutre saver helper classes
 #include "..\StreamIO\DTHelper.h"				// data tree helper classes
 
+#include "..\Misc\Basic.h"
 #include "..\Main\GameTimer.h"
 #include "..\Main\GameDB.h"
 // in the file 'Specific.h' one can define own project-specific includes

@@ -25,7 +25,7 @@ private:
 	const STilesetDesc &tileset;
 	//const SRoadsetDesc &roadset;
 	const SCrossetDesc &crosset;
-	typedef std::hash_map<char, int> CTypesMap;
+	typedef std::unordered_map<char, int> CTypesMap;
 	mutable CTypesMap terratypes;					// terrain type
 	mutable CTypesMap crossettypes;				// cross set type
 	mutable CTypesMap crosstypes;					// cross tile type

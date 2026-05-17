@@ -50,10 +50,11 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <hash_map>
-#include <hash_set>
+#include <unordered_map>
+#include <unordered_set>
 #include <set>
 #include <queue>
+#include <typeinfo>
 //
 typedef __int64 int64;									// due to lack of 'long long' type support
 typedef unsigned __int64 QWORD;					// quadra word
@@ -87,6 +88,8 @@ typedef unsigned __int64 QWORD;					// quadra word
 #include "..\Misc\2DArray.h"						// 2-D array
 #include "..\Misc\HashFuncs.h"					// different usefull hash functions
 #include "..\Misc\StrProc.h"						// string processing functions
+
+#include "MSXMLImport.h"								// Common MSXML import
 
 #include "..\StreamIO\Globals.h"				// globals - singleton, global var system, temp buffers, console, etc.
 #include "..\StreamIO\StreamIO.h"				// stream I/O base interfaces

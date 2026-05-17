@@ -29,10 +29,10 @@ class CDataStorage
 	static const std::string SOUND_EXTENTION;
 	static const std::string CONFIGURATION_EXTENTION;
 
-	std::hash_map<std::string, CARBitmap> bitmaps;									//картинки
-	std::hash_map<std::string, CARSound> sounds;										//звуки
-	std::hash_map<std::string, CARText> texts;											//тексты
-	std::hash_map<std::string, CARConfiguration> configurations;		//INI файл
+	std::unordered_map<std::string, CARBitmap> bitmaps;									//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	std::unordered_map<std::string, CARSound> sounds;										//пїЅпїЅпїЅпїЅпїЅ
+	std::unordered_map<std::string, CARText> texts;											//пїЅпїЅпїЅпїЅпїЅпїЅ
+	std::unordered_map<std::string, CARConfiguration> configurations;		//INI пїЅпїЅпїЅпїЅ
 
 public:
 	void Clear()

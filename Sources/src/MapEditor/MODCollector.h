@@ -15,7 +15,7 @@ public:
 		std::string szMODName;
 		std::string szMODVersion;
 	};
-	typedef std::hash_map<std::string, CMODNode> TMODNodesList;
+	typedef std::unordered_map<std::string, CMODNode> TMODNodesList;
 	TMODNodesList availableMODs;
 
 	static const std::string GetKey( const std::string &rszMODName, const std::string &rszMODVersion );

@@ -2,14 +2,14 @@
 
 #include "StrProc.h"
 
-#include <hash_map>
+#include <unordered_map>
 #include <stack>
 #include <math.h>
 #include <stdlib.h>
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NStr
 {
-	static std::hash_map<char, char> brackets;   // map with open bracket <=> close bracket respection
+	static std::unordered_map<char, char> brackets;   // map with open bracket <=> close bracket respection
 	static char cBracketTypes[8] = "({[\" ";     // all available brackets (open)
 	static const int NUM_BRACKET_TYPES = 4;      // number of available brackets
 	static int nCodePage = GetACP();
@@ -413,10 +413,10 @@ inline int MSVCMustDie_tolower( int a ) { return tolower(a); }
 inline int MSVCMustDie_toupper( int a ) { return toupper(a); }
 void NStr::ToLower( std::string &szString ) 
 { 
-	std::transform( szString.begin(), szString.end(), szString.begin(), std::ptr_fun(MSVCMustDie_tolower) ); 
+	std::transform( szString.begin(), szString.end(), szString.begin(), [](int c){ return tolower(c); } ); 
 }
 void NStr::ToUpper( std::string &szString ) 
 { 
-	std::transform( szString.begin(), szString.end(), szString.begin(), std::ptr_fun(MSVCMustDie_toupper) ); 
+	std::transform( szString.begin(), szString.end(), szString.begin(), [](int c){ return toupper(c); } ); 
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

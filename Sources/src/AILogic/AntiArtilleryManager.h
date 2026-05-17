@@ -13,7 +13,7 @@ class CAntiArtilleryManager
 	DECLARE_SERIALIZE;
 
 	// круги от выстрелов от собственной артиллерии для каждой из сторон
-	typedef std::hash_set<int> CAntiArtilleries;
+	typedef std::unordered_set<int> CAntiArtilleries;
 	std::vector<CAntiArtilleries> antiArtilleries;
 	
 	static bool IsHeardForParty( CAntiArtillery *pAntiArt, const int nParty );

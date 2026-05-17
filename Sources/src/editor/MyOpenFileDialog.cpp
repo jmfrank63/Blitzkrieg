@@ -36,8 +36,8 @@ void CMyOpenFileDialog::OnLButtonDblClk(UINT nFlags, CPoint point)
 	int i = 0;
 }
 
-//табличка расширений файлов для FileDialog
-typedef std::hash_map<std::string, std::string> CExtensionToFile;
+//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ FileDialog
+typedef std::unordered_map<std::string, std::string> CExtensionToFile;
 CExtensionToFile extensionToFileMap;
 
 void SaveFileDialogRegisterData()
@@ -97,7 +97,7 @@ BOOL ShowFileDialog( std::string &szResult, LPCTSTR lpszInitDir, LPCTSTR lpszTit
 		szExtension = lpszDefExt;
 	else if ( lpszFilter )
 	{
-		//вырежем extension из фильтра
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ extension пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		szExtension = lpszFilter;
 		int nPos = szExtension.find( "(" );
 		if ( nPos != std::string::npos )
@@ -116,7 +116,7 @@ BOOL ShowFileDialog( std::string &szResult, LPCTSTR lpszInitDir, LPCTSTR lpszTit
 	std::string szInitDir;
 	if ( szExtension.size() > 0 && GetDirectoryFromExtensionTable( szInitDir, szExtension.c_str() ) )
 	{
-		//проверим, вдруг szInitDir как часть содержит lpszInitDir
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ szInitDir пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ lpszInitDir
 		int nPos = szInitDir.find( lpszInitDir );
 		if ( nPos == std::string::npos )
 			szInitDir = lpszInitDir;
@@ -131,7 +131,7 @@ BOOL ShowFileDialog( std::string &szResult, LPCTSTR lpszInitDir, LPCTSTR lpszTit
 		szResult = dlg.GetPathName();
 		NStr::ToLower( szResult );
 
-		//обновим табличку
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		extensionToFileMap[szExtension] = GetDirectory( szResult.c_str() );
 		return TRUE;
 	}

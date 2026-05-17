@@ -20,7 +20,7 @@ class CMessageReactions
 {
 	DECLARE_SERIALIZE
 	
-	typedef std::hash_map<std::string,CObj<IMessageReactionB2> > CReactions;
+	typedef std::unordered_map<std::string,CObj<IMessageReactionB2> > CReactions;
 	CReactions reactions;
 
 	// script that does all complex checks and complex behaviour

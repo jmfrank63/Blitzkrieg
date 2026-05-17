@@ -68,7 +68,7 @@ class CWindow : public IWindow
 	typedef CHeap< CDCPtr<CWindow>, SWindowCompare > CDrawOrder;
 	CDrawOrder drawOrder;
 
-	typedef std::hash_set<std::string> CChildren;
+	typedef std::unordered_set<std::string> CChildren;
 	CChildren children;
 	
 
@@ -83,8 +83,8 @@ class CWindow : public IWindow
 	int nPriority;
 	CVec2 vChildPos;													// coordinates relative to parent & alingnment
 	CVec2 vSize;												// size
-	EPositionAllign nVerAllign;				//задает точку привязки (vertical)
-	EPositionAllign nHorAllign;									//задает точку привязки (horisontal)
+	EPositionAllign nVerAllign;				//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (vertical)
+	EPositionAllign nHorAllign;									//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (horisontal)
 	// END loads from data
 protected:
 

@@ -17,15 +17,15 @@ private:
 
 	CPtr<IUIListControl> pPlayersList;								// list control shortcut
 	
-	typedef std::hash_map<TID, int> IDToPosMap;
-	typedef std::hash_map<int, TID> PosToIDMap;
+	typedef std::unordered_map<TID, int> IDToPosMap;
+	typedef std::unordered_map<int, TID> PosToIDMap;
 
 	
 	IDToPosMap playerIDToPos;
 	PosToIDMap posToPlayerID;
 	//
 
-	typedef std::hash_map<TID, CPtr<TInfo> > PlayersInfo;
+	typedef std::unordered_map<TID, CPtr<TInfo> > PlayersInfo;
 	PlayersInfo playersInfo;
 
 	PlayersInfo::iterator curIter;							//current iterator.

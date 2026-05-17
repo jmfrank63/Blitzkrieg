@@ -66,7 +66,7 @@ int CUIMessageBox::operator&( IStructureSaver &ss )
 	
 	if ( saver.IsReading() )
 	{
-		//инициализируем внутренние переменные
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		pOK = dynamic_cast<CUIButton *>( GetChildByID(1) );
 		pCancel = dynamic_cast<CUIButton *>( GetChildByID(2) );
 		pText = dynamic_cast<CUIStatic *>( GetChildByID(3) );
@@ -82,7 +82,7 @@ int CUIMessageBox::operator&( IDataTree &ss )
 	
 	if ( saver.IsReading() )
 	{
-		//инициализируем внутренние переменные
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		pOK = dynamic_cast<CUIButton *>( GetChildByID(1) );
 		pCancel = dynamic_cast<CUIButton *>( GetChildByID(2) );
 		pText = dynamic_cast<CUIStatic *>( GetChildByID(3) );

@@ -180,7 +180,7 @@ bool CZipFile::Init( const std::string &szFileName )
 		{
 			pfh += sizeof( fh );
 			// Convert UNIX slashes to DOS backlashes.
-			std::replace_if( pfh, pfh + fh.wFileNameLen, std::bind2nd( std::equal_to<char>(), '/' ), '\\' );
+			std::replace_if( pfh, pfh + fh.wFileNameLen, [](char c){ return c == '/'; }, '\\' );
 			// add to hash map
 			std::string szFileName;
 			szFileName.resize( fh.wFileNameLen );

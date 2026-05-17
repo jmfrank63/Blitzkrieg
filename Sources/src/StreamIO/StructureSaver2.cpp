@@ -330,11 +330,11 @@ IRefCount* CStructureSaver2::LoadObject()
 	return reinterpret_cast<IRefCount*>( pServerPtr );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-bool CStructureSaver2::StartChunk( const SSChunkID idChunk )
+	bool CStructureSaver2::StartChunk( const SSChunkID idChunk )
 {
 	CChunkLevel &last = chunks.back();
-	chunks.push_back();
-	if ( IsReading() ) 
+	chunks.emplace_back();
+	if ( IsReading() )
 	{
 		bool bRes = GetShortChunk( last, idChunk, chunks.back(), last.nChunkNumber );
 		if ( !bRes )
@@ -384,7 +384,7 @@ void CStructureSaver2::Start( IStructureSaver::EAccessMode eAccessMode, IProgres
 	chunks.clear();
 	obj.Clear();
 	data.Clear();
-	chunks.push_back();
+	chunks.emplace_back();
 	bIsReading = eAccessMode == IStructureSaver::READ;
 	if ( IsReading() )
 	{
@@ -544,7 +544,7 @@ void CStructureSaver2::Start( IStructureSaver::EAccessMode eAccessMode, IProgres
 	}
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// std::hash_map<int, std::string> type2name;
+// std::unordered_map<int, std::string> type2name;
 // std::map<int, int> type2size;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStructureSaver2::Finish()

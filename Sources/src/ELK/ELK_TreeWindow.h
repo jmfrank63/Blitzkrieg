@@ -74,9 +74,9 @@ protected:
 	HTREEITEM GetFirstItemInternal();
 	HTREEITEM GetLastItemInternal();
 
-	std::hash_map<LONG, std::string> rootFolders;
-	std::hash_map<LONG, std::string> rootNames;
-	std::hash_map<LONG, int> rootNumbers;
+	std::unordered_map<LONG, std::string> rootFolders;
+	std::unordered_map<LONG, std::string> rootNames;
+	std::unordered_map<LONG, int> rootNumbers;
 
 	int GetItemsCountInternal();
 	void GetItemPathInternal( HTREEITEM item, std::string *pszItemPath, bool bFull = true );

@@ -3,7 +3,7 @@
 #include "UIColorTextScroll.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-CUIColorTextScroll::CColorTextEntry::operator&( IStructureSaver &ss )
+int STDCALL CUIColorTextScroll::CColorTextEntry::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 	saver.Add( 1, &nHeight );
@@ -130,8 +130,8 @@ void CUIColorTextScroll::AppendMessage( const WORD *pszCaption, const WORD *pszM
 	CTRect<float> rect;
 	GetBorderRect( &rect );
 
-	CColorTextEntry * pNewEntry = new CColorTextEntry( pszCaption, colors[nColorIndex].first,
-																						 pszMessage, colors[nColorIndex].second,
+	CColorTextEntry * pNewEntry = new CColorTextEntry( reinterpret_cast<const wchar_t*>(pszCaption), colors[nColorIndex].first,
+																						 reinterpret_cast<const wchar_t*>(pszMessage), colors[nColorIndex].second,
 																						 nCurrentYSize, rect.Width() );
 	nCurrentYSize += pNewEntry->GetSizeY();
 	textEntrys.push_back( pNewEntry );

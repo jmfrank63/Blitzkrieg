@@ -6,7 +6,7 @@ inline long Width( const RECT &rc ) { return rc.right - rc.left; }
 inline long Height( const RECT &rc ) { return rc.bottom - rc.top; }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//Вспомогательные структурки
+//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SDirDesc
 {
@@ -19,7 +19,7 @@ struct SAnimationDesc
 	int nFirstSprite;
 	int nLastSprite;
 	std::vector<SDirDesc> dirs;						// direction descritions
-	std::hash_map<int, CVec2> frames;			// each frame unique shift
+	std::unordered_map<int, CVec2> frames;			// each frame unique shift
 	int nFrameTime;												// general one frame show time
 	CVec2 ptFrameShift;										// general one frame shift
 	float fSpeed;													// translation speed (for animations with movement)
@@ -160,7 +160,7 @@ int main( int argc, char *argv[] )
 		pAnimation->nFrameTime = animdesc.nFrameTime;
 		for ( int j=0; j<pAnimation->dirs.size(); ++j )
 			pAnimation->dirs[j].frames = animdesc.dirs[j].frames;
-		// CRAP{ сейчас предполагаем что в анимации задействованы все кадры 
+		// CRAP{ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ 
 		pAnimation->rects.resize( animdesc.frames.size() );
 		// CRAP}
 		for ( int j=0; j<pAnimation->rects.size(); ++j )

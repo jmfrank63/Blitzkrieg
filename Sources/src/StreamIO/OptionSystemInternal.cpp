@@ -161,7 +161,7 @@ bool COptionSystem::Set( const std::string &szVarName, const variant_t &_var )
 	if ( var.vt == VT_BSTR )
 	{
 		// cut string for allowable lenght
-		std::wstring szStr = (const WORD*)bstr_t(var);
+		std::wstring szStr = (const wchar_t*)bstr_t(var);
 		if ( szStr.size() > 12 )
 		{
 			szStr.resize( 8 );
@@ -173,12 +173,12 @@ bool COptionSystem::Set( const std::string &szVarName, const variant_t &_var )
 	//CRAP{ FOR LOCAL PLAYER NAME
 	if ( szVarName == "GamePlay.PlayerName" )
 	{
-		std::wstring szPlayerName = (const WORD*)bstr_t(var);
+		std::wstring szPlayerName = (const wchar_t*)bstr_t(var);
 		if ( szPlayerName.empty() )
 		{
 			IText * pT = GetSingleton<ITextManager>()->GetDialog( "Textes\\PlayerName" );
 			if ( pT )
-				szPlayerName = pT->GetString();
+				szPlayerName = reinterpret_cast<const wchar_t*>(pT->GetString());
 			CBase::Set( szVarName, variant_t(szPlayerName.c_str()) );
 		}
 		else 
@@ -212,18 +212,18 @@ void COptionSystem::InnerSet( const std::string &szVarName, const variant_t &var
 		}
 		else if ( pOpt->szAction == "SetMusicVolume" )
 		{
-			ISFX * pSFX = GetSingleton<ISFX>();
-			short nVolume = short(var) * GetGlobalVar( "Sound.StreamMasterVolume", 1.0f );
-			pSFX->SetStreamMasterVolume( nVolume / 100.0f );
-			SetGlobalVar( ("Options." + szVarName).c_str(), var );
-		}
+				ISFX * pSFX = GetSingleton<ISFX>();
+				short nVolume = short(var) * GetGlobalVar( "Sound.StreamMasterVolume", 1.0f );
+				pSFX->SetStreamMasterVolume( nVolume / 100.0f );
+				SetGlobalVar( ("Options." + szVarName).c_str(), float(var) );
+			}
 		else if ( pOpt->szAction == "SetSFXVolume" )
 		{
-			ISFX * pSFX = GetSingleton<ISFX>();
-			short nVolume = short(var) * GetGlobalVar( "Sound.SFXMasterVolume", 1.0f );
-			pSFX->SetSFXMasterVolume( nVolume / 100.0f );
-			SetGlobalVar( ("Options." + szVarName).c_str(), var );
-		}
+				ISFX * pSFX = GetSingleton<ISFX>();
+				short nVolume = short(var) * GetGlobalVar( "Sound.SFXMasterVolume", 1.0f );
+				pSFX->SetSFXMasterVolume( nVolume / 100.0f );
+				SetGlobalVar( ("Options." + szVarName).c_str(), float(var) );
+			}
 		else if ( pOpt->szAction == "SetDifficulty" )
 		{
 			SetDifficulty( var );	
@@ -308,7 +308,7 @@ void COptionSystem::InnerSet( const std::string &szVarName, const variant_t &var
 		}
 		else 
 		{
-			SetGlobalVar( ("Options." + szVarName).c_str(), var );
+			SetGlobalVar( ("Options." + szVarName).c_str(), int(var) );
 		}
 	}
 }
@@ -425,7 +425,7 @@ void COptionSystem::Repair( IDataTree *pSS, const bool bToDefault )
 			//CRAP{ FOR LOCAL PLAYER'S NAME
 			if ( pDesc->szName == "GamePlay.PlayerName" )
 			{
-				const std::wstring szPlayerName = (const WORD*)bstr_t(dummy);
+				const std::wstring szPlayerName = (const wchar_t*)bstr_t(dummy);
 				if ( szPlayerName.empty() )
 				{
 					SetVar( pDesc->szName, pTmpOptions->GetVar( pDesc->szName ) );

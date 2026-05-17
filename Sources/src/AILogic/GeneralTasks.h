@@ -9,7 +9,7 @@
 #include "Resistance.h"
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ****
-// защита патча.
+// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ.
 // ****
 class CGeneralTaskToDefendPatch : public IGeneralTask, public IWorkerEnumerator, public IEnemyEnumerator 
 {
@@ -30,7 +30,7 @@ class CGeneralTaskToDefendPatch : public IGeneralTask, public IWorkerEnumerator,
 	bool bWaitForFinish;								// wait for finish the task
 	NTimer::STime timeLastUpdate;				
 
-	CommonUnits infantryInTrenches;				// списки юнитов по типам
+	CommonUnits infantryInTrenches;				// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	CommonUnits infantryFree;
 	CommonUnits tanksMobile;
 	CommonUnits stationaryUnits;
@@ -74,7 +74,7 @@ class CGeneralTaskToHoldReinforcement : public IGeneralTask, public IWorkerEnume
 	OBJECT_COMPLETE_METHODS(CGeneralTaskToHoldReinforcement);
 	CommonUnits tanksFree;
 	SAIGeneralParcelInfo patchInfo;
-	typedef std::hash_map<int, CVec2> UnitsPositions;
+	typedef std::unordered_map<int, CVec2> UnitsPositions;
 	UnitsPositions unitsPositions;
 
 	float fSeverity;										// current severity of this task

@@ -5,8 +5,8 @@
 
 #ifdef __OLD
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//CRAP осталось со старой версии, возможно надо удалить GLAD
-static const int GLAD = 20;		//Эта константа для гладкости перемещения, чтобы можно было тыкнуть посередине ScrollBar и елеватор перешел вниз
+//CRAP пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ GLAD
+static const int GLAD = 20;		//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ScrollBar пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 
 IUITreeItem* SUITreeItem::AddTreeItem( IUIElement *_pIcon, IUIElement *_pInfo, int nUserData )
 {
@@ -133,7 +133,7 @@ int CUIList::operator&( IDataTree &ss )
 	
 	if ( saver.IsReading() )
 	{
-		//инициализируем массив headers
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ headers
 		//if ( nHeaderSize > 0 )
 		{
 			headers.subItems.resize( columnProperties.size() );
@@ -147,7 +147,7 @@ int CUIList::operator&( IDataTree &ss )
 		/*else*/ // NAHUYUA ETO DELAT?
 		//headers.subItems.clear();
 
-		//инициализируем pScrollBar
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ pScrollBar
 		IUIElement *pScrollElement = GetChildByID( 1 );
 		pScrollBar = pScrollElement == 0 ? 0 : dynamic_cast<CUIScrollBar *>( pScrollElement );
 		
@@ -254,11 +254,11 @@ void CUIList::OnUserChangeScrollBarPosition()
 {
 	NI_ASSERT_T( pScrollBar != 0, "Can't find scroll bar" );
 	
-	//Пересчитываем координаты для всех внутренних контролов
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	CTRect<float> rect = GetScreenRect();
 	int nNumberOfPossible = (rect.bottom - rect.top - nTopSpace * 2 - nHeaderSize) / nItemHeight;
 	int nFirstVisible = pScrollBar->GetPosition() / GLAD;
-	//Последний видимый это nFirstVisible + nNumberOfPossible - 1
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ nFirstVisible + nNumberOfPossible - 1
 	
 	CTRect<float> rc;
 	int top = rect.top + nTopSpace + nHeaderSize - nFirstVisible * nItemHeight;
@@ -268,7 +268,7 @@ void CUIList::OnUserChangeScrollBarPosition()
 		int left = rect.left + nLeftSpace;
 		if ( bLeftScrollBar && !bScrollBarAlwaysVisible && pScrollBar && pScrollBar->IsVisible() )
 			left += nScrollBarWidth;
-		int col = 0;			//индекс столбца
+		int col = 0;			//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		for ( SUIListRaw::CUIListSubItems::iterator it=item->subItems.begin(); it!=item->subItems.end(); ++it )
 		{
 			CSimpleWindow *pWindow = dynamic_cast<CSimpleWindow *> ( it->GetPtr() );
@@ -295,7 +295,7 @@ void CUIList::SetNumberOfColumns( int nNumber )
 	if ( nNumber == nNumberOfColumns )
 		return;
 	
-	//Изменяем количество Properties
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ Properties
 	columnProperties.resize( nNumber );
 	for ( CUIListItems::iterator item=listItems.begin(); item!=listItems.end(); ++item )
 	{
@@ -315,7 +315,7 @@ void CUIList::SetNumberOfColumns( int nNumber )
 	
 	if ( nNumberOfColumns < nNumber )
 	{
-		//Создаем и добавляем новые компоненты
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		for ( CUIListItems::iterator it=listItems.begin(); it!=listItems.end(); ++it )
 		{
 			CUIListSubItems *subItem = (*it);
@@ -340,7 +340,7 @@ void CUIList::UpdateAll()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::UpdateItemsCoordinates()
 {
-	//Пересчитываем координаты для всех внутренних контролов
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	CTRect<float> rect = GetScreenRect();
 	int nNumberOfPossible = (rect.bottom - rect.top - nTopSpace * 2 - nHeaderSize) / nItemHeight;
 	CTRect<float> rc;
@@ -352,7 +352,7 @@ void CUIList::UpdateItemsCoordinates()
 		int left = rect.left + nLeftSpace;
 		if ( bLeftScrollBar && !bScrollBarAlwaysVisible && pScrollBar && pScrollBar->IsVisible() )
 			left += nScrollBarWidth;
-		int col = 0;			//индекс столбца
+		int col = 0;			//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		for ( SUIListRaw::CUIListSubItems::iterator it=item->subItems.begin(); it!=item->subItems.end(); ++it )
 		{
 			CSimpleWindow *pWindow = dynamic_cast<CSimpleWindow *> ( it->GetPtr() );
@@ -462,7 +462,7 @@ void CUIList::SetColumnProp( int nColumn, const SColumnProperties &prop )
 	columnProperties[nColumn].nWidth = prop.nWidth;
 	if ( columnProperties[nColumn].nWindowType != prop.nWindowType )
 	{
-		//Создаем новые компоненты в этих столбцах
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		columnProperties[nColumn].nWindowType = prop.nWindowType;
 		for ( CUIListItems::iterator item=listItems.begin(); item!=listItems.end(); ++item )
 		{
@@ -498,7 +498,7 @@ void CUIList::Reposition( const CTRect<float> &rcParent )
 		left += nScrollBarWidth;
 	int top = nTopSpace;
 
-	//перемещаем заголовки
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	for ( int i=0; i<headers.subItems.size(); i++ )
 	{
 		CSimpleWindow *pWindow = dynamic_cast<CSimpleWindow *> ( headers.subItems[i].GetPtr() );
@@ -515,7 +515,7 @@ void CUIList::Reposition( const CTRect<float> &rcParent )
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIList::ProcessMessage( const SUIMessage &msg )
 {
-	//ListControl обрабатывает NOTIFY сообщения от ScrollBar
+	//ListControl пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ NOTIFY пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ ScrollBar
 	switch( msg.nMessageCode )
 	{
 	case UI_NOTIFY_POSITION_CHANGED:
@@ -531,18 +531,18 @@ void CUIList::Visit( interface ISceneVisitor *pVisitor )
 	if ( !IsVisible() )
 		return;
 	
-	// Рисуем подложку
+	// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	CSimpleWindow::Visit( pVisitor );
 	
-	// Рисуем выделенную линию
+	// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	CTRect<float> rect = GetScreenRect();
 	int nNumberOfPossible = (rect.bottom - rect.top - nTopSpace * 2 - nHeaderSize) / nItemHeight;
 	int nFirstVisible = pScrollBar->GetPosition() / GLAD;
-	// Последний видимый это nFirstVisible + nNumberOfPossible - 1
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ nFirstVisible + nNumberOfPossible - 1
 	
 	if ( pSelectionTexture && !( nSelection < nFirstVisible || nSelection > nFirstVisible + nNumberOfPossible - 1 ) )
 	{
-		// selection виден
+		// selection пїЅпїЅпїЅпїЅпїЅ
 		if ( !selSubRects.empty() )
 		{
 			const int nSize = selSubRects.size();
@@ -567,7 +567,7 @@ void CUIList::Visit( interface ISceneVisitor *pVisitor )
 		}
 	}
 	
-	// рисуем детей
+	// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	for ( CWindowList::reverse_iterator ri = childList.rbegin(); ri != childList.rend(); ++ri )
 		(*ri)->Visit( pVisitor );
 }
@@ -579,19 +579,19 @@ void CUIList::Draw( IGFX *pGFX )
 	if ( !IsVisible() )
 		return;
 	
-	//Рисуем подложку
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	CSimpleWindow::Draw( pGFX );
 	
-	//Рисуем выделенную линию
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	pGFX->SetShadingEffect( 3 );
 	CTRect<float> rect = GetScreenRect();
 	int nNumberOfPossible = (rect.bottom - rect.top - nTopSpace * 2 - nHeaderSize) / nItemHeight;
 	int nFirstVisible = pScrollBar->GetPosition() / GLAD;
-	//Последний видимый это nFirstVisible + nNumberOfPossible - 1
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ nFirstVisible + nNumberOfPossible - 1
 	
 	if ( pSelectionTexture && !( nSelection < nFirstVisible || nSelection > nFirstVisible + nNumberOfPossible - 1 ) )
 	{
-		//selection виден
+		//selection пїЅпїЅпїЅпїЅпїЅ
 		SGFXRect2 rc;
 		pGFX->SetTexture( 0, pSelectionTexture );
 		
@@ -619,7 +619,7 @@ void CUIList::Draw( IGFX *pGFX )
 		}
 	}
 	
-	//рисуем детей
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	for ( CWindowList::reverse_iterator ri=childList.rbegin(); ri!=childList.rend(); ri++ )
 		(*ri)->Draw( pGFX );
 }
@@ -628,13 +628,13 @@ bool CUIList::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 {
 	bool bRet = CMultipleWindow::OnLButtonDown( vPos, mouseState );
 	if ( !bRet )
-		return bRet;			//мышка вне окошка
+		return bRet;			//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	
-	//тут обрабатывается изменение Selection
+	//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ Selection
 	CTRect<float> rect = GetScreenRect();
 	int nNumberOfPossible = (rect.bottom - rect.top - nTopSpace * 2 - nHeaderSize) / nItemHeight;
 	int nFirstVisible = pScrollBar->GetPosition() / GLAD;
-	//Последний видимый это nFirstVisible + nNumberOfPossible - 1
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ nFirstVisible + nNumberOfPossible - 1
 	
 	if ( vPos.x < rect.left + nLeftSpace || vPos.x > rect.right - nScrollBarWidth - nLeftSpace )
 		return true;
@@ -642,14 +642,14 @@ bool CUIList::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 	int nSel = ( vPos.y - rect.top - nTopSpace - nHeaderSize ) / nItemHeight;
 	nSelection = nFirstVisible + nSel;
 	
-	//проверяем, чтобы selection не вышла за пределы списка
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ selection пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	if ( nSelection >= listItems.size() )
 	{
 		nSelection = listItems.size() - 1;
 		return true;
 	}
 
-	//Информируем об изменении selection
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ selection
 	SUIMessage msg;
 	msg.nMessageCode = UI_NOTIFY_SELECTION_CHANGED;
 	msg.nFirst = GetWindowID();

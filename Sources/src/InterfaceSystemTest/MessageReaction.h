@@ -23,7 +23,7 @@ class CMessageReactionB2 : public IMessageReactionB2
 	DECLARE_SERIALIZE;
 
 	typedef std::vector< CPtr<IMessageReactionB2> > CMessageSequence;
-	typedef std::hash_map<int/*custom check return*/, CMessageSequence> CMessageSequences;
+	typedef std::unordered_map<int/*custom check return*/, CMessageSequence> CMessageSequences;
 
 	CPtr<ICustomCheck> pCheck;
 	CMessageSequences branches;

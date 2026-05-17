@@ -274,7 +274,7 @@ class CWorldClient : public CWorldBase
 		USER_ACTION pfnAction;
 		DWORD flags;
 	};
-	typedef std::hash_map<int, SActionDesc> CActionsMap;
+	typedef std::unordered_map<int, SActionDesc> CActionsMap;
 	CActionsMap userActions;							// user action functions
 	//
 	typedef std::list<STerrainSelectionPoint> CTerrainPointsList;
@@ -301,7 +301,7 @@ class CWorldClient : public CWorldBase
 	typedef std::vector<SSelectionGroup> CSelectionsList;
 	CSelectionsList selectionGroups;			// selection groups
 	CSelector selunits, selbuildings;			// selected units & buildings
-	CMapObjectsList preselectedObjects;		// pre-selected objects (т.е. объекты, которые обведены рамочкой, но ещё не выбраны)
+	CMapObjectsList preselectedObjects;		// pre-selected objects (пїЅ.пїЅ. пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
 	CUserActions availActions;						// current available actions (of the current selection)
 	CUserActions availCrossActions;				// actions, which one can do on the current point
 	CUserActions lastActions;							// available actions from the last frame (to compare)

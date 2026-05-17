@@ -362,7 +362,7 @@ CAIUnit* CBuilding::GetIteratedUnit()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::PopFromFire()
 {
-	// если ещё не пересадили в другой слот
+	// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 	if ( fire.GetMaxEl()->GetSlot() != -1 )
 		DelSoldierFromFirePlace( fire.GetMaxEl() );
 }
@@ -377,7 +377,7 @@ void CBuilding::SetFiringUnitProperties( CSoldier *pUnit, const int nSlot, const
 
 	pUnit->SetNewCoordinates( CVec3( GetCenter(), 0 ) + pStats->slots[nSlot].vPos );
 
-	// поставить owner у mounted gun
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ owner пїЅ mounted gun
 	guns[nSlot]->SetOwner( pUnit );
 
 	pUnit->ChangeWarFogState();
@@ -459,7 +459,7 @@ void CBuilding::AddSoldier( CSoldier *pUnit )
 	NI_ASSERT_T( GetNFreePlaces() != 0, "No free places in the building" );
 
 	bool bUpdateSelectability = false;
-	// если это первый солдат здания, то зарегистрировать в сегментах
+	// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	if ( GetNFreePlaces() == nOveralPlaces )
 	{
 		nextSegmTime = curTime + SConsts::AI_SEGMENT_DURATION - 1;		
@@ -558,7 +558,7 @@ void CBuilding::DelSoldierFromFirePlace( CSoldier *pSoldier )
 	{
 		firePlace2Soldier[slotInfo.nSlot] = 0;
 
-		// в observation point
+		// пїЅ observation point
 		if ( firePlace2Observation[slotInfo.nSlot] != -1 )
 		{
 			const int nSide = firePlace2Observation[slotInfo.nSlot] & 3;
@@ -700,7 +700,7 @@ bool CBuilding::IsIllInFire()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::DistributeAll()
 {
-	// обменять тех, кто вылечился в medical с больными в fire или rest	
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ medical пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ fire пїЅпїЅпїЅ rest	
 	while ( !medical.IsEmpty() && medical.GetMaxEl()->GetHitPoints() == medical.GetMaxEl()->GetStats()->fMaxHP &&	( IsIllInFire() || IsIllInRest() ) )
 	{
 		const bool bIllInFire = IsIllInFire();
@@ -719,7 +719,7 @@ void CBuilding::DistributeAll()
 			SwapRestMed();
 	}
 
-	// выгнать халявщиков из medical places в fireplaces
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ medical places пїЅ fireplaces
 	while ( !medical.IsEmpty() && medical.GetMaxEl()->GetHitPoints() == medical.GetMaxEl()->GetStats()->fMaxHP &&	fire.Size() != fire.GetReserved() )
 	{
 		CSoldier *pSoldier = medical.GetMaxEl();
@@ -727,7 +727,7 @@ void CBuilding::DistributeAll()
 		PushToFire( pSoldier );
 	}
 
-	// выгнать халявщиков из medical places в restplaces
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ medical places пїЅ restplaces
 	while ( !medical.IsEmpty() && medical.GetMaxEl()->GetHitPoints() == medical.GetMaxEl()->GetStats()->fMaxHP &&	rest.Size() != rest.GetReserved() )
 	{
 		CSoldier *pSoldier = medical.GetMaxEl();
@@ -735,7 +735,7 @@ void CBuilding::DistributeAll()
 		PushToRest( pSoldier );
 	}
 
-	// загнать тех, кого возмножно, лечиться
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	while ( medical.Size() != medical.GetReserved() && ( IsIllInRest() || IsIllInFire() ) )
 	{
 		if ( !fire.IsEmpty() && !rest.IsEmpty() )
@@ -790,10 +790,10 @@ void CBuilding::CentreSoldiersInObservationPoints()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBuilding::TryToPushRestSoldierToObservation( CSoldier *pRestingSoldier )
 {
-	// по сторонам
+	// пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	for ( int j = 0; j < 4; ++j )
 	{
-		// по точкам наблюдения в сторонах
+		// пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		for ( int k = 0; k < sides[j].nObservationPoints; ++k )
 		{
 			if ( CSoldier *pSoldierInPoint = firePlace2Soldier[observationPlaces[j][k]] )
@@ -821,10 +821,10 @@ bool CBuilding::TryToPushRestSoldierToObservation( CSoldier *pRestingSoldier )
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBuilding::TryToPushFireSoldierToObservation( CSoldier *pFiringSoldier )
 {
-	// по сторонам
+	// пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	for ( int j = 0; j < 4; ++j )
 	{
-		// по точкам наблюдения в сторонах
+		// пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		for ( int k = 0; k < sides[j].nObservationPoints; ++k )
 		{
 			if ( CSoldier *pSoldierInPoint = firePlace2Soldier[observationPlaces[j][k]] )
@@ -857,10 +857,10 @@ void CBuilding::PushSoldierToFirePlace( CSoldier *pUnit, const int nFirePlace )
 
 	firePlace2Soldier[nFirePlace] = pUnit;
 
-	// это - observation point
+	// пїЅпїЅпїЅ - observation point
 	if ( firePlace2Observation[nFirePlace] != -1 )
 	{
-		// увеличить количество солдат в observation point на стороне
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ observation point пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		const int nSide = firePlace2Observation[nFirePlace] & 3;
 		++sides[nSide].nSoldiersInObservationPoints;
 	}
@@ -870,13 +870,13 @@ void CBuilding::PushSoldierToObservationPoint( CSoldier *pSoldier, const int nSi
 {
 	if ( sides[nSide].nObservationPoints != 0  )
 	{
-		// ещё никто не сидит
+		// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		if ( sides[nSide].nSoldiersInObservationPoints == 0 )
 		{
 			const int nFirePlace = GetMiddleObservationPoint( nSide );
 			PushSoldierToFirePlace( pSoldier, nFirePlace );
 		}
-		// сидит только один
+		// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 		else if ( sides[nSide].nSoldiersInObservationPoints == 1 && sides[nSide].nObservationPoints > 1 )
 		{
 			int nLeftPoint, nRightPoint;
@@ -912,7 +912,7 @@ void CBuilding::SetSoldiersToObservationPoints()
 	{
 		CSoldier *pRestingSoldier = rest[i];		
 		const int nSide = ChooseSideToSetSoldier( pRestingSoldier );
-		// во всех точках наблюдения есть солдаты
+		// пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		if ( nSide == -1 || fire.Size() == fire.GetReserved() )
 		{
 			if ( TryToPushRestSoldierToObservation( pRestingSoldier ) )
@@ -927,7 +927,7 @@ void CBuilding::SetSoldiersToObservationPoints()
 		}
 	}
 
-	// рассадить солдат не в точках наблюдения
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	for ( int i = 0; i < fire.Size(); ++i )
 	{
 		CSoldier *pSoldier = fire[i];
@@ -948,7 +948,7 @@ void CBuilding::SetSoldiersToObservationPoints()
 		}
 	}
 
-	// рассадить солдат в точках наблюдения
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	int nIndexToTry = -1;
 	int nSoldierInTrySide = -1;
 	for ( int i = 0; i < fire.Size(); ++i )
@@ -981,7 +981,7 @@ void CBuilding::SetSoldiersToObservationPoints()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::DistributeNonFires()
 {
-	// обменять тех, кто вылечился в medical с больными в rest
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ medical пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ rest
 	while ( !medical.IsEmpty() && medical.GetMaxEl()->GetHitPoints() == medical.GetMaxEl()->GetStats()->fMaxHP && IsIllInRest() )
 	{
 		CPtr<CSoldier> pMedicalSoldier = medical.GetMaxEl();
@@ -993,7 +993,7 @@ void CBuilding::DistributeNonFires()
 		PushToRest( pMedicalSoldier );
 	}
 
-	// выгнать тех, кто вылечился
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	while ( rest.Size() < rest.GetReserved() && !medical.IsEmpty() && medical.GetMaxEl()->GetHitPoints() == medical.GetMaxEl()->GetStats()->fMaxHP )
 	{
 		CSoldier *pSoldier = medical.GetMaxEl();
@@ -1001,7 +1001,7 @@ void CBuilding::DistributeNonFires()
 		PushToRest( pSoldier );
 	}
 
-	// загнать больных из rest лечиться
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ rest пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	while ( IsIllInRest() && medical.Size() < medical.GetReserved() )
 	{
 		CSoldier *pSoldier = rest.GetMaxEl();
@@ -1012,12 +1012,12 @@ void CBuilding::DistributeNonFires()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::DistributeFiringSoldiers()
 {
-	// не все fireslots заняты
+	// пїЅпїЅ пїЅпїЅпїЅ fireslots пїЅпїЅпїЅпїЅпїЅпїЅ
 	if ( fire.Size() < fire.GetReserved() )
 	{
 		for ( int i = 0; i < fire.Size(); ++i )
 		{
-			// не стреляет
+			// пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 			if ( fire[i]->GetState()->GetName() == EUSN_REST_IN_BUILDING )
 			{
 				CSoldier *pSoldier = fire[i];
@@ -1083,7 +1083,7 @@ void CBuilding::Segment()
 		bEscaped = false;
 		timeOfDeath = 0;
 	}
-	// на всякий случай
+	// пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	else if ( timeOfDeath != 0 && timeOfDeath + 2000 < curTime )
 	{
 		KillAllInsiders();
@@ -1091,7 +1091,7 @@ void CBuilding::Segment()
 	}
 	else if ( !CStormableObject::Segment() )
 	{
-		// полечить
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		const float fInc = SConsts::AI_SEGMENT_DURATION * SConsts::CURE_SPEED_IN_BUILDING;
 		for ( int i = 0; i < medical.Size(); ++i )
 		{
@@ -1099,7 +1099,7 @@ void CBuilding::Segment()
 			medical[i]->IncreaseHitPoints( fWantedInc );
 		}
 
-		// обработать alarms
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ alarms
 		if ( bAlarm )
 		{
 			while ( !fire.Size() == fire.GetReserved() && ( !medical.IsEmpty() || !rest.IsEmpty() ) )
@@ -1124,19 +1124,19 @@ void CBuilding::Segment()
 		{
 			lastDistibution = curTime;			
 
-			// тревога
+			// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 			if ( curTime - startOfRest < SConsts::TIME_OF_BUILDING_ALARM )
 				DistributeFiringSoldiers();
 
-			// всем можно лечиться
+			// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 			if ( curTime - startOfRest >= SConsts::TIME_OF_BUILDING_ALARM )
 				DistributeAll();
 			else
-				// только не стреляющим можно лечиться
+				// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 				DistributeNonFires();
 		}
 
-		// загнать всех халявщиков в fireplaces
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ fireplaces
 		while ( !rest.IsEmpty() && fire.Size() < fire.GetReserved() )
 		{
 			CSoldier *pSoldier = rest.GetMaxEl();
@@ -1150,7 +1150,7 @@ void CBuilding::Segment()
 
 	ExchangeSoldiersToTurrets();
 
-	// сегменты у turrets
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ turrets
 	for ( int i = 0; i < fire.Size(); ++i )
 	{
 		if ( IsValidObj( fire[i] ) )
@@ -1212,7 +1212,7 @@ void CBuilding::SetHitPoints( const float fNewHP )
 	}	
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void CBuilding::DriveOut( CSoldier *pSoldier, std::hash_set<int> *pFormations )
+void CBuilding::DriveOut( CSoldier *pSoldier, std::unordered_set<int> *pFormations )
 {
 	CFormation *pFormation = pSoldier->GetFormation();
 	const int nFormationID = pSoldier->GetFormation()->GetID();
@@ -1244,7 +1244,7 @@ void CBuilding::TakeDamage( const float fDamage, const bool bFromExplosion, cons
 			bEscaped = GetHitPoints() <= GetEscapeHitPoints() && bShouldEscape;
 			if ( bEscaped )
 			{
-				std::hash_set<int> formations;
+				std::unordered_set<int> formations;
 				for ( int i = 0; i < fire.Size(); ++i )
 					DriveOut( fire[i], &formations );
 				for ( int i = 0; i < medical.Size(); ++i )
@@ -1253,10 +1253,10 @@ void CBuilding::TakeDamage( const float fDamage, const bool bFromExplosion, cons
 					DriveOut( rest[i], &formations );
 			}
 			
-			// все убиты
+			// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 			if ( GetHitPoints() == 0.0f )
 			{
-				// хранилища не умирают
+				// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 				if ( SBuildingRPGStats::TYPE_MAIN_RU_STORAGE != pStats->eType &&
 						 SBuildingRPGStats::TYPE_TEMP_RU_STORAGE != pStats->eType )
 				{
@@ -1302,21 +1302,21 @@ void CBuilding::TakeDamage( const float fDamage, const bool bFromExplosion, cons
 					std::list< CPtr<CSoldier> > dead;								
 					for ( int i = 0; i < medical.Size(); ++i )
 					{
-						// не жилец
+						// пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 						if ( Random( 0.0f, 1.0f ) < fProbability )
 							dead.push_back( medical[i] );
 					}
 
 					for ( int i = 0; i < rest.Size(); ++i )
 					{
-						// не жилец
+						// пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 						if ( Random( 0.0f, 1.0f ) < fProbability )
 							dead.push_back( rest[i] );
 					}
 						
 					for ( int i = 0; i < fire.Size(); ++i )
 					{
-						// не жилец
+						// пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 						if ( Random( 0.0f, 1.0f ) < fProbability )
 							dead.push_back( fire[i] );
 					}
@@ -1511,11 +1511,11 @@ bool CBuilding::CanUnitGoThrough( const EAIClass &eClass ) const
 bool CBuilding::CanRotateSoldier( CSoldier *pSoldier ) const
 {
 /*	
-	// отдыхает
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	if ( pSoldier->GetState() && IsRestState( pSoldier->GetState()->GetName() ) )
 	{
-		// солдат в fireplace
-		// или не в fireplace, но во время тревоги, или не лечится, или лечится, но уже вылечился 
+		// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ fireplace
+		// пїЅпїЅпїЅ пїЅпїЅ пїЅ fireplace, пїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ 
 		if ( pSoldier->IsInFirePlace() || 
 				 pSoldier->IsInSolidPlace() && 
 				 ( bAlarm || pSoldier->GetSoliderPlaceParameter() != 1 || pSoldier->GetHitPoints() == pSoldier->GetStats()->fMaxHP ) )
@@ -1654,14 +1654,14 @@ const bool CBuilding::IsVisibleForDiplomacyUpdate()
 	// this is storage
 	if ( SBuildingRPGStats::TYPE_TEMP_RU_STORAGE == pStats->eType )
 		return true;
-	// мы забежали/выбежали
+	// пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	if ( theDipl.GetNParty( nLastPlayer ) == theDipl.GetMyParty() ||
 				theDipl.GetNParty( GetPlayer() ) == theDipl.GetMyParty())
 		return true;
-	// враг забежал
+	// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	else if ( GetPlayer() != theDipl.GetNeutralPlayer() )
 		return IsAnyInsiderVisible();
-	// враг выбежал
+	// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	else
 		return IsVisible( theDipl.GetMyParty() );
 }

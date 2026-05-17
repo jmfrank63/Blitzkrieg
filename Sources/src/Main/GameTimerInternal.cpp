@@ -110,7 +110,7 @@ void CGameTimer::DoPause( bool bPause, int nType, ISingleTimer *pTimer, CPausesM
 	else
 	{
 		// remove pause
-		std::hash_map<int, int>::iterator pos = pauses.find( nType );
+		std::unordered_map<int, int>::iterator pos = pauses.find( nType );
 		if ( pos != pauses.end() )
 			pauses.erase( pos );
 		if ( pauses.empty() ) 

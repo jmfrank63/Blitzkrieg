@@ -428,7 +428,7 @@ void CMiniMapDialog::OnPaint()
 	//CDialog::OnPaint();
 	CPaintDC paintDC(this);
 
-	//берем рабочую область экрана
+	//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	CRect miniMapRect;
 	GetMiniMapRect( &miniMapRect );
 
@@ -561,7 +561,7 @@ void CMiniMapDialog::UpdateControls()
 /**
 	if ( m_frame )
 	{
-		for ( std::hash_map< SMapObject *, SEditorObjectItem*, SDefaultPtrHash >::iterator it = m_frame->m_objectsAI.begin(); it != m_frame->m_objectsAI.end(); ++it )
+		for ( std::unordered_map< SMapObject *, SEditorObjectItem*, SDefaultPtrHash >::iterator it = m_frame->m_objectsAI.begin(); it != m_frame->m_objectsAI.end(); ++it )
 		{ 
 			if( it->first)->IsHuman() )
 			{

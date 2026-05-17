@@ -20,11 +20,11 @@ struct SFontInfo
 	std::vector<ABC> abc;									// character ABC widths
 	std::vector<KERNINGPAIR> kps;					// kernging pairs
 	int nTextureSizeX, nTextureSizeY;			// estimated texture size
-	std::hash_map<WORD, WORD> translate;	// ANSI => UNICODE translation table
+	std::unordered_map<WORD, WORD> translate;	// ANSI => UNICODE translation table
 	//
 	WORD Translate( WORD code ) const
 	{
-		std::hash_map<WORD, WORD>::const_iterator pos = translate.find( code );
+		std::unordered_map<WORD, WORD>::const_iterator pos = translate.find( code );
 		NI_ASSERT( pos != translate.end(), StrFmt("Can't find code for symbol %d to re-map", code) );
 		return pos->second;
 	}
@@ -400,7 +400,7 @@ int main( int argc, char *argv[] )
     return 0xDEAD;
   }
   // initialize charsets map
-  std::hash_map<std::string, DWORD> charsets;
+  std::unordered_map<std::string, DWORD> charsets;
   charsets["-ansi"]        = ANSI_CHARSET;
   charsets["-baltic"]      = BALTIC_CHARSET;
   charsets["-chinesebig5"] = CHINESEBIG5_CHARSET;
@@ -419,7 +419,7 @@ int main( int argc, char *argv[] )
   charsets["-arabic"]      = ARABIC_CHARSET;
   charsets["-thai"]        = THAI_CHARSET;
   // initialize pitch map
-  std::hash_map<std::string, DWORD> pitches;
+  std::unordered_map<std::string, DWORD> pitches;
   pitches["-default"]  = DEFAULT_PITCH;
   pitches["-fixed"]    = FIXED_PITCH;
   pitches["-variable"] = VARIABLE_PITCH;

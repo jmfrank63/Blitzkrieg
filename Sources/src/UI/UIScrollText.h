@@ -29,6 +29,11 @@ public:
 	
 	// text
 	virtual void STDCALL SetWindowText( int nState, const WORD *pszText );
+	inline void STDCALL SetWindowText( int nState, const wchar_t *pszText ) 
+	{ 
+		static_assert( sizeof(wchar_t) == sizeof(WORD), "wchar_t and WORD size mismatch" ); 
+		SetWindowText( nState, reinterpret_cast<const WORD*>( pszText ) ); 
+	}
 	virtual void STDCALL AppendText( const WORD *pszText );
 
 	// serializing...

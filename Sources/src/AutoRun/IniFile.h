@@ -28,7 +28,7 @@ struct SRow
 	typedef std::string TKey;
 	typedef SEntry TVal;
 	typedef std::list<TVal> CValList;
-	typedef std::hash_map<TVal::TKey, TVal*> CValMap;
+	typedef std::unordered_map<TVal::TKey, TVal*> CValMap;
 	TKey key;
 	CValList elist;
 	CValMap emap;
@@ -55,7 +55,7 @@ struct STable
 	typedef std::string TKey;
 	typedef SRow TVal;
 	typedef std::list<TVal> CValList;
-	typedef std::hash_map<TVal::TKey, TVal*> CValMap;
+	typedef std::unordered_map<TVal::TKey, TVal*> CValMap;
 	TKey key;
 	CValList elist;
 	CValMap emap;
@@ -127,7 +127,7 @@ public:
 	int STDCALL GetRowNames( char *pszBuffer, int nBufferSize );
 	int STDCALL GetEntryNames( const char *pszRow, char *pszBuffer, int nBufferSize );
 	
-	// очистка секции
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	void STDCALL ClearRow( const char *pszRowName )
 	{
 		if ( SRow *pRow = GetRow( pszRowName ) )

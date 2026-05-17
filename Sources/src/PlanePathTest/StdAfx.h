@@ -13,7 +13,6 @@
 #define VC_EXTRALEAN		// Exclude rarely-used stuff from Windows headers
 #define _STLP_USE_MFC 1
 #include "stl_user_config.h"
-#include <stl/_config.h>
 
 
 #include <assert.h>
@@ -34,8 +33,8 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <hash_map>
-#include <hash_set>
+#include <unordered_map>
+#include <unordered_set>
 #include <set>
 #include <queue>
 //

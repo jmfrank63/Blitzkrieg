@@ -112,7 +112,7 @@ class CCombo : public CTRefCount<IRefCount>
 		// suppress all 'suppressives'
 		void Suppress( const int nAdd, const DWORD time );
 	};
-	typedef std::hash_map<std::string, SMapping> CMappingsMap;
+	typedef std::unordered_map<std::string, SMapping> CMappingsMap;
 	//
 	CMappingsMap mappings;								// all mapping for this combo
 	SMapping *pMapping;										// current mapping
@@ -299,7 +299,7 @@ class CInputBinder : public CInputAPI
 {
 	OBJECT_SERVICE_METHODS( CInputBinder );
 	//
-	typedef std::hash_map<std::string, SCommand> CCommandsMap;
+	typedef std::unordered_map<std::string, SCommand> CCommandsMap;
 	CCommandsMap commands;
 	SBindsConfig config;									// binds config (for serialization)
 	std::string szCurrentMapping;					// current mapping section

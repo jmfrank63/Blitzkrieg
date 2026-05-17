@@ -89,7 +89,7 @@ void CInterfaceOptionsSettings::Create()
 		StoreScreen();
 	pScene->AddUIScreen( pUIScreen );
 	
-	std::hash_map< std::string, OptionDescs > sections;
+	std::unordered_map< std::string, OptionDescs > sections;
 	
 	IOptionSystem * pOptionSystem = GetSingleton<IOptionSystem>();
 
@@ -109,7 +109,7 @@ void CInterfaceOptionsSettings::Create()
 	
 	nMaxDivision = 0;
 	const std::string szKeyOption = "Textes\\Options\\";
-	for ( std::hash_map< std::string, OptionDescs >::iterator it = sections.begin(); it != sections.end(); ++it )
+	for ( std::unordered_map< std::string, OptionDescs >::iterator it = sections.begin(); it != sections.end(); ++it )
 	{
 		const std::string szKeyName = szKeyOption + it->first + ".name";
 		const std::string szKeyTooltip = szKeyOption + it->first + ".tooltip";
@@ -145,7 +145,7 @@ void CInterfaceOptionsSettings::OnChangeDivision( const int nDivision )
 	{
 		optionsLists[nActive]->ShowWindow( UI_SW_HIDE );
 		
-		//enable предыдущую кнопку
+		//enable пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		IUIElement *pElement = pUIScreen->GetChildByID( nActive + _E_BUTTON_CHANGE_DIVISION_BEGIN );
 		NI_ASSERT_T( pElement != 0, NStr::Format("There is no button with id %d") );
 		pElement->EnableWindow( true );
@@ -155,7 +155,7 @@ void CInterfaceOptionsSettings::OnChangeDivision( const int nDivision )
 	optionsLists[nActive]->ShowWindow( UI_SW_SHOW );
 	optionsLists[nActive]->ShowWindow( UI_SW_MAXIMIZE );
 
-	//disable текущей кнопки
+	//disable пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	IUIElement *pElement = pUIScreen->GetChildByID( nActive + _E_BUTTON_CHANGE_DIVISION_BEGIN );
 	NI_ASSERT_T( pElement != 0, NStr::Format("There is no button with id %d") );
 	pElement->EnableWindow( false );
@@ -167,7 +167,7 @@ void CInterfaceOptionsSettings::Close()
 	{
 		IMainLoop *pML = GetSingleton<IMainLoop>();
 		CloseInterface();
-		pML->Command( MAIN_COMMAND_CMD, NStr::Format("%d", CMD_GAME_UNPAUSE_MENU) );	//уберем паузу
+		pML->Command( MAIN_COMMAND_CMD, NStr::Format("%d", CMD_GAME_UNPAUSE_MENU) );	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		pML->Command( MAIN_COMMAND_CMD, NStr::Format("%d", CMD_LOAD_FINISHED) );
 	}
 	else

@@ -44,9 +44,9 @@ class CSaverAccessor
 	template <class T1, class T2, class T3>
 		int __cdecl TestDataPath( std::set<T1, T2, T3> * ) { return 0; }
 	template <class T1, class T2, class T3, class T4, class T5>
-		int __cdecl TestDataPath( std::hash_map<T1, T2, T3, T4, T5> * ) { return 0; }
+		int __cdecl TestDataPath( std::unordered_map<T1, T2, T3, T4, T5> * ) { return 0; }
 	template <class T1, class T2, class T3, class T4>
-		int __cdecl TestDataPath( std::hash_set<T1, T2, T3, T4> * ) { return 0; }
+		int __cdecl TestDataPath( std::unordered_set<T1, T2, T3, T4> * ) { return 0; }
 	template <class T1, class T2, class T3, class T4, class T5>
 		int __cdecl TestDataPath( std::priority_queue<T1, T2, T3> * ) { return 0; }
 	// call serialize from object or raw data
@@ -135,7 +135,7 @@ class CSaverAccessor
 			pSS->FinishChunk();
 		}
 	template <class T, class T1, class T2, class T3, class T4, class T5>
-		void __cdecl AddInternal( const SSChunkID idChunk, T *p, std::hash_map<T1, T2, T3, T4, T5> *pData ) 
+		void __cdecl AddInternal( const SSChunkID idChunk, T *p, std::unordered_map<T1, T2, T3, T4, T5> *pData ) 
 		{
 			if ( !pSS->StartChunk( idChunk ) )
 				return;
@@ -151,13 +151,13 @@ class CSaverAccessor
 			pSS->FinishChunk();
 		}
 	template <class T, class T1, class T2, class T3, class T4>
-		void __cdecl AddInternal( const SSChunkID idChunk, T *p, std::hash_set<T1, T2, T3, T4> *pData ) 
+		void __cdecl AddInternal( const SSChunkID idChunk, T *p, std::unordered_set<T1, T2, T3, T4> *pData ) 
 		{
 			std::list<T1> elements;
 			// hash_set => list
 			if ( !IsReading() )
 			{
-				for ( std::hash_set<T1, T2, T3, T4>::iterator it = pData->begin(); it != pData->end(); ++it )
+				for ( std::unordered_set<T1, T2, T3, T4>::iterator it = pData->begin(); it != pData->end(); ++it )
 					elements.push_back( *it );
 			}
 			// add container
@@ -289,7 +289,7 @@ class CSaverAccessor
 		}
 	// hash_map
 	template <class T1, class T2, class T3, class T4, class T5> 
-		void DoHashMap( std::hash_map<T1, T2, T3, T4, T5> &data )
+		void DoHashMap( std::unordered_map<T1, T2, T3, T4, T5> &data )
 		{
 			if ( IsReading() )
 			{
@@ -310,7 +310,7 @@ class CSaverAccessor
 			}
 			else
 			{
-				for ( std::hash_map<T1, T2, T3, T4, T5>::iterator pos = data.begin(); pos != data.end(); ++pos )
+				for ( std::unordered_map<T1, T2, T3, T4, T5>::iterator pos = data.begin(); pos != data.end(); ++pos )
 				{
 					T1 idx = pos->first;
 					Add( 1, &idx );

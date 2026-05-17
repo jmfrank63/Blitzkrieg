@@ -45,7 +45,7 @@ void CUIComboBox::Reposition( const CTRect<float> &rcParent )
 	NI_ASSERT_T( bComboShown == 0, "Error in CUIComboBox" );
 	int nV = wndRect.Height();
 
-	//перемещаем items
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ items
 	CVec2 vPos, vSize;
 	vPos.x = nItemLeftSpace;
 	for ( CWindowList::const_iterator it=items.begin(); it!=items.end(); ++it )
@@ -66,7 +66,7 @@ void CUIComboBox::SetFocus( bool bFocus )
 {
 	if ( !bFocus && bComboShown )
 	{
-		//тыкнули мышкой вне окошка, теряем фокус
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		ShowCombo( false );
 	}
 }
@@ -86,7 +86,7 @@ void CUIComboBox::ShowCombo( bool bShow )
 		fHeight += vSize.y;
 	}
 
-	//изменим размеры окошка
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	if ( bShow )
 	{
 		saveRect = wndRect;
@@ -118,7 +118,7 @@ bool CUIComboBox::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 	{
 		if ( bRet )
 		{
-			//Нажали в область окошка, надо раскрыться
+			//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 			ShowCombo( true );
 		}
 		return bRet;
@@ -130,16 +130,16 @@ bool CUIComboBox::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 		return bRet;
 	}
 
-	//найдем область куда был клик
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 	if ( saveRect.IsInside( vPos ) )
 	{
-		//свернем
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		ShowCombo( false );
 		return bRet;
 	}
 	else
 	{
-		//поищем среди внутренных items
+		//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ items
 		int nV = saveRect.Height();
 		float fY = vPos.y - wndRect.y1;
 		if ( fY < nV )
@@ -159,12 +159,12 @@ bool CUIComboBox::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 		
 		if ( it != items.end() )
 		{
-			//нашли новое выделение
+			//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 			IUIElement *pElement = *it;
 			SetWindowText( 0, pElement->GetWindowText( 0 ) );
 			nSelItem = nTempItem;
 
-			//посылаем наверх сообщение об изменении selection state
+			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ selection state
 			SUIMessage msg;
 			msg.nMessageCode = UI_NOTIFY_SELECTION_CHANGED;
 			msg.nFirst = GetWindowID();
