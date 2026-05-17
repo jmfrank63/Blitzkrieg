@@ -111,7 +111,7 @@ void FillUnitInfoItemNoIDs( const SUnitBaseRPGStats *pRPG, IUIDialog *pItem, int
 			const int nExpNextLevel = pUnit->GetValue( STUT_EXP_NEXT_LEVEL );
 			//
 			IText *pText = GetSingleton<ITextManager>()->GetDialog( NStr::Format("textes\\ui\\mission\\status\\tt_unit_level%d", nLevel) );
-			std::wstring wToolTip = pText != 0 ? pText->GetString() : L"";
+			std::wstring wToolTip = pText != 0 ? reinterpret_cast<const wchar_t*>(pText->GetString()) : L"";
 			wToolTip += NStr::ToUnicode( NStr::Format("(%d / %d)", nExp, nExpNextLevel) );
 
 			pElement->SetHelpContext( 0, wToolTip.c_str() );

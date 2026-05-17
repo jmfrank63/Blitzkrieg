@@ -1,1 +1,423 @@
-﻿
+﻿  SceneDraw.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(85,27): warning C4346: 'value_type': dependent name is not a type
+  (compiling source file '/SceneDraw.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(85,27):
+      prefix the qualified-id with 'typename' to indicate a type
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(85,27): error C2061: syntax error: identifier 'value_type'
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(86,1): error C2143: syntax error: missing ';' before '{'
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(86,1): error C2447: '{': missing function header (old-style formal list?)
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(139,3): error C2065: 'rays': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(143,4): error C2065: 'rays': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(146,3): error C2065: 'rays': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(147,69): error C2065: 'rays': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(149,47): error C2065: 'rays': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(149,67): error C2065: 'rays': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(225,31): error C2065: 'vecZ1': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(226,31): error C2065: 'vecZ2': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(227,11): error C2065: 'vecZ2': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(227,21): error C2065: 'vecZ1': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(228,31): error C2065: 'vecZ2': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(229,12): error C2065: 'vecZ2': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(229,22): error C2065: 'vecZ1': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(244,7): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(245,3): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(246,2): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(250,24): error C2065: 'vViewVolumePlanes': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(251,3): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(251,62): error C2065: 'vViewVolumePlanes': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(253,32): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(254,2): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(260,9): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(264,22): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(320,9): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(326,20): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(335,10): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(339,23): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(344,10): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(349,16): error C2065: 'matShadow': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(350,5): error C2065: 'matShadow': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(351,5): error C2065: 'matShadow': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(352,5): error C2065: 'matShadow': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(365,39): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(365,75): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(381,9): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(385,17): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(389,15): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(396,9): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(399,17): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(402,9): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(405,17): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(409,9): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(415,17): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(421,9): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(423,4): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(424,38): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(424,74): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(433,26): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(442,15): error C2065: 'matShadow': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(443,4): error C2065: 'matShadow': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(444,4): error C2065: 'matShadow': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(445,4): error C2065: 'matShadow': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(458,38): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(458,76): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(459,31): error C2065: 'matShadow': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(467,8): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(473,18): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(485,9): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(489,48): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(489,87): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(500,9): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(504,17): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(509,8): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(511,25): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(515,41): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(515,80): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(571,8): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(577,16): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(613,22): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(613,76): error C2065: 'vViewVolumePlanes': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(635,8): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(638,59): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(638,98): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(673,3): error C2065: 'gfxRect': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(674,3): error C2065: 'gfxRect': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(675,3): error C2065: 'gfxRect': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(676,3): error C2065: 'gfxRect': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(677,3): error C2065: 'gfxRect': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(678,21): error C2065: 'gfxRect': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(679,3): error C2065: 'gfxRect': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(680,21): error C2065: 'gfxRect': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(710,3): error C2065: 'rect': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(711,3): error C2065: 'rect': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(715,22): error C2065: 'rect': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(726,2): error C2065: 'pDrawVisitor': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(753,3): error C2143: syntax error: missing ';' before 'identifier'
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(749,15): warning C4091: 'static ': ignored on left of 'SSpritesPackToDraw' when no variable is declared
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(758,3): error C2143: syntax error: missing ';' before 'identifier'
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(754,15): warning C4091: 'static ': ignored on left of 'SComplexSpritesPackToDraw' when no variable is declared
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(769,16): error C2065: 'sprites2Draw': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(770,16): error C2065: 'complexsprites2Draw': undeclared identifier
+  (compiling source file '/SceneDraw.cpp')
+  
+  SceneObjectFactory.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\BinkVideoPlayer.h(6,10): error C1083: Cannot open include file: 'bink.h': No such file or directory
+  (compiling source file '/SceneObjectFactory.cpp')
+  
+  ScenePick.cpp
+  MeshVisObj.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\MeshVisObj.cpp(474,2): error C2248: 'CTObjVisObj<CTRefCount<IMeshVisObj>>::CObjVisObj': cannot access private typedef declared in class 'CTObjVisObj<CTRefCount<IMeshVisObj>>'
+  (compiling source file '/MeshVisObj.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\ObjVisObj.h(11,29):
+      see declaration of 'CTObjVisObj<CTRefCount<IMeshVisObj>>::CObjVisObj'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\ObjVisObj.h(9,7):
+      see declaration of 'CTObjVisObj<CTRefCount<IMeshVisObj>>'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\MeshVisObj.cpp(531,39): error C2248: 'CTObjVisObj<CTRefCount<IMeshVisObj>>::CObjVisObj': cannot access private typedef declared in class 'CTObjVisObj<CTRefCount<IMeshVisObj>>'
+  (compiling source file '/MeshVisObj.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\ObjVisObj.h(11,29):
+      see declaration of 'CTObjVisObj<CTRefCount<IMeshVisObj>>::CObjVisObj'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\ObjVisObj.h(9,7):
+      see declaration of 'CTObjVisObj<CTRefCount<IMeshVisObj>>'
+  
+  SpriteVisObj.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SpriteVisObj.cpp(149,2): error C2248: 'CTObjVisObj<CTRefCount<ISpriteVisObj>>::CObjVisObj': cannot access private typedef declared in class 'CTObjVisObj<CTRefCount<ISpriteVisObj>>'
+  (compiling source file '/SpriteVisObj.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\ObjVisObj.h(11,29):
+      see declaration of 'CTObjVisObj<CTRefCount<ISpriteVisObj>>::CObjVisObj'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\ObjVisObj.h(9,7):
+      see declaration of 'CTObjVisObj<CTRefCount<ISpriteVisObj>>'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SpriteVisObj.cpp(156,39): error C2248: 'CTObjVisObj<CTRefCount<ISpriteVisObj>>::CObjVisObj': cannot access private typedef declared in class 'CTObjVisObj<CTRefCount<ISpriteVisObj>>'
+  (compiling source file '/SpriteVisObj.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\ObjVisObj.h(11,29):
+      see declaration of 'CTObjVisObj<CTRefCount<ISpriteVisObj>>::CObjVisObj'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\ObjVisObj.h(9,7):
+      see declaration of 'CTObjVisObj<CTRefCount<ISpriteVisObj>>'
+  
+  SquadVisObj.cpp
+  BinkVideoPlayer.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\BinkVideoPlayer.h(6,10): error C1083: Cannot open include file: 'bink.h': No such file or directory
+  (compiling source file '/BinkVideoPlayer.cpp')
+  
+  KeyBasedParticleSource.cpp
+  MeshBuilders.cpp
+C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(732,82): error C2280: 'SGFXLineVertex::SGFXLineVertex(void)': attempting to reference a deleted function
+  (compiling source file '/MeshBuilders.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GFX\GFXHelper.h(468,1):
+      compiler has generated 'SGFXLineVertex::SGFXLineVertex' here
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(732,82):
+      the template instantiation context (the oldest one first) is
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\MeshBuilders.cpp(514,2):
+          see reference to class template instantiation 'std::vector<SGFXLineVertex,std::allocator<SGFXLineVertex>>' being compiled
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\vector(1631,23):
+          while compiling class template member function 'void std::vector<SGFXLineVertex,std::allocator<SGFXLineVertex>>::resize(const unsigned int)'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\MeshBuilders.cpp(514,17):
+              see the first reference to 'std::vector<SGFXLineVertex,std::allocator<SGFXLineVertex>>::resize' in 'CreateGrid'
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\vector(1633,9):
+          see reference to function template instantiation 'void std::vector<SGFXLineVertex,std::allocator<SGFXLineVertex>>::_Resize<std::_Value_init_tag>(const unsigned int,const _Ty2 &)' being compiled
+          with
+          [
+              _Ty2=std::_Value_init_tag
+          ]
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\vector(1621,27):
+          see reference to function template instantiation 'SGFXLineVertex *std::_Uninitialized_value_construct_n<std::allocator<SGFXLineVertex>>(SGFXLineVertex *,unsigned int,_Alloc &)' being compiled
+          with
+          [
+              _Alloc=std::allocator<SGFXLineVertex>
+          ]
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(2118,18):
+          see reference to function template instantiation 'void std::_Uninitialized_backout_al<_Alloc>::_Emplace_back<>(void)' being compiled
+          with
+          [
+              _Alloc=std::allocator<SGFXLineVertex>
+          ]
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(1868,35):
+          see reference to function template instantiation 'void std::_Default_allocator_traits<_Alloc>::construct<_Ty,>(_Alloc &,_Objty *const )' being compiled
+          with
+          [
+              _Alloc=std::allocator<SGFXLineVertex>,
+              _Ty=SGFXLineVertex,
+              _Objty=SGFXLineVertex
+          ]
+  
+C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(732,82): error C2280: 'SGFXTLVertex::SGFXTLVertex(void)': attempting to reference a deleted function
+  (compiling source file '/MeshBuilders.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GFX\GFXHelper.h(362,1):
+      compiler has generated 'SGFXTLVertex::SGFXTLVertex' here
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(732,82):
+      the template instantiation context (the oldest one first) is
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\TerrainInternal.h(25,15):
+          see reference to class template instantiation 'std::vector<STerrainPatch::SVertex2,std::allocator<STerrainPatch::SVertex2>>' being compiled
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\vector(1631,23):
+          while compiling class template member function 'void std::vector<STerrainPatch::SVertex2,std::allocator<STerrainPatch::SVertex2>>::resize(const unsigned int)'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\MeshBuilders.cpp(337,28):
+              see the first reference to 'std::vector<STerrainPatch::SVertex2,std::allocator<STerrainPatch::SVertex2>>::resize' in 'CreateWarFog'
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\vector(1633,9):
+          see reference to function template instantiation 'void std::vector<STerrainPatch::SVertex2,std::allocator<STerrainPatch::SVertex2>>::_Resize<std::_Value_init_tag>(const unsigned int,const _Ty2 &)' being compiled
+          with
+          [
+              _Ty2=std::_Value_init_tag
+          ]
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\vector(1621,27):
+          see reference to function template instantiation 'SGFXTLVertex *std::_Uninitialized_value_construct_n<std::allocator<STerrainPatch::SVertex2>>(SGFXTLVertex *,unsigned int,_Alloc &)' being compiled
+          with
+          [
+              _Alloc=std::allocator<STerrainPatch::SVertex2>
+          ]
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(2118,18):
+          see reference to function template instantiation 'void std::_Uninitialized_backout_al<_Alloc>::_Emplace_back<>(void)' being compiled
+          with
+          [
+              _Alloc=std::allocator<STerrainPatch::SVertex2>
+          ]
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(1868,35):
+          see reference to function template instantiation 'void std::_Default_allocator_traits<_Alloc>::construct<_Ty,>(_Alloc &,_Objty *const )' being compiled
+          with
+          [
+              _Alloc=std::allocator<STerrainPatch::SVertex2>,
+              _Ty=SGFXTLVertex,
+              _Objty=SGFXTLVertex
+          ]
+  
+  RiverBuilder.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\RiverBuilder.cpp(209,17): error C2661: 'std::deque<BuildLayer::SPatch,std::allocator<BuildLayer::SPatch>>::push_back': no overloaded function takes 0 arguments
+  (compiling source file '/RiverBuilder.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\RiverBuilder.cpp(209,17):
+      while trying to match the argument list '()'
+  
+  TerrainInternal.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\TerrainInternal.cpp(238,15): error C2039: 'resize': is not a member of 'std::unordered_map<DWORD,DWORD,std::hash<DWORD>,std::equal_to<DWORD>,std::allocator<std::pair<const DWORD,DWORD>>>'
+  (compiling source file '/TerrainInternal.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\unordered_map(58,7):
+      see declaration of 'std::unordered_map<DWORD,DWORD,std::hash<DWORD>,std::equal_to<DWORD>,std::allocator<std::pair<const DWORD,DWORD>>>'
+  
+  TerraSound.cpp
+  GammaEffect.cpp
+  Generating Code...

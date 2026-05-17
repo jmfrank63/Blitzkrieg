@@ -442,7 +442,7 @@ void CMainLoop::ProcessStandardMsgs( const SGameMessage &msg )
 					//
 					if ( IText *pText = GetSingleton<ITextManager>()->GetDialog("textes\\strings\\screenshot") )
 					{
-						const std::wstring wszShotName = std::wstring(pText->GetString()) + NStr::ToUnicode( NStr::Format(" screenshots\\shot%.4d.tga", nShotIndex) );
+						const std::wstring wszShotName = std::wstring(reinterpret_cast<const wchar_t*>(pText->GetString())) + NStr::ToUnicode( NStr::Format(" screenshots\\shot%.4d.tga", nShotIndex) );
 						GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_CHAT, wszShotName.c_str(), 0xff00ff00 );
 					}
 					//

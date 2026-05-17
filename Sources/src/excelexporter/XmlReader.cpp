@@ -17,7 +17,7 @@ static CDataTreeXMLAutomatic autoinit;
 IXMLDOMNodePtr CXMLReader::FindRPGNode( IXMLDOMNodePtr startNode, const char *pszNodeName )
 {
 	string szFindString = pszNodeName;
-	IXMLDOMNodeListPtr childs = startNode->childNodes;
+	IXMLDOMNodeListPtr childs = startNode->GetchildNodes();
 	for ( int i=0; i<childs->length; i++ )
 	{
 		IXMLDOMNodePtr current = childs->item[i];
@@ -32,7 +32,7 @@ IXMLDOMNodePtr CXMLReader::FindRPGNode( IXMLDOMNodePtr startNode, const char *ps
 IXMLDOMNodePtr CXMLWriter::FindRPGNode( IXMLDOMNodePtr startNode, const char *pszNodeName )
 {
 	string szFindString = pszNodeName;
-	IXMLDOMNodeListPtr childs = startNode->childNodes;
+	IXMLDOMNodeListPtr childs = startNode->GetchildNodes();
 	for ( int i=0; i<childs->length; i++ )
 	{
 		IXMLDOMNodePtr current = childs->item[i];
@@ -112,7 +112,7 @@ bool CXMLReader::ReadRPGInformationFromFile( const char *pszFileName, CXMLReadVe
 
 	//опускаемся по нодам, пока не найдем ноду с именем RPG
 	IXMLDOMNodePtr xmlCurrNode = xmlDocument;						// текущий node
-	IXMLDOMNodeListPtr childs = xmlCurrNode->childNodes;
+	IXMLDOMNodeListPtr childs = xmlCurrNode->GetchildNodes();
 	xmlCurrNode = FindRPGNode( childs->item[childs->length-1], pszNodeName );
 	if ( xmlCurrNode == 0 )
 		return false;
@@ -123,8 +123,8 @@ bool CXMLReader::ReadRPGInformationFromFile( const char *pszFileName, CXMLReadVe
 
 void CXMLReader::ReadInformation( IXMLDOMNodePtr node, const string &szPrefix, CXMLReadVector &result, vector<string> &crapFields, bool bIgnoreFields )
 {
-	IXMLDOMNodeListPtr childs = node->childNodes;
-	IXMLDOMNamedNodeMapPtr attributes = node->attributes;
+	IXMLDOMNodeListPtr childs = node->GetchildNodes();
+	IXMLDOMNamedNodeMapPtr attributes = node->Getattributes();
 	//сначала пишем инфу для всех атрибутов этого нода
 	if ( attributes )
 	{
@@ -171,8 +171,8 @@ void CXMLReader::ReadInformation( IXMLDOMNodePtr node, const string &szPrefix, C
 		bool bString = false;
 		{
 			//проверяем, вдруг current это строчка, тогда ее нужно записать
-			IXMLDOMNodeListPtr childs = current->childNodes;
-			IXMLDOMNamedNodeMapPtr attributes = current->attributes;
+			IXMLDOMNodeListPtr childs = current->GetchildNodes();
+			IXMLDOMNamedNodeMapPtr attributes = current->Getattributes();
 			string szNodeName = current->nodeName;
 			
 			if ( ((childs == 0) || (childs->length == 0)) && ((attributes == 0) || (attributes->length == 0)) )
@@ -215,7 +215,7 @@ void CXMLWriter::FindNodeAndSetAttribute( IXMLDOMNodePtr startNode, const string
 	{
 		string szCurrentFindNodeName = szName.substr( 0, nPos );
 		//Найдем child с таким именем
-		IXMLDOMNodeListPtr childs = startNode->childNodes;
+		IXMLDOMNodeListPtr childs = startNode->GetchildNodes();
 		int i = 0;
 		int nItemIndex = 0;
 		for ( ; i<childs->length; i++ )
@@ -256,7 +256,7 @@ void CXMLWriter::FindNodeAndSetAttribute( IXMLDOMNodePtr startNode, const string
 		if ( szName == "#text" )
 		{
 			IXMLDOMCharacterDataPtr xmlText = xmlDocument->createTextNode( szAttributeValue.c_str() );
-			IXMLDOMNodeListPtr childs = element->childNodes;
+			IXMLDOMNodeListPtr childs = element->GetchildNodes();
 			if ( childs->item[0] != 0 )
 				element->replaceChild( xmlText, childs->item[0] );
 			else
@@ -308,7 +308,7 @@ bool CXMLWriter::SaveRPGInformationToXML( const char *pszFileName, const CXMLVal
 	
 	//опускаемся по нодам, пока не найдем ноду с именем RPG
 	IXMLDOMNodePtr xmlStartNode = xmlDocument;						// начальный node
-	IXMLDOMNodeListPtr childs = xmlStartNode->childNodes;
+	IXMLDOMNodeListPtr childs = xmlStartNode->GetchildNodes();
 	xmlStartNode = FindRPGNode( childs->item[childs->length-1], pszNodeName );
 	if ( xmlStartNode == 0 )
 		return false;

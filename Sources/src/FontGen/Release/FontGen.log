@@ -1,1 +1,480 @@
-﻿
+﻿  GlobalsLoader.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Win32Helper.h(80,77): error C2664: 'HMODULE LoadLibraryW(LPCWSTR)': cannot convert argument 1 from 'const char *' to 'LPCWSTR'
+  (compiling source file '/GlobalsLoader.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Win32Helper.h(80,90):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\libloaderapi.h(609,1):
+      see declaration of 'LoadLibraryW'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Win32Helper.h(80,77):
+      while trying to match the argument list '(const char *)'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Win32Helper.h(81,82): error C2664: 'HMODULE LoadLibraryW(LPCWSTR)': cannot convert argument 1 from 'const _Elem *' to 'LPCWSTR'
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Win32Helper.h(81,82): error C2664:         with
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Win32Helper.h(81,82): error C2664:         [
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Win32Helper.h(81,82): error C2664:             _Elem=char
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Win32Helper.h(81,82): error C2664:         ]
+  (compiling source file '/GlobalsLoader.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Win32Helper.h(81,111):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\libloaderapi.h(609,1):
+      see declaration of 'LoadLibraryW'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Win32Helper.h(81,82):
+      while trying to match the argument list '(const _Elem *)'
+          with
+          [
+              _Elem=char
+          ]
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(157,42): error C2440: 'return': cannot convert from 'const WCHAR [260]' to 'std::basic_string<char,std::char_traits<char>,std::allocator<char>>'
+  (compiling source file '/GlobalsLoader.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(157,42):
+      'std::basic_string<char,std::char_traits<char>,std::allocator<char>>::basic_string': no overloaded function could convert all the argument types
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(818,5):
+          could be 'std::basic_string<char,std::char_traits<char>,std::allocator<char>>::basic_string(const _Elem *const )'
+          with
+          [
+              _Elem=char
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(157,42):
+              'std::basic_string<char,std::char_traits<char>,std::allocator<char>>::basic_string(const _Elem *const )': cannot convert argument 1 from 'const WCHAR [260]' to 'const _Elem *const '
+          with
+          [
+              _Elem=char
+          ]
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(157,57):
+                  Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(1390,5):
+          or       'std::basic_string<char,std::char_traits<char>,std::allocator<char>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)'
+          with
+          [
+              _Elem=char,
+              _Alloc=std::allocator<char>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(157,42):
+              'std::basic_string<char,std::char_traits<char>,std::allocator<char>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)': cannot convert argument 1 from 'const WCHAR [260]' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=char,
+              _Alloc=std::allocator<char>
+          ]
+          and
+          [
+              _Elem=char
+          ]
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(157,57):
+                  'std::initializer_list<_Elem>::initializer_list': no overloaded function could convert all the argument types
+          with
+          [
+              _Elem=char
+          ]
+                      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                      could be 'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)'
+          with
+          [
+              _Elem=char
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(157,57):
+                          'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)': cannot convert argument 1 from 'const WCHAR [260]' to 'std::initializer_list<_Elem> &&'
+          with
+          [
+              _Elem=char
+          ]
+                              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(157,57):
+                              Reason: cannot convert from 'const WCHAR [260]' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=char
+          ]
+                              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(157,57):
+                              Conversion requires a second user-defined-conversion operator or constructor
+                      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                      or       'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)'
+          with
+          [
+              _Elem=char
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(157,57):
+                          'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)': cannot convert argument 1 from 'const WCHAR [260]' to 'const std::initializer_list<_Elem> &'
+          with
+          [
+              _Elem=char
+          ]
+                              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(157,57):
+                              Reason: cannot convert from 'const WCHAR [260]' to 'const std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=char
+          ]
+                              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(157,57):
+                              Conversion requires a second user-defined-conversion operator or constructor
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(157,57):
+                      while trying to match the argument list '(const WCHAR [260])'
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(848,5):
+          or       'std::basic_string<char,std::char_traits<char>,std::allocator<char>>::basic_string(_Iter,_Iter,const _Alloc &)'
+          with
+          [
+              _Alloc=std::allocator<char>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(157,42):
+          while trying to match the argument list '(const WCHAR [260])'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49): error C2678: binary '+': no operator found which takes a left-hand operand of type 'const std::string' (or there is no acceptable conversion)
+  (compiling source file '/GlobalsLoader.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Geometry.h(2303,14):
+      could be 'GRect operator +(const GPoint &,const GRect &)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'GRect operator +(const GPoint &,const GRect &)': cannot convert argument 1 from 'const std::string' to 'const GPoint &'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              Reason: cannot convert from 'const std::string' to 'const GPoint'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Geometry.h(2016,15):
+      or       'GPoint operator +(const GSPos,const GPoint &)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'GPoint operator +(const GSPos,const GPoint &)': cannot convert argument 1 from 'const std::string' to 'const GSPos'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Geometry.h(198,20):
+      or       'const CVec4 operator +(const CVec4 &,const CVec4 &)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'const CVec4 operator +(const CVec4 &,const CVec4 &)': cannot convert argument 1 from 'const std::string' to 'const CVec4 &'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              Reason: cannot convert from 'const std::string' to 'const CVec4'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Geometry.h(128,20):
+      or       'const CVec3 operator +(const CVec3 &,const CVec3 &)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'const CVec3 operator +(const CVec3 &,const CVec3 &)': cannot convert argument 1 from 'const std::string' to 'const CVec3 &'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              Reason: cannot convert from 'const std::string' to 'const CVec3'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Geometry.h(66,20):
+      or       'const CVec2 operator +(const CVec2 &,const CVec2 &)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'const CVec2 operator +(const CVec2 &,const CVec2 &)': cannot convert argument 1 from 'const std::string' to 'const CVec2 &'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              Reason: cannot convert from 'const std::string' to 'const CVec2'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comutil.h(451,16):
+      or       '_bstr_t operator +(const wchar_t *,const _bstr_t &)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          '_bstr_t operator +(const wchar_t *,const _bstr_t &)': cannot convert argument 1 from 'const std::string' to 'const wchar_t *'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comutil.h(441,16):
+      or       '_bstr_t operator +(const char *,const _bstr_t &)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          '_bstr_t operator +(const char *,const _bstr_t &)': cannot convert argument 1 from 'const std::string' to 'const char *'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\__msvc_int128.hpp(965,46):
+      or       'std::_Unsigned128 std::operator +(const std::_Base128 &,const std::_Base128 &) noexcept' [found using argument-dependent lookup]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::_Unsigned128 std::operator +(const std::_Base128 &,const std::_Base128 &) noexcept': cannot convert argument 1 from 'const std::string' to 'const std::_Base128 &'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              Reason: cannot convert from 'const std::string' to 'const std::_Base128'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\__msvc_int128.hpp(1305,44):
+      or       'std::_Signed128 std::operator +(const std::_Signed128 &,const std::_Signed128 &) noexcept' [found using argument-dependent lookup]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::_Signed128 std::operator +(const std::_Signed128 &,const std::_Signed128 &) noexcept': cannot convert argument 1 from 'const std::string' to 'const std::_Signed128 &'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              Reason: cannot convert from 'const std::string' to 'const std::_Signed128'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(144,59):
+      or       'std::_String_const_iterator<std::_String_val<std::_Simple_types<_Elem>>> std::_String_const_iterator<std::_String_val<std::_Simple_types<_Elem>>>::operator +(const int,std::_String_const_iterator<std::_String_val<std::_Simple_types<_Elem>>>) noexcept' [found using argument-dependent lookup]
+          with
+          [
+              _Elem=char
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::_String_const_iterator<std::_String_val<std::_Simple_types<_Elem>>> std::_String_const_iterator<std::_String_val<std::_Simple_types<_Elem>>>::operator +(const int,std::_String_const_iterator<std::_String_val<std::_Simple_types<_Elem>>>) noexcept': cannot convert argument 1 from 'const std::string' to 'const int'
+          with
+          [
+              _Elem=char
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(321,53):
+      or       'std::_String_iterator<std::_String_val<std::_Simple_types<_Elem>>> std::_String_iterator<std::_String_val<std::_Simple_types<_Elem>>>::operator +(const int,std::_String_iterator<std::_String_val<std::_Simple_types<_Elem>>>) noexcept' [found using argument-dependent lookup]
+          with
+          [
+              _Elem=char
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::_String_iterator<std::_String_val<std::_Simple_types<_Elem>>> std::_String_iterator<std::_String_val<std::_Simple_types<_Elem>>>::operator +(const int,std::_String_iterator<std::_String_val<std::_Simple_types<_Elem>>>) noexcept': cannot convert argument 1 from 'const std::string' to 'const int'
+          with
+          [
+              _Elem=char
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Geometry.h(540,25):
+      or       'const CTPoint<TYPE> operator +(const CTPoint<TYPE> &,const CTPoint<TYPE> &)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'const CTPoint<TYPE> operator +(const CTPoint<TYPE> &,const CTPoint<TYPE> &)': could not deduce template argument for 'const CTPoint<TYPE> &' from 'const std::string'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(2183,50):
+      or       'std::reverse_iterator<_BidIt> std::operator +(reverse_iterator<_BidIt>::difference_type,const std::reverse_iterator<_BidIt> &) noexcept(<expr>)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::reverse_iterator<_BidIt> std::operator +(reverse_iterator<_BidIt>::difference_type,const std::reverse_iterator<_BidIt> &) noexcept(<expr>)': could not deduce template argument for 'const std::reverse_iterator<_BidIt> &' from 'const WCHAR [260]'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(4718,46):
+      or       'std::move_iterator<_Iter> std::operator +(move_iterator<_Iter>::difference_type,const std::move_iterator<_Iter> &) noexcept(<expr>)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::move_iterator<_Iter> std::operator +(move_iterator<_Iter>::difference_type,const std::move_iterator<_Iter> &) noexcept(<expr>)': could not deduce template argument for 'const std::move_iterator<_Iter> &' from 'const WCHAR [260]'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(3280,62):
+      or       'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(const std::basic_string<_Elem,_Traits,_Alloc> &,const std::basic_string<_Elem,_Traits,_Alloc> &)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(const std::basic_string<_Elem,_Traits,_Alloc> &,const std::basic_string<_Elem,_Traits,_Alloc> &)': could not deduce template argument for 'const std::basic_string<_Elem,_Traits,_Alloc> &' from 'const WCHAR [260]'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(3292,62):
+      or       'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(const _Elem *const ,const std::basic_string<_Elem,_Traits,_Alloc> &)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(const _Elem *const ,const std::basic_string<_Elem,_Traits,_Alloc> &)': could not deduce template argument for 'const _Elem *const ' from 'const std::string'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(3305,62):
+      or       'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(const _Elem,const std::basic_string<_Elem,_Traits,_Alloc> &)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(const _Elem,const std::basic_string<_Elem,_Traits,_Alloc> &)': could not deduce template argument for 'const std::basic_string<_Elem,_Traits,_Alloc> &' from 'const WCHAR [260]'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(3316,62):
+      or       'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(const std::basic_string<_Elem,_Traits,_Alloc> &,const _Elem *const )'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(const std::basic_string<_Elem,_Traits,_Alloc> &,const _Elem *const )': template parameter '_Elem' is ambiguous
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              could be 'WCHAR'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              or       'char'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(const std::basic_string<_Elem,_Traits,_Alloc> &,const _Elem *const )': could not deduce template argument for 'const _Elem *const ' from 'const WCHAR [260]'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(3329,62):
+      or       'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(const std::basic_string<_Elem,_Traits,_Alloc> &,const _Elem)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(const std::basic_string<_Elem,_Traits,_Alloc> &,const _Elem)': template parameter '_Elem' is ambiguous
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              could be 'const WCHAR *'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              or       'char'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(const std::basic_string<_Elem,_Traits,_Alloc> &,const _Elem)': could not deduce template argument for 'const _Elem' from 'const WCHAR [260]'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(3340,62):
+      or       'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(const std::basic_string<_Elem,_Traits,_Alloc> &,std::basic_string<_Elem,_Traits,_Alloc> &&)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(const std::basic_string<_Elem,_Traits,_Alloc> &,std::basic_string<_Elem,_Traits,_Alloc> &&)': could not deduce template argument for 'std::basic_string<_Elem,_Traits,_Alloc> &&' from 'const WCHAR [260]'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(3346,62):
+      or       'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(std::basic_string<_Elem,_Traits,_Alloc> &&,const std::basic_string<_Elem,_Traits,_Alloc> &)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(std::basic_string<_Elem,_Traits,_Alloc> &&,const std::basic_string<_Elem,_Traits,_Alloc> &)': could not deduce template argument for 'const std::basic_string<_Elem,_Traits,_Alloc> &' from 'const WCHAR [260]'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(3352,62):
+      or       'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(std::basic_string<_Elem,_Traits,_Alloc> &&,std::basic_string<_Elem,_Traits,_Alloc> &&)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(std::basic_string<_Elem,_Traits,_Alloc> &&,std::basic_string<_Elem,_Traits,_Alloc> &&)': could not deduce template argument for 'std::basic_string<_Elem,_Traits,_Alloc> &&' from 'const WCHAR [260]'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(3365,62):
+      or       'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(const _Elem *const ,std::basic_string<_Elem,_Traits,_Alloc> &&)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(const _Elem *const ,std::basic_string<_Elem,_Traits,_Alloc> &&)': could not deduce template argument for 'const _Elem *const ' from 'const std::string'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(3371,62):
+      or       'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(const _Elem,std::basic_string<_Elem,_Traits,_Alloc> &&)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(const _Elem,std::basic_string<_Elem,_Traits,_Alloc> &&)': could not deduce template argument for 'std::basic_string<_Elem,_Traits,_Alloc> &&' from 'const WCHAR [260]'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(3377,62):
+      or       'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(std::basic_string<_Elem,_Traits,_Alloc> &&,const _Elem *const )'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(std::basic_string<_Elem,_Traits,_Alloc> &&,const _Elem *const )': template parameter '_Elem' is ambiguous
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              could be 'WCHAR'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              or       'char'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(std::basic_string<_Elem,_Traits,_Alloc> &&,const _Elem *const )': could not deduce template argument for 'const _Elem *const ' from 'const WCHAR [260]'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(3383,62):
+      or       'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(std::basic_string<_Elem,_Traits,_Alloc> &&,const _Elem)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(std::basic_string<_Elem,_Traits,_Alloc> &&,const _Elem)': template parameter '_Elem' is ambiguous
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              could be 'const WCHAR *'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+              or       'char'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+          'std::basic_string<_Elem,_Traits,_Alloc> std::operator +(std::basic_string<_Elem,_Traits,_Alloc> &&,const _Elem)': could not deduce template argument for 'const _Elem' from 'const WCHAR [260]'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
+      while trying to match the argument list '(const std::string, const WCHAR [260])'
+  
+  FontGen.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.h(10,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.h(10,2): warning C4183: 'CreateFontW': missing return type; assumed to be a member function returning 'int'
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(28,3): warning C4002: too many arguments for function-like macro invocation 'NI_ASSERT'
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(92,7): error C2664: 'BOOL GetTextExtentPoint32W(HDC,LPCWSTR,int,LPSIZE)': cannot convert argument 2 from 'const char *' to 'LPCWSTR'
+  (compiling source file '/FontGen.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(92,47):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\wingdi.h(4343,1):
+      see declaration of 'GetTextExtentPoint32W'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(92,7):
+      while trying to match the argument list '(HDC, const char *, int, SIZE *)'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(148,16): error C2664: 'HFONT CreateFontW(int,int,int,int,int,DWORD,DWORD,DWORD,DWORD,DWORD,DWORD,DWORD,DWORD,LPCWSTR)': cannot convert argument 14 from 'const _Elem *' to 'LPCWSTR'
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(148,16): error C2664:         with
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(148,16): error C2664:         [
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(148,16): error C2664:             _Elem=char
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(148,16): error C2664:         ]
+  (compiling source file '/FontGen.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(151,53):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\wingdi.h(3905,26):
+      see declaration of 'CreateFontW'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(148,16):
+      while trying to match the argument list '(int, int, int, int, int, bool, int, int, DWORD, int, int, int, DWORD, const _Elem *)'
+          with
+          [
+              _Elem=char
+          ]
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(165,3): warning C4002: too many arguments for function-like macro invocation 'NI_ASSERT'
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(201,5): error C2664: 'BOOL TextOutW(HDC,int,int,LPCWSTR,int)': cannot convert argument 4 from 'const char *' to 'LPCWSTR'
+  (compiling source file '/FontGen.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(201,70):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\wingdi.h(5225,25):
+      see declaration of 'TextOutW'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(201,5):
+      while trying to match the argument list '(HDC, int, LONG, const char *, int)'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(250,19): error C2065: 'Singleton': undeclared identifier
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(250,29): error C2065: 'IImgProc': undeclared identifier
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(250,39): error C2059: syntax error: ')'
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(251,2): error C3861: 'FlipY': identifier not found
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(350,3): error C2664: 'DWORD GetCurrentDirectoryW(DWORD,LPWSTR)': cannot convert argument 2 from 'char [2048]' to 'LPWSTR'
+  (compiling source file '/FontGen.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(350,30):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\processenv.h(248,1):
+      see declaration of 'GetCurrentDirectoryW'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(350,3):
+      while trying to match the argument list '(int, char [2048])'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(357,20): error C2664: 'HMODULE LoadLibraryW(LPCWSTR)': cannot convert argument 1 from 'const _Elem *' to 'LPCWSTR'
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(357,20): error C2664:         with
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(357,20): error C2664:         [
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(357,20): error C2664:             _Elem=char
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(357,20): error C2664:         ]
+  (compiling source file '/FontGen.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(357,64):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\libloaderapi.h(609,1):
+      see declaration of 'LoadLibraryW'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(357,20):
+      while trying to match the argument list '(const _Elem *)'
+          with
+          [
+              _Elem=char
+          ]
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(364,26): error C2039: 'pRegistrator': is not a member of 'SModuleDescriptor'
+  (compiling source file '/FontGen.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(156,8):
+      see declaration of 'SModuleDescriptor'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(366,13): error C2039: 'pRegistrator': is not a member of 'SModuleDescriptor'
+  (compiling source file '/FontGen.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(156,8):
+      see declaration of 'SModuleDescriptor'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(367,6): error C2065: 'IImgProc': undeclared identifier
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(367,16): error C2065: 'pIP': undeclared identifier
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(367,22): error C2065: 'MakeObject': undeclared identifier
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(367,33): error C2065: 'IImgProc': undeclared identifier
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(367,44): error C2653: 'IImgProc': is not a class or namespace name
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(367,54): error C2065: 'tidTypeID': undeclared identifier
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(368,11): error C2065: 'pIP': undeclared identifier
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(369,7): error C2653: 'NSingleton': is not a class or namespace name
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(369,38): error C2065: 'pIP': undeclared identifier
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(369,43): error C2653: 'IImgProc': is not a class or namespace name
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(369,53): error C2065: 'tidTypeID': undeclared identifier
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(473,31): error C3861: 'CreateStream': identifier not found
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(474,8): error C2065: 'IBinSaver': undeclared identifier
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(474,3): error C2923: 'CPtr': 'IBinSaver' is not a valid template type argument for parameter 'TUserObj'
+  (compiling source file '/FontGen.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(474,8):
+      see declaration of 'IBinSaver'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(474,53): error C2065: 'SAVER_MODE_WRITE': undeclared identifier
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(474,28): error C3861: 'CreateBinSaver': identifier not found
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(474,26): error C2514: 'CPtr': class template cannot be constructed
+  (compiling source file '/FontGen.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      see declaration of 'CPtr'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(475,3): error C2678: binary '->': no operator found which takes a left-hand operand of type 'CPtr' (or there is no acceptable conversion)
+  (compiling source file '/FontGen.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(559,12):
+      could be 'TUserObj *CPtrBase<TUserObj,TRefFunc>::operator ->(void) const'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(475,3):
+          'TUserObj *CPtrBase<TUserObj,TRefFunc>::operator ->(void) const': cannot convert 'this' pointer from 'CPtr' to 'const CPtrBase<TUserObj,TRefFunc> &'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(475,3):
+              Reason: cannot convert from 'CPtr' to 'const CPtrBase<TUserObj,TRefFunc>'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(475,3):
+              Conversion requires a second user-defined-conversion operator or constructor
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(475,3):
+      while trying to match the argument list '(CPtr)'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(479,31): error C3861: 'CreateStream': identifier not found
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(480,3): error C2065: 'Singleton': undeclared identifier
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(480,13): error C2065: 'IImgProc': undeclared identifier
+  (compiling source file '/FontGen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(480,23): error C2059: syntax error: ')'
+  (compiling source file '/FontGen.cpp')
+  
+  Generating Code...

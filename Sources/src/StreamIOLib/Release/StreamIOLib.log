@@ -1,1 +1,18 @@
-﻿
+﻿  StdAfx.cpp
+  CommonFileSystem.cpp
+  DataBase.cpp
+  DataTableXML.cpp
+  DataTreeXML.cpp
+  FileSystem.cpp
+  GetSLS.cpp
+  IniFile.cpp
+  MemFileSystem.cpp
+  ModFileSystem.cpp
+  SaveLoadSystem.cpp
+  Singleton.cpp
+  Streams.cpp
+  StructureSaver2.cpp
+  ZipFile.cpp
+  ZipFileSystem.cpp
+  Generating Code...
+  StreamIOLib.vcxproj -> C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\StreamIOLib\Release\StreamIOLib.lib

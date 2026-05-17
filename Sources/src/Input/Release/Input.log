@@ -1,1 +1,210 @@
-﻿
+﻿  InputBinder.cpp
+C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13): error C2666: 'CPtr<CCombo>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/InputBinder.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      could be 'bool CPtr<CCombo>::operator ==(const TUserObj *) const'
+          with
+          [
+              TUserObj=CCombo
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      or       'bool CPtr<CCombo>::operator ==(const CPtr<CCombo> &) const'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CCombo
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      while trying to match the argument list '(CPtr<CCombo>, const _Ty)'
+          with
+          [
+              _Ty=CCombo *
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      qualification adjustment (const/volatile) may be causing the ambiguity
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      the template instantiation context (the oldest one first) is
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Input\InputBinder.h(155,13):
+          see reference to function template instantiation '_InIt std::find<std::_List_iterator<std::_List_val<std::_List_simple_types<_Ty>>>,CCombo*>(_InIt,const _InIt,CCombo *const &)' being compiled
+          with
+          [
+              _InIt=std::_List_iterator<std::_List_val<std::_List_simple_types<CPtr<CCombo>>>>,
+              _Ty=CPtr<CCombo>
+          ]
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6493,41):
+          see reference to function template instantiation '_InIt std::_Find_unchecked<std::_List_unchecked_iterator<std::_List_val<std::_List_simple_types<_Ty>>>,CCombo*>(_InIt,const _InIt,CCombo *const &)' being compiled
+          with
+          [
+              _InIt=std::_List_unchecked_iterator<std::_List_val<std::_List_simple_types<CPtr<CCombo>>>>,
+              _Ty=CPtr<CCombo>
+          ]
+  
+C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13): error C2666: 'CObj<CCombo>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/InputBinder.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(592,1):
+      could be 'bool CObj<CCombo>::operator ==(const TUserObj *) const'
+          with
+          [
+              TUserObj=CCombo
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(592,1):
+      or       'bool CObj<CCombo>::operator ==(const CObj<CCombo> &) const'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CCombo
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      while trying to match the argument list '(CObj<CCombo>, const _Ty)'
+          with
+          [
+              _Ty=CCombo *
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      qualification adjustment (const/volatile) may be causing the ambiguity
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      the template instantiation context (the oldest one first) is
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Input\InputBinder.cpp(72,12):
+          see reference to function template instantiation '_InIt std::find<std::_List_iterator<std::_List_val<std::_List_simple_types<_Ty>>>,CCombo*>(_InIt,const _InIt,CCombo *const &)' being compiled
+          with
+          [
+              _InIt=std::_List_iterator<std::_List_val<std::_List_simple_types<CObj<CCombo>>>>,
+              _Ty=CObj<CCombo>
+          ]
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6493,41):
+          see reference to function template instantiation '_InIt std::_Find_unchecked<std::_List_unchecked_iterator<std::_List_val<std::_List_simple_types<_Ty>>>,CCombo*>(_InIt,const _InIt,CCombo *const &)' being compiled
+          with
+          [
+              _InIt=std::_List_unchecked_iterator<std::_List_val<std::_List_simple_types<CObj<CCombo>>>>,
+              _Ty=CObj<CCombo>
+          ]
+  
+  InputObjectFactory.cpp
+C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13): error C2666: 'CPtr<CCombo>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/InputObjectFactory.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      could be 'bool CPtr<CCombo>::operator ==(const TUserObj *) const'
+          with
+          [
+              TUserObj=CCombo
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      or       'bool CPtr<CCombo>::operator ==(const CPtr<CCombo> &) const'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CCombo
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      while trying to match the argument list '(CPtr<CCombo>, const _Ty)'
+          with
+          [
+              _Ty=CCombo *
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      qualification adjustment (const/volatile) may be causing the ambiguity
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      the template instantiation context (the oldest one first) is
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Input\InputBinder.h(155,13):
+          see reference to function template instantiation '_InIt std::find<std::_List_iterator<std::_List_val<std::_List_simple_types<_Ty>>>,CCombo*>(_InIt,const _InIt,CCombo *const &)' being compiled
+          with
+          [
+              _InIt=std::_List_iterator<std::_List_val<std::_List_simple_types<CPtr<CCombo>>>>,
+              _Ty=CPtr<CCombo>
+          ]
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6493,41):
+          see reference to function template instantiation '_InIt std::_Find_unchecked<std::_List_unchecked_iterator<std::_List_val<std::_List_simple_types<_Ty>>>,CCombo*>(_InIt,const _InIt,CCombo *const &)' being compiled
+          with
+          [
+              _InIt=std::_List_unchecked_iterator<std::_List_val<std::_List_simple_types<CPtr<CCombo>>>>,
+              _Ty=CPtr<CCombo>
+          ]
+  
+  InputSlider.cpp
+C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13): error C2666: 'CPtr<CCombo>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/InputSlider.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      could be 'bool CPtr<CCombo>::operator ==(const TUserObj *) const'
+          with
+          [
+              TUserObj=CCombo
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      or       'bool CPtr<CCombo>::operator ==(const CPtr<CCombo> &) const'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CCombo
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      while trying to match the argument list '(CPtr<CCombo>, const _Ty)'
+          with
+          [
+              _Ty=CCombo *
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      qualification adjustment (const/volatile) may be causing the ambiguity
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      the template instantiation context (the oldest one first) is
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Input\InputBinder.h(155,13):
+          see reference to function template instantiation '_InIt std::find<std::_List_iterator<std::_List_val<std::_List_simple_types<_Ty>>>,CCombo*>(_InIt,const _InIt,CCombo *const &)' being compiled
+          with
+          [
+              _InIt=std::_List_iterator<std::_List_val<std::_List_simple_types<CPtr<CCombo>>>>,
+              _Ty=CPtr<CCombo>
+          ]
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6493,41):
+          see reference to function template instantiation '_InIt std::_Find_unchecked<std::_List_unchecked_iterator<std::_List_val<std::_List_simple_types<_Ty>>>,CCombo*>(_InIt,const _InIt,CCombo *const &)' being compiled
+          with
+          [
+              _InIt=std::_List_unchecked_iterator<std::_List_val<std::_List_simple_types<CPtr<CCombo>>>>,
+              _Ty=CPtr<CCombo>
+          ]
+  
+  Visitors.cpp
+C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13): error C2666: 'CPtr<CCombo>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/Visitors.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      could be 'bool CPtr<CCombo>::operator ==(const TUserObj *) const'
+          with
+          [
+              TUserObj=CCombo
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      or       'bool CPtr<CCombo>::operator ==(const CPtr<CCombo> &) const'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CCombo
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      while trying to match the argument list '(CPtr<CCombo>, const _Ty)'
+          with
+          [
+              _Ty=CCombo *
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      qualification adjustment (const/volatile) may be causing the ambiguity
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      the template instantiation context (the oldest one first) is
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Input\InputBinder.h(155,13):
+          see reference to function template instantiation '_InIt std::find<std::_List_iterator<std::_List_val<std::_List_simple_types<_Ty>>>,CCombo*>(_InIt,const _InIt,CCombo *const &)' being compiled
+          with
+          [
+              _InIt=std::_List_iterator<std::_List_val<std::_List_simple_types<CPtr<CCombo>>>>,
+              _Ty=CPtr<CCombo>
+          ]
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6493,41):
+          see reference to function template instantiation '_InIt std::_Find_unchecked<std::_List_unchecked_iterator<std::_List_val<std::_List_simple_types<_Ty>>>,CCombo*>(_InIt,const _InIt,CCombo *const &)' being compiled
+          with
+          [
+              _InIt=std::_List_unchecked_iterator<std::_List_val<std::_List_simple_types<CPtr<CCombo>>>>,
+              _Ty=CPtr<CCombo>
+          ]
+  
+  Generating Code...

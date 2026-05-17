@@ -299,7 +299,7 @@ void CStaticObjects::DeleteInternalEntrenchmentInfo( CEntrenchment *pEntrench )
 {
 	IRefCount *pObj = pEntrench;
 	std::list< CObj<IRefCount> > ::iterator iter = entrenchments.begin();
-	while ( iter != entrenchments.end() && (*iter) != pObj )
+	while ( iter != entrenchments.end() && (*iter).GetPtr() != pObj )
 		++iter;
 
 	NI_ASSERT_T( iter != entrenchments.end(), "Wrong object to delete" );

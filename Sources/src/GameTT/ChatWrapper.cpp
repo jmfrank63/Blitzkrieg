@@ -36,7 +36,7 @@ void CChatWrapper::AddEditBoxText( const bool bWhisper )
 		{
 			// add editbox text to chat
 			CPtr<SChatMessage> pChatMessage = new SChatMessage( 
-				wszText.c_str(), ( bWhisper ? pWhisper->GetDestinationName(): L"" ), bWhisper );
+				wszText.c_str(), ( bWhisper ? pWhisper->GetDestinationName(): reinterpret_cast<const WORD*>(L"") ), bWhisper );
 			pCommandManager->AddChatMessageFromUI( pChatMessage );
 			pChatEdit->SetWindowText( 0, L"" );
 		}

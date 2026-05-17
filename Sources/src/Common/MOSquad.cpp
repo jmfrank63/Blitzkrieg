@@ -123,7 +123,7 @@ void CMOSquad::NotifyStatsChanged( IMOUnit *pUnit, float fHP, float fAmmo1, floa
 {
 	for ( CUnitsList::iterator it = passangers.begin(); it != passangers.end(); ++it )
 	{
-		if ( it->pUnit == pUnit ) 
+		if ( it->pUnit.GetPtr() == pUnit ) 
 		{
 			it->fHP = fHP;
 			it->fAmmo1 = fAmmo1;

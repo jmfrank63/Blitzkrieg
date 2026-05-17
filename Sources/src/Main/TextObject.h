@@ -17,7 +17,7 @@ public:
 	void STDCALL SwapData( ISharedResource *pResource );
 	const WORD* STDCALL GetString() const { return szString.c_str(); }
 	const int STDCALL GetLength() const { return szString.size(); }
-	void STDCALL SetText( const WORD *pszText ) { szString = pszText == 0 ? L"" : pszText; bChanged = true; }
+	void STDCALL SetText( const WORD *pszText ) { szString = pszText == 0 ? L"" : reinterpret_cast<const wchar_t*>(pszText); bChanged = true; }
 	//
 	bool STDCALL IsChanged() const { return bChanged; }
 	void STDCALL ResetChanged() { bChanged = false; }

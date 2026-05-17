@@ -43,7 +43,7 @@ class CMOSquad : public CTRefCount<IMOSquad>
 	{
 		for ( CUnitsList::iterator it = passangers.begin(); it != passangers.end(); ++it )
 		{
-			if ( it->pUnit == pUnit )
+			if ( it->pUnit.GetPtr() == pUnit )
 				return &( *it );
 		}
 		return 0;

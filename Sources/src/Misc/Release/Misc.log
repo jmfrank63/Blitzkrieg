@@ -1,1 +1,14 @@
-﻿
+﻿  StdAfx.cpp
+  FileUtils.cpp
+  FreeIDs.cpp
+  GRect.cpp
+  HPTimer.cpp
+  Spline.cpp
+  StrProc.cpp
+  Win32Random.cpp
+  BasicObjectFactory.cpp
+  Manipulator.cpp
+  MemorySystem.cpp
+  Thread.cpp
+  Generating Code...
+  Misc.vcxproj -> C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Release\Misc.lib

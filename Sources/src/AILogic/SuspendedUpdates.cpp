@@ -87,7 +87,7 @@ void CSuspendedUpdates::DeleteUpdate( IUpdatableObj *pObj, const EActionNotify &
 			CRecalledUpdatesType::iterator iter = recalledUpdates[nNumeration].begin();
 			while ( iter != recalledUpdates[nNumeration].end() )
 			{
-				if ( iter->pObj == pObj )
+				if ( iter->pObj.GetPtr() == pObj )
 					iter = recalledUpdates[nNumeration].erase( iter );
 				else
 					++iter;

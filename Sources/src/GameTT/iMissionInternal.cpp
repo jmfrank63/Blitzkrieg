@@ -1692,7 +1692,7 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 						IText *pText = GetSingleton<ITextManager>()->GetDialog( "textes\\gamespeedlowered" );
 						if ( pText )
 						{
-							const std::wstring szString = std::wstring(pText->GetString()) + L" " + NStr::ToUnicode( NStr::Format("%+d", nNewSpeed) );
+							const std::wstring szString = std::wstring(reinterpret_cast<const wchar_t*>(pText->GetString())) + L" " + NStr::ToUnicode( NStr::Format("%+d", nNewSpeed) );
 							GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_CHAT, szString.c_str(), 0xffff0000 );
 						}
 					}
@@ -1789,7 +1789,7 @@ void CInterfaceMission::SetMissionStatusObject( bool bStatus )
 				const int nPrevLevel = pUnit->GetValue( STUT_EXP_CURR_LEVEL );
 				//
 				IText *pText = GetSingleton<ITextManager>()->GetDialog( NStr::Format("textes\\ui\\mission\\status\\tt_unit_level%d", nLevel) );
-				std::wstring wToolTip = pText != 0 ? pText->GetString() : L"";
+				std::wstring wToolTip = pText != 0 ? reinterpret_cast<const wchar_t*>(pText->GetString()) : L"";
 				wToolTip += NStr::ToUnicode( NStr::Format("(%d / %d)", nExp, nExpNextLevel) );
 				pBar->SetUnitProperty( 0, nLevel, wToolTip.c_str() );
 				// personal name
@@ -2106,7 +2106,7 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 					
 					if ( pText )
 					{
-						std::wstring szString = std::wstring(pText->GetString()) + L" " + NStr::ToUnicode( NStr::Format("%+d", nNewSpeed) );
+						std::wstring szString = std::wstring(reinterpret_cast<const wchar_t*>(pText->GetString())) + L" " + NStr::ToUnicode( NStr::Format("%+d", nNewSpeed) );
 						if ( pAddition )
 							szString += pAddition->GetString();
 						GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_CHAT, szString.c_str(), 0xff00ff00 );
@@ -2306,7 +2306,7 @@ void CInterfaceMission::VisualizeFeedback( const int /*EMissionCommands*/ nFeedB
 			const std::wstring wszSrc = pST->GetPlayer( nParam & 0xffff )->GetName();
 			const std::wstring wszBase = 
 				( pTM->GetString( "Textes\\FeedBacks\\units_passed" ) ) ? 
-				pTM->GetString( "Textes\\FeedBacks\\units_passed" )->GetString() : L"";
+				reinterpret_cast<const wchar_t*>(pTM->GetString( "Textes\\FeedBacks\\units_passed" )->GetString()) : L"";
 			pText->SetText( (wszBase + L": " + wszSrc + L" -> " + wszTrg).c_str() );
 		}
 		break;

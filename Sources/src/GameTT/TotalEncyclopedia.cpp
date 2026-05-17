@@ -477,7 +477,7 @@ void CInterfaceWarehouse::CUnitClassInfo::Expand( IUIShortcutBar *pSB, const boo
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceWarehouse::CUnitClassInfo::ApplyUpgrades()
 {
-	std::for_each( units.begin(), units.end(), std::mem_fun( CUnitInfoItem::ApplyUpgrades ) );
+	std::for_each( units.begin(), units.end(), [](CPtr<CUnitInfoItem>& pItem) { pItem->ApplyUpgrades(); } );
 	// fuck
 	return 0;
 }
@@ -763,7 +763,7 @@ void CInterfaceWarehouse::CPlayerUnitsPane::SetUpgrade( const std::string &szNew
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceWarehouse::CPlayerUnitsPane::ApplyUpgrades()
 {
-	std::for_each( classes.begin(), classes.end(), std::mem_fun( CUnitClassInfo::ApplyUpgrades ) );
+	std::for_each( classes.begin(), classes.end(), [](CPtr<CUnitClassInfo>& pClass) { pClass->ApplyUpgrades(); } );
 	return 0;
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

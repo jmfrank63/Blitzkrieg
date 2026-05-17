@@ -1,1 +1,2527 @@
-﻿
+﻿  NetA4.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetA4.cpp(108,8): error C2661: 'std::list<CMemoryStream,std::allocator<CMemoryStream>>::push_back': no overloaded function takes 0 arguments
+  (compiling source file '/NetA4.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetA4.cpp(108,8):
+      while trying to match the argument list '()'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetA4.cpp(283,10): error C2661: 'std::list<NNet::CNetDriver::SPeer,std::allocator<NNet::CNetDriver::SPeer>>::push_back': no overloaded function takes 0 arguments
+  (compiling source file '/NetA4.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetA4.cpp(283,10):
+      while trying to match the argument list '()'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetA4.cpp(691,11): error C2661: 'std::list<NNet::CNetDriver::SMessage,std::allocator<NNet::CNetDriver::SMessage>>::push_back': no overloaded function takes 0 arguments
+  (compiling source file '/NetA4.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetA4.cpp(691,11):
+      while trying to match the argument list '()'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetA4.cpp(1121,18): error C2661: 'std::list<NNet::CNetDriver::SChannelMessage,std::allocator<NNet::CNetDriver::SChannelMessage>>::push_back': no overloaded function takes 0 arguments
+  (compiling source file '/NetA4.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetA4.cpp(1121,18):
+      while trying to match the argument list '()'
+  
+  NetAcks.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetAcks.cpp(319,14): error C2661: 'std::list<NNet::CAckTracker::CUpdate,std::allocator<NNet::CAckTracker::CUpdate>>::push_back': no overloaded function takes 0 arguments
+  (compiling source file '/NetAcks.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetAcks.cpp(319,14):
+      while trying to match the argument list '()'
+  
+  NetLogin.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetLogin.cpp(58,36): error C2661: 'std::list<NNet::CLoginSupport::SAcceptedLogin,std::allocator<NNet::CLoginSupport::SAcceptedLogin>>::insert': no overloaded function takes 1 arguments
+  (compiling source file '/NetLogin.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\list(1405,14):
+      could be 'std::_List_iterator<std::_List_val<std::_List_simple_types<_Ty>>> std::list<_Ty,std::allocator<_Ty>>::insert(const std::_List_const_iterator<std::_List_val<std::_List_simple_types<_Ty>>>,_Iter,_Iter)'
+          with
+          [
+              _Ty=NNet::CLoginSupport::SAcceptedLogin
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetLogin.cpp(58,36):
+          'std::_List_iterator<std::_List_val<std::_List_simple_types<_Ty>>> std::list<_Ty,std::allocator<_Ty>>::insert(const std::_List_const_iterator<std::_List_val<std::_List_simple_types<_Ty>>>,_Iter,_Iter)': expects 3 arguments - 1 provided
+          with
+          [
+              _Ty=NNet::CLoginSupport::SAcceptedLogin
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetLogin.cpp(58,36):
+      while trying to match the argument list '(std::_List_iterator<std::_List_val<std::_List_simple_types<_Ty>>>)'
+          with
+          [
+              _Ty=NNet::CLoginSupport::SAcceptedLogin
+          ]
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetLogin.cpp(58,22): error C2100: you cannot dereference an operand of type 'std::_List_iterator<std::_List_val<std::_List_simple_types<_Ty>>>'
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetLogin.cpp(58,22): error C2100:         with
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetLogin.cpp(58,22): error C2100:         [
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetLogin.cpp(58,22): error C2100:             _Ty=NNet::CLoginSupport::SAcceptedLogin
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetLogin.cpp(58,22): error C2100:         ]
+  (compiling source file '/NetLogin.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetLogin.cpp(58,20): error C2440: 'initializing': cannot convert from 'std::_List_iterator<std::_List_val<std::_List_simple_types<_Ty>>>' to 'NNet::CLoginSupport::SAcceptedLogin &'
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetLogin.cpp(58,20): error C2440:         with
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetLogin.cpp(58,20): error C2440:         [
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetLogin.cpp(58,20): error C2440:             _Ty=NNet::CLoginSupport::SAcceptedLogin
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetLogin.cpp(58,20): error C2440:         ]
+  (compiling source file '/NetLogin.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetLogin.cpp(58,20):
+      A non-const reference may only be bound to an lvalue
+  
+  NetPeer2Peer.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetPeer2Peer.cpp(47,9): error C2661: 'std::list<NNet::CP2PTracker::SMessage,std::allocator<NNet::CP2PTracker::SMessage>>::push_back': no overloaded function takes 0 arguments
+  (compiling source file '/NetPeer2Peer.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetPeer2Peer.cpp(47,9):
+      while trying to match the argument list '()'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetPeer2Peer.cpp(189,17): error C2661: 'std::list<NNet::CP2PTracker::SQMessage,std::allocator<NNet::CP2PTracker::SQMessage>>::push_back': no overloaded function takes 0 arguments
+  (compiling source file '/NetPeer2Peer.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetPeer2Peer.cpp(189,17):
+      while trying to match the argument list '()'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetPeer2Peer.cpp(203,17): error C2661: 'std::list<NNet::CP2PTracker::SQMessage,std::allocator<NNet::CP2PTracker::SQMessage>>::push_back': no overloaded function takes 0 arguments
+  (compiling source file '/NetPeer2Peer.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetPeer2Peer.cpp(203,17):
+      while trying to match the argument list '()'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetPeer2Peer.cpp(215,11): error C2661: 'std::list<NNet::CP2PTracker::SAck,std::allocator<NNet::CP2PTracker::SAck>>::push_back': no overloaded function takes 0 arguments
+  (compiling source file '/NetPeer2Peer.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetPeer2Peer.cpp(215,11):
+      while trying to match the argument list '()'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetPeer2Peer.cpp(273,21): error C2661: 'std::list<NNet::CP2PTracker::SFastAck,std::allocator<NNet::CP2PTracker::SFastAck>>::push_back': no overloaded function takes 0 arguments
+  (compiling source file '/NetPeer2Peer.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetPeer2Peer.cpp(273,21):
+      while trying to match the argument list '()'
+  
+  NetServerInfo.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetServerInfo.cpp(59,10): error C2661: 'std::list<NNet::CServerInfoSupport::SServerInfo,std::allocator<NNet::CServerInfoSupport::SServerInfo>>::push_back': no overloaded function takes 0 arguments
+  (compiling source file '/NetServerInfo.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetServerInfo.cpp(59,10):
+      while trying to match the argument list '()'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetServerInfo.cpp(60,14): warning C4834: discarding return value of function with [[nodiscard]] attribute
+  (compiling source file '/NetServerInfo.cpp')
+  
+  NetStream.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetStream.cpp(50,22): error C2661: 'std::list<NNet::CStreamTracker::SChannelBlock,std::allocator<NNet::CStreamTracker::SChannelBlock>>::push_back': no overloaded function takes 0 arguments
+  (compiling source file '/NetStream.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetStream.cpp(50,22):
+      while trying to match the argument list '()'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetStream.cpp(155,31): error C2371: 'i': redefinition; different basic types
+  (compiling source file '/NetStream.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetStream.cpp(152,12):
+      see declaration of 'i'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetStream.cpp(156,36): error C2440: '=': cannot convert from 'std::_List_iterator<std::_List_val<std::_List_simple_types<_Ty>>>' to 'int'
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetStream.cpp(156,36): error C2440:         with
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetStream.cpp(156,36): error C2440:         [
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetStream.cpp(156,36): error C2440:             _Ty=NNet::CStreamTracker::SChannelBlock
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetStream.cpp(156,36): error C2440:         ]
+  (compiling source file '/NetStream.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetStream.cpp(156,36):
+      No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetStream.cpp(156,42): error C2446: '!=': no conversion from 'std::_List_iterator<std::_List_val<std::_List_simple_types<_Ty>>>' to 'int'
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetStream.cpp(156,42): error C2446:         with
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetStream.cpp(156,42): error C2446:         [
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetStream.cpp(156,42): error C2446:             _Ty=NNet::CStreamTracker::SChannelBlock
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetStream.cpp(156,42): error C2446:         ]
+  (compiling source file '/NetStream.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetStream.cpp(156,66):
+      No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+  
+  NetObjectFactory.cpp
+  GSQueryReportingDriver.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,76): error C2665: 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string': no overloaded function could convert all the argument types
+  (compiling source file '/GSQueryReportingDriver.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(818,5):
+      could be 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )'
+          with
+          [
+              _Elem=wchar_t
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,76):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )': cannot convert argument 1 from 'const WORD *' to 'const _Elem *const '
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+              Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(1390,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,76):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          and
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+              'std::initializer_list<_Elem>::initializer_list': no overloaded function could convert all the argument types
+          with
+          [
+              _Elem=wchar_t
+          ]
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  could be 'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                      'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem> &&'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                          Reason: cannot convert from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  or       'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                      'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)': cannot convert argument 1 from 'const WORD *' to 'const std::initializer_list<_Elem> &'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                          Reason: cannot convert from 'const WORD *' to 'const std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(762,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,76):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const _Alloc &'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+              Reason: cannot convert from 'const WORD *' to 'const _Alloc'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+              'std::allocator<wchar_t>::allocator': no overloaded function could convert all the argument types
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(980,5):
+                  could be 'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                      'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const std::allocator<wchar_t> &'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                          Reason: cannot convert from 'const WORD *' to 'const std::allocator<wchar_t>'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(978,5):
+                  or       'std::allocator<wchar_t>::allocator(void) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                      'std::allocator<wchar_t>::allocator': function does not take 1 arguments
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(982,5):
+                  or       'std::allocator<wchar_t>::allocator(const std::allocator<_Other> &) noexcept'
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(848,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,76):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)': expects 3 arguments - 1 provided
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,76):
+      while trying to match the argument list '(const WORD *)'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,135): error C2665: 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string': no overloaded function could convert all the argument types
+  (compiling source file '/GSQueryReportingDriver.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(818,5):
+      could be 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )'
+          with
+          [
+              _Elem=wchar_t
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,135):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )': cannot convert argument 1 from 'const WORD *' to 'const _Elem *const '
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+              Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(1390,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,135):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          and
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+              'std::initializer_list<_Elem>::initializer_list': no overloaded function could convert all the argument types
+          with
+          [
+              _Elem=wchar_t
+          ]
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  could be 'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                      'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem> &&'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                          Reason: cannot convert from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  or       'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                      'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)': cannot convert argument 1 from 'const WORD *' to 'const std::initializer_list<_Elem> &'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                          Reason: cannot convert from 'const WORD *' to 'const std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(762,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,135):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const _Alloc &'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+              Reason: cannot convert from 'const WORD *' to 'const _Alloc'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+              'std::allocator<wchar_t>::allocator': no overloaded function could convert all the argument types
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(980,5):
+                  could be 'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                      'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const std::allocator<wchar_t> &'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                          Reason: cannot convert from 'const WORD *' to 'const std::allocator<wchar_t>'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(978,5):
+                  or       'std::allocator<wchar_t>::allocator(void) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                      'std::allocator<wchar_t>::allocator': function does not take 1 arguments
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(982,5):
+                  or       'std::allocator<wchar_t>::allocator(const std::allocator<_Other> &) noexcept'
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(848,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,135):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)': expects 3 arguments - 1 provided
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,135):
+      while trying to match the argument list '(const WORD *)'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,103): error C2665: 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string': no overloaded function could convert all the argument types
+  (compiling source file '/GSQueryReportingDriver.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(818,5):
+      could be 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )'
+          with
+          [
+              _Elem=wchar_t
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,103):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )': cannot convert argument 1 from 'const WORD *' to 'const _Elem *const '
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+              Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(1390,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,103):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          and
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+              'std::initializer_list<_Elem>::initializer_list': no overloaded function could convert all the argument types
+          with
+          [
+              _Elem=wchar_t
+          ]
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  could be 'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                      'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem> &&'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                          Reason: cannot convert from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  or       'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                      'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)': cannot convert argument 1 from 'const WORD *' to 'const std::initializer_list<_Elem> &'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                          Reason: cannot convert from 'const WORD *' to 'const std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(762,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,103):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const _Alloc &'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+              Reason: cannot convert from 'const WORD *' to 'const _Alloc'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+              'std::allocator<wchar_t>::allocator': no overloaded function could convert all the argument types
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(980,5):
+                  could be 'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                      'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const std::allocator<wchar_t> &'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                          Reason: cannot convert from 'const WORD *' to 'const std::allocator<wchar_t>'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(978,5):
+                  or       'std::allocator<wchar_t>::allocator(void) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                      'std::allocator<wchar_t>::allocator': function does not take 1 arguments
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(982,5):
+                  or       'std::allocator<wchar_t>::allocator(const std::allocator<_Other> &) noexcept'
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(848,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,103):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)': expects 3 arguments - 1 provided
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,103):
+      while trying to match the argument list '(const WORD *)'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,36): error C2665: 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string': no overloaded function could convert all the argument types
+  (compiling source file '/GSQueryReportingDriver.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(818,5):
+      could be 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )'
+          with
+          [
+              _Elem=wchar_t
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,36):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )': cannot convert argument 1 from 'const WORD *' to 'const _Elem *const '
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+              Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(1390,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,36):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          and
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+              'std::initializer_list<_Elem>::initializer_list': no overloaded function could convert all the argument types
+          with
+          [
+              _Elem=wchar_t
+          ]
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  could be 'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                      'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem> &&'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                          Reason: cannot convert from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  or       'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                      'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)': cannot convert argument 1 from 'const WORD *' to 'const std::initializer_list<_Elem> &'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                          Reason: cannot convert from 'const WORD *' to 'const std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(762,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,36):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const _Alloc &'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+              Reason: cannot convert from 'const WORD *' to 'const _Alloc'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+              'std::allocator<wchar_t>::allocator': no overloaded function could convert all the argument types
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(980,5):
+                  could be 'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                      'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const std::allocator<wchar_t> &'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                          Reason: cannot convert from 'const WORD *' to 'const std::allocator<wchar_t>'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(978,5):
+                  or       'std::allocator<wchar_t>::allocator(void) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                      'std::allocator<wchar_t>::allocator': function does not take 1 arguments
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(982,5):
+                  or       'std::allocator<wchar_t>::allocator(const std::allocator<_Other> &) noexcept'
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(848,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,36):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)': expects 3 arguments - 1 provided
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,36):
+      while trying to match the argument list '(const WORD *)'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,11): error C2665: 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string': no overloaded function could convert all the argument types
+  (compiling source file '/GSQueryReportingDriver.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(818,5):
+      could be 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )'
+          with
+          [
+              _Elem=wchar_t
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,11):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )': cannot convert argument 1 from 'const WORD *' to 'const _Elem *const '
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+              Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(1390,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,11):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          and
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+              'std::initializer_list<_Elem>::initializer_list': no overloaded function could convert all the argument types
+          with
+          [
+              _Elem=wchar_t
+          ]
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  could be 'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                      'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem> &&'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                          Reason: cannot convert from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  or       'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                      'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)': cannot convert argument 1 from 'const WORD *' to 'const std::initializer_list<_Elem> &'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                          Reason: cannot convert from 'const WORD *' to 'const std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(762,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,11):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const _Alloc &'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+              Reason: cannot convert from 'const WORD *' to 'const _Alloc'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+              'std::allocator<wchar_t>::allocator': no overloaded function could convert all the argument types
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(980,5):
+                  could be 'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                      'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const std::allocator<wchar_t> &'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                          Reason: cannot convert from 'const WORD *' to 'const std::allocator<wchar_t>'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(978,5):
+                  or       'std::allocator<wchar_t>::allocator(void) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                      'std::allocator<wchar_t>::allocator': function does not take 1 arguments
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(982,5):
+                  or       'std::allocator<wchar_t>::allocator(const std::allocator<_Other> &) noexcept'
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(848,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,11):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)': expects 3 arguments - 1 provided
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,11):
+      while trying to match the argument list '(const WORD *)'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,60): error C2665: 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string': no overloaded function could convert all the argument types
+  (compiling source file '/GSQueryReportingDriver.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(818,5):
+      could be 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )'
+          with
+          [
+              _Elem=wchar_t
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,60):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )': cannot convert argument 1 from 'const WORD *' to 'const _Elem *const '
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+              Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(1390,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,60):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          and
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+              'std::initializer_list<_Elem>::initializer_list': no overloaded function could convert all the argument types
+          with
+          [
+              _Elem=wchar_t
+          ]
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  could be 'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                      'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem> &&'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                          Reason: cannot convert from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  or       'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                      'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)': cannot convert argument 1 from 'const WORD *' to 'const std::initializer_list<_Elem> &'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                          Reason: cannot convert from 'const WORD *' to 'const std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(762,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,60):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const _Alloc &'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+              Reason: cannot convert from 'const WORD *' to 'const _Alloc'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+              'std::allocator<wchar_t>::allocator': no overloaded function could convert all the argument types
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(980,5):
+                  could be 'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                      'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const std::allocator<wchar_t> &'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                          Reason: cannot convert from 'const WORD *' to 'const std::allocator<wchar_t>'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(978,5):
+                  or       'std::allocator<wchar_t>::allocator(void) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                      'std::allocator<wchar_t>::allocator': function does not take 1 arguments
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(982,5):
+                  or       'std::allocator<wchar_t>::allocator(const std::allocator<_Other> &) noexcept'
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(848,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,60):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)': expects 3 arguments - 1 provided
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,60):
+      while trying to match the argument list '(const WORD *)'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,15): error C2665: 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string': no overloaded function could convert all the argument types
+  (compiling source file '/GSQueryReportingDriver.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(818,5):
+      could be 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )'
+          with
+          [
+              _Elem=wchar_t
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,15):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )': cannot convert argument 1 from 'const WORD *' to 'const _Elem *const '
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+              Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(1390,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,15):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          and
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+              'std::initializer_list<_Elem>::initializer_list': no overloaded function could convert all the argument types
+          with
+          [
+              _Elem=wchar_t
+          ]
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  could be 'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                      'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem> &&'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                          Reason: cannot convert from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  or       'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                      'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)': cannot convert argument 1 from 'const WORD *' to 'const std::initializer_list<_Elem> &'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                          Reason: cannot convert from 'const WORD *' to 'const std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(762,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,15):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const _Alloc &'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+              Reason: cannot convert from 'const WORD *' to 'const _Alloc'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+              'std::allocator<wchar_t>::allocator': no overloaded function could convert all the argument types
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(980,5):
+                  could be 'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                      'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const std::allocator<wchar_t> &'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                          Reason: cannot convert from 'const WORD *' to 'const std::allocator<wchar_t>'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(978,5):
+                  or       'std::allocator<wchar_t>::allocator(void) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                      'std::allocator<wchar_t>::allocator': function does not take 1 arguments
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(982,5):
+                  or       'std::allocator<wchar_t>::allocator(const std::allocator<_Other> &) noexcept'
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(848,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,15):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)': expects 3 arguments - 1 provided
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,15):
+      while trying to match the argument list '(const WORD *)'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,42): error C2665: 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string': no overloaded function could convert all the argument types
+  (compiling source file '/GSQueryReportingDriver.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(818,5):
+      could be 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )'
+          with
+          [
+              _Elem=wchar_t
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,42):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )': cannot convert argument 1 from 'const WORD *' to 'const _Elem *const '
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+              Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(1390,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,42):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          and
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+              'std::initializer_list<_Elem>::initializer_list': no overloaded function could convert all the argument types
+          with
+          [
+              _Elem=wchar_t
+          ]
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  could be 'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                      'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem> &&'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                          Reason: cannot convert from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  or       'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                      'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)': cannot convert argument 1 from 'const WORD *' to 'const std::initializer_list<_Elem> &'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                          Reason: cannot convert from 'const WORD *' to 'const std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(762,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,42):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const _Alloc &'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+              Reason: cannot convert from 'const WORD *' to 'const _Alloc'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+              'std::allocator<wchar_t>::allocator': no overloaded function could convert all the argument types
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(980,5):
+                  could be 'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                      'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const std::allocator<wchar_t> &'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                          Reason: cannot convert from 'const WORD *' to 'const std::allocator<wchar_t>'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(978,5):
+                  or       'std::allocator<wchar_t>::allocator(void) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                      'std::allocator<wchar_t>::allocator': function does not take 1 arguments
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(982,5):
+                  or       'std::allocator<wchar_t>::allocator(const std::allocator<_Other> &) noexcept'
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(848,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,42):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)': expects 3 arguments - 1 provided
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,42):
+      while trying to match the argument list '(const WORD *)'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,79): error C2665: 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string': no overloaded function could convert all the argument types
+  (compiling source file '/GSQueryReportingDriver.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(818,5):
+      could be 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )'
+          with
+          [
+              _Elem=wchar_t
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,79):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )': cannot convert argument 1 from 'const WORD *' to 'const _Elem *const '
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+              Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(1390,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,79):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          and
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+              'std::initializer_list<_Elem>::initializer_list': no overloaded function could convert all the argument types
+          with
+          [
+              _Elem=wchar_t
+          ]
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  could be 'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                      'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem> &&'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                          Reason: cannot convert from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  or       'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                      'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)': cannot convert argument 1 from 'const WORD *' to 'const std::initializer_list<_Elem> &'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                          Reason: cannot convert from 'const WORD *' to 'const std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(762,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,79):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const _Alloc &'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+              Reason: cannot convert from 'const WORD *' to 'const _Alloc'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+              'std::allocator<wchar_t>::allocator': no overloaded function could convert all the argument types
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(980,5):
+                  could be 'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                      'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const std::allocator<wchar_t> &'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                          Reason: cannot convert from 'const WORD *' to 'const std::allocator<wchar_t>'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(978,5):
+                  or       'std::allocator<wchar_t>::allocator(void) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                      'std::allocator<wchar_t>::allocator': function does not take 1 arguments
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(982,5):
+                  or       'std::allocator<wchar_t>::allocator(const std::allocator<_Other> &) noexcept'
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(848,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,79):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)': expects 3 arguments - 1 provided
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,79):
+      while trying to match the argument list '(const WORD *)'
+  
+  GSServersList.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,76): error C2665: 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string': no overloaded function could convert all the argument types
+  (compiling source file '/GSServersList.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(818,5):
+      could be 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )'
+          with
+          [
+              _Elem=wchar_t
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,76):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )': cannot convert argument 1 from 'const WORD *' to 'const _Elem *const '
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+              Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(1390,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,76):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          and
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+              'std::initializer_list<_Elem>::initializer_list': no overloaded function could convert all the argument types
+          with
+          [
+              _Elem=wchar_t
+          ]
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  could be 'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                      'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem> &&'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                          Reason: cannot convert from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  or       'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                      'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)': cannot convert argument 1 from 'const WORD *' to 'const std::initializer_list<_Elem> &'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                          Reason: cannot convert from 'const WORD *' to 'const std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(762,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,76):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const _Alloc &'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+              Reason: cannot convert from 'const WORD *' to 'const _Alloc'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+              'std::allocator<wchar_t>::allocator': no overloaded function could convert all the argument types
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(980,5):
+                  could be 'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                      'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const std::allocator<wchar_t> &'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                          Reason: cannot convert from 'const WORD *' to 'const std::allocator<wchar_t>'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(978,5):
+                  or       'std::allocator<wchar_t>::allocator(void) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                      'std::allocator<wchar_t>::allocator': function does not take 1 arguments
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(982,5):
+                  or       'std::allocator<wchar_t>::allocator(const std::allocator<_Other> &) noexcept'
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,78):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(848,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,76):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)': expects 3 arguments - 1 provided
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,76):
+      while trying to match the argument list '(const WORD *)'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,135): error C2665: 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string': no overloaded function could convert all the argument types
+  (compiling source file '/GSServersList.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(818,5):
+      could be 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )'
+          with
+          [
+              _Elem=wchar_t
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,135):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )': cannot convert argument 1 from 'const WORD *' to 'const _Elem *const '
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+              Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(1390,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,135):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          and
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+              'std::initializer_list<_Elem>::initializer_list': no overloaded function could convert all the argument types
+          with
+          [
+              _Elem=wchar_t
+          ]
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  could be 'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                      'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem> &&'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                          Reason: cannot convert from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  or       'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                      'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)': cannot convert argument 1 from 'const WORD *' to 'const std::initializer_list<_Elem> &'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                          Reason: cannot convert from 'const WORD *' to 'const std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(762,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,135):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const _Alloc &'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+              Reason: cannot convert from 'const WORD *' to 'const _Alloc'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+              'std::allocator<wchar_t>::allocator': no overloaded function could convert all the argument types
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(980,5):
+                  could be 'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                      'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const std::allocator<wchar_t> &'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                          Reason: cannot convert from 'const WORD *' to 'const std::allocator<wchar_t>'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(978,5):
+                  or       'std::allocator<wchar_t>::allocator(void) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                      'std::allocator<wchar_t>::allocator': function does not take 1 arguments
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(982,5):
+                  or       'std::allocator<wchar_t>::allocator(const std::allocator<_Other> &) noexcept'
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,137):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(848,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,135):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)': expects 3 arguments - 1 provided
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,135):
+      while trying to match the argument list '(const WORD *)'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,103): error C2665: 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string': no overloaded function could convert all the argument types
+  (compiling source file '/GSServersList.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(818,5):
+      could be 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )'
+          with
+          [
+              _Elem=wchar_t
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,103):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )': cannot convert argument 1 from 'const WORD *' to 'const _Elem *const '
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+              Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(1390,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,103):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          and
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+              'std::initializer_list<_Elem>::initializer_list': no overloaded function could convert all the argument types
+          with
+          [
+              _Elem=wchar_t
+          ]
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  could be 'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                      'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem> &&'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                          Reason: cannot convert from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  or       'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                      'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)': cannot convert argument 1 from 'const WORD *' to 'const std::initializer_list<_Elem> &'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                          Reason: cannot convert from 'const WORD *' to 'const std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(762,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,103):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const _Alloc &'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+              Reason: cannot convert from 'const WORD *' to 'const _Alloc'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+              'std::allocator<wchar_t>::allocator': no overloaded function could convert all the argument types
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(980,5):
+                  could be 'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                      'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const std::allocator<wchar_t> &'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                          Reason: cannot convert from 'const WORD *' to 'const std::allocator<wchar_t>'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(978,5):
+                  or       'std::allocator<wchar_t>::allocator(void) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                      'std::allocator<wchar_t>::allocator': function does not take 1 arguments
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(982,5):
+                  or       'std::allocator<wchar_t>::allocator(const std::allocator<_Other> &) noexcept'
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,105):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(848,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,103):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)': expects 3 arguments - 1 provided
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(192,103):
+      while trying to match the argument list '(const WORD *)'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,36): error C2665: 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string': no overloaded function could convert all the argument types
+  (compiling source file '/GSServersList.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(818,5):
+      could be 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )'
+          with
+          [
+              _Elem=wchar_t
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,36):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )': cannot convert argument 1 from 'const WORD *' to 'const _Elem *const '
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+              Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(1390,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,36):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          and
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+              'std::initializer_list<_Elem>::initializer_list': no overloaded function could convert all the argument types
+          with
+          [
+              _Elem=wchar_t
+          ]
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  could be 'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                      'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem> &&'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                          Reason: cannot convert from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  or       'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                      'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)': cannot convert argument 1 from 'const WORD *' to 'const std::initializer_list<_Elem> &'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                          Reason: cannot convert from 'const WORD *' to 'const std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(762,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,36):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const _Alloc &'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+              Reason: cannot convert from 'const WORD *' to 'const _Alloc'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+              'std::allocator<wchar_t>::allocator': no overloaded function could convert all the argument types
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(980,5):
+                  could be 'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                      'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const std::allocator<wchar_t> &'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                          Reason: cannot convert from 'const WORD *' to 'const std::allocator<wchar_t>'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(978,5):
+                  or       'std::allocator<wchar_t>::allocator(void) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                      'std::allocator<wchar_t>::allocator': function does not take 1 arguments
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(982,5):
+                  or       'std::allocator<wchar_t>::allocator(const std::allocator<_Other> &) noexcept'
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,38):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(848,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,36):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)': expects 3 arguments - 1 provided
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(258,36):
+      while trying to match the argument list '(const WORD *)'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,11): error C2665: 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string': no overloaded function could convert all the argument types
+  (compiling source file '/GSServersList.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(818,5):
+      could be 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )'
+          with
+          [
+              _Elem=wchar_t
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,11):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )': cannot convert argument 1 from 'const WORD *' to 'const _Elem *const '
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+              Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(1390,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,11):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          and
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+              'std::initializer_list<_Elem>::initializer_list': no overloaded function could convert all the argument types
+          with
+          [
+              _Elem=wchar_t
+          ]
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  could be 'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                      'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem> &&'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                          Reason: cannot convert from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  or       'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                      'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)': cannot convert argument 1 from 'const WORD *' to 'const std::initializer_list<_Elem> &'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                          Reason: cannot convert from 'const WORD *' to 'const std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(762,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,11):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const _Alloc &'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+              Reason: cannot convert from 'const WORD *' to 'const _Alloc'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+              'std::allocator<wchar_t>::allocator': no overloaded function could convert all the argument types
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(980,5):
+                  could be 'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                      'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const std::allocator<wchar_t> &'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                          Reason: cannot convert from 'const WORD *' to 'const std::allocator<wchar_t>'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(978,5):
+                  or       'std::allocator<wchar_t>::allocator(void) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                      'std::allocator<wchar_t>::allocator': function does not take 1 arguments
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(982,5):
+                  or       'std::allocator<wchar_t>::allocator(const std::allocator<_Other> &) noexcept'
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,13):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(848,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,11):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)': expects 3 arguments - 1 provided
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(282,11):
+      while trying to match the argument list '(const WORD *)'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,60): error C2665: 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string': no overloaded function could convert all the argument types
+  (compiling source file '/GSServersList.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(818,5):
+      could be 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )'
+          with
+          [
+              _Elem=wchar_t
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,60):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )': cannot convert argument 1 from 'const WORD *' to 'const _Elem *const '
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+              Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(1390,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,60):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          and
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+              'std::initializer_list<_Elem>::initializer_list': no overloaded function could convert all the argument types
+          with
+          [
+              _Elem=wchar_t
+          ]
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  could be 'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                      'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem> &&'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                          Reason: cannot convert from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  or       'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                      'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)': cannot convert argument 1 from 'const WORD *' to 'const std::initializer_list<_Elem> &'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                          Reason: cannot convert from 'const WORD *' to 'const std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(762,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,60):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const _Alloc &'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+              Reason: cannot convert from 'const WORD *' to 'const _Alloc'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+              'std::allocator<wchar_t>::allocator': no overloaded function could convert all the argument types
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(980,5):
+                  could be 'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                      'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const std::allocator<wchar_t> &'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                          Reason: cannot convert from 'const WORD *' to 'const std::allocator<wchar_t>'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(978,5):
+                  or       'std::allocator<wchar_t>::allocator(void) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                      'std::allocator<wchar_t>::allocator': function does not take 1 arguments
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(982,5):
+                  or       'std::allocator<wchar_t>::allocator(const std::allocator<_Other> &) noexcept'
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,62):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(848,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,60):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)': expects 3 arguments - 1 provided
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(301,60):
+      while trying to match the argument list '(const WORD *)'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,15): error C2665: 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string': no overloaded function could convert all the argument types
+  (compiling source file '/GSServersList.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(818,5):
+      could be 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )'
+          with
+          [
+              _Elem=wchar_t
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,15):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )': cannot convert argument 1 from 'const WORD *' to 'const _Elem *const '
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+              Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(1390,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,15):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          and
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+              'std::initializer_list<_Elem>::initializer_list': no overloaded function could convert all the argument types
+          with
+          [
+              _Elem=wchar_t
+          ]
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  could be 'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                      'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem> &&'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                          Reason: cannot convert from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  or       'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                      'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)': cannot convert argument 1 from 'const WORD *' to 'const std::initializer_list<_Elem> &'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                          Reason: cannot convert from 'const WORD *' to 'const std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(762,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,15):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const _Alloc &'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+              Reason: cannot convert from 'const WORD *' to 'const _Alloc'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+              'std::allocator<wchar_t>::allocator': no overloaded function could convert all the argument types
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(980,5):
+                  could be 'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                      'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const std::allocator<wchar_t> &'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                          Reason: cannot convert from 'const WORD *' to 'const std::allocator<wchar_t>'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(978,5):
+                  or       'std::allocator<wchar_t>::allocator(void) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                      'std::allocator<wchar_t>::allocator': function does not take 1 arguments
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(982,5):
+                  or       'std::allocator<wchar_t>::allocator(const std::allocator<_Other> &) noexcept'
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,17):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(848,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,15):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)': expects 3 arguments - 1 provided
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,15):
+      while trying to match the argument list '(const WORD *)'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,42): error C2665: 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string': no overloaded function could convert all the argument types
+  (compiling source file '/GSServersList.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(818,5):
+      could be 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )'
+          with
+          [
+              _Elem=wchar_t
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,42):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )': cannot convert argument 1 from 'const WORD *' to 'const _Elem *const '
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+              Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(1390,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,42):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          and
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+              'std::initializer_list<_Elem>::initializer_list': no overloaded function could convert all the argument types
+          with
+          [
+              _Elem=wchar_t
+          ]
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  could be 'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                      'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem> &&'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                          Reason: cannot convert from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  or       'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                      'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)': cannot convert argument 1 from 'const WORD *' to 'const std::initializer_list<_Elem> &'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                          Reason: cannot convert from 'const WORD *' to 'const std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(762,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,42):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const _Alloc &'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+              Reason: cannot convert from 'const WORD *' to 'const _Alloc'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+              'std::allocator<wchar_t>::allocator': no overloaded function could convert all the argument types
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(980,5):
+                  could be 'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                      'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const std::allocator<wchar_t> &'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                          Reason: cannot convert from 'const WORD *' to 'const std::allocator<wchar_t>'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(978,5):
+                  or       'std::allocator<wchar_t>::allocator(void) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                      'std::allocator<wchar_t>::allocator': function does not take 1 arguments
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(982,5):
+                  or       'std::allocator<wchar_t>::allocator(const std::allocator<_Other> &) noexcept'
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,44):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(848,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,42):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)': expects 3 arguments - 1 provided
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(313,42):
+      while trying to match the argument list '(const WORD *)'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,79): error C2665: 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string': no overloaded function could convert all the argument types
+  (compiling source file '/GSServersList.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(818,5):
+      could be 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )'
+          with
+          [
+              _Elem=wchar_t
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,79):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Elem *const )': cannot convert argument 1 from 'const WORD *' to 'const _Elem *const '
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+              Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(1390,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,79):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(std::initializer_list<_Elem>,const _Alloc &)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t,
+              _Alloc=std::allocator<wchar_t>
+          ]
+          and
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+              'std::initializer_list<_Elem>::initializer_list': no overloaded function could convert all the argument types
+          with
+          [
+              _Elem=wchar_t
+          ]
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  could be 'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                      'std::initializer_list<_Elem>::initializer_list(std::initializer_list<_Elem> &&)': cannot convert argument 1 from 'const WORD *' to 'std::initializer_list<_Elem> &&'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                          Reason: cannot convert from 'const WORD *' to 'std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\initializer_list(65,1):
+                  or       'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                      'std::initializer_list<_Elem>::initializer_list(const std::initializer_list<_Elem> &)': cannot convert argument 1 from 'const WORD *' to 'const std::initializer_list<_Elem> &'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                          Reason: cannot convert from 'const WORD *' to 'const std::initializer_list<_Elem>'
+          with
+          [
+              _Elem=wchar_t
+          ]
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(762,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,79):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(const _Alloc &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const _Alloc &'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+              Reason: cannot convert from 'const WORD *' to 'const _Alloc'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+              'std::allocator<wchar_t>::allocator': no overloaded function could convert all the argument types
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(980,5):
+                  could be 'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                      'std::allocator<wchar_t>::allocator(const std::allocator<wchar_t> &) noexcept': cannot convert argument 1 from 'const WORD *' to 'const std::allocator<wchar_t> &'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                          Reason: cannot convert from 'const WORD *' to 'const std::allocator<wchar_t>'
+                          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                          Conversion requires a second user-defined-conversion operator or constructor
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(978,5):
+                  or       'std::allocator<wchar_t>::allocator(void) noexcept'
+                      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                      'std::allocator<wchar_t>::allocator': function does not take 1 arguments
+                  C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(982,5):
+                  or       'std::allocator<wchar_t>::allocator(const std::allocator<_Other> &) noexcept'
+                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,81):
+                  while trying to match the argument list '(const WORD *)'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xstring(848,5):
+      or       'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)'
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,79):
+          'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string(_Iter,_Iter,const _Alloc &)': expects 3 arguments - 1 provided
+          with
+          [
+              _Alloc=std::allocator<wchar_t>
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(343,79):
+      while trying to match the argument list '(const WORD *)'
+  
+  Generating Code...

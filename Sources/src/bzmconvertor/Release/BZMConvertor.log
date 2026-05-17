@@ -1,1 +1,45 @@
-﻿
+﻿  main.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\BZMConvertor\main.cpp(80,5): error C2672: 'ConvertFrameIndex': no matching overloaded function found
+  (compiling source file '/main.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\BZMConvertor\main.cpp(56,6):
+      could be 'void ConvertFrameIndex(IObjectsDB *,SMapObjectInfo *,const TRPGStats *,const char *)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\BZMConvertor\main.cpp(80,30):
+          'initializing': cannot convert from 'std::_Vector_iterator<std::_Vector_val<std::_Simple_types<_Ty>>>' to 'SMapObjectInfo *'
+          with
+          [
+              _Ty=SMapObjectInfo
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\BZMConvertor\main.cpp(80,30):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\BZMConvertor\main.cpp(83,5): error C2672: 'ConvertFrameIndex': no matching overloaded function found
+  (compiling source file '/main.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\BZMConvertor\main.cpp(56,6):
+      could be 'void ConvertFrameIndex(IObjectsDB *,SMapObjectInfo *,const TRPGStats *,const char *)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\BZMConvertor\main.cpp(83,30):
+          'initializing': cannot convert from 'std::_Vector_iterator<std::_Vector_val<std::_Simple_types<_Ty>>>' to 'SMapObjectInfo *'
+          with
+          [
+              _Ty=SMapObjectInfo
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\BZMConvertor\main.cpp(83,30):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\BZMConvertor\main.cpp(86,5): error C2672: 'ConvertFrameIndex': no matching overloaded function found
+  (compiling source file '/main.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\BZMConvertor\main.cpp(56,6):
+      could be 'void ConvertFrameIndex(IObjectsDB *,SMapObjectInfo *,const TRPGStats *,const char *)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\BZMConvertor\main.cpp(86,30):
+          'initializing': cannot convert from 'std::_Vector_iterator<std::_Vector_val<std::_Simple_types<_Ty>>>' to 'SMapObjectInfo *'
+          with
+          [
+              _Ty=SMapObjectInfo
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\BZMConvertor\main.cpp(86,30):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\BZMConvertor\main.cpp(173,9): error C2039: 'Load': is not a member of 'IObjectsDB'
+  (compiling source file '/main.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Main\GameDB.h(79,11):
+      see declaration of 'IObjectsDB'
+  

@@ -71,7 +71,7 @@
       <WarningLevel>Level3</WarningLevel>
       <MinimalRebuild>true</MinimalRebuild>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AssemblerListingLocation>.\Debug\</AssemblerListingLocation>
       <PrecompiledHeaderOutputFile>.\Debug\SoundVerifycation.pch</PrecompiledHeaderOutputFile>
@@ -93,11 +93,12 @@
       <OutputFile>.\Debug\SoundVerifycation.bsc</OutputFile>
     </Bscmake>
     <Link>
+      <AdditionalLibraryDirectories>..\..\sdk\FMOD\api\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <OutputFile>.\Debug\SoundVerifycation.exe</OutputFile>
-      <AdditionalDependencies>fmodvc.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Debug\Misc.lib;fmodvc.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -130,10 +131,12 @@
       <OutputFile>.\Release\SoundVerifycation.bsc</OutputFile>
     </Bscmake>
     <Link>
+      <AdditionalLibraryDirectories>..\..\sdk\FMOD\api\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SuppressStartupBanner>true</SuppressStartupBanner>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
-      <OutputFile>.\Release\SoundVerifycation.exe</OutputFile>
-      <AdditionalDependencies>fmodvc.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>.\Debug\SoundVerifycation.exe</OutputFile>
+      <AdditionalDependencies>..\Misc\Debug\Misc.lib;fmodvc.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

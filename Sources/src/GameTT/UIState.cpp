@@ -87,7 +87,7 @@ void CUINewGameState::Show()
 	pOptions->Get( "GamePlay.PlayerName", &varPlayerName );
 	const std::wstring szNameFromOptions = (wchar_t*)(bstr_t)varPlayerName;
 	IText * pT = GetSingleton<ITextManager>()->GetDialog( "Textes\\PlayerName" );
-	const std::wstring szDefault = pT ? pT->GetString() : L"";
+	const std::wstring szDefault = pT ? reinterpret_cast<const wchar_t*>(pT->GetString()) : L"";
 
 	if (  !GetGlobalVar( "ProfileShown", 0 ) && 
 				!GetGlobalVar( "TutorialMode", 0 ) &&

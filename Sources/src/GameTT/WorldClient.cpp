@@ -554,7 +554,7 @@ void FillActionsPriority( const char *pszRow, const char *pszEntry, CTableAccess
 			dst.push_back( 0 );
 	}
 	// remove all actions >= 64
-	dst.erase( std::remove_if(dst.begin(), dst.end(), std::bind2nd(std::greater_equal<int>(), 64)), dst.end() );
+	dst.erase( std::remove_if(dst.begin(), dst.end(), [](int val) { return val >= 64; }), dst.end() );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldClient::Init( ISingleton *pSingleton )
@@ -2161,9 +2161,9 @@ void CWorldClient::ReportObjectiveStateChanged( int nObjective, int nState )
 	{
 		std::wstring szObjective;
 		if ( (pHeaderText != 0) && (pHeaderText->GetString() != 0) ) 
-			szObjective = std::wstring(pStateText->GetString()) + L" " + std::wstring(pHeaderText->GetString());
+			szObjective = std::wstring(reinterpret_cast<const wchar_t*>(pStateText->GetString())) + L" " + std::wstring(reinterpret_cast<const wchar_t*>(pHeaderText->GetString()));
 		else
-			szObjective = std::wstring(pStateText->GetString()) + L" " + NStr::ToUnicode( "Unknown Objective" );
+			szObjective = std::wstring(reinterpret_cast<const wchar_t*>(pStateText->GetString())) + L" " + NStr::ToUnicode( "Unknown Objective" );
 		GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_CHAT, szObjective.c_str(), dwTextColor );
 		//
 		pScene->AddSound( pszSound, VNULL3, SFX_INTERFACE, SAM_ADD_N_FORGET );

@@ -1,1 +1,13 @@
-﻿
+﻿  StdAfx.cpp
+  SoundVerifycation.cpp
+C:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Microsoft\VC\v180\Microsoft.CppBuild.targets(1424,5): warning MSB8012: TargetPath(C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\SoundVerifycation\Release\SoundVerifycation.exe) does not match the Linker's OutputFile property value (C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\SoundVerifycation\Debug\SoundVerifycation.exe). This may cause your project to build incorrectly. To correct this, please make sure that $(OutDir), $(TargetName) and $(TargetExt) property values match the value specified in %(Link.OutputFile).
+Misc.lib(FileUtils.obj) : error LNK2038: mismatch detected for '_ITERATOR_DEBUG_LEVEL': value '2' doesn't match value '0' in SoundVerifycation.obj
+Misc.lib(FileUtils.obj) : error LNK2038: mismatch detected for 'RuntimeLibrary': value 'MDd_DynamicDebug' doesn't match value 'MD_DynamicRelease' in SoundVerifycation.obj
+Misc.lib(StrProc.obj) : error LNK2038: mismatch detected for '_ITERATOR_DEBUG_LEVEL': value '2' doesn't match value '0' in SoundVerifycation.obj
+Misc.lib(StrProc.obj) : error LNK2038: mismatch detected for 'RuntimeLibrary': value 'MDd_DynamicDebug' doesn't match value 'MD_DynamicRelease' in SoundVerifycation.obj
+Misc.lib(StdAfx.obj) : error LNK2038: mismatch detected for '_ITERATOR_DEBUG_LEVEL': value '2' doesn't match value '0' in SoundVerifycation.obj
+Misc.lib(StdAfx.obj) : error LNK2038: mismatch detected for 'RuntimeLibrary': value 'MDd_DynamicDebug' doesn't match value 'MD_DynamicRelease' in SoundVerifycation.obj
+LINK : warning LNK4098: defaultlib 'MSVCRTD' conflicts with use of other libs; use /NODEFAULTLIB:library
+Misc.lib(FileUtils.obj) : error LNK2019: unresolved external symbol __imp___CrtDbgReport referenced in function "void * __cdecl std::_Allocate_manually_vector_aligned<struct std::_Default_allocate_traits>(unsigned int)" (??$_Allocate_manually_vector_aligned@U_Default_allocate_traits@std@@@std@@YAPAXI@Z)
+Misc.lib(StrProc.obj) : error LNK2001: unresolved external symbol __imp___CrtDbgReport
+.\Debug\SoundVerifycation.exe : fatal error LNK1120: 1 unresolved externals

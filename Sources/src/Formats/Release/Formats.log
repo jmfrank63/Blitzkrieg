@@ -1,1 +1,14 @@
-﻿
+﻿  StdAfx.cpp
+  fmtAIGeneral.cpp
+  fmtAnimation.cpp
+  fmtEffect.cpp
+  fmtFont.cpp
+  fmtMap.cpp
+  fmtMesh.cpp
+  fmtSound.cpp
+  fmtSprite.cpp
+  fmtTerrain.cpp
+  fmtUnitCreation.cpp
+  fmtVSO.cpp
+  Generating Code...
+  Formats.vcxproj -> C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Formats\Release\Formats.lib

@@ -1,1 +1,70 @@
-﻿
+﻿  main.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Game\main.cpp(532,29): warning C4834: discarding return value of function with [[nodiscard]] attribute
+  (compiling source file '/main.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Game\main.cpp(678,4): error C2665: 'SetGlobalVar': no overloaded function could convert all the argument types
+  (compiling source file '/main.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\StreamIO\Globals.h(82,13):
+      could be 'void SetGlobalVar(const char *,const WORD *)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Game\main.cpp(678,4):
+          'void SetGlobalVar(const char *,const WORD *)': cannot convert argument 2 from 'const _Elem *' to 'const WORD *'
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Game\main.cpp(678,90):
+              Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\StreamIO\Globals.h(78,13):
+      or       'void SetGlobalVar(const char *,unsigned long)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Game\main.cpp(678,4):
+          'void SetGlobalVar(const char *,unsigned long)': cannot convert argument 2 from 'const _Elem *' to 'unsigned long'
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Game\main.cpp(678,90):
+              There is no context in which this conversion is possible
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\StreamIO\Globals.h(77,13):
+      or       'void SetGlobalVar(const char *,float)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Game\main.cpp(678,4):
+          'void SetGlobalVar(const char *,float)': cannot convert argument 2 from 'const _Elem *' to 'float'
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Game\main.cpp(678,90):
+              There is no context in which this conversion is possible
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\StreamIO\Globals.h(76,13):
+      or       'void SetGlobalVar(const char *,int)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Game\main.cpp(678,4):
+          'void SetGlobalVar(const char *,int)': cannot convert argument 2 from 'const _Elem *' to 'int'
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Game\main.cpp(678,90):
+              There is no context in which this conversion is possible
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\StreamIO\Globals.h(75,13):
+      or       'void SetGlobalVar(const char *,const char *)'
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Game\main.cpp(678,4):
+          'void SetGlobalVar(const char *,const char *)': cannot convert argument 2 from 'const _Elem *' to 'const char *'
+          with
+          [
+              _Elem=wchar_t
+          ]
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Game\main.cpp(678,90):
+              Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Game\main.cpp(678,4):
+      while trying to match the argument list '(const char [38], const _Elem *)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+  
+  WinFrame.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Game\WinFrame.cpp(230,10): error C2661: 'std::list<NWinFrame::SWindowsMsg,std::allocator<NWinFrame::SWindowsMsg>>::push_back': no overloaded function takes 0 arguments
+  (compiling source file '/WinFrame.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Game\WinFrame.cpp(230,10):
+      while trying to match the argument list '()'
+  
+  Generating Code...

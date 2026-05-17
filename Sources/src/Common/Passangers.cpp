@@ -26,7 +26,7 @@ void RemovePassanger( CPassangersList &passangers, IMOUnit *pUnit, IObjVisObj *p
 	CPassangersList::iterator itPassanger = passangers.end();
 	for ( CPassangersList::iterator it = passangers.begin(); it != passangers.end(); ++it )
 	{
-		if ( it->pUnit == pUnit ) 
+		if ( it->pUnit.GetPtr() == pUnit ) 
 		{
 			// add HP bar icon back to the unit and remove it from container
 			IObjVisObj *pVO = static_cast_ptr<IObjVisObj*>( pUnit->pVisObj );

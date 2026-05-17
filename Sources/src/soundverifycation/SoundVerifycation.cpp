@@ -4,8 +4,8 @@
 #include "stdafx.h"
 #include "..\Misc\FileUtils.h"
 #include <iostream>
-#include <fmod.h>
-#include <fmod_errors.h>
+#include "..\..\sdk\FMOD\api\inc\fmod.h"
+#include "..\..\sdk\FMOD\api\inc\fmod_errors.h"
 #include <stdio.h>
  #include <conio.h>
 
@@ -52,7 +52,7 @@ public:
 			currentSound.Flush();
 			currentSound.Close();
 
-			FSOUND_SAMPLE *samp1 = FSOUND_Sample_Load( FSOUND_UNMANAGED, szFileName.c_str(), FSOUND_NORMAL, 0 );
+			FSOUND_SAMPLE *samp1 = FSOUND_Sample_Load( FSOUND_UNMANAGED, szFileName.c_str(), FSOUND_NORMAL, 0, 0 );
 			/*if ( !samp1 )
 			{
 				std::cout<<"Error loading sample\n";
