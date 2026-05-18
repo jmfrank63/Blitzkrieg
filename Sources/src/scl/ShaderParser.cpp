@@ -1,10 +1,37 @@
 #include "StdAfx.h"
 
 #include <comdef.h>
-#include <d3d8types.h>
+#include <d3d9types.h>  // Updated from d3d8types.h for modern DirectX
 
 #include "ShaderParser.h"
 #include "Shader.h"
+
+// Define missing D3D9 constants from older DirectX SDK (not in Windows SDK d3d9.h)
+#ifndef D3DTEXF_FLATCUBIC
+#define D3DTEXF_FLATCUBIC 4
+#endif
+#ifndef D3DTEXF_GAUSSIANCUBIC
+#define D3DTEXF_GAUSSIANCUBIC 5
+#endif
+#ifndef D3DTSS_ADDRESSU
+#define D3DTSS_ADDRESSU 13
+#endif
+#ifndef D3DTSS_ADDRESSV
+#define D3DTSS_ADDRESSV 14
+#endif
+#ifndef D3DTSS_ADDRESSW
+#define D3DTSS_ADDRESSW 15
+#endif
+#ifndef D3DTSS_MAGFILTER
+#define D3DTSS_MAGFILTER 17
+#endif
+#ifndef D3DTSS_MINFILTER
+#define D3DTSS_MINFILTER 18
+#endif
+#ifndef D3DTSS_MIPFILTER
+#define D3DTSS_MIPFILTER 19
+#endif
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ParseTechnique( _ReductionPtr reduction, STechnique *pTechnique );
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -70,11 +97,11 @@ void DumpReduction( _ReductionPtr reduction, const int nLevel )
 	for ( short i = 0; i < reduction->TokenCount; ++i )
 	{
 		//_bstr_t str = parser->GetCurrentReduction()->
-		_TokenPtr token = reduction->GetTokens( &i );
+		_TokenPtr token = reduction->GetTokens(i);
 		_bstr_t strName = token->GetName();
 		printf( "token %s", (const char*)strName );
-		
-		SymbolPtr symbol = token->GetParentSymbol();
+
+		_SymbolPtr symbol = token->GetParentSymbol();
 		const short nSymbolTableIndex = symbol->TableIndex;
 
 		variant_t var = token->GetData();
@@ -111,7 +138,7 @@ bool CShaderParser::DoneParsing( _ReductionPtr reduction )
 	{
 		for ( short i = 0; i < reduction->TokenCount; ++i )
 		{
-			_TokenPtr token = reduction->GetTokens( &i );
+			_TokenPtr token = reduction->GetTokens(i);
 			variant_t var = token->GetData();
 			if ( var.vt == VT_DISPATCH ) 
 				DoneParsing( var.pdispVal );
@@ -125,7 +152,7 @@ void VisitTokens( _ReductionPtr reduction, TTokenVisitor &visitor )
 {
 	for ( short i = 0; i < reduction->TokenCount; ++i )
 	{
-		_TokenPtr token = reduction->GetTokens( &i );
+		_TokenPtr token = reduction->GetTokens(i);
 		// CRAP{ for testing
 		_bstr_t strName = token->GetName();
 		printf( "token %s", (const char*)strName );
@@ -151,7 +178,7 @@ int GetIntValue( _ReductionPtr reduction )
 {
 	for ( short i = 0; i < reduction->TokenCount; ++i )
 	{
-		_TokenPtr token = reduction->GetTokens( &i );
+		_TokenPtr token = reduction->GetTokens(i);
 		const short nTableIndex = token->TableIndex;
 		if ( (nTableIndex == SYMBOL_DECIMALLITERAL) || (nTableIndex == SYMBOL_HEXLITERAL) ) 
 		{
@@ -166,25 +193,25 @@ int GetIntValue( _ReductionPtr reduction )
 				return (long)varTokenData;
 		}
 	}
-	return -1;
+	return static_cast<DWORD>(-1);
 }
 int GetIntValueFromRule( _ReductionPtr rule )
 {
 	for ( short j = 0; j < rule->TokenCount; ++j )
 	{
-		_TokenPtr token = rule->GetTokens( &j );
+		_TokenPtr token = rule->GetTokens(j);
 		variant_t var = token->GetData();
 		if ( var.vt == VT_DISPATCH ) 
 			return GetIntValue( var.pdispVal );
 	}
-	return -1;
+	return static_cast<DWORD>(-1);
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool GetBoolValue( _ReductionPtr reduction )
 {
 	for ( short i = 0; i < reduction->TokenCount; ++i )
 	{
-		_TokenPtr token = reduction->GetTokens( &i );
+		_TokenPtr token = reduction->GetTokens(i);
 		const short nTableIndex = token->TableIndex;
 		switch ( nTableIndex ) 
 		{
@@ -200,7 +227,7 @@ bool GetBoolValueFromRule( _ReductionPtr rule )
 {
 	for ( short j = 0; j < rule->TokenCount; ++j )
 	{
-		_TokenPtr token = rule->GetTokens( &j );
+		_TokenPtr token = rule->GetTokens(j);
 		variant_t var = token->GetData();
 		if ( var.vt == VT_DISPATCH ) 
 			return GetBoolValue( var.pdispVal );
@@ -228,7 +255,7 @@ DWORD FindVal( const DWORD dwVal, const SPair *pPair )
 			return pPair->second;
 		++pPair;
 	}
-	return -1;
+	return static_cast<DWORD>(-1);
 }
 int GetRuleIndex( _ReductionPtr rule )
 {
@@ -245,14 +272,14 @@ int GetRuleIndex( _ReductionPtr rule )
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const SPair stencilActions[] = 
 {
-	{ RULE_STENCILACTION_KEEP			,	D3DSTENCILOP_KEEP			},
-	{ RULE_STENCILACTION_ZERO			,	D3DSTENCILOP_ZERO			},
-	{ RULE_STENCILACTION_REPLACE	,	D3DSTENCILOP_REPLACE  },
-	{ RULE_STENCILACTION_INC			, D3DSTENCILOP_INCR			},
-	{ RULE_STENCILACTION_DEC			, D3DSTENCILOP_DECR			},
-	{ RULE_STENCILACTION_INCSAT		,	D3DSTENCILOP_INCRSAT	},
-	{ RULE_STENCILACTION_DECSAT		,	D3DSTENCILOP_DECRSAT	},
-	{ RULE_STENCILACTION_INVERT		,	D3DSTENCILOP_INVERT		},
+	{ static_cast<DWORD>(RULE_STENCILACTION_KEEP), static_cast<DWORD>(D3DSTENCILOP_KEEP) },
+	{ static_cast<DWORD>(RULE_STENCILACTION_ZERO), static_cast<DWORD>(D3DSTENCILOP_ZERO) },
+	{ static_cast<DWORD>(RULE_STENCILACTION_REPLACE), static_cast<DWORD>(D3DSTENCILOP_REPLACE) },
+	{ static_cast<DWORD>(RULE_STENCILACTION_INC), static_cast<DWORD>(D3DSTENCILOP_INCR) },
+	{ static_cast<DWORD>(RULE_STENCILACTION_DEC), static_cast<DWORD>(D3DSTENCILOP_DECR) },
+	{ static_cast<DWORD>(RULE_STENCILACTION_INCSAT), static_cast<DWORD>(D3DSTENCILOP_INCRSAT) },
+	{ static_cast<DWORD>(RULE_STENCILACTION_DECSAT), static_cast<DWORD>(D3DSTENCILOP_DECRSAT) },
+	{ static_cast<DWORD>(RULE_STENCILACTION_INVERT), static_cast<DWORD>(D3DSTENCILOP_INVERT) },
 	{ 0, 0 }
 };
 DWORD GetStencilAction( _ReductionPtr rule )
@@ -263,9 +290,9 @@ DWORD GetStencilAction( _ReductionPtr rule )
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const SPair cullModes[] = 
 {
-	{ RULE_CULLMODE_NONE	, D3DCULL_NONE	},
-	{ RULE_CULLMODE_CW		, D3DCULL_CW 		},
-	{ RULE_CULLMODE_CCW		, D3DCULL_CCW		},
+	{ static_cast<DWORD>(RULE_CULLMODE_NONE), static_cast<DWORD>(D3DCULL_NONE) },
+	{ static_cast<DWORD>(RULE_CULLMODE_CW), static_cast<DWORD>(D3DCULL_CW) },
+	{ static_cast<DWORD>(RULE_CULLMODE_CCW), static_cast<DWORD>(D3DCULL_CCW) },
 	{ 0, 0 }
 };
 DWORD GetCullModeFromRule( _ReductionPtr rule )
@@ -273,7 +300,7 @@ DWORD GetCullModeFromRule( _ReductionPtr rule )
 	const DWORD dwTableIndex = rule->GetParentRule()->GetTableIndex();
 	for ( short j = 0; j < rule->TokenCount; ++j )
 	{
-		_TokenPtr token = rule->GetTokens( &j );
+		_TokenPtr token = rule->GetTokens(j);
 		variant_t var = token->GetData();
 		if ( var.vt == VT_DISPATCH ) 
 		{
@@ -282,19 +309,19 @@ DWORD GetCullModeFromRule( _ReductionPtr rule )
 			return FindVal( dwRule2Index, cullModes );
 		}
 	}
-	return -1;
+	return static_cast<DWORD>(-1);
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const SPair cpmFuncs[] = 
 {
-	{ RULE_CMPFUNCCMP_LESS					, D3DCMP_LESS					},
-	{ RULE_CMPFUNCCMP_LESSEQUAL			, D3DCMP_LESSEQUAL		},
-	{ RULE_CMPFUNCCMP_GREATER				, D3DCMP_GREATER			},
-	{ RULE_CMPFUNCCMP_GREATEREQUAL	, D3DCMP_GREATEREQUAL },
-	{ RULE_CMPFUNCCMP_EQUAL					, D3DCMP_EQUAL				},
-	{ RULE_CMPFUNCCMP_NOTEQUAL			, D3DCMP_NOTEQUAL			},
-	{ RULE_CMPFUNCNOCMP_NEVER				, D3DCMP_NEVER				},
-	{ RULE_CMPFUNCNOCMP_ALWAYS			, D3DCMP_ALWAYS				},
+	{ static_cast<DWORD>(RULE_CMPFUNCCMP_LESS), static_cast<DWORD>(D3DCMP_LESS) },
+	{ static_cast<DWORD>(RULE_CMPFUNCCMP_LESSEQUAL), static_cast<DWORD>(D3DCMP_LESSEQUAL) },
+	{ static_cast<DWORD>(RULE_CMPFUNCCMP_GREATER), static_cast<DWORD>(D3DCMP_GREATER) },
+	{ static_cast<DWORD>(RULE_CMPFUNCCMP_GREATEREQUAL), static_cast<DWORD>(D3DCMP_GREATEREQUAL) },
+	{ static_cast<DWORD>(RULE_CMPFUNCCMP_EQUAL), static_cast<DWORD>(D3DCMP_EQUAL) },
+	{ static_cast<DWORD>(RULE_CMPFUNCCMP_NOTEQUAL), static_cast<DWORD>(D3DCMP_NOTEQUAL) },
+	{ static_cast<DWORD>(RULE_CMPFUNCNOCMP_NEVER), static_cast<DWORD>(D3DCMP_NEVER) },
+	{ static_cast<DWORD>(RULE_CMPFUNCNOCMP_ALWAYS), static_cast<DWORD>(D3DCMP_ALWAYS) },
 	{ 0, 0 }
 };
 DWORD GetCmpFunc( _ReductionPtr rule )
@@ -305,23 +332,23 @@ DWORD GetCmpFunc( _ReductionPtr rule )
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const SPair blendModes[] = 
 {
-	{ RULE_BLENDOP_ADD						, D3DBLENDOP_ADD					},
-	{ RULE_BLENDOP_SUB						, D3DBLENDOP_SUBTRACT			},
-	{ RULE_BLENDOP_REVSUB					, D3DBLENDOP_REVSUBTRACT	},
-	{ RULE_BLENDOP_MIN						,	D3DBLENDOP_MIN					},
-	{ RULE_BLENDOP_MAX						, D3DBLENDOP_MAX					},
+	{ static_cast<DWORD>(RULE_BLENDOP_ADD), static_cast<DWORD>(D3DBLENDOP_ADD) },
+	{ static_cast<DWORD>(RULE_BLENDOP_SUB), static_cast<DWORD>(D3DBLENDOP_SUBTRACT) },
+	{ static_cast<DWORD>(RULE_BLENDOP_REVSUB), static_cast<DWORD>(D3DBLENDOP_REVSUBTRACT) },
+	{ static_cast<DWORD>(RULE_BLENDOP_MIN), static_cast<DWORD>(D3DBLENDOP_MIN) },
+	{ static_cast<DWORD>(RULE_BLENDOP_MAX), static_cast<DWORD>(D3DBLENDOP_MAX) },
 	//
-	{ RULE_BLENDMODES_ZERO				, D3DBLEND_ZERO						},
-	{ RULE_BLENDMODES_ONE					, D3DBLEND_ONE						},
-	{ RULE_BLENDMODES_SRCCOLOR		, D3DBLEND_SRCCOLOR				},
-	{ RULE_BLENDMODES_INVSRCCOLOR	, D3DBLEND_INVSRCCOLOR		},
-	{ RULE_BLENDMODES_SRCALPHA		, D3DBLEND_SRCALPHA				},
-	{ RULE_BLENDMODES_INVSRCALPHA	, D3DBLEND_INVSRCALPHA		},
-	{ RULE_BLENDMODES_DSTALPHA		, D3DBLEND_DESTALPHA			},
-	{ RULE_BLENDMODES_INVDSTALPHA	, D3DBLEND_INVDESTALPHA		},
-	{ RULE_BLENDMODES_DSTCOLOR		, D3DBLEND_DESTCOLOR			},
-	{ RULE_BLENDMODES_INVDSTCOLOR	,	D3DBLEND_INVDESTCOLOR		},
-	{ RULE_BLENDMODES_SRCALPHASAT	, D3DBLEND_SRCALPHASAT		},
+	{ static_cast<DWORD>(RULE_BLENDMODES_ZERO), static_cast<DWORD>(D3DBLEND_ZERO) },
+	{ static_cast<DWORD>(RULE_BLENDMODES_ONE), static_cast<DWORD>(D3DBLEND_ONE) },
+	{ static_cast<DWORD>(RULE_BLENDMODES_SRCCOLOR), static_cast<DWORD>(D3DBLEND_SRCCOLOR) },
+	{ static_cast<DWORD>(RULE_BLENDMODES_INVSRCCOLOR), static_cast<DWORD>(D3DBLEND_INVSRCCOLOR) },
+	{ static_cast<DWORD>(RULE_BLENDMODES_SRCALPHA), static_cast<DWORD>(D3DBLEND_SRCALPHA) },
+	{ static_cast<DWORD>(RULE_BLENDMODES_INVSRCALPHA), static_cast<DWORD>(D3DBLEND_INVSRCALPHA) },
+	{ static_cast<DWORD>(RULE_BLENDMODES_DSTALPHA), static_cast<DWORD>(D3DBLEND_DESTALPHA) },
+	{ static_cast<DWORD>(RULE_BLENDMODES_INVDSTALPHA), static_cast<DWORD>(D3DBLEND_INVDESTALPHA) },
+	{ static_cast<DWORD>(RULE_BLENDMODES_DSTCOLOR), static_cast<DWORD>(D3DBLEND_DESTCOLOR) },
+	{ static_cast<DWORD>(RULE_BLENDMODES_INVDSTCOLOR), static_cast<DWORD>(D3DBLEND_INVDESTCOLOR) },
+	{ static_cast<DWORD>(RULE_BLENDMODES_SRCALPHASAT), static_cast<DWORD>(D3DBLEND_SRCALPHASAT) },
 	//
 	{ 0, 0 }
 };
@@ -333,11 +360,11 @@ DWORD GetBlendVal( _ReductionPtr rule )
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const SPair wrapModes[] = 
 {
-	{ RULE_TEXWRAPMODE_WRAP				, D3DTADDRESS_WRAP 			},
-	{ RULE_TEXWRAPMODE_MIRROR			, D3DTADDRESS_MIRROR 		},
-	{ RULE_TEXWRAPMODE_CLAMP			, D3DTADDRESS_CLAMP 		},
-	{ RULE_TEXWRAPMODE_BORDER			, D3DTADDRESS_BORDER 		},
-	{ RULE_TEXWRAPMODE_MIRRORONCE	, D3DTADDRESS_MIRRORONCE},
+	{ static_cast<DWORD>(RULE_TEXWRAPMODE_WRAP), static_cast<DWORD>(D3DTADDRESS_WRAP) },
+	{ static_cast<DWORD>(RULE_TEXWRAPMODE_MIRROR), static_cast<DWORD>(D3DTADDRESS_MIRROR) },
+	{ static_cast<DWORD>(RULE_TEXWRAPMODE_CLAMP), static_cast<DWORD>(D3DTADDRESS_CLAMP) },
+	{ static_cast<DWORD>(RULE_TEXWRAPMODE_BORDER), static_cast<DWORD>(D3DTADDRESS_BORDER) },
+	{ static_cast<DWORD>(RULE_TEXWRAPMODE_MIRRORONCE), static_cast<DWORD>(D3DTADDRESS_MIRRORONCE) },
 	{ 0, 0 }
 };
 DWORD GetWrapMode( _ReductionPtr rule )
@@ -348,12 +375,12 @@ DWORD GetWrapMode( _ReductionPtr rule )
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const SPair filterModes[] = 
 {
-	{ RULE_TEXFILTERMODE_NONE						, D3DTEXF_NONE					},
-	{ RULE_TEXFILTERMODE_POINT					, D3DTEXF_POINT					},
-	{ RULE_TEXFILTERMODE_LINEAR					, D3DTEXF_LINEAR				},
-	{ RULE_TEXFILTERMODE_ANISOTROPIC		, D3DTEXF_ANISOTROPIC		},
-	{ RULE_TEXFILTERMODE_FLATCUBIC			, D3DTEXF_FLATCUBIC			},
-	{ RULE_TEXFILTERMODE_GAUSSIANCUBIC	, D3DTEXF_GAUSSIANCUBIC },
+	{ static_cast<DWORD>(RULE_TEXFILTERMODE_NONE), static_cast<DWORD>(D3DTEXF_NONE) },
+	{ static_cast<DWORD>(RULE_TEXFILTERMODE_POINT), static_cast<DWORD>(D3DTEXF_POINT) },
+	{ static_cast<DWORD>(RULE_TEXFILTERMODE_LINEAR), static_cast<DWORD>(D3DTEXF_LINEAR) },
+	{ static_cast<DWORD>(RULE_TEXFILTERMODE_ANISOTROPIC), static_cast<DWORD>(D3DTEXF_ANISOTROPIC) },
+	{ static_cast<DWORD>(RULE_TEXFILTERMODE_FLATCUBIC), static_cast<DWORD>(D3DTEXF_FLATCUBIC) },
+	{ static_cast<DWORD>(RULE_TEXFILTERMODE_GAUSSIANCUBIC), static_cast<DWORD>(D3DTEXF_GAUSSIANCUBIC) },
 	{ 0, 0 }
 };
 DWORD GetFilterMode( _ReductionPtr rule )
@@ -364,15 +391,15 @@ DWORD GetFilterMode( _ReductionPtr rule )
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const SPair transformFlagModes[] = 
 {
-	{ RULE_TRANSFORMFLAGS_DISABLE					, D3DTTFF_DISABLE 										},
-	{ RULE_TRANSFORMFLAGS_COUNT1					, D3DTTFF_COUNT1 											},
-	{ RULE_TRANSFORMFLAGS_COUNT2					, D3DTTFF_COUNT2 											},
-	{ RULE_TRANSFORMFLAGS_COUNT3					, D3DTTFF_COUNT3 											},
-	{ RULE_TRANSFORMFLAGS_COUNT4					, D3DTTFF_COUNT4 											},
-	{ RULE_TRANSFORMFLAGS_PROJECTEDCOUNT1	, D3DTTFF_COUNT1 | D3DTTFF_PROJECTED	},
-	{ RULE_TRANSFORMFLAGS_PROJECTEDCOUNT2	, D3DTTFF_COUNT2 | D3DTTFF_PROJECTED	},
-	{ RULE_TRANSFORMFLAGS_PROJECTEDCOUNT3	, D3DTTFF_COUNT3 | D3DTTFF_PROJECTED	},
-	{ RULE_TRANSFORMFLAGS_PROJECTEDCOUNT4	, D3DTTFF_COUNT4 | D3DTTFF_PROJECTED	},
+	{ static_cast<DWORD>(RULE_TRANSFORMFLAGS_DISABLE), static_cast<DWORD>(D3DTTFF_DISABLE) },
+	{ static_cast<DWORD>(RULE_TRANSFORMFLAGS_COUNT1), static_cast<DWORD>(D3DTTFF_COUNT1) },
+	{ static_cast<DWORD>(RULE_TRANSFORMFLAGS_COUNT2), static_cast<DWORD>(D3DTTFF_COUNT2) },
+	{ static_cast<DWORD>(RULE_TRANSFORMFLAGS_COUNT3), static_cast<DWORD>(D3DTTFF_COUNT3) },
+	{ static_cast<DWORD>(RULE_TRANSFORMFLAGS_COUNT4), static_cast<DWORD>(D3DTTFF_COUNT4) },
+	{ static_cast<DWORD>(RULE_TRANSFORMFLAGS_PROJECTEDCOUNT1), static_cast<DWORD>(D3DTTFF_COUNT1 | D3DTTFF_PROJECTED) },
+	{ static_cast<DWORD>(RULE_TRANSFORMFLAGS_PROJECTEDCOUNT2), static_cast<DWORD>(D3DTTFF_COUNT2 | D3DTTFF_PROJECTED) },
+	{ static_cast<DWORD>(RULE_TRANSFORMFLAGS_PROJECTEDCOUNT3), static_cast<DWORD>(D3DTTFF_COUNT3 | D3DTTFF_PROJECTED) },
+	{ static_cast<DWORD>(RULE_TRANSFORMFLAGS_PROJECTEDCOUNT4), static_cast<DWORD>(D3DTTFF_COUNT4 | D3DTTFF_PROJECTED) },
 	{ 0, 0 }
 };
 DWORD GetTransformFlagMode( _ReductionPtr rule )
@@ -383,9 +410,9 @@ DWORD GetTransformFlagMode( _ReductionPtr rule )
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const SPair texGenModes[] = 
 {
-	{ RULE_TEXGEN_CAMERASPACENORMAL						, D3DTSS_TCI_CAMERASPACENORMAL  				},
-	{ RULE_TEXGEN_CAMERASPACEPOSITION					, D3DTSS_TCI_CAMERASPACEPOSITION  			},
-	{ RULE_TEXGEN_CAMERASPACEREFLECTIONVECTOR	, D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR},
+	{ static_cast<DWORD>(RULE_TEXGEN_CAMERASPACENORMAL), static_cast<DWORD>(D3DTSS_TCI_CAMERASPACENORMAL) },
+	{ static_cast<DWORD>(RULE_TEXGEN_CAMERASPACEPOSITION), static_cast<DWORD>(D3DTSS_TCI_CAMERASPACEPOSITION) },
+	{ static_cast<DWORD>(RULE_TEXGEN_CAMERASPACEREFLECTIONVECTOR), static_cast<DWORD>(D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR) },
 	{ 0, 0 }
 };
 DWORD GetTexGenMode( _ReductionPtr rule )
@@ -401,7 +428,7 @@ void ParseTexPropList( _ReductionPtr rule, std::vector<SShadeValue> &props )
 	{
 		for ( short j = 0; j < rule->TokenCount; ++j )
 		{
-			_TokenPtr token = rule->GetTokens( &j );
+			_TokenPtr token = rule->GetTokens(j);
 			variant_t var = token->GetData();
 			const int nTableIndex = token->GetTableIndex();
 			switch ( nTableIndex ) 
@@ -420,12 +447,12 @@ void ParseTexPropList( _ReductionPtr rule, std::vector<SShadeValue> &props )
 		case RULE_TEXSINGLEPROP_FILTER_LPARAN_COMMA_COMMA_RPARAN_SEMI:	// filter 3 args
 		case RULE_TEXSINGLEPROP_FILTER_LPARAN_COMMA_RPARAN_SEMI:				// filter 2 args
 			{
-				DWORD dwArgs[3] = { -1, -1, -1 };
+				DWORD dwArgs[3] = { static_cast<DWORD>(-1), static_cast<DWORD>(-1), static_cast<DWORD>(-1) };
 				int nCount = 0;
 				const int nNumArgs = nRuleIndex == RULE_TEXSINGLEPROP_FILTER_LPARAN_COMMA_COMMA_RPARAN_SEMI ? 3 : 2;
 				for ( short j = 0; j < rule->TokenCount; ++j )
 				{
-					_TokenPtr token = rule->GetTokens( &j );
+					_TokenPtr token = rule->GetTokens(j);
 					variant_t var = token->GetData();
 					if ( var.vt == VT_DISPATCH ) 
 						dwArgs[nCount++] = GetFilterMode( var.pdispVal );
@@ -441,12 +468,12 @@ void ParseTexPropList( _ReductionPtr rule, std::vector<SShadeValue> &props )
 		case RULE_TEXSINGLEPROP_ADDRESS_LPARAN_COMMA_COMMA_RPARAN_SEMI:	// wrap mode 3 args
 		case RULE_TEXSINGLEPROP_ADDRESS_LPARAN_COMMA_RPARAN_SEMI:				// wrap mode 2 args
 			{
-				DWORD dwArgs[3] = { -1, -1, -1 };
+				DWORD dwArgs[3] = { static_cast<DWORD>(-1), static_cast<DWORD>(-1), static_cast<DWORD>(-1) };
 				int nCount = 0;
 				const int nNumArgs = nRuleIndex == RULE_TEXSINGLEPROP_FILTER_LPARAN_COMMA_COMMA_RPARAN_SEMI ? 3 : 2;
 				for ( short j = 0; j < rule->TokenCount; ++j )
 				{
-					_TokenPtr token = rule->GetTokens( &j );
+					_TokenPtr token = rule->GetTokens(j);
 					variant_t var = token->GetData();
 					if ( var.vt == VT_DISPATCH ) 
 						dwArgs[nCount++] = GetWrapMode( var.pdispVal );
@@ -466,7 +493,7 @@ void ParseTexPropList( _ReductionPtr rule, std::vector<SShadeValue> &props )
 			{
 				for ( short j = 0; j < rule->TokenCount; ++j )
 				{
-					_TokenPtr token = rule->GetTokens( &j );
+					_TokenPtr token = rule->GetTokens(j);
 					variant_t var = token->GetData();
 					if ( var.vt == VT_DISPATCH ) 
 					{
@@ -520,7 +547,7 @@ class CParsePropertiesTokenVisitor
 				{
 					for ( short j = 0; j < rule->TokenCount; ++j )
 					{
-						_TokenPtr token = rule->GetTokens( &j );
+						_TokenPtr token = rule->GetTokens(j);
 						variant_t var = token->GetData();
 						if ( var.vt == VT_DISPATCH ) 
 						{
@@ -565,7 +592,7 @@ class CParsePropertiesTokenVisitor
 		const DWORD dwOp[3] = { D3DRS_STENCILPASS, D3DRS_STENCILZFAIL, D3DRS_STENCILFAIL };
 		for ( short j = 0, nCurrArg = 0; (j < rule->TokenCount) && (nCurrArg < 3); ++j )
 		{
-			_TokenPtr token = rule->GetTokens( &j );
+			_TokenPtr token = rule->GetTokens(j);
 			variant_t var = token->GetData();
 			const int nTableIndex = token->GetTableIndex();
 			if ( var.vt == VT_DISPATCH ) 
@@ -600,7 +627,7 @@ public:
 					int nStage = -1;
 					for ( short j = 0; j < rule->TokenCount; ++j )
 					{
-						_TokenPtr token = rule->GetTokens( &j );
+						_TokenPtr token = rule->GetTokens(j);
 						variant_t var = token->GetData();
 						const int nTableIndex = token->GetTableIndex();
 						switch ( nTableIndex ) 
@@ -619,11 +646,11 @@ public:
 
 			case RULE_PROPBLEND_BLEND_EQ_LPARAN_COMMA_RPARAN_SEMI: // <Prop Blend> ::= blend = <Blend Op> '(' <Src Blend> , <Dst Blend> ')' ;
 				{
-					DWORD dwVals[3] = { -1, -1, -1 };
+					DWORD dwVals[3] = { static_cast<DWORD>(-1), static_cast<DWORD>(-1), static_cast<DWORD>(-1) };
 					int nCurrVal = 0;
 					for ( short j = 0; j < rule->TokenCount; ++j )
 					{
-						_TokenPtr token = rule->GetTokens( &j );
+						_TokenPtr token = rule->GetTokens(j);
 						variant_t var = token->GetData();
 						const int nTableIndex = token->GetTableIndex();
 						if ( var.vt == VT_DISPATCH ) 
@@ -641,7 +668,7 @@ public:
 				{
 					for ( short j = 0; j < rule->TokenCount; ++j )
 					{
-						_TokenPtr token = rule->GetTokens( &j );
+						_TokenPtr token = rule->GetTokens(j);
 						variant_t var = token->GetData();
 						const int nTableIndex = token->GetTableIndex();
 						if ( var.vt == VT_DISPATCH ) 
@@ -711,7 +738,7 @@ public:
 				for ( short j = 0; j < rule->TokenCount; ++j )
 				{
 					bHasStencil = true;
-					_TokenPtr token = rule->GetTokens( &j );
+					_TokenPtr token = rule->GetTokens(j);
 					variant_t var = token->GetData();
 					const int nTableIndex = token->GetTableIndex();
 					if ( var.vt == VT_DISPATCH ) 
@@ -756,21 +783,21 @@ public:
 //typedef std::pair<SYMBOL_CONSTANTS, D3DTEXTUREOP> SOpPair;
 static const SPair ruleColorOperations[] = 
 {
-	{ RULE_EXP2_ADD								, D3DTOP_ADD								},
-	{ RULE_EXP2_ADDSMOOTH					, D3DTOP_ADDSMOOTH					},
-	{ RULE_EXP2_ADDSIGNED					, D3DTOP_ADDSIGNED					},
-	{ RULE_EXP2_ADDSIGNED2X				, D3DTOP_ADDSIGNED2X				},
-	{ RULE_EXP2_SUB								, D3DTOP_SUBTRACT						},
-	{ RULE_EXP2_MUL								,	D3DTOP_MODULATE						},
-	{ RULE_EXP2_MUL2X							, D3DTOP_MODULATE2X					},
-	{ RULE_EXP2_MUL4X							, D3DTOP_MODULATE4X					},
-	{ RULE_EXP2_BLENDCURRENTALPHA	, D3DTOP_BLENDCURRENTALPHA	},
-	{ RULE_EXP2_BLENDTEXTUREALPHA	, D3DTOP_BLENDDIFFUSEALPHA	},
-	{ RULE_EXP2_BLENDDIFFUSEALPHA	, D3DTOP_BLENDFACTORALPHA		},
-	{ RULE_EXP2_BLENDFACTORALPHA	, D3DTOP_BLENDTEXTUREALPHA	},
-	{ RULE_EXP2_DP3								, D3DTOP_DOTPRODUCT3				},
-	{ RULE_EXP3_LERP							, D3DTOP_LERP								},
-	{ RULE_EXP3_MAD								, D3DTOP_MULTIPLYADD				},
+	{ static_cast<DWORD>(RULE_EXP2_ADD), static_cast<DWORD>(D3DTOP_ADD) },
+	{ static_cast<DWORD>(RULE_EXP2_ADDSMOOTH), static_cast<DWORD>(D3DTOP_ADDSMOOTH) },
+	{ static_cast<DWORD>(RULE_EXP2_ADDSIGNED), static_cast<DWORD>(D3DTOP_ADDSIGNED) },
+	{ static_cast<DWORD>(RULE_EXP2_ADDSIGNED2X), static_cast<DWORD>(D3DTOP_ADDSIGNED2X) },
+	{ static_cast<DWORD>(RULE_EXP2_SUB), static_cast<DWORD>(D3DTOP_SUBTRACT) },
+	{ static_cast<DWORD>(RULE_EXP2_MUL), static_cast<DWORD>(D3DTOP_MODULATE) },
+	{ static_cast<DWORD>(RULE_EXP2_MUL2X), static_cast<DWORD>(D3DTOP_MODULATE2X) },
+	{ static_cast<DWORD>(RULE_EXP2_MUL4X), static_cast<DWORD>(D3DTOP_MODULATE4X) },
+	{ static_cast<DWORD>(RULE_EXP2_BLENDCURRENTALPHA), static_cast<DWORD>(D3DTOP_BLENDCURRENTALPHA) },
+	{ static_cast<DWORD>(RULE_EXP2_BLENDTEXTUREALPHA), static_cast<DWORD>(D3DTOP_BLENDDIFFUSEALPHA) },
+	{ static_cast<DWORD>(RULE_EXP2_BLENDDIFFUSEALPHA), static_cast<DWORD>(D3DTOP_BLENDFACTORALPHA) },
+	{ static_cast<DWORD>(RULE_EXP2_BLENDFACTORALPHA), static_cast<DWORD>(D3DTOP_BLENDTEXTUREALPHA) },
+	{ static_cast<DWORD>(RULE_EXP2_DP3), static_cast<DWORD>(D3DTOP_DOTPRODUCT3) },
+	{ static_cast<DWORD>(RULE_EXP3_LERP), static_cast<DWORD>(D3DTOP_LERP) },
+	{ static_cast<DWORD>(RULE_EXP3_MAD), static_cast<DWORD>(D3DTOP_MULTIPLYADD) },
 	{ 0, 0 }
 };
 DWORD GetD3DTOP( const DWORD dwOp )
@@ -789,7 +816,7 @@ DWORD GetArg( _ReductionPtr rule )
 {
 	for ( short i = 0; i < rule->TokenCount; ++i )
 	{
-		_TokenPtr token = rule->GetTokens( &i );
+		_TokenPtr token = rule->GetTokens(i);
 		const int nTableIndex = token->GetTableIndex();
 		switch ( nTableIndex ) 
 		{
@@ -807,7 +834,7 @@ DWORD GetArg( _ReductionPtr rule )
 				return D3DTA_CURRENT;
 		}
 	}
-	return -1;
+	return static_cast<DWORD>(-1);
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 DWORD GetRuleSimpleArg( const int nTableIndex )
@@ -836,13 +863,13 @@ DWORD GetRuleComplexArg( _ReductionPtr &rule2, const int nRule2Index )
 	//
 	for ( short j = 0; j < rule2->TokenCount; ++j )
 	{
-		_TokenPtr token2 = rule2->GetTokens( &j );
+		_TokenPtr token2 = rule2->GetTokens(j);
 		variant_t var2 = token2->GetData();
 		const int nTableIndex = token2->GetTableIndex();
 		if ( (nTableIndex == SYMBOL_SIMPLEARG) && (var2.vt == VT_DISPATCH) )
 			return GetArg( var2.pdispVal ) | dwModifier;
 	}
-	return -1;
+	return static_cast<DWORD>(-1);
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CParseColorAlphaTokenVisitor
@@ -856,7 +883,7 @@ class CParseColorAlphaTokenVisitor
 	{
 		for ( short i = 0, nCurrArg = 0; (i < rule->TokenCount) && (nCurrArg < nNumArgs); ++i )
 		{
-			_TokenPtr token = rule->GetTokens( &i );
+			_TokenPtr token = rule->GetTokens(i);
 			const int nTableIndex = token->GetTableIndex();
 			switch ( nTableIndex ) 
 			{
@@ -905,7 +932,7 @@ class CParseColorAlphaTokenVisitor
 		// function
 		{
 			short i = 0;
-			_TokenPtr token = rule->GetTokens( &i );
+			_TokenPtr token = rule->GetTokens(i);
 			variant_t var = token->GetData();
 			if ( var.vt == VT_DISPATCH ) 
 			{
@@ -915,11 +942,11 @@ class CParseColorAlphaTokenVisitor
 			}
 		}
 		// arguments
-		DWORD dwArgs[3] = { -1, -1, -1 };
+		DWORD dwArgs[3] = { static_cast<DWORD>(-1), static_cast<DWORD>(-1), static_cast<DWORD>(-1) };
 		int nNumArgs = 0;
 		{
 			short i = 1;
-			_TokenPtr token = rule->GetTokens( &i );
+			_TokenPtr token = rule->GetTokens(i);
 			variant_t var = token->GetData();
 			if ( var.vt == VT_DISPATCH ) 
 			{

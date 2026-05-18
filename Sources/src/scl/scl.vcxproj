@@ -60,6 +60,7 @@
     <OutDir>.\Release\</OutDir>
     <IntDir>.\Release\</IntDir>
     <LinkIncremental>false</LinkIncremental>
+    <LibraryPath>C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\sdk\GOLDParser3;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

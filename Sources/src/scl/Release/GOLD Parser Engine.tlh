@@ -1,0 +1,432 @@
+﻿// Created by Microsoft (R) C/C++ Compiler Version 14.51.36243.0 (eec33503).
+//
+// C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\scl\Release\GOLD Parser Engine.tlh
+//
+// C++ source equivalent of Win32 type library GOLD Parser Engine.dll
+// compiler-generated file - DO NOT EDIT!
+
+#pragma once
+#pragma pack(push, 8)
+
+#include <comdef.h>
+
+namespace GOLDParserEngine {
+
+//
+// Forward references and typedefs
+//
+
+struct __declspec(uuid("96254a6f-e3b8-4fec-b587-bd1bb08634f5"))
+/* LIBID */ __GOLDParserEngine;
+struct __declspec(uuid("86c5c84f-e0d3-413b-9e52-67f3f9c22698"))
+/* dual interface */ _Symbol;
+struct /* coclass */ Symbol;
+struct __declspec(uuid("1489d2dd-f6b0-4402-b2d1-4eb7ec17199b"))
+/* dual interface */ _Rule;
+struct /* coclass */ Rule;
+struct __declspec(uuid("227d6796-ede1-4555-9d5e-13fb98ff4d97"))
+/* dual interface */ _Token;
+struct /* coclass */ Token;
+struct __declspec(uuid("6221c666-c46b-445e-bf40-ff5bf75817ef"))
+/* dual interface */ _GOLDParser;
+struct /* coclass */ GOLDParser;
+struct __declspec(uuid("9dc09d29-9317-428b-9e89-11592ae3aa36"))
+/* dual interface */ _Reduction;
+struct /* coclass */ Reduction;
+enum SymbolTypeConstants : int;
+enum GPMessageConstants : int;
+
+//
+// Smart pointer typedef declarations
+//
+
+_COM_SMARTPTR_TYPEDEF(_Symbol, __uuidof(_Symbol));
+_COM_SMARTPTR_TYPEDEF(_Rule, __uuidof(_Rule));
+_COM_SMARTPTR_TYPEDEF(_Token, __uuidof(_Token));
+_COM_SMARTPTR_TYPEDEF(_Reduction, __uuidof(_Reduction));
+_COM_SMARTPTR_TYPEDEF(_GOLDParser, __uuidof(_GOLDParser));
+
+//
+// Type library items
+//
+
+struct __declspec(uuid("0b82e68f-8537-4b9f-8951-ad5f56392704"))
+Symbol;
+    // [ default ] interface _Symbol
+
+struct __declspec(uuid("3d406896-9f34-4ca3-937b-36fc5dd9c6dc"))
+Rule;
+    // [ default ] interface _Rule
+
+struct __declspec(uuid("4606de75-f839-44f7-8c13-bed823025638"))
+Token;
+    // [ default ] interface _Token
+
+struct __declspec(uuid("e03aebfa-cdd3-47e5-af7e-b6c8bb2b4dbb"))
+GOLDParser;
+    // [ default ] interface _GOLDParser
+
+struct __declspec(uuid("9491db89-63ee-4f3d-be87-72a3d7ea83c1"))
+Reduction;
+    // [ default ] interface _Reduction
+
+enum __declspec(uuid("f218d594-eabf-4070-9da7-a8e90a1ecbca"))
+SymbolTypeConstants : int
+{
+    SymbolTypeNonterminal = 0,
+    SymbolTypeTerminal = 1,
+    SymbolTypeWhitespace = 2,
+    SymbolTypeEnd = 3,
+    SymbolTypeCommentStart = 4,
+    SymbolTypeCommentEnd = 5,
+    SymbolTypeCommentLine = 6,
+    SymbolTypeError = 7
+};
+
+struct __declspec(uuid("86c5c84f-e0d3-413b-9e52-67f3f9c22698"))
+_Symbol : IDispatch
+{
+    //
+    // Property data
+    //
+
+    __declspec(property(get=GetText))
+    _bstr_t Text;
+    __declspec(property(get=GetName))
+    _bstr_t Name;
+    __declspec(property(get=GetTableIndex))
+    short TableIndex;
+    __declspec(property(get=GetKind))
+    enum SymbolTypeConstants Kind;
+
+    //
+    // Wrapper methods for error-handling
+    //
+
+    enum SymbolTypeConstants GetKind ( );
+    short GetTableIndex ( );
+    _bstr_t GetName ( );
+    _bstr_t GetText ( );
+
+    //
+    // Raw methods provided by interface
+    //
+
+      virtual HRESULT __stdcall get_Kind (
+        /*[out,retval]*/ enum SymbolTypeConstants * _arg1 ) = 0;
+      virtual HRESULT __stdcall get_TableIndex (
+        /*[out,retval]*/ short * _arg1 ) = 0;
+      virtual HRESULT __stdcall get_Name (
+        /*[out,retval]*/ BSTR * _arg1 ) = 0;
+      virtual HRESULT __stdcall get_Text (
+        /*[out,retval]*/ BSTR * _arg1 ) = 0;
+};
+
+struct __declspec(uuid("1489d2dd-f6b0-4402-b2d1-4eb7ec17199b"))
+_Rule : IDispatch
+{
+    //
+    // Property data
+    //
+
+    __declspec(property(get=GetText))
+    _bstr_t Text;
+    __declspec(property(get=GetTableIndex))
+    short TableIndex;
+    __declspec(property(get=GetSymbols))
+    _SymbolPtr Symbols[];
+    __declspec(property(get=GetRuleNonterminal))
+    _SymbolPtr RuleNonterminal;
+    __declspec(property(get=GetSymbolCount))
+    short SymbolCount;
+
+    //
+    // Wrapper methods for error-handling
+    //
+
+    short GetSymbolCount ( );
+    _SymbolPtr GetRuleNonterminal ( );
+    _SymbolPtr GetSymbols (
+        short Index );
+    short GetTableIndex ( );
+    _bstr_t GetText ( );
+
+    //
+    // Raw methods provided by interface
+    //
+
+      virtual HRESULT __stdcall get_SymbolCount (
+        /*[out,retval]*/ short * _arg1 ) = 0;
+      virtual HRESULT __stdcall get_RuleNonterminal (
+        /*[out,retval]*/ struct _Symbol * * _arg1 ) = 0;
+      virtual HRESULT __stdcall get_Symbols (
+        /*[in]*/ short Index,
+        /*[out,retval]*/ struct _Symbol * * _arg2 ) = 0;
+      virtual HRESULT __stdcall get_TableIndex (
+        /*[out,retval]*/ short * _arg1 ) = 0;
+      virtual HRESULT __stdcall get_Text (
+        /*[out,retval]*/ BSTR * _arg1 ) = 0;
+};
+
+struct __declspec(uuid("227d6796-ede1-4555-9d5e-13fb98ff4d97"))
+_Token : IDispatch
+{
+    //
+    // Property data
+    //
+
+    __declspec(property(get=GetText))
+    _bstr_t Text;
+    __declspec(property(get=GetTableIndex))
+    short TableIndex;
+    __declspec(property(get=GetName))
+    _bstr_t Name;
+    __declspec(property(get=GetKind))
+    enum SymbolTypeConstants Kind;
+    __declspec(property(get=GetLineNumber,put=PutLineNumber))
+    long LineNumber;
+    __declspec(property(get=GetColumnNumber,put=PutColumnNumber))
+    long ColumnNumber;
+
+    //
+    // Wrapper methods for error-handling
+    //
+
+    long GetColumnNumber ( );
+    void PutColumnNumber (
+        long _arg1 );
+    long GetLineNumber ( );
+    void PutLineNumber (
+        long _arg1 );
+    enum SymbolTypeConstants GetKind ( );
+    _bstr_t GetName ( );
+    _SymbolPtr GetParentSymbol ( );
+    _variant_t GetData ( );
+    void PutData (
+        VARIANT * _arg1 );
+    void PutRefData (
+        VARIANT * _arg1 );
+    void PutRefParentSymbol (
+        struct _Symbol * * _arg1 );
+    short GetTableIndex ( );
+    _bstr_t GetText ( );
+
+    //
+    // Raw methods provided by interface
+    //
+
+      virtual HRESULT __stdcall get_ColumnNumber (
+        /*[out,retval]*/ long * _arg1 ) = 0;
+      virtual HRESULT __stdcall put_ColumnNumber (
+        /*[in]*/ long _arg1 ) = 0;
+      virtual HRESULT __stdcall get_LineNumber (
+        /*[out,retval]*/ long * _arg1 ) = 0;
+      virtual HRESULT __stdcall put_LineNumber (
+        /*[in]*/ long _arg1 ) = 0;
+      virtual HRESULT __stdcall get_Kind (
+        /*[out,retval]*/ enum SymbolTypeConstants * _arg1 ) = 0;
+      virtual HRESULT __stdcall get_Name (
+        /*[out,retval]*/ BSTR * _arg1 ) = 0;
+      virtual HRESULT __stdcall get_ParentSymbol (
+        /*[out,retval]*/ struct _Symbol * * _arg1 ) = 0;
+      virtual HRESULT __stdcall get_Data (
+        /*[out,retval]*/ VARIANT * _arg1 ) = 0;
+      virtual HRESULT __stdcall put_Data (
+        /*[in,out]*/ VARIANT * _arg1 ) = 0;
+      virtual HRESULT __stdcall putref_Data (
+        /*[in,out]*/ VARIANT * _arg1 ) = 0;
+      virtual HRESULT __stdcall putref_ParentSymbol (
+        /*[in,out]*/ struct _Symbol * * _arg1 ) = 0;
+      virtual HRESULT __stdcall get_TableIndex (
+        /*[out,retval]*/ short * _arg1 ) = 0;
+      virtual HRESULT __stdcall get_Text (
+        /*[out,retval]*/ BSTR * _arg1 ) = 0;
+};
+
+struct __declspec(uuid("9dc09d29-9317-428b-9e89-11592ae3aa36"))
+_Reduction : IDispatch
+{
+    //
+    // Property data
+    //
+
+    __declspec(property(get=GetTokens))
+    _TokenPtr Tokens[];
+    __declspec(property(get=GetParentRule))
+    _RulePtr ParentRule;
+    __declspec(property(get=GetTokenCount))
+    short TokenCount;
+
+    //
+    // Wrapper methods for error-handling
+    //
+
+    _RulePtr GetParentRule ( );
+    void PutTag (
+        short * _arg1 );
+    short GetTag ( );
+    short GetTokenCount ( );
+    _TokenPtr GetTokens (
+        short Index );
+    _variant_t Data (
+        short Index );
+
+    //
+    // Raw methods provided by interface
+    //
+
+      virtual HRESULT __stdcall get_ParentRule (
+        /*[out,retval]*/ struct _Rule * * _arg1 ) = 0;
+      virtual HRESULT __stdcall put_Tag (
+        /*[in,out]*/ short * _arg1 ) = 0;
+      virtual HRESULT __stdcall get_Tag (
+        /*[out,retval]*/ short * _arg1 ) = 0;
+      virtual HRESULT __stdcall get_TokenCount (
+        /*[out,retval]*/ short * _arg1 ) = 0;
+      virtual HRESULT __stdcall get_Tokens (
+        /*[in]*/ short Index,
+        /*[out,retval]*/ struct _Token * * _arg2 ) = 0;
+      virtual HRESULT __stdcall raw_Data (
+        /*[in]*/ short Index,
+        /*[out,retval]*/ VARIANT * _arg2 ) = 0;
+};
+
+enum __declspec(uuid("0280f50a-23e6-4cbd-8620-f22ab549780e"))
+GPMessageConstants : int
+{
+    gpMsgTokenRead = 1,
+    gpMsgReduction = 2,
+    gpMsgAccept = 3,
+    gpMsgNotLoadedError = 4,
+    gpMsgLexicalError = 5,
+    gpMsgSyntaxError = 6,
+    gpMsgCommentError = 7,
+    gpMsgInternalError = 8,
+    gpMsgCommentBlockRead = 9,
+    gpMsgCommentLineRead = 10,
+    gpMsgShift = 11
+};
+
+struct __declspec(uuid("6221c666-c46b-445e-bf40-ff5bf75817ef"))
+_GOLDParser : IDispatch
+{
+    //
+    // Property data
+    //
+
+    __declspec(property(get=GetParameter))
+    _bstr_t Parameter[];
+    __declspec(property(get=GetCurrentComment))
+    _bstr_t CurrentComment;
+
+    //
+    // Wrapper methods for error-handling
+    //
+
+    _bstr_t GetCurrentComment ( );
+    long CurrentLineNumber ( );
+    long CurrentColumnNumber ( );
+    HRESULT CloseFile ( );
+    _TokenPtr CurrentToken ( );
+    _TokenPtr PopInputToken ( );
+    HRESULT PushInputToken (
+        struct _Token * * TheToken );
+    IDispatchPtr GetCurrentReduction ( );
+    void PutRefCurrentReduction (
+        IDispatch * * _arg1 );
+    _variant_t GetAboutText ( );
+    HRESULT Clear ( );
+    void PutTrimReductions (
+        VARIANT_BOOL * _arg1 );
+    VARIANT_BOOL GetTrimReductions ( );
+    _bstr_t GetParameter (
+        _bstr_t Name );
+    short SymbolTableCount ( );
+    short RuleTableCount ( );
+    _SymbolPtr SymbolTableEntry (
+        short Index );
+    _RulePtr RuleTableEntry (
+        short Index );
+    short TokenCount ( );
+    _TokenPtr Tokens (
+        short Index );
+    VARIANT_BOOL LoadCompiledGrammar (
+        _bstr_t FileName );
+    VARIANT_BOOL OpenTextString (
+        BSTR * Text );
+    enum GPMessageConstants Parse ( );
+    VARIANT_BOOL OpenFile (
+        _bstr_t FileName,
+        const _variant_t & DetectEncodingFromByteOrderMarks );
+    HRESULT Reset ( );
+
+    //
+    // Raw methods provided by interface
+    //
+
+      virtual HRESULT __stdcall get_CurrentComment (
+        /*[out,retval]*/ BSTR * _arg1 ) = 0;
+      virtual HRESULT __stdcall raw_CurrentLineNumber (
+        /*[out,retval]*/ long * _arg1 ) = 0;
+      virtual HRESULT __stdcall raw_CurrentColumnNumber (
+        /*[out,retval]*/ long * _arg1 ) = 0;
+      virtual HRESULT __stdcall raw_CloseFile ( ) = 0;
+      virtual HRESULT __stdcall raw_CurrentToken (
+        /*[out,retval]*/ struct _Token * * _arg1 ) = 0;
+      virtual HRESULT __stdcall raw_PopInputToken (
+        /*[out,retval]*/ struct _Token * * _arg1 ) = 0;
+      virtual HRESULT __stdcall raw_PushInputToken (
+        /*[in,out]*/ struct _Token * * TheToken ) = 0;
+      virtual HRESULT __stdcall get_CurrentReduction (
+        /*[out,retval]*/ IDispatch * * _arg1 ) = 0;
+      virtual HRESULT __stdcall putref_CurrentReduction (
+        /*[in,out]*/ IDispatch * * _arg1 ) = 0;
+      virtual HRESULT __stdcall raw_GetAboutText (
+        /*[out,retval]*/ VARIANT * _arg1 ) = 0;
+      virtual HRESULT __stdcall raw_Clear ( ) = 0;
+      virtual HRESULT __stdcall put_TrimReductions (
+        /*[in,out]*/ VARIANT_BOOL * _arg1 ) = 0;
+      virtual HRESULT __stdcall get_TrimReductions (
+        /*[out,retval]*/ VARIANT_BOOL * _arg1 ) = 0;
+      virtual HRESULT __stdcall get_Parameter (
+        /*[in]*/ BSTR Name,
+        /*[out,retval]*/ BSTR * _arg2 ) = 0;
+      virtual HRESULT __stdcall raw_SymbolTableCount (
+        /*[out,retval]*/ short * _arg1 ) = 0;
+      virtual HRESULT __stdcall raw_RuleTableCount (
+        /*[out,retval]*/ short * _arg1 ) = 0;
+      virtual HRESULT __stdcall raw_SymbolTableEntry (
+        /*[in]*/ short Index,
+        /*[out,retval]*/ struct _Symbol * * _arg2 ) = 0;
+      virtual HRESULT __stdcall raw_RuleTableEntry (
+        /*[in]*/ short Index,
+        /*[out,retval]*/ struct _Rule * * _arg2 ) = 0;
+      virtual HRESULT __stdcall raw_TokenCount (
+        /*[out,retval]*/ short * _arg1 ) = 0;
+      virtual HRESULT __stdcall raw_Tokens (
+        /*[in]*/ short Index,
+        /*[out,retval]*/ struct _Token * * _arg2 ) = 0;
+      virtual HRESULT __stdcall raw_LoadCompiledGrammar (
+        /*[in]*/ BSTR FileName,
+        /*[out,retval]*/ VARIANT_BOOL * _arg2 ) = 0;
+      virtual HRESULT __stdcall raw_OpenTextString (
+        /*[in,out]*/ BSTR * Text,
+        /*[out,retval]*/ VARIANT_BOOL * _arg2 ) = 0;
+      virtual HRESULT __stdcall raw_Parse (
+        /*[out,retval]*/ enum GPMessageConstants * _arg1 ) = 0;
+      virtual HRESULT __stdcall raw_OpenFile (
+        /*[in]*/ BSTR FileName,
+        /*[in]*/ VARIANT DetectEncodingFromByteOrderMarks,
+        /*[out,retval]*/ VARIANT_BOOL * _arg3 ) = 0;
+      virtual HRESULT __stdcall raw_Reset ( ) = 0;
+};
+
+//
+// Wrapper method implementations
+//
+
+#include "C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\scl\Release\GOLD Parser Engine.tli"
+
+} // namespace GOLDParserEngine
+
+#pragma pack(pop)

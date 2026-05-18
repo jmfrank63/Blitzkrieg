@@ -60,6 +60,8 @@
     <OutDir>.\Release\</OutDir>
     <IntDir>.\Release\</IntDir>
     <LinkIncremental>false</LinkIncremental>
+    <ExternalIncludePath>C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\sdk\FMOD\api\inc;$(ExternalIncludePath)</ExternalIncludePath>
+    <LibraryPath>C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\sdk\FMOD\api\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

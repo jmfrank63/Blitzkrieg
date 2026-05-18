@@ -1,0 +1,382 @@
+﻿// Created by Microsoft (R) C/C++ Compiler Version 14.51.36243.0 (eec33503).
+//
+// C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\scl\Release\GOLD Parser Engine.tli
+//
+// Wrapper implementations for Win32 type library GOLD Parser Engine.dll
+// compiler-generated file - DO NOT EDIT!
+
+#pragma once
+
+//
+// interface _Symbol wrapper method implementations
+//
+
+inline enum SymbolTypeConstants _Symbol::GetKind ( ) {
+    enum SymbolTypeConstants _result;
+    HRESULT _hr = get_Kind(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _result;
+}
+
+inline short _Symbol::GetTableIndex ( ) {
+    short _result = 0;
+    HRESULT _hr = get_TableIndex(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _result;
+}
+
+inline _bstr_t _Symbol::GetName ( ) {
+    BSTR _result = 0;
+    HRESULT _hr = get_Name(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _bstr_t(_result, false);
+}
+
+inline _bstr_t _Symbol::GetText ( ) {
+    BSTR _result = 0;
+    HRESULT _hr = get_Text(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _bstr_t(_result, false);
+}
+
+//
+// interface _Rule wrapper method implementations
+//
+
+inline short _Rule::GetSymbolCount ( ) {
+    short _result = 0;
+    HRESULT _hr = get_SymbolCount(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _result;
+}
+
+inline _SymbolPtr _Rule::GetRuleNonterminal ( ) {
+    struct _Symbol * _result = 0;
+    HRESULT _hr = get_RuleNonterminal(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _SymbolPtr(_result, false);
+}
+
+inline _SymbolPtr _Rule::GetSymbols ( short Index ) {
+    struct _Symbol * _result = 0;
+    HRESULT _hr = get_Symbols(Index, &_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _SymbolPtr(_result, false);
+}
+
+inline short _Rule::GetTableIndex ( ) {
+    short _result = 0;
+    HRESULT _hr = get_TableIndex(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _result;
+}
+
+inline _bstr_t _Rule::GetText ( ) {
+    BSTR _result = 0;
+    HRESULT _hr = get_Text(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _bstr_t(_result, false);
+}
+
+//
+// interface _Token wrapper method implementations
+//
+
+inline long _Token::GetColumnNumber ( ) {
+    long _result = 0;
+    HRESULT _hr = get_ColumnNumber(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _result;
+}
+
+inline void _Token::PutColumnNumber ( long _arg1 ) {
+    HRESULT _hr = put_ColumnNumber(_arg1);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+}
+
+inline long _Token::GetLineNumber ( ) {
+    long _result = 0;
+    HRESULT _hr = get_LineNumber(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _result;
+}
+
+inline void _Token::PutLineNumber ( long _arg1 ) {
+    HRESULT _hr = put_LineNumber(_arg1);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+}
+
+inline enum SymbolTypeConstants _Token::GetKind ( ) {
+    enum SymbolTypeConstants _result;
+    HRESULT _hr = get_Kind(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _result;
+}
+
+inline _bstr_t _Token::GetName ( ) {
+    BSTR _result = 0;
+    HRESULT _hr = get_Name(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _bstr_t(_result, false);
+}
+
+inline _SymbolPtr _Token::GetParentSymbol ( ) {
+    struct _Symbol * _result = 0;
+    HRESULT _hr = get_ParentSymbol(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _SymbolPtr(_result, false);
+}
+
+inline _variant_t _Token::GetData ( ) {
+    VARIANT _result;
+    VariantInit(&_result);
+    HRESULT _hr = get_Data(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _variant_t(_result, false);
+}
+
+inline void _Token::PutData ( VARIANT * _arg1 ) {
+    HRESULT _hr = put_Data(_arg1);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+}
+
+inline void _Token::PutRefData ( VARIANT * _arg1 ) {
+    HRESULT _hr = putref_Data(_arg1);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+}
+
+inline void _Token::PutRefParentSymbol ( struct _Symbol * * _arg1 ) {
+    HRESULT _hr = putref_ParentSymbol(_arg1);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+}
+
+inline short _Token::GetTableIndex ( ) {
+    short _result = 0;
+    HRESULT _hr = get_TableIndex(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _result;
+}
+
+inline _bstr_t _Token::GetText ( ) {
+    BSTR _result = 0;
+    HRESULT _hr = get_Text(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _bstr_t(_result, false);
+}
+
+//
+// interface _Reduction wrapper method implementations
+//
+
+inline _RulePtr _Reduction::GetParentRule ( ) {
+    struct _Rule * _result = 0;
+    HRESULT _hr = get_ParentRule(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _RulePtr(_result, false);
+}
+
+inline void _Reduction::PutTag ( short * _arg1 ) {
+    HRESULT _hr = put_Tag(_arg1);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+}
+
+inline short _Reduction::GetTag ( ) {
+    short _result = 0;
+    HRESULT _hr = get_Tag(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _result;
+}
+
+inline short _Reduction::GetTokenCount ( ) {
+    short _result = 0;
+    HRESULT _hr = get_TokenCount(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _result;
+}
+
+inline _TokenPtr _Reduction::GetTokens ( short Index ) {
+    struct _Token * _result = 0;
+    HRESULT _hr = get_Tokens(Index, &_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _TokenPtr(_result, false);
+}
+
+inline _variant_t _Reduction::Data ( short Index ) {
+    VARIANT _result;
+    VariantInit(&_result);
+    HRESULT _hr = raw_Data(Index, &_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _variant_t(_result, false);
+}
+
+//
+// interface _GOLDParser wrapper method implementations
+//
+
+inline _bstr_t _GOLDParser::GetCurrentComment ( ) {
+    BSTR _result = 0;
+    HRESULT _hr = get_CurrentComment(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _bstr_t(_result, false);
+}
+
+inline long _GOLDParser::CurrentLineNumber ( ) {
+    long _result = 0;
+    HRESULT _hr = raw_CurrentLineNumber(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _result;
+}
+
+inline long _GOLDParser::CurrentColumnNumber ( ) {
+    long _result = 0;
+    HRESULT _hr = raw_CurrentColumnNumber(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _result;
+}
+
+inline HRESULT _GOLDParser::CloseFile ( ) {
+    HRESULT _hr = raw_CloseFile();
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _hr;
+}
+
+inline _TokenPtr _GOLDParser::CurrentToken ( ) {
+    struct _Token * _result = 0;
+    HRESULT _hr = raw_CurrentToken(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _TokenPtr(_result, false);
+}
+
+inline _TokenPtr _GOLDParser::PopInputToken ( ) {
+    struct _Token * _result = 0;
+    HRESULT _hr = raw_PopInputToken(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _TokenPtr(_result, false);
+}
+
+inline HRESULT _GOLDParser::PushInputToken ( struct _Token * * TheToken ) {
+    HRESULT _hr = raw_PushInputToken(TheToken);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _hr;
+}
+
+inline IDispatchPtr _GOLDParser::GetCurrentReduction ( ) {
+    IDispatch * _result = 0;
+    HRESULT _hr = get_CurrentReduction(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return IDispatchPtr(_result, false);
+}
+
+inline void _GOLDParser::PutRefCurrentReduction ( IDispatch * * _arg1 ) {
+    HRESULT _hr = putref_CurrentReduction(_arg1);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+}
+
+inline _variant_t _GOLDParser::GetAboutText ( ) {
+    VARIANT _result;
+    VariantInit(&_result);
+    HRESULT _hr = raw_GetAboutText(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _variant_t(_result, false);
+}
+
+inline HRESULT _GOLDParser::Clear ( ) {
+    HRESULT _hr = raw_Clear();
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _hr;
+}
+
+inline void _GOLDParser::PutTrimReductions ( VARIANT_BOOL * _arg1 ) {
+    HRESULT _hr = put_TrimReductions(_arg1);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+}
+
+inline VARIANT_BOOL _GOLDParser::GetTrimReductions ( ) {
+    VARIANT_BOOL _result = 0;
+    HRESULT _hr = get_TrimReductions(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _result;
+}
+
+inline _bstr_t _GOLDParser::GetParameter ( _bstr_t Name ) {
+    BSTR _result = 0;
+    HRESULT _hr = get_Parameter(Name, &_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _bstr_t(_result, false);
+}
+
+inline short _GOLDParser::SymbolTableCount ( ) {
+    short _result = 0;
+    HRESULT _hr = raw_SymbolTableCount(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _result;
+}
+
+inline short _GOLDParser::RuleTableCount ( ) {
+    short _result = 0;
+    HRESULT _hr = raw_RuleTableCount(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _result;
+}
+
+inline _SymbolPtr _GOLDParser::SymbolTableEntry ( short Index ) {
+    struct _Symbol * _result = 0;
+    HRESULT _hr = raw_SymbolTableEntry(Index, &_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _SymbolPtr(_result, false);
+}
+
+inline _RulePtr _GOLDParser::RuleTableEntry ( short Index ) {
+    struct _Rule * _result = 0;
+    HRESULT _hr = raw_RuleTableEntry(Index, &_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _RulePtr(_result, false);
+}
+
+inline short _GOLDParser::TokenCount ( ) {
+    short _result = 0;
+    HRESULT _hr = raw_TokenCount(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _result;
+}
+
+inline _TokenPtr _GOLDParser::Tokens ( short Index ) {
+    struct _Token * _result = 0;
+    HRESULT _hr = raw_Tokens(Index, &_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _TokenPtr(_result, false);
+}
+
+inline VARIANT_BOOL _GOLDParser::LoadCompiledGrammar ( _bstr_t FileName ) {
+    VARIANT_BOOL _result = 0;
+    HRESULT _hr = raw_LoadCompiledGrammar(FileName, &_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _result;
+}
+
+inline VARIANT_BOOL _GOLDParser::OpenTextString ( BSTR * Text ) {
+    VARIANT_BOOL _result = 0;
+    HRESULT _hr = raw_OpenTextString(Text, &_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _result;
+}
+
+inline enum GPMessageConstants _GOLDParser::Parse ( ) {
+    enum GPMessageConstants _result;
+    HRESULT _hr = raw_Parse(&_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _result;
+}
+
+inline VARIANT_BOOL _GOLDParser::OpenFile ( _bstr_t FileName, const _variant_t & DetectEncodingFromByteOrderMarks ) {
+    VARIANT_BOOL _result = 0;
+    HRESULT _hr = raw_OpenFile(FileName, DetectEncodingFromByteOrderMarks, &_result);
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _result;
+}
+
+inline HRESULT _GOLDParser::Reset ( ) {
+    HRESULT _hr = raw_Reset();
+    if (FAILED(_hr)) _com_issue_errorex(_hr, this, __uuidof(this));
+    return _hr;
+}

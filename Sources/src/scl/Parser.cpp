@@ -15,9 +15,7 @@ bool CParser::Init( const char *pszGrammarFileName )
 	VARIANT_BOOL bResult;
 	{
 		bstr_t bstr = pszGrammarFileName;
-		BSTR str = bstr.copy();
-		bResult = parser->LoadCompiledGrammar( &str );
-		SysFreeString( str );
+		bResult = parser->LoadCompiledGrammar( bstr );  // v3.0 API: pass _bstr_t directly
 	}
 
 	VARIANT_BOOL rdc = TRUE;
@@ -31,9 +29,9 @@ bool CParser::Parse( const char *pszFileName )
 	// open file to parse
 	{
 		bstr_t bstr = pszFileName;
-		BSTR str = bstr.copy();
-		parser->OpenFile( &str );
-		SysFreeString( str );
+		// v3.0 API: OpenFile takes _bstr_t and a variant for encoding detection
+		// false = don't detect encoding from BOM, use default
+		parser->OpenFile( bstr, _variant_t(false) );
 	}
 	//
 	bool bDone = false;
@@ -61,17 +59,20 @@ bool CParser::Parse( const char *pszFileName )
 					return false;
 				// parser->PushInputToken( &(parser->Tokens(0)) );
 				break;
-			case gpMsgReduction: 
+			case gpMsgReduction:
+			{
 				// This message is returned when a rule was reduced by the parse engine.
 				// The CurrentReduction property is assigned a Reduction object
 				// containing the rule and its related tokens. You can reassign this
 				// property to your own customized class. If this is not the case,
 				// this message can be ignored and the Reduction object will be used
 				// to store the parse tree.
-				parser->GetCurrentReduction()->PutTag( &nReductionCount );
+				_ReductionPtr reduction = parser->GetCurrentReduction();
+				reduction->PutTag( &nReductionCount );
 				++nReductionCount;
 				//parser.CurrentReduction = //Object you created to store the rule
 				break;
+			}
 			case gpMsgAccept:
 				// The program was accepted by the parsing engine
 				bDone = true;
