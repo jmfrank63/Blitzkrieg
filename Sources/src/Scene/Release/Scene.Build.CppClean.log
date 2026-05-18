@@ -6,6 +6,8 @@ c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\cam
 c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\statsystem.obj
 c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\visobjbuilder.obj
 c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\squadvisobj.obj
+c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\spritevisobj.obj
+c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\meshvisobj.obj
 c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\flashvisobj.obj
 c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\effectvisobj.obj
 c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\boldlinevisobj.obj
@@ -15,8 +17,11 @@ c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\ico
 c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\iconbar.obj
 c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\icon.obj
 c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\scenepick.obj
+c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\sceneobjectfactory.obj
 c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\sceneinternal.obj
+c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\scenedraw.obj
 c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\globalsloader.obj
+c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\riverbuilder.obj
 c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\transition.obj
 c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\fastsincos.obj
 c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\track.obj
@@ -25,6 +30,7 @@ c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\smo
 c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\particlesourcedata.obj
 c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\particlemanager.obj
 c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\keybasedparticlesource.obj
+c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\binkvideoplayer.obj
 c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\soundsceneserialize.obj
 c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\soundscene.obj
 c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\sources\src\scene\release\scenesound.obj

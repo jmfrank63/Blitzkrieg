@@ -1,26 +1,8 @@
 ﻿  StdAfx.cpp
   GlobalsLoader.cpp
   SceneDraw.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(35,19): error C2280: 'SGFXTLVertex::SGFXTLVertex(void)': attempting to reference a deleted function
-  (compiling source file '/SceneDraw.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GFX\GFXHelper.h(362,1):
-      compiler has generated 'SGFXTLVertex::SGFXTLVertex' here
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(35,19):
-      the template instantiation context (the oldest one first) is
-          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(822,34):
-          see reference to class template instantiation 'CRawBuffer<SSpriteVertex>' being compiled
-          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(31,7):
-          while compiling class template member function 'void CRawBuffer<SSpriteVertex>::reserve(const int)'
-              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(1037,22):
-              see the first reference to 'CRawBuffer<SSpriteVertex>::reserve' in 'DrawSingleSpritesPack'
-              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(790,7):
-              see the first reference to 'DrawSingleSpritesPack' in 'DrawSprites'
-  
   SceneInternal.cpp
   SceneObjectFactory.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\BinkVideoPlayer.h(6,10): error C1083: Cannot open include file: 'bink.h': No such file or directory
-  (compiling source file '/SceneObjectFactory.cpp')
-  
   ScenePick.cpp
   Icon.cpp
   IconBar.cpp
@@ -31,52 +13,12 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\BinkVideoPl
   EffectVisObj.cpp
   FlashVisObj.cpp
   MeshVisObj.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\MeshVisObj.cpp(474,2): error C2248: 'CTObjVisObj<CTRefCount<IMeshVisObj>>::CObjVisObj': cannot access private typedef declared in class 'CTObjVisObj<CTRefCount<IMeshVisObj>>'
-  (compiling source file '/MeshVisObj.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\ObjVisObj.h(11,29):
-      see declaration of 'CTObjVisObj<CTRefCount<IMeshVisObj>>::CObjVisObj'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\ObjVisObj.h(9,7):
-      see declaration of 'CTObjVisObj<CTRefCount<IMeshVisObj>>'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\MeshVisObj.cpp(531,39): error C2248: 'CTObjVisObj<CTRefCount<IMeshVisObj>>::CObjVisObj': cannot access private typedef declared in class 'CTObjVisObj<CTRefCount<IMeshVisObj>>'
-  (compiling source file '/MeshVisObj.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\ObjVisObj.h(11,29):
-      see declaration of 'CTObjVisObj<CTRefCount<IMeshVisObj>>::CObjVisObj'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\ObjVisObj.h(9,7):
-      see declaration of 'CTObjVisObj<CTRefCount<IMeshVisObj>>'
-  
   SpriteVisObj.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SpriteVisObj.cpp(149,2): error C2248: 'CTObjVisObj<CTRefCount<ISpriteVisObj>>::CObjVisObj': cannot access private typedef declared in class 'CTObjVisObj<CTRefCount<ISpriteVisObj>>'
-  (compiling source file '/SpriteVisObj.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\ObjVisObj.h(11,29):
-      see declaration of 'CTObjVisObj<CTRefCount<ISpriteVisObj>>::CObjVisObj'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\ObjVisObj.h(9,7):
-      see declaration of 'CTObjVisObj<CTRefCount<ISpriteVisObj>>'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\SpriteVisObj.cpp(156,39): error C2248: 'CTObjVisObj<CTRefCount<ISpriteVisObj>>::CObjVisObj': cannot access private typedef declared in class 'CTObjVisObj<CTRefCount<ISpriteVisObj>>'
-  (compiling source file '/SpriteVisObj.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\ObjVisObj.h(11,29):
-      see declaration of 'CTObjVisObj<CTRefCount<ISpriteVisObj>>::CObjVisObj'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\ObjVisObj.h(9,7):
-      see declaration of 'CTObjVisObj<CTRefCount<ISpriteVisObj>>'
-  
   SquadVisObj.cpp
   VisObjBuilder.cpp
   StatSystem.cpp
   Camera.cpp
   Cursor.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\Cursor.cpp(210,31): warning C4838: conversion from 'float' to 'LONG' requires a narrowing conversion
-  (compiling source file '/Cursor.cpp')
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\Cursor.cpp(210,39): warning C4838: conversion from 'float' to 'LONG' requires a narrowing conversion
-  (compiling source file '/Cursor.cpp')
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\Cursor.cpp(210,47): warning C4838: conversion from 'float' to 'LONG' requires a narrowing conversion
-  (compiling source file '/Cursor.cpp')
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\Cursor.cpp(210,55): warning C4838: conversion from 'float' to 'LONG' requires a narrowing conversion
-  (compiling source file '/Cursor.cpp')
-  
   Generating Code...
   Compiling...
   FrameSelection.cpp
@@ -89,9 +31,6 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\Cursor.cpp(
   SoundScene.cpp
   SoundSceneSerialize.cpp
   BinkVideoPlayer.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\BinkVideoPlayer.h(6,10): error C1083: Cannot open include file: 'bink.h': No such file or directory
-  (compiling source file '/BinkVideoPlayer.cpp')
-  
   KeyBasedParticleSource.cpp
   ParticleManager.cpp
   ParticleSourceData.cpp
@@ -101,90 +40,50 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\BinkVideoPl
   FastSinCos.cpp
   Transition.cpp
   MeshBuilders.cpp
-C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(732,82): error C2280: 'SGFXLineVertex::SGFXLineVertex(void)': attempting to reference a deleted function
+C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(732,82): error C2280: 'STerrainTLVertex::STerrainTLVertex(void)': attempting to reference a deleted function
   (compiling source file '/MeshBuilders.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GFX\GFXHelper.h(468,1):
-      compiler has generated 'SGFXLineVertex::SGFXLineVertex' here
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\Builders.h(85,1):
+      compiler has generated 'STerrainTLVertex::STerrainTLVertex' here
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\Builders.h(85,1):
+      'STerrainTLVertex::STerrainTLVertex(void)': function was implicitly deleted because 'STerrainTLVertex' has a variant data member 'STerrainTLVertex::<unnamed-tag>::pos' with a non-trivial default constructor
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\Builders.h(66,10):
+      see declaration of 'STerrainTLVertex::<unnamed-tag>::pos'
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(732,82):
       the template instantiation context (the oldest one first) is
-          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\MeshBuilders.cpp(514,2):
-          see reference to class template instantiation 'std::vector<SGFXLineVertex,std::allocator<SGFXLineVertex>>' being compiled
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\TerrainInternal.h(24,15):
+          see reference to class template instantiation 'std::vector<STerrainPatch::SVertex1,std::allocator<STerrainPatch::SVertex1>>' being compiled
           C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\vector(1631,23):
-          while compiling class template member function 'void std::vector<SGFXLineVertex,std::allocator<SGFXLineVertex>>::resize(const unsigned int)'
-              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\MeshBuilders.cpp(514,17):
-              see the first reference to 'std::vector<SGFXLineVertex,std::allocator<SGFXLineVertex>>::resize' in 'CreateGrid'
+          while compiling class template member function 'void std::vector<STerrainPatch::SVertex1,std::allocator<STerrainPatch::SVertex1>>::resize(const unsigned int)'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\MeshBuilders.cpp(65,17):
+              see the first reference to 'std::vector<STerrainPatch::SVertex1,std::allocator<STerrainPatch::SVertex1>>::resize' in 'ResizeToAdd'
           C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\vector(1633,9):
-          see reference to function template instantiation 'void std::vector<SGFXLineVertex,std::allocator<SGFXLineVertex>>::_Resize<std::_Value_init_tag>(const unsigned int,const _Ty2 &)' being compiled
+          see reference to function template instantiation 'void std::vector<STerrainPatch::SVertex1,std::allocator<STerrainPatch::SVertex1>>::_Resize<std::_Value_init_tag>(const unsigned int,const _Ty2 &)' being compiled
           with
           [
               _Ty2=std::_Value_init_tag
           ]
           C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\vector(1621,27):
-          see reference to function template instantiation 'SGFXLineVertex *std::_Uninitialized_value_construct_n<std::allocator<SGFXLineVertex>>(SGFXLineVertex *,unsigned int,_Alloc &)' being compiled
+          see reference to function template instantiation 'STerrainTLVertex *std::_Uninitialized_value_construct_n<std::allocator<STerrainPatch::SVertex1>>(STerrainTLVertex *,unsigned int,_Alloc &)' being compiled
           with
           [
-              _Alloc=std::allocator<SGFXLineVertex>
+              _Alloc=std::allocator<STerrainPatch::SVertex1>
           ]
           C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(2118,18):
           see reference to function template instantiation 'void std::_Uninitialized_backout_al<_Alloc>::_Emplace_back<>(void)' being compiled
           with
           [
-              _Alloc=std::allocator<SGFXLineVertex>
+              _Alloc=std::allocator<STerrainPatch::SVertex1>
           ]
           C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(1868,35):
           see reference to function template instantiation 'void std::_Default_allocator_traits<_Alloc>::construct<_Ty,>(_Alloc &,_Objty *const )' being compiled
           with
           [
-              _Alloc=std::allocator<SGFXLineVertex>,
-              _Ty=SGFXLineVertex,
-              _Objty=SGFXLineVertex
-          ]
-  
-C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(732,82): error C2280: 'SGFXTLVertex::SGFXTLVertex(void)': attempting to reference a deleted function
-  (compiling source file '/MeshBuilders.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GFX\GFXHelper.h(362,1):
-      compiler has generated 'SGFXTLVertex::SGFXTLVertex' here
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(732,82):
-      the template instantiation context (the oldest one first) is
-          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\TerrainInternal.h(25,15):
-          see reference to class template instantiation 'std::vector<STerrainPatch::SVertex2,std::allocator<STerrainPatch::SVertex2>>' being compiled
-          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\vector(1631,23):
-          while compiling class template member function 'void std::vector<STerrainPatch::SVertex2,std::allocator<STerrainPatch::SVertex2>>::resize(const unsigned int)'
-              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\MeshBuilders.cpp(337,28):
-              see the first reference to 'std::vector<STerrainPatch::SVertex2,std::allocator<STerrainPatch::SVertex2>>::resize' in 'CreateWarFog'
-          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\vector(1633,9):
-          see reference to function template instantiation 'void std::vector<STerrainPatch::SVertex2,std::allocator<STerrainPatch::SVertex2>>::_Resize<std::_Value_init_tag>(const unsigned int,const _Ty2 &)' being compiled
-          with
-          [
-              _Ty2=std::_Value_init_tag
-          ]
-          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\vector(1621,27):
-          see reference to function template instantiation 'SGFXTLVertex *std::_Uninitialized_value_construct_n<std::allocator<STerrainPatch::SVertex2>>(SGFXTLVertex *,unsigned int,_Alloc &)' being compiled
-          with
-          [
-              _Alloc=std::allocator<STerrainPatch::SVertex2>
-          ]
-          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(2118,18):
-          see reference to function template instantiation 'void std::_Uninitialized_backout_al<_Alloc>::_Emplace_back<>(void)' being compiled
-          with
-          [
-              _Alloc=std::allocator<STerrainPatch::SVertex2>
-          ]
-          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(1868,35):
-          see reference to function template instantiation 'void std::_Default_allocator_traits<_Alloc>::construct<_Ty,>(_Alloc &,_Objty *const )' being compiled
-          with
-          [
-              _Alloc=std::allocator<STerrainPatch::SVertex2>,
-              _Ty=SGFXTLVertex,
-              _Objty=SGFXTLVertex
+              _Alloc=std::allocator<STerrainPatch::SVertex1>,
+              _Ty=STerrainTLVertex,
+              _Objty=STerrainTLVertex
           ]
   
   RiverBuilder.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\RiverBuilder.cpp(209,17): error C2661: 'std::deque<BuildLayer::SPatch,std::allocator<BuildLayer::SPatch>>::push_back': no overloaded function takes 0 arguments
-  (compiling source file '/RiverBuilder.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\RiverBuilder.cpp(209,17):
-      while trying to match the argument list '()'
-  
   Generating Code...
   Compiling...
   TerrainBuilder.cpp
@@ -194,11 +93,6 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\RiverBuilde
   VectorObject.cpp
   TerraDraw.cpp
   TerrainInternal.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\TerrainInternal.cpp(238,15): error C2039: 'resize': is not a member of 'std::unordered_map<DWORD,DWORD,std::hash<DWORD>,std::equal_to<DWORD>,std::allocator<std::pair<const DWORD,DWORD>>>'
-  (compiling source file '/TerrainInternal.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\unordered_map(58,7):
-      see declaration of 'std::unordered_map<DWORD,DWORD,std::hash<DWORD>,std::equal_to<DWORD>,std::allocator<std::pair<const DWORD,DWORD>>>'
-  
   TerraSound.cpp
   GammaEffect.cpp
   Generating Code...

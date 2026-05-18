@@ -8,7 +8,9 @@
 template <class TBase>
 class CTObjVisObj : public TBase
 {
+protected:
 	typedef CTObjVisObj<TBase> CObjVisObj;
+private:
 	//
 	DWORD dwGameType;											// object game type
 	CVec3 vPos;														// unit's position

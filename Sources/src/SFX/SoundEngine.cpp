@@ -80,8 +80,8 @@ bool CSoundEngine::SearchDevices()
 		FSOUND_GetDriverCaps( i, &nCaps );
 		dr.isHardware3DAccelerated = nCaps & FSOUND_CAPS_HARDWARE;
 		dr.supportEAXReverb = nCaps & FSOUND_CAPS_EAX2;//FSOUND_CAPS_EAX;
-		dr.supportA3DOcclusions = nCaps & FSOUND_CAPS_GEOMETRY_OCCLUSIONS;
-		dr.supportA3DReflections = nCaps & FSOUND_CAPS_GEOMETRY_REFLECTIONS;
+		dr.supportA3DOcclusions = false; // FSOUND_CAPS_GEOMETRY_OCCLUSIONS not in FMOD 3.75
+		dr.supportA3DReflections = false; // FSOUND_CAPS_GEOMETRY_REFLECTIONS not in FMOD 3.75
 		dr.supportReverb = nCaps & FSOUND_CAPS_EAX2;
 	}
 	return true;
@@ -225,13 +225,13 @@ void CSoundEngine::Done()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundEngine::SetDistanceFactor( float fFactor )
 {
-	FSOUND_3D_Listener_SetDistanceFactor( fFactor );
+	FSOUND_3D_SetDistanceFactor( fFactor );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundEngine::SetRolloffFactor( float fFactor )
 {
 	NI_ASSERT_TF( (fFactor >= 0) && (fFactor <= 10), NStr::Format("Rolloff factor (%g) must be in range [0..10]", fFactor), return );
-	FSOUND_3D_Listener_SetRolloffFactor( fFactor );
+	FSOUND_3D_SetRolloffFactor( fFactor );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundEngine::Update( interface ICamera *pCamera )
@@ -277,7 +277,7 @@ void CSoundEngine::CloseStreaming()
 	{
 		// reset callbacks
 		FSOUND_Stream_SetEndCallback( pStreamingSound, 0, 0 );
-		FSOUND_Stream_SetSynchCallback( pStreamingSound, 0, 0 );
+		FSOUND_Stream_SetSyncCallback( pStreamingSound, 0, 0 );
 		//
 		FSOUND_StopSound( nStreamingChannel );
 		FSOUND_Stream_Close( pStreamingSound );
@@ -288,9 +288,9 @@ void CSoundEngine::CloseStreaming()
 	}
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-signed char NextMelodyCallback( FSOUND_STREAM *stream, void *buff, int len, int param )
+signed char F_CALLBACKAPI NextMelodyCallback( FSOUND_STREAM *stream, void *buff, int len, void *userdata )
 {
-	CSoundEngine *pSFX = reinterpret_cast<CSoundEngine*>( param );
+	CSoundEngine *pSFX = reinterpret_cast<CSoundEngine*>( userdata );
 	pSFX->NotifyMelodyFinished();
 	return true;
 }
@@ -369,16 +369,16 @@ void CSoundEngine::PlayStream( const char *pszFileName, bool bLooped, const unsi
 		std::string szFileName = std::string( GetSingleton<IDataStorage>()->GetName() ) + pszFileName + ".mp3";
 		std::string szFileName1 = std::string( GetSingleton<IDataStorage>()->GetName() ) + pszFileName + ".ogg";
 		
-		pStreamingSound = FSOUND_Stream_OpenFile( szFileName.c_str(), FSOUND_2D|(bLooped ? FSOUND_LOOP_NORMAL : FSOUND_LOOP_OFF), 0 );
+		pStreamingSound = FSOUND_Stream_Open( szFileName.c_str(), FSOUND_2D|(bLooped ? FSOUND_LOOP_NORMAL : FSOUND_LOOP_OFF), 0, 0 );
 		if ( !pStreamingSound )
-			pStreamingSound = FSOUND_Stream_OpenFile( szFileName1.c_str(), FSOUND_2D|(bLooped ? FSOUND_LOOP_NORMAL : FSOUND_LOOP_OFF), 0 );
+			pStreamingSound = FSOUND_Stream_Open( szFileName1.c_str(), FSOUND_2D|(bLooped ? FSOUND_LOOP_NORMAL : FSOUND_LOOP_OFF), 0, 0 );
 		
 		if ( pStreamingSound )
 		{
 			nStreamingChannel = FSOUND_Stream_Play( FSOUND_FREE, pStreamingSound );
 			FSOUND_SetPan( nStreamingChannel, FSOUND_STEREOPAN );
 			FSOUND_SetVolume( nStreamingChannel, cStreamMasterVolume );
-			FSOUND_Stream_SetEndCallback( pStreamingSound, NextMelodyCallback, reinterpret_cast<int>(this) );
+			FSOUND_Stream_SetEndCallback( pStreamingSound, NextMelodyCallback, this );
 			if ( bStreamingPaused ) 
 				FSOUND_SetPaused( nStreamingChannel, bStreamingPaused );
 			//
@@ -570,7 +570,7 @@ void CSoundEngine::NotifyMelodyFinished()
 		nStreamingChannel = FSOUND_Stream_Play( FSOUND_FREE, pStreamingSound );
 		FSOUND_SetPan( nStreamingChannel, FSOUND_STEREOPAN );
 		FSOUND_SetVolume( nStreamingChannel, cStreamMasterVolume );
-		FSOUND_Stream_SetEndCallback( pStreamingSound, NextMelodyCallback, reinterpret_cast<int>(this) );
+		FSOUND_Stream_SetEndCallback( pStreamingSound, NextMelodyCallback, this );
 		if ( bStreamingPaused ) 
 			FSOUND_SetPaused( nStreamingChannel, bStreamingPaused );
 	}

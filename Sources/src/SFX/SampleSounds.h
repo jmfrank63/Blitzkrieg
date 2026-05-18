@@ -85,7 +85,7 @@ public:
 	// looping
 	void STDCALL SetLooping( bool bEnable, int nStart = -1, int nEnd = -1 )
 	{
-		FSOUND_Sample_SetLoopMode( pSample->GetInternalContainer(), bEnable ? FSOUND_LOOP_NORMAL : FSOUND_LOOP_OFF );
+		FSOUND_Sample_SetMode( pSample->GetInternalContainer(), bEnable ? FSOUND_LOOP_NORMAL : FSOUND_LOOP_OFF );
 		if ( (nStart != -1) && (nEnd != -1) )
 			FSOUND_Sample_SetLoopPoints( pSample->GetInternalContainer(), nStart, nEnd );
 	}

@@ -207,7 +207,7 @@ void CCursor::LockPos( bool bLock )
 		{
 			if ( bAcquired ) 
 			{
-				const RECT rcClip = { vPos.x, vPos.y, vPos.x, vPos.y };
+				const RECT rcClip = { static_cast<LONG>(vPos.x), static_cast<LONG>(vPos.y), static_cast<LONG>(vPos.x), static_cast<LONG>(vPos.y) };
 				::ClipCursor( &rcClip );
 			}
 		}

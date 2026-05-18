@@ -341,6 +341,7 @@ struct SGFXTLVertex
 		};
 	};
 	//
+	SGFXTLVertex() {}  // Default constructor
 	void Setup( float _sx, float _sy, float _sz, float _rhw, DWORD _color, DWORD _specular, float _tu, float _tv )
 	{
 		x = _sx;
@@ -453,6 +454,7 @@ struct SGFXLineVertex
 		};
 	};
 	//
+	SGFXLineVertex() {}  // Default constructor
 	void Setup( float _x, float _y, float _z, DWORD _color )
 	{
 		x = _x;

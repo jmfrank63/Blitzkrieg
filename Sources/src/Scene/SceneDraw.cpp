@@ -23,6 +23,7 @@ class CRawBuffer
 	int nCapacity;												// total buffer capacity
 public:
 	CRawBuffer() : pData( 0 ), nSize( 0 ), nCapacity( 0 ) {  }
+	~CRawBuffer() { if ( pData ) ::operator delete(pData); }
 	//
 	int size() const { return nSize; }
 	int capacity() const { return nCapacity; }
@@ -32,11 +33,11 @@ public:
 	{
 		if ( nCapacity < _nCapacity ) 
 		{
-			TYPE *pNewData = new TYPE[_nCapacity];
+			TYPE *pNewData = reinterpret_cast<TYPE*>(::operator new(_nCapacity * sizeof(TYPE)));
 			if ( nSize > 0 ) 
 				memcpy( pNewData, pData, nSize * sizeof(TYPE) );
 			if ( pData ) 
-				delete []pData;
+				::operator delete(pData);
 			pData = pNewData;
 			nCapacity = _nCapacity;
 		}
