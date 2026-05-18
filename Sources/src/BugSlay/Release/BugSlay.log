@@ -3,22 +3,33 @@
   BSUFunctions.cpp
   BugSlayer.cpp
   CallStack.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\BugSlay\CallStack.cpp(42,9): error C2666: 'CPtr<IBaseCommand>::operator !=': overloaded functions have similar conversions
+  (compiling source file '/CallStack.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<IBaseCommand>::operator !=(const CPtr<IBaseCommand> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\BugSlay\CallStack.cpp(42,9):
+      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=IBaseCommand
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\BugSlay\CallStack.cpp(42,9):
+      while trying to match the argument list '(CPtr<IBaseCommand>, int)'
+  
   CrashHandler.cpp
   DiagAssert.cpp
+  DialogFunctions.cpp
+  DialogMemory.cpp
+  DumbPow2Alloc.cpp
   GetLoadedModules.cpp
   HookImportedFunctionByName.cpp
   IsNT.cpp
   MemDumperValidator.cpp
-  Notification.cpp
+  MemorySystem.cpp
   NT4ProcessInfo.cpp
-  STLDebugTerminate.cpp
-  TLHELPProcessInfo.cpp
-  DialogFunctions.cpp
-  DialogMemory.cpp
+  Notification.cpp
   ReportAssertionDlg.cpp
   ReportExceptionDlg.cpp
-  DumbPow2Alloc.cpp
-  MemorySystem.cpp
+  STLDebugTerminate.cpp
+  TLHELPProcessInfo.cpp
   Generating Code...
-     Creating library .\Release\BugSlay.lib and object .\Release\BugSlay.exp
-  BugSlay.vcxproj -> C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\BugSlay\Release\BugSlay.dll

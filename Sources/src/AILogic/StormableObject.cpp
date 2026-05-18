@@ -55,7 +55,7 @@ void CStormableObject::DelFromAttackers( CSoldier *pUnit )
 	NI_ASSERT_T( attackers.begin( nParty ) != attackers.end(), "Trying to delete non-existing unit from stormable object" );
 
 	int i = attackers.begin( nParty );
-	while ( i != attackers.end() && attackers.GetEl( i ) != pUnit )
+	while ( i != attackers.end() && attackers.GetEl( i ).GetPtr() != pUnit )
 		i = attackers.GetNext( i );
 
 	NI_ASSERT_T( i != attackers.end(), "Trying to delete non-existing unit from stormable object" );
@@ -92,7 +92,7 @@ bool CStormableObject::FindInAttackers( CSoldier *pUnit ) const
 		return false;
 
 	int i = attackers.begin( nParty );
-	while ( i != attackers.end() && attackers.GetEl( i ) != pUnit )
+	while ( i != attackers.end() && attackers.GetEl( i ).GetPtr() != pUnit )
 		i = attackers.GetNext( i );
 
 	return i != attackers.end();

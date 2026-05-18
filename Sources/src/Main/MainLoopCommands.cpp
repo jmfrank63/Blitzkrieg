@@ -4,6 +4,7 @@
 
 #include "..\Input\Input.h"
 #include "..\SFX\SFX.h"
+#include "..\GameTT\MultiplayerCommandManager.h"
 #include "..\GameTT\iMission.h"
 #include "..\Formats\fmtSaveLoad.h"
 #include "..\StreamIO\RandomGen.h"
@@ -31,7 +32,7 @@ void ReportSaveLoad( const char *pszKey, const std::string &szFileName )
 	{
 		if ( pText->GetString() != 0 ) 
 		{
-			std::wstring szString = pText->GetString();
+			std::wstring szString( reinterpret_cast<const wchar_t*>( pText->GetString() ) );
 			szString += L" " + NStr::ToUnicode( szFileName );
 			GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_CHAT, szString.c_str(), 0xff00ff00 );
 		}

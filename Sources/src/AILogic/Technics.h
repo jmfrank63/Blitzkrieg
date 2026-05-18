@@ -56,8 +56,8 @@ public:
 	// расстояние от центра до точки, откуда можно напрямую бежать к entrance point
 	virtual float GetDistanceToLandPoint() const;
 
-	virtual BYTE GetNAvailableSeats() const { return pStats->nPassangers - pass.size(); }
-	virtual BYTE GetNPassengers() const { return pass.size(); }
+	virtual BYTE GetNAvailableSeats() const { return static_cast<BYTE>( pStats->nPassangers - pass.size() ); }
+	virtual BYTE GetNPassengers() const { return static_cast<BYTE>( pass.size() ); }
 	virtual void AddPassenger( class CSoldier *pUnit );
 	virtual class CSoldier* GetPassenger( const int n );
 

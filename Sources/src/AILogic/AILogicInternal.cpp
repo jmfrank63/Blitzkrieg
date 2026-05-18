@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include <float.h>
+#include <typeinfo>
 
 #include "AILogicInternal.h"
 #include "Commands.h"

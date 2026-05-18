@@ -11,6 +11,7 @@
 #include "Icons.h"
 #include "..\UI\UI.h"
 #include "..\UI\UIMessages.h"
+#include <typeinfo>
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ************************************************************************************************************************ //
 // **
@@ -1595,7 +1596,7 @@ void CWorldBase::ReportReinforcementArrived()
 	const DWORD dwColor = GetGlobalVar( (std::string("Scene.Colors.") + GetSeasonName() + ".Text.Information.Color").c_str(), int(0xffffffff) );
 	if ( IText *pText = GetSingleton<ITextManager>()->GetString("reinforcement_arrived") ) 
 	{
-		GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_CHAT, pText->GetString(), dwColor );
+		GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_CHAT, reinterpret_cast<const wchar_t*>( pText->GetString() ), dwColor );
 		if ( pScene ) 
 			pScene->AddSound( "sounds\\reports\\information", VNULL3, SFX_INTERFACE, SAM_ADD_N_FORGET );
 	}

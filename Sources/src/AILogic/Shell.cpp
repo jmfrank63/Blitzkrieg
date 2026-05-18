@@ -248,7 +248,7 @@ void CCumulativeExpl::Explode()
 	for ( CUnitsIter<0,0> iter( 0, ANY_PARTY, explCoord, 0.0f ); !iter.IsFinished(); iter.Iterate() )
 	{
 		CAIUnit *pTarget = *iter;
-		if ( IsValidObj( pTarget ) && pUnit != pTarget )
+		if ( IsValidObj( pTarget ) && pUnit.GetPtr() != pTarget )
 		{
 			if ( nShellType == SWeaponRPGStats::SShell::TRAJECTORY_LINE || nShellType == SWeaponRPGStats::SShell::TRAJECTORY_GRENADE )
 				pTarget->Grazed( pUnit );

@@ -48,6 +48,11 @@ struct SServerInfo
 	bool operator!=( const SServerInfo &info ) const { return !(*this == info ); }
 };
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+inline const WORD* ToWordString( const std::wstring &szText )
+{
+	return reinterpret_cast<const WORD*>( szText.c_str() );
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SPlayerInfo
 {
 	int nClientID;
@@ -71,7 +76,7 @@ struct SPlayerInfo
 			szName( L"" ), lastTimeInfoAsked( 0 ), eState( EPS_INVALID ), cMapLoadProgress( 100 ) { }
 	SPlayerInfo( const int _nCliendID, const int _nLogicID, const int _nSide, const bool _bReady, const	WORD *pszName, const EPlayerStates _eState, const BYTE _cMapLoadProgress )
 		: nClientID( _nCliendID ), nLogicID( _nLogicID ), nSide( _nSide ), bReady( _bReady ), 
-			szName( pszName ), lastTimeInfoAsked( 0 ), eState( _eState ), cMapLoadProgress( _cMapLoadProgress ) { }
+			szName( MakeWideStringFromWordString( pszName ) ), lastTimeInfoAsked( 0 ), eState( _eState ), cMapLoadProgress( _cMapLoadProgress ) { }
 	
 	void Pack( IDataStream *pDataSteam );
 	void Unpack( IDataStream *pDataStream );
@@ -110,7 +115,7 @@ struct SGameInfo
 						 const CMapInfo::GAME_TYPE _eGameType, bool _bPasswordRequired, const std::string &_szPassword,
 						 const std::string &_szModName, const std::string &_szModVersion, const bool _bMapLoaded )
 	{
-		szGameName = pszGameName;
+		szGameName = MakeWideStringFromWordString( pszGameName );
 		szMapName = pszMapName;
 		nMaxPlayers = _nMaxPlayers;
 		nCurPlayers = _nCurPlayers;

@@ -95,7 +95,7 @@ void CGamePlaying::RemoveClient( const int nClientID )
 			++i;
 
 		if ( i < players.size() )
-			std::construct( &(players[i]) );
+			players[i] = SPlayerInfo();
 		
 		clientID2LogicID.erase( nClientID );
 	}
@@ -302,7 +302,7 @@ void CGamePlaying::Segment()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CGamePlaying::GetPlayerInfo( const WORD *pszPlayerName, SPlayerInfo *pInfo ) const
 {
-	std::wstring szPlayerName = pszPlayerName;
+	std::wstring szPlayerName = MakeWideStringFromWordString( pszPlayerName );
 	
 	int i = 0;
 	while ( i < 16 && ( players[i].eState == SPlayerInfo::EPS_VALID || players[i].szName != szPlayerName ) )

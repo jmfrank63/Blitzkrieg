@@ -26,9 +26,10 @@ private:
 	//
 
 	typedef std::unordered_map<TID, CPtr<TInfo> > PlayersInfo;
+	typedef typename std::unordered_map<TID, CPtr<TInfo> >::iterator PlayersInfoIterator;
 	PlayersInfo playersInfo;
 
-	PlayersInfo::iterator curIter;							//current iterator.
+	PlayersInfoIterator curIter;						//current iterator.
 
 
 public:

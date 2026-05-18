@@ -44,7 +44,7 @@ public:
 	void AddGun( const interface IGunsFactory &gunsFactory, const SWeaponRPGStats *pWeapon, int *nGuns, const int nAmmo );
 	void SetOwner( class CAIUnit *pUnit );
 	
-	const BYTE GetNTotalGuns() const { return guns.size(); }
+	const BYTE GetNTotalGuns() const { return static_cast<BYTE>( guns.size() ); }
 	void Segment();
 
 	//

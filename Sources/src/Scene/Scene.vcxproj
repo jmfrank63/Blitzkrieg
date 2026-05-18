@@ -96,8 +96,9 @@
     <IntDir>.\Release\</IntDir>
     <LinkIncremental>false</LinkIncremental>
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
-    <ExternalIncludePath>C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\sdk\BINK;$(ExternalIncludePath)</ExternalIncludePath>
-    <LibraryPath>C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\sdk\BINK;$(LibraryPath)</LibraryPath>
+    <ExternalIncludePath>$(ProjectDir)\..\..\sdk\BINK;$(ExternalIncludePath)</ExternalIncludePath>
+    <LibraryPath>$(ProjectDir)\..\..\sdk\BINK;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProjectDir)\..\..\\sdk\FMOD\api\inc;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='FastDebug|Win32'">
     <OutDir>.\FastDebug\</OutDir>

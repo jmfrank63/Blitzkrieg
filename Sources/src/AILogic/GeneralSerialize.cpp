@@ -10,7 +10,7 @@
 #include "GeneralConsts.h"
 #include "CommonUnit.h"
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-CSupremeBeing::operator&( IStructureSaver &ss )
+int CSupremeBeing::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 	saver.Add( 1, &generals );

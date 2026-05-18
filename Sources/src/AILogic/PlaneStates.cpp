@@ -452,7 +452,7 @@ CAviation * CPlanePatrolState::FindBetterEnemiyPlane( CAviation * pEnemie, const
 		}
 		planes.Iterate();
 	}
-	if( pBetter != 0 && pBetter!= pEnemie )
+	if( pBetter != 0 && pBetter.GetPtr() != pEnemie )
 	{
 		return pBetter;
 	}
@@ -1280,7 +1280,7 @@ void CPlaneShturmovikPatrolState::CEnemyContainer::SetEnemy( CBuilding * _pBuild
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPlaneShturmovikPatrolState::CEnemyContainer::SetEnemy( CAIUnit *pNewEnemy )
 {
-	if ( pEnemy == pNewEnemy ) return;
+	if ( pEnemy.GetPtr() == pNewEnemy ) return;
 	if ( pEnemy )
 		pEnemy->UpdateTakenDamagePower( -fTakenDamage );
 	if ( pNewEnemy )

@@ -575,16 +575,17 @@ public:																																								\
 	TPtrName() {}																																				\
 	TPtrName( TUserObj *_ptr ): TBase( _ptr ) {  }																			\
 	TPtrName( const TPtrName &a ): TBase( a ) {  }																			\
+	TPtrName( int _ptr ) { (void)_ptr; Set( 0 ); }	\
 	TPtrName& operator=( TUserObj *_ptr ) { Set( _ptr ); return *this; }								\
 	TPtrName& operator=( const TPtrName &a ) { Set( a.GetPtr() ); return *this; }				\
 	bool operator==( const TPtrName &a ) const { return GetPtr() == a.GetPtr(); }				\
-	bool operator==( const TUserObj *a ) const { return GetPtr() == a; }								\
+	bool operator==( int a ) const { (void)a; return GetPtr() == 0; }	\
 	bool operator!=( const TPtrName &a ) const { return GetPtr() != a.GetPtr(); }				\
-	bool operator!=( const TUserObj *a ) const { return GetPtr() != a; }								\
-	bool operator< ( const TUserObj *a ) const { return GetPtr() < a; }									\
-	bool operator> ( const TUserObj *a ) const { return GetPtr() > a; }									\
-	bool operator<=( const TUserObj *a ) const { return GetPtr() <= a; }								\
-	bool operator>=( const TUserObj *a ) const { return GetPtr() >= a; }								\
+	bool operator!=( int a ) const { (void)a; return GetPtr() != 0; }	\
+	bool operator< ( const TPtrName &a ) const { return GetPtr() < a.GetPtr(); }				\
+	bool operator> ( const TPtrName &a ) const { return GetPtr() > a.GetPtr(); }				\
+	bool operator<=( const TPtrName &a ) const { return GetPtr() <= a.GetPtr(); }			\
+	bool operator>=( const TPtrName &a ) const { return GetPtr() >= a.GetPtr(); }			\
 };
 // ptr specialization
 BASIC_PTR_DECLARE( CPtr, NRefCount::SRefPtrFunc );

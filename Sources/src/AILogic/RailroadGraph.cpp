@@ -1016,7 +1016,7 @@ const float fabs( CEdgePoint *p1, CEdgePoint *p2 )
 
 	CPtr<IEdge> pEdge = p1->GetEdge();
 	CPtr<IEdge> pOldP2Edge;
-	if ( pEdge != p2->GetEdge() )
+	if ( pEdge.GetPtr() != p2->GetEdge() )
 	{
 		NI_ASSERT_T( pEdge->GetFirstNode() == p2->GetEdge()->GetLastNode() && pEdge->GetLastNode() == p2->GetEdge()->GetFirstNode(), "Can't fand distance between point on different edges" );
 		pOldP2Edge = p2->GetEdge();

@@ -9,6 +9,7 @@
 #include "..\Misc\FileUtils.h"
 #include "..\Misc\Win32Random.h"
 #include "..\SFX\SFX.h"
+#include "..\GameTT\MultiplayerCommandManager.h"
 #include "..\GameTT\iMission.h"
 #include "..\Common\PauseGame.h"
 #include "..\GameTT\CommonID.h"
@@ -538,11 +539,11 @@ void CMainLoop::OnMultiplayerStateCommand( const SGameMessage &msg )
 
 				if ( pPlayer && pPlayerInfo && pLeftTheGame )
 				{
-					std::wstring szOutput = pPlayer->GetString();
+					std::wstring szOutput = MakeWideStringFromWordString( pPlayer->GetString() );
 					szOutput += NStr::ToUnicode( " " );
 					szOutput += pPlayerInfo->GetName();
 					szOutput += NStr::ToUnicode( " " );
-					szOutput += pLeftTheGame->GetString();
+					szOutput += MakeWideStringFromWordString( pLeftTheGame->GetString() );
 					pBuffer->Write( CONSOLE_STREAM_CHAT, szOutput.c_str(), 0xffff0000 );
 				}
 				// if player was lagged, it is not lagged anymore
@@ -565,16 +566,16 @@ void CMainLoop::OnMultiplayerStateCommand( const SGameMessage &msg )
 
 				if ( pPlayer && pPlayerInfo && pOutOfSync )
 				{
-					std::wstring szOutput = pPlayer->GetString();
+					std::wstring szOutput = MakeWideStringFromWordString( pPlayer->GetString() );
 					szOutput += NStr::ToUnicode( " " );
 					szOutput += pPlayerInfo->GetName();
 					szOutput += NStr::ToUnicode( " " );
-					szOutput += pOutOfSync->GetString();
+					szOutput += MakeWideStringFromWordString( pOutOfSync->GetString() );
 					
 					pBuffer->Write( CONSOLE_STREAM_CHAT, szOutput.c_str(), 0xffff0000 );
 				}
 				GetSingleton<IScene>()->AddSound( "Int_information", VNULL3, SFX_INTERFACE, SAM_ADD_N_FORGET );
-				pTransceiver->CommandClientDropPlayer( pPlayerInfo->GetName().c_str() );
+				pTransceiver->CommandClientDropPlayer( ToWordString( pPlayerInfo->GetName() ) );
 			}
 			
 			break;

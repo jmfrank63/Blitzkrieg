@@ -373,7 +373,7 @@ ETryStateInterruptResult CTransportWaitPassengerState::TryInterruptState( CAICom
 void CTransportWaitPassengerState::AddFormationToWait( CFormation *pFormation  )
 {
 	std::list< CPtr<CFormation> >::iterator iter = formationsToWait.begin();
-	while ( iter != formationsToWait.end() && *iter != pFormation )
+	while ( iter != formationsToWait.end() && iter->GetPtr() != pFormation )
 		++iter;
 
 	if ( iter == formationsToWait.end() )

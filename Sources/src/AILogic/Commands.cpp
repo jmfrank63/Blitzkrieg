@@ -47,7 +47,7 @@ IStaticPath* CAICommand::CreateStaticPath( CCommonUnit *pUnit )
 			SGroupPathInfo& pathInfo = paths.GetEl( i );
 
 			if ( pathInfo.nSubGroup == pUnit->GetSubGroup() &&
-					 pathInfo.pPathFinder == pUnit->GetPathFinder() && 
+					 pathInfo.pPathFinder.GetPtr() == pUnit->GetPathFinder() && 
 					 pathInfo.cTileSize == pUnit->GetBoundTileRadius() &&
 					 pathInfo.aiClass == pUnit->GetAIClass() )
 				return pathInfo.pPath;

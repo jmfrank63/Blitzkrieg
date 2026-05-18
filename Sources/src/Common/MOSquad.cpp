@@ -94,7 +94,7 @@ bool CMOSquad::Load( interface IMOUnit *pUnit, bool bEnter )
 	{
 		for ( CUnitsList::iterator it = passangers.begin(); it != passangers.end(); ++it )
 		{
-			if ( it->pUnit == pUnit ) 
+			if ( it->pUnit.GetPtr() == pUnit ) 
 			{
 				// first, remove it from internal container
 				passangers.erase( it );

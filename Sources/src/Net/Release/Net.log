@@ -1,4 +1,20 @@
-﻿     Creating library .\Release\Net.lib and object .\Release\Net.exp
+﻿  StdAfx.cpp
+  GSQueryReportingDriver.cpp
+  GSServersList.cpp
+  GlobalsLoader.cpp
+  NetA4.cpp
+  NetAcks.cpp
+  NetConnection.cpp
+  NetDriverConsts.cpp
+  NetLogin.cpp
+  NetLowest.cpp
+  NetObjectFactory.cpp
+  NetPeer2Peer.cpp
+  NetServerInfo.cpp
+  NetStream.cpp
+  Streams.cpp
+  Generating Code...
+     Creating library .\Release\Net.lib and object .\Release\Net.exp
 NetA4.obj : error LNK2019: unresolved external symbol "char const * __cdecl NStr::Format(char const *,...)" (?Format@NStr@@YAPBDPBDZZ) referenced in function "public: virtual char const * __stdcall NNet::CNetDriver::GetAddressByClientID(int)const " (?GetAddressByClientID@CNetDriver@NNet@@UBGPBDH@Z)
 GSQueryReportingDriver.obj : error LNK2001: unresolved external symbol "char const * __cdecl NStr::Format(char const *,...)" (?Format@NStr@@YAPBDPBDZZ)
 NetA4.obj : error LNK2019: unresolved external symbol "void __cdecl NHPTimer::GetTime(__int64 *)" (?GetTime@NHPTimer@@YAXPA_J@Z) referenced in function "public: virtual bool __stdcall NNet::CNetDriver::Init(unsigned int,int,bool)" (?Init@CNetDriver@NNet@@UAG_NIH_N@Z)

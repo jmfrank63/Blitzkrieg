@@ -87,7 +87,7 @@ bool CTextManager::AddTextFile( const char *pszFileName )
 		{
 			// заполним новое значение в share
 			CPtr<CTextString> pTextString = new CTextString;
-			pTextString->SetText( wszValue.c_str() );
+			pTextString->SetText( reinterpret_cast<const WORD*>( wszValue.c_str() ) );
 			shareString.AddPair( szKey, pTextString );
 		}
 		//

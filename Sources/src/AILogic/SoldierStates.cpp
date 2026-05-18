@@ -699,7 +699,7 @@ void CSoldierAttackState::AnalyzeMovingToSidePosition()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoldierAttackState::IsBruteMoving()
 {
-	const nMinPossiblePiercing = pGun->GetMinPossiblePiercing();
+	const int nMinPossiblePiercing = pGun->GetMinPossiblePiercing();
 	return
 		!pUnit->CanMove() ||
 		pEnemy->GetArmor(0) <= nMinPossiblePiercing &&
@@ -755,7 +755,7 @@ void CSoldierAttackState::Segment()
 			{
 				if ( !runUpToEnemy.IsRunningToEnemy() )
 				{
-					if ( !IsValidObj( pEnemy ) || pEnemy == pUnit || pEnemy->GetParty() != nEnemyParty )
+					if ( !IsValidObj( pEnemy ) || pEnemy.GetPtr() == pUnit || pEnemy->GetParty() != nEnemyParty )
 					{
 						if ( IsValidObj( pEnemy ) && !pEnemy->IsVisible( pUnit->GetParty() ) && !pEnemy->IsRevealed() )
 							pUnit->SendAcknowledgement( ACK_DONT_SEE_THE_ENEMY );

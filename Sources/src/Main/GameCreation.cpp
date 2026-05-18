@@ -67,7 +67,7 @@ void CCommonGameCreationInfo::Init()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CCommonGameCreationInfo::GetPlayerInfo( const WORD *pszPlayerName, SPlayerInfo *pInfo ) const
 {
-	std::wstring szPlayerName = pszPlayerName;
+	std::wstring szPlayerName = MakeWideStringFromWordString( pszPlayerName );
 	
 	int i = 0;
 	while ( i < 16 && ( players[i].eState != SPlayerInfo::EPS_VALID || players[i].szName != szPlayerName ) )
@@ -316,7 +316,7 @@ void CCommonGameCreationInfo::SetGlobalVars( const int nOurLogicID )
 		if ( players[i].eState == SPlayerInfo::EPS_VALID )
 		{
 			szValueName = NStr::Format( "Multiplayer.Player%d.Name", nPlayers );
-			SetGlobalVar( szValueName.c_str(), players[i].szName.c_str() );
+			SetGlobalVar( szValueName.c_str(), NStr::ToAscii( players[i].szName ).c_str() );
 
 			szValueName = NStr::Format( "Multiplayer.Player%d.Side", nPlayers );
 			SetGlobalVar( szValueName.c_str(), int(players[i].nSide) );
@@ -489,7 +489,7 @@ void CServerGameCreation::Init( INetDriver *_pInGameNetDriver, INetDriver *_pOut
 	players[0].eState = SPlayerInfo::EPS_VALID;
 	NStr::SetCodePage( GetACP() );
 	
-	players[0].szName = GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", L"Noname" );
+	players[0].szName = MakeWideStringFromWordString( GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", L"Noname" ) );
 	if ( players[0].szName == L"Noname" )
 		players[0].szName = NStr::ToUnicode( GetGlobalVar( "Options.Multiplayer.PlayerName", "Noname" ) );
 
@@ -1168,7 +1168,7 @@ void CClientGameCreation::ProcessLogicIDSet( int nClientID, CStreamAccessor &pkt
 	NI_ASSERT_T( nOurLogicID == -1, NStr::Format( "Double logic id received ( %d, %d )", nOurLogicID, nLogicID ) );
 	players[nLogicID] = players[16];
 
-	std::construct( &(players[16]) );
+	players[16] = SPlayerInfo();
 
 	nOurLogicID = nLogicID;
 	players[nLogicID].nLogicID = nLogicID;
@@ -1180,7 +1180,7 @@ void CClientGameCreation::ProcessLogicIDSet( int nClientID, CStreamAccessor &pkt
 	players[nLogicID].eState = SPlayerInfo::EPS_CONNECTED;
 	NStr::SetCodePage( GetACP() );
 
-	players[nLogicID].szName = GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", L"Noname" );
+	players[nLogicID].szName = MakeWideStringFromWordString( GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", L"Noname" ) );
 	if ( players[nLogicID].szName == L"Noname" )
 		players[nLogicID].szName = NStr::ToUnicode( GetGlobalVar( "Options.Multiplayer.PlayerName", "Noname" ) );
 

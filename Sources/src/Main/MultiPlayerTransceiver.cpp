@@ -125,13 +125,14 @@ void CMultiPlayerTransceiver::LoadGameSettings()
 	std::vector<int> busyNumbers( 16, 0 );
 	for ( int i = 0; i != nNumPlayers; ++i )
 	{
-		SPlayerInfo &player = *players.insert( players.end() );
+		players.push_back( SPlayerInfo() );
+		SPlayerInfo &player = players.back();
 
 		player.totalLagTime = 0;
 		player.lastLagUpdateTime = 0;
 
 		szValueName = NStr::Format( "Multiplayer.Player%d.Name", i );
-		player.szName = GetGlobalWVar( szValueName.c_str(), L"Unknown Player" );
+		player.szName = MakeWideStringFromWordString( GetGlobalWVar( szValueName.c_str(), L"Unknown Player" ) );
 
 		szValueName = NStr::Format( "Multiplayer.Player%d.Side", i );
 		player.nSide = GetGlobalVar( szValueName.c_str(), int(-1) );
@@ -202,7 +203,7 @@ void CMultiPlayerTransceiver::LoadGameSettings()
 			pScenarioTrackerPlayer->SetSide( "Neutral" );
 			CPtr<IText> pText = GetSingleton<ITextManager>()->GetDialog( "textes\\opponents\\neutral" );
 			NI_ASSERT_T( pText != 0, "Text \"textes\\opponents\\neutral\" with neutral player name doesn't exist" );
-			pScenarioTrackerPlayer->SetName( pText->GetString() );
+			pScenarioTrackerPlayer->SetName( MakeWideStringFromWordString( pText->GetString() ) );
 		}
 	}
 }
@@ -287,7 +288,7 @@ void CMultiPlayerTransceiver::SendChatMessages()
 		// скопировать во временную переменную, чтобы не затёрлось следующим вызовом pBuffer->Read
 		std::wstring szMessageType = pszString;
 		const wchar_t *pszString1 = pBuffer->Read( CONSOLE_STREAM_NET_CHAT );
-		pMultiplayer->SendInGameChatMessage( szMessageType.c_str(), pszString1 );
+		pMultiplayer->SendInGameChatMessage( reinterpret_cast<const WORD*>( szMessageType.c_str() ), reinterpret_cast<const WORD*>( pszString1 ) );
 	}
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -859,7 +860,8 @@ void CMultiPlayerTransceiver::CommandClientSpeed( const int nChange )
 void CMultiPlayerTransceiver::CommandClientDropPlayer( const WORD *pszPlayerNick )
 {
 	CPlayersList::iterator iter = players.begin();
-	while ( iter != players.end() && iter->szName != pszPlayerNick )
+	const std::wstring szPlayerNick = MakeWideStringFromWordString( pszPlayerNick );
+	while ( iter != players.end() && iter->szName != szPlayerNick )
 		++iter;
 
 	if ( iter != players.end() && nMyNumber != iter->nLogicID && ( wMask & (1UL << iter->nLogicID) ) )

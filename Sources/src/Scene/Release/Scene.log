@@ -1,104 +1,514 @@
 ﻿  StdAfx.cpp
-  GlobalsLoader.cpp
-  SceneDraw.cpp
-  SceneInternal.cpp
-  SceneObjectFactory.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\BinkVideoPlayer.h(6,10): error C1083: Cannot open include file: 'bink.h': No such file or directory
-  (compiling source file '/SceneObjectFactory.cpp')
+  AnimVisitor.cpp
+  BinkVideoPlayer.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\BinkVideoPlayer.cpp(84,9): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/BinkVideoPlayer.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\BinkVideoPlayer.cpp(84,9):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=IDataStream
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\BinkVideoPlayer.cpp(84,9):
+      while trying to match the argument list '(CPtr<IDataStream>, int)'
   
-  ScenePick.cpp
+  BoldLineVisObj.cpp
+  Camera.cpp
+  CellsConglomerateContainer.cpp
+  Cursor.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\Cursor.cpp(304,18): error C2666: 'CPtr<IGFXTexture>::operator !=': overloaded functions have similar conversions
+  (compiling source file '/Cursor.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<IGFXTexture>::operator !=(const CPtr<IGFXTexture> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\Cursor.cpp(304,18):
+      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=IGFXTexture
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\Cursor.cpp(304,18):
+      while trying to match the argument list '(CPtr<IGFXTexture>, int)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\Cursor.cpp(322,23): error C2666: 'CPtr<IGFXTexture>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/Cursor.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<IGFXTexture>::operator ==(const CPtr<IGFXTexture> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\Cursor.cpp(322,23):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=IGFXTexture
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\Cursor.cpp(322,23):
+      while trying to match the argument list '(CPtr<IGFXTexture>, int)'
+  
+  DrawVisitor.cpp
+  EffectVisObj.cpp
+  FastSinCos.cpp
+  FlashVisObj.cpp
+  FrameSelection.cpp
+  GammaEffect.cpp
+  GlobalsLoader.cpp
   Icon.cpp
   IconBar.cpp
   IconHPBar.cpp
   IconPic.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconPic.h(26,49): error C2666: 'CPtr<IGFXTexture>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/IconPic.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<IGFXTexture>::operator ==(const CPtr<IGFXTexture> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconPic.h(26,49):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=IGFXTexture
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconPic.h(26,49):
+      while trying to match the argument list '(CPtr<IGFXTexture>, int)'
+  
   IconText.cpp
-  BoldLineVisObj.cpp
-  EffectVisObj.cpp
-  FlashVisObj.cpp
-  MeshVisObj.cpp
-  SpriteVisObj.cpp
-  SquadVisObj.cpp
-  VisObjBuilder.cpp
-  StatSystem.cpp
-  Camera.cpp
-  Cursor.cpp
-  Generating Code...
-  Compiling...
-  FrameSelection.cpp
-  AnimVisitor.cpp
-  DrawVisitor.cpp
-  MaterialEffector.cpp
-  MatrixEffector.cpp
-  CellsConglomerateContainer.cpp
-  SceneSound.cpp
-  SoundScene.cpp
-  SoundSceneSerialize.cpp
-  BinkVideoPlayer.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\BinkVideoPlayer.h(6,10): error C1083: Cannot open include file: 'bink.h': No such file or directory
-  (compiling source file '/BinkVideoPlayer.cpp')
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconText.h(27,49): error C2666: 'CPtr<IGFXFont>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/IconText.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<IGFXFont>::operator ==(const CPtr<IGFXFont> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconText.h(27,49):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=IGFXFont
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconText.h(27,49):
+      while trying to match the argument list '(CPtr<IGFXFont>, int)'
   
   KeyBasedParticleSource.cpp
-  ParticleManager.cpp
-  ParticleSourceData.cpp
-  SmokinParticleSource.cpp
-  SmokinParticleSourceData.cpp
-  Track.cpp
-  FastSinCos.cpp
-  Transition.cpp
+  MaterialEffector.cpp
+  Generating Code...
+  Compiling...
+  MatrixEffector.cpp
   MeshBuilders.cpp
-C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(732,82): error C2280: 'STerrainTLVertex::STerrainTLVertex(void)': attempting to reference a deleted function
-  (compiling source file '/MeshBuilders.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\Builders.h(85,1):
-      compiler has generated 'STerrainTLVertex::STerrainTLVertex' here
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\Builders.h(85,1):
-      'STerrainTLVertex::STerrainTLVertex(void)': function was implicitly deleted because 'STerrainTLVertex' has a variant data member 'STerrainTLVertex::<unnamed-tag>::pos' with a non-trivial default constructor
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\Builders.h(66,10):
-      see declaration of 'STerrainTLVertex::<unnamed-tag>::pos'
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(732,82):
+  MeshVisObj.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\MeshVisObj.cpp(254,7): error C2666: 'CPtr<ISceneMaterialEffector>::operator !=': overloaded functions have similar conversions
+  (compiling source file '/MeshVisObj.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<ISceneMaterialEffector>::operator !=(const CPtr<ISceneMaterialEffector> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\MeshVisObj.cpp(254,7):
+      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=ISceneMaterialEffector
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\MeshVisObj.cpp(254,7):
+      while trying to match the argument list '(CPtr<ISceneMaterialEffector>, int)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\MeshVisObj.cpp(500,7): error C2666: 'CPtr<ISceneMaterialEffector>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/MeshVisObj.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<ISceneMaterialEffector>::operator ==(const CPtr<ISceneMaterialEffector> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\MeshVisObj.cpp(500,7):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=ISceneMaterialEffector
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\MeshVisObj.cpp(500,7):
+      while trying to match the argument list '(CPtr<ISceneMaterialEffector>, int)'
+  
+  ParticleManager.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(104,12): error C2666: 'CObj<TValue>::operator ==': overloaded functions have similar conversions
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(104,12): error C2666:         with
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(104,12): error C2666:         [
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(104,12): error C2666:             TValue=SSmokinParticleSourceData
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(104,12): error C2666:         ]
+  (compiling source file '/ParticleManager.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      could be 'bool CObj<TValue>::operator ==(const CObj<TValue> &) const'
+          with
+          [
+              TValue=SSmokinParticleSourceData
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(104,12):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=SSmokinParticleSourceData
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(104,12):
+      while trying to match the argument list '(const _Ty2, int)'
+          with
+          [
+              _Ty2=CObj<SSmokinParticleSourceData>
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(104,12):
       the template instantiation context (the oldest one first) is
-          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\TerrainInternal.h(24,15):
-          see reference to class template instantiation 'std::vector<STerrainPatch::SVertex1,std::allocator<STerrainPatch::SVertex1>>' being compiled
-          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\vector(1631,23):
-          while compiling class template member function 'void std::vector<STerrainPatch::SVertex1,std::allocator<STerrainPatch::SVertex1>>::resize(const unsigned int)'
-              C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\MeshBuilders.cpp(65,17):
-              see the first reference to 'std::vector<STerrainPatch::SVertex1,std::allocator<STerrainPatch::SVertex1>>::resize' in 'ResizeToAdd'
-          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\vector(1633,9):
-          see reference to function template instantiation 'void std::vector<STerrainPatch::SVertex1,std::allocator<STerrainPatch::SVertex1>>::_Resize<std::_Value_init_tag>(const unsigned int,const _Ty2 &)' being compiled
+          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\ParticleManager.h(11,1):
+          see reference to class template instantiation 'CBasicShare<std::string,SSmokinParticleSourceData,268828703,std::hash<TKey>>' being compiled
           with
           [
-              _Ty2=std::_Value_init_tag
+              TKey=std::string
           ]
-          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\vector(1621,27):
-          see reference to function template instantiation 'STerrainTLVertex *std::_Uninitialized_value_construct_n<std::allocator<STerrainPatch::SVertex1>>(STerrainTLVertex *,unsigned int,_Alloc &)' being compiled
+          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(94,7):
+          while compiling class template member function 'void CBasicShare<std::string,SSmokinParticleSourceData,268828703,std::hash<TKey>>::Serialize(IStructureSaver *)'
           with
           [
-              _Alloc=std::allocator<STerrainPatch::SVertex1>
+              TKey=std::string
           ]
-          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(2118,18):
-          see reference to function template instantiation 'void std::_Uninitialized_backout_al<_Alloc>::_Emplace_back<>(void)' being compiled
+              C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\ParticleManager.cpp(68,23):
+              see the first reference to 'CBasicShare<std::string,SSmokinParticleSourceData,268828703,std::hash<TKey>>::Serialize' in 'CParticleDataManager::operator &'
           with
           [
-              _Alloc=std::allocator<STerrainPatch::SVertex1>
-          ]
-          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(1868,35):
-          see reference to function template instantiation 'void std::_Default_allocator_traits<_Alloc>::construct<_Ty,>(_Alloc &,_Objty *const )' being compiled
-          with
-          [
-              _Alloc=std::allocator<STerrainPatch::SVertex1>,
-              _Ty=STerrainTLVertex,
-              _Objty=STerrainTLVertex
+              TKey=std::string
           ]
   
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(117,12): error C2666: 'CObj<TValue>::operator ==': overloaded functions have similar conversions
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(117,12): error C2666:         with
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(117,12): error C2666:         [
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(117,12): error C2666:             TValue=SSmokinParticleSourceData
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(117,12): error C2666:         ]
+  (compiling source file '/ParticleManager.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      could be 'bool CObj<TValue>::operator ==(const CObj<TValue> &) const'
+          with
+          [
+              TValue=SSmokinParticleSourceData
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(117,12):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=SSmokinParticleSourceData
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(117,12):
+      while trying to match the argument list '(const _Ty2, int)'
+          with
+          [
+              _Ty2=CObj<SSmokinParticleSourceData>
+          ]
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(139,12): error C2666: 'CObj<TValue>::operator ==': overloaded functions have similar conversions
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(139,12): error C2666:         with
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(139,12): error C2666:         [
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(139,12): error C2666:             TValue=SSmokinParticleSourceData
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(139,12): error C2666:         ]
+  (compiling source file '/ParticleManager.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      could be 'bool CObj<TValue>::operator ==(const CObj<TValue> &) const'
+          with
+          [
+              TValue=SSmokinParticleSourceData
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(139,12):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=SSmokinParticleSourceData
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(139,12):
+      while trying to match the argument list '(const _Ty2, int)'
+          with
+          [
+              _Ty2=CObj<SSmokinParticleSourceData>
+          ]
+  
+  ParticleSourceData.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\ParticleSourceData.cpp(11,7): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/ParticleSourceData.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\ParticleSourceData.cpp(11,7):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=IDataStream
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\ParticleSourceData.cpp(11,7):
+      while trying to match the argument list '(CPtr<IDataStream>, int)'
+  
   RiverBuilder.cpp
+  SceneDraw.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39): error C2666: 'CPtr<CSoundScene::CSubstSound>::operator !=': overloaded functions have similar conversions
+  (compiling source file '/SceneDraw.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<CSoundScene::CSubstSound>::operator !=(const CPtr<CSoundScene::CSubstSound> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
+      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CSoundScene::CSubstSound
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
+      while trying to match the argument list '(const CPtr<CSoundScene::CSubstSound>, int)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(245,7): error C2666: 'CObj<CDrawVisitor>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/SceneDraw.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      could be 'bool CObj<CDrawVisitor>::operator ==(const CObj<CDrawVisitor> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(245,7):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CDrawVisitor
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(245,7):
+      while trying to match the argument list '(CObj<CDrawVisitor>, int)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(314,8): error C2666: 'CPtr<ITerrain>::operator !=': overloaded functions have similar conversions
+  (compiling source file '/SceneDraw.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<ITerrain>::operator !=(const CPtr<ITerrain> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(314,8):
+      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=ITerrain
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(314,8):
+      while trying to match the argument list '(CPtr<ITerrain>, int)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(1200,7): error C2666: 'CPtr<IGFXTexture>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/SceneDraw.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<IGFXTexture>::operator ==(const CPtr<IGFXTexture> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(1200,7):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=IGFXTexture
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(1200,7):
+      while trying to match the argument list '(CPtr<IGFXTexture>, int)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(1436,7): error C2666: 'CPtr<IGFXTexture>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/SceneDraw.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<IGFXTexture>::operator ==(const CPtr<IGFXTexture> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(1436,7):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=IGFXTexture
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(1436,7):
+      while trying to match the argument list '(CPtr<IGFXTexture>, int)'
+  
+  SceneInternal.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39): error C2666: 'CPtr<CSoundScene::CSubstSound>::operator !=': overloaded functions have similar conversions
+  (compiling source file '/SceneInternal.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<CSoundScene::CSubstSound>::operator !=(const CPtr<CSoundScene::CSubstSound> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
+      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CSoundScene::CSubstSound
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
+      while trying to match the argument list '(const CPtr<CSoundScene::CSubstSound>, int)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneInternal.cpp(296,9): error C2666: 'CPtr<ITerrain>::operator !=': overloaded functions have similar conversions
+  (compiling source file '/SceneInternal.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<ITerrain>::operator !=(const CPtr<ITerrain> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneInternal.cpp(296,9):
+      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=ITerrain
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneInternal.cpp(296,9):
+      while trying to match the argument list '(CPtr<ITerrain>, int)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneInternal.cpp(301,9): error C2666: 'CPtr<ITerrain>::operator !=': overloaded functions have similar conversions
+  (compiling source file '/SceneInternal.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<ITerrain>::operator !=(const CPtr<ITerrain> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneInternal.cpp(301,9):
+      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=ITerrain
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneInternal.cpp(301,9):
+      while trying to match the argument list '(CPtr<ITerrain>, int)'
+  
+  SceneObjectFactory.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconText.h(27,49): error C2666: 'CPtr<IGFXFont>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/SceneObjectFactory.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<IGFXFont>::operator ==(const CPtr<IGFXFont> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconText.h(27,49):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=IGFXFont
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconText.h(27,49):
+      while trying to match the argument list '(CPtr<IGFXFont>, int)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconPic.h(26,49): error C2666: 'CPtr<IGFXTexture>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/SceneObjectFactory.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<IGFXTexture>::operator ==(const CPtr<IGFXTexture> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconPic.h(26,49):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=IGFXTexture
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconPic.h(26,49):
+      while trying to match the argument list '(CPtr<IGFXTexture>, int)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39): error C2666: 'CPtr<CSoundScene::CSubstSound>::operator !=': overloaded functions have similar conversions
+  (compiling source file '/SceneObjectFactory.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<CSoundScene::CSubstSound>::operator !=(const CPtr<CSoundScene::CSubstSound> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
+      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CSoundScene::CSubstSound
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
+      while trying to match the argument list '(const CPtr<CSoundScene::CSubstSound>, int)'
+  
+  ScenePick.cpp
+  SceneSound.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39): error C2666: 'CPtr<CSoundScene::CSubstSound>::operator !=': overloaded functions have similar conversions
+  (compiling source file '/SceneSound.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<CSoundScene::CSubstSound>::operator !=(const CPtr<CSoundScene::CSubstSound> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
+      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CSoundScene::CSubstSound
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
+      while trying to match the argument list '(const CPtr<CSoundScene::CSubstSound>, int)'
+  
+  SmokinParticleSource.cpp
+  SmokinParticleSourceData.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SmokinParticleSourceData.cpp(11,7): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/SmokinParticleSourceData.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SmokinParticleSourceData.cpp(11,7):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=IDataStream
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SmokinParticleSourceData.cpp(11,7):
+      while trying to match the argument list '(CPtr<IDataStream>, int)'
+  
+  SoundScene.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39): error C2666: 'CPtr<CSoundScene::CSubstSound>::operator !=': overloaded functions have similar conversions
+  (compiling source file '/SoundScene.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<CSoundScene::CSubstSound>::operator !=(const CPtr<CSoundScene::CSubstSound> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
+      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CSoundScene::CSubstSound
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
+      while trying to match the argument list '(const CPtr<CSoundScene::CSubstSound>, int)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(618,7): error C2666: 'CPtr<ISFX>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/SoundScene.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<ISFX>::operator ==(const CPtr<ISFX> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(618,7):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=ISFX
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(618,7):
+      while trying to match the argument list '(CPtr<ISFX>, int)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(823,15): error C2666: 'CPtr<ISound>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/SoundScene.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<ISound>::operator ==(const CPtr<ISound> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(823,15):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=ISound
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(823,15):
+      while trying to match the argument list '(CPtr<ISound>, int)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(874,15): error C2666: 'CPtr<ISound>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/SoundScene.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<ISound>::operator ==(const CPtr<ISound> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(874,15):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=ISound
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(874,15):
+      while trying to match the argument list '(CPtr<ISound>, int)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(1741,9): error C2666: 'CPtr<ISound>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/SoundScene.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<ISound>::operator ==(const CPtr<ISound> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(1741,9):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=ISound
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(1741,9):
+      while trying to match the argument list '(CPtr<ISound>, int)'
+  
+  SoundSceneSerialize.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39): error C2666: 'CPtr<CSoundScene::CSubstSound>::operator !=': overloaded functions have similar conversions
+  (compiling source file '/SoundSceneSerialize.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<CSoundScene::CSubstSound>::operator !=(const CPtr<CSoundScene::CSubstSound> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
+      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CSoundScene::CSubstSound
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
+      while trying to match the argument list '(const CPtr<CSoundScene::CSubstSound>, int)'
+  
+  SpriteVisObj.cpp
+  SquadVisObj.cpp
+  StatSystem.cpp
+  TerraDraw.cpp
+  TerraSound.cpp
   Generating Code...
   Compiling...
   TerrainBuilder.cpp
   TerrainEditor.cpp
+  TerrainInternal.cpp
   TerrainRoad.cpp
   TerrainWater.cpp
+  Track.cpp
+  Transition.cpp
   VectorObject.cpp
-  TerraDraw.cpp
-  TerrainInternal.cpp
-  TerraSound.cpp
-  GammaEffect.cpp
+  VisObjBuilder.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconPic.h(26,49): error C2666: 'CPtr<IGFXTexture>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/VisObjBuilder.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
+      could be 'bool CPtr<IGFXTexture>::operator ==(const CPtr<IGFXTexture> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconPic.h(26,49):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=IGFXTexture
+          ]
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconPic.h(26,49):
+      while trying to match the argument list '(CPtr<IGFXTexture>, int)'
+  
   Generating Code...

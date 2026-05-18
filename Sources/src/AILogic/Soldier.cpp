@@ -684,7 +684,7 @@ const int CSoldier::GetNTurrets() const
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldier::GetShootAreas( SShootAreas *pShootAreas, int *pnAreas ) const
 {
-	std::construct( pShootAreas );
+	*pShootAreas = SShootAreas();
 	
 	if ( IsFree() || IsInBuilding() && GetTurret( 0 ) != 0 || IsInEntrenchment() && IsInFirePlace() )
 		CAIUnit::GetShootAreas( pShootAreas, pnAreas );

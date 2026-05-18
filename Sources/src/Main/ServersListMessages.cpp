@@ -17,7 +17,7 @@ void CServerInfoRefreshed::SendToUI()
 		SToUICommand(
 			EMTUC_UPDATE_SERVER_INFO,
 			new SUIServerInfo(
-					wUniqueServerID, szGameName.c_str(), szMapName.c_str(), nCurPlayers, nMaxPlayers, bPasswordRequired,
+					wUniqueServerID, ToWordString( szGameName ), szMapName.c_str(), nCurPlayers, nMaxPlayers, bPasswordRequired,
 					eState == SServerInfo::ESS_OPEN, fPing,
 					szModName.c_str(), szModVersion.c_str(), bSameVersion, eGameType, gameSettings
 			)
@@ -42,7 +42,7 @@ void CServerRemoved::SendToUI()
 	(
 		SToUICommand(
 			EMTUC_DELETE_SERVER,
-			new SUIServerInfo( wUniqueServerID, L"", "", -1, -1, false, false, -1, "", "", true, CMapInfo::TYPE_NONE, SMultiplayerGameSettings() )
+			new SUIServerInfo( wUniqueServerID, ToWordString( std::wstring() ), "", -1, -1, false, false, -1, "", "", true, CMapInfo::TYPE_NONE, SMultiplayerGameSettings() )
 		)
 	);
 

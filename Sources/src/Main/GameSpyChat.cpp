@@ -59,8 +59,9 @@ void CGameSpyChat::InitGSChat( const char *pszRealUserName, const char *pszNick 
 void CGameSpyChat::InitGSChat( const WORD *pszUserName )
 {
 	NStr::SetCodePage( GetACP() );
-	szRealUserName = NStr::ToAscii( pszUserName );
-	szNick = NStr::ToAscii( pszUserName );
+	const std::wstring wszUserName = MakeWideStringFromWordString( pszUserName );
+	szRealUserName = NStr::ToAscii( wszUserName );
+	szNick = NStr::ToAscii( wszUserName );
 	nNamePostfix = -1;
 
 	eMode = EUM_NONE;	
@@ -96,7 +97,8 @@ void CGameSpyChat::SendMessage( const WORD *pszMessage, const SPlayerInfo &ourPl
 		if ( eInitState == EIS_INITIALIZED )
 		{
 			NStr::SetCodePage( GetACP() );
-			chatSendChannelMessage( chat, GetGlobalVar("GameSpyChatName"), NStr::ToAscii( pszMessage ).c_str(), CHAT_MESSAGE );
+			const std::wstring wszMessage = MakeWideStringFromWordString( pszMessage );
+			chatSendChannelMessage( chat, GetGlobalVar("GameSpyChatName"), NStr::ToAscii( wszMessage ).c_str(), CHAT_MESSAGE );
 		}
 	}
 }
@@ -117,11 +119,17 @@ void CGameSpyChat::SendMessage( const WORD *pszMessage, const WORD *wszToPlayer,
 		NStr::SetCodePage( GetACP() );
 		if ( bWhisper )
 		{
-			chatSendUserMessage( chat, NStr::ToAscii( wszToPlayer ).c_str(), NStr::ToAscii( pszMessage ).c_str(), CHAT_MESSAGE );
-			messages.AddMessage( new CChatMessage( pszMessage, NStr::ToUnicode(szNick).c_str(), true ) );
+			const std::wstring wszToPlayerName = MakeWideStringFromWordString( wszToPlayer );
+			const std::wstring wszMessage = MakeWideStringFromWordString( pszMessage );
+			const std::wstring wszNick = NStr::ToUnicode( szNick );
+			chatSendUserMessage( chat, NStr::ToAscii( wszToPlayerName ).c_str(), NStr::ToAscii( wszMessage ).c_str(), CHAT_MESSAGE );
+			messages.AddMessage( new CChatMessage( pszMessage, reinterpret_cast<const WORD*>( wszNick.c_str() ), true ) );
 		}
 		else
-			chatSendChannelMessage( chat, GetGlobalVar("GameSpyChatName"), NStr::ToAscii( pszMessage ).c_str(), CHAT_MESSAGE );
+		{
+			const std::wstring wszMessage = MakeWideStringFromWordString( pszMessage );
+			chatSendChannelMessage( chat, GetGlobalVar("GameSpyChatName"), NStr::ToAscii( wszMessage ).c_str(), CHAT_MESSAGE );
+		}
 	}
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -148,7 +156,7 @@ void CGameSpyChat::Segment()
 		if ( lastTimeToTryToReconnect + 5000 < curTime )
 		{
 			NStr::SetCodePage( GetACP() );
-			InitGSChat( NStr::ToUnicode( szRealUserName.c_str() ).c_str() );
+			InitGSChat( reinterpret_cast<const WORD*>( NStr::ToUnicode( szRealUserName.c_str() ).c_str() ) );
 			lastTimeToTryToReconnect = curTime;
 		}
 	}

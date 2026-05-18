@@ -1,5 +1,7 @@
 #include "StdAfx.h"
 
+#include <functional>
+
 #include "RPGStats.h"
 #include "..\AILogic\AIConsts.h"
 #include "..\Formats\fmtTerrain.h"
@@ -1991,7 +1993,7 @@ bool SEntrenchmentRPGStats::SSegmentRPGStats::ToAIUnits()
 void SEntrenchmentRPGStats::ToAIUnits()
 {
 	SHPObjectRPGStats::ToAIUnits();
-	std::for_each( segments.begin(), segments.end(), std::mem_fun_ref(SSegmentRPGStats::ToAIUnits) ); 
+	std::for_each( segments.begin(), segments.end(), std::mem_fn( &SSegmentRPGStats::ToAIUnits ) ); 
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float SEntrenchmentRPGStats::SSegmentRPGStats::GetLength() const 
@@ -2509,10 +2511,10 @@ bool SBridgeRPGStats::SSegmentRPGStats::ToAIUnits()
 void SBridgeRPGStats::ToAIUnits()
 {
 	SStaticObjectRPGStats::ToAIUnits();
-	std::for_each( segments.begin(), segments.end(), std::mem_fun_ref(SSegmentRPGStats::ToAIUnits) ); 
-	std::for_each( firePoints.begin(), firePoints.end(), std::mem_fun_ref(SFirePoint::ToAIUnits) ); 
-	std::for_each( smokePoints.begin(), smokePoints.end(), std::mem_fun_ref(SFirePoint::ToAIUnits) ); 
-	std::for_each( dirExplosions.begin(), dirExplosions.end(), std::mem_fun_ref(SDirectionExplosion::ToAIUnits) ); 
+	std::for_each( segments.begin(), segments.end(), std::mem_fn( &SSegmentRPGStats::ToAIUnits ) ); 
+	std::for_each( firePoints.begin(), firePoints.end(), std::mem_fn( &SFirePoint::ToAIUnits ) ); 
+	std::for_each( smokePoints.begin(), smokePoints.end(), std::mem_fn( &SFirePoint::ToAIUnits ) ); 
+	std::for_each( dirExplosions.begin(), dirExplosions.end(), std::mem_fn( &SDirectionExplosion::ToAIUnits ) ); 
 	// CRAP{ сейчас не проставляется AIclasses для мостов
 	dwAIClasses = 0;
 	// CRAP}

@@ -20,7 +20,7 @@ CChatMessage::CChatMessage( const char *pszMessage, const char *pszPlayerName, b
 void CChatMessage::SendToUI()
 {
 	IMPToUICommandManager *pCommandManager = GetSingleton<IMPToUICommandManager>();
-	pCommandManager->AddChatMessageToUI( new SChatMessage( szMessage.c_str(), szPlayerName.c_str(), bWhisper ) );
+	pCommandManager->AddChatMessageToUI( new SChatMessage( reinterpret_cast<const WORD*>( szMessage.c_str() ), reinterpret_cast<const WORD*>( szPlayerName.c_str() ), bWhisper ) );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //*******************************************************************
@@ -69,7 +69,7 @@ void CChatUserChanged::SendToUI()
 		case IChat::EUM_IN_GAME_PLAYING: eUIState = EPCS_IN_GAME;
 	}
 
-	SUIChatPlayerInfo *pInfo = new SUIChatPlayerInfo( wszUserNick.c_str() );
+	SUIChatPlayerInfo *pInfo = new SUIChatPlayerInfo( reinterpret_cast<const WORD*>( wszUserNick.c_str() ) );
 	pInfo->eState = eUIState;
 	pInfo->eRelation = GetSingleton<IUserProfile>()->GetChatRelation( wszUserNick.c_str() );
 	
@@ -106,7 +106,7 @@ void CChatUserChangedNick::SendToUI()
 {
 	IMPToUICommandManager *pCommandManager = GetSingleton<IMPToUICommandManager>();
 	pCommandManager->AddCommandToUI( 
-		SToUICommand( EMTUC_PLAYER_CHANGED_NICK, new SUIChatPlayerChangedNick( wszOldNick.c_str(), wszNewNick.c_str() ) )
+		SToUICommand( EMTUC_PLAYER_CHANGED_NICK, new SUIChatPlayerChangedNick( reinterpret_cast<const WORD*>( wszOldNick.c_str() ), reinterpret_cast<const WORD*>( wszNewNick.c_str() ) ) )
 	);
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

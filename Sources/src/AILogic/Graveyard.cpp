@@ -120,7 +120,7 @@ void CGraveyard::GetDeadUnits( SAINotifyDeadAtAll **pDeadUnitsBuffer, int *pnLen
 	{
 		if ( !iter->bSentDead && curTime >= iter->timeToEndDieAnimation && !iter->pUnit->GetStats()->IsAviation() )
 		{
-			std::construct( &(*pDeadUnitsBuffer)[(*pnLen)] );
+			::new ( &(*pDeadUnitsBuffer)[(*pnLen)] ) SAINotifyDeadAtAll();
 			
 			(*pDeadUnitsBuffer)[(*pnLen)].pObj = iter->pUnit;
 			(*pDeadUnitsBuffer)[(*pnLen)].bRot = !iter->pUnit->GetStats()->IsInfantry() || bridgeSoldiersSet.find( iter->pUnit ) != bridgeSoldiersSet.end();
@@ -135,7 +135,7 @@ void CGraveyard::GetDeadUnits( SAINotifyDeadAtAll **pDeadUnitsBuffer, int *pnLen
 
 	while ( !theSuspendedUpdates.IsRecalledEmpty( ACTION_NOTIFY_GET_DEAD_UNITS_UPDATE ) )
 	{
-		std::construct( &(*pDeadUnitsBuffer)[(*pnLen)] );
+		::new ( &(*pDeadUnitsBuffer)[(*pnLen)] ) SAINotifyDeadAtAll();
 		theSuspendedUpdates.GetRecalled( ACTION_NOTIFY_GET_DEAD_UNITS_UPDATE, &(*pDeadUnitsBuffer)[(*pnLen)] );
 		++(*pnLen);
 	}

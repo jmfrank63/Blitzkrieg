@@ -191,12 +191,11 @@ class CUnitsIter<1, 0>
 
 			if ( nYCell > nUpY )
 			{
-				if ( !cOnlyOneTypeVisibility && cCurVis < 1)
+				if ( cCurVis < 1 )
 				 cCurVis = 1;
 				else
 				{
-					if ( !cOnlyOneTypeVisibility )
-						cCurVis = 0;
+					cCurVis = 1;
 
 					++cCurDipl;
 					if ( cCurDipl >= cDiplEnd )
@@ -221,10 +220,10 @@ class CUnitsIter<1, 0>
 	
 	void Init( BYTE _cStartDipl, BYTE cDiplomacies, BYTE cStartMech, BYTE cMechs )
 	{
-		nDownX = vDownLeft.x / ( SConsts::TILE_SIZE * SConsts::BIG_CELL_COEFF * ( 1 << NSize ) );
-		nDownY = vDownLeft.y / ( SConsts::TILE_SIZE * SConsts::BIG_CELL_COEFF * ( 1 << NSize ) );
-		nUpX = vUpRight.x / ( SConsts::TILE_SIZE * SConsts::BIG_CELL_COEFF * ( 1 << NSize ) );
-		nUpY = vUpRight.y / ( SConsts::TILE_SIZE * SConsts::BIG_CELL_COEFF * ( 1 << NSize ) );
+		nDownX = vDownLeft.x / ( SConsts::TILE_SIZE * SConsts::BIG_CELL_COEFF );
+		nDownY = vDownLeft.y / ( SConsts::TILE_SIZE * SConsts::BIG_CELL_COEFF );
+		nUpX = vUpRight.x / ( SConsts::TILE_SIZE * SConsts::BIG_CELL_COEFF );
+		nUpY = vUpRight.y / ( SConsts::TILE_SIZE * SConsts::BIG_CELL_COEFF );
 
 		cStartDipl = _cStartDipl;
 		cCurDipl = cStartDipl;
@@ -277,7 +276,7 @@ public:
 		else if ( cDiplFilter == EDI_FRIEND ) { cStartDipl = _cStartDipl; cDiplomacies = 1; }
 		else if ( cDiplFilter == EDI_ENEMY ) { cStartDipl = 1 - _cStartDipl; cDiplomacies = 1; }
 
-		cCurVis = cOnlyOneTypeVisibility;
+		cCurVis = 1;
 
 		InitAll( vCenter, CVec2( fR, fR ), cStartDipl, cDiplomacies, cStartMech, cMechs );
 	}
@@ -339,12 +338,11 @@ class CUnitsIter<0, 0>
 
 			if ( nYCell > nUpY )
 			{
-				if ( !cOnlyOneTypeVisibility && cCurVis < 1)
+				if ( cCurVis < 1 )
 				 cCurVis = 1;
 				else
 				{
-					if ( !cOnlyOneTypeVisibility )
-						cCurVis = 0;
+					cCurVis = 0;
 
 					++cCurDipl;
 					if ( cCurDipl >= cDiplEnd )
@@ -369,10 +367,10 @@ class CUnitsIter<0, 0>
 	
 	void Init( BYTE _cStartDipl, BYTE cDiplomacies, BYTE cStartMech, BYTE cMechs )
 	{
-		nDownX = vDownLeft.x / ( SConsts::TILE_SIZE * SConsts::BIG_CELL_COEFF * ( 1 << NSize ) );
-		nDownY = vDownLeft.y / ( SConsts::TILE_SIZE * SConsts::BIG_CELL_COEFF * ( 1 << NSize ) );
-		nUpX = vUpRight.x / ( SConsts::TILE_SIZE * SConsts::BIG_CELL_COEFF * ( 1 << NSize ) );
-		nUpY = vUpRight.y / ( SConsts::TILE_SIZE * SConsts::BIG_CELL_COEFF * ( 1 << NSize ) );
+		nDownX = vDownLeft.x / ( SConsts::TILE_SIZE * SConsts::BIG_CELL_COEFF );
+		nDownY = vDownLeft.y / ( SConsts::TILE_SIZE * SConsts::BIG_CELL_COEFF );
+		nUpX = vUpRight.x / ( SConsts::TILE_SIZE * SConsts::BIG_CELL_COEFF );
+		nUpY = vUpRight.y / ( SConsts::TILE_SIZE * SConsts::BIG_CELL_COEFF );
 
 		cStartDipl = _cStartDipl;
 		cCurDipl = cStartDipl;
@@ -425,7 +423,7 @@ public:
 		else if ( cDiplFilter == EDI_FRIEND ) { cStartDipl = _cStartDipl; cDiplomacies = 1; }
 		else if ( cDiplFilter == EDI_ENEMY ) { cStartDipl = 1 - _cStartDipl; cDiplomacies = 1; }
 
-		cCurVis = cOnlyOneTypeVisibility;
+		cCurVis = 0;
 
 		InitAll( vCenter, CVec2( fR, fR ), cStartDipl, cDiplomacies, cStartMech, cMechs );
 	}

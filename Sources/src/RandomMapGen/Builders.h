@@ -52,6 +52,13 @@ struct STerrainTLVertex
 {
 	enum { format = GFXFVF_XYZRHW | GFXFVF_DIFFUSE | GFXFVF_TEX2 };
 	//
+	STerrainTLVertex()
+	{
+		x = y = z = rhw = 0.0f;
+		color = 0;
+		tu = tv = tu1 = tv1 = 0.0f;
+	}
+	//
 	union
 	{
 		struct
@@ -86,6 +93,13 @@ struct STerrainTLVertex
 struct STerrainLVertex
 {
 	enum { format = GFXFVF_XYZ | GFXFVF_DIFFUSE | GFXFVF_TEX2 };
+	//
+	STerrainLVertex()
+	{
+		x = y = z = 0.0f;
+		color = 0;
+		tu = tv = tu1 = tv1 = 0.0f;
+	}
 	//
 	union
 	{

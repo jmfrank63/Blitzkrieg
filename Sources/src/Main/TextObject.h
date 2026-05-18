@@ -15,7 +15,7 @@ class CTextString : public ITextString
 	bool bChanged;
 public:
 	void STDCALL SwapData( ISharedResource *pResource );
-	const WORD* STDCALL GetString() const { return szString.c_str(); }
+	const WORD* STDCALL GetString() const { return reinterpret_cast<const WORD*>( szString.c_str() ); }
 	const int STDCALL GetLength() const { return szString.size(); }
 	void STDCALL SetText( const WORD *pszText ) { szString = pszText == 0 ? L"" : reinterpret_cast<const wchar_t*>(pszText); bChanged = true; }
 	//
@@ -35,7 +35,7 @@ class CTextDialog : public ITextDialog
 	bool bChanged;
 public:
 	void STDCALL SwapData( ISharedResource *pResource );
-	const WORD* STDCALL GetString() const { return szString.c_str(); };
+	const WORD* STDCALL GetString() const { return reinterpret_cast<const WORD*>( szString.c_str() ); };
 	const int STDCALL GetLength() const { return szString.size(); }
 	void STDCALL SetText( const WORD *pszText );
 	//

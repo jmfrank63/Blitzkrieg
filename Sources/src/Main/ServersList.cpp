@@ -33,7 +33,7 @@ IMultiplayerMessage* CServersList::GetMessage()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServersList::AddServer( INetNodeAddress *pAddress, const float fPing, const INetDriver::SGameInfo &gameInfo, const bool bSameVersion )
 {
-	servers.push_back();
+	servers.push_back( SServerInfo() );
 	SServerInfo &info = servers.back();
 
 	info.bUpdated = true;
@@ -301,11 +301,11 @@ void CGameSpyServersList::CreateInGameChat( CPtr<IChat> *pChat, INetDriver *pInG
 	{
 		*pChat = new CGameSpyPeerChat();
 		
-		std::wstring szPlayerName = GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", L"Noname" );
+		std::wstring szPlayerName = MakeWideStringFromWordString( GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", L"Noname" ) );
 		if ( szPlayerName == L"Noname" )
 			szPlayerName = NStr::ToUnicode( GetGlobalVar( "Options.Multiplayer.PlayerName", "Noname" ) );
 
-		(*pChat)->InitGSChat( szPlayerName.c_str() );
+		(*pChat)->InitGSChat( ToWordString( szPlayerName ) );
 	}
 
 	(*pChat)->InitInGameChat( pInGameNetDriver );

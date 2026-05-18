@@ -3,6 +3,7 @@
 #include "MainMenu.h"
 
 #include "..\Main\ScenarioTracker.h"
+#include "MultiplayerCommandManager.h"
 #include "..\StreamIO\OptionSystem.h"
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands[] = 
@@ -66,7 +67,6 @@ void CICMainMenu::Configure( const char *pszConfig )
 	if ( szStrings.size() > 1 ) 
 	{
 		nNextIC = NStr::ToInt( szStrings[1] );
-		szNextICConfig.c_str();
 		for ( int i = 2; i < szStrings.size(); ++i )
 			szNextICConfig += szStrings[i] + ';';
 		if ( !szNextICConfig.empty() && szNextICConfig[szNextICConfig.size() - 1] == ';' ) 
@@ -153,7 +153,8 @@ void CInterfaceMainMenu::OnGetFocus( bool bFocus )
 		IUIElement * pEl = pUIScreen->GetChildByID( 667 );
 		std::string szModInfo = GetGlobalVar( "MOD.Name", "" );
 		szModInfo += GetGlobalVar( "MOD.Version", "" );
-		pEl->SetWindowText( 0, NStr::ToUnicode( szModInfo ).c_str() );
+		const std::wstring wszModInfo = NStr::ToUnicode( szModInfo );
+		pEl->SetWindowText( 0, ToWordString( wszModInfo ) );
 	}
 
 	if ( bFocus && GetGlobalVar( "EnterMultiplauer.Confirm", 0 ) )
@@ -232,7 +233,7 @@ void CInterfaceMainMenu::Create( int nState )
 		if ( IUIElement *pElement = pUIScreen->GetChildByID(666) )
 		{
 			const std::wstring szCopyOwner = NStr::ToUnicode( "Copy Owner: " + szCopyUserName );			
-			pElement->SetWindowText( 0, szCopyOwner.c_str() );
+			pElement->SetWindowText( 0, ToWordString( szCopyOwner ) );
 		}
 	}
 	else if ( !szVersion.empty() )
@@ -241,12 +242,12 @@ void CInterfaceMainMenu::Create( int nState )
 		{
 			std::wstring wszVersion;
 			if ( CPtr<IText> pText = GetSingleton<ITextManager>()->GetDialog( "textes\\strings\\version" ) )
-				wszVersion = pText->GetString();
+				wszVersion = MakeWideStringFromWordString( pText->GetString() );
 			else
 				wszVersion = L"Version:";
 			//
 			wszVersion += L" " + NStr::ToUnicode( szVersion.c_str() );
-			pElement->SetWindowText( 0, wszVersion.c_str() );
+			pElement->SetWindowText( 0, ToWordString( wszVersion ) );
 		}
 	}
 	pScene->AddUIScreen( pUIScreen );

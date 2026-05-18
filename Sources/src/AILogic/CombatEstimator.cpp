@@ -10,7 +10,7 @@ extern NTimer::STime curTime;
 //*		 								   CCombatEstimator														*
 //*******************************************************************
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-CCombatEstimator::operator&( IStructureSaver &ss )
+int CCombatEstimator::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 	saver.Add( 1, &fDamage );

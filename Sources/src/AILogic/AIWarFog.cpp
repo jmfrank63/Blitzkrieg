@@ -302,7 +302,7 @@ void CGlobalWarFog::DeleteUnit( const int id )
 	// не новый юнит
 	if ( unitsInfo[id].nHeapPos != -2 )
 	{
-		deletedUnits.push_back();
+		deletedUnits.push_back( SDeletedUnitInfo() );
 		deletedUnits.back().unitInfo = unitsInfo[id];
 		deletedUnits.back().removedObjects = removedObjects4Units[id];
 		deletedUnits.back().addedObjects = addedObjects4Units[id];

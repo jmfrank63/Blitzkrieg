@@ -606,7 +606,7 @@ void CGun::StartPointBurst( const CVec2 &_target, bool bReAim )
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGun::StartEnemyBurst( CAIUnit *_pEnemy, bool bReAim )
 {
-	if ( IsValidObj( _pEnemy ) && !(pCommonGunInfo->bFiring) && ( shootState == EST_REST || pEnemy != _pEnemy ) )
+	if ( IsValidObj( _pEnemy ) && !(pCommonGunInfo->bFiring) && ( shootState == EST_REST || pEnemy.GetPtr() != _pEnemy ) )
 	{
 		pEnemy = _pEnemy;
 		lastCheck = curTime;

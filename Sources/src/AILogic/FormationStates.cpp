@@ -2539,7 +2539,7 @@ void CCatchFormationState::AnalyzeFormationInBuilding( CBuilding *pBuilding )
 			else
 			{
 				// нужно подправить путь
-				if ( pBuilding != pLastFormationObject || pCatchingFormation->IsIdle() )
+				if ( pLastFormationObject.GetPtr() != pBuilding || pCatchingFormation->IsIdle() )
 				{
 					pLastFormationObject = pBuilding;
 					if ( CPtr<IStaticPath> pPath = CreateStaticPathToPoint( vPointToGo, VNULL2, pCatchingFormation, true ) )
@@ -2572,7 +2572,7 @@ void CCatchFormationState::AnalyzeFormationInEntrenchment( CEntrenchment *pEntre
 		// близко к точке входа
 		if ( fabs2( vCatchingFormationCenter - vPointToGo ) <= sqr( float( 5 * SConsts::TILE_SIZE ) ) )
 			theGroupLogic.InsertUnitCommand( SAIUnitCmd( ACTION_COMMAND_ENTER, pEntrenchment, 1 ), pCatchingFormation );
-		else if ( pCatchingFormation->IsIdle() || pLastFormationObject != (IRefCount*)pEntrenchment )
+		else if ( pCatchingFormation->IsIdle() || pLastFormationObject.GetPtr() != (IRefCount*)pEntrenchment )
 		{
 			pLastFormationObject = pEntrenchment;
 			if ( CPtr<IStaticPath> pPath = CreateStaticPathToPoint( vPointToGo, VNULL2, pCatchingFormation, true ) )
@@ -2600,7 +2600,7 @@ void CCatchFormationState::AnalyzeFormationInTransport( CMilitaryCar *pCar )
 		const float fDist2 = fabs2( pCatchingFormation->GetCenter() - vTransportCenter );
 		// далеко, нужно подбежать
 		if ( fDist2 > sqr( float( 5*SConsts::TILE_SIZE ) ) && 
-				( pLastFormationObject != (IRefCount*)pCar || pCatchingFormation->IsIdle() ) )
+				( pLastFormationObject.GetPtr() != (IRefCount*)pCar || pCatchingFormation->IsIdle() ) )
 		{
 			pLastFormationObject = pCar;
 			if ( CPtr<IStaticPath> pPath = CreateStaticPathToPoint( vTransportCenter, VNULL2, pCatchingFormation, true ) )

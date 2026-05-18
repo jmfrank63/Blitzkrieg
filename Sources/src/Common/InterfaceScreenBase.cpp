@@ -125,7 +125,7 @@ bool CInterfaceScreenBase::OnCursorMove( const CVec2 &vPos )
 		IText *pText = pUIScreen->GetHelpContext( vPos, &rcRect );
 		if ( (timeAbs - time >= timeToolTipShowTime) || (pText && pText->IsChanged()) ) 
 		{
-			if ( (pLastToolTip != pText) || (pText && pText->IsChanged()) ) 
+			if ( (pLastToolTip.GetPtr() != pText) || (pText && pText->IsChanged()) ) 
 			{
 				const DWORD dwColor = GetGlobalVar( ("Scene.Colors.ToolTip." + szInterfaceType + ".Color").c_str(), 0 );
 				pLastToolTip = pText;
@@ -135,7 +135,7 @@ bool CInterfaceScreenBase::OnCursorMove( const CVec2 &vPos )
 			else if ( timeAbs - timeToolTip >= timeToolTipHideTime ) 
 				pScene->SetToolTip( 0, vPos, rcRect );
 		}
-		else if ( pLastToolTip != pText ) 
+		else if ( pLastToolTip.GetPtr() != pText ) 
 		{
 			pScene->SetToolTip( 0, vPos, rcRect );
 			pLastToolTip = 0;

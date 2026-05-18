@@ -120,6 +120,8 @@
       <Optimization>Disabled</Optimization>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <WarningLevel>Level3</WarningLevel>
+      <MultiProcessorCompilation>false</MultiProcessorCompilation>
+      <ForceSynchronousPDBWrites>true</ForceSynchronousPDBWrites>
       <MinimalRebuild>true</MinimalRebuild>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
@@ -130,7 +132,7 @@
       <PrecompiledHeaderFile>StdAfx.h</PrecompiledHeaderFile>
       <ObjectFileName>.\Debug\</ObjectFileName>
       <ProgramDataBaseFileName>.\Debug\</ProgramDataBaseFileName>
-      <AdditionalOptions> /Zm400 </AdditionalOptions>
+      <AdditionalOptions> /Zm400 /FS </AdditionalOptions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <PostBuildEvent>
@@ -170,6 +172,8 @@
       <Optimization>Disabled</Optimization>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <WarningLevel>Level3</WarningLevel>
+      <MultiProcessorCompilation>false</MultiProcessorCompilation>
+      <ForceSynchronousPDBWrites>true</ForceSynchronousPDBWrites>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <PreprocessorDefinitions>_DO_ASSERT_SLOW;NDEBUG;_WINDOWS;WIN32;_DO_CHECKED_CAST;_HASHMAP_OPERATOR_SKOBKI_INSERT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AssemblerListingLocation>.\FastDebug\</AssemblerListingLocation>
@@ -178,7 +182,7 @@
       <PrecompiledHeaderFile>StdAfx.h</PrecompiledHeaderFile>
       <ObjectFileName>.\FastDebug\</ObjectFileName>
       <ProgramDataBaseFileName>.\FastDebug\</ProgramDataBaseFileName>
-      <AdditionalOptions> /Zm200 </AdditionalOptions>
+      <AdditionalOptions> /Zm200 /FS </AdditionalOptions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <PostBuildEvent>
@@ -219,6 +223,8 @@
       <Optimization>MaxSpeed</Optimization>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <WarningLevel>Level3</WarningLevel>
+      <MultiProcessorCompilation>false</MultiProcessorCompilation>
+      <ForceSynchronousPDBWrites>true</ForceSynchronousPDBWrites>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <PreprocessorDefinitions>_FINALRELEASE;_WINDOWS;WIN32;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AssemblerListingLocation>.\Release\</AssemblerListingLocation>
@@ -226,8 +232,8 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>StdAfx.h</PrecompiledHeaderFile>
       <ObjectFileName>.\Release\</ObjectFileName>
-      <ProgramDataBaseFileName>.\Release\</ProgramDataBaseFileName>
-      <AdditionalOptions> /Zm200 </AdditionalOptions>
+      <ProgramDataBaseFileName>.\Release\AILogic.pdb</ProgramDataBaseFileName>
+      <AdditionalOptions> /Zm200 /FS </AdditionalOptions>
     </ClCompile>
     <PostBuildEvent>
       <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
@@ -266,6 +272,8 @@
       <Optimization>Disabled</Optimization>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <WarningLevel>Level3</WarningLevel>
+      <MultiProcessorCompilation>false</MultiProcessorCompilation>
+      <ForceSynchronousPDBWrites>true</ForceSynchronousPDBWrites>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -277,7 +285,7 @@
       <PrecompiledHeaderFile>StdAfx.h</PrecompiledHeaderFile>
       <ObjectFileName>.\BetaRelease\</ObjectFileName>
       <ProgramDataBaseFileName>.\BetaRelease\</ProgramDataBaseFileName>
-      <AdditionalOptions> /Zm200 </AdditionalOptions>
+      <AdditionalOptions> /Zm200 /FS </AdditionalOptions>
     </ClCompile>
     <PostBuildEvent>
       <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
@@ -318,6 +326,8 @@
       <Optimization>MaxSpeed</Optimization>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <WarningLevel>Level3</WarningLevel>
+      <MultiProcessorCompilation>false</MultiProcessorCompilation>
+      <ForceSynchronousPDBWrites>true</ForceSynchronousPDBWrites>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;WIN32;_FINALRELEASE;_PROFILER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AssemblerListingLocation>.\Profiler\</AssemblerListingLocation>
@@ -326,7 +336,7 @@
       <PrecompiledHeaderFile>StdAfx.h</PrecompiledHeaderFile>
       <ObjectFileName>.\Profiler\</ObjectFileName>
       <ProgramDataBaseFileName>.\Profiler\</ProgramDataBaseFileName>
-      <AdditionalOptions> /Zm200 </AdditionalOptions>
+      <AdditionalOptions> /Zm200 /FS </AdditionalOptions>
     </ClCompile>
     <PostBuildEvent>
       <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
@@ -1719,3 +1729,8 @@
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
+
+
+
+
+

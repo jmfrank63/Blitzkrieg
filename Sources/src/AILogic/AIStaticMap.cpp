@@ -1271,7 +1271,7 @@ bool CStaticMap::TemporaryUnlockUnitRect( const int id )
 			
 			if ( IsTileInside( tile ) )
 			{
-				tmpUnlockUnitsBuf.push_back();
+				tmpUnlockUnitsBuf.push_back( STmpUnlockUnitsBuf() );
 				tmpUnlockUnitsBuf.back().tile = tile;
 				tmpUnlockUnitsBuf.back().nUnitsBuf = unitsBuf[tile.y][tile.x];
 				unitsBuf[tile.y][tile.x] = Max( 0, unitsBuf[tile.y][tile.x] - nDecrease );

@@ -91,7 +91,7 @@ void CMultiplayer::ServersListSegment()
 					SGameInfo gameInfo;
 					gameInfo.Init
 					(
-						NStr::ToUnicode( szServerName ).c_str(),
+						ToWordString( NStr::ToUnicode( szServerName ) ),
 						pMapInfo->szMapName.c_str(),
 						GetGlobalVar( "Options.Multiplayer.PlayerLimit", int( pMapInfo->mapInfo.diplomacies.size() - 1 ) ),
 						0,
@@ -167,7 +167,7 @@ void CMultiplayer::ServersListSegment()
 					CPtr<SUIRelationNotify> pNotification = checked_cast_ptr<SUIRelationNotify*>( notificationFromUI.pCommandParams );
 					GetSingleton<IUserProfile>()->SetChatRelation( pNotification->szName.c_str(), pNotification->eRelation );
 
-					SUIChatPlayerInfo *pInfo = new SUIChatPlayerInfo( pNotification->szName.c_str() );
+					SUIChatPlayerInfo *pInfo = new SUIChatPlayerInfo( ToWordString( pNotification->szName ) );
 					pInfo->eState = EPCS_ISNT_CHANGED;
 					pInfo->eRelation = GetSingleton<IUserProfile>()->GetChatRelation( pNotification->szName.c_str() );
 					GetSingleton<IMPToUICommandManager>()->AddCommandToUI( SToUICommand( EMTUC_UPDATE_CHAT_PLAYER_INFO, pInfo ) );
@@ -386,7 +386,7 @@ void CMultiplayer::ProcessChat()
 			if ( pMessage->GetMessageID() == E_CHAT_MESSAGE )
 			{
 				const WORD *wpszSentPlayer = checked_cast<CChatMessage*>(pMessage)->GetPlayerNick();
-				if ( GetSingleton<IUserProfile>()->GetChatRelation( wpszSentPlayer ) == EPR_IGNORED )
+				if ( GetSingleton<IUserProfile>()->GetChatRelation( reinterpret_cast<const wchar_t*>( wpszSentPlayer ) ) == EPR_IGNORED )
 					continue;
 			}
 			
@@ -409,7 +409,7 @@ void CMultiplayer::ProcessChat()
 			}
 
 			if ( bInGSChat )
-				pChat->SendMessage( pMessage->szMessageText.c_str(), pMessage->szPlayerName.c_str(), pMessage->bWhisper );
+				pChat->SendMessage( ToWordString( pMessage->szMessageText ), ToWordString( pMessage->szPlayerName ), pMessage->bWhisper );
 			else if ( pMessage->bWhisper )
 			{
 				SPlayerInfo info;
@@ -419,20 +419,20 @@ void CMultiplayer::ProcessChat()
 					case EMS_SERVERS_LIST:
 						break;
 					case EMS_GAME_CREATION:
-						bValidPlayer = pGameCreation->GetPlayerInfo( pMessage->szPlayerName.c_str(), &info );
+							bValidPlayer = pGameCreation->GetPlayerInfo( ToWordString( pMessage->szPlayerName ), &info );
 						pGameCreation->GetOurPlayerInfo( &ourPlayer );
 						break;
 					case EMS_PLAYING:
-						bValidPlayer = pGamePlaying->GetPlayerInfo( pMessage->szPlayerName.c_str(), &info );
+							bValidPlayer = pGamePlaying->GetPlayerInfo( ToWordString( pMessage->szPlayerName ), &info );
 						pGamePlaying->GetOurPlayerInfo( &ourPlayer );
 						break;
 				}
 
 				if ( bValidPlayer )
-					pChat->SendWhisperMessage( pMessage->szMessageText.c_str(), info, ourPlayer );
+					pChat->SendWhisperMessage( ToWordString( pMessage->szMessageText ), info, ourPlayer );
 			}
 			else
-				pChat->SendMessage( pMessage->szMessageText.c_str(), ourPlayer );
+				pChat->SendMessage( ToWordString( pMessage->szMessageText ), ourPlayer );
 		}
 	}
 }
@@ -479,7 +479,7 @@ void CMultiplayer::SendInGameChatMessage( const WORD *pszType, const WORD *pszMe
 		SPlayerInfo ourPlayer;
 		pGamePlaying->GetOurPlayerInfo( &ourPlayer );
 
-		std::wstring szMessageType = pszType;
+		std::wstring szMessageType = MakeWideStringFromWordString( pszType );
 
 		// to all
 		if ( szMessageType == L"All" )
@@ -621,11 +621,11 @@ void CGameSpyMultiplayer::Init()
 {
 	SetChat( new CGameSpyPeerChat() );
 
-	std::wstring wszUserName = GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", L"Noname" );
+	std::wstring wszUserName = MakeWideStringFromWordString( GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", L"Noname" ) );
 	if ( wszUserName == L"Noname" )
 		wszUserName = NStr::ToUnicode( GetGlobalVar( "Options.Multiplayer.PlayerName", "Noname" ) );
 	
-	GetChat()->InitGSChat( wszUserName.c_str() );
+	GetChat()->InitGSChat( ToWordString( wszUserName ) );
 	GetChat()->UserModeChanged( IChat::EUM_IN_SERVERS_LIST );
 	SetState( EMS_NONE );
 }

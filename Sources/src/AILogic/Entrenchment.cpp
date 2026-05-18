@@ -322,7 +322,7 @@ void CEntrenchment::ProcessEmptyFireplace( const int nFireplace )
 void CEntrenchment::DelSoldier( CSoldier *pUnit, const bool bFillEmptyFireplace )
 {
 	std::list< SInsiderInfo >::iterator iter = insiders.begin();
-	while ( iter != insiders.end() && iter->pUnit != pUnit )
+	while ( iter != insiders.end() && iter->pUnit.GetPtr() != pUnit )
 		++iter;
 
 	if ( iter != insiders.end() )

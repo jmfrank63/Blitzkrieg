@@ -97,7 +97,7 @@ bool CUnitGuns::FindTimeToGo( CAIUnit *pUnit, CAIUnit *pEnemy, std::list< CUnitG
 		return false;
 	else
 	{
-		pPathInfo->push_back();
+		pPathInfo->push_back( SWeaponPathInfo() );
 		pPathInfo->back().fRadius = fFireRangeMax;
 		pPathInfo->back().time = pPath->GetLength() * SConsts::TILE_SIZE * pUnit->GetStats()->fSpeed;
 		pPathInfo->back().pStaticPath = pPath;
@@ -159,7 +159,7 @@ bool CUnitGuns::FindTimeToStatObjGo( CAIUnit *pUnit, CStaticObject *pObj, std::l
 		return false;
 	else
 	{
-		pPathInfo->push_back();
+		pPathInfo->push_back( SWeaponPathInfo() );
 		pPathInfo->back().fRadius = fFireRangeMax;
 		pPathInfo->back().time = pPath->GetLength() * SConsts::TILE_SIZE * pUnit->GetStats()->fSpeed;
 		pPathInfo->back().pStaticPath = pPath;
@@ -248,7 +248,7 @@ int CUnitGuns::GetNAmmo( const int nCommonGun ) const
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // nAmmo со знаком
-void CUnitGuns::ChangeAmmo( const int nCommonGun, const nAmmo )
+void CUnitGuns::ChangeAmmo( const int nCommonGun, const int nAmmo )
 {
 	NI_ASSERT_T( nCommonGun < nCommonGuns, NStr::Format( "Wrong number of gun (%d), total number of guns (%d)", nCommonGun, nCommonGuns ) );
 	commonGunsInfo[nCommonGun]->nAmmo += nAmmo;

@@ -551,7 +551,7 @@ void CMechAttackUnitState::Segment()
 
 		if ( !pGun->IsFiring() )
 		{
-			if ( !IsValidObj( pEnemy ) || pEnemy == pUnit || pEnemy->GetParty() != nEnemyParty )
+			if ( !IsValidObj( pEnemy ) || pEnemy.GetPtr() == pUnit || pEnemy->GetParty() != nEnemyParty )
 				FinishState();
 
 			// если можно перевыбирать цель, то выбрать цель
