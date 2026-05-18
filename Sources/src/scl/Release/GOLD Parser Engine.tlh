@@ -1,6 +1,6 @@
-﻿// Created by Microsoft (R) C/C++ Compiler Version 14.51.36243.0 (eec33503).
+﻿// Created by Microsoft (R) C/C++ Compiler Version 14.51.36243.0 (f5ea0317).
 //
-// C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\scl\Release\GOLD Parser Engine.tlh
+// C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\scl\Release\GOLD Parser Engine.tlh
 //
 // C++ source equivalent of Win32 type library GOLD Parser Engine.dll
 // compiler-generated file - DO NOT EDIT!
@@ -425,7 +425,7 @@ _GOLDParser : IDispatch
 // Wrapper method implementations
 //
 
-#include "C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\scl\Release\GOLD Parser Engine.tli"
+#include "C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\scl\Release\GOLD Parser Engine.tli"
 
 } // namespace GOLDParserEngine
 
