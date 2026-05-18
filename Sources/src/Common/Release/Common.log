@@ -1,4 +1,5 @@
 ﻿  MOSquad.cpp
+  MOUnitMechanical.cpp
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Common\MOSquad.cpp(97,11): error C2666: 'CObj<IMOUnit>::operator ==': overloaded functions have similar conversions
   (compiling source file '/MOSquad.cpp')
       C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(592,1):
@@ -20,7 +21,6 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Common\MOSquad.cp
       C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Common\MOSquad.cpp(97,11):
       qualification adjustment (const/volatile) may be causing the ambiguity
   
-  MOUnitMechanical.cpp
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Common\MOUnitMechanical.cpp(752,14): error C2664: 'void IConsoleBuffer::Write(int,const wchar_t *,DWORD,bool)': cannot convert argument 2 from 'const WORD *' to 'const wchar_t *'
   (compiling source file '/MOUnitMechanical.cpp')
       C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Common\MOUnitMechanical.cpp(752,58):
@@ -30,7 +30,7 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Common\MOUnitMech
       C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Common\MOUnitMechanical.cpp(752,14):
       while trying to match the argument list '(<unnamed-enum-CONSOLE_STREAM_WORLD>, const WORD *, const DWORD)'
   
-  Passangers.cpp
+  UISquadElement.cpp
   WorldBase.cpp
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Common\WorldBase.cpp(1129,119): error C2027: use of undefined type 'type_info'
   (compiling source file '/WorldBase.cpp')

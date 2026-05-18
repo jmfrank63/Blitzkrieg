@@ -1,43 +1,10 @@
 ﻿  GlobalsLoader.cpp
   AILogicObjectFactory.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/AILogicObjectFactory.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/AILogicObjectFactory.cpp')
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObject.h(184,58): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/AILogicObjectFactory.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Entrenchment.h(70,18): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/AILogicObjectFactory.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Entrenchment.h(155,22): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/AILogicObjectFactory.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Entrenchment.h(237,25): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/AILogicObjectFactory.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
   (compiling source file '/AILogicObjectFactory.cpp')
   
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(60,56): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
   (compiling source file '/AILogicObjectFactory.cpp')
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\CLockWithUnlockPossibilities.h(31,19): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/AILogicObjectFactory.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
   
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
   (compiling source file '/AILogicObjectFactory.cpp')
@@ -47,19 +14,6 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitGuns.
   
   DifficultyLevel.cpp
   AIWarFog.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/AIWarFog.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/AIWarFog.cpp')
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObject.h(184,58): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/AIWarFog.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
   (compiling source file '/AIWarFog.cpp')
   
@@ -108,19 +62,6 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIWarFog.
       while trying to match the argument list '()'
   
   WarFogSerialize.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/WarFogSerialize.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/WarFogSerialize.cpp')
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObject.h(184,58): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/WarFogSerialize.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
   PathUnit.cpp
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
   (compiling source file '/PathUnit.cpp')
@@ -164,14 +105,6 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIter
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
   (compiling source file '/PathUnit.cpp')
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/PathUnit.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/PathUnit.cpp')
-  
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(122,30): warning C4812: obsolete declaration style: please use 'CStObjIter<bOnlyContainers>::CStObjIter' instead
   (compiling source file '/PathUnit.cpp')
   
@@ -181,69 +114,7 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObj
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36): warning C4812: obsolete declaration style: please use 'CStObjCircleIter<bOnlyContainers>::CStObjCircleIter' instead
   (compiling source file '/PathUnit.cpp')
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObject.h(184,58): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/PathUnit.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\PathUnit.cpp(192,11): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/PathUnit.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\PathUnit.cpp(442,9): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/PathUnit.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\PathUnit.cpp(521,8): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/PathUnit.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\PathUnit.cpp(533,8): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/PathUnit.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\PathUnit.cpp(544,8): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/PathUnit.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\PathUnit.cpp(569,8): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/PathUnit.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\PathUnit.cpp(590,8): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/PathUnit.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
   PathUnitSerialize.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/PathUnitSerialize.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/PathUnitSerialize.cpp')
-  
-  TrainPathUnit.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/TrainPathUnit.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/TrainPathUnit.cpp')
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\TrainPathUnit.cpp(228,8): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/TrainPathUnit.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
   CollisionInternal.cpp
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
   (compiling source file '/CollisionInternal.cpp')
@@ -287,24 +158,6 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIter
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
   (compiling source file '/CollisionInternal.cpp')
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/CollisionInternal.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/CollisionInternal.cpp')
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\CollisionInternal.cpp(61,9): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/CollisionInternal.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\CollisionInternal.cpp(63,9): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/CollisionInternal.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\CollisionInternal.cpp(664,50): error C2666: 'CPtr<CPathUnit>::operator ==': overloaded functions have similar conversions
   (compiling source file '/CollisionInternal.cpp')
       C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
@@ -328,112 +181,18 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Collision
   
   CollisionInternalSerialize.cpp
   StandartPath.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/StandartPath.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/StandartPath.cpp')
-  
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
   (compiling source file '/StandartPath.cpp')
   
   StandartSmoothMechPath.cpp
   StandartSmoothSoldierPath.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/StandartSmoothSoldierPath.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/StandartSmoothSoldierPath.cpp')
-  
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
   (compiling source file '/StandartSmoothSoldierPath.cpp')
   
   PlanePath.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/PlanePath.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/PlanePath.cpp')
-  
-  ArtilleryPaths.cpp
-  TrainPath.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/TrainPath.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/TrainPath.cpp')
-  
-  TankPitPath.cpp
-  PathSearchFuncs.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/PathSearchFuncs.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/PathSearchFuncs.cpp')
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObject.h(184,58): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/PathSearchFuncs.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\PathSearchFuncs.cpp(175,8): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/PathSearchFuncs.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\PathSearchFuncs.cpp(193,8): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/PathSearchFuncs.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\PathSearchFuncs.cpp(211,8): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/PathSearchFuncs.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\PathSearchFuncs.cpp(214,8): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/PathSearchFuncs.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\PathSearchFuncs.cpp(227,8): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/PathSearchFuncs.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
-  PointChecking.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/PointChecking.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/PointChecking.cpp')
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObject.h(184,58): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/PointChecking.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
+  PathInternalSerialize.cpp
+  PathFinderInternal.cpp
   Commands.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/Commands.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/Commands.cpp')
-  
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Commands.cpp(50,15): error C2666: 'CPtr<IStaticPathFinder>::operator ==': overloaded functions have similar conversions
   (compiling source file '/Commands.cpp')
       C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
@@ -455,23 +214,8 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Commands.
       C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Commands.cpp(50,15):
       qualification adjustment (const/volatile) may be causing the ambiguity
   
-  Generating Code...
-  Compiling...
   CommandsSerialize.cpp
   Guns.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/Guns.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/Guns.cpp')
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObject.h(184,58): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/Guns.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
   (compiling source file '/Guns.cpp')
   
@@ -502,56 +246,11 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Guns.cpp(
       C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Guns.cpp(609,90):
       qualification adjustment (const/volatile) may be causing the ambiguity
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Guns.cpp(764,9): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/Guns.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
   GunsSerialize.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/GunsSerialize.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/GunsSerialize.cpp')
-  
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitGuns.h(47,53): warning C4267: 'return': conversion from 'size_t' to 'const BYTE', possible loss of data
   (compiling source file '/GunsSerialize.cpp')
   
-  HitsStore.cpp
-  MountedGun.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/MountedGun.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/MountedGun.cpp')
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObject.h(184,58): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/MountedGun.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
-  MountedGunsSerialize.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/MountedGunsSerialize.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/MountedGunsSerialize.cpp')
-  
   Shell.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/Shell.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/Shell.cpp')
-  
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
   (compiling source file '/Shell.cpp')
   
@@ -594,11 +293,6 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIter
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
   (compiling source file '/Shell.cpp')
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObject.h(184,58): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/Shell.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(122,30): warning C4812: obsolete declaration style: please use 'CStObjIter<bOnlyContainers>::CStObjIter' instead
   (compiling source file '/Shell.cpp')
   
@@ -629,47 +323,10 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Shell.cpp
       C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Shell.cpp(251,33):
       qualification adjustment (const/volatile) may be causing the ambiguity
   
+  Generating Code...
+  Compiling...
   ShellSerialize.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/ShellSerialize.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/ShellSerialize.cpp')
-  
-  Turret.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/Turret.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/Turret.cpp')
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObject.h(184,58): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/Turret.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
-  TurretSerialize.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/TurretSerialize.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/TurretSerialize.cpp')
-  
   UnitGuns.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/UnitGuns.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/UnitGuns.cpp')
-  
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
   (compiling source file '/UnitGuns.cpp')
   
@@ -678,11 +335,6 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.
   
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitGuns.h(47,53): warning C4267: 'return': conversion from 'size_t' to 'const BYTE', possible loss of data
   (compiling source file '/UnitGuns.cpp')
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObject.h(184,58): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/UnitGuns.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
   
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitGuns.cpp(100,14): error C2661: 'std::list<CUnitGuns::SWeaponPathInfo,std::allocator<CUnitGuns::SWeaponPathInfo>>::push_back': no overloaded function takes 0 arguments
   (compiling source file '/UnitGuns.cpp')
@@ -698,30 +350,9 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitGuns.
   (compiling source file '/UnitGuns.cpp')
   
   GridCreation.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/GridCreation.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/GridCreation.cpp')
-  
   GroupLogic.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/GroupLogic.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/GroupLogic.cpp')
-  
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
   (compiling source file '/GroupLogic.cpp')
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObject.h(184,58): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/GroupLogic.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
   
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
   (compiling source file '/GroupLogic.cpp')
@@ -735,23 +366,6 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\GroupLogi
       while trying to match the argument list '()'
   
   GroupLogicSerialize.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/GroupLogicSerialize.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/GroupLogicSerialize.cpp')
-  
-  UnitsSegments.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/UnitsSegments.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/UnitsSegments.cpp')
-  
   Behaviour.cpp
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
   (compiling source file '/Behaviour.cpp')
@@ -795,14 +409,6 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIter
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
   (compiling source file '/Behaviour.cpp')
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/Behaviour.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/Behaviour.cpp')
-  
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitGuns.h(47,53): warning C4267: 'return': conversion from 'size_t' to 'const BYTE', possible loss of data
   (compiling source file '/Behaviour.cpp')
   
@@ -815,21 +421,8 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
   (compiling source file '/Behaviour.cpp')
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObject.h(184,58): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/Behaviour.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
   BehaviourSerialize.cpp
   FreeFireManager.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/FreeFireManager.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/FreeFireManager.cpp')
-  
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
   (compiling source file '/FreeFireManager.cpp')
   
@@ -873,33 +466,9 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIter
   (compiling source file '/FreeFireManager.cpp')
   
   FreeFireManagerSerialize.cpp
-  RndRunUpToEnemy.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/RndRunUpToEnemy.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/RndRunUpToEnemy.cpp')
-  
-  Generating Code...
-  Compiling...
   Artillery.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/Artillery.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/Artillery.cpp')
-  
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
   (compiling source file '/Artillery.cpp')
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObject.h(184,58): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/Artillery.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
   
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitGuns.h(47,53): warning C4267: 'return': conversion from 'size_t' to 'const BYTE', possible loss of data
   (compiling source file '/Artillery.cpp')
@@ -910,11 +479,6 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(60,56): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
   (compiling source file '/Artillery.cpp')
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\CLockWithUnlockPossibilities.h(31,19): error C2280: 'SRect::SRect(void)': attempting to reference a deleted function
-  (compiling source file '/Artillery.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIGeometry.h(324,1):
-      compiler has generated 'SRect::SRect' here
-  
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Artillery.cpp(759,7): error C2039: 'construct': is not a member of 'std'
   (compiling source file '/Artillery.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
@@ -924,14 +488,1938 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Artillery
   (compiling source file '/Artillery.cpp')
   
   Aviation.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C2039: 'construct': is not a member of 'std'
-  (compiling source file '/Aviation.cpp')
-      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
-      see declaration of 'std'
-  
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdatableObject.h(35,75): error C3861: 'construct': identifier not found
-  (compiling source file '/Aviation.cpp')
-  
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitGuns.h(47,53): warning C4267: 'return': conversion from 'size_t' to 'const BYTE', possible loss of data
   (compiling source file '/Aviation.cpp')
   
+  Soldier.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(60,56): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitGuns.h(47,53): warning C4267: 'return': conversion from 'size_t' to 'const BYTE', possible loss of data
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(122,30): warning C4812: obsolete declaration style: please use 'CStObjIter<bOnlyContainers>::CStObjIter' instead
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(205,36): warning C4812: obsolete declaration style: please use 'CStObjGlobalIter<bOnlyContainers>::CStObjGlobalIter' instead
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36): warning C4812: obsolete declaration style: please use 'CStObjCircleIter<bOnlyContainers>::CStObjCircleIter' instead
+  (compiling source file '/Soldier.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Soldier.cpp(687,7): error C2039: 'construct': is not a member of 'std'
+  (compiling source file '/Soldier.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
+      see declaration of 'std'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Soldier.cpp(687,7): error C3861: 'construct': identifier not found
+  (compiling source file '/Soldier.cpp')
+  
+  Technics.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/Technics.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(60,56): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/Technics.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Technics.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Technics.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Technics.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Technics.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Technics.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Technics.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Technics.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Technics.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Technics.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Technics.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Technics.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Technics.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Technics.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Technics.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/Technics.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitGuns.h(47,53): warning C4267: 'return': conversion from 'size_t' to 'const BYTE', possible loss of data
+  (compiling source file '/Technics.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.cpp(314,7): error C2039: 'construct': is not a member of 'std'
+  (compiling source file '/Technics.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
+      see declaration of 'std'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.cpp(314,7): error C3861: 'construct': identifier not found
+  (compiling source file '/Technics.cpp')
+  
+  AnimUnitMech.cpp
+  Units.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/Units.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(60,56): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/Units.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/Units.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Units.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Units.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Units.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Units.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Units.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Units.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Units.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Units.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Units.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Units.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Units.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Units.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Units.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Units.cpp')
+  
+C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\type_traits(2545,54): error C2666: 'CObj<CFormation>::operator <': overloaded functions have similar conversions
+  (compiling source file '/Units.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(592,1):
+      could be 'bool CObj<CFormation>::operator <(const TUserObj *) const'
+          with
+          [
+              TUserObj=CFormation
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\type_traits(2545,54):
+      or       'built-in C++ operator<(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CFormation
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\type_traits(2545,54):
+      while trying to match the argument list '(const _Ty, const _Ty)'
+          with
+          [
+              _Ty=CObj<CFormation>
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\type_traits(2545,54):
+      the template instantiation context (the oldest one first) is
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xtree(1368,64):
+          while compiling class template member function 'std::pair<std::_Tree_node<CObj<CFormation>,std::_Default_allocator_traits<_Alloc>::void_pointer> *,std::_Tree_node<CObj<CFormation>,std::_Default_allocator_traits<_Alloc>::void_pointer> *> std::_Tree<std::_Tset_traits<_Kty,_Pr,_Alloc,false>>::_Eqrange<CObj<CFormation>>(const _Other &) noexcept(<expr>) const'
+          with
+          [
+              _Alloc=std::allocator<CObj<CFormation>>,
+              _Kty=CObj<CFormation>,
+              _Pr=std::less<CObj<CFormation>>,
+              _Other=CObj<CFormation>
+          ]
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xtree(1716,18):
+          see reference to variable template 'const bool _Nothrow_compare<std::less<CObj<CFormation> >,CObj<CFormation>,CObj<CFormation> >' being compiled
+  
+  UnitsIterators.cpp
+  UnitsSerialize.cpp
+C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\type_traits(2545,54): error C2666: 'CObj<CFormation>::operator <': overloaded functions have similar conversions
+  (compiling source file '/UnitsSerialize.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(592,1):
+      could be 'bool CObj<CFormation>::operator <(const TUserObj *) const'
+          with
+          [
+              TUserObj=CFormation
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\type_traits(2545,54):
+      or       'built-in C++ operator<(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CFormation
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\type_traits(2545,54):
+      while trying to match the argument list '(const _Ty, const _Ty)'
+          with
+          [
+              _Ty=CObj<CFormation>
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\type_traits(2545,54):
+      the template instantiation context (the oldest one first) is
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsSerialize.cpp(17,8):
+          see reference to function template instantiation 'void CSaverAccessor::Add<std::set<CObj<CFormation>,std::less<CObj<CFormation>>,std::allocator<CObj<CFormation>>>>(const SSChunkID,T *)' being compiled
+          with
+          [
+              T=std::set<CObj<CFormation>,std::less<CObj<CFormation>>,std::allocator<CObj<CFormation>>>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\StreamIO\SSHelper.h(431,47):
+          see reference to function template instantiation 'void CSaverAccessor::AddInternal<T,CObj<CFormation>,std::less<CObj<CFormation>>,std::allocator<CObj<CFormation>>>(const SSChunkID,T *,std::set<CObj<CFormation>,std::less<CObj<CFormation>>,std::allocator<CObj<CFormation>>> *)' being compiled
+          with
+          [
+              T=std::set<CObj<CFormation>,std::less<CObj<CFormation>>,std::allocator<CObj<CFormation>>>
+          ]
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\StreamIO\SSHelper.h(192,13):
+          see reference to function template instantiation 'std::pair<std::_Tree_const_iterator<std::_Tree_val<std::_Tree_simple_types<CObj<CFormation>>>>,bool> std::_Tree<std::_Tset_traits<_Kty,_Pr,_Alloc,false>>::insert<false,0>(const CObj<CFormation> &)' being compiled
+          with
+          [
+              _Kty=CObj<CFormation>,
+              _Pr=std::less<CObj<CFormation>>,
+              _Alloc=std::allocator<CObj<CFormation>>
+          ]
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xtree(1246,30):
+          see reference to function template instantiation 'std::pair<std::_Tree_node<CObj<CFormation>,std::_Default_allocator_traits<_Alloc>::void_pointer> *,bool> std::_Tree<std::_Tset_traits<_Kty,_Pr,_Alloc,false>>::_Emplace<const CObj<CFormation>&>(const CObj<CFormation> &)' being compiled
+          with
+          [
+              _Alloc=std::allocator<CObj<CFormation>>,
+              _Kty=CObj<CFormation>,
+              _Pr=std::less<CObj<CFormation>>
+          ]
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xtree(1028,35):
+          see reference to function template instantiation 'std::_Tree_find_result<std::_Tree_node<CObj<CFormation>,std::_Default_allocator_traits<_Alloc>::void_pointer> *> std::_Tree<std::_Tset_traits<_Kty,_Pr,_Alloc,false>>::_Find_lower_bound<_Key>(const _Keyty &) const' being compiled
+          with
+          [
+              _Alloc=std::allocator<CObj<CFormation>>,
+              _Kty=CObj<CFormation>,
+              _Pr=std::less<CObj<CFormation>>,
+              _Key=CObj<CFormation>,
+              _Keyty=CObj<CFormation>
+          ]
+  
+  AIUnit.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AIUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AIUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AIUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AIUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AIUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AIUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitGuns.h(47,53): warning C4267: 'return': conversion from 'size_t' to 'const BYTE', possible loss of data
+  (compiling source file '/AIUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/AIUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(122,30): warning C4812: obsolete declaration style: please use 'CStObjIter<bOnlyContainers>::CStObjIter' instead
+  (compiling source file '/AIUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(205,36): warning C4812: obsolete declaration style: please use 'CStObjGlobalIter<bOnlyContainers>::CStObjGlobalIter' instead
+  (compiling source file '/AIUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36): warning C4812: obsolete declaration style: please use 'CStObjCircleIter<bOnlyContainers>::CStObjCircleIter' instead
+  (compiling source file '/AIUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIUnit.cpp(1357,7): error C2039: 'construct': is not a member of 'std'
+  (compiling source file '/AIUnit.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
+      see declaration of 'std'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIUnit.cpp(1357,7): error C3861: 'construct': identifier not found
+  (compiling source file '/AIUnit.cpp')
+  
+  AIUnitInfoForGeneral.cpp
+  AIUnitSerialize.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/AIUnitSerialize.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(60,56): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/AIUnitSerialize.cpp')
+  
+  Generating Code...
+  Compiling...
+  BasePathUnit.cpp
+  CommonUnit.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/CommonUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/CommonUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/CommonUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/CommonUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/CommonUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/CommonUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/CommonUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/CommonUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/CommonUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/CommonUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/CommonUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/CommonUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/CommonUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/CommonUnit.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/CommonUnit.cpp')
+  
+  QueueUnit.cpp
+  AIEditorInternal.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AIEditorInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AIEditorInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIEditorInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIEditorInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIEditorInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIEditorInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AIEditorInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AIEditorInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AIEditorInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIEditorInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIEditorInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIEditorInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIEditorInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AIEditorInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/AIEditorInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(122,30): warning C4812: obsolete declaration style: please use 'CStObjIter<bOnlyContainers>::CStObjIter' instead
+  (compiling source file '/AIEditorInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(205,36): warning C4812: obsolete declaration style: please use 'CStObjGlobalIter<bOnlyContainers>::CStObjGlobalIter' instead
+  (compiling source file '/AIEditorInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36): warning C4812: obsolete declaration style: please use 'CStObjCircleIter<bOnlyContainers>::CStObjCircleIter' instead
+  (compiling source file '/AIEditorInternal.cpp')
+  
+  AIEditorSerialize.cpp
+  AILogicInternal.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/AILogicInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(60,56): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/AILogicInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/AILogicInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AILogicInternal.cpp(1512,67): error C2027: use of undefined type 'type_info'
+  (compiling source file '/AILogicInternal.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\predefined C++ types (compiler internal)(228,7):
+      see declaration of 'type_info'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AILogicInternal.cpp(1510,36): error C2664: 'void IConsoleBuffer::WriteASCII(int,const char *,DWORD,bool)': cannot convert argument 2 from 'unsigned int' to 'const char *'
+  (compiling source file '/AILogicInternal.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AILogicInternal.cpp(1513,5):
+      Conversion from integral type to pointer type requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\StreamIO\Globals.h(117,23):
+      see declaration of 'IConsoleBuffer::WriteASCII'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AILogicInternal.cpp(1510,36):
+      while trying to match the argument list '(<unnamed-enum-CONSOLE_STREAM_WORLD>, unsigned int, bool)'
+  
+  AILogicSerialize.cpp
+  AIStaticMap.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AIStaticMap.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AIStaticMap.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIStaticMap.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIStaticMap.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIStaticMap.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIStaticMap.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AIStaticMap.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AIStaticMap.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AIStaticMap.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIStaticMap.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIStaticMap.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIStaticMap.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AIStaticMap.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AIStaticMap.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(122,30): warning C4812: obsolete declaration style: please use 'CStObjIter<bOnlyContainers>::CStObjIter' instead
+  (compiling source file '/AIStaticMap.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(205,36): warning C4812: obsolete declaration style: please use 'CStObjGlobalIter<bOnlyContainers>::CStObjGlobalIter' instead
+  (compiling source file '/AIStaticMap.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36): warning C4812: obsolete declaration style: please use 'CStObjCircleIter<bOnlyContainers>::CStObjCircleIter' instead
+  (compiling source file '/AIStaticMap.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIStaticMap.cpp(1274,23): error C2661: 'std::list<CStaticMap::STmpUnlockUnitsBuf,std::allocator<CStaticMap::STmpUnlockUnitsBuf>>::push_back': no overloaded function takes 0 arguments
+  (compiling source file '/AIStaticMap.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\AIStaticMap.cpp(1274,23):
+      while trying to match the argument list '()'
+  
+  AIStaticMapSerialize.cpp
+  CLockWithUnlockPossibilities.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/CLockWithUnlockPossibilities.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/CLockWithUnlockPossibilities.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/CLockWithUnlockPossibilities.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/CLockWithUnlockPossibilities.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/CLockWithUnlockPossibilities.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/CLockWithUnlockPossibilities.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/CLockWithUnlockPossibilities.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/CLockWithUnlockPossibilities.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/CLockWithUnlockPossibilities.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/CLockWithUnlockPossibilities.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/CLockWithUnlockPossibilities.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/CLockWithUnlockPossibilities.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/CLockWithUnlockPossibilities.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/CLockWithUnlockPossibilities.cpp')
+  
+  ListsSet.cpp
+  Probability.cpp
+  RectTiles.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/RectTiles.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/RectTiles.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/RectTiles.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/RectTiles.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/RectTiles.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/RectTiles.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/RectTiles.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/RectTiles.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/RectTiles.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/RectTiles.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/RectTiles.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/RectTiles.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/RectTiles.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/RectTiles.cpp')
+  
+  TimeCounter.cpp
+  Scripts.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Scripts/Scripts.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Scripts/Scripts.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Scripts/Scripts.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Scripts/Scripts.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Scripts/Scripts.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Scripts/Scripts.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Scripts/Scripts.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Scripts/Scripts.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Scripts/Scripts.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Scripts/Scripts.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Scripts/Scripts.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Scripts/Scripts.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Scripts/Scripts.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Scripts/Scripts.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/Scripts/Scripts.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitGuns.h(47,53): warning C4267: 'return': conversion from 'size_t' to 'const BYTE', possible loss of data
+  (compiling source file '/Scripts/Scripts.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(122,30): warning C4812: obsolete declaration style: please use 'CStObjIter<bOnlyContainers>::CStObjIter' instead
+  (compiling source file '/Scripts/Scripts.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(205,36): warning C4812: obsolete declaration style: please use 'CStObjGlobalIter<bOnlyContainers>::CStObjGlobalIter' instead
+  (compiling source file '/Scripts/Scripts.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36): warning C4812: obsolete declaration style: please use 'CStObjCircleIter<bOnlyContainers>::CStObjCircleIter' instead
+  (compiling source file '/Scripts/Scripts.cpp')
+  
+  ScriptsSerialize.cpp
+  Updater.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/Updater.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Updater.cpp(218,8): error C2039: 'construct': is not a member of 'std'
+  (compiling source file '/Updater.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
+      see declaration of 'std'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Updater.cpp(218,8): error C3861: 'construct': identifier not found
+  (compiling source file '/Updater.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Updater.cpp(259,10): error C2039: 'construct': is not a member of 'std'
+  (compiling source file '/Updater.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
+      see declaration of 'std'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Updater.cpp(259,10): error C3861: 'construct': identifier not found
+  (compiling source file '/Updater.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Updater.cpp(303,9): error C2039: 'construct': is not a member of 'std'
+  (compiling source file '/Updater.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
+      see declaration of 'std'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Updater.cpp(303,9): error C3861: 'construct': identifier not found
+  (compiling source file '/Updater.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Updater.cpp(367,10): error C2039: 'construct': is not a member of 'std'
+  (compiling source file '/Updater.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
+      see declaration of 'std'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Updater.cpp(367,10): error C3861: 'construct': identifier not found
+  (compiling source file '/Updater.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Updater.cpp(535,8): error C2039: 'construct': is not a member of 'std'
+  (compiling source file '/Updater.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
+      see declaration of 'std'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Updater.cpp(535,8): error C3861: 'construct': identifier not found
+  (compiling source file '/Updater.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Updater.cpp(742,9): error C2039: 'construct': is not a member of 'std'
+  (compiling source file '/Updater.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
+      see declaration of 'std'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Updater.cpp(742,9): error C3861: 'construct': identifier not found
+  (compiling source file '/Updater.cpp')
+  
+  UpdaterSerialize.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdaterSerialize.cpp(55,16): warning C4267: 'argument': conversion from 'size_t' to 'const SSChunkID', possible loss of data
+  (compiling source file '/UpdaterSerialize.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UpdaterSerialize.cpp(57,16): warning C4267: 'argument': conversion from 'size_t' to 'const SSChunkID', possible loss of data
+  (compiling source file '/UpdaterSerialize.cpp')
+  
+  Formation.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/Formation.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/Formation.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(60,56): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/Formation.cpp')
+  
+  FormationSerialize.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/FormationSerialize.cpp')
+  
+  Generating Code...
+  Compiling...
+  Diplomacy.cpp
+  SoldierStates.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/SoldierStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(60,56): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/SoldierStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/SoldierStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitGuns.h(47,53): warning C4267: 'return': conversion from 'size_t' to 'const BYTE', possible loss of data
+  (compiling source file '/SoldierStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(122,30): warning C4812: obsolete declaration style: please use 'CStObjIter<bOnlyContainers>::CStObjIter' instead
+  (compiling source file '/SoldierStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(205,36): warning C4812: obsolete declaration style: please use 'CStObjGlobalIter<bOnlyContainers>::CStObjGlobalIter' instead
+  (compiling source file '/SoldierStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36): warning C4812: obsolete declaration style: please use 'CStObjCircleIter<bOnlyContainers>::CStObjCircleIter' instead
+  (compiling source file '/SoldierStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\SoldierStates.cpp(702,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/SoldierStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\SoldierStates.cpp(758,36): error C2666: 'CPtr<CAIUnit>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/SoldierStates.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      could be 'bool CPtr<CAIUnit>::operator ==(const TUserObj *) const'
+          with
+          [
+              TUserObj=CAIUnit
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      or       'bool CPtr<CAIUnit>::operator ==(const CPtr<CAIUnit> &) const'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\SoldierStates.cpp(758,36):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CAIUnit
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\SoldierStates.cpp(758,36):
+      while trying to match the argument list '(CPtr<CAIUnit>, CAIUnit *)'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\SoldierStates.cpp(758,36):
+      qualification adjustment (const/volatile) may be causing the ambiguity
+  
+  SoldierStatesSerialize.cpp
+  PlaneStates.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitGuns.h(47,53): warning C4267: 'return': conversion from 'size_t' to 'const BYTE', possible loss of data
+  (compiling source file '/PlaneStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/PlaneStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/PlaneStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(60,56): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/PlaneStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/PlaneStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/PlaneStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/PlaneStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/PlaneStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/PlaneStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/PlaneStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/PlaneStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/PlaneStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/PlaneStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/PlaneStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/PlaneStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/PlaneStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/PlaneStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/PlaneStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\PlaneStates.cpp(455,22): error C2666: 'CPtr<CAviation>::operator !=': overloaded functions have similar conversions
+  (compiling source file '/PlaneStates.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      could be 'bool CPtr<CAviation>::operator !=(const TUserObj *) const'
+          with
+          [
+              TUserObj=CAviation
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      or       'bool CPtr<CAviation>::operator !=(const CPtr<CAviation> &) const'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\PlaneStates.cpp(455,22):
+      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CAviation
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\PlaneStates.cpp(455,22):
+      while trying to match the argument list '(CPtr<CAviation>, CAviation *)'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\PlaneStates.cpp(455,22):
+      qualification adjustment (const/volatile) may be causing the ambiguity
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\PlaneStates.cpp(1283,7): error C2666: 'CPtr<CAIUnit>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/PlaneStates.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      could be 'bool CPtr<CAIUnit>::operator ==(const TUserObj *) const'
+          with
+          [
+              TUserObj=CAIUnit
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      or       'bool CPtr<CAIUnit>::operator ==(const CPtr<CAIUnit> &) const'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\PlaneStates.cpp(1283,7):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CAIUnit
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\PlaneStates.cpp(1283,7):
+      while trying to match the argument list '(CPtr<CAIUnit>, CAIUnit *)'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\PlaneStates.cpp(1283,7):
+      qualification adjustment (const/volatile) may be causing the ambiguity
+  
+  PlaneStatesSerialize.cpp
+  TankStates.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/TankStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(60,56): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/TankStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/TankStates.cpp')
+  
+  TankStatesSerialize.cpp
+  TransportEngineerStates.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(60,56): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(122,30): warning C4812: obsolete declaration style: please use 'CStObjIter<bOnlyContainers>::CStObjIter' instead
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(205,36): warning C4812: obsolete declaration style: please use 'CStObjGlobalIter<bOnlyContainers>::CStObjGlobalIter' instead
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36): warning C4812: obsolete declaration style: please use 'CStObjCircleIter<bOnlyContainers>::CStObjCircleIter' instead
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\TransportEngineerStates.cpp(323,7): warning C4858: discarding return value: The 'unique' algorithm returns the iterator past the last element that should be kept. You need to call container.erase(result, container.end()) afterwards.
+  (compiling source file '/TransportEngineerStates.cpp')
+  
+  TransportStates.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/TransportStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(60,56): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/TransportStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/TransportStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\TransportStates.cpp(376,44): error C2666: 'CPtr<CFormation>::operator !=': overloaded functions have similar conversions
+  (compiling source file '/TransportStates.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      could be 'bool CPtr<CFormation>::operator !=(const TUserObj *) const'
+          with
+          [
+              TUserObj=CFormation
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      or       'bool CPtr<CFormation>::operator !=(const CPtr<CFormation> &) const'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\TransportStates.cpp(376,44):
+      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CFormation
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\TransportStates.cpp(376,44):
+      while trying to match the argument list '(CPtr<CFormation>, CFormation *)'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\TransportStates.cpp(376,44):
+      qualification adjustment (const/volatile) may be causing the ambiguity
+  
+  TransportStatesSerialize.cpp
+  CommonStates.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/CommonStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/CommonStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(60,56): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/CommonStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\CommonStates.cpp(554,34): error C2666: 'CPtr<CAIUnit>::operator ==': overloaded functions have similar conversions
+  (compiling source file '/CommonStates.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      could be 'bool CPtr<CAIUnit>::operator ==(const TUserObj *) const'
+          with
+          [
+              TUserObj=CAIUnit
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      or       'bool CPtr<CAIUnit>::operator ==(const CPtr<CAIUnit> &) const'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\CommonStates.cpp(554,34):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CAIUnit
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\CommonStates.cpp(554,34):
+      while trying to match the argument list '(CPtr<CAIUnit>, CAIUnit *)'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\CommonStates.cpp(554,34):
+      qualification adjustment (const/volatile) may be causing the ambiguity
+  
+  CommonStatesSerialize.cpp
+  FormationEngineerStates.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/FormationEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/FormationEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(60,56): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/FormationEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/FormationEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/FormationEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/FormationEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/FormationEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/FormationEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/FormationEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/FormationEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/FormationEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/FormationEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/FormationEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/FormationEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/FormationEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/FormationEngineerStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/FormationEngineerStates.cpp')
+  
+  FormationStates.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/FormationStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/FormationStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(60,56): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/FormationStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitGuns.h(47,53): warning C4267: 'return': conversion from 'size_t' to 'const BYTE', possible loss of data
+  (compiling source file '/FormationStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\FormationStates.cpp(2575,45): error C2666: 'CPtr<IRefCount>::operator !=': overloaded functions have similar conversions
+  (compiling source file '/FormationStates.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      could be 'bool CPtr<IRefCount>::operator !=(const TUserObj *) const'
+          with
+          [
+              TUserObj=IRefCount
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      or       'bool CPtr<IRefCount>::operator !=(const CPtr<IRefCount> &) const'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\FormationStates.cpp(2575,45):
+      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=IRefCount
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\FormationStates.cpp(2575,45):
+      while trying to match the argument list '(CPtr<IRefCount>, IRefCount *)'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\FormationStates.cpp(2575,45):
+      qualification adjustment (const/volatile) may be causing the ambiguity
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\FormationStates.cpp(2603,7): error C2666: 'CPtr<IRefCount>::operator !=': overloaded functions have similar conversions
+  (compiling source file '/FormationStates.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      could be 'bool CPtr<IRefCount>::operator !=(const TUserObj *) const'
+          with
+          [
+              TUserObj=IRefCount
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      or       'bool CPtr<IRefCount>::operator !=(const CPtr<IRefCount> &) const'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\FormationStates.cpp(2603,7):
+      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=IRefCount
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\FormationStates.cpp(2603,7):
+      while trying to match the argument list '(CPtr<IRefCount>, IRefCount *)'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\FormationStates.cpp(2603,7):
+      qualification adjustment (const/volatile) may be causing the ambiguity
+  
+  FormationStatesSerialize.cpp
+  ArtilleryStates.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/ArtilleryStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/ArtilleryStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/ArtilleryStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/ArtilleryStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/ArtilleryStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/ArtilleryStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/ArtilleryStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/ArtilleryStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/ArtilleryStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/ArtilleryStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/ArtilleryStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/ArtilleryStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/ArtilleryStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/ArtilleryStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/ArtilleryStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/ArtilleryStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(60,56): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/ArtilleryStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(122,30): warning C4812: obsolete declaration style: please use 'CStObjIter<bOnlyContainers>::CStObjIter' instead
+  (compiling source file '/ArtilleryStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(205,36): warning C4812: obsolete declaration style: please use 'CStObjGlobalIter<bOnlyContainers>::CStObjGlobalIter' instead
+  (compiling source file '/ArtilleryStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36): warning C4812: obsolete declaration style: please use 'CStObjCircleIter<bOnlyContainers>::CStObjCircleIter' instead
+  (compiling source file '/ArtilleryStates.cpp')
+  
+  ArtilleryStatesSerialize.cpp
+  TechnicStates.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/TechnicStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/TechnicStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/TechnicStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/TechnicStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/TechnicStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/TechnicStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/TechnicStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/TechnicStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/TechnicStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/TechnicStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/TechnicStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/TechnicStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/TechnicStates.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/TechnicStates.cpp')
+  
+  UnitStates.cpp
+  EntrenchmentCreation.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/EntrenchmentCreation.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/EntrenchmentCreation.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/EntrenchmentCreation.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/EntrenchmentCreation.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/EntrenchmentCreation.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/EntrenchmentCreation.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/EntrenchmentCreation.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/EntrenchmentCreation.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/EntrenchmentCreation.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/EntrenchmentCreation.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/EntrenchmentCreation.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/EntrenchmentCreation.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/EntrenchmentCreation.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/EntrenchmentCreation.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(122,30): warning C4812: obsolete declaration style: please use 'CStObjIter<bOnlyContainers>::CStObjIter' instead
+  (compiling source file '/EntrenchmentCreation.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(205,36): warning C4812: obsolete declaration style: please use 'CStObjGlobalIter<bOnlyContainers>::CStObjGlobalIter' instead
+  (compiling source file '/EntrenchmentCreation.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36): warning C4812: obsolete declaration style: please use 'CStObjCircleIter<bOnlyContainers>::CStObjCircleIter' instead
+  (compiling source file '/EntrenchmentCreation.cpp')
+  
+  Generating Code...
+  Compiling...
+  UnitCreation.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/UnitCreation.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/UnitCreation.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(60,56): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/UnitCreation.cpp')
+  
+  AntiArtillery.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AntiArtillery.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AntiArtillery.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AntiArtillery.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AntiArtillery.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AntiArtillery.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AntiArtillery.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AntiArtillery.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AntiArtillery.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AntiArtillery.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AntiArtillery.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AntiArtillery.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AntiArtillery.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/AntiArtillery.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/AntiArtillery.cpp')
+  
+  AntiArtilleryManager.cpp
+  CombatEstimator.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\CombatEstimator.cpp(13,19): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/CombatEstimator.cpp')
+  
+  Statistics.cpp
+  GeneralAirForce.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/GeneralAirForce.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/GeneralAirForce.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/GeneralAirForce.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/GeneralAirForce.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/GeneralAirForce.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/GeneralAirForce.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/GeneralAirForce.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/GeneralAirForce.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/GeneralAirForce.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/GeneralAirForce.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/GeneralAirForce.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/GeneralAirForce.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/GeneralAirForce.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/GeneralAirForce.cpp')
+  
+  GeneralArtillery.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/GeneralArtillery.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(60,56): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/GeneralArtillery.cpp')
+  
+  GeneralHelper.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/GeneralHelper.cpp')
+  
+  GeneralIntendant.cpp
+  GeneralInternal.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/GeneralInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/GeneralInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/GeneralInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/GeneralInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/GeneralInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/GeneralInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/GeneralInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/GeneralInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/GeneralInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/GeneralInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/GeneralInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/GeneralInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/GeneralInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/GeneralInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/GeneralInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(59,71): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/GeneralInternal.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Technics.h(60,56): warning C4267: 'return': conversion from 'size_t' to 'BYTE', possible loss of data
+  (compiling source file '/GeneralInternal.cpp')
+  
+  GeneralSerialize.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\GeneralSerialize.cpp(13,16): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/GeneralSerialize.cpp')
+  
+  GeneralTasks.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/GeneralTasks.cpp')
+  
+  Resistance.cpp
+  RailroadGraph.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\RailroadGraph.cpp(1019,7): error C2666: 'CPtr<IEdge>::operator !=': overloaded functions have similar conversions
+  (compiling source file '/RailroadGraph.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      could be 'bool CPtr<IEdge>::operator !=(const TUserObj *) const'
+          with
+          [
+              TUserObj=IEdge
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      or       'bool CPtr<IEdge>::operator !=(const CPtr<IEdge> &) const'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\RailroadGraph.cpp(1019,7):
+      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=IEdge
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\RailroadGraph.cpp(1019,7):
+      while trying to match the argument list '(CPtr<IEdge>, IEdge *)'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\RailroadGraph.cpp(1019,7):
+      qualification adjustment (const/volatile) may be causing the ambiguity
+  
+  RailroadsSerialize.cpp
+  StaticObjects.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(122,30): warning C4812: obsolete declaration style: please use 'CStObjIter<bOnlyContainers>::CStObjIter' instead
+  (compiling source file '/StaticObjects.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(205,36): warning C4812: obsolete declaration style: please use 'CStObjGlobalIter<bOnlyContainers>::CStObjGlobalIter' instead
+  (compiling source file '/StaticObjects.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36): warning C4812: obsolete declaration style: please use 'CStObjCircleIter<bOnlyContainers>::CStObjCircleIter' instead
+  (compiling source file '/StaticObjects.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/StaticObjects.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/StaticObjects.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/StaticObjects.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/StaticObjects.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/StaticObjects.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/StaticObjects.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/StaticObjects.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/StaticObjects.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/StaticObjects.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/StaticObjects.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/StaticObjects.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/StaticObjects.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/StaticObjects.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/StaticObjects.cpp')
+  
+  StaticObjectsIters.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(122,30): warning C4812: obsolete declaration style: please use 'CStObjIter<bOnlyContainers>::CStObjIter' instead
+  (compiling source file '/StaticObjectsIters.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(205,36): warning C4812: obsolete declaration style: please use 'CStObjGlobalIter<bOnlyContainers>::CStObjGlobalIter' instead
+  (compiling source file '/StaticObjectsIters.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36): warning C4812: obsolete declaration style: please use 'CStObjCircleIter<bOnlyContainers>::CStObjCircleIter' instead
+  (compiling source file '/StaticObjectsIters.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36): warning C4812: obsolete declaration style: please use 'CStObjCircleIter<false>::CStObjCircleIter' instead
+  (compiling source file '/StaticObjectsIters.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36):
+      the template instantiation context (the oldest one first) is
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(73,30):
+          see reference to class template instantiation 'CStObjCircleIter<false>' being compiled
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(216,1):
+          while compiling class template member function 'CStObjCircleIter<false>::CStObjCircleIter(const CVec2 &,const float)'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.cpp(12,26):
+              see the first reference to 'CStObjCircleIter<false>::CStObjCircleIter' in 'CMinesIter::CMinesIter'
+  
+  Bridge.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Bridge.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Bridge.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Bridge.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Bridge.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Bridge.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Bridge.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Bridge.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Bridge.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Bridge.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Bridge.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Bridge.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Bridge.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Bridge.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Bridge.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/Bridge.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(122,30): warning C4812: obsolete declaration style: please use 'CStObjIter<bOnlyContainers>::CStObjIter' instead
+  (compiling source file '/Bridge.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(205,36): warning C4812: obsolete declaration style: please use 'CStObjGlobalIter<bOnlyContainers>::CStObjGlobalIter' instead
+  (compiling source file '/Bridge.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36): warning C4812: obsolete declaration style: please use 'CStObjCircleIter<bOnlyContainers>::CStObjCircleIter' instead
+  (compiling source file '/Bridge.cpp')
+  
+  Building.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Building.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Building.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Building.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Building.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Building.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Building.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Building.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Building.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Building.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Building.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Building.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Building.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Building.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Building.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitGuns.h(47,53): warning C4267: 'return': conversion from 'size_t' to 'const BYTE', possible loss of data
+  (compiling source file '/Building.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Formation.h(421,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/Building.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Building.cpp(66,39): warning C4293: '<<': shift count negative or too big, undefined behavior
+  (compiling source file '/Building.cpp')
+  
+  Entrenchment.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Entrenchment.cpp(325,40): error C2666: 'CPtr<CSoldier>::operator !=': overloaded functions have similar conversions
+  (compiling source file '/Entrenchment.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      could be 'bool CPtr<CSoldier>::operator !=(const TUserObj *) const'
+          with
+          [
+              TUserObj=CSoldier
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      or       'bool CPtr<CSoldier>::operator !=(const CPtr<CSoldier> &) const'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Entrenchment.cpp(325,40):
+      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CSoldier
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Entrenchment.cpp(325,40):
+      while trying to match the argument list '(CPtr<CSoldier>, CSoldier *)'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Entrenchment.cpp(325,40):
+      qualification adjustment (const/volatile) may be causing the ambiguity
+  
+  Generating Code...
+  Compiling...
+  Fence.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(122,30): warning C4812: obsolete declaration style: please use 'CStObjIter<bOnlyContainers>::CStObjIter' instead
+  (compiling source file '/Fence.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(205,36): warning C4812: obsolete declaration style: please use 'CStObjGlobalIter<bOnlyContainers>::CStObjGlobalIter' instead
+  (compiling source file '/Fence.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36): warning C4812: obsolete declaration style: please use 'CStObjCircleIter<bOnlyContainers>::CStObjCircleIter' instead
+  (compiling source file '/Fence.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36): warning C4812: obsolete declaration style: please use 'CStObjCircleIter<false>::CStObjCircleIter' instead
+  (compiling source file '/Fence.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36):
+      the template instantiation context (the oldest one first) is
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(73,30):
+          see reference to class template instantiation 'CStObjCircleIter<false>' being compiled
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(216,1):
+          while compiling class template member function 'CStObjCircleIter<false>::CStObjCircleIter(const CVec2 &,const float)'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Fence.cpp(160,36):
+              see the first reference to 'CStObjCircleIter<false>::CStObjCircleIter' in 'CFence::Init'
+  
+  Flag.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Flag.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Flag.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Flag.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Flag.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Flag.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Flag.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Flag.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Flag.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Flag.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Flag.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Flag.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Flag.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Flag.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Flag.cpp')
+  
+  Mine.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(194,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Mine.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(198,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Mine.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(224,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Mine.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(225,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Mine.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(226,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Mine.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(227,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Mine.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(280,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Mine.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(342,11): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Mine.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(346,12): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Mine.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(372,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Mine.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(373,82): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Mine.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(374,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Mine.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(375,79): error C2065: 'NSize': undeclared identifier
+  (compiling source file '/Mine.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\UnitsIterators2.h(428,13): error C2065: 'cOnlyOneTypeVisibility': undeclared identifier
+  (compiling source file '/Mine.cpp')
+  
+  RotatingFireplacesObject.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\RotatingFireplacesObject.cpp(17,9): error C2661: 'std::list<CRotatingFireplacesObject::SUnitInfo,std::allocator<CRotatingFireplacesObject::SUnitInfo>>::push_back': no overloaded function takes 0 arguments
+  (compiling source file '/RotatingFireplacesObject.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\RotatingFireplacesObject.cpp(17,9):
+      while trying to match the argument list '()'
+  
+  SmokeScreen.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(122,30): warning C4812: obsolete declaration style: please use 'CStObjIter<bOnlyContainers>::CStObjIter' instead
+  (compiling source file '/SmokeScreen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(205,36): warning C4812: obsolete declaration style: please use 'CStObjGlobalIter<bOnlyContainers>::CStObjGlobalIter' instead
+  (compiling source file '/SmokeScreen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36): warning C4812: obsolete declaration style: please use 'CStObjCircleIter<bOnlyContainers>::CStObjCircleIter' instead
+  (compiling source file '/SmokeScreen.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36): warning C4812: obsolete declaration style: please use 'CStObjCircleIter<false>::CStObjCircleIter' instead
+  (compiling source file '/SmokeScreen.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(215,36):
+      the template instantiation context (the oldest one first) is
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(73,30):
+          see reference to class template instantiation 'CStObjCircleIter<false>' being compiled
+          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.h(216,1):
+          while compiling class template member function 'CStObjCircleIter<false>::CStObjCircleIter(const CVec2 &,const float)'
+              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\SmokeScreen.cpp(116,36):
+              see the first reference to 'CStObjCircleIter<false>::CStObjCircleIter' in 'CSmokeScreen::RemoveTransparencies'
+  
+  StormableObject.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StormableObject.cpp(58,49): error C2666: 'CPtr<CSoldier>::operator !=': overloaded functions have similar conversions
+  (compiling source file '/StormableObject.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      could be 'bool CPtr<CSoldier>::operator !=(const TUserObj *) const'
+          with
+          [
+              TUserObj=CSoldier
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      or       'bool CPtr<CSoldier>::operator !=(const CPtr<CSoldier> &) const'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StormableObject.cpp(58,49):
+      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CSoldier
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StormableObject.cpp(58,49):
+      while trying to match the argument list '(T, CSoldier *)'
+          with
+          [
+              T=CPtr<CSoldier>
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StormableObject.cpp(58,49):
+      qualification adjustment (const/volatile) may be causing the ambiguity
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StormableObject.cpp(95,49): error C2666: 'CPtr<CSoldier>::operator !=': overloaded functions have similar conversions
+  (compiling source file '/StormableObject.cpp')
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      could be 'bool CPtr<CSoldier>::operator !=(const TUserObj *) const'
+          with
+          [
+              TUserObj=CSoldier
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      or       'bool CPtr<CSoldier>::operator !=(const CPtr<CSoldier> &) const'
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StormableObject.cpp(95,49):
+      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CSoldier
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StormableObject.cpp(95,49):
+      while trying to match the argument list '(const T, CSoldier *)'
+          with
+          [
+              T=CPtr<CSoldier>
+          ]
+      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\StormableObject.cpp(95,49):
+      qualification adjustment (const/volatile) may be causing the ambiguity
+  
+  StaticObjectsSerialize.cpp
+  Graveyard.cpp
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Graveyard.cpp(123,9): error C2039: 'construct': is not a member of 'std'
+  (compiling source file '/Graveyard.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
+      see declaration of 'std'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Graveyard.cpp(123,9): error C3861: 'construct': identifier not found
+  (compiling source file '/Graveyard.cpp')
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Graveyard.cpp(138,8): error C2039: 'construct': is not a member of 'std'
+  (compiling source file '/Graveyard.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
+      see declaration of 'std'
+  
+C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\AILogic\Graveyard.cpp(138,8): error C3861: 'construct': identifier not found
+  (compiling source file '/Graveyard.cpp')
+  
+  GraveyardSerialize.cpp
+  AIHashFuncs.cpp
+  Generating Code...

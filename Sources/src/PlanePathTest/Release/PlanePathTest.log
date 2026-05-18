@@ -1,4 +1,12 @@
-﻿  StdAfx.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\PlanePathTest\stdafx.h(16,10): error C1083: Cannot open include file: 'stl_user_config.h': No such file or directory
-  (compiling source file 'StdAfx.cpp')
-  
+﻿CManuver.obj : error LNK2019: unresolved external symbol "float __cdecl NTrg::Sin(float)" (?Sin@NTrg@@YAMM@Z) referenced in function "private: bool __thiscall CManuver::GetToHorisontalOffset(class CVec3 const &,float,float,class CVec3 *)const " (?GetToHorisontalOffset@CManuver@@ABE_NABVCVec3@@MMPAV2@@Z)
+CManuver.obj : error LNK2019: unresolved external symbol "float __cdecl NTrg::ASin(float)" (?ASin@NTrg@@YAMM@Z) referenced in function "private: bool __thiscall CManuver::GetToHorisontalOffset(class CVec3 const &,float,float,class CVec3 *)const " (?GetToHorisontalOffset@CManuver@@ABE_NABVCVec3@@MMPAV2@@Z)
+CManuver.obj : error LNK2019: unresolved external symbol "public: __thiscall CMineStaticObject::CMineStaticObject(struct SMineRPGStats const *,class CVec2 const &,int,float,int,int)" (??0CMineStaticObject@@QAE@PBUSMineRPGStats@@ABVCVec2@@HMHH@Z) referenced in function "public: void __thiscall CManuverVisualizeDEBUG::Init(struct IPathFraction *,struct IPlane *)" (?Init@CManuverVisualizeDEBUG@@QAEXPAUIPathFraction@@PAUIPlane@@@Z)
+CManuver.obj : error LNK2019: unresolved external symbol "public: void __thiscall CMineStaticObject::RegisterInWorld(void)" (?RegisterInWorld@CMineStaticObject@@QAEXXZ) referenced in function "public: void __thiscall CManuverVisualizeDEBUG::Init(struct IPathFraction *,struct IPlane *)" (?Init@CManuverVisualizeDEBUG@@QAEXPAUIPathFraction@@PAUIPlane@@@Z)
+CManuver.obj : error LNK2019: unresolved external symbol "public: void __thiscall CUpdater::Update(enum EActionNotify,struct IUpdatableObj *,int)" (?Update@CUpdater@@QAEXW4EActionNotify@@PAUIUpdatableObj@@H@Z) referenced in function "public: void __thiscall CManuverVisualizeDEBUG::Init(struct IPathFraction *,struct IPlane *)" (?Init@CManuverVisualizeDEBUG@@QAEXPAUIPathFraction@@PAUIPlane@@@Z)
+CManuver.obj : error LNK2001: unresolved external symbol "struct ISingleton * g_pGlobalSingleton" (?g_pGlobalSingleton@@3PAUISingleton@@A)
+CManuverContainer.obj : error LNK2001: unresolved external symbol "struct ISingleton * g_pGlobalSingleton" (?g_pGlobalSingleton@@3PAUISingleton@@A)
+CManuver.obj : error LNK2001: unresolved external symbol "class CUpdater updater" (?updater@@3VCUpdater@@A)
+CManuverContainer.obj : error LNK2019: unresolved external symbol "unsigned int __cdecl NWin32Random::Random(void)" (?Random@NWin32Random@@YAIXZ) referenced in function "private: struct IManuver * __thiscall CManuverContainer::CreateDefaultManuver(enum EPlanesAttitude,struct IPlane *,struct IPlane *)const " (?CreateDefaultManuver@CManuverContainer@@ABEPAUIManuver@@W4EPlanesAttitude@@PAUIPlane@@1@Z)
+CManuverContainer.obj : error LNK2001: unresolved external symbol "struct ISaveLoadSystem * g_pGlobalSaveLoadSystem" (?g_pGlobalSaveLoadSystem@@3PAUISaveLoadSystem@@A)
+CManuverContainer.obj : error LNK2001: unresolved external symbol "public: static float SConsts::PLANE_MIN_HEIGHT" (?PLANE_MIN_HEIGHT@SConsts@@2MA)
+.\Release\PlanePathTest.exe : fatal error LNK1120: 10 unresolved externals

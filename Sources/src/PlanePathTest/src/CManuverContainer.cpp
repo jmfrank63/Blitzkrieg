@@ -4,6 +4,8 @@
 #include "CManuverContainer.h"
 #include "CManuver.h"
 #include "..\..\PlanePathTest\src\CPlanePreferences.h"
+#include "..\..\AILogic\AIInternalConsts.h"
+#include "..\..\Misc\Win32Random.h"
 #include "IPlane.h"
 
 
@@ -157,7 +159,7 @@ interface IManuver * CManuverContainer::CreateDefaultManuver( const enum EPlanes
 		const float fSpeed( fabs( vSpeed ) );
 		CVec3 vPerp ( -vSpeed.y, vSpeed.x, 0 );
 		Normalize( &vPerp );
-		vPerp *= ( Random(0,1) == 1 ? -1 : 1 );
+		vPerp *= ( NWin32Random::Random(0,1) == 1 ? -1 : 1 );
 
 		const CVec3 vPoint( pPos->GetPosB2() + 2.1f * vPerp * pPos->GetPreferencesB2().GetR( fSpeed ) );
 		return CreatePointManuver( pPos, vPoint );

@@ -127,7 +127,6 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetStream.cpp
       C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Net\NetStream.cpp(156,66):
       No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
   
-  NetObjectFactory.cpp
   GSQueryReportingDriver.cpp
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(191,76): error C2665: 'std::basic_string<wchar_t,std::char_traits<wchar_t>,std::allocator<wchar_t>>::basic_string': no overloaded function could convert all the argument types
   (compiling source file '/GSQueryReportingDriver.cpp')

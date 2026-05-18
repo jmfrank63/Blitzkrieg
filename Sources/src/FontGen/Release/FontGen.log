@@ -25,6 +25,7 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Win32Helper.
               _Elem=char
           ]
   
+  FontGen.cpp
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(157,42): error C2440: 'return': cannot convert from 'const WCHAR [260]' to 'std::basic_string<char,std::char_traits<char>,std::allocator<char>>'
   (compiling source file '/GlobalsLoader.cpp')
       C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(157,42):
@@ -301,7 +302,6 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(
       C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\FileUtils.h(158,49):
       while trying to match the argument list '(const std::string, const WCHAR [260])'
   
-  FontGen.cpp
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\FontGen\FontGen.h(10,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
   (compiling source file '/FontGen.cpp')
   

@@ -34,3 +34,13 @@
 - **2024-05-18**: Fixed TerrainInternal.cpp - changed unordered_map::resize() to reserve()
 - **2024-05-18**: Fixed ObjVisObj.h - moved CObjVisObj typedef to protected section for derived class access
 - **2024-05-18**: Fixed GFXHelper.h vertex structs - added explicit default constructors to SGFXTLVertex and SGFXLineVertex to support std::vector usage with types containing unions with CVec members
+- **2024-05-18**: Removed obsolete STLport configuration from PlanePathTest/stdafx.h - removed stl_user_config.h include and _STLP_USE_MFC define (using standard Visual Studio STL)
+- **2024-05-18**: Fixed AICellsTiles.h - added missing AIInternalConsts.h include for SConsts definition
+- **2024-05-18**: Fixed AILogic/UpdatableObject.h - replaced obsolete `std::construct( pRangeArea );` with placement new `new (pRangeArea) SShootAreas();`
+- **2024-05-18**: Fixed AIGeometry.h SRect - added explicit `SRect() = default;` constructor (union with CVec2 deleted implicit default constructor)
+- **2024-05-18**: Fixed PlanePathTest CManuver.cpp - removed nonexistent `pObj->vB2Pos = vPos;` line (vB2Pos member doesn't exist)
+- **2024-05-18**: Fixed PlanePathTest AI_PLANE_MANUVER constants - defined AI_PLANE_MANUVER_GENERIC (1000) and AI_PLANE_MANUVER_GORKA (1001) in CManuverBuilder.h and CManuverContainer.h
+- **2024-05-18**: Fixed PlanePathTest CManuverContainer.cpp - added AIInternalConsts.h include for SConsts::PLANE_MIN_HEIGHT and Win32Random.h include for NWin32Random::Random()
+- **2024-05-18**: Fixed ComplexPathFraction.cpp - removed duplicate BASIC_REGISTER_CLASS(CPathFractionArcLine3D) registration
+- **2024-05-18**: Fixed ComplexPathFraction.cpp tangent-point code - converted CVec3 x1t to CVec2 for FindTangentPoints call and vTangent1 calculation
+- **2024-05-18**: Fixed PlanePathTest.cpp - removed obsolete Enable3dControls() and Enable3dControlsStatic() calls (no longer needed in modern MFC)

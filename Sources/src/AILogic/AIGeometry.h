@@ -301,6 +301,8 @@ struct SRect
 	CVec2 dir, dirPerp, center;
 	float lengthAhead, lengthBack, width;
 
+	SRect() { }
+
 	bool IsIntersectProject( const CVec2 &v1, const CVec2 &v2, const CVec2 &v3, const CVec2 &v4, const CVec2 &dir, const float min, const float max ) const;
 
 //public:

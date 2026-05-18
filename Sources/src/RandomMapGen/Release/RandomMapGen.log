@@ -1,5 +1,8 @@
 ﻿  StdAfx.cpp
   BetaSpline.cpp
+  PNoise.cpp
+  TerrainBuilder.cpp
+  TerrainGenerator.cpp
   IB_Methods.cpp
   IB_StaticMethods.cpp
   LA_Methods.cpp
@@ -11,8 +14,13 @@
   MapInfo_StaticMethods_RMGeneration.cpp
   MapInfo_StaticMethods_SoundsCreation.cpp
   MiniMap_Methods.cpp
-  PNoise.cpp
   Polygons_Methods.cpp
+  Registry_Sources.cpp
+  Resource_Functions.cpp
+  Resource_Methods.cpp
+  Resource_StaticMethods.cpp
+  Generating Code...
+  Compiling...
   RMG_Consts.cpp
   RMG_Methods.cpp
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\RandomMapGen\RMG_Methods.cpp(1323,1): warning C4002: too many arguments for function-like macro invocation 'NI_ASSERT_T'
@@ -20,14 +28,6 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\RandomMapGen\RMG_
   
   RMG_StaticMethods.cpp
   RP_Methods.cpp
-  Registry_Sources.cpp
-  Resource_Functions.cpp
-  Generating Code...
-  Compiling...
-  Resource_Methods.cpp
-  Resource_StaticMethods.cpp
-  TerrainBuilder.cpp
-  TerrainGenerator.cpp
   VA_Methods.cpp
   VA_StaticMethods.cpp
   VSO_Methods.cpp

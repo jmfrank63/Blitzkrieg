@@ -7,7 +7,6 @@ extern const int nOrientation = -1;
 BASIC_REGISTER_CLASS( CPathFractionArcLine3D );
 BASIC_REGISTER_CLASS( CPathFractionArc3D  );
 BASIC_REGISTER_CLASS( CPathFractionArc  );
-BASIC_REGISTER_CLASS( CPathFractionArcLine3D  );
 BASIC_REGISTER_CLASS( CPathFractionCircleLineCircle  );
 BASIC_REGISTER_CLASS( CPathFractionCircleLineCircle3D  );
 /////////////////////////////////////////////////////////////////////////////
@@ -140,17 +139,17 @@ bool CPathFractionArcLine3D::TryCircle( const CVec3 &x0, const CVec3 &v0, const 
 		// transform x1 to new coordiante system ( a, b - its new coordinates )
 		const CVec3 x1t( x0x1 * i, x0x1 * j, x0x1 * k );
 		// create circle with center in x0+R0 with radius fR (in manuver plane)
-		
+
 		circle.r = fR;
 		CVec2 t1t, t2t;													// tangent points to find (in new coordinate system)
-		const bool bFound = FindTangentPoints( x1t, circle, &t1t, &t2t );
+		const bool bFound = FindTangentPoints( CVec2(x1t.x, x1t.y), circle, &t1t, &t2t );
 		if ( !bFound )
 			return false;
 		// choose needed tangent point
-		
+
 		const CVec2 vR1t( t1t - circle.center );						// transformed radius to tangent point 1
 		const CVec2 vR2t( t2t - circle.center );						// transformed radius to tangent point 2
-		const CVec2 vTangent1( x1t - t1t );			// tangent line 1
+		const CVec2 vTangent1( CVec2(x1t.x, x1t.y) - t1t );			// tangent line 1
 		//const CVec2 vTangent2( x1t - t2t );			// tangent line 2
 
 		const CVec2 vR0t( - circle.center );		// transformed radius vector of x1

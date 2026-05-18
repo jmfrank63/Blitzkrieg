@@ -42,7 +42,6 @@ class CManuverVisualizeDEBUG
 		CGDBPtr<SMineRPGStats> pStats = static_cast<const SMineRPGStats *>( pIDB->GetRPGStats( pDesc ) );
 		const int nDBIndex = pIDB->GetIndex( "Mine_APers" );
 		CMineStaticObject *pObj = new CMineStaticObject( pStats, CVec2(vPos.x, vPos.y), nDBIndex, pStats->fMaxHP, -1, 0 );
-		pObj->vB2Pos = vPos;
 		pObj->RegisterInWorld();
 		return pObj;
 	}

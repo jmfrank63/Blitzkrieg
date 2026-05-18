@@ -1,3 +1,2 @@
-﻿  ShaderParser.cpp
-ShaderParser.obj : error LNK2001: unresolved external symbol "struct ISaveLoadSystem * g_pGlobalSaveLoadSystem" (?g_pGlobalSaveLoadSystem@@3PAUISaveLoadSystem@@A)
+﻿ShaderParser.obj : error LNK2001: unresolved external symbol "struct ISaveLoadSystem * g_pGlobalSaveLoadSystem" (?g_pGlobalSaveLoadSystem@@3PAUISaveLoadSystem@@A)
 .\Release\scl.exe : fatal error LNK1120: 1 unresolved externals

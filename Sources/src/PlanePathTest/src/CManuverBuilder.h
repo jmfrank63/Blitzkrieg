@@ -5,6 +5,10 @@
 
 #include "..\..\AILogic\AIClassesID.h"
 
+// PlanePathTest-specific manuver IDs (not in main AIClassesID.h)
+#define AI_PLANE_MANUVER_GENERIC 1000
+#define AI_PLANE_MANUVER_GORKA   1001
+
 /////////////////////////////////////////////////////////////////////////////
 enum EPlanesAttitude
 {

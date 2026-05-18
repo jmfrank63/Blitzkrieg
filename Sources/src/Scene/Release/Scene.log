@@ -1,45 +1,5 @@
-﻿  StdAfx.cpp
-  GlobalsLoader.cpp
-  SceneDraw.cpp
-  SceneInternal.cpp
-  SceneObjectFactory.cpp
-  ScenePick.cpp
-  Icon.cpp
-  IconBar.cpp
-  IconHPBar.cpp
-  IconPic.cpp
-  IconText.cpp
-  BoldLineVisObj.cpp
-  EffectVisObj.cpp
-  FlashVisObj.cpp
-  MeshVisObj.cpp
-  SpriteVisObj.cpp
-  SquadVisObj.cpp
-  VisObjBuilder.cpp
-  StatSystem.cpp
-  Camera.cpp
-  Cursor.cpp
-  Generating Code...
-  Compiling...
-  FrameSelection.cpp
-  AnimVisitor.cpp
-  DrawVisitor.cpp
-  MaterialEffector.cpp
-  MatrixEffector.cpp
-  CellsConglomerateContainer.cpp
-  SceneSound.cpp
-  SoundScene.cpp
-  SoundSceneSerialize.cpp
-  BinkVideoPlayer.cpp
-  KeyBasedParticleSource.cpp
-  ParticleManager.cpp
-  ParticleSourceData.cpp
-  SmokinParticleSource.cpp
-  SmokinParticleSourceData.cpp
-  Track.cpp
-  FastSinCos.cpp
-  Transition.cpp
-  MeshBuilders.cpp
+﻿  MeshBuilders.cpp
+  RiverBuilder.cpp
 C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(732,82): error C2280: 'STerrainTLVertex::STerrainTLVertex(void)': attempting to reference a deleted function
   (compiling source file '/MeshBuilders.cpp')
       C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\Builders.h(85,1):
@@ -83,16 +43,5 @@ C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\i
               _Objty=STerrainTLVertex
           ]
   
-  RiverBuilder.cpp
-  Generating Code...
-  Compiling...
-  TerrainBuilder.cpp
-  TerrainEditor.cpp
-  TerrainRoad.cpp
-  TerrainWater.cpp
-  VectorObject.cpp
-  TerraDraw.cpp
-  TerrainInternal.cpp
-  TerraSound.cpp
   GammaEffect.cpp
   Generating Code...

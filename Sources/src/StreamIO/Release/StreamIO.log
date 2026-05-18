@@ -1,26 +1,4 @@
-﻿  StdAfx.cpp
-  GlobalsLoader.cpp
-  ZipFile.cpp
-  ZipFileSystem.cpp
-  CommonFileSystem.cpp
-  FileSystem.cpp
-  MemFileSystem.cpp
-  ModFileSystem.cpp
-  SaveLoadSystem.cpp
-  DataBase.cpp
-  IniFile.cpp
-  DataTableXML.cpp
-  Streams.cpp
-  StructureSaver2.cpp
-  DataTreeXML.cpp
-  ConsoleBuffer.cpp
-  GlobalVarsInternal.cpp
-  Singleton.cpp
-  RandomGenInternal.cpp
-  OptionSystemInternal.cpp
-  StreamIOObjectFactory.cpp
-  Generating Code...
-.\StreamIO.def(4): warning LNK4017: DESCRIPTION statement not supported for the target platform; ignored
+﻿.\StreamIO.def(4): warning LNK4017: DESCRIPTION statement not supported for the target platform; ignored
      Creating library .\Release\StreamIO.lib and object .\Release\StreamIO.exp
 ZipFile.obj : error LNK2019: unresolved external symbol _inflate referenced in function "public: struct IDataStream * __thiscall CZipFile::ReadFile(struct IDataStream *,int)" (?ReadFile@CZipFile@@QAEPAUIDataStream@@PAU2@H@Z)
 ZipFile.obj : error LNK2019: unresolved external symbol _inflateEnd referenced in function "public: struct IDataStream * __thiscall CZipFile::ReadFile(struct IDataStream *,int)" (?ReadFile@CZipFile@@QAEPAUIDataStream@@PAU2@H@Z)
