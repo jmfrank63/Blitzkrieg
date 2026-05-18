@@ -1,616 +1,620 @@
-﻿  ExcelExporter.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(24,2): error C2872: 'IXMLDOMDocumentPtr': ambiguous symbol
+﻿  StdAfx.cpp
+  _WIN32_WINNT not defined. Defaulting to _WIN32_WINNT_MAXVER (see WinSDKVer.h)
+  GlobalsLoader.cpp
+  ExcelExporter.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(24,2): error C2872: 'IXMLDOMDocumentPtr': ambiguous symbol
   (compiling source file '/ExcelExporter.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1228,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMDocument,& _GUID_2933bf81_7b36_11d2_b20e_00c04f983e60>> IXMLDOMDocumentPtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(297,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(297,1):
       or       'MSXML2::IXMLDOMDocumentPtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(27,2): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(27,2): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/ExcelExporter.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(27,30): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(27,30): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/ExcelExporter.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(28,24): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(28,24): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/ExcelExporter.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(40,2): error C2872: 'IXMLDOMDocumentPtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(40,2): error C2872: 'IXMLDOMDocumentPtr': ambiguous symbol
   (compiling source file '/ExcelExporter.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1228,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMDocument,& _GUID_2933bf81_7b36_11d2_b20e_00c04f983e60>> IXMLDOMDocumentPtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(297,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(297,1):
       or       'MSXML2::IXMLDOMDocumentPtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(43,2): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(43,2): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/ExcelExporter.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(43,30): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(43,30): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/ExcelExporter.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(44,32): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(44,32): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/ExcelExporter.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(45,57): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(45,57): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/ExcelExporter.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\ExcelExporter.cpp(236,11): warning C4996: 'strcmpi': The POSIX name for this item is deprecated. Instead, use the ISO C and C++ conformant name: _strcmpi. See online help for details.
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\ExcelExporter.cpp(236,11): warning C4996: 'strcmpi': The POSIX name for this item is deprecated. Instead, use the ISO C and C++ conformant name: _strcmpi. See online help for details.
   (compiling source file '/ExcelExporter.cpp')
   
+  main.cpp
   XmlReader.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(24,2): error C2872: 'IXMLDOMDocumentPtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(24,2): error C2872: 'IXMLDOMDocumentPtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1228,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMDocument,& _GUID_2933bf81_7b36_11d2_b20e_00c04f983e60>> IXMLDOMDocumentPtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(297,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(297,1):
       or       'MSXML2::IXMLDOMDocumentPtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(27,2): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(27,2): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(27,30): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(27,30): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(28,24): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(28,24): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(40,2): error C2872: 'IXMLDOMDocumentPtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(40,2): error C2872: 'IXMLDOMDocumentPtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1228,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMDocument,& _GUID_2933bf81_7b36_11d2_b20e_00c04f983e60>> IXMLDOMDocumentPtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(297,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(297,1):
       or       'MSXML2::IXMLDOMDocumentPtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(43,2): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(43,2): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(43,30): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(43,30): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(44,32): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(44,32): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(45,57): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(45,57): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(17,1): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(17,1): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(17,41): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(17,41): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(20,2): error C2872: 'IXMLDOMNodeListPtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(20,2): error C2872: 'IXMLDOMNodeListPtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1255,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNodeList,& _GUID_2933bf82_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodeListPtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(285,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(285,1):
       or       'MSXML2::IXMLDOMNodeListPtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(20,41): error C2039: 'GetchildNodes': is not a member of 'IXMLDOMNode'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(20,41): error C2039: 'GetchildNodes': is not a member of 'IXMLDOMNode'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(614,5):
       see declaration of 'IXMLDOMNode'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(21,27): error C2039: 'length': is not a member of 'IXMLDOMNodeList'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(21,27): error C2039: 'length': is not a member of 'IXMLDOMNodeList'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(2404,5):
       see declaration of 'IXMLDOMNodeList'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(23,3): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(23,3): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(23,36): error C2039: 'item': is not a member of 'IXMLDOMNodeList'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(23,36): error C2039: 'item': is not a member of 'IXMLDOMNodeList'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(2404,5):
       see declaration of 'IXMLDOMNodeList'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(24,32): error C2039: 'nodeName': is not a member of 'IXMLDOMNode'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(24,32): error C2039: 'nodeName': is not a member of 'IXMLDOMNode'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(614,5):
       see declaration of 'IXMLDOMNode'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(32,1): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(32,1): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(32,41): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(32,41): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(35,2): error C2872: 'IXMLDOMNodeListPtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(35,2): error C2872: 'IXMLDOMNodeListPtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1255,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNodeList,& _GUID_2933bf82_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodeListPtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(285,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(285,1):
       or       'MSXML2::IXMLDOMNodeListPtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(35,41): error C2039: 'GetchildNodes': is not a member of 'IXMLDOMNode'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(35,41): error C2039: 'GetchildNodes': is not a member of 'IXMLDOMNode'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(614,5):
       see declaration of 'IXMLDOMNode'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(36,27): error C2039: 'length': is not a member of 'IXMLDOMNodeList'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(36,27): error C2039: 'length': is not a member of 'IXMLDOMNodeList'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(2404,5):
       see declaration of 'IXMLDOMNodeList'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(38,3): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(38,3): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(38,36): error C2039: 'item': is not a member of 'IXMLDOMNodeList'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(38,36): error C2039: 'item': is not a member of 'IXMLDOMNodeList'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(2404,5):
       see declaration of 'IXMLDOMNodeList'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(39,32): error C2039: 'nodeName': is not a member of 'IXMLDOMNode'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(39,32): error C2039: 'nodeName': is not a member of 'IXMLDOMNode'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(614,5):
       see declaration of 'IXMLDOMNode'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(110,21): error C2660: 'IXMLDOMDocument::load': function does not take 1 arguments
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(110,21): error C2660: 'IXMLDOMDocument::load': function does not take 1 arguments
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(1647,66):
       see declaration of 'IXMLDOMDocument::load'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(110,21):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(110,21):
       while trying to match the argument list '(IStream *)'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(114,2): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(114,2): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(115,2): error C2872: 'IXMLDOMNodeListPtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(115,2): error C2872: 'IXMLDOMNodeListPtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1255,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNodeList,& _GUID_2933bf82_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodeListPtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(285,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(285,1):
       or       'MSXML2::IXMLDOMNodeListPtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(115,43): error C2039: 'GetchildNodes': is not a member of 'IXMLDOMNode'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(115,43): error C2039: 'GetchildNodes': is not a member of 'IXMLDOMNode'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(614,5):
       see declaration of 'IXMLDOMNode'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(116,37): error C2039: 'item': is not a member of 'IXMLDOMNodeList'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(116,37): error C2039: 'item': is not a member of 'IXMLDOMNodeList'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(2404,5):
       see declaration of 'IXMLDOMNodeList'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(116,50): error C2039: 'length': is not a member of 'IXMLDOMNodeList'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(116,50): error C2039: 'length': is not a member of 'IXMLDOMNodeList'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(2404,5):
       see declaration of 'IXMLDOMNodeList'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(116,58): error C7732: expected an expression before ']'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(116,58): error C7732: expected an expression before ']'
   (compiling source file '/XmlReader.cpp')
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(124,35): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(124,35): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(126,2): error C2872: 'IXMLDOMNodeListPtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(126,2): error C2872: 'IXMLDOMNodeListPtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1255,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNodeList,& _GUID_2933bf82_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodeListPtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(285,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(285,1):
       or       'MSXML2::IXMLDOMNodeListPtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(126,36): error C2039: 'GetchildNodes': is not a member of 'IXMLDOMNode'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(126,36): error C2039: 'GetchildNodes': is not a member of 'IXMLDOMNode'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(614,5):
       see declaration of 'IXMLDOMNode'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(127,2): error C2872: 'IXMLDOMNamedNodeMapPtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(127,2): error C2872: 'IXMLDOMNamedNodeMapPtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1249,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNamedNodeMap,& _GUID_2933bf83_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNamedNodeMapPtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(286,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(286,1):
       or       'MSXML2::IXMLDOMNamedNodeMapPtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(127,44): error C2039: 'Getattributes': is not a member of 'IXMLDOMNode'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(127,44): error C2039: 'Getattributes': is not a member of 'IXMLDOMNode'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(614,5):
       see declaration of 'IXMLDOMNode'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(131,32): error C2039: 'length': is not a member of 'IXMLDOMNamedNodeMap'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(131,32): error C2039: 'length': is not a member of 'IXMLDOMNamedNodeMap'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(2586,5):
       see declaration of 'IXMLDOMNamedNodeMap'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(133,4): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(133,4): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(133,41): error C2039: 'item': is not a member of 'IXMLDOMNamedNodeMap'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(133,41): error C2039: 'item': is not a member of 'IXMLDOMNamedNodeMap'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(2586,5):
       see declaration of 'IXMLDOMNamedNodeMap'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(134,33): error C2039: 'nodeName': is not a member of 'IXMLDOMNode'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(134,33): error C2039: 'nodeName': is not a member of 'IXMLDOMNode'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(614,5):
       see declaration of 'IXMLDOMNode'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(135,28): error C2039: 'nodeTypedValue': is not a member of 'IXMLDOMNode'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(135,28): error C2039: 'nodeTypedValue': is not a member of 'IXMLDOMNode'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(614,5):
       see declaration of 'IXMLDOMNode'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(166,27): error C2039: 'length': is not a member of 'IXMLDOMNodeList'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(166,27): error C2039: 'length': is not a member of 'IXMLDOMNodeList'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(2404,5):
       see declaration of 'IXMLDOMNodeList'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(169,3): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(169,3): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(169,36): error C2039: 'item': is not a member of 'IXMLDOMNodeList'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(169,36): error C2039: 'item': is not a member of 'IXMLDOMNodeList'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(2404,5):
       see declaration of 'IXMLDOMNodeList'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(174,4): error C2872: 'IXMLDOMNodeListPtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(174,4): error C2872: 'IXMLDOMNodeListPtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1255,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNodeList,& _GUID_2933bf82_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodeListPtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(285,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(285,1):
       or       'MSXML2::IXMLDOMNodeListPtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(174,41): error C2039: 'GetchildNodes': is not a member of 'IXMLDOMNode'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(174,41): error C2039: 'GetchildNodes': is not a member of 'IXMLDOMNode'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(614,5):
       see declaration of 'IXMLDOMNode'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(175,4): error C2872: 'IXMLDOMNamedNodeMapPtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(175,4): error C2872: 'IXMLDOMNamedNodeMapPtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1249,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNamedNodeMap,& _GUID_2933bf83_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNamedNodeMapPtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(286,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(286,1):
       or       'MSXML2::IXMLDOMNamedNodeMapPtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(175,49): error C2039: 'Getattributes': is not a member of 'IXMLDOMNode'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(175,49): error C2039: 'Getattributes': is not a member of 'IXMLDOMNode'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(614,5):
       see declaration of 'IXMLDOMNode'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(176,33): error C2039: 'nodeName': is not a member of 'IXMLDOMNode'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(176,33): error C2039: 'nodeName': is not a member of 'IXMLDOMNode'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(614,5):
       see declaration of 'IXMLDOMNode'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(178,36): error C2039: 'length': is not a member of 'IXMLDOMNodeList'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(178,36): error C2039: 'length': is not a member of 'IXMLDOMNodeList'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(2404,5):
       see declaration of 'IXMLDOMNodeList'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(178,88): error C2039: 'length': is not a member of 'IXMLDOMNamedNodeMap'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(178,88): error C2039: 'length': is not a member of 'IXMLDOMNamedNodeMap'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(2586,5):
       see declaration of 'IXMLDOMNamedNodeMap'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(180,29): error C2039: 'text': is not a member of 'IXMLDOMNode'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(180,29): error C2039: 'text': is not a member of 'IXMLDOMNode'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(614,5):
       see declaration of 'IXMLDOMNode'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(183,35): error C2039: 'nodeName': is not a member of 'IXMLDOMNode'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(183,35): error C2039: 'nodeName': is not a member of 'IXMLDOMNode'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(614,5):
       see declaration of 'IXMLDOMNode'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(198,33): error C2039: 'nodeName': is not a member of 'IXMLDOMNode'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(198,33): error C2039: 'nodeName': is not a member of 'IXMLDOMNode'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(614,5):
       see declaration of 'IXMLDOMNode'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(211,43): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(211,43): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(218,3): error C2872: 'IXMLDOMNodeListPtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(218,3): error C2872: 'IXMLDOMNodeListPtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1255,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNodeList,& _GUID_2933bf82_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodeListPtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(285,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(285,1):
       or       'MSXML2::IXMLDOMNodeListPtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(218,42): error C2039: 'GetchildNodes': is not a member of 'IXMLDOMNode'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(218,42): error C2039: 'GetchildNodes': is not a member of 'IXMLDOMNode'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(614,5):
       see declaration of 'IXMLDOMNode'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(221,21): error C2039: 'length': is not a member of 'IXMLDOMNodeList'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(221,21): error C2039: 'length': is not a member of 'IXMLDOMNodeList'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(2404,5):
       see declaration of 'IXMLDOMNodeList'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(223,4): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(223,4): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(223,37): error C2039: 'item': is not a member of 'IXMLDOMNodeList'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(223,37): error C2039: 'item': is not a member of 'IXMLDOMNodeList'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(2404,5):
       see declaration of 'IXMLDOMNodeList'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(224,33): error C2039: 'nodeName': is not a member of 'IXMLDOMNode'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(224,33): error C2039: 'nodeName': is not a member of 'IXMLDOMNode'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(614,5):
       see declaration of 'IXMLDOMNode'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(241,21): error C2039: 'length': is not a member of 'IXMLDOMNodeList'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(241,21): error C2039: 'length': is not a member of 'IXMLDOMNodeList'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(2404,5):
       see declaration of 'IXMLDOMNodeList'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(244,4): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(244,4): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(244,42): error C2660: 'IXMLDOMDocument::createElement': function does not take 1 arguments
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(244,42): error C2660: 'IXMLDOMDocument::createElement': function does not take 1 arguments
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(1601,66):
       see declaration of 'IXMLDOMDocument::createElement'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(244,42):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(244,42):
       while trying to match the argument list '(const _Elem *)'
           with
           [
               _Elem=char
           ]
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(245,15): error C2660: 'IXMLDOMNode::appendChild': function does not take 1 arguments
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(245,15): error C2660: 'IXMLDOMNode::appendChild': function does not take 1 arguments
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(664,66):
       see declaration of 'IXMLDOMNode::appendChild'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(245,15):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(245,15):
       while trying to match the argument list '(IXMLDOMNodePtr)'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(249,37): error C2039: 'item': is not a member of 'IXMLDOMNodeList'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(249,37): error C2039: 'item': is not a member of 'IXMLDOMNodeList'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(2404,5):
       see declaration of 'IXMLDOMNodeList'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(255,3): error C2872: 'IXMLDOMElementPtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(255,3): error C2872: 'IXMLDOMElementPtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1237,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMElement,& _GUID_2933bf86_7b36_11d2_b20e_00c04f983e60>> IXMLDOMElementPtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(289,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(289,1):
       or       'MSXML2::IXMLDOMElementPtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(258,4): error C2872: 'IXMLDOMCharacterDataPtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(258,4): error C2872: 'IXMLDOMCharacterDataPtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1222,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMCharacterData,& _GUID_2933bf84_7b36_11d2_b20e_00c04f983e60>> IXMLDOMCharacterDataPtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(291,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(291,1):
       or       'MSXML2::IXMLDOMCharacterDataPtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(258,51): error C2660: 'IXMLDOMDocument::createTextNode': function does not take 1 arguments
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(258,51): error C2660: 'IXMLDOMDocument::createTextNode': function does not take 1 arguments
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(1608,66):
       see declaration of 'IXMLDOMDocument::createTextNode'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(258,51):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(258,51):
       while trying to match the argument list '(const _Elem *)'
           with
           [
               _Elem=char
           ]
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(259,4): error C2872: 'IXMLDOMNodeListPtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(259,4): error C2872: 'IXMLDOMNodeListPtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1255,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNodeList,& _GUID_2933bf82_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodeListPtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(285,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(285,1):
       or       'MSXML2::IXMLDOMNodeListPtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(259,41): error C2039: 'GetchildNodes': is not a member of 'IXMLDOMElement'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(259,41): error C2039: 'GetchildNodes': is not a member of 'IXMLDOMElement'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(3824,5):
       see declaration of 'IXMLDOMElement'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(260,17): error C2039: 'item': is not a member of 'IXMLDOMNodeList'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(260,17): error C2039: 'item': is not a member of 'IXMLDOMNodeList'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(2404,5):
       see declaration of 'IXMLDOMNodeList'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(261,45): error C2039: 'item': is not a member of 'IXMLDOMNodeList'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(261,45): error C2039: 'item': is not a member of 'IXMLDOMNodeList'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(2404,5):
       see declaration of 'IXMLDOMNodeList'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(261,14): error C2660: 'IXMLDOMNode::replaceChild': function does not take 1 arguments
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(261,14): error C2660: 'IXMLDOMNode::replaceChild': function does not take 1 arguments
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(655,66):
       see declaration of 'IXMLDOMNode::replaceChild'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(261,14):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(261,14):
       while trying to match the argument list '(IXMLDOMCharacterDataPtr)'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(263,14): error C2660: 'IXMLDOMNode::appendChild': function does not take 1 arguments
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(263,14): error C2660: 'IXMLDOMNode::appendChild': function does not take 1 arguments
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(664,66):
       see declaration of 'IXMLDOMNode::appendChild'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(263,14):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(263,14):
       while trying to match the argument list '(IXMLDOMCharacterDataPtr)'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(266,13): error C2664: 'HRESULT IXMLDOMElement::setAttribute(BSTR,VARIANT)': cannot convert argument 1 from 'const _Elem *' to 'BSTR'
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(266,13): error C2664:         with
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(266,13): error C2664:         [
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(266,13): error C2664:             _Elem=char
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(266,13): error C2664:         ]
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(266,13): error C2664: 'HRESULT IXMLDOMElement::setAttribute(BSTR,VARIANT)': cannot convert argument 1 from 'const _Elem *' to 'BSTR'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(266,13): error C2664:         with
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(266,13): error C2664:         [
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(266,13): error C2664:             _Elem=char
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(266,13): error C2664:         ]
   (compiling source file '/XmlReader.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(266,39):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(266,39):
       Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(3834,66):
       see declaration of 'IXMLDOMElement::setAttribute'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(266,13):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(266,13):
       while trying to match the argument list '(const _Elem *, const _Elem *)'
           with
           [
               _Elem=char
           ]
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(305,22): error C2660: 'IXMLDOMDocument::load': function does not take 1 arguments
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(305,22): error C2660: 'IXMLDOMDocument::load': function does not take 1 arguments
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(1647,66):
       see declaration of 'IXMLDOMDocument::load'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(305,22):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(305,22):
       while trying to match the argument list '(IStream *)'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(310,2): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(310,2): error C2872: 'IXMLDOMNodePtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1252,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNode,& _GUID_2933bf80_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodePtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(311,2): error C2872: 'IXMLDOMNodeListPtr': ambiguous symbol
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(311,2): error C2872: 'IXMLDOMNodeListPtr': ambiguous symbol
   (compiling source file '/XmlReader.cpp')
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\comdefsp.h(1255,1):
       could be '_com_ptr_t<_com_IIID<IXMLDOMNodeList,& _GUID_2933bf82_7b36_11d2_b20e_00c04f983e60>> IXMLDOMNodeListPtr'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(285,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(285,1):
       or       'MSXML2::IXMLDOMNodeListPtr'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(311,44): error C2039: 'GetchildNodes': is not a member of 'IXMLDOMNode'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(311,44): error C2039: 'GetchildNodes': is not a member of 'IXMLDOMNode'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(614,5):
       see declaration of 'IXMLDOMNode'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(312,38): error C2039: 'item': is not a member of 'IXMLDOMNodeList'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(312,38): error C2039: 'item': is not a member of 'IXMLDOMNodeList'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(2404,5):
       see declaration of 'IXMLDOMNodeList'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(312,51): error C2039: 'length': is not a member of 'IXMLDOMNodeList'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(312,51): error C2039: 'length': is not a member of 'IXMLDOMNodeList'
   (compiling source file '/XmlReader.cpp')
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(2404,5):
       see declaration of 'IXMLDOMNodeList'
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(312,59): error C7732: expected an expression before ']'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(312,59): error C7732: expected an expression before ']'
   (compiling source file '/XmlReader.cpp')
   
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(326,16): error C2664: 'HRESULT IXMLDOMDocument::save(VARIANT)': cannot convert argument 1 from 'IStream *' to 'VARIANT'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(326,16): error C2664: 'HRESULT IXMLDOMDocument::save(VARIANT)': cannot convert argument 1 from 'IStream *' to 'VARIANT'
   (compiling source file '/XmlReader.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(326,22):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(326,22):
       'tagVARIANT::tagVARIANT': no overloaded function could convert all the argument types
           C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\oaidl.h(542,5):
           could be 'tagVARIANT::tagVARIANT(tagVARIANT &&)'
-              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(326,22):
+              C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(326,22):
               'tagVARIANT::tagVARIANT(tagVARIANT &&)': cannot convert argument 1 from 'IStream *' to 'tagVARIANT &&'
-                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(326,22):
+                  C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(326,22):
                   Reason: cannot convert from 'IStream *' to 'tagVARIANT'
-                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(326,22):
+                  C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(326,22):
                   Conversion requires a second user-defined-conversion operator or constructor
           C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\oaidl.h(542,5):
           or       'tagVARIANT::tagVARIANT(const tagVARIANT &)'
-              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(326,22):
+              C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(326,22):
               'tagVARIANT::tagVARIANT(const tagVARIANT &)': cannot convert argument 1 from 'IStream *' to 'const tagVARIANT &'
-                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(326,22):
+                  C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(326,22):
                   Reason: cannot convert from 'IStream *' to 'const tagVARIANT'
-                  C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(326,22):
+                  C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(326,22):
                   Conversion requires a second user-defined-conversion operator or constructor
-          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(326,22):
+          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(326,22):
           while trying to match the argument list '(IStream *)'
       C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\msxml.h(1672,66):
       see declaration of 'IXMLDOMDocument::save'
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(326,16):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.cpp(326,16):
       while trying to match the argument list '(IStream *)'
   
   Generating Code...

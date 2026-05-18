@@ -23,7 +23,7 @@
   Compiling...
   RMG_Consts.cpp
   RMG_Methods.cpp
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\RandomMapGen\RMG_Methods.cpp(1323,1): warning C4002: too many arguments for function-like macro invocation 'NI_ASSERT_T'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\RandomMapGen\RMG_Methods.cpp(1323,1): warning C4002: too many arguments for function-like macro invocation 'NI_ASSERT_T'
   (compiling source file '/RMG_Methods.cpp')
   
   RMG_StaticMethods.cpp
@@ -33,4 +33,4 @@ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\RandomMapGen\RMG_
   VSO_Methods.cpp
   VSO_StaticMethods.cpp
   Generating Code...
-  RandomMapGen.vcxproj -> C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\RandomMapGen\Release\RandomMapGen.lib
+  RandomMapGen.vcxproj -> C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\RandomMapGen\Release\RandomMapGen.lib

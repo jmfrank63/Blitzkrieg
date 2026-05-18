@@ -1,20 +1,66 @@
-﻿  MeshBuilders.cpp
-  RiverBuilder.cpp
+﻿  StdAfx.cpp
+  GlobalsLoader.cpp
+  SceneDraw.cpp
+  SceneInternal.cpp
+  SceneObjectFactory.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\BinkVideoPlayer.h(6,10): error C1083: Cannot open include file: 'bink.h': No such file or directory
+  (compiling source file '/SceneObjectFactory.cpp')
+  
+  ScenePick.cpp
+  Icon.cpp
+  IconBar.cpp
+  IconHPBar.cpp
+  IconPic.cpp
+  IconText.cpp
+  BoldLineVisObj.cpp
+  EffectVisObj.cpp
+  FlashVisObj.cpp
+  MeshVisObj.cpp
+  SpriteVisObj.cpp
+  SquadVisObj.cpp
+  VisObjBuilder.cpp
+  StatSystem.cpp
+  Camera.cpp
+  Cursor.cpp
+  Generating Code...
+  Compiling...
+  FrameSelection.cpp
+  AnimVisitor.cpp
+  DrawVisitor.cpp
+  MaterialEffector.cpp
+  MatrixEffector.cpp
+  CellsConglomerateContainer.cpp
+  SceneSound.cpp
+  SoundScene.cpp
+  SoundSceneSerialize.cpp
+  BinkVideoPlayer.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\BinkVideoPlayer.h(6,10): error C1083: Cannot open include file: 'bink.h': No such file or directory
+  (compiling source file '/BinkVideoPlayer.cpp')
+  
+  KeyBasedParticleSource.cpp
+  ParticleManager.cpp
+  ParticleSourceData.cpp
+  SmokinParticleSource.cpp
+  SmokinParticleSourceData.cpp
+  Track.cpp
+  FastSinCos.cpp
+  Transition.cpp
+  MeshBuilders.cpp
 C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(732,82): error C2280: 'STerrainTLVertex::STerrainTLVertex(void)': attempting to reference a deleted function
   (compiling source file '/MeshBuilders.cpp')
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\Builders.h(85,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\Builders.h(85,1):
       compiler has generated 'STerrainTLVertex::STerrainTLVertex' here
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\Builders.h(85,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\Builders.h(85,1):
       'STerrainTLVertex::STerrainTLVertex(void)': function was implicitly deleted because 'STerrainTLVertex' has a variant data member 'STerrainTLVertex::<unnamed-tag>::pos' with a non-trivial default constructor
-      C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\Builders.h(66,10):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\Builders.h(66,10):
       see declaration of 'STerrainTLVertex::<unnamed-tag>::pos'
       C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xmemory(732,82):
       the template instantiation context (the oldest one first) is
-          C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\TerrainInternal.h(24,15):
+          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\TerrainInternal.h(24,15):
           see reference to class template instantiation 'std::vector<STerrainPatch::SVertex1,std::allocator<STerrainPatch::SVertex1>>' being compiled
           C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\vector(1631,23):
           while compiling class template member function 'void std::vector<STerrainPatch::SVertex1,std::allocator<STerrainPatch::SVertex1>>::resize(const unsigned int)'
-              C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Scene\MeshBuilders.cpp(65,17):
+              C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\MeshBuilders.cpp(65,17):
               see the first reference to 'std::vector<STerrainPatch::SVertex1,std::allocator<STerrainPatch::SVertex1>>::resize' in 'ResizeToAdd'
           C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\vector(1633,9):
           see reference to function template instantiation 'void std::vector<STerrainPatch::SVertex1,std::allocator<STerrainPatch::SVertex1>>::_Resize<std::_Value_init_tag>(const unsigned int,const _Ty2 &)' being compiled
@@ -43,5 +89,16 @@ C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\i
               _Objty=STerrainTLVertex
           ]
   
+  RiverBuilder.cpp
+  Generating Code...
+  Compiling...
+  TerrainBuilder.cpp
+  TerrainEditor.cpp
+  TerrainRoad.cpp
+  TerrainWater.cpp
+  VectorObject.cpp
+  TerraDraw.cpp
+  TerrainInternal.cpp
+  TerraSound.cpp
   GammaEffect.cpp
   Generating Code...

@@ -1,6 +1,6 @@
-﻿// Created by Microsoft (R) C/C++ Compiler Version 14.51.36243.0 (3020c0b1).
+﻿// Created by Microsoft (R) C/C++ Compiler Version 14.51.36243.0 (03cadf0e).
 //
-// C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\StreamIO\Release\msxml3.tlh
+// C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIO\Release\msxml3.tlh
 //
 // C++ source equivalent of Win32 type library msxml3.dll
 // compiler-generated file - DO NOT EDIT!
@@ -4966,7 +4966,7 @@ ISchemaNotation : ISchemaItem
 // Wrapper method implementations
 //
 
-#include "C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\StreamIO\Release\msxml3.tli"
+#include "C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIO\Release\msxml3.tli"
 
 } // namespace MSXML2
 

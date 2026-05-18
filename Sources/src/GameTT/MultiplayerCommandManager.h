@@ -5,6 +5,22 @@
 #include "MuliplayerToUIConsts.h"
 #include "..\RandomMapGen\MapInfo_Types.h"
 #include "..\StreamIO\StreamIOHelper.h"
+
+inline std::wstring MakeWideStringFromWordString( const WORD *pszText )
+{
+	std::wstring szText;
+
+	if ( pszText == 0 )
+		return szText;
+
+	while ( *pszText != 0 )
+	{
+		szText += static_cast<wchar_t>( *pszText );
+		++pszText;
+	}
+
+	return szText;
+}
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //player state in chat
 enum EPlayerChatState
@@ -188,8 +204,8 @@ public:
 	std::wstring szMessageText;
 
 	SChatMessage() : szPlayerName( L"" ) { }
-	SChatMessage( const	WORD *pszMessageText, bool _bWhisper ) : szMessageText( pszMessageText ), bWhisper( _bWhisper ) { }
-	SChatMessage( const	WORD *pszMessageText, const WORD *pszPlayerName, bool _bWhisper ) : szMessageText( pszMessageText ), szPlayerName( pszPlayerName ), bWhisper( _bWhisper ) { }
+	SChatMessage( const	WORD *pszMessageText, bool _bWhisper ) : szMessageText( MakeWideStringFromWordString( pszMessageText ) ), bWhisper( _bWhisper ) { }
+	SChatMessage( const	WORD *pszMessageText, const WORD *pszPlayerName, bool _bWhisper ) : szMessageText( MakeWideStringFromWordString( pszMessageText ) ), szPlayerName( MakeWideStringFromWordString( pszPlayerName ) ), bWhisper( _bWhisper ) { }
 
 	virtual int STDCALL operator&( interface IStructureSaver &ss ) 
 	{
@@ -255,7 +271,7 @@ public:
 		const bool _bPassword, const bool _bCanJoin, const float _fPing,
 		const char *_pszModName, const char *_pszModVersion, const bool _bSamePatch, 
 		const CMapInfo::GAME_TYPE _eGameType, const SMultiplayerGameSettings &_gameSettings )
-		: wServerID( _wServerID ), szName( pszName ), szMapName( pszMapName ), 
+		: wServerID( _wServerID ), szName( MakeWideStringFromWordString( pszName ) ), szMapName( pszMapName ), 
 			nPlayers( _nPlayers ), nPlayersMax( _nPlayersMax ), 
 			bPassword( _bPassword ), bCanJoin( _bCanJoin ), fPing( _fPing ), 
 			szModName( _pszModName ), szModVersion( _pszModVersion ), bSamePatch( _bSamePatch ),
@@ -279,7 +295,7 @@ public:
 	SUIRelationNotify( ) {  }
 
 	SUIRelationNotify( const WORD * pszName, const EPlayerRelation _eRelation )
-		: szName( pszName ), eRelation( _eRelation)
+		: szName( MakeWideStringFromWordString( pszName ) ), eRelation( _eRelation)
 	{  }
 };
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -298,7 +314,7 @@ public:
 
 	SUIChatPlayerInfo() {  }
 	SUIChatPlayerInfo( const WORD * pszName ) 
-		: eRelation( EPR_NORMAL ), eState( EPCS_IN_CHAT ), szName( pszName ) { }
+		: eRelation( EPR_NORMAL ), eState( EPCS_IN_CHAT ), szName( MakeWideStringFromWordString( pszName ) ) { }
 };
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SUIChatPlayerChangedNick : public IRefCount
@@ -310,7 +326,7 @@ struct SUIChatPlayerChangedNick : public IRefCount
 public:
 	SUIChatPlayerChangedNick() : wszOldNick( L"" ), wszNewNick( L"" ) { }
 	SUIChatPlayerChangedNick( const WORD *pwszOldNick, const WORD *pwszNewNick )
-		: wszOldNick( pwszOldNick ), wszNewNick( pwszNewNick ) { }
+		: wszOldNick( MakeWideStringFromWordString( pwszOldNick ) ), wszNewNick( MakeWideStringFromWordString( pwszNewNick ) ) { }
 };
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // to notify UI that local player changes side
@@ -340,7 +356,7 @@ public:
 	
 	SUIPlayerInfo() { }
 	SUIPlayerInfo( const int _nID, const char *pszSide, const bool _bReady, const float _fPing, const WORD *pszName, const int _nDownloadCount )
-		: nID( _nID ), szSide( pszSide ), bReady( _bReady ), fPing( _fPing ), szName( pszName ), nDownloadCount( _nDownloadCount ) { }
+		: nID( _nID ), szSide( pszSide ), bReady( _bReady ), fPing( _fPing ), szName( MakeWideStringFromWordString( pszName ) ), nDownloadCount( _nDownloadCount ) { }
 };
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EMultiplayerConnectionType

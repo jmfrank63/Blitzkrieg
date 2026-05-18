@@ -468,7 +468,7 @@ static void piDisconnectCleanup
 
 	// Away.
 	////////
-	connection->away = PEERFalse;
+	connection->away = CHATFalse;
 	connection->awayReason[0] = '\0';
 
 	// We're not trying to disconnect.

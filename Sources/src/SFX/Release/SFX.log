@@ -1,11 +1,4 @@
-﻿.\Sound.def(4): warning LNK4017: DESCRIPTION statement not supported for the target platform; ignored
-     Creating library .\Release\SFX.lib and object .\Release\SFX.exp
-SoundEngine.obj : error LNK2019: unresolved external symbol "float __cdecl NStr::ToFloat(char const *)" (?ToFloat@NStr@@YAMPBD@Z) referenced in function "public: virtual bool __stdcall CSoundEngine::Init(struct HWND__ *,int,enum ESFXOutputType,int,int)" (?Init@CSoundEngine@@UAG_NPAUHWND__@@HW4ESFXOutputType@@HH@Z)
-SoundEngine.obj : error LNK2019: unresolved external symbol "char const * __cdecl NStr::Format(char const *,...)" (?Format@NStr@@YAPBDPBDZZ) referenced in function "public: virtual void __stdcall CSoundEngine::Update(struct ICamera *)" (?Update@CSoundEngine@@UAGXPAUICamera@@@Z)
-SoundEngine.obj : error LNK2019: unresolved external symbol "void __cdecl NStr::DebugTrace(char const *,...)" (?DebugTrace@NStr@@YAXPBDZZ) referenced in function "private: int __thiscall CPlayVisitor::RegisterSound(class CBaseSound *,int)" (?RegisterSound@CPlayVisitor@@AAEHPAVCBaseSound@@H@Z)
-SoundManager.obj : error LNK2019: unresolved external symbol "int __cdecl NStr::ToInt(char const *)" (?ToInt@NStr@@YAHPBD@Z) referenced in function "public: virtual bool __stdcall CSoundManager::Init(void)" (?Init@CSoundManager@@UAG_NXZ)
-SoundObjectFactory.obj : error LNK2001: unresolved external symbol "public: virtual struct IRefCount * __stdcall CBasicObjectFactory::CreateObject(int)" (?CreateObject@CBasicObjectFactory@@UAGPAUIRefCount@@H@Z)
-SoundObjectFactory.obj : error LNK2019: unresolved external symbol "public: virtual void __stdcall CBasicObjectFactory::RegisterType(int,struct IRefCount * (__stdcall*)(void))" (?RegisterType@CBasicObjectFactory@@UAGXHP6GPAUIRefCount@@XZ@Z) referenced in function "public: __thiscall CSoundObjectFactory::CSoundObjectFactory(void)" (??0CSoundObjectFactory@@QAE@XZ)
-SoundObjectFactory.obj : error LNK2001: unresolved external symbol "public: virtual void __stdcall CBasicObjectFactory::Aggregate(struct IObjectFactory *)" (?Aggregate@CBasicObjectFactory@@UAGXPAUIObjectFactory@@@Z)
-SoundObjectFactory.obj : error LNK2001: unresolved external symbol "public: virtual void __stdcall CBasicObjectFactory::GetKnownTypes(struct SObjectFactoryTypeInfo *,int)" (?GetKnownTypes@CBasicObjectFactory@@UAGXPAUSObjectFactoryTypeInfo@@H@Z)
-.\Release\SFX.dll : fatal error LNK1120: 8 unresolved externals
+﻿  StdAfx.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\SFX\Specific.h(1,10): error C1083: Cannot open include file: 'fmod.h': No such file or directory
+  (compiling source file 'StdAfx.cpp')
+  

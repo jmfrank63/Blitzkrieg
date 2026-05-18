@@ -1,7 +1,6 @@
 ; Net.def : Declares the module parameters for the DLL.
 
 LIBRARY      "Net"
-DESCRIPTION  'network I/O system'
 
 EXPORTS
     ; Explicit exports can go here

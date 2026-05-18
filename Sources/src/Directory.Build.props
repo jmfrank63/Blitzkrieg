@@ -4,4 +4,10 @@
 	<VCProjectVersion Condition="'$(VCProjectVersion)'==''">$(VisualStudioVersion)</VCProjectVersion>
 	<PlatformToolset Condition="'$(PlatformToolset)'=='' and '$(DefaultPlatformToolset)'!=''">$(DefaultPlatformToolset)</PlatformToolset>
   </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(MSBuildProjectExtension)'=='.vcxproj'">
+	<ClCompile>
+	  <PreprocessorDefinitions>_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+	  <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+	</ClCompile>
+  </ItemDefinitionGroup>
 </Project>

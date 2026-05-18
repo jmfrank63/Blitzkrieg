@@ -1,5 +1,5 @@
 ﻿  StdAfx.cpp
   _WIN32_WINNT not defined. Defaulting to _WIN32_WINNT_MAXVER (see WinSDKVer.h)
-C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\ELK\Specific.h(5,10): error C1083: Cannot open include file: 'ot_dockingwindows.h': No such file or directory
-  (compiling source file '../ELK/StdAfx.cpp')
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ELK\Specific.h(5,10): error C1083: Cannot open include file: 'ot_dockingwindows.h': No such file or directory
+  (compiling source file 'StdAfx.cpp')
   

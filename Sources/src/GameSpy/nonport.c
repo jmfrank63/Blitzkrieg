@@ -743,7 +743,7 @@ static void GenerateID(char *keyval)
 		seed = (l1.LowPart ^ l1.HighPart);
 	else
 		seed = 0;
-	Util_RandSeed(seed ^ GetTickCount() ^ time(NULL) ^ clock());
+	Util_RandSeed(seed ^ GetTickCount() ^ (unsigned long)time(NULL) ^ clock());
 #else
 	Util_RandSeed(time(NULL) ^ clock());
 #endif

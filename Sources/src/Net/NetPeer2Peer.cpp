@@ -44,7 +44,7 @@ void CP2PTracker::AddOutputMessage( EOutMessage msg, const UCID &_from,
 			break;
 	}
 #endif
-	output.push_back();
+	output.push_back( SMessage() );
 	SMessage &res = output.back();
 	res.msg = msg;
 	res.from = _from;
@@ -186,7 +186,7 @@ void CP2PTracker::ReceiveDirect( SPeer *pWho, CMemoryStream &data )
 	cout << "RECV direct from " << pWho->addr.GetFastName() << endl;
 #endif
 	// add to pending list
-	pWho->messages.push_back();
+	pWho->messages.push_back( SQMessage() );
 	SQMessage &b = pWho->messages.back();
 	b.msg = data;
 	b.nID = -1;
@@ -200,7 +200,7 @@ void CP2PTracker::ReceiveBroadcast( SPeer *pWho, CMemoryStream &data, int nID )
 	cout << "RECV broadcast from " << pWho->addr.GetFastName() << " msg " << nID << endl;
 #endif
 	// add to pending list
-	pWho->messages.push_back();
+	pWho->messages.push_back( SQMessage() );
 	SQMessage &b = pWho->messages.back();
 	b.msg = data;
 	b.nID = nID;
@@ -212,7 +212,7 @@ void CP2PTracker::ReceiveBroadcast( SPeer *pWho, CMemoryStream &data, int nID )
 		if ( pTest && pTest->IsActive() )
 		{
 			// add ack request if such client exist
-			b.acks.push_back();
+			b.acks.push_back( SAck() );
 			SAck &ack = b.acks.back();
 			ack.addr = i->addr;
 			ack.bAcked = false;
@@ -270,7 +270,7 @@ void CP2PTracker::ReceiveAck( SPeer *pFrom, int nID, PEER_ID id )
 			// if sender is inactive no messages from him will be received and ack is useless
 			if ( pSender->IsActive() ) 
 			{
-				pFrom->fastacks.push_back();
+				pFrom->fastacks.push_back( SFastAck() );
 				SFastAck &b = pFrom->fastacks.back();
 				b.addr = addr;
 				b.nID = nID;

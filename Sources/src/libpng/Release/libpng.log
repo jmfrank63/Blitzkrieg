@@ -1,1 +1,42 @@
-﻿  libpng.vcxproj -> C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\libpng\Release\libpng.lib
+﻿  png.c
+  pngerror.c
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\png.c(606,4): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  pnggccrd.c
+  pngget.c
+  pngmem.c
+  pngpread.c
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngpread.c(1406,8): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  pngread.c
+  pngrio.c
+  pngrtran.c
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngrtran.c(1136,7): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  pngrutil.c
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngrutil.c(256,13): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngrutil.c(259,13): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngrutil.c(262,13): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngrutil.c(290,7): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngrutil.c(2105,8): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  pngset.c
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngset.c(476,4): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngset.c(723,9): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngset.c(766,9): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  pngtest.c
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngtest.c(947,10): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngtest.c(1075,10): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngtest.c(591,16): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngtest.c(602,17): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngtest.c(1129,16): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngtest.c(1140,17): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  pngtrans.c
+  pngvcrd.c
+  pngwio.c
+  pngwrite.c
+  pngwtran.c
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngwrite.c(413,11): warning C4996: 'gmtime': This function or variable may be unsafe. Consider using gmtime_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  pngwutil.c
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngwutil.c(179,7): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngwutil.c(1118,10): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngwutil.c(1481,4): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\pngwutil.c(1482,4): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  Generating Code...
+  libpng.vcxproj -> C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\libpng\Release\libpng.lib

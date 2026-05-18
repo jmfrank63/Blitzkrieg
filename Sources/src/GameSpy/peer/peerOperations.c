@@ -268,7 +268,7 @@ static void piConnectConnectCallback
 		if(!piConnectTitle(peer))
 		{
 			piDisconnectTitle(peer);
-			success = PEERFalse;
+			success = CHATFalse;
 		}
 	}
 
@@ -1019,7 +1019,7 @@ void piGetPlayerInfoCallback
 		// Get the info.
 		////////////////
 		if(!piDemangleUser(user, &IP, &profileID))
-			success = PEERFalse;
+			success = CHATFalse;
 
 		// Cache the info.
 		//////////////////

@@ -1,4 +1,13 @@
-﻿.\Animation.def(4): warning LNK4017: DESCRIPTION statement not supported for the target platform; ignored
+﻿  StdAfx.cpp
+  GlobalsLoader.cpp
+  MeshAnimation.cpp
+  SpriteAnimation.cpp
+  AnimationManager.cpp
+  AnimObjectFactory.cpp
+  MatrixEffectorJogging.cpp
+  MatrixEffectorLeveling.cpp
+  Generating Code...
+.\Animation.def(4): warning LNK4017: DESCRIPTION statement not supported for the target platform; ignored
      Creating library .\Release\Anim.lib and object .\Release\Anim.exp
 MeshAnimation.obj : error LNK2019: unresolved external symbol "public: int __thiscall SAnimationFormat::operator&(struct IStructureSaver &)" (??ISAnimationFormat@@QAEHAAUIStructureSaver@@@Z) referenced in function "private: void __cdecl CSaverAccessor::CallObjectSerialize<struct SAnimationFormat>(char,struct SAnimationFormat *,...)" (??$CallObjectSerialize@USAnimationFormat@@@CSaverAccessor@@AAAXDPAUSAnimationFormat@@ZZ)
 MeshAnimation.obj : error LNK2019: unresolved external symbol "public: int __thiscall SSkeletonFormat::operator&(struct IStructureSaver &)" (??ISSkeletonFormat@@QAEHAAUIStructureSaver@@@Z) referenced in function "private: void __cdecl CSaverAccessor::CallObjectSerialize<struct SSkeletonFormat>(char,struct SSkeletonFormat *,...)" (??$CallObjectSerialize@USSkeletonFormat@@@CSaverAccessor@@AAAXDPAUSSkeletonFormat@@ZZ)

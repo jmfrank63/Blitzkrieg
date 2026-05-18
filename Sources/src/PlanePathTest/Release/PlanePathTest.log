@@ -1,4 +1,16 @@
-﻿CManuver.obj : error LNK2019: unresolved external symbol "float __cdecl NTrg::Sin(float)" (?Sin@NTrg@@YAMM@Z) referenced in function "private: bool __thiscall CManuver::GetToHorisontalOffset(class CVec3 const &,float,float,class CVec3 *)const " (?GetToHorisontalOffset@CManuver@@ABE_NABVCVec3@@MMPAV2@@Z)
+﻿  StdAfx.cpp
+  _WIN32_WINNT not defined. Defaulting to _WIN32_WINNT_MAXVER (see WinSDKVer.h)
+  AIGeometry.cpp
+  CManuver.cpp
+  CManuverContainer.cpp
+  ComplexPathFraction.cpp
+  PathFraction.cpp
+  PlaneFlightExecutor.cpp
+  PlanePathMath.cpp
+  PlanePathTest.cpp
+  PlanePathTestDlg.cpp
+  Generating Code...
+CManuver.obj : error LNK2019: unresolved external symbol "float __cdecl NTrg::Sin(float)" (?Sin@NTrg@@YAMM@Z) referenced in function "private: bool __thiscall CManuver::GetToHorisontalOffset(class CVec3 const &,float,float,class CVec3 *)const " (?GetToHorisontalOffset@CManuver@@ABE_NABVCVec3@@MMPAV2@@Z)
 CManuver.obj : error LNK2019: unresolved external symbol "float __cdecl NTrg::ASin(float)" (?ASin@NTrg@@YAMM@Z) referenced in function "private: bool __thiscall CManuver::GetToHorisontalOffset(class CVec3 const &,float,float,class CVec3 *)const " (?GetToHorisontalOffset@CManuver@@ABE_NABVCVec3@@MMPAV2@@Z)
 CManuver.obj : error LNK2019: unresolved external symbol "public: __thiscall CMineStaticObject::CMineStaticObject(struct SMineRPGStats const *,class CVec2 const &,int,float,int,int)" (??0CMineStaticObject@@QAE@PBUSMineRPGStats@@ABVCVec2@@HMHH@Z) referenced in function "public: void __thiscall CManuverVisualizeDEBUG::Init(struct IPathFraction *,struct IPlane *)" (?Init@CManuverVisualizeDEBUG@@QAEXPAUIPathFraction@@PAUIPlane@@@Z)
 CManuver.obj : error LNK2019: unresolved external symbol "public: void __thiscall CMineStaticObject::RegisterInWorld(void)" (?RegisterInWorld@CMineStaticObject@@QAEXXZ) referenced in function "public: void __thiscall CManuverVisualizeDEBUG::Init(struct IPathFraction *,struct IPlane *)" (?Init@CManuverVisualizeDEBUG@@QAEXPAUIPathFraction@@PAUIPlane@@@Z)

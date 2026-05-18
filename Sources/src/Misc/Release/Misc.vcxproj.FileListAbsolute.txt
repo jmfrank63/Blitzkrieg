@@ -1,1 +1,2 @@
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\Misc\Release\Misc.lib
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Release\Misc.lib

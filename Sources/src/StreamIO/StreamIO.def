@@ -1,7 +1,6 @@
 ; StreamIO.def : Declares the module parameters for the DLL.
 
 LIBRARY      "StreamIO"
-DESCRIPTION  'streaming I/O system'
 
 EXPORTS
     ; Explicit exports can go here

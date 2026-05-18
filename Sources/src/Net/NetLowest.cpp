@@ -225,7 +225,7 @@ bool CLinksManager::Send( const CNodeAddress &dst, CMemoryStream &pkt ) const
 	{
 		if ( rand() <= RAND_MAX * fLostRate )
 			return true;
-		pktQueue.push_back();
+		pktQueue.push_back( SPacket() );
 		pktQueue.back().addr = dst;
 		pktQueue.back().pkt = pkt;
 		while ( pktQueue.size() > 3 )

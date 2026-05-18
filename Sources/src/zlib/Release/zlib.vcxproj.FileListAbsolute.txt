@@ -1,1 +1,2 @@
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\zlib\Release\zlib.lib
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\zlib\Release\zlib.lib
