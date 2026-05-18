@@ -23,3 +23,5 @@
 - **2024-05-18**: Added missing D3D9 constants (D3DTEXF_*, D3DTSS_*) not present in Windows SDK
 - **2024-05-18**: Fixed SymbolPtr to _SymbolPtr for proper COM smart pointer type
 - **2024-05-18**: Fixed narrowing conversions - cast return -1 to static_cast<DWORD>(-1)
+- **2024-05-18**: Fixed all narrowing conversions in ShaderParser.cpp - cast RULE_* and D3D* enum constants and -1 literals to DWORD in SPair arrays and local DWORD arrays
+- **2024-05-18**: Fixed SceneDraw.cpp template - added `typename` keyword for dependent type `TContainer::value_type` in Resize2Fit function

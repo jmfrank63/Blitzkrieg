@@ -82,7 +82,7 @@ __forceinline bool DrawTemp( IGFX *pGFX, const CRawBuffer<TYPE> &vertices, const
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TContainer>
-__forceinline TContainer::value_type* Resize2Fit( TContainer &data, const int nAdd )
+__forceinline typename TContainer::value_type* Resize2Fit( TContainer &data, const int nAdd )
 {
 	const int nOldSize = data.size();
 	data.resize( nOldSize + nAdd );
