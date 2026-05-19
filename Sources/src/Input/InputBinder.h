@@ -152,18 +152,20 @@ public:
 	const int GetNumControls() const { return controls.size(); }
 	void AddSuppressive( CCombo *pCombo ) 
 	{ 
-		if ( std::find(pMapping->suppressives.begin(), pMapping->suppressives.end(), pCombo) == pMapping->suppressives.end() )
+		const CPtr<CCombo> comboPtr( pCombo );
+		if ( std::find( pMapping->suppressives.begin(), pMapping->suppressives.end(), comboPtr ) == pMapping->suppressives.end() )
 			pMapping->suppressives.push_back( pCombo );
 	}
 	void RemoveSuppressive( CCombo *pCombo, bool bFromAllMappings ) 
 	{ 
+		const CPtr<CCombo> comboPtr( pCombo );
 		if ( bFromAllMappings ) 
 		{
 			for ( CMappingsMap::iterator it = mappings.begin(); it != mappings.end(); ++it )
-				it->second.suppressives.remove( pCombo ); 
+				it->second.suppressives.remove( comboPtr ); 
 		}
 		else
-			pMapping->suppressives.remove( pCombo ); 
+			pMapping->suppressives.remove( comboPtr ); 
 	}
 	void AddBind( CBind *pBind );
 	void RemoveBind( CBind *pBind ) { pMapping->binds.remove( pBind ); }

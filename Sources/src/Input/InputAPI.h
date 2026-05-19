@@ -48,7 +48,7 @@ public:
 	//
 	const std::list< CObj<CCombo> >& GetCombos() const { return combos; }
 	void AddCombo( CCombo *pCombo );
-	void RemoveCombo( CCombo *pCombo ) { combos.remove( pCombo ); }
+	void RemoveCombo( CCombo *pCombo ) { combos.remove( CObj<CCombo>( pCombo ) ); }
 	void SetBindSection( const std::string &szName );
 	//
 	bool Visit( IInputVisitor *pVisitor )

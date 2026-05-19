@@ -69,7 +69,8 @@ struct SCombosCmp
 };
 void CControl::AddCombo( CCombo *pCombo )
 {
-	if ( std::find(combos.begin(), combos.end(), pCombo) == combos.end() )
+	const CObj<CCombo> comboPtr( pCombo );
+	if ( std::find( combos.begin(), combos.end(), comboPtr ) == combos.end() )
 	{
 		combos.push_back( pCombo );
 		combos.sort( SCombosCmp() );
