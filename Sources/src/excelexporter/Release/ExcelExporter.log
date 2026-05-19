@@ -65,9 +65,6 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(45,
       C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\Release\msxml3.tlh(284,1):
       or       'MSXML2::IXMLDOMNodePtr'
   
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\ExcelExporter.cpp(236,11): warning C4996: 'strcmpi': The POSIX name for this item is deprecated. Instead, use the ISO C and C++ conformant name: _strcmpi. See online help for details.
-  (compiling source file '/ExcelExporter.cpp')
-  
   main.cpp
   XmlReader.cpp
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\ExcelExporter\XmlReader.h(24,2): error C2872: 'IXMLDOMDocumentPtr': ambiguous symbol

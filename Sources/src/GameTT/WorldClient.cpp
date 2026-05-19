@@ -586,7 +586,7 @@ void CWorldClient::Init( ISingleton *pSingleton )
 	RegisterAction( USER_ACTION_INSTALL, SActionDesc::INSTANT, &CWorldClient::ActionInstallMsg );
 	RegisterAction( USER_ACTION_UNINSTALL, SActionDesc::INSTANT, &CWorldClient::ActionUnInstallMsg );
 
-	RegisterAction( USER_ACTION_CAPTURE_ARTILLERY, SActionDesc::AUTO, ActionCaptureArtilleryMsg );
+	RegisterAction( USER_ACTION_CAPTURE_ARTILLERY, SActionDesc::AUTO, &CWorldClient::ActionCaptureArtilleryMsg );
 	RegisterAction( USER_ACTION_HOOK_ARTILLERY, SActionDesc::AUTO | SActionDesc::FORCED, &CWorldClient::ActionHookArtilleryMsg );
 	RegisterAction( USER_ACTION_DEPLOY_ARTILLERY, SActionDesc::FORCED, &CWorldClient::ActionDeployArtilleryMsg );
 
@@ -1122,7 +1122,15 @@ void CWorldClient::ResetPreSelection( IVisObj *pObj )
 							bool bResetSelection = true;
 							for ( std::vector<IMOUnit*>::iterator it = units.begin(); it != units.end(); ++it )
 							{
-								CMapObjectsList::iterator pos = std::find( preselectedObjects.begin(), preselectedObjects.end(), (SMapObject*)(*it) );
+								CMapObjectsList::iterator pos = preselectedObjects.end();
+								for ( CMapObjectsList::iterator preIt = preselectedObjects.begin(); preIt != preselectedObjects.end(); ++preIt )
+								{
+									if ( preIt->GetPtr() == static_cast<SMapObject*>( *it ) )
+									{
+										pos = preIt;
+										break;
+									}
+								}
 								bResetSelection = bResetSelection && ( pos == preselectedObjects.end() || *it == pUnit );
 							}
 							if ( bResetSelection )
@@ -1135,7 +1143,15 @@ void CWorldClient::ResetPreSelection( IVisObj *pObj )
 					pUnit->pVisObj->SetSpecular( 0x00000000 );
 		}
 		// remove from pre-selected list
-		CMapObjectsList::iterator pos = std::find( preselectedObjects.begin(), preselectedObjects.end(), pMO );
+		CMapObjectsList::iterator pos = preselectedObjects.end();
+		for ( CMapObjectsList::iterator preIt = preselectedObjects.begin(); preIt != preselectedObjects.end(); ++preIt )
+		{
+			if ( preIt->GetPtr() == pMO )
+			{
+				pos = preIt;
+				break;
+			}
+		}
 		if ( pos != preselectedObjects.end() )
 			preselectedObjects.erase( pos );
 	}

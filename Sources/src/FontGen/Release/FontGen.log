@@ -450,7 +450,7 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(474,28): 
   
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(474,26): error C2514: 'CPtr': class template cannot be constructed
   (compiling source file '/FontGen.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(591,1):
       see declaration of 'CPtr'
   
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\FontGen\FontGen.cpp(475,3): error C2678: binary '->': no operator found which takes a left-hand operand of type 'CPtr' (or there is no acceptable conversion)

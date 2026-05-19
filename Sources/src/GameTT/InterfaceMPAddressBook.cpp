@@ -70,7 +70,7 @@ void CInterfaceMPAddressBook::DeleteServer()
 	{
 		IUIListRow *pRow = pList->GetItem( nSelItem );
 		IUIElement *pEl = pRow->GetElement( 0 );
-		const std::string szAddress = NStr::ToAscii( pEl->GetWindowText(0) );
+		const std::string szAddress = NStr::ToAscii( MakeWideStringFromWordString( pEl->GetWindowText(0) ) );
 		pList->RemoveItem( pList->GetSelectionItem() );
 
 		bChanged = true;
@@ -85,7 +85,8 @@ void CInterfaceMPAddressBook::AddServerInternal( const std::string &szServer )
 	IUIListControl *pList = checked_cast<IUIListControl*>( pUIScreen->GetChildByID( E_LIST ) );
 	pList->AddItem();
 	IUIListRow *pRow = pList->GetItem( pList->GetNumberOfItems() -1 );
-	pRow->GetElement( 0 )->SetWindowText( 0, NStr::ToUnicode( szServer ).c_str() );
+	const std::wstring wszServer = NStr::ToUnicode( szServer );
+	pRow->GetElement( 0 )->SetWindowText( 0, reinterpret_cast<const WORD*>( wszServer.c_str() ) );
 	pList->InitialUpdate();
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -118,7 +119,7 @@ std::string CInterfaceMPAddressBook::GetServer()
 	{
 		IUIElement *pEl = pList->GetItem( nSelItem )->GetElement( 0 );
 		if ( pEl )
-			return NStr::ToAscii( pEl->GetWindowText(0) );		
+			return NStr::ToAscii( MakeWideStringFromWordString( pEl->GetWindowText(0) ) );		
 	}
 
 	return "";
@@ -172,7 +173,7 @@ bool CInterfaceMPAddressBook::ProcessMessage( const SGameMessage &msg )
 		if ( pDialogAskAddress )
 		{
 			IUIElement *pText = pDialogAskAddress->GetChildByID( E_ADDRESS_EDIT_BOX );
-			const std::string szServer = NStr::ToAscii( pText->GetWindowText( 0 ) );
+			const std::string szServer = NStr::ToAscii( MakeWideStringFromWordString( pText->GetWindowText( 0 ) ) );
 			pDialogAskAddress->ShowWindow( UI_SW_HIDE_MODAL );
 			pDialogAskAddress->ShowWindow( UI_SW_HIDE );
 			AddServer( szServer );
@@ -225,7 +226,7 @@ bool CInterfaceMPAddressBook::ProcessMessage( const SGameMessage &msg )
 		{
 			pDialogAskAddress = checked_cast<IUIDialog*>( pUIScreen->GetChildByID( E_DIALOG_ASK_ADDRESS ) );
 			IUIElement *pText = pDialogAskAddress->GetChildByID( E_ADDRESS_EDIT_BOX );
-			pText->SetWindowText( 0, L"" );
+			pText->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
 			pText->SetFocus( true );
 			pDialogAskAddress->ShowWindow( UI_SW_SHOW_MODAL );
 		}

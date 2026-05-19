@@ -4,6 +4,7 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "CommonId.h"
 #include "IMLoadMission.h"
+#include "MultiplayerCommandManager.h"
 #include "..\Main\ScenarioTracker.h"
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICIMSaveMission::PostCreate( IMainLoop *pML, CInterfaceIMSaveMission *pILM )
@@ -76,7 +77,8 @@ bool CInterfaceIMSaveMission::FillListItem( IUIListRow *pRow, const std::string 
 	szSaves[pRow->GetUserData()] = szShortName;
 
 	const std::string szVal = GetFileChangeTimeString( szFullFileName.c_str() );
-	pElement->SetWindowText( 0, NStr::ToUnicode( szVal ).c_str() );
+	const std::wstring wszVal = NStr::ToUnicode( szVal );
+	pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszVal.c_str() ) );
 	return true;
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -86,7 +88,8 @@ bool CInterfaceIMSaveMission::OnOk()
 	
 	IUIEditBox *pEdit = checked_cast<IUIEditBox *>( pUIScreen->GetChildByID( 2000 ) );		//should be EditBox
 	NI_ASSERT_T( pEdit != 0, "Can't find editbox control with ID 2000" );
-	std::string szEdit = NStr::ToAscii( pEdit->GetWindowText( pEdit->GetState() ) );
+	const std::wstring wszEdit = MakeWideStringFromWordString( pEdit->GetWindowText( pEdit->GetState() ) );
+	std::string szEdit = NStr::ToAscii( wszEdit );
 	NStr::TrimBoth( szEdit );
 	if ( szEdit.size() == 0 )
 	{
@@ -151,9 +154,10 @@ void CInterfaceIMSaveMission::OnSelectionChanged()
 	
 	IUIListRow *pSelRow = pList->GetItem( nSave );
 	std::string szEdit = szSaves[pSelRow->GetUserData()];
-	//отобразим этот элемент в загружаемом имени
+	//????????? ???? ??????? ? ??????????? ?????
 	pElement = pUIScreen->GetChildByID( 2000 );
-	pElement->SetWindowText( 0, NStr::ToUnicode(szEdit).c_str() );
+	const std::wstring wszEdit = NStr::ToUnicode( szEdit );
+	pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszEdit.c_str() ) );
 	
 	IUIEditBox *pEdit = checked_cast<IUIEditBox *>( pUIScreen->GetChildByID( 2000 ) );		//should be EditBox
 	pEdit->SetCursor( -1 );

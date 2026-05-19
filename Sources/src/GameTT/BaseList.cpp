@@ -162,7 +162,7 @@ void CInterfaceBaseList::FillListFromCurrentDir()
 		dirsList.push_back( dirs[i] );
 		std::wstring wszTemp;
 		NStr::ToUnicode( &wszTemp, dirs[i] );
-		pContainer->SetWindowText( 0, wszTemp.c_str() );
+		pContainer->SetWindowText( 0, reinterpret_cast<const WORD*>( wszTemp.c_str() ) );
 		
 		IUIElement *pElement = pContainer->GetChildByID( 1 );
 		NI_ASSERT_T( pElement != 0, "Invalid list control name dialog, it should contain icon" );
@@ -188,7 +188,7 @@ void CInterfaceBaseList::FillListFromCurrentDir()
 		//������� extension
 		std::wstring wszTemp;
 		NStr::ToUnicode( &wszTemp, files[i].substr( 0, files[i].rfind( '.' ) ) );
-		pContainer->SetWindowText( 0, wszTemp.c_str() );
+		pContainer->SetWindowText( 0, reinterpret_cast<const WORD*>( wszTemp.c_str() ) );
 		
 		IUIElement *pElement = pContainer->GetChildByID( 1 );
 		NI_ASSERT_T( pElement != 0, "Invalid list control name dialog, it should contain icon" );

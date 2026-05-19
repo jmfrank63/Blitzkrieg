@@ -1,6 +1,20 @@
-#include <d3d8.h>
-#include <d3d8types.h>
-#include <d3d8caps.h>
+#include <d3d9.h>
+
+typedef IDirect3D9 IDirect3D8;
+typedef IDirect3DDevice9 IDirect3DDevice8;
+typedef IDirect3DTexture9 IDirect3DTexture8;
+typedef IDirect3DSurface9 IDirect3DSurface8;
+typedef IDirect3DVertexBuffer9 IDirect3DVertexBuffer8;
+typedef IDirect3DIndexBuffer9 IDirect3DIndexBuffer8;
+typedef D3DVIEWPORT9 D3DVIEWPORT8;
+typedef D3DLIGHT9 D3DLIGHT8;
+typedef D3DCAPS9 D3DCAPS8;
+typedef D3DADAPTER_IDENTIFIER9 D3DADAPTER_IDENTIFIER8;
+
+inline IDirect3D9* Direct3DCreate8( UINT sdkVersion )
+{
+	return Direct3DCreate9( sdkVersion );
+}
 
 #include "..\Misc\Win32Helper.h"
 

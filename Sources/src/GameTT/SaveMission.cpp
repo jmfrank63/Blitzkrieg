@@ -3,6 +3,7 @@
 #include "SaveMission.h"
 
 #include "..\Main\iMainCommands.h"
+#include "MultiplayerCommandManager.h"
 #include "SaveLoadCommon.h"
 #include "CommonId.h"
 #include "..\UI\UIMessages.h"
@@ -99,7 +100,7 @@ void CInterfaceSaveMission::StartInterface()
 		//отрежем extension
 		std::wstring wszTemp;
 		NStr::ToUnicode( &wszTemp, files[i].szFileName.substr( 0, files[i].szFileName.rfind( '.' ) ) );
-		pStatic->SetWindowText( pStatic->GetState(), wszTemp.c_str() );
+		pStatic->SetWindowText( pStatic->GetState(), reinterpret_cast<const WORD*>( wszTemp.c_str() ) );
 		pStatic->SetTextColor( dwTextColor );
 	}
 	//
@@ -109,7 +110,8 @@ void CInterfaceSaveMission::StartInterface()
 		szEdit = szEdit.substr( 0, szEdit.rfind( '.' ) );
 		//отобразим этот элемент в сохраняемом имени
 		IUIEditBox *pEdit = checked_cast<IUIEditBox*>( pUIScreen->GetChildByID( 2000 ) );
-		pEdit->SetWindowText( 0, NStr::ToUnicode(szEdit).c_str() );
+		const std::wstring wszEdit = NStr::ToUnicode( szEdit );
+		pEdit->SetWindowText( 0, reinterpret_cast<const WORD*>( wszEdit.c_str() ) );
 		pEdit->SetCursor( szEdit.size() );
 		pEdit->SetSel( 0, -1 );
 		pList->SetSelectionItem( 0 );
@@ -145,8 +147,8 @@ bool CInterfaceSaveMission::ProcessMessage( const SGameMessage &msg )
 				szEdit = szEdit.substr( 0, szEdit.rfind( '.' ) );
 				//отобразим этот элемент в загружаемом имени
 				IUIEditBox *pEdit = checked_cast<IUIEditBox*>( pUIScreen->GetChildByID( 2000 ) );
-				const std::wstring wszEditUnicode = NStr::ToUnicode(szEdit).c_str();
-				pEdit->SetWindowText( 0, wszEditUnicode.c_str() );
+				const std::wstring wszEditUnicode = NStr::ToUnicode( szEdit );
+				pEdit->SetWindowText( 0, reinterpret_cast<const WORD*>( wszEditUnicode.c_str() ) );
 				pEdit->SetCursor( wszEditUnicode.length() );
 				pEdit->SetSel( 0, -1 );
 				pEdit->ShowWindow( UI_SW_SHOW );
@@ -169,7 +171,8 @@ bool CInterfaceSaveMission::ProcessMessage( const SGameMessage &msg )
 			{
 				IUIEditBox *pEdit = checked_cast<IUIEditBox *>( pUIScreen->GetChildByID( 2000 ) );		//should be EditBox
 				NI_ASSERT_T( pEdit != 0, "Can't find editbox control with ID 2000" );
-				std::string szEdit = NStr::ToAscii( pEdit->GetWindowText( pEdit->GetState() ) );
+				const std::wstring wszEdit = MakeWideStringFromWordString( pEdit->GetWindowText( pEdit->GetState() ) );
+				std::string szEdit = NStr::ToAscii( wszEdit );
 				NStr::TrimBoth( szEdit );
 				if ( szEdit.size() == 0 )
 				{

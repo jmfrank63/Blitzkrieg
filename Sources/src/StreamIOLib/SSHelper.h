@@ -405,7 +405,7 @@ class CSaverAccessor
 				data.push( *it );
 		}
 public:
-	CSaverAccessor() {  }
+	CSaverAccessor() : pSS( 0 ) {  }
 	CSaverAccessor( const CSaverAccessor &accessor ) 
 		: pSS( accessor.pSS ) {  }
 	CSaverAccessor( IStructureSaver *_pSS ) 

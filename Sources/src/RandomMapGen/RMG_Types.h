@@ -651,6 +651,7 @@ class CRMFieldGraph
 		int nPatchIndex;
 		int nSideIndex;
 		int nLineIndex;
+		SLink() : nPatchIndex( 0 ), nSideIndex( 0 ), nLineIndex( 0 ) { }
 	};
 
 	struct SLine
@@ -659,6 +660,7 @@ class CRMFieldGraph
 		SLink end;
 		int nID;
 		std::list<CVec2> points;
+		SLine() : nID( 0 ) { }
 	};
 
 	struct SCaret
@@ -711,6 +713,7 @@ public:
 	{
 		std::string szRPGStats;							// RPG stats name
 		int nWeight;												// weight
+		SRandomMissionBonus() : nWeight( 0 ) { }
 		//
 		int operator&( IDataTree &ss )
 		{

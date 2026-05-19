@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 
 #include "UIMapInfo.h"
+#include "MultiplayerCommandManager.h"
 #include "..\RandomMapGen\Resource_Types.h"
 #include "..\Main\TextSystem.h"
 
@@ -15,6 +16,8 @@ bool SUIMapInfo::LoadMapInfo( const char *szMapName )
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const wchar_t * SUIMapInfo::GetVisualName( const std::string szPath )
 {
+	static std::wstring szMapName;
+
 	std::string szMaps = "maps\\";
 	std::string szTmp = szMaps;
 	szTmp += szPath;
@@ -23,12 +26,14 @@ const wchar_t * SUIMapInfo::GetVisualName( const std::string szPath )
 	IText * pMapName = GetSingleton<ITextManager>()->GetDialog( szTmp.c_str() );
 
 	if ( pMapName )
-		return pMapName->GetString();
+	{
+		szMapName = MakeWideStringFromWordString( pMapName->GetString() );
+		return szMapName.c_str();
+	}
 	else
 	{
 		if ( szPath.size() < szMultiplayer.size() ) 
 			return 0;
-		static std::wstring szMapName;
 		szMapName = NStr::ToUnicode( szPath.c_str() + szMultiplayer.size() );
 		return szMapName.c_str();
 	}

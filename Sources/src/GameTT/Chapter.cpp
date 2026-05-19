@@ -541,7 +541,7 @@ void CInterfaceChapter::SetMissionDescription( const int _nSelected )
 	CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::READ );
 	CPtr<IUIElement> pTextDescription;
 	saver.Add( "Element", &pTextDescription );
-	pTextDescription->SetWindowText( 0, szDescription.c_str() );		
+	pTextDescription->SetWindowText( 0, reinterpret_cast<const WORD*>( szDescription.c_str() ) );		
 	pComplexScroll->AddItem( pTextDescription, true );
 	}
 

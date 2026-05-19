@@ -196,9 +196,9 @@ struct SAINotifyAction : public SSuspendedUpdate
 	NTimer::STime time;
 
 	//
-	SAINotifyAction() { }
+	SAINotifyAction() : typeID( 0 ), nParam( -1 ), time() { }
 	SAINotifyAction( const BYTE _typeID, IRefCount *pObj ) 
-		: SSuspendedUpdate( pObj ), typeID( _typeID ), nParam( -1 ) { }
+		: SSuspendedUpdate( pObj ), typeID( _typeID ), nParam( -1 ), time() { }
 
 	virtual void Pack( IDataStream *pStream ) const
 	{
@@ -240,9 +240,9 @@ struct SAINotifyRPGStats : public SSuspendedUpdate
 	NTimer::STime time;
 
 	//
-	SAINotifyRPGStats() { }
+	SAINotifyRPGStats() : fHitPoints( 0.0f ), fMorale( 0.0f ), nMainAmmo( 0 ), nSecondaryAmmo( 0 ), time() { }
 	SAINotifyRPGStats( IRefCount *pObj, const float _fHitPoints ) 
-		: SSuspendedUpdate( pObj ), fHitPoints( _fHitPoints ) { }
+		: SSuspendedUpdate( pObj ), fHitPoints( _fHitPoints ), fMorale( 0.0f ), nMainAmmo( 0 ), nSecondaryAmmo( 0 ), time() { }
 
 	virtual void Pack( IDataStream *pStream ) const
 	{
@@ -263,7 +263,7 @@ struct SAINotifyDiplomacy : public SSuspendedUpdate
 	int nPlayer;
 
 	//
-	SAINotifyDiplomacy() { }
+	SAINotifyDiplomacy() : eDiplomacy( EDI_ENEMY ), nPlayer( 0 ) { }
 	SAINotifyDiplomacy( EDiplomacyInfo _eDiplomacy, IRefCount *pObj, const int _nPlayer ) 
 		: SSuspendedUpdate( pObj ), eDiplomacy( _eDiplomacy ), nPlayer( _nPlayer ) { }
 
@@ -287,7 +287,7 @@ struct SAINotifyEntranceState
 	IRefCount *pTarget;											// куда входит
 	bool bEnter;														// true - входит, false - выходит
 
-	SAINotifyEntranceState() : pInfantry( 0 ), pTarget( 0 ) { }
+	SAINotifyEntranceState() : pInfantry( 0 ), pTarget( 0 ), bEnter( false ) { }
 	SAINotifyEntranceState( IRefCount *_pInfantry, IRefCount *_pTarget, const bool _bEnter ) : pInfantry( _pInfantry ), pTarget( _pTarget ), bEnter( _bEnter ) { }
 };
 // placement update
@@ -300,9 +300,9 @@ struct SAINotifyPlacement : public SSuspendedUpdate
 	float fSpeed;
 	BYTE cSoil;														// параметры почвы: дым из-под колёс, следы и т.д.
 
-	SAINotifyPlacement() { }
+	SAINotifyPlacement() : center( VNULL2 ), z( 0.0f ), dir( 0 ), dwNormal( 0 ), fSpeed( 0.0f ), cSoil( 0 ) { }
 	SAINotifyPlacement(	IRefCount *pObj, const CVec2 &_center, const short _z, const WORD _dir, const float _fSpeed )
-		: SSuspendedUpdate( pObj ), center( _center ), z( _z ), dir( _dir ), fSpeed( _fSpeed ), cSoil( 0 ) { }
+		: SSuspendedUpdate( pObj ), center( _center ), z( _z ), dir( _dir ), dwNormal( 0 ), fSpeed( _fSpeed ), cSoil( 0 ) { }
 
 	virtual void Pack( IDataStream *pStream ) const
 	{
@@ -344,7 +344,7 @@ struct SNewUnitInfo : public SAINotifyPlacement
 	int nPlayer;
 	int nFrameIndex;											// frame index for static objects
 //
-	SNewUnitInfo() {  }
+	SNewUnitInfo() : fResize( 0.0f ), fHitPoints( 0.0f ), fMorale( 0.0f ), dbID( 0 ), eDipl( EDI_ENEMY ), nPlayer( 0 ), nFrameIndex( 0 ) {  }
 
 	virtual void Pack( IDataStream *pStream ) const
 	{
@@ -374,12 +374,12 @@ struct SAINotifyHitInfo
 	IRefCount *pVictim;											// if unit was hit
 	CVec3 explCoord;
 
-	SAINotifyHitInfo() : pWeapon( 0 ) { }
+	SAINotifyHitInfo() : pWeapon( 0 ), wShell( 0 ), wDir( 0 ), eHitType( EHT_NONE ), pVictim( 0 ), explCoord( VNULL3 ) { }
 	SAINotifyHitInfo( const SWeaponRPGStats *_pWeapon, const WORD _wShell, const WORD &_wDir, IRefCount *_pVictim, const CVec3 _explCoord )
-		: pWeapon( _pWeapon ), wShell( _wShell ), wDir( _wDir ), pVictim( _pVictim ), explCoord( _explCoord ) { }
+		: pWeapon( _pWeapon ), wShell( _wShell ), wDir( _wDir ), eHitType( EHT_NONE ), pVictim( _pVictim ), explCoord( _explCoord ) { }
 
 	SAINotifyHitInfo( const SWeaponRPGStats *_pWeapon, const WORD _wShell, const WORD &_wDir, const CVec3 _explCoord )
-		: pWeapon( _pWeapon ), wShell( _wShell ), wDir( _wDir ), pVictim( 0 ), explCoord( _explCoord ) { }
+		: pWeapon( _pWeapon ), wShell( _wShell ), wDir( _wDir ), eHitType( EHT_NONE ), pVictim( 0 ), explCoord( _explCoord ) { }
 };
 // aiming: turret turning update
 struct SAINotifyTurretTurn
@@ -389,7 +389,7 @@ struct SAINotifyTurretTurn
 	WORD wAngle;													// final angle
 	NTimer::STime endTime;								// final time
 
-	SAINotifyTurretTurn() : pObj( 0 ) { }
+	SAINotifyTurretTurn() : pObj( 0 ), nModelPart( 0 ), wAngle( 0 ), endTime() { }
 	SAINotifyTurretTurn( IRefCount *_pObj, const int &_nModelPart, const WORD &_wAngle, const NTimer::STime &_endTime )
 		: pObj( _pObj ), nModelPart( _nModelPart ), wAngle( _wAngle ), endTime( _endTime ) { }
 };
@@ -402,7 +402,7 @@ struct SAINotifyBaseShot
 	NTimer::STime time;										// time, this shot was...
 	CVec3 vDestPos;												// destination point of this shot
 	//
-	SAINotifyBaseShot() : pObj( 0 ) {  }
+	SAINotifyBaseShot() : typeID( 0 ), pObj( 0 ), cShell( 0 ), time(), vDestPos( VNULL3 ) {  }
 	SAINotifyBaseShot( const BYTE _typeID, IRefCount *_pObj, const BYTE _cShell, const NTimer::STime &_time, const CVec3 &_vDestPos )
 		: typeID( _typeID ), pObj( _pObj ), cShell( _cShell ), time( _time ), vDestPos( _vDestPos ) {  }
 };
@@ -411,7 +411,7 @@ struct SAINotifyMechShot : public SAINotifyBaseShot
 {
 	BYTE cGun;														// gun number
 	//
-	SAINotifyMechShot() { }
+	SAINotifyMechShot() : cGun( 0 ) { }
 	SAINotifyMechShot( const BYTE _typeID, IRefCount *_pObj, const BYTE _cGun, const BYTE _cShell, const NTimer::STime &_time, const CVec3 &_vDestPos )
 		: SAINotifyBaseShot( _typeID, _pObj, _cShell, _time, _vDestPos ), cGun( _cGun ) {  }
 };
@@ -446,9 +446,9 @@ struct SAINotifyNewProjectile
 	// время запуска снаряда
 	NTimer::STime startTime;
 
-	SAINotifyNewProjectile() : pObj( 0 ) { }
+	SAINotifyNewProjectile() : pObj( 0 ), pSource( 0 ), nGun( 0 ), nShell( 0 ), flyingTime(), startTime() { }
 	SAINotifyNewProjectile( IRefCount *_pObj, IRefCount *_pSource, const int _nGun, const int _nShell, const NTimer::STime _flyingTime )
-		: pObj( _pObj ), pSource( _pSource ), nGun( _nGun ), nShell( _nShell ), flyingTime( _flyingTime ) { }
+		: pObj( _pObj ), pSource( _pSource ), nGun( _nGun ), nShell( _nShell ), flyingTime( _flyingTime ), startTime() { }
 };
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ************************************************************************************************************************ //
@@ -642,7 +642,7 @@ struct SAIUnitCmd
 	float fNumber;
 	bool bFromAI;			// если true, то команда пришла от клиента или от генерала
 	//
-	SAIUnitCmd() : vPos( -1, -1 ), bFromAI( true ) { }
+	SAIUnitCmd() : cmdType( ACTION_COMMAND_MOVE_TO ), vPos( -1, -1 ), fromExplosion( false ), fNumber( 0 ), bFromAI( true ) { }
 	explicit SAIUnitCmd( const EActionCommand &_cmdType )
 		: cmdType( _cmdType ), vPos( -1, -1 ), fNumber( 0 ), fromExplosion( false ), bFromAI(true) { }
 	SAIUnitCmd( const EActionCommand &_cmdType, IRefCount *_pObject )
@@ -975,7 +975,7 @@ struct SAIFeedBack
 	EFeedBack feedBackType;
 	DWORD nParam;
 
-	SAIFeedBack() { }
+	SAIFeedBack() : feedBackType( EFeedBack( 0 ) ), nParam( DWORD( -1 ) ) { }
 	SAIFeedBack( const EFeedBack _feedBackType ) : feedBackType( _feedBackType ), nParam( -1 ) { }
 	SAIFeedBack( const EFeedBack _feedBackType, DWORD _nParam )
 		: feedBackType( _feedBackType ), nParam( _nParam ) { }
@@ -990,7 +990,7 @@ struct SAIAcknowledgment
 	IRefCount								*pObj; // кто звучит
 	int nSet;								// number of acknowledgement set
 
-	SAIAcknowledgment() { }
+	SAIAcknowledgment() : eAck( EUnitAckType( 0 ) ), pObj( 0 ), nSet( 0 ) { }
 	SAIAcknowledgment( 	EUnitAckType _eAck,
 											IRefCount	*_pObj,
 											const int _nSet )
@@ -1006,7 +1006,7 @@ struct SAIBoredAcknowledgement
 	IRefCount								*pObj;				// кто звучит
 	bool										bPresent;			// новое состояние
 
-	SAIBoredAcknowledgement() { }
+	SAIBoredAcknowledgement() : eAck( EUnitAckType( 0 ) ), pObj( 0 ), bPresent( false ) { }
 	SAIBoredAcknowledgement( 	EUnitAckType eAck,
 														IRefCount	*pObj,
 														bool bPresent )

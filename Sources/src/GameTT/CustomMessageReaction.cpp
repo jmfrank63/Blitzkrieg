@@ -11,6 +11,8 @@
 #include "..\Common\InterfaceScreenBase.h"
 #include "..\Main\TextSystem.h"
 #include "..\GameTT\UIConsts.h"
+#include "..\GameTT\MultiplayerCommandManager.h"
+#include "..\StreamIO\Globals.h"
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // REACTIONS
@@ -30,23 +32,23 @@ void ConstructWhoWin( class CInterfaceScreenBase *_pInterface )
 	if ( nWinPartyName != 2 )
 	{
 		if ( pBefore )
-			szMessage += pBefore->GetString();
+			szMessage += MakeWideStringFromWordString( pBefore->GetString() );
 		
 		if ( nWinPartyName == 0 )
-			szMessage += CUIConsts::GetLocalPartyName( GetGlobalVar( "Multiplayer.Side0.Name", "" ) );
+			szMessage += MakeWideStringFromWordString( CUIConsts::GetLocalPartyName( GetGlobalVar( "Multiplayer.Side0.Name", "" ) ) );
 		else
-			szMessage += CUIConsts::GetLocalPartyName( GetGlobalVar( "Multiplayer.Side1.Name", "" ) );
+			szMessage += MakeWideStringFromWordString( CUIConsts::GetLocalPartyName( GetGlobalVar( "Multiplayer.Side1.Name", "" ) ) );
 
 		if ( pAfter )
-			szMessage += pAfter->GetString();
+			szMessage += MakeWideStringFromWordString( pAfter->GetString() );
 	}
 	else
 	{
 		if ( pText )
-			szMessage += pText->GetString();
+			szMessage += MakeWideStringFromWordString( pText->GetString() );
 	}
 
-	SetGlobalVar( "temp.Replay.WinMessage", szMessage.c_str() );
+	SetGlobalVar( "temp.Replay.WinMessage", reinterpret_cast<const WORD*>( szMessage.c_str() ) );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ReactionSetMultiplayerTimeout( class CInterfaceScreenBase *_pInterface )

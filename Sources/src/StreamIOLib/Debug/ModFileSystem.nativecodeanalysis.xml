@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DEFECTS>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIOLib\</FILEPATH>
+      <FILENAME>ModFileSystem.h</FILENAME>
+      <LINE>15</LINE>
+      <COLUMN>1</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable 'CModFileSystemEnumerator::bReset' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>CModFileSystemEnumerator::{ctor}</FUNCTION>
+    <DECORATED>??0CModFileSystemEnumerator@@QAE@XZ</DECORATED>
+    <FUNCLINE>15</FUNCLINE>
+    <ADDITIONALINFO>
+      <targetSymbol>CModFileSystemEnumerator::bReset</targetSymbol>
+    </ADDITIONALINFO>
+    <PATH></PATH>
+  </DEFECT>
+</DEFECTS>

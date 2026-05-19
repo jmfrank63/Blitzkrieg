@@ -1,1 +1,4 @@
 C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\src\StreamIOLib\Debug\StreamIOLib.lib
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIOLib\Debug\StreamIOLib.lib.lastcodeanalysissucceeded
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIOLib\Debug\NativeCodeAnalysis.read.1.tlog
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIOLib\Debug\StreamIOLib.lib

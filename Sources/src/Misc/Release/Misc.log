@@ -5,74 +5,10 @@
   GRect.cpp
   HPTimer.cpp
   Manipulator.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Manipulator.h(309,9): error C2666: 'CPtr<CMultiManipulator>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/Manipulator.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<CMultiManipulator>::operator ==(const CPtr<CMultiManipulator> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Manipulator.h(309,9):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=CMultiManipulator
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Manipulator.h(309,9):
-      while trying to match the argument list '(CPtr<CMultiManipulator>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Manipulator.cpp(75,8): error C2666: 'CPtr<IManipulator>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/Manipulator.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IManipulator>::operator !=(const CPtr<IManipulator> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Manipulator.cpp(75,8):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IManipulator
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Manipulator.cpp(75,8):
-      while trying to match the argument list '(CPtr<IManipulator>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Manipulator.cpp(175,10): error C2666: 'CPtr<IManipulator>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/Manipulator.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IManipulator>::operator !=(const CPtr<IManipulator> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Manipulator.cpp(175,10):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IManipulator
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Manipulator.cpp(175,10):
-      while trying to match the argument list '(CPtr<IManipulator>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Manipulator.cpp(196,10): error C2666: 'CPtr<IManipulator>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/Manipulator.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IManipulator>::operator !=(const CPtr<IManipulator> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Manipulator.cpp(196,10):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IManipulator
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Manipulator.cpp(196,10):
-      while trying to match the argument list '(CPtr<IManipulator>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Manipulator.cpp(232,7): error C2666: 'CPtr<IManipulator>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/Manipulator.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IManipulator>::operator ==(const CPtr<IManipulator> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Manipulator.cpp(232,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IManipulator
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Manipulator.cpp(232,7):
-      while trying to match the argument list '(CPtr<IManipulator>, int)'
-  
   MemorySystem.cpp
   Spline.cpp
   StrProc.cpp
   Thread.cpp
   Win32Random.cpp
   Generating Code...
+  Misc.vcxproj -> C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Release\Misc.lib

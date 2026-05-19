@@ -364,7 +364,7 @@ void CInterfaceStats::FillCommonStatsList( const bool bMultiplayer, const CInter
 
 		const std::wstring szValue = commonStats.GetStatValue( i );
 		IUIElement * pActualText = checked_cast<IUIContainer*>(pRow->GetElement( 1 ))->GetChildByID( E_ACTUAL_TEXT_ID );
-		pActualText->SetWindowText( 0, szValue.c_str() );
+		pActualText->SetWindowText( 0, reinterpret_cast<const WORD*>( szValue.c_str() ) );
 
 		pActualText->ShowWindow( UI_SW_SHOW );
 	}
@@ -458,9 +458,9 @@ void CInterfaceStats::RepositionList()
 					//representing double values as dialog with invisible text that is to sort
 					//by and with visible static with visible string.
 					IUIContainer * pElement = checked_cast<IUIContainer*>( pRow->GetElement( nIndex++ ) ); 
-					pElement->SetWindowText( 0, partyInfo[nParty][nStatFeild].GetValForSort( playerStatsConfigure[nStatFeild] ).c_str() );
+					pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( partyInfo[nParty][nStatFeild].GetValForSort( playerStatsConfigure[nStatFeild] ).c_str() ) );
 					IUIElement * pActualText = pElement->GetChildByID( E_ACTUAL_TEXT_ID_PARTY );
-					pActualText->SetWindowText( 0, partyInfo[nParty][nStatFeild].GetPartyVal( playerStatsConfigure[nStatFeild] ).c_str() );
+					pActualText->SetWindowText( 0, reinterpret_cast<const WORD*>( partyInfo[nParty][nStatFeild].GetPartyVal( playerStatsConfigure[nStatFeild] ).c_str() ) );
 					pActualText->ShowWindow( UI_SW_SHOW );
 					pElement->EnableWindow( false );
 				}
@@ -477,7 +477,7 @@ void CInterfaceStats::RepositionList()
 				pList->AddItem( nPlayer + 1 );
 				const int nRowID = pList->GetItemByID( nPlayer + 1 );
 				IUIListRow * pRow = pList->GetItem( nRowID );
-				pRow->GetElement( 0 )->SetWindowText( 0, playersInfo[nPlayer].first->GetName().c_str() );
+				pRow->GetElement( 0 )->SetWindowText( 0, reinterpret_cast<const WORD*>( playersInfo[nPlayer].first->GetName().c_str() ) );
 				pRow->GetElement( 0 )->EnableWindow( false );
 				// player values
 				int nIndex = 1;	// +1 because of party's name
@@ -491,9 +491,9 @@ void CInterfaceStats::RepositionList()
 												
 						IUIContainer * pElement = checked_cast<IUIContainer*>( pRow->GetElement( nIndex++ ) ); 
 						// set text for sorting
-						pElement->SetWindowText( 0, curPlayerStat.GetValueToSort( curConfigure ).c_str() );
+						pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( curPlayerStat.GetValueToSort( curConfigure ).c_str() ) );
 						IUIElement * pActualText = pElement->GetChildByID( E_ACTUAL_TEXT_ID );
-						pActualText->SetWindowText( 0, curPlayerStat.GetValue( curConfigure ).c_str() );
+						pActualText->SetWindowText( 0, reinterpret_cast<const WORD*>( curPlayerStat.GetValue( curConfigure ).c_str() ) );
 						pActualText->ShowWindow( UI_SW_SHOW );
 						pElement->EnableWindow( false );
 

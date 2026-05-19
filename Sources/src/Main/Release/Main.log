@@ -1,230 +1,10 @@
 ﻿  StdAfx.cpp
   iMainInternal.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\iMainInternal.cpp(578,44): error C3861: 'ToWordString': identifier not found
-  (compiling source file '/iMainInternal.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\iMainInternal.cpp(750,9): error C2666: 'CPtr<IInterfaceCommand>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/iMainInternal.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IInterfaceCommand>::operator ==(const CPtr<IInterfaceCommand> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\iMainInternal.cpp(750,9):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IInterfaceCommand
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\iMainInternal.cpp(750,9):
-      while trying to match the argument list '(CPtr<IInterfaceCommand>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\iMainInternal.cpp(843,9): error C2666: 'CPtr<TImage>::operator ==': overloaded functions have similar conversions
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\iMainInternal.cpp(843,9): error C2666:         with
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\iMainInternal.cpp(843,9): error C2666:         [
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\iMainInternal.cpp(843,9): error C2666:             TImage=IImage
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\iMainInternal.cpp(843,9): error C2666:         ]
-  (compiling source file '/iMainInternal.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<TImage>::operator ==(const CPtr<TImage> &) const'
-          with
-          [
-              TImage=IImage
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\iMainInternal.cpp(843,9):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IImage
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\iMainInternal.cpp(843,9):
-      while trying to match the argument list '(CPtr<TImage>, int)'
-          with
-          [
-              TImage=IImage
-          ]
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\iMainInternal.cpp(873,7): error C2666: 'CPtr<IScenarioTracker>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/iMainInternal.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IScenarioTracker>::operator ==(const CPtr<IScenarioTracker> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\iMainInternal.cpp(873,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IScenarioTracker
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\iMainInternal.cpp(873,7):
-      while trying to match the argument list '(CPtr<IScenarioTracker>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\iMainInternal.cpp(879,7): error C2666: 'CPtr<IScenarioTracker>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/iMainInternal.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IScenarioTracker>::operator !=(const CPtr<IScenarioTracker> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\iMainInternal.cpp(879,7):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IScenarioTracker
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\iMainInternal.cpp(879,7):
-      while trying to match the argument list '(CPtr<IScenarioTracker>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\iMainInternal.cpp(992,7): error C2666: 'CPtr<IVideoPlayer>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/iMainInternal.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IVideoPlayer>::operator !=(const CPtr<IVideoPlayer> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\iMainInternal.cpp(992,7):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IVideoPlayer
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\iMainInternal.cpp(992,7):
-      while trying to match the argument list '(CPtr<IVideoPlayer>, int)'
-  
   MainLoopCommands.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MainLoopCommands.cpp(93,7): error C2666: 'CPtr<IDataStream>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/MainLoopCommands.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator !=(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MainLoopCommands.cpp(93,7):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MainLoopCommands.cpp(93,7):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MainLoopCommands.cpp(109,7): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/MainLoopCommands.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MainLoopCommands.cpp(109,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MainLoopCommands.cpp(109,7):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-  
   MainObjectFactory.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(67,35): error C2666: 'CObj<TValue>::operator ==': overloaded functions have similar conversions
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(67,35): error C2666:         with
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(67,35): error C2666:         [
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(67,35): error C2666:             TValue=CTextDialog
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(67,35): error C2666:         ]
-  (compiling source file '/MainObjectFactory.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
-      could be 'bool CObj<TValue>::operator ==(const CObj<TValue> &) const'
-          with
-          [
-              TValue=CTextDialog
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(67,35):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=CTextDialog
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(67,35):
-      while trying to match the argument list '(_Ty2, int)'
-          with
-          [
-              _Ty2=CObj<CTextDialog>
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(67,35):
-      the template instantiation context (the oldest one first) is
-          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\TextManager.h(19,1):
-          see reference to class template instantiation 'CBasicShare<std::string,CTextDialog,269090819,std::hash<std::string>>' being compiled
-          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(64,10):
-          while compiling class template member function 'TValue *CBasicShare<std::string,TValue,269090819,std::hash<std::string>>::Get(const TKey &)'
-          with
-          [
-              TValue=CTextDialog,
-              TKey=std::string
-          ]
-              C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\TextManager.h(39,59):
-              see the first reference to 'CBasicShare<std::string,CTextDialog,269090819,std::hash<std::string>>::Get' in 'CTextManager::GetDialog'
-  
   RandomMapHelper.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\RandomMapHelper.cpp(17,7): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/RandomMapHelper.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\RandomMapHelper.cpp(17,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\RandomMapHelper.cpp(17,7):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-  
   GameTimerInternal.cpp
   GameDB.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameDB.cpp(343,7): error C2666: 'CPtr<IDataStream>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/GameDB.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator !=(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameDB.cpp(343,7):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameDB.cpp(343,7):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameDB.cpp(343,7):
-      the template instantiation context (the oldest one first) is
-          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameDB.cpp(369,12):
-          see reference to function template instantiation 'TYPE *ReadRPGStats<SMechUnitRPGStats>(const SGDBObjectDesc *,const char *,const char *)' being compiled
-          with
-          [
-              TYPE=SMechUnitRPGStats
-          ]
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameDB.cpp(438,7): error C2666: 'CPtr<IDataStream>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/GameDB.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator !=(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameDB.cpp(438,7):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameDB.cpp(438,7):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameDB.cpp(438,7):
-      the template instantiation context (the oldest one first) is
-          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameDB.cpp(458,13):
-          see reference to function template instantiation 'TYPE *GetAddStatsLocal<SWeaponRPGStats>(const char *,const char *,const char *)' being compiled
-          with
-          [
-              TYPE=SWeaponRPGStats
-          ]
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameDB.cpp(482,7): error C2666: 'CPtr<IDataStream>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/GameDB.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator !=(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameDB.cpp(482,7):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameDB.cpp(482,7):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameDB.cpp(482,7):
-      the template instantiation context (the oldest one first) is
-          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameDB.cpp(505,13):
-          see reference to function template instantiation 'TYPE *GetGameStatsLocal<SMissionStats>(const std::string &)' being compiled
-          with
-          [
-              TYPE=SMissionStats
-          ]
-  
   GameStats.cpp
   RPGStats.cpp
   FilesInspector.cpp
@@ -232,281 +12,186 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameDB.cpp(482,7): error
   Initialization.cpp
   LoadDLLs.cpp
   TextManager.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\TextManager.cpp(62,7): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/TextManager.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\TextManager.cpp(62,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\TextManager.cpp(62,7):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-  
   TextObject.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\TextObject.cpp(37,7): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/TextObject.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\TextObject.cpp(37,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\TextObject.cpp(37,7):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-  
   AILogicCommand.cpp
   AILogicCommandInternal.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\AILogicCommandInternal.cpp(151,15): error C2666: 'CPtr<IRefCount>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/AILogicCommandInternal.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IRefCount>::operator !=(const CPtr<IRefCount> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\AILogicCommandInternal.cpp(151,15):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IRefCount
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\AILogicCommandInternal.cpp(151,15):
-      while trying to match the argument list '(const CPtr<IRefCount>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\AILogicCommandInternal.cpp(165,15): error C2666: 'CPtr<IRefCount>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/AILogicCommandInternal.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IRefCount>::operator ==(const CPtr<IRefCount> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\AILogicCommandInternal.cpp(165,15):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IRefCount
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\AILogicCommandInternal.cpp(165,15):
-      while trying to match the argument list '(CPtr<IRefCount>, int)'
-  
   MultiPlayerTransceiver.cpp
   SinglePlayerTransceiver.cpp
   ChatMessages.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
+  (compiling source file '/ChatMessages.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
+      see previous definition of 'ToWordString'
+  
   GameCreationMessages.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
+  (compiling source file '/GameCreationMessages.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
+      see previous definition of 'ToWordString'
+  
   Generating Code...
   Compiling...
   MessagesStore.cpp
   ServersListMessages.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
+  (compiling source file '/ServersListMessages.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
+      see previous definition of 'ToWordString'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersListMessages.cpp(20,23): error C2264: 'ToWordString': error in function definition or declaration; function not called
+  (compiling source file '/ServersListMessages.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersListMessages.cpp(19,21): error C2661: 'SUIServerInfo::SUIServerInfo': no overloaded function takes 12 arguments
+  (compiling source file '/ServersListMessages.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersListMessages.cpp(19,21):
+      while trying to match the argument list '(WORD, const _Elem *, int, int, bool, bool, float, const _Elem *, const _Elem *, bool, CMapInfo::GAME_TYPE, SMultiplayerGameSettings)'
+          with
+          [
+              _Elem=char
+          ]
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersListMessages.cpp(45,40): error C2264: 'ToWordString': error in function definition or declaration; function not called
+  (compiling source file '/ServersListMessages.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersListMessages.cpp(45,21): error C2661: 'SUIServerInfo::SUIServerInfo': no overloaded function takes 12 arguments
+  (compiling source file '/ServersListMessages.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersListMessages.cpp(45,21):
+      while trying to match the argument list '(WORD, const char [1], int, int, bool, bool, int, const char [1], const char [1], bool, CMapInfo::GAME_TYPE, SMultiplayerGameSettings)'
+  
   assert.cpp
   GameCreation.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\RandomMapGen\Resource_Types.h(188,9): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
   (compiling source file '/GameCreation.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\RandomMapGen\Resource_Types.h(188,9):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\RandomMapGen\Resource_Types.h(188,9):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\RandomMapGen\Resource_Types.h(188,9):
-      the template instantiation context (the oldest one first) is
-          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameCreation.cpp(176,3):
-          see reference to function template instantiation 'bool LoadLatestDataResource<SQuickLoadMapInfo>(const std::string &,const std::string &,int,const std::string &,Type &)' being compiled
-          with
-          [
-              Type=SQuickLoadMapInfo
-          ]
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\RandomMapGen\Resource_Types.h(199,9): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/GameCreation.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\RandomMapGen\Resource_Types.h(199,9):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\RandomMapGen\Resource_Types.h(199,9):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\RandomMapGen\Resource_Types.h(242,9): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/GameCreation.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\RandomMapGen\Resource_Types.h(242,9):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\RandomMapGen\Resource_Types.h(242,9):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\RandomMapGen\Resource_Types.h(242,9):
-      the template instantiation context (the oldest one first) is
-          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameCreation.cpp(186,16):
-          see reference to function template instantiation 'bool LoadTypedSuperLatestDataResource<CMapInfo>(const std::string &,const std::string &,int,Type &,std::string *)' being compiled
-          with
-          [
-              Type=CMapInfo
-          ]
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\RandomMapGen\Resource_Types.h(257,9): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/GameCreation.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\RandomMapGen\Resource_Types.h(257,9):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\RandomMapGen\Resource_Types.h(257,9):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
+      see previous definition of 'ToWordString'
   
   GamePlaying.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
+  (compiling source file '/GamePlaying.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
+      see previous definition of 'ToWordString'
+  
   GameSpyChat.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
+  (compiling source file '/GameSpyChat.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
+      see previous definition of 'ToWordString'
+  
   GameSpyPeerChat.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
+  (compiling source file '/GameSpyPeerChat.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
+      see previous definition of 'ToWordString'
+  
   LanChat.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
+  (compiling source file '/LanChat.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
+      see previous definition of 'ToWordString'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(32,54): error C2264: 'ToWordString': error in function definition or declaration; function not called
+  (compiling source file '/LanChat.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(32,40): error C2661: 'CChatMessage::CChatMessage': no overloaded function takes 2 arguments
+  (compiling source file '/LanChat.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(32,40):
+      while trying to match the argument list '(const WORD *, bool)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(49,54): error C2264: 'ToWordString': error in function definition or declaration; function not called
+  (compiling source file '/LanChat.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(49,40): error C2661: 'CChatMessage::CChatMessage': no overloaded function takes 2 arguments
+  (compiling source file '/LanChat.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(49,40):
+      while trying to match the argument list '(const WORD *, bool)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(74,44): error C2264: 'ToWordString': error in function definition or declaration; function not called
+  (compiling source file '/LanChat.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(74,71): error C2264: 'ToWordString': error in function definition or declaration; function not called
+  (compiling source file '/LanChat.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(74,42): error C2665: 'CChatMessage::CChatMessage': no overloaded function could convert all the argument types
+  (compiling source file '/LanChat.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ChatMessages.h(27,1):
+      could be 'CChatMessage::CChatMessage(const CChatMessage &)'
+          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(74,42):
+          'CChatMessage::CChatMessage(const CChatMessage &)': cannot convert argument 1 from 'bool' to 'const CChatMessage &'
+              C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(74,97):
+              Reason: cannot convert from 'bool' to 'const CChatMessage'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(74,42):
+      while trying to match the argument list '(bool)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(77,44): error C2264: 'ToWordString': error in function definition or declaration; function not called
+  (compiling source file '/LanChat.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(77,71): error C2264: 'ToWordString': error in function definition or declaration; function not called
+  (compiling source file '/LanChat.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(77,42): error C2665: 'CChatMessage::CChatMessage': no overloaded function could convert all the argument types
+  (compiling source file '/LanChat.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ChatMessages.h(27,1):
+      could be 'CChatMessage::CChatMessage(const CChatMessage &)'
+          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(77,42):
+          'CChatMessage::CChatMessage(const CChatMessage &)': cannot convert argument 1 from 'bool' to 'const CChatMessage &'
+              C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(77,97):
+              Reason: cannot convert from 'bool' to 'const CChatMessage'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(77,42):
+      while trying to match the argument list '(bool)'
+  
   MultiplayerInternal.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Common\MapObject.h(91,53): error C2666: 'CPtr<IRefCount>::operator !=': overloaded functions have similar conversions
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
   (compiling source file '/MultiplayerInternal.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IRefCount>::operator !=(const CPtr<IRefCount> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Common\MapObject.h(91,53):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IRefCount
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Common\MapObject.h(91,53):
-      while trying to match the argument list '(const CPtr<IRefCount>, int)'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
+      see previous definition of 'ToWordString'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(94,7): error C2264: 'ToWordString': error in function definition or declaration; function not called
+  (compiling source file '/MultiplayerInternal.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(170,56): error C2264: 'ToWordString': error in function definition or declaration; function not called
+  (compiling source file '/MultiplayerInternal.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(412,25): error C2264: 'ToWordString': error in function definition or declaration; function not called
+  (compiling source file '/MultiplayerInternal.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(412,66): error C2264: 'ToWordString': error in function definition or declaration; function not called
+  (compiling source file '/MultiplayerInternal.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(422,53): error C2264: 'ToWordString': error in function definition or declaration; function not called
+  (compiling source file '/MultiplayerInternal.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(426,52): error C2264: 'ToWordString': error in function definition or declaration; function not called
+  (compiling source file '/MultiplayerInternal.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(432,33): error C2264: 'ToWordString': error in function definition or declaration; function not called
+  (compiling source file '/MultiplayerInternal.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(435,25): error C2264: 'ToWordString': error in function definition or declaration; function not called
+  (compiling source file '/MultiplayerInternal.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(628,25): error C2264: 'ToWordString': error in function definition or declaration; function not called
+  (compiling source file '/MultiplayerInternal.cpp')
   
   ServerInfo.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.cpp(30,7): error C2666: 'CPtr<INetNodeAddress>::operator ==': overloaded functions have similar conversions
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
   (compiling source file '/ServerInfo.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<INetNodeAddress>::operator ==(const CPtr<INetNodeAddress> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.cpp(30,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=INetNodeAddress
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.cpp(30,7):
-      while trying to match the argument list '(const CPtr<INetNodeAddress>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.cpp(30,28): error C2666: 'CPtr<INetNodeAddress>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/ServerInfo.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<INetNodeAddress>::operator ==(const CPtr<INetNodeAddress> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.cpp(30,28):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=INetNodeAddress
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.cpp(30,28):
-      while trying to match the argument list '(const CPtr<INetNodeAddress>, int)'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
+      see previous definition of 'ToWordString'
   
   ServersList.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersList.cpp(300,8): error C2666: 'CPtr<IChat>::operator ==': overloaded functions have similar conversions
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
   (compiling source file '/ServersList.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IChat>::operator ==(const CPtr<IChat> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersList.cpp(300,8):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IChat
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersList.cpp(300,8):
-      while trying to match the argument list '(CPtr<IChat>, int)'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
+      see previous definition of 'ToWordString'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersList.cpp(308,25): error C2264: 'ToWordString': error in function definition or declaration; function not called
+  (compiling source file '/ServersList.cpp')
   
   CommandsHistory.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\CommandsHistory.cpp(176,8): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/CommandsHistory.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\CommandsHistory.cpp(176,8):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\CommandsHistory.cpp(176,8):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\CommandsHistory.cpp(197,8): error C2666: 'CPtr<IScenarioTracker>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/CommandsHistory.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IScenarioTracker>::operator ==(const CPtr<IScenarioTracker> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\CommandsHistory.cpp(197,8):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IScenarioTracker
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\CommandsHistory.cpp(197,8):
-      while trying to match the argument list '(CPtr<IScenarioTracker>, int)'
-  
   PlayerScenarioInfo.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\PlayerScenarioInfo.cpp(236,7): error C2666: 'CPtr<IText>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/PlayerScenarioInfo.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IText>::operator ==(const CPtr<IText> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\PlayerScenarioInfo.cpp(236,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IText
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\PlayerScenarioInfo.cpp(236,7):
-      while trying to match the argument list '(CPtr<IText>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\PlayerScenarioInfo.cpp(291,7): error C2666: 'CPtr<IText>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/PlayerScenarioInfo.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IText>::operator ==(const CPtr<IText> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\PlayerScenarioInfo.cpp(291,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IText
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\PlayerScenarioInfo.cpp(291,7):
-      while trying to match the argument list '(CPtr<IText>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\PlayerScenarioInfo.cpp(378,7): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/PlayerScenarioInfo.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\PlayerScenarioInfo.cpp(378,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\PlayerScenarioInfo.cpp(378,7):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-  
   PlayerSkill.cpp
   ScenarioStatistics.cpp
   ScenarioTracker2Internal.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ScenarioTracker2Internal.cpp(640,7): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/ScenarioTracker2Internal.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ScenarioTracker2Internal.cpp(640,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ScenarioTracker2Internal.cpp(640,7):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-  
   UserProfile.cpp
   BetaKey.cpp
   Generating Code...

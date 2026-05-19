@@ -1,611 +1,350 @@
-﻿  AIWarFog.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AIWarFog.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
+﻿  StdAfx.cpp
+  GlobalsLoader.cpp
+  AILogicObjectFactory.cpp
+  DifficultyLevel.cpp
+  AIWarFog.cpp
+C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13): error C2666: 'CObj<CExistingObject>::operator ==': overloaded functions have similar conversions
   (compiling source file '/AIWarFog.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(593,1):
+      could be 'bool CObj<CExistingObject>::operator ==(const CObj<CExistingObject> &) const'
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CExistingObject
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      while trying to match the argument list '(CObj<CExistingObject>, const _Ty)'
+          with
+          [
+              _Ty=CExistingObject *
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13):
+      the template instantiation context (the oldest one first) is
+          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AIWarFog.cpp(403,37):
+          see reference to function template instantiation '_InIt std::find<std::_List_iterator<std::_List_val<std::_List_simple_types<_Ty>>>,CExistingObject*>(_InIt,const _InIt,CExistingObject *const &)' being compiled
+          with
+          [
+              _InIt=std::_List_iterator<std::_List_val<std::_List_simple_types<CObj<CExistingObject>>>>,
+              _Ty=CObj<CExistingObject>
+          ]
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6493,41):
+          see reference to function template instantiation '_InIt std::_Find_unchecked<std::_List_unchecked_iterator<std::_List_val<std::_List_simple_types<_Ty>>>,CExistingObject*>(_InIt,const _InIt,CExistingObject *const &)' being compiled
+          with
+          [
+              _InIt=std::_List_unchecked_iterator<std::_List_val<std::_List_simple_types<CObj<CExistingObject>>>>,
+              _Ty=CObj<CExistingObject>
+          ]
   
+  WarFogSerialize.cpp
+  PathUnit.cpp
+  PathUnitSerialize.cpp
+  TrainPathUnit.cpp
+  CollisionInternal.cpp
+  CollisionInternalSerialize.cpp
+  StandartPath.cpp
+  StandartSmoothMechPath.cpp
+  StandartSmoothSoldierPath.cpp
+  PlanePath.cpp
+  ArtilleryPaths.cpp
+  ParatrooperPath.cpp
+  PresizePath.cpp
+  TrainPath.cpp
+  TankPitPath.cpp
+  PathInternalSerialize.cpp
+  Generating Code...
+  Compiling...
   PathFinderInternal.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\PathFinderInternal.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/PathFinderInternal.cpp')
-  
   TrainPathFinder.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\TrainPathFinder.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/TrainPathFinder.cpp')
-  
   PathFindersSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\PathFindersSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/PathFindersSerialize.cpp')
-  
   PathSearchFuncs.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\PathSearchFuncs.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/PathSearchFuncs.cpp')
-  
   PointChecking.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\PointChecking.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/PointChecking.cpp')
-  
   Commands.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Commands.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Commands.cpp')
-  
   CommandsSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\CommandsSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/CommandsSerialize.cpp')
-  
   Guns.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Guns.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Guns.cpp')
-  
   GunsSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\GunsSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/GunsSerialize.cpp')
-  
   HitsStore.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\HitsStore.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/HitsStore.cpp')
-  
   HitsStoreSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\HitsStoreSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/HitsStoreSerialize.cpp')
-  
   MountedGun.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\MountedGun.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/MountedGun.cpp')
-  
   MountedGunsSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\MountedGunsSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/MountedGunsSerialize.cpp')
-  
   Shell.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Shell.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
+C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\type_traits(2545,54): error C2593: 'operator <' is ambiguous
   (compiling source file '/Shell.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(591,1):
+      could be 'bool CPtr<CInvisShell>::operator <(const CPtr<CInvisShell> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Shell.h(306,13):
+      or       'bool operator <(const CPtr<CInvisShell> &,const CPtr<CInvisShell> &)' [found using argument-dependent lookup]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\type_traits(2545,54):
+      or       'built-in C++ operator<(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CInvisShell
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\type_traits(2545,54):
+      while trying to match the argument list '(const _Ty, const _Ty)'
+          with
+          [
+              _Ty=CPtr<CInvisShell>
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\type_traits(2545,54):
+      the template instantiation context (the oldest one first) is
+          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Shell.h(351,43):
+          see reference to class template instantiation 'std::priority_queue<CPtr<CInvisShell>,std::vector<CPtr<CInvisShell>,std::allocator<CPtr<CInvisShell>>>,std::less<_Ty>>' being compiled
+          with
+          [
+              _Ty=CPtr<CInvisShell>
+          ]
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\queue(391,10):
+          while compiling class template member function 'void std::priority_queue<CPtr<CInvisShell>,std::vector<CPtr<CInvisShell>,std::allocator<CPtr<CInvisShell>>>,std::less<_Ty>>::push(CPtr<CInvisShell> &&)'
+          with
+          [
+              _Ty=CPtr<CInvisShell>
+          ]
+              C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Shell.cpp(510,18):
+              see the first reference to 'std::priority_queue<CPtr<CInvisShell>,std::vector<CPtr<CInvisShell>,std::allocator<CPtr<CInvisShell>>>,std::less<_Ty>>::push' in 'CShellsStore::AddShell'
+          with
+          [
+              _Ty=CPtr<CInvisShell>
+          ]
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\queue(393,14):
+          see reference to function template instantiation 'void std::push_heap<std::_Vector_iterator<std::_Vector_val<std::_Simple_types<_Ty>>>,_Fn>(_RanIt,_RanIt,_Pr)' being compiled
+          with
+          [
+              _Ty=CPtr<CInvisShell>,
+              _Fn=std::less<CPtr<CInvisShell>>,
+              _RanIt=std::_Vector_iterator<std::_Vector_val<std::_Simple_types<CPtr<CInvisShell>>>>,
+              _Pr=std::less<CPtr<CInvisShell>>
+          ]
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\__msvc_heap_algorithms.hpp(46,14):
+          see reference to function template instantiation 'void std::_Push_heap_by_index<CPtr<CInvisShell>*,CPtr<CInvisShell>,_Fn>(_RanIt,int,int,_Ty &&,_Pr)' being compiled
+          with
+          [
+              _Fn=std::less<CPtr<CInvisShell>>,
+              _RanIt=CPtr<CInvisShell> *,
+              _Ty=CPtr<CInvisShell>,
+              _Pr=std::less<CPtr<CInvisShell>>
+          ]
   
   ShellSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\ShellSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
+C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\type_traits(2545,54): error C2593: 'operator <' is ambiguous
   (compiling source file '/ShellSerialize.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(591,1):
+      could be 'bool CPtr<CInvisShell>::operator <(const CPtr<CInvisShell> &) const'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Shell.h(306,13):
+      or       'bool operator <(const CPtr<CInvisShell> &,const CPtr<CInvisShell> &)' [found using argument-dependent lookup]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\type_traits(2545,54):
+      or       'built-in C++ operator<(TUserObj *, TUserObj *)'
+          with
+          [
+              TUserObj=CInvisShell
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\type_traits(2545,54):
+      while trying to match the argument list '(const _Ty, const _Ty)'
+          with
+          [
+              _Ty=CPtr<CInvisShell>
+          ]
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\type_traits(2545,54):
+      the template instantiation context (the oldest one first) is
+          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Shell.h(351,43):
+          see reference to class template instantiation 'std::priority_queue<CPtr<CInvisShell>,std::vector<CPtr<CInvisShell>,std::allocator<CPtr<CInvisShell>>>,std::less<_Ty>>' being compiled
+          with
+          [
+              _Ty=CPtr<CInvisShell>
+          ]
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\queue(386,10):
+          while compiling class template member function 'void std::priority_queue<CPtr<CInvisShell>,std::vector<CPtr<CInvisShell>,std::allocator<CPtr<CInvisShell>>>,std::less<_Ty>>::push(const CPtr<CInvisShell> &)'
+          with
+          [
+              _Ty=CPtr<CInvisShell>
+          ]
+              C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIO\SSHelper.h(407,14):
+              see the first reference to 'std::priority_queue<CPtr<CInvisShell>,std::vector<CPtr<CInvisShell>,std::allocator<CPtr<CInvisShell>>>,std::less<_Ty>>::push' in 'CSaverAccessor::DoPriorityQueue'
+          with
+          [
+              _Ty=CPtr<CInvisShell>
+          ]
+              C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIO\SSHelper.h(200,4):
+              see the first reference to 'CSaverAccessor::DoPriorityQueue' in 'CSaverAccessor::AddInternal'
+              C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIO\SSHelper.h(431,47):
+              see the first reference to 'CSaverAccessor::AddInternal' in 'CSaverAccessor::Add'
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\queue(388,14):
+          see reference to function template instantiation 'void std::push_heap<std::_Vector_iterator<std::_Vector_val<std::_Simple_types<_Ty>>>,_Fn>(_RanIt,_RanIt,_Pr)' being compiled
+          with
+          [
+              _Ty=CPtr<CInvisShell>,
+              _Fn=std::less<CPtr<CInvisShell>>,
+              _RanIt=std::_Vector_iterator<std::_Vector_val<std::_Simple_types<CPtr<CInvisShell>>>>,
+              _Pr=std::less<CPtr<CInvisShell>>
+          ]
+          C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\__msvc_heap_algorithms.hpp(46,14):
+          see reference to function template instantiation 'void std::_Push_heap_by_index<CPtr<CInvisShell>*,CPtr<CInvisShell>,_Fn>(_RanIt,int,int,_Ty &&,_Pr)' being compiled
+          with
+          [
+              _Fn=std::less<CPtr<CInvisShell>>,
+              _RanIt=CPtr<CInvisShell> *,
+              _Ty=CPtr<CInvisShell>,
+              _Pr=std::less<CPtr<CInvisShell>>
+          ]
   
   Turret.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Turret.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Turret.cpp')
-  
   TurretSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\TurretSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/TurretSerialize.cpp')
-  
   UnitGuns.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\UnitGuns.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/UnitGuns.cpp')
-  
   GridCreation.cpp
+  GroupLogic.cpp
   Generating Code...
   Compiling...
-  GroupLogic.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\GridCreation.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/GridCreation.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\GroupLogic.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/GroupLogic.cpp')
-  
   GroupLogicSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\GroupLogicSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/GroupLogicSerialize.cpp')
-  
   UnitsSegments.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\UnitsSegments.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/UnitsSegments.cpp')
-  
   Behaviour.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Behaviour.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Behaviour.cpp')
-  
   BehaviourSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\BehaviourSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/BehaviourSerialize.cpp')
-  
   FreeFireManager.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\FreeFireManager.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/FreeFireManager.cpp')
-  
   FreeFireManagerSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\FreeFireManagerSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/FreeFireManagerSerialize.cpp')
-  
   RndRunUpToEnemy.cpp
   Artillery.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\RndRunUpToEnemy.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/RndRunUpToEnemy.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Artillery.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Artillery.cpp')
-  
   Aviation.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Aviation.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Aviation.cpp')
-  
   Soldier.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Soldier.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Soldier.cpp')
-  
   Technics.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Technics.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Technics.cpp')
-  
   AnimUnitMech.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AnimUnitMech.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AnimUnitMech.cpp')
-  
   AnimUnitSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AnimUnitSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AnimUnitSerialize.cpp')
-  
   AnimUnitSoldier.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AnimUnitSoldier.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AnimUnitSoldier.cpp')
-  
   Units.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Units.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Units.cpp')
-  
   UnitsIterators.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\UnitsIterators.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/UnitsIterators.cpp')
-  
   UnitsSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\UnitsSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/UnitsSerialize.cpp')
-  
   AIUnit.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AIUnit.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AIUnit.cpp')
-  
   AIUnitInfoForGeneral.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AIUnitInfoForGeneral.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AIUnitInfoForGeneral.cpp')
-  
+  AIUnitSerialize.cpp
   Generating Code...
   Compiling...
-  AIUnitSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AIUnitSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AIUnitSerialize.cpp')
-  
   BasePathUnit.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\BasePathUnit.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/BasePathUnit.cpp')
-  
   CommonUnit.cpp
   QueueUnit.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\CommonUnit.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/CommonUnit.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\QueueUnit.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/QueueUnit.cpp')
-  
   ScanLimiter.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\ScanLimiter.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/ScanLimiter.cpp')
-  
   AIEditorInternal.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AIEditorInternal.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AIEditorInternal.cpp')
-  
   AIEditorSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AIEditorSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AIEditorSerialize.cpp')
-  
   AILogicInternal.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AILogicInternal.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AILogicInternal.cpp')
-  
   AILogicSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AILogicSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AILogicSerialize.cpp')
-  
   Cheats.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Cheats.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Cheats.cpp')
-  
   GlobalObjects.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\GlobalObjects.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/GlobalObjects.cpp')
-  
   StaticMembers.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\StaticMembers.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/StaticMembers.cpp')
-  
   AIStaticMap.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AIStaticMap.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AIStaticMap.cpp')
-  
   AIStaticMapSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AIStaticMapSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AIStaticMapSerialize.cpp')
-  
   AIGeometry.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AIGeometry.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AIGeometry.cpp')
-  
   AIGeometryDebug.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AIGeometryDebug.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AIGeometryDebug.cpp')
-  
   BetaSpline3D.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\BetaSpline3D.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/BetaSpline3D.cpp')
-  
   CLockWithUnlockPossibilities.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\CLockWithUnlockPossibilities.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/CLockWithUnlockPossibilities.cpp')
-  
   ListsSet.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\ListsSet.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/ListsSet.cpp')
-  
   MemoryConsumeCheck.cpp
+  Probability.cpp
   Generating Code...
   Compiling...
-  Probability.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\MemoryConsumeCheck.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/MemoryConsumeCheck.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Probability.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Probability.cpp')
-  
   RectTiles.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\RectTiles.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/RectTiles.cpp')
-  
   TimeCounter.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\TimeCounter.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/TimeCounter.cpp')
-  
   Trigonometry.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Trigonometry.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Trigonometry.cpp')
-  
   Scripts.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Scripts\Scripts.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Scripts/Scripts.cpp')
-  
   ScriptsSerialize.cpp
   AAFeedBacks.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\ScriptsSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/ScriptsSerialize.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AAFeedBacks.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AAFeedBacks.cpp')
-  
   SuspendedUpdates.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\SuspendedUpdates.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/SuspendedUpdates.cpp')
-  
   SuspendedUpdatesSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\SuspendedUpdatesSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/SuspendedUpdatesSerialize.cpp')
-  
   UpdatableObject.cpp
   Updater.cpp
   UpdaterSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\UpdatableObject.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/UpdatableObject.cpp')
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\UpdaterSerialize.cpp(55,16): warning C4267: 'argument': conversion from 'size_t' to 'const SSChunkID', possible loss of data
+  (compiling source file '/UpdaterSerialize.cpp')
   
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Updater.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Updater.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\UpdaterSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\UpdaterSerialize.cpp(57,16): warning C4267: 'argument': conversion from 'size_t' to 'const SSChunkID', possible loss of data
   (compiling source file '/UpdaterSerialize.cpp')
   
   LinkObject.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\LinkObject.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/LinkObject.cpp')
-  
   LinkObjectSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\LinkObjectSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/LinkObjectSerialize.cpp')
-  
   Formation.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Formation.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Formation.cpp')
-  
   FormationSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\FormationSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/FormationSerialize.cpp')
-  
   Diplomacy.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Diplomacy.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Diplomacy.cpp')
-  
   InBuildingStates.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\InBuildingStates.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/InBuildingStates.cpp')
-  
   InEntrenchmentStates.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\InEntrenchmentStates.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/InEntrenchmentStates.cpp')
-  
   InTransportStates.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\InTransportStates.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/InTransportStates.cpp')
-  
-  Generating Code...
-  Compiling...
   SoldierStates.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\SoldierStates.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/SoldierStates.cpp')
-  
+  Generating Code...
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Formation.cpp(1027,1): warning C4700: uninitialized local variable 'res' used
+  Compiling...
   SoldierStatesSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\SoldierStatesSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/SoldierStatesSerialize.cpp')
-  
   PlaneStates.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\PlaneStates.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/PlaneStates.cpp')
-  
   PlaneStatesSerialize.cpp
   TankStates.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\PlaneStatesSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/PlaneStatesSerialize.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\TankStates.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/TankStates.cpp')
-  
   TankStatesSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\TankStatesSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/TankStatesSerialize.cpp')
-  
   TransportEngineerStates.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\TransportEngineerStates.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\TransportEngineerStates.cpp(323,7): warning C4858: discarding return value: The 'unique' algorithm returns the iterator past the last element that should be kept. You need to call container.erase(result, container.end()) afterwards.
   (compiling source file '/TransportEngineerStates.cpp')
   
   TransportStates.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\TransportStates.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/TransportStates.cpp')
-  
   TransportStatesSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\TransportStatesSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/TransportStatesSerialize.cpp')
-  
   CommonStates.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\CommonStates.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/CommonStates.cpp')
-  
   CommonStatesSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\CommonStatesSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/CommonStatesSerialize.cpp')
-  
   FormationEngineerStates.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\FormationEngineerStates.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/FormationEngineerStates.cpp')
-  
   FormationStates.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\FormationStates.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/FormationStates.cpp')
-  
   FormationStatesSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\FormationStatesSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/FormationStatesSerialize.cpp')
-  
   ArtilleryStates.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\ArtilleryStates.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/ArtilleryStates.cpp')
-  
   ArtilleryStatesSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\ArtilleryStatesSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/ArtilleryStatesSerialize.cpp')
-  
   ArtRocketStates.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\ArtRocketStates.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/ArtRocketStates.cpp')
-  
   ArtRocketStatesSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\ArtRocketStatesSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/ArtRocketStatesSerialize.cpp')
-  
   TechnicStates.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\TechnicStates.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/TechnicStates.cpp')
-  
   UnitStates.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\UnitStates.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/UnitStates.cpp')
-  
-  Generating Code...
-  Compiling...
   EntrenchmentCreation.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\EntrenchmentCreation.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/EntrenchmentCreation.cpp')
-  
-  UnitCreation.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\UnitCreation.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/UnitCreation.cpp')
-  
-  AntiArtillery.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AntiArtillery.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AntiArtillery.cpp')
-  
-  AntiArtilleryManager.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AntiArtilleryManager.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AntiArtilleryManager.cpp')
-  
-  AntiArtillerySerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AntiArtillerySerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AntiArtillerySerialize.cpp')
-  
-  AckManager.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AckManager.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AckManager.cpp')
-  
-  AIConsts.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AIConsts.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AIConsts.cpp')
-  
-  DamageToEnemyUpdater.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\DamageToEnemyUpdater.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/DamageToEnemyUpdater.cpp')
-  
-  ShootEstimatorInternal.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\ShootEstimatorInternal.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/ShootEstimatorInternal.cpp')
-  
-  ShootEstimatorSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\ShootEstimatorSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/ShootEstimatorSerialize.cpp')
-  
-  CombatEstimator.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\CombatEstimator.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/CombatEstimator.cpp')
-  
-  Statistics.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Statistics.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Statistics.cpp')
-  
-  Commander.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Commander.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Commander.cpp')
-  
-  EnemyRememberer.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\EnemyRememberer.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/EnemyRememberer.cpp')
-  
-  GeneralAirForce.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\GeneralAirForce.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/GeneralAirForce.cpp')
-  
-  GeneralArtillery.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\GeneralArtillery.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/GeneralArtillery.cpp')
-  
-  GeneralConsts.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\GeneralConsts.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/GeneralConsts.cpp')
-  
-  GeneralHelper.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\GeneralHelper.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/GeneralHelper.cpp')
-  
-  GeneralIntendant.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\GeneralIntendant.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/GeneralIntendant.cpp')
-  
-  GeneralInternal.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\GeneralInternal.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/GeneralInternal.cpp')
-  
   Generating Code...
   Compiling...
+  UnitCreation.cpp
+  AntiArtillery.cpp
+  AntiArtilleryManager.cpp
+  AntiArtillerySerialize.cpp
+  AckManager.cpp
+  AIConsts.cpp
+  DamageToEnemyUpdater.cpp
+  ShootEstimatorInternal.cpp
+  ShootEstimatorSerialize.cpp
+  CombatEstimator.cpp
+  Statistics.cpp
+  Commander.cpp
+  EnemyRememberer.cpp
+  GeneralAirForce.cpp
+  GeneralArtillery.cpp
+  GeneralConsts.cpp
+  GeneralHelper.cpp
+  GeneralIntendant.cpp
+  GeneralInternal.cpp
   GeneralSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\GeneralSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/GeneralSerialize.cpp')
-  
+  Generating Code...
+  Compiling...
   GeneralTasks.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\GeneralTasks.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/GeneralTasks.cpp')
-  
   Resistance.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Resistance.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Resistance.cpp')
-  
   SupremeBeing.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\SupremeBeing.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/SupremeBeing.cpp')
-  
   Graph.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Graph.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Graph.cpp')
-  
   GraphSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\GraphSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/GraphSerialize.cpp')
-  
   RailroadGraph.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\RailroadGraph.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/RailroadGraph.cpp')
-  
   RailroadsSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\RailroadsSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/RailroadsSerialize.cpp')
-  
   ObstacleInternal.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\ObstacleInternal.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/ObstacleInternal.cpp')
-  
   ObstaclesSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\ObstaclesSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/ObstaclesSerialize.cpp')
-  
   StaticObjects.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\StaticObjects.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/StaticObjects.cpp')
-  
   StaticObjectsIters.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\StaticObjectsIters.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/StaticObjectsIters.cpp')
-  
   ArtilleryBulletStorage.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\ArtilleryBulletStorage.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/ArtilleryBulletStorage.cpp')
-  
   Bridge.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Bridge.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Bridge.cpp')
-  
   Building.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Building.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Building.cpp(66,39): warning C4293: '<<': shift count negative or too big, undefined behavior
   (compiling source file '/Building.cpp')
   
   Entrenchment.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Entrenchment.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Entrenchment.cpp')
-  
   Fence.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Fence.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Fence.cpp')
-  
   Flag.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Flag.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Flag.cpp')
-  
   Mine.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Mine.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Mine.cpp')
-  
   RotatingFireplacesObject.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\RotatingFireplacesObject.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/RotatingFireplacesObject.cpp')
-  
+  SmokeScreen.cpp
   Generating Code...
   Compiling...
-  SmokeScreen.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\SmokeScreen.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/SmokeScreen.cpp')
-  
   StaticObject.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\StaticObject.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/StaticObject.cpp')
-  
   StormableObject.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\StormableObject.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/StormableObject.cpp')
-  
   StaticObjectsSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\StaticObjectsSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/StaticObjectsSerialize.cpp')
-  
   MultiplayerInfo.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\MultiplayerInfo.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/MultiplayerInfo.cpp')
-  
   Weather.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Weather.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Weather.cpp')
-  
   Graveyard.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Graveyard.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/Graveyard.cpp')
-  
   GraveyardSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\GraveyardSerialize.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/GraveyardSerialize.cpp')
-  
   AIHashFuncs.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AIHashFuncs.cpp(1,10): error C1041: cannot open program database 'C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\Release\vc145.pdb'; if multiple CL.EXE write to the same .PDB file, please use /FS
-  (compiling source file '/AIHashFuncs.cpp')
-  
   Generating Code...

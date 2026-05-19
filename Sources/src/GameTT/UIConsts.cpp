@@ -92,45 +92,45 @@ void CUIConsts::CreateDescription( const struct SChapterStats::SMission *pStats,
 	//общее
 	//Mission: Mission Name
 	IText *pText = pTM->GetString( "missiontext" );
-	*pDescription += pText->GetString();
+	*pDescription += MakeWideStringFromWordString( pText->GetString() );
 	*pDescription += L" ";
 	pText = pTM->GetString( pStats->pMission->szHeaderText.c_str() );
-	*pDescription += pText->GetString();
+	*pDescription += MakeWideStringFromWordString( pText->GetString() );
 	*pDescription += L"\n";
 
 	//Type:
 	pText = pTM->GetString( "missiontypetext" );
-	*pDescription += pText->GetString();
+	*pDescription += MakeWideStringFromWordString( pText->GetString() );
 	*pDescription += L" ";
 		
 	if ( !pMissionStats->IsTemplate() )
 	{
 		//Historical
 		pText = pTM->GetString( "scenariomission" );
-		*pDescription += pText->GetString();
+		*pDescription += MakeWideStringFromWordString( pText->GetString() );
 		*pDescription += L"\n";
 	}
 	else
 	{
 		//Random
 		pText = pTM->GetString( "templatemission" );
-		*pDescription += pText->GetString();
+		*pDescription += MakeWideStringFromWordString( pText->GetString() );
 		*pDescription += L"\n";
 
 		//Difficulty: ****
 		pText = pTM->GetString( "missiondifficulty" );
-		*pDescription += pText->GetString();
+		*pDescription += MakeWideStringFromWordString( pText->GetString() );
 		*pDescription += L" ";
 		std::string szKey = NStr::Format( "textes\\ui\\difficulty\\mission\\level%d", pStats->nMissionDifficulty );
 		pText = pTM->GetDialog( szKey.c_str() );
 		if ( pText )
-			*pDescription += pText->GetString();
+			*pDescription += MakeWideStringFromWordString( pText->GetString() );
 		//		tt += NStr::ToUnicode( NStr::Format( " %d", pStats->missions[i].nMissionDifficulty ) );
 		*pDescription += L"\n";
 
 		//Bonus: ****
 		pText = pTM->GetString( "missionbonus" );
-		*pDescription += pText->GetString();
+		*pDescription += MakeWideStringFromWordString( pText->GetString() );
 		*pDescription += L" ";
 		
 		if ( !pStats->szMissionBonus.empty() )
@@ -142,7 +142,7 @@ void CUIConsts::CreateDescription( const struct SChapterStats::SMission *pStats,
 				pText = GetSingleton<ITextManager>()->GetDialog( (pObjectDesc->szPath + "\\name").c_str() );
 				NI_ASSERT_T( pText != 0, (std::string( "Error: can not get text by key ") + pObjectDesc->szPath + "\\name").c_str() );
 				if ( pText )
-					*pDescription += pText->GetString();
+					*pDescription += MakeWideStringFromWordString( pText->GetString() );
 			}
 		}
 		*pDescription += L"\n";
@@ -152,10 +152,10 @@ void CUIConsts::CreateDescription( const struct SChapterStats::SMission *pStats,
 	//Mission Description:
 	*pDescription += L"\n";
 	pText = pTM->GetString( "missiondescriptiontext" );
-	*pDescription += pText->GetString();
+	*pDescription += MakeWideStringFromWordString( pText->GetString() );
 	*pDescription += L"\n";
 	pText = pTM->GetString( pMissionStats->szDescriptionText.c_str() );
-	*pDescription += pText->GetString();
+	*pDescription += MakeWideStringFromWordString( pText->GetString() );
 
 	//только для random missions
 	if ( pMissionStats->IsTemplate() && bNeedBonuses )
@@ -165,7 +165,7 @@ void CUIConsts::CreateDescription( const struct SChapterStats::SMission *pStats,
 		*pDescription += L"\n";
 		pText = pTM->GetString( "allbonuses" );
 		if ( pText )
-			*pDescription += pText->GetString();
+			*pDescription += MakeWideStringFromWordString( pText->GetString() );
 		//*pDescription += L"\n";
 		/*for ( int i=0; i<pStats->szAllBonuses.size(); i++ )
 		{

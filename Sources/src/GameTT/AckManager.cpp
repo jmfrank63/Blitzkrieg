@@ -5,6 +5,7 @@
 #include "..\Scene\Scene.h"
 #include "..\Common\MapObject.h"
 #include "..\Main\TextSystem.h"
+#include "MultiplayerCommandManager.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS(CClientAckManager);
@@ -341,7 +342,8 @@ void CClientAckManager::AddAcknowledgement( interface IMOUnit *pUnit, const enum
 	case ACKT_SELECTION:
 		if ( 0 == unitAcks[pUnit].wSoundID )
 		{
-			if ( pLastSelected == pUnit )
+			IMOUnit * const pLastSelectedUnit = pLastSelected.GetPtr();
+			if ( pLastSelectedUnit == pUnit )
 				++nSelectionCounter;
 			else
 				nSelectionCounter = 0;
@@ -502,10 +504,10 @@ void CClientAckManager::Update( interface IScene * pScene )
 					std::wstring szToDisplay;
 
 					if ( pName )
-						szToDisplay += pName->GetString();
+						szToDisplay += MakeWideStringFromWordString( pName->GetString() );
 					if ( pText )
 					{
-						szToDisplay += pText->GetString();
+						szToDisplay += MakeWideStringFromWordString( pText->GetString() );
 						pConsoleBuffer->Write( CONSOLE_STREAM_CHAT, 
 																	szToDisplay.c_str(),
 																	GetMessageColor( acksInfo[addedAck.eAck].eColor ) );

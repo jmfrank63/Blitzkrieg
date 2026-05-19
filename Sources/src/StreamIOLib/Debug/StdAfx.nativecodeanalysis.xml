@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DEFECTS>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\</FILEPATH>
+      <FILENAME>StrProc.h</FILENAME>
+      <LINE>76</LINE>
+      <COLUMN>70</COLUMN>
+    </SFA>
+    <DEFECTCODE>6288</DEFECTCODE>
+    <DESCRIPTION>Incorrect operator.  Did you intend to use || instead?</DESCRIPTION>
+    <FUNCTION>NStr::IsBinDigit</FUNCTION>
+    <DECORATED>?IsBinDigit@NStr@@YA_ND@Z</DECORATED>
+    <FUNCLINE>76</FUNCLINE>
+    <PATH></PATH>
+  </DEFECT>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIO\</FILEPATH>
+      <FILENAME>DBIO.h</FILENAME>
+      <LINE>126</LINE>
+      <COLUMN>6</COLUMN>
+    </SFA>
+    <DEFECTCODE>6262</DEFECTCODE>
+    <DESCRIPTION>Function uses '65548' bytes of stack.  Consider moving some data to heap.</DESCRIPTION>
+    <FUNCTION>CTableAccessor::GetRowNames</FUNCTION>
+    <DECORATED>?GetRowNames@CTableAccessor@@QAE_NAAV?$vector@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@V?$allocator@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@2@@std@@@Z</DECORATED>
+    <FUNCLINE>126</FUNCLINE>
+    <PATH></PATH>
+  </DEFECT>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIO\</FILEPATH>
+      <FILENAME>DBIO.h</FILENAME>
+      <LINE>136</LINE>
+      <COLUMN>6</COLUMN>
+    </SFA>
+    <DEFECTCODE>6262</DEFECTCODE>
+    <DESCRIPTION>Function uses '65552' bytes of stack.  Consider moving some data to heap.</DESCRIPTION>
+    <FUNCTION>CTableAccessor::GetEntryNames</FUNCTION>
+    <DECORATED>?GetEntryNames@CTableAccessor@@QAE_NPBDAAV?$vector@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@V?$allocator@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@2@@std@@@Z</DECORATED>
+    <FUNCLINE>136</FUNCLINE>
+    <PATH></PATH>
+  </DEFECT>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIOLib\</FILEPATH>
+      <FILENAME>FileAttribs.h</FILENAME>
+      <LINE>28</LINE>
+      <COLUMN>1</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable 'CFileAttribs::dwAttribs' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>CFileAttribs::{ctor}</FUNCTION>
+    <DECORATED>??0CFileAttribs@@QAE@K@Z</DECORATED>
+    <FUNCLINE>28</FUNCLINE>
+    <ADDITIONALINFO>
+      <targetSymbol>CFileAttribs::dwAttribs</targetSymbol>
+    </ADDITIONALINFO>
+    <PATH></PATH>
+  </DEFECT>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIOLib\</FILEPATH>
+      <FILENAME>FileAttribs.h</FILENAME>
+      <LINE>29</LINE>
+      <COLUMN>1</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable 'CFileAttribs::dwAttribs' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>CFileAttribs::{ctor}</FUNCTION>
+    <DECORATED>??0CFileAttribs@@QAE@ABV0@@Z</DECORATED>
+    <FUNCLINE>29</FUNCLINE>
+    <ADDITIONALINFO>
+      <targetSymbol>CFileAttribs::dwAttribs</targetSymbol>
+    </ADDITIONALINFO>
+    <PATH></PATH>
+  </DEFECT>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\</FILEPATH>
+      <FILENAME>Basic.h</FILENAME>
+      <LINE>473</LINE>
+      <COLUMN>1</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable 'CBasicAccessor&lt;unsigned long&gt;::obj' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>CBasicAccessor&lt;unsigned long&gt;::{ctor}</FUNCTION>
+    <DECORATED>??0?$CBasicAccessor@K@@QAE@XZ</DECORATED>
+    <FUNCLINE>473</FUNCLINE>
+    <ADDITIONALINFO>
+      <targetSymbol>CBasicAccessor&lt;unsigned long&gt;::obj</targetSymbol>
+    </ADDITIONALINFO>
+    <PATH></PATH>
+  </DEFECT>
+</DEFECTS>

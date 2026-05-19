@@ -1317,10 +1317,10 @@ bool SRMContext::IsValid( int nLevelsCount, int nPlayersCount )
 				if ( nUnitsTableEntriesCount >= SRMTemplateUnitsTable::UNIT_RPG_TYPE_COUNT )
 				{
 					NI_ASSERT_T( 0, NStr::Format( "SRMSetting::IsValid, level: %d, player: %d, to many unit table entries: %d (%d). Press \"Continue\" for further information.",
-																				nLevelIndex,
-																				nPlayerIndex,
-																				nUnitsTableEntriesCount,
-																				SRMTemplateUnitsTable::UNIT_RPG_TYPE_COUNT ), );
+																nLevelIndex,
+																nPlayerIndex,
+																nUnitsTableEntriesCount,
+																SRMTemplateUnitsTable::UNIT_RPG_TYPE_COUNT ) );
 					bValid = false;
 				}
 				if ( unitsIterator->second.size() <= 0 )

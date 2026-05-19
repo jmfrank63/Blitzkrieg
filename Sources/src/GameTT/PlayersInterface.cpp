@@ -16,6 +16,7 @@
 #include "InterfaceAfterMissionPopups.h"
 #include "Campaign.h"
 #include "MainMenu.h"
+#include "MultiplayerCommandManager.h"
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands[] = 
 {
@@ -216,10 +217,10 @@ void CPlayersInterface::Create( const bool _bAfterMission )
 	IUIStatic *pCaption = checked_cast<IUIStatic *> ( pUIScreen->GetChildByID( 20000 ) );
 	if ( pTextCurrentRank && pPlayerInfo )
 	{
-		std::wstring wszCaption = pTextCurrentRank->GetString();
+		std::wstring wszCaption = MakeWideStringFromWordString( pTextCurrentRank->GetString() );
 		wszCaption += L" ";
 		wszCaption += pPlayerInfo->GetName();
-		pCaption->SetWindowText( 0, wszCaption.c_str() );
+		pCaption->SetWindowText( 0, reinterpret_cast<const WORD*>( wszCaption.c_str() ) );
 	}
 	//
 	
@@ -332,7 +333,8 @@ void CPlayersInterface::SetValues( IUIListRow * pRow, const float fCurrentVal, c
 	const int nValue =  fCurrentVal * nMultiply;
 	const int nDiff = ( fCurrentVal - fFormerVal ) * nMultiply;
 
-	pText->SetWindowText( 0, NStr::ToUnicode( NStr::Format("%i%%(%i)", nValue, nDiff)).c_str() );
+	const std::wstring wszSkill = NStr::ToUnicode( NStr::Format("%i%%(%i)", nValue, nDiff) );
+	pText->SetWindowText( 0, reinterpret_cast<const WORD*>( wszSkill.c_str() ) );
 	pText->ShowWindow( UI_SW_SHOW );
 }		
 //////////////////////////////////////////////////////////////////////

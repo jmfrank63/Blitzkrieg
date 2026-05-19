@@ -100,6 +100,20 @@ namespace NStr
 		ToAscii( &szDst, szSrc );
 		return szDst;
 	}
+	inline std::string ToAscii( const WORD *pszSrc )
+	{
+		if ( pszSrc == 0 )
+			return std::string();
+
+		std::wstring szSrc;
+		while ( *pszSrc != 0 )
+		{
+			szSrc += static_cast<wchar_t>( *pszSrc );
+			++pszSrc;
+		}
+
+		return ToAscii( szSrc );
+	}
 	void ToUnicode( std::wstring *pRes, const std::string &szSrc );
 	inline std::wstring ToUnicode( const std::string &szSrc )
 	{

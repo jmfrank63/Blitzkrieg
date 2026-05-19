@@ -4,6 +4,7 @@
 #include "..\Main\iMainCommands.h"
 #include "InterfaceIMModsList.h"
 #include "MainMenu.h"
+#include "MultiplayerCommandManager.h"
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceIMModsList::~CInterfaceIMModsList()
 {
@@ -65,7 +66,8 @@ bool CInterfaceIMModsList::FillListItem( IUIListRow *pRow, const std::string &sz
 			}
 		}
 		const std::string szFullModName = szMODName + " " + szMODVersion;
-		pElement->SetWindowText( 0, NStr::ToUnicode( szFullModName ).c_str() );
+		const std::wstring wszFullModName = NStr::ToUnicode( szFullModName );
+		pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszFullModName.c_str() ) );
 	}
 	return true;
 }

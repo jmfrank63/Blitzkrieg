@@ -81,7 +81,7 @@ void CInterfaceMPChat::StartInterface()
 //IWhisper
 const WORD * CInterfaceMPChat::GetDestinationName()
 {
-	return playerList.GetCurInfo()->szName.c_str();
+	return reinterpret_cast<const WORD*>( playerList.GetCurInfo()->szName.c_str() );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMPChat::ProcessMPCommand( SToUICommand & cmd )
@@ -112,7 +112,8 @@ void CInterfaceMPChat::AddPlayer( SUIChatPlayerInfo * pInfo )
 	IUIElement *pStateIcon = checked_cast<IUIElement*>( pStateDialog->GetChildByID( E_PLAYER_STATE_ICON ) );
 	if ( pInfo->eState != EPCS_ISNT_CHANGED )
 		pStateIcon->SetState( pInfo->eState );
-	pStateDialog->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%i", pInfo->eState ) ).c_str() );
+	std::wstring wszState = NStr::ToUnicode( NStr::Format( "%i", pInfo->eState ) );
+	pStateDialog->SetWindowText( 0, reinterpret_cast<const WORD*>( wszState.c_str() ) );
 
 	pStateIcon->EnableWindow( false );
 
@@ -120,10 +121,11 @@ void CInterfaceMPChat::AddPlayer( SUIChatPlayerInfo * pInfo )
 	IUIElement *pRelationIcon= checked_cast<IUIElement*>( pRelationDialog->GetChildByID( E_PLAYER_RELATION_ICON ) );
 	pRelationIcon->SetState( pInfo->eRelation );
 	pRelationIcon->EnableWindow( false );
-	pRelationDialog->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%i", pInfo->eRelation ) ).c_str() );
+	std::wstring wszRelation = NStr::ToUnicode( NStr::Format( "%i", pInfo->eRelation ) );
+	pRelationDialog->SetWindowText( 0, reinterpret_cast<const WORD*>( wszRelation.c_str() ) );
 
 	IUIStatic * pPlayerName = checked_cast<IUIStatic*>( pRow->GetElement( 2 ) );
-	pPlayerName->SetWindowText( 0, pInfo->szName.c_str() );
+	pPlayerName->SetWindowText( 0, reinterpret_cast<const WORD*>( pInfo->szName.c_str() ) );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMPChat::ProcessMessage( const SGameMessage &msg ) 
@@ -171,7 +173,7 @@ bool CInterfaceMPChat::ProcessMessage( const SGameMessage &msg )
 		{
 			// clear editbox text
 			IUIEditBox * pEdit = checked_cast<IUIEditBox*> ( pUIScreen->GetChildByID( E_CHAT_ENTRY_FEILD ) );
-			pEdit->SetWindowText( 0, L"" );
+			pEdit->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
 		}
 
 		return true;
@@ -228,7 +230,7 @@ void CInterfaceMPChat::OnPlayerInfoOk()
 	IUIButton * pButtonRelation = checked_cast<IUIButton*>( pDialog->GetChildByID( E_DIALOG_BUTTON_RELATION ) );
 	if ( pCurEdittedInfo )
 	{
-		CPtr<SUIRelationNotify> pParam = new SUIRelationNotify( pCurEdittedInfo->szName.c_str(), static_cast<EPlayerRelation>(pButtonRelation->GetState()) );
+		CPtr<SUIRelationNotify> pParam = new SUIRelationNotify( reinterpret_cast<const WORD*>( pCurEdittedInfo->szName.c_str() ), static_cast<EPlayerRelation>(pButtonRelation->GetState()) );
 
 		SFromUINotification notify( EUTMN_PLAYER_RELATION_CHANGED, pParam );
 		pCommandManager->AddNotificationFromUI( notify );
@@ -246,17 +248,17 @@ void CInterfaceMPChat::ShowPlayerInfo( SUIChatPlayerInfo *pInfo )
 		IUIStatic *pAwayReason = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_DIALOG_STATIC_AWAYCAUSE ) );
 
 		if ( pInfo->eState == EPCS_IN_CHAT  )
-			pAwayReason->SetWindowText( 0, pInfo->szAwayReason.c_str() );
+			pAwayReason->SetWindowText( 0, reinterpret_cast<const WORD*>( pInfo->szAwayReason.c_str() ) );
 		else
-			pAwayReason->SetWindowText( 0, L"" );
+			pAwayReason->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
 	}
 
 	IUIStatic *pCaption = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_DIALOG_CAPTION ) );
 	std::wstring szCaption = pInfo->szName;
 	szCaption += L" ";
 	IText *pText = GetSingleton<ITextManager>()->GetString( "Textes\\UI\\Intermission\\Multiplayer\\Chat\\playerinfo_caption" );
-	szCaption += pText->GetString();
-	pCaption->SetWindowText( 0, szCaption.c_str() );
+	szCaption += MakeWideStringFromWordString( pText->GetString() );
+	pCaption->SetWindowText( 0, reinterpret_cast<const WORD*>( szCaption.c_str() ) );
 
 	GetSingleton<IInput>()->AddMessage( SGameMessage( IMC_SHOW_PLAYER_INFO ) );
 }
@@ -275,11 +277,11 @@ void CInterfaceMPChat::UpdateButtons()
 void CInterfaceMPChat::SendTextFromEditBox( const bool bWhisper )
 {
 	IUIEditBox * pEdit = checked_cast<IUIEditBox*> ( pUIScreen->GetChildByID( E_CHAT_ENTRY_FEILD ) );
-	std::wstring wszText = pEdit->GetWindowText( 0 );
+	std::wstring wszText = MakeWideStringFromWordString( pEdit->GetWindowText( 0 ) );
 
-	CPtr<SChatMessage> pMessage = new SChatMessage( wszText.c_str(), bWhisper );
+	CPtr<SChatMessage> pMessage = new SChatMessage( reinterpret_cast<const WORD*>( wszText.c_str() ), bWhisper );
 	pCommandManager->AddChatMessageFromUI( pMessage );
-	pEdit->SetWindowText( 0, L"" );
+	pEdit->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMPChat::StepLocal( bool bAppActive )

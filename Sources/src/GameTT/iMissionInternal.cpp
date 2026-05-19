@@ -6,6 +6,8 @@
 
 #include "iMissionInternal.h"
 #include "UIConsts.h"
+#include "MultiplayerCommandManager.h"
+#include "..\Main\ServerInfo.h"
 #include "..\main\gamestats.h"
 #include "..\Common\Actions.h"
 #include "..\Misc\HPTimer.h"
@@ -18,6 +20,17 @@
 #include "..\AILogic\AIConsts.h"
 #include "..\Formats\fmtTerrain.h"
 #include "..\Main\TextSystem.h"
+
+void SetChildWindowText( IUIElement *pParent, const int nID, const wchar_t *pszText );
+void SetChildWindowText( IUIElement *pParent, const int nID, const std::wstring &szText );
+void SetUIWindowText( IUIElement *pElement, const wchar_t *pszText );
+void SetUIWindowText( IUIElement *pElement, const std::wstring &szText );
+void SetHelpContext( IUIElement *pElement, const wchar_t *pszText );
+void SetHelpContext( IUIElement *pElement, const std::wstring &szText );
+void OutputString( IUIStatusBar *pBar, const int nIndex, const wchar_t *pszText );
+void OutputString( IUIStatusBar *pBar, const int nIndex, const std::wstring &szText );
+void SetUnitProperty( IUIStatusBar *pBar, const int nIndex, const int nLevel, const wchar_t *pszText );
+void SetUnitProperty( IUIStatusBar *pBar, const int nIndex, const int nLevel, const std::wstring &szText );
 #include "..\Main\Transceiver.h"
 #include "..\Main\ScenarioTracker.h"
 #include "..\Main\ScenarioTrackerTypes.h"
@@ -272,7 +285,7 @@ void CInterfaceMission::CTimeoutDialog::ProcessMessage( const SGameMessage &msg,
 		{
 			IUIDialog *pDialog = checked_cast<IUIDialog*>( pUIScreen->GetChildByID( E_MULTIPLAYER_TIMEOUT_DIALOG ) );
 			IUIStatic *pCounter = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_MULTIPLAYER_TIMEOUT_COUNTER ) );
-			pCounter->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%d", msg.nParam ) ).c_str() );
+			SetUIWindowText( pCounter, NStr::ToUnicode( NStr::Format( "%d", msg.nParam ) ) );
 		}
 		break;
 
@@ -288,8 +301,8 @@ void CInterfaceMission::CTimeoutDialog::ProcessMessage( const SGameMessage &msg,
 			pButtonCancel->EnableWindow( pScenarioTracker->GetUserPlayerID() == msg.nParam );
 			std::wstring szMessage = pScenarioTracker->GetPlayer( msg.nParam )->GetName();
 			szMessage += L" ";
-			szMessage += pText->GetString();
-			pMessage->SetWindowText( 0, szMessage.c_str() );
+			szMessage += MakeWideStringFromWordString( pText->GetString() );
+			SetUIWindowText( pMessage, szMessage );
 			pDialog->ShowWindow( UI_SW_SHOW );
 			IUIDialog *pPlayerLagged = checked_cast<IUIDialog*>( pUIScreen->GetChildByID(E_MULTIPLAYER_PLAYER_LAGGED_DIALOG) );
 			if ( pPlayerLagged->IsVisible() )
@@ -351,7 +364,7 @@ void CInterfaceMission::CPlayerLaggedDialog::CDialogStateLagged::AddPlayer( cons
 	IUIListRow * pRow = players.Add( new SPlayerLaggedInfo( nPlayer, nTime ) );
 	IUIElement * pEl = pRow->GetElement( 0 );
 	IPlayerScenarioInfo *pPlayer = GetSingleton<IScenarioTracker>()->GetPlayer( nPlayer );
-	pEl->SetWindowText( 0, pPlayer->GetName().c_str() );
+	SetUIWindowText( pEl, pPlayer->GetName() );
 	IUIDialog *pDialogButton = checked_cast<IUIDialog*>( pRow->GetElement( 1 ) );
 	
 	IUIElement *pDropButtonFormer = pDialogButton->GetChildByID( E_MULTIPLAYER_PLAYER_LAGGED_DROPBUTTON );
@@ -363,7 +376,7 @@ void CInterfaceMission::CPlayerLaggedDialog::CDialogStateLagged::AddPlayer( cons
 	pDropButton->EnableWindow( !nTime );
 	if ( nTime )
 	{
-		pDropButton->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%i", nTime ) ).c_str() );
+		SetUIWindowText( pDropButton, NStr::ToUnicode( NStr::Format( "%i", nTime ) ) );
 		pDropButton->EnableWindow( false );
 	}
 	else
@@ -414,7 +427,7 @@ void CInterfaceMission::CPlayerLaggedDialog::CDialogStateLoading::AddPlayer( con
 	IUIListRow * pRow = players.Add( new SPlayerLoadingInfo( nPlayer ) );
 	IUIElement * pEl = pRow->GetElement( 0 );
 	IPlayerScenarioInfo *pPlayer = GetSingleton<IScenarioTracker>()->GetPlayer( nPlayer );
-	pEl->SetWindowText( 0, pPlayer->GetName().c_str() );
+	SetUIWindowText( pEl, pPlayer->GetName() );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CPlayerLaggedDialog::CDialogStateLoading::RemovePlayer( const int nPlayer, IUIScreen *pUIScreen )
@@ -462,7 +475,7 @@ void CInterfaceMission::CPlayerLaggedDialog::ProcessMessage( const SGameMessage 
 		{
 			pState->RemovePlayer( msg.nParam, pUIScreen );
 			IPlayerScenarioInfo *pPlayer = GetSingleton<IScenarioTracker>()->GetPlayer( msg.nParam );
-			GetSingleton<ITransceiver>()->CommandClientDropPlayer( pPlayer->GetName().c_str() );
+			GetSingleton<ITransceiver>()->CommandClientDropPlayer( ToWordString( pPlayer->GetName() ) );
 		}
 
 		break;
@@ -529,8 +542,8 @@ void CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::Show( IUISc
 	{
 		IUIStatic *pModName = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_MULTIPLAYER_SCORES_SMALL_MOD_NAME ) );
 		IUIStatic *pModVersion = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_MULTIPLAYER_SCORES_SMALL_MOD_VERSION ) );
-		pModName->SetWindowText( 0, NStr::ToUnicode( GetGlobalVar( "MOD.Name", "" ) ).c_str() );
-		pModVersion->SetWindowText( 0, NStr::ToUnicode( GetGlobalVar( "MOD.Version", "" ) ).c_str() );
+		SetUIWindowText( pModName, NStr::ToUnicode( GetGlobalVar( "MOD.Name", "" ) ) );
+		SetUIWindowText( pModVersion, NStr::ToUnicode( GetGlobalVar( "MOD.Version", "" ) ) );
 		pModName->ShowWindow( UI_SW_SHOW );
 		pModVersion->ShowWindow( UI_SW_SHOW );
 	}
@@ -539,7 +552,7 @@ void CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::Show( IUISc
 void CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::OnFrags( const int nFrags, const int nParty )
 {
 	IUIStatic * pVal = checked_cast<IUIStatic*>( pDialog->GetChildByID( nParty ? E_REPLAY_SS_TEAM_2_FRAGS_VAL  : E_REPLAY_SS_TEAM_1_FRAGS_VAL ) );
-	pVal->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%d", nFrags ) ).c_str() );
+	SetUIWindowText( pVal, NStr::ToUnicode( NStr::Format( "%d", nFrags ) ) );
 	IUIStatic * pName = checked_cast<IUIStatic*>( pDialog->GetChildByID( nParty ? E_REPLAY_SS_TEAM_2_FRAGS  : E_REPLAY_SS_TEAM_1_FRAGS ) );
 	
 	pName->ShowWindow( UI_SW_SHOW );
@@ -549,7 +562,7 @@ void CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::OnFrags( co
 void CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::OnFlags( const int nFlags, const int nParty )
 {
 	IUIStatic * pVal = checked_cast<IUIStatic*>( pDialog->GetChildByID( nParty ? E_REPLAY_SS_TEAM_2_FLAGS_VAL  : E_REPLAY_SS_TEAM_1_FLAGS_VAL ) );
-	pVal->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%d", nFlags ) ).c_str() );
+	SetUIWindowText( pVal, NStr::ToUnicode( NStr::Format( "%d", nFlags ) ) );
 	IUIStatic * pName = checked_cast<IUIStatic*>( pDialog->GetChildByID( nParty ? E_REPLAY_SS_TEAM_2_FLAGS  : E_REPLAY_SS_TEAM_1_FLAGS ) );
 	pName->ShowWindow( UI_SW_SHOW );
 	pVal->ShowWindow( UI_SW_SHOW );
@@ -561,13 +574,13 @@ void CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::OnTimeBefor
 	IUIStatic * pName = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_REPLAY_SS_TIMEBEFORECAPTURE ) );
 	pName->ShowWindow( nTime != 0 ? UI_SW_SHOW : UI_SW_HIDE );
 	pVal->ShowWindow( nTime != 0 ? UI_SW_SHOW : UI_SW_HIDE  );
-	pVal->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%d:%02d", nTime/60, nTime%60 ) ).c_str() );
+	SetUIWindowText( pVal, NStr::ToUnicode( NStr::Format( "%d:%02d", nTime/60, nTime%60 ) ) );
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::OnTime( const int nTime )
 {
 	IUIStatic * pVal = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_REPLAY_SS_TIME_VAL ) );
-	pVal->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%d:%02d", nTime/60, nTime%60 ) ).c_str() );
+	SetUIWindowText( pVal, NStr::ToUnicode( NStr::Format( "%d:%02d", nTime/60, nTime%60 ) ) );
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::Init( IUIScreen *pUIScreen )
@@ -609,8 +622,8 @@ void CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::Show( IUIScre
 	{
 		IUIStatic *pModName = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_MULTIPLAYER_SCORES_SMALL_MOD_NAME ) );
 		IUIStatic *pModVersion = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_MULTIPLAYER_SCORES_SMALL_MOD_VERSION ) );
-		pModName->SetWindowText( 0, NStr::ToUnicode( GetGlobalVar( "MOD.Name", "" ) ).c_str() );
-		pModVersion->SetWindowText( 0, NStr::ToUnicode( GetGlobalVar( "MOD.Version", "" ) ).c_str() );
+		SetUIWindowText( pModName, NStr::ToUnicode( GetGlobalVar( "MOD.Name", "" ) ) );
+		SetUIWindowText( pModVersion, NStr::ToUnicode( GetGlobalVar( "MOD.Version", "" ) ) );
 		pModName->ShowWindow( UI_SW_SHOW );
 		pModVersion->ShowWindow( UI_SW_SHOW );
 	}
@@ -619,7 +632,7 @@ void CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::Show( IUIScre
 void CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::OnFrags( const int nFrags, const int nPlayer )
 {
 	IUIStatic * pVal = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_MULTIPLAYER_SCORES_SMALL_TEAMFRAGS_VAL ) );
-	pVal->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%d", nFrags ) ).c_str() );
+	SetUIWindowText( pVal, NStr::ToUnicode( NStr::Format( "%d", nFrags ) ) );
 	IUIStatic * pName = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_MULTIPLAYER_SCORES_SMALL_TEAMFRAGS ) );
 	pName->ShowWindow( UI_SW_SHOW );
 	pVal->ShowWindow( UI_SW_SHOW );
@@ -628,7 +641,7 @@ void CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::OnFrags( cons
 void CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::OnFlags( const int nFlags, const int nPlayer )
 {
 	IUIStatic * pVal = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_MULTIPLAYER_SCORES_SMALL_TEAMFLAGS_VAL ) );
-	pVal->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%d", nFlags ) ).c_str() );
+	SetUIWindowText( pVal, NStr::ToUnicode( NStr::Format( "%d", nFlags ) ) );
 	IUIStatic * pName = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_MULTIPLAYER_SCORES_SMALL_TEAMFLAGS ) );
 	pName->ShowWindow( UI_SW_SHOW );
 	pVal->ShowWindow( UI_SW_SHOW );
@@ -650,13 +663,15 @@ void CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::OnTimeBeforeC
 	IUIStatic * pName = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_MULTIPLAYER_SCORES_SMALL_TIMEBEFORECAPTURE ) );
 	pName->ShowWindow( nTime != 0 ? UI_SW_SHOW : UI_SW_HIDE );
 	pVal->ShowWindow( nTime != 0 ? UI_SW_SHOW : UI_SW_HIDE  );
-	pVal->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%d:%02d", nTime/60, nTime%60 ) ).c_str() );
+	const std::wstring szTimeBeforeCapture = NStr::ToUnicode( NStr::Format( "%d:%02d", nTime/60, nTime%60 ) );
+	SetUIWindowText( pVal, szTimeBeforeCapture );
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::OnTime( const int nTime )
 {
 	IUIStatic * pVal = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_MULTIPLAYER_SCORES_SMALL_TIME_VAL ) );
-	pVal->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%d:%02d", nTime/60, nTime%60 ) ).c_str() );
+	const std::wstring szTime = NStr::ToUnicode( NStr::Format( "%d:%02d", nTime/60, nTime%60 ) );
+	SetUIWindowText( pVal, szTime );
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ************************************************************************************************************************ //
@@ -1692,7 +1707,7 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 						IText *pText = GetSingleton<ITextManager>()->GetDialog( "textes\\gamespeedlowered" );
 						if ( pText )
 						{
-							const std::wstring szString = std::wstring(reinterpret_cast<const wchar_t*>(pText->GetString())) + L" " + NStr::ToUnicode( NStr::Format("%+d", nNewSpeed) );
+						const std::wstring szString = MakeWideStringFromWordString( pText->GetString() ) + L" " + NStr::ToUnicode( NStr::Format("%+d", nNewSpeed) );
 							GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_CHAT, szString.c_str(), 0xffff0000 );
 						}
 					}
@@ -1748,11 +1763,56 @@ bool CInterfaceMission::ProcessMessage( const SGameMessage &msg )
 	return true;
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void SetWindowText( IUIElement *pParent, const int nID, const wchar_t *pszText )
+void SetChildWindowText( IUIElement *pParent, const int nID, const wchar_t *pszText )
 {
 	IUIContainer *pContainer = checked_cast<IUIContainer*>( pParent );
 	if ( IUIElement *pElement = pContainer->GetChildByID(nID) )
-		pElement->SetWindowText( 0, pszText );
+		pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( pszText ) );
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void SetChildWindowText( IUIElement *pParent, const int nID, const std::wstring &szText )
+{
+	SetChildWindowText( pParent, nID, szText.c_str() );
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void SetUIWindowText( IUIElement *pElement, const wchar_t *pszText )
+{
+	pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( pszText ) );
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void SetUIWindowText( IUIElement *pElement, const std::wstring &szText )
+{
+	SetUIWindowText( pElement, szText.c_str() );
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void SetHelpContext( IUIElement *pElement, const wchar_t *pszText )
+{
+	pElement->SetHelpContext( 0, reinterpret_cast<const WORD*>( pszText ) );
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void SetHelpContext( IUIElement *pElement, const std::wstring &szText )
+{
+	SetHelpContext( pElement, szText.c_str() );
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void OutputString( IUIStatusBar *pBar, const int nIndex, const wchar_t *pszText )
+{
+	pBar->OutputString( nIndex, reinterpret_cast<const WORD*>( pszText ) );
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void OutputString( IUIStatusBar *pBar, const int nIndex, const std::wstring &szText )
+{
+	OutputString( pBar, nIndex, szText.c_str() );
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void SetUnitProperty( IUIStatusBar *pBar, const int nIndex, const int nLevel, const wchar_t *pszText )
+{
+	pBar->SetUnitProperty( nIndex, nLevel, reinterpret_cast<const WORD*>( pszText ) );
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void SetUnitProperty( IUIStatusBar *pBar, const int nIndex, const int nLevel, const std::wstring &szText )
+{
+	SetUnitProperty( pBar, nIndex, nLevel, szText.c_str() );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SMissionStatusObject* GetMissionStatusObject();
@@ -1778,7 +1838,7 @@ void CInterfaceMission::SetMissionStatusObject( bool bStatus )
 			if ( pStatus->nScenarioIndex < 0 ) 
 			{
 				pBar->SetUnitProperty( 0, -1, 0 );
-				pBar->OutputString( 1, L"" );
+				OutputString( pBar, 1, L"" );
 			}
 			else if ( IScenarioUnit *pUnit = GetSingleton<IScenarioTracker>()->GetUserPlayer()->GetUnit(pStatus->nScenarioIndex) ) 
 			{
@@ -1789,14 +1849,14 @@ void CInterfaceMission::SetMissionStatusObject( bool bStatus )
 				const int nPrevLevel = pUnit->GetValue( STUT_EXP_CURR_LEVEL );
 				//
 				IText *pText = GetSingleton<ITextManager>()->GetDialog( NStr::Format("textes\\ui\\mission\\status\\tt_unit_level%d", nLevel) );
-				std::wstring wToolTip = pText != 0 ? reinterpret_cast<const wchar_t*>(pText->GetString()) : L"";
+				std::wstring wToolTip = pText != 0 ? MakeWideStringFromWordString( pText->GetString() ) : L"";
 				wToolTip += NStr::ToUnicode( NStr::Format("(%d / %d)", nExp, nExpNextLevel) );
-				pBar->SetUnitProperty( 0, nLevel, wToolTip.c_str() );
+				SetUnitProperty( pBar, 0, nLevel, wToolTip );
 				// personal name
 				if ( IText *pText = pUnit->GetName() ) 
 					pBar->OutputString( 1, pText->GetString() );
 				else
-					pBar->OutputString( 1, L"" );
+					OutputString( pBar, 1, L"" );
 				if ( nPrevLevel == nExpNextLevel )
 				{
 					if ( nLevel == 0 )
@@ -1811,7 +1871,7 @@ void CInterfaceMission::SetMissionStatusObject( bool bStatus )
 			{
 				NI_ASSERT_T( false, NStr::Format("Can't find scenario unit %d", pStatus->nScenarioIndex) );
 			}
-			pBar->OutputString( 0, pStatus->pszName );
+			OutputString( pBar, 0, std::wstring( pStatus->pszName ) );
 			for ( int i = 0; i < 4; ++i )
 			{
 				const int nTempID = 10 + i;
@@ -1820,10 +1880,10 @@ void CInterfaceMission::SetMissionStatusObject( bool bStatus )
 				pNumIndicator->SetValue( pStatus->GetRelative( i, pStatus->params ) );
 				const int nIconID = 20 + i;
 				IUIElement *pIcon = pDialog->GetChildByID( nIconID );
-				std::wstring szValue =  pNumIndicator->GetWindowText( 0 );
+				std::wstring szValue = MakeWideStringFromWordString( pNumIndicator->GetWindowText( 0 ) );
 				szValue += NStr::ToUnicode( NStr::Format(  " %i/%i", pStatus->GetLow( i, pStatus->params ), pStatus->GetHigh( i, pStatus->params ) ) );
-				pNumIndicator->SetHelpContext( 0, szValue.c_str() );	
-				pIcon->SetHelpContext( 0, szValue.c_str() );	
+				SetHelpContext( pNumIndicator, szValue );	
+				SetHelpContext( pIcon, szValue );	
 			}
 
 			// experience value - to morale bar
@@ -1833,15 +1893,15 @@ void CInterfaceMission::SetMissionStatusObject( bool bStatus )
 
 			const int nIconID = 20 + 3;
 			IUIElement *pIcon = pDialog->GetChildByID( nIconID );
-			std::wstring szValue =  pNumIndicator->GetWindowText( 0 );
+			std::wstring szValue = MakeWideStringFromWordString( pNumIndicator->GetWindowText( 0 ) );
 			szValue += NStr::ToUnicode( NStr::Format(  " %i/%i", nExp, nExpNextLevel ) );
-			pNumIndicator->SetHelpContext( 0, szValue.c_str() );	
-			pIcon->SetHelpContext( 0, szValue.c_str() );	
+			SetHelpContext( pNumIndicator, szValue );	
+			SetHelpContext( pIcon, szValue );	
 		}
 		else
 		{
-			pBar->OutputString( 0, L"" );
-			pBar->OutputString( 1, L"" );
+			OutputString( pBar, 0, L"" );
+			OutputString( pBar, 1, L"" );
 			for ( int i = 0; i < 4; ++i )
 			{
 				const int nTempID = 10 + i;
@@ -1850,9 +1910,9 @@ void CInterfaceMission::SetMissionStatusObject( bool bStatus )
 				pNumIndicator->SetValue( 0 );
 				const int nIconID = 20 + i;
 				IUIElement *pIcon = pDialog->GetChildByID( nIconID );
-				std::wstring szValue =  pNumIndicator->GetWindowText( 0 );
-				pNumIndicator->SetHelpContext( 0, szValue.c_str() );	
-				pIcon->SetHelpContext( 0, szValue.c_str() );	
+				std::wstring szValue = MakeWideStringFromWordString( pNumIndicator->GetWindowText( 0 ) );
+				SetHelpContext( pNumIndicator, szValue );	
+				SetHelpContext( pIcon, szValue );	
 			}
 			pBar->SetUnitProperty( 0, -1, 0 );
 			pBar->SetUnitIcons( 0 );
@@ -1878,7 +1938,7 @@ void CInterfaceMission::SetMissionStatusObject( bool bStatus )
 			if ( IUIElement *pElement = pDialog->GetChildByID(101 + i) )
 			{
 				pElement->ShowWindow( UI_SW_SHOW );
-				pElement->SetWindowText( 0, szText.c_str() );
+				SetUIWindowText( pElement, szText );
 			}
 		}
 		// weapon stats
@@ -1891,7 +1951,7 @@ void CInterfaceMission::SetMissionStatusObject( bool bStatus )
 			if ( IUIElement *pElement = pDialog->GetChildByID(111 + i) )
 			{
 				pElement->ShowWindow( UI_SW_SHOW );
-				pElement->SetWindowText( 0, szText.c_str() );
+				SetUIWindowText( pElement, szText );
 			}
 		}
 	}
@@ -2106,9 +2166,9 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 					
 					if ( pText )
 					{
-						std::wstring szString = std::wstring(reinterpret_cast<const wchar_t*>(pText->GetString())) + L" " + NStr::ToUnicode( NStr::Format("%+d", nNewSpeed) );
+					std::wstring szString = MakeWideStringFromWordString( pText->GetString() ) + L" " + NStr::ToUnicode( NStr::Format("%+d", nNewSpeed) );
 						if ( pAddition )
-							szString += pAddition->GetString();
+						szString += MakeWideStringFromWordString( pAddition->GetString() );
 						GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_CHAT, szString.c_str(), 0xff00ff00 );
 					}
 					else
@@ -2306,7 +2366,7 @@ void CInterfaceMission::VisualizeFeedback( const int /*EMissionCommands*/ nFeedB
 			const std::wstring wszSrc = pST->GetPlayer( nParam & 0xffff )->GetName();
 			const std::wstring wszBase = 
 				( pTM->GetString( "Textes\\FeedBacks\\units_passed" ) ) ? 
-				reinterpret_cast<const wchar_t*>(pTM->GetString( "Textes\\FeedBacks\\units_passed" )->GetString()) : L"";
+				MakeWideStringFromWordString( pTM->GetString( "Textes\\FeedBacks\\units_passed" )->GetString() ) : L"";
 			pText->SetText( (wszBase + L": " + wszSrc + L" -> " + wszTrg).c_str() );
 		}
 		break;
@@ -2386,7 +2446,7 @@ void CInterfaceMission::VisualizeFeedback( const int /*EMissionCommands*/ nFeedB
 	if ( pText )
 	{
 		IConsoleBuffer * pBuffer = GetSingleton<IConsoleBuffer>();
-		pBuffer->Write( CONSOLE_STREAM_CHAT, pText->GetString(), dwTextColor );
+		pBuffer->Write( CONSOLE_STREAM_CHAT, MakeWideStringFromWordString( pText->GetString() ).c_str(), dwTextColor );
 	}
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

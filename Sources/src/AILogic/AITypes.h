@@ -56,7 +56,7 @@ struct SMiniMapUnitInfo
 	float z;
 	BYTE player;
 
-	SMiniMapUnitInfo() { }
+	SMiniMapUnitInfo() : x( 0 ), y( 0 ), z( 0.0f ), player( 0 ) { }
 	SMiniMapUnitInfo( const WORD _x, const WORD _y, const float _z, const BYTE _player ) 
 		: x( _x ), y( _y ), z( _z ), player( _player ) { }
 };

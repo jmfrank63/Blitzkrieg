@@ -13,15 +13,15 @@ void CChatWrapper::AddMessageToChat( const struct SChatMessage *pChatMessage )
 	{
 		IText * pText = GetSingleton<ITextManager>()->GetDialog( "Textes\\UI\\Intermission\\Multiplayer\\chat_whisper" );	
 		if ( pText )
-			szName += pText->GetString();
+			szName += MakeWideStringFromWordString( pText->GetString() );
 	}
 	szName += L":";
-	pChatText->AppendMessage( szName.c_str(), pChatMessage->szMessageText.c_str() );
+	pChatText->AppendMessage( reinterpret_cast<const WORD*>( szName.c_str() ), reinterpret_cast<const WORD*>( pChatMessage->szMessageText.c_str() ) );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CChatWrapper::AddEditBoxText( const bool bWhisper )
 {
-	std::wstring wszTextTmp = pChatEdit->GetWindowText( 0 );
+	std::wstring wszTextTmp = MakeWideStringFromWordString( pChatEdit->GetWindowText( 0 ) );
 
 	if ( !wszTextTmp.empty() )
 	{
@@ -36,9 +36,9 @@ void CChatWrapper::AddEditBoxText( const bool bWhisper )
 		{
 			// add editbox text to chat
 			CPtr<SChatMessage> pChatMessage = new SChatMessage( 
-				wszText.c_str(), ( bWhisper ? pWhisper->GetDestinationName(): reinterpret_cast<const WORD*>(L"") ), bWhisper );
+				reinterpret_cast<const WORD*>( wszText.c_str() ), ( bWhisper ? pWhisper->GetDestinationName(): reinterpret_cast<const WORD*>(L"") ), bWhisper );
 			pCommandManager->AddChatMessageFromUI( pChatMessage );
-			pChatEdit->SetWindowText( 0, L"" );
+			pChatEdit->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
 		}
 	}
 }		
@@ -46,7 +46,7 @@ void CChatWrapper::AddEditBoxText( const bool bWhisper )
 void CChatWrapper::ClearEditBoxText()
 {
 		// clear editbox text
-	pChatEdit->SetWindowText( 0, L"" );
+	pChatEdit->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
 	pChatEdit->SetFocus( true );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -87,7 +87,7 @@ bool CChatWrapper::ProcessMessage( const SGameMessage &msg )
 			return true;
 		case UI_NOTIFY_EDIT_BOX_ESCAPE:
 			// if text is empty, do not process this message.
-			if ( 0 == wcslen( pChatEdit->GetWindowText( 0 ) ) )
+			if ( MakeWideStringFromWordString( pChatEdit->GetWindowText( 0 ) ).empty() )
 				return false;
 
 			ClearEditBoxText();

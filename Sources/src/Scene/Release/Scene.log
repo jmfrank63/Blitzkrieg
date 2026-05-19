@@ -1,49 +1,10 @@
 ﻿  StdAfx.cpp
   AnimVisitor.cpp
   BinkVideoPlayer.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\BinkVideoPlayer.cpp(84,9): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/BinkVideoPlayer.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\BinkVideoPlayer.cpp(84,9):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\BinkVideoPlayer.cpp(84,9):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-  
   BoldLineVisObj.cpp
   Camera.cpp
   CellsConglomerateContainer.cpp
   Cursor.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\Cursor.cpp(304,18): error C2666: 'CPtr<IGFXTexture>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/Cursor.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IGFXTexture>::operator !=(const CPtr<IGFXTexture> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\Cursor.cpp(304,18):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IGFXTexture
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\Cursor.cpp(304,18):
-      while trying to match the argument list '(CPtr<IGFXTexture>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\Cursor.cpp(322,23): error C2666: 'CPtr<IGFXTexture>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/Cursor.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IGFXTexture>::operator ==(const CPtr<IGFXTexture> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\Cursor.cpp(322,23):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IGFXTexture
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\Cursor.cpp(322,23):
-      while trying to match the argument list '(CPtr<IGFXTexture>, int)'
-  
   DrawVisitor.cpp
   EffectVisObj.cpp
   FastSinCos.cpp
@@ -55,33 +16,7 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\Cursor.cpp(322,23): err
   IconBar.cpp
   IconHPBar.cpp
   IconPic.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconPic.h(26,49): error C2666: 'CPtr<IGFXTexture>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/IconPic.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IGFXTexture>::operator ==(const CPtr<IGFXTexture> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconPic.h(26,49):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IGFXTexture
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconPic.h(26,49):
-      while trying to match the argument list '(CPtr<IGFXTexture>, int)'
-  
   IconText.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconText.h(27,49): error C2666: 'CPtr<IGFXFont>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/IconText.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IGFXFont>::operator ==(const CPtr<IGFXFont> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconText.h(27,49):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IGFXFont
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconText.h(27,49):
-      while trying to match the argument list '(CPtr<IGFXFont>, int)'
-  
   KeyBasedParticleSource.cpp
   MaterialEffector.cpp
   Generating Code...
@@ -89,399 +24,18 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconText.h(27,49): erro
   MatrixEffector.cpp
   MeshBuilders.cpp
   MeshVisObj.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\MeshVisObj.cpp(254,7): error C2666: 'CPtr<ISceneMaterialEffector>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/MeshVisObj.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<ISceneMaterialEffector>::operator !=(const CPtr<ISceneMaterialEffector> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\MeshVisObj.cpp(254,7):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=ISceneMaterialEffector
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\MeshVisObj.cpp(254,7):
-      while trying to match the argument list '(CPtr<ISceneMaterialEffector>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\MeshVisObj.cpp(500,7): error C2666: 'CPtr<ISceneMaterialEffector>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/MeshVisObj.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<ISceneMaterialEffector>::operator ==(const CPtr<ISceneMaterialEffector> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\MeshVisObj.cpp(500,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=ISceneMaterialEffector
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\MeshVisObj.cpp(500,7):
-      while trying to match the argument list '(CPtr<ISceneMaterialEffector>, int)'
-  
   ParticleManager.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(104,12): error C2666: 'CObj<TValue>::operator ==': overloaded functions have similar conversions
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(104,12): error C2666:         with
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(104,12): error C2666:         [
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(104,12): error C2666:             TValue=SSmokinParticleSourceData
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(104,12): error C2666:         ]
-  (compiling source file '/ParticleManager.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
-      could be 'bool CObj<TValue>::operator ==(const CObj<TValue> &) const'
-          with
-          [
-              TValue=SSmokinParticleSourceData
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(104,12):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=SSmokinParticleSourceData
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(104,12):
-      while trying to match the argument list '(const _Ty2, int)'
-          with
-          [
-              _Ty2=CObj<SSmokinParticleSourceData>
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(104,12):
-      the template instantiation context (the oldest one first) is
-          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\ParticleManager.h(11,1):
-          see reference to class template instantiation 'CBasicShare<std::string,SSmokinParticleSourceData,268828703,std::hash<TKey>>' being compiled
-          with
-          [
-              TKey=std::string
-          ]
-          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(94,7):
-          while compiling class template member function 'void CBasicShare<std::string,SSmokinParticleSourceData,268828703,std::hash<TKey>>::Serialize(IStructureSaver *)'
-          with
-          [
-              TKey=std::string
-          ]
-              C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\ParticleManager.cpp(68,23):
-              see the first reference to 'CBasicShare<std::string,SSmokinParticleSourceData,268828703,std::hash<TKey>>::Serialize' in 'CParticleDataManager::operator &'
-          with
-          [
-              TKey=std::string
-          ]
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(117,12): error C2666: 'CObj<TValue>::operator ==': overloaded functions have similar conversions
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(117,12): error C2666:         with
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(117,12): error C2666:         [
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(117,12): error C2666:             TValue=SSmokinParticleSourceData
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(117,12): error C2666:         ]
-  (compiling source file '/ParticleManager.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
-      could be 'bool CObj<TValue>::operator ==(const CObj<TValue> &) const'
-          with
-          [
-              TValue=SSmokinParticleSourceData
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(117,12):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=SSmokinParticleSourceData
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(117,12):
-      while trying to match the argument list '(const _Ty2, int)'
-          with
-          [
-              _Ty2=CObj<SSmokinParticleSourceData>
-          ]
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(139,12): error C2666: 'CObj<TValue>::operator ==': overloaded functions have similar conversions
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(139,12): error C2666:         with
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(139,12): error C2666:         [
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(139,12): error C2666:             TValue=SSmokinParticleSourceData
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(139,12): error C2666:         ]
-  (compiling source file '/ParticleManager.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
-      could be 'bool CObj<TValue>::operator ==(const CObj<TValue> &) const'
-          with
-          [
-              TValue=SSmokinParticleSourceData
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(139,12):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=SSmokinParticleSourceData
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\BasicShare.h(139,12):
-      while trying to match the argument list '(const _Ty2, int)'
-          with
-          [
-              _Ty2=CObj<SSmokinParticleSourceData>
-          ]
-  
   ParticleSourceData.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\ParticleSourceData.cpp(11,7): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/ParticleSourceData.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\ParticleSourceData.cpp(11,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\ParticleSourceData.cpp(11,7):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-  
   RiverBuilder.cpp
   SceneDraw.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39): error C2666: 'CPtr<CSoundScene::CSubstSound>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/SceneDraw.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<CSoundScene::CSubstSound>::operator !=(const CPtr<CSoundScene::CSubstSound> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=CSoundScene::CSubstSound
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
-      while trying to match the argument list '(const CPtr<CSoundScene::CSubstSound>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(245,7): error C2666: 'CObj<CDrawVisitor>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/SceneDraw.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(590,1):
-      could be 'bool CObj<CDrawVisitor>::operator ==(const CObj<CDrawVisitor> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(245,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=CDrawVisitor
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(245,7):
-      while trying to match the argument list '(CObj<CDrawVisitor>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(314,8): error C2666: 'CPtr<ITerrain>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/SceneDraw.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<ITerrain>::operator !=(const CPtr<ITerrain> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(314,8):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=ITerrain
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(314,8):
-      while trying to match the argument list '(CPtr<ITerrain>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(1200,7): error C2666: 'CPtr<IGFXTexture>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/SceneDraw.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IGFXTexture>::operator ==(const CPtr<IGFXTexture> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(1200,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IGFXTexture
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(1200,7):
-      while trying to match the argument list '(CPtr<IGFXTexture>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(1436,7): error C2666: 'CPtr<IGFXTexture>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/SceneDraw.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IGFXTexture>::operator ==(const CPtr<IGFXTexture> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(1436,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IGFXTexture
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneDraw.cpp(1436,7):
-      while trying to match the argument list '(CPtr<IGFXTexture>, int)'
-  
   SceneInternal.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39): error C2666: 'CPtr<CSoundScene::CSubstSound>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/SceneInternal.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<CSoundScene::CSubstSound>::operator !=(const CPtr<CSoundScene::CSubstSound> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=CSoundScene::CSubstSound
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
-      while trying to match the argument list '(const CPtr<CSoundScene::CSubstSound>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneInternal.cpp(296,9): error C2666: 'CPtr<ITerrain>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/SceneInternal.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<ITerrain>::operator !=(const CPtr<ITerrain> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneInternal.cpp(296,9):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=ITerrain
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneInternal.cpp(296,9):
-      while trying to match the argument list '(CPtr<ITerrain>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneInternal.cpp(301,9): error C2666: 'CPtr<ITerrain>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/SceneInternal.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<ITerrain>::operator !=(const CPtr<ITerrain> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneInternal.cpp(301,9):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=ITerrain
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SceneInternal.cpp(301,9):
-      while trying to match the argument list '(CPtr<ITerrain>, int)'
-  
   SceneObjectFactory.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconText.h(27,49): error C2666: 'CPtr<IGFXFont>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/SceneObjectFactory.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IGFXFont>::operator ==(const CPtr<IGFXFont> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconText.h(27,49):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IGFXFont
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconText.h(27,49):
-      while trying to match the argument list '(CPtr<IGFXFont>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconPic.h(26,49): error C2666: 'CPtr<IGFXTexture>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/SceneObjectFactory.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IGFXTexture>::operator ==(const CPtr<IGFXTexture> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconPic.h(26,49):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IGFXTexture
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconPic.h(26,49):
-      while trying to match the argument list '(CPtr<IGFXTexture>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39): error C2666: 'CPtr<CSoundScene::CSubstSound>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/SceneObjectFactory.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<CSoundScene::CSubstSound>::operator !=(const CPtr<CSoundScene::CSubstSound> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=CSoundScene::CSubstSound
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
-      while trying to match the argument list '(const CPtr<CSoundScene::CSubstSound>, int)'
-  
   ScenePick.cpp
   SceneSound.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39): error C2666: 'CPtr<CSoundScene::CSubstSound>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/SceneSound.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<CSoundScene::CSubstSound>::operator !=(const CPtr<CSoundScene::CSubstSound> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=CSoundScene::CSubstSound
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
-      while trying to match the argument list '(const CPtr<CSoundScene::CSubstSound>, int)'
-  
   SmokinParticleSource.cpp
   SmokinParticleSourceData.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SmokinParticleSourceData.cpp(11,7): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/SmokinParticleSourceData.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SmokinParticleSourceData.cpp(11,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SmokinParticleSourceData.cpp(11,7):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-  
   SoundScene.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39): error C2666: 'CPtr<CSoundScene::CSubstSound>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/SoundScene.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<CSoundScene::CSubstSound>::operator !=(const CPtr<CSoundScene::CSubstSound> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=CSoundScene::CSubstSound
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
-      while trying to match the argument list '(const CPtr<CSoundScene::CSubstSound>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(618,7): error C2666: 'CPtr<ISFX>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/SoundScene.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<ISFX>::operator ==(const CPtr<ISFX> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(618,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=ISFX
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(618,7):
-      while trying to match the argument list '(CPtr<ISFX>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(823,15): error C2666: 'CPtr<ISound>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/SoundScene.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<ISound>::operator ==(const CPtr<ISound> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(823,15):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=ISound
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(823,15):
-      while trying to match the argument list '(CPtr<ISound>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(874,15): error C2666: 'CPtr<ISound>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/SoundScene.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<ISound>::operator ==(const CPtr<ISound> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(874,15):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=ISound
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(874,15):
-      while trying to match the argument list '(CPtr<ISound>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(1741,9): error C2666: 'CPtr<ISound>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/SoundScene.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<ISound>::operator ==(const CPtr<ISound> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(1741,9):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=ISound
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.cpp(1741,9):
-      while trying to match the argument list '(CPtr<ISound>, int)'
-  
   SoundSceneSerialize.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39): error C2666: 'CPtr<CSoundScene::CSubstSound>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/SoundSceneSerialize.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<CSoundScene::CSubstSound>::operator !=(const CPtr<CSoundScene::CSubstSound> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=CSoundScene::CSubstSound
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39):
-      while trying to match the argument list '(const CPtr<CSoundScene::CSubstSound>, int)'
-  
   SpriteVisObj.cpp
   SquadVisObj.cpp
   StatSystem.cpp
@@ -498,17 +52,71 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\SoundScene.h(390,39): e
   Transition.cpp
   VectorObject.cpp
   VisObjBuilder.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconPic.h(26,49): error C2666: 'CPtr<IGFXTexture>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/VisObjBuilder.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IGFXTexture>::operator ==(const CPtr<IGFXTexture> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconPic.h(26,49):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IGFXTexture
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Scene\IconPic.h(26,49):
-      while trying to match the argument list '(CPtr<IGFXTexture>, int)'
-  
   Generating Code...
+.\Scene.def(4): warning LNK4017: DESCRIPTION statement not supported for the target platform; ignored
+     Creating library .\Release\Scene.lib and object .\Release\Scene.exp
+RiverBuilder.obj : error LNK2001: unresolved external symbol "float __cdecl NStr::ToFloat(char const *)" (?ToFloat@NStr@@YAMPBD@Z)
+TerrainInternal.obj : error LNK2001: unresolved external symbol "float __cdecl NStr::ToFloat(char const *)" (?ToFloat@NStr@@YAMPBD@Z)
+SceneDraw.obj : error LNK2001: unresolved external symbol "float __cdecl NStr::ToFloat(char const *)" (?ToFloat@NStr@@YAMPBD@Z)
+SceneInternal.obj : error LNK2001: unresolved external symbol "float __cdecl NStr::ToFloat(char const *)" (?ToFloat@NStr@@YAMPBD@Z)
+ParticleSourceData.obj : error LNK2001: unresolved external symbol "float __cdecl NStr::ToFloat(char const *)" (?ToFloat@NStr@@YAMPBD@Z)
+SmokinParticleSourceData.obj : error LNK2001: unresolved external symbol "float __cdecl NStr::ToFloat(char const *)" (?ToFloat@NStr@@YAMPBD@Z)
+SmokinParticleSource.obj : error LNK2001: unresolved external symbol "unsigned int __cdecl NWin32Random::Random(void)" (?Random@NWin32Random@@YAIXZ)
+Track.obj : error LNK2001: unresolved external symbol "unsigned int __cdecl NWin32Random::Random(void)" (?Random@NWin32Random@@YAIXZ)
+SceneDraw.obj : error LNK2001: unresolved external symbol "unsigned int __cdecl NWin32Random::Random(void)" (?Random@NWin32Random@@YAIXZ)
+SceneInternal.obj : error LNK2001: unresolved external symbol "unsigned int __cdecl NWin32Random::Random(void)" (?Random@NWin32Random@@YAIXZ)
+SpriteVisObj.obj : error LNK2001: unresolved external symbol "unsigned int __cdecl NWin32Random::Random(void)" (?Random@NWin32Random@@YAIXZ)
+KeyBasedParticleSource.obj : error LNK2001: unresolved external symbol "unsigned int __cdecl NWin32Random::Random(void)" (?Random@NWin32Random@@YAIXZ)
+TerrainEditor.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeX" (?nSizeX@STerrainPatchInfo@@2HB)
+TerraDraw.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeX" (?nSizeX@STerrainPatchInfo@@2HB)
+TerrainInternal.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeX" (?nSizeX@STerrainPatchInfo@@2HB)
+TerraSound.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeX" (?nSizeX@STerrainPatchInfo@@2HB)
+SceneDraw.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeX" (?nSizeX@STerrainPatchInfo@@2HB)
+MeshBuilders.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeX" (?nSizeX@STerrainPatchInfo@@2HB)
+RiverBuilder.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeX" (?nSizeX@STerrainPatchInfo@@2HB)
+TerrainBuilder.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeX" (?nSizeX@STerrainPatchInfo@@2HB)
+TerrainEditor.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeY" (?nSizeY@STerrainPatchInfo@@2HB)
+TerraDraw.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeY" (?nSizeY@STerrainPatchInfo@@2HB)
+TerrainInternal.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeY" (?nSizeY@STerrainPatchInfo@@2HB)
+TerraSound.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeY" (?nSizeY@STerrainPatchInfo@@2HB)
+SceneDraw.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeY" (?nSizeY@STerrainPatchInfo@@2HB)
+MeshBuilders.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeY" (?nSizeY@STerrainPatchInfo@@2HB)
+RiverBuilder.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeY" (?nSizeY@STerrainPatchInfo@@2HB)
+TerrainBuilder.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeY" (?nSizeY@STerrainPatchInfo@@2HB)
+BinkVideoPlayer.obj : error LNK2001: unresolved external symbol "int __cdecl NStr::ToInt(char const *)" (?ToInt@NStr@@YAHPBD@Z)
+GammaEffect.obj : error LNK2001: unresolved external symbol "int __cdecl NStr::ToInt(char const *)" (?ToInt@NStr@@YAHPBD@Z)
+SceneInternal.obj : error LNK2001: unresolved external symbol "int __cdecl NStr::ToInt(char const *)" (?ToInt@NStr@@YAHPBD@Z)
+IconHPBar.obj : error LNK2001: unresolved external symbol "int __cdecl NStr::ToInt(char const *)" (?ToInt@NStr@@YAHPBD@Z)
+SpriteVisObj.obj : error LNK2001: unresolved external symbol "int __cdecl NStr::ToInt(char const *)" (?ToInt@NStr@@YAHPBD@Z)
+SoundScene.obj : error LNK2001: unresolved external symbol "int __cdecl NStr::ToInt(char const *)" (?ToInt@NStr@@YAHPBD@Z)
+SceneInternal.obj : error LNK2019: unresolved external symbol "char const * __cdecl NStr::Format(char const *,...)" (?Format@NStr@@YAPBDPBDZZ) referenced in function "public: virtual void __stdcall CStatSystem::UpdateEntry(char const *,double)" (?UpdateEntry@CStatSystem@@UAGXPBDN@Z)
+StatSystem.obj : error LNK2001: unresolved external symbol "char const * __cdecl NStr::Format(char const *,...)" (?Format@NStr@@YAPBDPBDZZ)
+TerrainWater.obj : error LNK2001: unresolved external symbol "char const * __cdecl NStr::Format(char const *,...)" (?Format@NStr@@YAPBDPBDZZ)
+TerrainInternal.obj : error LNK2001: unresolved external symbol "char const * __cdecl NStr::Format(char const *,...)" (?Format@NStr@@YAPBDPBDZZ)
+SceneObjectFactory.obj : error LNK2001: unresolved external symbol "public: virtual struct IRefCount * __stdcall CBasicObjectFactory::CreateObject(int)" (?CreateObject@CBasicObjectFactory@@UAGPAUIRefCount@@H@Z)
+SceneObjectFactory.obj : error LNK2019: unresolved external symbol "public: virtual void __stdcall CBasicObjectFactory::RegisterType(int,struct IRefCount * (__stdcall*)(void))" (?RegisterType@CBasicObjectFactory@@UAGXHP6GPAUIRefCount@@XZ@Z) referenced in function "public: __thiscall CSceneObjectFactory::CSceneObjectFactory(void)" (??0CSceneObjectFactory@@QAE@XZ)
+SceneObjectFactory.obj : error LNK2001: unresolved external symbol "public: virtual void __stdcall CBasicObjectFactory::Aggregate(struct IObjectFactory *)" (?Aggregate@CBasicObjectFactory@@UAGXPAUIObjectFactory@@@Z)
+SceneObjectFactory.obj : error LNK2001: unresolved external symbol "public: virtual void __stdcall CBasicObjectFactory::GetKnownTypes(struct SObjectFactoryTypeInfo *,int)" (?GetKnownTypes@CBasicObjectFactory@@UAGXPAUSObjectFactoryTypeInfo@@H@Z)
+VisObjBuilder.obj : error LNK2019: unresolved external symbol "public: int __thiscall SEffectDesc::operator&(struct IDataTree &)" (??ISEffectDesc@@QAEHAAUIDataTree@@@Z) referenced in function "private: void __cdecl CTreeAccessor::CallObjectSerialize<struct SEffectDesc>(char const * const,struct SEffectDesc *,...)" (??$CallObjectSerialize@USEffectDesc@@@CTreeAccessor@@AAAXQBDPAUSEffectDesc@@ZZ)
+Cursor.obj : error LNK2019: unresolved external symbol "void __cdecl NStr::ToLower(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > &)" (?ToLower@NStr@@YAXAAV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z) referenced in function "public: int __thiscall SCursorModeInfo::operator&(struct IDataTree &)" (??ISCursorModeInfo@@QAEHAAUIDataTree@@@Z)
+SoundScene.obj : error LNK2001: unresolved external symbol "void __cdecl NStr::ToLower(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > &)" (?ToLower@NStr@@YAXAAV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z)
+SoundScene.obj : error LNK2019: unresolved external symbol "void __cdecl NStr::DebugTrace(char const *,...)" (?DebugTrace@NStr@@YAXPBDZZ) referenced in function "public: void __thiscall CSoundScene::InitMap(struct CMapSoundInfo const *,int)" (?InitMap@CSoundScene@@QAEXPBUCMapSoundInfo@@H@Z)
+BinkVideoPlayer.obj : error LNK2001: unresolved external symbol "void __cdecl NStr::DebugTrace(char const *,...)" (?DebugTrace@NStr@@YAXPBDZZ)
+SoundScene.obj : error LNK2019: unresolved external symbol "public: void __thiscall CFreeIds::Init(int)" (?Init@CFreeIds@@QAEXH@Z) referenced in function "public: __thiscall CSoundScene::CSoundScene(void)" (??0CSoundScene@@QAE@XZ)
+SoundScene.obj : error LNK2019: unresolved external symbol "public: void __thiscall CFreeIds::Clear(void)" (?Clear@CFreeIds@@QAEXXZ) referenced in function "public: void __thiscall CMapSounds::Clear(void)" (?Clear@CMapSounds@@QAEXXZ)
+SoundScene.obj : error LNK2019: unresolved external symbol "public: int __thiscall CFreeIds::GetFreeId(void)" (?GetFreeId@CFreeIds@@QAEHXZ) referenced in function "public: unsigned short __thiscall CMapSounds::AddSound(class CVec2 const &,char const *)" (?AddSound@CMapSounds@@QAEGABVCVec2@@PBD@Z)
+SoundScene.obj : error LNK2019: unresolved external symbol "public: void __thiscall CFreeIds::AddToFreeId(int)" (?AddToFreeId@CFreeIds@@QAEXH@Z) referenced in function "public: void __thiscall CMapSounds::RemoveSound(unsigned short)" (?RemoveSound@CMapSounds@@QAEXG@Z)
+TerrainEditor.obj : error LNK2001: unresolved external symbol "public: virtual int __thiscall SVectorStripeObjectDesc::operator&(struct IDataTree &)" (??ISVectorStripeObjectDesc@@UAEHAAUIDataTree@@@Z)
+TerrainInternal.obj : error LNK2001: unresolved external symbol "public: virtual int __thiscall SVectorStripeObjectDesc::operator&(struct IDataTree &)" (??ISVectorStripeObjectDesc@@UAEHAAUIDataTree@@@Z)
+TerrainEditor.obj : error LNK2001: unresolved external symbol "public: virtual int __thiscall SVectorStripeObjectDesc::operator&(struct IStructureSaver &)" (??ISVectorStripeObjectDesc@@UAEHAAUIStructureSaver@@@Z)
+TerrainInternal.obj : error LNK2001: unresolved external symbol "public: virtual int __thiscall SVectorStripeObjectDesc::operator&(struct IStructureSaver &)" (??ISVectorStripeObjectDesc@@UAEHAAUIStructureSaver@@@Z)
+TerrainEditor.obj : error LNK2001: unresolved external symbol "public: virtual int __thiscall SVectorStripeObject::operator&(struct IDataTree &)" (??ISVectorStripeObject@@UAEHAAUIDataTree@@@Z)
+TerrainInternal.obj : error LNK2001: unresolved external symbol "public: virtual int __thiscall SVectorStripeObject::operator&(struct IDataTree &)" (??ISVectorStripeObject@@UAEHAAUIDataTree@@@Z)
+TerrainEditor.obj : error LNK2001: unresolved external symbol "public: virtual int __thiscall SVectorStripeObject::operator&(struct IStructureSaver &)" (??ISVectorStripeObject@@UAEHAAUIStructureSaver@@@Z)
+TerrainInternal.obj : error LNK2001: unresolved external symbol "public: virtual int __thiscall SVectorStripeObject::operator&(struct IStructureSaver &)" (??ISVectorStripeObject@@UAEHAAUIStructureSaver@@@Z)
+TerrainInternal.obj : error LNK2019: unresolved external symbol "public: int __thiscall STilesetDesc::operator&(struct IDataTree &)" (??ISTilesetDesc@@QAEHAAUIDataTree@@@Z) referenced in function "private: void __cdecl CTreeAccessor::CallObjectSerialize<struct STilesetDesc>(char const * const,struct STilesetDesc *,...)" (??$CallObjectSerialize@USTilesetDesc@@@CTreeAccessor@@AAAXQBDPAUSTilesetDesc@@ZZ)
+TerrainInternal.obj : error LNK2019: unresolved external symbol "public: int __thiscall SCrossetDesc::operator&(struct IDataTree &)" (??ISCrossetDesc@@QAEHAAUIDataTree@@@Z) referenced in function "private: void __cdecl CTreeAccessor::CallObjectSerialize<struct SCrossetDesc>(char const * const,struct SCrossetDesc *,...)" (??$CallObjectSerialize@USCrossetDesc@@@CTreeAccessor@@AAAXQBDPAUSCrossetDesc@@ZZ)
+TerrainInternal.obj : error LNK2019: unresolved external symbol "public: void __thiscall STerrainInfo::FillMinMaxHeights(void)" (?FillMinMaxHeights@STerrainInfo@@QAEXXZ) referenced in function "private: void __thiscall CTerrain::LoadLocal(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const &,struct STerrainInfo const &,bool,bool)" (?LoadLocal@CTerrain@@AAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@ABUSTerrainInfo@@_N2@Z)
+TerrainInternal.obj : error LNK2019: unresolved external symbol "public: int __thiscall STerrainInfo::operator&(struct IDataTree &)" (??ISTerrainInfo@@QAEHAAUIDataTree@@@Z) referenced in function "private: void __cdecl CTreeAccessor::CallObjectSerialize<struct STerrainInfo>(char const * const,struct STerrainInfo *,...)" (??$CallObjectSerialize@USTerrainInfo@@@CTreeAccessor@@AAAXQBDPAUSTerrainInfo@@ZZ)
+TerrainInternal.obj : error LNK2019: unresolved external symbol "public: int __thiscall STerrainInfo::operator&(struct IStructureSaver &)" (??ISTerrainInfo@@QAEHAAUIStructureSaver@@@Z) referenced in function "private: void __cdecl CSaverAccessor::CallObjectSerialize<struct STerrainInfo>(char,struct STerrainInfo *,...)" (??$CallObjectSerialize@USTerrainInfo@@@CSaverAccessor@@AAAXDPAUSTerrainInfo@@ZZ)
+.\Release\Scene.dll : fatal error LNK1120: 26 unresolved externals

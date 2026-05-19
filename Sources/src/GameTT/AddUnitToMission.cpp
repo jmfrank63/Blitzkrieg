@@ -9,6 +9,7 @@
 #include "..\RandomMapGen\MapInfo_Types.h"
 #include "..\UI\UIMessages.h"
 #include "CommonId.h"
+#include "MultiplayerCommandManager.h"
 #include "UnitTypes.h"
 #include "etypes.h"
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -111,10 +112,10 @@ void FillUnitInfoItemNoIDs( const SUnitBaseRPGStats *pRPG, IUIDialog *pItem, int
 			const int nExpNextLevel = pUnit->GetValue( STUT_EXP_NEXT_LEVEL );
 			//
 			IText *pText = GetSingleton<ITextManager>()->GetDialog( NStr::Format("textes\\ui\\mission\\status\\tt_unit_level%d", nLevel) );
-			std::wstring wToolTip = pText != 0 ? reinterpret_cast<const wchar_t*>(pText->GetString()) : L"";
+			std::wstring wToolTip = pText != 0 ? MakeWideStringFromWordString( pText->GetString() ) : L"";
 			wToolTip += NStr::ToUnicode( NStr::Format("(%d / %d)", nExp, nExpNextLevel) );
 
-			pElement->SetHelpContext( 0, wToolTip.c_str() );
+			pElement->SetHelpContext( 0, reinterpret_cast<const WORD*>( wToolTip.c_str() ) );
 			pElement->ShowWindow( UI_SW_SHOW );
 		}
 	}
@@ -134,7 +135,7 @@ void FillUnitInfoItemNoIDs( const SUnitBaseRPGStats *pRPG, IUIDialog *pItem, int
 			NStr::ToUnicode( &szText, NStr::Format("%d", status.armors[i] ) );
 			pElement = pItem->GetChildByID( nID );
 			NI_ASSERT_T( pElement != 0, NStr::Format( "Can not find window id %d (armor string)", nID ) );
-			pElement->SetWindowText( 0, szText.c_str() );
+			pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( szText.c_str() ) );
 		}
 
 		for ( int i=0; i<2; i++ )
@@ -143,7 +144,7 @@ void FillUnitInfoItemNoIDs( const SUnitBaseRPGStats *pRPG, IUIDialog *pItem, int
 			NStr::ToUnicode( &szText, NStr::Format("%d", status.weaponstats[i] ) );
 			pElement = pItem->GetChildByID( nID );
 			NI_ASSERT_T( pElement != 0, NStr::Format( "Can not find window id %d (weapon string)", nID ) );
-			pElement->SetWindowText( 0, szText.c_str() );
+			pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( szText.c_str() ) );
 		}
 	}
 
@@ -503,11 +504,11 @@ void CInterfaceAddUnitToMission::SelectItem()
 		
 		//��������� ��� �����
 		IUIElement *pElement = pItem->GetChildByID( 20 );
-		pElement->SetWindowText( 0, L"" );
+		pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
 		
 		//��� ���������
 		pElement = pItem->GetChildByID( 21 );
-		pElement->SetWindowText( 0, L"" );
+		pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
 		
 		//������ ��������
 		IUIElement *pPicture = pItem->GetChildByID( 11 );
@@ -518,7 +519,7 @@ void CInterfaceAddUnitToMission::SelectItem()
 	else
 	{
 		//��������� ��� �����
-		pItem->SetWindowText( 0, L"" );
+		pItem->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
 
 		IUIElement *pElement = pItem->GetChildByID( 20 );
 		IUIElement *pCElement = pCEl->GetChildByID( 20 );

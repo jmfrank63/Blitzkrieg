@@ -51,7 +51,7 @@ struct SWin32Time
 		DWORD dwFulltime;
 	};
 	//
-	SWin32Time() {  }
+	SWin32Time() : dwFulltime( 0 ) {  }
 	SWin32Time( DWORD _dwFulltime ) : dwFulltime( _dwFulltime ) {  }
 	WORD GetDate() const { return wDate; }
 	WORD GetTime() const { return wTime; }
@@ -66,6 +66,7 @@ struct SStorageElementStats
 	SWin32Time ctime;											// creation time
 	SWin32Time mtime;											// modification time
 	SWin32Time atime;											// last access time
+	SStorageElementStats() : pszName( 0 ), type( SET_STORAGE ), nSize( 0 ) { }
 };
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IStorageEnumerator : public IRefCount

@@ -3,6 +3,7 @@
 #include "SaveReplay.h"
 
 #include "CommonId.h"
+#include "MultiplayerCommandManager.h"
 #include "..\Main\CommandsHistoryInterface.h"
 #include "..\UI\UIMessages.h"
 #include "..\Main\ScenarioTracker.h"
@@ -50,7 +51,7 @@ void CInterfaceSaveReplay::StartInterface()
 void CInterfaceSaveReplay::CheckEnableOk() const
 {
 	IUIElement * pEdit = pUIScreen->GetChildByID( E_REPLAY_EDIT_BOX );
-	const std::wstring szName = pEdit->GetWindowText( 0 );
+	const std::wstring szName = MakeWideStringFromWordString( pEdit->GetWindowText( 0 ) );
 	IUIElement *pButtonOK = pUIScreen->GetChildByID( E_OK_BUTTON );
 	pButtonOK->EnableWindow( !szName.empty() );
 }
@@ -106,7 +107,7 @@ bool CInterfaceSaveReplay::ProcessMessage( const SGameMessage &msg )
 				szSaveReplayFile += "replays\\";
 				IUIDialog *pDialog = checked_cast<IUIDialog *>( pUIScreen->GetChildByID( 1000 ) );
 				IUIElement *pSaveReplayEditBox = pDialog->GetChildByID( 2000 );
-				szSaveReplayFile += NStr::ToAscii( pSaveReplayEditBox->GetWindowText( 0 ) );
+				szSaveReplayFile += NStr::ToAscii( MakeWideStringFromWordString( pSaveReplayEditBox->GetWindowText( 0 ) ) );
 				szSaveReplayFile += ".rpl";
 
 				/*if ( NFile::IsFileExist( szFileName.c_str() ) )

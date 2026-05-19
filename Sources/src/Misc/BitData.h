@@ -13,7 +13,7 @@ public:
 	int operator&( interface IStructureSaver &ss ) { CSaverAccessor saver = &ss; saver.Add( 1, &array ); saver.Add( 2, &xSize ); return 0; }
 	int operator&( interface IDataTree &ss ) { CTreeAccessor saver = &ss; saver.Add( "Size", &xSize ); saver.Add( "BitArray", &array ); return 0; }
 
-	CArray1Bit() { }
+	CArray1Bit() : xSize( 0 ) { }
 	CArray1Bit( const int size ) { SetSize( size ); }
 	CArray1Bit( const CArray1Bit &a ) : xSize( a.xSize ), array( a.array ) { }
 	~CArray1Bit() {}

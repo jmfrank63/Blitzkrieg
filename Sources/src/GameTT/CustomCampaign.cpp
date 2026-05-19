@@ -49,7 +49,8 @@ bool CInterfaceCustomCampaign::FillListItem( IUIListRow *pRow, const std::string
 	pElement = pRow->GetElement( 2 );
 	if ( !pElement )
 		return false;
-	pElement->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%d", pStats->chapters.size() ) ).c_str() );
+	const std::wstring wszChapters = NStr::ToUnicode( NStr::Format( "%d", pStats->chapters.size() ) );
+	pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszChapters.c_str() ) );
 
 	return true;
 }

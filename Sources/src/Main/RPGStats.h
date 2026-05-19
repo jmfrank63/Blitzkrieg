@@ -127,9 +127,9 @@ public:
 	std::string szParentName;							// parent object key name. заполняется динамически при загрузке объекта
 	std::string szStatsType;							// тип статсов - "crap", "mech", "infantry", "building", "weapon"
 	//
-	SCommonRPGStats() : bCheckSumInitialized( false ) {}
-	SCommonRPGStats( const char *pszStatsType ) : szStatsType( pszStatsType ), bCheckSumInitialized( false ) {}
-	SCommonRPGStats( const std::string &_szStatsType ) : szStatsType( _szStatsType ), bCheckSumInitialized( false ) {}
+	SCommonRPGStats() : bCheckSumInitialized( false ), checkSum( 0 ) {}
+	SCommonRPGStats( const char *pszStatsType ) : checkSum( 0 ), szStatsType( pszStatsType ), bCheckSumInitialized( false ) {}
+	SCommonRPGStats( const std::string &_szStatsType ) : checkSum( 0 ), szStatsType( _szStatsType ), bCheckSumInitialized( false ) {}
 	virtual ~SCommonRPGStats() {  }
 
 	virtual const char* STDCALL GetName() const { return szStatsType.c_str(); }
@@ -1335,7 +1335,7 @@ struct SEntrenchmentRPGStats : public SHPObjectRPGStats
 
 		EEntrenchSegmType eType;
 		//
-		SSegmentRPGStats() : vFirePlace( VNULL2 ) {  }
+		SSegmentRPGStats() : vFirePlace( VNULL2 ), vAABBCenter( VNULL2 ), vAABBHalfSize( VNULL3 ), fCoverage( 0.0f ), eType( EST_LINE ) {  }
 		//
 		float GetLength() const;
 		float GetHalfLength() const;
@@ -1641,7 +1641,7 @@ struct SSquadRPGStats : public SHPObjectRPGStats
 	CUserActions availActions;						// available actions by this formation
 	CUserActions availExposures;					// available exposures to this formation
 	//
-	SSquadRPGStats() : SHPObjectRPGStats( "Squad" ) {  }
+	SSquadRPGStats() : SHPObjectRPGStats( "Squad" ), type( RIFLEMANS ) {  }
 	virtual ~SSquadRPGStats() {  }
 	//
 	virtual void STDCALL RetrieveShortcuts( IObjectsDB *pGDB );
@@ -1996,7 +1996,7 @@ struct SAIExpLevel : public IGDBObject
 	EUnitRPGType eType;
 	std::vector<SLevel> levels;
 	//
-	SAIExpLevel() : levels( 1 ) { }
+	SAIExpLevel() : eType( EUnitRPGType( 0 ) ), levels( 1 ) { }
 	
 	virtual const char* STDCALL GetName() const { return "AIExpLevel"; }
 	virtual const char* STDCALL GetParentName() const { return szTypeName.c_str(); }

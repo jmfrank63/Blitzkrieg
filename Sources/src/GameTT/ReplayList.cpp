@@ -2,6 +2,7 @@
 
 #include "CommonId.h"
 #include "ReplayList.h"
+#include "MultiplayerCommandManager.h"
 
 #include "..\Main\CommandsHistoryInterface.h"
 #include "..\Main\GameStats.h"
@@ -113,7 +114,8 @@ bool CInterfaceReplayList::FillListItem( IUIListRow *pRow, const std::string &sz
 		return false;
 	
 	std::string szVal = GetFileChangeTimeString( szFullFileName.c_str() );
-	pElement->SetWindowText( 0, NStr::ToUnicode( szVal ).c_str() );
+	const std::wstring wszVal = NStr::ToUnicode( szVal );
+	pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszVal.c_str() ) );
 	return true;
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

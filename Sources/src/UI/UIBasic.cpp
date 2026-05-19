@@ -1070,7 +1070,7 @@ bool CSimpleWindow::OnMouseMove( const CVec2 &vPos, EMouseState mState )
 	}
 	
 	//���� ����� ��� ������ ������ ����� ������
-	if ( mState & E_LBUTTONDOWN || mState & E_RBUTTONDOWN )
+	if ( ( ( mState & E_LBUTTONDOWN ) != 0 ) || ( ( mState & E_RBUTTONDOWN ) != 0 ) )
 	{
 		if ( !IsInside( vPos ) )
 		{
@@ -1976,7 +1976,7 @@ bool CMultipleWindow::OnMouseMove( const CVec2 &vPos, EMouseState mState )
 	}
 	
 	//���� ����� ��� ������ ������ ����� ������
-	if ( mState & E_LBUTTONDOWN || mState & E_RBUTTONDOWN )
+	if ( ( ( mState & E_LBUTTONDOWN ) != 0 ) || ( ( mState & E_RBUTTONDOWN ) != 0 ) )
 	{
 		if ( !IsInside( vPos ) )
 		{

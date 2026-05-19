@@ -133,6 +133,8 @@ struct SMapSoundInfo
 	int nMinRadius;												// ��������� ���������� vis tiles
 	int nMaxRadius;
 
+	SMapSoundInfo() : vPos( VNULL3 ), timeRepeat(), timeRepeatRandom(), bMuteDuringCombat( false ), nMinRadius( 0 ), nMaxRadius( 0 ) { }
+
 	int operator&( IDataTree &ss )
 	{
 		CTreeAccessor saver = &ss;
@@ -216,7 +218,7 @@ struct SRoadTileInfo
 	BYTE x, y;														// tile coords (in patch coords system)
 	BYTE tile;                            // road tile index
 	//
-	SRoadTileInfo() {  }
+	SRoadTileInfo() : x( 0 ), y( 0 ), tile( 0 ) {  }
 	SRoadTileInfo( int x1, int y1, int t ) : x( x1 ), y( y1 ), tile( t ) {  }
 	int operator&( IDataTree &ss );
 };
@@ -260,7 +262,11 @@ struct STerrainPatchInfo
 	float fSubMaxHeight[4];								// maximal height for each sub-patch in this patch
 	//
 	STerrainPatchInfo()
-		: fMinHeight( 0 ), fMaxHeight( 0 ) {  }
+		: nStartX( 0 ), nStartY( 0 ), fMinHeight( 0 ), fMaxHeight( 0 )
+	{
+		fSubMinHeight[0] = fSubMinHeight[1] = fSubMinHeight[2] = fSubMinHeight[3] = 0.0f;
+		fSubMaxHeight[0] = fSubMaxHeight[1] = fSubMaxHeight[2] = fSubMaxHeight[3] = 0.0f;
+	}
 	//
 	bool HasCrosses() const { return !basecrosses.empty() || !noisecrosses.empty() || !layercrosses.empty(); }
 	//

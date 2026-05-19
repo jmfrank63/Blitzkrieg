@@ -18,6 +18,7 @@
 #endif // ZDATA
 
 #ifndef ZEND
+#include <typeinfo>
 #include <unordered_map>
 #include <unordered_set>
 #define ZEND
@@ -99,7 +100,7 @@ class CTreeAccessor
 	template <class T>
 		void __cdecl CallObjectSerialize( const DTChunkID idChunk, T *pData, SGenericNumber<1> *pp )
 		{
-			NI_ASSERT_T( sizeof(T) <= 4, NStr::Format("Complex object of type \"%s\" have no serialization operator", typeid(*pData).name()) );
+			NI_ASSERT_T( sizeof(T) <= 4, "Complex object has no serialization operator" );
 			AddRawData( idChunk, const_cast<void*>(static_cast<const void*>(pData)), sizeof(T) );
 		}
 	// simple built-in data specialization

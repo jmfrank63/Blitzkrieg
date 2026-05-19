@@ -73,7 +73,8 @@ void CInterfaceCutsceneList::StartInterface()
 			const int nPos = szVideoName.rfind('\\');
 			if ( nPos != std::string::npos )
 				szVideoName = szVideoName.substr( nPos + 1 );
-			pContainer->SetWindowText( 0, NStr::ToUnicode(szVideoName).c_str() );
+			const std::wstring wszVideoName = NStr::ToUnicode( szVideoName );
+			pContainer->SetWindowText( 0, reinterpret_cast<const WORD*>( wszVideoName.c_str() ) );
 		}
 		
 		IUIElement *pElement = pContainer->GetChildByID( 1 );

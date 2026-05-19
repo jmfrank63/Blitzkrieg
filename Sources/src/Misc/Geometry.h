@@ -27,7 +27,7 @@ public:
     struct { float u, v; };             // for texture coord
   };
 public:
-  CVec2() {  }
+	CVec2() : x( 0.0f ), y( 0.0f ) {  }
   CVec2( const float _x, const float _y ) : x( _x ), y( _y ) {  }
   // setup
   void Set( const float _x, const float _y ) { x = _x; y = _y; }
@@ -87,7 +87,7 @@ public:
     struct { float u, v, q; };          // for texture coord
   };
 public:
-  CVec3() {  }
+	CVec3() : x( 0.0f ), y( 0.0f ), z( 0.0f ) {  }
   CVec3( const float _x, const float _y, const float _z = 0.0f ) : x( _x ), y( _y ), z( _z ) {  }
   CVec3( const CVec2 &v2, const float _z ) : x( v2.x ), y( v2.y ), z( _z ) {  }
   // cross-vector assignment
@@ -155,7 +155,7 @@ public:
     struct { float u, v, q, w; };				// for texture coord
   };
 public:
-  CVec4() {  }
+	CVec4() : x( 0.0f ), y( 0.0f ), z( 0.0f ), w( 0.0f ) {  }
   CVec4( const float _x, const float _y, const float _z = 0.0f, const float _w = 0.0f ) : x( _x ), y( _y ), z( _z ), w( _w ) {  }
   CVec4( const CVec2 &v2, const float _z = 0.0f, const float _w = 0.0f ) : x( v2.x ), y( v2.y ), z( _z ), w( _w ) {  }
   CVec4( const CVec3 &v3, const float _w = 0.0f ) : x( v3.x ), y( v3.y ), z( v3.z ), w( _w ) {  }
@@ -224,7 +224,7 @@ public:
 	float a, b, c;
 
 //
-	CLine2() { }
+	CLine2() : bNormalized( false ), a( 0.0f ), b( 0.0f ), c( 0.0f ) { }
 	CLine2( const float _a, const float _b, const float _c ) : a( _a ), b( _b ), c( _c ), bNormalized( false ) { }
 	CLine2( const CVec2 &p1, const CVec2 &p2 ) : a( p2.y - p1.y ), b( p1.x - p2.x ), c( p2.x*p1.y - p1.x*p2.y ), bNormalized( false ) {  }
 
@@ -270,7 +270,7 @@ public:
 	CVec2 center;
 	float r;
 	//
-	CCircle() { }
+	CCircle() : center( VNULL2 ), r( 0.0f ) { }
 	CCircle( const CVec2 &_center, const float _r ) 
 		: center( _center ), r( _r ) {  }
 	//
@@ -308,7 +308,7 @@ public:
 		struct { CVec4 vec4; };
   };
 public:
-  SPlane() {  }
+	SPlane() : vec4( VNULL4 ) {  }
 	SPlane( float _a, float _b, float _c, float _d ) : a( _a ), b( _b ), c( _c ), d( _d ) {  }
   SPlane( const CVec3 &vNormale, const float fDist ) : n( vNormale ), d( fDist ) {  }
   SPlane( const CVec4 &v ) : vec4( v ) {  }
@@ -369,7 +369,11 @@ public :
 		};
 	};
 public :
-	SHMatrix() {  }
+	SHMatrix()
+		: _11( 0.0f ), _12( 0.0f ), _13( 0.0f ), _14( 0.0f ),
+		  _21( 0.0f ), _22( 0.0f ), _23( 0.0f ), _24( 0.0f ),
+		  _31( 0.0f ), _32( 0.0f ), _33( 0.0f ), _34( 0.0f ),
+		  _41( 0.0f ), _42( 0.0f ), _43( 0.0f ), _44( 0.0f ) { }
 	SHMatrix( float __11, float __12, float __13, float __14,
 		        float __21, float __22, float __23, float __24,
 		        float __31, float __32, float __33, float __34,
@@ -378,8 +382,16 @@ public :
 						  _21(__21), _22(__22), _23(__23), _24(__24),
 		          _31(__31), _32(__32), _33(__33), _34(__34),
 							_41(__41), _42(__42), _43(__43), _44(__44) {  }
-	SHMatrix( float _m[4][4] ) { memcpy( &(m[0][0]), &(_m[0][0]), 16*sizeof(float) ); }
-	SHMatrix( float *_m ) { memcpy( &(m[0][0]), &(_m[0]), 16*sizeof(float) ); }
+	SHMatrix( const float (&_m)[4][4] )
+		: _11( _m[0][0] ), _12( _m[0][1] ), _13( _m[0][2] ), _14( _m[0][3] ),
+		  _21( _m[1][0] ), _22( _m[1][1] ), _23( _m[1][2] ), _24( _m[1][3] ),
+		  _31( _m[2][0] ), _32( _m[2][1] ), _33( _m[2][2] ), _34( _m[2][3] ),
+		  _41( _m[3][0] ), _42( _m[3][1] ), _43( _m[3][2] ), _44( _m[3][3] ) { }
+	SHMatrix( const float *_m )
+		: _11( _m[0] ), _12( _m[1] ), _13( _m[2] ), _14( _m[3] ),
+		  _21( _m[4] ), _22( _m[5] ), _23( _m[6] ), _24( _m[7] ),
+		  _31( _m[8] ), _32( _m[9] ), _33( _m[10] ), _34( _m[11] ),
+		  _41( _m[12] ), _42( _m[13] ), _43( _m[14] ), _44( _m[15] ) { }
 	SHMatrix( const class CQuat &quat ) { Set( quat ); }
 	SHMatrix( const CVec3 &vPos, const class CQuat &quat ) { Set( vPos, quat ); }
 	//
@@ -434,7 +446,7 @@ public:
   CQuat( float fAngle, float fAxisX, float fAxisY, float fAxisZ, const bool bNormalizeAxis = false );
   CQuat( float fAngle, const CVec3 &vAxis, const bool bNormalizeAxis = false );
 	CQuat( const CVec4 &quat ) { vec4 = quat; }
-  CQuat() {  }
+	CQuat() : x( 0.0f ), y( 0.0f ), z( 0.0f ), w( 0.0f ) {  }
   // composition
 	void FromAngleAxis( float fAngle, const CVec3 &vAxis, const bool bNormalizeAxis = false );
 	void FromAngleAxis( float fAngle, float fAxisX, float fAxisY, float fAxisZ, const bool bNormalizeAxis = false );
@@ -586,7 +598,7 @@ public:
 		TYPE maxy;
 	};
 public:
-	CTRect() {  }
+	CTRect() : minx( 0 ), miny( 0 ), maxx( 0 ), maxy( 0 ) {  }
 	CTRect( const TYPE &_minx, const TYPE &_miny, const TYPE &_maxx, const TYPE &_maxy ) : minx( _minx ), miny( _miny ), maxx( _maxx ), maxy( _maxy ) {  }
 	CTRect( const TPoint &vLT, const TPoint &vRB ) : minx( vLT.x ), miny( vLT.y ), maxx( vRB.x ), maxy( vRB.y ) {  }
 	CTRect( const CVec2 &vLT, const CVec2 &vRB ) : minx( vLT.x ), miny( vLT.y ), maxx( vRB.x ), maxy( vRB.y ) {  }

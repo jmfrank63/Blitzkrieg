@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DEFECTS>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIOLib\</FILEPATH>
+      <FILENAME>Streams.h</FILENAME>
+      <LINE>70</LINE>
+      <COLUMN>1</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable 'CDataStream::pBuffer' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>CDataStream::{ctor}</FUNCTION>
+    <DECORATED>??0CDataStream@@QAE@XZ</DECORATED>
+    <FUNCLINE>70</FUNCLINE>
+    <ADDITIONALINFO>
+      <targetSymbol>CDataStream::pBuffer</targetSymbol>
+    </ADDITIONALINFO>
+    <PATH></PATH>
+  </DEFECT>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIOLib\</FILEPATH>
+      <FILENAME>Streams.h</FILENAME>
+      <LINE>70</LINE>
+      <COLUMN>1</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable 'CDataStream::pCurrent' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>CDataStream::{ctor}</FUNCTION>
+    <DECORATED>??0CDataStream@@QAE@XZ</DECORATED>
+    <FUNCLINE>70</FUNCLINE>
+    <ADDITIONALINFO>
+      <targetSymbol>CDataStream::pCurrent</targetSymbol>
+    </ADDITIONALINFO>
+    <PATH></PATH>
+  </DEFECT>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIOLib\</FILEPATH>
+      <FILENAME>Streams.h</FILENAME>
+      <LINE>70</LINE>
+      <COLUMN>1</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable 'CDataStream::pReservedEnd' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>CDataStream::{ctor}</FUNCTION>
+    <DECORATED>??0CDataStream@@QAE@XZ</DECORATED>
+    <FUNCLINE>70</FUNCLINE>
+    <ADDITIONALINFO>
+      <targetSymbol>CDataStream::pReservedEnd</targetSymbol>
+    </ADDITIONALINFO>
+    <PATH></PATH>
+  </DEFECT>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIOLib\</FILEPATH>
+      <FILENAME>Streams.h</FILENAME>
+      <LINE>70</LINE>
+      <COLUMN>1</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable 'CDataStream::pFileEnd' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>CDataStream::{ctor}</FUNCTION>
+    <DECORATED>??0CDataStream@@QAE@XZ</DECORATED>
+    <FUNCLINE>70</FUNCLINE>
+    <ADDITIONALINFO>
+      <targetSymbol>CDataStream::pFileEnd</targetSymbol>
+    </ADDITIONALINFO>
+    <PATH></PATH>
+  </DEFECT>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIOLib\</FILEPATH>
+      <FILENAME>Streams.h</FILENAME>
+      <LINE>70</LINE>
+      <COLUMN>1</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable 'CDataStream::nFlags' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>CDataStream::{ctor}</FUNCTION>
+    <DECORATED>??0CDataStream@@QAE@XZ</DECORATED>
+    <FUNCLINE>70</FUNCLINE>
+    <ADDITIONALINFO>
+      <targetSymbol>CDataStream::nFlags</targetSymbol>
+    </ADDITIONALINFO>
+    <PATH></PATH>
+  </DEFECT>
+  <DEFECT>
+    <SFA>
+      <FILEPATH>C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIOLib\</FILEPATH>
+      <FILENAME>Streams.h</FILENAME>
+      <LINE>249</LINE>
+      <COLUMN>1</COLUMN>
+    </SFA>
+    <DEFECTCODE>26495</DEFECTCODE>
+    <DESCRIPTION>Variable 'CBitLocker::pBuffer' is uninitialized. Always initialize a member variable (type.6).</DESCRIPTION>
+    <FUNCTION>CBitLocker::{ctor}</FUNCTION>
+    <DECORATED>??0CBitLocker@@QAE@XZ</DECORATED>
+    <FUNCLINE>249</FUNCLINE>
+    <ADDITIONALINFO>
+      <targetSymbol>CBitLocker::pBuffer</targetSymbol>
+    </ADDITIONALINFO>
+    <PATH></PATH>
+  </DEFECT>
+</DEFECTS>

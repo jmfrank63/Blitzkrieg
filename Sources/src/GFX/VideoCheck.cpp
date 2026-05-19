@@ -5,14 +5,14 @@
 #include <ddraw.h>
 #include <dinput.h>
 #include <dmusici.h>
-#include <d3d8.h>
+#include <d3d9.h>
 
 #include "..\Misc\Win32Helper.h"
 
 typedef HRESULT(WINAPI * DIRECTDRAWCREATE)( GUID*, LPDIRECTDRAW*, IUnknown* );
 typedef HRESULT(WINAPI * DIRECTDRAWCREATEEX)( GUID*, VOID**, REFIID, IUnknown* );
 typedef HRESULT(WINAPI * DIRECTINPUTCREATE)( HINSTANCE, DWORD, LPDIRECTINPUT*, IUnknown* );
-typedef IDirect3D8*(WINAPI * DIRECT3DCREATE8)( UINT SDKVersion );
+typedef IDirect3D9*(WINAPI * DIRECT3DCREATE8)( UINT SDKVersion );
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const wchar_t* STDCALL NVideoCheck::GetAPIName()
 {

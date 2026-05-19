@@ -451,7 +451,7 @@ interface IUIMiniMap : public IUIElement
 	virtual bool STDCALL AddWarFogData( const BYTE *pVizBuffer, int nLength ) = 0;
 	//добавить информацию о юнитах, берется от AILogic вызовом метода:
 	virtual void STDCALL AddUnitsData( const struct SMiniMapUnitInfo *pUnitsBuffer, int nUnitsCount ) = 0;
-	//добавить информацию об отображаемых радиусах и углах стрельбы
+	//добавить информацию об отображаемых радиусах йs углах стрельбы
 	virtual void STDCALL AddFireRangeAreas( const struct SShootAreas *pShootAreasBuffer, int nShootAreasCount ) = 0;
 	//добавить информацию об артиллерии
 	//lParam - loWord - количество сторон у полигона ( должно быть строо больше 1 ), hiWord - количество полных оборотов в период показывания ( вольше или равно нулю, если 0 то не вращать )

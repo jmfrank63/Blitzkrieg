@@ -1,4 +1,1937 @@
 ﻿  StdAfx.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Specific.h(1,10): error C1083: Cannot open include file: 'd3d8.h': No such file or directory
-  (compiling source file 'StdAfx.cpp')
+  GlobalsLoader.cpp
+  GFXObjectFactory.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(12,2): error C2259: 'CFont': cannot instantiate abstract class
+  (compiling source file '/GFXObjectFactory.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(10,7):
+      see declaration of 'CFont'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(12,2):
+      due to following members:
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(12,2):
+      'int IGFXFont::GetTextWidth(const WORD *,int) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(139,23):
+      see declaration of 'IGFXFont::GetTextWidth'
   
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(110,15): error C2039: 'hash_multimap': is not a member of 'std'
+  (compiling source file '/GFXObjectFactory.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
+      see declaration of 'std'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(110,28): error C2143: syntax error: missing ';' before '<'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(110,15): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(110,70): error C2238: unexpected token(s) preceding ';'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(111,15): error C2039: 'hash_multimap': is not a member of 'std'
+  (compiling source file '/GFXObjectFactory.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
+      see declaration of 'std'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(111,28): error C2059: syntax error: '<'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(111,70): error C2238: unexpected token(s) preceding ';'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(112,16): error C3646: 'dynVBs': unknown override specifier
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(112,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(113,16): error C3646: 'dynIBs': unknown override specifier
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(113,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(224,68): error C2039: 'hash_multimap': is not a member of 'std'
+  (compiling source file '/GFXObjectFactory.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
+      see declaration of 'std'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(224,81): error C2988: unrecognizable template declaration/definition
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(224,81): error C2143: syntax error: missing ')' before '<'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(224,81): error C2143: syntax error: missing ';' before '<'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(224,2): error C2238: unexpected token(s) preceding ';'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(224,81): error C2059: syntax error: '<'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(224,140): error C2059: syntax error: ')'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(225,2): error C2334: unexpected token(s) preceding '{'; skipping apparent function body
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(243,3): error C2988: unrecognizable template declaration/definition
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(243,3): error C2059: syntax error: ':'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(259,39): error C2988: unrecognizable template declaration/definition
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(259,39): error C2059: syntax error: 'return'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(259,54): error C2238: unexpected token(s) preceding ';'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,2): error C2628: 'CGraphicsEngine' followed by 'int' is illegal (did you forget a ';'?)
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14): error C2270: 'GetScreenBPP': modifiers not allowed on nonmember functions
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14): error C2259: 'CGraphicsEngine': cannot instantiate abstract class
+  (compiling source file '/GFXObjectFactory.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(66,7):
+      see declaration of 'CGraphicsEngine'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      due to following members:
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::Init(const char *,HWND)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(178,23):
+      see declaration of 'IGFX::Init'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::Done(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(179,23):
+      see declaration of 'IGFX::Done'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::Clear(int,RECT *,DWORD,DWORD,float,DWORD)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(240,23):
+      see declaration of 'IGFX::Clear'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::Clear(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(180,15):
+      see declaration of 'IGFX::Clear'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetMode(int,int,int,int,EGFXFullscreen,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(181,23):
+      see declaration of 'IGFX::SetMode'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'EGFXVideoCard IGFX::GetVideoCard(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(182,32):
+      see declaration of 'IGFX::GetVideoCard'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::MoveTo(int,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(185,23):
+      see declaration of 'IGFX::MoveTo'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'RECT IGFX::GetScreenRect(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(188,23):
+      see declaration of 'IGFX::GetScreenRect'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'int IGFX::GetScreenBPP(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(189,22):
+      see declaration of 'IGFX::GetScreenBPP'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'const char *IGFX::GetAdapterName(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(190,30):
+      see declaration of 'IGFX::GetAdapterName'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'const SGFXDisplayMode *IGFX::GetDisplayModes(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(191,48):
+      see declaration of 'IGFX::GetDisplayModes'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::PushViewport(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(195,23):
+      see declaration of 'IGFX::PushViewport'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::PopViewport(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(196,23):
+      see declaration of 'IGFX::PopViewport'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::ChangeViewport(int,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(198,23):
+      see declaration of 'IGFX::ChangeViewport'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::ChangeViewport(int,int,int,int,float,float)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(197,23):
+      see declaration of 'IGFX::ChangeViewport'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetWorldTransforms(const int,const SHMatrix *,const int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(200,23):
+      see declaration of 'IGFX::SetWorldTransforms'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetViewTransform(const SHMatrix &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(201,23):
+      see declaration of 'IGFX::SetViewTransform'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetProjectionTransform(const SHMatrix &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(202,23):
+      see declaration of 'IGFX::SetProjectionTransform'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetTextureTransform(int,const SHMatrix &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(203,23):
+      see declaration of 'IGFX::SetTextureTransform'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetupDirectTransform(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(204,23):
+      see declaration of 'IGFX::SetupDirectTransform'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::RestoreTransform(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(205,23):
+      see declaration of 'IGFX::RestoreTransform'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'const SHMatrix &IGFX::GetViewMatrix(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(207,34):
+      see declaration of 'IGFX::GetViewMatrix'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'const SHMatrix &IGFX::GetBillboardMatrix(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(208,34):
+      see declaration of 'IGFX::GetBillboardMatrix'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'const SHMatrix &IGFX::GetInverseViewMatrix(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(209,34):
+      see declaration of 'IGFX::GetInverseViewMatrix'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'const SHMatrix &IGFX::GetProjectionMatrix(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(210,34):
+      see declaration of 'IGFX::GetProjectionMatrix'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'const SHMatrix &IGFX::GetViewportMatrix(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(211,34):
+      see declaration of 'IGFX::GetViewportMatrix'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::GetViewVolume(SPlane *) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(213,23):
+      see declaration of 'IGFX::GetViewVolume'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::GetViewVolumeCrosses(const CVec2 &,CVec3 *,CVec3 *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(215,23):
+      see declaration of 'IGFX::GetViewVolumeCrosses'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::SetLight(int,const SGFXLightSpot &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(219,23):
+      see declaration of 'IGFX::SetLight'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::SetLight(int,const SGFXLightPoint &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(218,23):
+      see declaration of 'IGFX::SetLight'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::SetLight(int,const SGFXLightDirectional &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(217,23):
+      see declaration of 'IGFX::SetLight'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::EnableLight(int,bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(220,23):
+      see declaration of 'IGFX::EnableLight'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::SetMaterial(const SGFXMaterial &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(221,23):
+      see declaration of 'IGFX::SetMaterial'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetTexture(int,IGFXBaseTexture *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(224,23):
+      see declaration of 'IGFX::SetTexture'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetWireframe(bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(227,23):
+      see declaration of 'IGFX::SetWireframe'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetCullMode(EGFXCull)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(228,23):
+      see declaration of 'IGFX::SetCullMode'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetDepthBufferMode(EGFXDepthBuffer,EGFXCmpFunction)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(229,23):
+      see declaration of 'IGFX::SetDepthBufferMode'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::EnableLighting(bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(230,23):
+      see declaration of 'IGFX::EnableLighting'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::EnableSpecular(bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(231,23):
+      see declaration of 'IGFX::EnableSpecular'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetFont(IGFXFont *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(234,23):
+      see declaration of 'IGFX::SetFont'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::IsActive(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(237,23):
+      see declaration of 'IGFX::IsActive'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::BeginScene(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(238,23):
+      see declaration of 'IGFX::BeginScene'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::EndScene(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(239,23):
+      see declaration of 'IGFX::EndScene'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::Flip(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(241,23):
+      see declaration of 'IGFX::Flip'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetRenderTarget(IGFXRTexture *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(242,23):
+      see declaration of 'IGFX::SetRenderTarget'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::SetOptimizedBuffers(bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(245,23):
+      see declaration of 'IGFX::SetOptimizedBuffers'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'IGFXVertices *IGFX::CreateVertices(int,DWORD,EGFXPrimitiveType,EGFXDynamic,IGFXVertices *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(247,32):
+      see declaration of 'IGFX::CreateVertices'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'IGFXIndices *IGFX::CreateIndices(int,DWORD,EGFXPrimitiveType,EGFXDynamic,IGFXIndices *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(248,31):
+      see declaration of 'IGFX::CreateIndices'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::BeginSolidVertexBlock(int,DWORD,EGFXDynamic)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(250,23):
+      see declaration of 'IGFX::BeginSolidVertexBlock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::EndSolidVertexBlock(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(251,23):
+      see declaration of 'IGFX::EndSolidVertexBlock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::BeginSolidIndexBlock(int,DWORD,EGFXDynamic)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(252,23):
+      see declaration of 'IGFX::BeginSolidIndexBlock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::EndSolidIndexBlock(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(253,23):
+      see declaration of 'IGFX::EndSolidIndexBlock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void *IGFX::GetTempVertices(int,DWORD,EGFXPrimitiveType)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(255,24):
+      see declaration of 'IGFX::GetTempVertices'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void *IGFX::GetTempIndices(int,DWORD,EGFXPrimitiveType)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(256,24):
+      see declaration of 'IGFX::GetTempIndices'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'IGFXTexture *IGFX::CreateTexture(int,int,int,EGFXPixelFormat,EGFXDynamic,IGFXTexture *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(259,31):
+      see declaration of 'IGFX::CreateTexture'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'IGFXRTexture *IGFX::CreateRTexture(int,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(260,32):
+      see declaration of 'IGFX::CreateRTexture'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::UpdateTexture(IGFXTexture *,IGFXTexture *,bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(261,23):
+      see declaration of 'IGFX::UpdateTexture'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::Draw(IGFXVertices *,IGFXIndices *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(264,23):
+      see declaration of 'IGFX::Draw'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::DrawTemp(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(265,23):
+      see declaration of 'IGFX::DrawTemp'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::DrawMesh(IGFXMesh *,const SHMatrix *,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(266,23):
+      see declaration of 'IGFX::DrawMesh'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::DrawStringA(const char *,int,int,DWORD)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(267,23):
+      see declaration of 'IGFX::DrawStringA'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::DrawString(const wchar_t *,int,int,DWORD)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(268,23):
+      see declaration of 'IGFX::DrawString'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::DrawTextA(IGFXText *,const RECT &,int,DWORD)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(269,23):
+      see declaration of 'IGFX::DrawTextA'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::DrawRects(const SGFXRect2 *,int,bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(270,23):
+      see declaration of 'IGFX::DrawRects'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetGammaRamp(const SGFXGammaRamp &,bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(273,23):
+      see declaration of 'IGFX::SetGammaRamp'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::GetGammaRamp(const SGFXGammaRamp *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(274,23):
+      see declaration of 'IGFX::GetGammaRamp'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::SetGammaCorrectionValues(const float,const float,const float)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(275,23):
+      see declaration of 'IGFX::SetGammaCorrectionValues'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::GetGammaCorrectionValues(float *,float *,float *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(276,23):
+      see declaration of 'IGFX::GetGammaCorrectionValues'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::TakeScreenShot(IImage *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(279,23):
+      see declaration of 'IGFX::TakeScreenShot'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'int IGFX::GetNumPassedVertices(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(282,22):
+      see declaration of 'IGFX::GetNumPassedVertices'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'int IGFX::GetNumPassedPrimitives(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(283,22):
+      see declaration of 'IGFX::GetNumPassedPrimitives'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetShadingEffect(int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(286,23):
+      see declaration of 'IGFX::SetShadingEffect'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,52): error C2065: 'displaymode': undeclared identifier
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2): error C2259: 'CGraphicsEngine': cannot instantiate abstract class
+  (compiling source file '/GFXObjectFactory.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(66,7):
+      see declaration of 'CGraphicsEngine'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      due to following members:
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::Init(const char *,HWND)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(178,23):
+      see declaration of 'IGFX::Init'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::Done(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(179,23):
+      see declaration of 'IGFX::Done'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::Clear(int,RECT *,DWORD,DWORD,float,DWORD)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(240,23):
+      see declaration of 'IGFX::Clear'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::Clear(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(180,15):
+      see declaration of 'IGFX::Clear'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetMode(int,int,int,int,EGFXFullscreen,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(181,23):
+      see declaration of 'IGFX::SetMode'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'EGFXVideoCard IGFX::GetVideoCard(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(182,32):
+      see declaration of 'IGFX::GetVideoCard'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::MoveTo(int,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(185,23):
+      see declaration of 'IGFX::MoveTo'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'RECT IGFX::GetScreenRect(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(188,23):
+      see declaration of 'IGFX::GetScreenRect'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'int IGFX::GetScreenBPP(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(189,22):
+      see declaration of 'IGFX::GetScreenBPP'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'const char *IGFX::GetAdapterName(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(190,30):
+      see declaration of 'IGFX::GetAdapterName'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'const SGFXDisplayMode *IGFX::GetDisplayModes(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(191,48):
+      see declaration of 'IGFX::GetDisplayModes'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::PushViewport(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(195,23):
+      see declaration of 'IGFX::PushViewport'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::PopViewport(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(196,23):
+      see declaration of 'IGFX::PopViewport'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::ChangeViewport(int,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(198,23):
+      see declaration of 'IGFX::ChangeViewport'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::ChangeViewport(int,int,int,int,float,float)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(197,23):
+      see declaration of 'IGFX::ChangeViewport'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetWorldTransforms(const int,const SHMatrix *,const int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(200,23):
+      see declaration of 'IGFX::SetWorldTransforms'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetViewTransform(const SHMatrix &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(201,23):
+      see declaration of 'IGFX::SetViewTransform'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetProjectionTransform(const SHMatrix &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(202,23):
+      see declaration of 'IGFX::SetProjectionTransform'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetTextureTransform(int,const SHMatrix &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(203,23):
+      see declaration of 'IGFX::SetTextureTransform'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetupDirectTransform(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(204,23):
+      see declaration of 'IGFX::SetupDirectTransform'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::RestoreTransform(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(205,23):
+      see declaration of 'IGFX::RestoreTransform'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'const SHMatrix &IGFX::GetViewMatrix(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(207,34):
+      see declaration of 'IGFX::GetViewMatrix'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'const SHMatrix &IGFX::GetBillboardMatrix(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(208,34):
+      see declaration of 'IGFX::GetBillboardMatrix'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'const SHMatrix &IGFX::GetInverseViewMatrix(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(209,34):
+      see declaration of 'IGFX::GetInverseViewMatrix'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'const SHMatrix &IGFX::GetProjectionMatrix(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(210,34):
+      see declaration of 'IGFX::GetProjectionMatrix'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'const SHMatrix &IGFX::GetViewportMatrix(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(211,34):
+      see declaration of 'IGFX::GetViewportMatrix'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::GetViewVolume(SPlane *) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(213,23):
+      see declaration of 'IGFX::GetViewVolume'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::GetViewVolumeCrosses(const CVec2 &,CVec3 *,CVec3 *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(215,23):
+      see declaration of 'IGFX::GetViewVolumeCrosses'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::SetLight(int,const SGFXLightSpot &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(219,23):
+      see declaration of 'IGFX::SetLight'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::SetLight(int,const SGFXLightPoint &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(218,23):
+      see declaration of 'IGFX::SetLight'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::SetLight(int,const SGFXLightDirectional &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(217,23):
+      see declaration of 'IGFX::SetLight'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::EnableLight(int,bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(220,23):
+      see declaration of 'IGFX::EnableLight'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::SetMaterial(const SGFXMaterial &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(221,23):
+      see declaration of 'IGFX::SetMaterial'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetTexture(int,IGFXBaseTexture *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(224,23):
+      see declaration of 'IGFX::SetTexture'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetWireframe(bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(227,23):
+      see declaration of 'IGFX::SetWireframe'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetCullMode(EGFXCull)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(228,23):
+      see declaration of 'IGFX::SetCullMode'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetDepthBufferMode(EGFXDepthBuffer,EGFXCmpFunction)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(229,23):
+      see declaration of 'IGFX::SetDepthBufferMode'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::EnableLighting(bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(230,23):
+      see declaration of 'IGFX::EnableLighting'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::EnableSpecular(bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(231,23):
+      see declaration of 'IGFX::EnableSpecular'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetFont(IGFXFont *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(234,23):
+      see declaration of 'IGFX::SetFont'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::IsActive(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(237,23):
+      see declaration of 'IGFX::IsActive'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::BeginScene(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(238,23):
+      see declaration of 'IGFX::BeginScene'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::EndScene(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(239,23):
+      see declaration of 'IGFX::EndScene'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::Flip(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(241,23):
+      see declaration of 'IGFX::Flip'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetRenderTarget(IGFXRTexture *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(242,23):
+      see declaration of 'IGFX::SetRenderTarget'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::SetOptimizedBuffers(bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(245,23):
+      see declaration of 'IGFX::SetOptimizedBuffers'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'IGFXVertices *IGFX::CreateVertices(int,DWORD,EGFXPrimitiveType,EGFXDynamic,IGFXVertices *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(247,32):
+      see declaration of 'IGFX::CreateVertices'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'IGFXIndices *IGFX::CreateIndices(int,DWORD,EGFXPrimitiveType,EGFXDynamic,IGFXIndices *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(248,31):
+      see declaration of 'IGFX::CreateIndices'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::BeginSolidVertexBlock(int,DWORD,EGFXDynamic)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(250,23):
+      see declaration of 'IGFX::BeginSolidVertexBlock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::EndSolidVertexBlock(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(251,23):
+      see declaration of 'IGFX::EndSolidVertexBlock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::BeginSolidIndexBlock(int,DWORD,EGFXDynamic)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(252,23):
+      see declaration of 'IGFX::BeginSolidIndexBlock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::EndSolidIndexBlock(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(253,23):
+      see declaration of 'IGFX::EndSolidIndexBlock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void *IGFX::GetTempVertices(int,DWORD,EGFXPrimitiveType)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(255,24):
+      see declaration of 'IGFX::GetTempVertices'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void *IGFX::GetTempIndices(int,DWORD,EGFXPrimitiveType)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(256,24):
+      see declaration of 'IGFX::GetTempIndices'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'IGFXTexture *IGFX::CreateTexture(int,int,int,EGFXPixelFormat,EGFXDynamic,IGFXTexture *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(259,31):
+      see declaration of 'IGFX::CreateTexture'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'IGFXRTexture *IGFX::CreateRTexture(int,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(260,32):
+      see declaration of 'IGFX::CreateRTexture'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::UpdateTexture(IGFXTexture *,IGFXTexture *,bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(261,23):
+      see declaration of 'IGFX::UpdateTexture'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::Draw(IGFXVertices *,IGFXIndices *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(264,23):
+      see declaration of 'IGFX::Draw'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::DrawTemp(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(265,23):
+      see declaration of 'IGFX::DrawTemp'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::DrawMesh(IGFXMesh *,const SHMatrix *,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(266,23):
+      see declaration of 'IGFX::DrawMesh'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::DrawStringA(const char *,int,int,DWORD)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(267,23):
+      see declaration of 'IGFX::DrawStringA'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::DrawString(const wchar_t *,int,int,DWORD)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(268,23):
+      see declaration of 'IGFX::DrawString'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::DrawTextA(IGFXText *,const RECT &,int,DWORD)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(269,23):
+      see declaration of 'IGFX::DrawTextA'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::DrawRects(const SGFXRect2 *,int,bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(270,23):
+      see declaration of 'IGFX::DrawRects'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetGammaRamp(const SGFXGammaRamp &,bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(273,23):
+      see declaration of 'IGFX::SetGammaRamp'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::GetGammaRamp(const SGFXGammaRamp *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(274,23):
+      see declaration of 'IGFX::GetGammaRamp'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::SetGammaCorrectionValues(const float,const float,const float)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(275,23):
+      see declaration of 'IGFX::SetGammaCorrectionValues'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::GetGammaCorrectionValues(float *,float *,float *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(276,23):
+      see declaration of 'IGFX::GetGammaCorrectionValues'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::TakeScreenShot(IImage *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(279,23):
+      see declaration of 'IGFX::TakeScreenShot'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'int IGFX::GetNumPassedVertices(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(282,22):
+      see declaration of 'IGFX::GetNumPassedVertices'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'int IGFX::GetNumPassedPrimitives(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(283,22):
+      see declaration of 'IGFX::GetNumPassedPrimitives'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetShadingEffect(int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(286,23):
+      see declaration of 'IGFX::SetShadingEffect'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(176,23): error C2660: 'IDirect3DDevice9::CreateVertexBuffer': function does not take 5 arguments
+  (compiling source file '/GFXObjectFactory.cpp')
+      C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\shared\d3d9.h(460,5):
+      see declaration of 'IDirect3DDevice9::CreateVertexBuffer'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(176,23):
+      while trying to match the argument list '(int, DWORD, DWORD, D3DPOOL, IDirect3DVertexBuffer8 **)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(185,23): error C2660: 'IDirect3DDevice9::CreateIndexBuffer': function does not take 5 arguments
+  (compiling source file '/GFXObjectFactory.cpp')
+      C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\shared\d3d9.h(461,5):
+      see declaration of 'IDirect3DDevice9::CreateIndexBuffer'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(185,23):
+      while trying to match the argument list '(int, DWORD, D3DFORMAT, D3DPOOL, IDirect3DIndexBuffer8 **)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(261,22): error C2270: 'GetAdapterName': modifiers not allowed on nonmember functions
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(261,54): error C2065: 'adapter': undeclared identifier
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(262,40): error C2270: 'GetDisplayModes': modifiers not allowed on nonmember functions
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(278,26): error C2270: 'GetViewMatrix': modifiers not allowed on nonmember functions
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(279,26): error C2270: 'GetBillboardMatrix': modifiers not allowed on nonmember functions
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(280,26): error C2270: 'GetInverseViewMatrix': modifiers not allowed on nonmember functions
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(281,26): error C2270: 'GetProjectionMatrix': modifiers not allowed on nonmember functions
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(282,26): error C2270: 'GetViewportMatrix': modifiers not allowed on nonmember functions
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(283,15): error C2270: 'GetViewVolume': modifiers not allowed on nonmember functions
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(351,14): error C2270: 'GetNumPassedVertices': modifiers not allowed on nonmember functions
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(351,52): error C2065: 'nNumPassedVertices': undeclared identifier
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(352,14): error C2270: 'GetNumPassedPrimitives': modifiers not allowed on nonmember functions
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(352,54): error C2065: 'nNumPassedPrimitives': undeclared identifier
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(356,1): error C2988: unrecognizable template declaration/definition
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(356,1): error C2059: syntax error: '}'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(356,1): error C2143: syntax error: missing ';' before '}'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2059: syntax error: 'return'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2238: unexpected token(s) preceding ';'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2628: 'CTexture' followed by 'void' is illegal (did you forget a ';'?)
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C7754: 'CTexture' a type cannot be defined as a return or parameter type
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2575: 'AddRef': only member functions and bases can be virtual
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2259: 'CTexture': cannot instantiate abstract class
+  (compiling source file '/GFXObjectFactory.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(40,7):
+      see declaration of 'CTexture'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      due to following members:
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'void IRefCount::AddRef(int,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(30,23):
+      see declaration of 'IRefCount::AddRef'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'void IRefCount::Release(int,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(31,23):
+      see declaration of 'IRefCount::Release'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'bool IRefCount::IsValid(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(32,23):
+      see declaration of 'IRefCount::IsValid'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'int ISharedResource::GetRefCounter(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(198,22):
+      see declaration of 'ISharedResource::GetRefCounter'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'const char *ISharedResource::GetSharedResourceName(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(200,30):
+      see declaration of 'ISharedResource::GetSharedResourceName'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'void ISharedResource::SetSharedResourceName(const std::string &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(201,23):
+      see declaration of 'ISharedResource::SetSharedResourceName'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'bool ISharedResource::Load(const bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(203,23):
+      see declaration of 'ISharedResource::Load'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'bool IGFXTexture::Lock(int,SSurfaceLockInfo *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(79,24):
+      see declaration of 'IGFXTexture::Lock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'bool IGFXTexture::Unlock(int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(80,24):
+      see declaration of 'IGFXTexture::Unlock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'bool IGFXTexture::AddDirtyRect(const RECT *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(82,24):
+      see declaration of 'IGFXTexture::AddDirtyRect'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'IDirect3DTexture8 *CBaseTexture<IGFXTexture>::GetInternalContainer(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(33,29):
+      see declaration of 'CBaseTexture<IGFXTexture>::GetInternalContainer'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2065: 'nRefData': undeclared identifier
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2575: 'Release': only member functions and bases can be virtual
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2355: 'this': can only be referenced inside non-static member functions or non-static data member initializers
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C3861: 'DestroyContents': identifier not found
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2270: 'IsValid': modifiers not allowed on nonmember functions
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2059: syntax error: 'protected'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2352: 'CTexture::~CTexture': a call of a non-static member function requires an object
+  (compiling source file '/GFXObjectFactory.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      compiler has generated 'CTexture::~CTexture' here
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2059: syntax error: 'private'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2588: '::~CTexture': illegal global destructor
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2575: 'CTexture': only member functions and bases can be virtual
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): warning C4508: 'CTexture': function should return a value; 'void' return type assumed
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(43,2): error C2059: syntax error: 'public'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(43,2): error C2059: syntax error: 'private'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2059: syntax error: 'public'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2270: 'GetRefCounter': modifiers not allowed on nonmember functions
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2065: 'nRefData': undeclared identifier
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2270: 'GetSharedResourceName': modifiers not allowed on nonmember functions
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2065: 'szSharedResourceName': undeclared identifier
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2575: 'SetSharedResourceName': only member functions and bases can be virtual
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2065: 'nSharedResourceLastUsage': undeclared identifier
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2270: 'GetSharedResourceLastUsage': modifiers not allowed on nonmember functions
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2059: syntax error: 'private'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2270: 'GetSharedResourceFullName': modifiers not allowed on nonmember functions
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(45,1): error C2059: syntax error: 'public'
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(46,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(46,2): error C2084: function 'int CTexture(void)' already has a body
+  (compiling source file '/GFXObjectFactory.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      see previous definition of 'CTexture'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(47,59): error C2550: 'CTexture': constructor initializer lists are only allowed on constructor definitions
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(51,19): error C2270: 'GetType': modifiers not allowed on nonmember functions
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(62,14): error C2270: 'GetSizeX': modifiers not allowed on nonmember functions
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(62,52): error C2065: 'nSizeX': undeclared identifier
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(62,52): error C1003: error count exceeds 100; stopping compilation
+  (compiling source file '/GFXObjectFactory.cpp')
+  
+  GraphicsEngine.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(12,2): error C2259: 'CFont': cannot instantiate abstract class
+  (compiling source file '/GraphicsEngine.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(10,7):
+      see declaration of 'CFont'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(12,2):
+      due to following members:
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(12,2):
+      'int IGFXFont::GetTextWidth(const WORD *,int) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(139,23):
+      see declaration of 'IGFXFont::GetTextWidth'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(110,15): error C2039: 'hash_multimap': is not a member of 'std'
+  (compiling source file '/GraphicsEngine.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
+      see declaration of 'std'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(110,28): error C2143: syntax error: missing ';' before '<'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(110,15): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(110,70): error C2238: unexpected token(s) preceding ';'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(111,15): error C2039: 'hash_multimap': is not a member of 'std'
+  (compiling source file '/GraphicsEngine.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
+      see declaration of 'std'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(111,28): error C2059: syntax error: '<'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(111,70): error C2238: unexpected token(s) preceding ';'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(112,16): error C3646: 'dynVBs': unknown override specifier
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(112,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(113,16): error C3646: 'dynIBs': unknown override specifier
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(113,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(224,68): error C2039: 'hash_multimap': is not a member of 'std'
+  (compiling source file '/GraphicsEngine.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\stack(25,1):
+      see declaration of 'std'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(224,81): error C2988: unrecognizable template declaration/definition
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(224,81): error C2143: syntax error: missing ')' before '<'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(224,81): error C2143: syntax error: missing ';' before '<'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(224,2): error C2238: unexpected token(s) preceding ';'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(224,81): error C2059: syntax error: '<'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(224,140): error C2059: syntax error: ')'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(225,2): error C2334: unexpected token(s) preceding '{'; skipping apparent function body
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(243,3): error C2988: unrecognizable template declaration/definition
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(243,3): error C2059: syntax error: ':'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(259,39): error C2988: unrecognizable template declaration/definition
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(259,39): error C2059: syntax error: 'return'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(259,54): error C2238: unexpected token(s) preceding ';'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,2): error C2628: 'CGraphicsEngine' followed by 'int' is illegal (did you forget a ';'?)
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14): error C2270: 'GetScreenBPP': modifiers not allowed on nonmember functions
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14): error C2259: 'CGraphicsEngine': cannot instantiate abstract class
+  (compiling source file '/GraphicsEngine.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(66,7):
+      see declaration of 'CGraphicsEngine'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      due to following members:
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::Init(const char *,HWND)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(178,23):
+      see declaration of 'IGFX::Init'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::Done(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(179,23):
+      see declaration of 'IGFX::Done'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::Clear(int,RECT *,DWORD,DWORD,float,DWORD)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(240,23):
+      see declaration of 'IGFX::Clear'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::Clear(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(180,15):
+      see declaration of 'IGFX::Clear'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetMode(int,int,int,int,EGFXFullscreen,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(181,23):
+      see declaration of 'IGFX::SetMode'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'EGFXVideoCard IGFX::GetVideoCard(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(182,32):
+      see declaration of 'IGFX::GetVideoCard'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::MoveTo(int,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(185,23):
+      see declaration of 'IGFX::MoveTo'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'RECT IGFX::GetScreenRect(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(188,23):
+      see declaration of 'IGFX::GetScreenRect'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'int IGFX::GetScreenBPP(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(189,22):
+      see declaration of 'IGFX::GetScreenBPP'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'const char *IGFX::GetAdapterName(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(190,30):
+      see declaration of 'IGFX::GetAdapterName'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'const SGFXDisplayMode *IGFX::GetDisplayModes(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(191,48):
+      see declaration of 'IGFX::GetDisplayModes'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::PushViewport(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(195,23):
+      see declaration of 'IGFX::PushViewport'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::PopViewport(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(196,23):
+      see declaration of 'IGFX::PopViewport'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::ChangeViewport(int,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(198,23):
+      see declaration of 'IGFX::ChangeViewport'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::ChangeViewport(int,int,int,int,float,float)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(197,23):
+      see declaration of 'IGFX::ChangeViewport'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetWorldTransforms(const int,const SHMatrix *,const int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(200,23):
+      see declaration of 'IGFX::SetWorldTransforms'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetViewTransform(const SHMatrix &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(201,23):
+      see declaration of 'IGFX::SetViewTransform'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetProjectionTransform(const SHMatrix &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(202,23):
+      see declaration of 'IGFX::SetProjectionTransform'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetTextureTransform(int,const SHMatrix &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(203,23):
+      see declaration of 'IGFX::SetTextureTransform'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetupDirectTransform(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(204,23):
+      see declaration of 'IGFX::SetupDirectTransform'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::RestoreTransform(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(205,23):
+      see declaration of 'IGFX::RestoreTransform'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'const SHMatrix &IGFX::GetViewMatrix(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(207,34):
+      see declaration of 'IGFX::GetViewMatrix'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'const SHMatrix &IGFX::GetBillboardMatrix(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(208,34):
+      see declaration of 'IGFX::GetBillboardMatrix'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'const SHMatrix &IGFX::GetInverseViewMatrix(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(209,34):
+      see declaration of 'IGFX::GetInverseViewMatrix'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'const SHMatrix &IGFX::GetProjectionMatrix(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(210,34):
+      see declaration of 'IGFX::GetProjectionMatrix'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'const SHMatrix &IGFX::GetViewportMatrix(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(211,34):
+      see declaration of 'IGFX::GetViewportMatrix'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::GetViewVolume(SPlane *) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(213,23):
+      see declaration of 'IGFX::GetViewVolume'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::GetViewVolumeCrosses(const CVec2 &,CVec3 *,CVec3 *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(215,23):
+      see declaration of 'IGFX::GetViewVolumeCrosses'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::SetLight(int,const SGFXLightSpot &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(219,23):
+      see declaration of 'IGFX::SetLight'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::SetLight(int,const SGFXLightPoint &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(218,23):
+      see declaration of 'IGFX::SetLight'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::SetLight(int,const SGFXLightDirectional &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(217,23):
+      see declaration of 'IGFX::SetLight'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::EnableLight(int,bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(220,23):
+      see declaration of 'IGFX::EnableLight'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::SetMaterial(const SGFXMaterial &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(221,23):
+      see declaration of 'IGFX::SetMaterial'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetTexture(int,IGFXBaseTexture *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(224,23):
+      see declaration of 'IGFX::SetTexture'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetWireframe(bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(227,23):
+      see declaration of 'IGFX::SetWireframe'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetCullMode(EGFXCull)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(228,23):
+      see declaration of 'IGFX::SetCullMode'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetDepthBufferMode(EGFXDepthBuffer,EGFXCmpFunction)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(229,23):
+      see declaration of 'IGFX::SetDepthBufferMode'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::EnableLighting(bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(230,23):
+      see declaration of 'IGFX::EnableLighting'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::EnableSpecular(bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(231,23):
+      see declaration of 'IGFX::EnableSpecular'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetFont(IGFXFont *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(234,23):
+      see declaration of 'IGFX::SetFont'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::IsActive(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(237,23):
+      see declaration of 'IGFX::IsActive'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::BeginScene(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(238,23):
+      see declaration of 'IGFX::BeginScene'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::EndScene(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(239,23):
+      see declaration of 'IGFX::EndScene'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::Flip(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(241,23):
+      see declaration of 'IGFX::Flip'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetRenderTarget(IGFXRTexture *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(242,23):
+      see declaration of 'IGFX::SetRenderTarget'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::SetOptimizedBuffers(bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(245,23):
+      see declaration of 'IGFX::SetOptimizedBuffers'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'IGFXVertices *IGFX::CreateVertices(int,DWORD,EGFXPrimitiveType,EGFXDynamic,IGFXVertices *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(247,32):
+      see declaration of 'IGFX::CreateVertices'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'IGFXIndices *IGFX::CreateIndices(int,DWORD,EGFXPrimitiveType,EGFXDynamic,IGFXIndices *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(248,31):
+      see declaration of 'IGFX::CreateIndices'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::BeginSolidVertexBlock(int,DWORD,EGFXDynamic)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(250,23):
+      see declaration of 'IGFX::BeginSolidVertexBlock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::EndSolidVertexBlock(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(251,23):
+      see declaration of 'IGFX::EndSolidVertexBlock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::BeginSolidIndexBlock(int,DWORD,EGFXDynamic)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(252,23):
+      see declaration of 'IGFX::BeginSolidIndexBlock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::EndSolidIndexBlock(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(253,23):
+      see declaration of 'IGFX::EndSolidIndexBlock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void *IGFX::GetTempVertices(int,DWORD,EGFXPrimitiveType)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(255,24):
+      see declaration of 'IGFX::GetTempVertices'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void *IGFX::GetTempIndices(int,DWORD,EGFXPrimitiveType)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(256,24):
+      see declaration of 'IGFX::GetTempIndices'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'IGFXTexture *IGFX::CreateTexture(int,int,int,EGFXPixelFormat,EGFXDynamic,IGFXTexture *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(259,31):
+      see declaration of 'IGFX::CreateTexture'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'IGFXRTexture *IGFX::CreateRTexture(int,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(260,32):
+      see declaration of 'IGFX::CreateRTexture'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::UpdateTexture(IGFXTexture *,IGFXTexture *,bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(261,23):
+      see declaration of 'IGFX::UpdateTexture'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::Draw(IGFXVertices *,IGFXIndices *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(264,23):
+      see declaration of 'IGFX::Draw'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::DrawTemp(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(265,23):
+      see declaration of 'IGFX::DrawTemp'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::DrawMesh(IGFXMesh *,const SHMatrix *,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(266,23):
+      see declaration of 'IGFX::DrawMesh'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::DrawStringA(const char *,int,int,DWORD)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(267,23):
+      see declaration of 'IGFX::DrawStringA'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::DrawString(const wchar_t *,int,int,DWORD)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(268,23):
+      see declaration of 'IGFX::DrawString'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::DrawTextA(IGFXText *,const RECT &,int,DWORD)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(269,23):
+      see declaration of 'IGFX::DrawTextA'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::DrawRects(const SGFXRect2 *,int,bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(270,23):
+      see declaration of 'IGFX::DrawRects'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetGammaRamp(const SGFXGammaRamp &,bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(273,23):
+      see declaration of 'IGFX::SetGammaRamp'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::GetGammaRamp(const SGFXGammaRamp *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(274,23):
+      see declaration of 'IGFX::GetGammaRamp'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::SetGammaCorrectionValues(const float,const float,const float)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(275,23):
+      see declaration of 'IGFX::SetGammaCorrectionValues'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'void IGFX::GetGammaCorrectionValues(float *,float *,float *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(276,23):
+      see declaration of 'IGFX::GetGammaCorrectionValues'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::TakeScreenShot(IImage *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(279,23):
+      see declaration of 'IGFX::TakeScreenShot'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'int IGFX::GetNumPassedVertices(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(282,22):
+      see declaration of 'IGFX::GetNumPassedVertices'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'int IGFX::GetNumPassedPrimitives(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(283,22):
+      see declaration of 'IGFX::GetNumPassedPrimitives'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,14):
+      'bool IGFX::SetShadingEffect(int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(286,23):
+      see declaration of 'IGFX::SetShadingEffect'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(260,52): error C2065: 'displaymode': undeclared identifier
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2): error C2259: 'CGraphicsEngine': cannot instantiate abstract class
+  (compiling source file '/GraphicsEngine.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(66,7):
+      see declaration of 'CGraphicsEngine'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      due to following members:
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::Init(const char *,HWND)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(178,23):
+      see declaration of 'IGFX::Init'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::Done(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(179,23):
+      see declaration of 'IGFX::Done'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::Clear(int,RECT *,DWORD,DWORD,float,DWORD)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(240,23):
+      see declaration of 'IGFX::Clear'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::Clear(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(180,15):
+      see declaration of 'IGFX::Clear'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetMode(int,int,int,int,EGFXFullscreen,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(181,23):
+      see declaration of 'IGFX::SetMode'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'EGFXVideoCard IGFX::GetVideoCard(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(182,32):
+      see declaration of 'IGFX::GetVideoCard'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::MoveTo(int,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(185,23):
+      see declaration of 'IGFX::MoveTo'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'RECT IGFX::GetScreenRect(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(188,23):
+      see declaration of 'IGFX::GetScreenRect'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'int IGFX::GetScreenBPP(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(189,22):
+      see declaration of 'IGFX::GetScreenBPP'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'const char *IGFX::GetAdapterName(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(190,30):
+      see declaration of 'IGFX::GetAdapterName'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'const SGFXDisplayMode *IGFX::GetDisplayModes(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(191,48):
+      see declaration of 'IGFX::GetDisplayModes'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::PushViewport(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(195,23):
+      see declaration of 'IGFX::PushViewport'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::PopViewport(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(196,23):
+      see declaration of 'IGFX::PopViewport'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::ChangeViewport(int,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(198,23):
+      see declaration of 'IGFX::ChangeViewport'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::ChangeViewport(int,int,int,int,float,float)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(197,23):
+      see declaration of 'IGFX::ChangeViewport'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetWorldTransforms(const int,const SHMatrix *,const int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(200,23):
+      see declaration of 'IGFX::SetWorldTransforms'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetViewTransform(const SHMatrix &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(201,23):
+      see declaration of 'IGFX::SetViewTransform'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetProjectionTransform(const SHMatrix &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(202,23):
+      see declaration of 'IGFX::SetProjectionTransform'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetTextureTransform(int,const SHMatrix &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(203,23):
+      see declaration of 'IGFX::SetTextureTransform'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetupDirectTransform(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(204,23):
+      see declaration of 'IGFX::SetupDirectTransform'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::RestoreTransform(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(205,23):
+      see declaration of 'IGFX::RestoreTransform'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'const SHMatrix &IGFX::GetViewMatrix(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(207,34):
+      see declaration of 'IGFX::GetViewMatrix'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'const SHMatrix &IGFX::GetBillboardMatrix(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(208,34):
+      see declaration of 'IGFX::GetBillboardMatrix'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'const SHMatrix &IGFX::GetInverseViewMatrix(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(209,34):
+      see declaration of 'IGFX::GetInverseViewMatrix'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'const SHMatrix &IGFX::GetProjectionMatrix(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(210,34):
+      see declaration of 'IGFX::GetProjectionMatrix'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'const SHMatrix &IGFX::GetViewportMatrix(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(211,34):
+      see declaration of 'IGFX::GetViewportMatrix'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::GetViewVolume(SPlane *) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(213,23):
+      see declaration of 'IGFX::GetViewVolume'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::GetViewVolumeCrosses(const CVec2 &,CVec3 *,CVec3 *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(215,23):
+      see declaration of 'IGFX::GetViewVolumeCrosses'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::SetLight(int,const SGFXLightSpot &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(219,23):
+      see declaration of 'IGFX::SetLight'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::SetLight(int,const SGFXLightPoint &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(218,23):
+      see declaration of 'IGFX::SetLight'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::SetLight(int,const SGFXLightDirectional &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(217,23):
+      see declaration of 'IGFX::SetLight'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::EnableLight(int,bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(220,23):
+      see declaration of 'IGFX::EnableLight'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::SetMaterial(const SGFXMaterial &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(221,23):
+      see declaration of 'IGFX::SetMaterial'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetTexture(int,IGFXBaseTexture *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(224,23):
+      see declaration of 'IGFX::SetTexture'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetWireframe(bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(227,23):
+      see declaration of 'IGFX::SetWireframe'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetCullMode(EGFXCull)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(228,23):
+      see declaration of 'IGFX::SetCullMode'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetDepthBufferMode(EGFXDepthBuffer,EGFXCmpFunction)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(229,23):
+      see declaration of 'IGFX::SetDepthBufferMode'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::EnableLighting(bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(230,23):
+      see declaration of 'IGFX::EnableLighting'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::EnableSpecular(bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(231,23):
+      see declaration of 'IGFX::EnableSpecular'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetFont(IGFXFont *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(234,23):
+      see declaration of 'IGFX::SetFont'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::IsActive(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(237,23):
+      see declaration of 'IGFX::IsActive'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::BeginScene(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(238,23):
+      see declaration of 'IGFX::BeginScene'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::EndScene(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(239,23):
+      see declaration of 'IGFX::EndScene'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::Flip(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(241,23):
+      see declaration of 'IGFX::Flip'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetRenderTarget(IGFXRTexture *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(242,23):
+      see declaration of 'IGFX::SetRenderTarget'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::SetOptimizedBuffers(bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(245,23):
+      see declaration of 'IGFX::SetOptimizedBuffers'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'IGFXVertices *IGFX::CreateVertices(int,DWORD,EGFXPrimitiveType,EGFXDynamic,IGFXVertices *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(247,32):
+      see declaration of 'IGFX::CreateVertices'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'IGFXIndices *IGFX::CreateIndices(int,DWORD,EGFXPrimitiveType,EGFXDynamic,IGFXIndices *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(248,31):
+      see declaration of 'IGFX::CreateIndices'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::BeginSolidVertexBlock(int,DWORD,EGFXDynamic)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(250,23):
+      see declaration of 'IGFX::BeginSolidVertexBlock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::EndSolidVertexBlock(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(251,23):
+      see declaration of 'IGFX::EndSolidVertexBlock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::BeginSolidIndexBlock(int,DWORD,EGFXDynamic)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(252,23):
+      see declaration of 'IGFX::BeginSolidIndexBlock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::EndSolidIndexBlock(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(253,23):
+      see declaration of 'IGFX::EndSolidIndexBlock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void *IGFX::GetTempVertices(int,DWORD,EGFXPrimitiveType)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(255,24):
+      see declaration of 'IGFX::GetTempVertices'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void *IGFX::GetTempIndices(int,DWORD,EGFXPrimitiveType)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(256,24):
+      see declaration of 'IGFX::GetTempIndices'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'IGFXTexture *IGFX::CreateTexture(int,int,int,EGFXPixelFormat,EGFXDynamic,IGFXTexture *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(259,31):
+      see declaration of 'IGFX::CreateTexture'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'IGFXRTexture *IGFX::CreateRTexture(int,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(260,32):
+      see declaration of 'IGFX::CreateRTexture'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::UpdateTexture(IGFXTexture *,IGFXTexture *,bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(261,23):
+      see declaration of 'IGFX::UpdateTexture'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::Draw(IGFXVertices *,IGFXIndices *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(264,23):
+      see declaration of 'IGFX::Draw'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::DrawTemp(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(265,23):
+      see declaration of 'IGFX::DrawTemp'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::DrawMesh(IGFXMesh *,const SHMatrix *,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(266,23):
+      see declaration of 'IGFX::DrawMesh'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::DrawStringA(const char *,int,int,DWORD)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(267,23):
+      see declaration of 'IGFX::DrawStringA'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::DrawString(const wchar_t *,int,int,DWORD)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(268,23):
+      see declaration of 'IGFX::DrawString'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::DrawTextA(IGFXText *,const RECT &,int,DWORD)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(269,23):
+      see declaration of 'IGFX::DrawTextA'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::DrawRects(const SGFXRect2 *,int,bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(270,23):
+      see declaration of 'IGFX::DrawRects'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetGammaRamp(const SGFXGammaRamp &,bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(273,23):
+      see declaration of 'IGFX::SetGammaRamp'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::GetGammaRamp(const SGFXGammaRamp *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(274,23):
+      see declaration of 'IGFX::GetGammaRamp'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::SetGammaCorrectionValues(const float,const float,const float)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(275,23):
+      see declaration of 'IGFX::SetGammaCorrectionValues'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'void IGFX::GetGammaCorrectionValues(float *,float *,float *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(276,23):
+      see declaration of 'IGFX::GetGammaCorrectionValues'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::TakeScreenShot(IImage *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(279,23):
+      see declaration of 'IGFX::TakeScreenShot'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'int IGFX::GetNumPassedVertices(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(282,22):
+      see declaration of 'IGFX::GetNumPassedVertices'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'int IGFX::GetNumPassedPrimitives(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(283,22):
+      see declaration of 'IGFX::GetNumPassedPrimitives'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(68,2):
+      'bool IGFX::SetShadingEffect(int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(286,23):
+      see declaration of 'IGFX::SetShadingEffect'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(176,23): error C2660: 'IDirect3DDevice9::CreateVertexBuffer': function does not take 5 arguments
+  (compiling source file '/GraphicsEngine.cpp')
+      C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\shared\d3d9.h(460,5):
+      see declaration of 'IDirect3DDevice9::CreateVertexBuffer'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(176,23):
+      while trying to match the argument list '(int, DWORD, DWORD, D3DPOOL, IDirect3DVertexBuffer8 **)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(185,23): error C2660: 'IDirect3DDevice9::CreateIndexBuffer': function does not take 5 arguments
+  (compiling source file '/GraphicsEngine.cpp')
+      C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\shared\d3d9.h(461,5):
+      see declaration of 'IDirect3DDevice9::CreateIndexBuffer'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(185,23):
+      while trying to match the argument list '(int, DWORD, D3DFORMAT, D3DPOOL, IDirect3DIndexBuffer8 **)'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(261,22): error C2270: 'GetAdapterName': modifiers not allowed on nonmember functions
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(261,54): error C2065: 'adapter': undeclared identifier
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(262,40): error C2270: 'GetDisplayModes': modifiers not allowed on nonmember functions
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(278,26): error C2270: 'GetViewMatrix': modifiers not allowed on nonmember functions
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(279,26): error C2270: 'GetBillboardMatrix': modifiers not allowed on nonmember functions
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(280,26): error C2270: 'GetInverseViewMatrix': modifiers not allowed on nonmember functions
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(281,26): error C2270: 'GetProjectionMatrix': modifiers not allowed on nonmember functions
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(282,26): error C2270: 'GetViewportMatrix': modifiers not allowed on nonmember functions
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(283,15): error C2270: 'GetViewVolume': modifiers not allowed on nonmember functions
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(351,14): error C2270: 'GetNumPassedVertices': modifiers not allowed on nonmember functions
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(351,52): error C2065: 'nNumPassedVertices': undeclared identifier
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(352,14): error C2270: 'GetNumPassedPrimitives': modifiers not allowed on nonmember functions
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(352,54): error C2065: 'nNumPassedPrimitives': undeclared identifier
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(356,1): error C2988: unrecognizable template declaration/definition
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(356,1): error C2059: syntax error: '}'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GraphicsEngine.h(356,1): error C2143: syntax error: missing ';' before '}'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Image\Image.h(11,1): error C2332: 'enum': missing tag name
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Image\Image.h(11,1): error C3306: '<unnamed-tag>': unnamed class template is not allowed
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Image\Image.h(64,11): error C2989: 'IImage': class template has already been declared as a non-class template
+  (compiling source file '/GraphicsEngine.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(279,49):
+      see declaration of 'IImage'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Image\Image.h(143,9): error C2672: 'GetSingleton': no matching overloaded function found
+  (compiling source file '/GraphicsEngine.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIO\Globals.h(44,15):
+      could be 'TYPE *GetSingleton(void)'
+          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Image\Image.h(143,22):
+          'GetSingleton': invalid template argument for 'TYPE', missing template argument list on class template 'IImageProcessor'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIO\Globals.h(42,15):
+      or       'TYPE *GetSingleton(ISingleton *)'
+          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Image\Image.h(143,9):
+          'TYPE *GetSingleton(ISingleton *)': expects 1 arguments - 0 provided
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Image\Image.h(146,27): error C3203: 'SColor': unspecialized class template can't be used as a template argument for template parameter 'TColor', expected a real type
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Image\Image.h(184,25): error C3203: 'SColor': unspecialized class template can't be used as a template argument for template parameter 'TColor', expected a real type
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2059: syntax error: 'return'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2238: unexpected token(s) preceding ';'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2628: 'CTexture' followed by 'void' is illegal (did you forget a ';'?)
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C7754: 'CTexture' a type cannot be defined as a return or parameter type
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2575: 'AddRef': only member functions and bases can be virtual
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2259: 'CTexture': cannot instantiate abstract class
+  (compiling source file '/GraphicsEngine.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(40,7):
+      see declaration of 'CTexture'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      due to following members:
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'void IRefCount::AddRef(int,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(30,23):
+      see declaration of 'IRefCount::AddRef'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'void IRefCount::Release(int,int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(31,23):
+      see declaration of 'IRefCount::Release'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'bool IRefCount::IsValid(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(32,23):
+      see declaration of 'IRefCount::IsValid'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'int ISharedResource::GetRefCounter(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(198,22):
+      see declaration of 'ISharedResource::GetRefCounter'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'const char *ISharedResource::GetSharedResourceName(void) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(200,30):
+      see declaration of 'ISharedResource::GetSharedResourceName'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'void ISharedResource::SetSharedResourceName(const std::string &)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(201,23):
+      see declaration of 'ISharedResource::SetSharedResourceName'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'bool ISharedResource::Load(const bool)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(203,23):
+      see declaration of 'ISharedResource::Load'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'bool IGFXTexture::Lock(int,SSurfaceLockInfo *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(79,24):
+      see declaration of 'IGFXTexture::Lock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'bool IGFXTexture::Unlock(int)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(80,24):
+      see declaration of 'IGFXTexture::Unlock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'bool IGFXTexture::AddDirtyRect(const RECT *)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(82,24):
+      see declaration of 'IGFXTexture::AddDirtyRect'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      'IDirect3DTexture8 *CBaseTexture<IGFXTexture>::GetInternalContainer(void)': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(33,29):
+      see declaration of 'CBaseTexture<IGFXTexture>::GetInternalContainer'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2065: 'nRefData': undeclared identifier
+  (compiling source file '/GraphicsEngine.cpp')
+  
+  VideoCheck.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2575: 'Release': only member functions and bases can be virtual
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2355: 'this': can only be referenced inside non-static member functions or non-static data member initializers
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C3861: 'DestroyContents': identifier not found
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2270: 'IsValid': modifiers not allowed on nonmember functions
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2059: syntax error: 'protected'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2352: 'CTexture::~CTexture': a call of a non-static member function requires an object
+  (compiling source file '/GraphicsEngine.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2):
+      compiler has generated 'CTexture::~CTexture' here
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2059: syntax error: 'private'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2588: '::~CTexture': illegal global destructor
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2575: 'CTexture': only member functions and bases can be virtual
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): warning C4508: 'CTexture': function should return a value; 'void' return type assumed
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(43,2): error C2059: syntax error: 'public'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(43,2): error C2059: syntax error: 'private'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2059: syntax error: 'public'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2270: 'GetRefCounter': modifiers not allowed on nonmember functions
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2065: 'nRefData': undeclared identifier
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2270: 'GetSharedResourceName': modifiers not allowed on nonmember functions
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2065: 'szSharedResourceName': undeclared identifier
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2575: 'SetSharedResourceName': only member functions and bases can be virtual
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2065: 'nSharedResourceLastUsage': undeclared identifier
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2270: 'GetSharedResourceLastUsage': modifiers not allowed on nonmember functions
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2059: syntax error: 'private'
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2270: 'GetSharedResourceFullName': modifiers not allowed on nonmember functions
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C1003: error count exceeds 100; stopping compilation
+  (compiling source file '/GraphicsEngine.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\VideoCheck.cpp(7,10): error C1083: Cannot open include file: 'dmusici.h': No such file or directory
+  (compiling source file '/VideoCheck.cpp')
+  
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\dinput.h: DIRECTINPUT_VERSION undefined. Defaulting to version 0x0800
+  Texture.cpp
+  TextureManager.cpp
+  GeometryBuffer.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GeometryBuffer.h(46,29): error C2664: 'HRESULT IDirect3DIndexBuffer9::Lock(UINT,UINT,void **,DWORD)': cannot convert argument 3 from 'BYTE **' to 'void **'
+  (compiling source file '/GeometryBuffer.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GeometryBuffer.h(46,83):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\shared\d3d9.h(1566,5):
+      see declaration of 'IDirect3DIndexBuffer9::Lock'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GeometryBuffer.h(46,29):
+      while trying to match the argument list '(int, int, BYTE **, DWORD)'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GeometryBuffer.h(46,29):
+      the template instantiation context (the oldest one first) is
+          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GeometryBuffer.h(148,49):
+          see reference to class template instantiation 'CDataBuffer<IDirect3DIndexBuffer8>' being compiled
+          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GeometryBuffer.h(43,8):
+          while compiling class template member function 'void *CDataBuffer<IDirect3DIndexBuffer8>::Lock(int,int)'
+              C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GeometryBuffer.h(180,33):
+              see the first reference to 'CDataBuffer<IDirect3DIndexBuffer8>::Lock' in 'CIndices::Lock'
+  
+  GeometryManager.cpp
+  GeometryMesh.cpp
+  RangeAllocs.cpp
+  Clipping.cpp
+  Font.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(12,2): error C2259: 'CFont': cannot instantiate abstract class
+  (compiling source file '/Font.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(10,7):
+      see declaration of 'CFont'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(12,2):
+      due to following members:
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(12,2):
+      'int IGFXFont::GetTextWidth(const WORD *,int) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(139,23):
+      see declaration of 'IGFXFont::GetTextWidth'
+  
+  FontManager.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(12,2): error C2259: 'CFont': cannot instantiate abstract class
+  (compiling source file '/FontManager.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(10,7):
+      see declaration of 'CFont'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(12,2):
+      due to following members:
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(12,2):
+      'int IGFXFont::GetTextWidth(const WORD *,int) const': is abstract
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(139,23):
+      see declaration of 'IGFXFont::GetTextWidth'
+  
+  GFXTextVisitors.cpp
+  Text.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Text.cpp(39,32): error C2440: 'initializing': cannot convert from 'const WORD *' to 'const wchar_t *'
+  (compiling source file '/Text.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Text.cpp(39,32):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Text.cpp(85,32): error C2440: 'initializing': cannot convert from 'const WORD *' to 'const wchar_t *'
+  (compiling source file '/Text.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Text.cpp(85,32):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Text.cpp(235,32): error C2440: 'initializing': cannot convert from 'const WORD *' to 'const wchar_t *'
+  (compiling source file '/Text.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Text.cpp(235,32):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Text.cpp(546,64): error C3867: 'CGFXText::FillGeometryDataNoClip': non-standard syntax; use '&' to create a pointer to member
+  (compiling source file '/Text.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Text.cpp(546,89): error C3867: 'CGFXText::FillGeometryDataClip': non-standard syntax; use '&' to create a pointer to member
+  (compiling source file '/Text.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Text.cpp(579,64): error C3867: 'CGFXText::FillGeometryDataNoClip': non-standard syntax; use '&' to create a pointer to member
+  (compiling source file '/Text.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Text.cpp(579,89): error C3867: 'CGFXText::FillGeometryDataClip': non-standard syntax; use '&' to create a pointer to member
+  (compiling source file '/Text.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Text.cpp(614,64): error C3867: 'CGFXText::FillGeometryDataNoClip': non-standard syntax; use '&' to create a pointer to member
+  (compiling source file '/Text.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Text.cpp(614,89): error C3867: 'CGFXText::FillGeometryDataClip': non-standard syntax; use '&' to create a pointer to member
+  (compiling source file '/Text.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Text.cpp(649,64): error C3867: 'CGFXText::FillGeometryDataNoClip': non-standard syntax; use '&' to create a pointer to member
+  (compiling source file '/Text.cpp')
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Text.cpp(649,89): error C3867: 'CGFXText::FillGeometryDataClip': non-standard syntax; use '&' to create a pointer to member
+  (compiling source file '/Text.cpp')
+  
+  Shader.cpp
+  Generating Code...

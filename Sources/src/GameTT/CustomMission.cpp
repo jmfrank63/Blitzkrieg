@@ -46,13 +46,15 @@ bool CInterfaceCustomMission::FillListItem( IUIListRow *pRow, const std::string 
 		pElement = pRow->GetElement( 1 );
 		if ( !pElement )
 			return false;
-		pElement->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%d", mapInfo.size.x ) ).c_str() );
+		const std::wstring wszSizeX = NStr::ToUnicode( NStr::Format( "%d", mapInfo.size.x ) );
+		pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszSizeX.c_str() ) );
 	}
 
 	pElement = pRow->GetElement( 2 );
 	if ( !pElement )
 		return false;
-	pElement->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%d", mapInfo.playerParties.size() ) ).c_str() );
+	const std::wstring wszPlayers = NStr::ToUnicode( NStr::Format( "%d", mapInfo.playerParties.size() ) );
+	pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszPlayers.c_str() ) );
 
 	return true;
 }

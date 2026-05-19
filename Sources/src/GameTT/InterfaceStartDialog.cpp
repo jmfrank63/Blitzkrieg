@@ -2,6 +2,7 @@
 
 #include "InterfaceStartDialog.h"
 #include "CommonId.h"
+#include "MultiplayerCommandManager.h"
 #include "..\Main\ScenarioTracker.h"
 #include "..\UI\UIMessages.h"
 #include "OptionEntryWrapper.h"
@@ -47,7 +48,7 @@ bool CInterfacePlayerProfile::ProcessMessage( const SGameMessage &msg )
 	case 7779:
 	case UI_NOTIFY_EDIT_BOX_TEXT_CHANGED:
 		{
-			const std::wstring szName = pEdit->GetWindowText( 0 );
+			const std::wstring szName = MakeWideStringFromWordString( pEdit->GetWindowText( 0 ) );
 			pButtonOK->EnableWindow( !szName.empty() );
 		}
 
@@ -60,7 +61,7 @@ bool CInterfacePlayerProfile::ProcessMessage( const SGameMessage &msg )
 			{
 				bFinished = true;
 				// do not set player, save options. when campaign starts it will add players
-				const std::wstring szWindowText = pEdit->GetWindowText( 0 );
+				const std::wstring szWindowText = MakeWideStringFromWordString( pEdit->GetWindowText( 0 ) );
 				IOptionSystem * pOptionsSystem = GetSingleton<IOptionSystem>();
 				if ( !szWindowText.empty() )
 				{
@@ -109,7 +110,7 @@ void CInterfacePlayerProfile::OnGetFocus( bool bFocus )
 	{
 		pEdit->SetFocus( true );
 		pEdit->SetSel( 0, -1 );
-		pEdit->SetCursor( wcslen( pEdit->GetWindowText(0) ) );
+		pEdit->SetCursor( MakeWideStringFromWordString( pEdit->GetWindowText( 0 ) ).length() );
 		pInput->SetTextMode( INPUT_TEXT_MODE_TEXTONLY );
 	}
 }
@@ -141,7 +142,7 @@ void CInterfacePlayerProfile::StartInterface()
 	pOptionsSystem->Get( "GamePlay.PlayerName", &var );
 	const std::wstring szName = bstr_t(var);
 	
-	pEdit->SetWindowText( 0, szName.c_str() );
+	pEdit->SetWindowText( 0, reinterpret_cast<const WORD*>( szName.c_str() ) );
 	
 	pButtonOK = checked_cast<IUIButton*>( pUIScreen->GetChildByID( E_BUTTON_OK ) );
 	pButtonCancel = checked_cast<IUIButton*>( pUIScreen->GetChildByID( E_BUTTON_CANCEL ) );

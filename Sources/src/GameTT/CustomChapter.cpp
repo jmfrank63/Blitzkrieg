@@ -49,7 +49,8 @@ bool CInterfaceCustomChapter::FillListItem( IUIListRow *pRow, const std::string 
 	pElement = pRow->GetElement( 2 );
 	if ( !pElement )
 		return false;
-	pElement->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%d", pStats->missions.size() ) ).c_str() );
+	const std::wstring wszMissions = NStr::ToUnicode( NStr::Format( "%d", pStats->missions.size() ) );
+	pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszMissions.c_str() ) );
 
 /*
 	std::string szVal = GetFileChangeTimeString( szFullFileName.c_str() );

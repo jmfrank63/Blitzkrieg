@@ -1,113 +1,23 @@
 ﻿  StdAfx.cpp
   AnimObjectFactory.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\MeshAnimation.h(369,9): error C2666: 'CPtr<SMeshAnimationData>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/AnimObjectFactory.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<SMeshAnimationData>::operator !=(const CPtr<SMeshAnimationData> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\MeshAnimation.h(369,9):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=SMeshAnimationData
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\MeshAnimation.h(369,9):
-      while trying to match the argument list '(CPtr<SMeshAnimationData>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\SpriteAnimation.h(21,9): error C2666: 'CPtr<SSpriteAnimationFormat>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/AnimObjectFactory.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<SSpriteAnimationFormat>::operator !=(const CPtr<SSpriteAnimationFormat> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\SpriteAnimation.h(21,9):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=SSpriteAnimationFormat
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\SpriteAnimation.h(21,9):
-      while trying to match the argument list '(CPtr<SSpriteAnimationFormat>, int)'
-  
   AnimationManager.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\MeshAnimation.h(369,9): error C2666: 'CPtr<SMeshAnimationData>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/AnimationManager.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<SMeshAnimationData>::operator !=(const CPtr<SMeshAnimationData> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\MeshAnimation.h(369,9):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=SMeshAnimationData
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\MeshAnimation.h(369,9):
-      while trying to match the argument list '(CPtr<SMeshAnimationData>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\SpriteAnimation.h(21,9): error C2666: 'CPtr<SSpriteAnimationFormat>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/AnimationManager.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<SSpriteAnimationFormat>::operator !=(const CPtr<SSpriteAnimationFormat> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\SpriteAnimation.h(21,9):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=SSpriteAnimationFormat
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\SpriteAnimation.h(21,9):
-      while trying to match the argument list '(CPtr<SSpriteAnimationFormat>, int)'
-  
   GlobalsLoader.cpp
   MatrixEffectorJogging.cpp
   MatrixEffectorLeveling.cpp
   MeshAnimation.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\MeshAnimation.h(369,9): error C2666: 'CPtr<SMeshAnimationData>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/MeshAnimation.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<SMeshAnimationData>::operator !=(const CPtr<SMeshAnimationData> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\MeshAnimation.h(369,9):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=SMeshAnimationData
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\MeshAnimation.h(369,9):
-      while trying to match the argument list '(CPtr<SMeshAnimationData>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\MeshAnimation.cpp(17,7): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/MeshAnimation.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\MeshAnimation.cpp(17,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\MeshAnimation.cpp(17,7):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\MeshAnimation.cpp(64,7): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/MeshAnimation.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\MeshAnimation.cpp(64,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\MeshAnimation.cpp(64,7):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-  
   SpriteAnimation.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\SpriteAnimation.h(21,9): error C2666: 'CPtr<SSpriteAnimationFormat>::operator !=': overloaded functions have similar conversions
-  (compiling source file '/SpriteAnimation.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<SSpriteAnimationFormat>::operator !=(const CPtr<SSpriteAnimationFormat> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\SpriteAnimation.h(21,9):
-      or       'built-in C++ operator!=(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=SSpriteAnimationFormat
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Anim\SpriteAnimation.h(21,9):
-      while trying to match the argument list '(CPtr<SSpriteAnimationFormat>, int)'
-  
   Generating Code...
+.\Animation.def(4): warning LNK4017: DESCRIPTION statement not supported for the target platform; ignored
+     Creating library .\Release\Anim.lib and object .\Release\Anim.exp
+MeshAnimation.obj : error LNK2019: unresolved external symbol "public: int __thiscall SAnimationFormat::operator&(struct IStructureSaver &)" (??ISAnimationFormat@@QAEHAAUIStructureSaver@@@Z) referenced in function "private: void __cdecl CSaverAccessor::CallObjectSerialize<struct SAnimationFormat>(char,struct SAnimationFormat *,...)" (??$CallObjectSerialize@USAnimationFormat@@@CSaverAccessor@@AAAXDPAUSAnimationFormat@@ZZ)
+MeshAnimation.obj : error LNK2019: unresolved external symbol "public: int __thiscall SSkeletonFormat::operator&(struct IStructureSaver &)" (??ISSkeletonFormat@@QAEHAAUIStructureSaver@@@Z) referenced in function "private: void __cdecl CSaverAccessor::CallObjectSerialize<struct SSkeletonFormat>(char,struct SSkeletonFormat *,...)" (??$CallObjectSerialize@USSkeletonFormat@@@CSaverAccessor@@AAAXDPAUSSkeletonFormat@@ZZ)
+SpriteAnimation.obj : error LNK2019: unresolved external symbol "public: bool const __thiscall SSpritesPack::SSprite::SEdge::IsInside(class CVec2 const &)const " (?IsInside@SEdge@SSprite@SSpritesPack@@QBE?B_NABVCVec2@@@Z) referenced in function "public: virtual bool const __stdcall CComplexSprite::IsHit(class CVec3 const &,class CVec2 const &,class CVec2 *)const " (?IsHit@CComplexSprite@@UBG?B_NABVCVec3@@ABVCVec2@@PAV3@@Z)
+AnimObjectFactory.obj : error LNK2001: unresolved external symbol "public: virtual int __stdcall SSpritesPack::operator&(struct IStructureSaver &)" (??ISSpritesPack@@UAGHAAUIStructureSaver@@@Z)
+AnimObjectFactory.obj : error LNK2001: unresolved external symbol "public: virtual bool __stdcall SSpritesPack::Load(bool)" (?Load@SSpritesPack@@UAG_N_N@Z)
+AnimObjectFactory.obj : error LNK2001: unresolved external symbol "public: virtual int __stdcall SSpriteAnimationFormat::operator&(struct IStructureSaver &)" (??ISSpriteAnimationFormat@@UAGHAAUIStructureSaver@@@Z)
+AnimObjectFactory.obj : error LNK2001: unresolved external symbol "public: virtual bool __stdcall SSpriteAnimationFormat::Load(bool)" (?Load@SSpriteAnimationFormat@@UAG_N_N@Z)
+AnimObjectFactory.obj : error LNK2001: unresolved external symbol "public: virtual struct IRefCount * __stdcall CBasicObjectFactory::CreateObject(int)" (?CreateObject@CBasicObjectFactory@@UAGPAUIRefCount@@H@Z)
+AnimObjectFactory.obj : error LNK2019: unresolved external symbol "public: virtual void __stdcall CBasicObjectFactory::RegisterType(int,struct IRefCount * (__stdcall*)(void))" (?RegisterType@CBasicObjectFactory@@UAGXHP6GPAUIRefCount@@XZ@Z) referenced in function "public: __thiscall CAnimObjectFactory::CAnimObjectFactory(void)" (??0CAnimObjectFactory@@QAE@XZ)
+AnimObjectFactory.obj : error LNK2001: unresolved external symbol "public: virtual void __stdcall CBasicObjectFactory::Aggregate(struct IObjectFactory *)" (?Aggregate@CBasicObjectFactory@@UAGXPAUIObjectFactory@@@Z)
+AnimObjectFactory.obj : error LNK2001: unresolved external symbol "public: virtual void __stdcall CBasicObjectFactory::GetKnownTypes(struct SObjectFactoryTypeInfo *,int)" (?GetKnownTypes@CBasicObjectFactory@@UAGXPAUSObjectFactoryTypeInfo@@H@Z)
+.\Release\Anim.dll : fatal error LNK1120: 11 unresolved externals

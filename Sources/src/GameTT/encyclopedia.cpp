@@ -4,6 +4,7 @@
 
 #include "..\Main\GameStats.h"
 #include "..\Main\RPGStats.h"
+#include "MultiplayerCommandManager.h"
 #include "etypes.h"
 #include "CommonId.h"
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -43,10 +44,10 @@ void CInterfaceEncyclopedia::LoadMedalInfo( const SMedalStats *pMedalStats, std:
 	*pszTextureFileName = pMedalStats->szTexture;
 	CPtr<IText> p1 = pTextM->GetDialog( pMedalStats->szHeaderText.c_str() );
 	if ( p1 )
-		*pszTitle = p1->GetString();
+		pszTitle->assign( MakeWideStringFromWordString( p1->GetString() ) );
 	p1 = pTextM->GetDialog( pMedalStats->szDescriptionText.c_str() );
 	if ( p1 )
-		*pDesc = p1->GetString();
+		pDesc->assign( MakeWideStringFromWordString( p1->GetString() ) );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceEncyclopedia::LoadUnitInfo( const SUnitBaseRPGStats *pUnitStats, std::string *pszTextureFileName, std::wstring *pszTitle, std::wstring *pDesc, std::wstring *pStatistics )
@@ -57,17 +58,17 @@ void CInterfaceEncyclopedia::LoadUnitInfo( const SUnitBaseRPGStats *pUnitStats, 
 	CPtr<IText> p1 = GetSingleton<ITextManager>()->GetDialog( (pObjectDesc->szPath + "\\name").c_str() );
 //	NI_ASSERT_TF( p1 != 0, NStr::Format( "Can not read name.txt file for unit %s", pUnitStats->szKeyName.c_str() ), return );
 	if ( p1 )
-		*pszTitle = p1->GetString();
+		pszTitle->assign( MakeWideStringFromWordString( p1->GetString() ) );
 	
 	p1 = GetSingleton<ITextManager>()->GetDialog( (pObjectDesc->szPath + "\\desc").c_str() );
 //	NI_ASSERT_TF( p1 != 0, NStr::Format( "Can not read desc.txt file for unit %s", pUnitStats->szKeyName.c_str() ), return );
 	if ( p1 )
-		*pDesc = p1->GetString();
+		pDesc->assign( MakeWideStringFromWordString( p1->GetString() ) );
 
 	p1 = GetSingleton<ITextManager>()->GetDialog( (pObjectDesc->szPath + "\\stats").c_str() );
 	//	NI_ASSERT_TF( p1 != 0, NStr::Format( "Can not read desc.txt file for unit %s", pUnitStats->szKeyName.c_str() ), return );
 	if ( p1 )
-		*pStatistics = p1->GetString();
+		pStatistics->assign( MakeWideStringFromWordString( p1->GetString() ) );
 
 	*pszTextureFileName = pObjectDesc->szPath + "\\icon512";
 }
@@ -151,12 +152,12 @@ void CInterfaceEncyclopedia::Create( int nType, const char *pszName )
 	//установим текст заголовка
 	IUIElement *pHeader = pUIScreen->GetChildByID( 20000 );
 	NI_ASSERT_T( pHeader != 0, "Invalid encyclopedia header control" );
-	pHeader->SetWindowText( 0, szTitle.c_str() );
+	pHeader->SetWindowText( 0, reinterpret_cast<const WORD*>( szTitle.c_str() ) );
 
-	//установим текст описания
+	//????????? ????? ????????
 	IUIElement *pDesc = checked_cast<IUIElement *> ( pUIScreen->GetChildByID( 2000 ) );
 	NI_ASSERT_T( pDesc != 0, "Invalid encyclopedia text description control" );
-	pDesc->SetWindowText( 0, szDesc.c_str() );
+	pDesc->SetWindowText( 0, reinterpret_cast<const WORD*>( szDesc.c_str() ) );
 
 /*
 	//установим текст статистики

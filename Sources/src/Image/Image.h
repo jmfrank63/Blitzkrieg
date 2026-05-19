@@ -54,7 +54,7 @@ struct SColor
 		};
 	};
 	//
-	SColor() {  }
+	SColor() : color( 0 ) {  }
 	SColor( DWORD dwColor )	: color( dwColor ) {  }
 	SColor( BYTE _a, BYTE _r, BYTE _g, BYTE _b ) : b( _b ), g( _g ), r( _r ), a( _a ) {  }
 	//

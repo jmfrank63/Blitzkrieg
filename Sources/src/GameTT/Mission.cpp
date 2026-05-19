@@ -227,7 +227,7 @@ void CInterfaceAboutMission::StartInterface()
 	NI_ASSERT_T( pDesc != 0, "Invalid mission text description control" );
 	std::wstring szDescription;
 	CUIConsts::CreateDescription( &pChapterStats->missions[nMissionIndex], &szDescription, false );
-	pDesc->SetWindowText( 0, szDescription.c_str() );
+	pDesc->SetWindowText( 0, reinterpret_cast<const WORD*>( szDescription.c_str() ) );
 	//CPtr<IText> pText = pTM->GetDialog( pStats->szDescriptionText.c_str() );
 	//NI_ASSERT_T( pText != 0, NStr::Format("Can't find description text \"%s\"", pStats->szDescriptionText.c_str()) );
 	//if ( pText != 0 )

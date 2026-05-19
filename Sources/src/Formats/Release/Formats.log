@@ -2,38 +2,13 @@
   fmtAIGeneral.cpp
   fmtAnimation.cpp
   fmtEffect.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Formats\fmtAnimation.cpp(18,7): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/fmtAnimation.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Formats\fmtAnimation.cpp(18,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Formats\fmtAnimation.cpp(18,7):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-  
   fmtFont.cpp
   fmtMap.cpp
   fmtMesh.cpp
   fmtSound.cpp
   fmtSprite.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Formats\fmtSprite.cpp(9,7): error C2666: 'CPtr<IDataStream>::operator ==': overloaded functions have similar conversions
-  (compiling source file '/fmtSprite.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(588,1):
-      could be 'bool CPtr<IDataStream>::operator ==(const CPtr<IDataStream> &) const'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Formats\fmtSprite.cpp(9,7):
-      or       'built-in C++ operator==(TUserObj *, TUserObj *)'
-          with
-          [
-              TUserObj=IDataStream
-          ]
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Formats\fmtSprite.cpp(9,7):
-      while trying to match the argument list '(CPtr<IDataStream>, int)'
-  
   fmtTerrain.cpp
   fmtUnitCreation.cpp
   fmtVSO.cpp
   Generating Code...
+  Formats.vcxproj -> C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Formats\Release\Formats.lib

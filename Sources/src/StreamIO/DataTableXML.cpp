@@ -3,6 +3,8 @@
 #include "DataTableXML.h"
 #include "DataTreeXML.h"
 
+#include <cstring>
+
 #include "..\StreamIO\StreamAdaptor.h"
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CDataTableXML::CDataTableXML()
@@ -127,19 +129,23 @@ int CDataTableXML::GetEntryNames( const char *pszRow, char *pszBuffer, int nBuff
 			else
 			{
 				std::string szRowName = std::string(pszRow) + "/" + szName;
-				std::replace_if( szRowName.begin(), szRowName.end(), [](char c){ return c == '.'; }, '/' );
+				for ( std::string::iterator it = szRowName.begin(); it != szRowName.end(); ++it )
+					if ( *it == '.' )
+						*it = '/';
 				//
-				char buffer[65536];
-				const int nSize = GetEntryNames( szRowName.c_str(), buffer, 65536 );
+				std::vector<char> buffer( 65536 );
+				const int nSize = GetEntryNames( szRowName.c_str(), &buffer[0], buffer.size() );
 				if ( nSize > 1 )
 				{
-					const char *pos = buffer;
-					while ( (*pos != 0) && (pos - buffer <= nSize) )
+					const char *pos = &buffer[0];
+					while ( (*pos != 0) && (pos - &buffer[0] <= nSize) )
 					{
 						std::string szNewName = szName + "/" + pos;
-						std::replace_if( szNewName.begin(), szNewName.end(), [](char c){ return c == '/'; }, '.' );
+						for ( std::string::iterator it = szNewName.begin(); it != szNewName.end(); ++it )
+							if ( *it == '/' )
+								*it = '.';
 						nTotalSize += AddToBuffer( szNewName, pszBuffer, nBufferSize, nTotalSize );
-						pos = std::find( pos, (const char*)(buffer) + nSize, '\0' ) + 1;
+						pos += std::strlen( pos ) + 1;
 					}
 				}
 				else

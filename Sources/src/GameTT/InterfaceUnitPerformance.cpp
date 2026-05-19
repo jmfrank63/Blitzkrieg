@@ -167,8 +167,8 @@ void CInterfaceUnitPerformance::PrepairShortcutBar()
 	pDeadUnitsSB->Clear();
 	{
 		IUIElement *pBar = pLeveledUpSB->AddBar();		//bar невидимый
-		pBar->SetWindowText( 0, L"1" );
-		pBar->SetWindowText( 1, L"2" );
+		pBar->SetWindowText( 0, reinterpret_cast<const WORD*>( L"1" ) );
+		pBar->SetWindowText( 1, reinterpret_cast<const WORD*>( L"2" ) );
 		pBar->SetWindowID( 0 );
 		// fill all leveled up units
 		nPlayerUnits = pPlayerInfo->GetNumUnits();
