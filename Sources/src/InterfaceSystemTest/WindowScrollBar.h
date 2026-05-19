@@ -11,10 +11,9 @@
 
 #include "Window.h"
 #include "Interface.h"
+#include "WindowSlider.h"
+#include "WindowMultiBkg.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-class CWindowMSButton;
-class CWindowSlider;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // contains 1 slider and 2 buttons (up & down)
 class CWindowScrollBar : 	public CWindow, public ISlider
@@ -22,7 +21,7 @@ class CWindowScrollBar : 	public CWindow, public ISlider
 , public ISliderNotify
 //CRAP}
 {
-	OBJECT_COMPLETE_METHODS(CWindowSlider)
+	OBJECT_COMPLETE_METHODS(CWindowScrollBar)
 	DECLARE_SERIALIZE
 	DECLARE_CLONABLE_CLASS 
 
@@ -42,6 +41,10 @@ public:
 		
 	}
 	//CRAP}
+	virtual void STDCALL SetRange( const float fMin, const float fMax, const float fPageSize ) { pSlider->SetRange( fMin, fMax, fPageSize ); }
+	virtual void STDCALL GetRange( int *pMax, int *pMin ) const { pSlider->GetRange( pMax, pMin ); }
+	virtual void STDCALL SetPos( const int nCur ) { pSlider->SetPos( nCur ); }
+	virtual int STDCALL GetPos() const { return pSlider->GetPos(); }
 
 	virtual void STDCALL SetNotifySink( interface ISliderNotify *_pNotifySink );
 };

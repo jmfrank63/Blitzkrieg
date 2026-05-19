@@ -108,7 +108,8 @@ int ScriptErrorOut( struct lua_State *state )
 static int Sqrt( struct lua_State *pState )
 {
 	Script script( pState );
-	script.PushNumber(  sqrt( script.GetObject(1) ) );
+	const float fValue = script.GetObject(1).GetNumber();
+	script.PushNumber( ::sqrt( double( fValue ) ) );
 	return 1;
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

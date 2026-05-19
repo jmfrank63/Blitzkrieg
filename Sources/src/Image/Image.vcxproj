@@ -160,7 +160,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\Image.dll</OutputFile>
       <ImportLibrary>.\Debug\Image.lib</ImportLibrary>
-      <AdditionalDependencies>s3tc.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Image.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -207,7 +207,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\FastDebug\Image.dll</OutputFile>
       <ImportLibrary>.\FastDebug\Image.lib</ImportLibrary>
-      <AdditionalDependencies>s3tc.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Image.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -254,7 +254,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Release\Image.dll</OutputFile>
       <ImportLibrary>.\Release\Image.lib</ImportLibrary>
-      <AdditionalDependencies>s3tc.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Image.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -305,7 +305,7 @@
       <OutputFile>.\BetaRelease\Image.dll</OutputFile>
       <ImportLibrary>.\BetaRelease\Image.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>s3tc.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profiler|Win32'">
@@ -353,7 +353,7 @@
       <OutputFile>.\Profiler\Image.dll</OutputFile>
       <ImportLibrary>.\Profiler\Image.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>s3tc.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -365,6 +365,7 @@
     <ClInclude Include="ImagePNG.h" />
     <ClInclude Include="ImageProcessor.h" />
     <ClInclude Include="ImageReal.h" />
+    <ClInclude Include="S3TC.h" />
     <ClInclude Include="ImageTGA.h" />
     <ClInclude Include="Specific.h" />
     <ClInclude Include="StdAfx.h" />
@@ -378,6 +379,7 @@
     <ClCompile Include="ImagePNG.cpp" />
     <ClCompile Include="ImageProcessor.cpp" />
     <ClCompile Include="ImageReal.cpp" />
+    <ClCompile Include="S3TC.cpp" />
     <ClCompile Include="ImageScale.cpp" />
     <ClCompile Include="ImageTGA.cpp" />
     <ClCompile Include="RectsComposition.cpp" />
@@ -408,3 +410,4 @@
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
+

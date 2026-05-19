@@ -7,8 +7,8 @@
 #include "ImageTGA.h"
 #include "ImageMMP.h"
 
-extern "C" { 
-#include <s3tc.h>
+extern "C" {
+#include "S3TC.h"
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CImageProcessor::LoadImage( IDataStream *pStream ) const

@@ -5,11 +5,15 @@
 #include "stdafx.h"
 #include "WindowScrollBar.h"
 
+#include "WindowSlider.h"
+#include "WindowMultiBkg.h"
+
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
 int CWindowScrollBar::operator&( IDataTree &ss )
 {
+	return CWindow::operator&( ss );
 }
 //////////////////////////////////////////////////////////////////////
 void CWindowScrollBar::Reposition( const CTRect<float> &parentRect )

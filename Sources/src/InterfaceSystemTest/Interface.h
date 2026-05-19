@@ -71,7 +71,7 @@ public:
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMessageQueue : public IRefCount
 {
-	OBJECT_COMPETE_METHODS( CMessageQueue );
+	OBJECT_COMPLETE_METHODS( CMessageQueue );
 	//
 	std::list<SGameMessage> messages;
 	typedef std::unordered_map<std::string, CObj<CGameEvent> > CEventsMap;

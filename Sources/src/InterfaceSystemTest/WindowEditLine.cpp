@@ -516,7 +516,7 @@ void CWindowEditLine::EnsureCursorVisible()
 	CTRect<float> wndRect;
 	FillWindowRectEditLine( &wndRect );
 	IText *pText = pGfxText->GetText();
-	pText->SetText( wszFullText.c_str() + nBeginText );
+	pText->SetText( reinterpret_cast<const WORD*>( wszFullText.c_str() + nBeginText ) );
 	pGfxText->SetText( pText );
 
 	if ( nCursorPos <= 0 && nBeginText > 0 )
@@ -537,7 +537,7 @@ void CWindowEditLine::EnsureCursorVisible()
 			nBeginText--;
 			nCursorPos++;
 		}
-		pText->SetText( wszFullText.c_str() + nBeginText );
+		pText->SetText( reinterpret_cast<const WORD*>( wszFullText.c_str() + nBeginText ) );
 		pGfxText->SetText( pText );
 	}
 	else if ( pGfxText->GetWidth( nCursorPos ) > wndRect.Width() - 2 )
@@ -554,7 +554,7 @@ void CWindowEditLine::EnsureCursorVisible()
 			{
 				wszFullText.erase( wszFullText.size() - 1 );
 			}
-			pText->SetText( wszFullText.c_str() + nBeginText );
+			pText->SetText( reinterpret_cast<const WORD*>( wszFullText.c_str() + nBeginText ) );
 			pGfxText->SetText( pText );
 		}
 	}
@@ -572,7 +572,7 @@ bool CWindowEditLine::IsTextInsideEditLine()
 		return true;
 
 	IText *pText = pGfxText->GetText();
-	pText->SetText( wszFullText.c_str() + nBeginText );
+	pText->SetText( reinterpret_cast<const WORD*>( wszFullText.c_str() + nBeginText ) );
 	pGfxText->SetText( pText );
 	return pGfxText->GetWidth( -1 ) <= wndRect.Width() - 2;
 }

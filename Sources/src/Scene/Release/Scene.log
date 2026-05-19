@@ -75,7 +75,7 @@ SceneDraw.obj : error LNK2001: unresolved external symbol "public: static int co
 MeshBuilders.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeX" (?nSizeX@STerrainPatchInfo@@2HB)
 RiverBuilder.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeX" (?nSizeX@STerrainPatchInfo@@2HB)
 TerrainBuilder.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeX" (?nSizeX@STerrainPatchInfo@@2HB)
-TerrainEditor.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeY" (?nSizeY@STerrainPatchInfo@@2HB)
+TerrainEditor.obj : error LNK2019: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeY" (?nSizeY@STerrainPatchInfo@@2HB) referenced in function "public: __thiscall CTerrainVectorObject::CTerrainVectorObject(void)" (??0CTerrainVectorObject@@QAE@XZ)
 TerraDraw.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeY" (?nSizeY@STerrainPatchInfo@@2HB)
 TerrainInternal.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeY" (?nSizeY@STerrainPatchInfo@@2HB)
 TerraSound.obj : error LNK2001: unresolved external symbol "public: static int const STerrainPatchInfo::nSizeY" (?nSizeY@STerrainPatchInfo@@2HB)

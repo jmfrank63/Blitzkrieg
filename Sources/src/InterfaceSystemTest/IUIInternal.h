@@ -4,6 +4,14 @@
 #include "Interface.h"
 #include "..\GameTT\iMission.h"
 /////////////////////////////////////////////////////////////////////////////
+enum EUIStateManipulatorID
+{
+	EUISM_PS_MOVETO = 1,
+	EUISM_RUN_REACTION = 2,
+	EUISM_PS_MOVETO_COMMAND = EUISM_PS_MOVETO,
+	EUISM_RUN_REACTION_COMMAND = EUISM_RUN_REACTION
+};
+/////////////////////////////////////////////////////////////////////////////
 // broadcast message (old fashioned), visits all windows untill some of them processed it
 struct SBUIMessage
 {

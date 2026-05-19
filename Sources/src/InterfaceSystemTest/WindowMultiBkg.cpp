@@ -209,7 +209,7 @@ void CWindowMSButton::Init()
 	// register message sinks
 	for ( int i = 0; i < buttonStates.size(); ++i )
 		if ( !buttonStates[i].szPushMessage.empty() )
-			buttonStates[i].push.Init( GetScreen(), this, OnMessagePush, buttonStates[i].szPushMessage );
+			buttonStates[i].push.Init( GetScreen(), this, &CWindowMSButton::OnMessagePush, buttonStates[i].szPushMessage );
 }
 //////////////////////////////////////////////////////////////////////
 void CWindowMSButton::OnButtonDown( const CVec2 &vPos, const int nButton )

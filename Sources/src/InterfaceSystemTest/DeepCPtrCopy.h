@@ -83,7 +83,7 @@ public:
 	CDCPtr() { }
 	
 	CDCPtr( const CDCPtr & p ) { Clone( p ); }
-	operator=( const CDCPtr &p ) { Clone( p ); }
+	CDCPtr &operator=( const CDCPtr &p ) { Clone( p ); return *this; }
 };
 /////////////////////////////////////////////////////////////////////////////
 // don't copy et all if IsClone
@@ -106,7 +106,7 @@ public:
 		CObj<TPtr>::operator=( p );
 	}
 	CNCPtr( const CNCPtr &p ) { Clone( p ); }
-	operator=( const CNCPtr &p ) { Clone( p ); }
+	CNCPtr &operator=( const CNCPtr &p ) { Clone( p ); return *this; }
 };
 /////////////////////////////////////////////////////////////////////////////
 #endif // !defined(AFX_DEEPCPTRCOPY_H__C87849A5_AFF1_4D0A_8E89_F1B20F66F719__INCLUDED_)

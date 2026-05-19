@@ -480,7 +480,10 @@ interface ICamera : public IRefCount
 // **
 // ************************************************************************************************************************ //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-interface ICursor : public ISceneObject
+#ifdef ICursor
+#undef ICursor
+#endif
+interface ISceneCursor : public ISceneObject
 {
 	// type ID
 	enum { tidTypeID = SCENE_CURSOR };
@@ -748,6 +751,7 @@ interface IVisObjBuilder : public IRefCount
 	virtual bool STDCALL ChangeSceneObject( ISceneObject *pObj, const char *pszName, ESceneObjectType eType, int nSubtype = -1 ) = 0;
 	virtual void STDCALL Clear() = 0;
 };
+#define ICursor ISceneCursor
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ************************************************************************************************************************ //
 // **

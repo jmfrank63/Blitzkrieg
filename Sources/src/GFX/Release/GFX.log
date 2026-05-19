@@ -1705,6 +1705,7 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2628: 'CTexture' followed by 'void' is illegal (did you forget a ';'?)
   (compiling source file '/GraphicsEngine.cpp')
   
+  VideoCheck.cpp
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C7754: 'CTexture' a type cannot be defined as a return or parameter type
   (compiling source file '/GraphicsEngine.cpp')
   
@@ -1765,7 +1766,6 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2065: 'nRefData': undeclared identifier
   (compiling source file '/GraphicsEngine.cpp')
   
-  VideoCheck.cpp
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2575: 'Release': only member functions and bases can be virtual
   (compiling source file '/GraphicsEngine.cpp')
   

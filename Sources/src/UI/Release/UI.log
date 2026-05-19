@@ -5,14 +5,134 @@
   UIBasicM.cpp
   UIButton.cpp
   UIColorTextScroll.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIColorTextScroll.cpp(23,16): error C2664: 'void IText::SetText(const WORD *)': cannot convert argument 1 from 'const _Elem *' to 'const WORD *'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIColorTextScroll.cpp(23,16): error C2664:         with
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIColorTextScroll.cpp(23,16): error C2664:         [
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIColorTextScroll.cpp(23,16): error C2664:             _Elem=wchar_t
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIColorTextScroll.cpp(23,16): error C2664:         ]
+  (compiling source file '/UIColorTextScroll.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIColorTextScroll.cpp(23,39):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\TextSystem.h(18,23):
+      see declaration of 'IText::SetText'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIColorTextScroll.cpp(23,16):
+      while trying to match the argument list '(const _Elem *)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+  
   UIComboBox.cpp
   UIComplexScroll.cpp
   UIConsole.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIConsole.cpp(279,11): error C2664: 'void IText::SetText(const WORD *)': cannot convert argument 1 from 'const _Elem *' to 'const WORD *'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIConsole.cpp(279,11): error C2664:         with
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIConsole.cpp(279,11): error C2664:         [
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIConsole.cpp(279,11): error C2664:             _Elem=wchar_t
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIConsole.cpp(279,11): error C2664:         ]
+  (compiling source file '/UIConsole.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIConsole.cpp(279,38):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\TextSystem.h(18,23):
+      see declaration of 'IText::SetText'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIConsole.cpp(279,11):
+      while trying to match the argument list '(const _Elem *)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIConsole.cpp(281,11): error C2664: 'void IText::SetText(const WORD *)': cannot convert argument 1 from 'const wchar_t [1]' to 'const WORD *'
+  (compiling source file '/UIConsole.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIConsole.cpp(281,20):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\TextSystem.h(18,23):
+      see declaration of 'IText::SetText'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIConsole.cpp(281,11):
+      while trying to match the argument list '(const wchar_t [1])'
+  
   UICreditsScroller.cpp
   UIDialog.cpp
   UIEdit.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(718,9): error C2664: 'void IText::SetText(const WORD *)': cannot convert argument 1 from 'const _Elem *' to 'const WORD *'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(718,9): error C2664:         with
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(718,9): error C2664:         [
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(718,9): error C2664:             _Elem=wchar_t
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(718,9): error C2664:         ]
+  (compiling source file '/UIEdit.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(718,38):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\TextSystem.h(18,23):
+      see declaration of 'IText::SetText'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(718,9):
+      while trying to match the argument list '(const _Elem *)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(739,10): error C2664: 'void IText::SetText(const WORD *)': cannot convert argument 1 from 'const _Elem *' to 'const WORD *'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(739,10): error C2664:         with
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(739,10): error C2664:         [
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(739,10): error C2664:             _Elem=wchar_t
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(739,10): error C2664:         ]
+  (compiling source file '/UIEdit.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(739,39):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\TextSystem.h(18,23):
+      see declaration of 'IText::SetText'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(739,10):
+      while trying to match the argument list '(const _Elem *)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(756,11): error C2664: 'void IText::SetText(const WORD *)': cannot convert argument 1 from 'const _Elem *' to 'const WORD *'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(756,11): error C2664:         with
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(756,11): error C2664:         [
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(756,11): error C2664:             _Elem=wchar_t
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(756,11): error C2664:         ]
+  (compiling source file '/UIEdit.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(756,40):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\TextSystem.h(18,23):
+      see declaration of 'IText::SetText'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(756,11):
+      while trying to match the argument list '(const _Elem *)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(773,9): error C2664: 'void IText::SetText(const WORD *)': cannot convert argument 1 from 'const _Elem *' to 'const WORD *'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(773,9): error C2664:         with
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(773,9): error C2664:         [
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(773,9): error C2664:             _Elem=wchar_t
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(773,9): error C2664:         ]
+  (compiling source file '/UIEdit.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(773,38):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\TextSystem.h(18,23):
+      see declaration of 'IText::SetText'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(773,9):
+      while trying to match the argument list '(const _Elem *)'
+          with
+          [
+              _Elem=wchar_t
+          ]
+  
   UIInternal.cpp
   UIInternalM.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIInternalM.cpp(156,9): error C2664: 'void IText::SetText(const WORD *)': cannot convert argument 1 from '_bstr_t' to 'const WORD *'
+  (compiling source file '/UIInternalM.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIInternalM.cpp(156,18):
+      No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\TextSystem.h(18,23):
+      see declaration of 'IText::SetText'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIInternalM.cpp(156,9):
+      while trying to match the argument list '(_bstr_t)'
+  
   UIList.cpp
   UIListSorter.cpp
   UIMask.cpp
@@ -34,76 +154,3 @@
   UITree.cpp
   UIVideoButton.cpp
   Generating Code...
-.\UI.def(4): warning LNK4017: DESCRIPTION statement not supported for the target platform; ignored
-     Creating library .\Release\UI.lib and object .\Release\UI.exp
-UIObjectiveScreen.obj : error LNK2001: unresolved external symbol "int __cdecl NStr::ToInt(char const *)" (?ToInt@NStr@@YAHPBD@Z)
-UIObjMap.obj : error LNK2001: unresolved external symbol "int __cdecl NStr::ToInt(char const *)" (?ToInt@NStr@@YAHPBD@Z)
-UIBasic.obj : error LNK2001: unresolved external symbol "int __cdecl NStr::ToInt(char const *)" (?ToInt@NStr@@YAHPBD@Z)
-UIConsole.obj : error LNK2001: unresolved external symbol "int __cdecl NStr::ToInt(char const *)" (?ToInt@NStr@@YAHPBD@Z)
-UIMiniMap.obj : error LNK2001: unresolved external symbol "int __cdecl NStr::ToInt(char const *)" (?ToInt@NStr@@YAHPBD@Z)
-UIScreen.obj : error LNK2001: unresolved external symbol "int __cdecl NStr::ToInt(char const *)" (?ToInt@NStr@@YAHPBD@Z)
-UIObjectiveScreen.obj : error LNK2001: unresolved external symbol "char const * __cdecl NStr::Format(char const *,...)" (?Format@NStr@@YAPBDPBDZZ)
-UIBasic.obj : error LNK2001: unresolved external symbol "char const * __cdecl NStr::Format(char const *,...)" (?Format@NStr@@YAPBDPBDZZ)
-UIConsole.obj : error LNK2001: unresolved external symbol "char const * __cdecl NStr::Format(char const *,...)" (?Format@NStr@@YAPBDPBDZZ)
-UIMiniMap.obj : error LNK2001: unresolved external symbol "char const * __cdecl NStr::Format(char const *,...)" (?Format@NStr@@YAPBDPBDZZ)
-UIScreen.obj : error LNK2001: unresolved external symbol "char const * __cdecl NStr::Format(char const *,...)" (?Format@NStr@@YAPBDPBDZZ)
-UIBasic.obj : error LNK2019: unresolved external symbol "void __cdecl NStr::DebugTrace(char const *,...)" (?DebugTrace@NStr@@YAXPBDZZ) referenced in function "int __cdecl OutputValue(struct lua_State *)" (?OutputValue@@YAHPAUlua_State@@@Z)
-UIComplexScroll.obj : error LNK2001: unresolved external symbol _lua_close
-UIList.obj : error LNK2001: unresolved external symbol _lua_close
-UIShortcutBar.obj : error LNK2001: unresolved external symbol _lua_close
-UIObjectFactory.obj : error LNK2001: unresolved external symbol _lua_close
-UIBasic.obj : error LNK2001: unresolved external symbol _lua_close
-UIConsole.obj : error LNK2001: unresolved external symbol _lua_close
-UIScreen.obj : error LNK2001: unresolved external symbol _lua_close
-UIStatusBar.obj : error LNK2001: unresolved external symbol _lua_close
-UIBasic.obj : error LNK2019: unresolved external symbol _lua_gettop referenced in function "public: virtual int __stdcall CMultipleWindow::operator&(struct IStructureSaver &)" (??ICMultipleWindow@@UAGHAAUIStructureSaver@@@Z)
-UIConsole.obj : error LNK2001: unresolved external symbol _lua_gettop
-UIBasic.obj : error LNK2019: unresolved external symbol _lua_settop referenced in function "public: virtual bool __stdcall CMultipleWindow::ProcessMessage(struct SUIMessage const &)" (?ProcessMessage@CMultipleWindow@@UAG_NABUSUIMessage@@@Z)
-UIConsole.obj : error LNK2001: unresolved external symbol _lua_settop
-UIBasic.obj : error LNK2019: unresolved external symbol _lua_type referenced in function "public: virtual int __stdcall CMultipleWindow::operator&(struct IStructureSaver &)" (??ICMultipleWindow@@UAGHAAUIStructureSaver@@@Z)
-UIBasic.obj : error LNK2019: unresolved external symbol _lua_tonumber referenced in function "public: static int __cdecl CMultipleWindow::AddMessage(struct lua_State *)" (?AddMessage@CMultipleWindow@@SAHPAUlua_State@@@Z)
-UIConsole.obj : error LNK2001: unresolved external symbol _lua_tonumber
-UIBasic.obj : error LNK2019: unresolved external symbol _lua_tostring referenced in function "int __cdecl GetUserProfileVar(struct lua_State *)" (?GetUserProfileVar@@YAHPAUlua_State@@@Z)
-UIConsole.obj : error LNK2001: unresolved external symbol _lua_tostring
-UIBasic.obj : error LNK2019: unresolved external symbol _lua_pushnumber referenced in function "public: virtual int __stdcall CMultipleWindow::operator&(struct IStructureSaver &)" (??ICMultipleWindow@@UAGHAAUIStructureSaver@@@Z)
-UIConsole.obj : error LNK2001: unresolved external symbol _lua_pushnumber
-UIBasic.obj : error LNK2019: unresolved external symbol _lua_pushcclosure referenced in function "public: virtual int __stdcall CMultipleWindow::operator&(struct IStructureSaver &)" (??ICMultipleWindow@@UAGHAAUIStructureSaver@@@Z)
-UIBasic.obj : error LNK2019: unresolved external symbol _lua_getglobal referenced in function "public: virtual int __stdcall CMultipleWindow::operator&(struct IStructureSaver &)" (??ICMultipleWindow@@UAGHAAUIStructureSaver@@@Z)
-UIBasic.obj : error LNK2019: unresolved external symbol _lua_setglobal referenced in function "public: virtual int __stdcall CMultipleWindow::operator&(struct IStructureSaver &)" (??ICMultipleWindow@@UAGHAAUIStructureSaver@@@Z)
-UIBasic.obj : error LNK2019: unresolved external symbol _lua_call referenced in function "public: virtual int __stdcall CMultipleWindow::operator&(struct IStructureSaver &)" (??ICMultipleWindow@@UAGHAAUIStructureSaver@@@Z)
-UIBasic.obj : error LNK2019: unresolved external symbol _lua_dobuffer referenced in function "public: virtual int __stdcall CMultipleWindow::operator&(struct IStructureSaver &)" (??ICMultipleWindow@@UAGHAAUIStructureSaver@@@Z)
-UIConsole.obj : error LNK2001: unresolved external symbol _lua_dobuffer
-UIBasic.obj : error LNK2019: unresolved external symbol "public: void __thiscall Script::Init(bool)" (?Init@Script@@QAEX_N@Z) referenced in function "public: virtual int __stdcall CMultipleWindow::operator&(struct IStructureSaver &)" (??ICMultipleWindow@@UAGHAAUIStructureSaver@@@Z)
-UIConsole.obj : error LNK2001: unresolved external symbol "public: void __thiscall Script::Init(bool)" (?Init@Script@@QAEX_N@Z)
-UIBasicM.obj : error LNK2019: unresolved external symbol "public: bool __thiscall CPropertiesRegister::AddProperty(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const &,class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const &,struct SBaseProperty *)" (?AddProperty@CPropertiesRegister@@QAE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0PAUSBaseProperty@@@Z) referenced in function "protected: struct SProperty<class CUIWindowManipulator> * __thiscall CManipulator::AddNewProperty<class CUIWindowManipulator>(class CUIWindowManipulator *,class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const &,void (__thiscall CUIWindowManipulator::*)(class _variant_t const &),void (__thiscall CUIWindowManipulator::*)(class _variant_t *,int),enum SPropertyDesc::EPropertyType,enum SBaseProperty::ENodeType)" (??$AddNewProperty@VCUIWindowManipulator@@@CManipulator@@IAEPAU?$SProperty@VCUIWindowManipulator@@@@PAVCUIWindowManipulator@@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@P82@AEXABV_variant_t@@@ZP82@AEXPAV5@H@ZW4EPropertyType@SPropertyDesc@@W4ENodeType@SBaseProperty@@@Z)
-UIInternalM.obj : error LNK2001: unresolved external symbol "public: bool __thiscall CPropertiesRegister::AddProperty(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const &,class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const &,struct SBaseProperty *)" (?AddProperty@CPropertiesRegister@@QAE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0PAUSBaseProperty@@@Z)
-UIBasicM.obj : error LNK2019: unresolved external symbol "protected: bool __thiscall CManipulator::DoWeNeedFillProps(void)const " (?DoWeNeedFillProps@CManipulator@@IBE_NXZ) referenced in function "public: __thiscall CUIWindowManipulator::CUIWindowManipulator(void)" (??0CUIWindowManipulator@@QAE@XZ)
-UIInternalM.obj : error LNK2001: unresolved external symbol "protected: bool __thiscall CManipulator::DoWeNeedFillProps(void)const " (?DoWeNeedFillProps@CManipulator@@IBE_NXZ)
-UIBasicM.obj : error LNK2001: unresolved external symbol "public: virtual struct IManipulatorIterator * __stdcall CManipulator::Iterate(void)" (?Iterate@CManipulator@@UAGPAUIManipulatorIterator@@XZ)
-UIInternalM.obj : error LNK2001: unresolved external symbol "public: virtual struct IManipulatorIterator * __stdcall CManipulator::Iterate(void)" (?Iterate@CManipulator@@UAGPAUIManipulatorIterator@@XZ)
-UIBasicM.obj : error LNK2001: unresolved external symbol "public: virtual struct SPropertyDesc const * __stdcall CManipulator::GetPropertyDesc(char const *)" (?GetPropertyDesc@CManipulator@@UAGPBUSPropertyDesc@@PBD@Z)
-UIInternalM.obj : error LNK2001: unresolved external symbol "public: virtual struct SPropertyDesc const * __stdcall CManipulator::GetPropertyDesc(char const *)" (?GetPropertyDesc@CManipulator@@UAGPBUSPropertyDesc@@PBD@Z)
-UIBasicM.obj : error LNK2001: unresolved external symbol "public: virtual bool __stdcall CManipulator::GetValue(char const *,class _variant_t *)" (?GetValue@CManipulator@@UAG_NPBDPAV_variant_t@@@Z)
-UIInternalM.obj : error LNK2001: unresolved external symbol "public: virtual bool __stdcall CManipulator::GetValue(char const *,class _variant_t *)" (?GetValue@CManipulator@@UAG_NPBDPAV_variant_t@@@Z)
-UIBasicM.obj : error LNK2001: unresolved external symbol "public: virtual bool __stdcall CManipulator::SetValue(char const *,class _variant_t const &)" (?SetValue@CManipulator@@UAG_NPBDABV_variant_t@@@Z)
-UIInternalM.obj : error LNK2001: unresolved external symbol "public: virtual bool __stdcall CManipulator::SetValue(char const *,class _variant_t const &)" (?SetValue@CManipulator@@UAG_NPBDABV_variant_t@@@Z)
-UIConsole.obj : error LNK2019: unresolved external symbol "void __cdecl NStr::TrimRight(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > &,char const *)" (?TrimRight@NStr@@YAXAAV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@PBD@Z) referenced in function "private: void __thiscall CUIConsole::ParseCommand(class std::basic_string<wchar_t,struct std::char_traits<wchar_t>,class std::allocator<wchar_t> > const &)" (?ParseCommand@CUIConsole@@AAEXABV?$basic_string@_WU?$char_traits@_W@std@@V?$allocator@_W@2@@std@@@Z)
-UIConsole.obj : error LNK2019: unresolved external symbol "float __cdecl NStr::ToFloat(char const *)" (?ToFloat@NStr@@YAMPBD@Z) referenced in function "int __cdecl GetFGlobalVar(struct lua_State *)" (?GetFGlobalVar@@YAHPAUlua_State@@@Z)
-UIConsole.obj : error LNK2019: unresolved external symbol "void __cdecl NStr::ToAscii(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > *,class std::basic_string<wchar_t,struct std::char_traits<wchar_t>,class std::allocator<wchar_t> > const &)" (?ToAscii@NStr@@YAXPAV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@ABV?$basic_string@_WU?$char_traits@_W@std@@V?$allocator@_W@2@@3@@Z) referenced in function "private: void __thiscall CUIConsole::ParseCommand(class std::basic_string<wchar_t,struct std::char_traits<wchar_t>,class std::allocator<wchar_t> > const &)" (?ParseCommand@CUIConsole@@AAEXABV?$basic_string@_WU?$char_traits@_W@std@@V?$allocator@_W@2@@std@@@Z)
-UIListSorter.obj : error LNK2001: unresolved external symbol "void __cdecl NStr::ToAscii(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > *,class std::basic_string<wchar_t,struct std::char_traits<wchar_t>,class std::allocator<wchar_t> > const &)" (?ToAscii@NStr@@YAXPAV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@ABV?$basic_string@_WU?$char_traits@_W@std@@V?$allocator@_W@2@@3@@Z)
-UIConsole.obj : error LNK2019: unresolved external symbol _lua_isnumber referenced in function "private: void __thiscall CUIConsole::ParseCommand(class std::basic_string<wchar_t,struct std::char_traits<wchar_t>,class std::allocator<wchar_t> > const &)" (?ParseCommand@CUIConsole@@AAEXABV?$basic_string@_WU?$char_traits@_W@std@@V?$allocator@_W@2@@std@@@Z)
-UIConsole.obj : error LNK2019: unresolved external symbol _lua_pushstring referenced in function "int __cdecl GetSGlobalVar(struct lua_State *)" (?GetSGlobalVar@@YAHPAUlua_State@@@Z)
-UIConsole.obj : error LNK2019: unresolved external symbol _lua_dostring referenced in function "private: void __thiscall CUIConsole::ParseCommand(class std::basic_string<wchar_t,struct std::char_traits<wchar_t>,class std::allocator<wchar_t> > const &)" (?ParseCommand@CUIConsole@@AAEXABV?$basic_string@_WU?$char_traits@_W@std@@V?$allocator@_W@2@@std@@@Z)
-UIList.obj : error LNK2001: unresolved external symbol "public: __thiscall Script::Script(bool)" (??0Script@@QAE@_N@Z)
-UIShortcutBar.obj : error LNK2001: unresolved external symbol "public: __thiscall Script::Script(bool)" (??0Script@@QAE@_N@Z)
-UIObjectFactory.obj : error LNK2001: unresolved external symbol "public: __thiscall Script::Script(bool)" (??0Script@@QAE@_N@Z)
-UIConsole.obj : error LNK2001: unresolved external symbol "public: __thiscall Script::Script(bool)" (??0Script@@QAE@_N@Z)
-UIScreen.obj : error LNK2001: unresolved external symbol "public: __thiscall Script::Script(bool)" (??0Script@@QAE@_N@Z)
-UIStatusBar.obj : error LNK2001: unresolved external symbol "public: __thiscall Script::Script(bool)" (??0Script@@QAE@_N@Z)
-UIComplexScroll.obj : error LNK2001: unresolved external symbol "public: __thiscall Script::Script(bool)" (??0Script@@QAE@_N@Z)
-UIConsole.obj : error LNK2019: unresolved external symbol "public: void __thiscall Script::Register(struct Script::SRegFunction const *)" (?Register@Script@@QAEXPBUSRegFunction@1@@Z) referenced in function "private: void __thiscall CUIConsole::InitConsoleScript(void)" (?InitConsoleScript@CUIConsole@@AAEXXZ)
-UIObjectFactory.obj : error LNK2001: unresolved external symbol "public: virtual struct IRefCount * __stdcall CBasicObjectFactory::CreateObject(int)" (?CreateObject@CBasicObjectFactory@@UAGPAUIRefCount@@H@Z)
-UIObjectFactory.obj : error LNK2019: unresolved external symbol "public: virtual void __stdcall CBasicObjectFactory::RegisterType(int,struct IRefCount * (__stdcall*)(void))" (?RegisterType@CBasicObjectFactory@@UAGXHP6GPAUIRefCount@@XZ@Z) referenced in function "public: __thiscall CUIObjectFactory::CUIObjectFactory(void)" (??0CUIObjectFactory@@QAE@XZ)
-UIObjectFactory.obj : error LNK2001: unresolved external symbol "public: virtual void __stdcall CBasicObjectFactory::Aggregate(struct IObjectFactory *)" (?Aggregate@CBasicObjectFactory@@UAGXPAUIObjectFactory@@@Z)
-UIObjectFactory.obj : error LNK2001: unresolved external symbol "public: virtual void __stdcall CBasicObjectFactory::GetKnownTypes(struct SObjectFactoryTypeInfo *,int)" (?GetKnownTypes@CBasicObjectFactory@@UAGXPAUSObjectFactoryTypeInfo@@H@Z)
-.\Release\UI.dll : fatal error LNK1120: 34 unresolved externals

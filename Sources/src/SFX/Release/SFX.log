@@ -1,11 +1,1 @@
-﻿  StdAfx.cpp
-  GlobalsLoader.cpp
-  SampleSounds.cpp
-  SoundEngine.cpp
-  SoundManager.cpp
-  SoundObjectFactory.cpp
-  SoundsSerialize.cpp
-  StreamFadeOff.cpp
-  StreamingSound.cpp
-  Generating Code...
-C:\Program Files\Microsoft Visual Studio\18\Insiders\MSBuild\Microsoft\VC\v180\Microsoft.CppCommon.targets(1196,5): error MSB6006: "link.exe" exited with code -1073741502.
+﻿LINK : fatal error LNK1181: cannot open input file 'fmodvc.lib'

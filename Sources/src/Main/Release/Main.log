@@ -16,176 +16,70 @@
   AILogicCommand.cpp
   AILogicCommandInternal.cpp
   MultiPlayerTransceiver.cpp
-  SinglePlayerTransceiver.cpp
-  ChatMessages.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
-  (compiling source file '/ChatMessages.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
-      see previous definition of 'ToWordString'
-  
-  GameCreationMessages.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
-  (compiling source file '/GameCreationMessages.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
-      see previous definition of 'ToWordString'
-  
-  Generating Code...
-  Compiling...
-  MessagesStore.cpp
-  ServersListMessages.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
-  (compiling source file '/ServersListMessages.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
-      see previous definition of 'ToWordString'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersListMessages.cpp(20,23): error C2264: 'ToWordString': error in function definition or declaration; function not called
-  (compiling source file '/ServersListMessages.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersListMessages.cpp(19,21): error C2661: 'SUIServerInfo::SUIServerInfo': no overloaded function takes 12 arguments
-  (compiling source file '/ServersListMessages.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersListMessages.cpp(19,21):
-      while trying to match the argument list '(WORD, const _Elem *, int, int, bool, bool, float, const _Elem *, const _Elem *, bool, CMapInfo::GAME_TYPE, SMultiplayerGameSettings)'
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiPlayerTransceiver.cpp(135,49): error C2664: 'const WORD *GetGlobalWVar(const char *,const WORD *)': cannot convert argument 2 from 'const wchar_t [15]' to 'const WORD *'
+  (compiling source file '/MultiPlayerTransceiver.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiPlayerTransceiver.cpp(135,85):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIO\Globals.h(80,20):
+      see declaration of 'GetGlobalWVar'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiPlayerTransceiver.cpp(135,49):
+      while trying to match the argument list '(const _Elem *, const wchar_t [15])'
           with
           [
               _Elem=char
           ]
   
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersListMessages.cpp(45,40): error C2264: 'ToWordString': error in function definition or declaration; function not called
-  (compiling source file '/ServersListMessages.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersListMessages.cpp(45,21): error C2661: 'SUIServerInfo::SUIServerInfo': no overloaded function takes 12 arguments
-  (compiling source file '/ServersListMessages.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersListMessages.cpp(45,21):
-      while trying to match the argument list '(WORD, const char [1], int, int, bool, bool, int, const char [1], const char [1], bool, CMapInfo::GAME_TYPE, SMultiplayerGameSettings)'
-  
+  SinglePlayerTransceiver.cpp
+  ChatMessages.cpp
+  GameCreationMessages.cpp
+  Generating Code...
+  Compiling...
+  MessagesStore.cpp
+  ServersListMessages.cpp
   assert.cpp
   GameCreation.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameCreation.cpp(492,52): error C2664: 'const WORD *GetGlobalWVar(const char *,const WORD *)': cannot convert argument 2 from 'const wchar_t [7]' to 'const WORD *'
   (compiling source file '/GameCreation.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
-      see previous definition of 'ToWordString'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameCreation.cpp(492,108):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIO\Globals.h(80,20):
+      see declaration of 'GetGlobalWVar'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameCreation.cpp(492,52):
+      while trying to match the argument list '(const char [38], const wchar_t [7])'
+  
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameCreation.cpp(1183,59): error C2664: 'const WORD *GetGlobalWVar(const char *,const WORD *)': cannot convert argument 2 from 'const wchar_t [7]' to 'const WORD *'
+  (compiling source file '/GameCreation.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameCreation.cpp(1183,115):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIO\Globals.h(80,20):
+      see declaration of 'GetGlobalWVar'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameCreation.cpp(1183,59):
+      while trying to match the argument list '(const char [38], const wchar_t [7])'
   
   GamePlaying.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
-  (compiling source file '/GamePlaying.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
-      see previous definition of 'ToWordString'
-  
   GameSpyChat.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
-  (compiling source file '/GameSpyChat.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
-      see previous definition of 'ToWordString'
-  
   GameSpyPeerChat.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
-  (compiling source file '/GameSpyPeerChat.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
-      see previous definition of 'ToWordString'
-  
   LanChat.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
-  (compiling source file '/LanChat.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
-      see previous definition of 'ToWordString'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(32,54): error C2264: 'ToWordString': error in function definition or declaration; function not called
-  (compiling source file '/LanChat.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(32,40): error C2661: 'CChatMessage::CChatMessage': no overloaded function takes 2 arguments
-  (compiling source file '/LanChat.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(32,40):
-      while trying to match the argument list '(const WORD *, bool)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(49,54): error C2264: 'ToWordString': error in function definition or declaration; function not called
-  (compiling source file '/LanChat.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(49,40): error C2661: 'CChatMessage::CChatMessage': no overloaded function takes 2 arguments
-  (compiling source file '/LanChat.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(49,40):
-      while trying to match the argument list '(const WORD *, bool)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(74,44): error C2264: 'ToWordString': error in function definition or declaration; function not called
-  (compiling source file '/LanChat.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(74,71): error C2264: 'ToWordString': error in function definition or declaration; function not called
-  (compiling source file '/LanChat.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(74,42): error C2665: 'CChatMessage::CChatMessage': no overloaded function could convert all the argument types
-  (compiling source file '/LanChat.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ChatMessages.h(27,1):
-      could be 'CChatMessage::CChatMessage(const CChatMessage &)'
-          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(74,42):
-          'CChatMessage::CChatMessage(const CChatMessage &)': cannot convert argument 1 from 'bool' to 'const CChatMessage &'
-              C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(74,97):
-              Reason: cannot convert from 'bool' to 'const CChatMessage'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(74,42):
-      while trying to match the argument list '(bool)'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(77,44): error C2264: 'ToWordString': error in function definition or declaration; function not called
-  (compiling source file '/LanChat.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(77,71): error C2264: 'ToWordString': error in function definition or declaration; function not called
-  (compiling source file '/LanChat.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(77,42): error C2665: 'CChatMessage::CChatMessage': no overloaded function could convert all the argument types
-  (compiling source file '/LanChat.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ChatMessages.h(27,1):
-      could be 'CChatMessage::CChatMessage(const CChatMessage &)'
-          C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(77,42):
-          'CChatMessage::CChatMessage(const CChatMessage &)': cannot convert argument 1 from 'bool' to 'const CChatMessage &'
-              C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(77,97):
-              Reason: cannot convert from 'bool' to 'const CChatMessage'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\LanChat.cpp(77,42):
-      while trying to match the argument list '(bool)'
-  
   MultiplayerInternal.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(624,59): error C2664: 'const WORD *GetGlobalWVar(const char *,const WORD *)': cannot convert argument 2 from 'const wchar_t [7]' to 'const WORD *'
   (compiling source file '/MultiplayerInternal.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
-      see previous definition of 'ToWordString'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(94,7): error C2264: 'ToWordString': error in function definition or declaration; function not called
-  (compiling source file '/MultiplayerInternal.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(170,56): error C2264: 'ToWordString': error in function definition or declaration; function not called
-  (compiling source file '/MultiplayerInternal.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(412,25): error C2264: 'ToWordString': error in function definition or declaration; function not called
-  (compiling source file '/MultiplayerInternal.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(412,66): error C2264: 'ToWordString': error in function definition or declaration; function not called
-  (compiling source file '/MultiplayerInternal.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(422,53): error C2264: 'ToWordString': error in function definition or declaration; function not called
-  (compiling source file '/MultiplayerInternal.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(426,52): error C2264: 'ToWordString': error in function definition or declaration; function not called
-  (compiling source file '/MultiplayerInternal.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(432,33): error C2264: 'ToWordString': error in function definition or declaration; function not called
-  (compiling source file '/MultiplayerInternal.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(435,25): error C2264: 'ToWordString': error in function definition or declaration; function not called
-  (compiling source file '/MultiplayerInternal.cpp')
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(628,25): error C2264: 'ToWordString': error in function definition or declaration; function not called
-  (compiling source file '/MultiplayerInternal.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(624,115):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIO\Globals.h(80,20):
+      see declaration of 'GetGlobalWVar'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(624,59):
+      while trying to match the argument list '(const char [38], const wchar_t [7])'
   
   ServerInfo.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
-  (compiling source file '/ServerInfo.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
-      see previous definition of 'ToWordString'
-  
   ServersList.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServerInfo.h(51,20): error C2084: function 'const WORD *ToWordString(const std::wstring &)' already has a body
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersList.cpp(304,61): error C2664: 'const WORD *GetGlobalWVar(const char *,const WORD *)': cannot convert argument 2 from 'const wchar_t [7]' to 'const WORD *'
   (compiling source file '/ServersList.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GameTT\MultiplayerCommandManager.h(25,20):
-      see previous definition of 'ToWordString'
-  
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersList.cpp(308,25): error C2264: 'ToWordString': error in function definition or declaration; function not called
-  (compiling source file '/ServersList.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersList.cpp(304,117):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\StreamIO\Globals.h(80,20):
+      see declaration of 'GetGlobalWVar'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersList.cpp(304,61):
+      while trying to match the argument list '(const char [38], const wchar_t [7])'
   
   CommandsHistory.cpp
   PlayerScenarioInfo.cpp

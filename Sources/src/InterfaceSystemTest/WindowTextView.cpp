@@ -109,7 +109,7 @@ bool CWindowTextView::SetText( const std::wstring &szText )
 	CTRect<float> textRC;
 	FillWindowRect( &textRC );
 
-	pGfxText->GetText()->SetText( szText.c_str() );
+	pGfxText->GetText()->SetText( (const WORD*)szText.c_str() );
 	pGfxText->SetWidth( textRC.Width() );
 	return InitHeight();
 }

@@ -1,15 +1,29 @@
-﻿  StdAfx.cpp
-  ImageBMP.cpp
-  ImageMMP.cpp
-  ImageObjectFactory.cpp
-  ImagePNG.cpp
-  ImageProcessor.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Image\ImageProcessor.cpp(11,10): error C1083: Cannot open include file: 's3tc.h': No such file or directory
-  (compiling source file '/ImageProcessor.cpp')
-  
-  ImageReal.cpp
-  ImageScale.cpp
-  ImageTGA.cpp
-  RectsComposition.cpp
-  GlobalsLoader.cpp
-  Generating Code...
+﻿.\Image.def(4): warning LNK4017: DESCRIPTION statement not supported for the target platform; ignored
+     Creating library .\Release\Image.lib and object .\Release\Image.exp
+ImageObjectFactory.obj : error LNK2001: unresolved external symbol "public: virtual struct IRefCount * __stdcall CBasicObjectFactory::CreateObject(int)" (?CreateObject@CBasicObjectFactory@@UAGPAUIRefCount@@H@Z)
+ImageObjectFactory.obj : error LNK2019: unresolved external symbol "public: virtual void __stdcall CBasicObjectFactory::RegisterType(int,struct IRefCount * (__stdcall*)(void))" (?RegisterType@CBasicObjectFactory@@UAGXHP6GPAUIRefCount@@XZ@Z) referenced in function "public: __thiscall CImageObjectFactory::CImageObjectFactory(void)" (??0CImageObjectFactory@@QAE@XZ)
+ImageObjectFactory.obj : error LNK2001: unresolved external symbol "public: virtual void __stdcall CBasicObjectFactory::Aggregate(struct IObjectFactory *)" (?Aggregate@CBasicObjectFactory@@UAGXPAUIObjectFactory@@@Z)
+ImageObjectFactory.obj : error LNK2001: unresolved external symbol "public: virtual void __stdcall CBasicObjectFactory::GetKnownTypes(struct SObjectFactoryTypeInfo *,int)" (?GetKnownTypes@CBasicObjectFactory@@UAGXPAUSObjectFactoryTypeInfo@@H@Z)
+ImagePNG.obj : error LNK2019: unresolved external symbol _png_check_sig referenced in function "bool __cdecl NImage::RecognizeFormatPNG(struct IDataStream *)" (?RecognizeFormatPNG@NImage@@YA_NPAUIDataStream@@@Z)
+ImagePNG.obj : error LNK2019: unresolved external symbol _png_create_read_struct referenced in function "class CImage * __cdecl NImage::LoadImagePNG(struct IDataStream *)" (?LoadImagePNG@NImage@@YAPAVCImage@@PAUIDataStream@@@Z)
+ImagePNG.obj : error LNK2019: unresolved external symbol _png_create_write_struct referenced in function "bool __cdecl NImage::SaveImageAsPNG(struct IDataStream *,struct IImage const *)" (?SaveImageAsPNG@NImage@@YA_NPAUIDataStream@@PBUIImage@@@Z)
+ImagePNG.obj : error LNK2019: unresolved external symbol _png_create_info_struct referenced in function "class CImage * __cdecl NImage::LoadImagePNG(struct IDataStream *)" (?LoadImagePNG@NImage@@YAPAVCImage@@PAUIDataStream@@@Z)
+ImagePNG.obj : error LNK2019: unresolved external symbol _png_write_info referenced in function "bool __cdecl NImage::SaveImageAsPNG(struct IDataStream *,struct IImage const *)" (?SaveImageAsPNG@NImage@@YA_NPAUIDataStream@@PBUIImage@@@Z)
+ImagePNG.obj : error LNK2019: unresolved external symbol _png_read_info referenced in function "class CImage * __cdecl NImage::LoadImagePNG(struct IDataStream *)" (?LoadImagePNG@NImage@@YAPAVCImage@@PAUIDataStream@@@Z)
+ImagePNG.obj : error LNK2019: unresolved external symbol _png_set_expand referenced in function "class CImage * __cdecl NImage::LoadImagePNG(struct IDataStream *)" (?LoadImagePNG@NImage@@YAPAVCImage@@PAUIDataStream@@@Z)
+ImagePNG.obj : error LNK2019: unresolved external symbol _png_set_swap referenced in function "class CImage * __cdecl NImage::LoadImagePNG(struct IDataStream *)" (?LoadImagePNG@NImage@@YAPAVCImage@@PAUIDataStream@@@Z)
+ImagePNG.obj : error LNK2019: unresolved external symbol _png_set_interlace_handling referenced in function "class CImage * __cdecl NImage::LoadImagePNG(struct IDataStream *)" (?LoadImagePNG@NImage@@YAPAVCImage@@PAUIDataStream@@@Z)
+ImagePNG.obj : error LNK2019: unresolved external symbol _png_read_update_info referenced in function "class CImage * __cdecl NImage::LoadImagePNG(struct IDataStream *)" (?LoadImagePNG@NImage@@YAPAVCImage@@PAUIDataStream@@@Z)
+ImagePNG.obj : error LNK2019: unresolved external symbol _png_read_image referenced in function "class CImage * __cdecl NImage::LoadImagePNG(struct IDataStream *)" (?LoadImagePNG@NImage@@YAPAVCImage@@PAUIDataStream@@@Z)
+ImagePNG.obj : error LNK2019: unresolved external symbol _png_write_image referenced in function "bool __cdecl NImage::SaveImageAsPNG(struct IDataStream *,struct IImage const *)" (?SaveImageAsPNG@NImage@@YA_NPAUIDataStream@@PBUIImage@@@Z)
+ImagePNG.obj : error LNK2019: unresolved external symbol _png_write_end referenced in function "bool __cdecl NImage::SaveImageAsPNG(struct IDataStream *,struct IImage const *)" (?SaveImageAsPNG@NImage@@YA_NPAUIDataStream@@PBUIImage@@@Z)
+ImagePNG.obj : error LNK2019: unresolved external symbol _png_read_end referenced in function "class CImage * __cdecl NImage::LoadImagePNG(struct IDataStream *)" (?LoadImagePNG@NImage@@YAPAVCImage@@PAUIDataStream@@@Z)
+ImagePNG.obj : error LNK2019: unresolved external symbol _png_destroy_read_struct referenced in function "class CImage * __cdecl NImage::LoadImagePNG(struct IDataStream *)" (?LoadImagePNG@NImage@@YAPAVCImage@@PAUIDataStream@@@Z)
+ImagePNG.obj : error LNK2019: unresolved external symbol _png_destroy_write_struct referenced in function "bool __cdecl NImage::SaveImageAsPNG(struct IDataStream *,struct IImage const *)" (?SaveImageAsPNG@NImage@@YA_NPAUIDataStream@@PBUIImage@@@Z)
+ImagePNG.obj : error LNK2019: unresolved external symbol _png_set_write_fn referenced in function "bool __cdecl NImage::SaveImageAsPNG(struct IDataStream *,struct IImage const *)" (?SaveImageAsPNG@NImage@@YA_NPAUIDataStream@@PBUIImage@@@Z)
+ImagePNG.obj : error LNK2019: unresolved external symbol _png_set_read_fn referenced in function "class CImage * __cdecl NImage::LoadImagePNG(struct IDataStream *)" (?LoadImagePNG@NImage@@YAPAVCImage@@PAUIDataStream@@@Z)
+ImagePNG.obj : error LNK2019: unresolved external symbol _png_error referenced in function "void __cdecl PNGReadFunction(struct png_struct_def *,unsigned char *,unsigned int)" (?PNGReadFunction@@YAXPAUpng_struct_def@@PAEI@Z)
+RectsComposition.obj : error LNK2019: unresolved external symbol "public: void __thiscall GRect::intersect(class GRect const &)" (?intersect@GRect@@QAEXABV1@@Z) referenced in function "void __cdecl SliceRectToDown(class std::vector<struct SRectOptimizeStructure,class std::allocator<struct SRectOptimizeStructure> > const &,struct SRectOptimizeStructure &)" (?SliceRectToDown@@YAXABV?$vector@USRectOptimizeStructure@@V?$allocator@USRectOptimizeStructure@@@std@@@std@@AAUSRectOptimizeStructure@@@Z)
+RectsComposition.obj : error LNK2019: unresolved external symbol "public: __thiscall GRect::GRect(struct tagRECT const &)" (??0GRect@@QAE@ABUtagRECT@@@Z) referenced in function "public: virtual struct IImage * __stdcall CImageProcessor::ComposeImages(struct IImage * *,struct tagRECT *,struct tagRECT *,int,int,int)const " (?ComposeImages@CImageProcessor@@UBGPAUIImage@@PAPAU2@PAUtagRECT@@1HHH@Z)
+RectsComposition.obj : error LNK2019: unresolved external symbol "public: __thiscall GRect::operator struct tagRECT(void)const " (??BGRect@@QBE?AUtagRECT@@XZ) referenced in function "public: virtual struct IImage * __stdcall CImageProcessor::ComposeImages(struct IImage * *,struct tagRECT *,struct tagRECT *,int,int,int)const " (?ComposeImages@CImageProcessor@@UBGPAUIImage@@PAPAU2@PAUtagRECT@@1HHH@Z)
+.\Release\Image.dll : fatal error LNK1120: 26 unresolved externals
