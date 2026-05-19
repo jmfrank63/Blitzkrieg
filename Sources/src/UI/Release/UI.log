@@ -1,9 +1,14 @@
-﻿  StdAfx.cpp
-  GlobalsLoader.cpp
-  MaskManager.cpp
-  UIBasic.cpp
-  UIBasicM.cpp
-  UIButton.cpp
+﻿  GlobalsLoader.cpp
+  UIInternalM.cpp
+C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIInternalM.cpp(156,9): error C2664: 'void IText::SetText(const WORD *)': cannot convert argument 1 from '_bstr_t' to 'const WORD *'
+  (compiling source file '/UIInternalM.cpp')
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIInternalM.cpp(156,18):
+      No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\TextSystem.h(18,23):
+      see declaration of 'IText::SetText'
+      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIInternalM.cpp(156,9):
+      while trying to match the argument list '(_bstr_t)'
+  
   UIColorTextScroll.cpp
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIColorTextScroll.cpp(23,16): error C2664: 'void IText::SetText(const WORD *)': cannot convert argument 1 from 'const _Elem *' to 'const WORD *'
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIColorTextScroll.cpp(23,16): error C2664:         with
@@ -22,8 +27,7 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIColorTextScroll.cpp(23,1
               _Elem=wchar_t
           ]
   
-  UIComboBox.cpp
-  UIComplexScroll.cpp
+  UIButton.cpp
   UIConsole.cpp
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIConsole.cpp(279,11): error C2664: 'void IText::SetText(const WORD *)': cannot convert argument 1 from 'const _Elem *' to 'const WORD *'
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIConsole.cpp(279,11): error C2664:         with
@@ -52,7 +56,6 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIConsole.cpp(281,11): err
       while trying to match the argument list '(const wchar_t [1])'
   
   UICreditsScroller.cpp
-  UIDialog.cpp
   UIEdit.cpp
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(718,9): error C2664: 'void IText::SetText(const WORD *)': cannot convert argument 1 from 'const _Elem *' to 'const WORD *'
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(718,9): error C2664:         with
@@ -122,35 +125,7 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(773,9): error C
               _Elem=wchar_t
           ]
   
-  UIInternal.cpp
-  UIInternalM.cpp
-C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIInternalM.cpp(156,9): error C2664: 'void IText::SetText(const WORD *)': cannot convert argument 1 from '_bstr_t' to 'const WORD *'
-  (compiling source file '/UIInternalM.cpp')
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIInternalM.cpp(156,18):
-      No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\TextSystem.h(18,23):
-      see declaration of 'IText::SetText'
-      C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIInternalM.cpp(156,9):
-      while trying to match the argument list '(_bstr_t)'
-  
-  UIList.cpp
-  UIListSorter.cpp
-  UIMask.cpp
-  UIMedals.cpp
   UIMessageBox.cpp
-  UIMiniMap.cpp
-  Generating Code...
-  Compiling...
-  UINumberIndicator.cpp
-  UIObjMap.cpp
-  UIObjectFactory.cpp
-  UIObjectiveScreen.cpp
-  UIScreen.cpp
-  UIScrollText.cpp
-  UIShortcutBar.cpp
-  UISlider.cpp
-  UIStatusBar.cpp
-  UITimeCounter.cpp
-  UITree.cpp
   UIVideoButton.cpp
+  UIObjectFactory.cpp
   Generating Code...

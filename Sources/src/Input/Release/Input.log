@@ -1,5 +1,4 @@
-﻿  InputAPI.cpp
-  InputBinder.cpp
+﻿  InputBinder.cpp
 C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13): error C2666: 'CPtr<CCombo>::operator ==': overloaded functions have similar conversions
   (compiling source file '/InputBinder.cpp')
       C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Misc\Basic.h(591,1):

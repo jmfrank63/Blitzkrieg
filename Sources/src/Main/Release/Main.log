@@ -1,21 +1,5 @@
-﻿  StdAfx.cpp
-  iMainInternal.cpp
-  MainLoopCommands.cpp
-  MainObjectFactory.cpp
-  RandomMapHelper.cpp
-  GameTimerInternal.cpp
-  GameDB.cpp
-  GameStats.cpp
-  RPGStats.cpp
-  FilesInspector.cpp
-  InitGlobalVarConsts.cpp
-  Initialization.cpp
-  LoadDLLs.cpp
-  TextManager.cpp
-  TextObject.cpp
-  AILogicCommand.cpp
-  AILogicCommandInternal.cpp
-  MultiPlayerTransceiver.cpp
+﻿  MultiPlayerTransceiver.cpp
+  SinglePlayerTransceiver.cpp
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiPlayerTransceiver.cpp(135,49): error C2664: 'const WORD *GetGlobalWVar(const char *,const WORD *)': cannot convert argument 2 from 'const wchar_t [15]' to 'const WORD *'
   (compiling source file '/MultiPlayerTransceiver.cpp')
       C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiPlayerTransceiver.cpp(135,85):
@@ -29,14 +13,6 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiPlayerTransceiver.c
               _Elem=char
           ]
   
-  SinglePlayerTransceiver.cpp
-  ChatMessages.cpp
-  GameCreationMessages.cpp
-  Generating Code...
-  Compiling...
-  MessagesStore.cpp
-  ServersListMessages.cpp
-  assert.cpp
   GameCreation.cpp
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameCreation.cpp(492,52): error C2664: 'const WORD *GetGlobalWVar(const char *,const WORD *)': cannot convert argument 2 from 'const wchar_t [7]' to 'const WORD *'
   (compiling source file '/GameCreation.cpp')
@@ -57,9 +33,6 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\GameCreation.cpp(1183,59
       while trying to match the argument list '(const char [38], const wchar_t [7])'
   
   GamePlaying.cpp
-  GameSpyChat.cpp
-  GameSpyPeerChat.cpp
-  LanChat.cpp
   MultiplayerInternal.cpp
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\MultiplayerInternal.cpp(624,59): error C2664: 'const WORD *GetGlobalWVar(const char *,const WORD *)': cannot convert argument 2 from 'const wchar_t [7]' to 'const WORD *'
   (compiling source file '/MultiplayerInternal.cpp')
@@ -82,10 +55,5 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\Main\ServersList.cpp(304,61):
       while trying to match the argument list '(const char [38], const wchar_t [7])'
   
   CommandsHistory.cpp
-  PlayerScenarioInfo.cpp
-  PlayerSkill.cpp
-  ScenarioStatistics.cpp
-  ScenarioTracker2Internal.cpp
-  UserProfile.cpp
   BetaKey.cpp
   Generating Code...

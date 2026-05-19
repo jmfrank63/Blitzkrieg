@@ -1,6 +1,4 @@
-﻿  StdAfx.cpp
-  GlobalsLoader.cpp
-  GFXObjectFactory.cpp
+﻿  GFXObjectFactory.cpp
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(12,2): error C2259: 'CFont': cannot instantiate abstract class
   (compiling source file '/GFXObjectFactory.cpp')
       C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(10,7):
@@ -1705,13 +1703,13 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2628: 'CTexture' followed by 'void' is illegal (did you forget a ';'?)
   (compiling source file '/GraphicsEngine.cpp')
   
-  VideoCheck.cpp
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C7754: 'CTexture' a type cannot be defined as a return or parameter type
   (compiling source file '/GraphicsEngine.cpp')
   
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2575: 'AddRef': only member functions and bases can be virtual
   (compiling source file '/GraphicsEngine.cpp')
   
+  VideoCheck.cpp
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2259: 'CTexture': cannot instantiate abstract class
   (compiling source file '/GraphicsEngine.cpp')
       C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(40,7):
@@ -1844,8 +1842,6 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\VideoCheck.cpp(7,10): err
   (compiling source file '/VideoCheck.cpp')
   
   C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\dinput.h: DIRECTINPUT_VERSION undefined. Defaulting to version 0x0800
-  Texture.cpp
-  TextureManager.cpp
   GeometryBuffer.cpp
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GeometryBuffer.h(46,29): error C2664: 'HRESULT IDirect3DIndexBuffer9::Lock(UINT,UINT,void **,DWORD)': cannot convert argument 3 from 'BYTE **' to 'void **'
   (compiling source file '/GeometryBuffer.cpp')
@@ -1865,9 +1861,6 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GeometryBuffer.h(46,29): 
               see the first reference to 'CDataBuffer<IDirect3DIndexBuffer8>::Lock' in 'CIndices::Lock'
   
   GeometryManager.cpp
-  GeometryMesh.cpp
-  RangeAllocs.cpp
-  Clipping.cpp
   Font.cpp
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(12,2): error C2259: 'CFont': cannot instantiate abstract class
   (compiling source file '/Font.cpp')

@@ -3,3 +3,25 @@ Sources/src/.vs/
 Versions/
 Data/Maps/maps.ZIP
 Data/Bugs/270/gun_unloaded.sav
+
+# Visual Studio / MSVC build artifacts
+*.obj
+*.pch
+*.pdb
+*.idb
+*.ilk
+*.ipch
+*.aps
+*.ncb
+*.suo
+*.user
+*.VC.db
+*.VC.opendb
+
+# MSBuild intermediates and outputs
+Debug/
+Release/
+Win32/
+x64/
+ipch/
+*.tlog/
