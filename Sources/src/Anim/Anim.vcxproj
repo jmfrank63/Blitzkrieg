@@ -131,7 +131,7 @@
       <ProgramDataBaseFileName>.\Profiler\</ProgramDataBaseFileName>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -157,7 +157,7 @@
       <OutputFile>.\Profiler\Anim.dll</OutputFile>
       <ImportLibrary>.\Profiler\Anim.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Profiler\Misc.lib;..\Formats\Profiler\Formats.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='BetaRelease|Win32'">
@@ -181,7 +181,7 @@
       <ProgramDataBaseFileName>.\BetaRelease\</ProgramDataBaseFileName>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -207,7 +207,7 @@
       <OutputFile>.\BetaRelease\Anim.dll</OutputFile>
       <ImportLibrary>.\BetaRelease\Anim.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\BetaRelease\Misc.lib;..\Formats\BetaRelease\Formats.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -231,7 +231,7 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -255,7 +255,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\Anim.dll</OutputFile>
       <ImportLibrary>.\Debug\Anim.lib</ImportLibrary>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Debug\Misc.lib;..\Formats\Debug\Formats.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Animation.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -278,7 +278,7 @@
       <ProgramDataBaseFileName>.\Release\</ProgramDataBaseFileName>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -302,7 +302,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Release\Anim.dll</OutputFile>
       <ImportLibrary>.\Release\Anim.lib</ImportLibrary>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Release\Misc.lib;..\Formats\Release\Formats.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Animation.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -325,7 +325,7 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -349,7 +349,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\FastDebug\Anim.dll</OutputFile>
       <ImportLibrary>.\FastDebug\Anim.lib</ImportLibrary>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\FastDebug\Misc.lib;..\Formats\FastDebug\Formats.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Animation.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -401,3 +401,4 @@
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
+

@@ -136,7 +136,7 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -160,7 +160,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\AILogic.dll</OutputFile>
       <ImportLibrary>.\Debug\AILogic.lib</ImportLibrary>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Debug\Misc.lib;..\LuaLib\Debug\LuaLib.lib;..\Formats\Debug\Formats.lib;..\RandomMapGen\Debug\RandomMapGen.lib;..\zlib\Debug\zlib.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\AILogic.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -186,7 +186,7 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -210,7 +210,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\FastDebug\AILogic.dll</OutputFile>
       <ImportLibrary>.\FastDebug\AILogic.lib</ImportLibrary>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\FastDebug\Misc.lib;..\LuaLib\FastDebug\LuaLib.lib;..\Formats\FastDebug\Formats.lib;..\RandomMapGen\FastDebug\RandomMapGen.lib;..\zlib\FastDebug\zlib.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\AILogic.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -236,7 +236,7 @@
       <AdditionalOptions> /Zm200 /FS </AdditionalOptions>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -260,7 +260,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Release\AILogic.dll</OutputFile>
       <ImportLibrary>.\Release\AILogic.lib</ImportLibrary>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Release\Misc.lib;..\LuaLib\Release\LuaLib.lib;..\Formats\Release\Formats.lib;..\RandomMapGen\Release\RandomMapGen.lib;..\zlib\Release\zlib.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\AILogic.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -288,7 +288,7 @@
       <AdditionalOptions> /Zm200 /FS </AdditionalOptions>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -314,7 +314,7 @@
       <OutputFile>.\BetaRelease\AILogic.dll</OutputFile>
       <ImportLibrary>.\BetaRelease\AILogic.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\BetaRelease\Misc.lib;..\LuaLib\BetaRelease\LuaLib.lib;..\Formats\BetaRelease\Formats.lib;..\RandomMapGen\BetaRelease\RandomMapGen.lib;..\zlib\BetaRelease\zlib.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profiler|Win32'">
@@ -339,7 +339,7 @@
       <AdditionalOptions> /Zm200 /FS </AdditionalOptions>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -365,7 +365,7 @@
       <OutputFile>.\Profiler\AILogic.dll</OutputFile>
       <ImportLibrary>.\Profiler\AILogic.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;vtuneapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Profiler\Misc.lib;..\LuaLib\Profiler\LuaLib.lib;..\Formats\Profiler\Formats.lib;..\RandomMapGen\Profiler\RandomMapGen.lib;..\zlib\Profiler\zlib.lib;odbc32.lib;odbccp32.lib;comsupp.lib;vtuneapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -1729,6 +1729,8 @@
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
+
+
 
 
 

@@ -134,7 +134,7 @@
       <ProgramDataBaseFileName>.\Release\</ProgramDataBaseFileName>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -158,7 +158,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Release\StreamIO.dll</OutputFile>
       <ImportLibrary>.\Release\StreamIO.lib</ImportLibrary>
-      <AdditionalDependencies>winmm.lib;ws2_32.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Release\Misc.lib;..\zlib\Release\zlib.lib;winmm.lib;ws2_32.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\StreamIO.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -181,7 +181,7 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -205,7 +205,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\FastDebug\StreamIO.dll</OutputFile>
       <ImportLibrary>.\FastDebug\StreamIO.lib</ImportLibrary>
-      <AdditionalDependencies>winmm.lib;ws2_32.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\FastDebug\Misc.lib;..\zlib\FastDebug\zlib.lib;winmm.lib;ws2_32.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\StreamIO.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -231,7 +231,7 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -255,7 +255,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\StreamIO.dll</OutputFile>
       <ImportLibrary>.\Debug\StreamIO.lib</ImportLibrary>
-      <AdditionalDependencies>winmm.lib;ws2_32.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Debug\Misc.lib;..\zlib\Debug\zlib.lib;winmm.lib;ws2_32.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\StreamIO.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -278,7 +278,7 @@
       <ProgramDataBaseFileName>.\Profiler\</ProgramDataBaseFileName>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -304,7 +304,7 @@
       <OutputFile>.\Profiler\StreamIO.dll</OutputFile>
       <ImportLibrary>.\Profiler\StreamIO.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>winmm.lib;ws2_32.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Profiler\Misc.lib;..\zlib\Profiler\zlib.lib;winmm.lib;ws2_32.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='BetaRelease|Win32'">
@@ -328,7 +328,7 @@
       <ProgramDataBaseFileName>.\BetaRelease\</ProgramDataBaseFileName>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -354,7 +354,7 @@
       <OutputFile>.\BetaRelease\StreamIO.dll</OutputFile>
       <ImportLibrary>.\BetaRelease\StreamIO.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>winmm.lib;ws2_32.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\BetaRelease\Misc.lib;..\zlib\BetaRelease\zlib.lib;winmm.lib;ws2_32.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -485,3 +485,5 @@
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
+
+

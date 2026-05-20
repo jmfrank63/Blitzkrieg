@@ -138,7 +138,7 @@
       <AdditionalOptions> /Zm150 </AdditionalOptions>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -187,7 +187,7 @@
       <AdditionalOptions> /Zm150 </AdditionalOptions>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -235,7 +235,7 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -285,7 +285,7 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -335,7 +335,7 @@
       <AdditionalOptions> /Zm150 </AdditionalOptions>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -825,3 +825,4 @@
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
+
