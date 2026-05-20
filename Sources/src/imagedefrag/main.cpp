@@ -2,9 +2,8 @@
 #include "..\\Formats\\FmtSprite.h"
 #include "..\\Formats\\FmtTerrain.h"
 #include "..\\Image\\Image.h"
-#include "..\\RandomMapGen\\RMG_Image.h"
-#include "..\\RandomMapGen\\RMG_LockArrays.h"
-#include "..\\RandomMapGen\\RMG_WeightVector.h"
+#include "..\\RandomMapGen\\IB_Types.h"
+#include "..\\RandomMapGen\\MapInfo_Types.h"
 #include "..\\RandomMapGen\\RMG_Types.h"
 #include "..\\Misc\\FileUtils.h"
 
@@ -500,7 +499,7 @@ int main( int argc, char* argv[] )
 
 	CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( "objects.xml", STREAM_ACCESS_READ );
 	CPtr<IObjectsDB> pODB = CreateObjectsDB();
-	pODB->Load( pStream );
+	pODB->LoadDB();
 	RegisterSingleton( IObjectsDB::tidTypeID, pODB );
 	//
 	//GetSLS()->SetGDB( pODB );
@@ -517,7 +516,7 @@ int main( int argc, char* argv[] )
 	}
 	for ( int nFileIndex = 0; nFileIndex < allFiles.size(); ++nFileIndex )
 	{
-    printf( "File: %s... ", allFiles[nFileIndex] );
+	printf( "File: %s... ", allFiles[nFileIndex].c_str() );
 		std::string szMapNameExt = allFiles[nFileIndex].substr( allFiles[nFileIndex].rfind( '.' ),  allFiles[nFileIndex].size() );
 		std::string szMiniMapName = allFiles[nFileIndex].substr( 0,  allFiles[nFileIndex].rfind( '.' ) );
 		NStr::ToLower( szMapNameExt );
@@ -537,7 +536,7 @@ int main( int argc, char* argv[] )
 		}
 		else
 		{
-			printf( "Unknown format (%s)!\n", szMapNameExt );
+			printf( "Unknown format (%s)!\n", szMapNameExt.c_str() );
 			continue;
 		}
 		bool bResult = mapInfo.CreateMiniMapImage( szMiniMapName, CTPoint<int>( nImageSize, nImageSize ) );

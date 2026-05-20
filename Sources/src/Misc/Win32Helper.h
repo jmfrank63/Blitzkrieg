@@ -77,8 +77,8 @@ class CDLLHandle
 	CDLLHandle& operator=( const CDLLHandle &dll ) { return *this; }
 	CDLLHandle() : handle( 0 ) {  }
 public:
-	CDLLHandle( const char *pszFileName ) : szName( pszFileName ) { handle = ::LoadLibrary( pszFileName ); }
-	CDLLHandle( const std::string &szFileName ) : szName( szFileName ) { handle = ::LoadLibrary( szFileName.c_str() ); }
+	CDLLHandle( const char *pszFileName ) : szName( pszFileName ) { const std::wstring szWideName = NStr::ToUnicode( szName ); handle = ::LoadLibraryW( reinterpret_cast<LPCWSTR>( szWideName.c_str() ) ); }
+	CDLLHandle( const std::string &szFileName ) : szName( szFileName ) { const std::wstring szWideName = NStr::ToUnicode( szName ); handle = ::LoadLibraryW( reinterpret_cast<LPCWSTR>( szWideName.c_str() ) ); }
 	~CDLLHandle() { if ( handle ) ::FreeLibrary( handle ); }
 	// success loading check
 	bool IsLoaded() const { return handle != 0; }
@@ -105,3 +105,4 @@ public:
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif
+

@@ -261,7 +261,7 @@ const CFileIterator& CFileIterator::FindFirstFile( const char *pszMask )
 	if ( szPath[szPath.size() - 1] != '\\' ) 
 		szPath += "\\";
 	//
-	hFind = ::FindFirstFile( pszMask, &findinfo );
+	hFind = ::FindFirstFileA( pszMask, &findinfo );
 	return *this;
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -269,7 +269,7 @@ const CFileIterator& CFileIterator::Next()
 {
 	if ( !IsValid() )
 		return *this;
-	if ( ::FindNextFile(hFind, &findinfo) == 0 )
+	if ( ::FindNextFileA(hFind, &findinfo) == 0 )
 		Close();
 	return *this;
 }

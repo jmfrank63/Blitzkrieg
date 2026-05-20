@@ -21,11 +21,11 @@ typedef vector< SXMLValue > CXMLReadVector;
 
 class CXMLReader
 {
-	IXMLDOMDocumentPtr xmlDocument;
+	MSXML2::IXMLDOMDocumentPtr xmlDocument;
 
 protected:
-	IXMLDOMNodePtr FindRPGNode( IXMLDOMNodePtr startNode, const char *pszNodeName );
-	void ReadInformation( IXMLDOMNodePtr node, const string &szPrefix, CXMLReadVector &result, vector<string> &crapFields, bool bIgnoreFields );
+	MSXML2::IXMLDOMNodePtr FindRPGNode( MSXML2::IXMLDOMNodePtr startNode, const char *pszNodeName );
+	void ReadInformation( MSXML2::IXMLDOMNodePtr node, const string &szPrefix, CXMLReadVector &result, vector<string> &crapFields, bool bIgnoreFields );
 	bool IsCrappedValue( const std::string &szValName, const vector<string> &crapFields, bool bIgnoreFields, bool bCompareOnlyFirstSymbols );
 
 public:
@@ -37,12 +37,12 @@ public:
 
 class CXMLWriter
 {
-	IXMLDOMDocumentPtr xmlDocument;
+	MSXML2::IXMLDOMDocumentPtr xmlDocument;
 
 protected:
-	IXMLDOMNodePtr FindRPGNode( IXMLDOMNodePtr startNode, const char *pszNodeName );
-	void FindNodeAndSetAttribute( IXMLDOMNodePtr startNode, const string &szName, const string &szAttributeValue );
-	void WriteInformation( CXMLValuesVector &valuesVector, IXMLDOMNodePtr startNode );
+	MSXML2::IXMLDOMNodePtr FindRPGNode( MSXML2::IXMLDOMNodePtr startNode, const char *pszNodeName );
+	void FindNodeAndSetAttribute( MSXML2::IXMLDOMNodePtr startNode, const string &szName, const string &szAttributeValue );
+	void WriteInformation( CXMLValuesVector &valuesVector, MSXML2::IXMLDOMNodePtr startNode );
 
 public:
 	CXMLWriter() : xmlDocument( "Microsoft.XMLDOM" ) {}

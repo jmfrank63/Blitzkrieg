@@ -114,7 +114,7 @@ public:
 class CFileIterator
 {
 	HANDLE hFind;													// find file handle of the last search result
-	WIN32_FIND_DATA findinfo;							// last search info
+	WIN32_FIND_DATAA findinfo;                    // last search info
 	std::string szPath;                   // path to the file
 	std::string szMask;
 	bool IsValid() const { return hFind != INVALID_HANDLE_VALUE; }
@@ -155,7 +155,7 @@ public:
 	int GetLength() const { return findinfo.nFileSizeLow; }
 	// file name (title + ext), full path (absolute path + name), title and extension (w/o '.')
 	const std::string GetFileName() const { return findinfo.cFileName; }
-	const std::string GetFilePath() const { return szPath + findinfo.cFileName; }
+	const std::string GetFilePath() const { std::string szFilePath = szPath; szFilePath += GetFileName(); return szFilePath; }
 	const std::string GetFileTitle() const;
 	const std::string GetFileExt() const;
 	const std::string& GetBasePath() const { return szPath; }
@@ -163,7 +163,7 @@ public:
 };
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // enumerate all files by mask.
-// при рекурсивной енумерации сначала входим в директорию, а потом только получаем её имя (при выходе из рекурсии)
+// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅ (пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
 template <class TEnumFunc>
 void EnumerateFiles( const char *pszStartDir, const char *pszMask, TEnumFunc callback, bool bRecurse )
 {
@@ -191,7 +191,7 @@ void EnumerateFiles( const char *pszStartDir, const char *pszMask, TEnumFunc cal
 	}
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Функтор для EnumerateFiles, перечисляет все файлы в директории
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ EnumerateFiles, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 class CGetAllFiles
 {
 	std::vector<std::string> *pFileVector;
@@ -206,7 +206,7 @@ public:
 		}
 	}
 };
-// Функтор для EnumerateFiles, перечисляет все файлы в директории и берёт их относительное имя
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ EnumerateFiles, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ
 class CGetAllFilesRelative
 {
 	std::vector<std::string> *pFileVector;
@@ -225,7 +225,7 @@ public:
 		}
 	}
 };
-// Функтор для EnumerateFiles, перечисляет все поддиректории в директории и берёт их относительное имя
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ EnumerateFiles, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ
 class CGetAllDirectoriesRelative
 {
 	std::vector<std::string> *pFileVector;
@@ -238,11 +238,11 @@ public:
 		if ( !it.IsDirectory() )
 		{
 			std::string szFileName = it.GetFilePath();
-			szFileName = szFileName.substr( szInitDir.size() );							//обрезаем начальную директорию
+			szFileName = szFileName.substr( szInitDir.size() );							//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 			int nRes = szFileName.rfind( '\\' );
 			if ( nRes == std::string::npos )
 				return;
-			szFileName = szFileName.substr( 0, nRes );	//обрезаем имя файла, оставляя только директорию
+			szFileName = szFileName.substr( 0, nRes );	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 			if ( szFileName.size() == 0 )
 				return;
 			
@@ -330,3 +330,5 @@ template <>
 	}
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __FILE_UTILS_H__
+
+

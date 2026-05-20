@@ -10,6 +10,8 @@ Data/Bugs/270/gun_unloaded.sav
 *.pdb
 *.idb
 *.ilk
+*.lib
+*.exp
 *.ipch
 *.aps
 *.ncb
@@ -17,6 +19,8 @@ Data/Bugs/270/gun_unloaded.sav
 *.user
 *.VC.db
 *.VC.opendb
+*.lastbuildstate
+*.log
 
 # MSBuild intermediates and outputs
 Debug/

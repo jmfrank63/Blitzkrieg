@@ -4,6 +4,7 @@
 
 #include "..\Image\Image.h"
 #include "..\Image\ImageHelper.h"
+#include "..\Misc\FileUtils.h"
 #include "..\Misc\StrProc.h"
 
 #include <strstream>
@@ -25,7 +26,7 @@ struct SFontInfo
 	WORD Translate( WORD code ) const
 	{
 		std::unordered_map<WORD, WORD>::const_iterator pos = translate.find( code );
-		NI_ASSERT( pos != translate.end(), StrFmt("Can't find code for symbol %d to re-map", code) );
+		NI_ASSERT_T( pos != translate.end(), NStr::Format("Can't find code for symbol %d to re-map", code) );
 		return pos->second;
 	}
   //
@@ -89,7 +90,8 @@ void MeasureFont( HDC hdc, SFontInfo &fi, std::vector<WORD> &chars )
 		for ( int i=0; i<chars.size(); ++i )
 		{
       // get width of character...
-      GetTextExtentPoint32( hdc, (const char*)&( chars[i] ), 1, &size );
+			const wchar_t szChar[2] = { static_cast<wchar_t>( chars[i] ), 0 };
+			GetTextExtentPoint32W( hdc, szChar, 1, &size );
       // ...and store it in abcB:
       fi.abc[i].abcB = size.cx;
 		}
@@ -143,12 +145,13 @@ void LoadFont( HWND hWnd, SFontInfo &fi, int nHeight, int nWeight, bool bItalic,
     DeleteObject( fi.hFont ); 
     fi.hFont = 0;
   }
+	const std::wstring szWideFaceName = NStr::ToUnicode( szFaceName );
   // create font (in this version this will be with the hardcoded height)
   // in the next version I want completely remove 'ChooseFont' dialog and take all info from the .ini file
-  fi.hFont = ::CreateFont( nHeight, 0, 0, 0, nWeight, bItalic, FALSE, FALSE, 
+	fi.hFont = ::CreateFontW( nHeight, 0, 0, 0, nWeight, bItalic, FALSE, FALSE, 
                            dwCharSet, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, 
                            bAntialias ? ANTIALIASED_QUALITY : NONANTIALIASED_QUALITY,
-                           dwPitch, szFaceName.c_str() );
+						   dwPitch, szWideFaceName.c_str() );
   // retrieve logfont
 //  ::GetObject( fi.hFont, sizeof(fi.lf), &fi.lf );
   // get HDC:
@@ -162,7 +165,7 @@ void LoadFont( HWND hWnd, SFontInfo &fi, int nHeight, int nWeight, bool bItalic,
 	{
 		CHARSETINFO cs;
 		BOOL bRetVal = TranslateCharsetInfo( (DWORD*)dwCharSet, &cs, TCI_SRCCHARSET );
-		NI_ASSERT( bRetVal == TRUE, "Can't translate charset info" );
+		NI_ASSERT_T( bRetVal == TRUE, "Can't translate charset info" );
 		NStr::SetCodePage( cs.ciACP );
 		// form string
 		std::string szCharacters;
@@ -198,7 +201,8 @@ bool DrawFont( HDC hdc, const SFontInfo &fi, const std::vector<WORD> &chars )
         return false;
     }
     x += nLeadingPixels;
-    TextOut( hdc, x - fi.abc[i].abcA, y*fi.tm.tmHeight, (const char*)&( chars[i] ), 1 );
+		const wchar_t szChar[2] = { static_cast<wchar_t>( chars[i] ), 0 };
+		TextOutW( hdc, x - fi.abc[i].abcA, y*fi.tm.tmHeight, szChar, 1 );
     x += nNextCharShift;
 	}
   return true;
@@ -247,8 +251,8 @@ IImage* CreateFontImage( const SFontInfo &fi, const std::vector<WORD> &chars )
     DWORD c = pBitmapBits[i];//( a != 0 ? 255 : pBitmapBits[i] );
     imagedata[j] = (a << 24) | (c << 16) | (c << 8) | c;
   }
-	IImage *pImage = Singleton<IImgProc>()->CreateImage( fi.nTextureSizeX, fi.nTextureSizeY, &(imagedata[0]) );
-	FlipY( pImage ); // flip image due to bottom-left bitmap orientation
+	IImage *pImage = GetImageProcessor()->CreateImage( fi.nTextureSizeX, fi.nTextureSizeY, &(imagedata[0]) );
+	pImage->FlipY(); // flip image due to bottom-left bitmap orientation
 
 	return pImage;
 }
@@ -346,27 +350,26 @@ int main( int argc, char *argv[] )
 {
 	// load image library
 	{
-		char buffer[2048];
-		GetCurrentDirectory( 2048, buffer );
-		std::string szCurrDir = buffer;
+		wchar_t buffer[2048];
+		GetCurrentDirectoryW( 2048, buffer );
+		std::wstring szCurrDir = buffer;
 		if ( szCurrDir.empty() )
-			szCurrDir = ".\\";
+			szCurrDir = L".\\";
 		else if ( szCurrDir[szCurrDir.size() - 1] != '\\' )
 			szCurrDir += '\\';
 		//
-		HMODULE hImage = LoadLibrary( (szCurrDir + "image.dll").c_str() );
+		HMODULE hImage = LoadLibraryW( (szCurrDir + L"image.dll").c_str() );
 		if ( hImage )
 		{
 			GETMODULEDESCRIPTOR pfnGetModuleDescriptor = reinterpret_cast<GETMODULEDESCRIPTOR>( GetProcAddress( hImage, "GetModuleDescriptor" ) );
 			if ( pfnGetModuleDescriptor )
 			{
 				const SModuleDescriptor *pDesc = (*pfnGetModuleDescriptor)();
-				if ( pDesc && pDesc->pRegistrator )
+				if ( pDesc && pDesc->pFactory )
 				{
-					pDesc->pRegistrator->RegisterClasses();
-					IImgProc *pIP = MakeObject<IImgProc>( IImgProc::tidTypeID );
+					IImageProcessor *pIP = CreateObject<IImageProcessor>( pDesc->pFactory, IImageProcessor::tidTypeID );
 					if ( pIP )
-						NSingleton::RegisterSingleton( pIP, IImgProc::tidTypeID );
+						RegisterSingleton( IImageProcessor::tidTypeID, pIP );
 				}
 			}
 		}
@@ -470,14 +473,15 @@ int main( int argc, char *argv[] )
 	printf( "saving...\n" );
 	// write binary data
 	{
-		CPtr<IDataStream> pStream = CreateStream( ".\1.tfd", false );
-		CPtr<IBinSaver> pSaver = CreateBinSaver( pStream, SAVER_MODE_WRITE );
-		pSaver->Add( 1, pFF );
+		CPtr<IDataStream> pStream = CreateFileStream( ".\\1.tfd", STREAM_ACCESS_WRITE );
+		CPtr<IStructureSaver> pSaver = CreateStructureSaver( pStream, IStructureSaver::WRITE );
+		CSaverAccessor saver = pSaver;
+		saver.Add( 1, pFF );
 	}
 	// texture
 	{
-		CPtr<IDataStream> pStream = CreateStream( ".\1.tga", false );
-		Singleton<IImgProc>()->SaveImage( pStream, pImage, IMAGE_FILE_FORMAT_TGA );
+		CPtr<IDataStream> pStream = CreateFileStream( ".\\1.tga", STREAM_ACCESS_WRITE );
+		GetImageProcessor()->SaveImageAsTGA( pStream, pImage );
 	}
 	//
 	return 0;

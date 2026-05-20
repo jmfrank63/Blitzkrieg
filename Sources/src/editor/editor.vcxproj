@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="BetaRelease|Win32">
@@ -124,7 +124,7 @@
       <WarningLevel>Level3</WarningLevel>
       <MinimalRebuild>true</MinimalRebuild>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <AdditionalIncludeDirectories>COI;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>COI;..\\..\\sdk\\STINGRAY\\Include;..\\..\\sdk\\STINGRAY\\Include\\Toolkit;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>__AFX__;NDEBUG;_WINDOWS;WIN32;_FINALRELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AssemblerListingLocation>.\Profiler\</AssemblerListingLocation>
       <PrecompiledHeaderOutputFile>.\Profiler\editor.pch</PrecompiledHeaderOutputFile>
@@ -171,7 +171,7 @@ call s:\soft\copydll.bat $(SolutionDir) Profiler</Command>
       <WarningLevel>Level3</WarningLevel>
       <MinimalRebuild>true</MinimalRebuild>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <AdditionalIncludeDirectories>COI;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>COI;..\\..\\sdk\\STINGRAY\\Include;..\\..\\sdk\\STINGRAY\\Include\\Toolkit;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>__AFX__;_DO_ASSERT_SLOW;_DO_SEH;_DEBUG;_WINDOWS;WIN32;_DO_CHECKED_CAST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AssemblerListingLocation>.\FastDebug\</AssemblerListingLocation>
       <PrecompiledHeaderOutputFile>.\FastDebug\editor.pch</PrecompiledHeaderOutputFile>
@@ -221,7 +221,7 @@ call s:\soft\copydll.bat $(SolutionDir) FastDebug</Command>
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <IntrinsicFunctions>false</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>COI;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>COI;..\\..\\sdk\\STINGRAY\\Include;..\\..\\sdk\\STINGRAY\\Include\\Toolkit;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>__AFX__;_DO_ASSERT_SLOW;_DO_SEH;_WINDOWS;WIN32;NDEBUG;_BETARELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AssemblerListingLocation>.\BetaRelease\</AssemblerListingLocation>
       <PrecompiledHeaderOutputFile>.\BetaRelease\editor.pch</PrecompiledHeaderOutputFile>
@@ -269,7 +269,7 @@ call s:\soft\copydll.bat $(SolutionDir) BetaRelease</Command>
       <MinimalRebuild>true</MinimalRebuild>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-      <AdditionalIncludeDirectories>COI;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>COI;..\\..\\sdk\\STINGRAY\\Include;..\\..\\sdk\\STINGRAY\\Include\\Toolkit;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_WINDOWS;__AFX__;_DO_ASSERT_SLOW;_DO_SEH;_DO_CHECKED_CAST;WIN32;_DEBUG;_STL_RANGE_CHECK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AssemblerListingLocation>.\Debug\</AssemblerListingLocation>
       <PrecompiledHeaderOutputFile>.\Debug\editor.pch</PrecompiledHeaderOutputFile>
@@ -317,7 +317,7 @@ call s:\soft\copydll.bat $(SolutionDir) Debug</Command>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <WarningLevel>Level3</WarningLevel>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <AdditionalIncludeDirectories>COI;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>COI;..\\..\\sdk\\STINGRAY\\Include;..\\..\\sdk\\STINGRAY\\Include\\Toolkit;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>__AFX__;_WINDOWS;WIN32;NDEBUG;_FINALRELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AssemblerListingLocation>.\Release\</AssemblerListingLocation>
       <PrecompiledHeaderOutputFile>.\Release\editor.pch</PrecompiledHeaderOutputFile>

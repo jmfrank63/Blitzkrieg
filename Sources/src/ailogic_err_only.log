@@ -1,4 +1,0 @@
-MSBuild version 18.7.1+024f5b037 for .NET Framework
-     1>C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\xutility(6479,13): error C2666: 'CObj<CExistingObject>::operator ==': overloaded functions have similar conversions [C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AILogic.vcxproj]
-     1>C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\type_traits(2545,54): error C2593: 'operator <' is ambiguous [C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AILogic.vcxproj]
-     1>C:\Program Files\Microsoft Visual Studio\18\Insiders\VC\Tools\MSVC\14.51.36231\include\type_traits(2545,54): error C2593: 'operator <' is ambiguous [C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\AILogic\AILogic.vcxproj]
