@@ -400,7 +400,8 @@ void CGlobalWarFog::RecalculateForRemovedObject( const int id, const float fDist
 	{
 		UpdateUnit( id, unitsInfo[id].fogInfo, Max( 1.0f, fDist / ( SConsts::TILE_SIZE * 5.0f ) ) );
 
-		CObjectsList::iterator iter( std::find( addedObjects4Units[id].begin(), addedObjects4Units[id].end(), pObject ) );
+		const CObj<CExistingObject> obj( pObject );
+		CObjectsList::iterator iter( std::find( addedObjects4Units[id].begin(), addedObjects4Units[id].end(), obj ) );
 		if ( iter == addedObjects4Units[id].end() )
 			removedObjects4Units[id].push_back( pObject );
 		else
@@ -415,7 +416,8 @@ void CGlobalWarFog::RecalculateForAddedObject( const int id, const float fDist, 
 	{
 		UpdateUnit( id, unitsInfo[id].fogInfo, Max( 1.0f, fDist / ( SConsts::TILE_SIZE * 5.0f ) ) );
 
-		CObjectsList::iterator iter( std::find( removedObjects4Units[id].begin(), removedObjects4Units[id].end(), pObject ) );
+		const CObj<CExistingObject> obj( pObject );
+		CObjectsList::iterator iter( std::find( removedObjects4Units[id].begin(), removedObjects4Units[id].end(), obj ) );
 		if ( iter == removedObjects4Units[id].end() )
 			addedObjects4Units[id].push_back( pObject );
 		else

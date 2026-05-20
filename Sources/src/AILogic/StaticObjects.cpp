@@ -290,7 +290,7 @@ void CStaticObjects::DeleteInternalObjectInfoForEditor( CExistingObject *pObj )
 	if ( pObj->GetObjectType() != ESOT_TERRA )
 		RemoveFromAreaMap( pObj );
 	else
-		terraObjs.erase( pObj );
+		terraObjs.erase( CObj<CExistingObject>( pObj ) );
 	CBuildingStorage * pStor = static_cast<CBuildingStorage*>( pObj );
 	storagesContainer.RemoveStorage( pStor );
 }
@@ -643,7 +643,7 @@ void CStaticObjects::Segment()
 		if ( pObj->GetObjectType() != ESOT_TERRA )
 			RemoveFromAreaMap( pObj );
 		else
-			terraObjs.erase( pObj );
+			terraObjs.erase( CObj<CExistingObject>( pObj ) );
 	}
 
 	deletedObjects.clear();

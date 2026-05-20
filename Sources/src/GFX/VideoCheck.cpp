@@ -4,7 +4,6 @@
 
 #include <ddraw.h>
 #include <dinput.h>
-#include <dmusici.h>
 #include <d3d9.h>
 
 #include "..\Misc\Win32Helper.h"
@@ -13,6 +12,9 @@ typedef HRESULT(WINAPI * DIRECTDRAWCREATE)( GUID*, LPDIRECTDRAW*, IUnknown* );
 typedef HRESULT(WINAPI * DIRECTDRAWCREATEEX)( GUID*, VOID**, REFIID, IUnknown* );
 typedef HRESULT(WINAPI * DIRECTINPUTCREATE)( HINSTANCE, DWORD, LPDIRECTINPUT*, IUnknown* );
 typedef IDirect3D9*(WINAPI * DIRECT3DCREATE8)( UINT SDKVersion );
+// {636B9F10-0C7D-11D1-95B2-0020AFDC7421}
+static const GUID CLSID_DirectMusic_Compat =
+{ 0x636b9f10, 0x0c7d, 0x11d1, { 0x95, 0xb2, 0x00, 0x20, 0xaf, 0xdc, 0x74, 0x21 } };
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const wchar_t* STDCALL NVideoCheck::GetAPIName()
 {
@@ -198,9 +200,9 @@ DWORD STDCALL NVideoCheck::GetAPIVersion()
 	//-------------------------------------------------------------------------
 
 	// Check for DMusic, which was introduced with DX6.1
-	LPDIRECTMUSIC pDMusic = NULL;
+	IUnknown *pDMusic = NULL;
 	CoInitialize( NULL );
-	hr = CoCreateInstance( CLSID_DirectMusic, NULL, CLSCTX_INPROC_SERVER, IID_IDirectMusic, (VOID**)&pDMusic );
+	hr = CoCreateInstance( CLSID_DirectMusic_Compat, NULL, CLSCTX_INPROC_SERVER, IID_IUnknown, (VOID**)&pDMusic );
 	if ( FAILED(hr) )
 	{
 		OutputDebugString( "Couldn't create CLSID_DirectMusic\r\n" );

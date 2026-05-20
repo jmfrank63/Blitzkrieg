@@ -107,11 +107,6 @@ class CGFXText : public IGFXText
 	//
 	CGFXText();
 	//
-  typedef float (CGFXText::*FillGeometryDataPtr)( const wchar_t *pszStringBegin, const wchar_t *pszStringEnd,
-																									float sx, const float sy, const CTRect<float> &rcClipRect, 
-																									const DWORD dwColor, const DWORD dwSpecular,
-																									std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices ) const;
-	//
 	template <class TVisitor>
 		const float VisitText( const wchar_t *pszStringBegin, const wchar_t *pszStringEnd, float sx, const float sy, TVisitor &visitor ) const
 		{

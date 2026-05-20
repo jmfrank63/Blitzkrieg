@@ -14,10 +14,10 @@ private:
 	// service functional
 	class CObjEqualFunctional
 	{
-		const TYPE *pObj;
+		const TStorageType obj;
 	public:
-		explicit CObjEqualFunctional( const TYPE *_pObj ) : pObj( _pObj ) {  }
-		bool operator()( const TStorageType &ptr ) const { return ptr == pObj; }
+		explicit CObjEqualFunctional( TYPE *_pObj ) : obj( _pObj ) {  }
+		bool operator()( const TStorageType &ptr ) const { return ptr == obj; }
 	};
 	// add object to the (nX, nY) cell
 	void AddTo( int nX, int nY, TYPE *pObj )

@@ -565,7 +565,7 @@ void CShellsStore::UpdateCheckSum( uLong *pCheckSum )
 	static SCheckSumBufferStorage checkSumBuf( 10000 );
 	checkSumBuf.nCnt = 0;
 
-	std::priority_queue< CPtr<CInvisShell> > copyQueue = invisShells;
+	std::priority_queue< CPtr<CInvisShell>, std::vector< CPtr<CInvisShell> >, SInvisShellCmp > copyQueue = invisShells;
 	while ( !copyQueue.empty() )
 	{
 		CInvisShell *pShell = copyQueue.top();

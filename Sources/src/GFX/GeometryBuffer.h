@@ -42,7 +42,7 @@ public:
 	// прямой доступ к данным (lock/unlock)
 	void* Lock( int nStart, int nNumElements )
 	{
-		BYTE *pMemory = 0;
+		void *pMemory = 0;
 		HRESULT dxrval = pBuffer->Lock( nStart*nElementSize, nNumElements*nElementSize, &pMemory, dwLockFlags );
 		NI_ASSERTHR_SLOW_TF( dxrval, NStr::Format("Can't lock vertex/index buffer from %d on %d elements", nStart, nNumElements), return 0 );
 		++nLockCounter;
@@ -235,7 +235,7 @@ public:
 		}
 		nCurrElement = nNextElement;
 		// lock
-		BYTE *pData = 0;
+		void *pData = 0;
 		HRESULT dxrval = pBuffer->Lock( nCurrElement*nElementSize, nAmount*nElementSize, &pData, flags );
 		NI_ASSERTHR_SLOW_TF( dxrval, NStr::Format("Can't lock temporary buffer for %d elements", nAmount), return 0 );
 		nNextElement = nCurrElement + nAmount + 1;

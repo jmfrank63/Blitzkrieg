@@ -36,7 +36,7 @@ int CGFXText::GetWidth( int nNumCharacters ) const
 {
 	if ( pText == 0 ) 
 		return 1;
-	const wchar_t *pszStringBegin = pText->GetString();
+	const wchar_t *pszStringBegin = (const wchar_t*)(const void*)pText->GetString();
 	if ( pszStringBegin == 0 ) 
 		return 1;
 	const int nStrLen = GetLength( pszStringBegin );
@@ -82,7 +82,7 @@ void CGFXText::PreFormat() const
 	if ( pText == 0 ) 
 		return;
 	//
-	const wchar_t *pszStringBegin = pText->GetString();
+	const wchar_t *pszStringBegin = (const wchar_t*)(const void*)pText->GetString();
 	const int nStrLen =  NStr::GetStrLen( pszStringBegin );
 	const wchar_t *pszStringEnd = pszStringBegin + nStrLen;
 	pft.fWidth = fWidth;
@@ -232,7 +232,7 @@ void CGFXText::PreFormatLine() const
 	if ( pText == 0 ) 
 		return;
 	//
-	const wchar_t *pszStringBegin = pText->GetString();
+	const wchar_t *pszStringBegin = (const wchar_t*)(const void*)pText->GetString();
 	const int nStrLen =  NStr::GetStrLen( pszStringBegin );
 	const wchar_t *pszStringEnd = pszStringBegin + nStrLen;
 	pft.fWidth = fWidth;
@@ -543,19 +543,24 @@ bool CGFXText::FillGeometryDataLeft( const SPreFormattedText::SLine &line, float
     sx += GetRedLine();
   //
 	CTRect<float> rcClipRect = rect;
-  FillGeometryDataPtr pfnFillGeometryData = dwClipFlags == 0 ? FillGeometryDataNoClip : FillGeometryDataClip;
   //
   if ( line.nNumWords == 1 )						// do not need spacing
 	{
 		sx += line.words.back().nNumPreSpaces * format.metrics.fSpaceWidth;
-    (this->*pfnFillGeometryData)( line.words.back().pszBegin, line.words.back().pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
+		if ( dwClipFlags == 0 )
+			FillGeometryDataNoClip( line.words.back().pszBegin, line.words.back().pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
+		else
+			FillGeometryDataClip( line.words.back().pszBegin, line.words.back().pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
 	}
   else																	// add spaces before each word
   {
     for ( std::list<SPreFormattedText::SLine::SWord>::const_iterator it = line.words.begin(); it != line.words.end(); ++it )
     {
 			sx += it->nNumPreSpaces * format.metrics.fSpaceWidth;
-      sx = (this->*pfnFillGeometryData)( it->pszBegin, it->pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
+			if ( dwClipFlags == 0 )
+				sx = FillGeometryDataNoClip( it->pszBegin, it->pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
+			else
+				sx = FillGeometryDataClip( it->pszBegin, it->pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
     }
   }
 
@@ -576,12 +581,14 @@ bool CGFXText::FillGeometryDataRight( const SPreFormattedText::SLine &line, floa
     sx += GetRedLine();
   //
 	CTRect<float> rcClipRect = rect;
-  FillGeometryDataPtr pfnFillGeometryData = dwClipFlags == 0 ? FillGeometryDataNoClip : FillGeometryDataClip;
   //
   if ( line.nNumWords == 1 )           // do not need spacing
   {
     sx += fWidth - line.fWidth;
-    (this->*pfnFillGeometryData)( line.words.back().pszBegin, line.words.back().pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
+		if ( dwClipFlags == 0 )
+			FillGeometryDataNoClip( line.words.back().pszBegin, line.words.back().pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
+		else
+			FillGeometryDataClip( line.words.back().pszBegin, line.words.back().pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
   }
   else                                  // add spaces before each word 
   {
@@ -590,7 +597,10 @@ bool CGFXText::FillGeometryDataRight( const SPreFormattedText::SLine &line, floa
     for ( std::list<SPreFormattedText::SLine::SWord>::const_iterator it = line.words.begin(); it != line.words.end(); ++it )
     {
       sx += it->nNumPreSpaces * format.metrics.fSpaceWidth;
-      sx = (this->*pfnFillGeometryData)( it->pszBegin, it->pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
+			if ( dwClipFlags == 0 )
+				sx = FillGeometryDataNoClip( it->pszBegin, it->pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
+			else
+				sx = FillGeometryDataClip( it->pszBegin, it->pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
     }
   }
 
@@ -611,12 +621,14 @@ bool CGFXText::FillGeometryDataCenter( const SPreFormattedText::SLine &line, flo
     sx += GetRedLine();
   //
 	CTRect<float> rcClipRect = rect;
-  FillGeometryDataPtr pfnFillGeometryData = dwClipFlags == 0 ? FillGeometryDataNoClip : FillGeometryDataClip;
   //
   if ( line.nNumWords == 1 )						// do not need spacing
   {
     sx += float( floor( ( fWidth - line.fWidth ) * 0.5 ) ) + line.words.back().nNumPreSpaces * format.metrics.fSpaceWidth;
-    (this->*pfnFillGeometryData)( line.words.back().pszBegin, line.words.back().pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
+		if ( dwClipFlags == 0 )
+			FillGeometryDataNoClip( line.words.back().pszBegin, line.words.back().pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
+		else
+			FillGeometryDataClip( line.words.back().pszBegin, line.words.back().pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
   }
   else                                  // add spaces before each word
   {
@@ -625,7 +637,10 @@ bool CGFXText::FillGeometryDataCenter( const SPreFormattedText::SLine &line, flo
     for ( std::list<SPreFormattedText::SLine::SWord>::const_iterator it = line.words.begin(); it != line.words.end(); ++it )
     {
       sx += it->nNumPreSpaces * format.metrics.fSpaceWidth;
-      sx = (this->*pfnFillGeometryData)( it->pszBegin, it->pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
+			if ( dwClipFlags == 0 )
+				sx = FillGeometryDataNoClip( it->pszBegin, it->pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
+			else
+				sx = FillGeometryDataClip( it->pszBegin, it->pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
     }
   }
 
@@ -646,12 +661,14 @@ bool CGFXText::FillGeometryDataJustify( const SPreFormattedText::SLine &line, fl
     sx += GetRedLine();
   //
 	CTRect<float> rcClipRect = rect;
-  FillGeometryDataPtr pfnFillGeometryData = dwClipFlags == 0 ? FillGeometryDataNoClip : FillGeometryDataClip;
   //
   if ( line.nNumWords == 1 )           // do not need spacing
 	{
 		sx += line.words.back().nNumPreSpaces * format.metrics.fSpaceWidth;
-    (this->*pfnFillGeometryData)( line.words.back().pszBegin, line.words.back().pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
+		if ( dwClipFlags == 0 )
+			FillGeometryDataNoClip( line.words.back().pszBegin, line.words.back().pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
+		else
+			FillGeometryDataClip( line.words.back().pszBegin, line.words.back().pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
 	}
   else                                  // add spaces after each word
   {
@@ -666,7 +683,10 @@ bool CGFXText::FillGeometryDataJustify( const SPreFormattedText::SLine &line, fl
       sx += fSpace;
       fLastTotalSpace += fSpace;
 			//
-      sx = (this->*pfnFillGeometryData)( it->pszBegin, it->pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
+			if ( dwClipFlags == 0 )
+				sx = FillGeometryDataNoClip( it->pszBegin, it->pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
+			else
+				sx = FillGeometryDataClip( it->pszBegin, it->pszEnd, sx, sy, rcClipRect, dwColor, dwSpecular, vertices, indices );
     }
   }
 

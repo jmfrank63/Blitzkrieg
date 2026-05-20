@@ -1,5 +1,4 @@
-﻿  GlobalsLoader.cpp
-  UIInternalM.cpp
+﻿  UIInternalM.cpp
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIInternalM.cpp(156,9): error C2664: 'void IText::SetText(const WORD *)': cannot convert argument 1 from '_bstr_t' to 'const WORD *'
   (compiling source file '/UIInternalM.cpp')
       C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIInternalM.cpp(156,18):
@@ -27,7 +26,6 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIColorTextScroll.cpp(23,1
               _Elem=wchar_t
           ]
   
-  UIButton.cpp
   UIConsole.cpp
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIConsole.cpp(279,11): error C2664: 'void IText::SetText(const WORD *)': cannot convert argument 1 from 'const _Elem *' to 'const WORD *'
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIConsole.cpp(279,11): error C2664:         with
@@ -126,6 +124,5 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\UI\UIEdit.cpp(773,9): error C
           ]
   
   UIMessageBox.cpp
-  UIVideoButton.cpp
   UIObjectFactory.cpp
   Generating Code...

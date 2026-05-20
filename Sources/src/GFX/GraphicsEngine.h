@@ -7,6 +7,7 @@
 #include "GeometryBuffer.h"
 #include "Font.h"
 #include "Shader.h"
+#include <unordered_map>
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ************************************************************************************************************************ //
 // **
@@ -107,8 +108,8 @@ class CGraphicsEngine : public IGFX
 	CPtr2<CTempIB> pTIB;
 	bool bUseOptimizedBuffers;
 	// dynamic buffers
-	typedef std::hash_multimap< DWORD, CPtr2<CDynamicVB> > CDynamicVBMap;
-	typedef std::hash_multimap< DWORD, CPtr2<CDynamicIB> > CDynamicIBMap;
+	typedef std::unordered_multimap< DWORD, CPtr2<CDynamicVB> > CDynamicVBMap;
+	typedef std::unordered_multimap< DWORD, CPtr2<CDynamicIB> > CDynamicIBMap;
 	CDynamicVBMap dynVBs;
 	CDynamicIBMap dynIBs;
 	// last formats for flushing
@@ -173,7 +174,7 @@ class CGraphicsEngine : public IGFX
 		static int GetElementSize( DWORD dwFormat ) { return GetVertexSize( dwFormat ); }
 		static HRESULT CreateBuffer( IDirect3DDevice8 *pD3DDevice, int nSizeInBytes, DWORD dwUsage, DWORD dwFormat, D3DPOOL pool, IDirect3DVertexBuffer8 **ppD3DBuffer )
 		{
-			return pD3DDevice->CreateVertexBuffer( nSizeInBytes, dwUsage, dwFormat, pool, ppD3DBuffer );
+			return pD3DDevice->CreateVertexBuffer( nSizeInBytes, dwUsage, dwFormat, pool, ppD3DBuffer, 0 );
 		}
 	};
 	struct SIBCreator
@@ -182,7 +183,7 @@ class CGraphicsEngine : public IGFX
 		static int GetElementSize( DWORD dwFormat ) { return GetIndexSize( dwFormat ); }
 		static HRESULT CreateBuffer( IDirect3DDevice8 *pD3DDevice, int nSizeInBytes, DWORD dwUsage, DWORD dwFormat, D3DPOOL pool, IDirect3DIndexBuffer8 **ppD3DBuffer )
 		{
-			return pD3DDevice->CreateIndexBuffer( nSizeInBytes, dwUsage, D3DFORMAT(dwFormat), pool, ppD3DBuffer );
+			return pD3DDevice->CreateIndexBuffer( nSizeInBytes, dwUsage, D3DFORMAT(dwFormat), pool, ppD3DBuffer, 0 );
 		}
 	};
 	template <class TBuffer, class TD3DBuffer, class TCreator>
@@ -221,9 +222,9 @@ class CGraphicsEngine : public IGFX
 	}
 	// dynamic IBs and VBs functions
 	template <class TBuffer, class TD3DBuffer, class TCreator>
-	TBuffer* GetDynamicBuffer( int nNumElements, DWORD dwFormat, std::hash_multimap< DWORD, CPtr2<TBuffer> > &buffers, TD3DBuffer*, TCreator* )
+	TBuffer* GetDynamicBuffer( int nNumElements, DWORD dwFormat, std::unordered_multimap< DWORD, CPtr2<TBuffer> > &buffers, TD3DBuffer*, TCreator* )
 	{
-		typedef std::hash_multimap< DWORD, CPtr2<TBuffer> > CDynBuffersMap;
+		typedef std::unordered_multimap< DWORD, CPtr2<TBuffer> > CDynBuffersMap;
 		typedef std::pair<CDynBuffersMap::iterator, CDynBuffersMap::iterator> CDynBuffersRange;
 		CDynBuffersRange range = buffers.equal_range( dwFormat );
 		for ( CDynBuffersMap::iterator it = range.first; it != range.second; ++it )

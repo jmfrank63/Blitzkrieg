@@ -1709,7 +1709,6 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C7
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2575: 'AddRef': only member functions and bases can be virtual
   (compiling source file '/GraphicsEngine.cpp')
   
-  VideoCheck.cpp
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(42,2): error C2259: 'CTexture': cannot instantiate abstract class
   (compiling source file '/GraphicsEngine.cpp')
       C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(40,7):
@@ -1838,10 +1837,11 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C2
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Texture.h(44,2): error C1003: error count exceeds 100; stopping compilation
   (compiling source file '/GraphicsEngine.cpp')
   
+  VideoCheck.cpp
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\dinput.h: DIRECTINPUT_VERSION undefined. Defaulting to version 0x0800
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\VideoCheck.cpp(7,10): error C1083: Cannot open include file: 'dmusici.h': No such file or directory
   (compiling source file '/VideoCheck.cpp')
   
-  C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\dinput.h: DIRECTINPUT_VERSION undefined. Defaulting to version 0x0800
   GeometryBuffer.cpp
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GeometryBuffer.h(46,29): error C2664: 'HRESULT IDirect3DIndexBuffer9::Lock(UINT,UINT,void **,DWORD)': cannot convert argument 3 from 'BYTE **' to 'void **'
   (compiling source file '/GeometryBuffer.cpp')
@@ -1860,7 +1860,6 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GeometryBuffer.h(46,29): 
               C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GeometryBuffer.h(180,33):
               see the first reference to 'CDataBuffer<IDirect3DIndexBuffer8>::Lock' in 'CIndices::Lock'
   
-  GeometryManager.cpp
   Font.cpp
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(12,2): error C2259: 'CFont': cannot instantiate abstract class
   (compiling source file '/Font.cpp')
@@ -1885,7 +1884,6 @@ C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Font.h(12,2): error C2259
       C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\GFX.h(139,23):
       see declaration of 'IGFXFont::GetTextWidth'
   
-  GFXTextVisitors.cpp
   Text.cpp
 C:\Users\jmfra\Projects\Zig\Blitzkrieg\Sources\src\GFX\Text.cpp(39,32): error C2440: 'initializing': cannot convert from 'const WORD *' to 'const wchar_t *'
   (compiling source file '/Text.cpp')

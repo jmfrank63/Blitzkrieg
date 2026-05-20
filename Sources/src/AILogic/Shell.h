@@ -303,7 +303,13 @@ public:
 	bool operator < ( const CInvisShell &shell ) { return GetExplTime() > shell.GetExplTime(); }
 };
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-inline bool operator < ( const CPtr<CInvisShell> &shell1, const CPtr<CInvisShell> &shell2 ) { return ( *shell1 ) < ( *shell2 ); }
+struct SInvisShellCmp
+{
+	bool operator()( const CPtr<CInvisShell> &shell1, const CPtr<CInvisShell> &shell2 ) const
+	{
+		return shell1->GetExplTime() > shell2->GetExplTime();
+	}
+};
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // видимый снаряд
 class CVisShell : public CLinkObject, public CShell
@@ -348,7 +354,7 @@ class CShellsStore
 {
 	DECLARE_SERIALIZE;
 	// все невидимые снаряды
-	std::priority_queue< CPtr<CInvisShell> > invisShells;
+	std::priority_queue< CPtr<CInvisShell>, std::vector< CPtr<CInvisShell> >, SInvisShellCmp > invisShells;
 	// все видимые снаряды
 	std::list< CPtr<CVisShell> > visShells;
 public:
