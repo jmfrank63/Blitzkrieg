@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -90,7 +90,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Release\A7ExportModel.dll</OutputFile>
       <ImportLibrary>.\Release\A7ExportModel.lib</ImportLibrary>
-      <AdditionalDependencies>Foundation.lib;OpenMaya.lib;OpenMayaAnim.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Foundation.lib;OpenMaya.lib;OpenMayaAnim.lib;..\Misc\Release\Misc.lib;..\Formats\Release\Formats.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions> /export:initializePlugin  /export:uninitializePlugin </AdditionalOptions>
       <AdditionalLibraryDirectories>..\..\sdk\MAYA40\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
@@ -138,7 +138,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\A7ExportModel.dll</OutputFile>
       <ImportLibrary>.\Debug\A7ExportModel.lib</ImportLibrary>
-      <AdditionalDependencies>Foundation.lib;OpenMaya.lib;OpenMayaAnim.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Foundation.lib;OpenMaya.lib;OpenMayaAnim.lib;..\Misc\Debug\Misc.lib;..\Formats\Debug\Formats.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions> /export:initializePlugin  /export:uninitializePlugin </AdditionalOptions>
       <AdditionalLibraryDirectories>..\..\sdk\MAYA40\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
@@ -153,6 +153,7 @@
     <ClCompile Include="A7ExportModel.cpp" />
     <ClCompile Include="Data.cpp" />
     <ClCompile Include="pluginMain.cpp" />
+    <ClCompile Include="GlobalsLoader.cpp" />
     <ClCompile Include="MiniBall\BoundingSphere.cpp">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Disabled</Optimization>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">

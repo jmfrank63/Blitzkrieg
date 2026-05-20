@@ -160,7 +160,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\Image.dll</OutputFile>
       <ImportLibrary>.\Debug\Image.lib</ImportLibrary>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Debug\Misc.lib;..\libpng\Debug\libpng.lib;..\zlib\Debug\zlib.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Image.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -207,7 +207,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\FastDebug\Image.dll</OutputFile>
       <ImportLibrary>.\FastDebug\Image.lib</ImportLibrary>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\FastDebug\Misc.lib;..\libpng\FastDebug\libpng.lib;..\zlib\FastDebug\zlib.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Image.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -254,7 +254,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Release\Image.dll</OutputFile>
       <ImportLibrary>.\Release\Image.lib</ImportLibrary>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Release\Misc.lib;..\libpng\Release\libpng.lib;..\zlib\Release\zlib.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Image.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -305,7 +305,7 @@
       <OutputFile>.\BetaRelease\Image.dll</OutputFile>
       <ImportLibrary>.\BetaRelease\Image.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\BetaRelease\Misc.lib;..\libpng\BetaRelease\libpng.lib;..\zlib\BetaRelease\zlib.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profiler|Win32'">
@@ -353,7 +353,7 @@
       <OutputFile>.\Profiler\Image.dll</OutputFile>
       <ImportLibrary>.\Profiler\Image.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Profiler\Misc.lib;..\libpng\Profiler\libpng.lib;..\zlib\Profiler\zlib.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

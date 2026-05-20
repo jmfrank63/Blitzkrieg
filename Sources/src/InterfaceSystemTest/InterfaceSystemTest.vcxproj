@@ -101,6 +101,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\InterfaceSystemTest.exe</OutputFile>
+      <AdditionalDependencies>..\Misc\Debug\Misc.lib;..\StreamIOLib\Debug\StreamIOLib.lib;..\LuaLib\Debug\LuaLib.lib;..\zlib\Debug\zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -139,6 +140,7 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Release\InterfaceSystemTest.exe</OutputFile>
+      <AdditionalDependencies>..\Misc\Release\Misc.lib;..\StreamIOLib\Release\StreamIOLib.lib;..\LuaLib\Release\LuaLib.lib;..\zlib\Release\zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -212,3 +214,6 @@
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
+
+
+
