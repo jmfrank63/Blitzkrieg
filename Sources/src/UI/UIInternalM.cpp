@@ -4,6 +4,14 @@
 #include "UIInternal.h"
 #include "UIInternalM.h"
 
+namespace
+{
+	inline const WORD* ToWordText( const wchar_t *pszText )
+	{
+		return reinterpret_cast<const WORD*>( pszText );
+	}
+}
+
 CUIWindowSubStateManipulator::CUIWindowSubStateManipulator() 
 : CManipulator( &thePropertiesRegister, "WindowSubState" ), pSubState( 0 )
 {
@@ -153,7 +161,8 @@ void CWindowStateManipulator::SetText( const variant_t &value )
 {
 	bstr_t bstrVal = value.bstrVal;
 	IText *pText = pState->pGfxText->GetText();
-	pText->SetText( bstrVal );
+	const WORD *pszText = ToWordText( (const wchar_t*)bstrVal );
+	pText->SetText( pszText );
 }
 
 void CWindowStateManipulator::GetTexture( variant_t *pValue, int nIndex )

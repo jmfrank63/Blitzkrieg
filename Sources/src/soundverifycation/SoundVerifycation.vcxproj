@@ -99,7 +99,7 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
-      <OutputFile>.\Debug\SoundVerifycation.exe</OutputFile>
+      <OutputFile>.\Release\SoundVerifycation.exe</OutputFile>
       <AdditionalDependencies>..\Misc\Debug\Misc.lib;fmodvc.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -137,8 +137,8 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
-      <OutputFile>.\Debug\SoundVerifycation.exe</OutputFile>
-      <AdditionalDependencies>..\Misc\Debug\Misc.lib;fmodvc.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>.\Release\SoundVerifycation.exe</OutputFile>
+      <AdditionalDependencies>..\Misc\Release\Misc.lib;fmodvc.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

@@ -2367,7 +2367,7 @@ void CInterfaceMission::VisualizeFeedback( const int /*EMissionCommands*/ nFeedB
 			const std::wstring wszBase = 
 				( pTM->GetString( "Textes\\FeedBacks\\units_passed" ) ) ? 
 				MakeWideStringFromWordString( pTM->GetString( "Textes\\FeedBacks\\units_passed" )->GetString() ) : L"";
-			pText->SetText( (wszBase + L": " + wszSrc + L" -> " + wszTrg).c_str() );
+			pText->SetText( reinterpret_cast<const WORD*>( (wszBase + L": " + wszSrc + L" -> " + wszTrg).c_str() ) );
 		}
 		break;
 	case MC_VISUALIZE_FEEDBACK_SNIPER_DEAD:

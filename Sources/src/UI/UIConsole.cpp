@@ -9,6 +9,14 @@
 #include "..\Net\NetDriver.h"
 #include "..\Main\Transceiver.h"
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+namespace
+{
+	inline const WORD* ToWordText( const wchar_t *pszText )
+	{
+		return reinterpret_cast<const WORD*>( pszText );
+	}
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const int OPEN_TIME = 200;						//����� �������� � �������� ��������� � �������������
 static const int CONSOLE_HEIGHT = 240;			//������ ������� � ��������
 static const int TEXT_LEFT_SPACE = 20;			//������ �� ������ ���� ������ �� ������ � �������
@@ -276,9 +284,11 @@ void CUIConsole::Draw( interface IGFX *pGFX )
 		if ( bShowCursor )
 		{
 			IText *pText = states[nCurrentState].pGfxText->GetText();
-			pText->SetText( szEditString.c_str() );
+			const WORD *pszEditString = ToWordText( szEditString.c_str() );
+			pText->SetText( pszEditString );
 			int nWidth = states[nCurrentState].pGfxText->GetWidth( nCursorPos );
-			pText->SetText( L"" );
+			const WORD *pszEmptyString = ToWordText( L"" );
+			pText->SetText( pszEmptyString );
 
 			SGFXRect2 rc;
 			rc.rect.left = wndRect.left + nWidth + vTextPos.x - 1 + TEXT_LEFT_SPACE + TEXT_VERTICAL_SIZE;

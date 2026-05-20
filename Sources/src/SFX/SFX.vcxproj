@@ -88,7 +88,7 @@
     <LinkIncremental>false</LinkIncremental>
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
     <ExternalIncludePath>C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\sdk\FMOD\api\inc;$(ExternalIncludePath)</ExternalIncludePath>
-    <LibraryPath>$(ProjectDir)\..\..\Sources\sdk\FMOD\api\lib;$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(ProjectDir)..\..\sdk\FMOD\api\lib;$(LibraryPath)</LibraryPath>
     <IncludePath>$(ProjectDir)\..\..\sdk\FMOD\api\inc;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='FastDebug|Win32'">
@@ -405,4 +405,5 @@
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
+
 

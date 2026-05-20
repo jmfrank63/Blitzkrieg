@@ -5,6 +5,14 @@
 #include "UIEdit.h"
 #include "UIMessages.h"
 
+namespace
+{
+	inline const WORD* ToWordText( const wchar_t *pszText )
+	{
+		return reinterpret_cast<const WORD*>( pszText );
+	}
+}
+
 const int CURSOR_ANIMATION_TIME = 400;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -715,7 +723,8 @@ void CUIEditBox::EnsureCursorVisible()
 {
 	IGFXText *pGFXText = states[nCurrentState].pGfxText;
 	IText *pText = pGFXText->GetText();
-	pText->SetText( wszFullText.c_str() + nBeginText );
+	const WORD *pszVisibleText = ToWordText( wszFullText.c_str() + nBeginText );
+	pText->SetText( pszVisibleText );
 	pGFXText->SetText( pText );
 
 	if ( nCursorPos <= 0 && nBeginText > 0 )
@@ -736,7 +745,8 @@ void CUIEditBox::EnsureCursorVisible()
 			nBeginText--;
 			nCursorPos++;
 		}
-		pText->SetText( wszFullText.c_str() + nBeginText );
+		pszVisibleText = ToWordText( wszFullText.c_str() + nBeginText );
+		pText->SetText( pszVisibleText );
 		pGFXText->SetText( pText );
 	}
 	else if ( pGFXText->GetWidth( nCursorPos ) > wndRect.Width() - vTextPos.x - 2 )
@@ -753,7 +763,8 @@ void CUIEditBox::EnsureCursorVisible()
 			{
 				wszFullText.erase( wszFullText.size() - 1 );
 			}
-			pText->SetText( wszFullText.c_str() + nBeginText );
+			pszVisibleText = ToWordText( wszFullText.c_str() + nBeginText );
+			pText->SetText( pszVisibleText );
 			pGFXText->SetText( pText );
 		}
 	}
@@ -770,7 +781,8 @@ bool CUIEditBox::IsTextInsideEditBox()
 //	NI_ASSERT_T( bTextScroll == false, "Error calling IsTextInsideEditBox()" );
 	IGFXText *pGFXText = states[nCurrentState].pGfxText;
 	IText *pText = pGFXText->GetText();
-	pText->SetText( wszFullText.c_str() + nBeginText );
+	const WORD *pszVisibleText = ToWordText( wszFullText.c_str() + nBeginText );
+	pText->SetText( pszVisibleText );
 	pGFXText->SetText( pText );
 	return pGFXText->GetWidth( -1 ) <= wndRect.Width() - vTextPos.x - 2;
 }

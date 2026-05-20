@@ -157,7 +157,7 @@
       <OutputFile>.\Profiler\GFX.dll</OutputFile>
       <ImportLibrary>.\Profiler\GFX.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>d3d8.lib;dxguid.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Profiler\Misc.lib;..\Formats\Profiler\Formats.lib;d3d9.lib;dxguid.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='FastDebug|Win32'">
@@ -203,7 +203,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\FastDebug\GFX.dll</OutputFile>
       <ImportLibrary>.\FastDebug\GFX.lib</ImportLibrary>
-      <AdditionalDependencies>d3d8.lib;dxguid.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\FastDebug\\Misc.lib;..\\Formats\\FastDebug\\Formats.lib;d3d9.lib;dxguid.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\GFX.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -253,7 +253,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\GFX.dll</OutputFile>
       <ImportLibrary>.\Debug\GFX.lib</ImportLibrary>
-      <AdditionalDependencies>d3d8.lib;dxguid.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\Debug\\Misc.lib;..\\Formats\\Debug\\Formats.lib;d3d9.lib;dxguid.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\GFX.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -304,7 +304,7 @@
       <OutputFile>.\BetaRelease\GFX.dll</OutputFile>
       <ImportLibrary>.\BetaRelease\GFX.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>d3d8.lib;dxguid.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\BetaRelease\\Misc.lib;..\\Formats\\BetaRelease\\Formats.lib;d3d9.lib;dxguid.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -350,7 +350,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Release\GFX.dll</OutputFile>
       <ImportLibrary>.\Release\GFX.lib</ImportLibrary>
-      <AdditionalDependencies>d3d8.lib;dxguid.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\Release\\Misc.lib;..\\Formats\\Release\\Formats.lib;d3d9.lib;dxguid.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\GFX.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -455,4 +455,7 @@
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
+
+
+
 

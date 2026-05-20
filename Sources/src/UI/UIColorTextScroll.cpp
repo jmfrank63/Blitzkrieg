@@ -20,7 +20,7 @@ CVisibleString CUIColorTextScroll::CColorTextEntry::CreateString( const std::wst
 {
 	CVisibleString result;
 	result.first = CreateObject<ITextDialog>( TEXT_STRING );
-	result.first->SetText( szSource.c_str() );
+	result.first->SetText( reinterpret_cast<const WORD*>( szSource.c_str() ) );
 	
 	result.second = CreateObject<IGFXText>( GFX_TEXT );
 	result.second->SetText( result.first );

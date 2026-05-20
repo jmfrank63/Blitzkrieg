@@ -156,7 +156,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\FastDebug\Input.dll</OutputFile>
       <ImportLibrary>.\FastDebug\Input.lib</ImportLibrary>
-      <AdditionalDependencies>winmm.lib;dinput8.lib;dxguid.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\FastDebug\Misc.lib;winmm.lib;dinput8.lib;dxguid.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Input.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -208,7 +208,7 @@
       <OutputFile>.\BetaRelease\Input.dll</OutputFile>
       <ImportLibrary>.\BetaRelease\Input.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>winmm.lib;dinput8.lib;dxguid.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\BetaRelease\Misc.lib;winmm.lib;dinput8.lib;dxguid.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profiler|Win32'">
@@ -257,7 +257,7 @@
       <OutputFile>.\Profiler\Input.dll</OutputFile>
       <ImportLibrary>.\Profiler\Input.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>winmm.lib;dinput8.lib;dxguid.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Profiler\Misc.lib;winmm.lib;dinput8.lib;dxguid.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -306,7 +306,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\Input.dll</OutputFile>
       <ImportLibrary>.\Debug\Input.lib</ImportLibrary>
-      <AdditionalDependencies>winmm.lib;dinput8.lib;dxguid.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Debug\Misc.lib;winmm.lib;dinput8.lib;dxguid.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Input.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -354,7 +354,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Release\Input.dll</OutputFile>
       <ImportLibrary>.\Release\Input.lib</ImportLibrary>
-      <AdditionalDependencies>winmm.lib;dinput8.lib;dxguid.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Release\Misc.lib;winmm.lib;dinput8.lib;dxguid.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Input.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
