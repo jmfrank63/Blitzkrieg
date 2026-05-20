@@ -132,7 +132,7 @@ void CMultiPlayerTransceiver::LoadGameSettings()
 		player.lastLagUpdateTime = 0;
 
 		szValueName = NStr::Format( "Multiplayer.Player%d.Name", i );
-		player.szName = MakeWideStringFromWordString( GetGlobalWVar( szValueName.c_str(), L"Unknown Player" ) );
+		player.szName = MakeWideStringFromWordString( GetGlobalWVar( szValueName.c_str(), reinterpret_cast<const WORD*>( L"Unknown Player" ) ) );
 
 		szValueName = NStr::Format( "Multiplayer.Player%d.Side", i );
 		player.nSide = GetGlobalVar( szValueName.c_str(), int(-1) );

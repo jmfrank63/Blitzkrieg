@@ -227,7 +227,7 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 static void AddMsg( SWindowsMsg::EMsg msg, int x, int y, DWORD dwFlags )
 {
 	CCriticalSectionLock lock( msgs );
-	msgList.push_back();
+	msgList.push_back( SWindowsMsg() );
 	SWindowsMsg &m = msgList.back();
 	m.time = GetTickCount();
 	m.msg = msg;

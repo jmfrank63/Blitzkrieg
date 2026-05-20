@@ -529,7 +529,6 @@ void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams )
 	pCmdParams->nAutoSavePeriod = 0;
 	pCmdParams->eTextureQuality = ITextureManager::TEXTURE_QUALITY_HIGH;
 	pCmdParams->szMapName = "";
-	pCmdParams->szModName.c_str();
 	//
 	std::vector<std::string> szParams;
 	NStr::SplitStringWithMultipleBrackets( lpCmdLine, szParams, ' ' );
@@ -675,7 +674,8 @@ void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams )
 			std::string szNick = realStr.c_str() + 5;
 			NStr::TrimBoth( szNick, '"' );
 
-			SetGlobalVar( "Options.Multiplayer.GameSpyPlayerName", NStr::ToUnicode( szNick ).c_str() );
+			const std::wstring szWideNick = NStr::ToUnicode( szNick );
+			SetGlobalVar( "Options.Multiplayer.GameSpyPlayerName", reinterpret_cast<const WORD*>( szWideNick.c_str() ) );
 		}
 		else if ( szParams[i].compare(0,5, "-room") == 0 )
 		{

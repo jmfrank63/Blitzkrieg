@@ -2,15 +2,29 @@
 
 #include "SysKeys.h"
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#ifndef LLKHF_EXTENDED
 #define LLKHF_EXTENDED       0x00000001
+#endif
+#ifndef LLKHF_INJECTED
 #define LLKHF_INJECTED       0x00000010
+#endif
+#ifndef LLKHF_ALTDOWN
 #define LLKHF_ALTDOWN        0x00000020
+#endif
+#ifndef LLKHF_UP
 #define LLKHF_UP             0x00000080
+#endif
 
+#ifndef LLMHF_INJECTED
 #define LLMHF_INJECTED       0x00000001
+#endif
 
+#ifndef WH_KEYBOARD_LL
 #define WH_KEYBOARD_LL     13
+#endif
+#ifndef WH_MOUSE_LL
 #define WH_MOUSE_LL        14
+#endif
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NSysKeys
 {

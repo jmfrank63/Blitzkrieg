@@ -621,7 +621,7 @@ void CGameSpyMultiplayer::Init()
 {
 	SetChat( new CGameSpyPeerChat() );
 
-	std::wstring wszUserName = MakeWideStringFromWordString( GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", L"Noname" ) );
+	std::wstring wszUserName = MakeWideStringFromWordString( GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", reinterpret_cast<const WORD*>( L"Noname" ) ) );
 	if ( wszUserName == L"Noname" )
 		wszUserName = NStr::ToUnicode( GetGlobalVar( "Options.Multiplayer.PlayerName", "Noname" ) );
 	
