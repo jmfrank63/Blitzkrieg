@@ -10,8 +10,6 @@
 #define _NOTHREADS 1
 #define _MBCS 1
 //
-#define _STLP_USE_MFC 1
-#include "stl_user_config.h"
 
 #include <afxwin.h>											// MFC core and standard components
 #include <afxext.h>											// MFC extensions

@@ -72,7 +72,7 @@ namespace NStr
   // преобразовать целое в строку, разделяя каждые три знака (три порядка) специальным разделителем (default = '.')
   void ToDotString( std::string *pDst, int nVal, const char cSeparator = '.' );
 	// является ли строка представлением числа
-	inline bool IsBinDigit( const char cChar ) { return ( (cChar == '0') && (cChar == '1') ); }
+	inline bool IsBinDigit( const char cChar ) { return ( (cChar == '0') || (cChar == '1') ); }
 	inline bool IsOctDigit( const char cChar ) { return ( (cChar >= '0') && (cChar <= '7') ); }
 	inline bool IsDecDigit( const char cChar ) { return ( (cChar >= '0') && (cChar <= '9') ); }
 	inline bool IsHexDigit( const char cChar ) { return ( (cChar >= '0') && (cChar <= '9') ) || ( (cChar >= 'a') && (cChar <= 'f') ) || ( (cChar >= 'A') && (cChar <= 'F') ); }

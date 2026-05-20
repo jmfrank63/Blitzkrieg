@@ -2,7 +2,7 @@
 
 #include "StrProc.h"
 
-#include <hash_map>
+#include <unordered_map>
 #include <stack>
 #include <math.h>
 #include <stdlib.h>
@@ -260,7 +260,8 @@ void* NStr::StringToBin( const char *pszData, void *pBuffer, int *pnSize )
 	{
 		buffer[2] = pszData[i*2 + 0];
 		buffer[3] = pszData[i*2 + 1];
-		sscanf( buffer, "%i", &nData );
+		if ( sscanf( buffer, "%i", &nData ) != 1 )
+			nData = 0;
 		((unsigned char*)pBuffer)[i] = (unsigned char)nData;
 	}
 	if ( pnSize )
@@ -328,19 +329,22 @@ bool NStr::IsHexNumber( const std::string &szString )
 int NStr::ToInt( const char *pszString )
 {
 	int nNumber = 0;
-	sscanf( pszString, "%i", &nNumber );
+	if ( sscanf( pszString, "%i", &nNumber ) != 1 )
+		nNumber = 0;
 	return nNumber;
 }
 float NStr::ToFloat( const char *pszString )
 {
 	float fNumber = 0;
-	sscanf( pszString, "%f", &fNumber );
+	if ( sscanf( pszString, "%f", &fNumber ) != 1 )
+		fNumber = 0;
 	return fNumber;
 }
 double NStr::ToDouble( const char *pszString )
 {
 	double fNumber = 0;
-	sscanf( pszString, "%lf", &fNumber );
+	if ( sscanf( pszString, "%lf", &fNumber ) != 1 )
+		fNumber = 0;
 	return fNumber;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

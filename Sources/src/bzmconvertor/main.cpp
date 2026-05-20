@@ -77,13 +77,13 @@ void ConvertFences( CMapInfo *pMapInfo )
 		switch ( pDesc->eGameType ) 
 		{
 			case SGVOGT_FENCE:
-				ConvertFrameIndex( pGDB, it, NGDB::GetRPGStats<SFenceRPGStats>(pGDB, pDesc), "fence" );
+				ConvertFrameIndex( pGDB, &(*it), NGDB::GetRPGStats<SFenceRPGStats>(pGDB, pDesc), "fence" );
 				break;
 			case SGVOGT_ENTRENCHMENT:
-				ConvertFrameIndex( pGDB, it, NGDB::GetRPGStats<SEntrenchmentRPGStats>(pGDB, pDesc), "entrenchment" );
+				ConvertFrameIndex( pGDB, &(*it), NGDB::GetRPGStats<SEntrenchmentRPGStats>(pGDB, pDesc), "entrenchment" );
 				break;
 			case SGVOGT_BRIDGE:
-				ConvertFrameIndex( pGDB, it, NGDB::GetRPGStats<SBridgeRPGStats>(pGDB, pDesc), "bridge" );
+				ConvertFrameIndex( pGDB, &(*it), NGDB::GetRPGStats<SBridgeRPGStats>(pGDB, pDesc), "bridge" );
 				break;
 		}
 	}
@@ -168,9 +168,8 @@ int main( int argc, char *argv[] )
 	}
 	// CRAP{ load game database
 	{
-		CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( "objects.xml", STREAM_ACCESS_READ );
 		CPtr<IObjectsDB> pODB = CreateObjectsDB();
-		pODB->Load( pStream );
+		pODB->LoadDB();
 		RegisterSingleton( IObjectsDB::tidTypeID, pODB );
 		//
 		GetSLS()->SetGDB( pODB );
