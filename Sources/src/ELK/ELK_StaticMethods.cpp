@@ -88,7 +88,7 @@ void CELK::ToText( const std::vector<BYTE> &rBuffer, CString *pstrText, int nCod
 
 		if ( bRemove_0D )
 		{
-			wszText.erase( std::remove_if( wszText.begin(), wszText.end(), std::bind2nd( std::equal_to<wchar_t>(), 0x0D ) ),
+			wszText.erase( std::remove_if( wszText.begin(), wszText.end(), [](wchar_t c) { return c == 0x0D; } ),
 										 wszText.end() );
 		}
 		

@@ -36,7 +36,7 @@ public:
 	void SetActiveKeyFrameTreeItem( CKeyFrameTreeItem *pItem );
 	
 private:
-	CKeyFrame *m_pKeyFramer;
+	CKeyFrameEditor *m_pKeyFramer;
 	CPtr<CKeyFrameTreeItem> pActiveKeyItem;
 
 	// Generated message map functions
@@ -57,3 +57,4 @@ protected:
 // Microsoft Developer Studio will insert additional declarations immediately before the previous line.
 
 #endif	//__KEY_FRAME_DOCK_H__
+

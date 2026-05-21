@@ -63,7 +63,7 @@ void CBuildingStorage::AddSoldier( CSoldier *pUnit )
 void CBuildingStorage::ChangePlayer( const int _nPlayer )
 {
 	const CVec2 vCenter = GetCenter();
-	const DWORD dwParam = int(vCenter.x) << 32 | int( vCenter.y);
+	const DWORD dwParam = (static_cast<DWORD>(int(vCenter.x)) << 16) | (static_cast<DWORD>(int(vCenter.y)) & 0xFFFF);
 
 	if ( EDI_ENEMY == theDipl.GetDiplStatus( _nPlayer, nPlayer ) )
 	{

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="BetaRelease|Win32">
@@ -157,7 +157,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Release\GameTT.dll</OutputFile>
       <ImportLibrary>.\Release\GameTT.lib</ImportLibrary>
-      <AdditionalDependencies>version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\GameTT.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -208,7 +208,7 @@
       <OutputFile>.\Profiler\GameTT.dll</OutputFile>
       <ImportLibrary>.\Profiler\GameTT.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>vtuneapi.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;vtuneapi.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='BetaRelease|Win32'">
@@ -260,7 +260,7 @@
       <OutputFile>.\BetaRelease\GameTT.dll</OutputFile>
       <ImportLibrary>.\BetaRelease\GameTT.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='FastDebug|Win32'">
@@ -308,7 +308,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\FastDebug\GameTT.dll</OutputFile>
       <ImportLibrary>.\FastDebug\GameTT.lib</ImportLibrary>
-      <AdditionalDependencies>version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\GameTT.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -359,7 +359,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\GameTT.dll</OutputFile>
       <ImportLibrary>.\Debug\GameTT.lib</ImportLibrary>
-      <AdditionalDependencies>version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\GameTT.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -922,5 +922,3 @@
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
-
-

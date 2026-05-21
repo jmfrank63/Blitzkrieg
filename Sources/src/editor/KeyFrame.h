@@ -9,16 +9,16 @@
 // KeyFrame.h : header file
 //
 
-const UINT WM_KEY_FRAME_RCLICK	= WM_USER + 35;		// клик правой кнопкой в области контрола
-const UINT WM_KEY_FRAME_UPDATE	= WM_USER + 36;		// нужно обновить список framesList
+const UINT WM_KEY_FRAME_RCLICK	= WM_USER + 35;		// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+const UINT WM_KEY_FRAME_UPDATE	= WM_USER + 36;		// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ framesList
 
 using std::list;
 using std::pair;
 
 /////////////////////////////////////////////////////////////////////////////
-// CKeyFrame window
+// CKeyFrameEditor window
 
-class CKeyFrame : public CWnd
+class CKeyFrameEditor : public CWnd
 {
 // Construction
 public:
@@ -28,8 +28,8 @@ public:
 		E_DRAG_MODE,
 	};
 
-	CKeyFrame();
-	virtual ~CKeyFrame();
+	CKeyFrameEditor();
+	virtual ~CKeyFrameEditor();
 	
 // Attributes
 public:
@@ -46,7 +46,7 @@ public:
 	
 // Overrides
 	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CKeyFrame)
+	//{{AFX_VIRTUAL(CKeyFrameEditor)
 	public:
 	virtual BOOL Create(LPCTSTR lpszClassName, LPCTSTR lpszWindowName, DWORD dwStyle, const RECT& rect, CWnd* pParentWnd, UINT nID, CCreateContext* pContext = NULL);
 	//}}AFX_VIRTUAL
@@ -56,7 +56,7 @@ protected:
 //	void GetScreenCoord( float x, float y, float *screenX, float *screenY );
 	void SetHDimention( float fMin, float fMax );
 	void SetVDimention( float fMin, float fMax );
-	void GetVisibleX( int *nMin, int *nMax );			//получает число элементов видимых на экране, в единицах ScrollBar
+	void GetVisibleX( int *nMin, int *nMax );			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ScrollBar
 	void GetVisibleY( int *nMin, int *nMax );
 	void GetScreenByValue( float fValX, float fValY, float *pScreenX, float *pScreenY );
 	void GetValueByScreen( int x, int y, float *pValX, float *pValY );
@@ -70,7 +70,7 @@ private:
 	int m_nDragIndex;
 	int m_mode;
 	int m_nHighNodeIndex;
-	POINT m_beginDrag;						//для сохранения точки перетаскивания
+	POINT m_beginDrag;						//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	CFramesList framesList;
 	bool m_bResizeMode;
 	float m_XS;
@@ -78,7 +78,7 @@ private:
 
 	// Generated message map functions
 protected:
-	//{{AFX_MSG(CKeyFrame)
+	//{{AFX_MSG(CKeyFrameEditor)
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg void OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
 	afx_msg void OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
@@ -107,3 +107,4 @@ protected:
 // Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif // !defined(AFX_KEYFRAME_H__B132E21D_2C65_44F9_A0C5_8F120B411033__INCLUDED_)
+

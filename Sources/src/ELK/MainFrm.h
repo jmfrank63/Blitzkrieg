@@ -111,7 +111,7 @@ protected:
 	afx_msg void OnUpdateRecentElkRange( CCmdUI* pCmdUI );
   afx_msg LONG OnFindReplace( WPARAM wParam, LPARAM lParam );
 
-	afx_msg void OnCreateCombo( UINT wParam, LONG lParam );
+	afx_msg LRESULT OnCreateCombo( WPARAM wParam, LPARAM lParam );
 	afx_msg void OnChangeFilter();
 	DECLARE_MESSAGE_MAP()
 
@@ -157,3 +157,4 @@ public:
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //{{AFX_INSERT_LOCATION}}
 #endif // !defined(__ELK_MAIN_FRAME__)
+

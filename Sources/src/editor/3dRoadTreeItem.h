@@ -21,7 +21,7 @@ public:
 	C3DRoadCommonPropsItem() { nItemType = E_3DROAD_COMMON_PROPS_ITEM; InitDefaultValues(); nImageIndex = 0; }
 	~C3DRoadCommonPropsItem() {};
 	
-	//Получение внутренних параметров
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	int GetBottomWidth() { return values[0].value; }
 	bool HasBorders() { return values[1].value; }
 	float GetBorderRelativeWidth() { return values[2].value; }
@@ -36,7 +36,7 @@ public:
 	int GetMinimapBorderColor() { return values[11].value; }
 	BYTE GetSoilParams();
 	
-	//Установка внутренних параметров
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	void SetBottomWidth( int nVal ) { values[0].value = nVal; }
 	void SetBorderRelativeWidth( float fVal ) { values[2].value = fVal; }
 	void SetPriority( int nVal ) { values[3].value = nVal; }
@@ -61,13 +61,13 @@ public:
 	C3DRoadLayerPropsItem() { nItemType = E_3DROAD_LAYER_PROPS_ITEM; InitDefaultValues(); nImageIndex = 0; }
 	~C3DRoadLayerPropsItem() {};
 	
-	//Получение внутренних параметров
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	int GetCenterOpacity() { return values[0].value; }
 	int GetBorderOpacity() { return values[1].value; }
 	float GetTextureStep() { return values[2].value; }
 	std::string GetTexture() { return values[3].value; }
 	
-	//Установка внутренних параметров
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	void SetCenterOpacity( int nVal ) { values[0].value = nVal; }
 	void SetBorderOpacity( int nVal ) { values[1].value = nVal; }
 	void SetTextureStep( float fVal ) { values[2].value = fVal; }

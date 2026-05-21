@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="BetaRelease|Win32">
@@ -155,7 +155,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\FastDebug\UI.dll</OutputFile>
       <ImportLibrary>.\FastDebug\UI.lib</ImportLibrary>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\UI.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -204,7 +204,7 @@
       <OutputFile>.\Profiler\UI.dll</OutputFile>
       <ImportLibrary>.\Profiler\UI.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -250,7 +250,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Release\UI.dll</OutputFile>
       <ImportLibrary>.\Release\UI.lib</ImportLibrary>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\UI.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -300,7 +300,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\UI.dll</OutputFile>
       <ImportLibrary>.\Debug\UI.lib</ImportLibrary>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\UI.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -351,7 +351,7 @@
       <OutputFile>.\BetaRelease\UI.dll</OutputFile>
       <ImportLibrary>.\BetaRelease\UI.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -519,4 +519,3 @@
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
-

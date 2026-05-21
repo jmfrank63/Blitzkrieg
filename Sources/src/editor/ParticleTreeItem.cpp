@@ -740,3 +740,4 @@ void CParticleTextureFrameItem::InitDefaultValues()
 	pair<float, float> para( 0.0f, 0.0f );
 	framesList.push_back( para );
 }
+
