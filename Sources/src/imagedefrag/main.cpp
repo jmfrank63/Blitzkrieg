@@ -539,8 +539,10 @@ int main( int argc, char* argv[] )
 			printf( "Unknown format (%s)!\n", szMapNameExt.c_str() );
 			continue;
 		}
-		bool bResult = mapInfo.CreateMiniMapImage( szMiniMapName, CTPoint<int>( nImageSize, nImageSize ) );
-    printf( "Done %d.\n", bResult );
+		CRMImageCreateParameterList imageCreateParameterList;
+		imageCreateParameterList.push_back( SRMImageCreateParameter( szMiniMapName, CTPoint<int>( nImageSize, nImageSize ), true ) );
+		bool bResult = mapInfo.CreateMiniMapImage( imageCreateParameterList );
+		printf( "Done %d.\n", bResult );
   }
   printf( "Total: %d files.\n", allFiles.size() );
 	return 0;

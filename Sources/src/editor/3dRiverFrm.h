@@ -21,7 +21,7 @@ public:
 	
 	virtual void GFXDraw();
 	virtual void ShowFrameWindows( int nCommand );
-	BOOL Run();										//Вызывается из EditorApp OnIdle()
+	BOOL Run();										//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ EditorApp OnIdle()
 	
 	// Overrides
 	// ClassWizard generated virtual function overrides
@@ -57,3 +57,4 @@ protected:
 };
 
 #endif		//__3DRIVER_FRAME_H__
+

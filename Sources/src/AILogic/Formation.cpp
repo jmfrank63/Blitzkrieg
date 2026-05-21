@@ -1021,10 +1021,10 @@ const TResult GetLoadInfo( CAICommand *pCommand, T &functor, TResult* )
 					case ESOT_ENTRENCHMENT: return functor( checked_cast<CEntrenchment*>( pObj ) );
 					case ESOT_ENTR_PART:		return functor( checked_cast<CEntrenchmentPart*>(pObj)->GetOwner() );
 					case ESOT_BUILDING:			return functor( checked_cast<CBuilding*>(pObj) );
-					default: NI_ASSERT_T( false, NStr::Format( "Can't enter to object of type %d", pObj->GetObjectType() ) );
+					default: NI_ASSERT_T( false, NStr::Format( "Can't enter to object of type %d", pObj->GetObjectType() ) ); return TResult();
 				}
 			}
-		default: NI_ASSERT_T( false, NStr::Format( "Unknown load command (%d)", cmd.cmdType ) ); TResult res; return res;
+		default: NI_ASSERT_T( false, NStr::Format( "Unknown load command (%d)", cmd.cmdType ) ); return TResult();
 	}
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -10,7 +10,7 @@
 
 CKeyFrameDockWnd::CKeyFrameDockWnd()
 {
-	m_pKeyFramer = new CKeyFrame();
+	m_pKeyFramer = new CKeyFrameEditor();
 }
 
 CKeyFrameDockWnd::~CKeyFrameDockWnd()
@@ -87,7 +87,7 @@ BOOL CKeyFrameDockWnd::PreTranslateMessage(MSG* pMsg)
 	{
 	case WM_KEY_FRAME_RCLICK:
 		{
-			//Отображаем меню
+			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 			CMenu menu;
 			menu.LoadMenu( IDR_KEYFRAME_ZOOM_MENU );
 			CMenu *popupMenu = menu.GetSubMenu( 0 );
@@ -98,9 +98,9 @@ BOOL CKeyFrameDockWnd::PreTranslateMessage(MSG* pMsg)
 	case WM_KEY_FRAME_UPDATE:
 		if ( pActiveKeyItem )
 		{
-			//Обновляем список значений
+			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 			pActiveKeyItem->SetFramesList( m_pKeyFramer->GetFramesList() );
-			//сейчас работает только с ParticleFrame
+			//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ ParticleFrame
 			g_frameManager.GetFrame( CFrameManager::E_PARTICLE_FRAME )->SetChangedFlag( true );
 		}
 		return true;
@@ -151,3 +151,4 @@ void CKeyFrameDockWnd::SetActiveKeyFrameTreeItem( CKeyFrameTreeItem *pItem )
 	m_pKeyFramer->SetXResizeMode( pItem->bResizeMode );
 	m_pKeyFramer->SetDimentions( pItem->fMinValX, pItem->fMaxValX, pItem->fStepX, pItem->fMinValY, pItem->fMaxValY, pItem->fStepY );
 }
+

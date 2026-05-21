@@ -265,3 +265,4 @@ void C3DRiverFrame::OnSetFocus(CWnd* pOldWnd)
 	}
 	CParentFrame::OnSetFocus(pOldWnd);	
 }
+

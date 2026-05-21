@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="BetaRelease|Win32">
@@ -158,7 +158,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Release\SFX.dll</OutputFile>
       <ImportLibrary>.\Release\SFX.lib</ImportLibrary>
-      <AdditionalDependencies>fmodvc.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;fmodvc.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Sound.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -205,7 +205,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\FastDebug\SFX.dll</OutputFile>
       <ImportLibrary>.\FastDebug\SFX.lib</ImportLibrary>
-      <AdditionalDependencies>fmodvc.lib;odbc32.lib;odbccp32.lib;comsupp.lib;Winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;fmodvc.lib;odbc32.lib;odbccp32.lib;comsupp.lib;Winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Sound.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -256,7 +256,7 @@
       <OutputFile>.\BetaRelease\SFX.dll</OutputFile>
       <ImportLibrary>.\BetaRelease\SFX.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>fmodvc.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;fmodvc.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profiler|Win32'">
@@ -304,7 +304,7 @@
       <OutputFile>.\Profiler\SFX.dll</OutputFile>
       <ImportLibrary>.\Profiler\SFX.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>fmodvc.lib;odbc32.lib;odbccp32.lib;comsupp.lib;Winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;fmodvc.lib;odbc32.lib;odbccp32.lib;comsupp.lib;Winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -352,7 +352,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\SFX.dll</OutputFile>
       <ImportLibrary>.\Debug\SFX.lib</ImportLibrary>
-      <AdditionalDependencies>fmodvc.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;fmodvc.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Sound.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -405,5 +405,3 @@
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
-
-

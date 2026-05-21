@@ -243,6 +243,7 @@ EGFXVideoCard CGraphicsEngine::GetVideoCard()
 		if ( (sID.VendorId == sType.dwVendorID) && ((sID.DeviceId & sType.dwDeviceIDMask) == (sType.dwDeviceID & sType.dwDeviceIDMask)) )
 			return sType.eType;
 	}
+	return GFXVC_DEFAULT;
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGraphicsEngine::SetMode( int nSizeX, int nSizeY, int nBpp, int nStencilBPP, EGFXFullscreen eFullscreen, int nFreq )

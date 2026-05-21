@@ -23,7 +23,7 @@
 
 # ifndef _STLP_NO_TYPEINFO
 
-#if defined (__GNUC__)
+#if defined (__GNUC__) || (_MSC_VER >= 1400)
 # undef _STLP_OLDSTD_typeinfo
 #  include <typeinfo>
 # define _STLP_OLDSTD_typeinfo
