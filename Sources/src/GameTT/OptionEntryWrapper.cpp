@@ -265,7 +265,7 @@ int CUIOption::GetSliderOption() const
 const int CUIOption::GetTextNumericOption() const
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX_NUMERIC ) );
-	std::string szEntry = NStr::ToAscii( pStatic->GetWindowText( 0 ) );
+	std::string szEntry = NStr::ToAscii( std::wstring( reinterpret_cast<const wchar_t*>( pStatic->GetWindowText( 0 ) ) ) );
 	return NStr::ToInt( szEntry );
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -98,14 +98,14 @@ BOOL CTabTerrainFieldsDialog::OnInitDialog()
 	if ( resizeDialogOptions.szParameters.size() < 2 )
 	{
 		resizeDialogOptions.szParameters.resize( 2 );	
-		resizeDialogOptions.szParameters[0].empty();
+		resizeDialogOptions.szParameters[0].clear();
 		if ( CPtr<IDataStorage> pDataStorage = GetSingleton<IDataStorage>() )
 		{
 			resizeDialogOptions.szParameters[1] = std::string( pDataStorage->GetName() ) + "scenarios\\fieldsets\\";
 		}
 		else
 		{
-			resizeDialogOptions.szParameters[1].empty();
+			resizeDialogOptions.szParameters[1].clear();
 		}
 	}
 

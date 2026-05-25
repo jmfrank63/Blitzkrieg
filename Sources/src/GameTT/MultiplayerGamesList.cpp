@@ -196,7 +196,7 @@ bool CInterfaceMPGamesList::ProcessMessage( const SGameMessage &msg )
 		if ( pDialogEnterPassword )
 		{
 			IUIElement * pPasswordText = pDialogEnterPassword->GetChildByID( E_PASSWORD_ENTRY_FEILD );
-			const std::string szPassword = NStr::ToAscii( pPasswordText->GetWindowText( 0 ) );
+			const std::string szPassword = NStr::ToAscii( std::wstring( reinterpret_cast<const wchar_t*>( pPasswordText->GetWindowText( 0 ) ) ) );
 			pDialogEnterPassword->ShowWindow( UI_SW_HIDE_MODAL );
 			pDialogEnterPassword->ShowWindow( UI_SW_HIDE );
 

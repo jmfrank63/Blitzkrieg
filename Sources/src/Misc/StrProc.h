@@ -100,20 +100,10 @@ namespace NStr
 		ToAscii( &szDst, szSrc );
 		return szDst;
 	}
-	inline std::string ToAscii( const WORD *pszSrc )
-	{
-		if ( pszSrc == 0 )
-			return std::string();
-
-		std::wstring szSrc;
-		while ( *pszSrc != 0 )
-		{
-			szSrc += static_cast<wchar_t>( *pszSrc );
-			++pszSrc;
-		}
-
-		return ToAscii( szSrc );
-	}
+	#ifdef _NATIVE_WCHAR_T_DEFINED
+		typedef std::basic_string<unsigned short, std::char_traits<unsigned short>, std::allocator<unsigned short> > TUnsignedShortString;
+		void ToAscii( std::string *pRes, const TUnsignedShortString &szSrc );
+	#endif
 	void ToUnicode( std::wstring *pRes, const std::string &szSrc );
 	inline std::wstring ToUnicode( const std::string &szSrc )
 	{
@@ -121,6 +111,9 @@ namespace NStr
 		ToUnicode( &szDst, szSrc );
 		return szDst;
 	}
+	#ifdef _NATIVE_WCHAR_T_DEFINED
+		void ToUnicode( TUnsignedShortString *pRes, const std::string &szSrc );
+	#endif
 	// convert bin data to string. 1 byte will be converted to 2 text hex bytes
 	const char* BinToString( const void *pData, int nSize, char *pszBuffer );
 	// convert text, which represents hex data, to the binary. 2 bytes will be converted to 1

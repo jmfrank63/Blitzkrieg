@@ -369,6 +369,28 @@ void NStr::ToAscii( std::string *pRes, const std::wstring &szSrc )
 	if ( nBufLeng >= N_STACK_BUFF_SIZE )
 		delete[] pszBuf;
 }
+
+std::string NStr::ToAscii( const std::wstring &szSrc )
+{
+	std::string szDst;
+	ToAscii( &szDst, szSrc );
+	return szDst;
+}
+
+std::string NStr::ToAscii( const unsigned short *pszSrc )
+{
+	if ( pszSrc == 0 )
+		return std::string();
+
+	std::wstring szSrc;
+	while ( *pszSrc != 0 )
+	{
+		szSrc += static_cast<wchar_t>( *pszSrc );
+		++pszSrc;
+	}
+
+	return ToAscii( szSrc );
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void NStr::ToUnicode( std::wstring *pRes, const std::string &szSrc )
 {
@@ -385,6 +407,13 @@ void NStr::ToUnicode( std::wstring *pRes, const std::string &szSrc )
 	*pRes = pszBuf;
 	if ( nBufLeng >= N_STACK_BUFF_SIZE )
 		delete[] pszBuf;
+}
+
+std::wstring NStr::ToUnicode( const std::string &szSrc )
+{
+	std::wstring szDst;
+	ToUnicode( &szDst, szSrc );
+	return szDst;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // �������� � �������� ��� ������� ��������

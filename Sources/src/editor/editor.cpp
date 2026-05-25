@@ -215,7 +215,7 @@ bool CEditorApp::RunBatchMode()
 		return false;
 	}
 	
-	std::string szMask = NStr::ToAscii( pRes[1] );
+	std::string szMask = NStr::ToAscii( std::wstring( reinterpret_cast<const wchar_t*>( pRes[1] ) ) );
 	CParentFrame *pFrame = g_frameManager.ActivateFrameByExtension( szMask.c_str() );
 	if ( !pFrame )
 	{
@@ -226,11 +226,11 @@ bool CEditorApp::RunBatchMode()
 	
 	bool bForced = false;
 	bool bOpenSave = false;
-	std::string szSourceDir = NStr::ToAscii( pRes[2] );
-	std::string szDestDir = NStr::ToAscii( pRes[3] );
+	std::string szSourceDir = NStr::ToAscii( std::wstring( reinterpret_cast<const wchar_t*>( pRes[2] ) ) );
+	std::string szDestDir = NStr::ToAscii( std::wstring( reinterpret_cast<const wchar_t*>( pRes[3] ) ) );
 	for ( int i=4; i<nArgsCount; i++ )
 	{
-		std::string szParam = NStr::ToAscii( pRes[i] );
+		std::string szParam = NStr::ToAscii( std::wstring( reinterpret_cast<const wchar_t*>( pRes[i] ) ) );
 		if ( szParam == "-f" )
 			bForced = true;
 		if ( szParam == "-os" )

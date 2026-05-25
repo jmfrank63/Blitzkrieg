@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -98,6 +98,7 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Release\PlanePathTest.exe</OutputFile>
+      <AdditionalDependencies>..\\AILogic\\$(Configuration)\\AILogic.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\Common\\$(Configuration)\\Common.lib;..\\Misc\\$(Configuration)\\Misc.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -139,6 +140,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\PlanePathTest.exe</OutputFile>
+      <AdditionalDependencies>..\\AILogic\\$(Configuration)\\AILogic.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\Common\\$(Configuration)\\Common.lib;..\\Misc\\$(Configuration)\\Misc.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -189,3 +191,4 @@
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
+

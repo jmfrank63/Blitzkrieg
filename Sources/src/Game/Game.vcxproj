@@ -154,7 +154,7 @@ call s:\soft\copydll.bat $(SolutionDir) Release</Command>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Release\Game.dll</OutputFile>
-      <AdditionalDependencies>version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -201,7 +201,7 @@ s:\soft\copydll.bat $(SolutionDir) Debug</Command>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\Game.exe</OutputFile>
-      <AdditionalDependencies>d3dx8.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;d3dx8.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='FastDebug|Win32'">
@@ -247,7 +247,7 @@ call s:\soft\copydll.bat $(SolutionDir) FastDebug</Command>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\FastDebug\Game.exe</OutputFile>
-      <AdditionalDependencies>d3dx8.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;d3dx8.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profiler|Win32'">
@@ -294,7 +294,7 @@ call s:\soft\copydll.bat $(SolutionDir) Profiler</Command>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Profiler\Game.exe</OutputFile>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>vtuneapi.lib;d3dx8.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;vtuneapi.lib;d3dx8.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='BetaRelease|Win32'">
@@ -342,7 +342,7 @@ call s:\soft\copydll.bat $(SolutionDir) BetaRelease</Command>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\BetaRelease\Game.exe</OutputFile>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -397,3 +397,4 @@ call s:\soft\copydll.bat $(SolutionDir) BetaRelease</Command>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
+

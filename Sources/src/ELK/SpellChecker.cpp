@@ -248,7 +248,8 @@ int CSpellEngine::Check( LPCTSTR pWord )
 
 	sib.wSpellState = 0;
 	sib.lrgch = LPTSTR( pWord );
-	sib.cch = strlen( pWord );
+	const size_t nWordLen = strlen( pWord );
+	sib.cch = static_cast<unsigned short>( nWordLen > 0xFFFFu ? 0xFFFFu : nWordLen );
 	srb.scrs = -1;
 
 	if ( SpellCheck )
@@ -300,7 +301,8 @@ int CSpellEngine::Suggest( LPCTSTR pWord )
 	nWordsCount = 0;
 	//sib.wSpellState = 0;
 	sib.lrgch = LPTSTR( pWord );
-	sib.cch = strlen( pWord );
+	const size_t nWordLen = strlen( pWord );
+	sib.cch = static_cast<unsigned short>( nWordLen > 0xFFFFu ? 0xFFFFu : nWordLen );
 	nResult = SpellCheck( id, sccSuggest, &sib, &srb );
 	CreateList();
 	return nResult;

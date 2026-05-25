@@ -161,7 +161,7 @@ call s:\soft\copydll.bat $(SolutionDir) Profiler</Command>
       <AdditionalLibraryDirectories>..\\..\\sdk\\STINGRAY\\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
-      <OutputFile>FastDebug/reseditor.exe</OutputFile>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalDependencies>version.lib;winmm.lib;comsupp.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -213,7 +213,7 @@ call s:\soft\copydll.bat $(SolutionDir) FastDebug</Command>
       <AdditionalLibraryDirectories>..\\..\\sdk\\STINGRAY\\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
 <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
-      <OutputFile>FastDebug/reseditor.exe</OutputFile>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalDependencies>version.lib;winmm.lib;comsupp.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -267,7 +267,7 @@ call s:\soft\copydll.bat $(SolutionDir) BetaRelease</Command>
       <AdditionalLibraryDirectories>..\\..\\sdk\\STINGRAY\\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
-      <OutputFile>BetaRelease/reseditor.exe</OutputFile>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalDependencies>version.lib;winmm.lib;comsupp.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -320,7 +320,7 @@ call s:\soft\copydll.bat $(SolutionDir) Debug</Command>
       <AdditionalLibraryDirectories>..\\..\\sdk\\STINGRAY\\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
-      <OutputFile>Debug/reseditor.exe</OutputFile>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalDependencies>version.lib;winmm.lib;comsupp.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -371,7 +371,7 @@ call s:\soft\copydll.bat $(SolutionDir) Release</Command>
       <AdditionalLibraryDirectories>..\\..\\sdk\\STINGRAY\\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
-      <OutputFile>Release/reseditor.exe</OutputFile>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalDependencies>version.lib;winmm.lib;comsupp.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -1468,6 +1468,10 @@ call s:\soft\copydll.bat $(SolutionDir) Release</Command>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
+
+
+
+
 
 
 

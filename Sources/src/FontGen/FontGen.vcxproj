@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="BetaRelease|Win32">
@@ -147,7 +147,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <OutputFile>.\FastDebug\FontGen.exe</OutputFile>
-      <AdditionalDependencies>..\\Image\\$(Configuration)\\Image.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Image\\$(Configuration)\\Image.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;..\\Common\\$(Configuration)\\Common.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\Misc\\$(Configuration)\\Misc.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDebug|Win32'">
@@ -184,7 +184,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <OutputFile>.\ReleaseDebug\FontGen.exe</OutputFile>
-      <AdditionalDependencies>..\\Image\\$(Configuration)\\Image.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Image\\$(Configuration)\\Image.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;..\\Common\\$(Configuration)\\Common.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\Misc\\$(Configuration)\\Misc.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='BetaRelease|Win32'">
@@ -221,7 +221,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <OutputFile>.\BetaRelease\FontGen.exe</OutputFile>
-      <AdditionalDependencies>..\\Image\\$(Configuration)\\Image.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Image\\$(Configuration)\\Image.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;..\\Common\\$(Configuration)\\Common.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\Misc\\$(Configuration)\\Misc.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -256,7 +256,7 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <SubSystem>Console</SubSystem>
       <OutputFile>.\Release\FontGen.exe</OutputFile>
-      <AdditionalDependencies>..\\Image\\$(Configuration)\\Image.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Image\\$(Configuration)\\Image.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;..\\Common\\$(Configuration)\\Common.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\Misc\\$(Configuration)\\Misc.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -294,7 +294,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <OutputFile>.\Debug\FontGen.exe</OutputFile>
-      <AdditionalDependencies>..\\Image\\$(Configuration)\\Image.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Image\\$(Configuration)\\Image.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;..\\Common\\$(Configuration)\\Common.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\Misc\\$(Configuration)\\Misc.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

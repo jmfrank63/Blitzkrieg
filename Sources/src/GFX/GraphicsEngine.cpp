@@ -564,7 +564,7 @@ const SGFXDisplayMode* CGraphicsEngine::GetDisplayModes() const
 			//
 			if ( (enumode.nBPP <= nMaxModeBPP) /*&& (float(it->Height)/float(it->Width) == 3.0f/4.0f)*/ ) 
 			{
-				std::remove( adapter.extmodes.begin(), adapter.extmodes.end(), enumode );
+				adapter.extmodes.erase( std::remove( adapter.extmodes.begin(), adapter.extmodes.end(), enumode ), adapter.extmodes.end() );
 				adapter.extmodes.push_back( enumode );
 			}
 		}

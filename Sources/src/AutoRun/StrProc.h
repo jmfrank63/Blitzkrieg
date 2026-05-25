@@ -91,33 +91,10 @@ namespace NStr
 	// 
 	void SetCodePage( int nCodePage );
 	void ToAscii( std::string *pRes, const std::wstring &szSrc );
-	inline std::string ToAscii( const std::wstring &szSrc )
-	{
-		std::string szDst;
-		ToAscii( &szDst, szSrc );
-		return szDst;
-	}
-	inline std::string ToAscii( const WORD *pszSrc )
-	{
-		if ( pszSrc == 0 )
-			return std::string();
-
-		std::wstring szSrc;
-		while ( *pszSrc != 0 )
-		{
-			szSrc += static_cast<wchar_t>( *pszSrc );
-			++pszSrc;
-		}
-
-		return ToAscii( szSrc );
-	}
+	std::string ToAscii( const std::wstring &szSrc );
+	std::string ToAscii( const unsigned short *pszSrc );
 	void ToUnicode( std::wstring *pRes, const std::string &szSrc );
-	inline std::wstring ToUnicode( const std::string &szSrc )
-	{
-		std::wstring szDst;
-		ToUnicode( &szDst, szSrc );
-		return szDst;
-	}
+	std::wstring ToUnicode( const std::string &szSrc );
 	// convert bin data to string. 1 byte will be converted to 2 text hex bytes
 	const char* BinToString( const void *pData, int nSize, char *pszBuffer );
 	// convert text, which represents hex data, to the binary. 2 bytes will be converted to 1
