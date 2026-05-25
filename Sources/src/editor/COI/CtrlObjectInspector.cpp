@@ -558,7 +558,8 @@ void CCtrlObjectInspector::SelectRow( int nVirtualLine, bool needHide )
             {
               const string &szItem = pElem->pProp->szStrs[i];
               int n = m_pCombo->AddString( szItem.c_str() );
-              if ( szItem == (string)pElem->pProp->varValue )
+				const char* pszValue = pElem->pProp->varValue.operator const char *();
+				if ( szItem == pszValue )
                 m_pCombo->SetCurSel( n );
             }
             m_pCombo->ShowWindow( SW_SHOW );
@@ -1052,8 +1053,11 @@ CVariant CCtrlObjectInspector::GetPropertyValue( PropID idProp )
   if ( it != m_mapProps.end() )
   {
     const SCOIProperties &prop = it->second;
-    if ( DT_BOOL == prop.idDomen )
-      return STR_TRUE == (string)prop.varValue ? true : false;
+		if ( DT_BOOL == prop.idDomen )
+		{
+			const char* pszValue = prop.varValue.operator const char *();
+			return STR_TRUE == pszValue ? true : false;
+		}
     return it->second.varValue;
   }
   return CVariant();

@@ -711,7 +711,7 @@ bool CAnimationTreeRootItem::ComposeAnimations( const char *pszProjectFileName, 
 				//��������� ������ directions
 				fileNameVector.resize( nLastSprite );
 				animDesc.dirs.resize( nDirsCount );
-				animDesc.frames.resize( nDirsCount * pAnimProps->GetChildsCount() );
+				animDesc.frames.reserve( nDirsCount * pAnimProps->GetChildsCount() );
 				for ( int i=0; i<nDirsCount; i++ )
 				{
 					string szDirName;

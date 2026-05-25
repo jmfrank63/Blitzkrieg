@@ -188,8 +188,8 @@ void CTabTileEditDialog::CreateImageList()
 					
 					CPtr<IImage> pScaleImage = pImageProcessor->CreateScale( pTempImage, fRate, ISM_LANCZOS3 );
 					
-					const nSizeX = pScaleImage->GetSizeX();
-					const nSizeY = pScaleImage->GetSizeY();
+					const int nSizeX = pScaleImage->GetSizeX();
+					const int nSizeY = pScaleImage->GetSizeY();
 
 					//маска
 					if ( pMaskImage )

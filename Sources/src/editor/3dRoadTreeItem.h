@@ -48,7 +48,7 @@ public:
 	void SetRoadType( int nVal );
 	void SetMinimapCenterColor( int dwCol ) { values[10].value = dwCol; }
 	void SetMinimapBorderColor( int dwCol ) { values[11].value = dwCol; }
-	void SetSoilParams( BYTE nVal ) { values[12].value = ( nVal & SVectorStripeObjectDesc::ESP_DUST != 0x0 ); values[13].value = ( nVal & SVectorStripeObjectDesc::ESP_TRACE != 0x0 ); }
+	void SetSoilParams( BYTE nVal ) { values[12].value = ( ( nVal & SVectorStripeObjectDesc::ESP_DUST ) != 0x0 ); values[13].value = ( ( nVal & SVectorStripeObjectDesc::ESP_TRACE ) != 0x0 ); }
 
 	virtual void InitDefaultValues();
 	virtual void UpdateItemValue( int nItemId, const CVariant &value );

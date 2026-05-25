@@ -207,7 +207,7 @@ void CInputControlBar::OnSize(UINT nType, int cx, int cy )
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-BOOL CInputControlBar::OnNotifyShortcutChangePage( NMHDR *pNotifyStruct, LRESULT *pResult )
+void CInputControlBar::OnNotifyShortcutChangePage( NMHDR *pNotifyStruct, LRESULT *pResult )
 {
 	if ( !isCreating )
 	{
@@ -221,6 +221,7 @@ BOOL CInputControlBar::OnNotifyShortcutChangePage( NMHDR *pNotifyStruct, LRESULT
 			}
 		}
 	}
-	return true;
+	if ( pResult )
+		*pResult = 0;
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

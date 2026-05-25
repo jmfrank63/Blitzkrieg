@@ -1954,7 +1954,7 @@ void CMainFrame::ShowSECToolBar( SECControlBar *pToolBar, int nCommand )
 /////////////////////////////////////////////////////////////////////////////
 // CMainFrame message handlers
 
-void CMainFrame::OnCreateCombo(UINT wParam, LONG lParam)
+LRESULT CMainFrame::OnCreateCombo( WPARAM wParam, LPARAM lParam )
 {
 	HWND hWnd		 = HWND(lParam);
 	UINT nNotifyCode = HIWORD(wParam);
@@ -1996,6 +1996,8 @@ void CMainFrame::OnCreateCombo(UINT wParam, LONG lParam)
 			break;
 		}
 	}
+
+	return 0;
 }
 
 void CMainFrame::OnClose() 

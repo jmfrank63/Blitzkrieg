@@ -415,7 +415,7 @@ CTemplateEditorFrame::CTemplateEditorFrame() : isReservePositionActive( false ),
 	GetCurrentDirectory( 0xFFF, pBuffer );
 	szStartDirectory = pBuffer + std::string( "\\" );
 	
-	m_cursorName = MAKEINTRESOURCE( IDC_APPSTARTING );		//RR
+	m_cursorName = IDC_APPSTARTING;		//RR
 } 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -3994,7 +3994,8 @@ void CTemplateEditorFrame::PopFromBuilding( SEditorObjectItem *obj )
 				std::set<IRefCount*> squads;
 				for ( std::unordered_map< SMapObject*, SEditorObjectItem*, SDefaultPtrHash >::iterator it = m_objectsAI.begin(); it != m_objectsAI.end(); ++it )
 				{ 
-					if( GetEditorObjectItem( it->first )->pLink == obj->pObj )
+					SMapObject* pLinkedObject = GetEditorObjectItem( it->first )->pLink;
+					if( pLinkedObject == obj->pObj )
 					{
 						IRefCount* pSquad = GetSingleton<IAIEditor>()->GetFormationOfUnit( it->first->pAIObj ) ;
 						if ( pSquad )
@@ -4031,7 +4032,8 @@ int CTemplateEditorFrame::GetNumSoldiersInBuilding( SEditorObjectItem *obj )
 		std::set<IRefCount*> squads;
 		for ( std::unordered_map< SMapObject*, SEditorObjectItem*, SDefaultPtrHash >::iterator it = m_objectsAI.begin(); it != m_objectsAI.end(); ++it )
 		{
-			if ( GetEditorObjectItem( it->first )->pLink == obj->pObj )
+			SMapObject* pLinkedObject = GetEditorObjectItem( it->first )->pLink;
+			if ( pLinkedObject == obj->pObj )
 			{
 				IRefCount* pSquad = GetSingleton<IAIEditor>()->GetFormationOfUnit( it->first->pAIObj ) ;
 				if ( pSquad )
@@ -4057,7 +4059,8 @@ int CTemplateEditorFrame::GetSoldiersInBuilding( SEditorObjectItem *obj, std::ve
 	int nRetVal = 0;
 	for ( std::unordered_map< SMapObject *, SEditorObjectItem*, SDefaultPtrHash >::iterator it = m_objectsAI.begin(); it != m_objectsAI.end(); ++it )
 	{ 
-		if( GetEditorObjectItem( it->first )->pLink ==  obj->pObj )
+		SMapObject* pLinkedObject = GetEditorObjectItem( it->first )->pLink;
+		if( pLinkedObject == obj->pObj )
 		{
 			units.push_back( it->second );
 		}

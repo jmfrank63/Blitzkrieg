@@ -352,7 +352,7 @@ int CMainFrame::OnCreate( LPCREATESTRUCT lpCreateStruct )
 	}
 	
   DragAcceptFiles( true );
-	g_frameManager.GetTemplateEditorFrame()->m_cursorName = MAKEINTRESOURCE( IDC_ARROW );
+	g_frameManager.GetTemplateEditorFrame()->m_cursorName = IDC_ARROW;
 	g_frameManager.GetTemplateEditorFrame()->RedrawWindow();
 
 	editorWindowSingletonApp.CreateMapFile( GetSafeHwnd() );
@@ -595,7 +595,7 @@ void CMainFrame::FillPlayerNumbers( const std::string &rszPlayerNumber )
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void CMainFrame::OnCreateCombo(UINT wParam, LONG lParam)
+LRESULT CMainFrame::OnCreateCombo( WPARAM wParam, LPARAM lParam )
 {
 	HWND hWnd		 = HWND(lParam);
 	UINT nNotifyCode = HIWORD(wParam);
@@ -649,6 +649,8 @@ void CMainFrame::OnCreateCombo(UINT wParam, LONG lParam)
 		}
 
 	}
+
+	return 0;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -746,7 +748,7 @@ void CMainFrame::OnHelp()
 {
 	if ( NFile::IsFileExist( szHelpFilePath.c_str() ) )
 	{
-    HtmlHelp( NULL, szHelpFilePath.c_str(), HH_DISPLAY_TOPIC, 0 );
+		::HtmlHelpA( NULL, szHelpFilePath.c_str(), HH_DISPLAY_TOPIC, 0 );
   }
   else
   {

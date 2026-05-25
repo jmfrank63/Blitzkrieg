@@ -55,7 +55,7 @@ void CObjectPlacerState::OnMouseMove(UINT nFlags, const CTPoint<int> &rMousePoin
 	}
 
 	CPoint point( rMousePoint.x, rMousePoint.y );
-	frame->m_cursorName = MAKEINTRESOURCE( IDC_ARROW );
+	frame->m_cursorName = IDC_ARROW;
 
 	if ( frame->dlg && frame->isStartCommandPropertyActive )
 	{
@@ -134,7 +134,7 @@ void CObjectPlacerState::OnMouseMove(UINT nFlags, const CTPoint<int> &rMousePoin
 				std::vector< SMapObject* > v;v.push_back( frame->m_currentMovingObjectPtrAI );
 				if(	CheckForInserting( v, frame->FindByVis(pObjects[i].first ) ) )
 				{
-					frame->m_cursorName = MAKEINTRESOURCE( IDC_UPARROW );
+					frame->m_cursorName = IDC_UPARROW;
 					break;
 				}
 			}
@@ -208,7 +208,7 @@ void CObjectPlacerState::OnMouseMove(UINT nFlags, const CTPoint<int> &rMousePoin
 				bool ifInGroup = false;
 				for ( std::vector<SMapObject*>::iterator it = frame->m_currentMovingObjectsAI.begin(); it != frame->m_currentMovingObjectsAI.end(); ++it )
 				{
-						if( (*it)->pVisObj == pObjects[i].first )
+						if( (*it)->pVisObj.GetPtr() == pObjects[i].first )
 							ifInGroup = true;
 				}
 				if( !ifInGroup )
@@ -216,7 +216,7 @@ void CObjectPlacerState::OnMouseMove(UINT nFlags, const CTPoint<int> &rMousePoin
 					//pObjects[i].first  - �� �� ����������� ����������������� ������
 					if(	CheckForInserting( frame->m_currentMovingObjectsAI, frame->FindByVis(pObjects[i].first ) ) )
 					{
-						frame->m_cursorName = MAKEINTRESOURCE( IDC_UPARROW );
+						frame->m_cursorName = IDC_UPARROW;
 						break;
 					}
 				}
@@ -462,7 +462,7 @@ void CObjectPlacerState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMouseP
 			{
 				for ( std::vector<SMapObject*>::iterator it2 = frame->m_currentMovingObjectsAI.begin(); it2 != frame->m_currentMovingObjectsAI.end(); ++it2 )
 				{
-					if( (*it2)->pVisObj == pObjects[i].first )
+					if( (*it2)->pVisObj.GetPtr() == pObjects[i].first )
 					{
 						frame->m_ifCanMovingMultiGroup = true;	
 						frame->SetFocus();
@@ -802,7 +802,7 @@ void CObjectPlacerState::OnLButtonUp(UINT nFlags, const CTPoint<int> &rMousePoin
 		return;
 	}
 	CPoint point( rMousePoint.x, rMousePoint.y );
-	frame->m_cursorName = MAKEINTRESOURCE( IDC_ARROW );
+	frame->m_cursorName = IDC_ARROW;
 
 	if ( frame->dlg && frame->isStartCommandPropertyActive )
 	{
@@ -867,7 +867,8 @@ void CObjectPlacerState::OnLButtonUp(UINT nFlags, const CTPoint<int> &rMousePoin
 			bool ifInGroup = false;
 			for ( std::vector<SMapObject*>::iterator it = frame->m_currentMovingObjectsAI.begin(); it != frame->m_currentMovingObjectsAI.end(); ++it )
 			{
-				if( (*it)->pVisObj == pObjects[i].first )
+				IVisObj* pCurrentVisObj = (*it)->pVisObj;
+				if( pCurrentVisObj == pObjects[i].first )
 					ifInGroup = true;
 			}
 			if( !ifInGroup )

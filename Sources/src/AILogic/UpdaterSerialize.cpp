@@ -52,9 +52,9 @@ int CUpdater::operator&( IStructureSaver &ss )
 		}
 	}
 
-	saver.Add( 32 + simpleUpdates[ACTION_NOTIFY_CHANGE_DBID >> 4].size(), &bDestroying );
+	saver.Add( static_cast<SSChunkID>( 32 + simpleUpdates[ACTION_NOTIFY_CHANGE_DBID >> 4].size() ), &bDestroying );
 
-	saver.Add( 33 + simpleUpdates[ACTION_NOTIFY_CHANGE_DBID >> 4].size(), &bGameFinishUpdateSend );
+	saver.Add( static_cast<SSChunkID>( 33 + simpleUpdates[ACTION_NOTIFY_CHANGE_DBID >> 4].size() ), &bGameFinishUpdateSend );
 
 	return 0;
 }

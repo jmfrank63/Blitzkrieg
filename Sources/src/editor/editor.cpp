@@ -516,7 +516,7 @@ BOOL CEditorApp::ProcessMessageFilter(int code, LPMSG lpMsg)
 
 BOOL CEditorApp::OnIdle(LONG lCount) 
 {
-	static nMyCount = 0;
+	static int nMyCount = 0;
 	nMyCount++;
 
 //	OutputDebugString( NStr::Format( "%d", nMyCount ) );

@@ -211,7 +211,7 @@ void CUnitsSelection::Update( CDC *pDC )
 								{
 									if ( pObjectWnd->FilterName( objectsIterator->first->pDesc->szPath ) )
 									{
-										units.push_back();
+									units.push_back( SUnitInfo() );
 										SUnitInfo &unitInfo = units.back();
 										if ( ( objectsIterator->second->nPlayer >= 0 ) && ( objectsIterator->second->nPlayer < MINIMAP_PLAYER_COLORS_COUNT ) )
 										{
@@ -287,7 +287,7 @@ void CUnitsSelection::Update( CDC *pDC )
 										if ( pMapObject )
 										{
 											SEditorObjectItem *tmpEditiorObj =	pFrame->m_objectsAI[ pMapObject ];
-											units.push_back();
+										units.push_back( SUnitInfo() );
 											SUnitInfo &unitInfo = units.back();
 											if ( ( tmpEditiorObj->nPlayer >= 0 ) && ( tmpEditiorObj->nPlayer < MINIMAP_PLAYER_COLORS_COUNT ) )
 											{

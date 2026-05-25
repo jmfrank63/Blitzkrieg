@@ -67,7 +67,7 @@ public:
 	//{{AFX_MSG(CMainFrame)
 	afx_msg void OnToolsCustomize();
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
-	afx_msg void OnCreateCombo(UINT wParam, LONG lParam);
+	afx_msg LRESULT OnCreateCombo( WPARAM wParam, LPARAM lParam );
 	afx_msg void OnChangeBrushSize();
 	afx_msg void OnChangePlayerNumber();
 	afx_msg void OnClose();

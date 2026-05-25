@@ -218,7 +218,7 @@ protected:  // control bar embedded members
 protected:
 	//{{AFX_MSG(CMainFrame)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
-	afx_msg void OnCreateCombo(UINT wParam, LONG lParam);
+	afx_msg LRESULT OnCreateCombo( WPARAM wParam, LPARAM lParam );
 	afx_msg void OnClose();
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
