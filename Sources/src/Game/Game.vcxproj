@@ -132,7 +132,9 @@
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
-copy $(OutDir)*.exe "$(SolutionDir)bin\\"
+if exist "..\BugSlay\$(Configuration)\BugSlay.dll" copy /Y "..\BugSlay\$(Configuration)\BugSlay.dll" "$(TargetDir)"
+if exist "..\BugSlay\$(Configuration)\BugSlay.dll" copy /Y "..\BugSlay\$(Configuration)\BugSlay.dll" "$(SolutionDir)bin\\"
+copy /Y "$(TargetPath)" "$(SolutionDir)bin\\"
 if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools\copydll.bat" $(SolutionDir) Release</Command>
     </PostBuildEvent>
     <Midl>
@@ -180,7 +182,9 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
-copy $(OutDir)*.exe "$(SolutionDir)bin\\"
+if exist "..\BugSlay\$(Configuration)\BugSlay.dll" copy /Y "..\BugSlay\$(Configuration)\BugSlay.dll" "$(TargetDir)"
+if exist "..\BugSlay\$(Configuration)\BugSlay.dll" copy /Y "..\BugSlay\$(Configuration)\BugSlay.dll" "$(SolutionDir)bin\\"
+copy /Y "$(TargetPath)" "$(SolutionDir)bin\\"
 if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools\copydll.bat" $(SolutionDir) Debug</Command>
     </PostBuildEvent>
     <Midl>
@@ -227,7 +231,9 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
-copy $(OutDir)*.exe "$(SolutionDir)bin\\"
+if exist "..\BugSlay\$(Configuration)\BugSlay.dll" copy /Y "..\BugSlay\$(Configuration)\BugSlay.dll" "$(TargetDir)"
+if exist "..\BugSlay\$(Configuration)\BugSlay.dll" copy /Y "..\BugSlay\$(Configuration)\BugSlay.dll" "$(SolutionDir)bin\\"
+copy /Y "$(TargetPath)" "$(SolutionDir)bin\\"
 if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools\copydll.bat" $(SolutionDir) FastDebug</Command>
     </PostBuildEvent>
     <Midl>
@@ -274,7 +280,9 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
-copy $(OutDir)*.exe "$(SolutionDir)bin\\"
+if exist "..\BugSlay\$(Configuration)\BugSlay.dll" copy /Y "..\BugSlay\$(Configuration)\BugSlay.dll" "$(TargetDir)"
+if exist "..\BugSlay\$(Configuration)\BugSlay.dll" copy /Y "..\BugSlay\$(Configuration)\BugSlay.dll" "$(SolutionDir)bin\\"
+copy /Y "$(TargetPath)" "$(SolutionDir)bin\\"
 if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools\copydll.bat" $(SolutionDir) Profiler</Command>
     </PostBuildEvent>
     <Midl>
@@ -323,7 +331,9 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
-copy $(OutDir)*.exe "$(SolutionDir)bin\\"
+if exist "..\BugSlay\$(Configuration)\BugSlay.dll" copy /Y "..\BugSlay\$(Configuration)\BugSlay.dll" "$(TargetDir)"
+if exist "..\BugSlay\$(Configuration)\BugSlay.dll" copy /Y "..\BugSlay\$(Configuration)\BugSlay.dll" "$(SolutionDir)bin\\"
+copy /Y "$(TargetPath)" "$(SolutionDir)bin\\"
 if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools\copydll.bat" $(SolutionDir) BetaRelease</Command>
     </PostBuildEvent>
     <Midl>
@@ -428,6 +438,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
+
 
 
 
