@@ -135,8 +135,9 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.exe c:\a7\*.*
-call s:\soft\copydll.bat $(SolutionDir) FastDebug</Command>
+      <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
+copy $(OutDir)*.exe "$(SolutionDir)bin\\"
+if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools\copydll.bat" $(SolutionDir) FastDebug</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -184,8 +185,9 @@ call s:\soft\copydll.bat $(SolutionDir) FastDebug</Command>
       <AdditionalOptions> /I /Zm300 </AdditionalOptions>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.exe c:\a7\*.*
-call s:\soft\copydll.bat $(SolutionDir) Profiler</Command>
+      <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
+copy $(OutDir)*.exe "$(SolutionDir)bin\\"
+if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools\copydll.bat" $(SolutionDir) Profiler</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -235,8 +237,9 @@ call s:\soft\copydll.bat $(SolutionDir) Profiler</Command>
       <AdditionalOptions> /Zm300 </AdditionalOptions>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.exe c:\a7\*.*
-call s:\soft\copydll.bat $(SolutionDir) BetaRelease</Command>
+      <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
+copy $(OutDir)*.exe "$(SolutionDir)bin\\"
+if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools\copydll.bat" $(SolutionDir) BetaRelease</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -284,8 +287,9 @@ call s:\soft\copydll.bat $(SolutionDir) BetaRelease</Command>
       <AdditionalOptions> /Zm300 </AdditionalOptions>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.exe c:\a7\*.*
-call s:\soft\copydll.bat $(SolutionDir) Release</Command>
+      <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
+copy $(OutDir)*.exe "$(SolutionDir)bin\\"
+if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools\copydll.bat" $(SolutionDir) Release</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -335,8 +339,9 @@ call s:\soft\copydll.bat $(SolutionDir) Release</Command>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.exe c:\a7\*.*
-call s:\soft\copydll.bat $(SolutionDir) Debug</Command>
+      <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
+copy $(OutDir)*.exe "$(SolutionDir)bin\\"
+if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools\copydll.bat" $(SolutionDir) Debug</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -1179,6 +1184,8 @@ call s:\soft\copydll.bat $(SolutionDir) Debug</Command>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
+
+
 
 
 

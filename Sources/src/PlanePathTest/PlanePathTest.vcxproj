@@ -145,6 +145,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\AILogic\AIGeometry.cpp" />
+    <ClCompile Include="..\AILogic\GlobalsLoader.cpp" />
     <ClCompile Include="src\CManuver.cpp" />
     <ClCompile Include="src\CManuverContainer.cpp" />
     <ClCompile Include="src\ComplexPathFraction.cpp" />

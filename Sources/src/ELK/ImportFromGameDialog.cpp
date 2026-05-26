@@ -1,5 +1,4 @@
 #include "StdAfx.h"
-#include "browedit.h"
 
 #include "resource.h"
 #include "ImportFromGameDialog.h"
@@ -123,11 +122,12 @@ void CImportFromGameDialog::OnFolderBrowseButton()
 	strDialogTitle.LoadString( IDS_IFG_BROWSE_FOR_FOLDER_DIALOG_TITLE );
 	m_FolderEdit.GetWindowText( strFolderName );
 	
-	SECDirSelectDlg dirSelectDialog( SECDirSelectDlg::win32Style, strDialogTitle, strFolderName, this );
+	CFolderPickerDialog dirSelectDialog( strFolderName, OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST, this, 0 );
+	dirSelectDialog.m_ofn.lpstrTitle = strDialogTitle;
 	
 	if ( dirSelectDialog.DoModal() == IDOK )
 	{
-		dirSelectDialog.GetPath( strFolderName );
+		strFolderName = dirSelectDialog.GetPathName();
 		resizeDialogOptions.szParameters[0] = strFolderName;
 		m_FolderEdit.SetWindowText( resizeDialogOptions.szParameters[0].c_str() );
 		

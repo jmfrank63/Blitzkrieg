@@ -130,7 +130,8 @@
       <ProgramDataBaseFileName>.\Release\</ProgramDataBaseFileName>
     </ClCompile>
     <PostBuildEvent>
-      <Command>if exist c:\a7\ copy /Y $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
+copy /Y $(OutDir)*.dll "$(SolutionDir)bin\\"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -177,7 +178,8 @@
       <ProgramDataBaseFileName>.\Profiler\</ProgramDataBaseFileName>
     </ClCompile>
     <PostBuildEvent>
-      <Command>if exist c:\a7\ copy /Y $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
+copy /Y $(OutDir)*.dll "$(SolutionDir)bin\\"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -227,7 +229,8 @@
       <ProgramDataBaseFileName>.\BetaRelease\</ProgramDataBaseFileName>
     </ClCompile>
     <PostBuildEvent>
-      <Command>if exist c:\a7\ copy /Y $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
+copy /Y $(OutDir)*.dll "$(SolutionDir)bin\\"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -275,7 +278,8 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <PostBuildEvent>
-      <Command>if exist c:\a7\ copy /Y $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
+copy /Y $(OutDir)*.dll "$(SolutionDir)bin\\"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -324,7 +328,8 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <PostBuildEvent>
-      <Command>if exist c:\a7\ copy /Y $(OutDir)*.dll c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
+copy /Y $(OutDir)*.dll "$(SolutionDir)bin\\"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -423,3 +428,4 @@
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
+

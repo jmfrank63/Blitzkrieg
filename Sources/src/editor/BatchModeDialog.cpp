@@ -2,7 +2,6 @@
 //
 
 #include "stdafx.h"
-#include <browedit.h>
 
 #include "editor.h"
 #include "BatchModeDialog.h"
@@ -55,12 +54,12 @@ END_MESSAGE_MAP()
 
 void CBatchModeDialog::OnBrowseDestDir() 
 {
-	SECDirSelectDlg dlg( "Select Destination Directory" );
-	dlg.SetInitialDir( m_szDestDir );
+	CFolderPickerDialog dlg( m_szDestDir, OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST, this, 0 );
+	dlg.m_ofn.lpstrTitle = _T( "Select Destination Directory" );
 	if ( dlg.DoModal() == IDOK )
 	{
 		UpdateData( TRUE );
-		dlg.GetPath( m_szDestDir );
+		m_szDestDir = dlg.GetPathName();
 		m_szDestDir.MakeLower();
 		UpdateData( FALSE );
 	}
@@ -68,12 +67,12 @@ void CBatchModeDialog::OnBrowseDestDir()
 
 void CBatchModeDialog::OnBrowseSourceDir() 
 {
-	SECDirSelectDlg dlg( "Select Source Directory" );
-	dlg.SetInitialDir( m_szSourceDir );
+	CFolderPickerDialog dlg( m_szSourceDir, OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST, this, 0 );
+	dlg.m_ofn.lpstrTitle = _T( "Select Source Directory" );
 	if ( dlg.DoModal() == IDOK )
 	{
 		UpdateData( TRUE );
-		dlg.GetPath( m_szSourceDir );
+		m_szSourceDir = dlg.GetPathName();
 		m_szSourceDir.MakeLower();
 		UpdateData( FALSE );
 	}

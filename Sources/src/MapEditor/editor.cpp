@@ -3,7 +3,6 @@
 
 #include "stdafx.h"
 #include <crtdbg.h>
-#include <secsplsh.h>
 
 #include "EditorWindowSingleton.h"
 #include "editor.h"
@@ -20,6 +19,77 @@
 #undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
 #endif
+
+namespace
+{
+	class CStartupSplashWnd : public CWnd
+	{
+	public:
+		BOOL Create( UINT nBitmapID )
+		{
+			if ( !m_bitmap.LoadBitmap( nBitmapID ) )
+			{
+				return FALSE;
+			}
+
+			BITMAP bitmapInfo = {};
+			m_bitmap.GetBitmap( &bitmapInfo );
+
+			CString strClassName = AfxRegisterWndClass( CS_SAVEBITS | CS_HREDRAW | CS_VREDRAW, ::LoadCursor( 0, IDC_APPSTARTING ), (HBRUSH)::GetStockObject( BLACK_BRUSH ), 0 );
+			const int nPosX = ( ::GetSystemMetrics( SM_CXSCREEN ) - bitmapInfo.bmWidth ) / 2;
+			const int nPosY = ( ::GetSystemMetrics( SM_CYSCREEN ) - bitmapInfo.bmHeight ) / 2;
+
+			if ( !CWnd::CreateEx( WS_EX_TOOLWINDOW, strClassName, _T( "" ), WS_POPUP, nPosX, nPosY, bitmapInfo.bmWidth, bitmapInfo.bmHeight, 0, 0 ) )
+			{
+				m_bitmap.DeleteObject();
+				return FALSE;
+			}
+
+			ShowWindow( SW_SHOWNOACTIVATE );
+			UpdateWindow();
+			return TRUE;
+		}
+
+		void Dismiss()
+		{
+			if ( GetSafeHwnd() )
+			{
+				DestroyWindow();
+			}
+		}
+
+	protected:
+		afx_msg void OnPaint()
+		{
+			CPaintDC dc( this );
+
+			CDC memDC;
+			memDC.CreateCompatibleDC( &dc );
+			CBitmap *pOldBitmap = memDC.SelectObject( &m_bitmap );
+
+			BITMAP bitmapInfo = {};
+			m_bitmap.GetBitmap( &bitmapInfo );
+			dc.BitBlt( 0, 0, bitmapInfo.bmWidth, bitmapInfo.bmHeight, &memDC, 0, 0, SRCCOPY );
+
+			memDC.SelectObject( pOldBitmap );
+		}
+
+		afx_msg BOOL OnEraseBkgnd( CDC* )
+		{
+			return TRUE;
+		}
+
+	private:
+		CBitmap m_bitmap;
+
+		DECLARE_MESSAGE_MAP()
+	};
+
+	BEGIN_MESSAGE_MAP( CStartupSplashWnd, CWnd )
+		ON_WM_PAINT()
+		ON_WM_ERASEBKGND()
+	END_MESSAGE_MAP()
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // CEditorApp
@@ -90,11 +160,11 @@ BOOL CEditorApp::InitInstance()
 		}
 	}
 	/**/
-	SECSplashWnd *pSplashWnd = new SECSplashWnd( IDB_EDITOR_STARTUP );
-  if ( pSplashWnd )
+	CStartupSplashWnd splashWnd;
+	CStartupSplashWnd *pSplashWnd = 0;
+	if ( splashWnd.Create( IDB_EDITOR_STARTUP ) )
 	{
-		pSplashWnd->Create();
-		pSplashWnd->SetAlwaysOnTop( false );
+		pSplashWnd = &splashWnd;
 	}
 	/**/
 	
@@ -141,11 +211,6 @@ BOOL CEditorApp::InitInstance()
 	// try to load shared MDI menus and accelerator table
 	//TODO: add additional member variables and load calls for
 	//	additional menu types your application may need. 
-
-/*
-  SECSplashWnd *pSplashWnd = new SECSplashWnd( IDB_EDITOR_STARTUP );
-  pSplashWnd->Create();
-*/
 
 	HINSTANCE hInst = AfxGetResourceHandle();
 	m_hMDIMenu  = ::LoadMenu(hInst, MAKEINTRESOURCE(IDR_EDITORTYPE));

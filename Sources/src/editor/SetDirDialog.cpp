@@ -2,7 +2,6 @@
 //
 
 #include "stdafx.h"
-#include <browedit.h>
 
 #include "editor.h"
 #include "SetDirDialog.h"
@@ -52,12 +51,12 @@ END_MESSAGE_MAP()
 
 void CSetDirDialog::OnBrowseSourceDir() 
 {
-	SECDirSelectDlg dlg( "Select Source Directory" );
-	dlg.SetInitialDir( m_szSourceDir );
+	CFolderPickerDialog dlg( m_szSourceDir, OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST, this, 0 );
+	dlg.m_ofn.lpstrTitle = _T( "Select Source Directory" );
 	if ( dlg.DoModal() == IDOK )
 	{
 		UpdateData( TRUE );
-		dlg.GetPath( m_szSourceDir );
+		m_szSourceDir = dlg.GetPathName();
 		m_szSourceDir.MakeLower();
 		UpdateData( FALSE );
 	}
@@ -65,12 +64,12 @@ void CSetDirDialog::OnBrowseSourceDir()
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSetDirDialog::OnBrowseExecDir() 
 {
-	SECDirSelectDlg dlg( "Select Executable Directory" );
-	dlg.SetInitialDir( m_szExecDir );
+	CFolderPickerDialog dlg( m_szExecDir, OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST, this, 0 );
+	dlg.m_ofn.lpstrTitle = _T( "Select Executable Directory" );
 	if ( dlg.DoModal() == IDOK )
 	{
 		UpdateData( TRUE );
-		dlg.GetPath( m_szExecDir );
+		m_szExecDir = dlg.GetPathName();
 		m_szExecDir.MakeLower();
 		UpdateData( FALSE );
 	}

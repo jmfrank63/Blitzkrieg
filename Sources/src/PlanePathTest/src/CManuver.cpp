@@ -5,7 +5,6 @@
 #include "ComplexPathFraction.h"
 #include "..\..\PlanePathTest\src\CPlanePreferences.h"
 #include "..\..\PlanePathTest\src\CManuverBuilder.h"
-#include "..\..\ailogic\Trigonometry.h"
 /////////////////////////////////////////////////////////////////////////////
 extern float g = 0.0000000983f;
 BASIC_REGISTER_CLASS( CManuver );
@@ -20,54 +19,6 @@ BASIC_REGISTER_CLASS( CManuverGeneric );
 /////////////////////////////////////////////////////////////////////////////
 const float SPlanesConsts::MIN_HEIGHT = 100.0f;
 /////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
-//	CManuverBuilder ::
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
-#include "..\..\AILogic\StaticObject.h"
-#include "..\..\AILogic\Mine.h"
-#include "..\..\AILogic\updater.h"
-extern CUpdater updater;
-
-class CManuverVisualizeDEBUG
-{
-	typedef std::list< CObj<CGivenPassabilityStObject> > CMarkers;
-	std::unordered_map< IPlane*, CMarkers, SDefaultPtrHash > planeMarkers;
-
-	CPtr<IObjectsDB> pIDB;
-
-	CGivenPassabilityStObject * Create( const CVec3 &vPos )
-	{
-		CGDBPtr<SGDBObjectDesc> pDesc = pIDB->GetDesc( "Mine_APers" );
-		CGDBPtr<SMineRPGStats> pStats = static_cast<const SMineRPGStats *>( pIDB->GetRPGStats( pDesc ) );
-		const int nDBIndex = pIDB->GetIndex( "Mine_APers" );
-		CMineStaticObject *pObj = new CMineStaticObject( pStats, CVec2(vPos.x, vPos.y), nDBIndex, pStats->fMaxHP, -1, 0 );
-		pObj->RegisterInWorld();
-		return pObj;
-	}
-
-public:
-	
-	void Init( IPathFraction *_pPath, IPlane *pPlane )
-	{
-		std::unordered_map< IPlane*, CMarkers, SDefaultPtrHash >::iterator marker = planeMarkers.find( pPlane );
-		if ( planeMarkers.end() != marker )
-		{
-			CMarkers &markers = marker->second;
-			for ( CMarkers::iterator it = markers.begin(); it != markers.end(); ++it )
-				updater.Update(	ACTION_NOTIFY_DELETED_ST_OBJ, *it );
-			markers.clear();
-		}
-		pIDB = GetSingleton<IObjectsDB>();
-		for ( float fLength = 0; fLength < _pPath->GetLength(); fLength += 10 )
-		{
-			planeMarkers[pPlane].push_back( Create( _pPath->GetPoint( fLength ) ) );
-		}
-	}
-};
-CManuverVisualizeDEBUG theManuverDEBUG;
-
-
 /////////////////////////////////////////////////////////////////////////////
 int CManuverGeneric::operator&( IStructureSaver &ss )
 {
@@ -134,7 +85,6 @@ void CManuver::InitCommon( interface IPathFraction *_pPath, interface IPlane *_p
 {
 	pPlane = _pPlane;
 	pPath = _pPath;
-	theManuverDEBUG.Init( _pPath, _pPlane );
 
 	fSpeed = fabs( pPlane->GetSpeedB2() );
 	fProgress = 0;
@@ -167,13 +117,13 @@ void CManuver::CalcNormale()
 bool CManuver::GetToHorisontalOffset( const CVec3 &vSpeed, const float _fTurnRadius, const float fHeight, CVec3 *pManuverPos ) const
 {
 	//NI_ASSERT_T( vSpeed.z < 0, "not diving, need not check" );
-	const float fAlpha = NTrg::ASin( vSpeed.z / fabs( vSpeed ) );
-	const float fSinAHalf = NTrg::Sin( 0.5f * fAlpha );
+	const float fAlpha = asinf( vSpeed.z / fabs( vSpeed ) );
+	const float fSinAHalf = sinf( 0.5f * fAlpha );
 	const float fCrit = 2 * _fTurnRadius * sqr( fSinAHalf );
 	
 	if ( (vSpeed.z < 0 && fCrit >= fHeight - SPlanesConsts::MIN_HEIGHT) || vSpeed.z > 0 )
 	{
-		const float fHorDist = _fTurnRadius * fSinAHalf * ( 1.0f + NTrg::Cos( fAlpha ) );
+		const float fHorDist = _fTurnRadius * fSinAHalf * ( 1.0f + cosf( fAlpha ) );
 		CVec2 vSpeed2D( vSpeed.x, vSpeed.y );
 		Normalize( &vSpeed2D );
 		*pManuverPos = CVec3( vSpeed2D * fHorDist, -fCrit * Sign( vSpeed.z ) );

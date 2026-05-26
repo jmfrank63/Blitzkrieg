@@ -191,7 +191,8 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.exe c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
+copy $(OutDir)*.exe "$(SolutionDir)bin\\"</Command>
     </PostBuildEvent>
     <Midl>
       <TypeLibraryName>.\FastDebug\ExcelExporter.tlb</TypeLibraryName>
@@ -232,7 +233,8 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy $(OutDir)*.exe c:\a7\*.*</Command>
+      <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
+copy $(OutDir)*.exe "$(SolutionDir)bin\\"</Command>
     </PostBuildEvent>
     <Midl>
       <TypeLibraryName>.\Debug\ExcelExporter.tlb</TypeLibraryName>
@@ -283,4 +285,6 @@
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
+
+
 

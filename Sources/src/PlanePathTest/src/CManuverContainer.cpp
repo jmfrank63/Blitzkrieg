@@ -4,7 +4,6 @@
 #include "CManuverContainer.h"
 #include "CManuver.h"
 #include "..\..\PlanePathTest\src\CPlanePreferences.h"
-#include "..\..\AILogic\AIInternalConsts.h"
 #include "..\..\Misc\Win32Random.h"
 #include "IPlane.h"
 
@@ -53,7 +52,7 @@ void CManuverStateDescriptor::Init( const enum EPlanesAttitude _att, interface I
 	parameters[EPID_DIRS_DIFFERENCE] = DirsDifference( GetDirectionByVector( vSpeed2.x, vSpeed2.y ), GetDirectionByVector( vSpeed1.x, vSpeed1.y ) ) * 2.0f / 65536.0f;
 
 	parameters[EPID_DISTANCE] = fabs( vDist ) / fTurnR1;
-	parameters[EPID_SELF_HEIGHT] = ( vPos1.z - SConsts::PLANE_MIN_HEIGHT ) / fTurnR1;
+	parameters[EPID_SELF_HEIGHT] = ( vPos1.z - SPlanesConsts::MIN_HEIGHT ) / fTurnR1;
 	parameters[EPID_HEIGHT_DIFF] = ( vPos2.z - vPos1.z ) / fTurnR1;
 	parameters[EPID_SELF_SPEED] = ( fabs( vSpeed1 ) - pref1.GetStallSpeed() ) / pref1.GetMaxSpeed();
 	parameters[EPID_ENEMY_SPEED] = ( fabs( vSpeed2 ) - pref2.GetStallSpeed() ) / pref2.GetMaxSpeed();
