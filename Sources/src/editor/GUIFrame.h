@@ -5,7 +5,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include <SECWB.H>
+#include "..\\Common\\StingrayCompat.h"
 #include "..\UI\UI.h"
 #include "..\GFX\GFX.h"
 #include "..\Input\Input.h"
@@ -31,11 +31,11 @@ public:
 
 // Operations
 public:
-	virtual void Init( IGFX *_pGFX );			//ининциализация
+	virtual void Init( IGFX *_pGFX );			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	virtual void ShowFrameWindows( int nCommand );
 	virtual void GFXDraw();
 
-	BOOL Run();										//Вызывается из EditorApp OnIdle()
+	BOOL Run();										//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ EditorApp OnIdle()
 	bool IsRunning() { return bRunning; }
 
 	void LoadSprites();
@@ -56,7 +56,7 @@ private:
 	// view for the client area of the frame.
 	CPropertyDockBar *pPropertyDockBar;
 	CTemplatePropsTreeItem *pTemplatePropsItem;
-	bool bRunning;								//есть два состояния, редактирование и предварительный просмотр
+	bool bRunning;								//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	
 	CObj<IUIScreen> m_pScreen;
 	CPtr<IUIContainer> m_pContainer;
@@ -74,7 +74,7 @@ private:
 		MODE_DRAG,
 		MODE_DRAW
 	};
-	enum EMode m_mode;						//текущий мод, определяет активное действие мышки, например перетаскивание объекта или рисование нового
+	enum EMode m_mode;						//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 
 	CVec2 m_beginDrag;
 
@@ -90,25 +90,25 @@ private:
 		R_RIGHT_BOTTOM,
 		R_LEFT_BOTTOM
 	};
-	EResizeMode m_resizeMode;			//для определения направления resize
+	EResizeMode m_resizeMode;			//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ resize
 
 	// undo/redo operations
 	typedef list< CPtr<IGUIUndo> > CUndoStack;
 	CUndoStack m_undoStack;
 	CPtr<IGUIUndo> pUnchanged;
 
-	//для Run Mode
+	//пїЅпїЅпїЅ Run Mode
 //	CVec2 vCursorPos;
 	int mouseState;
 	NInput::CCommandRegistrator standardMsgs;
 	
 protected:
-	virtual BOOL SpecificTranslateMessage( MSG *pMsg );			//специфичная обработка сообщений для модуля
-	virtual void SpecificInit();														//для инициализации внутренних данных после загрузки проекта или создании нового
+	virtual BOOL SpecificTranslateMessage( MSG *pMsg );			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	virtual void SpecificInit();														//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	virtual void SpecificClearBeforeBatchMode();
-	virtual void SpecificSave( IDataTree *pDT );						//вызывается при записи проекта, нужно только в GUI composer
+	virtual void SpecificSave( IDataTree *pDT );						//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ GUI composer
 
-	//экспортирует один проект, если все ОК, возвращает 0, иначе код ошибки
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ 0, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	virtual bool ExportFrameData( IDataTree *pDT, const char *pszProjectName, const char *pszResultFileName, CTreeItem *pRootItem );
 //	virtual FILETIME FindMaximalSourceTime( const char *pszProjectName, CTreeItem *pRootItem );
 //	virtual FILETIME FindMinimalExportFileTime( const char *pszResultFileName, CTreeItem *pRootItem );
@@ -157,3 +157,4 @@ protected:
 // Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif		//__GUIFRAME_H__
+

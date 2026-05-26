@@ -3,6 +3,7 @@
 
 #include "stdafx.h"
 #include <crtdbg.h>
+#include <afxadv.h>
 
 #include "EditorWindowSingleton.h"
 #include "editor.h"

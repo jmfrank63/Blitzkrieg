@@ -5,7 +5,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include <secwb.h>
+#include "..\\Common\\StingrayCompat.h"
 #include "..\GFX\GFX.h"
 #include "..\Input\Input.h"
 #include "..\Scene\Scene.h"
@@ -110,3 +110,4 @@ public:
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //{{AFX_INSERT_LOCATION}}
 #endif // !defined(__EDITOR_MAIN_FRAME__)
+

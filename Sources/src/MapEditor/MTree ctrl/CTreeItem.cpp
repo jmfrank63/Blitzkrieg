@@ -5,7 +5,7 @@
 #include "MultiTreeEditBox.h"
 #include "TreeItemComboBox.h"
 #include "PercentDialog.h"
-#include <browedit.h>
+#include "..\..\Common\StingrayCompat.h"
 
 #include "MultiTreeSlider.h"
 

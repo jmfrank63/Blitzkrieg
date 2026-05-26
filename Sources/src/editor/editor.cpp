@@ -3,8 +3,8 @@
 
 #include "stdafx.h"
 #include <crtdbg.h>
-#include <secsplsh.h>
 #include <Shlwapi.h>
+#include <afxadv.h>
 
 #include "editor.h"
 #include "RefDlg.h"
@@ -72,7 +72,7 @@ CEditorApp::CEditorApp()
 	GetCurrentDirectory( 255, temp );
 	szEditorDir = temp;
 	szEditorDir += '\\';
-	NStr::ToLower( szEditorDir );			//все пути будут храниться в нижнем регистре
+	NStr::ToLower( szEditorDir );			//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
 	m_bInitFinished = false;
 	m_bVersionIncreased = false;
@@ -110,8 +110,7 @@ BOOL CEditorApp::InitInstance()
 	//
 	
 #ifndef _DEBUG
-  SECSplashWnd *pSplashWnd = new SECSplashWnd( IDB_EDITOR_STARTUP );
-  pSplashWnd->Create();
+	// legacy Stingray splash disabled during migration
 #endif		//! _DEBUG
 	
 #if defined( _DO_SEH ) && !defined( _DEBUG )
@@ -170,7 +169,7 @@ BOOL CEditorApp::InitInstance()
 	
 	m_bInitFinished = false;
 	CWnd *pActiveFrame = 0;
-	//Фокус сперва устанавливаю в AnimationFrame чтобы не прыгали окошки
+	//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ AnimationFrame пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	pActiveFrame = g_frameManager.GetFrame( CFrameManager::E_ANIMATION_FRAME );
 	pActiveFrame->SendMessage( WM_SETFOCUS, 0, 0 );
 	
@@ -178,7 +177,7 @@ BOOL CEditorApp::InitInstance()
 	m_pMainFrame->ShowWindow(m_nCmdShow);
 	m_pMainFrame->UpdateWindow();
 	
-	//Здесь устанавливается фокус в последний открытый модуль, индекс которого сохранялся в реестре, не править
+	//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	int nActiveFrame = LoadLastActiveModuleID();
 	pActiveFrame = g_frameManager.GetFrame( nActiveFrame );
 	NI_ASSERT( pActiveFrame != 0 );
@@ -206,7 +205,7 @@ bool CEditorApp::RunBatchMode()
 	if ( nArgsCount == 1 )
 		return false;
 	
-	//проверим, запущен ли batch mode
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ batch mode
 	if ( nArgsCount < 4 )
 	{
 		std::string szMessage = "ResEditor command line batch mode:\nreseditor.exe <*.project extensions> <folder with projects> <destination folder> [-f] [-os]\n"
@@ -246,7 +245,7 @@ void CEditorApp::LoadRegisterData()
 	LoadDirs();
 	LoadFileDialogRegisterData();
 
-	// Считываем source & destination directory для всех модулей
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ source & destination directory пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	for ( int i=0; i<g_frameManager.frames.size(); i++ )
 		g_frameManager.frames[i]->LoadRegisterData();
 }
@@ -466,7 +465,7 @@ void CEditorApp::OnAppAbout()
 BOOL CEditorApp::ProcessMessageFilter(int code, LPMSG lpMsg) 
 {
 /*
-	//Если в диалог приходит ESC я не хочу чтобы он закрывался
+	//пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ESC пїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	if ( (lpMsg->hwnd == pPropertyWindow->GetSafeHwnd() ) ||
 		::IsChild( pPropertyWindow->GetSafeHwnd(), lpMsg->hwnd ) )
     // Use ::IsChild to get messages that may be going
@@ -693,4 +692,5 @@ void CEditorApp::OnRecentFile( UINT nID )
 	}
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 

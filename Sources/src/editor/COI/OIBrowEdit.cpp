@@ -1,5 +1,5 @@
 #include "StdAfx.h"
-#include <browedit.h>
+#include "..\..\Common\StingrayCompat.h"
 
 #include "OIBrowEdit.h"
 #include "..\MyOpenFileDialog.h"

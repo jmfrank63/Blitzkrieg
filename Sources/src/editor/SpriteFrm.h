@@ -9,7 +9,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include <SECWB.H>
+#include "..\\Common\\StingrayCompat.h"
 #include "..\GFX\GFX.h"
 
 #include "ParentFrame.h"
@@ -33,7 +33,7 @@ public:
 	virtual void GFXDraw();
 	virtual void ShowFrameWindows( int nCommand );
 	
-	BOOL Run();										//Вызывается из EditorApp OnIdle()
+	BOOL Run();										//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ EditorApp OnIdle()
 	bool IsRunning() { return bRunning; }
 	void ClearComposedFlag() { bComposed = false; }
 
@@ -58,7 +58,7 @@ private:
 	CThumbList m_wndAllDirThumbItems;
 	CThumbList m_wndSelectedThumbItems;
 
-	bool bRunning;								//есть два состояния, редактирование и предварительный просмотр
+	bool bRunning;								//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	bool bComposed;
 
 protected:
@@ -69,10 +69,10 @@ protected:
 	void SetActiveSpritesItem( CSpritesItem *pSpritesItem );
 
 	virtual BOOL SpecificTranslateMessage( MSG *pMsg );
-	virtual void SpecificInit();													//для инициализации внутренних данных после загрузки проекта или создании нового
+	virtual void SpecificInit();													//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	virtual void SpecificClearBeforeBatchMode();
 	
-	//экспортирует один проект, если все ОК, возвращает 0, иначе код ошибки
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ 0, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	virtual bool ExportFrameData( IDataTree *pDT, const char *pszProjectName, const char *pszResultFileName, CTreeItem *pRootItem );
 //	virtual FILETIME FindMaximalSourceTime( const char *pszProjectName, CTreeItem *pRootItem );
 	virtual FILETIME FindMinimalExportFileTime( const char *pszResultFileName, CTreeItem *pRootItem );
@@ -95,3 +95,4 @@ protected:
 // Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif		//__SPRITEFRM_H__
+

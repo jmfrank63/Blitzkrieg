@@ -2,7 +2,7 @@
 #define AFX_TREEDOCKWND_H__B6F638DA_2DBC_11D1_A86B_0060977B4135__INCLUDED_
 
 using namespace std;
-#include <tabwnd3.h>
+#include "..\\Common\\StingrayCompat.h"
 #include "ETreeCtrl.h"
 
 class CPropView;
@@ -73,3 +73,5 @@ inline SECTreeCtrl* CTreeDockWnd::GetActiveTree()
 // Microsoft Developer Studio will insert additional declarations immediately before the previous line.
 
 #endif // !defined(AFX_TREEDOCKWND_H__B6F638DA_2DBC_11D1_A86B_0060977B4135__INCLUDED_)
+
+

@@ -1,7 +1,7 @@
 #ifndef __TREEITEM_H__
 #define __TREEITEM_H__
 
-#include <TrCtlX.h>
+#include "..\\Common\\StingrayCompat.h"
 #include "CtrlObjectInspector.h"
 
 using namespace std;
@@ -9,13 +9,13 @@ typedef vector<string> CVectorOfStrings;
 
 struct SProp
 {
-	int nId;									// для каждого элемента свойств в OI нужен уникальный id, используется чтобы узнать какой элемент был модифицирован в OI
-	string szDefaultName;			// имя по умолчанию, по этим именам осуществляется сортировка в дереве и создание элементов по умолчанию
-	string szDisplayName;			// имя, отображаемое на экране
-	DomenID nDomenType;				// тип значения
-	CVariant value;						// значение
-	vector<string> szStrings; // опции в комбобоксе для типа DT_COMBO
-														// для DT_BROWSE первый элемент вектора - начальная директория, второй элемент - фильтр
+	int nId;									// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ OI пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ id, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ OI
+	string szDefaultName;			// пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	string szDisplayName;			// пїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	DomenID nDomenType;				// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	CVariant value;						// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	vector<string> szStrings; // пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ DT_COMBO
+														// пїЅпїЅпїЅ DT_BROWSE пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ - пїЅпїЅпїЅпїЅпїЅпїЅ
 	//
 	int operator&( IDataTree &ss );
 };
@@ -24,11 +24,11 @@ typedef vector<SProp> CPropVector;
 
 enum ETreeItemType
 {
-	//Note, эти ID нельзя изменять или не будут работать старые saves
+	//Note, пїЅпїЅпїЅ ID пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ saves
 	
 	E_UNKNOWN_ITEM	= 0,
 	EDITOR_TREE_BASE_VALUE				= 0x11000000,
-	E_ANIMATION_ROOT_ITEM					= EDITOR_TREE_BASE_VALUE + 1,		//ROOT item для Animation дерева
+	E_ANIMATION_ROOT_ITEM					= EDITOR_TREE_BASE_VALUE + 1,		//ROOT item пїЅпїЅпїЅ Animation пїЅпїЅпїЅпїЅпїЅпїЅ
 	E_UNIT_COMMON_PROPS_ITEM			= EDITOR_TREE_BASE_VALUE + 2,
 	E_LOCALIZATION_ITEM						= EDITOR_TREE_BASE_VALUE + 3,
 	E_UNIT_AI_PROPS_ITEM					= EDITOR_TREE_BASE_VALUE + 4,
@@ -47,11 +47,11 @@ enum ETreeItemType
 	E_UNIT_ACK_TYPES_ITEM					= EDITOR_TREE_BASE_VALUE + 17,
 	E_UNIT_ACK_TYPE_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 18,
 	
-	E_SPRITE_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 21,	//ROOT item для Sprites дерева
+	E_SPRITE_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 21,	//ROOT item пїЅпїЅпїЅ Sprites пїЅпїЅпїЅпїЅпїЅпїЅ
 	E_SPRITES_ITEM								= EDITOR_TREE_BASE_VALUE + 22,
 	E_SPRITE_PROPS_ITEM						= EDITOR_TREE_BASE_VALUE + 23,
 	
-	E_EFFECT_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 31,	//ROOT item для effect composer
+	E_EFFECT_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 31,	//ROOT item пїЅпїЅпїЅ effect composer
 	E_EFFECT_COMMON_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 32,
 	E_EFFECT_ANIMATIONS_ITEM			= EDITOR_TREE_BASE_VALUE + 33,
 	E_EFFECT_MESHES_ITEM					= EDITOR_TREE_BASE_VALUE + 34,
@@ -63,7 +63,7 @@ enum ETreeItemType
 	E_EFFECT_FUNC_PROPS_ITEM			= EDITOR_TREE_BASE_VALUE + 40,
 	E_EFFECT_MAYA_PROPS_ITEM			= EDITOR_TREE_BASE_VALUE + 41,
 	
-	E_OBJECT_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 51,	//ROOT item для object composer
+	E_OBJECT_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 51,	//ROOT item пїЅпїЅпїЅ object composer
 	E_OBJECT_COMMON_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 52,
 	E_OBJECT_GRAPHICS_ITEM				= EDITOR_TREE_BASE_VALUE + 53,
 	E_OBJECT_SPRITE_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 54,
@@ -72,7 +72,7 @@ enum ETreeItemType
 	E_OBJECT_PASSES_ITEM					= EDITOR_TREE_BASE_VALUE + 57,
 	E_OBJECT_PASS_PROPS_ITEM			= EDITOR_TREE_BASE_VALUE + 58,
 	
-	E_MESH_ROOT_ITEM							= EDITOR_TREE_BASE_VALUE + 61,	//ROOT item для mesh composer
+	E_MESH_ROOT_ITEM							= EDITOR_TREE_BASE_VALUE + 61,	//ROOT item пїЅпїЅпїЅ mesh composer
 	E_MESH_COMMON_PROPS_ITEM			= EDITOR_TREE_BASE_VALUE + 62,
 	E_MESH_DEFENCES_ITEM					= EDITOR_TREE_BASE_VALUE + 63,
 	E_MESH_DEFENCE_PROPS_ITEM			= EDITOR_TREE_BASE_VALUE + 64,
@@ -93,7 +93,7 @@ enum ETreeItemType
 	E_MESH_DEATH_CRATER_PROPS_ITEM= EDITOR_TREE_BASE_VALUE + 69,
 	E_MESH_TRACK_ITEM							= EDITOR_TREE_BASE_VALUE + 70,
 	
-	E_WEAPON_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 81,	//ROOT item для weapon composer
+	E_WEAPON_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 81,	//ROOT item пїЅпїЅпїЅ weapon composer
 	E_WEAPON_COMMON_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 82,
 	E_WEAPON_SHOOT_TYPES_ITEM			= EDITOR_TREE_BASE_VALUE + 83,
 	E_WEAPON_DAMAGE_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 84,
@@ -102,8 +102,8 @@ enum ETreeItemType
 	E_WEAPON_EFFECT_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 87,
 	E_WEAPON_FLASH_PROPS_ITEM			= EDITOR_TREE_BASE_VALUE + 88,
 	
-	//89 занято, см выше
-	E_BUILDING_ROOT_ITEM					= EDITOR_TREE_BASE_VALUE + 91,	//ROOT item для building composer
+	//89 пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅ
+	E_BUILDING_ROOT_ITEM					= EDITOR_TREE_BASE_VALUE + 91,	//ROOT item пїЅпїЅпїЅ building composer
 	E_BUILDING_DEFENCES_ITEM			= EDITOR_TREE_BASE_VALUE + 89,
 	E_BUILDING_DEFENCE_PROPS_ITEM	= EDITOR_TREE_BASE_VALUE + 90,
 	E_BUILDING_COMMON_PROPS_ITEM	= EDITOR_TREE_BASE_VALUE + 92,
@@ -116,7 +116,7 @@ enum ETreeItemType
 	E_BUILDING_GRAPHIC2_PROPS_ITEM = EDITOR_TREE_BASE_VALUE + 99,
 	E_BUILDING_GRAPHIC3_PROPS_ITEM = EDITOR_TREE_BASE_VALUE + 100,
 	
-	E_TILESET_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 101,	//ROOT item для TileSet composer
+	E_TILESET_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 101,	//ROOT item пїЅпїЅпїЅ TileSet composer
 	E_TILESET_COMMON_PROPS_ITEM 	= EDITOR_TREE_BASE_VALUE + 102,
 	E_TILESET_TERRAINS_ITEM			 	= EDITOR_TREE_BASE_VALUE + 103,
 	E_TILESET_TERRAIN_PROPS_ITEM 	= EDITOR_TREE_BASE_VALUE + 104,
@@ -126,14 +126,14 @@ enum ETreeItemType
 	E_CROSSET_TILES_ITEM					= EDITOR_TREE_BASE_VALUE + 108,
 	E_CROSSET_TILE_PROPS_ITEM			= EDITOR_TREE_BASE_VALUE + 109,
 
-	E_FENCE_ROOT_ITEM							= EDITOR_TREE_BASE_VALUE + 121,	//ROOT item для Fence composer
+	E_FENCE_ROOT_ITEM							= EDITOR_TREE_BASE_VALUE + 121,	//ROOT item пїЅпїЅпїЅ Fence composer
 	E_FENCE_COMMON_PROPS_ITEM 		= EDITOR_TREE_BASE_VALUE + 122,
 	E_FENCE_DIRECTION_ITEM				= EDITOR_TREE_BASE_VALUE + 123,
 	E_FENCE_INSERT_ITEM						= EDITOR_TREE_BASE_VALUE + 124,
 	E_FENCE_PROPS_ITEM						= EDITOR_TREE_BASE_VALUE + 125,
 	
-	E_KEYFRAME_TREE_ITEM					= EDITOR_TREE_BASE_VALUE + 130,	//Специальный TreeItem который будет отображаться как в OI так и в KeyFrame
-	E_PARTICLE_ROOT_ITEM					= EDITOR_TREE_BASE_VALUE + 131,	//ROOT item для Particle Frame
+	E_KEYFRAME_TREE_ITEM					= EDITOR_TREE_BASE_VALUE + 130,	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ TreeItem пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅ OI пїЅпїЅпїЅ пїЅ пїЅ KeyFrame
+	E_PARTICLE_ROOT_ITEM					= EDITOR_TREE_BASE_VALUE + 131,	//ROOT item пїЅпїЅпїЅ Particle Frame
 	E_PARTICLE_COMMON_PROPS_ITEM	= EDITOR_TREE_BASE_VALUE + 132,
 	E_PARTICLE_SOURCE_PROP_ITEMS	= EDITOR_TREE_BASE_VALUE + 133,
 	E_PARTICLE_GENERATE_SPIN_ITEM			= EDITOR_TREE_BASE_VALUE + 134,
@@ -154,21 +154,21 @@ enum ETreeItemType
 	E_PARTICLE_TEXTURE_FRAME_ITEM	= EDITOR_TREE_BASE_VALUE + 148,
 	E_PARTICLE_COMPLEX_SOURCE_ITEM= EDITOR_TREE_BASE_VALUE + 149,
 
-	E_TRENCH_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 151,	//ROOT item для Trench composer
+	E_TRENCH_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 151,	//ROOT item пїЅпїЅпїЅ Trench composer
 	E_TRENCH_COMMON_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 152,
 	E_TRENCH_SOURCES_ITEM					= EDITOR_TREE_BASE_VALUE + 153,
 	E_TRENCH_SOURCE_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 154,
 	E_TRENCH_DEFENCES_ITEM				= EDITOR_TREE_BASE_VALUE + 155,
 	E_TRENCH_DEFENCE_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 156,
 	
-	E_SQUAD_ROOT_ITEM							= EDITOR_TREE_BASE_VALUE + 161,	//ROOT item для Squad composer
+	E_SQUAD_ROOT_ITEM							= EDITOR_TREE_BASE_VALUE + 161,	//ROOT item пїЅпїЅпїЅ Squad composer
 	E_SQUAD_COMMON_PROPS_ITEM			= EDITOR_TREE_BASE_VALUE + 162,
 	E_SQUAD_MEMBERS_ITEM					= EDITOR_TREE_BASE_VALUE + 163,
 	E_SQUAD_MEMBER_PROPS_ITEM			= EDITOR_TREE_BASE_VALUE + 164,
 	E_SQUAD_FORMATIONS_ITEM				= EDITOR_TREE_BASE_VALUE + 165,
 	E_SQUAD_FORMATION_PROPS_ITEM	= EDITOR_TREE_BASE_VALUE + 166,
 	
-	E_GUI_ROOT_ITEM								= EDITOR_TREE_BASE_VALUE + 171,	//ROOT item для GUI composer
+	E_GUI_ROOT_ITEM								= EDITOR_TREE_BASE_VALUE + 171,	//ROOT item пїЅпїЅпїЅ GUI composer
 	E_GUI_MOUSE_SELECT_ITEM				= EDITOR_TREE_BASE_VALUE + 172,
 	E_TEMPLATE_TREE_ITEM					= EDITOR_TREE_BASE_VALUE + 173,
 	E_STATICS_TREE_ITEM						= EDITOR_TREE_BASE_VALUE + 174,
@@ -192,7 +192,7 @@ enum ETreeItemType
 	E_MINE_ROOT_ITEM							= EDITOR_TREE_BASE_VALUE + 210,
 	E_MINE_COMMON_PROPS_ITEM			= EDITOR_TREE_BASE_VALUE + 211,
 	
-	E_BRIDGE_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 220,	//ROOT item для Bridge composer
+	E_BRIDGE_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 220,	//ROOT item пїЅпїЅпїЅ Bridge composer
 	E_BRIDGE_COMMON_PROPS_ITEM 		= EDITOR_TREE_BASE_VALUE + 221,
 	E_BRIDGE_BEGIN_SPANS_ITEM			= EDITOR_TREE_BASE_VALUE + 222,
 	E_BRIDGE_CENTER_SPANS_ITEM		= EDITOR_TREE_BASE_VALUE + 223,
@@ -203,14 +203,14 @@ enum ETreeItemType
 	E_BRIDGE_DEFENCES_ITEM        = EDITOR_TREE_BASE_VALUE + 228,
 	E_BRIDGE_DEFENCE_PROPS_ITEM	  = EDITOR_TREE_BASE_VALUE + 229,
 
-	E_MISSION_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 230,	//ROOT item для Mission composer
+	E_MISSION_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 230,	//ROOT item пїЅпїЅпїЅ Mission composer
 	E_MISSION_COMMON_PROPS_ITEM 	= EDITOR_TREE_BASE_VALUE + 231,
 	E_MISSION_OBJECTIVES_ITEM			= EDITOR_TREE_BASE_VALUE + 232,
 	E_MISSION_OBJECTIVE_PROPS_ITEM= EDITOR_TREE_BASE_VALUE + 233,
 	E_MISSION_MUSICS_ITEM					= EDITOR_TREE_BASE_VALUE + 234,
 	E_MISSION_MUSIC_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 235,
 	
-	E_CHAPTER_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 240,	//ROOT item для Chapter composer
+	E_CHAPTER_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 240,	//ROOT item пїЅпїЅпїЅ Chapter composer
 	E_CHAPTER_COMMON_PROPS_ITEM 	= EDITOR_TREE_BASE_VALUE + 241,
 	E_CHAPTER_MISSIONS_ITEM				= EDITOR_TREE_BASE_VALUE + 242,
 	E_CHAPTER_MISSION_PROPS_ITEM	= EDITOR_TREE_BASE_VALUE + 243,
@@ -219,14 +219,14 @@ enum ETreeItemType
 	E_CHAPTER_PLACES_ITEM					= EDITOR_TREE_BASE_VALUE + 246,
 	E_CHAPTER_PLACE_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 247,
 	
-	E_CAMPAIGN_ROOT_ITEM					= EDITOR_TREE_BASE_VALUE + 250,	//ROOT item для Chapter composer
+	E_CAMPAIGN_ROOT_ITEM					= EDITOR_TREE_BASE_VALUE + 250,	//ROOT item пїЅпїЅпїЅ Chapter composer
 	E_CAMPAIGN_COMMON_PROPS_ITEM 	= EDITOR_TREE_BASE_VALUE + 251,
 	E_CAMPAIGN_CHAPTERS_ITEM			= EDITOR_TREE_BASE_VALUE + 252,
 	E_CAMPAIGN_CHAPTER_PROPS_ITEM	= EDITOR_TREE_BASE_VALUE + 253,
 	E_CAMPAIGN_TEMPLATES_ITEM			= EDITOR_TREE_BASE_VALUE + 254,
 	E_CAMPAIGN_TEMPLATE_PROPS_ITEM= EDITOR_TREE_BASE_VALUE + 255,
 	
-	//Дополнения для building, вверх не влезли
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ building, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	E_BUILDING_SUMMER_PROPS_ITEM 	= EDITOR_TREE_BASE_VALUE + 261,
 	E_BUILDING_WINTER_PROPS_ITEM 	= EDITOR_TREE_BASE_VALUE + 262,
 	E_BUILDING_GRAPHICW1_PROPS_ITEM = EDITOR_TREE_BASE_VALUE + 263,
@@ -241,38 +241,38 @@ enum ETreeItemType
 	E_BUILDING_SMOKES_ITEM				= EDITOR_TREE_BASE_VALUE + 260,
 	E_BUILDING_SMOKE_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 272,
 	
-	//Дополнения для objects, вверх не влезли
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ objects, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	E_OBJECT_GRAPHIC1_PROPS_ITEM	= EDITOR_TREE_BASE_VALUE + 273,
 	E_OBJECT_GRAPHICW1_PROPS_ITEM = EDITOR_TREE_BASE_VALUE + 274,
 	E_OBJECT_EFFECTS_ITEM					= EDITOR_TREE_BASE_VALUE + 275,
 	E_OBJECT_GRAPHICA1_PROPS_ITEM = EDITOR_TREE_BASE_VALUE + 276,
 
-	//Дополнения для weapons, вверх не влезли
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ weapons, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	E_WEAPON_CRATERS_ITEM					= EDITOR_TREE_BASE_VALUE + 281,
 	E_WEAPON_CRATER_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 282,
 
-	E_3DROAD_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 290,	//ROOT item для 3dRoad composer
+	E_3DROAD_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 290,	//ROOT item пїЅпїЅпїЅ 3dRoad composer
 	E_3DROAD_COMMON_PROPS_ITEM 		= EDITOR_TREE_BASE_VALUE + 291,
 	E_3DROAD_LAYER_PROPS_ITEM			= EDITOR_TREE_BASE_VALUE + 292,
 	
-	E_3DRIVER_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 300,	//ROOT item для 3dRiver composer
+	E_3DRIVER_ROOT_ITEM						= EDITOR_TREE_BASE_VALUE + 300,	//ROOT item пїЅпїЅпїЅ 3dRiver composer
 	E_3DRIVER_LAYER_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 301,
 	E_3DRIVER_BOTTOM_LAYER_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 302,
 	E_3DRIVER_LAYERS_ITEM					= EDITOR_TREE_BASE_VALUE + 303,
 	
-	E_MEDAL_ROOT_ITEM							= EDITOR_TREE_BASE_VALUE + 310,	//ROOT item для Medal composer
+	E_MEDAL_ROOT_ITEM							= EDITOR_TREE_BASE_VALUE + 310,	//ROOT item пїЅпїЅпїЅ Medal composer
 	E_MEDAL_COMMON_PROPS_ITEM			= EDITOR_TREE_BASE_VALUE + 311,
 	E_MEDAL_PICTURE_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 312,
 	E_MEDAL_TEXT_PROPS_ITEM				= EDITOR_TREE_BASE_VALUE + 313,
 	
-	//Дополнения для TileSet composer, вврерх не влезают
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ TileSet composer, пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	E_TILESET_TILES_ITEM					= EDITOR_TREE_BASE_VALUE + 320,
 	E_TILESET_LSOUNDS_ITEM				= EDITOR_TREE_BASE_VALUE + 321,
 	E_TILESET_ASOUNDS_ITEM				= EDITOR_TREE_BASE_VALUE + 322,
 	E_TILESET_LSOUND_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 323,
 	E_TILESET_ASOUND_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 324,
 	
-	//Дополнения для Bridge composer, вврерх не влезают
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ Bridge composer, пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	E_BRIDGE_FIRE_POINTS_ITEM					= EDITOR_TREE_BASE_VALUE + 330,
 	E_BRIDGE_FIRE_POINT_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 331,
 	E_BRIDGE_DIR_EXPLOSIONS_ITEM			= EDITOR_TREE_BASE_VALUE + 332,
@@ -280,7 +280,7 @@ enum ETreeItemType
 	E_BRIDGE_SMOKES_ITEM							= EDITOR_TREE_BASE_VALUE + 334,
 	E_BRIDGE_SMOKE_PROPS_ITEM					= EDITOR_TREE_BASE_VALUE + 335,
 
-	//Дополнения для Particle composer, вврерх не влезают
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ Particle composer, пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	E_PARTICLE_RAND_LIFE_ITEM			= EDITOR_TREE_BASE_VALUE + 340,
 	E_PARTICLE_RAND_SPEED_ITEM		= EDITOR_TREE_BASE_VALUE + 341,
 	E_PARTICLE_COMPLEX_ITEM				= EDITOR_TREE_BASE_VALUE + 342,
@@ -312,24 +312,24 @@ public:
 public:
 	typedef list< CPtr<CTreeItem> > CTreeItemList;
 protected:
-	bool bComplexItem;							// если сложный итем то не работает copy paste
-	bool bStaticElements;						// если стоит этот флаг то после загрузки дерева будут создаваться статические элементы из defaultChilds
-	bool bSerializeChilds;					// если не установлен флаг, то дети не будут сохраняться, нужно например для CTemplateTreeItem
-	int nNeedExpand;								// флаг для сохранения состояния дерева, если установлен, то после загрузки дерево раскрывается
+	bool bComplexItem;							// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ copy paste
+	bool bStaticElements;						// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ defaultChilds
+	bool bSerializeChilds;					// пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ CTemplateTreeItem
+	int nNeedExpand;								// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	int nImageIndex;
 	ETreeItemType nItemType;
 	CTreeItemList treeItemList;
-	SECTreeCtrl *pTreeCtrl;					// инициализируется при добавлении в дерево
+	SECTreeCtrl *pTreeCtrl;					// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	CTreeItem *pItemParent;
 	HTREEITEM hItem;
-	string szDefaultName;						//Это имя используется для сортировки и расширения дерева
-	string szDisplayName;						//Под этим именем видно в дереве
+	string szDefaultName;						//пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	string szDisplayName;						//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 
-	CChildItemsList defaultChilds;	// эти значения инициализируются в InitDefaultValues()
-	CPropVector defaultValues;			// тоже в InitDefaultValues();
+	CChildItemsList defaultChilds;	// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ InitDefaultValues()
+	CPropVector defaultValues;			// пїЅпїЅпїЅпїЅ пїЅ InitDefaultValues();
 
 public:
-	CPropVector values;							//public т к используется для инициализации ObjectInspector там надо проходить по списку items
+	CPropVector values;							//public пїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ObjectInspector пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ items
 
 public:
 	CTreeItem();
@@ -345,17 +345,17 @@ public:
 
 	void SelectMeInTheTree();
 	void DeleteMeInParentTreeItem();
-	void ChangeItemImage( int nNewImage );			//Изменяет картинку для уже вставленного item
-	void ChangeItemName( const char *pszName );	//Изменяет имя для уже вставленного в дерево
+	void ChangeItemImage( int nNewImage );			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ item
+	void ChangeItemName( const char *pszName );	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	void ExpandTreeItem( bool bExpand );
 
 	CTreeItem *GetParentTreeItem();
 	CTreeItem *GetSiblingItem( int nType, int nIndex = 0 );
 
-	//Операции со списком TreeItem
-	void AddChild( CTreeItem *pItem );				//Добавляет item в список treeItemList и в дерево pTreeCtrl
-	void RemoveChild( CTreeItem *pItem );			//Убивает item из списка и из дерева
-	void RemoveAllChilds();										//Убивает все внутренние item из дерева и списка
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ TreeItem
+	void AddChild( CTreeItem *pItem );				//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ item пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ treeItemList пїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ pTreeCtrl
+	void RemoveChild( CTreeItem *pItem );			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ item пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	void RemoveAllChilds();										//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ item пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	int  GetChildsCount() { return treeItemList.size(); }
 	CTreeItemList::const_iterator GetBegin() const { return treeItemList.begin(); }
 	CTreeItemList::const_iterator GetEnd() const { return treeItemList.end(); }
@@ -367,15 +367,15 @@ public:
 	bool IsCompatibleWith( CTreeItem *pCompare );
 	virtual bool CopyItemTo( CTreeItem *pTo );
 
-	virtual void InsertChildItems();					//Вызывается после создания всех компонентов для занесения их в дерево
-	void DeleteNullChilds();									//проходит по списку childs и удаляет все нулевые элементы
-	void CreateDefaultChilds();								//проходит по списку defaultItemList и если не находит каких-то items, то добавляет их в список childs
+	virtual void InsertChildItems();					//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	void DeleteNullChilds();									//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ childs пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	void CreateDefaultChilds();								//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ defaultItemList пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ-пїЅпїЅ items, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ childs
 	virtual void CallMeAfterSerialize() {}
 protected:
-	void InsertNewTreeItem( CTreeItem *pItem );	//Собственно добавляет item в дерево
+	void InsertNewTreeItem( CTreeItem *pItem );	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ item пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 
-	virtual void InitDefaultValues();		//вызывается из всех конструкторов, тут инициализируются defaultValues
-	//также в этой функции создаются defaultChilds эта функция обязательно должна вызываться из конструктора.
+	virtual void InitDefaultValues();		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ defaultValues
+	//пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ defaultChilds пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
 
 public:
 	virtual void UpdateItemValue( int nItemId, const CVariant &value );
@@ -417,3 +417,4 @@ public:
 };
 
 #endif		//__TREEITEM_H__
+

@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include <io.h>
-#include <browedit.h>
+#include "..\Common\StingrayCompat.h"
 
 #include "..\Scene\Scene.h"
 #include "..\Anim\Animation.h"

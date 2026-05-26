@@ -1,7 +1,6 @@
 ; Sound.def : Declares the module parameters for the DLL.
 
 LIBRARY      "SFX"
-DESCRIPTION  'Sound System'
 
 EXPORTS
     ; Explicit exports can go here

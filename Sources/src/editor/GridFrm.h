@@ -1,7 +1,7 @@
 #ifndef __GRIDFRM_H__
 #define __GRIDFRM_H__
 
-#include <SECWB.H>
+#include "..\\Common\\StingrayCompat.h"
 #include "..\GFX\GFX.h"
 #include "..\GFX\GFXTypes.h"
 #include "..\GFX\GFXHelper.h"
@@ -46,7 +46,7 @@ public:
 	virtual void Init( IGFX *_pGFX );
 	
 private:
-	//Для отображения сетки
+	//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	CPtr<IGFXVertices> pGridVertices;
 	
 protected:
@@ -92,3 +92,4 @@ protected:
 };
 
 #endif		//__GRIDFRM_H__
+

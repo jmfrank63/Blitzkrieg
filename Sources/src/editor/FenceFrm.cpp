@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include <browedit.h>
+#include "..\Common\StingrayCompat.h"
 
 #include "..\GFX\GFX.h"
 #include "..\GFX\GFXHelper.h"

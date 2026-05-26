@@ -6,7 +6,7 @@
 #endif // _MSC_VER > 1000
 // SECShortcutBarWithNotify.h : header file
 //
-#include <olbar.h>
+#include "..\\Common\\StingrayCompat.h"
 
 /////////////////////////////////////////////////////////////////////////////
 // SECShortcutBarWithNotify window
@@ -55,3 +55,4 @@ protected:
 // Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif // !defined(AFX_SECSHORTCUTBARWITHNOTIFY_H__5D2065ED_45E5_487B_9FF2_4165020DECF6__INCLUDED_)
+

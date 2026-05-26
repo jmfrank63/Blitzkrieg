@@ -5,7 +5,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include <SECWB.H>
+#include "..\\Common\\StingrayCompat.h"
 #include "..\Main\rpgstats.h"
 #include "..\Scene\scene.h"
 
@@ -32,7 +32,7 @@ public:
 	virtual void ShowFrameWindows( int nCommand );
 	virtual void GFXDraw();
 	
-	BOOL Run();																			//Вызывается из EditorApp OnIdle()
+	BOOL Run();																			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ EditorApp OnIdle()
 	bool IsRunning() { return bRunning; }
 
 	void ClearComposedFlag() { bComposed = false; }
@@ -67,11 +67,11 @@ private:
 	CThumbList m_wndSelectedThumbItems;
 	CScrollBar m_wndScrollBar;
 
-	bool bRunning;								//есть два состояния, редактирование и предварительный просмотр
+	bool bRunning;								//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	bool bComposed;
-	bool bExportOnlyRPGStats;			//для экспорта только rpg stats, не выполняя композер картинок
+	bool bExportOnlyRPGStats;			//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ rpg stats, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	
-	//для сохранения объектов и последующего обновления
+	//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	struct SUnitObject
 	{
 		CVec3 vPos;
@@ -121,3 +121,4 @@ protected:
 // Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif // __ANIMATIONFRM_H__
+

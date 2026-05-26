@@ -1,9 +1,9 @@
 ; GFX.def : Declares the module parameters for the DLL.
 
 LIBRARY      "GFX"
-DESCRIPTION  'Local graphics API'
 
 EXPORTS
     ; Explicit exports can go here
 
 GetModuleDescriptor				@1
+

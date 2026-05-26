@@ -9,7 +9,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include <secwb.h>
+#include "..\\Common\\StingrayCompat.h"
 #include "..\GFX\GFX.h"
 #include "..\Input\Input.h"
 #include "..\Scene\Scene.h"
@@ -96,8 +96,8 @@ public:
 	bool m_fireRangePressed;
 
 protected:  // control bar embedded members
-	//Общее
-	CGameWnd m_gameWnd;						//игровое окошко, может быть только одно
+	//пїЅпїЅпїЅпїЅпїЅ
+	CGameWnd m_gameWnd;						//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 	
 	UINT*	m_pDefButtonGroup;			// toolbar default button group
 	UINT	m_nDefButtonCount;			// the number of elements in m_pDefaultButtons	
@@ -115,100 +115,100 @@ protected:  // control bar embedded members
 	CPropView *pGUIPropView;
 	CPropertyDockBar *pGUIPropertyDockBar;
 
-	//Окна для Animations Frame
+	//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ Animations Frame
 	CTreeDockWnd *pAnimTreeDockWnd;
 	CPropView *pAnimPropView;
 	SECCustomToolBar *pInfantryToolBar;
 	
-	//Для Sprite Composer Frame
+	//пїЅпїЅпїЅ Sprite Composer Frame
 	CTreeDockWnd *pSpriteTreeDockWnd;
 	CPropView *pSpritePropView;
 
-	//Для Effect Composer Frame
+	//пїЅпїЅпїЅ Effect Composer Frame
 	CTreeDockWnd *pEffectTreeDockWnd;
 	CPropView *pEffectPropView;
 	CDirectionButtonDockBar *pEffectDirectionButtonDockBar;
 	SECCustomToolBar *pEffectToolBar;
 	
-	//Для Object Composer Frame
+	//пїЅпїЅпїЅ Object Composer Frame
 	CTreeDockWnd *pObjectTreeDockWnd;
 	CPropView *pObjectPropView;
 	SECCustomToolBar *pObjectToolBar;
 	
-	//Для Mesh Composer Frame
+	//пїЅпїЅпїЅ Mesh Composer Frame
 	CTreeDockWnd *pMeshTreeDockWnd;
 	CPropView *pMeshPropView;
 	CDirectionButtonDockBar *pMeshDirectionButtonDockBar;
 	SECCustomToolBar *pMeshToolBar;
 	
-	//Для Weapon Composer Frame
+	//пїЅпїЅпїЅ Weapon Composer Frame
 	CTreeDockWnd *pWeaponTreeDockWnd;
 	CPropView *pWeaponPropView;
 
-	//Для Building Composer Frame
+	//пїЅпїЅпїЅ Building Composer Frame
 	CTreeDockWnd *pBuildingTreeDockWnd;
 	CPropView *pBuildingPropView;
 	SECCustomToolBar *pBuildingToolBar;
 	
-	//Для TileSet Composer Frame
+	//пїЅпїЅпїЅ TileSet Composer Frame
 	CTreeDockWnd *pTileTreeDockWnd;
 	CPropView *pTilePropView;
 	SECCustomToolBar *pTileToolBar;
 
-	//Для Fence Composer Frame
+	//пїЅпїЅпїЅ Fence Composer Frame
 	CTreeDockWnd *pFenceTreeDockWnd;
 	CPropView *pFencePropView;
 	SECCustomToolBar *pFenceToolBar;
 	
-	//Для Particle Frame
+	//пїЅпїЅпїЅ Particle Frame
 	CTreeDockWnd *pParticleTreeDockWnd;
 	CPropView *pParticlePropView;
 	CKeyFrameDockWnd *pParticleKeyFrameDockWnd;
 	SECCustomToolBar *pParticleToolBar;
 	
-	//Для Trench Frame
+	//пїЅпїЅпїЅ Trench Frame
 	CTreeDockWnd *pTrenchTreeDockWnd;
 	CPropView *pTrenchPropView;
 
-	//Для Squad Frame
+	//пїЅпїЅпїЅ Squad Frame
 	CTreeDockWnd *pSquadTreeDockWnd;
 	CPropView *pSquadPropView;
 	CDirectionButtonDockBar *pSquadDirectionButtonDockBar;
 	SECCustomToolBar *pSquadToolBar;
 
-	//Для Mine Composer Frame
+	//пїЅпїЅпїЅ Mine Composer Frame
 	CTreeDockWnd *pMineTreeDockWnd;
 	CPropView *pMinePropView;
 
-	//Для Bridge Composer Frame
+	//пїЅпїЅпїЅ Bridge Composer Frame
 	CTreeDockWnd *pBridgeTreeDockWnd;
 	CPropView *pBridgePropView;
 	SECCustomToolBar *pBridgeToolBar;
 	
-	//Для Mission Composer Frame
+	//пїЅпїЅпїЅ Mission Composer Frame
 	CTreeDockWnd *pMissionTreeDockWnd;
 	CPropView *pMissionPropView;
 	SECCustomToolBar *pMissionToolBar;
 
-	//Для Chapter Composer Frame
+	//пїЅпїЅпїЅ Chapter Composer Frame
 	CTreeDockWnd *pChapterTreeDockWnd;
 	CPropView *pChapterPropView;
 	SECCustomToolBar *pChapterToolBar;
 	
-	//Для Campaign Composer Frame
+	//пїЅпїЅпїЅ Campaign Composer Frame
 	CTreeDockWnd *pCampaignTreeDockWnd;
 	CPropView *pCampaignPropView;
 
-	//Для 3DRoad Frame
+	//пїЅпїЅпїЅ 3DRoad Frame
 	CTreeDockWnd *p3DRoadTreeDockWnd;
 	CPropView *p3DRoadPropView;
 	SECCustomToolBar *p3DRoadToolBar;
 	
-	//Для 3DRiver Frame
+	//пїЅпїЅпїЅ 3DRiver Frame
 	CTreeDockWnd *p3DRiverTreeDockWnd;
 	CPropView *p3DRiverPropView;
 	
-	//Для Medal Frame
+	//пїЅпїЅпїЅ Medal Frame
 	CTreeDockWnd *pMedalTreeDockWnd;
 	CPropView *pMedalPropView;
 
@@ -230,3 +230,4 @@ protected:
 // Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif // !defined(AFX_MAINFRM_H__24238F56_2C9E_4211_B736_2B74E0980EF1__INCLUDED_)
+

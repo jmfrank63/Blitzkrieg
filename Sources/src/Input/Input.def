@@ -1,9 +1,9 @@
 ; Input.def : Declares the module parameters for the DLL.
 
 LIBRARY      "Input"
-DESCRIPTION  'Local Input API'
 
 EXPORTS
     ; Explicit exports can go here
 
 GetModuleDescriptor				@1
+

@@ -1,7 +1,6 @@
 ; FileIO.def : Declares the module parameters for the DLL.
 
 LIBRARY      "FileIO"
-DESCRIPTION  'file I/O system'
 
 EXPORTS
     ; Explicit exports can go here

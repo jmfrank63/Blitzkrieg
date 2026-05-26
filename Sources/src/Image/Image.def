@@ -1,9 +1,9 @@
 ; Image.def : Declares the module parameters for the DLL.
 
 LIBRARY      "Image"
-DESCRIPTION  'Image processing'
 
 EXPORTS
     ; Explicit exports can go here
 
 GetModuleDescriptor			@1
+

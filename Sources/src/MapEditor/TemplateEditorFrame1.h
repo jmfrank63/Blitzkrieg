@@ -10,7 +10,7 @@
 #include "..\RandomMapGen\MapInfo_Types.h"
 #include "..\RandomMapGen\Resource_Types.h"
 
-#include <SECWB.H>
+#include "..\\Common\\StingrayCompat.h"
 #include "..\GFX\GFX.h"
 #include "..\Formats\fmtMap.h"
 #include "..\AILogic\AILogic.h"
@@ -651,3 +651,4 @@ private:
 // Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif // !defined(AFX_TEMPLATEEDITORFRAME1_H__FA5612CB_1305_4F95_959D_94DB91746A51__INCLUDED_)
+

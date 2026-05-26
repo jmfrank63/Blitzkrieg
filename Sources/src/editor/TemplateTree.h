@@ -1,15 +1,15 @@
 #ifndef __TEMPLATE_TREE_H__
 #define __TEMPLATE_TREE_H__
 
-#include <TrCtlX.h>
+#include "..\\Common\\StingrayCompat.h"
 
 #define IDC_TEMPLATE_TREE_CONTROL 2000
 
-// Это сообщения от дерева
-const UINT WM_USERTREESEL				= WM_USER + 1;				// поселекчен другой элемент
-const UINT WM_USERDROPITEM			= WM_USER + 2;				// Drop вне текущего дерева
-const UINT WM_USERKEYDOWN				= WM_USER + 3;				// нажата клавиша
-const UINT WM_USERRBUTTONCLICK	= WM_USER + 4;				// клик правой мышой
+// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+const UINT WM_USERTREESEL				= WM_USER + 1;				// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+const UINT WM_USERDROPITEM			= WM_USER + 2;				// Drop пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+const UINT WM_USERKEYDOWN				= WM_USER + 3;				// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+const UINT WM_USERRBUTTONCLICK	= WM_USER + 4;				// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 
 class CTemplateTreeProperty;
 

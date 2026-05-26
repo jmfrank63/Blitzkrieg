@@ -3,7 +3,7 @@
 
 #include "stdafx.h"
 #include "editor.h"
-#include <browedit.h>
+#include "..\Common\StingrayCompat.h"
 #include "MODDialog.h"
 #include "NewDirDialog.h"
 

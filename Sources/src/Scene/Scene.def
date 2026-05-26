@@ -1,7 +1,6 @@
 ; Scene.def : Declares the module parameters for the DLL.
 
 LIBRARY      "Scene"
-DESCRIPTION  'Scene representation'
 
 EXPORTS
     ; Explicit exports can go here

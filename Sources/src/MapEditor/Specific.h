@@ -1,9 +1,9 @@
 // Stingray Objective Toolkit
 
 #define SEC_NO_NAMESPACE_USING 1
-#include <ot_dockingwindows.h>		// Objective Toolkit docking windows
-#include <ot_toolbar.h>						// Objective Toolkit toolbar/menubar
-#include <ot_shortcutbar.h>				// Objective Toolkit shortcut bar
+#include "..\\Common\\StingrayCompat.h"
+// Objective Toolkit toolbar/menubar migrated via StingrayCompat.h
+
 //
 #include "..\Formats\fmtTerrain.h"
 inline bool IsShiftKeyDown()
@@ -15,3 +15,4 @@ inline bool IsCtrlKeyDown()
 {
 	return ( GetKeyState( VK_CONTROL ) < 0 );
 }
+

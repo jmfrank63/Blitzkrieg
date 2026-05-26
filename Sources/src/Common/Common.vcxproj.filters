@@ -97,6 +97,9 @@
     <ClInclude Include="PauseGame.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="StingrayCompat.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="StdAfx.cpp">

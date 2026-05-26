@@ -19,7 +19,7 @@
 #include "frames.h"
 #include "GameWnd.h"
 #include "MainFrm.h"
-#include "browedit.h" 
+#include "..\Common\StingrayCompat.h"
 
 #include "TabTileEditDialog.h"
 #include "TemplateEditorFrame1.h"

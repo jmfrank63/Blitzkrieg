@@ -5,7 +5,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include <TrCtlX.h>
+#include "..\\Common\\StingrayCompat.h"
 class CTreeItem;
 //#include "TreeItem.h"
 
@@ -13,25 +13,25 @@ class CTreeItem;
 //
 
 /*
-// сообщения, посылаемые родительскому окну
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 // wParam - tree ctrl ID
-// lParam - ID итема
-const UINT WM_ME_TREESEL  = WM_USER + 1;       // поселекчен другой элемент (двойным кликом)
+// lParam - ID пїЅпїЅпїЅпїЅпїЅ
+const UINT WM_ME_TREESEL  = WM_USER + 1;       // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ)
 const UINT WM_ME_DROPITEM = WM_USER + 2;       // 
 
-// Чтобы отличить среди элементов дерева папки от итемов 
-// по хранимому в элементе полю lParam
-// используем модификатор для создания ID папок
+// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ 
+// пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ lParam
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ID пїЅпїЅпїЅпїЅпїЅ
 const LPARAM FOLD_MODIFIER = 0x80000000;
 */
 
 #define IDC_TREE_CONTROL 1005
 
-// Это сообщения от дерева
-const UINT WM_USERTREESEL				= WM_USER + 1;				// поселекчен другой элемент
-const UINT WM_USERDROPITEM			= WM_USER + 2;				// Drop вне текущего дерева
-const UINT WM_USERKEYDOWN				= WM_USER + 3;				// нажата клавиша
-const UINT WM_USERRBUTTONCLICK	= WM_USER + 4;				// клик правой мышой
+// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+const UINT WM_USERTREESEL				= WM_USER + 1;				// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+const UINT WM_USERDROPITEM			= WM_USER + 2;				// Drop пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+const UINT WM_USERKEYDOWN				= WM_USER + 3;				// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+const UINT WM_USERRBUTTONCLICK	= WM_USER + 4;				// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -112,3 +112,4 @@ protected:
 // Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif // !defined(AFX_ETREECTRL_H__4C474B32_E849_401D_BCF3_3163E8CF920E__INCLUDED_)
+

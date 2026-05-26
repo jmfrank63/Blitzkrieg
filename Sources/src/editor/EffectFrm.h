@@ -9,7 +9,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include <SECWB.H>
+#include "..\\Common\\StingrayCompat.h"
 #include "..\GFX\GFX.h"
 #include "..\Scene\Scene.h"
 
@@ -32,7 +32,7 @@ public:
 	virtual void GFXDraw();
 	virtual void ShowFrameWindows( int nCommand );
 	
-	BOOL Run();										//Вызывается из EditorApp OnIdle()
+	BOOL Run();										//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ EditorApp OnIdle()
 	bool IsRunning() { return bRunning; }
 	
 	void SetDirectionButtonDockBar( CDirectionButtonDockBar *pDock ) { pDirectionButtonDockBar = pDock; }
@@ -46,7 +46,7 @@ protected:
 	
 	// Implementation
 private:
-	bool bRunning;								//есть два состояния, редактирование и предварительный просмотр
+	bool bRunning;								//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	CDirectionButtonDockBar *pDirectionButtonDockBar;
 	CPtr<IEffectVisObj> pRunningEffect;
 	bool bHorizontalCamera;
@@ -93,3 +93,4 @@ protected:
 // Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif		//__EFFECTFRM_H__
+
