@@ -52,6 +52,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ExternalIncludePath>$(ProjectDir)..\..\sdk\GOLDParser;$(ExternalIncludePath)</ExternalIncludePath>
+    <LibraryPath>$(ProjectDir)..\..\sdk\GOLDParser;$(LibraryPath)</LibraryPath>
     <OutDir>.\Debug\</OutDir>
     <IntDir>.\Debug\</IntDir>
     <LinkIncremental>true</LinkIncremental>
@@ -70,9 +72,9 @@
       <Optimization>Disabled</Optimization>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <WarningLevel>Level3</WarningLevel>
-      <MinimalRebuild>true</MinimalRebuild>
+      <MinimalRebuild>false</MinimalRebuild>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AssemblerListingLocation>.\Debug\</AssemblerListingLocation>
       <PrecompiledHeaderOutputFile>.\Debug\scl.pch</PrecompiledHeaderOutputFile>
@@ -82,6 +84,7 @@
       <ProgramDataBaseFileName>.\Debug\</ProgramDataBaseFileName>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <AdditionalUsingDirectories>$(SolutionDir)..\\..\\sdk\\GOLDParser3;%(AdditionalUsingDirectories)</AdditionalUsingDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\sdk\GOLDParser;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Midl>
       <TypeLibraryName>.\Debug\scl.tlb</TypeLibraryName>
@@ -171,6 +174,9 @@
     <ProjectReference Include="..\\Common\\Common.vcxproj">
       <Project>{10CF52CE-DE05-888B-A6DA-03CCEBCB160E}</Project>
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+    <ProjectReference Include="..\BugSlay\BugSlay.vcxproj">
+      <Project>{3EB88D2A-DDA9-4A71-B5BF-82043A29B5D6}</Project>
     </ProjectReference>
   </ItemGroup>
 </Project>

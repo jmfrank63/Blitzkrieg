@@ -109,8 +109,8 @@
       <Optimization>Disabled</Optimization>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <WarningLevel>Level3</WarningLevel>
-      <MinimalRebuild>true</MinimalRebuild>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <MinimalRebuild>false</MinimalRebuild>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_DO_ASSERT_SLOW;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AssemblerListingLocation>.\Debug\</AssemblerListingLocation>
       <PrecompiledHeaderOutputFile>.\Debug\PlanePathTest.pch</PrecompiledHeaderOutputFile>
@@ -187,6 +187,14 @@
       <FileType>RC</FileType>
     </CustomBuild>
     <CustomBuild Include="ReadMe.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\BugSlay\BugSlay.vcxproj">
+      <Project>{d152ba5b-15d9-e2cf-0c51-e23be879c2bf}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\AILogic\AILogic.vcxproj">
+      <Project>{CBDE2856-13C7-48D1-89C6-6DB46E375CAC}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

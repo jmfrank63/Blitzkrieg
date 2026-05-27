@@ -15,6 +15,7 @@
 #define _NOTHREADS 1
 #define _STLP_DEBUG_TERMINATE 1
 #define _STLP_DEBUG_MESSAGE 1
+#include <typeinfo>
 //
 #ifndef __AFX__
 #define WIN32_LEAN_AND_MEAN							// Exclude rarely-used stuff from Windows headers

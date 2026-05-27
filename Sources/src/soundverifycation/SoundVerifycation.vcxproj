@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -55,13 +55,15 @@
     <OutDir>.\Debug\</OutDir>
     <IntDir>.\Debug\</IntDir>
     <LinkIncremental>true</LinkIncremental>
+    <ExternalIncludePath>$(ProjectDir)..\..\sdk\FMOD\api\inc;$(ExternalIncludePath)</ExternalIncludePath>
+    <LibraryPath>$(ProjectDir)..\..\sdk\FMOD\api\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>.\Release\</OutDir>
     <IntDir>.\Release\</IntDir>
     <LinkIncremental>false</LinkIncremental>
-    <ExternalIncludePath>C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\sdk\FMOD\api\inc;$(ExternalIncludePath)</ExternalIncludePath>
-    <LibraryPath>C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\sdk\FMOD\api\lib;$(LibraryPath)</LibraryPath>
+    <ExternalIncludePath>$(ProjectDir)..\sdk\FMOD\api\inc;$(ExternalIncludePath)</ExternalIncludePath>
+    <LibraryPath>$(ProjectDir)..\sdk\FMOD\api\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -71,7 +73,7 @@
       <Optimization>Disabled</Optimization>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <WarningLevel>Level3</WarningLevel>
-      <MinimalRebuild>true</MinimalRebuild>
+      <MinimalRebuild>false</MinimalRebuild>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -99,7 +101,7 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
-      <OutputFile>.\Release\SoundVerifycation.exe</OutputFile>
+      <OutputFile>.\Debug\SoundVerifycation.exe</OutputFile>
       <AdditionalDependencies>..\Misc\Debug\Misc.lib;fmodvc.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>

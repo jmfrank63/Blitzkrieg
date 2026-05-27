@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="BetaRelease|Win32">
@@ -96,8 +96,8 @@
     <IntDir>.\Release\</IntDir>
     <LinkIncremental>false</LinkIncremental>
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
-    <ExternalIncludePath>$(ProjectDir)\..\..\sdk\BINK;$(ExternalIncludePath)</ExternalIncludePath>
-    <LibraryPath>$(ProjectDir)\..\..\sdk\BINK;$(LibraryPath)</LibraryPath>
+    <ExternalIncludePath>$(ProjectDir)..\sdk\BINK;$(ExternalIncludePath)</ExternalIncludePath>
+    <LibraryPath>$(ProjectDir)..\sdk\BINK;$(LibraryPath)</LibraryPath>
     <IncludePath>$(ProjectDir)\..\..\\sdk\FMOD\api\inc;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='FastDebug|Win32'">
@@ -107,6 +107,8 @@
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ExternalIncludePath>$(ProjectDir)..\..\sdk\BINK;$(ExternalIncludePath)</ExternalIncludePath>
+    <LibraryPath>$(ProjectDir)..\..\sdk\BINK;$(LibraryPath)</LibraryPath>
     <OutDir>.\Debug\</OutDir>
     <IntDir>.\Debug\</IntDir>
     <LinkIncremental>true</LinkIncremental>
@@ -271,9 +273,9 @@
       <Optimization>Disabled</Optimization>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <WarningLevel>Level3</WarningLevel>
-      <MinimalRebuild>true</MinimalRebuild>
+      <MinimalRebuild>false</MinimalRebuild>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <PreprocessorDefinitions>_WINDOWS;_DO_ASSERT_SLOW;_DO_CHECKED_CAST;WIN32;_DEBUG;_STL_RANGE_CHECK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AssemblerListingLocation>.\Debug\</AssemblerListingLocation>
       <PrecompiledHeaderOutputFile>.\Debug\Scene.pch</PrecompiledHeaderOutputFile>
@@ -821,8 +823,12 @@
   <ItemGroup>
     <ResourceCompile Include="Scene.rc" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\BugSlay\BugSlay.vcxproj">
+      <Project>{d152ba5b-15d9-e2cf-0c51-e23be879c2bf}</Project>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
-

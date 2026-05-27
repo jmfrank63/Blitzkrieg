@@ -46,6 +46,7 @@
 #include <math.h>
 // STL headers
 #pragma warning( disable : 4503 4018 4786 4800 4290 4146 4244 4284 )
+#include <typeinfo>
 #include <algorithm>
 #include <list>
 #include <string>
