@@ -78,6 +78,12 @@ void CStaticObjects::CStoragesContainer::AddStorage( class CBuildingStorage *pNe
 	const int nParty = theDipl.GetNParty( nPlayer );
 	if ( nParty >= 2 ) 
 		return;
+	NI_ASSERT_T( pNewStorage != 0, "null storage passed to stores list" );
+	if ( pNewStorage == 0 )
+		return;
+	NI_ASSERT_T( pNewStorage->GetStats() != 0, "storage has null stats" );
+	if ( pNewStorage->GetStats() == 0 )
+		return;
 	updated |= (1 << nParty);
 	storages[pNewStorage] = true;
 		
@@ -92,6 +98,8 @@ void CStaticObjects::CStoragesContainer::AddStorage( class CBuildingStorage *pNe
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::CStoragesContainer::RemoveStorage( class CBuildingStorage *pNewStorage )
 {
+	if ( pNewStorage == 0 )
+		return;
 	if ( storages.find( pNewStorage ) != storages.end() ) // this static object is storage
 	{
 		const int nParty = theDipl.GetNParty(pNewStorage->GetPlayer());
@@ -100,6 +108,9 @@ void CStaticObjects::CStoragesContainer::RemoveStorage( class CBuildingStorage *
 		updated |= (1 << nParty );
 
 		storages.erase( pNewStorage );
+		NI_ASSERT_T( pNewStorage->GetStats() != 0, "storage has null stats" );
+		if ( pNewStorage->GetStats() == 0 )
+			return;
 		const SBuildingRPGStats * pStats = static_cast<const SBuildingRPGStats*>( pNewStorage->GetStats() );
 		NI_ASSERT_T( SBuildingRPGStats::TYPE_MAIN_RU_STORAGE == pStats->eType || SBuildingRPGStats::TYPE_TEMP_RU_STORAGE == pStats->eType, "wrong object in stores list");
 
@@ -429,7 +440,7 @@ CStaticObject* CStaticObjects::AddNewStorage( const SBuildingRPGStats *pStats, c
 {
 	CBuildingStorage *pObj = new CBuildingStorage( pStats, center, dbID, pStats->fMaxHP * fHPFactor, nFrameIndex, player );
 	pObj->Mem2UniqueIdObjs();
-	pObj->Init();
+	NI_ASSERT_T( pObj->GetStats() != 0, "storage lost stats after construction" );
 //	if ( SBuildingRPGStats::TYPE_MAIN_RU_STORAGE == pStats->eType )
 	RegisterSegment( pObj );
 	
@@ -442,7 +453,7 @@ CStaticObject* CStaticObjects::AddNewBuilding( const SBuildingRPGStats *pStats, 
 {
 	CBuildingSimple *pObj = new CBuildingSimple( pStats, center, dbID, pStats->fMaxHP * fHPFactor, nFrameIndex );
 	pObj->Mem2UniqueIdObjs();
-	pObj->Init();
+	NI_ASSERT_T( pObj->GetStats() != 0, "building lost stats after construction" );
 	
 	pObj->LockTiles( bInitialization );
 	pObj->SetTransparencies();

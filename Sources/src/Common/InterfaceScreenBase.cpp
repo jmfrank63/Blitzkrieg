@@ -404,15 +404,22 @@ bool CInterfaceScreenBase::ChangeResolution()
 		{
 			NI_ASSERT_T( false, NStr::Format("Can't set mode (%d:%d:%d:%d) for interface screen type \"%s\"", nDesiredSizeX, nDesiredSizeY, nDesiredBPP, nDesiredStencil, szInterfaceType.c_str()) );
 		}
+		const CTRect<long> rcScreen = pGFX->GetScreenRect();
+		const int nActualSizeX = rcScreen.Width();
+		const int nActualSizeY = rcScreen.Height();
+		const int nActualBPP = pGFX->GetScreenBPP();
+		const std::string szModePrefix = "GFX.Mode." + szInterfaceType + ".";
+		SetGlobalVar( (szModePrefix + "SizeX").c_str(), nActualSizeX );
+		SetGlobalVar( (szModePrefix + "SizeY").c_str(), nActualSizeY );
+		SetGlobalVar( (szModePrefix + "BPP").c_str(), nActualBPP );
 		// set current mode settings
-		SetGlobalVar( "GFX.Mode.Current.SizeX", nDesiredSizeX );
-		SetGlobalVar( "GFX.Mode.Current.SizeY", nDesiredSizeY );
-		SetGlobalVar( "GFX.Mode.Current.BPP", nDesiredBPP );
+		SetGlobalVar( "GFX.Mode.Current.SizeX", nActualSizeX );
+		SetGlobalVar( "GFX.Mode.Current.SizeY", nActualSizeY );
+		SetGlobalVar( "GFX.Mode.Current.BPP", nActualBPP );
 		SetGlobalVar( "GFX.Mode.Current.Stencil", nDesiredStencil );
 		SetGlobalVar( "GFX.Mode.Current.FullScreen", int( eFullScreen ) );
 		SetGlobalVar( "GFX.Mode.Current.Frequency", nDesiredFreq );
 		//
-		const CTRect<long> rcScreen = pGFX->GetScreenRect();
 		// some GFX setup
 		pGFX->SetCullMode( GFXC_CW );	// setup right-handed coordinate system
 		SHMatrix matrix;

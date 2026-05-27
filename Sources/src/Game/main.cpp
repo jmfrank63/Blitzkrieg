@@ -333,6 +333,16 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		IGFX *pGFX = GetSingleton<IGFX>();
 		if ( pGFX->SetMode( cmdp.nScreenSizeX, cmdp.nScreenSizeY, cmdp.nScreenBPP, cmdp.nStencilBPP, cmdp.eFullscreenMode, cmdp.nFreq ) == false )
 			return 0xDEAD;
+		const CTRect<long> rcScreen = pGFX->GetScreenRect();
+		cmdp.nScreenSizeX = rcScreen.Width();
+		cmdp.nScreenSizeY = rcScreen.Height();
+		cmdp.nScreenBPP = pGFX->GetScreenBPP();
+		SetGlobalVar( "GFX.Mode.InterMission.SizeX", cmdp.nScreenSizeX );
+		SetGlobalVar( "GFX.Mode.InterMission.SizeY", cmdp.nScreenSizeY );
+		SetGlobalVar( "GFX.Mode.InterMission.BPP", cmdp.nScreenBPP );
+		SetGlobalVar( "GFX.Mode.Current.SizeX", cmdp.nScreenSizeX );
+		SetGlobalVar( "GFX.Mode.Current.SizeY", cmdp.nScreenSizeY );
+		SetGlobalVar( "GFX.Mode.Current.BPP", cmdp.nScreenBPP );
 		// some GFX setup
 		pGFX->SetCullMode( GFXC_CW );	// setup right-handed coordinate system
 		SHMatrix matrix;

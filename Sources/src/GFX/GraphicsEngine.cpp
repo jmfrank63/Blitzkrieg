@@ -62,6 +62,49 @@ public:
 		return ( FAILED(hr1) || FAILED(hr2) );
 	}
 };
+static bool FindCurrentActiveDisplayMode( const SAdapterDesc &adapter, const D3DDISPLAYMODE &desktopMode, D3DDISPLAYMODE *pMode )
+{
+	if ( pMode == 0 )
+		return false;
+
+	std::list<D3DDISPLAYMODE>::const_iterator pos = adapter.modes.end();
+	for ( std::list<D3DDISPLAYMODE>::const_iterator it = adapter.modes.begin(); it != adapter.modes.end(); ++it )
+	{
+		if ( (it->Width == desktopMode.Width) && (it->Height == desktopMode.Height) && (it->Format == desktopMode.Format) )
+		{
+			pos = it;
+			break;
+		}
+	}
+	if ( pos == adapter.modes.end() )
+	{
+		const int nDesktopBPP = GetBPP( desktopMode.Format );
+		for ( std::list<D3DDISPLAYMODE>::const_iterator it = adapter.modes.begin(); it != adapter.modes.end(); ++it )
+		{
+			if ( (it->Width == desktopMode.Width) && (it->Height == desktopMode.Height) && (GetBPP(it->Format) == nDesktopBPP) )
+			{
+				pos = it;
+				break;
+			}
+		}
+	}
+	if ( pos == adapter.modes.end() )
+	{
+		for ( std::list<D3DDISPLAYMODE>::const_iterator it = adapter.modes.begin(); it != adapter.modes.end(); ++it )
+		{
+			if ( (it->Width == desktopMode.Width) && (it->Height == desktopMode.Height) )
+			{
+				pos = it;
+				break;
+			}
+		}
+	}
+	if ( pos == adapter.modes.end() )
+		return false;
+
+	*pMode = *pos;
+	return true;
+}
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // enumerate adapters with HW caps and texture support
 // enumerate video modes for them and check compatibility with D3D device
@@ -315,6 +358,7 @@ bool CGraphicsEngine::FillPresentationParams( int nWidth, int nHeight, int nBPP,
 		pp.FullScreen_RefreshRateInHz = nFreq;//D3DPRESENT_RATE_DEFAULT; //D3DPRESENT_RATE_DEFAULT;  // D3DPRESENT_RATE_UNLIMITED
 		//
     nRenderSurfaceBPP = nBPP;
+		bool bUsingCurrentActiveMode = false;
 		D3DFORMAT bpp16[3] = { D3DFMT_R5G6B5, D3DFMT_X1R5G5B5, D3DFMT_A1R5G5B5 };
 		D3DFORMAT bpp24[1] = { D3DFMT_R8G8B8 };
 		D3DFORMAT bpp32[2] = { D3DFMT_A8R8G8B8, D3DFMT_X8R8G8B8 };
@@ -353,9 +397,18 @@ bool CGraphicsEngine::FillPresentationParams( int nWidth, int nHeight, int nBPP,
 		}
 		//
 		if ( bModeFound == false )
-			return false;
+		{
+			D3DDISPLAYMODE currentMode;
+			if ( FindCurrentActiveDisplayMode( adapter, desktopmode, &currentMode ) == false )
+				return false;
+			displaymode = currentMode;
+			nRenderSurfaceBPP = GetBPP( displaymode.Format );
+			bUsingCurrentActiveMode = true;
+		}
 		//
-		if ( nFreq == 1 )
+		if ( bUsingCurrentActiveMode )
+			pp.FullScreen_RefreshRateInHz = displaymode.RefreshRate;
+		else if ( nFreq == 1 )
 			pp.FullScreen_RefreshRateInHz = displaymode.RefreshRate;
 		else if ( (nWidth <= desktopmode.Width) && (nHeight <= desktopmode.Height) && (desktopmode.RefreshRate <= displaymode.RefreshRate) ) 
 		{
