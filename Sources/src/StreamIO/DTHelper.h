@@ -86,6 +86,35 @@ class CTreeAccessor
 			if ( IsReading() )
 				*pData = (TYPE)fData;
 		}
+	template <class T>
+		void __cdecl AddStringData( std::basic_string<T> *pData )
+		{
+			if ( IsReading() )
+			{
+				const int nSize = pSS->GetChunkSize();
+				pData->resize( nSize + 1 );
+				if ( sizeof(T) == sizeof(char) )
+					pSS->StringData( reinterpret_cast<char*>( &(*pData)[0] ) );
+				else
+					pSS->StringData( reinterpret_cast<WORD*>( &(*pData)[0] ) );
+				pData->resize( std::char_traits<T>::length( pData->c_str() ) );
+			}
+			else if ( pData->empty() )
+			{
+				T szEmpty[1] = { 0 };
+				if ( sizeof(T) == sizeof(char) )
+					pSS->StringData( reinterpret_cast<char*>( szEmpty ) );
+				else
+					pSS->StringData( reinterpret_cast<WORD*>( szEmpty ) );
+			}
+			else
+			{
+				if ( sizeof(T) == sizeof(char) )
+					pSS->StringData( reinterpret_cast<char*>( const_cast<T*>( pData->c_str() ) ) );
+				else
+					pSS->StringData( reinterpret_cast<WORD*>( const_cast<T*>( pData->c_str() ) ) );
+			}
+		}
 	// call serialize from object or raw data
 	template <class T>
 		void __cdecl CallObjectSerialize( const DTChunkID idChunk, T *pData, ... )
@@ -179,13 +208,7 @@ class CTreeAccessor
 			int nVal = pSS->StartChunk( idChunk );
 			if ( nVal == 0 )
 				return;
-			//
-			if ( IsReading() )
-			{
-				int nSize = pSS->GetChunkSize();
-				pData->resize( nSize );
-			}
-			pSS->StringData( reinterpret_cast<WORD*>(const_cast<T2*>( pData->c_str() )) );
+				AddStringData( pData );
 			//
 			if ( nVal != -1 )
 				pSS->FinishChunk();

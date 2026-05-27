@@ -1,0 +1,53 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+	<BlitzkriegGameOutputDir>$(MSBuildThisFileDirectory)Game\$(Configuration)\</BlitzkriegGameOutputDir>
+	<BlitzkriegGamePdbPath>$(BlitzkriegGameOutputDir)$(TargetName).pdb</BlitzkriegGamePdbPath>
+	  <BlitzkriegDataSourceDir>$(MSBuildThisFileDirectory)..\..\Data</BlitzkriegDataSourceDir>
+	<BlitzkriegGameDataLink>$(BlitzkriegGameOutputDir)Data</BlitzkriegGameDataLink>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Game'">
+	<BlitzkriegRuntimeDll Include="$(MSBuildThisFileDirectory)**\$(Configuration)\*.dll"
+						  Exclude="$(BlitzkriegGameOutputDir)*.dll;$(MSBuildThisFileDirectory)bin\**\*;$(MSBuildThisFileDirectory)Game\**\*" />
+	<BlitzkriegRuntimePdb Include="$(MSBuildThisFileDirectory)**\$(Configuration)\*.pdb"
+						  Exclude="$(BlitzkriegGameOutputDir)*.pdb;$(MSBuildThisFileDirectory)bin\**\*;$(MSBuildThisFileDirectory)Game\**\*;$(MSBuildThisFileDirectory)**\$(Configuration)\vc*.pdb" />
+  </ItemGroup>
+
+	<PropertyGroup Condition="'$(MSBuildProjectName)' == 'Game' or '$(ConfigurationType)' == 'DynamicLibrary'">
+	<PostBuildEventUseInBuild>false</PostBuildEventUseInBuild>
+  </PropertyGroup>
+
+  <Target Name="BlitzkriegCopyDynamicLibraryToGameOutput"
+		  AfterTargets="Build"
+		  Condition="'$(ConfigurationType)' == 'DynamicLibrary' and Exists('$(TargetPath)')">
+	<MakeDir Directories="$(BlitzkriegGameOutputDir)" />
+	<Copy SourceFiles="$(TargetPath)"
+		  DestinationFolder="$(BlitzkriegGameOutputDir)"
+		  SkipUnchangedFiles="true" />
+	<Copy SourceFiles="$(TargetDir)$(TargetName).pdb"
+		  DestinationFiles="$(BlitzkriegGamePdbPath)"
+		  SkipUnchangedFiles="true"
+		  Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
+  </Target>
+
+  <Target Name="BlitzkriegCopyExistingRuntimeToGameOutput"
+		  AfterTargets="Build"
+		  Condition="'$(MSBuildProjectName)' == 'Game'">
+	<MakeDir Directories="$(BlitzkriegGameOutputDir)" />
+	<Copy SourceFiles="@(BlitzkriegRuntimeDll)"
+		  DestinationFolder="$(BlitzkriegGameOutputDir)"
+		  SkipUnchangedFiles="true"
+		  Condition="'@(BlitzkriegRuntimeDll)' != ''" />
+	<Copy SourceFiles="@(BlitzkriegRuntimePdb)"
+		  DestinationFolder="$(BlitzkriegGameOutputDir)"
+		  SkipUnchangedFiles="true"
+		  Condition="'@(BlitzkriegRuntimePdb)' != ''" />
+  </Target>
+
+  <Target Name="BlitzkriegEnsureDataLink"
+		  AfterTargets="Build"
+		  Condition="'$(MSBuildProjectName)' == 'Game' and Exists('$(BlitzkriegDataSourceDir)') and !Exists('$(BlitzkriegGameDataLink)')">
+	<Exec Command="cmd /c mklink /J &quot;$(BlitzkriegGameDataLink)&quot; &quot;$(BlitzkriegDataSourceDir)&quot;"
+		  ContinueOnError="WarnAndContinue" />
+  </Target>
+</Project>

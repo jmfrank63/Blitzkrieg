@@ -86,6 +86,18 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 	//
 	if ( !NMain::CanLaunch() )
 		return 0xDEAD;
+	{
+		char buffer[2048] = { 0 };
+		if ( ::GetModuleFileName( 0, buffer, sizeof(buffer) ) != 0 )
+		{
+			char *pFileName = strrchr( buffer, '\\' );
+			if ( pFileName != 0 )
+			{
+				*pFileName = 0;
+				::SetCurrentDirectory( buffer );
+			}
+		}
+	}
 	//
 	NWinFrame::ShowSplashScreen( hInstance, true );
 	//

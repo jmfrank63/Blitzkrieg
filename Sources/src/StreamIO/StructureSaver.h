@@ -130,7 +130,11 @@ inline IDataTree* CreateDataTreeSaver( IDataStream *pStream, IDataTree::EAccessM
 inline void AddFactory( IObjectFactory *pFactory ) { GetSLS()->AddFactory( pFactory ); }
 inline IObjectFactory* GetCommonFactory() { return GetSLS()->GetCommonFactory(); }
 template <class TYPE>
-	inline TYPE* CreateObject( IObjectFactory *pFactory, int nTypeID ) { return static_cast<TYPE*>( pFactory->CreateObject(nTypeID) ); }
+	inline TYPE* CreateObject( IObjectFactory *pFactory, int nTypeID )
+	{
+		NI_ASSERT_TF( pFactory != 0, NStr::Format("Can't create object 0x%x: factory is not registered", nTypeID), return 0 );
+		return static_cast<TYPE*>( pFactory->CreateObject(nTypeID) );
+	}
 template <class TYPE> 
 	inline TYPE* CreateObject( int nTypeID ) { return CreateObject<TYPE>( GetCommonFactory(), nTypeID ); }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

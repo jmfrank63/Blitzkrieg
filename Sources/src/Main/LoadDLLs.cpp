@@ -11,6 +11,16 @@ namespace NMain
 {
 	static const char GAME_REGISTRY_FOLDER[] = "Software\\Nival Interactive\\Blitzkrieg";
 	static const char GAME_REGISTRY_KEY[] = "InstallFolder";
+	static std::string GetModuleDirectory()
+	{
+		char buffer[2048] = { 0 };
+		if ( ::GetModuleFileName( 0, buffer, 2048 ) == 0 )
+			return ".\\";
+		char *pFileName = strrchr( buffer, '\\' );
+		if ( pFileName != 0 )
+			*(pFileName + 1) = 0;
+		return buffer;
+	}
 	// DLL module structure - stores DLL handle and module descriptor
 	struct SDllModule
 	{
@@ -174,11 +184,9 @@ public:
 	CModuleLoadAutoMagic()
 	{
 		NMain::SetGameDirectory();
-
-		char buffer[2048];
-		GetCurrentDirectory( 2048, buffer );
+		const std::string szModuleDirectory = NMain::GetModuleDirectory();
 		//
-		NMain::LoadAllModules( buffer );
+		NMain::LoadAllModules( szModuleDirectory.c_str() );
 		// add modules factory
 		for ( NMain::CModulesList::iterator it = NMain::modules.begin(); it != NMain::modules.end(); ++it )
 		{
