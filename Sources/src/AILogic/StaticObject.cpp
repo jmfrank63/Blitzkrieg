@@ -344,17 +344,14 @@ void CGivenPassabilityStObject::LockTiles( bool bInitialization )
 			if ( passability[y][x] == 1 )
 			{
 				const SVector tile( AICellsTiles::GetTile( downX + SConsts::TILE_SIZE*x, downY + SConsts::TILE_SIZE*y ) );				
-				if ( theStaticMap.IsTileInside( tile ) )
-				{
-					const BYTE tileInfo = theStaticMap.GetTileLockInfo( tile );
-					lockInfo[y][x] = ~tileInfo & pStats->dwAIClasses & AI_CLASS_ANY;
+				const BYTE tileInfo = theStaticMap.GetTileLockInfo( tile );
+				lockInfo[y][x] = ~tileInfo & pStats->dwAIClasses & AI_CLASS_ANY;
 
-					if ( ( lockInfo[y][x] & pStats->dwAIClasses ) != pStats->dwAIClasses )
-						bPartially = true;
-					lockTypes |= lockInfo[y][x];
+				if ( ( lockInfo[y][x] & pStats->dwAIClasses ) != pStats->dwAIClasses )
+					bPartially = true;
+				lockTypes |= lockInfo[y][x];
 
-					theStaticMap.LockTile( tile.x, tile.y, lockInfo[y][x] );
-				}
+				theStaticMap.LockTile( tile.x, tile.y, lockInfo[y][x] );
 			}
 		}
 	}
@@ -401,7 +398,7 @@ void CGivenPassabilityStObject::UnlockTiles(  bool bInitialization )
 			if ( passability[y][x] == 1 )
 			{
 				const SVector tile( AICellsTiles::GetTile( downX + SConsts::TILE_SIZE*x, downY + SConsts::TILE_SIZE*y ) );
-				if ( theStaticMap.IsTileInside( tile ) && y < lockInfo.GetSizeY() && x < lockInfo.GetSizeX() )
+				if ( y < lockInfo.GetSizeY() && x < lockInfo.GetSizeX() )
 					theStaticMap.UnlockTile( tile.x, tile.y, lockInfo[y][x] );
 			}
 		}
