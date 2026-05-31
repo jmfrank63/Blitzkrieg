@@ -9,9 +9,17 @@
   <ItemGroup Condition="'$(MSBuildProjectName)' == 'Game'">
 	<BlitzkriegRuntimeDll Include="$(MSBuildThisFileDirectory)**\$(Configuration)\*.dll"
 						  Exclude="$(BlitzkriegGameOutputDir)*.dll;$(MSBuildThisFileDirectory)bin\**\*;$(MSBuildThisFileDirectory)Game\**\*" />
-	<BlitzkriegRuntimePdb Include="$(MSBuildThisFileDirectory)**\$(Configuration)\*.pdb"
-						  Exclude="$(BlitzkriegGameOutputDir)*.pdb;$(MSBuildThisFileDirectory)bin\**\*;$(MSBuildThisFileDirectory)Game\**\*;$(MSBuildThisFileDirectory)**\$(Configuration)\vc*.pdb" />
   </ItemGroup>
+
+  <!-- Build list of PDB files that correspond to the DLL files being copied (only copy PDB files for DLLs, not for EXEs) -->
+  <Target Name="BlitzkriegBuildPdbList" 
+		  BeforeTargets="BlitzkriegCopyExistingRuntimeToGameOutput"
+		  Condition="'$(MSBuildProjectName)' == 'Game'">
+	<ItemGroup>
+	  <BlitzkriegRuntimePdb Include="@(BlitzkriegRuntimeDll->'%(RootDir)%(Directory)%(Filename).pdb')" 
+							Condition="Exists('%(RootDir)%(Directory)%(Filename).pdb')" />
+	</ItemGroup>
+  </Target>
 
 	<PropertyGroup Condition="'$(MSBuildProjectName)' == 'Game' or '$(ConfigurationType)' == 'DynamicLibrary'">
 	<PostBuildEventUseInBuild>false</PostBuildEventUseInBuild>
