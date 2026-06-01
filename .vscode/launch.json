@@ -2,6 +2,23 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "WinDbg: Debug Game.exe",
+      "type": "windbg",
+      "request": "launch",
+      "target": "${workspaceFolder}/Sources/src/Game/Debug/Game.exe",
+      "stopOnEntry": false,
+      "symbolSearchPath": "${workspaceFolder}/Sources/src/Game/Debug;${workspaceFolder}/Sources/src/**/Debug",
+      "preLaunchTask": "Build Game (Debug)"
+    },
+    {
+      "name": "WinDbg: Debug Game.exe (No Build)",
+      "type": "windbg",
+      "request": "launch",
+      "target": "${workspaceFolder}/Sources/src/Game/Debug/Game.exe",
+      "stopOnEntry": false,
+      "symbolSearchPath": "${workspaceFolder}/Sources/src/Game/Debug;${workspaceFolder}/Sources/src/**/Debug"
+    },
+    {
       "name": "Debug Game.exe",
       "type": "cppvsdbg",
       "request": "launch",
