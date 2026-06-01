@@ -111,20 +111,30 @@ This prevents git from auto-converting line endings.
 ### WinDbgX Time Travel Debugging
 
 **"TTD: Not found" in WinDbgX status**
-- WinDbgX extension requires **two settings** to auto-detect TTD:
-  
-  1. **CDB path in user settings** (Ctrl+, → User → Edit settings.json):
-     ```json
-     "windbgx.cdbPath": "C:\\Users\\<YourUsername>\\AppData\\Local\\Microsoft\\WindowsApps\\cdbX64.exe"
-     ```
-     Replace `<YourUsername>` with your Windows username
-  
-  2. **Enable auto-start** in WinDbgX extension settings:
-     - Ctrl+Shift+X → Search "WinDbgX" → Click gear icon → Extension Settings
-     - Check "Start Automatically" option
-  
-- After configuring, reload VSCode window
-- No workspace-specific configuration needed - works universally on any PC with WinDbg Preview installed
+
+WinDbgX extension requires **per-user installation** of WinDbg Preview to auto-detect TTD.
+
+**Check if you have user installation:**
+```powershell
+Test-Path "$env:LOCALAPPDATA\Microsoft\WindowsApps\Microsoft.WinDbg_8wekyb3d8bbwe"
+```
+
+If this returns `False`, you need to reinstall WinDbg Preview:
+
+**Installation Steps:**
+1. Open **Microsoft Store**
+2. Search for "WinDbg Preview"
+3. Install (installs per-user, not system-wide)
+4. This creates: `C:\Users\<Username>\AppData\Local\Microsoft\WindowsApps\Microsoft.WinDbg_8wekyb3d8bbwe\`
+
+**VSCode Configuration (required even with user installation):**
+1. Add to **user settings** (Ctrl+, → User → Edit settings.json):
+   ```json
+   "windbgx.cdbPath": "C:\\Users\\<YourUsername>\\AppData\\Local\\Microsoft\\WindowsApps\\cdbX64.exe"
+   ```
+2. Enable **"Start Automatically"** in WinDbgX extension settings
+
+After these steps, TTD auto-detection works universally on any PC with proper installation.
 
 ## VSCode Compilation (In Progress)
 
