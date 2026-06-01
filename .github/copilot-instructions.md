@@ -111,13 +111,19 @@ This prevents git from auto-converting line endings.
 ### WinDbgX Time Travel Debugging
 
 **"TTD: Not found" in WinDbgX status**
-- WinDbgX extension auto-detects TTD **only** when CDB path is set in **user settings** (not workspace)
-- Add to your VSCode Insiders user settings (Ctrl+, → User → Edit settings.json):
-  ```json
-  "windbgx.cdbPath": "C:\\Users\\<YourUsername>\\AppData\\Local\\Microsoft\\WindowsApps\\cdbX64.exe"
-  ```
-- Replace `<YourUsername>` with your Windows username
-- Reload VSCode window after adding this setting
+- WinDbgX extension requires **two settings** to auto-detect TTD:
+  
+  1. **CDB path in user settings** (Ctrl+, → User → Edit settings.json):
+     ```json
+     "windbgx.cdbPath": "C:\\Users\\<YourUsername>\\AppData\\Local\\Microsoft\\WindowsApps\\cdbX64.exe"
+     ```
+     Replace `<YourUsername>` with your Windows username
+  
+  2. **Enable auto-start** in WinDbgX extension settings:
+     - Ctrl+Shift+X → Search "WinDbgX" → Click gear icon → Extension Settings
+     - Check "Start Automatically" option
+  
+- After configuring, reload VSCode window
 - No workspace-specific configuration needed - works universally on any PC with WinDbg Preview installed
 
 ## VSCode Compilation (In Progress)
