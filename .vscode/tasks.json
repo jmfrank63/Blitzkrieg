@@ -1,0 +1,156 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build Game (Debug)",
+      "type": "shell",
+      "command": "msbuild",
+      "args": [
+        "${workspaceFolder}/Sources/src/A7.sln",
+        "/t:Game",
+        "/p:Configuration=Debug",
+        "/p:Platform=Win32",
+        "/m",
+        "/v:minimal"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Build Game (Release)",
+      "type": "shell",
+      "command": "msbuild",
+      "args": [
+        "${workspaceFolder}/Sources/src/A7.sln",
+        "/t:Game",
+        "/p:Configuration=Release",
+        "/p:Platform=Win32",
+        "/m",
+        "/v:minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Build ELK Editor (Debug)",
+      "type": "shell",
+      "command": "msbuild",
+      "args": [
+        "${workspaceFolder}/Sources/src/A7.sln",
+        "/t:ELK",
+        "/p:Configuration=Debug",
+        "/p:Platform=Win32",
+        "/m",
+        "/v:minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Build All (Debug)",
+      "type": "shell",
+      "command": "msbuild",
+      "args": [
+        "${workspaceFolder}/Sources/src/A7.sln",
+        "/p:Configuration=Debug",
+        "/p:Platform=Win32",
+        "/m",
+        "/v:minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Build All (Release)",
+      "type": "shell",
+      "command": "msbuild",
+      "args": [
+        "${workspaceFolder}/Sources/src/A7.sln",
+        "/p:Configuration=Release",
+        "/p:Platform=Win32",
+        "/m",
+        "/v:minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Rebuild Game (Debug)",
+      "type": "shell",
+      "command": "msbuild",
+      "args": [
+        "${workspaceFolder}/Sources/src/A7.sln",
+        "/t:Game:Rebuild",
+        "/p:Configuration=Debug",
+        "/p:Platform=Win32",
+        "/m",
+        "/v:minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Clean All",
+      "type": "shell",
+      "command": "msbuild",
+      "args": [
+        "${workspaceFolder}/Sources/src/A7.sln",
+        "/t:Clean",
+        "/p:Configuration=Debug",
+        "/p:Platform=Win32"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build Game (FastDebug)",
+      "type": "shell",
+      "command": "msbuild",
+      "args": [
+        "${workspaceFolder}/Sources/src/A7.sln",
+        "/t:Game",
+        "/p:Configuration=FastDebug",
+        "/p:Platform=Win32",
+        "/m",
+        "/v:minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}

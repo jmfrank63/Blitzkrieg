@@ -1,0 +1,70 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Game.exe",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/Sources/src/Game/Debug/Game.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/Sources/src/Game/Debug",
+      "environment": [],
+      "console": "integratedTerminal",
+      "preLaunchTask": "Build Game (Debug)"
+    },
+    {
+      "name": "Debug Game.exe (No Build)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/Sources/src/Game/Debug/Game.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/Sources/src/Game/Debug",
+      "environment": [],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Debug Game.exe (FastDebug)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/Sources/src/Game/FastDebug/Game.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/Sources/src/Game/FastDebug",
+      "environment": [],
+      "console": "integratedTerminal",
+      "preLaunchTask": "Build Game (FastDebug)"
+    },
+    {
+      "name": "Debug Game.exe (Release)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/Sources/src/Game/Release/Game.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/Sources/src/Game/Release",
+      "environment": [],
+      "console": "integratedTerminal",
+      "preLaunchTask": "Build Game (Release)"
+    },
+    {
+      "name": "Debug ELK.exe (Level Editor)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/Sources/src/ELK/Debug/ELK.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/Sources/src/ELK/Debug",
+      "environment": [],
+      "console": "integratedTerminal",
+      "preLaunchTask": "Build ELK Editor (Debug)"
+    },
+    {
+      "name": "Attach to Process",
+      "type": "cppvsdbg",
+      "request": "attach",
+      "processId": "${command:pickProcess}"
+    }
+  ]
+}
