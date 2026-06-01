@@ -1,0 +1,35 @@
+# EditorConfig is awesome: https://EditorConfig.org
+
+# top-most EditorConfig file
+root = true
+
+# All files - preserve existing formatting
+[*]
+end_of_line = crlf
+insert_final_newline = false
+trim_trailing_whitespace = false
+charset = utf-8-bom
+
+# C++ source files
+[*.{cpp,h,c,hpp,cc,cxx,inl}]
+end_of_line = crlf
+insert_final_newline = false
+trim_trailing_whitespace = false
+
+# XML, scripts
+[*.{xml,lua,ps1,bat,cmd}]
+end_of_line = crlf
+insert_final_newline = false
+trim_trailing_whitespace = false
+
+# Visual Studio files
+[*.{vcxproj,vcxproj.filters,sln,props,targets,dsp,dsw}]
+end_of_line = crlf
+insert_final_newline = false
+trim_trailing_whitespace = false
+
+# Markdown
+[*.md]
+end_of_line = crlf
+insert_final_newline = false
+trim_trailing_whitespace = false
