@@ -97,29 +97,10 @@
       "type": "cppvsdbg",
       "request": "attach",
       "processId": "${command:pickProcess}"
-    },
-    {
-      "name": "WinDbgX: Debug Game.exe",
-      "type": "cppdbg",
-      "request": "launch",
-      "program": "${workspaceFolder}/Sources/src/Game/Debug/Game.exe",
-      "args": [],
-      "stopAtEntry": false,
-      "cwd": "${workspaceFolder}/Sources/src/Game/Debug",
-      "environment": [],
-      "externalConsole": true,
-      "MIMode": "gdb",
-      "miDebuggerPath": "C:\\Users\\jmfrank\\AppData\\Local\\Microsoft\\WindowsApps\\WinDbgX.exe",
-      "miDebuggerArgs": "-g",
-      "preLaunchTask": "Build Game (Debug)"
-    },
-    {
-      "name": "WinDbgX: Attach to Process",
-      "type": "cppdbg",
-      "request": "attach",
-      "processId": "${command:pickProcess}",
-      "MIMode": "gdb",
-      "miDebuggerPath": "C:\\Users\\jmfrank\\AppData\\Local\\Microsoft\\WindowsApps\\WinDbgX.exe"
     }
   ]
 }
+// Note: For WinDbgX debugging, use extension commands (Ctrl+Shift+P):
+// - "WinDbgX: Launch" - Start debugging with WinDbgX
+// - "WinDbgX: Attach" - Attach to running process
+// - "WinDbgX: Record with Time Travel Debugging" - TTD recording
