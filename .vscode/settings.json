@@ -61,11 +61,9 @@
   "git.autofetch": false,
   
   // WinDbgX extension configuration for Time Travel Debugging (TTD)
-  "windbgx.ttdPath": {
-    "x86": "C:\\Program Files\\WindowsApps\\Microsoft.WinDbg_1.2603.20001.0_x64__8wekyb3d8bbwe\\x86\\ttd\\TTD.exe",
-    "x64": "C:\\Program Files\\WindowsApps\\Microsoft.WinDbg_1.2603.20001.0_x64__8wekyb3d8bbwe\\amd64\\ttd\\TTD.exe",
-    "arm64": "C:\\Program Files\\WindowsApps\\Microsoft.WinDbg_1.2603.20001.0_x64__8wekyb3d8bbwe\\arm64\\ttd\\TTD.exe"
-  },
+  "windbgx.ttdPath.x86": "C:\\Program Files\\WindowsApps\\Microsoft.WinDbg_1.2603.20001.0_x64__8wekyb3d8bbwe\\x86\\ttd\\TTD.exe",
+  "windbgx.ttdPath.x64": "C:\\Program Files\\WindowsApps\\Microsoft.WinDbg_1.2603.20001.0_x64__8wekyb3d8bbwe\\amd64\\ttd\\TTD.exe",
+  "windbgx.ttdPath.arm64": "C:\\Program Files\\WindowsApps\\Microsoft.WinDbg_1.2603.20001.0_x64__8wekyb3d8bbwe\\arm64\\ttd\\TTD.exe",
   "windbgx.cdbPath": "C:\\Users\\jmfrank\\AppData\\Local\\Microsoft\\WindowsApps\\cdbX64.exe",
   "windbgx.symbolPath": "SRV*C:\\Symbols*https://msdl.microsoft.com/download/symbols"
 }
