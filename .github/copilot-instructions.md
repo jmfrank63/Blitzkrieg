@@ -112,29 +112,35 @@ This prevents git from auto-converting line endings.
 
 **"TTD: Not found" in WinDbgX status**
 
-WinDbgX extension requires **per-user installation** of WinDbg Preview to auto-detect TTD.
+WinDbgX extension requires configuration to detect TTD. The extension auto-detects TTD when WinDbg Preview is installed **per-user**, but for system-wide installations (Program Files only), manual configuration is required.
 
-**Check if you have user installation:**
+**Check your installation type:**
 ```powershell
 Test-Path "$env:LOCALAPPDATA\Microsoft\WindowsApps\Microsoft.WinDbg_8wekyb3d8bbwe"
 ```
+- Returns `True`: Per-user installation (auto-detection should work)
+- Returns `False`: System-wide installation (manual configuration required)
 
-If this returns `False`, you need to reinstall WinDbg Preview:
+**Manual Configuration (required for system-wide installations):**
 
-**Installation Steps:**
-1. Open **Microsoft Store**
-2. Search for "WinDbg Preview"
-3. Install (installs per-user, not system-wide)
-4. This creates: `C:\Users\<Username>\AppData\Local\Microsoft\WindowsApps\Microsoft.WinDbg_8wekyb3d8bbwe\`
+Add to **user settings** (Ctrl+, → User → Edit settings.json):
+```json
+"windbgx.cdbPath": "C:\\Users\\<YourUsername>\\AppData\\Local\\Microsoft\\WindowsApps\\cdbX64.exe",
+"windbgx.ttdPath.x86": "C:\\Program Files\\WindowsApps\\Microsoft.WinDbg_1.2603.20001.0_x64__8wekyb3d8bbwe\\x86\\ttd\\TTD.exe",
+"windbgx.ttdPath.x64": "C:\\Program Files\\WindowsApps\\Microsoft.WinDbg_1.2603.20001.0_x64__8wekyb3d8bbwe\\amd64\\ttd\\TTD.exe",
+"windbgx.ttdPath.arm64": "C:\\Program Files\\WindowsApps\\Microsoft.WinDbg_1.2603.20001.0_x64__8wekyb3d8bbwe\\arm64\\ttd\\TTD.exe"
+```
 
-**VSCode Configuration (required even with user installation):**
-1. Add to **user settings** (Ctrl+, → User → Edit settings.json):
-   ```json
-   "windbgx.cdbPath": "C:\\Users\\<YourUsername>\\AppData\\Local\\Microsoft\\WindowsApps\\cdbX64.exe"
-   ```
-2. Enable **"Start Automatically"** in WinDbgX extension settings
+**Note:** Replace version `1.2603.20001.0` with your actual WinDbg version. Find it with:
+```powershell
+(Get-AppxPackage -Name Microsoft.WinDbg).Version
+```
 
-After these steps, TTD auto-detection works universally on any PC with proper installation.
+**VSCode Configuration:**
+1. Enable **"Start Automatically"** in WinDbgX extension settings
+2. Reload VSCode window
+
+After configuration, TTD should be detected. Workspace settings remain clean and portable.
 
 ## VSCode Compilation (In Progress)
 
