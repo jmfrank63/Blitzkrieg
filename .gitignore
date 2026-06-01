@@ -34,6 +34,7 @@ ipch/
 .vscode/.browse.c_cpp.db*
 .vscode/ipch/
 .vscode/compileCommands_*
+.vscode/symbolcache/
 
 # GitHub Copilot
 .github/copilot/
