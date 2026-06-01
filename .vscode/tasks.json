@@ -1,5 +1,16 @@
 {
   "version": "2.0.0",
+  "options": {
+    "shell": {
+      "executable": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-Command",
+        "& 'C:\\Program Files\\Microsoft Visual Studio\\18\\Insiders\\Common7\\Tools\\Launch-VsDevShell.ps1' -Arch x86; "
+      ]
+    }
+  },
   "tasks": [
     {
       "label": "Build Game (Debug)",
