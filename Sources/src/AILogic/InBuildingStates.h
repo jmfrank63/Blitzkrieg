@@ -2,12 +2,10 @@
 #define __IN_BULDING_STATES_H__
 
 #pragma ONCE
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "UnitStates.h"
 #include "StatesFactory.h"
 #include "Behaviour.h"
 #include "CommonStates.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInBuildingStatesFactory : public IStatesFactory
 {
 	OBJECT_COMPLETE_METHODS( CInBuildingStatesFactory );
@@ -20,10 +18,8 @@ public:
 	virtual interface IUnitState* ProduceRestState( class CQueueUnit *pUnit );
 	virtual bool CanCommandBeExecuted( class CAICommand *pCommand );
 	
-	// for Saving/Loading of static members
 	friend class CStaticMembers;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierRestInBuildingState : public IUnitState, public CStandartBehaviour
 {
 	OBJECT_COMPLETE_METHODS( CSoldierRestInBuildingState );
@@ -47,10 +43,8 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 
-	// for Saving/Loading of static members
 	friend class CStaticMembers;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierAttackInBuildingState : public IUnitAttackingState
 {
 	OBJECT_COMPLETE_METHODS( CSoldierAttackInBuildingState );
@@ -60,15 +54,12 @@ class CSoldierAttackInBuildingState : public IUnitAttackingState
 	CPtr<CAIUnit> pEnemy;
 
 	CPtr<CBasicGun> pGun;
-	// стрельба окончена
 	bool bFinish;
-	// обязательно нужно прицелиться
 	bool bAim;
 	int nEnemyParty;
 
 	CDamageToEnemyUpdater damageToEnemyUpdater;
 
-	//
 	void AnalyzeCurrentState();
 public:
 	static IUnitState* Instance( class CSoldier *pSoldier, class CAIUnit *pEnemy );
@@ -84,5 +75,4 @@ public:
 	virtual bool IsAttacksUnit() const { return true; }
 	virtual class CAIUnit* GetTargetUnit() const;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __IN_BULDING_STATES_H__

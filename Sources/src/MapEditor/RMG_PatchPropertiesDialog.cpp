@@ -2,10 +2,7 @@
 
 #include "RMG_PatchPropertiesDialog.h"
 
-//#include "editor.h"
 
-//#include "MapEditorBarWnd.h"
-//#include "TemplateEditorFrame1.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -13,7 +10,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CRMGPatchPropertiesDialog::vID[] = 
 {
 	IDC_RMG_PP_PATH_LABEL_LEFT,		//0
@@ -29,18 +25,15 @@ const int CRMGPatchPropertiesDialog::vID[] =
 	IDCANCEL,											//10
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CRMGPatchPropertiesDialog::CRMGPatchPropertiesDialog( CWnd* pParent )
 	: CResizeDialog( CRMGPatchPropertiesDialog::IDD, pParent )
 {
-	//{{AFX_DATA_INIT(CRMGPatchPropertiesDialog)
 	m_strPath = _T("");
 	m_strSize = _T("");
 	m_n0 = FALSE;
 	m_n180 = FALSE;
 	m_n270 = FALSE;
 	m_n90 = FALSE;
-	//}}AFX_DATA_INIT
 
 	SetControlStyle( vID[0], ANCHORE_LEFT_TOP );
 	SetControlStyle( vID[1], ANCHORE_LEFT_TOP | RESIZE_HOR );
@@ -59,11 +52,9 @@ CRMGPatchPropertiesDialog::CRMGPatchPropertiesDialog( CWnd* pParent )
 	SetControlStyle( vID[10], ANCHORE_BOTTOM | ANCHORE_HOR_CENTER );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGPatchPropertiesDialog::DoDataExchange(CDataExchange* pDX)
 {
 	CResizeDialog::DoDataExchange( pDX );
-	//{{AFX_DATA_MAP( CRMGPatchPropertiesDialog )
 	DDX_Control(pDX, IDC_RMG_PP_PLACE_COMBO_BOX, m_Places);
 	DDX_Text(pDX, IDC_RMG_PP_PATH_LABEL_RIGHT, m_strPath);
 	DDX_Text(pDX, IDC_RMG_PP_SIZE_LABEL_RIGHT, m_strSize);
@@ -71,17 +62,12 @@ void CRMGPatchPropertiesDialog::DoDataExchange(CDataExchange* pDX)
 	DDX_Check(pDX, IDC_RMG_PP_CHECKBOX_180, m_n180);
 	DDX_Check(pDX, IDC_RMG_PP_CHECKBOX_270, m_n270);
 	DDX_Check(pDX, IDC_RMG_PP_CHECKBOX_90, m_n90);
-	//}}AFX_DATA_MAP
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CRMGPatchPropertiesDialog, CResizeDialog)
-	//{{AFX_MSG_MAP(CRMGPatchPropertiesDialog)
 	ON_CBN_SELCHANGE(IDC_RMG_PP_PLACE_COMBO_BOX, OnSelchangeRmgPpPlaceComboBox)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CRMGPatchPropertiesDialog::OnInitDialog() 
 {
 	CResizeDialog::OnInitDialog();
@@ -92,13 +78,9 @@ BOOL CRMGPatchPropertiesDialog::OnInitDialog()
 	return TRUE;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGPatchPropertiesDialog::OnSelchangeRmgPpPlaceComboBox() 
 {
 	CString szBuffer;
 	m_Places.GetWindowText( szBuffer );
 	szPlace = szBuffer;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// basement storage  
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -28,7 +28,6 @@
 
 #include "..\GameTT\CutScenesHelper.h"
 #include "..\Misc\TimeMeter.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float Clamp1( float fVal, float fMin, float fMax )
 {
 	union { float f; int hex; };
@@ -40,10 +39,8 @@ float Clamp1( float fVal, float fMin, float fMax )
 
 	return f;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SCmdParams
 {
-	// graphics
 	int nScreenSizeX;
 	int nScreenSizeY;
 	int nScreenBPP;
@@ -51,20 +48,17 @@ struct SCmdParams
 	int nFreq;
 	EGFXFullscreen eFullscreenMode;
 	bool bUseDXT;
-	// misc
 	bool bMultiplayer;
 	bool bCycledLaunch;
 	int nGuaranteeFPS;
 	int nAutoSavePeriod;
 	std::string szMovieDir;
-	// game spy support
 	std::string szIPToGameSpyConnect;
 	int nGameSpyHostPort;
 	bool bGameSpyPasswordRequired;
 	std::string szGameSpyPassword;
 
 	ITextureManager::ETextureQuality eTextureQuality;
-	//
 	std::string szMapName;								// map file name (for direct map launch)
 	std::string szBindName;								// config file name - obsolete - unsupported
 	std::string szSaveFile;								// save file name - for direct save launch
@@ -72,18 +66,13 @@ struct SCmdParams
 
 	SCmdParams() : nGameSpyHostPort( 0 ), bGameSpyPasswordRequired( false ) { }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams );
 void ReadAndSetSunlight( CTableAccessor &table, const std::string &szSeason );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static std::string szLaunchDirectory;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow )
 {
 	CTimeMeter<> timeMeter;
-	// disable system-critical errors displaying - just send it to calling process
 	SetErrorMode( SEM_FAILCRITICALERRORS );
-	//
 	if ( !NMain::CanLaunch() )
 		return 0xDEAD;
 	{
@@ -98,17 +87,13 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 			}
 		}
 	}
-	//
 	NWinFrame::ShowSplashScreen( hInstance, true );
-	//
 	_CrtSetDbgFlag( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
 	_CrtSetReportMode( _CRT_ERROR, _CRTDBG_MODE_DEBUG );
 	
 	int nLeakId = -1;
 	_CrtSetBreakAlloc( nLeakId );
-	// _CRTDBG_ALLOC_MEM_DF | _CRTDBG_CHECK_CRT_DF | _CRTDBG_LEAK_CHECK_DF
 #if defined( _DO_SEH ) && !defined( _DEBUG )
-	// set StructuredExceptionHandler 
 	SetCrashHandlerFilter( CrashHandlerFilter );
 #endif // defined( _DO_SEH ) && !defined( _DEBUG )
 	std::string szLogFileName, szErrorFileName;
@@ -121,13 +106,11 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 			if ( szLaunchDirectory[szLaunchDirectory.size() - 1] != '\\' ) 
 				szLaunchDirectory += '\\';
 		}
-		//
 		szLogFileName = std::string(buffer) + "\\log.txt";
 		szErrorFileName = std::string(buffer) + "\\error.txt";
 		DeleteFile( szErrorFileName.c_str() );
 		DeleteFile( szLogFileName.c_str() );
 	}
-	// configure console buffer
 	if ( IConsoleBuffer *pConsole = GetSingleton<IConsoleBuffer>() )
 	{
 		pConsole->Configure( NStr::Format("logfile;%s", szLogFileName.c_str()) );
@@ -136,22 +119,17 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		pConsole->Configure( NStr::Format("name;%d;Console Feedbacks", CONSOLE_STREAM_CONSOLE) );
 		pConsole->Configure( NStr::Format("name;%d;Console Commands", CONSOLE_STREAM_COMMAND) );
 		pConsole->Configure( NStr::Format("name;%d;Chat", CONSOLE_STREAM_CHAT) );
-		//
 		pConsole->Configure( NStr::Format("dublicate;%d;%d", CONSOLE_STREAM_CHAT, CONSOLE_STREAM_CONSOLE) );
 	}
-	//
 	timeMeter.Reset();
 	SCmdParams cmdp;
 	ProcessCommandLine( lpCmdLine, &cmdp );
 	GetSingleton<IRandomGen>()->Init();
 	timeMeter.Sample( "random & cmd line" );
-	//
 	if ( !NWinFrame::InitApplication( hInstance, " Blitzkrieg Game", "A7_ENGINE", cmdp.nScreenSizeX, cmdp.nScreenSizeY ) )
 		return 0xDEAD;
-	// open main resource system and register as '0'
 	timeMeter.Reset();
 	{
-		// CRAP{ for multiplayer testing
 		CPtr<IDataStorage> pStorage;
 
 		std::string szDataDir = GetGlobalVar( "DataDir" );
@@ -168,12 +146,8 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		}
 		else
 			pStorage = OpenStorage( ".\\data\\*.pak", STREAM_ACCESS_READ, STORAGE_TYPE_MOD );
-		// CRAP}
-		//
 		RegisterSingleton( IDataStorage::tidTypeID, pStorage );
-		// MOD will be added later...
 		/*
-		// add mod, if it is
 		if ( !cmdp.szModName.empty() ) 
 		{
 			CPtr<IDataStorage> pMod = OpenStorage( (cmdp.szModName + "*.pak").c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_COMMON );
@@ -203,13 +177,11 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		*/
 	}
 	timeMeter.Sample( "resource system" );
-	// check for demo version
 	if ( CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream("demo\\demo.xml", STREAM_ACCESS_READ) ) 
 	{
 		CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::READ );
 		std::vector<std::string> missionNames;
 		saver.Add( "Missions", &missionNames );
-		//
 		if ( !missionNames.empty() ) 
 		{
 			SetGlobalVar( "demoversion", 1 );
@@ -221,28 +193,22 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 			}
 		}
 	}
-	// load constants and set global vars from it
 	timeMeter.Reset();
 	{
 		CTableAccessor table = NDB::OpenDataTable( "consts.xml" );
-		// consts
 		NMain::SetupGlobalVarConsts( table );
-		// video mode
-		// in-mission
 		SetGlobalVar( "GFX.Mode.Mission.SizeX", cmdp.nScreenSizeX );
 		SetGlobalVar( "GFX.Mode.Mission.SizeY", cmdp.nScreenSizeY );
 		SetGlobalVar( "GFX.Mode.Mission.BPP", cmdp.nScreenBPP );
 		SetGlobalVar( "GFX.Mode.Mission.Stencil", cmdp.nStencilBPP );
 		SetGlobalVar( "GFX.Mode.Mission.FullScreen", int(cmdp.eFullscreenMode) );
 		SetGlobalVar( "GFX.Mode.Mission.Frequency", cmdp.nFreq );
-		// in-interface
 		SetGlobalVar( "GFX.Mode.InterMission.SizeX", 1024 );
 		SetGlobalVar( "GFX.Mode.InterMission.SizeY", 768 );
 		SetGlobalVar( "GFX.Mode.InterMission.BPP", cmdp.nScreenBPP );
 		SetGlobalVar( "GFX.Mode.InterMission.Stencil", -1 );
 		SetGlobalVar( "GFX.Mode.InterMission.FullScreen", int(cmdp.eFullscreenMode) );
 		SetGlobalVar( "GFX.Mode.InterMission.Frequency", cmdp.nFreq );
-		// current
 		SetGlobalVar( "GFX.Mode.Current.SizeX", GetGlobalVar( "GFX.Mode.InterMission.SizeX", 1024 ) );
 		SetGlobalVar( "GFX.Mode.Current.SizeY", GetGlobalVar( "GFX.Mode.InterMission.SizeY", 768 ) );
 		SetGlobalVar( "GFX.Mode.Current.BPP", GetGlobalVar( "GFX.Mode.InterMission.BPP", cmdp.nScreenBPP ) );
@@ -251,13 +217,11 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		SetGlobalVar( "GFX.Mode.Current.Frequency", GetGlobalVar( "GFX.Mode.InterMission.Frequency", cmdp.nFreq ) );
 	}
 	timeMeter.Sample( "consts table" );
-	// create game database object
 	{
 		CPtr<IObjectsDB> pGDB = CreateObjectsDB();
 		RegisterSingleton( IObjectsDB::tidTypeID, pGDB );
 		GetSLS()->SetGDB( pGDB );
 	}
-	// create and register net driver
 	{
 		SetGlobalVar( "GameSpyGameName", "blitzkrieg" );
 		SetGlobalVar( "GameSpyEngineName", "blitzkrieg" );
@@ -270,7 +234,6 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		INetDriver *pNetDriver = CreateObject<INetDriver>( INetDriver::tidTypeID );
 		RegisterSingleton( INetDriver::tidTypeID, pNetDriver );
 	}
-	// initialize all game system
 	timeMeter.Reset();
 	NWinFrame::ShowAppWindow( true );
 	if ( NMain::Initialize(NWinFrame::GetHWnd(), NWinFrame::GetHWnd(), NWinFrame::GetHWnd(), true) != true )
@@ -279,14 +242,11 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		return 0xDEAD;
 	}
 	timeMeter.Sample( "game system init" );
-	// CRAP{ load game database
 	if ( GetSingleton<IObjectsDB>()->LoadDB() == false )
 	{
 		NI_ASSERT_T( false, "Can't opent objects.xml to load game database" );
 		return 0xDEAD;
 	}
-	// CRAP}
-	// inspect storage
 	timeMeter.Reset();
 	{
 		IFilesInspector *pInspector = GetSingleton<IFilesInspector>();
@@ -318,10 +278,8 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		pInspector->InspectStorage( GetSingleton<IDataStorage>() );
 	}
 	timeMeter.Sample( "inspecting storage" );
-	// hide splash screen
 	NWinFrame::ShowSplashScreen( hInstance, false );
 	timeMeter.Reset();
-	// init graphics 
 	{
 		cmdp.nScreenSizeX = GetGlobalVar( "GFX.Mode.InterMission.SizeX", 1024 );
 		cmdp.nScreenSizeY = GetGlobalVar( "GFX.Mode.InterMission.SizeY", 768 );
@@ -329,7 +287,6 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		cmdp.nStencilBPP = GetGlobalVar( "GFX.Mode.InterMission.Stencil", 0 );
 		cmdp.eFullscreenMode = (EGFXFullscreen)GetGlobalVar( "GFX.Mode.InterMission.FullScreen", int(cmdp.eFullscreenMode) );
 		cmdp.nFreq = GetGlobalVar( "GFX.Mode.InterMission.Frequency", cmdp.nFreq );
-		// mode
 		IGFX *pGFX = GetSingleton<IGFX>();
 		if ( pGFX->SetMode( cmdp.nScreenSizeX, cmdp.nScreenSizeY, cmdp.nScreenBPP, cmdp.nStencilBPP, cmdp.eFullscreenMode, cmdp.nFreq ) == false )
 			return 0xDEAD;
@@ -343,20 +300,16 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		SetGlobalVar( "GFX.Mode.Current.SizeX", cmdp.nScreenSizeX );
 		SetGlobalVar( "GFX.Mode.Current.SizeY", cmdp.nScreenSizeY );
 		SetGlobalVar( "GFX.Mode.Current.BPP", cmdp.nScreenBPP );
-		// some GFX setup
 		pGFX->SetCullMode( GFXC_CW );	// setup right-handed coordinate system
 		SHMatrix matrix;
 		CreateOrthographicProjectionMatrixRH( &matrix, cmdp.nScreenSizeX, cmdp.nScreenSizeY, 1, 1024*8 + cmdp.nScreenSizeY*2 );
 		pGFX->SetProjectionTransform( matrix );
 		pGFX->EnableLighting( false );
-		// texture quality
 		GetSingleton<ITextureManager>()->SetQuality( cmdp.eTextureQuality );
 	}
 	timeMeter.Sample( "graphics init" );
-	// 
 	timeMeter.Reset();
 	SerializeConfig( true, SERIALIZE_CONFIG_BINDS | SERIALIZE_CONFIG_OPTIONS | SERIALIZE_CONFIG_HELPCALLS );
-	// check video card and set 'optimized buffers' option for first time
 	{
 		const int nOldVideoCard = GetSingleton<IUserProfile>()->GetVar( "Autodetect.VideoCard", GFXVC_DEFAULT );
 		const int nNewVideoCard = GetSingleton<IGFX>()->GetVideoCard();
@@ -369,7 +322,6 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 			}
 		}
 	}
-	// �� ����� ����
 	{
 		std::string szGameSpyServer = GetGlobalVar( "Options.Multiplayer.GameSpyServerName", "" );
 		if ( !szGameSpyServer.empty() )
@@ -379,20 +331,15 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 			GetSingleton<IOptionSystem>()->Set( "Multiplayer.ServerPassword", cmdp.szGameSpyPassword.c_str() );
 	}
 	timeMeter.Sample( "serialize config" );
-	// cursor - set bounds and default mode
 	{
 		CPtr<ICursor> pCursor = GetSingleton<ICursor>();
 		pCursor->SetBounds( 0, 0, cmdp.nScreenSizeX, cmdp.nScreenSizeY );
 		pCursor->SetMode( 0 );
-		//pCursor->SetSensitivity( float(cmdp.nScreenSizeX) / 800.0f );
 	}
-	// create and set main general purpose font
 	{
 		CPtr<IGFXFont> pFont = GetSingleton<IFontManager>()->GetFont( "fonts\\medium" );
 		GetSingleton<IGFX>()->SetFont( pFont );
 	}
-	//
-	// setup sounds
 	{
 		ISFX *pSFX = GetSingleton<ISFX>();
 		pSFX->SetSFXMasterVolume( 1.0f );
@@ -400,18 +347,13 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		pSFX->EnableSFX( GetGlobalVar( "Sound.EnableSFX", 1 ) );
 		pSFX->EnableStreaming( GetGlobalVar( "Sound.EnableStream", 1 ) );
 	}
-	// execute autoexec.cfg
 	GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_COMMAND, "Exec( \"autoexec.cfg\" )", 0xff0000ff );
-	// load and apply options 
 	timeMeter.Reset();
 	{
 		IOptionSystem * pOptionSystem = GetSingleton<IOptionSystem>();
 		pOptionSystem->Init();
 	}
 	timeMeter.Sample( "options init" );
-	// disable task switching
-	//NSysKeys::EnableSystemKeys( false, hInstance );
-	// run main loop
 	int nGuaranteeFPSTime = 0;
 #ifdef _FINALRELEASE
 	try
@@ -421,15 +363,12 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 	{
 		IMainLoop *pMainLoop = CreateMainLoop();
 		RegisterSingleton( IMainLoop::tidTypeID, pMainLoop );
-		//
 		GetSingleton<ICursor>()->Acquire( true );
-		// MOD support
 		{
 			const std::string szMOD = !cmdp.szModName.empty() ? cmdp.szModName : GetSingleton<IUserProfile>()->GetMOD();
 			if ( !szMOD.empty() ) 
 				pMainLoop->Command( MAIN_COMMAND_CHANGE_MOD, szMOD.c_str() );
 		}
-		//
 		IInput *pInput = GetSingleton<IInput>();
 
 		if ( cmdp.nGameSpyHostPort )
@@ -454,16 +393,13 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 			GetSingleton<IScenarioTracker>()->StartChapter( "custom_mission" );
 			pMainLoop->Command( MISSION_COMMAND_MISSION, NStr::Format("%s;%d", cmdp.szMapName.c_str(), cmdp.bCycledLaunch) );
 		}
-		//
 		for (;;)
 		{
 			if ( !cmdp.szMovieDir.empty() ) 
 				SetGlobalVar( "MovieDir", cmdp.szMovieDir.c_str() );
-			//
 			NWinFrame::PumpMessages();
 			bool bActive = NWinFrame::IsActive();
 			pInput->PumpMessages( bActive );
-			//
 			if ( NWinFrame::IsExit() )
 			{
 				NWinFrame::ResetExit();
@@ -476,7 +412,6 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		}
 		pMainLoop->ResetStack();
 		UnRegisterSingleton( IMainLoop::tidTypeID );
-		// save config
 		SerializeConfig( false, SERIALIZE_CONFIG_OPTIONS | SERIALIZE_CONFIG_BINDS | SERIALIZE_CONFIG_HELPCALLS );
 	}
 #ifdef _FINALRELEASE
@@ -485,7 +420,6 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 	{
 	}
 #endif // _FINALRELEASE
-	// dump log and show it in the window
 #ifdef _DO_ASSERT_SLOW
 /*	
 	if ( IConsoleBuffer *pConsole = GetSingleton<IConsoleBuffer>() )
@@ -495,34 +429,25 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 	}
 */
 #endif // _DO_ASSERT_SLOW
-	// re-enable task switching
-	//NSysKeys::EnableSystemKeys( true, hInstance );
-	//
 	GetSingleton<ICommandsHistory>()->Save();
-	//
 	NMain::Finalize();
 	
-	//
 #if defined( _DO_SEH ) && !defined( _DEBUG )
-	// reset StructuredExceptionHandler 
 	SetCrashHandlerFilter( 0 );
 #endif // defined( _DO_SEH ) && !defined( _DEBUG )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool IsParamMapName( const std::string &_szParam )
 {
 	if ( _szParam.size() < 4 ) 
 		return false;
-	//
 	std::string szParam = _szParam;
 	if ( szParam[0] == '-' ) 
 		szParam.erase( 0, 1 );
 	NStr::TrimBoth( szParam, "\n\r\t\" " );
 	if ( szParam.size() < 4 ) 
 		return false;
-	//
 	return ( szParam.find(".xml") == szParam.size() - 4 ) || ( szParam.find(".bzm") == szParam.size() - 4 );
 }
 std::string ExtractMapName( const std::string &_szParam )
@@ -534,7 +459,6 @@ std::string ExtractMapName( const std::string &_szParam )
 	NI_ASSERT_T ( szParam.size() > 4, NStr::Format("Wrong param \"%s\" as map name", szParam.c_str()) );
 	return szParam;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams )
 {
 	pCmdParams->nScreenSizeX = 1024;
@@ -551,10 +475,8 @@ void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams )
 	pCmdParams->nAutoSavePeriod = 0;
 	pCmdParams->eTextureQuality = ITextureManager::TEXTURE_QUALITY_HIGH;
 	pCmdParams->szMapName = "";
-	//
 	std::vector<std::string> szParams;
 	NStr::SplitStringWithMultipleBrackets( lpCmdLine, szParams, ' ' );
-	// parse command line params
 	for ( int i=0; i<szParams.size(); ++i )
 	{
 		const std::string realStr = szParams[i];
@@ -585,7 +507,6 @@ void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams )
 				szModDir += '\\';
 			pCmdParams->szModName = szModDir;
 		}
-//#ifndef _FINALRELEASE		
 		else if ( szParams[i] == "-windowed" )
 		{
 			pCmdParams->eFullscreenMode = GFXFS_WINDOWED;
@@ -622,7 +543,6 @@ void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams )
 		{
 			SetGlobalVar( "ShowScriptErrors", 1 );
 		}
-		// save history file
 		else if ( szParams[i].compare( 0, 3, "-sh" ) == 0 )
 		{
 			std::string szSaveHistoryFileName = szParams[i].c_str() + 3;
@@ -649,7 +569,6 @@ void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams )
 			SetGlobalVar( "LoadHistoryFileName", szLoadHistoryFireName.c_str() );
 		}
 
-//#endif // _FINALRELEASE
 		else if ( szParams[i].compare( 0, 8, "-datadir") == 0 )
 		{
 			std::string szDataDir = szParams[i].c_str() + 8;
@@ -660,15 +579,9 @@ void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams )
 		{
 			GetSingleton<IConsoleBuffer>()->WriteASCII( 100, szParams[i].c_str(), 0, true );
 			std::string szConnectParams = szParams[i].c_str() + 8;
-			//NStr::TrimBoth( szConnectParams, '"' );
 			NStr::TrimRight( szConnectParams, ':' );
 			pCmdParams->szIPToGameSpyConnect = szConnectParams;
 
-			// CRAP{ for debug
-//			pCmdParams->eFullscreenMode = GFXFS_WINDOWED;
-//			SetGlobalVar( "windowed", "1" );
-//			SetGlobalVar( "DataDir", "j:" );
-			// CRAP}
 		}
 		else if ( szParams[i].compare( 0, 5, "-host" ) == 0 )
 		{
@@ -678,10 +591,6 @@ void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams )
 			else
 				pCmdParams->nGameSpyHostPort = NStr::ToInt( szConnectParams );
 
-			// CRAP{ for debug
-//			pCmdParams->eFullscreenMode = GFXFS_WINDOWED;
-//			SetGlobalVar( "windowed", "1" );
-			// CRAP}
 		}
 		else if ( szParams[i].compare( 0, 9, "-password" ) == 0 )
 		{
@@ -706,7 +615,6 @@ void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams )
 			SetGlobalVar( "Options.Multiplayer.GameSpyServerName", szRoom.c_str() );
 		}
 #ifndef _FINALRELEASE		
-		// for debug purposes!
 		else if ( szParams[i].compare( 0, 7, "-cheats" ) == 0 )
 		{
 			SetGlobalVar( "EnableCheats", 1 );
@@ -715,7 +623,6 @@ void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams )
 		{
 			SetGlobalVar( "NumSaves", 1 );
 		}
-		//
 		else if ( szParams[i][0] == '-' )
 		{
 			GetSingleton<IConsoleBuffer>()->WriteASCII( 100, szParams[i].c_str(), 0, true );
@@ -733,8 +640,6 @@ void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams )
 		}
 #endif // _FINALRELEASE
 	}
-	// in the fullscreen mode we can't assign any freq. but default
 	if ( pCmdParams->eFullscreenMode == GFXFS_WINDOWED )
 		pCmdParams->nFreq = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

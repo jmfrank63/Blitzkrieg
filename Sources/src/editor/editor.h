@@ -1,5 +1,3 @@
-// editor.h : main header file for the EDITOR application
-//
 
 #if !defined(AFX_EDITOR_H__EF9ACF1F_0933_498C_B092_A3DED0F07F99__INCLUDED_)
 #define AFX_EDITOR_H__EF9ACF1F_0933_498C_B092_A3DED0F07F99__INCLUDED_
@@ -18,10 +16,6 @@ using std::string;
 class CSimpleWindow;
 class CMainFrame;
 
-/////////////////////////////////////////////////////////////////////////////
-// CEditorApp:
-// See editor.cpp for the implementation of this class
-//
 
 class CEditorApp : public CWinApp
 {
@@ -39,7 +33,6 @@ public:
 	void SaveNewFrameTypeToRegister();
 	int LoadLastActiveModuleID();
 	
-	//if this function returns true, then application will be closed
 	bool RunBatchMode();
 
 	void UpdateStatusBarIndicators();
@@ -63,16 +56,11 @@ public:
 	bool IsInitFinished() { return m_bInitFinished; }
 	bool IsVersionIncreased() { return m_bVersionIncreased; }
 	
-	// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CEditorApp)
 	public:
 	virtual BOOL InitInstance();
 	virtual int ExitInstance();
-//	virtual BOOL ProcessMessageFilter(int code, LPMSG lpMsg);
 	virtual BOOL OnIdle(LONG lCount);
 	virtual BOOL SaveAllModified();
-	//}}AFX_VIRTUAL
 
 	CMainFrame *GetMainFrame() { return m_pMainFrame; }
 	string GetEditorDir() const { return szEditorDir; }
@@ -98,7 +86,6 @@ public:
 	void ReadMODFile( const std::string &szPath, std::string &szName, std::string &szVersion, std::string &szDesc );
 	void WriteMODFile( const std::string &szPath, const std::string &szName, const std::string &szVersion, const std::string &szDesc );
 
-// Implementation
 
 protected:
 	string szEditorDir;					//содержит директорию исполняемого файла компоновщика (reseditor.exe)
@@ -116,21 +103,16 @@ protected:
 	bool m_bVersionIncreased;
 
 public:
-	//{{AFX_MSG(CEditorApp)
 	afx_msg void OnAppAbout();
 	afx_msg void OnFileNew();
 	afx_msg void OnUpdateRecentFile(CCmdUI* pCmdUI);
 	afx_msg void OnUpdateRecentFileRange(CCmdUI* pCmdUI);
 	afx_msg void OnRecentFile( UINT nID );
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 
 extern CEditorApp theApp;
 
-/////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif // !defined(AFX_EDITOR_H__EF9ACF1F_0933_498C_B092_A3DED0F07F99__INCLUDED_)

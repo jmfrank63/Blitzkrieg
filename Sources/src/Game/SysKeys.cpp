@@ -1,7 +1,6 @@
 #include "StdAfx.h"
 
 #include "SysKeys.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #ifndef LLKHF_EXTENDED
 #define LLKHF_EXTENDED       0x00000001
 #endif
@@ -25,10 +24,8 @@
 #ifndef WH_MOUSE_LL
 #define WH_MOUSE_LL        14
 #endif
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NSysKeys
 {
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct KBDLLHOOKSTRUCT
 {
   DWORD vkCode;
@@ -37,42 +34,29 @@ struct KBDLLHOOKSTRUCT
   DWORD time;
   DWORD dwExtraInfo;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// keyboard low-level hook to disable fast task switching
 static HHOOK hHook = 0;
-// previous state of the SPI_SETSCREENSAVERRUNNING
 static UINT nPreviousState = 0;
-// current enable state
 static bool bCurrEnable = true;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 LRESULT CALLBACK LowLevelKeyboardProc( INT nCode, WPARAM wParam, LPARAM lParam )
 {
-  // By returning a non-zero value from the hook procedure, the
-  // message does not get passed to the target window
   KBDLLHOOKSTRUCT *pkbhs = (KBDLLHOOKSTRUCT *)lParam;
   BOOL bControlKeyDown = 0;
 
   switch ( nCode )
   {
     case HC_ACTION:
-      // Check to see if the CTRL key is pressed
       bControlKeyDown = GetAsyncKeyState( VK_CONTROL ) >> ( (sizeof(SHORT) * 8) - 1 );
-      // Disable CTRL+ESC
       if ( (pkbhs->vkCode == VK_ESCAPE) && bControlKeyDown )
         return 1;
-      // Disable ALT+ESC
       if ( (pkbhs->vkCode == VK_ESCAPE) && (pkbhs->flags & LLKHF_ALTDOWN) )
         return 1;
-			// Disable 'Windows' and 'Application' keys
 			if ( (pkbhs->vkCode == VK_LWIN) || (pkbhs->vkCode == VK_RWIN) || (pkbhs->vkCode == VK_APPS) ) 
         return 1;
       break;
   }
   return CallNextHookEx( hHook, nCode, wParam, lParam );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern "C" WINBASEAPI BOOL WINAPI IsDebuggerPresent(void);
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void EnableSystemKeys( bool bEnable, HINSTANCE hInstance )
 {
 	if ( (bCurrEnable == bEnable) /*|| IsDebuggerPresent()*/ ) 
@@ -94,6 +78,4 @@ void EnableSystemKeys( bool bEnable, HINSTANCE hInstance )
 	}
 	bCurrEnable = bEnable;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

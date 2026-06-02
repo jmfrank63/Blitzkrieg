@@ -56,8 +56,6 @@ bool CBridgeTreeRootItem::SaveShadowFile( const string &szBridgeFileName, const 
 {
 	IImageProcessor *pIP = GetImageProcessor();
 
-	//Тень надо промодулировать альфой из инвертированной картинки моста.
-	//Загружаем спрайт моста
 	CPtr<IDataStream> pBridgeStream = OpenFileStream( szBridgeFileName.c_str(), STREAM_ACCESS_READ );
 	if ( pBridgeStream == 0 )
 		return false;
@@ -68,7 +66,6 @@ bool CBridgeTreeRootItem::SaveShadowFile( const string &szBridgeFileName, const 
 	pInverseSprite->SharpenAlpha( 1 );
 	pInverseSprite->InvertAlpha();
 
-	//Загружаем тень
 	CPtr<IDataStream> pShadowStream = OpenFileStream( szShadowFileName.c_str(), STREAM_ACCESS_READ );
 	if ( pShadowStream == 0 )
 		return false;
@@ -90,12 +87,9 @@ bool CBridgeTreeRootItem::SaveShadowFile( const string &szBridgeFileName, const 
 	rc.top = 0;
 	rc.right = pInverseSprite->GetSizeX();
 	rc.bottom = pInverseSprite->GetSizeY();
-	// промодулировать тень инверсной альфой из основной картинки
 	pShadowImage->ModulateAlphaFrom( pInverseSprite, &rc, 0, 0 );
-	// занулить цвет - оставить только альфу
 	pShadowImage->SetColor( DWORD(0) );
 
-	//Сохраним файл с тенью под temp именем
 	CPtr<IDataStream> pSaveShadowStream = OpenFileStream( szTempShadow.c_str(), STREAM_ACCESS_WRITE );
 	pIP->SaveImageAsTGA( pSaveShadowStream, pShadowImage );
 
@@ -173,7 +167,6 @@ void CBridgeCommonPropsItem::UpdateItemValue( int nItemId, const CVariant &value
 	CTreeItem::UpdateItemValue( nItemId, value );
 	if ( nItemId == 2 )
 	{
-		//Изменился тип моста, обновим информацию в BridgeComposer
 		CBridgeFrame *pFrame = static_cast<CBridgeFrame *> ( g_frameManager.GetFrame( CFrameManager::E_BRIDGE_FRAME ) );
 		pFrame->SetBridgeType( GetDirection() );
 	}
@@ -387,7 +380,6 @@ void CBridgePartsItem::MyKeyDown( int nChar )
 	switch ( nChar )
 	{
 		case VK_DELETE:
-			//Убиваем эту часть забора
 			CBridgeFrame *pFrame = static_cast<CBridgeFrame *> ( g_frameManager.GetFrame( CFrameManager::E_BRIDGE_FRAME ) );
 			pFrame->RemoveBridgeIndex( GetActiveStage(), nSpanIndex );
 			DeleteMeInParentTreeItem();
@@ -410,12 +402,10 @@ int CBridgePartsItem::operator&( IDataTree &ss )
 	CBridgeFrame *pFrame = static_cast<CBridgeFrame *> ( g_frameManager.GetFrame( CFrameManager::E_BRIDGE_FRAME ) );
 	if ( !saver.IsReading() )
 	{
-		// Сохраняем данные о тайловой проходимости
 		pFrame->SaveMyData( this, saver );
 	}
 	else
 	{
-		// Считываем данные о тайловой проходимости
 		pFrame->LoadMyData( this, saver );
 	}
 	
@@ -471,7 +461,6 @@ void CBridgePartPropsItem::UpdateItemValue( int nItemId, const CVariant &value )
 		string szProjectName = pFrame->GetProjectFileName();
 		if ( !IsRelatedPath(szFull.c_str()) )
 		{
-			//Тут вычисляется относительный путь, относительно файла с проектом
 			string szRelatedPath;
 			bool bRes = MakeSubRelativePath( szProjectName.c_str(), szFull.c_str(), szRelatedPath );
 			if ( bRes == false )
@@ -537,7 +526,6 @@ void CBridgeFirePointPropsItem::MyKeyDown( int nChar )
 	switch ( nChar )
 	{
 		case VK_DELETE:
-			//Убиваем этот fire point
 			CBridgeFrame *pFrame = static_cast<CBridgeFrame *> ( g_frameManager.GetFrame( CFrameManager::E_BRIDGE_FRAME ) );
 			pFrame->DeleteFirePoint( this );
 			DeleteMeInParentTreeItem();
@@ -551,7 +539,6 @@ void CBridgeFirePointPropsItem::UpdateItemValue( int nItemId, const CVariant &va
 	if ( nItemId == 1 )
 	{
 		CBridgeFrame *pFrame = static_cast<CBridgeFrame *> ( g_frameManager.GetFrame( CFrameManager::E_BRIDGE_FRAME ) );
-		//Изменилось направление fire direction, обновим информацию в BridgeFrame
 		CTreeItem *pTemp = pFrame->GetActiveFirePointItem();
 		if ( pTemp != this )
 		{
@@ -681,7 +668,6 @@ void CBridgeSmokePropsItem::UpdateItemValue( int nItemId, const CVariant &value 
 	CTreeItem::UpdateItemValue( nItemId, value );
 	if ( nItemId == 1 )
 	{
-		//Изменилось направление direction explosion direction, обновим информацию в BridgeFrame
 		CBridgeFrame *pFrame = static_cast<CBridgeFrame *> ( g_frameManager.GetFrame( CFrameManager::E_BRIDGE_FRAME ) );
 		pFrame->ComputeSmokeLines();
 		return;
@@ -693,7 +679,6 @@ void CBridgeSmokePropsItem::MyKeyDown( int nChar )
 	switch ( nChar )
 	{
 	case VK_DELETE:
-		//Убиваем этот smoke point
 		CBridgeFrame *pFrame = static_cast<CBridgeFrame *> ( g_frameManager.GetFrame( CFrameManager::E_BRIDGE_FRAME ) );
 		pFrame->DeleteSmokePoint();
 		DeleteMeInParentTreeItem();

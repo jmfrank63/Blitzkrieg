@@ -1,8 +1,6 @@
 #ifndef __GAME_CREATION_H__
 #define __GAME_CREATION_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "GameCreationInterfaces.h"
 #include "MessagesStore.h"
 #include "ServerInfo.h"
@@ -11,17 +9,13 @@
 #include "..\RandomMapGen\MapInfo_Types.h"
 
 #include "..\Net\NetDriver.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IMultiplayerMessage;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EGameType
 {
 	EGT_LAN,
 	EGT_GAME_SPY,
 	EGT_ADDRESS_BOOK,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// обработка общей информации
 class CCommonGameCreationInfo
 {
 protected:	
@@ -69,7 +63,6 @@ protected:
 	};
 	SPackedInfo packedInfo;
 
-	//
 	void DistributePlayersNumbers();
 	void UpdatePlayersInfo();
 	
@@ -90,7 +83,6 @@ public:
 	
 	INetDriver* GetInGameNetDriver() const { return pInGameNetDriver; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CServerGameCreation : public IGameCreation, protected CCommonGameCreationInfo
 {
 	OBJECT_COMPLETE_METHODS( CServerGameCreation );
@@ -98,13 +90,11 @@ class CServerGameCreation : public IGameCreation, protected CCommonGameCreationI
 	CPtr<INetDriver> pOutGameNetDriver;
 	bool bCanStartGame;
 
-	// послать информацию об игре наружу
 	void SendGameInfoOutside();
 	void SendConnectionFailed();
 	bool CheckConnection();
 	int CreateNewLogicID();
 	void ReadPlayerInfo( int nClientID, CStreamAccessor &pkt );
-	//
 	void ProcessMessages();
 	void ProcessRemoveClient( int nClientID, CStreamAccessor &pkt );
 	void ProcessNewClient( int nClientID, CStreamAccessor &pkt );
@@ -145,7 +135,6 @@ public:
 
 	virtual interface INetDriver* STDCALL GetInGameNetDriver() const { return CCommonGameCreationInfo::GetInGameNetDriver(); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CClientGameCreation : public IGameCreation, protected CCommonGameCreationInfo
 {
 	OBJECT_COMPLETE_METHODS( CClientGameCreation );
@@ -154,18 +143,14 @@ class CClientGameCreation : public IGameCreation, protected CCommonGameCreationI
 	bool bGameStarted;
 	bool bModChanged;
 
-	//
 	bool CheckConnection();
 	void SendConnectionFailed();
 
-	//
 	void ProcessMessages();
 	void ProcessDirectMessage( int nClientID, CStreamAccessor &pkt );
 	void ProcessBroadcastMessage( int nClientID, CStreamAccessor &pkt );
 	void ProcessPlayerLeft( int nClientID, CStreamAccessor &pkt );
-	// broadcast message with player info receive, reply with my info should be send
 	void ProcessNewPlayerJoinedInfo( int nClientID, CStreamAccessor &pkt );
-	// direct message with player info received
 	void ProcessNewPlayerInfo( int nClientID, CStreamAccessor &pkt );
 	void ProcessLogicIDSet( int nClientID, CStreamAccessor &pkt );
 	void ProcessGameInfo( int nClientID, CStreamAccessor &pkt );
@@ -195,7 +180,6 @@ class CClientGameCreation : public IGameCreation, protected CCommonGameCreationI
 
 		int nTotalSize, nTotalReceived;
 
-		//
 		void ProcessWaitForServerID();
 		void ProcessLoading();
 		void ProcessMapPacket( CStreamAccessor &pkt );
@@ -244,5 +228,4 @@ public:
 
 	void MapLoaded();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __GAME_CREATION_H__

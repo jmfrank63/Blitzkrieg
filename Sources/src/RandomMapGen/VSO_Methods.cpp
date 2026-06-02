@@ -1,7 +1,4 @@
 #include "StdAfx.h"
-//#include "..\Misc\Spline.h"
-//#include "..\AILogic\AILogic.h"
-//#include "..\Formats\fmtTerrain.h"
 #include "VSO_Types.h"
 
 #ifdef _DEBUG
@@ -10,7 +7,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOBuilder::SBackupKeyPoints::SaveKeyPoints( const SVectorStripeObject &rVectorStripeObject )
 {
 	keyPoints.clear();
@@ -26,7 +22,6 @@ void CVSOBuilder::SBackupKeyPoints::SaveKeyPoints( const SVectorStripeObject &rV
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOBuilder::SBackupKeyPoints::LoadKeyPoints( SVectorStripeObject *pVectorStripeObject )
 {
 	NI_ASSERT_T( pVectorStripeObject != 0,
@@ -44,7 +39,6 @@ void CVSOBuilder::SBackupKeyPoints::LoadKeyPoints( SVectorStripeObject *pVectorS
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOBuilder::SBackupKeyPoints::AddKeyPoint( int nKeyPointIndex, float fWidth, float fOpacity )
 {
 	SKeyPoint keyPoint;
@@ -70,7 +64,6 @@ void CVSOBuilder::SBackupKeyPoints::AddKeyPoint( int nKeyPointIndex, float fWidt
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOBuilder::SBackupKeyPoints::RemoveKeyPoint( int nKeyPointIndex )
 {
 	if ( ( nKeyPointIndex >= 0 ) && ( nKeyPointIndex < keyPoints.size() ) )
@@ -84,7 +77,6 @@ void CVSOBuilder::SBackupKeyPoints::RemoveKeyPoint( int nKeyPointIndex )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOBuilder::SBackupKeyPoints::InsertToBegin( float fWidth, float fOpacity  )
 {
 	SKeyPoint keyPoint;
@@ -93,7 +85,6 @@ void CVSOBuilder::SBackupKeyPoints::InsertToBegin( float fWidth, float fOpacity 
 	keyPoints.push_front( keyPoint );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOBuilder::SBackupKeyPoints::InsertToRBegin( float fWidth, float fOpacity )
 {
 	SKeyPoint keyPoint;
@@ -102,25 +93,21 @@ void CVSOBuilder::SBackupKeyPoints::InsertToRBegin( float fWidth, float fOpacity
 	keyPoints.push_back( keyPoint );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOBuilder::SBackupKeyPoints::SetBeginOpacity( float fOpacity )
 {
 	keyPoints.begin()->fOpacity = fOpacity;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOBuilder::SBackupKeyPoints::SetRBeginOpacity( float fOpacity )
 {
 	keyPoints.rbegin()->fOpacity = fOpacity;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOBuilder::SBackupKeyPoints::Clear()
 {
 	keyPoints.clear();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVSOBuilder::SVSOCircle::CreateVSOCircleFromDirection( const CVec2 &vBegin, const CVec2 &vEnd, float _fRadius, EClassifyRotation _classifyRotation, bool bBegin )
 {
 	r = _fRadius;
@@ -152,7 +139,6 @@ bool CVSOBuilder::SVSOCircle::CreateVSOCircleFromDirection( const CVec2 &vBegin,
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVSOBuilder::SVSOCircle::GetTangentPoint( const CVec2 &v, CVec2 *pTangentPoint ) const
 {
 	const CVec2 vCenterV = center - v;
@@ -190,7 +176,6 @@ bool CVSOBuilder::SVSOCircle::GetTangentPoint( const CVec2 &v, CVec2 *pTangentPo
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVSOBuilder::SVSOCircle::GetPointsSequence( const CVec2 &v, int nSegmentsCount, std::list<CVec2> *pPointsSequence ) const
 {
 	NI_ASSERT_TF( pPointsSequence != 0,
@@ -229,6 +214,3 @@ bool CVSOBuilder::SVSOCircle::GetPointsSequence( const CVec2 &v, int nSegmentsCo
 	}
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// basement storage  
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

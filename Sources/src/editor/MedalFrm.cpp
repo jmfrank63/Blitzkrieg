@@ -25,19 +25,13 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CMedalFrame
 
 IMPLEMENT_DYNCREATE(CMedalFrame, CImageFrame)
 
 BEGIN_MESSAGE_MAP(CMedalFrame, CImageFrame)
-	//{{AFX_MSG_MAP(CMedalFrame)
 	ON_WM_CREATE()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////
-// CMedalFrame construction/destruction
 
 CMedalFrame::CMedalFrame()
 {
@@ -63,7 +57,6 @@ int CMedalFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		return -1;
 	g_frameManager.AddFrame( this );
 
-	// create a view to occupy the client area of the frame
 	/*if (!pWndView->Create(NULL, NULL,  WS_CHILD | WS_VISIBLE, 
 		CRect(0, 0, 0, 0), this, AFX_IDW_PANE_FIRST, NULL))
 	{
@@ -74,8 +67,6 @@ int CMedalFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// CMedalFrame message handlers
 
 void CMedalFrame::FillRPGStats( SMedalStats &rpgStats, CTreeItem *pRootItem, const char *pszProjectName )
 {
@@ -149,7 +140,6 @@ bool CMedalFrame::ExportFrameData( IDataTree *pDT, const char *pszProjectName, c
 */
 
 	szPrefix = szAddDir + szPrevExportFileName.substr( 0, szPrevExportFileName.rfind('\\') + 1 );
-	//Сохраняем RPG stats
 	SaveRPGStats( pDT, pRootItem, pszProjectName );
 	szPrefix = "";
 

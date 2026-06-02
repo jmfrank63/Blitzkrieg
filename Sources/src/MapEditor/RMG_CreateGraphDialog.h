@@ -9,10 +9,8 @@
 #include "ResizeDialog.h"
 #include "..\RandomMapGen\RMG_Types.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CALLBACK CG_GraphsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRMGCreateGraphDialog : public CResizeDialog
 {
 	friend int CALLBACK CG_GraphsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
@@ -20,21 +18,16 @@ class CRMGCreateGraphDialog : public CResizeDialog
 public:
 	CRMGCreateGraphDialog( CWnd* pParent = NULL );
 
-	//{{AFX_DATA(CRMGCreateGraphDialog)
 	enum { IDD = IDD_RMG_CREATE_GRAPH };
 	CStatic	m_NodesMessageTop;
 	CStatic	m_NodesMessageBottom;
 	CListCtrl	m_GraphsList;
 	CSliderCtrl	m_NodesSlider;
-	//}}AFX_DATA
 
-	//{{AFX_VIRTUAL(CRMGCreateGraphDialog)
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);
-	//}}AFX_VIRTUAL
 
 protected:
-	//{{AFX_MSG(CRMGCreateGraphDialog)
 	virtual BOOL OnInitDialog();
 	virtual void OnOK();
 	virtual void OnCancel();
@@ -67,7 +60,6 @@ protected:
 	afx_msg void OnFileSaveas();
 	afx_msg void OnFileExit();
 	afx_msg void OnCheckGraphsButton();
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 
 protected:
@@ -149,5 +141,4 @@ protected:
 
 public:
 };
-//{{AFX_INSERT_LOCATION}}
 #endif // !defined(__RMG_Create_Graph_Dialog__)

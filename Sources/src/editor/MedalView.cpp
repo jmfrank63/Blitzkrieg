@@ -9,8 +9,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CMedalView
 
 CMedalView::CMedalView()
 {
@@ -22,14 +20,10 @@ CMedalView::~CMedalView()
 
 
 BEGIN_MESSAGE_MAP(CMedalView, CWnd)
-//{{AFX_MSG_MAP(CMedalView)
 ON_WM_PAINT()
-//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CMedalView message handlers
 
 BOOL CMedalView::PreCreateWindow(CREATESTRUCT& cs) 
 {

@@ -77,8 +77,6 @@ iterators invalidated are those referring to the deleted node.
 _STLP_BEGIN_NAMESPACE
 
 typedef bool _Rb_tree_Color_type;
-//const _Rb_tree_Color_type _S_rb_tree_red = false;
-//const _Rb_tree_Color_type _S_rb_tree_black = true;
 
 #define _S_rb_tree_red false
 #define _S_rb_tree_black true
@@ -117,14 +115,11 @@ struct _Rb_tree_base_iterator;
 template <class _Dummy> class _Rb_global {
 public:
   typedef _Rb_tree_node_base* _Base_ptr;
-  // those used to be global functions 
   static void _STLP_CALL _Rebalance(_Rb_tree_node_base* __x, _Rb_tree_node_base*& __root);
   static _Rb_tree_node_base* _STLP_CALL _Rebalance_for_erase(_Rb_tree_node_base* __z,
                                                              _Rb_tree_node_base*& __root,
                                                              _Rb_tree_node_base*& __leftmost,
                                                              _Rb_tree_node_base*& __rightmost);
-  // those are from _Rb_tree_base_iterator - moved here to reduce code bloat
-  // moved here to reduce code bloat without templatizing _Rb_tree_base_iterator
   static _Rb_tree_node_base*  _STLP_CALL _M_increment(_Rb_tree_node_base*);
   static _Rb_tree_node_base*  _STLP_CALL _M_decrement(_Rb_tree_node_base*);
   static void _STLP_CALL _Rotate_left(_Rb_tree_node_base* __x, _Rb_tree_node_base*& __root);
@@ -192,7 +187,6 @@ inline bidirectional_iterator_tag iterator_category(const _Rb_tree_base_iterator
 inline ptrdiff_t* distance_type(const _Rb_tree_base_iterator&) { return (ptrdiff_t*) 0; }
 #endif /* _STLP_CLASS_PARTIAL_SPECIALIZATION */
 
-// Base class to help EH
 
 template <class _Tp, class _Alloc> struct _Rb_tree_base
 {
@@ -311,7 +305,6 @@ private:
   void _M_erase(_Link_type __x);
 
 public:
-                                // allocation/deallocation
   _Rb_tree()
     : _Rb_tree_base<_Value, _Alloc>(allocator_type()), _M_node_count(0), _M_key_compare(_Compare())
     { _M_empty_initialize(); }
@@ -344,14 +337,12 @@ public:
 private:
   void _M_empty_initialize() {
     _S_color(this->_M_header._M_data) = _S_rb_tree_red; // used to distinguish header from 
-                                          // __root, in iterator.operator++
     _M_root() = 0;
     _M_leftmost() = this->_M_header._M_data;
     _M_rightmost() = this->_M_header._M_data;
   }
 
 public:    
-                                // accessors:
   _Compare key_comp() const { return _M_key_compare; }
 
   iterator begin() { return iterator(_M_leftmost()); }
@@ -378,7 +369,6 @@ public:
   }
     
 public:
-                                // insert/erase
   pair<iterator,bool> insert_unique(const value_type& __x);
   iterator insert_equal(const value_type& __x);
 
@@ -453,7 +443,6 @@ public:
   }      
 
 public:
-                                // set operations:
 # if defined(_STLP_MEMBER_TEMPLATES) && ! defined ( _STLP_NO_EXTENSIONS ) && !defined(__MRC__) && !defined(__SC__)
   template <class _KT> iterator find(const _KT& __x) { return iterator(_M_find(__x)); }
   template <class _KT> const_iterator find(const _KT& __x) const { return const_iterator(_M_find(__x)); }
@@ -520,7 +509,6 @@ public:
   }
 
 public:
-                                // Debugging.
   bool __rb_verify() const;
 };
 
@@ -598,8 +586,6 @@ _STLP_END_NAMESPACE
 #endif
 
 _STLP_BEGIN_NAMESPACE
-// Class rb_tree is not part of the C++ standard.  It is provided for
-// compatibility with the HP STL.
 
 template <class _Key, class _Value, class _KeyOfValue, class _Compare,
           _STLP_DEFAULT_ALLOCATOR_SELECT(_Value) > struct rb_tree : public _Rb_tree<_Key, _Value, _KeyOfValue, _Compare, _Alloc> {
@@ -617,6 +603,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_TREE_H */
 
-// Local Variables:
-// mode:C++
-// End:

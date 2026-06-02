@@ -14,13 +14,7 @@
 #include "..\Net\NetDriver.h"
 
 #include <float.h>
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 								   CGamePlaying																*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( IGamePlaying );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGamePlaying::Init( INetDriver *_pInGameNetDriver, INetDriver *_pOutGameNetDriver, 
 												const CPlayers &_players, bool bServer, const int _nOurID, 
 												const std::vector<BYTE> &_diplomacies )
@@ -31,7 +25,6 @@ void CGamePlaying::Init( INetDriver *_pInGameNetDriver, INetDriver *_pOutGameNet
 	diplomacies = _diplomacies;
 	bStartGameReceived = false;
 
-	// 
 	if ( bServer )
 	{
 		CStreamAccessor pkt = CreateObject<IDataStream>( STREAMIO_MEMORY_STREAM );
@@ -40,7 +33,6 @@ void CGamePlaying::Init( INetDriver *_pInGameNetDriver, INetDriver *_pOutGameNet
 		pInGameNetDriver->SendBroadcast( pkt );
 		commands.push_back( new IMultiplayer::CCommand( IMultiplayer::GPC_START_GAME, -1, -1, 0 ) );
 
-		// set randomseed
 		CPtr<IRandomGenSeed> pSeed = CreateObject<IRandomGenSeed>( STREAMIO_RANDOM_GEN_SEED );
 		pSeed->InitByZeroSeed();
 		GetSingleton<IRandomGen>()->SetSeed( pSeed );
@@ -60,7 +52,6 @@ void CGamePlaying::Init( INetDriver *_pInGameNetDriver, INetDriver *_pOutGameNet
 
 	lags.resize( 16, false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IMultiplayer::CCommand* CGamePlaying::GetCommand()
 {
 	if ( commands.empty() )
@@ -73,17 +64,14 @@ IMultiplayer::CCommand* CGamePlaying::GetCommand()
 		return pTakenCommand;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGamePlaying::SendClientCommands( IDataStream *pPacket )
 {
 	pInGameNetDriver->SendBroadcast( pPacket );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGamePlaying::LeftGame()
 {
 	pInGameNetDriver = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////	
 void CGamePlaying::RemoveClient( const int nClientID )
 {
 	if ( clientID2LogicID.find(nClientID) != clientID2LogicID.end() )
@@ -100,15 +88,12 @@ void CGamePlaying::RemoveClient( const int nClientID )
 		clientID2LogicID.erase( nClientID );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGamePlaying::ProcessPacket( const int nClientID, IDataStream *pPkt )
 {
 	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24, 0xfffff );
-	//
 	if ( clientID2LogicID.find( nClientID ) != clientID2LogicID.end() )
 	{
 		const int nPlayer = clientID2LogicID[nClientID];
-		//
 		CStreamAccessor pkt = pPkt;
 		BYTE msgID = 0;
 		while ( pkt->Read( &msgID, sizeof(msgID) ) == sizeof(msgID) ) 
@@ -118,7 +103,6 @@ void CGamePlaying::ProcessPacket( const int nClientID, IDataStream *pPkt )
 			{
 				case NGM_ID_START_GAME:
 					{
-	//					GetSingleton<IRandomGen>()->Restore( pkt );
 						CPtr<IRandomGenSeed> pSeed = CreateObject<IRandomGenSeed>( STREAMIO_RANDOM_GEN_SEED );
 						pSeed->InitByZeroSeed();
 						GetSingleton<IRandomGen>()->SetSeed( pSeed );
@@ -220,10 +204,8 @@ void CGamePlaying::ProcessPacket( const int nClientID, IDataStream *pPkt )
 
 					break;
 				default:
-					// some unrecognized message, garbage from matchmaking stage
 					return;
 			}
-			//
 			if ( pAICmd ) 
 				pAICmd->Restore( pkt );
 		}
@@ -231,7 +213,6 @@ void CGamePlaying::ProcessPacket( const int nClientID, IDataStream *pPkt )
 	else
 		pInGameNetDriver->Kick( nClientID );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGamePlaying::UpdatePlayersInfo()
 {
 	const NTimer::STime time = GetSingleton<IGameTimer>()->GetAbsTime();
@@ -258,7 +239,6 @@ void CGamePlaying::UpdatePlayersInfo()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGamePlaying::ProcessNewClient( const int nClientID )
 {
 	CStreamAccessor pkt = CreateObject<IDataStream>( STREAMIO_MEMORY_STREAM );
@@ -267,12 +247,10 @@ void CGamePlaying::ProcessNewClient( const int nClientID )
 
 	pInGameNetDriver->SendDirect( nClientID, pkt );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGamePlaying::Segment()
 {
 	if ( pInGameNetDriver )
 	{
-		//
 		INetDriver::EMessage eMsgID;
 		int nClientID;
 		int received[128];
@@ -299,7 +277,6 @@ void CGamePlaying::Segment()
 		UpdatePlayersInfo();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CGamePlaying::GetPlayerInfo( const WORD *pszPlayerName, SPlayerInfo *pInfo ) const
 {
 	std::wstring szPlayerName = MakeWideStringFromWordString( pszPlayerName );
@@ -316,7 +293,6 @@ const bool CGamePlaying::GetPlayerInfo( const WORD *pszPlayerName, SPlayerInfo *
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CGamePlaying::GetOurPlayerInfo( SPlayerInfo *pInfo ) const
 {
 	int i = 0;
@@ -329,7 +305,6 @@ const bool CGamePlaying::GetOurPlayerInfo( SPlayerInfo *pInfo ) const
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CGamePlaying::GetNAllies() const
 {
 	int cnt = 0;
@@ -342,7 +317,6 @@ const int CGamePlaying::GetNAllies() const
 
 	return cnt;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SPlayerInfo& CGamePlaying::GetAlly( const int n ) const
 {
 	int cnt = -1;
@@ -361,7 +335,6 @@ const SPlayerInfo& CGamePlaying::GetAlly( const int n ) const
 
 	return players[i];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGamePlaying::TogglePause()
 {
 	CStreamAccessor pkt = CreateObject<IDataStream>( STREAMIO_MEMORY_STREAM );
@@ -370,7 +343,6 @@ void CGamePlaying::TogglePause()
 
 	commands.push_back( new IMultiplayer::CCommand( IMultiplayer::GPC_PAUSE, nOurID, -1, 0 ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGamePlaying::GameSpeed( const int nChange )
 {
 	CStreamAccessor pkt = CreateObject<IDataStream>( STREAMIO_MEMORY_STREAM );
@@ -379,7 +351,6 @@ void CGamePlaying::GameSpeed( const int nChange )
 
 	commands.push_back( new IMultiplayer::CCommand( IMultiplayer::GPC_GAME_SPEED, nOurID, nChange, 0 ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGamePlaying::DropPlayer( const int nLogicID )
 {
 	CPlayers::iterator iter = players.begin();
@@ -388,14 +359,12 @@ void CGamePlaying::DropPlayer( const int nLogicID )
 
 	if ( iter != players.end() )
 	{
-		// после удаления клиента iter станет невалидным
 		const int nClientID = iter->nClientID;
 
 		RemoveClient( nClientID );
 		pInGameNetDriver->Kick( nClientID );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGamePlaying::GetNumberOfPlayers() const
 {
 	int cnt = 0;
@@ -407,7 +376,6 @@ int CGamePlaying::GetNumberOfPlayers() const
 
 	return cnt;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGamePlaying::CommandTimeOut( const bool bSet )
 {
 	CStreamAccessor pkt = CreateObject<IDataStream>( STREAMIO_MEMORY_STREAM );
@@ -415,7 +383,6 @@ void CGamePlaying::CommandTimeOut( const bool bSet )
 
 	pInGameNetDriver->SendBroadcast( pkt );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGamePlaying::SendAliveMessage()
 {
 	CStreamAccessor pkt = CreateObject<IDataStream>( STREAMIO_MEMORY_STREAM );
@@ -423,7 +390,6 @@ void CGamePlaying::SendAliveMessage()
 
 	pInGameNetDriver->SendBroadcast( pkt );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGamePlaying::FinishGame()
 {
 	CStreamAccessor pkt = CreateObject<IDataStream>( STREAMIO_MEMORY_STREAM );
@@ -431,4 +397,3 @@ void CGamePlaying::FinishGame()
 
 	pInGameNetDriver->SendBroadcast( pkt );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

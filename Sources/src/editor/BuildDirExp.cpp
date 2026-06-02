@@ -27,7 +27,6 @@ void CBuildingFrame::SelectDirExpPoint( CBuildingDirExplosionPropsItem *pDirExpP
 {
 	if ( pActiveDirExpPoint )
 	{
-		//устанавливаем предыдущий активный direction explosiom в неактивное состояние
 		pActiveDirExpPoint->pSprite->SetOpacity( MIN_OPACITY );
 		pActiveDirExpPoint->pHLine->SetOpacity( 0 );
 	}
@@ -72,13 +71,11 @@ void CBuildingFrame::ComputeDirExpDirectionLines()
 	vLine2.x = vCenter3.x - (float) (EDGE_LENGTH - 20) * sin( fA + fTemp );
 	vLine2.y = vCenter3.y + (float) (EDGE_LENGTH - 20) * cos( fA + fTemp );
 	
-	//теперь мы нашли точки v1, v2, получим 2D координаты для построения линий
 	{
 		CVerticesLock<SGFXTLVertex> vertices( pFireDirectionVertices );
 		
 		CVec2 v;
 		
-		//0xffff60e6 == (255, 96, 230) розовый цвет
 		DWORD dwColor = 0xffffff00;
 		vertices[0].Setup( vCenter2.x, vCenter2.y, 1, 1, dwColor, 0xff000000, 0, 0 );
 		vertices[1].Setup( vPos2.x, vPos2.y, 1, 1, dwColor, 0xff000000, 0, 0 );
@@ -140,7 +137,6 @@ void CBuildingFrame::SetDirExpPointAngle( const POINT &point )
 	CVec3 vPos3;
 	pSG->GetPos3( &vPos3, vPos2 );
 	
-	//Пересчитаем из координат на плоскости в значения углов
 	CVec3 vCone;
 	vCone.x = vPos3.x - vCenter3.x;
 	vCone.y = vPos3.y - vCenter3.y;
@@ -186,7 +182,6 @@ void CBuildingFrame::GenerateDirExpPoints()
 	CTreeItem *pDirExpItems = pRootItem->GetChildItem( E_BUILDING_DIR_EXPLOSIONS_ITEM );
 	NI_ASSERT( pDirExpItems != 0 );
 	
-	//Сперва найдем минимальные и максимальные координаты тайлов в lockedTiles
 	NI_ASSERT( !lockedTiles.empty() );
 	int nTileMinX = lockedTiles.front().nTileX, nTileMaxX = lockedTiles.front().nTileX;
 	int nTileMinY = lockedTiles.front().nTileY, nTileMaxY = lockedTiles.front().nTileY;
@@ -236,11 +231,9 @@ void CBuildingFrame::GenerateDirExpPoints()
 		switch( i )
 		{
 		case 0:
-			//front left
 			v2.x = (fLeftX + fBottomX) / 2;
 			v2.y = (fLeftY + fBottomY) / 2;
 
-			//на центр тайла
 			pt.x = v2.x;
 			pt.y = v2.y - fCellSizeY / 4;
 
@@ -267,11 +260,9 @@ void CBuildingFrame::GenerateDirExpPoints()
 			break;
 
 		case 1:
-			//front right
 			v2.x = (fRightX + fBottomX) / 2;
 			v2.y = (fRightY + fBottomY) / 2;
 
-			//на центр тайла
 			pt.x = v2.x;
 			pt.y = v2.y - fCellSizeY / 4;
 			
@@ -298,11 +289,9 @@ void CBuildingFrame::GenerateDirExpPoints()
 			break;
 
 		case 2:
-			//back right
 			v2.x = (fTopX + fRightX) / 2;
 			v2.y = (fTopY + fRightY) / 2;
 
-			//на центр тайла
 			pt.x = v2.x;
 			pt.y = v2.y + fCellSizeY / 4;
 			
@@ -329,11 +318,9 @@ void CBuildingFrame::GenerateDirExpPoints()
 			break;
 
 		case 3:
-			//back left
 			v2.x = (fLeftX + fTopX) / 2;
 			v2.y = (fLeftY + fTopY) / 2;
 			
-			//на центр тайла
 			pt.x = v2.x;
 			pt.y = v2.y + fCellSizeY / 4;
 			
@@ -360,7 +347,6 @@ void CBuildingFrame::GenerateDirExpPoints()
 			break;
 
 		case 4:
-			//top center
 			v2.x = (fLeftX + fRightX) / 2;
 			v2.y = (fLeftY + fRightY) / 2;
 			pSG->GetPos3( &v3, v2 );

@@ -1,18 +1,13 @@
 #ifndef __UIBASIC_H__
 #define __UIBASIC_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "UIInternal.h"
 #include "..\lualib\script.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSimpleWindow;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::list< CObj<IUIElement> > CWindowList;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSimpleWindow
 {
 	DECLARE_SERIALIZE;
 	
-	//
 	CTRect<float> wndRect;							//координаты окошка относительно экрана
 	int nPositionFlag;									//задает точку привязки
 	CVec2 vPos;													//координаты левой верхней точки окошка относительно выбранной точки привязки
@@ -32,7 +27,6 @@ class CSimpleWindow
 	CObj<IManipulator> pManipulator;
 	std::string szHighSound;						//звук, проигрываемый когда мышка наводится на контрол, возможно они должны быть разные для разных state, хз
 	
-	//для текста
 	int nTextAlign;
 	DWORD dwTextColor;
 	CVec2 vShiftText;
@@ -41,18 +35,13 @@ class CSimpleWindow
 	bool bRedLine;
 	bool bSingleLine;
 
-	//для тени
 	DWORD dwShadowColor;
 	CVec2 vShadowShift;
 	std::string szToolKey;
 	
-	//bound rect
 	CTRect<float> rcBound;
 	bool bBounded;
 	
-	//для мигания кнопочки при нажатии мышкой (кнопочка мигает, когда nBlink == 1 и у нее один state)
-	//если у нее nBlink == 2 то кнопочка мигает независимо от количества state
-	//если 0, то при нажатии кнопка не мигает
 	int nBlink;
 	DWORD dwLastBlinkTime;
 	DWORD dwCurrentBlinkColor;
@@ -63,7 +52,6 @@ class CSimpleWindow
 	void InitDependentInfo();
 
 protected:
-	//вычисляет новые значения локальных координат, пользуясь глобальными координатами и pParent
 	void UpdateLocalCoordinates();
 	void SetShowBackgroundFlag( bool bFlag ) { bShowBackground = bFlag; }
 
@@ -95,14 +83,11 @@ public:
 		dwTextColor( 0xff9aceb7 ), nFontSize( 1 ), bBounded( false ), vTextPos( 0, 0 ), bRedLine( false ), vShadowShift( 0, 0 ), dwShadowColor( 0xff000000 ), nBlinkColorIndex( 0 ) {}
 	virtual ~CSimpleWindow() {}
 	
-	// serializing...
 	virtual int STDCALL operator&( IDataTree &ss );
 
-	// update
 	virtual bool STDCALL Update( const NTimer::STime &currTime );
 	virtual void STDCALL Reposition( const CTRect<float> &rcParent );
 
-	// text
 	virtual void STDCALL SetWindowText( int nState, const WORD *pszText );
 	inline void STDCALL SetWindowText( int nState, const wchar_t *pszText ) 
 	{ 
@@ -112,7 +97,6 @@ public:
 	virtual const WORD* STDCALL GetWindowText( int nState );
 	virtual void STDCALL SetTextColor( DWORD dwColor );
 
-	// tool tip functions
 	virtual IText* STDCALL GetHelpContext( const CVec2 &vPos, CTRect<float> *pRect );
 	virtual void STDCALL SetHelpContext( int nState, const WORD *pszToolTipText );
 	inline void STDCALL SetHelpContext( int nState, const wchar_t *pszToolTipText ) 
@@ -121,7 +105,6 @@ public:
 		SetHelpContext( nState, reinterpret_cast<const WORD*>( pszToolTipText ) ); 
 	}
 	
-	//CRAP set texture
 	virtual void STDCALL SetWindowTexture( IGFXTexture *pTexture );
 	virtual IGFXTexture* STDCALL GetWindowTexture();
 	virtual void STDCALL SetWindowMap( const CTRect<float> &maps );
@@ -129,11 +112,9 @@ public:
 	virtual void STDCALL SetWindowID( int _nID );
 	virtual void STDCALL SetBoundRect( const CTRect<float> &rc ) { bBounded = true; rcBound = rc; }
 	
-	// drawing
 	virtual void STDCALL Draw( IGFX *pGFX );
 	virtual void STDCALL Visit( interface ISceneVisitor *pVisitor );
 	
-	// cursor and actions
 	virtual bool STDCALL OnLButtonDblClk( const CVec2 &vPos );
 	virtual bool STDCALL OnMouseMove( const CVec2 &vPos, EMouseState mouseState );
 	virtual bool STDCALL OnLButtonDown( const CVec2 &vPos, EMouseState mouseState );
@@ -150,7 +131,6 @@ public:
 	virtual int STDCALL GetPositionFlag() { return nPositionFlag; }
 	virtual void STDCALL SetParent( interface IUIContainer *pPapa ) { pParent = pPapa; }
 	virtual IUIContainer* STDCALL GetParent() { return pParent; }
-	// state
 	virtual void STDCALL SetFocus( bool bFocus );
 	virtual void STDCALL EnableWindow( bool bEnable );
 	virtual bool STDCALL IsWindowEnabled() { return bWindowActive; }
@@ -167,7 +147,6 @@ public:
 	virtual void STDCALL GetTextSize( const int nState, int *pSizeX, int *pSizeY ) const;
 
 
-	// только для внутреннего применения
 	const CTRect<float>& GetScreenRect() { return wndRect; }
 	void SetScreenRect( const CTRect<float> &rc ) { wndRect = rc; }
 	void UpdateSubRects();
@@ -181,18 +160,12 @@ public:
 	void InitText();
 	
 	float GetWidth() const { return wndRect.Width(); }
-	// duplicate
 	void CopyInternals( CSimpleWindow * pWnd );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMultipleWindow : public CSimpleWindow
 {
 	DECLARE_SERIALIZE;
-	//
-	//
 	CWindowList childList;							//child windows
-	//Самое первое окошко в этом списке имеет фокус, ему приходят сообщения от клавиатуры.
-	//Окошки отрисовываются с конца списка в начало
 
 	CPtr<IUIElement> pHighlighted;			//подсвеченное окно
 	CPtr<IUIElement> pPushed;						//нажатое окно (левая кнопка)
@@ -202,10 +175,8 @@ class CMultipleWindow : public CSimpleWindow
 	typedef std::list< SUIMessage > CMessageList;
 	CMessageList messageList;
 
-	//постоянная для mouse wheel support
 	float fMouseWheelMultiplyer;
 
-	//поддержка LUA
 	std::string szLuaFileName;
 	bool bLua;																	//проинициализировалась ли LUA
 	Script luaScript;
@@ -219,7 +190,6 @@ class CMultipleWindow : public CSimpleWindow
 	typedef std::vector< SLuaValue > CLuaValues;
 	static CLuaValues staticLuaValues;
 
-	//Для выезжающих окон
 	bool bAnimation;						//если установлен флаг, то окошко с анимацией
 	bool bAnimationRunning;			//флаг того, что происходит анимация, полезен для скорости
 	DWORD dwLastOpenTime;				//время когда началась анимация открытия
@@ -230,7 +200,6 @@ class CMultipleWindow : public CSimpleWindow
 	CVec2 vBeginPos;
 	int nAnimationCmdShow;
 	
-	//CRAP
 	bool bModal;			//используется для того, чтобы все сообщения передавались только первому ребенку
 	friend class CUIScrollTextBox;
 	friend class CUIObjective;
@@ -252,24 +221,19 @@ public:
 	CMultipleWindow() : bLua( false ), bModal( false ), dwAnimationTime( 200 ), dwLastOpenTime( 0 ), fMouseWheelMultiplyer( 4.375f ),
 		dwLastCloseTime( 0 ), bAnimation( false ), bAnimationRunning( false ), nAnimationCmdShow( 0 ) {}
 	
-	// serializing...
 	virtual int STDCALL operator&( IDataTree &ss );
 	
-	// update
 	virtual bool STDCALL Update( const NTimer::STime &currTime );
 	virtual void STDCALL SetFocus( bool bFocus );
 	virtual void STDCALL SetFocusedWindow( IUIElement *pNewFocusWindow );
 	virtual void STDCALL Reposition( const CTRect<float> &rcParent );
 	virtual void STDCALL EnableWindow( bool bEnable );
 	
-	// tool tip functions
 	virtual IText* STDCALL GetHelpContext( const CVec2 &vPos, CTRect<float> *pRect );
 
-	// drawing
 	virtual void STDCALL Draw( IGFX *pGFX );
 	virtual void STDCALL Visit( interface ISceneVisitor *pVisitor );
 	
-	// cursor and actions
 	virtual bool STDCALL OnLButtonDblClk( const CVec2 &vPos );
 	virtual bool STDCALL OnMouseMove( const CVec2 &vPos, EMouseState mouseState );
 	virtual bool STDCALL OnLButtonDown( const CVec2 &vPos, EMouseState mouseState );
@@ -294,19 +258,15 @@ public:
 
 	virtual IUIElement* STDCALL PickElement( const CVec2 &vPos, int nRecursion );
 
-	//Для работы LUA
 	static int AddMessage( lua_State *pLuaState );			//вызывается из скрипта
 	static int SaveLuaValue( lua_State *pLuaState );		//вызывается из скрипта
 	static int IsGameButtonProcessing( lua_State *pLuaState ); //вызывается из скрипта
 	
-	//для внутреннего применения
 	void SetModalFlag( bool bFlag ) { bModal = bFlag; }
 	bool GetModalFlag() { return bModal; }
 	void SetMouseWheelMultiplyer( float fVal ) { fMouseWheelMultiplyer = fVal; }
 	float GetMouseWheelMultiplyer() { return fMouseWheelMultiplyer; }
 	
-	// duplication 
 	void CopyInternals( CMultipleWindow * pWnd );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __UIBASIC_H__

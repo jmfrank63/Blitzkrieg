@@ -1,12 +1,9 @@
 #ifndef __IMISSION_H__
 #define __IMISSION_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum
 {
 	MISSION_BASE_VALUE							= 0x100e0000,
-	//
 	MISSION_MO_OBJECT								= MISSION_BASE_VALUE + 1,
 	MISSION_MO_UNIT_MECHANICAL			= MISSION_BASE_VALUE + 2,
 	MISSION_MO_UNIT_INFANTRY				= MISSION_BASE_VALUE + 3,
@@ -15,21 +12,17 @@ enum
 	MISSION_MO_SQUAD								= MISSION_BASE_VALUE + 6,
 	MISSION_MO_ENTRENCHMENT_SEGMENT	= MISSION_BASE_VALUE + 7,
 	MISSION_MO_BRIDGE_SPAN					= MISSION_BASE_VALUE + 8,
-	//
 	MISSION_UI_WHO_IN_CONTAINER			= MISSION_BASE_VALUE + 50,
 	MISSION_UI_UNIT_OBSERVER				= MISSION_BASE_VALUE + 51,
-	//
 	MISSION_INTERFACE_MISSION				= MISSION_BASE_VALUE + 110,
 	MISSION_COMMAND_MISSION					= MISSION_BASE_VALUE + 111,
 	MISSION_WORLD										= MISSION_BASE_VALUE + 112,
-	//
 	MISSION_INTERFACE_SAVE_MISSION	= MISSION_BASE_VALUE + 121,
 	MISSION_COMMAND_SAVE_MISSION		= MISSION_BASE_VALUE + 122,
 	MISSION_INTERFACE_LOAD_MISSION	= MISSION_BASE_VALUE + 123,
 	MISSION_COMMAND_LOAD_MISSION		= MISSION_BASE_VALUE + 124,
 	MISSION_INTERFACE_QUIT_MISSION	= MISSION_BASE_VALUE + 125,
 	MISSION_COMMAND_QUIT_MISSION		= MISSION_BASE_VALUE + 126,
-	//
 	MISSION_INTERFACE_CAMPAIGN			= MISSION_BASE_VALUE + 132,
 	MISSION_COMMAND_CAMPAIGN				= MISSION_BASE_VALUE + 133,
 	MISSION_INTERFACE_CHAPTER				= MISSION_BASE_VALUE + 134,
@@ -94,7 +87,6 @@ enum
 	GAMETT_UI_SERVERINFO												= MISSION_BASE_VALUE + 209,
 	MISSION_COMMAND_MULTIPLAYER_STARTINGGAME		= MISSION_BASE_VALUE + 210,
 	MISSION_INTERFACE_MULTIPLAYER_STARTINGGAME	= MISSION_BASE_VALUE + 211,
-//	GAMETT_NOTIFICATION_PARAM_SENDCHAT					= MISSION_BASE_VALUE + 212,
 	
 	MISSION_INTERFACE_MULTYPLAYER_CHAT					= MISSION_BASE_VALUE + 213,
 	MISSION_COMMAND_MULTYPLAYER_CHAT						= MISSION_BASE_VALUE + 214,
@@ -156,10 +148,8 @@ enum
 
 	MISSION_FORCE_DWORD = 0x7fffffff
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EMissionCommands
 {
-	// developer's commands
 	MC_SHOW_GRID						= 0x00200001,
 	MC_SHOW_OBJECTS					= 0x00200002,
 	MC_SHOW_UNITS						= 0x00200003,
@@ -172,16 +162,12 @@ enum EMissionCommands
 	MC_SHOW_DEPTH						= 0x0020000a,
 	MC_SHOW_UI							= 0x0020000b,
 	MC_SHOW_AVIA_BUTTONS		= 0x0020000c,
-	//
 	MC_SELECT_FIRST_OBJECT	= 0x00200011,
 	MC_SELECT_NEXT_OBJECT		= 0x00200012,
 	MC_DROP_OBJECT					= 0x00200013,
-	//
 	MC_ENTER_INGAME_EDITOR	= 0x00200014,
 	MC_LEAVE_INGAME_EDITOR	= 0x00200015,
-	// developer's commands 2
 	MC_SAVE_SCENE						= 0x00200016,
-	// actions
 	MC_ADD_ACTION_ON				= 0x00200023,
 	MC_ADD_ACTION_OFF				= 0x00200024,
 	MC_FORCE_ACTION_MOVE_ON	= 0x00200025,
@@ -213,15 +199,11 @@ enum EMissionCommands
 
 	MC_SET_TEXT_MODE				= 0x00200100,
 	MC_CANCEL_TEXT_MODE			= 0x00200101,
-	//
 	MC_STATUS_OBJECT				= 0x00200200,
-	//
 	MC_MEDAL_CLICKED				= 0x00200300,
-	//
 	MC_MOVIE_SKIP_SEQUENCE	= 0x00200400,
 	MC_MOVIE_SKIP_MOVIE			= 0x00200401,
 	MC_MOVIE_SKIP_FRAME			= 0x00200402,
-	//
 	MC_UPDATE_WHO_IN_CONTAINER	= 0x00200403,
 	
 	MC_UPDATE_TEAM_F_R_AGS	= 0x00200404,								// WHEN team fRags changes
@@ -260,7 +242,6 @@ enum EMissionCommands
 	MC_VISUALIZE_FEEDBACK_UNITS_PASSED          = 0x0020041c,
 	MC_FORCE_DWORD					= 0x7fffffff
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SMissionStatusObject
 {
 	DWORD params[4];											// primary params: up to 4 different params
@@ -270,20 +251,16 @@ struct SMissionStatusObject
 	DWORD dwIconsStatus;									// icons status: one bit for each icon, set for this object
 	DWORD dwPlayer;												// high word - diplomacy, low word - player, this unit belong to
 	wchar_t pszName[128];									// name of this object
-	//
 	int GetLow( int nIndex, const DWORD *vals ) const { return int( short(vals[nIndex] & 0xffff) ); }
 	int GetHigh( int nIndex, const DWORD *vals ) const { return int( short((vals[nIndex] >> 16) & 0xffff) ); }
 	float GetRelative( int nIndex, const DWORD *vals ) const { return Clamp( GetHigh(nIndex, vals) == 0 ? 0.0f : float( GetLow(nIndex, vals) ) / float( GetHigh(nIndex, vals) ), 0.0f, 1.0f ); }
 	void GetSplit( int nIndex, const DWORD *vals, int *pnLow, int *pnHigh ) { *pnLow = GetLow( nIndex, vals ); *pnHigh = GetHigh( nIndex, vals ); }
-	//
 	SMissionStatusObject() { Clear(); }
 	void Clear() { Zero(*this); nScenarioIndex = -1; }
 };
 inline DWORD PackParams( int nLow, int nHigh ) { return ( DWORD(nHigh & 0xffff) << 16 ) | DWORD( nLow & 0xffff ); }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IClientAckManager : public IRefCount
 {
-		// type ID
 	enum { tidTypeID = GAMETT_CLIENT_ACK_MANAGER };
 	virtual void STDCALL AddDeathAcknowledgement( const CVec3 &vPos, const std::string &sound, const unsigned int nTimeSiceStart ) = 0;
 	virtual void STDCALL AddAcknowledgement( interface IMOUnit *pUnit, const enum EUnitAckType eType, const std::string &sound, const int nSet, const unsigned int nTimeSiceStart = 0 ) = 0;
@@ -296,5 +273,4 @@ interface IClientAckManager : public IRefCount
 	virtual void STDCALL Clear() = 0;
 	virtual bool STDCALL IsNegative( const enum EUnitAckType eAck ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __IMISSION_H__

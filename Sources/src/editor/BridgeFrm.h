@@ -24,10 +24,8 @@ public:
 	CBridgeFrame();
 	virtual ~CBridgeFrame();
 
-// Attributes
 public:
 
-	//для редактирования fire points
 	struct SFirePoint
 	{
 		CBridgeFirePointPropsItem *pFirePoint;
@@ -35,7 +33,6 @@ public:
 		CPtr<IObjVisObj> pHLine;
 		
 		float fDirection;		//угол направления конуса стрельбы
-		//		float fAngle;				//полный угол конуса стрельбы
 	};
 	
 	enum EActiveMode
@@ -52,7 +49,6 @@ public:
 		E_SUB_DIR,
 	};
 	
-// Operations
 public:
 	virtual void GFXDraw();
 	virtual void ShowFrameWindows( int nCommand );
@@ -70,13 +66,8 @@ public:
 	void RemoveBridgeIndex( int nActiveDamage, int nIndex );
 	int GetFreeBridgeIndex( int nActiveDamage );
 
-// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CBridgeFrame)
 protected:
-	//}}AFX_VIRTUAL
 
-// Implementation
 private:
 	int m_mode;
 	CVec2 objShift, zeroShift;
@@ -104,7 +95,6 @@ private:
 	
 	std::list<int> freeSpanIndexes[3];			//для хранения незаполненных индексов span'ов
 	
-	//линия выравнивания
 	CPtr<IGFXIndices> pLineIndices;
 	CPtr<IGFXVertices> pLineVertices;
 	float m_fx1, m_fx2, m_fy1, m_fy2;
@@ -114,12 +104,10 @@ private:
 	EActiveMode eActiveMode;
 	EActiveSubMode eActiveSubMode;
 	
-	//для костров
 	typedef list<SFirePoint> CListOfFirePoints;
 	CListOfFirePoints firePoints;
 	SFirePoint *pActiveFirePoint;				//к этой переменной плохо ссылаться напрямую, лучше использовать SetActiveFirePoint()
 	
-	//для дымов при разрушении
 	CBridgeSmokePropsItem *pActiveSmokePoint;
 	
 	CPtr<IGFXVertices> pConeVertices;
@@ -133,7 +121,6 @@ private:
 	
 public:
 	void SetActiveMode( EActiveMode mode );
-	//для редактирования fire point
 	void DeleteFirePoint( CTreeItem *pFire );
 	void SelectFirePoint( CTreeItem *pFire );
 	void SetActiveFirePoint( SFirePoint *pFirePoint );
@@ -145,7 +132,6 @@ public:
 	void MoveFirePoint( const POINT &point );
 	void GenerateFirePoints();
 	
-	//для редактирования smoke effects
 	void AddOrSelectSmokePoint( const POINT &point );
 	void DeleteSmokePoint();
 	void SelectSmokePoint( CBridgeSmokePropsItem *pSmokePoint );
@@ -171,7 +157,6 @@ protected:
 	virtual void SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const char *pszProjectName );
 	virtual void LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem );
 
-	//сохраняет инфо об fire, smoke points
 	void SavePointsInformation( SBridgeRPGStats &rpgStats, CTreeItem *pRootItem, const char *pszProjectName );
 	void FillRPGStats( SBridgeRPGStats &rpgStats, CTreeItem *pRootItem, const char *pszProjectName );
 	void GetRPGStats( const SBridgeRPGStats &rpgStats, CTreeItem *pRootItem );
@@ -191,9 +176,7 @@ protected:
 	void SaveSegmentInformation( SBridgeRPGStats::SSegmentRPGStats &segment, CBridgePartsItem *pBridgeSpansItem, CSpritesPackBuilder::CPackParameters *pPacks, const CVec3 &vPapa, int &nUMinX, int &nUMaxX, int &nUMinY, int &nUMaxY );
 	void DrawLockedTiles( IGFX *pGFX );
 		
-	// Generated message map functions
 protected:
-	//{{AFX_MSG(CBridgeFrame)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnDrawGrid();
 	afx_msg void OnUpdateDrawGrid(CCmdUI* pCmdUI);
@@ -221,13 +204,9 @@ protected:
 	afx_msg void OnUpdateSetSmokePoint(CCmdUI* pCmdUI);
 	afx_msg void OnGeneratePoints();
 	afx_msg void OnUpdateGeneratePoints(CCmdUI* pCmdUI);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 
-/////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif		//__BRIDGEFRM_H__

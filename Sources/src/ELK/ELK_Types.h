@@ -8,7 +8,6 @@
 #include "..\RandomMapGen\Registry_Types.h"
 #include "..\RandomMapGen\Resource_Types.h"
 #include "..\Formats\fmtFont.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SELKTextProperty
 {
 	enum STATE
@@ -36,7 +35,6 @@ struct SELKTextProperty
 		return *this;
 	}	
 	
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 };
@@ -49,19 +47,16 @@ struct SELKDescription
 	bool bGenerateFonts;				// �������� ��� ��� �����
 
 	SELKDescription() : bGenerateFonts( false ) {}
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SELKElement
 {
 public:
 	static const TCHAR DATA_BASE_FOLDER[];
 	static const TCHAR DATA_BASE_RESERVE_FOLDER[];
 
-	//�������� ������� � ����� �� ����������
 	static void GetDataBaseFolder( const std::string &rszELKPath, std::string *pszDataBaseFolder );
 	static void GetDataBaseReserveFolder( const std::string &rszELKPath, std::string *pszDataBaseReserveFolder );
 	void GetDataBaseFolder( std::string *pszDataBaseFolder ) const;
@@ -94,7 +89,6 @@ public:
 	virtual int STDCALL operator&( IDataTree &ss );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SELKElementStatistic
 {
 	struct SState 
@@ -151,7 +145,6 @@ struct SELKElementStatistic
 	virtual int STDCALL operator&( IDataTree &ss );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SELKStatistic
 {
 	std::vector<SELKElementStatistic> original; //�� ���������
@@ -185,7 +178,6 @@ struct SELKStatistic
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CELK
 {
 public:
@@ -228,30 +220,20 @@ public:
 	SEnumFolderStructureParameter enumFolderStructureParameter;
 	
 public:
-	//������ �� �����������
 	bool IsOpened() { return ( !szPath.empty() ); }
 	bool Open( const std::string &rszELKPath, bool bEnumFiles );
 	bool Save();
 	void Close();
 	
-	//���������� ���������� ��������!!
-	//std::string szFileName = szFileName.substr( 0, szFileName.rfind( '.' ) );
-	//�������� ��������� ������ � UNICODE
 	static void GetOriginalText  ( const std::string &rszTextPath, CString *pstrText, int nCodePage, bool bRemove_0D = false );
 	static void GetTranslatedText( const std::string &rszTextPath, CString *pstrText, int nCodePage, bool bRemove_0D = false );
 	static void GetDescription   ( const std::string &rszTextPath, CString *pstrText, int nCodePage, bool bRemove_0D = false );
 	static int GetState( const std::string &rszTextPath, bool *pbTranslated );
 
-	//���������� ���������� ��������!!
-	//std::string szFileName = szFileName.substr( 0, szFileName.rfind( '.' ) );
-	//���������� ��������� ������ � UNICODE
 	static void SetTranslatedText( const std::string &rszTextPath, const CString &rstrText, int nCodePage, bool bAdd_0D = false );
 	static int SetState( const std::string &rszTextPath, int nState, bool *pbTranslated ); //���������� ���������� �����
 	
-	//������� PAK ����
 	static bool CreatePAK( const std::string &rszGamePath, const std::string &rszFilePath, const std::string &rszZIPToolPath, class CProgressDialog* pwndProgressDialog = 0 );
-	//���������� ������������ ������ ( APPROVED )
-	//������ ��� SELKElement
 	static bool ExportToPAK( const std::string &rszELKPath,
 													 const std::string &rszPAKPath,
 													 const std::string &rszZIPToolPath,
@@ -266,16 +248,12 @@ public:
 													 const struct SSimpleFilter *pELKFilter = 0 );
 	static bool ImportFromPAK( const std::string &rszPAKPath, const std::string &rszELKPath, bool bAbsolute, std::string *pszNewVersion, class CProgressDialog* pwndProgressDialog = 0 );
 
-	//����������� PAK � ELK c �������� ���������
-	//��� ����� CELK ( ������� �������� ����� SELKElement )
 	static bool ExportToXLS( const CELK &rELK, const std::string &rszXLSPath, class CELKTreeWindow *pwndELKTreeWindow, int nCodePage, class CProgressDialog* pwndProgressDialog = 0 );
 	static bool ImportFromXLS( const CELK &rELK, const std::string &rszXLSPath, std::string *pszNewVersion, int nCodePage, class CProgressDialog* pwndProgressDialog = 0 );
 
 	static bool CreateStatistic( SELKStatistic *pStatistic, class CELKTreeWindow *pwndELKTreeWindow, int nCodePage, class CProgressDialog* pwndProgressDialog = 0 );
 
-	//����� � ������������ ��� ����, ������� � ����������
 	static bool UpdateELK( const std::string &rszPath, const std::string &rszPAKFileName, class CProgressDialog* pwndProgressDialog = 0 );
-	//����� ���� �� ���������� ����� � �������� �� � ����, ��� ���� ��������� ���� ��� ���
 	static void UpdateGame( const CELK &rELK,
 													const std::string &rszZIPToolPath,
 													class CELKTreeWindow *pwndELKTreeWindow,
@@ -286,12 +264,10 @@ public:
 													int nCodePage,
 													class CProgressDialog* pwndProgressDialog = 0 );
 
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::list<std::string> TSimpleFilterItem;
 typedef std::list<TSimpleFilterItem> TSimpleFilter;
 struct SSimpleFilter
@@ -322,16 +298,11 @@ struct SSimpleFilter
 
 	bool Check( const std::string &rszFolder, bool _bTranslated, int nState ) const;
 
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 };
 typedef std::unordered_map<std::string, SSimpleFilter> TFilterHashMap;
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// CFontInfo
-//      This class stores information about the currently loaded font.
-//      This includes TEXTMETRIC, ABCs, Kerning pairs and estimated texture size for the font letters image
 struct SFontInfo
 {
   HFONT hFont;													// HFONT used to draw with this font
@@ -340,7 +311,6 @@ struct SFontInfo
 	std::vector<KERNINGPAIR> kps;					// kernging pairs
 	int nTextureSizeX, nTextureSizeY;			// estimated texture size
 	std::unordered_map<WORD, WORD> translate;	// ANSI => UNICODE translation table
-	//
 	WORD Translate( WORD code ) const
 	{
 		std::unordered_map<WORD, WORD>::const_iterator pos = translate.find( code );
@@ -348,12 +318,10 @@ struct SFontInfo
 		return pos->second;
 	}
 
-  //
   SFontInfo() : hFont( 0 ), nTextureSizeX( 0 ), nTextureSizeY( 0 ) {  }
   virtual ~SFontInfo() { if ( hFont ) DeleteObject( hFont ); }
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SKPZeroFunctional
 {
   const std::unordered_map<WORD, WORD> *pTranslate;
@@ -377,9 +345,7 @@ struct SKPZeroFunctional
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define FONTS_COUNT ( 4 )
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFontGen
 {
 public:
@@ -392,14 +358,9 @@ public:
 	static LPCTSTR FONTS_FOLDER[];
 
 public:
-	// estimate, is requested number of chars fit in the selected texture
 	static bool IsFit( const SFontInfo &fi, DWORD dwNumChars, DWORD dwSizeX, DWORD dwSizeY );
-	// estimate optimal texture size
 	static bool EstimateTextureSize( SFontInfo &fi, DWORD dwNumChars );
-	// Fills SFontInfo fi with text metrics, char widths and kerning pairs
-	// -> hdc: HDC that the font is currently selected into
 	static void MeasureFont( HDC hdc, SFontInfo &fi, std::vector<WORD> &chars, bool bSingleByte, int nCodePage );
-	// create font object and estimate metrics and texture size
 	static void LoadFont( HWND hWnd,
 												SFontInfo &fi,
 												int nHeight,
@@ -411,12 +372,9 @@ public:
 												const CString &strFaceName,
 												bool bSingleByte,
 												std::vector<WORD> &chars );
-	// draw font in the DC
 	static bool DrawFont( HDC hdc, const SFontInfo &fi, const std::vector<WORD> &chars );
-	// draw font in the DC, extract bitmap from the DC and convert it to the Image
 	static IImage* CreateFontImage( const SFontInfo &fi, const std::vector<WORD> &chars );
 	
-	// create and fill SFontFormat with the complete data for the font
 	static SFontFormat* CreateFontFormat( const std::string &szFaceName, const SFontInfo &fi, const std::vector<WORD> &chars );
 
 	static bool GenerateFont( const std::string &rszFolder,
@@ -430,7 +388,6 @@ public:
 	static int GetFonts( DWORD dwCharacterSet, std::set<CString> *pFontsList );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SMainFrameParams
 {
 	struct SSearchParam
@@ -454,7 +411,6 @@ struct SMainFrameParams
 
 		SSearchParam() : bFindDown( true ), bFindMatchCase( false ), bFindWholeWord( false ), nWindowType( WT_ORIGINAL ), nPosition( 0 ) {}
 
-		// serializing...
 		virtual int STDCALL operator&( IStructureSaver &ss );
 		virtual int STDCALL operator&( IDataTree &ss );
 	};
@@ -501,7 +457,6 @@ struct SMainFrameParams
 			dwLargeFontSize( CFontGen::FONTS_SIZE[3] )
 	{}
 
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 
@@ -511,5 +466,4 @@ struct SMainFrameParams
 
 	const SSimpleFilter* GetCurrentFilter() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // !defined(__ELK_TYPES__)

@@ -13,7 +13,6 @@
  *
  */
 
-// Boris : highly questionable header for BC++
 
 #ifndef _STLP_mem_h
 
@@ -44,8 +43,4 @@
 
 #endif /* _STLP_mem_h */
 
-// #endif /* NATIVE */
-// Local Variables:
-// mode:C++
-// End:
 

@@ -53,6 +53,3 @@ using STLPORT::__multiset__;
 
 #endif /* _STLP_MULTISET_H */
 
-// Local Variables:
-// mode:C++
-// End:

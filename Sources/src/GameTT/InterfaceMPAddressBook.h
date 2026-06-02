@@ -1,19 +1,15 @@
 #ifndef __INTERFACEMPADDRESSBOOK_H__
 #define __INTERFACEMPADDRESSBOOK_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Common\InterfaceScreenBase.h"
 #include "..\Input\InputHelper.h"
 #include "iMission.h"
 #include "MapSettingsWrapper.h"
 #include "InterMission.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInterfaceMPAddressBook  : public CInterfaceMultiplayerScreen
 {
 	OBJECT_NORMAL_METHODS( CInterfaceMPAddressBook );
-	//
 	NInput::CCommandRegistrator msgs;
 	typedef std::unordered_set<std::string> CServersList;
 	
@@ -22,7 +18,6 @@ class CInterfaceMPAddressBook  : public CInterfaceMultiplayerScreen
 
 	IUIDialog *pDialogAskAddress;
 	IUIDialog *pDialogWaitForConnection;
-	//
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
 	virtual ~CInterfaceMPAddressBook() {}
 	bool ProcessMPCommand( const SToUICommand &cmd );
@@ -45,7 +40,6 @@ public:
 	virtual void STDCALL StartInterface();
 	virtual void STDCALL OnGetFocus( bool bFocus );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CICMPAddressBook : public CInterfaceCommandBase<CInterfaceMPAddressBook, MISSION_INTERFACE_ADDRESS_BOOK>
 {
 	OBJECT_NORMAL_METHODS( CICMPAddressBook );
@@ -54,7 +48,6 @@ class CICMPAddressBook : public CInterfaceCommandBase<CInterfaceMPAddressBook, M
 	{ 
 		pML->PushInterface( pInterface ); 
 	}
-	//
 	CICMPAddressBook() {  }
 
 public:
@@ -62,5 +55,4 @@ public:
 	{
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __INTERFACEMPADDRESSBOOK_H__

@@ -9,10 +9,8 @@
 #include "..\GameTT\MessageReaction.h"
 #include "..\Common\PauseGame.h"
 #include "..\Main\ScenarioTracker.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMultipleWindow::CMessageList CMultipleWindow::staticMessageList;
 CMultipleWindow::CLuaValues CMultipleWindow::staticLuaValues;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IManipulator *CSimpleWindow::GetManipulator()
 {
 	if ( !pManipulator )
@@ -24,7 +22,6 @@ IManipulator *CSimpleWindow::GetManipulator()
 	
 	return pManipulator;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::GetTextSize( const int nState, int *pSizeX, int *pSizeY ) const
 {
 	NI_ASSERT_T( states.size() > nState, NStr::Format( "wrong state number %d", nState ) );
@@ -34,7 +31,6 @@ void CSimpleWindow::GetTextSize( const int nState, int *pSizeX, int *pSizeY ) co
 			*pSizeY = states[nState].pGfxText->GetNumLines() * states[nState].pGfxText->GetLineSpace();
 		if ( pSizeX )
 		{
-			//*pSizeX = states[nState].pGfxText->GetWidth();
 			*pSizeX = vSize.x;
 		}
 	}
@@ -46,10 +42,8 @@ void CSimpleWindow::GetTextSize( const int nState, int *pSizeX, int *pSizeY ) co
 			*pSizeY = 0;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::CopyInternals( CSimpleWindow * pWnd )
 {
-	//*pWnd = *this;
 	pWnd->wndRect = wndRect;							//���������� ������ ������������ ������
 	pWnd->nPositionFlag = nPositionFlag;									//������ ����� ��������
 	pWnd->vPos = vPos;													//���������� ����� ������� ����� ������ ������������ ��������� ����� ��������
@@ -94,7 +88,6 @@ void CSimpleWindow::CopyInternals( CSimpleWindow * pWnd )
 
 	pWnd->InitDependentInfo();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSimpleWindow::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -160,7 +153,6 @@ int CSimpleWindow::operator&( IDataTree &ss )
 		InitDependentInfo();
 	}
 
-	//CRAP
 	CTRect<float> rc;
 	rc.left = rc.top = 0.0f;
 	rc.right = vSize.x;
@@ -177,14 +169,12 @@ int CSimpleWindow::operator&( IDataTree &ss )
 			}
 		}
 	}
-	//end of CRAP
 
 	saver.Add( "HighSound", &szHighSound );
 	NI_ASSERT_T( states.size() > 0, "Error: window states size is zero" );
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::InitDependentInfo()
 {
 		std::string szFontName;
@@ -212,7 +202,6 @@ void CSimpleWindow::InitDependentInfo()
 			}
 		}
 
-		//��������� ������� ��� ���������� states
 		for ( int i = 0; i < states.size(); i++ )
 		{
 			if ( states[i].szToolKey.size() == 0 )
@@ -223,7 +212,6 @@ void CSimpleWindow::InitDependentInfo()
 				states[i].pToolText = CreateObject<ITextString>( TEXT_STRING );
 		}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::UpdateSubRects()
 {
 	CTRect<float> rc;
@@ -242,7 +230,6 @@ void CSimpleWindow::UpdateSubRects()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSimpleWindow::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -259,12 +246,9 @@ int CSimpleWindow::operator&( IStructureSaver &ss )
 	saver.Add( 11, &nTextAlign );
 	saver.Add( 12, &dwTextColor );
 	saver.Add( 14, &nFontSize );
-	//saver.Add( 15, &pHighSound );
 	saver.Add( 15, &szHighSound );
 	saver.Add( 16, &wndRect );
 	saver.Add( 18, &szToolKey );
-//	saver.Add( 19, &pToolText );
-	//20 is empty for saves compatibility
 	saver.Add( 21, &bBounded );
 	saver.Add( 22, &rcBound );
 	saver.Add( 23, &vTextPos );
@@ -282,7 +266,6 @@ int CSimpleWindow::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSimpleWindow::IsInside( const CVec2 &vPos )
 {
 	const CUIWindowSubState &subState = states[nCurrentState].subStates[nCurrentSubState];
@@ -293,7 +276,6 @@ bool CSimpleWindow::IsInside( const CVec2 &vPos )
 	if ( !wndRect.IsInside( vPos ) )
 		return false;			//��� �������������� ������
 	
-	//����������� �������� ���������� � ���������� �����
 	int nSizeX = subState.pTexture->GetSizeX( 0 );
 	int nSizeY = subState.pTexture->GetSizeY( 0 );
 	
@@ -312,19 +294,16 @@ bool CSimpleWindow::IsInside( const CVec2 &vPos )
 		return true;
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::SetWindowTexture( IGFXTexture *pTexture )
 {
 	for ( int i=0; i<4; i++ )
 		states[0].subStates[i].pTexture = pTexture;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IGFXTexture* CSimpleWindow::GetWindowTexture()
 {
 	NI_ASSERT_T( !states.empty(), "Empty UI states" );
 	return states[0].subStates[0].pTexture;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::SetWindowMap( const CTRect<float> &maps )
 {
 	for ( int i=0; i<4; i++ )
@@ -336,14 +315,12 @@ void CSimpleWindow::SetWindowMap( const CTRect<float> &maps )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::SetWindowPlacement( const CVec2 *_vPos, const CVec2 *_vSize )
 {
 	if ( _vPos != 0 )
 		vPos = *_vPos;
 	if ( _vSize != 0 )
 	{
-		//{�� ����� ��� ����� �����???
 		vSize = *_vSize;
 		CTRect<float> rc;
 		rc.left = rc.top = 0.0f;
@@ -363,10 +340,8 @@ void CSimpleWindow::SetWindowPlacement( const CVec2 *_vPos, const CVec2 *_vSize 
 				}
 			}
 		}
-		//}
 
 		
-		// updater text sizes		
 		for ( int i=0; i<states.size(); i++ )
 		{
 			if ( states[i].pGfxText )
@@ -375,12 +350,10 @@ void CSimpleWindow::SetWindowPlacement( const CVec2 *_vPos, const CVec2 *_vSize 
 
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::SetWindowID( int _nID )
 {
 	nID = _nID;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IText* CSimpleWindow::GetHelpContext( const CVec2 &vPos, CTRect<float> *pRect )
 {
 	if ( !IsVisible() || !states[nCurrentState].pToolText )
@@ -394,12 +367,10 @@ IText* CSimpleWindow::GetHelpContext( const CVec2 &vPos, CTRect<float> *pRect )
 		*pRect = wndRect;
 	return states[nCurrentState].pToolText;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::SetHelpContext( int nState, const WORD *pszToolTipText )
 {
 	states[nState].pToolText->SetText( pszToolTipText );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::InitText()
 {
 	CTRect<float> textRC = wndRect;
@@ -429,7 +400,6 @@ void CSimpleWindow::InitText()
 		states[i].pGfxText->SetWidth( textRC.Width() );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::SetWindowText( int nState, const WORD *pszText )
 {
 	CTRect<float> textRC = wndRect;
@@ -457,20 +427,17 @@ void CSimpleWindow::SetWindowText( int nState, const WORD *pszText )
 	states[nState].pGfxText->SetText( pText );
 	states[nState].pGfxText->SetWidth( textRC.Width() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const WORD* CSimpleWindow::GetWindowText( int nState )
 {
 	NI_ASSERT_T( nState < states.size(), NStr::Format("Can't get text from state %d (max %d states)", nState, states.size()) );
 	IText *pText = states[nState].pGfxText->GetText();
 	return pText->GetString();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::SetTextColor( DWORD dwColor )
 {
 	for ( int i=0; i<states.size(); i++ )
 		states[i].pGfxText->SetColor( dwColor );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSimpleWindow::Update( const NTimer::STime &currTime )
 {
 	if ( !bBlinking )
@@ -478,23 +445,17 @@ bool CSimpleWindow::Update( const NTimer::STime &currTime )
 
 	if ( currTime - dwLastBlinkTime < dwBlinkTime )
 	{
-		//������
 		DWORD dwSubBlinkTime = GetGlobalVar( "BlinkSubTime", 1 );
 		int nStage = (currTime - dwLastBlinkTime) / dwSubBlinkTime;
 		if ( nStage & 0x01 )
 		{
-			//���������� ����
-			//dwCurrentBlinkColor = 0xff000000;
 			dwCurrentBlinkColor = states[nCurrentState].subStates[nCurrentSubState].specular;
 		}
 		else
 		{
-			//������������ ������
 			std::string szBlinkKey = "BlinkColor";
 			szBlinkKey += NStr::Format( "%d", nBlinkColorIndex );
 			dwCurrentBlinkColor = GetGlobalVar( szBlinkKey.c_str(), (int) 0xffff0000 );
-			//if ( nBlinkColorIndex == 0 )
-				//GetSingleton<IScene>()->AddSound( "int_ok", VNULL3, SFX_INTERFACE, SAM_ADD_N_FORGET );
 		}
 	}
 	else
@@ -505,7 +466,6 @@ bool CSimpleWindow::Update( const NTimer::STime &currTime )
 	
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::BlinkMe( const int _nBlinkTime, const int _nBlinkColorIndex )
 {
 	nBlinkColorIndex = _nBlinkColorIndex;
@@ -517,17 +477,14 @@ void CSimpleWindow::BlinkMe( const int _nBlinkTime, const int _nBlinkColorIndex 
 	dwLastBlinkTime = GetSingleton<IGameTimer>()->GetAbsTime();
 	bBlinking = true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::SetFocus( bool bFocus )
 {
 	if ( bFocus )
 	{
-		//������������� ����� ������� ����� ������
 		IUIElement *pWnd = dynamic_cast<IUIElement *> ( this );
 		GetParent()->SetFocusedWindow( pWnd );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::ShowWindow( int _nCmdShow )
 {
 	IUIElement *pWnd = dynamic_cast<IUIElement *> ( this );
@@ -542,8 +499,6 @@ void CSimpleWindow::ShowWindow( int _nCmdShow )
 				pParent->MoveWindowUp( pWnd );			//����� �������, �������� ���������
 			else if ( _nCmdShow == UI_SW_LAST || _nCmdShow == UI_SW_MINIMIZE  )
 				pParent->MoveWindowDown( pWnd );		//���� �������
-			//		else if ( _nCmdShow == UI_SW_HIDE )
-			//			pParent->MoveWindowDown( pWnd );		//���� ���� ����������, ����� ��� �������� ���� �������
 		}
 	}
 /*
@@ -555,13 +510,9 @@ void CSimpleWindow::ShowWindow( int _nCmdShow )
 */
 	nCmdShow = _nCmdShow;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::Reposition( const CTRect<float> &rcParent )
 {
-	//���� �������� reposition, ������ ���� �������� ���������� ��������.
-	//��������� ������������ ������������ parent ����� �� �������� ���� ����������
 /*
-	// �������� ����� �������� � �������:
 	CVec2 vParent;
 	CVec2 vAxis( 1, 1 );
 	switch ( (nPositionFlag >> 8) & 0x0f )
@@ -590,7 +541,6 @@ void CSimpleWindow::Reposition( const CTRect<float> &rcParent )
 			vParent.y = rcParent.y1 + rcParent.Height()/2;
 			break;
 	}
-	// �������� ����� �������� � ������:
 	CVec2 vChild;
 	switch ( nPositionFlag & 0x0f )
 	{
@@ -616,7 +566,6 @@ void CSimpleWindow::Reposition( const CTRect<float> &rcParent )
 			vChild.y = vPos.y*vAxis.y - vSize.y/2;
 			break;
 	}
-	// 
 	wndRect.x1 = vParent.x + vChild.x;
 	wndRect.y1 = vParent.y + vChild.y;
 	wndRect.x2 = wndRect.x1 + vSize.x;
@@ -655,10 +604,8 @@ void CSimpleWindow::Reposition( const CTRect<float> &rcParent )
 			break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSimpleWindow::GetWindowPlacement( CVec2 *pPos, CVec2 *pSize, CTRect<float> *pScreenRect )
 {
-//	NI_ASSERT_T( pPos && pSize && pScreenRect, "Can't get window placement" );
 
 	if ( pPos != 0 )
 		*pPos = vPos;
@@ -679,7 +626,6 @@ void CSimpleWindow::UpdateLocalCoordinates()
 	CMultipleWindow *pRealParent = dynamic_cast<CMultipleWindow *> ( pParent.GetPtr() );
 	NI_ASSERT( pRealParent != 0 );
 
-	//��������� ����� �������� ��������� ���������, ��������� ����������� ������������ � pParent
 	const CTRect<float> &rcParent = pRealParent->GetScreenRect();
 	switch ( nPositionFlag & 0xf )
 	{
@@ -707,11 +653,9 @@ void CSimpleWindow::UpdateLocalCoordinates()
 */
 
 /*
-	//������ ���� ��� multiple window ���� ������� reposition ��� ���� children
 	Reposition( rcParent );			//��� ����� ������� ��� ������� ����� �����������
 */
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::EnableWindow( bool bEnable )
 {
 	bWindowActive = bEnable;
@@ -724,27 +668,21 @@ void CSimpleWindow::EnableWindow( bool bEnable )
 	}
 	else
 	{
-		// voobshe-to cvet disabled zadaetsa v xml
 		/*for ( int i=0; i<states.size(); i++ )
 			states[i].pGfxText->SetColor( 0xff808080 );*/
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::Visit( interface ISceneVisitor *pVisitor )
 {
 	if ( !nCmdShow )
 		return;
-	// visit background
 	VisitBackground( pVisitor );
-	// visit text
 	VisitText( pVisitor );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::VisitBackground( ISceneVisitor *pVisitor )
 {
 	if ( !bShowBackground || states[nCurrentState].subStates[nCurrentSubState].subRects.empty() ) 
 		return;
-	//
 	const CUIWindowSubState &currentSubState = states[nCurrentState].subStates[nCurrentSubState];		
 	const int nSize = currentSubState.subRects.size();
 	SGFXRect2 *pRects = GetTempBuffer<SGFXRect2>( nSize );
@@ -765,7 +703,6 @@ void CSimpleWindow::VisitBackground( ISceneVisitor *pVisitor )
 		
 		if ( bBounded )
 		{
-			// ��������, ����� ����� ������ ����� ��������
 			float fTemp = rcBound.x1 - rc.rect.x1;
 			if ( fTemp > 0 )
 			{
@@ -797,23 +734,19 @@ void CSimpleWindow::VisitBackground( ISceneVisitor *pVisitor )
 	}
 	pVisitor->VisitUIRects( currentSubState.pTexture, 3, pRects, nSize );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::VisitText( ISceneVisitor *pVisitor )
 {
 	IGFXText *pTempGFXText = states[nCurrentState].pGfxText;
 	if ( !pTempGFXText || (pTempGFXText->GetText()->GetLength() <= 0) )
 		return;
-	//
 	int nY = 0;
 	DWORD flag = FNT_FORMAT_LEFT;
 	CTRect<float> textRC = wndRect;
-	//
 	if ( bBounded )
 	{
 		textRC.y1 = rcBound.y1;
 		textRC.y2 = rcBound.y2;
 	}
-	//
 	switch ( nTextAlign & 0xf )
 	{
 		case UIPLACE_LEFT:
@@ -829,10 +762,8 @@ void CSimpleWindow::VisitText( ISceneVisitor *pVisitor )
 			flag = FNT_FORMAT_CENTER;
 			break;
 	}
-	//
 	if ( bBounded )
 		nY = wndRect.y1 - rcBound.y1;
-	//
 	switch ( nTextAlign & 0xf0 )
 	{
 		case UIPLACE_TOP:
@@ -852,7 +783,6 @@ void CSimpleWindow::VisitText( ISceneVisitor *pVisitor )
 				break;
 			}
 	}
-	//
 	if ( nTextAlign & 0xf00 )
 		flag = FNT_FORMAT_JUSTIFY;
 
@@ -865,7 +795,6 @@ void CSimpleWindow::VisitText( ISceneVisitor *pVisitor )
 
 	if ( vShadowShift.x != 0 || vShadowShift.y != 0 )
 	{
-		// ������ ����
 		CTRect<float> shadowRC = textRC;
 		shadowRC.x1 += vShadowShift.x;
 		shadowRC.y1 += vShadowShift.y;
@@ -873,12 +802,10 @@ void CSimpleWindow::VisitText( ISceneVisitor *pVisitor )
 		shadowRC.y2 += vShadowShift.y;
 		pVisitor->VisitUIText( pTempGFXText, shadowRC, nY, dwShadowColor, flag | (bSingleLine ? FNT_FORMAT_SINGLE_LINE : 0) );
 	}
-	//
 	pVisitor->VisitUIText( pTempGFXText, textRC, nY, 
 			                   states[nCurrentState].subStates[nCurrentSubState].textColor, 
 			                   flag | (bSingleLine ? FNT_FORMAT_SINGLE_LINE : 0) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::Draw( IGFX *pGFX )
 {
 	NI_ASSERT_SLOW_T( false, "Can't user Draw() directly - use visitor pattern" );
@@ -891,7 +818,6 @@ void CSimpleWindow::Draw( IGFX *pGFX )
 	DrawBackground( pGFX );
 	DrawText( pGFX );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::DrawBackground( IGFX *pGFX )
 {
 	if ( !bShowBackground )
@@ -921,7 +847,6 @@ void CSimpleWindow::DrawBackground( IGFX *pGFX )
 			
 			if ( bBounded )
 			{
-				// ��������, ����� ����� ������ ����� ��������
 				float fTemp;
 				fTemp = rcBound.x1 - rc.rect.x1;
 				if ( fTemp > 0 )
@@ -955,7 +880,6 @@ void CSimpleWindow::DrawBackground( IGFX *pGFX )
 		pGFX->DrawRects( pRects, nSize );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::DrawText( IGFX *pGFX )
 {
 	if ( !states[nCurrentState].pGfxText )
@@ -1023,7 +947,6 @@ void CSimpleWindow::DrawText( IGFX *pGFX )
 
 	if ( vShadowShift.x != 0 || vShadowShift.y != 0 )
 	{
-		//������ ����
 		CTRect<float> shadowRC = textRC;
 		shadowRC.x1 += vShadowShift.x;
 		shadowRC.y1 += vShadowShift.y;
@@ -1036,7 +959,6 @@ void CSimpleWindow::DrawText( IGFX *pGFX )
 	pTempGFXText->SetColor( states[nCurrentState].subStates[nCurrentSubState].textColor );
 	pGFX->DrawText( pTempGFXText, textRC, nY, flag | (bSingleLine ? FNT_FORMAT_SINGLE_LINE : 0) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSimpleWindow::OnMouseMove( const CVec2 &vPos, EMouseState mState )
 {
 	if ( !bWindowActive )
@@ -1046,53 +968,44 @@ bool CSimpleWindow::OnMouseMove( const CVec2 &vPos, EMouseState mState )
 		return false;
 	}
 
-	//���� ����� ������ ����� �� ������
 	if ( mState == E_MOUSE_FREE )
 	{
 		if ( !IsInside( vPos ) )
 		{
-			//����� ��� ������
 			nCurrentSubState = E_NORMAL_STATE;
 			return false;
 		}
 		else
 		{
-			//����� ������ ������
 			if ( nCurrentSubState == E_NORMAL_STATE )
 			{
 				nCurrentSubState = E_HIGHLIGHTED_STATE;
 				
-				// ����������� high ����
 				GetSingleton<IScene>()->AddSound( szHighSound.c_str(), VNULL3, SFX_INTERFACE, SAM_ADD_N_FORGET, ESCT_GENERIC );
 			}
 			return true;
 		}
 	}
 	
-	//���� ����� ��� ������ ������ ����� ������
 	if ( ( ( mState & E_LBUTTONDOWN ) != 0 ) || ( ( mState & E_RBUTTONDOWN ) != 0 ) )
 	{
 		if ( !IsInside( vPos ) )
 		{
-			//����� ��� ������
 			nCurrentSubState = E_NORMAL_STATE;
 			return true;
 		}
 		else
 		{
-			//����� ������ ������
 			nCurrentSubState = E_PUSHED_STATE;
 			return true;
 		}
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSimpleWindow::OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, float fDelta )
 {
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSimpleWindow::OnLButtonDblClk( const CVec2 &vPos )
 {
 	if ( !bWindowActive )
@@ -1101,7 +1014,6 @@ bool CSimpleWindow::OnLButtonDblClk( const CVec2 &vPos )
 		return true;
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSimpleWindow::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 {
 	if ( !bWindowActive )
@@ -1113,21 +1025,17 @@ bool CSimpleWindow::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 
 	if ( !IsInside( vPos ) )
 	{
-		//����� ��� ������
 		nCurrentSubState = E_NORMAL_STATE;
 		return false;
 	}
 	else
 	{
-		//����� ������ ������
 		if ( nCurrentSubState != E_PUSHED_STATE )
 		{
-			//����������� push ����
 			GetSingleton<IScene>()->AddSound( states[nCurrentState].szPushSound.c_str(), VNULL3, SFX_INTERFACE, SAM_ADD_N_FORGET );
 		}
 		nCurrentSubState = E_PUSHED_STATE;
 
-		//����������� �� ������� ������ �� ������
 		SUIMessage msg;
 		msg.nMessageCode = UI_NOTIFY_WINDOW_CLICKED;
 		msg.nFirst = nID;
@@ -1137,7 +1045,6 @@ bool CSimpleWindow::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 		return true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSimpleWindow::OnLButtonUp( const CVec2 &vPos, EMouseState mouseState )
 {
 	if ( !bWindowActive )
@@ -1145,26 +1052,22 @@ bool CSimpleWindow::OnLButtonUp( const CVec2 &vPos, EMouseState mouseState )
 	
 	if ( !IsInside( vPos ) )
 	{
-		//����� ��� ������
 		nCurrentSubState = E_NORMAL_STATE;
 		return false;
 	}
 	else
 	{
-		//����� ������ ������
 		if ( nCurrentSubState == E_PUSHED_STATE )
 		{
 			nCurrentSubState = E_HIGHLIGHTED_STATE;
 			SetState( ( nCurrentState + 1 ) % states.size(), true );
 
-			//�������� ���� ���������
 			if ( ( nBlink & 2 ) || ( ( nBlink & 1 ) && states.size() == 1 ) )
 				BlinkMe();
 		}
 		return true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSimpleWindow::OnRButtonDown( const CVec2 &vPos, EMouseState mouseState )
 {
 	if ( !bWindowActive )
@@ -1173,7 +1076,6 @@ bool CSimpleWindow::OnRButtonDown( const CVec2 &vPos, EMouseState mouseState )
 	if ( IsInside( vPos ) )
 	{	
 		
-			//����������� �� ������� ������ �� ������
 		SUIMessage msg;
 		msg.nMessageCode = UI_NOTIFY_WINDOW_RCLICKED;
 		msg.nFirst = nID;
@@ -1187,7 +1089,6 @@ bool CSimpleWindow::OnRButtonDown( const CVec2 &vPos, EMouseState mouseState )
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSimpleWindow::OnRButtonUp( const CVec2 &vPos, EMouseState mouseState )
 {
 	if ( !bWindowActive )
@@ -1198,7 +1099,6 @@ bool CSimpleWindow::OnRButtonUp( const CVec2 &vPos, EMouseState mouseState )
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::SetState( int nState, bool bNotify )
 {
 	const int nNewState = nState % states.size();
@@ -1207,7 +1107,6 @@ void CSimpleWindow::SetState( int nState, bool bNotify )
 
 	if ( bWindowActive )
 	{
-		//����������� click ����
 		if ( !states[nCurrentState].szClickSound.empty() ) 
 			GetSingleton<IScene>()->AddSound( states[nCurrentState].szClickSound.c_str(), VNULL3, SFX_INTERFACE, SAM_ADD_N_FORGET );
 
@@ -1219,7 +1118,6 @@ void CSimpleWindow::SetState( int nState, bool bNotify )
 
 	if ( bNotify && pParent )
 	{
-		//����������� �� ��������� state
 		SUIMessage msg;
 		msg.nMessageCode = UI_NOTIFY_STATE_CHANGED_MESSAGE;
 		msg.nFirst = nID;
@@ -1227,13 +1125,11 @@ void CSimpleWindow::SetState( int nState, bool bNotify )
 		pParent->ProcessMessage( msg );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleWindow::DestroyWindow()
 {
 	IUIElement *pElement = dynamic_cast<IUIElement *> ( this );
 	pParent->RemoveChild( pElement );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUIElement* CSimpleWindow::PickElement( const CVec2 &vPos, int nRecursion )
 {
 	if ( IsVisible() && IsInside( vPos ) )
@@ -1241,7 +1137,6 @@ IUIElement* CSimpleWindow::PickElement( const CVec2 &vPos, int nRecursion )
 	else
 		return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static int Error_out( struct lua_State *state )
 {
 	Script script(state);
@@ -1249,7 +1144,6 @@ static int Error_out( struct lua_State *state )
 	NI_ASSERT_T( false, NStr::Format("Script error: %s", obj.GetString() ) );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static int GetUserProfileVar( struct lua_State *state )
 {
 	Script script(state);
@@ -1259,7 +1153,6 @@ static int GetUserProfileVar( struct lua_State *state )
 	script.PushNumber( GetSingleton<IUserProfile>()->GetVar( szStr.c_str(), nValue ) );
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static int SetUserProfileVar( struct lua_State *state )
 {
 	Script script(state);
@@ -1269,7 +1162,6 @@ static int SetUserProfileVar( struct lua_State *state )
 	GetSingleton<IUserProfile>()->AddVar( szStr.c_str(), nValue );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static int OutputValue( struct lua_State *state )
 {
 	Script script(state);
@@ -1279,7 +1171,6 @@ static int OutputValue( struct lua_State *state )
 	NStr::DebugTrace( "****Debug LUA script: %s %d\n", szStr.c_str(), nValue );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static int InitCommonScript( struct lua_State *state )
 {
 	Script script(state);
@@ -1287,7 +1178,6 @@ static int InitCommonScript( struct lua_State *state )
 	script.PushNumber( nRes );
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static int SetProcessedFlag( struct lua_State *state )			//������������� ���� PROCESSED ��� ���������
 {
 	Script script(state);
@@ -1296,7 +1186,6 @@ static int SetProcessedFlag( struct lua_State *state )			//�������
 	script.PushNumber( nMessageCode | PROCESSED_FLAG );
 	return 1;										//���� ������������ ��������
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static int IsActiveBit( struct lua_State *state )
 {
 	Script script(state);
@@ -1308,7 +1197,6 @@ static int IsActiveBit( struct lua_State *state )
 	
 	return 1;										//���� ������������ ��������
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static int ProcessMessageWithLink( struct lua_State *state )
 {
 	Script script(state);
@@ -1318,7 +1206,6 @@ static int ProcessMessageWithLink( struct lua_State *state )
 	script.PushNumber( GetSingleton<IMessageLinkContainer>()->ProcessMessage( SGameMessage( nEventID, nParam ) ) );
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMultipleWindow::IsGameButtonProcessing( lua_State *pLuaState )
 {
 	Script script( pLuaState );
@@ -1326,10 +1213,8 @@ int CMultipleWindow::IsGameButtonProcessing( lua_State *pLuaState )
 	script.PushNumber( !bNoConrtol );
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultipleWindow::CopyInternals( CMultipleWindow * pWnd )
 {
-	//*pWnd = *this;
 	CSimpleWindow::CopyInternals( pWnd );
 	pWnd->childList.clear();							//child windows
 
@@ -1361,7 +1246,6 @@ void CMultipleWindow::CopyInternals( CMultipleWindow * pWnd )
 	pWnd->InitDependentInfo();
 	pWnd->InitDependentInfoMW();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMultipleWindow::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -1381,10 +1265,8 @@ int CMultipleWindow::operator&( IDataTree &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultipleWindow::InitDependentInfoMW()
 {
-	//������� �� ���� ������� ����� ��� ��� ���������� parent
 		IUIContainer *pContainer = dynamic_cast<IUIContainer *> ( this );
 		if ( pContainer )
 		{
@@ -1392,7 +1274,6 @@ void CMultipleWindow::InitDependentInfoMW()
 				(*it)->SetParent( pContainer );
 		}
 
-		//���� � ������ �� child ���������� ModalFlag, �� �� ������������� ���� ���� ��� �������� ������ � ������ ���� child ������ � ������
 		CWindowList::iterator it=childList.begin();
 		for ( ; it!=childList.end(); ++it )
 		{
@@ -1412,11 +1293,9 @@ void CMultipleWindow::InitDependentInfoMW()
 			childList.push_front( pObj );
 		}
 	
-	// �������� ��������� LUA
 #if defined( _DO_ASSERT ) || defined( _DO_ASSERT_SLOW )
 			std::unordered_map<int, int> mapa;
 			
-			//���������, ����� �� ���� ������� � �������������� ID
 			for ( CWindowList::iterator it = childList.begin(); it != childList.end(); ++it )
 			{
 				if ( (*it)->GetWindowID() > 10 )
@@ -1449,7 +1328,6 @@ void CMultipleWindow::InitDependentInfoMW()
 		luaScript.Register( "IsGameButtonProcessing", CMultipleWindow::IsGameButtonProcessing );
 		luaScript.Register( "SetUserProfileVar", SetUserProfileVar );
 		luaScript.Register( "GetUserProfileVar", GetUserProfileVar );
-		// load LUA script data
 		bLua = false;													// ������� ������������, ��� ������������� �� ������
 		{
 			CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( (szLuaFileName + ".lua").c_str(), STREAM_ACCESS_READ );
@@ -1470,7 +1348,6 @@ void CMultipleWindow::InitDependentInfoMW()
 			}
 		}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMultipleWindow::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -1488,11 +1365,9 @@ int CMultipleWindow::operator&( IStructureSaver &ss )
 	saver.Add( 11, &bModal );
 	saver.Add( 12, &fMouseWheelMultiplyer );
 
-	//20 ����� ��� serialize LUA
 	
 	if ( saver.IsReading() )
 	{
-		//������� �� ���� ������� ����� ��� ��� ���������� parent
 		IUIContainer *pContainer = dynamic_cast<IUIContainer *> ( this );
 		if ( pContainer )
 		{
@@ -1501,7 +1376,6 @@ int CMultipleWindow::operator&( IStructureSaver &ss )
 		}
 	}
 	
-	// �������� ��������� LUA
 	saver.Add( 1, &szLuaFileName );
 	if ( saver.IsReading() )
 	{
@@ -1523,7 +1397,6 @@ int CMultipleWindow::operator&( IStructureSaver &ss )
 		luaScript.Register( "IsGameButtonProcessing", CMultipleWindow::IsGameButtonProcessing );
 		luaScript.Register( "SetUserProfileVar", SetUserProfileVar );
 		luaScript.Register( "GetUserProfileVar", GetUserProfileVar );
-		// load LUA script data
 		bLua = false;													// ������� ������������, ��� ������������� �� ������
 		{
 			CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( (szLuaFileName + ".lua").c_str(), STREAM_ACCESS_READ );
@@ -1578,7 +1451,6 @@ int CMultipleWindow::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultipleWindow::SetBoundRect( const CTRect<float> &rc )
 {
 	CSimpleWindow::SetBoundRect( rc );
@@ -1586,20 +1458,15 @@ void CMultipleWindow::SetBoundRect( const CTRect<float> &rc )
 	for ( CWindowList::iterator it=childList.begin(); it!=childList.end(); ++it )
 		(*it)->SetBoundRect( rc );			//�������� ����� ����� ����������� ����� rc � ����������� ��������������� CMultipleWindow
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultipleWindow::ShowWindow( int _nCmdShow )
 {
-	//CRAP{ KOSTILI K POKAZU HELP EKRANOV V NEPOLNOEKRANNIH INTERFEISAH
 	if ( _nCmdShow && GetChildByID( TUTORIAL_WINDOW_ID ) )
 		GetSingleton<IInput>()->AddMessage( SGameMessage(TUTORIAL_TRY_SHOW_IF_NOT_SHOWN) );
-	//CRAP}
 
 	if ( bAnimation )
 	{
-		//���� ������ � ���������
 		if ( _nCmdShow != 0 && _nCmdShow != UI_SW_MINIMIZE )
 		{
-			//���������� ������
 			nAnimationCmdShow = _nCmdShow;
 			DWORD dwCurrentTime = GetSingleton<IGameTimer>()->GetAbsTime();
 			if ( dwCurrentTime - dwLastCloseTime < dwAnimationTime )
@@ -1612,7 +1479,6 @@ void CMultipleWindow::ShowWindow( int _nCmdShow )
 		}
 		else
 		{
-			//�������� ������
 			nAnimationCmdShow = _nCmdShow;
 			DWORD dwCurrentTime = GetSingleton<IGameTimer>()->GetAbsTime();
 			if ( dwCurrentTime - dwLastOpenTime < dwAnimationTime )
@@ -1622,8 +1488,6 @@ void CMultipleWindow::ShowWindow( int _nCmdShow )
 			dwLastOpenTime = 0;
 			bAnimationRunning = true;
 
-			//������ �� �������, ��� ��� ��� ��� �������� ��������
-			//�������� ���� ���� �������
 			if ( pParent )
 			{
 				IUIElement *pWnd = dynamic_cast<IUIElement *> ( this );
@@ -1647,20 +1511,16 @@ void CMultipleWindow::ShowWindow( int _nCmdShow )
 			pPapa->SetModalFlag( false );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMultipleWindow::Update( const NTimer::STime &currTime )
 {
 	if ( bAnimation )
 	{
-		//��� ���������� ���� ������� ����������
 		CTRect<float> rc = GetScreenRect();
 		int nWidth = vMaxPos.x - vMinPos.x;
 		int nHeight = vMaxPos.y - vMinPos.y;
 		
 		if ( currTime - dwLastOpenTime < dwAnimationTime )
 		{
-			//���� � �������� ��������
-			// fX � fY ��� �������� �������� ����� ����
 			float fX = (int) ( (float) nWidth * ( currTime - dwLastOpenTime ) / dwAnimationTime );
 			rc.left = vBeginPos.x + vMinPos.x + fX;
 			rc.right = rc.left + wndRect.Width();
@@ -1676,7 +1536,6 @@ bool CMultipleWindow::Update( const NTimer::STime &currTime )
 		}
 		else if ( bAnimationRunning && dwLastOpenTime != 0 )
 		{
-			//���� ���� ��������� ���� ��������
 			bAnimationRunning = false;
 			dwLastOpenTime = 0;
 			rc.left = vBeginPos.x + vMaxPos.x;
@@ -1690,7 +1549,6 @@ bool CMultipleWindow::Update( const NTimer::STime &currTime )
 			
 			if ( pParent )
 			{
-				//����������� �� ��������� ��������
 				SUIMessage msg;
 				msg.nMessageCode = UI_NOTIFY_ANIMATION_FINISHED;
 				msg.nFirst = nID;
@@ -1702,8 +1560,6 @@ bool CMultipleWindow::Update( const NTimer::STime &currTime )
 		
 		if ( currTime - dwLastCloseTime < dwAnimationTime )
 		{
-			//���� � �������� ��������
-			// fX � fY ��� �������� �������� ����� ����
 			float fX = (int) ( (float) nWidth * ( currTime - dwLastCloseTime ) / dwAnimationTime );
 			rc.left = vBeginPos.x + vMaxPos.x - fX;
 			rc.right = rc.left + wndRect.Width();
@@ -1719,14 +1575,12 @@ bool CMultipleWindow::Update( const NTimer::STime &currTime )
 		}
 		else if ( bAnimationRunning && dwLastCloseTime != 0 )
 		{
-			//���� ���� ��������� ���� ��������
 			bAnimationRunning = false;
 			dwLastCloseTime = 0;
 			if ( nAnimationCmdShow != UI_SW_MINIMIZE )
 				CSimpleWindow::ShowWindow( UI_SW_HIDE );
 			else
 			{
-				//���� ���� ��������� ���� ��������
 				nCmdShow = nAnimationCmdShow;
 				rc.left = vBeginPos.x + vMinPos.x;
 				rc.right = rc.left + wndRect.Width();
@@ -1739,7 +1593,6 @@ bool CMultipleWindow::Update( const NTimer::STime &currTime )
 
 			if ( pParent )
 			{
-				//����������� �� ��������� ��������
 				SUIMessage msg;
 				msg.nMessageCode = UI_NOTIFY_ANIMATION_FINISHED;
 				msg.nFirst = nID;
@@ -1755,13 +1608,11 @@ bool CMultipleWindow::Update( const NTimer::STime &currTime )
 	
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultipleWindow::SetFocus( bool bFocus )
 {
 	CSimpleWindow::SetFocus( bFocus );
 	if ( !bFocus )
 	{
-		//��������� ���� � ������ �����
 		if ( pFocused )
 		{
 			pFocused->SetFocus( false );
@@ -1775,19 +1626,16 @@ void CMultipleWindow::SetFocus( bool bFocus )
 	if ( pFocused )
 	{
 		pFocused->SetFocus( bFocus );
-//		pFocused = 0;
 	}
 */
 
 /*
-	//��������� ������������ ���� �������
 	for ( CWindowList::iterator it = childList.begin(); it != childList.end(); ++it )
 	{
 		(*it)->SetFocus( bFocus );
 	}
 */
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultipleWindow::Reposition( const CTRect<float> &rcParent )
 {
 	CSimpleWindow::Reposition( rcParent );
@@ -1816,7 +1664,6 @@ void CMultipleWindow::Reposition( const CTRect<float> &rcParent )
 	for ( CWindowList::iterator it = childList.begin(); it != childList.end(); ++it )
 		(*it)->Reposition( GetScreenRect() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultipleWindow::Visit( interface ISceneVisitor *pVisitor )
 {
 	if ( !IsVisible() )
@@ -1825,7 +1672,6 @@ void CMultipleWindow::Visit( interface ISceneVisitor *pVisitor )
 	for ( CWindowList::reverse_iterator ri = childList.rbegin(); ri != childList.rend(); ++ri )
 		(*ri)->Visit( pVisitor );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultipleWindow::Draw( IGFX *pGFX )
 {
 	NI_ASSERT_SLOW_T( false, "Can't user Draw() directly - use visitor pattern" );
@@ -1838,7 +1684,6 @@ void CMultipleWindow::Draw( IGFX *pGFX )
 	for ( CWindowList::reverse_iterator ri = childList.rbegin(); ri != childList.rend(); ++ri )
 		(*ri)->Draw( pGFX );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IText* CMultipleWindow::GetHelpContext( const CVec2 &vPos, CTRect<float> *pRect )
 {
 	if ( !IsVisible() )
@@ -1854,7 +1699,6 @@ IText* CMultipleWindow::GetHelpContext( const CVec2 &vPos, CTRect<float> *pRect 
 	
 	return CSimpleWindow::GetHelpContext( vPos, pRect );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultipleWindow::SetFocusedWindow( IUIElement *pWnd )
 {
 	if ( pWnd )
@@ -1875,7 +1719,6 @@ void CMultipleWindow::SetFocusedWindow( IUIElement *pWnd )
 	messageList.push_back( msg );
 */
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultipleWindow::EnableWindow( bool bEnable )
 {
 	CSimpleWindow::EnableWindow( bEnable );
@@ -1884,12 +1727,10 @@ void CMultipleWindow::EnableWindow( bool bEnable )
 		(*it)->EnableWindow( bEnable );
 */
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMultipleWindow::OnMouseMove( const CVec2 &vPos, EMouseState mState )
 {
 	if ( bModal )
 	{
-		//������ ������� �������
 		IUIElement *pModalElement = GetFirstModal();
 		if ( pModalElement )
 			return pModalElement->OnMouseMove( vPos, mState );
@@ -1906,12 +1747,10 @@ bool CMultipleWindow::OnMouseMove( const CVec2 &vPos, EMouseState mState )
 		}
 	}
 
-	//���� ����� ������ ����� �� ������
 	if ( mState == E_MOUSE_FREE )
 	{
 		if ( !IsInside( vPos ) )
 		{
-			//����� ��� ������
 			if ( pHighlighted )
 			{
 				pHighlighted->OnMouseMove( vPos, mState );
@@ -1922,7 +1761,6 @@ bool CMultipleWindow::OnMouseMove( const CVec2 &vPos, EMouseState mState )
 		}
 		else
 		{
-			//������ ����� ������������ ������
 			IUIElement *pNewH = 0;
 			for ( CWindowList::iterator it=childList.begin(); it!=childList.end(); ++it )
 			{
@@ -1934,8 +1772,6 @@ bool CMultipleWindow::OnMouseMove( const CVec2 &vPos, EMouseState mState )
 			}
 			if ( pHighlighted && pHighlighted.GetPtr() != pNewH )
 			{
-				//���������� ������������ ������ ������� ����� �����
-//				pHighlighted->OnMouseMove( vPos, mState );
 				pHighlighted->OnMouseMove( CVec2(-1, -1), mState );
 			}
 		pHighlighted = pNewH;
@@ -1945,12 +1781,10 @@ bool CMultipleWindow::OnMouseMove( const CVec2 &vPos, EMouseState mState )
 /*
 			if ( pHighlighted && pHighlighted->IsInside( vPos ) )
 			{
-				//����� ������ ������������� ����
 				return pHighlighted->OnMouseMove( vPos, mState );
 			}
 			else
 			{
-				//����� ��� ������������� ����, ������ ����� ������������ ������
 				if ( pHighlighted )
 				{
 					pHighlighted->OnMouseMove( vPos, mState );
@@ -1975,12 +1809,10 @@ bool CMultipleWindow::OnMouseMove( const CVec2 &vPos, EMouseState mState )
 		}
 	}
 	
-	//���� ����� ��� ������ ������ ����� ������
 	if ( ( ( mState & E_LBUTTONDOWN ) != 0 ) || ( ( mState & E_RBUTTONDOWN ) != 0 ) )
 	{
 		if ( !IsInside( vPos ) )
 		{
-			//����� ��� ������
 			if ( pPushed )
 			{
 				pPushed->OnMouseMove( vPos, mState );
@@ -1989,7 +1821,6 @@ bool CMultipleWindow::OnMouseMove( const CVec2 &vPos, EMouseState mState )
 		}
 		else
 		{
-			//����� ������ ������
 			if ( pPushed && pPushed->OnMouseMove( vPos, mState ) )
 				return true;
 			if ( GetParent() )
@@ -1999,7 +1830,6 @@ bool CMultipleWindow::OnMouseMove( const CVec2 &vPos, EMouseState mState )
 	
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMultipleWindow::OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, float fDelta )
 {
 	if ( pHighlighted )
@@ -2011,7 +1841,6 @@ bool CMultipleWindow::OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, f
 
 	if ( bModal )
 	{
-		//������ ������� �������
 		IUIElement *pModalElement = GetFirstModal();
 		if ( pModalElement )
 			return pModalElement->OnMouseWheel( vPos, mouseState, fDelta );
@@ -2029,8 +1858,6 @@ bool CMultipleWindow::OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, f
 	}
 	
 /*
-	//���� �� ����� ����������, ����� ������ � ������� ������������ Mouse Wheel, �� �� ������
-	//�������� ������� ��������� OnMouseWheel() � UIScrollText.cpp, UIList.cpp, UIShortcutBar.cpp
 	if ( pFocused )
 	{
 		return pFocused->OnMouseWheel( vPos, mouseState, fDelta );
@@ -2039,7 +1866,6 @@ bool CMultipleWindow::OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, f
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMultipleWindow::OnLButtonDblClk( const CVec2 &vPos )
 {
 	if ( pHighlighted )
@@ -2048,7 +1874,6 @@ bool CMultipleWindow::OnLButtonDblClk( const CVec2 &vPos )
 	}
 	return CSimpleWindow::OnLButtonDblClk( vPos );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUIElement * CMultipleWindow::GetFirstModal()
 {
 	for ( CWindowList::iterator it = childList.begin(); it != childList.end(); ++it )
@@ -2058,12 +1883,10 @@ IUIElement * CMultipleWindow::GetFirstModal()
 	}
 	return 0;
 }		
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMultipleWindow::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 {
 	if ( bModal )
 	{
-		//������ ������� modal �������
 		IUIElement *pModalElement = GetFirstModal();
 		if ( pModalElement )
 			return pModalElement->OnLButtonDown( vPos, mouseState );
@@ -2083,7 +1906,6 @@ bool CMultipleWindow::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 			pFocused = 0;
 		}
 /*
-		//����� ��� ������
 		if ( !childList.empty() )
 			childList.back()->OnKillFocus();
 */
@@ -2091,7 +1913,6 @@ bool CMultipleWindow::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 	}
 	else
 	{
-		//����� ������ ������, ������� ���������� ������ ��� ������
 		for ( CWindowList::iterator it=childList.begin(); it!=childList.end(); ++it )
 		{
 			if ( (*it)->IsVisible() && (*it)->IsInside( vPos ) )
@@ -2102,7 +1923,6 @@ bool CMultipleWindow::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 				}
 				else
 				{
-					//������� ������ ������ zorder
 					pPushed = *it;
 					if ( pFocused )
 						pFocused->SetFocus( false );
@@ -2115,7 +1935,6 @@ bool CMultipleWindow::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 				}
 			}
 		}
-		//�� ����� ������ � childs ��� ������
 		if ( pFocused )
 		{
 			pFocused->SetFocus( false );
@@ -2124,11 +1943,8 @@ bool CMultipleWindow::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 	}
 	if ( GetParent() )
 		return true;			//CRAP		��� � ������ ���� ����������� ���������������� LButtonDown
-	//����� ������ �������� �� ���������� child ��� ������
-	//� multiple window ������ ������� true ���� ����� ������ ������ ����
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMultipleWindow::OnLButtonUp( const CVec2 &vPos, EMouseState mouseState )
 {
 	if ( bModal )
@@ -2151,14 +1967,11 @@ bool CMultipleWindow::OnLButtonUp( const CVec2 &vPos, EMouseState mouseState )
 	
 	return false;
 
-//	return OnMouseMove( vPos, mouseState );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMultipleWindow::OnRButtonDown( const CVec2 &vPos, EMouseState mouseState )
 {
 	if ( bModal )
 	{
-		//������ ������� �������
 		IUIElement *pModalElement = GetFirstModal();
 		if ( pModalElement )
 			return pModalElement->OnRButtonDown( vPos, mouseState );
@@ -2177,7 +1990,6 @@ bool CMultipleWindow::OnRButtonDown( const CVec2 &vPos, EMouseState mouseState )
 			pFocused = 0;
 		}
 /*
-		//����� ��� ������
 		if ( !childList.empty() )
 			childList.back()->OnKillFocus();
 */
@@ -2185,7 +1997,6 @@ bool CMultipleWindow::OnRButtonDown( const CVec2 &vPos, EMouseState mouseState )
 	}
 	else
 	{
-		//����� ������ ������, ������� ���������� ������ ��� ������
 		for ( CWindowList::iterator it=childList.begin(); it!=childList.end(); ++it )
 		{
 			if ( (*it)->IsVisible() && (*it)->IsInside( vPos ) )
@@ -2196,7 +2007,6 @@ bool CMultipleWindow::OnRButtonDown( const CVec2 &vPos, EMouseState mouseState )
 				}
 				else
 				{
-					//������� ������ ������ zorder
 					pRPushed = *it;
 					if ( pFocused && pFocused != pRPushed )
 						pFocused->SetFocus( false );
@@ -2208,7 +2018,6 @@ bool CMultipleWindow::OnRButtonDown( const CVec2 &vPos, EMouseState mouseState )
 				}
 			}
 		}
-		//�� ����� ������ � childs ��� ������
 		if ( pFocused )
 		{
 			pFocused->SetFocus( false );
@@ -2217,18 +2026,14 @@ bool CMultipleWindow::OnRButtonDown( const CVec2 &vPos, EMouseState mouseState )
 		
 		if ( GetParent() )
 			return true;			//CRAP		��� � ������ ���� ����������� ���������������� RButtonDown
-		//����� ������ �������� �� ���������� child ��� ������
-		//� multiple window ������ ������� true ���� ����� ������ ������ ����
 	}
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMultipleWindow::OnRButtonUp( const CVec2 &vPos, EMouseState mouseState )
 {
 	if ( bModal )
 	{
-		//������ ������� �������
 		IUIElement *pModalElement = GetFirstModal();
 		if ( pModalElement )
 			return pModalElement->OnRButtonUp( vPos, mouseState );
@@ -2246,12 +2051,10 @@ bool CMultipleWindow::OnRButtonUp( const CVec2 &vPos, EMouseState mouseState )
 	
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMultipleWindow::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD keyState )
 {
 	if ( bModal )
 	{
-		//������ ������� �������
 		if ( !childList.empty() )
 		{
 			return childList.front()->OnChar( nAsciiCode, nVirtualKey, bPressed, keyState );
@@ -2261,14 +2064,12 @@ bool CMultipleWindow::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DW
 	if ( !bPressed )
 		return false;
 
-	//��������� ������������ ������ � �������� ���� �����
 	if ( pFocused )
 	{
 		if ( pFocused->OnChar( nAsciiCode, nVirtualKey, bPressed, keyState ) )
 			return true;
 	}
 
-	//������ � ������� �� ���������� ���������, ��������� �������� ��� �� ������ �����
 	for ( CWindowList::iterator it = childList.begin(); it != childList.end(); ++it )
 	{
 		if ( (*it)->OnChar( nAsciiCode, nVirtualKey, bPressed, keyState ) )
@@ -2282,10 +2083,8 @@ bool CMultipleWindow::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DW
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUIElement* CMultipleWindow::PickElement( const CVec2 &vPos, int nRecursion )
 {
-	//��� ������� ������������ � ���������, ��� ����������� ���������� ��� ������
 	if ( GetParent() == 0 )			//UIScreen, ������ ������� �� children
 	{
 		for ( CWindowList::iterator it = childList.begin(); it != childList.end(); ++it )
@@ -2313,17 +2112,14 @@ IUIElement* CMultipleWindow::PickElement( const CVec2 &vPos, int nRecursion )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUIElement* CMultipleWindow::GetChildByID( int nChildID )
 {
-	//������� ����� �����
 	for ( CWindowList::iterator it=childList.begin(); it!=childList.end(); ++it )
 	{
 		if ( (*it)->GetWindowID() == nChildID )
 			return *it;
 	}
 
-	//������� ����� ����� �����
 	for ( CWindowList::iterator it=childList.begin(); it!=childList.end(); ++it )
 	{
 		IUIContainer *pContainer = dynamic_cast<IUIContainer *> ( it->GetPtr() );
@@ -2337,7 +2133,6 @@ IUIElement* CMultipleWindow::GetChildByID( int nChildID )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUIElement* CMultipleWindow::GetChildByIndex( int nIndex )
 {
 	int i = 0;
@@ -2348,7 +2143,6 @@ IUIElement* CMultipleWindow::GetChildByIndex( int nIndex )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultipleWindow::MoveWindowUp( IUIElement *pWnd )
 {
 	for ( CWindowList::iterator it=childList.begin(); it!=childList.end(); ++it )
@@ -2361,7 +2155,6 @@ void CMultipleWindow::MoveWindowUp( IUIElement *pWnd )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultipleWindow::MoveWindowDown( IUIElement *pWnd )
 {
 	for ( CWindowList::iterator it=childList.begin(); it!=childList.end(); ++it )
@@ -2374,35 +2167,29 @@ void CMultipleWindow::MoveWindowDown( IUIElement *pWnd )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMultipleWindow::ProcessMessage( const SUIMessage &_msg )
 {
 	bool bRet = false;
 	messageList.push_back( _msg );
 
-	//������ ������������ ���������
 	while ( !messageList.empty() )
 	{
 		const SUIMessage msg = messageList.front();
 		messageList.pop_front();
 
-		//CRAP{ KOSTILI for hepl button
 		if ( msg.nMessageCode == UI_NOTIFY_STATE_CHANGED_MESSAGE && msg.nFirst == TUTORIAL_BUTTON_ID )
 		{
 			GetSingleton<IInput>()->AddMessage( SGameMessage(PROCESSED_FLAG | TUTORIAL_BUTTON_ID) );
 			continue;
 		}
-		//CRAP}
 
 		if ( msg.nMessageCode == 268435457 )
 			int k = 0;
 		
 		if ( IsProcessedMessage( msg ) )
 		{
-			//������ ��� ������� ������ ���� ������ ��� ���������
 			if ( GetParent() == 0 )
 			{
-				// ��� ������ ���� Screen!!! (�.�. � ���� ���� �������)
 				NI_ASSERT_SLOW( dynamic_cast<IUIScreen*>(this) != 0 );
 				ProcessMessage( msg );			//������ ��� ������ ���� screen
 			}
@@ -2413,7 +2200,6 @@ bool CMultipleWindow::ProcessMessage( const SUIMessage &_msg )
 			continue;
 		}
 		
-		//������ ��������� �������������� ����� multiple window
 		switch( msg.nMessageCode )
 		{
 			case UI_SET_STATE_WO_NOTIFY:
@@ -2471,7 +2257,6 @@ bool CMultipleWindow::ProcessMessage( const SUIMessage &_msg )
 					continue;
 				}
 			
-				//it's OK, break is not present not to copy code.
 			case UI_MODAL_FLAG_FORCE_REMOVE:
 			case UI_MODAL_FLAG_FORCE_SET:
 				bModal = UI_MODAL_FLAG_FORCE_SET == msg.nMessageCode;
@@ -2480,7 +2265,6 @@ bool CMultipleWindow::ProcessMessage( const SUIMessage &_msg )
 					bModal = msg.nSecond;
 
 				bRet = true;
-				//������� ������� ������������ � ������� ������
 				if ( pHighlighted )
 				{
 					pHighlighted->OnMouseMove( CVec2(-1, -1), E_MOUSE_FREE );
@@ -2492,7 +2276,6 @@ bool CMultipleWindow::ProcessMessage( const SUIMessage &_msg )
 					pPushed = 0;
 				}
 				{
-				//��������� ������� ����������� ������� � ���� �����
 				CTRect<float> screenRect = GetSingleton<IGFX>()->GetScreenRect();
 				GetSingleton<ICursor>()->SetBounds( 0, 0, screenRect.Width(), screenRect.Height() );
 				}
@@ -2522,7 +2305,6 @@ bool CMultipleWindow::ProcessMessage( const SUIMessage &_msg )
 				continue;
 		}
 
-		//����� LUA
 		if ( bLua )
 		{
 			luaScript.GetGlobal( "LuaProcessMessage" );
@@ -2551,8 +2333,6 @@ bool CMultipleWindow::ProcessMessage( const SUIMessage &_msg )
 
 		if ( IsNotifyParentMessage( msg ) )
 		{
-			//������ ��� ������� ����� �� ����������, �� �� ����� ���������� �����
-			//�������� ������� ����� ��� ���������
 			IUIElement *pPapa = GetParent();
 			if ( pPapa )
 				GetParent()->ProcessMessage( msg );
@@ -2563,7 +2343,6 @@ bool CMultipleWindow::ProcessMessage( const SUIMessage &_msg )
 
 		if ( !IsNotifyMessage( msg ) )					//��� notify ��������� ������ ������������ ������ LUA
 		{
-			//������ ���� ���������� ��� ���������
 			for ( CWindowList::iterator child = childList.begin(); child != childList.end(); ++child )
 			{
 				if ( (*child)->ProcessMessage( msg ) != false )
@@ -2577,7 +2356,6 @@ bool CMultipleWindow::ProcessMessage( const SUIMessage &_msg )
 
 	return bRet;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMultipleWindow::AddMessage( lua_State *pLuaState )
 {
 	Script script( pLuaState );
@@ -2609,7 +2387,6 @@ int CMultipleWindow::AddMessage( lua_State *pLuaState )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMultipleWindow::SaveLuaValue( lua_State *pLuaState )
 {
 	Script script( pLuaState );
@@ -2626,7 +2403,6 @@ int CMultipleWindow::SaveLuaValue( lua_State *pLuaState )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMultipleWindow::IsInsideChild( const CVec2 &_vPos )
 {
 	for ( CWindowList::iterator it = childList.begin(); it != childList.end(); ++it )
@@ -2636,4 +2412,3 @@ bool CMultipleWindow::IsInsideChild( const CVec2 &_vPos )
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

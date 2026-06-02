@@ -14,6 +14,3 @@
 #  include  <..\cstring.>
 
 #endif
-// Local Variables:
-// mode:C++
-// End:

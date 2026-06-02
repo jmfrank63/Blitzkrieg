@@ -1,13 +1,9 @@
 #ifndef __GENERAL_ARTILLERY_H__
 #define __GENERAL_ARTILLERY_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "GeneralInternalInterfaces.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAntiArtillery;
 class CAIUnit;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGeneralArtilleryGoToPosition : public IRefCount
 {
 	OBJECT_COMPLETE_METHODS( CGeneralArtilleryGoToPosition );
@@ -23,7 +19,6 @@ class CGeneralArtilleryGoToPosition : public IRefCount
 	NTimer::STime timeOfFinish;
 	NTimer::STime startTime;
 
-	// 
 	void StartState();
 	void WaitForTruck();
 	void MovingWithTruck();
@@ -37,7 +32,6 @@ public:
 
 	bool DoesGoToReservePosition() const { return bToReservePosition; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGeneralArtilleryTask
 {
 	DECLARE_SERIALIZE;
@@ -76,19 +70,11 @@ class CGeneralArtilleryTask
 	int nCellNumber;
 	int nParty;
 
-	//
-	// начало обстрела - дать команды подцепиться к грузовикам и ехать
 	void StartBombardment();
-	// как только приехали, дать команду развернуться к врагу
 	void GoingToBattle();
-	// как только развернулись, дать команду стрелять
 	void Rotating();
-	// когда отстрелялись, дать команду уезжать на резервные позиции
 	void Firing();
-	// когда приехали на резервные позиции, закончить артобстрел
 	void Escaping();
-	// если часть юнитов по какой-то причине не смогла провести артобстрел, проследить, 
-	// чтобы они вернулись на резервные позиции
 	void CheckEscapingUnits();
 
 	void CalculateTimeToSendAntiArtilleryAck();
@@ -102,7 +88,6 @@ public:
 
 	bool IsTaskFinished() const { return bBombardmentFinished; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGeneralArtillery : public IRefCount, public IEnemyEnumerator
 {
 	OBJECT_COMPLETE_METHODS( CGeneralArtillery );
@@ -120,9 +105,7 @@ public:
 	CGeneralArtillery() { }
 	CGeneralArtillery( const int nParty, CGeneral *pGeneralOwner );
 	
-	// дать генералу юнит для использования в качестве артиллерии
 	void TakeArtillery( CAIUnit *pUnit );
-	// the same for trucks
 	void TakeTruck( CAIUnit *pUnit );
 
 	void Segment();
@@ -133,7 +116,6 @@ public:
 
 	void SetEnemyContainer( IEnemyContainer *pEnemyContainer );
 
-	//IEnemyEnumerator
 	virtual bool EnumEnemy( class CAIUnit *pEnemy );
 
 	const int GetParty() const { return nParty; }
@@ -141,5 +123,4 @@ public:
 
 	void SetCellInUse( const int nResistanceCell, bool bInUse );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __GENERAL_ARTILLERY_H__

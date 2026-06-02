@@ -2,17 +2,14 @@
 #define __ARTILLERY_STATES_H__
 
 #pragma ONCE
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "StatesFactory.h"
 #include "UnitStates.h"
 #include "Behaviour.h"
 #include "FreeFireManager.h"
 #include "SoldierStates.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAIUnit;
 class CStaticObject;
 class CAITransportUnit;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CArtilleryStatesFactory : public IStatesFactory
 {
 	OBJECT_COMPLETE_METHODS( CArtilleryStatesFactory );
@@ -25,10 +22,8 @@ public:
 	virtual interface IUnitState* ProduceRestState( class CQueueUnit *pUnit );
 
 	virtual bool CanCommandBeExecuted( class CAICommand *pCommand );
-	// for Saving/Loading of static members
 	friend class CStaticMembers;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CArtilleryMoveToState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CArtilleryMoveToState );
@@ -55,7 +50,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const { return CVec2( -1.0f, -1.0f ); }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CArtilleryTurnToPointState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CArtilleryTurnToPointState );
@@ -82,7 +76,6 @@ public:
 	
 	virtual EUnitStateNames GetName() { return EUSN_TURN_TO_POINT; }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CArtilleryBombardmentState : public IUnitAttackingState
 {
 	OBJECT_COMPLETE_METHODS( CArtilleryBombardmentState );
@@ -112,7 +105,6 @@ public:
 	
 	virtual EUnitStateNames GetName() { return EUSN_BOMBARDMANET; }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CArtilleryRangeAreaState : public IUnitAttackingState
 {
 	OBJECT_COMPLETE_METHODS( CArtilleryRangeAreaState );
@@ -134,7 +126,6 @@ class CArtilleryRangeAreaState : public IUnitAttackingState
 	bool bFinish;
 	bool bFired;
 
-	//
 	void CheckArea();
 	void FinishCommand();
 
@@ -156,7 +147,6 @@ public:
 	virtual bool IsAttacksUnit() const;
 	virtual class CAIUnit* GetTargetUnit() const;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CArtilleryInstallTransportState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CArtilleryInstallTransportState );
@@ -182,7 +172,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CArtilleryUninstallTransportState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CArtilleryUninstallTransportState );
@@ -211,8 +200,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// пушка болтается за грузовиком
 class CArtilleryBeingTowedPath;
 class CArtilleryBeingTowedState: public IUnitState
 {
@@ -222,7 +209,6 @@ class CArtilleryBeingTowedState: public IUnitState
 	class CArtillery *pArtillery;
 
 	CPtr<CAITransportUnit> pTransport;
-	// буксировка
 	WORD wLastTagDir;
 	CVec2 vLastTagCenter;
 
@@ -243,7 +229,6 @@ public:
 	
 	class CAITransportUnit* GetTowingTransport() const;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CArtilleryAttackState : public IUnitAttackingState, public CFreeFireManager
 {
 	OBJECT_COMPLETE_METHODS( CArtilleryAttackState );
@@ -264,7 +249,6 @@ class CArtilleryAttackState : public IUnitAttackingState, public CFreeFireManage
 	CDamageToEnemyUpdater damageToEnemyUpdater;
 	int nEnemyParty;
 
-	//
 	void FinishState();
 public:
 	static IUnitState* Instance( class CArtillery *pArtillery, class CAIUnit *pEnemy, bool bAim, const bool bSwarmAttack );
@@ -283,7 +267,6 @@ public:
 	virtual bool IsAttacksUnit() const { return true; }
 	virtual class CAIUnit* GetTargetUnit() const;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CArtilleryAttackCommonStatObjState : public IUnitAttackingState, public CFreeFireManager
 {
 	OBJECT_COMPLETE_METHODS( CArtilleryAttackCommonStatObjState );
@@ -300,7 +283,6 @@ class CArtilleryAttackCommonStatObjState : public IUnitAttackingState, public CF
 	bool bAim;
 	bool bFinish;
 
-	//
 	void FinishState();
 public:
 	static IUnitState* Instance( class CArtillery *pArtillery, class CStaticObject *pObj );
@@ -319,7 +301,6 @@ public:
 	virtual bool IsAttacksUnit() const { return false; }
 	virtual class CAIUnit* GetTargetUnit() const { return 0; }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CArtilleryRestState : public CMechUnitRestState
 {
 	OBJECT_COMPLETE_METHODS( CArtilleryRestState );
@@ -334,7 +315,6 @@ public:
 
 	virtual void Segment();
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CArtilleryAttackAviationState : public CSoldierAttackAviationState
 {
 	OBJECT_COMPLETE_METHODS( CArtilleryAttackAviationState );
@@ -349,5 +329,4 @@ public:
 
 	virtual void Segment();
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __ARTILLERY_STATES_H__

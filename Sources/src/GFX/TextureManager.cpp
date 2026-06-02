@@ -2,7 +2,6 @@
 
 #include "TextureManager.h"
 #include "Texture.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTextureManager::SetQuality( const ETextureQuality eQuality )
 {
 	switch ( eQuality ) 
@@ -20,8 +19,6 @@ void CTextureManager::SetQuality( const ETextureQuality eQuality )
 			NI_ASSERT_T( false, NStr::Format("Unknown texture quality %d - can be only [1..3]", eQuality) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// remove all shared resource from this manager
 void CTextureManager::Clear( const ISharedManager::EClearMode eMode, const int nUsage, const int nAmount ) 
 { 
 	switch ( eMode ) 
@@ -37,10 +34,8 @@ void CTextureManager::Clear( const ISharedManager::EClearMode eMode, const int n
 			break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTextureManager::operator&( IStructureSaver &ss )
 {
 	share.Serialize( &ss );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

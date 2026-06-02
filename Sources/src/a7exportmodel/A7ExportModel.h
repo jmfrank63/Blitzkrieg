@@ -1,10 +1,8 @@
 #ifndef __A5EXPORTMODEL_H__
 #define __A5EXPORTMODEL_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include <maya/MPxFileTranslator.h>
 #include <maya/MDagPath.h>
 #include <maya/MObjectArray.h>
@@ -13,19 +11,14 @@
 #include <maya/MIntArray.h>
 #include <maya/MMatrix.h>
 #include <maya/MPoint.h>
-//#include "Streams.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SAdditionalBone
 {
 	MDagPath bonePath; // dag path to trasnform of the bone
 	std::vector<MPlug> plugs; // all weight plugs for this bone
-	// why I cannot use 'MPlugArray' instead of 'vector<MPlug>' remains mysterious for me
 	MIntArray nJoints; // corresponding joints
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CA7ExportModel : public MPxFileTranslator
 {
-	//
 	MObjectArray oHierarchy;
 	MObjectArray oLocatorsHierarchy;
 	MObjectArray oMeshes;
@@ -70,5 +63,4 @@ public:
 	bool canBeOpened() const { return false; }
 	MFileKind identifyFile( const MFileObject& fileName, const char* buffer, short size ) const;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif

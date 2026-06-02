@@ -1,17 +1,13 @@
 #ifndef __SERVERS_LIST_H__
 #define __SERVERS_LIST_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "GameCreationInterfaces.h"
 #include "ServerInfo.h"
 #include "MessagesStore.h"
 
 #include "..\Net\NetDriver.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface INetNodeAddress;
 interface IMultiplayerMessage;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CServersList : public IServersList
 {
 	CPtr<INetDriver> pNetDriver;
@@ -24,7 +20,6 @@ class CServersList : public IServersList
 	CMessagesStore messages;
 	NTimer::STime lastServersCheck;
 
-	//
 	void AddServer( INetNodeAddress *pAddress, const float fPing, const struct INetDriver::SGameInfo &gameInfo, const bool bSameVersion );
 	void RefreshServerInfo( const SServerInfo &info, const bool bSameVersion );
 	void RemoveServer( const SServerInfo &info );
@@ -33,7 +28,6 @@ class CServersList : public IServersList
 
 	const SServerInfo* FindServerByID( const WORD wServerID ) const;
 protected:
-	//
 	void Init( INetDriver *pNetDriver );
 	void DestroyNetDriver();
 
@@ -57,7 +51,6 @@ public:
 	
 	virtual interface INetDriver* STDCALL GetInGameNetDriver() const { return 0; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CLanServersList : public CServersList
 {
 	OBJECT_COMPLETE_METHODS( CLanServersList );
@@ -70,7 +63,6 @@ public:
 
 	virtual interface IGameCreation* STDCALL CreateServer( const SGameInfo &gameInfo, const SQuickLoadMapInfo &mapInfo, CPtr<IChat> *pChat );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGameSpyServersList : public CServersList
 {
 	OBJECT_COMPLETE_METHODS( CGameSpyServersList );
@@ -83,7 +75,6 @@ public:
 
 	virtual interface IGameCreation* STDCALL CreateServer( const struct SGameInfo &gameInfo, const struct SQuickLoadMapInfo &mapInfo, CPtr<IChat> *pChat );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInternetServersList : public CServersList
 {
 	OBJECT_COMPLETE_METHODS( CInternetServersList );
@@ -96,5 +87,4 @@ public:
 
 	virtual interface IGameCreation* STDCALL CreateServer( const struct SGameInfo &gameInfo, const struct SQuickLoadMapInfo &mapInfo, CPtr<IChat> *pChat );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __SERVERS_LIST_H__

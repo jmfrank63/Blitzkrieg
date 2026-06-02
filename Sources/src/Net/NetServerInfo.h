@@ -10,13 +10,8 @@
 #include "NetServerInfo.h"
 #include "NetLowest.h"
 #include "Streams.h"
-/////////////////////////////////////////////////////////////////////////////////////
 namespace NNet
 {
-/////////////////////////////////////////////////////////////////////////////////////
-// support for server info requests and server info tracking
-// support for master server, address books, etc can be added here
-/////////////////////////////////////////////////////////////////////////////////////
 class CServerInfoSupport
 {
 public:
@@ -39,23 +34,16 @@ private:
 	SServerInfo& GetInfo( const CNodeAddress &addr );
 public:
 	CServerInfoSupport( APPLICATION_ID _nApplicationID );
-	//
 	void Init( APPLICATION_ID _applicationID ) { applicationID = _applicationID; }
-	//
 	void Step( float fDeltaTime );
 	const CServerInfoList& GetServers() const { return servers; }
-	// requests reply	support
 	bool DoReplyRequest() const { return bDoReply; }
 	void StartReply( const CMemoryStream &info ) { bDoReply = true; serverInfo = info; }
 	void StopReply() { bDoReply = false; }
-	// packets forming
 	void ReplyServerInfoRequest( CBitStream &bits, CBitStream *pDstBits );
 	void ProcessServerInfo( const CNodeAddress &addr, CBitStream &bits );
 	void WriteRequest( CBitStream *pBits );
-	// server search
 	bool CanSendRequest( const CNodeAddress &broadcast, std::vector<CNodeAddress> *pDest );
 };
-/////////////////////////////////////////////////////////////////////////////////////
 }
-/////////////////////////////////////////////////////////////////////////////////////
 #endif

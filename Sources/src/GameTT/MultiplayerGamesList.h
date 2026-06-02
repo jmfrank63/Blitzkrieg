@@ -1,6 +1,3 @@
-// GamesList.h: interface for the CGamesList class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_GAMESLIST_H__17B9FF2C_3D75_462D_8FAD_C68FAA9A9191__INCLUDED_)
 #define AFX_GAMESLIST_H__17B9FF2C_3D75_462D_8FAD_C68FAA9A9191__INCLUDED_
@@ -14,7 +11,6 @@
 #include "MultiplayerCommandManager.h"
 #include "ListControlWrapper.h"
 #include "OptionEntryWrapper.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInterfaceMPGamesList : public CInterfaceMultiplayerScreen
 {
 	OBJECT_NORMAL_METHODS( CInterfaceMPGamesList );
@@ -53,7 +49,6 @@ public:
 	virtual void STDCALL StartInterface();
 	void Configure( const WORD wServerID );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CICMultyplayerGamesList: public CInterfaceCommandBase<CInterfaceMPGamesList, MISSION_INTERFACE_MULTIPLAYER_GAMESLIST>
 {
 	OBJECT_NORMAL_METHODS( CICMultyplayerGamesList );
@@ -83,5 +78,4 @@ public:
 			bAutoConnect = false;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // !defined(AFX_GAMESLIST_H__17B9FF2C_3D75_462D_8FAD_C68FAA9A9191__INCLUDED_)

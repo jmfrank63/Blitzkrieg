@@ -9,7 +9,6 @@
 #include "MeshFrm.h"
 #include "SpriteCompose.h"
 
-/////////////////////////////////////// Animation editor tree //////////////////////////////////////
 
 void CAnimationTreeRootItem::InitDefaultValues()
 {
@@ -321,19 +320,15 @@ void CDirectoryPropsItem::UpdateItemValue( int nItemId, const CVariant &value )
 
 	if ( nItemId == 1 )
 	{
-		//���������� �������� ����������, ��������� ��� �������� �� ���� ���� � AllThumbList
-		//���������, ��� ���� TreeItem ������� � ������, ����� ����� ��� ����������
 		HTREEITEM hSelected = pTreeCtrl->GetSelectedItem();
 		if ( hSelected != hItem )
 		{
-//			SelectMeInTheTree();
 			CAnimationFrame *pFrame = static_cast<CAnimationFrame *> ( g_frameManager.GetFrame( CFrameManager::E_ANIMATION_FRAME ) );
 			pFrame->SetActiveDirTreeItem( this );
 		}
 
 		if ( !IsRelatedPath( value ) )
 		{
-			//��� ����������� ������������� ����, ������������ ����� � ��������
 			string szProjectName = g_frameManager.GetFrame( CFrameManager::E_ANIMATION_FRAME )->GetProjectFileName();
 			string szValue = value;
 			string szRelatedPath;
@@ -660,7 +655,6 @@ bool CAnimationTreeRootItem::ComposeAnimations( const char *pszProjectFileName, 
 	CDirectoriesItem *pDirsItem = static_cast<CDirectoriesItem *> ( GetChildItem( E_UNIT_DIRECTORIES_ITEM ) );
 	CUnitAnimationsItem *pAnimsItem = static_cast<CUnitAnimationsItem *> ( GetChildItem( E_UNIT_ANIMATIONS_ITEM ) );
 
-	//������, ���� ���������� blood � ���������� �������, ��� ���
 	bool bBloodDirExist = false;
 	{
 		std::string szBloodDir = GetDirectory( pszProjectFileName );
@@ -708,7 +702,6 @@ bool CAnimationTreeRootItem::ComposeAnimations( const char *pszProjectFileName, 
 				animDesc.ptFrameShift = CVec2( 0, 0 );
 				animDesc.szName = pAnimProps->GetItemName();
 
-				//��������� ������ directions
 				fileNameVector.resize( nLastSprite );
 				animDesc.dirs.resize( nDirsCount );
 				animDesc.frames.reserve( nDirsCount * pAnimProps->GetChildsCount() );
@@ -735,7 +728,6 @@ bool CAnimationTreeRootItem::ComposeAnimations( const char *pszProjectFileName, 
 					int k = 0;
 					if ( !bCommonSizeComputed && (*animIt)->GetChildsCount() > 0 )
 					{
-						//���������� ������ ��������
 						CUnitFramePropsItem *pProps = static_cast<CUnitFramePropsItem *> ( (*animIt)->GetBegin()->GetPtr() );
 						string szTempFileName = szDirName + pProps->GetItemName() + ".tga";
 						if ( _access( szTempFileName.c_str(), 04 ) == 0 )
@@ -752,14 +744,12 @@ bool CAnimationTreeRootItem::ComposeAnimations( const char *pszProjectFileName, 
 					for ( frameIt=(*animIt)->GetBegin(); frameIt!=(*animIt)->GetEnd(); ++frameIt )
 					{
 						dirDesc.frames[ k ] = nCurrentFrame;
-//					animDesc.frames[nCurrentFrame] = CVec2( 32, 32 );
 						animDesc.frames[nCurrentFrame] = vCommonFrameSize;
 						
 						std::string szTempFileName = szDirName;
 						std::string szName = (*animIt)->GetItemName();
 						if ( bBloodDirExist && nBlood == 1 && ( szName == "Death" || szName == "Death down" ) )
 						{
-							//������� ���������� blood � �����
 							std::string szShortDirName;
 							if ( nDirsCount == 4 )
 								szShortDirName = pSeasonProps->GetDirName( i*2 );
@@ -807,7 +797,6 @@ bool CAnimationTreeRootItem::ComposeAnimations( const char *pszProjectFileName, 
 				AfxMessageBox( szErrorStr );
 			}
 
-			//���� ������ ������ ����, �� �������
 			if ( nCurrentFrame == 0 )
 			{
 				if ( bShowUserMessages )
@@ -848,7 +837,6 @@ bool CAnimationTreeRootItem::ComposeAnimations( const char *pszProjectFileName, 
 					NI_ASSERT_T( 0, "The number of seasons is above 3" );
 				szSaveSan += ".san";
 
-				//��������� .SAN
 				CPtr<IDataStorage> pSaveStorage = CreateStorage( pszResultingDir, STREAM_ACCESS_WRITE, STORAGE_TYPE_FILE );
 				CPtr<IDataStream> pSaveSAFStream = pSaveStorage->CreateStream( szSaveSan.c_str(), STREAM_ACCESS_WRITE );
 				if ( !pSaveSAFStream )
@@ -857,7 +845,6 @@ bool CAnimationTreeRootItem::ComposeAnimations( const char *pszProjectFileName, 
 				CSaverAccessor saver = pSS;
 				saver.Add( 1, &spriteAnimFmt );
 
-				//��������� ��������
 				SaveCompressedTexture( pImage, szSaveImage.c_str() );
 			}
 
@@ -893,9 +880,7 @@ FILETIME CAnimationTreeRootItem::FindMaximalSourceTime( const char *pszProjectFi
 			if ( pAnimProps->GetChildsCount() == 0 )
 				continue;
 
-			//����� ���� ����� ������� �������������� ����������� �� �������...
 
-			//��������� ������ directions
 			for ( int i=0; i<nDirsCount; i++ )
 			{
 				string szDirName;
@@ -922,11 +907,9 @@ FILETIME CAnimationTreeRootItem::FindMaximalSourceTime( const char *pszProjectFi
 		}
 	}
 
-	//���� ������ ������ ����, �� �������
 	if ( fileNameVector.empty() )
 		return zero;
 
-	//�������� �� ���� ������ � ������� ������������ ����� ���������
 	FILETIME nMaxTime;
 	nMaxTime.dwHighDateTime = 0;
 	nMaxTime.dwLowDateTime = 0;
@@ -989,7 +972,6 @@ void CUnitAnimationPropsItem::InitDefaultValues()
 	prop.value = "";
 	defaultValues.push_back( prop );
 
-	//next will be 7 see up
 
 	values = defaultValues;
 }
@@ -1012,7 +994,6 @@ bool CUnitAnimationPropsItem::CopyItemTo( CTreeItem *pToItem )
 	if ( !CTreeItem::CopyItemTo( pTo ) )
 		return false;
 
-	//������ �������� ������ CUnitFramePropsItem
 	pTo->RemoveAllChilds();
 	for ( CTreeItemList::iterator it=treeItemList.begin(); it!=treeItemList.end(); ++it )
 	{
@@ -1110,7 +1091,6 @@ int CUnitAnimationPropsItem::operator&( interface IStructureSaver &ss )
 	return 0;
 /*
 	CSaverAccessor saver = pSS;
-	//��������� ����� ������ m_selectedItems
 	saver.AddContainer( 10, &m_selectedItems.thumbDataList );
 */
 }
@@ -1135,7 +1115,6 @@ void CUnitFramePropsItem::InitDefaultValues()
 
 void CUnitFramePropsItem::MyLButtonClick()
 {
-	//� ThumbList ��������� Animations ��������������� ���� �����
 	CTreeItem *pPapa = GetParentTreeItem();
 	NI_ASSERT( pPapa->GetItemType() == E_UNIT_ANIMATION_PROPS_ITEM );
 
@@ -1143,7 +1122,6 @@ void CUnitFramePropsItem::MyLButtonClick()
 	CAnimationFrame *pFrame = static_cast<CAnimationFrame *> ( g_frameManager.GetFrame( CFrameManager::E_ANIMATION_FRAME ) );
 	pFrame->SetActiveAnimItem( pAnimProps );
 
-	//� ���������� ThumbList items ������� item ��������������� this
 	pFrame->SelectItemInSelectedThumbList( (long) this );
 }
 
@@ -1153,7 +1131,6 @@ void CUnitFramePropsItem::MyKeyDown( int nChar )
 	{
 		case VK_DELETE:
 		/*
-		//������� ����� frame ����� ��������� ���������� � ������ � �������� ��� � SelectedThumbList
 		HTREEITEM hNextSibling = pTreeCtrl->GetNextItem( hItem, TVGN_NEXT );
 		if ( hNextSibling )
 		{
@@ -1163,7 +1140,6 @@ void CUnitFramePropsItem::MyKeyDown( int nChar )
 				}
 			*/
 			
-			//������� ���� frame
 			CAnimationFrame *pFrame = static_cast<CAnimationFrame *> ( g_frameManager.GetFrame( CFrameManager::E_ANIMATION_FRAME ) );
 			pFrame->DeleteFrameInSelectedList( (DWORD) this );
 			DeleteMeInParentTreeItem();

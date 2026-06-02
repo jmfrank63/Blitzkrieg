@@ -2,18 +2,14 @@
 #include "Winbase.h"
 #include "Mmsystem.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "StreamFadeOff.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 DWORD WINAPI TheThreadProc( LPVOID lpParameter )
 {
-	// run finction
 	CStreamFadeOff * pFade = reinterpret_cast<CStreamFadeOff*>(lpParameter);
 	pFade->Start();
 
 	while( pFade->HaveToRun() )
 	{
-		//run
 		if ( pFade->Segment( 100 ) )
 			Sleep(100);
 		else
@@ -23,13 +19,11 @@ DWORD WINAPI TheThreadProc( LPVOID lpParameter )
 	pFade->Stop();
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CStreamFadeOff::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 
 	saver.Add( 1, &fVolume );
-	//saver.Add( 2, &timeLastCall );
 	saver.Add( 3, &fVolumeSpeed );
 
 
@@ -42,7 +36,6 @@ int CStreamFadeOff::operator&( IStructureSaver &ss )
 
 		if ( bRun )
 		{
-			//run tread again
 			Fade( int(fVolume/fVolumeSpeed) );
 		}
 	}
@@ -57,7 +50,6 @@ int CStreamFadeOff::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStreamFadeOff::InitConsts()
 {
 	pSFX = GetSingleton<ISFX>();
@@ -66,19 +58,16 @@ void CStreamFadeOff::InitConsts()
 	hFinishReport = CreateEvent( 0, true, false, 0 );
 	hStopCommand = CreateEvent( 0, true, false, 0 );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStreamFadeOff::~CStreamFadeOff() 
 { 
 	Clear(); 
 	CloseHandle( hFinishReport );
 	CloseHandle( hStopCommand );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStreamFadeOff::Segment( const int nTimeDelta )
 {
 	if ( !pSFX ) 
 		return false;
-	// decrease volume
 	const float fDVolume = ( timeAccumulator + nTimeDelta )* fVolumeSpeed;
 	if ( fVolume != 0.0f && fDVolume > 0.01 )
 	{
@@ -92,7 +81,6 @@ bool CStreamFadeOff::Segment( const int nTimeDelta )
 		timeAccumulator += nTimeDelta;
 	return fVolume > 0 || timeAccumulator < 500;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStreamFadeOff::Clear()
 {
 	if ( hThread )
@@ -110,13 +98,11 @@ void CStreamFadeOff::Clear()
 	ResetEvent( hStopCommand );
 	ResetEvent( hFinishReport );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStreamFadeOff::Start()
 {
 	timeAccumulator = 0;
 	ResetEvent( hFinishReport );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStreamFadeOff::Fade( const unsigned int nTimeToFade )
 {
 	if ( !pSFX ) return;
@@ -128,17 +114,14 @@ void CStreamFadeOff::Fade( const unsigned int nTimeToFade )
 	DWORD dwThreadId;
 	hThread = CreateThread( 0, 1024*1024, TheThreadProc, reinterpret_cast<LPVOID>(this), 0, &dwThreadId );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStreamFadeOff::IsFading() const
 {
 	return hThread && WAIT_OBJECT_0 != WaitForSingleObject( hFinishReport,0 );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStreamFadeOff::HaveToRun()
 {
 	return WAIT_OBJECT_0 != WaitForSingleObject( hStopCommand,0 );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStreamFadeOff::Stop()
 {
 	if ( !pSFX ) return;

@@ -20,13 +20,10 @@
 #include "AILogicInternal.h"
 #include "Trigonometry.h"
 
-// for profiling
 #include "TimeCounter.h"
-// for debug
 #include "AIStaticMap.h"
 #include "MPLog.h"
 #include "..\Scene\Scene.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CCollisionsCollector theColCollector;
 CGroupLogic theGroupLogic;
 extern CUpdater updater;
@@ -38,11 +35,6 @@ extern CAILogic *pAILogic;
 
 extern CTimeCounter timeCounter;
 extern CStaticMap theStaticMap;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*														CGroupLogic														*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::Init()
 {
 	lastSegmTime = curTime - curTime % SConsts::AI_SEGMENT_DURATION;
@@ -51,12 +43,10 @@ void CGroupLogic::Init()
 	registeredGroups.clear();
 	lastAmbushCheck = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::AddUnitToGroup( CCommonUnit *pGroupUnit, const int nGroup )
 {
 	if ( pGroupUnit->nGroup != nGroup )
 	{
-		// ���� ���� ��� � �����-�� ������, ������ ��� ������
 		DelUnitFromGroup( pGroupUnit );
 
 		pGroupUnit->nGroup = nGroup;
@@ -64,7 +54,6 @@ void CGroupLogic::AddUnitToGroup( CCommonUnit *pGroupUnit, const int nGroup )
 	}
 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::DelUnitFromGroup( CCommonUnit *pUnit )
 {
 	if ( pUnit->nGroup != 0 )
@@ -74,7 +63,6 @@ void CGroupLogic::DelUnitFromGroup( CCommonUnit *pUnit )
 		pUnit->nPos = 0;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::DelUnitFromSpecialGroup( CCommonUnit *pUnit )
 {
 	if ( pUnit->nSpecialGroup != 0 )
@@ -87,10 +75,8 @@ void CGroupLogic::DelUnitFromSpecialGroup( CCommonUnit *pUnit )
 		pUnit->nSpecialGroup = 0;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::DelGroup( const int nGroup )
 {
-	// ��������� ������
 	for ( int i = groupUnits.begin( nGroup ); i != groupUnits.end(); i = groupUnits.GetNext( i ) )
 	{
 		groupUnits.GetEl( i )->nGroup = 0;
@@ -98,27 +84,22 @@ void CGroupLogic::DelGroup( const int nGroup )
 	}
 	groupUnits.DelQueue( nGroup );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 WORD CGroupLogic::GetGroupNumberByID( const WORD wID )
 {
 	return ( ( wID << 4 ) | BYTE( theDipl.GetMyNumber() ) ) << 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 WORD CGroupLogic::GetSpecialGroupNumberByID( const WORD wID )
 {
 	return ( ( ( wID << 4 ) | BYTE( theDipl.GetMyNumber() ) ) << 1 ) | 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 WORD CGroupLogic::GetIdByGroupNumber( const WORD wGroup )
 {
 	return wGroup >> 5;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 WORD CGroupLogic::GetPlayerByGroupNumber( const WORD wGroup )
 {
 	return ( wGroup >> 1 ) & 0xf;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::RegisterGroup( IRefCount **pUnitsBuffer, const int nLen, const WORD wGroup )
 {
 	if ( wGroup >= groupUnits.GetQueuesNum() )
@@ -149,7 +130,6 @@ void CGroupLogic::RegisterGroup( IRefCount **pUnitsBuffer, const int nLen, const
 
 				if ( pGroupUnit->nGroup != wGroup )				
 				{
-					// ���� ���� ��� � �����-�� ������, ������ ��� ������
 					DelUnitFromGroup( pGroupUnit );
 
 					pGroupUnit->nGroup = wGroup;
@@ -159,12 +139,10 @@ void CGroupLogic::RegisterGroup( IRefCount **pUnitsBuffer, const int nLen, const
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const WORD CGroupLogic::GenerateGroupNumber()
 {
 	return GetGroupNumberByID( groupIds.GetFreeId() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::UnregisterSpecialGroup( const WORD wSpecialGroup )
 {
 	if ( registeredGroups.find( wSpecialGroup ) != registeredGroups.end() )
@@ -178,7 +156,6 @@ void CGroupLogic::UnregisterSpecialGroup( const WORD wSpecialGroup )
 		registeredGroups.erase( wSpecialGroup );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::UnregisterGroup( const WORD wGroup ) 
 { 	
 	if ( registeredGroups.find( wGroup ) != registeredGroups.end() )
@@ -193,7 +170,6 @@ void CGroupLogic::UnregisterGroup( const WORD wGroup )
 		registeredGroups.erase( wGroup );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::DivideBySubGroups( const SAIUnitCmd &command, const int nGroup )
 {
 	float fMinX = 1e10, fMaxX = -1e10, fMinY = 1e10, fMaxY = -1e10;
@@ -252,7 +228,6 @@ void CGroupLogic::DivideBySubGroups( const SAIUnitCmd &command, const int nGroup
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::CreateSpecialGroup( const WORD wGroup )
 {
 	if ( wGroup != 0 )
@@ -294,7 +269,6 @@ void CGroupLogic::CreateSpecialGroup( const WORD wGroup )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::EraseFromAmbushGroups( const SAIUnitCmd &command, const WORD wGroup )
 {
 	if ( !command.bFromAI || command.cmdType == ACTION_COMMAND_AMBUSH )
@@ -306,7 +280,6 @@ void CGroupLogic::EraseFromAmbushGroups( const SAIUnitCmd &command, const WORD w
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::CreateAmbushGroup( const WORD wGroup )
 {
 	ambushGroups.push_front( std::list<SAmbushInfo>() );
@@ -318,7 +291,6 @@ void CGroupLogic::CreateAmbushGroup( const WORD wGroup )
 		ambushUnits.insert( nUniqueId );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::SetToAmbush( CAmbushGroups::iterator &iter )
 {
 	std::list< std::pair<CCommonUnit*, int> > oldUnitsGroups;
@@ -344,7 +316,6 @@ void CGroupLogic::SetToAmbush( CAmbushGroups::iterator &iter )
 	for ( std::list< std::pair<CCommonUnit*, int> >::iterator iter = oldUnitsGroups.begin(); iter != oldUnitsGroups.end(); ++iter )
 		theGroupLogic.AddUnitToGroup( iter->first, iter->second );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::UnitSetToAmbush( CCommonUnit *pUnit )
 {
 	for ( CAmbushGroups::iterator iter = ambushGroups.begin(); iter != ambushGroups.end(); ++iter )
@@ -362,7 +333,6 @@ void CGroupLogic::UnitSetToAmbush( CCommonUnit *pUnit )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::ProcessAmbushGroups()
 {
 	if ( lastAmbushCheck + 5000 < curTime )
@@ -378,17 +348,14 @@ void CGroupLogic::ProcessAmbushGroups()
 			while ( innerIter != iter->end() )
 			{
 				const int nUniqueId = innerIter->nUniqueId;
-				// ��� � ������ ambush ������, or deleted from ambush groups, ������� �� ����
 				if ( checkedUnits.find( nUniqueId ) != checkedUnits.end() || 
 						 ambushUnits.find( nUniqueId ) == ambushUnits.end() )
 					innerIter = iter->erase( innerIter );
 				else
 				{
-					// ���� ����������
 					checkedUnits.insert( nUniqueId );
 
 					CLinkObject *pObject = CLinkObject::GetObjectByUniqueIdSafe( nUniqueId );
-					// ���� ����, ������� �� ambush groups
 					if ( !IsValidObj( pObject ) )
 					{
 						ambushUnits.erase( nUniqueId );
@@ -396,7 +363,6 @@ void CGroupLogic::ProcessAmbushGroups()
 					}
 					else
 					{
-						// unit alive, check if can be set to ambush
 						CCommonUnit *pUnit = checked_cast<CCommonUnit*>( pObject );
 
 						if ( pUnit->GetState() && innerIter->vAmbushCenter.x != -1.0f )
@@ -438,11 +404,9 @@ void CGroupLogic::ProcessAmbushGroups()
 
 			if ( bCanSetToAmbush )
 			{
-				// group isn't empty, set to ambush
 				if ( !iter->empty() )
 					SetToAmbush( iter++ );
 				else
-					// group is empty, erase from ambush groups
 					iter = ambushGroups.erase( iter );
 			}
 			else
@@ -450,15 +414,12 @@ void CGroupLogic::ProcessAmbushGroups()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::GroupCommand( const SAIUnitCmd &command, const WORD wGroup, bool bPlaceInQueue )
 {
-	// �.�. ����� ������ ����� ���������, ��������, ����� ���� �� ������� � multiplayer �����
 	if ( registeredGroups.find( wGroup ) != registeredGroups.end() )
 	{
 		CPtr<CAICommand> pCommand = new CAICommand( command );
 		
-		// ����� � ����������� ������������� �������
 		if ( !bPlaceInQueue )
 		{
 			if ( command.cmdType == ACTION_COMMAND_MOVE_TO || command.cmdType == ACTION_COMMAND_SWARM_TO || 
@@ -491,14 +452,11 @@ void CGroupLogic::GroupCommand( const SAIUnitCmd &command, const WORD wGroup, bo
 		for ( int i = groupUnits.begin( wGroup ); i != groupUnits.end(); i = groupUnits.GetNext( i ) )
 			groups[nGroupsIter++] = groupUnits.GetEl( i );
 
-		// ���� ������ �������� ����� ���������� �� command.bFromAI - ��� ���������� ������ 
-		// �����������
 		if ( groupUnits.GetSize(wGroup) != 0 )
 		{
 			int nRandom = Random( groupUnits.GetSize(wGroup) );
 			if ( !command.bFromAI )
 			{
-				// ������� �� ������� ����, ������� ����� �������� ��� �� ������������� �������
 				groups[nRandom]->SendAcknowledgement( ACK_POSITIVE, true );
 			}
 		}
@@ -532,7 +490,6 @@ void CGroupLogic::GroupCommand( const SAIUnitCmd &command, const WORD wGroup, bo
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::UnitCommand( const SAIUnitCmd &command, CCommonUnit *pGroupUnit, bool bPlaceInQueue  )
 {
 	if ( pGroupUnit->IsAlive() )
@@ -546,19 +503,16 @@ void CGroupLogic::UnitCommand( const SAIUnitCmd &command, CCommonUnit *pGroupUni
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::InsertUnitCommand( const SAIUnitCmd &command, CCommonUnit *pUnit )
 {
 	CAICommand *pCmd = new CAICommand( command );
 	pUnit->InsertUnitCommand( pCmd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::PushFrontUnitCommand( const SAIUnitCmd &command, CCommonUnit *pUnit  )
 {
 	CAICommand *pCmd = new CAICommand( command );
 	pUnit->PushFrontUnitCommand( pCmd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::SegmentFollowingUnits()
 {
 	while ( !followingUnits.empty() )
@@ -572,7 +526,6 @@ void CGroupLogic::SegmentFollowingUnits()
 			pUnit->SetDesirableSpeed( fHeadUnitSpeed );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::StayTimeSegment()
 {
 	int nCntNotRestUnits = 0;
@@ -603,71 +556,57 @@ void CGroupLogic::StayTimeSegment()
 
 	GetSingleton<IScene>()->GetStatSystem()->UpdateEntry( "Not rest:", NStr::Format( "%d", nCntNotRestUnits ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::Segment() 
 {
 	updater.ClearAllUpdates( ACTION_NOTIFY_PLACEMENT );
 
 	const NTimer::STime roundedCurTime = curTime - curTime % SConsts::AI_SEGMENT_DURATION;
 
-	// states ������
 	NSegmObjs::Segment( lastSegmTime, roundedCurTime, segmUnits[0], (CStateSegments*)0 );
 	NSegmObjs::Segment( lastSegmTime, roundedCurTime, segmUnits[1], (CStateSegments*)0 );
 	NSegmObjs::Segment( lastSegmTime, roundedCurTime, freezeUnits, (CFreezeSegments*)0 );
 
-	// ������
 	theShellsStore.Segment();
 
-	// �������� ������ � follow
 	SegmentFollowingUnits();
 
-	// ����� ��������
 	NSegmObjs::Segment( lastSegmTime, roundedCurTime, firstPathUnits, (CFirstPathSegments*)0 );
 	theScanLimiter.SegmentsFinished();
 
-	// ��������� ���������� ��-�� �������� ������
 	NSegmObjs::SegmentWOMove( lastSegmTime, roundedCurTime, secondPathUnits, (CStayTimeSegments*)0 );
 	StayTimeSegment();
 
-	// ��������� ��������
 	theColCollector.HandOutCollisions();
 
-	// �������� ������ ����� ����
 	NSegmObjs::Segment( lastSegmTime, roundedCurTime, secondPathUnits, (CSecondPathSegments*)0 );
 
 	lastSegmTime = curTime - curTime % SConsts::AI_SEGMENT_DURATION + SConsts::AI_SEGMENT_DURATION;
 
 	ProcessAmbushGroups();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::UpdateAllAreas( const int nGroup, const EActionNotify eAction )
 {
 	for ( int i = groupUnits.begin( nGroup ); i != groupUnits.end(); i = groupUnits.GetNext( i ) )
 		groupUnits.GetEl( i )->UpdateArea( eAction );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::RegisterSegments( CCommonUnit *pUnit, const bool bInitialization, bool bAllInfo )
 {
 	segmUnits[pUnit->IsInfantry()].RegisterSegments( pUnit, bInitialization );
 	if ( bAllInfo )
 		freezeUnits.RegisterSegments( pUnit, bInitialization );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::RegisterPathSegments( CAIUnit *pUnit, const bool bInitialization )
 {
 	const int nUniqueId = pUnit->GetUniqueId();
 	firstPathUnits.RegisterSegments( pUnit, bInitialization );
 	secondPathUnits.RegisterSegments( pUnit, bInitialization );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::UnregisterSegments( CCommonUnit *pUnit )
 {
 	segmUnits[pUnit->IsInfantry()].UnregisterSegments( pUnit );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 GetGoPointByCommand( const SAIUnitCmd &cmd )
 {
-	// -1 - ��� �����, 0 - cmd.vPos, 1 - ����� ����� cmd.pObject, 2 - ����� ������. ������� cmd.pObject
 	int nType = -1;
 
 	switch ( cmd.cmdType )
@@ -742,12 +681,10 @@ const CVec2 GetGoPointByCommand( const SAIUnitCmd &cmd )
 
 	return vResult;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::AddFollowingUnit( CCommonUnit *pUnit )
 {
 	followingUnits.push_back( pUnit );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGroupLogic::ProcessGridCommand( const CVec2 &vGridCenter, const CVec2 &vGridDir, const int nGroup, bool bPlaceInQueue )
 {
 	CGrid grid( vGridCenter, nGroup, vGridDir );
@@ -764,4 +701,3 @@ void CGroupLogic::ProcessGridCommand( const CVec2 &vGridCenter, const CVec2 &vGr
 		UnitCommand( moveToCmd, pUnit, bPlaceInQueue );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

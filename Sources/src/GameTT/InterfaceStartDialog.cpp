@@ -6,14 +6,12 @@
 #include "..\Main\ScenarioTracker.h"
 #include "..\UI\UIMessages.h"
 #include "OptionEntryWrapper.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_cancel"		, IMC_CANCEL		},
 	{	"inter_ok", 				IMC_OK				},
 	{ 0									,	0							}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum 
 {
 	E_EDITBOX															= 2000,
@@ -23,7 +21,6 @@ enum
 
 	E_LIST																= 1001,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfacePlayerProfile::ProcessMessage( const SGameMessage &msg )
 {
 	if ( pOptions && pOptions->ProcessMessage( msg ) ) return true;
@@ -60,7 +57,6 @@ bool CInterfacePlayerProfile::ProcessMessage( const SGameMessage &msg )
 			if ( pButtonOK->IsWindowEnabled() )
 			{
 				bFinished = true;
-				// do not set player, save options. when campaign starts it will add players
 				const std::wstring szWindowText = MakeWideStringFromWordString( pEdit->GetWindowText( 0 ) );
 				IOptionSystem * pOptionsSystem = GetSingleton<IOptionSystem>();
 				if ( !szWindowText.empty() )
@@ -68,7 +64,6 @@ bool CInterfacePlayerProfile::ProcessMessage( const SGameMessage &msg )
 					pOptionsSystem->Set( "GamePlay.PlayerName", variant_t( szWindowText.c_str() ) );
 
 					/*{
-						// check if multiplayer name is default. if it is - set the same name
 						IOptionSystem * pOptions =  GetSingleton<IOptionSystem>();
 						const SOptionDesc * pDesc = pOptions->GetDesc( "Multiplayer.PlayerName" );
 						variant_t varPlayerName;
@@ -79,7 +74,6 @@ bool CInterfacePlayerProfile::ProcessMessage( const SGameMessage &msg )
 							pOptionsSystem->Set( "Multiplayer.PlayerName", variant_t( szWindowText.c_str() ) );
 					}*/
 					
-					// save options 
 					GetSingleton<IMainLoop>()->SerializeConfig( false, 0xffffffff );
 					pOptions->Apply();
 				}
@@ -94,7 +88,6 @@ bool CInterfacePlayerProfile::ProcessMessage( const SGameMessage &msg )
 	}
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfacePlayerProfile::StepLocal( bool bAppActive )
 {
 	const CVec2 vPos = pCursor->GetPos();
@@ -102,7 +95,6 @@ bool CInterfacePlayerProfile::StepLocal( bool bAppActive )
 	pUIScreen->Update( pTimer->GetAbsTime() );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfacePlayerProfile::OnGetFocus( bool bFocus )
 {
 	CInterfaceScreenBase::OnGetFocus( bFocus );
@@ -114,7 +106,6 @@ void CInterfacePlayerProfile::OnGetFocus( bool bFocus )
 		pInput->SetTextMode( INPUT_TEXT_MODE_TEXTONLY );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfacePlayerProfile::Init()
 {
 	CInterfaceScreenBase::Init();
@@ -122,7 +113,6 @@ bool CInterfacePlayerProfile::Init()
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfacePlayerProfile::StartInterface()
 {
 	bFinished = false;
@@ -167,7 +157,6 @@ void CInterfacePlayerProfile::StartInterface()
 	
 	pScene->AddUIScreen( pUIScreen );
 
-	//IT WILL FIX THE BUG WITH BLINKING PLAYER PROFILE
 	IInput * pInput = GetSingleton<IInput>();
 	pInput->PumpMessages( true );
 	SGameMessage msg;
@@ -175,4 +164,3 @@ void CInterfacePlayerProfile::StartInterface()
 	{
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

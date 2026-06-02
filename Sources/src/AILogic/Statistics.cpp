@@ -5,24 +5,19 @@
 #include "..\Main\ScenarioTrackerTypes.h"
 #include "Diplomacy.h"
 #include "CommonUnit.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CDiplomacy theDipl;
 CStatistics theStatistics;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( IScenarioUnit );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStatistics::Init()
 {
 	pScenarioTracker = GetSingleton<IScenarioTracker>();
 	bEnablePlayerExp = GetGlobalVar( "TutorialMode", 0 ) == 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStatistics::UnitCaptured( const int nPlayer )
 {
 	if ( pScenarioTracker )
 		pScenarioTracker->GetPlayer( nPlayer )->GetMissionStats()->AddValue( STMT_ENEMY_MACHINERY_CAPTURED, 1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IMissionStatistics* CStatistics::GetPlayerStats( const int nPlayer )
 {
 	if ( pScenarioTracker )
@@ -33,7 +28,6 @@ IMissionStatistics* CStatistics::GetPlayerStats( const int nPlayer )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStatistics::UnitKilled( const int nPlayer, const int nKilledUnitsPlayer, const int nUnits, const float fTotalAIPrice )
 {
 	if ( pScenarioTracker )
@@ -57,7 +51,6 @@ void CStatistics::UnitKilled( const int nPlayer, const int nKilledUnitsPlayer, c
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStatistics::ObjectDestroyed( const int nPlayer )
 {
 	if ( pScenarioTracker )
@@ -66,7 +59,6 @@ void CStatistics::ObjectDestroyed( const int nPlayer )
 				pPlayerStats->AddValue( STMT_HOUSES_DESTROYED, 1.0f );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStatistics::AviationCalled( const int nPlayer )
 {
 	if ( pScenarioTracker )
@@ -75,7 +67,6 @@ void CStatistics::AviationCalled( const int nPlayer )
 			pPlayerStats->AddValue( STMT_AVIATION_CALLED, 1.0f );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStatistics::ReinforcementUsed( const int nPlayer )
 {
 	if ( pScenarioTracker ) 
@@ -84,7 +75,6 @@ void CStatistics::ReinforcementUsed( const int nPlayer )
 			pPlayerStats->AddValue( STMT_REINFORCEMENT_USED, 1.0f );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStatistics::ResourceUsed( const int nPlayer, const float fResources )
 {
 	if ( pScenarioTracker )
@@ -93,7 +83,6 @@ void CStatistics::ResourceUsed( const int nPlayer, const float fResources )
 			pPlayerStats->AddValue( STMT_RESOURCES_USED, fResources );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStatistics::UnitDead( CCommonUnit *pUnit )
 {
 	if ( pScenarioTracker )
@@ -108,7 +97,6 @@ void CStatistics::UnitDead( CCommonUnit *pUnit )
 			pScenarioUnit->Kill();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStatistics::IncreasePlayerExperience( const int nPlayer, const float fPrice ) 
 {
 	if ( bEnablePlayerExp && pScenarioTracker )
@@ -117,7 +105,6 @@ void CStatistics::IncreasePlayerExperience( const int nPlayer, const float fPric
 			pPlayerStats->AddValue( STMT_PLAYER_EXPERIENCE, fPrice );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStatistics::UnitLeveledUp( CCommonUnit *pUnit )
 {
 	IScenarioUnit *pScenarioUnit = pUnit->GetScenarioUnit();
@@ -127,7 +114,6 @@ void CStatistics::UnitLeveledUp( CCommonUnit *pUnit )
 			pPlayerStats->AddValue( STMT_UNITS_LEVELED_UP, 1.0f );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStatistics::SetFlagPoints( const int nParty, const float fPoints )
 {
 	if ( pScenarioTracker )
@@ -140,7 +126,6 @@ void CStatistics::SetFlagPoints( const int nParty, const float fPoints )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStatistics::SetCapturedFlags( const int nParty, const int nFlags )
 {
 	if ( pScenarioTracker )
@@ -153,7 +138,6 @@ void CStatistics::SetCapturedFlags( const int nParty, const int nFlags )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CStatistics::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -164,4 +148,3 @@ int CStatistics::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

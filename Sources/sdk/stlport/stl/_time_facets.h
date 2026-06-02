@@ -15,9 +15,6 @@
  * modified is included with the above copyright notice.
  *
  */ 
-// WARNING: This is an internal header file, included by other C++
-// standard library headers.  You should not attempt to use this header
-// file directly.
 
 
 #ifndef _STLP_INTERNAL_TIME_FACETS_H
@@ -32,49 +29,14 @@
 
 _STLP_BEGIN_NAMESPACE
 
-// Template functions used by time_get
 
-// Matching input against a list of names
 
-// Alphabetic input of the names of months and the names
-// of weekdays requires matching input against a list of names.
-// We use a simple generic algorithm to accomplish this.  This
-// algorithm is not very efficient, especially for longer lists
-// of names, but it probably does not matter for the initial
-// implementation and it may never matter, since we do not expect
-// this kind of input to be used very often.  The algorithm
-// could be improved fairly simply by creating a new list of
-// names still in the running at each iteration.  A more sophisticated
-// approach would be to build a trie to do the matching.
-//
-// We compare each character of the input to the corresponding
-// character of each name on the list that has not been eliminated,
-// either because every character in the name has already been
-// matched, or because some character has not been matched.  We
-// continue only as long as there are some names that have not been
-// eliminated.
 
-// We do not really need a random access iterator (a forward iterator
-// would do), but the extra generality makes the notation clumsier,
-// and we don't really need it.
 
-// We can recognize a failed match by the fact that the second
-// component of the return value will be __name_end.
 
 #define _MAXNAMES        64
 #define _MAX_NAME_LENGTH 64
 
-// Both time_get and time_put need a structure of type _Time_Info
-// to provide names and abbreviated names for months and days,
-// as well as the am/pm designator.  The month and weekday tables
-// have the all the abbreviated names before all the full names.
-// The _Time_Info tables are initialized using the non-template
-// function _Init_timeinfo, which has two overloadings:  one
-// with a single reference parameter for the table to be initialized,
-// and one with a second _Locale_time * parameter.  The first form
-// is called by the default constructor and the second by a special
-// constructor invoked from the _byname subclass constructor to
-// construct the base class.
 
 class _STLP_CLASS_DECLSPEC _Time_Info {
 public:
@@ -183,15 +145,8 @@ private:
   _Locale_time* _M_time;
 };
 
-// time_put facet
 
-// For the formats 'x, 'X', and 'c', do_put calls the first form of
-// put with the pattern obtained from _M_timeinfo._M_date_format or
-// _M_timeinfo._M_time_format.
 
-// Helper function:  __  takes a single-character
-// format.  As indicated by the foregoing remark, this will never be
-// 'x', 'X', or 'c'.
 
 char * _STLP_CALL
 __write_formatted_time(char * __buf, char __format, char __modifier,
@@ -236,7 +191,6 @@ protected:
   _Time_Info _M_timeinfo;
 
   time_put(_Locale_time* /*__time*/, size_t __refs) : _BaseFacet(__refs) {
-    //    _Init_timeinfo(_M_timeinfo, __time);
   }
 
   ~time_put() {}
@@ -269,13 +223,9 @@ private:
 # ifdef _STLP_USE_TEMPLATE_EXPORT
 _STLP_EXPORT_TEMPLATE_CLASS time_get<char, istreambuf_iterator<char, char_traits<char> > >;
 _STLP_EXPORT_TEMPLATE_CLASS time_put<char, ostreambuf_iterator<char, char_traits<char> > >;
-// _STLP_EXPORT_TEMPLATE_CLASS time_get<char, const char*>;
-// _STLP_EXPORT_TEMPLATE_CLASS time_put<char, char*>;
 #  ifndef _STLP_NO_WCHAR_T
 _STLP_EXPORT_TEMPLATE_CLASS time_get<wchar_t, istreambuf_iterator<wchar_t, char_traits<wchar_t> > >;
 _STLP_EXPORT_TEMPLATE_CLASS time_put<wchar_t, ostreambuf_iterator<wchar_t, char_traits<wchar_t> > >;
-// _STLP_EXPORT_TEMPLATE_CLASS time_get<wchar_t, const wchar_t*>;
-// _STLP_EXPORT_TEMPLATE_CLASS time_put<wchar_t, wchar_t*>;
 #  endif /* INSTANTIATE_WIDE_STREAMS */
 
 # endif
@@ -308,8 +258,5 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_TIME_FACETS_H */
 
-// Local Variables:
-// mode:C++
-// End:
 
 

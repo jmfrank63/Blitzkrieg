@@ -10,7 +10,6 @@
 #include "PlanePath.h"
 #include "SaveDBID.h"
 #include "AnimUnit.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SBehaviour::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -20,7 +19,6 @@ int SBehaviour::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CAIUnit::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;	
@@ -53,7 +51,6 @@ int CAIUnit::operator&( IStructureSaver &ss )
 	saver.Add( 38, &nLevel );
 	saver.Add( 39, &pExpLevels );
 	
-	// для загрузки старых saves
 	if ( saver.IsReading() )
 	{
 		if ( pExpLevels == 0 )
@@ -80,7 +77,6 @@ int CAIUnit::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldier::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -95,8 +91,6 @@ int CSoldier::operator&( IStructureSaver &ss )
 			pObjInside = 0;
 	}
 	SerializeOwner( 5, &pObjInside, &saver );
-//	saver.Add( 5, &pObjInside );
-//	saver.Add( 6, &nSlot );
 	saver.Add( 7, &wMinAngle );
 	saver.Add( 8, &wMaxAngle );
 	saver.Add( 9, &bInFirePlace );
@@ -120,7 +114,6 @@ int CSoldier::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInfantry::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -129,7 +122,6 @@ int CInfantry::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSniper::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -142,7 +134,6 @@ int CSniper::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CAviation::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -166,7 +157,6 @@ int CAviation::operator&( IStructureSaver &ss )
 	saver.Add( 18, &eAviationType );	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlanesFormation::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -191,7 +181,6 @@ int CPlanesFormation::operator&( IStructureSaver &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTank::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -209,7 +198,6 @@ int CTank::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CArtillery::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -242,7 +230,6 @@ int CArtillery::operator&( IStructureSaver &ss )
 	saver.Add( 26, &pCapturingUnit );
 	saver.Add( 27, &pHookingTransport );
 
-	// for compatibility with legacy versions
 	int cnt = -1;
 	saver.Add( 29, &cnt );
 	if ( saver.IsReading() && cnt == 0 )
@@ -254,7 +241,6 @@ int CArtillery::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMilitaryCar::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -270,7 +256,6 @@ int CMilitaryCar::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CAITransportUnit::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -283,7 +268,6 @@ int CAITransportUnit::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CCommonUnit::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -311,7 +295,6 @@ int CCommonUnit::operator&( IStructureSaver &ss )
 	{
 		LoadDBID( &saver, 21, &dbID );
 
-		// legacy save
 		if ( dbID == -1 )
 			saver.Add( 6, &dbID );
 	}
@@ -325,7 +308,6 @@ int CCommonUnit::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CQueueUnit::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -337,4 +319,3 @@ int CQueueUnit::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,13 +1,10 @@
 #ifndef __GAME_CREATION_MESSAGES_H__
 #define __GAME_CREATION_MESSAGES_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Messages.h"
 #include "ServerInfo.h"
 
 #include "..\Net\NetDriver.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CConnectionFailed : public IMultiplayerMessage
 {
 	OBJECT_COMPLETE_METHODS( CConnectionFailed );
@@ -20,7 +17,6 @@ public:
 	virtual const EMultiplayerMessages GetMessageID() const { return CONNECTION_FAILED; }
 	virtual void SendToUI();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CPlayerInfoRefreshed : public IMultiplayerMessage
 {
 	OBJECT_COMPLETE_METHODS( CPlayerInfoRefreshed );
@@ -36,7 +32,6 @@ public:
 	virtual const EMultiplayerMessages GetMessageID() const { return PLAYER_INFO_REFRESHED; }
 	virtual void SendToUI();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CPlayerDeleted : public IMultiplayerMessage
 {
 	OBJECT_COMPLETE_METHODS( CPlayerDeleted );
@@ -54,7 +49,6 @@ public:
 	virtual const EMultiplayerMessages GetMessageID() const { return PLAYER_DELETED; }
 	virtual void SendToUI();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGameInfoReceived : public IMultiplayerMessage
 {
 	OBJECT_COMPLETE_METHODS( CGameInfoReceived );
@@ -70,7 +64,6 @@ public:
 	virtual const EMultiplayerMessages GetMessageID() const { return GAME_INFO_RECEIVED; }
 	virtual void SendToUI();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGameStarted : public IMultiplayerMessage
 {
 	OBJECT_COMPLETE_METHODS( CGameStarted );
@@ -80,7 +73,6 @@ public:
 	virtual const EMultiplayerMessages GetMessageID() const { return GAME_STARTED; }
 	virtual void SendToUI();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CWrongResources : public IMultiplayerMessage
 {
 	OBJECT_COMPLETE_METHODS( CWrongResources );
@@ -90,7 +82,6 @@ public:
 	virtual const EMultiplayerMessages GetMessageID() const { return WRONG_RESOURCES; }
 	virtual void SendToUI();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CWrongMap : public IMultiplayerMessage
 {
 	OBJECT_COMPLETE_METHODS( CWrongMap );
@@ -100,7 +91,6 @@ public:
 	virtual const EMultiplayerMessages GetMessageID() const { return WRONG_MAP; }
 	virtual void SendToUI();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CNoMap : public IMultiplayerMessage
 {
 	OBJECT_COMPLETE_METHODS( CNoMap );
@@ -110,7 +100,6 @@ public:
 	virtual const EMultiplayerMessages GetMessageID() const { return NO_MAP; }
 	virtual void SendToUI();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CWrongPassword : public IMultiplayerMessage
 {
 	OBJECT_COMPLETE_METHODS( CWrongPassword );
@@ -120,7 +109,6 @@ public:
 	virtual const EMultiplayerMessages GetMessageID() const { return WRONG_PASSWORD; }
 	virtual void SendToUI();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGameIsAlreadyStarted : public IMultiplayerMessage
 {
 	OBJECT_COMPLETE_METHODS( CGameIsAlreadyStarted );
@@ -130,7 +118,6 @@ public:
 	virtual const EMultiplayerMessages GetMessageID() const { return GAME_IS_ALREADY_STARTED; }
 	virtual void SendToUI();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCanStartGameState : public IMultiplayerMessage
 {
 	OBJECT_COMPLETE_METHODS( CCanStartGameState );
@@ -144,7 +131,6 @@ public:
 	virtual const EMultiplayerMessages GetMessageID() const { return CAN_START_GAME; }
 	virtual void SendToUI();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGameSettingsChanged : public IMultiplayerMessage
 {
 	OBJECT_COMPLETE_METHODS( CGameSettingsChanged );
@@ -157,7 +143,6 @@ public:
 	virtual const EMultiplayerMessages GetMessageID() const { return GAME_INFO_CHANGED; }
 	virtual void SendToUI();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCreateStagingRoom : public IMultiplayerMessage
 {
 	OBJECT_COMPLETE_METHODS( CCreateStagingRoom );
@@ -167,7 +152,6 @@ public:
 	virtual const EMultiplayerMessages GetMessageID() const { return CREATE_STAGING_ROOM; }
 	virtual void SendToUI();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAIMKicked : public IMultiplayerMessage
 {
 	OBJECT_COMPLETE_METHODS( CAIMKicked );
@@ -177,5 +161,4 @@ public:
 	virtual const EMultiplayerMessages GetMessageID() const { return AIM_KICKED; }
 	virtual void SendToUI();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __GAME_CREATION_MESSAGES_H__

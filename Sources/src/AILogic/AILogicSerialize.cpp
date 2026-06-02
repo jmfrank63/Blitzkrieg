@@ -6,9 +6,7 @@
 #include "UnitCreation.h"
 #include "Updater.h"
 #include "Trigonometry.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern NTimer::STime curTime;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CAILogic::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -43,16 +41,13 @@ int CAILogic::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitCreation::STankPitInfo::operator&( IDataTree  &ss )
 {
 	CTreeAccessor tree = &ss;
-	//tree.Add( "SizeInfo", &tankPitSizeInfo );
 	tree.Add( "SandBag", &sandBagTankPits );
 	tree.Add( "Dig", &digTankPits );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitCreation::SCommonInfo::operator&( IDataTree  &ss )
 {
 	CTreeAccessor tree = &ss;
@@ -63,7 +58,6 @@ int CUnitCreation::SCommonInfo::operator&( IDataTree  &ss )
 	tree.Add( "Entrenchment", &szEntrenchment );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitCreation::SLocalInGameUnitCreationInfo::SPlaneInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -73,7 +67,6 @@ int CUnitCreation::SLocalInGameUnitCreationInfo::SPlaneInfo::operator&( IStructu
 	saver.Add( 4, &nPlanes );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitCreation::SLocalInGameUnitCreationInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -87,7 +80,6 @@ int CUnitCreation::SLocalInGameUnitCreationInfo::operator&( IStructureSaver &ss 
 	saver.Add( 8, &nLastCalledAviaType );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitCreation::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -106,4 +98,3 @@ int CUnitCreation::operator&( IStructureSaver &ss )
 	saver.Add( 11, &nAviationCallNumeber );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

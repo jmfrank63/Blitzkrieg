@@ -21,25 +21,21 @@
 #include "..\Formats\fmtMap.h"
 
 #include "MPLog.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS(CEntrenchmentCreation);
 BASIC_REGISTER_CLASS(CFenceCreation);
 BASIC_REGISTER_CLASS(CLongObjectCreation);
 BASIC_REGISTER_CLASS(CBridgeCreation);
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CStaticMap theStaticMap;
 const static float fNearToNormale = 0.05f; 
 extern CStaticObjects theStatObjs;
 extern CStaticMap theStaticMap;
 extern CUnitCreation theUnitCreation;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CLongObjectCreation::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 	saver.Add( 1, &fWorkAccumulated );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CEntrenchmentCreation::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -64,26 +60,17 @@ int CEntrenchmentCreation::operator&( IStructureSaver &ss )
 	saver.AddTypedSuper( 14, static_cast<CLongObjectCreation*>( this ) );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CEntrenchmentCreation::CEntrenchmentCreation( const int nPlayer )
 : nPlayer( nPlayer )
 {
 	InitConsts();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEntrenchmentCreation::InitConsts()
 {
-	//IObjectsDB *pGDB = GetSingleton<IObjectsDB>();
-	//pDesc = pGDB->GetDesc( theUnitCreation.GetEntrenchmentName() );
-  //pRPG = static_cast<const SEntrenchmentRPGStats*>( pGDB->GetRPGStats( pDesc ) );
-	//dbID = pGDB->GetIndex( theUnitCreation.GetEntrenchmentName() );
-  //nTermInd = pRPG->GetTerminatorIndex();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CEntrenchmentCreation::SearchTrenches( const CVec2 &vCenter, const SRect &rectToTest )
 {
 	const float fMaxSize = Max( rectToTest.lengthAhead, Max(rectToTest.lengthBack, rectToTest.width ) ) + 2 * SConsts::TILE_SIZE;
-	// просканировать в радиусе на наличие окопов
 	for ( CStObjCircleIter<false> iter( vCenter, fMaxSize ); !iter.IsFinished(); iter.Iterate() )
 	{
 		CStaticObject *pObj = *iter;
@@ -98,7 +85,6 @@ bool CEntrenchmentCreation::SearchTrenches( const CVec2 &vCenter, const SRect &r
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CEntrenchmentCreation::PreCreate( const CVec2 &vFrom, const CVec2 &vTo )
 {
 	bCannot = false;
@@ -121,17 +107,14 @@ bool CEntrenchmentCreation::PreCreate( const CVec2 &vFrom, const CVec2 &vTo )
 	
 	if ( vPoints.size() <= 1 ) return false;
 
-	//lines and fireplaces
 	bool switcher=false;
 	int nFrameIndex;
 	for ( int i = 0; i < vPoints.size() - 1; ++i )
 	{
 		switcher = ((i+1)%3)==0;
-		//решить что стрoить - fire place or line
 		int nRandom = Random( 0, 0xffff );
 		nFrameIndex = switcher ? pRPG->GetFirePlaceIndex( &nRandom ) : pRPG->GetLineIndex( &nRandom );
 		const CVec2	pt = ( vPoints[i] + vPoints[i + 1] ) / 2.0f;
-		//
 		if ( CanDig( pRPG, dbID, pt, wAngle, nFrameIndex ) )
 			parts.push_back( AddElement( pRPG, dbID, pt, wAngle, nFrameIndex ) );
 		else
@@ -139,28 +122,23 @@ bool CEntrenchmentCreation::PreCreate( const CVec2 &vFrom, const CVec2 &vTo )
 			bSayAck = true;
 			break;
 		}
-		//
 	}
 	if ( parts.empty() ) return false;
 
-  //begin terminator
 	if ( !CanDig( pRPG, dbID, vPoints[0], wAngle+ 65535/2, nTermInd ) ) return false;
 	pBeginTerminator = AddElement( pRPG, dbID, vPoints[0], wAngle+ 65535/2, nTermInd );
 	CreateNewEndTerminator();
 	CalcTilesUnder();
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CEntrenchmentCreation::GetMaxIndex() const
 {
 	return parts.size();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CEntrenchmentCreation::GetCurIndex() const
 {
 	return nCurIndex;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CEntrenchmentCreation::GetNextPoint( const int nPlace, const int nMaxPlace ) const
 {
 	NI_ASSERT_T( nMaxPlace, "builders number = 0" );
@@ -171,7 +149,6 @@ const CVec2 CEntrenchmentCreation::GetNextPoint( const int nPlace, const int nMa
 	return parts[nCurIndex]->GetCenter() + vDir * ( rect.lengthAhead+rect.lengthBack) * (nPlace -nMaxPlace/2) / nMaxPlace;
 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEntrenchmentCreation::BuildNext()
 {
 	CLongObjectCreation::BuildNext();
@@ -179,9 +156,7 @@ void CEntrenchmentCreation::BuildNext()
 		theStatObjs.AddEntrencmentPart( pBeginTerminator, true, false );
 	theStatObjs.AddEntrencmentPart( parts[nCurIndex], true, false );
 	
-	//
 	++nCurIndex;
-	//
 	
 	if ( pFullEntrenchment )
 	{
@@ -208,7 +183,6 @@ void CEntrenchmentCreation::BuildNext()
 	if ( GetCurIndex() < GetMaxIndex() )
 		CalcTilesUnder();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEntrenchmentCreation::CalcTilesUnder()
 {
 	CTilesSet tilesUnder2, tilesUnder3;
@@ -219,7 +193,6 @@ void CEntrenchmentCreation::CalcTilesUnder()
 	tilesUnder.splice( tilesUnder.begin(), tilesUnder2 );
 	tilesUnder.splice( tilesUnder.begin(), tilesUnder3 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEntrenchmentCreation::CreateNewEndTerminator()
 {
 	IObjectsDB *pGDB = GetSingleton<IObjectsDB>();
@@ -234,7 +207,6 @@ void CEntrenchmentCreation::CreateNewEndTerminator()
 	else 
 		pNewEndTerminator = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEntrenchmentCreation::GetUnitsPreventing( std::list< CPtr<CAIUnit> > *units )
 {
 	SRect r1, r2, r3 ;
@@ -256,7 +228,6 @@ void CEntrenchmentCreation::GetUnitsPreventing( std::list< CPtr<CAIUnit> > *unit
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CEntrenchmentCreation::IsAnyUnitPrevent() const
 {
 	SRect r1, r2, r3 ;
@@ -279,7 +250,6 @@ bool CEntrenchmentCreation::IsAnyUnitPrevent() const
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CEntrenchmentCreation::CanBuildNext() const
 {
 	if ( bCannot || !pNewEndTerminator ) return false;
@@ -293,7 +263,6 @@ bool CEntrenchmentCreation::CanBuildNext() const
 	if ( !theStaticMap.IsRectInside( r1 )  || !theStaticMap.IsRectInside( r2 ) ) return false;
 
 	const float fRadius = r1.lengthAhead + r1.lengthBack + r1.width + r2.lengthAhead + r2.lengthBack + r2.width + SConsts::TILE_SIZE * 5;
-	// пробежаться по юнитам, все разлокать.
 	for ( CUnitsIter<0,2> iter( 0, ANY_PARTY, vPoints[nCurIndex], fRadius ); !iter.IsFinished(); iter.Iterate() )
 	{
 		CAIUnit * pUnit = *iter;
@@ -314,7 +283,6 @@ bool CEntrenchmentCreation::CanBuildNext() const
 		}
 	}
 	
-	// теперь проверить, можно ли строить
 	for ( CTilesSet::const_iterator it = tilesUnder.begin(); it != tilesUnder.end(); ++it )
 	{
 		if ( 0 != theStaticMap.GetTileLockInfo( *it ) )
@@ -322,12 +290,10 @@ bool CEntrenchmentCreation::CanBuildNext() const
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CEntrenchmentCreation::GetPrice()
 {
 	return SConsts::ENTRENCHMENT_SEGMENT_RU_PRICE;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEntrenchmentCreation::LockNext()
 {
 	parts[nCurIndex]->LockTiles();
@@ -335,16 +301,13 @@ void CEntrenchmentCreation::LockNext()
 	if ( 0 == nCurIndex )
 		pBeginTerminator->LockTiles();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CEntrenchmentPart * CEntrenchmentCreation::AddElement( const SEntrenchmentRPGStats *pRPG, int dbID, const CVec2 &pt, WORD angle, int nFrameIndex )
 {
-	//create entrenchments
 	CEntrenchmentPart *ptr = new CEntrenchmentPart( pRPG, pt, angle, nFrameIndex, dbID, pRPG->fMaxHP );
 	ptr->Mem2UniqueIdObjs();
 	ptr->Init();
 	return ptr;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CEntrenchmentCreation::CanDig( const SEntrenchmentRPGStats *pRPG, int dbID, const CVec2 &pt, WORD angle, int nFrameIndex )
 {
 	const SRect rect = CEntrenchmentPart::CalcBoundRect( pt, angle, pRPG->segments[nFrameIndex] );
@@ -375,11 +338,6 @@ bool CEntrenchmentCreation::CanDig( const SEntrenchmentRPGStats *pRPG, int dbID,
 	}
 	return bPossible;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												  CEntrenchmentCreation										*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 WORD CEntrenchmentCreation::GetLineAngle( const CVec2 &vBegin, const CVec2 &vEnd ) const
 {
 	CVec2 vTmp = vEnd - vBegin;  
@@ -389,7 +347,6 @@ WORD CEntrenchmentCreation::GetLineAngle( const CVec2 &vBegin, const CVec2 &vEnd
 		fAngle = FP_2PI - fAngle;
 	return WORD ( (fAngle/( 2.0f * PI ) ) * 65535 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 float CEntrenchmentCreation::GetTrenchWidth( int nType )// 0 - секция , 1 - поворот
 {
@@ -405,7 +362,6 @@ float CEntrenchmentCreation::GetTrenchWidth( int nType )// 0 - секция , 1 - пово
 
 	return pRPG->segments[nFrameIndex].vAABBHalfSize.x * 2;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEntrenchmentCreation::SplitLineToSegrments( std::vector<CVec2> *_vPoints, CVec2 vBegin, CVec2 vEnd, float TRENCHWIDTH )
 {
 	CVec2 currentPoint = vBegin;
@@ -436,11 +392,6 @@ void CEntrenchmentCreation::SplitLineToSegrments( std::vector<CVec2> *_vPoints, 
 		vAddSegment.y += currentPoint.y;
 	}	
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												  CFenceCreation												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFenceCreation::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -460,33 +411,27 @@ int CFenceCreation::operator&( IStructureSaver &ss )
 	saver.AddTypedSuper( 14, static_cast<CLongObjectCreation*>( this ) );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFenceCreation::InitConsts()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CFenceCreation::GetPrice()
 {
 	return SConsts::FENCE_SEGMENT_RU_PRICE;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFenceCreation::CFenceCreation( const int nPlayer ) 
 : nPlayer( nPlayer )
 {
 	InitConsts();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFenceCreation::LockNext()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFenceCreation::BuildNext()
 {
 	CLongObjectCreation::BuildNext();
 	theStatObjs.AddStaticObject( fenceSegements[nCurIndex], false, false );
 	++nCurIndex;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFenceCreation::PreCreate( const CVec2 &_vFrom, const CVec2 &_vTo )
 {
 	bCannot = false;
@@ -508,7 +453,6 @@ bool CFenceCreation::PreCreate( const CVec2 &_vFrom, const CVec2 &_vTo )
 	const SFenceRPGStats *pStats = static_cast<const SFenceRPGStats*>( pGDB->GetRPGStats( pDesc ) );
 	const int nDBIndex = pGDB->GetIndex( theUnitCreation.GetWireFenceName() );
 
-	// determine length of one segment
 	int nFrameIndex;
 	int nRandom = Random( 0, 0xffff );
 	if ( !isXConst )
@@ -518,10 +462,8 @@ bool CFenceCreation::PreCreate( const CVec2 &_vFrom, const CVec2 &_vTo )
 	const int nSegmentLenght = 2;//isXConst ? pStats->GetPassability( nFrameIndex ).GetSizeY() : pStats->GetPassability( nFrameIndex ).GetSizeX();
 	const int nOffset = nSegmentLenght - 1;
 
-	// теперь мы будем  вдоль линии ставить заборчики
 	for ( std::vector<CVec2>::iterator it = hlpFence.m_points.begin(); it != hlpFence.m_points.end(); )
 	{
-		// check is curent points inside static map
 		const CVec2 vPoint1 ( *it );
 		bool bCanBuild = true;
 		for ( int i = 0; i < nSegmentLenght && bCanBuild; ++i ) //check that every tile under the segment is inside map
@@ -536,10 +478,8 @@ bool CFenceCreation::PreCreate( const CVec2 &_vFrom, const CVec2 &_vTo )
 
 		CVec2 vFencePosition( vPoint1.x * SConsts::TILE_SIZE, vPoint1.y * SConsts::TILE_SIZE );
 		CVec2 vCenterPosition( vPoint1 );
-		// Здесь надо ставить в зависимости от направления 
 		if ( !isXConst )
 		{
-			// у второго направления надо изменить позицию
 			if ( vFrom.x < vTo.x  )
 			{
 				vFencePosition = CVec2(  ( vPoint1.x + nSegmentLenght ) * SConsts::TILE_SIZE, ( vPoint1.y ) * SConsts::TILE_SIZE ); 
@@ -550,7 +490,6 @@ bool CFenceCreation::PreCreate( const CVec2 &_vFrom, const CVec2 &_vTo )
 		}
 		else 
 		{
-			// у второго направления надо изменить позицию
 			if ( vFrom.y > vTo.y  )
 			{
 				vFencePosition = CVec2(  vPoint1.x * SConsts::TILE_SIZE, ( vPoint1.y - nSegmentLenght ) * SConsts::TILE_SIZE ); 
@@ -577,17 +516,13 @@ bool CFenceCreation::PreCreate( const CVec2 &_vFrom, const CVec2 &_vTo )
 	}
 	return !fenceSegements.empty();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFenceCreation::IsCegmentToBeBuilt( class CFence *pObj ) const
 {
-	// проверить, что стоит на горизонтальном участке
 	const CVec3 vNormal =  DWORDToVec3( theStaticMap.GetNormal( pObj->GetCenter() ) );
 	if ( fabs(vNormal.x) > fNearToNormale * fabs(vNormal.z) &&
 			fabs(vNormal.y) > fNearToNormale * fabs(vNormal.z) ) return false;
 
-	// проверить, нет ли какого-нить забора, на тех тайлах, которые лочит pObj
 	
-	// найти сегмент, который лочит тайлы
 	SRect r1;
 	pObj->GetBoundRect( &r1 );
 	const float fRadius = r1.lengthAhead + r1.lengthBack + r1.width + SConsts::TILE_SIZE * 5;
@@ -621,7 +556,6 @@ bool CFenceCreation::IsCegmentToBeBuilt( class CFence *pObj ) const
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFenceCreation::GetUnitsPreventing( std::list< CPtr<CAIUnit> > *units )
 {
 	SRect r1;
@@ -638,7 +572,6 @@ void CFenceCreation::GetUnitsPreventing( std::list< CPtr<CAIUnit> > *units )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFenceCreation::IsAnyUnitPrevent() const
 {
 	SRect r1;
@@ -656,28 +589,23 @@ bool CFenceCreation::IsAnyUnitPrevent() const
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CFenceCreation::GetMaxIndex() const
 {
 	return fenceSegements.size();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CFenceCreation::GetCurIndex() const
 {
 	return nCurIndex;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFenceCreation::CanBuildNext() const
 {
 	if ( bCannot ) return false;
 	SRect r1;
 	fenceSegements[nCurIndex]->GetBoundRect( &r1 );
-	// hack! to avoid problem with bounds (due to open set of coordinates)
 	r1.Compress( 0.99f );	
 	if ( !theStaticMap.IsRectInside( r1 ) ) return false;
 	const float fRadius = r1.lengthAhead + r1.lengthBack + r1.width + SConsts::TILE_SIZE * 5;
 
-	// пробежаться по юнитам, все разлокать.
 	for ( CUnitsIter<0,2> iter( 0, ANY_PARTY, vPoints[nCurIndex], fRadius ); !iter.IsFinished(); iter.Iterate() )
 	{
 		CAIUnit * pUnit = *iter;
@@ -698,7 +626,6 @@ bool CFenceCreation::CanBuildNext() const
 		}
 	}
 	
-	// теперь проверить, можно ли строить
 	for ( CTilesSet::const_iterator it = tilesUnder.begin(); it != tilesUnder.end(); ++it )
 	{
 		if ( 0 != theStaticMap.GetTileLockInfo( *it ) )
@@ -706,12 +633,10 @@ bool CFenceCreation::CanBuildNext() const
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFenceCreation::CalcTilesUnder()
 {
 	fenceSegements[nCurIndex]->GetCoveredTiles( &tilesUnder );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFenceCreation::GetNextPoint( const int nPlace, const int nMaxPlace ) const
 {
 	NI_ASSERT_T( nMaxPlace, "builders number = 0" );
@@ -725,11 +650,6 @@ const CVec2 CFenceCreation::GetNextPoint( const int nPlace, const int nMaxPlace 
 	return vPoints[nCurIndex]  +
 		vDir * Max(rect.lengthAhead + rect.lengthBack,rect.width*2)/2 * (1 + nPlace - nMaxPlace/2) / nMaxPlace;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												  CBridgeCreation*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CBridgeCreation::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -744,7 +664,6 @@ int CBridgeCreation::operator&( IStructureSaver &ss )
 	saver.AddTypedSuper( 14, static_cast<CLongObjectCreation*>( this ) );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBridgeCreation::SBridgeSpanSort::operator()( const CObj<CBridgeSpan> &s1, const CObj<CBridgeSpan> &s2 )
 {
 	const CVec2 &v1 = s1->GetCenter();
@@ -755,20 +674,17 @@ bool CBridgeCreation::SBridgeSpanSort::operator()( const CObj<CBridgeSpan> &s1, 
 	else
 		return v1.x > v2.x;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CVec2 CBridgeCreation::SortBridgeSpans( std::vector< CObj<CBridgeSpan> > *spans, class CCommonUnit *pUnit )
 {
 	if ( 1 >= spans->size() ) return VNULL2;
 
 	SBridgeSpanSort pr;
 	std::sort( spans->begin(), spans->end(), pr );
-	// проверить, к какому идти меньше - к первому или к последнему
 	const CBridgeSpan *s1 = *spans->begin();
 	const CBridgeSpan *s2 = (*spans)[spans->size()-1];
 	
 	CVec2 vFrom1to2( s2->GetCenter() - s1->GetCenter() );
 	Normalize( &vFrom1to2 );
-	// найти точки, близко к s1 и s2, лежащие вне моста
 	SRect r1, r2;
 	s1->GetBoundRect( &r1 );
 	s2->GetBoundRect( &r2 );
@@ -786,18 +702,15 @@ CVec2 CBridgeCreation::SortBridgeSpans( std::vector< CObj<CBridgeSpan> > *spans,
 
 	if (	pPath1->GetLength() <= pPath2->GetLength() && fDiff1 < sqr( SConsts::TILE_SIZE * 10 ) )
 	{
-		// первый span - ближайший.
 		return v1;
 	}
 	else if ( pPath1->GetLength() >= pPath2->GetLength() && fDiff2 < sqr( SConsts::TILE_SIZE * 10 ) )
 	{
-		// последний span - ближайший.
 		std::reverse( spans->begin(), spans->end() );
 		return v2;
 	}
 	else if ( fDiff1 < sqr( SConsts::TILE_SIZE * 10 ) ) // по первому пути хоть дойти можно
 	{
-		// первый span - ближайший.
 		return v1;
 	}
 	else if ( fDiff2 < sqr( SConsts::TILE_SIZE * 10 ) )
@@ -808,22 +721,17 @@ CVec2 CBridgeCreation::SortBridgeSpans( std::vector< CObj<CBridgeSpan> > *spans,
 	else 
 		return VNULL2;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBridgeCreation::IsFirstSegmentBuilt() const
 {
 	return spans[0]->GetHitPoints() >= 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CBridgeCreation::CBridgeCreation( class CFullBridge *pBridge, class CCommonUnit *pUnit )
 : pFullBridge( pBridge )
 {
-	// просто отсортировать по координатам все участки
 	pBridge->EnumSpans( &spans );
 	NI_ASSERT_T( spans.size() >= 2, "bridge witout at least 2 spans" );
-	// посчитать длину пути до 2 крайних точек, выбрать к какой ехать.
 	vStartPoint = SortBridgeSpans( &spans, pUnit );
 
-	// разделить на уже построенные и еще не построенные.
 	for ( nCurIndex = 0; nCurIndex < spans.size(); ++nCurIndex )
 	{
 		if ( spans[nCurIndex]->GetHitPoints() < 0.0f )
@@ -837,34 +745,28 @@ CBridgeCreation::CBridgeCreation( class CFullBridge *pBridge, class CCommonUnit 
 	spans[0]->GetBoundRect( &r0 );
 	wDir = GetDirectionByVector( r1.center - r0.center );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 & CBridgeCreation::GetStartPoint() const
 {
 	return vStartPoint;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CLine2 CBridgeCreation::GetCurLine() 
 { 
 	return line; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CBridgeCreation::GetMaxIndex() const
 {
 	return spans.size();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CBridgeCreation::GetCurIndex() const
 {
 	return nCurIndex;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CBridgeCreation::GetNextPoint( const int nPlace, const int nMaxPlace ) const
 {
 	SRect rect;
 	spans[nCurIndex]->GetBoundRect( &rect );
 
 	CVec2 vertexes[2];
-	// нужно подойти к краю объекта.
 	int nVertIndex = 0;
 	for ( int i = 0; i < 4; ++i )
 	{
@@ -881,7 +783,6 @@ const CVec2 CBridgeCreation::GetNextPoint( const int nPlace, const int nMaxPlace
 	const CVec2 vOffset( (vertexes[0] - vertexes[1])/2 );
 	return (vertexes[0] + vertexes[1])/2 + vOffset * ( 1.0f * nPlace / nMaxPlace ) - SConsts::TILE_SIZE * GetVectorByDirection( wDir );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBridgeCreation::BuildNext()
 {
 	CLongObjectCreation::BuildNext();
@@ -889,7 +790,6 @@ void CBridgeCreation::BuildNext()
 	{
 		pFullBridge->UnlockSpan( spans[nCurIndex] );
 	}
-	// перевести сегмент в достроенное состояние
 	spans[nCurIndex]->Build();
 	const SHPObjectRPGStats * pStats = spans[nCurIndex]->GetStats();
 	spans[nCurIndex]->SetHitPoints( pStats->fMaxHP );
@@ -898,8 +798,6 @@ void CBridgeCreation::BuildNext()
 	
 	if ( GetCurIndex() < GetMaxIndex() )
 	{
-		// проверить, если следуюший сегмент разрушен полностью, то
-		// сделать его полуразрушенным
 		const float fNextSpanHP = spans[nCurIndex]->GetHitPoints();
 		if ( 0 ==  fNextSpanHP )
 		{
@@ -914,7 +812,6 @@ void CBridgeCreation::BuildNext()
 		}
 		else
 		{
-			// залокать следующий сегмент
 			pFullBridge->LockSpan( spans[nCurIndex], wDir );
 		}
 	}
@@ -923,15 +820,12 @@ void CBridgeCreation::BuildNext()
 		pFullBridge->UnlockAllSpans();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CBridgeCreation::GetPrice()
 {
 	const SHPObjectRPGStats *pStats = spans[nCurIndex]->GetStats();
 	return pStats->fMaxHP * pStats->fRepairCost / pFullBridge->GetNSpans();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CBridgeCreation::GetBuildSpeed()
 {
 	return SConsts::ENGINEER_REPEAR_HP_PER_QUANT;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

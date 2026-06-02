@@ -9,10 +9,8 @@
 #include "ResizeDialog.h"
 #include "CreateFilterDialog.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CALLBACK CFO_ShellsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRMGFieldObjectsDialog : public CResizeDialog
 {
 	friend int CALLBACK CFO_ShellsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
@@ -27,21 +25,16 @@ public:
 	static const char MULTIPLE_SELECTION[];
 	CRMGFieldObjectsDialog( CWnd* pParent = NULL );
 
-	//{{AFX_DATA(CRMGFieldObjectsDialog)
 	enum { IDD = IDD_RMG_CF_OBJECTS_SHELLS };
 	CComboBox	m_FilterComboBox;
 	CListCtrl	m_ShellsList;
 	CListCtrl	m_ObjectsList;
 	CListCtrl	m_AvailableObjectsList;
-	//}}AFX_DATA
 
-	//{{AFX_VIRTUAL(CRMGFieldObjectsDialog)
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);
-	//}}AFX_VIRTUAL
 
 protected:
-	//{{AFX_MSG(CRMGFieldObjectsDialog)
 	virtual BOOL OnInitDialog();
 	afx_msg void OnDestroy();
 	virtual void OnOK();
@@ -76,7 +69,6 @@ protected:
 	afx_msg void OnKeydownObjectsList(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnRclickAvailableObjectsList(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnKeydownAvailableObjectsList(NMHDR* pNMHDR, LRESULT* pResult);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 	
 	void OnAvailableObjectProperties();
@@ -106,6 +98,4 @@ protected:
 	void SetObjectsListsStyle( bool bPictures );
 	void UpdateObjectsListsStyle();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//{{AFX_INSERT_LOCATION}}
 #endif // !defined(__RMG_Field_Objects_Dialog__)

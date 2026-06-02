@@ -1,15 +1,9 @@
 #ifndef __INTERFACESWITCHMODETO_H__
 #define __INTERFACESWITCHMODETO_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "InterMission.h"
 #include "iMission.h"
 #include "..\Misc\FileUtils.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// if mode exitst then ask for switch. if not - displays 
-// warning message and does nothing
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInterfaceSwitchModeTo : public CInterfaceInterMission
 {
 	OBJECT_NORMAL_METHODS( CInterfaceSwitchModeTo );
@@ -22,7 +16,6 @@ public:
 		void operator()( const class NFile::CFileIterator &fileIt ) const;
 	};
 private:
-	// input
 	NInput::CCommandRegistrator commandMsgs;
 	bool bModExists;											// mode exists and switch is possible
 	std::string szDirName;						// desired mod name
@@ -30,9 +23,7 @@ private:
 	int nCommandOnOk;
 	std::string szCommandParams;
 	bool bSilentSwitch;
-	//
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
-	// disable explicit destruction
 	virtual ~CInterfaceSwitchModeTo();
 	CInterfaceSwitchModeTo() : CInterfaceInterMission( "InterMission" ) {  }
 public:
@@ -45,7 +36,6 @@ public:
 	void OnOk();
 
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CICSwitchModeTo : public CInterfaceCommandBase<CInterfaceSwitchModeTo, MISSION_INTERFACE_SWITCH_MODE_TO>
 {
 	OBJECT_NORMAL_METHODS( CICSwitchModeTo );
@@ -66,7 +56,6 @@ class CICSwitchModeTo : public CInterfaceCommandBase<CInterfaceSwitchModeTo, MIS
 		if ( bOk )
 			pI->OnOk();
 	}
-	//
 	CICSwitchModeTo() {}
 public:
 	virtual void STDCALL Configure( const char *pszConfig )
@@ -84,5 +73,4 @@ public:
 		}
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __INTERFACESWITCHMODETO_H__

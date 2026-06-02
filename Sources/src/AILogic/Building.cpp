@@ -22,7 +22,6 @@
 #include "Formation.h"
 #include "GroupLogic.h"
 #include "Scripts\Scripts.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CUpdater updater;
 extern NTimer::STime curTime;
 extern CStaticObjects theStatObjs;
@@ -33,33 +32,21 @@ extern CStatistics theStatistics;
 extern CMultiplayerInfo theMPInfo;
 extern CScripts *pScripts;
 extern CGroupLogic theGroupLogic;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												  CBuildingStorage												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CBuildingStorage );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CBuildingStorage::CBuildingStorage( const SBuildingRPGStats *pStats, const CVec2 &center, const int dbID, const float fHP, const int nFrameIndex, int player )
 : CBuilding( pStats, center, dbID, fHP, nFrameIndex ), nPlayer( player ), timeLastBuildingRepair( 0 ), bConnected( true ) 
 { 
-//	theStatObjs.UpdateStoragesForParty( theDipl.GetNParty(nPlayer), true, false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuildingStorage::SetHitPoints( const float fNewHP )
 {
-	//if ( 0 == fHP && fNewHP > 0 && SBuildingRPGStats::TYPE_TEMP_RU_STORAGE == pStats->eType )
-		//theStatObjs.UpdateStoragesForParty( theDipl.GetNParty(nPlayer), true, false );
 	CBuilding::SetHitPoints( fNewHP );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuildingStorage::AddSoldier( CSoldier *pUnit )
 {
 	CBuilding::AddSoldier(pUnit);
 	if ( SBuildingRPGStats::TYPE_MAIN_RU_STORAGE != pStats->eType )
 		ChangePlayer( pUnit->GetPlayer() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuildingStorage::ChangePlayer( const int _nPlayer )
 {
 	const CVec2 vCenter = GetCenter();
@@ -73,12 +60,9 @@ void CBuildingStorage::ChangePlayer( const int _nPlayer )
 			updater.AddFeedBack( SAIFeedBack(EFB_YOU_LOST_STORAGE, dwParam) );
 	}
 	theStatObjs.StorageChangedDiplomacy( this, _nPlayer );
-	//theStatObjs.UpdateStoragesForParty( theDipl.GetNParty(nPlayer), true, false );
-	//theStatObjs.UpdateStoragesForParty( theDipl.GetNParty(_nPlayer), true, false );
 	nPlayer = _nPlayer;
 	updater.Update( ACTION_NOTIFY_UPDATE_DIPLOMACY, this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuildingStorage::SetConnected( bool _bConnected )
 {
 	if ( bConnected != _bConnected )
@@ -87,7 +71,6 @@ void CBuildingStorage::SetConnected( bool _bConnected )
 		updater.Update( ACTION_NOTIFY_STORAGE_CONNECTED, this, bConnected );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const BYTE CBuildingStorage::GetPlayer() const
 {
 	BYTE res = CBuilding::GetPlayer();
@@ -95,7 +78,6 @@ const BYTE CBuildingStorage::GetPlayer() const
 		return nPlayer;
 	return res;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuildingStorage::GetNewUnitInfo( SNewUnitInfo *pNewUnitInfo )
 {
 	CBuilding::GetNewUnitInfo( pNewUnitInfo );
@@ -103,7 +85,6 @@ void CBuildingStorage::GetNewUnitInfo( SNewUnitInfo *pNewUnitInfo )
 	pNewUnitInfo->nPlayer = GetPlayer();
 	pNewUnitInfo->eDipl = theDipl.GetDiplStatus( theDipl.GetMyNumber(), pNewUnitInfo->nPlayer );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuildingStorage::TakeDamage( const float fDamage, const bool bFromExplosion, const int nPlayerOfShoot, CAIUnit *pShotUnit )
 {
 	if ( SBuildingRPGStats::TYPE_TEMP_RU_STORAGE == pStats->eType && fHP > 0 && fHP - fDamage <= 0 )
@@ -111,7 +92,6 @@ void CBuildingStorage::TakeDamage( const float fDamage, const bool bFromExplosio
 
 	CBuilding::TakeDamage( fDamage, bFromExplosion, nPlayerOfShoot, pShotUnit );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuildingStorage::Segment()
 {
 	CBuilding::Segment();
@@ -132,7 +112,6 @@ void CBuildingStorage::Segment()
 	else //	TEMP STORAGES	can change ownership
 	{
 		int nNewPlayer = GetPlayer();
-		// neutral storage can be taken by the first unit
 		if ( theDipl.GetNParty( GetPlayer() ) == theDipl.GetNeutralParty() )
 		{
 			for ( CUnitsIter<0,3> iter( theDipl.GetNParty(nPlayer), ANY_PARTY, GetCenter(), SConsts::RADIUS_TO_TAKE_STORAGE_OWNERSHIP );
@@ -153,7 +132,6 @@ void CBuildingStorage::Segment()
 		}
 		else
 		{
-			// scan for friendly units, if not present, then scan for enemy
 			bool bPresent = false;
 
 			for ( CUnitsIter<0,3> iter( theDipl.GetNParty(nPlayer), EDI_FRIEND, GetCenter(), SConsts::RADIUS_TO_TAKE_STORAGE_OWNERSHIP );
@@ -167,7 +145,6 @@ void CBuildingStorage::Segment()
 				}
 			}
 
-			// if enemy present - change owner of this storage
 			if ( !bPresent )
 			{
 				for ( CUnitsIter<0,3> iter( theDipl.GetNParty(nPlayer), EDI_ENEMY, GetCenter(), SConsts::RADIUS_TO_TAKE_STORAGE_OWNERSHIP );
@@ -184,36 +161,19 @@ void CBuildingStorage::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBuildingStorage::ShouldSuspendAction( const EActionNotify &eAction ) const
 {
 	return !theDipl.IsEditorMode() && CBuilding::ShouldSuspendAction( eAction );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CBuilding::SHealthySort												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBuilding::SHealthySort::operator()( const CPtr<CSoldier> &a, const CPtr<CSoldier> &b ) 
 { 
 	return a->GetHitPoints() < b->GetHitPoints(); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CBuilding::SIllSort													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBuilding::SIllSort::operator()( const CPtr<CSoldier> &a, const CPtr<CSoldier> &b ) 
 { 
 	return a->GetHitPoints() > b->GetHitPoints(); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												  CBuilding																*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CBuilding );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CBuilding::CBuilding( const SBuildingRPGStats *_pStats, const CVec2 &center, const int dbID, const float fHP, const int nFrameIndex )
 : pStats( _pStats ), CGivenPassabilityStObject( center, dbID, fHP, nFrameIndex ), pLockingUnit( 0 ),
 	nOveralPlaces( _pStats->nRestSlots + _pStats->nMedicalSlots + _pStats->slots.size() ),
@@ -241,7 +201,6 @@ CBuilding::CBuilding( const SBuildingRPGStats *_pStats, const CVec2 &center, con
 
 	InitObservationPlaces();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::InitObservationPlaces()
 {
 	observationPlaces.SetSizes( 4, 4 );
@@ -353,20 +312,16 @@ void CBuilding::InitObservationPlaces()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAIUnit* CBuilding::GetIteratedUnit() 
 { 
 	NI_ASSERT_TF( !IsIterateFinished(), "Wrong fire unit to get", return 0 );
 	return fire[nIterator];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::PopFromFire()
 {
-	// ���� ��� �� ���������� � ������ ����
 	if ( fire.GetMaxEl()->GetSlot() != -1 )
 		DelSoldierFromFirePlace( fire.GetMaxEl() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::SetFiringUnitProperties( CSoldier *pUnit, const int nSlot, const int nIndex )
 {
 	pUnit->SetSlotInfo( nSlot, 0, nIndex );
@@ -377,12 +332,10 @@ void CBuilding::SetFiringUnitProperties( CSoldier *pUnit, const int nSlot, const
 
 	pUnit->SetNewCoordinates( CVec3( GetCenter(), 0 ) + pStats->slots[nSlot].vPos );
 
-	// ��������� owner � mounted gun
 	guns[nSlot]->SetOwner( pUnit );
 
 	pUnit->ChangeWarFogState();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const BYTE CBuilding::GetFreeFireSlot()
 {
 	for ( int j = 0; j < firePlace2Soldier.size(); ++j )
@@ -411,7 +364,6 @@ const BYTE CBuilding::GetFreeFireSlot()
 
 	return i;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::PushToFire( CSoldier *pUnit )
 {
 	NI_ASSERT_T( pUnit->IsInSolidPlace() || pUnit->IsInFirePlace(), "Visible unit in a building" );
@@ -420,7 +372,6 @@ void CBuilding::PushToFire( CSoldier *pUnit )
 	const int nSlot = GetFreeFireSlot();
 	PushSoldierToFirePlace( pUnit, nSlot );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::PushToMedical( CSoldier *pUnit )
 {
 	NI_ASSERT_T( pUnit->IsInSolidPlace() || pUnit->IsInFirePlace(), "Visible unit in a building" );
@@ -431,7 +382,6 @@ void CBuilding::PushToMedical( CSoldier *pUnit )
 
 	pUnit->SetVisionAngle( 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::PushToRest( CSoldier *pUnit )
 {
 	NI_ASSERT_T( pUnit->IsInSolidPlace() || pUnit->IsInFirePlace(), "Visible unit in a building" );
@@ -442,24 +392,20 @@ void CBuilding::PushToRest( CSoldier *pUnit )
 
 	pUnit->SetVisionAngle( 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CBuilding::GetEntrancePoint( const int nEntrance ) const
 {
 	NI_ASSERT_T( nEntrance < GetNEntrancePoints(), "Wrong number of entrance point" );
 	return GetCenter() + CVec2( pStats->entrances[nEntrance].vPos.x, pStats->entrances[nEntrance].vPos.y );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CBuilding::GetEscapeHitPoints() const
 {
 	return GetStats()->fMaxHP * SConsts::HP_PERCENT_TO_ESCAPE_FROM_BUILDING;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::AddSoldier( CSoldier *pUnit )
 {
 	NI_ASSERT_T( GetNFreePlaces() != 0, "No free places in the building" );
 
 	bool bUpdateSelectability = false;
-	// ���� ��� ������ ������ ������, �� ���������������� � ���������
 	if ( GetNFreePlaces() == nOveralPlaces )
 	{
 		nextSegmTime = curTime + SConsts::AI_SEGMENT_DURATION - 1;		
@@ -492,7 +438,6 @@ void CBuilding::AddSoldier( CSoldier *pUnit )
 		nLastPlayer = GetPlayer();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::SeatSoldierToMedicalSlot()
 {
 	NI_ASSERT_T( medical.Size() < medical.GetReserved(), "Wrong call of SeatSoldierToMedicalSlot" );
@@ -504,7 +449,6 @@ void CBuilding::SeatSoldierToMedicalSlot()
 		PushToMedical( pSoldier );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::SeatSoldierToFireSlot()
 {
 	NI_ASSERT_T( fire.Size() < fire.GetReserved(), "Wrong call of SeatSoldierToFireSlot" );
@@ -538,27 +482,21 @@ void CBuilding::SeatSoldierToFireSlot()
 		PushToFire( pSoldier );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::DelSoldierFromFirePlace( CSoldier *pSoldier )
 {
 	const SStaticObjectSlotInfo slotInfo = pSoldier->GetSlotInfo();
 	NI_ASSERT_T( slotInfo.nType == 0, NStr::Format( "Wrong of soldier slot type (%d)", slotInfo.nType ) );
 
-	// CRAP{
 	if ( slotInfo.nIndex < fire.Size() )
-	// CRAP}
 	{
 		fire[slotInfo.nIndex] = 0;
 		fire.Erase( slotInfo.nIndex );
 	}
 
-	// CRAP{
 	if ( slotInfo.nSlot < firePlace2Soldier.size() )
-	// CRAP}
 	{
 		firePlace2Soldier[slotInfo.nSlot] = 0;
 
-		// � observation point
 		if ( firePlace2Observation[slotInfo.nSlot] != -1 )
 		{
 			const int nSide = firePlace2Observation[slotInfo.nSlot] & 3;
@@ -568,7 +506,6 @@ void CBuilding::DelSoldierFromFirePlace( CSoldier *pSoldier )
 
 	pSoldier->SetSlotInfo( -1, -1, -1 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::DelSoldierFromMedicalPlace( CSoldier *pSoldier )
 {
 	const SStaticObjectSlotInfo slotInfo = pSoldier->GetSlotInfo();
@@ -579,15 +516,12 @@ void CBuilding::DelSoldierFromMedicalPlace( CSoldier *pSoldier )
 
 	pSoldier->SetSlotInfo( -1, -1, -1 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::DelSoldierFromRestPlace( CSoldier *pSoldier )
 {
 	const SStaticObjectSlotInfo slotInfo = pSoldier->GetSlotInfo();
 	NI_ASSERT_T( slotInfo.nType == 2, NStr::Format( "Wrong of soldier slot type (%d)", slotInfo.nType ) );
 
-	// CRAP{
 	if ( slotInfo.nIndex < rest.Size() )
-	// CRAP}
 	{
 		rest[slotInfo.nIndex] = 0;
 		rest.Erase( slotInfo.nIndex );
@@ -595,7 +529,6 @@ void CBuilding::DelSoldierFromRestPlace( CSoldier *pSoldier )
 
 	pSoldier->SetSlotInfo( -1, -1, -1 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::DelSoldier( CSoldier *pUnit, const bool bFillEmptyFireplace )
 {
 	const SStaticObjectSlotInfo slotInfo = pUnit->GetSlotInfo();
@@ -627,7 +560,6 @@ void CBuilding::DelSoldier( CSoldier *pUnit, const bool bFillEmptyFireplace )
 		updater.Update( ACTION_NOTIFY_SELECTABLE_CHANGED, this, IsSelectable() );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::SoldierDamaged( CSoldier *pUnit )
 {
 	const SStaticObjectSlotInfo slotInfo = pUnit->GetSlotInfo();
@@ -660,13 +592,11 @@ void CBuilding::SoldierDamaged( CSoldier *pUnit )
 
 	Alarm();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::GoOutFromEntrance( const int nEntrance, class CSoldier *pUnit )
 {
 	NI_ASSERT_T( nEntrance < pStats->entrances.size(), "Wrong number of entrance" );
 	DelInsider( pUnit );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::SwapFireMed()
 {
 	CPtr<CSoldier> pFireSoldier = fire.GetMaxEl();
@@ -676,7 +606,6 @@ void CBuilding::SwapFireMed()
 	PushToFire( pMedicalSoldier );
 	PushToMedical( pFireSoldier );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::SwapRestMed()
 {
 	CPtr<CSoldier> pMedicalSoldier = medical.GetMaxEl();
@@ -687,20 +616,16 @@ void CBuilding::SwapRestMed()
 	PushToMedical( pRestSoldier ); 
 	PushToRest( pMedicalSoldier );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBuilding::IsIllInRest()
 {
 	return !rest.IsEmpty() && rest.GetMaxEl()->GetHitPoints() < rest.GetMaxEl()->GetStats()->fMaxHP;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBuilding::IsIllInFire()
 {
 	return !fire.IsEmpty() && fire.GetMaxEl()->GetHitPoints() < fire.GetMaxEl()->GetStats()->fMaxHP;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::DistributeAll()
 {
-	// �������� ���, ��� ��������� � medical � �������� � fire ��� rest	
 	while ( !medical.IsEmpty() && medical.GetMaxEl()->GetHitPoints() == medical.GetMaxEl()->GetStats()->fMaxHP &&	( IsIllInFire() || IsIllInRest() ) )
 	{
 		const bool bIllInFire = IsIllInFire();
@@ -719,7 +644,6 @@ void CBuilding::DistributeAll()
 			SwapRestMed();
 	}
 
-	// ������� ���������� �� medical places � fireplaces
 	while ( !medical.IsEmpty() && medical.GetMaxEl()->GetHitPoints() == medical.GetMaxEl()->GetStats()->fMaxHP &&	fire.Size() != fire.GetReserved() )
 	{
 		CSoldier *pSoldier = medical.GetMaxEl();
@@ -727,7 +651,6 @@ void CBuilding::DistributeAll()
 		PushToFire( pSoldier );
 	}
 
-	// ������� ���������� �� medical places � restplaces
 	while ( !medical.IsEmpty() && medical.GetMaxEl()->GetHitPoints() == medical.GetMaxEl()->GetStats()->fMaxHP &&	rest.Size() != rest.GetReserved() )
 	{
 		CSoldier *pSoldier = medical.GetMaxEl();
@@ -735,7 +658,6 @@ void CBuilding::DistributeAll()
 		PushToRest( pSoldier );
 	}
 
-	// ������� ���, ���� ���������, ��������
 	while ( medical.Size() != medical.GetReserved() && ( IsIllInRest() || IsIllInFire() ) )
 	{
 		if ( !fire.IsEmpty() && !rest.IsEmpty() )
@@ -770,7 +692,6 @@ void CBuilding::DistributeAll()
 	SetSoldiersToObservationPoints();
 	CentreSoldiersInObservationPoints();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::CentreSoldiersInObservationPoints()
 {
 	for ( int i = 0; i < fire.Size(); ++i )
@@ -787,13 +708,10 @@ void CBuilding::CentreSoldiersInObservationPoints()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBuilding::TryToPushRestSoldierToObservation( CSoldier *pRestingSoldier )
 {
-	// �� ��������
 	for ( int j = 0; j < 4; ++j )
 	{
-		// �� ������ ���������� � ��������
 		for ( int k = 0; k < sides[j].nObservationPoints; ++k )
 		{
 			if ( CSoldier *pSoldierInPoint = firePlace2Soldier[observationPlaces[j][k]] )
@@ -818,13 +736,10 @@ bool CBuilding::TryToPushRestSoldierToObservation( CSoldier *pRestingSoldier )
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBuilding::TryToPushFireSoldierToObservation( CSoldier *pFiringSoldier )
 {
-	// �� ��������
 	for ( int j = 0; j < 4; ++j )
 	{
-		// �� ������ ���������� � ��������
 		for ( int k = 0; k < sides[j].nObservationPoints; ++k )
 		{
 			if ( CSoldier *pSoldierInPoint = firePlace2Soldier[observationPlaces[j][k]] )
@@ -846,7 +761,6 @@ bool CBuilding::TryToPushFireSoldierToObservation( CSoldier *pFiringSoldier )
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::PushSoldierToFirePlace( CSoldier *pUnit, const int nFirePlace )
 {
 	pUnit->SetToFirePlace();
@@ -857,26 +771,21 @@ void CBuilding::PushSoldierToFirePlace( CSoldier *pUnit, const int nFirePlace )
 
 	firePlace2Soldier[nFirePlace] = pUnit;
 
-	// ��� - observation point
 	if ( firePlace2Observation[nFirePlace] != -1 )
 	{
-		// ��������� ���������� ������ � observation point �� �������
 		const int nSide = firePlace2Observation[nFirePlace] & 3;
 		++sides[nSide].nSoldiersInObservationPoints;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::PushSoldierToObservationPoint( CSoldier *pSoldier, const int nSide )
 {
 	if ( sides[nSide].nObservationPoints != 0  )
 	{
-		// ��� ����� �� �����
 		if ( sides[nSide].nSoldiersInObservationPoints == 0 )
 		{
 			const int nFirePlace = GetMiddleObservationPoint( nSide );
 			PushSoldierToFirePlace( pSoldier, nFirePlace );
 		}
-		// ����� ������ ����
 		else if ( sides[nSide].nSoldiersInObservationPoints == 1 && sides[nSide].nObservationPoints > 1 )
 		{
 			int nLeftPoint, nRightPoint;
@@ -894,7 +803,6 @@ void CBuilding::PushSoldierToObservationPoint( CSoldier *pSoldier, const int nSi
 	else
 		NI_ASSERT_T( false, "Can't push soldier to observation point" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBuilding::IsSoldierInObservationPoint( CSoldier *pSoldier ) const
 {
 	if ( !pSoldier->IsInFirePlace() )
@@ -905,14 +813,12 @@ bool CBuilding::IsSoldierInObservationPoint( CSoldier *pSoldier ) const
 		return firePlace2Observation[nFireSlot] != -1;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::SetSoldiersToObservationPoints()
 {
 	for ( int i = 0; i < rest.Size();	++i )
 	{
 		CSoldier *pRestingSoldier = rest[i];		
 		const int nSide = ChooseSideToSetSoldier( pRestingSoldier );
-		// �� ���� ������ ���������� ���� �������
 		if ( nSide == -1 || fire.Size() == fire.GetReserved() )
 		{
 			if ( TryToPushRestSoldierToObservation( pRestingSoldier ) )
@@ -927,7 +833,6 @@ void CBuilding::SetSoldiersToObservationPoints()
 		}
 	}
 
-	// ��������� ������ �� � ������ ����������
 	for ( int i = 0; i < fire.Size(); ++i )
 	{
 		CSoldier *pSoldier = fire[i];
@@ -948,7 +853,6 @@ void CBuilding::SetSoldiersToObservationPoints()
 		}
 	}
 
-	// ��������� ������ � ������ ����������
 	int nIndexToTry = -1;
 	int nSoldierInTrySide = -1;
 	for ( int i = 0; i < fire.Size(); ++i )
@@ -978,10 +882,8 @@ void CBuilding::SetSoldiersToObservationPoints()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::DistributeNonFires()
 {
-	// �������� ���, ��� ��������� � medical � �������� � rest
 	while ( !medical.IsEmpty() && medical.GetMaxEl()->GetHitPoints() == medical.GetMaxEl()->GetStats()->fMaxHP && IsIllInRest() )
 	{
 		CPtr<CSoldier> pMedicalSoldier = medical.GetMaxEl();
@@ -993,7 +895,6 @@ void CBuilding::DistributeNonFires()
 		PushToRest( pMedicalSoldier );
 	}
 
-	// ������� ���, ��� ���������
 	while ( rest.Size() < rest.GetReserved() && !medical.IsEmpty() && medical.GetMaxEl()->GetHitPoints() == medical.GetMaxEl()->GetStats()->fMaxHP )
 	{
 		CSoldier *pSoldier = medical.GetMaxEl();
@@ -1001,7 +902,6 @@ void CBuilding::DistributeNonFires()
 		PushToRest( pSoldier );
 	}
 
-	// ������� ������� �� rest ��������
 	while ( IsIllInRest() && medical.Size() < medical.GetReserved() )
 	{
 		CSoldier *pSoldier = rest.GetMaxEl();
@@ -1009,15 +909,12 @@ void CBuilding::DistributeNonFires()
 		PushToMedical( pSoldier );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::DistributeFiringSoldiers()
 {
-	// �� ��� fireslots ������
 	if ( fire.Size() < fire.GetReserved() )
 	{
 		for ( int i = 0; i < fire.Size(); ++i )
 		{
-			// �� ��������
 			if ( fire[i]->GetState()->GetName() == EUSN_REST_IN_BUILDING )
 			{
 				CSoldier *pSoldier = fire[i];
@@ -1046,7 +943,6 @@ void CBuilding::DistributeFiringSoldiers()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::ExchangeSoldiersToTurrets()
 {
 	for ( int i = 0; i < turrets.size(); ++i )
@@ -1069,7 +965,6 @@ void CBuilding::ExchangeSoldiersToTurrets()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::Segment()
 {
 	nextSegmTime = curTime + Random( 2 * SConsts::AI_SEGMENT_DURATION - 1, 10 * SConsts::AI_SEGMENT_DURATION );
@@ -1083,7 +978,6 @@ void CBuilding::Segment()
 		bEscaped = false;
 		timeOfDeath = 0;
 	}
-	// �� ������ ������
 	else if ( timeOfDeath != 0 && timeOfDeath + 2000 < curTime )
 	{
 		KillAllInsiders();
@@ -1091,7 +985,6 @@ void CBuilding::Segment()
 	}
 	else if ( !CStormableObject::Segment() )
 	{
-		// ��������
 		const float fInc = SConsts::AI_SEGMENT_DURATION * SConsts::CURE_SPEED_IN_BUILDING;
 		for ( int i = 0; i < medical.Size(); ++i )
 		{
@@ -1099,7 +992,6 @@ void CBuilding::Segment()
 			medical[i]->IncreaseHitPoints( fWantedInc );
 		}
 
-		// ���������� alarms
 		if ( bAlarm )
 		{
 			while ( !fire.Size() == fire.GetReserved() && ( !medical.IsEmpty() || !rest.IsEmpty() ) )
@@ -1124,19 +1016,15 @@ void CBuilding::Segment()
 		{
 			lastDistibution = curTime;			
 
-			// �������
 			if ( curTime - startOfRest < SConsts::TIME_OF_BUILDING_ALARM )
 				DistributeFiringSoldiers();
 
-			// ���� ����� ��������
 			if ( curTime - startOfRest >= SConsts::TIME_OF_BUILDING_ALARM )
 				DistributeAll();
 			else
-				// ������ �� ���������� ����� ��������
 				DistributeNonFires();
 		}
 
-		// ������� ���� ���������� � fireplaces
 		while ( !rest.IsEmpty() && fire.Size() < fire.GetReserved() )
 		{
 			CSoldier *pSoldier = rest.GetMaxEl();
@@ -1150,7 +1038,6 @@ void CBuilding::Segment()
 
 	ExchangeSoldiersToTurrets();
 
-	// �������� � turrets
 	for ( int i = 0; i < fire.Size(); ++i )
 	{
 		if ( IsValidObj( fire[i] ) )
@@ -1160,7 +1047,6 @@ void CBuilding::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::KillAllInsiders()
 {
 	std::list< CPtr<CSoldier> > dead;
@@ -1177,7 +1063,6 @@ void CBuilding::KillAllInsiders()
 	for ( std::list< CPtr<CSoldier> >::iterator iter = dead.begin(); iter != dead.end(); ++iter )
 		(*iter)->Die( false, 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::Die( const float fDamage )
 {
 	if ( !bEscaped )
@@ -1185,7 +1070,6 @@ void CBuilding::Die( const float fDamage )
 
 	timeOfDeath = curTime;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::SetHitPoints( const float fNewHP ) 
 { 
 	if ( fNewHP != fHP )
@@ -1211,7 +1095,6 @@ void CBuilding::SetHitPoints( const float fNewHP )
 			timeOfDeath = 0.0f;
 	}	
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::DriveOut( CSoldier *pSoldier, std::unordered_set<int> *pFormations )
 {
 	CFormation *pFormation = pSoldier->GetFormation();
@@ -1228,7 +1111,6 @@ void CBuilding::DriveOut( CSoldier *pSoldier, std::unordered_set<int> *pFormatio
 		theGroupLogic.UnitCommand( SAIUnitCmd( ACTION_COMMAND_LEAVE, vPointsToGo ), pFormation, false );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::TakeDamage( const float fDamage, const bool bFromExplosion, const int nPlayerOfShoot, CAIUnit *pShotUnit )
 {
 	if ( fHP > 0 )
@@ -1253,10 +1135,8 @@ void CBuilding::TakeDamage( const float fDamage, const bool bFromExplosion, cons
 					DriveOut( rest[i], &formations );
 			}
 			
-			// ��� �����
 			if ( GetHitPoints() == 0.0f )
 			{
-				// ��������� �� �������
 				if ( SBuildingRPGStats::TYPE_MAIN_RU_STORAGE != pStats->eType &&
 						 SBuildingRPGStats::TYPE_TEMP_RU_STORAGE != pStats->eType )
 				{
@@ -1302,21 +1182,18 @@ void CBuilding::TakeDamage( const float fDamage, const bool bFromExplosion, cons
 					std::list< CPtr<CSoldier> > dead;								
 					for ( int i = 0; i < medical.Size(); ++i )
 					{
-						// �� �����
 						if ( Random( 0.0f, 1.0f ) < fProbability )
 							dead.push_back( medical[i] );
 					}
 
 					for ( int i = 0; i < rest.Size(); ++i )
 					{
-						// �� �����
 						if ( Random( 0.0f, 1.0f ) < fProbability )
 							dead.push_back( rest[i] );
 					}
 						
 					for ( int i = 0; i < fire.Size(); ++i )
 					{
-						// �� �����
 						if ( Random( 0.0f, 1.0f ) < fProbability )
 							dead.push_back( fire[i] );
 					}
@@ -1342,12 +1219,10 @@ void CBuilding::TakeDamage( const float fDamage, const bool bFromExplosion, cons
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::Alarm()
 {
 	bAlarm = true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CBuilding::GetNFreePlaces() const 
 { 
 	if ( GetHitPoints() > 0 )
@@ -1355,17 +1230,14 @@ const int CBuilding::GetNFreePlaces() const
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBuilding::IsGoodPointForRunIn( const SVector &point, const int nEntrance, const float fMinDist ) const
 {
 	return fabs2( point.ToCVec2() - GetEntrancePoint( nEntrance ) ) <= sqr( float( SConsts::TILE_SIZE ) + fMinDist );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CBuilding::GetNDefenders() const
 {
 	return medical.Size() + rest.Size() + fire.Size();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldier* CBuilding::GetUnit( const int n ) const
 {
 	NI_ASSERT_T( n < GetNDefenders(), "Wrong number of unit to get from defenders of a building" );
@@ -1376,7 +1248,6 @@ class CSoldier* CBuilding::GetUnit( const int n ) const
 		return rest[n - fire.Size()];
 	return medical[n - fire.Size() - rest.Size()];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const BYTE CBuilding::GetPlayer() const
 {
 	if ( !fire.IsEmpty() )
@@ -1388,29 +1259,24 @@ const BYTE CBuilding::GetPlayer() const
 
 	return theDipl.GetNeutralPlayer();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::Lock( CCommonUnit *pUnit )
 {
 	pLockingUnit = pUnit;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBuilding::IsLocked( const int nPlayer ) const
 {
 	return pLockingUnit != 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::Unlock( CCommonUnit *pUnit )
 {
 	pLockingUnit = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CBuilding::GetNGunsInFireSlot( const int nSlot )
 {
 	NI_ASSERT_T( nSlot < guns.size(), NStr::Format( "Wrong number of slot (%d)", nSlot ) );
 
 	return guns[nSlot]->GetNTotalGuns();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CBasicGun* CBuilding::GetGunInFireSlot( const int nSlot, const int nGun )
 {
 	NI_ASSERT_T( nSlot < guns.size(), NStr::Format( "Wrong number of slot (%d)", nSlot ) );
@@ -1420,19 +1286,16 @@ CBasicGun* CBuilding::GetGunInFireSlot( const int nSlot, const int nGun )
 
 	return guns[nSlot]->GetGun(nGun);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CTurret* CBuilding::GetTurretInFireSlot( const int nSlot )
 {
 	NI_ASSERT_T( nSlot < guns.size(), NStr::Format( "Wrong number of slot (%d)", nSlot ) );
 	return turrets[nSlot];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CBuilding::GetMaxFireRangeInSlot( const int nSlot ) const
 {
 	NI_ASSERT_T( nSlot < guns.size(), NStr::Format( "Wrong number of slot (%d)", nSlot ) );
 	return guns[nSlot]->GetMaxFireRange( 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBuilding::IsSoldierVisible( const int nParty, const CVec2 &center, bool bCamouflated, const float fCamouflage ) const
 {
 	if ( nParty == theDipl.GetNParty( GetPlayer() ) )
@@ -1476,7 +1339,6 @@ bool CBuilding::IsSoldierVisible( const int nParty, const CVec2 &center, bool bC
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBuilding::ChooseEntrance( class CCommonUnit *pUnit, const CVec2 &vPoint, int *pnEntrance ) const
 {
 	int nMinDistance = 1000000;
@@ -1497,25 +1359,19 @@ bool CBuilding::ChooseEntrance( class CCommonUnit *pUnit, const CVec2 &vPoint, i
 
 	return ( *pnEntrance != -1 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBuilding::IsSelectable() const
 {
 	return theDipl.GetNParty( GetPlayer() ) == theDipl.GetMyParty();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBuilding::CanUnitGoThrough( const EAIClass &eClass ) const
 {
 	return ( pStats->dwAIClasses & eClass ) == 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBuilding::CanRotateSoldier( CSoldier *pSoldier ) const
 {
 /*	
-	// ��������
 	if ( pSoldier->GetState() && IsRestState( pSoldier->GetState()->GetName() ) )
 	{
-		// ������ � fireplace
-		// ��� �� � fireplace, �� �� ����� �������, ��� �� �������, ��� �������, �� ��� ��������� 
 		if ( pSoldier->IsInFirePlace() || 
 				 pSoldier->IsInSolidPlace() && 
 				 ( bAlarm || pSoldier->GetSoliderPlaceParameter() != 1 || pSoldier->GetHitPoints() == pSoldier->GetStats()->fMaxHP ) )
@@ -1524,7 +1380,6 @@ bool CBuilding::CanRotateSoldier( CSoldier *pSoldier ) const
 */
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::ExchangeUnitToFireplace( CSoldier *pSoldier, int nFirePlace )
 {
 	CSoldier *pDeletedSoldier = GetSoldierInFireplace( nFirePlace );
@@ -1538,17 +1393,14 @@ void CBuilding::ExchangeUnitToFireplace( CSoldier *pSoldier, int nFirePlace )
 	if ( pDeletedSoldier )
 		AddSoldier( pDeletedSoldier );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CBuilding::GetNFirePlaces() const
 {
 	return pStats->slots.size();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldier* CBuilding::GetSoldierInFireplace( const int nFireplace) const
 {
 	return firePlace2Soldier[nFireplace];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::SSwapAction::operator()( CPtr<CSoldier> pSoldier1, CPtr<CSoldier> pSoldier2, const int nSoldier1Index, const int nSoldier2Index )
 {
 	if ( pSoldier1 )
@@ -1556,12 +1408,10 @@ void CBuilding::SSwapAction::operator()( CPtr<CSoldier> pSoldier1, CPtr<CSoldier
 	if ( pSoldier2 )
 		pSoldier2->SetSlotIndex( nSoldier1Index );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBuilding::IsBetterChangeObservationSoldier( CSoldier *pSoldier, CSoldier *pSoldierInPoint )
 {
 	return pSoldier->GetSightRadius() > pSoldierInPoint->GetSightRadius();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldier* CBuilding::GetSoldierOnSide( const int nSide )
 {
 	NI_ASSERT_T( nSide < 4, NStr::Format( "Wrong side passed (%d)", nSide ) );
@@ -1573,7 +1423,6 @@ CSoldier* CBuilding::GetSoldierOnSide( const int nSide )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CBuilding::GetMiddleObservationPoint( const int nSide ) const
 {
 	NI_ASSERT_T( nSide < 4, NStr::Format( "Wrong side passed (%d)", nSide ) );
@@ -1585,7 +1434,6 @@ const int CBuilding::GetMiddleObservationPoint( const int nSide ) const
 	else
 		return observationPlaces[nSide][1];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::GetSidesObservationPoints( const int nSide, int *pnLeftPoint, int *pnRightPoint ) const
 {
 	NI_ASSERT_T( nSide < 4, NStr::Format( "Wrong side passed (%d)", nSide ) );
@@ -1607,7 +1455,6 @@ void CBuilding::GetSidesObservationPoints( const int nSide, int *pnLeftPoint, in
 	else
 		NI_ASSERT_T( false, NStr::Format( "Wrong number of observation points (%d)", sides[nSide].nObservationPoints ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CBuilding::ChooseSideToSetSoldier( CSoldier *pSoldier ) const
 {
 	int nSoldierSide = -1;
@@ -1648,26 +1495,19 @@ const int CBuilding::ChooseSideToSetSoldier( CSoldier *pSoldier ) const
 
 	return nBestSide;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CBuilding::IsVisibleForDiplomacyUpdate()
 { 
-	// this is storage
 	if ( SBuildingRPGStats::TYPE_TEMP_RU_STORAGE == pStats->eType )
 		return true;
-	// �� ��������/��������
 	if ( theDipl.GetNParty( nLastPlayer ) == theDipl.GetMyParty() ||
 				theDipl.GetNParty( GetPlayer() ) == theDipl.GetMyParty())
 		return true;
-	// ���� �������
 	else if ( GetPlayer() != theDipl.GetNeutralPlayer() )
 		return IsAnyInsiderVisible();
-	// ���� �������
 	else
 		return IsVisible( theDipl.GetMyParty() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuilding::SetLastLeaveTime( const int nPlayer )
 {
 	lastLeave[nPlayer] = curTime;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

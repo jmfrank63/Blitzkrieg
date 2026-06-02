@@ -21,7 +21,6 @@
 #ifndef _STLP_INTERNAL_ABBREVS_H
 # define _STLP_INTERNAL_ABBREVS_H
 
-// ugliness is intentional - to reduce conflicts
 #  define input_iterator_tag             _In__ItT
 #  define output_iterator_tag            _Ou__ItT
 #  define bidirectional_iterator_tag     _Bd__ItT
@@ -38,7 +37,6 @@
 #  define _Const_traits _C_Tr
 #  define _Nonconst_traits _N_Tr
 
-// ugliness is intentional - to reduce conflicts probability
 #  define __malloc_alloc   M__A
 #  define __node_alloc     D__A
 #  define __new_alloc      N__A

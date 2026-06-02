@@ -8,7 +8,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CPEPointPropertiesDialog::vID[] = 
 {
 	IDC_PE_PP_POINT_X_COORD_LABEL_LEFT,		//0
@@ -21,14 +20,11 @@ const int CPEPointPropertiesDialog::vID[] =
 	IDCANCEL,															//7
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CPEPointPropertiesDialog::CPEPointPropertiesDialog( CWnd* pParent )
 	: CResizeDialog( CPEPointPropertiesDialog::IDD, pParent )
 {
-	//{{AFX_DATA_INIT(CPEPointPropertiesDialog)
 	m_strXCoord = _T("");
 	m_strYCoord = _T("");
-	//}}AFX_DATA_INIT
 
 	SetControlStyle( vID[0], ANCHORE_LEFT_TOP );
 	SetControlStyle( vID[1], ANCHORE_LEFT_TOP | RESIZE_HOR );
@@ -42,21 +38,12 @@ CPEPointPropertiesDialog::CPEPointPropertiesDialog( CWnd* pParent )
 	SetControlStyle( vID[7], ANCHORE_HOR_CENTER | ANCHORE_BOTTOM );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPEPointPropertiesDialog::DoDataExchange(CDataExchange* pDX)
 {
 	CResizeDialog::DoDataExchange( pDX );
-	//{{AFX_DATA_MAP( CPEPointPropertiesDialog )
 	DDX_Text(pDX, IDC_PE_PP_POINT_X_COORD_EDIT, m_strXCoord);
 	DDX_Text(pDX, IDC_PE_PP_POINT_Y_COORD_EDIT, m_strYCoord);
-	//}}AFX_DATA_MAP
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CPEPointPropertiesDialog, CResizeDialog)
-	//{{AFX_MSG_MAP(CPEPointPropertiesDialog)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// basement storage  
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

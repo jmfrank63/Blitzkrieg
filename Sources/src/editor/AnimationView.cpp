@@ -1,8 +1,5 @@
-// AnimationView.cpp : implementation file
-//
 
 #include "stdafx.h"
-//#include "editor.h"
 #include "AnimationView.h"
 #include "AnimationFrm.h"
 #include "GameWnd.h"
@@ -15,8 +12,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CAnimationView
 
 CAnimationView::CAnimationView()
 {
@@ -28,17 +23,13 @@ CAnimationView::~CAnimationView()
 
 
 BEGIN_MESSAGE_MAP(CAnimationView, CWnd)
-	//{{AFX_MSG_MAP(CAnimationView)
 	ON_WM_PAINT()
 	ON_WM_CREATE()
 	ON_WM_SIZE()
 	ON_WM_HSCROLL()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CAnimationView message handlers
 
 BOOL CAnimationView::PreCreateWindow(CREATESTRUCT& cs) 
 {
@@ -178,5 +169,4 @@ void CAnimationView::OnHScroll( UINT nSBCode, UINT nPos, CScrollBar* pScrollBar 
 	CAnimationFrame *pFrame = static_cast<CAnimationFrame *> ( g_frameManager.GetFrame( CFrameManager::E_ANIMATION_FRAME ) );
 	pFrame->UpdateUnitsCoordinates();
 
-//	CView::OnHScroll(nSBCode, nPos, pScrollBar);
 }

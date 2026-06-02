@@ -8,25 +8,21 @@
 #include "..\Main\RPGStats.h"
 #include "..\Main\ScenarioTracker.h"
 #include "..\UI\UIMessages.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum ECommands
 {
 	IMC_DEFAULT_UNITS				= 10003,
 	IMC_UNIT_INFO						=	10006,
 	E_BUTTON_WAREHOUSE			= 10005,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_ok"				,	IMC_OK				},
 	{ "inter_cancel"		, IMC_CANCEL		},
 	{ 0									,	0							}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceUpgradeUnit::~CInterfaceUpgradeUnit()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceUpgradeUnit::Init()
 {
 	CInterfaceInterMission::Init();
@@ -34,7 +30,6 @@ bool CInterfaceUpgradeUnit::Init()
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceUpgradeUnit::StartInterface()
 {
 	CInterfaceInterMission::StartInterface();
@@ -49,7 +44,6 @@ void CInterfaceUpgradeUnit::StartInterface()
 	
 	pScene->AddUIScreen( pUIScreen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceUpgradeUnit::OnGetFocus( bool bFocus )
 {
 	CInterfaceInterMission::OnGetFocus( bFocus );
@@ -59,18 +53,15 @@ void CInterfaceUpgradeUnit::OnGetFocus( bool bFocus )
 		DefaultUpgrades();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceUpgradeUnit::DefaultUpgrades()
 {
 	ITextManager *pTextM = GetSingleton<ITextManager>();
 	ITextureManager *pTM = GetSingleton<ITextureManager>();
 	
-	//init Shortcut Bar
 	IUIShortcutBar *pSB = checked_cast<IUIShortcutBar *> ( pUIScreen->GetChildByID( 100 ) );
 	NI_ASSERT_T( pSB != 0, "ShortcutBar is not initialized" );
 	pSB->Clear();
 	
-	//upgrades ShortcutBar
 	IUIShortcutBar *pUSB = checked_cast<IUIShortcutBar *> ( pUIScreen->GetChildByID( 101 ) );
 	pUSB->Clear();
 	
@@ -87,12 +78,10 @@ void CInterfaceUpgradeUnit::DefaultUpgrades()
 	const int nUpgradeClass = pUpgradeStats->GetRPGClass();
 	
 	int nBarIndex = 0;
-	//найдем юнит в данном RPG class, дл€ которого данный upgrade лучше всего подойдет
 	int nUpgradeUnitIndex = -1;
 	float fMaxDelta = -100000;
 	int nUnitIndex = 0;
 
-	//Add bar
 	IUIElement *pBar = pSB->AddBar();		//bar невидимый
 	std::string szKey = NStr::Format( "textes\\RPGClasses\\class%d", nUpgradeClass );
 	CPtr<IText> pText = pTextM->GetDialog( szKey.c_str() );
@@ -110,13 +99,11 @@ void CInterfaceUpgradeUnit::DefaultUpgrades()
 
 		if ( pOurUnitStats->GetRPGClass() == nUpgradeClass )
 		{
-			//это юнит такого же класса, как текущий upgrade и не убитый
 			if ( pUpgradeStats->fPrice - pOurUnitStats->fPrice > fMaxDelta )
 			{
 				fMaxDelta = pUpgradeStats->fPrice - pOurUnitStats->fPrice;
 				nUpgradeUnitIndex = nUnitIndex;
 			}
-			// добавим item с такими RPG stats
 			IUIDialog *pItem = checked_cast<IUIDialog *>( pSB->AddItem() );
 			FillUnitInfoItem( pOurUnitStats, pItem, nOurUnit, true );
 			nUnitIndex++;
@@ -127,32 +114,25 @@ void CInterfaceUpgradeUnit::DefaultUpgrades()
 	if ( nUpgradeUnitIndex == -1 )
 		return;
 			
-	//раскрываю барчик
 	pSB->SetBarExpandState( nBarIndex, true );
 	nBarIndex++;
 			
-	//добавл€ю upgrade в pUSB
 	{
 		pUSB->AddBar();		//bar невидимый
-		//добавим item с upgrade RPG stats
 		IUIDialog *pItem = checked_cast<IUIDialog *>( pUSB->AddItem() );
 		FillUnitInfoItem( pUpgradeStats, pItem, nNumUnits, false );		//заполнение без имени командира, у upgrade индекс всегда 0
 
-		//раскрываю барчик
 		pUSB->SetBarExpandState( 0, true );
 		
-		//выделим этот item
 		pItem->EnableWindow( true );
 		pUSB->SetSelectionItem( 0, pUSB->GetNumberOfItems( 0 ) - 1 );
 
-		//выделим юнит, соответствующий upgrade в основном списке
 		pSB->SetSelectionItem( nBarIndex - 1, nUpgradeUnitIndex );
 	}
 
 	pSB->InitialUpdate();
 	pUSB->InitialUpdate();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceUpgradeUnit::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceInterMission::ProcessMessage( msg ) )
@@ -184,8 +164,6 @@ bool CInterfaceUpgradeUnit::ProcessMessage( const SGameMessage &msg )
 		IUIElement *pUItem = pUSB->GetItem( 0, 0 );
 		NI_ASSERT_T( pUItem != 0, "Error in upgrade interface (USB first item is 0)" );
 
-		//NI_ASSERT_T( pST->GetNumUnits() > nIndexToUpgrade, "Upgrading error: Invalid ScenarioTracker index to upgrade unit" );
-		//if ( pST->GetNumUnits() > nIndexToUpgrade )
 		{
 			IPlayerScenarioInfo *pPlayerInfo = GetSingleton<IScenarioTracker>()->GetUserPlayer();
 			IScenarioUnit * pUnitToUpgrade = pPlayerInfo->GetUnit( nIndexToUpgrade );
@@ -216,7 +194,6 @@ bool CInterfaceUpgradeUnit::ProcessMessage( const SGameMessage &msg )
 	
 	if ( msg.nEventID >= 20000 && msg.nEventID < 29000 )
 	{
-		//вызовем энциклопедию
 		std::string szTemp = NStr::Format( "%d;", E_UNIT );
 		IPlayerScenarioInfo *pPlayerInfo = GetSingleton<IScenarioTracker>()->GetUserPlayer();
 		const int nUnitIndex = msg.nEventID - 20000;
@@ -241,7 +218,5 @@ bool CInterfaceUpgradeUnit::ProcessMessage( const SGameMessage &msg )
 		return true;
 	}
 	
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

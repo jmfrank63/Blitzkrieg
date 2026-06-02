@@ -1,43 +1,22 @@
 #ifndef __FMTMAP_H__
 #define __FMTMAP_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Common\Actions.h"
-//#include "..\Image\Image.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "fmtSound.h"
 #include "fmtVSO.h"
 #include "fmtUnitCreation.h"
 #include "fmtAIGeneral.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int nNumRoadTypes = 4;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** map object format
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//static std::unordered_map<std::string, EActionCommand> logics;
 struct SMapObjectInfo
 {
-	// visualization information
 	std::string szName;										// database nickname
 	CVec3 vPos;														// position in world space
 	int nDir;															// direction
-	// diplomacy information
 	int nPlayer;													// player belonging
-	// script information
 	int nScriptID;												// script accessing ID
-	// RPG information
 	float fHP;														// current HP percentage [0..1] (to get real HP value, one must multiply this value to the MaxHP)
-	//
 	int nFrameIndex;											//
-	//
 	struct SLinkInfo
 	{
 		int nLinkID;												// ID of this list
@@ -49,24 +28,20 @@ struct SMapObjectInfo
 	};
 
 	SLinkInfo link;
-	//std::string szLogic;
 
 	SMapObjectInfo();
 
 	int operator&( IDataTree &ss );
 	int operator&( IStructureSaver &ss );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SEntrenchmentInfo
 {
 	typedef std::vector<int> TSegment;
 	std::vector<TSegment> sections;
-	//
 	int operator&( IDataTree &ss );
 	int operator&( IStructureSaver &ss );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SBattlePosition
 {
 	int nArtilleryLinkID;
@@ -114,15 +89,6 @@ struct SBattlePosition
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** map sound format
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SMapSoundInfo
 {
 	std::string szName;										// �������� ����� 
@@ -163,7 +129,6 @@ struct SMapSoundInfo
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SSoundInfo 
 {
 	std::vector < SMapSoundInfo > sounds;
@@ -182,15 +147,6 @@ struct SSoundInfo
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** terrain map format
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma pack( 1 )
 struct SMainTileInfo
 {
@@ -205,19 +161,16 @@ struct SCrossTileInfo
 		NOISE = 0x02,												// noise only
 		MIXED	= CROSS | NOISE								// mixed - cross + noise
 	};
-	//
 	BYTE x, y;														// cross tile coords (in patch coords system)
 	BYTE tile;														// cross tile index
 	BYTE cross;														// cross mask
 	BYTE flags;														// cross only, noise only, cross + noise
-	//
 	int operator&( IDataTree &ss );
 };
 struct SRoadTileInfo
 {
 	BYTE x, y;														// tile coords (in patch coords system)
 	BYTE tile;                            // road tile index
-	//
 	SRoadTileInfo() : x( 0 ), y( 0 ), tile( 0 ) {  }
 	SRoadTileInfo( int x1, int y1, int t ) : x( x1 ), y( y1 ), tile( t ) {  }
 	int operator&( IDataTree &ss );
@@ -232,7 +185,6 @@ struct SRoadItem
 	CTRect<int> rect;											// road segment rect
 	int nType;														// road type
 	int nDir;															// direction ( VERTICAL = 0, HORIZONTAL = 1 )
-	//
 	int operator&( IDataTree &ss );
 };
 inline bool operator==( const SRoadItem &s1, const SRoadItem &s2 )
@@ -242,34 +194,26 @@ inline bool operator==( const SRoadItem &s1, const SRoadItem &s2 )
 			     (s1.nType == s2.nType) && (s1.nDir == s2.nDir) );
 }
 #pragma pack()
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct STerrainPatchInfo
 {
 	typedef std::vector<SCrossTileInfo> CCrossesList;
-	//typedef std::vector<SRoadTileInfo> CRoadsList;
-	//
 	static const int nSizeX;							// all patches uniform size X (in tiles)
 	static const int nSizeY;							// all patches uniform size Y (in tiles)
-	//
 	short nStartX, nStartY;								// patch start coords in tiles
 	CCrossesList basecrosses;							// base cross tiles. each tile coords are relative to patch (X,Y)
 	std::vector<CCrossesList> layercrosses;	// cross tiles by layers (each layer consist of cross and noise tiles)
 	CCrossesList noisecrosses;						// noise-only cross tiles
-	//CRoadsList roads[nNumRoadTypes];		// road tiles. each tile coords are relative to patch (X,Y)
 	float fMinHeight;											// minimal height in this patch
 	float fMaxHeight;											// maximal height in this patch
 	float fSubMinHeight[4];								// minimal height for each sub-patch in this patch
 	float fSubMaxHeight[4];								// maximal height for each sub-patch in this patch
-	//
 	STerrainPatchInfo()
 		: nStartX( 0 ), nStartY( 0 ), fMinHeight( 0 ), fMaxHeight( 0 )
 	{
 		fSubMinHeight[0] = fSubMinHeight[1] = fSubMinHeight[2] = fSubMinHeight[3] = 0.0f;
 		fSubMaxHeight[0] = fSubMaxHeight[1] = fSubMaxHeight[2] = fSubMaxHeight[3] = 0.0f;
 	}
-	//
 	bool HasCrosses() const { return !basecrosses.empty() || !noisecrosses.empty() || !layercrosses.empty(); }
-	//
 	int operator&( IDataTree &ss );
 	int operator&( IStructureSaver &ss );
 };
@@ -277,9 +221,7 @@ struct SVertexAltitude
 {
 	float fHeight;												// height of the vertex => [-inf...+inf] :)
 	BYTE shade;														// shading in the terrain vertex
-	//
 	SVertexAltitude() : fHeight( 0 ), shade( 255 ) {  }
-	//
 	int operator&( IDataTree &ss )
 	{
 		CTreeAccessor saver = &ss;
@@ -289,23 +231,17 @@ struct SVertexAltitude
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct STerrainInfo
 {
 	typedef CArray2D<SVertexAltitude> TVertexAltitudeArray2D;
-	//
 	std::string szTilesetDesc;						// tileset descriptor name
 	std::string szCrossetDesc;						// crosset descriptor name
-	//std::string szRoadsetDesc;						// roadset descriptor name
 	std::string szNoise;									// noise texture
 	CArray2D<STerrainPatchInfo> patches;	// all patches of this terrain
 	CArray2D<SMainTileInfo> tiles;				// all tiles of this terrain. ����� �� ����������� ������ �� ������� ����, ��� �� ������� ����� �� ������ ������ ����������� � ���������
-	//std::vector<SRoadItem> roads;					// vector road information
 	TVSOList rivers;											// rivers information
 	TVSOList roads3;											// 3D roads information
-	//CArray2D<float> heights;						// ������
 	TVertexAltitudeArray2D altitudes;			// ���������� ������ � ��������� (�� 1 ������ ��� ������ �� ������� ���������!)
-	//
 	float X2World( float x ) const { return x; }
 	float Y2World( float y ) const { return tiles.GetSizeY() - y - 1; }
 	float X2Terra( float x ) const { return x; }
@@ -313,13 +249,10 @@ struct STerrainInfo
 	int AIY2Terra( int y ) const { return tiles.GetSizeY()*2 - y - 1; }
 	void ToWorld( float *pfWX, float *pfWY, float x, float y ) const { *pfWX = X2World( x ); *pfWY = Y2World( y ); }
 	void ToTerra( float *pfWX, float *pfWY, float x, float y ) const { *pfWX = X2Terra( x ); *pfWY = Y2Terra( y ); }
-	// fill min/max heights in patches
 	void FillMinMaxHeights();
-	//
 	int operator&( IDataTree &ss );
 	int operator&( IStructureSaver &ss );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SReinforcementGroupInfo
 {
 	struct SGroupsVector
@@ -344,11 +277,9 @@ struct SReinforcementGroupInfo
 
 		return -1;
 	}
-	//
 	int operator&( IDataTree &ss );
 	int operator&( IStructureSaver &ss );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SScriptArea
 {
 	const static std::string names[2];
@@ -363,12 +294,10 @@ struct SScriptArea
 	float fR;								// ��� ����������
 	
 	SScriptArea() : eType( EAT_CIRCLE ), center( VNULL2 ), vAABBHalfSize( VNULL2 ), fR( 0.0f ) { }
-	//
 	int operator&( IDataTree &ss );
 	int operator&( interface IStructureSaver &ss );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
 struct SUnitsLogics
 {
@@ -380,7 +309,6 @@ struct SUnitsLogics
 	}
 };
 /**/
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SAIStartCommand
 {
 	EActionCommand cmdType;								// command type
@@ -412,7 +340,6 @@ struct SAIStartCommand
 		return *this;
 	}
 
-	//serializing
 	int operator&( IDataTree &ss )
 	{
 		CTreeAccessor saver = &ss;
@@ -442,20 +369,10 @@ struct SAIStartCommand
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** structure, which incorporates all map data
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SLoadMapInfo
 {
 	typedef std::list<SAIStartCommand> TStartCommandsList;
 	typedef std::list<SBattlePosition> TReservePositionsList;
-	//
 	STerrainInfo terrain;																					// terrain information
 	std::vector<SMapObjectInfo> objects;													// map objects
 	std::vector<SMapObjectInfo> scenarioObjects;									// map scenarioObjects
@@ -475,21 +392,15 @@ struct SLoadMapInfo
 	TMapSoundInfoList soundsList;																	// ��� ������ ����������� � �����
 	std::string szForestCircleSounds;															// ��� �������� ������ ����
 	std::string szForestAmbientSounds;														// ��� �������� ������ ����
-	// CRAP{ ��� �������� ����� � ��������� ������ - ������ ��� E3
 	std::string szChapterName;																		// ��� �����
 	int nMissionIndex;																						// ����� ������ � ���� �����
-	// CRAP}
 	int nType;																										//��� ����� ( ��. CMapInfo )
 	int nAttackingSide;																						//��������� ������� ( ��� ����������� ( 0 - 1 ) )
 	
-	// CRAP{ ���� �������
 	SSoundInfo sounds;																						// ��� ������ ����������� � �����
-	// CRAP}
 	SAIGeneralMapInfo aiGeneralMapInfo;														// ���������� ��� ��������
 
-	//MOD support
 	std::string szMODName;																				//MOD Name
 	std::string szMODVersion;																			//MOD Version
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __FMTMAP_H__

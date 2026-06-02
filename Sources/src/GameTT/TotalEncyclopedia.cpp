@@ -10,9 +10,6 @@
 #include "SaveLoadCommon.h"
 #include "..\StreamIO\ProgressHook.h"
 #include "..\Misc\Checker.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// get index in unitTypes by EUnitRPGClass
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int GetUnitClassNumberByRPGClass( const EUnitRPGClass eClass )
 {
 	for ( int k = 0; k < nUnitClassesSize; ++k )
@@ -24,7 +21,6 @@ const int GetUnitClassNumberByRPGClass( const EUnitRPGClass eClass )
 	}
 	return -1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum 
 {
 	E_START_WINDOW_ID					= 20000,
@@ -33,11 +29,6 @@ enum
 
 	E_UPGRADE_BUTTON					= 10003,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*****************************************************************************************
-//	CInterfaceUnitsEncyclopediaBase
-//*****************************************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct
 {
 	char szDirName[20];
@@ -47,7 +38,6 @@ struct
 	"german",
 	"ussr",
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char * CInterfaceUnitsEncyclopediaBase::GetUnitNameByWindowID( const int nID )
 {
 	if ( nID >= E_START_WINDOW_ID && nID < E_START_WINDOW_ID + 9000 )
@@ -58,13 +48,11 @@ const char * CInterfaceUnitsEncyclopediaBase::GetUnitNameByWindowID( const int n
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceUnitsEncyclopediaBase::FillUnitsList( const int nListType, IUIShortcutBar *pSB, interface IMovieProgressHook *pProgress, const bool bFillName )
 {
 	if ( nViewUnitsType != -1 && nListType == nViewUnitsType ) return;
 	nViewUnitsType = nListType;
 
-	//init Shortcut Bar
 	ITextManager *pTextM = GetSingleton<ITextManager>();
 	NI_ASSERT_T( pSB != 0, "ShortcutBar is not initialized" );
 	pSB->Clear();
@@ -76,7 +64,6 @@ void CInterfaceUnitsEncyclopediaBase::FillUnitsList( const int nListType, IUISho
 	
 	if ( nListType >= unitsArray.size() )		// merge all lists and show it in separate window 
 	{
-		//���������� ���� �� ���� ���� ��������������� �������
 		for ( int i = 0; i < nUnitTypesSize; ++i )
 		{
 			int nSum = 0;
@@ -85,7 +72,6 @@ void CInterfaceUnitsEncyclopediaBase::FillUnitsList( const int nListType, IUISho
 			if ( nSum == 0 )
 				continue;			//�� ���� ������ ���������
 			
-			//Add bar
 			IUIElement *pBar = pSB->AddBar();
 			std::string szKey = NStr::Format( "textes\\RPGTypes\\type%d", i );
 			pText = pTextM->GetDialog( szKey.c_str() );
@@ -105,7 +91,6 @@ void CInterfaceUnitsEncyclopediaBase::FillUnitsList( const int nListType, IUISho
 				
 				for ( int k = 0; k < vec[i].size(); ++k )
 				{
-					//������� item � ������ RPG stats
 					IUIDialog *pItem = checked_cast<IUIDialog *>( pSB->GetItem( nBarIndex-1, nItemIndex + k ) );
 					const SUnitBaseRPGStats *pRPG = vec[i][k];
 					if ( pProgress )
@@ -131,7 +116,6 @@ void CInterfaceUnitsEncyclopediaBase::FillUnitsList( const int nListType, IUISho
 			if ( vec[i].empty() )
 				continue;
 			
-			//Add bar
 			IUIElement *pBar = pSB->AddBar();
 			std::string szKey = NStr::Format( "textes\\RPGTypes\\type%d", i );
 			pText = pTextM->GetDialog( szKey.c_str() );
@@ -144,7 +128,6 @@ void CInterfaceUnitsEncyclopediaBase::FillUnitsList( const int nListType, IUISho
 			pSB->AddMultyItems( vec[i].size() );
 			for ( int k = 0; k < vec[i].size(); ++k )
 			{
-				//������� item � ������ RPG stats
 				IUIDialog *pItem = checked_cast<IUIDialog *>( pSB->GetItem( nBarIndex-1, k ) );
 				const SUnitBaseRPGStats *pRPG = vec[i][k];
 				if ( pProgress )
@@ -156,40 +139,29 @@ void CInterfaceUnitsEncyclopediaBase::FillUnitsList( const int nListType, IUISho
 
 	pSB->InitialUpdate();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*****************************************************************************************
-//	CInterfaceUnitsEncyclopediaBase
-//*****************************************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum ECommands
 {
 	IMC_UNIT_INFO			=	10006,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICTotalEncyclopedia::PostCreate( IMainLoop *pML, CInterfaceTotalEncyclopedia *pITE )
 {
 	pML->PushInterface( pITE );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceTotalEncyclopedia::~CInterfaceTotalEncyclopedia()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceTotalEncyclopedia::Init()
 {
 	CInterfaceInterMission::Init();
-	//	SetBindSection( "intermission" );
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceTotalEncyclopedia::StartInterface()
 {
 	pUIScreen = CreateObject<IUIScreen>( UI_SCREEN );
 	pUIScreen->Load( "ui\\TotalEncyclopedia" );
 	pUIScreen->Reposition( pGFX->GetScreenRect() );
 
-	//������� ���������� �� ������ � �������� ��������������� �������
 	InitUnitLists();
 
 	int nType = 0;
@@ -219,7 +191,6 @@ void CInterfaceTotalEncyclopedia::StartInterface()
 	StoreScreen();
 	pScene->AddUIScreen( pUIScreen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SUnitTypeSortFunctor
 {
 public:
@@ -228,7 +199,6 @@ public:
 		return p1->szKeyName < p2->szKeyName;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceTotalEncyclopedia::InitUnitLists()
 {
 	IObjectsDB *pIDB = GetSingleton<IObjectsDB>();
@@ -262,10 +232,8 @@ void CInterfaceTotalEncyclopedia::InitUnitLists()
 				if ( !pTemp )
 					continue;
 
-				//������� ���� � ������ � ����������� �� ����
 				CUnitTypesVector &vec = unitsArray[z];
 				const SUnitBaseRPGStats *pRPG = checked_cast<const SUnitBaseRPGStats *>( pIDB->GetRPGStats( pDescs+i ) );
-				// check if this unit has desc.txt file
 				
 				const EUnitRPGType type = pRPG->GetMainType();
 				int k = 0;
@@ -287,7 +255,6 @@ void CInterfaceTotalEncyclopedia::InitUnitLists()
 			NI_ASSERT_T( z != nSides, NStr::Format( "Unit of unknown side: %s", pDescs[i].szPath.c_str() ) );
 		}
 	}
-	//��������� ������� �� ����� ������
 	SUnitTypeSortFunctor sf;
 	for ( int z = 0; z < nSides; ++z )
 	{
@@ -305,10 +272,8 @@ void CInterfaceTotalEncyclopedia::InitUnitLists()
 	InitialUpdate();
 	pProgress->Stop();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceTotalEncyclopedia::SetActiveUnitsType( int nType )
 {
-	//������� ���������� state � ������� ��������
 	IUIElement *pElement = 0;
 	if ( GetViewIndex() != -1 )
 	{
@@ -317,7 +282,6 @@ void CInterfaceTotalEncyclopedia::SetActiveUnitsType( int nType )
 		pElement->EnableWindow( true );
 	}
 	
-	//��������� ���������� state � �������� nType
 	pElement = pUIScreen->GetChildByID( nType + 1000 );
 	NI_ASSERT_T( pElement != 0, NStr::Format( "No control with id %d", nType + 1000 ) );
 	pElement->EnableWindow( false );
@@ -356,7 +320,6 @@ void CInterfaceTotalEncyclopedia::SetActiveUnitsType( int nType )
 	if ( pText != 0 )
 		pHeader->SetWindowText( 0, pText->GetString() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceTotalEncyclopedia::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceInterMission::ProcessMessage( msg ) )
@@ -371,7 +334,6 @@ bool CInterfaceTotalEncyclopedia::ProcessMessage( const SGameMessage &msg )
 
 	if ( msg.nEventID >= 1000 && msg.nEventID < 1010 )
 	{
-		//������ �� ������ ����� ������� �������, ������� ������
 		SetActiveUnitsType( msg.nEventID - 1000 );
 		return true;
 	}
@@ -383,19 +345,12 @@ bool CInterfaceTotalEncyclopedia::ProcessMessage( const SGameMessage &msg )
 		szTemp += pszUnitName;
 		FinishInterface( MISSION_COMMAND_ENCYCLOPEDIA, szTemp.c_str() );
 	}
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*****************************************************************************************
-//	CUnitInfoItem
-//*****************************************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceWarehouse::CUnitInfoItem::CUnitInfoItem( const int _nCommanderName, const std::string &_szRPGStats, const int _nWindowID )
 : szCurrentRPGStats( _szRPGStats ), nCommanderName( _nCommanderName ), nWindowID( _nWindowID )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceWarehouse::CUnitInfoItem::OnHelpCalled( const SGameMessage &msg, std::string *pHelp )
 {
 	if ( msg.nEventID - 20000 == nWindowID )
@@ -406,26 +361,22 @@ bool CInterfaceWarehouse::CUnitInfoItem::OnHelpCalled( const SGameMessage &msg, 
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceWarehouse::CUnitInfoItem::ApplyUpgrades()
 {
 	if ( IsEmpty() ) return 0;
 	GetSingleton<IScenarioTracker>()->GetUserPlayer()->GetUnit( nCommanderName )->ChangeRPGStats( szCurrentRPGStats );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceWarehouse::CUnitInfoItem::EnableWindow( const bool bEnable )
 {
 	NI_ASSERT_T( pSBItem != 0, "trying to enable unitialized window" );
 	pSBItem->EnableWindow( bEnable );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceWarehouse::CUnitInfoItem::Init( IUIDialog *_pSBItem, IObjectsDB *pIDB )
 {
 	pSBItem = _pSBItem;
 	ApplyRPGStats( szCurrentRPGStats, pIDB );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceWarehouse::CUnitInfoItem::ApplyRPGStats( const std::string &szNewStats, IObjectsDB *pIDB )
 {
 	szCurrentRPGStats = szNewStats;
@@ -445,7 +396,6 @@ void CInterfaceWarehouse::CUnitInfoItem::ApplyRPGStats( const std::string &szNew
 
 	FillUnitInfoItemNoIDs( pRPG, pSBItem, nCommanderName, nCommanderName != -1, 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceWarehouse::CUnitInfoItem::PerformUpgrade()
 {
 	if ( nCommanderName != -1 )
@@ -455,11 +405,6 @@ void CInterfaceWarehouse::CUnitInfoItem::PerformUpgrade()
 		pUnit->ChangeRPGStats( szCurrentRPGStats );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*****************************************************************************************
-//	CUnitClassInfo
-//*****************************************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceWarehouse::CUnitClassInfo::Expand( IUIShortcutBar *pSB, const bool bExpand, const bool bDisableCollapsed, const bool bNotify )
 {
 	if ( !IsEmpty() )
@@ -474,25 +419,20 @@ void CInterfaceWarehouse::CUnitClassInfo::Expand( IUIShortcutBar *pSB, const boo
 			SelectFirstItem( pSB );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceWarehouse::CUnitClassInfo::ApplyUpgrades()
 {
 	std::for_each( units.begin(), units.end(), [](CPtr<CUnitInfoItem>& pItem) { pItem->ApplyUpgrades(); } );
-	// fuck
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceWarehouse::CUnitInfoItem * CInterfaceWarehouse::CUnitClassInfo::GetUnit( const int nIndex )
 {
 	CheckRange( units, nIndex );
 	return units[nIndex];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char * CInterfaceWarehouse::CUnitClassInfo::GetRPGStats( const int nIndex )
 {
 	return GetUnit( nIndex )->GetRPGStats();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceWarehouse::CUnitClassInfo::OnHelpCalled( const SGameMessage &msg, std::string *pHelp )
 {
 	for ( int i = 0; i < units.size(); ++i )
@@ -502,16 +442,13 @@ bool CInterfaceWarehouse::CUnitClassInfo::OnHelpCalled( const SGameMessage &msg,
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceWarehouse::CUnitClassInfo::AddItem( const std::string &szRPGStats, const int nCommanderNumber, const int nWindowID )
 {
 	units.push_back( new CUnitInfoItem( nCommanderNumber, szRPGStats, nWindowID ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceWarehouse::CUnitClassInfo::Init( IUIShortcutBar *pSB, const int _nSBIndex, const EUnitRPGClass eType, IObjectsDB *pIDB )
 {
 	nSBIndex = _nSBIndex;
-	//Add bar
 	IUIElement *pBar = pSB->AddBar();
 	const std::string szKey = NStr::Format( "textes\\RPGClasses\\class%d", eType );
 	IText * pText = GetSingleton<ITextManager>()->GetDialog( szKey.c_str() );
@@ -520,18 +457,14 @@ void CInterfaceWarehouse::CUnitClassInfo::Init( IUIShortcutBar *pSB, const int _
 	pBar->SetWindowText( 0, pText->GetString() );
 	pBar->SetWindowText( 1, pText->GetString() );
 
-	//CRAP{ WHY?
 	pBar->SetWindowID( unitClasses[eType].nClass );
-	//CRAP}
 
-	// add every item
 	for ( int i = 0; i < units.size(); ++i )
 	{
 		IUIDialog *pItem = checked_cast<IUIDialog *>( pSB->AddItem() );
 		units[i]->Init( pItem, pIDB );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceWarehouse::CUnitClassInfo::OnSelectionChanged( IUIShortcutBar *pSB )
 {
 	if ( !IsEmpty() )
@@ -553,31 +486,22 @@ bool CInterfaceWarehouse::CUnitClassInfo::OnSelectionChanged( IUIShortcutBar *pS
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceWarehouse::CUnitClassInfo::SelectFirstItem( IUIShortcutBar *pSB ) const
 {
 	if ( !IsEmpty() )
 		pSB->SetSelectionItem( nSBIndex, 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*****************************************************************************************
-//	CUnitsPane
-//*****************************************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceWarehouse::CUnitsPane::Init( IUIShortcutBar *_pSB, int *pWindowIDs, IObjectsDB * pDB )
 {
 	IObjectsDB *pIDB = GetSingleton<IObjectsDB>();
 	pSB = _pSB;
 
-	// create classes 
 	classes.resize( nUnitClassesSize );
 	for ( int i = 0; i < classes.size(); ++i )
 		classes[i] = new CUnitClassInfo;
 
-	// init them. fill with items
 	const int nMax = GetNUnits();
 	
-	// init items
 	for ( int nUnit = 0; nUnit < nMax; ++nUnit )
 	{
 		const std::string &szStatsName = GetUnitStats( nUnit );
@@ -592,7 +516,6 @@ void CInterfaceWarehouse::CUnitsPane::Init( IUIShortcutBar *_pSB, int *pWindowID
 
 	int nSBIdex = 0;
 	bool bFirst = true;
-	// add items to ShortcutBar
 	for ( int i = 0; i < classes.size(); ++i )
 	{
 		if ( !classes[i]->IsEmpty() )
@@ -609,15 +532,10 @@ void CInterfaceWarehouse::CUnitsPane::Init( IUIShortcutBar *_pSB, int *pWindowID
 	}
 	pSB->InitialUpdate();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceWarehouse::CUnitsPane::ExpandClass( const EUnitRPGClass eType )
 {
-	// expand current class
-	// compact former expanded
-	// select first item in this class
 	ExpandIndex( GetUnitClassNumberByRPGClass(eType) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceWarehouse::CUnitsPane::ExpandIndex( const int nTypeIndex )
 {
 	if ( nExpandedNumber != -1 )
@@ -628,7 +546,6 @@ void CInterfaceWarehouse::CUnitsPane::ExpandIndex( const int nTypeIndex )
 	if ( nTypeIndex != -1 )
 		classes[nExpandedNumber]->Expand( pSB, true, IsDisableCollapsed(), true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceWarehouse::CUnitsPane::OnSelectionChanged( int *pNewType )
 {
 	*pNewType = -1;
@@ -667,7 +584,6 @@ bool CInterfaceWarehouse::CUnitsPane::OnSelectionChanged( int *pNewType )
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceWarehouse::CUnitsPane::OnHelpCalled( const SGameMessage &msg, std::string *pHelp )
 {
 	for ( int i = 0; i < classes.size(); ++i )
@@ -677,7 +593,6 @@ bool CInterfaceWarehouse::CUnitsPane::OnHelpCalled( const SGameMessage &msg, std
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceWarehouse::CUnitInfoItem * CInterfaceWarehouse::CUnitsPane::GetCurrentUnitPtr()
 {
 	int nSelectedBar;
@@ -695,7 +610,6 @@ CInterfaceWarehouse::CUnitInfoItem * CInterfaceWarehouse::CUnitsPane::GetCurrent
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char * CInterfaceWarehouse::CUnitsPane::GetCurrentUnit()
 {
 	CUnitInfoItem *pInfo = GetCurrentUnitPtr();
@@ -704,55 +618,38 @@ const char * CInterfaceWarehouse::CUnitsPane::GetCurrentUnit()
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*****************************************************************************************
-//	CDepotUnitsPane
-//*****************************************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceWarehouse::CDepotUnitsPane::GetNUnits() const
 {
 	return GetSingleton<IScenarioTracker>()->GetUserPlayer()->GetNumDepotUpgrades();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const std::string & CInterfaceWarehouse::CDepotUnitsPane::GetUnitStats( const int nUnitIndex ) const
 {
 	return GetSingleton<IScenarioTracker>()->GetUserPlayer()->GetDepotUpgrade( nUnitIndex );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceWarehouse::CDepotUnitsPane::GetScenarioNumber( const int nIndex ) const
 {
 	return -1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceWarehouse::CDepotUnitsPane::IsDisableCollapsed() const
 {
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*****************************************************************************************
-//	CPlayerUnitsPane
-//*****************************************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceWarehouse::CPlayerUnitsPane::GetNUnits() const
 {
 	return GetSingleton<IScenarioTracker>()->GetUserPlayer()->GetNumUnits();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const std::string & CInterfaceWarehouse::CPlayerUnitsPane::GetUnitStats( const int nUnitIndex ) const
 {
 	return GetSingleton<IScenarioTracker>()->GetUserPlayer()->GetUnit( nUnitIndex )->GetRPGStats();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceWarehouse::CPlayerUnitsPane::GetScenarioNumber( const int nIndex ) const
 {
 	return nIndex;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceWarehouse::CPlayerUnitsPane::IsDisableCollapsed() const
 {
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceWarehouse::CPlayerUnitsPane::SetUpgrade( const std::string &szNewStats, IObjectsDB *pDB )
 {
 	CUnitInfoItem *pUnit = GetCurrentUnitPtr();
@@ -760,28 +657,20 @@ void CInterfaceWarehouse::CPlayerUnitsPane::SetUpgrade( const std::string &szNew
 	if ( pUnit )
 		pUnit->ApplyRPGStats( szNewStats, pDB );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceWarehouse::CPlayerUnitsPane::ApplyUpgrades()
 {
 	std::for_each( classes.begin(), classes.end(), [](CPtr<CUnitClassInfo>& pClass) { pClass->ApplyUpgrades(); } );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*****************************************************************************************
-//	CInterfaceWarehouse
-//*****************************************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceWarehouse::~CInterfaceWarehouse()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceWarehouse::EnableButton( const int nButtonID, const bool bEnable ) const 
 {
 	IUIElement *pButton = pUIScreen->GetChildByID( nButtonID );
 	if ( pButton )
 		pButton->EnableWindow( bEnable );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceWarehouse::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceInterMission::ProcessMessage( msg ) )
@@ -836,17 +725,13 @@ bool CInterfaceWarehouse::ProcessMessage( const SGameMessage &msg )
 
 		break;
 	}
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceWarehouse::Init()
 {
 	CInterfaceInterMission::Init();
-	//	SetBindSection( "intermission" );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceWarehouse::StartInterface()
 {
 	pUIScreen = CreateObject<IUIScreen>( UI_SCREEN );
@@ -863,7 +748,6 @@ void CInterfaceWarehouse::StartInterface()
 	pUIScreen->Reposition( pGFX->GetScreenRect() );
 	StoreScreen();
 
-	//depotPane.ExpandClass( RPG_TYPE_ARTILLERY );
 	
 	pScene->AddUIScreen( pUIScreen );
 }

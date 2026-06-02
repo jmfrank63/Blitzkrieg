@@ -44,7 +44,6 @@ typedef struct piPlayer
 
 	int flags[NumRooms];            // player's room flags
 
-	// Ping stuff
 	unsigned long lastPingSend;     // last time a ping was sent
 	unsigned long lastPingRecv;     // last time a ping was received
 	unsigned long lastXping;        // last time a xping was sent

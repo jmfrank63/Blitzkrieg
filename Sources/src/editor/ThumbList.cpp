@@ -1,5 +1,3 @@
-// ThumbList.cpp : implementation file
-//
 
 #include "stdafx.h"
 #include "..\Image\image.h"
@@ -16,8 +14,6 @@ SThumbItems::SThumbItems() : nSelectedItem(0), thumbDataList(0)
 {
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// CThumbList
 
 CThumbList::CThumbList( bool bHorz )
 {
@@ -32,25 +28,20 @@ CThumbList::~CThumbList()
 
 
 BEGIN_MESSAGE_MAP(CThumbList, CWnd)
-	//{{AFX_MSG_MAP(CThumbList)
 	ON_WM_CREATE()
 	ON_WM_SIZE()
 	ON_NOTIFY(NM_CLICK, IDC_LIST_THUMB_CONTROL, OnClickListThumb)
 	ON_NOTIFY(NM_DBLCLK, IDC_LIST_THUMB_CONTROL, OnDblClickListThumb)
 	ON_NOTIFY(LVN_KEYDOWN, IDC_LIST_THUMB_CONTROL, OnKeydownListThumb)
 	ON_NOTIFY(LVN_ITEMCHANGED, IDC_LIST_THUMB_CONTROL, OnItemStateChanged)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////
-// CThumbList message handlers
 
 int CThumbList::OnCreate(LPCREATESTRUCT lpCreateStruct) 
 {
 	if (CWnd::OnCreate(lpCreateStruct) == -1)
 		return -1;
 
-	// create a list control
 /*
 	DWORD dwStyle = LVS_SHOWSELALWAYS | LVS_SINGLESEL | LVS_ALIGNLEFT | LVS_ICON |
 		WS_CHILD | WS_VISIBLE | WS_BORDER;
@@ -85,9 +76,7 @@ void CThumbList::OnSize(UINT nType, int cx, int cy)
 			SWP_NOACTIVATE |
 			SWP_NOZORDER );
 
-//		m_ListThumbnail.Arrange( LVA_SNAPTOGRID );
 		m_ListThumbnail.Arrange( LVA_ALIGNTOP );
-//		m_ListThumbnail.UpdateWindow();
 	}
 }
 
@@ -138,7 +127,6 @@ void CThumbList::OnKeydownListThumb(NMHDR* pNMHDR, LRESULT* pResult)
 		int nSelected = GetSelectedItemIndex();
 		if ( nSelected != -1 )
 		{
-			//Удаляем item из дерева
 			DWORD dwData = GetUserDataForItem( nSelected );
 			if ( dwData == 0 )			//Значит это не Selected Thumb List
 				return;
@@ -176,7 +164,6 @@ void CThumbList::SetActiveThumbItems( SThumbItems *pNewActiveThumbs, CImageList 
 
 void CThumbList::CreateListElements()
 {
-//	NI_ASSERT( m_pActiveThumbItems->thumbDataList.size() == m_pActiveThumbItems->imageListThumb.GetImageCount() );
 	m_ListThumbnail.DeleteAllItems();
 
 	int i = 0;
@@ -198,7 +185,6 @@ int CThumbList::LoadImageToImageList( CImageList *pIML, char *szFileName, const 
 	if ( !pStorage )
 		return -1;
 
-	// open the file
 	CPtr<IDataStream> pStream = pStorage->OpenStream( szFileName, STREAM_ACCESS_READ );
 	if ( !pStream )
 		return -1;
@@ -209,7 +195,6 @@ int CThumbList::LoadImageToImageList( CImageList *pIML, char *szFileName, const 
 	int nImageCount = pIML->GetImageCount();
 	pIML->SetImageCount( nImageCount + 1 );
 	
-	//Создаем новый image и ресайзируем старый в него
 	int nSizeX = pImage->GetSizeX();
 	int nSizeY = pImage->GetSizeY();
 	double fRateX = (double) THUMBNAIL_WIDTH/nSizeX;
@@ -224,7 +209,6 @@ int CThumbList::LoadImageToImageList( CImageList *pIML, char *szFileName, const 
 	
 	if ( bShowAlpha )
 	{
-		//отображаем только альфа информацию
 		SColor *p = pScaleImage->GetLFB();
 		for ( int y=0; y<nSizeY; y++ )
 		{
@@ -235,7 +219,6 @@ int CThumbList::LoadImageToImageList( CImageList *pIML, char *szFileName, const 
 		}
 	}
 	
-	//Создаем центрированный image чтобы он был посередине картинки
 	if ( nSizeY < THUMBNAIL_HEIGHT )
 	{
 		int nUp = (THUMBNAIL_HEIGHT - nSizeY)/2;
@@ -260,7 +243,6 @@ int CThumbList::LoadImageToImageList( CImageList *pIML, char *szFileName, const 
 	NI_ASSERT( nSizeX == 100 );
 	NI_ASSERT( nSizeY == 100 );
 
-	//Создаем HBITMAP чтобы прогрузить её в image list
 	CBitmap bitmap;
 	BITMAPINFO bmi;
 	bmi.bmiHeader.biSize  = sizeof( bmi.bmiHeader );
@@ -279,8 +261,6 @@ int CThumbList::LoadImageToImageList( CImageList *pIML, char *szFileName, const 
 	ReleaseDC( pDC );
 	bitmap.Attach( hbm );
 	
-	//Загружаем битмапу в image list
-//	return pIML->Replace( nImageCount, &bitmap, NULL );
 	pIML->Replace( nImageCount, &bitmap, NULL );
 	return nImageCount;
 }
@@ -296,11 +276,9 @@ void CThumbList::LoadAllImagesFromDir( SThumbItems *pThumbItems, CImageList *pIM
 	HANDLE hFind = NULL;
 	WIN32_FIND_DATA ffData;
 
-	//Почищаем все предыдущие items
 	pThumbItems->thumbDataList.clear();
 	pIML->SetImageCount( 1 );							//Я хочу оставить одну иконку которая подсказывает о несуществовании картинки
 
-	//Ищем в директории все .tga файлы и загружаем их
 	if ( strlen(szDir) > 0 )
 		strPattern = (CString)szDir + "\\*.tga";
 	else
@@ -353,9 +331,6 @@ void CThumbList::LoadImageIndexFromThumbs( SThumbItems *pAllItems, CImageList *p
 	if ( !m_pActiveThumbItems )
 		return;
 
-	//Ищу в AllItems имена, соответствующие именам внутри m_pActiveThumbItems
-	//Если нахожу имя, то беру его image index, иначе подставляю 0 image - неправильная иконка
-	//Тут считается, что список в AllItems отсортирован
 	CListOfThumbData::iterator it=m_pActiveThumbItems->thumbDataList.begin();
 	for ( ; it!=m_pActiveThumbItems->thumbDataList.end(); ++it )
 	{
@@ -384,11 +359,8 @@ void CThumbList::LoadImagesFromFileNameList( SThumbItems *pThumbItems, const cha
 {
 	NI_ASSERT( pThumbItems != 0 );
 	
-	//Почищаем все предыдущие items
-//	pThumbItems->thumbDataList.clear();
 	pThumbItems->imageListThumb.SetImageCount( 0 );
 	
-	//Ищем в директории .tga файлы из списка внутри pThumbItems и загружаем их
 	for ( CListOfThumbData::iterator it=pThumbItems->thumbDataList.begin(); it!=pThumbItems->thumbDataList.end(); ++it )
 	{
 		char szFileName[255];
@@ -432,23 +404,17 @@ int CThumbList::InsertItemAfterSelection( char *szFileName, const char *szDir )
 	int nSelItemIndex = GetSelectedItemIndex();
 	if ( nSelItemIndex == -1 )
 	{
-		//Вставляем item в конец списка
 		int nItemCount = m_ListThumbnail.GetItemCount();
-//		m_ListThumbnail.InsertItem( nItemCount, szFileName, newItem.nImageId );
 		m_ListThumbnail.InsertItem( 0, szFileName, newItem.nImageId );
 		m_ListThumbnail.Arrange( LVA_ALIGNTOP );
 		return nItemCount;
 	}
 
-	//Вставляем item после последнего выделенного item
-//	m_ListThumbnail.InsertItem( nSelItemIndex + 1, szFileName, newItem.nImageId );
-//	int nnn = m_ListThumbnail.InsertItem( 0, szFileName, newItem.nImageId );
 /*
 	m_ListThumbnail.InsertItem( LVIF_IMAGE | LVIF_TEXT | LVIF_PARAM,
 		0, szFileName, 0, 0, newItem.nImageId, 0 );
 */
 
-	//Сдвигаем selection, новый item должен стать выделенным
 	m_ListThumbnail.InsertItem( nSelItemIndex, szFileName, newItem.nImageId );
 	m_ListThumbnail.SetItemState( nSelItemIndex + 1, LVIS_SELECTED, LVIS_SELECTED );
 	m_ListThumbnail.Arrange( LVA_ALIGNTOP );
@@ -467,7 +433,6 @@ int CThumbList::GetSelectedItemIndex()
 	return m_ListThumbnail.GetNextSelectedItem( pos );
 
 
-//	return m_ListThumbnail.GetSelectionMark();
 }
 
 string CThumbList::GetItemName( int nIndex )
@@ -510,7 +475,6 @@ void CThumbList::SelectItem( int nIndex )
 		return;
 
 
-//	m_ListThumbnail.SetItemState( nIndex, LVIS_SELECTED, LVIF_STATE );
 	m_ListThumbnail.SetItemState( nIndex, LVIS_SELECTED, LVIS_SELECTED );
 	m_ListThumbnail.EnsureVisible( nIndex, 0 );
 
@@ -523,7 +487,6 @@ void CThumbList::SelectItem( int nIndex )
 
 void CThumbList::DeleteItem( int nIndex )
 {
-	//Удаляем из нашего списка
 	int i = 0;
 	for ( CListOfThumbData::iterator it=m_pActiveThumbItems->thumbDataList.begin(); it!=m_pActiveThumbItems->thumbDataList.end(); ++it )
 	{
@@ -532,9 +495,6 @@ void CThumbList::DeleteItem( int nIndex )
 		if ( i == nIndex )
 		{
 /*
-			//Удаляем из image list
-			//Пока это закомментарено ибо при удалении сдвигаются индексы в image list 
-			//и придется пересоздавать все items в list control с новыми индексами
 			m_pActiveThumbItems->imageListThumb.Remove( it->nImageId );
 */
 			m_pActiveThumbItems->thumbDataList.erase( it );
@@ -544,7 +504,6 @@ void CThumbList::DeleteItem( int nIndex )
 	}
 
 	
-	//Удаляем из ListCtrl
 	m_ListThumbnail.DeleteItem( nIndex );
 	m_ListThumbnail.Arrange( LVA_ALIGNTOP );
 	m_ListThumbnail.UpdateWindow();
@@ -572,7 +531,6 @@ DWORD CThumbList::GetUserDataForItem( int nItemIndex )
 	int i = 0;
 	for ( CListOfThumbData::iterator it=m_pActiveThumbItems->thumbDataList.begin(); it!=m_pActiveThumbItems->thumbDataList.end(); ++it )
 	{
-//		NI_ASSERT( it->dwData != 0 );
 
 		if ( i == nItemIndex )
 		{

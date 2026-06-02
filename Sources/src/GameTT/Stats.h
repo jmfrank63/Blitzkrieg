@@ -1,13 +1,10 @@
 #ifndef __IM_STATS_H__
 #define __IM_STATS_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "InterMission.h"
 #include "iMission.h"
 #include "..\Main\ScenarioTrackerTypes.h"
 #include "..\Main\ScenarioTracker.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInterfaceStats : public CInterfaceInterMission
 {
 	DECLARE_SERIALIZE;
@@ -28,7 +25,6 @@ public:
 		EST_SINGLEPLAYER,
 	};
 
-	// for sustom sorter
 	class CSorter : public IUIListSorter 
 	{
 		OBJECT_NORMAL_METHODS( CSorter );
@@ -39,7 +35,6 @@ public:
 	typedef std::pair< CPtr<IPlayerScenarioInfo>, CPtr<IScenarioStatistics> > CPlayerFullInfo;
 	typedef std::vector< CPlayerFullInfo > CPlayersFullInformation;
 
-	// configuration for player's stats
 	struct SStatConfugure
 	{
 		/*EScenarioTrackerMissionTypes*/ int eType[2];
@@ -58,7 +53,6 @@ public:
 		bool IsToDisplay( const bool bMultiplayerGame ) const;
 	};
 
-	// info for player statistics
 	struct SPlayerStatInfo
 	{
 		double fVal[2];
@@ -68,7 +62,6 @@ public:
 		std::wstring GetValueToSort( const SStatConfugure &config ) const;
 	};
 
-	// party info ( gathered through all players)
 	class SPartyInfo
 	{
 		double fVal[2];											// summ val for party
@@ -78,21 +71,18 @@ public:
 		SPartyInfo() : nBestIndex( -1 ) { }
 
 		void Init( const CPlayersFullInformation &info, const SStatConfugure &config );
-		//double GetPartyVal() const { return fVal; }		// summary party value
 		std::wstring GetPartyVal( const SStatConfugure &config ) const;
 		std::wstring GetValForSort( const SStatConfugure &config ) const;
 		int GetLeader() const { return nBestIndex; }	// leader of that statistics
 		double GetLeaderValue( const SStatConfugure &config ) const { return fBestVal[config.nIndexToCountBest]; }
 	};
 
-	// common stats
 	class CCommonStats
 	{
 	private:
 		int nTime;
 		int nObjectivesCompleted;
 		int nDifficulty;
-		//int nObjectivesFailed;
 		int nUpgrades;
 		int nSaves;
 	public:
@@ -104,13 +94,10 @@ public:
 private:
 
 	CPtr<CSorter> pSorter;
-		// for player's stats confuguation
 	std::vector<SStatConfugure> playerStatsConfigure;
 
-	// the collected players
 	std::vector<CPlayersFullInformation> playerInfos;
 	
-	// input
 	NInput::CCommandRegistrator commandMsgs;
 
 	std::vector< CPtr<IUIListControl> > pPartyList;
@@ -129,9 +116,7 @@ private:
 	bool bPlayerRankShown;
 	bool bLastFullScreen;		//переменная для работы шторок, если true то последний раз отображался full screen interface
 
-		//
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
-	// disable explicit destruction
 	virtual ~CInterfaceStats();
 	CInterfaceStats() : CInterfaceInterMission( "InterMission" ), nMedalIterator( 0 ), bStatsShown( 0 ),
 		bUpgradesShown( 0 ), bNewUnitsShown( 0 ), bNextChapterShown( 0 ), m_nStatsType( 0 ), bPlayerRankShown( 0 ),
@@ -139,9 +124,7 @@ private:
 
 	void InitSorter();
 	void AquireLists();
-	// stores statistics
 	void CollectPlayerStats( interface IPlayerScenarioInfo *pPlayer, interface IScenarioStatistics *pStats );
-	// fills list with values
 	void RepositionList();
 	void FillCommonStatsList( const bool bMultiplayer, const CInterfaceStats::CCommonStats &commonStats );
 
@@ -153,7 +136,6 @@ public:
 	virtual void STDCALL OnGetFocus( bool bFocus );
 	void Create( const int nStatsType );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CICStats : public CInterfaceCommandBase<CInterfaceStats, MISSION_INTERFACE_STATS>
 {
 	OBJECT_NORMAL_METHODS( CICStats );
@@ -162,10 +144,8 @@ class CICStats : public CInterfaceCommandBase<CInterfaceStats, MISSION_INTERFACE
 
 	virtual void PreCreate( IMainLoop *pML );
 	virtual void PostCreate( IMainLoop *pML, CInterfaceStats *pIS );
-	//
 	CICStats() {  }
 public:
 	virtual void STDCALL Configure( const char *pszConfig );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif		//__IM_STATS_H__

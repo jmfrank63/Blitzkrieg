@@ -10,8 +10,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CImageView
 
 CImageView::CImageView()
 {
@@ -23,16 +21,12 @@ CImageView::~CImageView()
 
 
 BEGIN_MESSAGE_MAP(CImageView, CWnd)
-//{{AFX_MSG_MAP(CImageView)
 ON_WM_PAINT()
 ON_WM_HSCROLL()
 ON_WM_VSCROLL()
-//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CImageView message handlers
 
 BOOL CImageView::PreCreateWindow(CREATESTRUCT& cs) 
 {

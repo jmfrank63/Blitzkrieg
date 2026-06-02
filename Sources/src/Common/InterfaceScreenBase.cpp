@@ -8,9 +8,7 @@
 #include "..\GameTT\CommonID.h"
 #include "..\Main\ScenarioTracker.h"
 #include "..\GameTT\IMission.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CInterfaceScreenBase );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceScreenBase::CInterfaceScreenBase( const std::string &_szInterfaceType )
 : szInterfaceType( _szInterfaceType ), bInterfaceClosed( false )
 {
@@ -27,7 +25,6 @@ CInterfaceScreenBase::CInterfaceScreenBase( const std::string &_szInterfaceType 
 	bLastCursorScreenMoveRes = false;
 	timeToolTip = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceScreenBase::Init()
 {
 	pGFX = GetSingleton<IGFX>();
@@ -37,7 +34,6 @@ bool CInterfaceScreenBase::Init()
 	pCamera = GetSingleton<ICamera>();
 	pCursor = GetSingleton<ICursor>();
 	pTimer = GetSingleton<IGameTimer>();
-	// initialize stats system with some unchangeble values
 	{
 		IStatSystem *pStat = pScene->GetStatSystem();
 		pStat->SetPosition( 0, 0 );
@@ -49,26 +45,18 @@ bool CInterfaceScreenBase::Init()
 		pStat->AddEntry( "tris" );
 		pStat->AddEntry( "tps" );
 		pStat->AddEntry( "fps" );
-		//
 		pStat->UpdateEntry( "CPU freq.", NStr::Format("%dMHz", int( NHPTimer::GetClockRate() / 1000000.0 + 0.5 )) );
 	}
-	//
 	ChangeResolution();
-	//
 	pCursor->SetMode( 0 );
 	pInput->ClearMessages();
 	pInput->SetTextMode( INPUT_TEXT_MODE_NOTEXT );
-	//
 	timeToolTipShowTime = GetGlobalVar( "Scene.ToolTipTime.Show", 1000 );
 	timeToolTipHideTime = GetGlobalVar( "Scene.ToolTipTime.Hide", 10000 );
-	//
 	SuspendAILogic( true );
-	//
 	nHelpContextNumber = 0;
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceScreenBase::Done() 
 {  
 	if ( (pScene != 0) && (pUIScreen != 0) ) 
@@ -81,7 +69,6 @@ void CInterfaceScreenBase::Done()
 	pInput->ClearMessages();
 	pInput->SetTextMode( INPUT_TEXT_MODE_NOTEXT );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceScreenBase::SetWindowText( const int nElementID, const WORD *pszText )
 {
 	IUIElement * pElement = pUIScreen->GetChildByID( nElementID );
@@ -90,12 +77,10 @@ void CInterfaceScreenBase::SetWindowText( const int nElementID, const WORD *pszT
 		pElement->SetWindowText( 0, pszText );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceScreenBase::SetWindowText( const int nElementID, IText *pText )
 {
 	SetWindowText( nElementID, pText->GetString() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceScreenBase::SuspendAILogic( bool bSuspend )
 {
 	if ( bSuspend ) 
@@ -103,7 +88,6 @@ void CInterfaceScreenBase::SuspendAILogic( bool bSuspend )
 	else
 		GetSingleton<IAILogic>()->Resume();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceScreenBase::OnCursorMove( const CVec2 &vPos )
 {
 	const bool bScreenActive = (pScene && (pScene->GetUIScreen() == pUIScreen));
@@ -113,11 +97,9 @@ bool CInterfaceScreenBase::OnCursorMove( const CVec2 &vPos )
 		if ( pUIScreen )
 			bLastCursorScreenMoveRes = pUIScreen->OnMouseMove( vPos, E_MOUSE_FREE );
 	}
-	// check for tooltip
 	if ( pUIScreen && bScreenActive ) 
 	{
 		const NTimer::STime timeAbs = pTimer->GetAbsTime();
-		// last cursor position
 		CVec2 vLastPos;
 		NTimer::STime time;
 		pCursor->GetLastPos( &vLastPos, &time );
@@ -141,23 +123,19 @@ bool CInterfaceScreenBase::OnCursorMove( const CVec2 &vPos )
 			pLastToolTip = 0;
 		}
 	}
-	//
 	return bLastCursorScreenMoveRes;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceScreenBase::AddDelayedCommand( IInterfaceCommand *pCmd, const NTimer::STime &timeToPerform ) 
 { 
 	pCmd->SetDelayedTime( timeToPerform );
 	GetSingleton<IMainLoop>()->Command( pCmd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceScreenBase::EnableMessageProcessingDelayed( const bool bEnable, const NTimer::STime &timeToPerform )
 {
 	IInterfaceCommand *pCmd = CreateObject<IInterfaceCommand>( MAIN_COMMAND_ENABLE_MESSAGE_PROCESSING );
 	pCmd->Configure( bEnable ? "1" : "0" );
 	AddDelayedCommand( pCmd, timeToPerform );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceScreenBase::PlayOverInterface( const char *pszName, const DWORD dwAddFlags, const bool bFadeIn )
 {
 	CPtr<ITransition> pTransition = CreateObject<ITransition>( SCENE_TRANSITION );
@@ -166,14 +144,12 @@ int CInterfaceScreenBase::PlayOverInterface( const char *pszName, const DWORD dw
 		pScene->AddSceneObject( pTransition );
 	return nLength;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceScreenBase::OpenCurtainsForced()
 {
 	GetSingleton<IMainLoop>()->EnableMessageProcessing( false );
 	const int nLength = PlayOverInterface( "movies\\transition\\open.bik", 0, false );
 	EnableMessageProcessingDelayed( true, timeGetTime() + nLength );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceScreenBase::OpenCurtains()
 {
 	RemoveTransition();
@@ -185,12 +161,10 @@ bool CInterfaceScreenBase::OpenCurtains()
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceScreenBase::StartInterface()
 {
 	RemoveTransition();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceScreenBase::FinishInterface( const int nInterfaceCommandTypeID, const char *pszCommandConfig )
 {
 	CPtr<IInterfaceCommand> pCmd;
@@ -220,37 +194,27 @@ int CInterfaceScreenBase::FinishInterface( IInterfaceCommand *pCmdNextInterface 
 		return 0;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceScreenBase::Step( bool bAppActive )
 {
 	pCamera->Update();
 	pGFX->SetViewTransform( pCamera->GetPlacement() );
-	//	
 	if ( (StepLocal( bAppActive ) == false) || (bAppActive == false) || !pGFX->IsActive() )
 	{
 		Sleep( 10 );
 		return;
 	}
-	//
 	pScene->UpdateSound( pCamera );
 
-	// begin scene
 	pGFX->Clear( 0, 0, GFXCLEAR_ALL, 0 );
 	pGFX->BeginScene();
-	// draw main scene
   pScene->Draw( pCamera );
-	// draw additionals
 	DrawAdd();
 	AddStatistics();
-	// draw statistics (if enabled)
-	// finish scene and present current frame buffer
 	pGFX->EndScene();
 	pGFX->Flip();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceScreenBase::AddStatistics()
 {
-	// collect statistics
 	double fTimePassed = NHPTimer::GetTimePassed( &time );
 	fTotalTime += fTimePassed;
 	nTriCounter += pGFX->GetNumPassedPrimitives();
@@ -263,7 +227,6 @@ void CInterfaceScreenBase::AddStatistics()
 		nFrameCounter = 0;
 		nTriCounter = 0;
 	}
-	// draw statistics (if enabled)
 	if ( bEnableStatistics )
 	{
 		IStatSystem *pStat = pScene->GetStatSystem();
@@ -281,25 +244,20 @@ void CInterfaceScreenBase::AddStatistics()
 		pStat->Draw( pGFX );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceScreenBase::ProcessTextMessage( const STextMessage &msg )
 {
 	if ( pUIScreen )
 	{
 		pUIScreen->OnChar( msg.wChars[0], msg.nVirtualKey, msg.bPressed, E_KEYBOARD_FREE );
-		// Screen мог сгенерить сообщение, например о прекрацении TEXT_MODE, его надо сразу обработать
 		SGameMessage uiMessage;
 		while ( pUIScreen->GetMessage( &uiMessage) )
 			ProcessMessage( uiMessage );
-		//
 		return true;
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceScreenBase::AddMessage( const SGameMessage &msg ) 
 { 
-	//CRAP{ KOSTILI, NUJNO V NEPOLNOEKRANNIH INTERFEYSAH POKAZIVAT HELP
 	switch( msg.nEventID )
 	{
 	case TUTORIAL_TRY_SHOW_IF_NOT_SHOWN:
@@ -307,7 +265,6 @@ void CInterfaceScreenBase::AddMessage( const SGameMessage &msg )
 		return;
 	case HIDE_TUTORIAL_WINDOW_ID:
 		break;
-			// tutorial windows
 	case TUTORIAL_WINDOW_ID:
 	case TUTORIAL_BUTTON_ID:
 		{
@@ -317,9 +274,7 @@ void CInterfaceScreenBase::AddMessage( const SGameMessage &msg )
 	default:
 		messages.push_back( msg ); 
 	}
-	//CRAP}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CVec2 GetPosFromMsg( ICursor *pCursor, const SGameMessage &msg )
 {
 	if ( (msg.nParam & 0x40000000) == 0 )
@@ -327,7 +282,6 @@ CVec2 GetPosFromMsg( ICursor *pCursor, const SGameMessage &msg )
 	else
 		return CVec2( msg.nParam & 0x7fff, (msg.nParam >> 15) & 0x7fff );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceScreenBase::ProcessUIMessage( const SGameMessage &msg )
 {
 	if ( pUIScreen )
@@ -335,7 +289,6 @@ bool CInterfaceScreenBase::ProcessUIMessage( const SGameMessage &msg )
 		switch ( msg.nEventID )
 		{
 
-			//частный случай, обработка нажатий мышки, должна по другому обработаться UI
 		case CMD_MOUSE0_DBLCLK:
 			if ( pUIScreen->OnLButtonDblClk( GetPosFromMsg(pCursor, msg) ) == false )
 				ProcessAndAdd( msg );
@@ -348,7 +301,6 @@ bool CInterfaceScreenBase::ProcessUIMessage( const SGameMessage &msg )
 				if ( pUIScreen->OnLButtonUp( GetPosFromMsg(pCursor, msg), E_MOUSE_FREE ) == false )
 					ProcessAndAdd( msg );
 				break;
-			//правая мыша
 			case CMD_BEGIN_ACTION2:
 				if ( pUIScreen->OnRButtonDown( GetPosFromMsg(pCursor, msg), E_RBUTTONDOWN ) == false )
 					ProcessAndAdd( msg );
@@ -357,10 +309,8 @@ bool CInterfaceScreenBase::ProcessUIMessage( const SGameMessage &msg )
 				if ( pUIScreen->OnRButtonUp( GetPosFromMsg(pCursor, msg), E_MOUSE_FREE ) == false )
 					ProcessAndAdd( msg );
 				break;
-			// специальный случай - надо обработать мессаги, которые были сгенерены внутри UI screen
 			case -1:
 				break;
-				//все остальные случаи
 			default:
 				pUIScreen->ProcessGameMessage( msg );
 		}
@@ -374,7 +324,6 @@ bool CInterfaceScreenBase::ProcessUIMessage( const SGameMessage &msg )
 	else
 		return ProcessAndAdd( msg );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceScreenBase::GetMessage( SGameMessage *pMsg )
 {
 	if ( messages.empty() )
@@ -383,7 +332,6 @@ bool CInterfaceScreenBase::GetMessage( SGameMessage *pMsg )
 	messages.pop_front();
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceScreenBase::ChangeResolution()
 {
 	const int nDesiredSizeX = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".SizeX").c_str(), 1024 );
@@ -399,7 +347,6 @@ bool CInterfaceScreenBase::ChangeResolution()
 	{
 		const EGFXFullscreen eFullScreen = (EGFXFullscreen)GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".FullScreen").c_str(), 0 );
 		const int nDesiredFreq = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".Frequency").c_str(), 0 );
-		//
 		if ( pGFX->SetMode( nDesiredSizeX, nDesiredSizeY, nDesiredBPP, nDesiredStencil, eFullScreen, nDesiredFreq ) == false )
 		{
 			NI_ASSERT_T( false, NStr::Format("Can't set mode (%d:%d:%d:%d) for interface screen type \"%s\"", nDesiredSizeX, nDesiredSizeY, nDesiredBPP, nDesiredStencil, szInterfaceType.c_str()) );
@@ -412,42 +359,33 @@ bool CInterfaceScreenBase::ChangeResolution()
 		SetGlobalVar( (szModePrefix + "SizeX").c_str(), nActualSizeX );
 		SetGlobalVar( (szModePrefix + "SizeY").c_str(), nActualSizeY );
 		SetGlobalVar( (szModePrefix + "BPP").c_str(), nActualBPP );
-		// set current mode settings
 		SetGlobalVar( "GFX.Mode.Current.SizeX", nActualSizeX );
 		SetGlobalVar( "GFX.Mode.Current.SizeY", nActualSizeY );
 		SetGlobalVar( "GFX.Mode.Current.BPP", nActualBPP );
 		SetGlobalVar( "GFX.Mode.Current.Stencil", nDesiredStencil );
 		SetGlobalVar( "GFX.Mode.Current.FullScreen", int( eFullScreen ) );
 		SetGlobalVar( "GFX.Mode.Current.Frequency", nDesiredFreq );
-		//
-		// some GFX setup
 		pGFX->SetCullMode( GFXC_CW );	// setup right-handed coordinate system
 		SHMatrix matrix;
 		CreateOrthographicProjectionMatrixRH( &matrix, rcScreen.Width(), rcScreen.Height(), 1, 1024*8 + rcScreen.Height()*2 );
 		pGFX->SetProjectionTransform( matrix );
 		pGFX->EnableLighting( false );
-		//
 		ICursor *pCursor = GetSingleton<ICursor>();
 		pCursor->SetBounds( 0, 0, rcScreen.Width(), rcScreen.Height() );
-		//pCursor->SetSensitivity( float(rcScreen.Width()) / 800.0f );
 		pCursor->SetPos( rcScreen.Width()/2, rcScreen.Height()/2 );
 		return true;
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceScreenBase::OnGetFocus( bool bFocus ) 
 {  
 	if ( bFocus ) 
 	{
 		pInput->SetTextMode( INPUT_TEXT_MODE_NOTEXT );
-		// restore bind section
 		if ( (pInput != 0) && !szBindSection.empty() )
 			pInput->SetBindSection( szBindSection.c_str() );
-		//
 		if ( ChangeResolution() )
 			GetSingleton<IScene>()->Reposition();
-		// open "curtains", if it were closed
 		if ( GetGlobalVar("CurtainsClosed", 0) != 0 )
 		{
 			if ( OpenCurtains() )
@@ -457,7 +395,6 @@ void CInterfaceScreenBase::OnGetFocus( bool bFocus )
 			ShowTutorialIfNotShown();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceScreenBase::StoreScreen()
 {
 	if ( pScene ) 
@@ -469,7 +406,6 @@ void CInterfaceScreenBase::StoreScreen()
 			pScene->RemoveUIScreen( pStoredScreen );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceScreenBase::RestoreScreen()
 {
 	if ( pScene && pStoredScreen ) 
@@ -478,7 +414,6 @@ void CInterfaceScreenBase::RestoreScreen()
 		pStoredScreen = 0;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceScreenBase::ShowTutorialIfNotShown()
 {
 	if ( !GetSingleton<IUserProfile>()->IsHelpCalled( GetCommonFactory()->GetObjectTypeID( this ), nHelpContextNumber ) )
@@ -486,7 +421,6 @@ void CInterfaceScreenBase::ShowTutorialIfNotShown()
 		pInput->AddMessage( SGameMessage( TUTORIAL_WINDOW_ID ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceScreenBase::ShowTutorial()
 {
 	if ( pUIScreen == 0 ) 
@@ -507,7 +441,6 @@ bool CInterfaceScreenBase::ShowTutorial()
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceScreenBase::CloseInterface( const bool bCurtains )
 {
 	if ( !bInterfaceClosed )
@@ -519,11 +452,9 @@ void CInterfaceScreenBase::CloseInterface( const bool bCurtains )
 		bInterfaceClosed = true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceScreenBase::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
-	//
 	saver.Add( 2, &bEnableStatistics );
 	saver.Add( 3, &fTotalTime );
 	saver.Add( 4, &nFrameCounter );
@@ -544,11 +475,8 @@ int CInterfaceScreenBase::operator&( IStructureSaver &ss )
 	{
 		timeToolTipShowTime = GetGlobalVar( "Scene.ToolTipTime.Show", 1000 );
 		timeToolTipHideTime = GetGlobalVar( "Scene.ToolTipTime.Hide", 10000 );
-		//
 		NHPTimer::GetTime( &time );
 		nCPUFreq = int( NHPTimer::GetClockRate() / 1000000.0 + 0.5 );
 	}
-	//
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -14,18 +14,11 @@ public:
 		CWnd* pParentWnd = NULL) : CFileDialog( bOpenFileDialog, lpszDefExt, lpszFileName, dwFlags, lpszFilter, pParentWnd ) {}
 	virtual ~CMyOpenFileDialog() {}
 
-	// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CMyOpenFileDialog)
 protected:
 	virtual BOOL PreTranslateMessage(MSG* pMsg);
-	//}}AFX_VIRTUAL
 	
-	// Generated message map functions
 protected:
-	//{{AFX_MSG(CMyOpenFileDialog)
 	afx_msg void OnLButtonDblClk(UINT nFlags, CPoint point);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 

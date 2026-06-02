@@ -1,10 +1,8 @@
 #include "stdafx.h"
 #include "KeyBasedData.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SParticleSetup::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
-	//
 	saver.Add( 1, &trackLife );
 	saver.Add( 2, &trackDensity );
 	saver.Add( 3, &trackWeight );
@@ -30,10 +28,8 @@ int SParticleSetup::operator&( IStructureSaver &ss )
 	saver.Add( 22, &trackGenerateSpinRand );
 	
 	saver.Add( 23, &trackTextureFrame );
-	//
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SParticleSetup::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -62,12 +58,10 @@ int SParticleSetup::operator&( IDataTree &ss )
 	saver.Add( "TextureFrame", &trackTextureFrame );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CKeyBasedData::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
 	saver.Add( "KeyData",&keyData );	
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

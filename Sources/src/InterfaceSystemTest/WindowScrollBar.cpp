@@ -1,6 +1,3 @@
-// WindowScrollBar.cpp: implementation of the CWindowScrollBar class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include "WindowScrollBar.h"
@@ -8,17 +5,12 @@
 #include "WindowSlider.h"
 #include "WindowMultiBkg.h"
 
-//////////////////////////////////////////////////////////////////////
-// Construction/Destruction
-//////////////////////////////////////////////////////////////////////
 int CWindowScrollBar::operator&( IDataTree &ss )
 {
 	return CWindow::operator&( ss );
 }
-//////////////////////////////////////////////////////////////////////
 void CWindowScrollBar::Reposition( const CTRect<float> &parentRect )
 {
-	//
 	pSlider = dynamic_cast<CWindowSlider*>( GetChild( "Slider" ) );
 	NI_ASSERT_T( pSlider != 0, "scrollbar must have slider" );
 
@@ -33,7 +25,6 @@ void CWindowScrollBar::Reposition( const CTRect<float> &parentRect )
 		
 	}
 }
-//////////////////////////////////////////////////////////////////////
 void CWindowScrollBar::SetNotifySink( interface ISliderNotify *_pNotifySink ) 
 { 
 	pSlider->SetNotifySink( _pNotifySink ); 

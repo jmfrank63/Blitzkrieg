@@ -2,7 +2,6 @@
 
 #include "fmtVSO.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SVectorStripeObjectPoint::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -15,7 +14,6 @@ int SVectorStripeObjectPoint::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SVectorStripeObjectDesc::SLayer::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -31,7 +29,6 @@ int SVectorStripeObjectDesc::SLayer::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SVectorStripeObjectDesc::SLayer::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -47,7 +44,6 @@ int SVectorStripeObjectDesc::SLayer::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SVectorStripeObjectDesc::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -67,7 +63,6 @@ int SVectorStripeObjectDesc::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SVectorStripeObjectDesc::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -87,7 +82,6 @@ int SVectorStripeObjectDesc::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SVectorStripeObject::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -96,7 +90,6 @@ int SVectorStripeObject::operator&( IDataTree &ss )
 	saver.Add( "Points", &points );
 	saver.Add( "ControlPoints", &controlpoints );
 	saver.Add( "ID", &nID );
-	// read descriptor in the case of existance
 	if ( saver.IsReading() && !szDescName.empty() )
 	{
 		CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( (szDescName + ".xml").c_str(), STREAM_ACCESS_READ );
@@ -111,7 +104,6 @@ int SVectorStripeObject::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SVectorStripeObject::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -120,7 +112,6 @@ int SVectorStripeObject::operator&( IStructureSaver &ss )
 	saver.Add( 3, &controlpoints );
 	saver.Add( 4, &nID );
 	saver.Add( 5, &szDescName );
-	// read descriptor in the case of existance
 	if ( saver.IsReading() && !szDescName.empty() )
 	{
 		CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( (szDescName + ".xml").c_str(), STREAM_ACCESS_READ );
@@ -135,7 +126,4 @@ int SVectorStripeObject::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// basement storage  
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

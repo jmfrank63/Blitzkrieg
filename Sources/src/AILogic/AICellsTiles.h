@@ -3,11 +3,6 @@
 
 #pragma ONCE
 #include "AIInternalConsts.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*				  Tiles and Cells enumeration/converting handling					*
-//*******************************************************************
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace AICellsTiles
 {
 	inline const SVector GetTile( const float x, const float y )
@@ -45,18 +40,15 @@ namespace AICellsTiles
 		return GetTile( point.x, point.y );
 	}
 
-	// get center of the tile in point's coordinates by the point's coordinates
 	inline const CVec2 GetCenterOfTile( const float x, const float y )
 	{
 		return CVec2( GetTile(x, y).x * SAIConsts::TILE_SIZE + SAIConsts::TILE_SIZE/2, GetTile(x, y).y * SAIConsts::TILE_SIZE + SAIConsts::TILE_SIZE/2 );
 	}
-	// get center of the tile in point's coordinates by the point's coordinates
 	inline const CVec2 GetCenterOfTile( const CVec2& point )
 	{
 		return GetCenterOfTile( point.x, point.y );
 	}
 
-	// point coordinates by AI tile coordinates
 	inline const CVec2 GetPointByTile( const int x, const int y )
 	{
 		return CVec2( x * SAIConsts::TILE_SIZE + SAIConsts::TILE_SIZE/2, y * SAIConsts::TILE_SIZE + SAIConsts::TILE_SIZE/2 );
@@ -67,7 +59,6 @@ namespace AICellsTiles
 		return GetPointByTile( point.x, point.y );
 	}
 	
-	// cell coordinates by the point coordinates
 	inline const SVector GetCell( const int x, const int y )
 	{ 
 		SVector res;
@@ -82,7 +73,6 @@ namespace AICellsTiles
 
 		return res;
 	}
-	// big cell coordinates by the point coordinates
 	inline const SVector GetBigCell( const int x, const int y )
 	{ 
 		SVector res;
@@ -103,7 +93,6 @@ namespace AICellsTiles
 		return GetBigCell( bigCell.x, bigCell.y );
 	}
 
-	// for general cells
 	inline const SVector GetGeneralCell( const SVector &vPos )
 	{
 		return SVector( vPos.x / SConsts::GENERAL_CELL_SIZE,
@@ -115,6 +104,5 @@ namespace AICellsTiles
 												vPos.y * SConsts::GENERAL_CELL_SIZE + SConsts::GENERAL_CELL_SIZE / 2 );
 	}
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #endif // _AI_CELLS_TILES_H__

@@ -10,21 +10,17 @@
 
 class CDrawShadeState : public IInputState
 {
-	//Common tools
 	CInputStateParameter stateParameter;
 	CSceneDrawTool sceneDrawTool;
 
-	//specific
 	float fTileHeight;
 	float fAverageHeight;
 	bool isTileHeightValid;
 	bool bLeaved;
 
-	//common methods
 	void Update( CTemplateEditorFrame* pFrame, bool bUpdateTileHeight = true );
 	void UpdateZ( CTemplateEditorFrame* pFrame );
 
-	//IInputState interface
 	virtual void STDCALL Enter();
 	virtual void STDCALL Leave();
 	virtual void STDCALL Update();

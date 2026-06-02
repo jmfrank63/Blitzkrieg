@@ -14,12 +14,9 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CRMGFieldHeightsDialog::CRMGFieldHeightsDialog( CWnd* pParent )
 	: CResizeDialog( CRMGFieldHeightsDialog::IDD, pParent ), pRMGCreateFieldDialog( 0 ), bCreateControls( true ), pRMFieldSet( 0 )
 {
-	//{{AFX_DATA_INIT(CRMGFieldHeightsDialog)
-	//}}AFX_DATA_INIT
 
 	SetControlStyle( IDC_CF_H_PROFILE_LABEL, ANCHORE_LEFT_TOP );
 	SetControlStyle( IDC_CF_H_PROFILE_EDIT, ANCHORE_LEFT_TOP | RESIZE_HOR );
@@ -47,23 +44,18 @@ CRMGFieldHeightsDialog::CRMGFieldHeightsDialog( CWnd* pParent )
 	SetControlStyle( IDCANCEL, ANCHORE_LEFT_TOP, ANCHORE_LEFT_TOP );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldHeightsDialog::DoDataExchange(CDataExchange* pDX)
 {
 	CResizeDialog::DoDataExchange(pDX);
-	//{{AFX_DATA_MAP(CRMGFieldHeightsDialog)
 	DDX_Control(pDX, IDC_CF_H_SIZE_MIN_EDIT, m_SizeMinEdit);
 	DDX_Control(pDX, IDC_CF_H_SIZE_MAX_EDIT, m_SizeMaxEdit);
 	DDX_Control(pDX, IDC_CF_H_PROFILE_EDIT, m_ProfileEdit);
 	DDX_Control(pDX, IDC_CF_H_POSITIVE_RATIO_EDIT, m_PositiveRatioEdit);
 	DDX_Control(pDX, IDC_CF_H_HEIGHT_EDIT, m_HeightEdit);
 	DDX_Control(pDX, IDC_CF_H_POSITIVE_RATIO_SLIDER, m_PositiveRatioSlider);
-	//}}AFX_DATA_MAP
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CRMGFieldHeightsDialog, CResizeDialog)
-	//{{AFX_MSG_MAP(CRMGFieldHeightsDialog)
 	ON_EN_CHANGE(IDC_CF_H_HEIGHT_EDIT, OnChangeHeightEdit)
 	ON_EN_CHANGE(IDC_CF_H_POSITIVE_RATIO_EDIT, OnChangePositiveRatioEdit)
 	ON_EN_CHANGE(IDC_CF_H_PROFILE_EDIT, OnChangeProfileEdit)
@@ -72,10 +64,8 @@ BEGIN_MESSAGE_MAP(CRMGFieldHeightsDialog, CResizeDialog)
 	ON_WM_HSCROLL()
 	ON_WM_DESTROY()
 	ON_BN_CLICKED(IDC_CF_H_PROFILE_BROWSE_BUTTON, OnProfileBrowseButton)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CRMGFieldHeightsDialog::OnInitDialog()
 {
   CResizeDialog::OnInitDialog();
@@ -84,7 +74,6 @@ BOOL CRMGFieldHeightsDialog::OnInitDialog()
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldHeightsDialog::CreateControls()
 {
 	bCreateControls = true;
@@ -108,7 +97,6 @@ void CRMGFieldHeightsDialog::UpdateControls()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldHeightsDialog::LoadFieldToControls()
 {
 	bCreateControls = true;
@@ -150,7 +138,6 @@ void CRMGFieldHeightsDialog::LoadFieldToControls()
 	bCreateControls = false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldHeightsDialog::OnOK() 
 {
 	if ( pRMGCreateFieldDialog )
@@ -159,7 +146,6 @@ void CRMGFieldHeightsDialog::OnOK()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldHeightsDialog::OnCancel() 
 {
 	if ( pRMGCreateFieldDialog )
@@ -168,7 +154,6 @@ void CRMGFieldHeightsDialog::OnCancel()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldHeightsDialog::OnChangeSizeMinEdit() 
 {
 	if ( !bCreateControls )
@@ -200,7 +185,6 @@ void CRMGFieldHeightsDialog::OnChangeSizeMinEdit()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldHeightsDialog::OnChangeSizeMaxEdit() 
 {
 	if ( !bCreateControls )
@@ -232,7 +216,6 @@ void CRMGFieldHeightsDialog::OnChangeSizeMaxEdit()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldHeightsDialog::OnChangeHeightEdit() 
 {
 	if ( !bCreateControls )
@@ -257,7 +240,6 @@ void CRMGFieldHeightsDialog::OnChangeHeightEdit()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldHeightsDialog::OnChangePositiveRatioEdit() 
 {
 	if ( !bCreateControls )
@@ -283,7 +265,6 @@ void CRMGFieldHeightsDialog::OnChangePositiveRatioEdit()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldHeightsDialog::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar) 
 {
 	CResizeDialog ::OnHScroll( nSBCode, nPos, pScrollBar );
@@ -306,7 +287,6 @@ void CRMGFieldHeightsDialog::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScr
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldHeightsDialog::OnChangeProfileEdit() 
 {
 	if ( !bCreateControls )
@@ -334,7 +314,6 @@ void CRMGFieldHeightsDialog::OnChangeProfileEdit()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldHeightsDialog::OnProfileBrowseButton() 
 {
 	if ( pRMGCreateFieldDialog )
@@ -377,4 +356,3 @@ void CRMGFieldHeightsDialog::OnProfileBrowseButton()
 	bCreateControls = false;
 	OnChangeProfileEdit();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

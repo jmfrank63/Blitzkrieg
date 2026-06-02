@@ -87,7 +87,6 @@
  * Performs integrity check on user-specified parameters
  * and site-specific settings.
  */
-// # include <stl/_check_config.h>
 
 /* SGI terms */
 
@@ -476,7 +475,6 @@ namespace __std_alias = std;
 #  else
 #   define _STLP_VENDOR_STD __std_alias
 #   define _STLP_USING_VENDOR_STD _STLP_USING_NAMESPACE(_STLP_VENDOR_STD)
-// #   define _STLP_USING_VENDOR_STD
 #  endif
 
 /* tune things that come from C library */
@@ -525,7 +523,6 @@ namespace stdD = std;
 _STLP_BEGIN_NAMESPACE _STLP_END_NAMESPACE
 
 namespace stlport = _STLP_STD;
-// backward compatibility 
 # undef __STLPORT_NAMESPACE
 # define __STLPORT_NAMESPACE _STLP_STD
 
@@ -911,7 +908,6 @@ __IMPORT_WITH_ITERATORS(_Super) __IMPORT_REVERSE_ITERATORS(_Super)
 #  endif
 
 #  ifndef _STLP_STATIC_CONST_INIT_BUG
-// constant data members cannot be exported; using workaround here
 #   define _STLP_STATIC_CONST_INIT_BUG
 #  endif
 # else /* Not using DLL export/import specifications */

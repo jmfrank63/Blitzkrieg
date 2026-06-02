@@ -2,9 +2,7 @@
 #define __WAR_FOG_TRACER_H__
 
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "AIStaticMap.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
 class CWarFogTracer
 {
@@ -25,7 +23,6 @@ class CWarFogTracer
 	
 	SVector dirToPoint;
 
-	//
 	void TraceRay( const int x, const int y );
 	void OctupleTrace( const int x, const int y );
 	int TraceToPoint( const SVector &center, const SVector &finishPoint );
@@ -35,10 +32,8 @@ public:
 	CWarFogTracer( T &warFog, const SVector &center, const int r, const WORD wUnitDir, const WORD wVisionAngle, bool bAngleLimited, const WORD wMinAngle, const WORD wMaxAngle, bool bPlane, const float fSightPower );
 	CWarFogTracer( T &warFog, const SFogInfo &fogInfo );
 
-	// для trace луча из центра юнита в tileToTrace
 	CWarFogTracer( const SVector &tileToTrace, T &warFog, const SFogInfo &fogInfo );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
 CWarFogTracer<T>::CWarFogTracer( const SVector &tileToTrace, T &_warFog, const SFogInfo &fogInfo )
 :	warFog( _warFog )
@@ -66,7 +61,6 @@ CWarFogTracer<T>::CWarFogTracer( const SVector &tileToTrace, T &_warFog, const S
 
 	TraceRay( tileToTrace.x - center.x, tileToTrace.y - center.y );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
 void CWarFogTracer<T>::Init( const SVector &_center, const int _r, const WORD _wUnitDir, const WORD _wVisionAngle, bool _bAngleLimited, const WORD _wMinAngle, const WORD _wMaxAngle, bool _bPlane, const float _fSightPower )
 {
@@ -110,21 +104,18 @@ void CWarFogTracer<T>::Init( const SVector &_center, const int _r, const WORD _w
 		OctupleTrace( x, y );
 	}	while ( x <= y );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
 CWarFogTracer<T>::CWarFogTracer( T &_warFog, const SVector &center, const int r, const WORD wUnitDir, const WORD wVisionAngle, bool bAngleLimited, const WORD wMinAngle, const WORD wMaxAngle, bool bPlane, const float fSightPower )
 :	warFog( _warFog )
 {
 	Init( center, r, wUnitDir, wVisionAngle, bAngleLimited, wMinAngle, wMaxAngle, bPlane, fSightPower );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
 CWarFogTracer<T>::CWarFogTracer( T &_warFog, const SFogInfo &fogInfo )
 : warFog( _warFog )
 {
 	Init( fogInfo.center, fogInfo.r, fogInfo.wUnitDir, fogInfo.wVisionAngle, fogInfo.bAngleLimited, fogInfo.wMinAngle, fogInfo.wMaxAngle, fogInfo.bPlane, fogInfo.fSightPower );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
 void CWarFogTracer<T>::TraceRay( const int x, const int y )
 {
@@ -140,7 +131,6 @@ void CWarFogTracer<T>::TraceRay( const int x, const int y )
 	if ( warFog.CanTraceRay( finishPoint ) )
 		TraceToPoint( center, finishPoint );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
 void CWarFogTracer<T>::OctupleTrace( const int x, const int y )
 {
@@ -154,9 +144,7 @@ void CWarFogTracer<T>::OctupleTrace( const int x, const int y )
 	TraceRay( -y,  x );
 	TraceRay( -y, -x ); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CStaticMap theStaticMap;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
 int CWarFogTracer<T>::TraceToPoint( const SVector &center, const SVector &finishPoint )
 {
@@ -183,5 +171,4 @@ int CWarFogTracer<T>::TraceToPoint( const SVector &center, const SVector &finish
 
 	return vis;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __WAR_FOG_TRACER_H__

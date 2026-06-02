@@ -98,7 +98,6 @@ void CMissionCommonPropsItem::UpdateItemValue( int nItemId, const CVariant &valu
 	
 	if ( nItemId == 1 || nItemId == 2 || nItemId == 3 )
 	{
-		//сконвертим путь к файлу в относительный без расширения
 		if ( !IsRelatedPath( value ) )
 		{
 			string szValue = value;
@@ -106,7 +105,6 @@ void CMissionCommonPropsItem::UpdateItemValue( int nItemId, const CVariant &valu
 			bool bRes =	MakeSubRelativePath( g_frameManager.GetFrame( CFrameManager::E_MISSION_FRAME )->GetProjectFileName().c_str(), szValue.c_str(), szRelatedPath );
 			if ( bRes )
 			{
-				//обрежем расширение в конце
 				szRelatedPath = szRelatedPath.substr( 0, szRelatedPath.rfind( '.' ) );
 				CVariant newVal = szRelatedPath;
 				CTreeItem::UpdateItemValue( nItemId, newVal );
@@ -140,7 +138,6 @@ void CMissionObjectivesItem::MyKeyDown( int nChar )
 	{
 		case VK_INSERT:
 			CMissionObjectivePropsItem *pItem = new CMissionObjectivePropsItem;
-			// string szName = NStr::Format( "Objective", GetChildsCount() );
 			pItem->SetItemName( "Objective" );
 			string szObjectiveName = NStr::Format( "%d", GetChildsCount() );
 			pItem->SetObjeciveText( szObjectiveName.c_str() );
@@ -156,7 +153,6 @@ void CMissionObjectivesItem::MyRButtonClick()
 	if ( nRes == ID_INSERT_TREE_ITEM )
 	{
 		CMissionObjectivePropsItem *pItem = new CMissionObjectivePropsItem;
-		// string szName = NStr::Format( "Objective", GetChildsCount() );
 		pItem->SetItemName( "Objective" );
 		string szObjectiveName = NStr::Format( "%d", GetChildsCount() );
 		pItem->SetObjeciveText( szObjectiveName.c_str() );
@@ -258,7 +254,6 @@ void CMissionObjectivePropsItem::UpdateItemValue( int nItemId, const CVariant &v
 	
 	if ( nItemId == 1 || nItemId == 2 )
 	{
-		//сконвертим путь к файлу в относительный без расширения
 		if ( !IsRelatedPath( value ) )
 		{
 			string szValue = value;
@@ -266,7 +261,6 @@ void CMissionObjectivePropsItem::UpdateItemValue( int nItemId, const CVariant &v
 			bool bRes =	MakeSubRelativePath( g_frameManager.GetFrame( CFrameManager::E_MISSION_FRAME )->GetProjectFileName().c_str(), szValue.c_str(), szRelatedPath );
 			if ( bRes )
 			{
-				//обрежем расширение в конце
 				szRelatedPath = szRelatedPath.substr( 0, szRelatedPath.rfind( '.' ) );
 				CVariant newVal = szRelatedPath;
 				CTreeItem::UpdateItemValue( nItemId, newVal );
@@ -306,7 +300,6 @@ void CMissionMusicsItem::MyKeyDown( int nChar )
 	{
 		case VK_INSERT:
 			CTreeItem *pItem = new CMissionMusicPropsItem;
-			// string szName = NStr::Format( "Objective", GetChildsCount() );
 			pItem->SetItemName( "Music" );
 			AddChild( pItem );
 			g_frameManager.GetFrame( CFrameManager::E_MISSION_FRAME )->SetChangedFlag( true );
@@ -320,7 +313,6 @@ void CMissionMusicsItem::MyRButtonClick()
 	if ( nRes == ID_INSERT_TREE_ITEM )
 	{
 		CTreeItem *pItem = new CMissionMusicPropsItem;
-		// string szName = NStr::Format( "Objective", GetChildsCount() );
 		pItem->SetItemName( "Music" );
 		AddChild( pItem );
 		g_frameManager.GetFrame( CFrameManager::E_MISSION_FRAME )->SetChangedFlag( true );

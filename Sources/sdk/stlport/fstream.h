@@ -27,12 +27,10 @@
 #else
 #  include <fstream>
 #endif
-// get desired pollution
 #  include <iostream.h>
 
 # ifndef __LOCALE_INITIALIZED
 #  define __LOCALE_INITIALIZED
-// Global initializer object, to ensure initialization of locale subsystem.
 static ios_base::_Loc_init _LocInit;
 # endif
 
@@ -51,7 +49,4 @@ static ios_base::_Loc_init _LocInit;
 
 #endif /* _STLP_FSTREAM_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

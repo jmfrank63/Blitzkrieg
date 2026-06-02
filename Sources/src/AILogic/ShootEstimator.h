@@ -2,7 +2,6 @@
 #define __SHOOT_ESTIMATOR_H__
 
 #pragma ONCE
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IShootEstimator : public IRefCount
 {
 	virtual void Reset( class CAIUnit *pCurEnemy, const bool bDamageUpdated, const DWORD dwForbidden ) = 0;
@@ -11,5 +10,4 @@ interface IShootEstimator : public IRefCount
 	virtual class CBasicGun* GetBestGun() const = 0;
 	virtual const int GetNumberOfBestGun() const = 0;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif __SHOOT_ESTIMATOR_H__

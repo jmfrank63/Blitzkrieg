@@ -1,28 +1,13 @@
-// MessageReactions.cpp: implementation of the CMessageReactions class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include "IMessageReaction.h"
 #include "MessageReactions.h"
 
-//CRAP{ FOR TEST
 #include "CustomCheck.h"
 #include "MessageReaction.h"
-//CRAP}
 
 namespace NMessageReactionScript
 {
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** helper fucntions to get/set global vars
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SetIGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -34,7 +19,6 @@ int SetIGlobalVar( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SetFGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -46,7 +30,6 @@ int SetFGlobalVar( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SetSGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -58,7 +41,6 @@ int SetSGlobalVar( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int GetIGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -70,7 +52,6 @@ int GetIGlobalVar( struct lua_State *state )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int GetFGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -82,7 +63,6 @@ int GetFGlobalVar( struct lua_State *state )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int GetSGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -94,7 +74,6 @@ int GetSGlobalVar( struct lua_State *state )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int ScriptErrorOut( struct lua_State *state )
 {
 	Script script( state );
@@ -104,7 +83,6 @@ int ScriptErrorOut( struct lua_State *state )
 	NStr::DebugTrace( "%s\n", szError.c_str() );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static int Sqrt( struct lua_State *pState )
 {
 	Script script( pState );
@@ -112,7 +90,6 @@ static int Sqrt( struct lua_State *pState )
 	script.PushNumber( ::sqrt( double( fValue ) ) );
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static int OutputStringValue( struct lua_State *state )
 {
 	Script script(state);
@@ -122,12 +99,10 @@ static int OutputStringValue( struct lua_State *state )
 	NStr::DebugTrace( "****Debug LUA script: %s %s\n", szStr.c_str(), nValue );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 Script::SRegFunction reglist[] =
 {
 	{ "_ERRORMESSAGE"			,	ScriptErrorOut			},
 	{ "OutputStringValue"	, OutputStringValue		},
-	//
 	{ "SetIGlobalVar"			,	SetIGlobalVar				},
 	{ "SetFGlobalVar"			,	SetFGlobalVar				},
 	{ "SetSGlobalVar"			,	SetSGlobalVar				},
@@ -138,11 +113,6 @@ Script::SRegFunction reglist[] =
 	{ 0, 0 },
 };
 };
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
-// CMessageReactions::
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
 int CMessageReactions::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -160,7 +130,6 @@ int CMessageReactions::operator&( IDataTree &ss )
 		
 			script.Register( NMessageReactionScript::reglist );
 			const int nSize = pStream->GetSize();
-			// +10 на всякий случай
 			std::vector<char> buffer( nSize + 10 );
 			pStream->Read( &(buffer[0]), nSize );
 			if ( script.DoBuffer( &(buffer[0]), nSize, "Script" ) == 0 ) 
@@ -171,25 +140,19 @@ int CMessageReactions::operator&( IDataTree &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////
 int CMessageReactions::operator&( IStructureSaver &ss )
 {
-	//CRAP{ TO DO
 	NI_ASSERT_T( FALSE, "NEED IMPLEMENT" );
 	return 0;
-	//CRAP}
 }
-//////////////////////////////////////////////////////////////////////
 CMessageReactions::CMessageReactions( int TEST )
 {
 	reactions["ReactionKey1"] = new CMessageReactionB2(1);	
 }
-//////////////////////////////////////////////////////////////////////
 void CMessageReactions::Load( const std::string &szResourceName )
 {
 
 	/*
-		// file creation
 	{
 		CPtr<IDataStream> pStream = CreateFileStream( "c:\\a7\\Data\\test_message_reaction.xml" , STREAM_ACCESS_WRITE );
 		CPtr<IDataTree> pDT = CreateDataTreeSaver( pStream, IDataTree::WRITE );
@@ -210,7 +173,6 @@ void CMessageReactions::Load( const std::string &szResourceName )
 		this->operator&( *pDT );
 	}
 }
-//////////////////////////////////////////////////////////////////////
 void CMessageReactions::Execute( const std::string &szReactionKey, interface IScreen *pScreen )
 {
 	CReactions::iterator it = reactions.find( szReactionKey );
@@ -218,7 +180,6 @@ void CMessageReactions::Execute( const std::string &szReactionKey, interface ISc
 	if ( it != reactions.end() )
 		it->second->Execute( pScreen, bScriptPresent ? &script : 0 );
 }
-//////////////////////////////////////////////////////////////////////
 void CMessageReactions::Register( const std::string &szReactionKey, IMessageReactionB2 *pReaction )
 {
 	reactions[szReactionKey] = pReaction;

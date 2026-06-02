@@ -1,20 +1,14 @@
 #ifndef __SELECT_MAIN_MENU_H__
 #define __SELECT_MAIN_MENU_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "InterMission.h"
 #include "iMission.h"
 #include "UIState.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInterfaceMainMenu : public CInterfaceInterMission
 {
 	OBJECT_NORMAL_METHODS( CInterfaceMainMenu );
-	// input
 	NInput::CCommandRegistrator commandMsgs;
-	//
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
-	// disable explicit destruction
 	virtual ~CInterfaceMainMenu();
 	CInterfaceMainMenu();
 
@@ -53,23 +47,18 @@ public:
 	void Create( int nState );
 	void RefreshCursor();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CICMainMenu : public CInterfaceCommandBase<CInterfaceMainMenu, MISSION_INTERFACE_MAIN_MENU>
 {
 	OBJECT_NORMAL_METHODS( CICMainMenu );
 	DECLARE_SERIALIZE;
-	//
 	int nState;
-	//
 	int nNextIC;
 	std::string szNextICConfig;
 
 	virtual void PreCreate( IMainLoop *pML ) { pML->ResetStack(); }
 	virtual void PostCreate( IMainLoop *pML, CInterfaceMainMenu *pIMM );
-	//
 	CICMainMenu() : nState( 0 ), nNextIC( -1 ) {  }
 public:
 	virtual void STDCALL Configure( const char *pszConfig );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif		//__SELECT_MAIN_MENU_H__

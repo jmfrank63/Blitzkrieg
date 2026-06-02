@@ -1,18 +1,15 @@
 #include "StdAfx.h"
 
 #include "StreamingSound.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPlayList::CreateRandomList()
 {
 	szRandomized = szMelodies;
 	std::random_shuffle( szRandomized.begin(), szRandomized.end() );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char* CPlayList::GetNextMelody()
 {
 	if ( szMelodies.empty() )
 		return 0;
-	//
 	switch ( nSequenceOrder )
 	{
 		case IPlayList::ORDER_SEQUENTIAL:
@@ -34,13 +31,11 @@ const char* CPlayList::GetNextMelody()
 				CreateRandomList();
 				return GetNextMelody();
 			}
-			//
 			return szRandomized.back().c_str();
 		default:
 			return 0;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlayList::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -50,4 +45,3 @@ int CPlayList::operator&( IStructureSaver &ss )
 	saver.Add( 4, &nSequenceOrder );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -7,10 +7,8 @@
 
 #include ".\MiniBall\BoundingSphere.h"
 #include ".\MiniBall\Point.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NConverter
 {
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	std::vector<SJoint> joints;
 	std::vector<SMeshFormat> meshes;
 	SSkeletonFormat skeleton;
@@ -23,7 +21,6 @@ namespace NConverter
 	CIndexMap mapAABB_DIndices;
 
 	SMeshFormat *pMesh;															// current mesh
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool AddAABB_A( const SAABBFormat &aabb, int nIndex )
 {
 	aabb_as.push_back( aabb );
@@ -59,10 +56,8 @@ inline int GetAABBIndex( CIndexMap &aabbs, int nAABB )
 }
 int GetAABB_AIndex( int nAABB ) { return GetAABBIndex( mapAABB_AIndices, nAABB ); }
 int GetAABB_DIndex( int nAABB ) { return GetAABBIndex( mapAABB_DIndices, nAABB ); }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SetActiveMesh( const char *pszName )
 {
-	// ���������, � ��� �� � ��� ��� ������ ����
 	for ( int i=0; i != meshes.size(); ++i )
 	{
 		if ( meshes[i].szName == pszName )
@@ -71,7 +66,6 @@ void SetActiveMesh( const char *pszName )
 			return;
 		}
 	}
-	//
 	meshes.push_back( SMeshFormat() );
 	pMesh = &( meshes.back() );
 	pMesh->szName = pszName;
@@ -80,7 +74,6 @@ void SetMeshIndex( int nIndex ) { pMesh->nIndex = nIndex; }
 void AddPoint( const CVec3 &point ) { pMesh->geoms.push_back( point * fGeomScaleCoeff ); }
 void AddNormale( const CVec3 &point ) { pMesh->norms.push_back( point ); }
 void AddUV( const CVec2 &point ) { pMesh->texes.push_back( point ); }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CComponentEquatFunctional
 {
 	const SMeshFormat::SVertexComponent &c0;
@@ -91,7 +84,6 @@ public:
 		return ( c0.geom == c1.geom ) && ( c0.norm == c1.norm ) && ( c0.tex == c1.tex );
 	}
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void AddFace( int *pIndices )
 {
 	for ( int i=0; i != 9; i += 3 )
@@ -100,7 +92,6 @@ void AddFace( int *pIndices )
 		component.geom = pIndices[i + 0];
 		component.norm = pIndices[i + 1];
 		component.tex = pIndices[i + 2];
-		// add index and, if need, new component
 		std::vector<SMeshFormat::SVertexComponent>::iterator pos = std::find_if( pMesh->components.begin(), pMesh->components.end(), 
 			                                                                       CComponentEquatFunctional(component) );
 		if ( pos != pMesh->components.end() )
@@ -116,7 +107,6 @@ void AddFace( int *pIndices )
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SMeshesLessFunctional
 {
 	bool operator()( const SMeshFormat &m1, const SMeshFormat &m2 ) const { return m1.nIndex < m2.nIndex; }
@@ -124,7 +114,6 @@ struct SMeshesLessFunctional
 bool SaveModel( std::string &szFileName )
 {
 	std::replace_if( szFileName.begin(), szFileName.end(), [](char c){ return c == '/'; }, '\\' );
-	// check for extension alerady exist and add it
 	int nPos = szFileName.rfind( '.' );
 	if ( nPos != std::string::npos )
 	{
@@ -133,21 +122,16 @@ bool SaveModel( std::string &szFileName )
 	}
 	else
 		szFileName += ".mod";
-	//
 	CPtr<IDataStream> pStream = CreateFileStream( szFileName.c_str(), STREAM_ACCESS_WRITE );
 	if ( pStream == 0 )
 	{
 		fprintf( stderr, "can't create file \"%s\" to write model\n", szFileName.c_str() );
 		return false;
 	}
-	//
-	// sort meshes by index
 	std::sort( meshes.begin(), meshes.end(), SMeshesLessFunctional() );
-	// ��������� ��� ������� ���� miniball � AABB
 	using namespace MiniBall;
 	for ( std::vector<SMeshFormat>::iterator it = meshes.begin(); it != meshes.end(); ++it )
 	{
-		// miniball
 		{
 			std::vector<Point> points( it->geoms.size() );
 			for ( int i=0; i<it->geoms.size(); ++i )
@@ -163,7 +147,6 @@ bool SaveModel( std::string &szFileName )
 			it->bsphere.vCenter.Set( bs.center.x, bs.center.y, bs.center.z );
 			it->bsphere.fRadius = bs.radius;
 		}
-		// AABB
 		CVec3 vMin( FLT_MAX, FLT_MAX, FLT_MAX ), vMax( -FLT_MAX, -FLT_MAX, -FLT_MAX );
 		for ( std::vector<CVec3>::const_iterator it2 = it->geoms.begin(); it2 != it->geoms.end(); ++it2 )
 		{
@@ -172,7 +155,6 @@ bool SaveModel( std::string &szFileName )
 		}
 		it->aabb.vCenter		= ( vMax + vMin ) / 2.0f;
 		it->aabb.vHalfSize	= ( vMax - vMin ) / 2.0f;
-		//
 		/*
 		fprintf( stderr, "mesh %s have BS {{%g, %g, %g}, %g} and AABB {{%g, %g, %g}, {%g, %g, %g}}\n",
 			it->szName.c_str(), it->bsphere.vCenter.x, it->bsphere.vCenter.y, it->bsphere.vCenter.z, it->bsphere.fRadius,
@@ -180,7 +162,6 @@ bool SaveModel( std::string &szFileName )
 			it->aabb.vHalfSize.x, it->aabb.vHalfSize.y, it->aabb.vHalfSize.z );
 		*/
 	}
-	//
 	CPtr<IStructureSaver> pSaver = CreateStructureSaver( pStream, IStructureSaver::WRITE );
 	CSaverAccessor saver = pSaver;
 	saver.Add( 1, &skeleton );
@@ -189,10 +170,8 @@ bool SaveModel( std::string &szFileName )
 	saver.Add( 4, &aabb );
 	saver.Add( 5, &aabb_as );
 	saver.Add( 6, &aabb_ds );
-	//
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ClearAll()
 {
 	joints.clear();
@@ -206,9 +185,7 @@ void ClearAll()
 	aabb_as.clear();
 	aabb_ds.clear();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 

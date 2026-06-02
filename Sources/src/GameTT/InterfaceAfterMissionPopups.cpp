@@ -7,9 +7,7 @@
 #include "CutScenesHelper.h"
 #include "UIConsts.h"
 #include "..\Main\ScenarioTrackerTypes.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CAfterMissionPopups );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CAfterMissionPopups::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -28,7 +26,6 @@ int CAfterMissionPopups::operator&( IStructureSaver &ss )
 	saver.Add( 13, &bUnitsPerformanceShown );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAfterMissionPopups::FinishInterface( const int _nCommandID, const char *pszParam )
 {
 	bNeedFinish = true;
@@ -38,7 +35,6 @@ void CAfterMissionPopups::FinishInterface( const int _nCommandID, const char *ps
 	else
 		szCommandParams.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAfterMissionPopups::OnGetFocus( bool bFocus )
 {
 	bNeedFinish = false;
@@ -71,13 +67,10 @@ void CAfterMissionPopups::OnGetFocus( bool bFocus )
 	bool bMultiplayerGame = GetGlobalVar( "MultiplayerGame", 0 );
 	if ( bMultiplayerGame )
 	{
-		//если эта переменна€ > 0, то мы находимс€ в multiplayer режиме
-		//выходим в окошко со списком multiplayer games
 		FinishInterface( MISSION_COMMAND_MULTIPLAYER_GAMESLIST, 0 );
 		return;
 	}
 
-	// если показаны еще не все медальки, то отображаю их
 	if ( nMedalIterator < pUserPlayer->GetNumNewMedals() )
 	{
 		const std::string &szMedalName = pUserPlayer->GetNewMedal( nMedalIterator++ );
@@ -86,7 +79,6 @@ void CAfterMissionPopups::OnGetFocus( bool bFocus )
 		return;
 	}
 
-	// если изменилс€ player rank, то надо его отобразить
 	if ( !bPlayerRankShown )
 	{
 		bPlayerRankShown = true;
@@ -104,9 +96,7 @@ void CAfterMissionPopups::OnGetFocus( bool bFocus )
 		return;
 	}
 	
-	//определим статус прохождени€ миссии
 	std::string szMissionName = GetGlobalVar( "Mission.Current.Name", "" );
-	//		NI_ASSERT_T( szMissionName.size() > 0, "Mission name is of size 0???" );
 	if ( szMissionName.size() > 0 )
 	{
 		NStr::ToLower( szMissionName );
@@ -145,8 +135,6 @@ void CAfterMissionPopups::OnGetFocus( bool bFocus )
 					return;
 				}
 			}
-			// мисси€ пройдена
-			// ѕоказываем экран новых юнитов
 			if ( !bNewUnitsShown )
 			{
 				bNewUnitsShown = true;
@@ -159,11 +147,9 @@ void CAfterMissionPopups::OnGetFocus( bool bFocus )
 				}
 			}
 			
-			// ѕоказываем экран upgrades
 			if ( !bUpgradesShown )
 			{
 				bUpgradesShown = true;
-				// определим, есть ли у нас юниты такого типа, чтобы их можно было апгрейдить
 				const std::string &szUpgrade = pUserPlayer->GetUpgrade();
 				if ( !szUpgrade.empty() ) 
 				{
@@ -187,11 +173,9 @@ void CAfterMissionPopups::OnGetFocus( bool bFocus )
 	}
 
 	bShowBlack = false;
-	//ќпределим, вдруг нужно перейти в следующий chapter
 	std::string szNewChapter = GetGlobalVar( "Chapter.New.Available", "" );
 	if ( szNewChapter.size() > 0 && !bNextChapterShown )
 	{
-		//предложим переход в следующий чаптер
 		bNextChapterShown = true;
 		std::string szSaveName;
 		szSaveName += CUIConsts::GetCampaignNameAddition();
@@ -208,7 +192,6 @@ void CAfterMissionPopups::OnGetFocus( bool bFocus )
 	{
 		if ( bLastFullScreen )	// ≈сли играем в кампанию, то загружаем chapter interface
 		{
-			// чтобы второй раз не было открыти€ и закрыти€ шторок
 			SetGlobalVar( "CurtainsClosed", 1 );
 			if ( GetGlobalVar( "NextChapter.Confirmed", 0 ) )
 				pML->Command( MISSION_COMMAND_CAMPAIGN, 0 );
@@ -224,8 +207,6 @@ void CAfterMissionPopups::OnGetFocus( bool bFocus )
 				FinishInterface( MISSION_COMMAND_CHAPTER, 0 );
 			RemoveGlobalVar( "NextChapter.Confirmed" );
 
-			//FinishInterface( MISSION_COMMAND_CHAPTER, 0 );
-			//pML->Command( MISSION_COMMAND_CAMPAIGN, 0 );
 		}
 		return;
 	}

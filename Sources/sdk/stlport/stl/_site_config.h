@@ -1,19 +1,11 @@
-// 
-// This file defines site configuration.
-//
-//
 
 /* 
  * _STLP_NO_THREADS: if defined, STLport don't use any 
  * multithreading support. Synonym is _NOTHREADS
  */
-// #define _NOTHREADS
-// #define _STLP_NO_THREADS
 
 /* _PTHREADS: if defined, use Posix threads for multithreading support. */
-// #define _PTHREADS
 
-// compatibility section
 
 # if defined (_STLP_NO_IOSTREAMS) || defined (_STLP_NO_NEW_IOSTREAMS) && ! defined ( _STLP_NO_OWN_IOSTREAMS )
 #  define _STLP_NO_OWN_IOSTREAMS
@@ -40,7 +32,6 @@
  * On UNIX, this has no effect. 
  *
  */
-// # define _STLP_USE_DYNAMIC_LIB
 
 /*
  * Turn _STLP_USE_STATIC_LIB to enforce use of static version of STLport library.
@@ -50,7 +41,6 @@
  * On UNIX, this has no effect. 
  *
  */
-// # define _STLP_USE_STATIC_LIB
 
 
 /* 
@@ -58,14 +48,6 @@
  * compiler vendor's headers included. Default is "../include"
  * Hint : never install STLport in the directory that ends with "include"
  */
-// #  undef _STLP_NATIVE_INCLUDE_PATH
-// #  define _STLP_NATIVE_INCLUDE_PATH ../include
-// same for C library headers like <cstring>
-// #  undef _STLP_NATIVE_CPP_C_INCLUDE_PATH
-// #  define _STLP_NATIVE_CPP_C_INCLUDE_PATH ../include
-// same for C headers like <string.h>
-// #  undef _STLP_NATIVE_C_INCLUDE_PATH
-// #  define _STLP_NATIVE_C_INCLUDE_PATH ../include
 
 
 /* 
@@ -79,27 +61,22 @@
  * In STLport iostreams mode, there is no need for this flag other than to facilitate
  * link with third-part libraries compiled with different standard library implementation.
  */
-// #  define _STLP_USE_OWN_NAMESPACE 1
-// #  define _STLP_NO_OWN_NAMESPACE  1
 
 
 /* 
  * Uncomment _STLP_USE_NEWALLOC to force allocator<T> to use plain "new"
  * instead of STLport optimized node allocator engine.
  */
-// #define   _STLP_USE_NEWALLOC   1
 
 /* 
  * Uncomment _STLP_USE_MALLOC to force allocator<T> to use plain "malloc" 
  * instead of STLport optimized node allocator engine.
  */
-// #define   _STLP_USE_MALLOC 1
 
 /*
  * Set _STLP_DEBUG_ALLOC to use allocators that perform memory debugging,
  * such as padding/checking for memory consistency 
  */
-// #define   _STLP_DEBUG_ALLOC 1
 
 
 /*
@@ -112,7 +89,6 @@
  * Note : If you set this macro, you must supply __stl_debug_message 
  * function definition somewhere.
  */
-//#define _STLP_DEBUG_MESSAGE 1
 
 /*
  * Uncomment this to force all failed assertions to be executed through
@@ -124,7 +100,6 @@
  * Note : If you set this macro, you must supply __stl_debug_terminate 
  * function definition somewhere.
  */
-//#define _STLP_DEBUG_TERMINATE 1
 
 /*
  * Comment this out to enable throwing exceptions from default __stl_debug_terminate()
@@ -135,25 +110,19 @@
 /* 
  * Uncomment that to disable exception handling code 
  */
-// #define   _STLP_NO_EXCEPTIONS 1
 
 /*
  * _STLP_NO_NAMESPACES: if defined, don't put the library in namespace
  * stlport:: or std::, even if the compiler supports namespaces
  */
 
-// #define   _STLP_NO_NAMESPACES 1
 
-//==========================================================
-// Compatibility section
-//==========================================================
 
 /* 
  * Use abbreviated class names for linker benefit (don't affect interface).
  * This option is obsolete, but should work in this release.
  *
  */
-// # define _STLP_USE_ABBREVS
 
 /* 
  * This definition precludes STLport reverse_iterator to be compatible with
@@ -161,7 +130,6 @@
  * has no effect).
  * Use it _ONLY_ if you use SGI-style reverse_iterator<> template explicitly
  */
-// #    define _STLP_NO_MSVC50_COMPATIBILITY 1
 
 /*
  * _STLP_USE_RAW_SGI_ALLOCATORS is a hook so that users can disable use of
@@ -169,7 +137,6 @@
  * raw allocators as default ones, without having to edit library headers.
  * Use of this macro is strongly discouraged.
  */
-// #define   _STLP_USE_RAW_SGI_ALLOCATORS 1
 
 /*
  * Use obsolete overloaded template functions iterator_category(), value_type(), distance_type()
@@ -180,15 +147,9 @@
  * please use public inheritance from iterator<> template to achieve desired effect. 
  * Second form is to disable old-style queries in any case.
  */
-// # define _STLP_USE_OLD_HP_ITERATOR_QUERIES
-// # define _STLP_NO_OLD_HP_ITERATOR_QUERIES
 
 
-//==========================================================================
 
-// This section contains swithes which should be off by default,
-// but so few compilers would have it undefined, so that we set them here,
-// with the option to be turned off later in compiler-specific file
 
 # define _STLP_INCOMPLETE_EXCEPTION_HEADER
 

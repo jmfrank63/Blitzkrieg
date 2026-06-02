@@ -1,9 +1,7 @@
 #ifndef __UI_SCROLL_TEXT_H__
 #define __UI_SCROLL_TEXT_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "UIBasic.h"
 #include "UISlider.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIScrollTextBox : public CMultipleWindow
 {
 	DECLARE_SERIALIZE;
@@ -24,10 +22,8 @@ public:
 	CUIScrollTextBox() : nScrollBarWidth( 30 ), m_nY( 0 ), nLeftSpace( 4 ), nRightSpace( 4 ), nTopSpace( 0 ), nBottomSpace( 0 ), bScrollBarAlwaysVisible( true ) {}
 	~CUIScrollTextBox() {}
 
-	//mouse wheel
 	virtual bool STDCALL OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, float fDelta ) = 0;
 	
-	// text
 	virtual void STDCALL SetWindowText( int nState, const WORD *pszText );
 	inline void STDCALL SetWindowText( int nState, const wchar_t *pszText ) 
 	{ 
@@ -36,17 +32,14 @@ public:
 	}
 	virtual void STDCALL AppendText( const WORD *pszText );
 
-	// serializing...
 	virtual int STDCALL operator&( IDataTree &ss );
 	virtual void STDCALL Reposition( const CTRect<float> &rcParent );
 	
 	virtual bool STDCALL ProcessMessage( const SUIMessage &msg );
 
-	// drawing
 	virtual void STDCALL Draw( IGFX *pGFX );
 	virtual void STDCALL Visit( interface ISceneVisitor *pVisitor );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIScrollTextBoxBridge : public IUIScrollTextBox, public CUIScrollTextBox
 {
 	OBJECT_NORMAL_METHODS( CUIScrollTextBoxBridge );
@@ -55,5 +48,4 @@ class CUIScrollTextBoxBridge : public IUIScrollTextBox, public CUIScrollTextBox
 
 	virtual void STDCALL AppendText( const WORD *pszText ) { CSuper::AppendText( pszText ); }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __UI_SCROLL_TEXT_H__

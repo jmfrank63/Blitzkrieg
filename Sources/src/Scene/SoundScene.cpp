@@ -6,16 +6,9 @@
 #include "..\Formats\fmtMap.h"
 #include "..\Main\RPGStats.h"
 #include "..\Misc\FreeIds.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CSoundScene );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 NTimer::STime CSoundScene::curTime;			// ����� �� ���������� �����
 SIntPair CSoundScene::vLimit;						// ������ � ������� ���� �������� �����
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*															SSoundSceneConsts										*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SSoundSceneConsts::SS_SOUND_CELL_SIZE;									// ����� ������� � ������
 NTimer::STime SSoundSceneConsts::SS_MIX_DELTA;							// ������������ ������� �� ������� 
 NTimer::STime SSoundSceneConsts::SS_UPDATE_PERIOD;					// � ������������
@@ -48,13 +41,7 @@ NTimer::STime SSoundSceneConsts::SS_MAP_SOUND_PERIOND_RANDOM;
 int SSoundSceneConsts::MAP_SOUND_CELL;
 
 int SSoundSceneConsts::MIN_SOUND_COUNT_TO_PLAY_LOOPED;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IObjectsDB * CSoundScene::pObjectsDB;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*															CMapSounds
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapSounds::CMapSoundCell::AddSound( const WORD wSoundID, const CVec2 &vPos, const CMapSounds::RegisteredSounds &registeredSounds, const WORD wInstanceID, const bool bLooped )
 {
 	if ( bLooped )
@@ -68,32 +55,25 @@ void CMapSounds::CMapSoundCell::AddSound( const WORD wSoundID, const CVec2 &vPos
 		++cellSounds[wSoundID].nCount;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapSounds::CMapSoundCell::RemoveSound( const WORD wInstanceID, class CSoundScene * pScene )
 {
-	// if removed sound is playing - remove it from sound scene
 	if ( wInstanceID == playingLoopedSound.wInstanceID && 0 != playingLoopedSound.wSceneID)
 	{
 		pScene->RemoveSound( playingLoopedSound.wSceneID );
 		playingLoopedSound.Clear();
 	}
-	// if currently playing looped sound mustn't play anymore, stop it.
 	if ( wInstanceID == playingSound.wInstanceID && 0 != playingSound.wSceneID )
 	{
 		pScene->RemoveSound( playingSound.wSceneID );
 		playingSound.Clear();
 	}
 
-	//if ( bLooped )
 		RemoveSound( &cellLoopedSounds, wInstanceID );
-	//else
 		RemoveSound( &cellSounds, wInstanceID );
 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapSounds::CMapSoundCell::RemoveSound( CMapSounds::CMapSoundCell::CellSounds *pCellSounds, const WORD wInstanceID )
 {
-	// remove this sound from types list
 	for ( CellSounds::iterator it = pCellSounds->begin(); pCellSounds->end() != it ; ++it )
 	{
 		if ( it->second.nCount != 0 )
@@ -110,22 +90,18 @@ void CMapSounds::CMapSoundCell::RemoveSound( CMapSounds::CMapSoundCell::CellSoun
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapSounds::CMapSoundCell::Update( class CSoundScene * pScene, const CMapSounds::RegisteredSounds &registeredSounds )
 {
 	if ( timeNextRun < CSoundScene::GetCurTime() )
 	{
-		// if sounds currently playing cannot be played amymore
 		if ( 0 != playingLoopedSound.wSoundTypeID && cellSounds[playingLoopedSound.wSoundTypeID].nCount < SSoundSceneConsts::MIN_SOUND_COUNT_TO_PLAY_LOOPED )
 		{
 			pScene->RemoveSound( playingLoopedSound.wSceneID );
 			playingLoopedSound.Clear();
 		}
 
-		// find new looped sound to play
 		if ( 0 == playingLoopedSound.wSceneID )
 		{
-			// if there is no sounds plaing or looped run them ( if have to )
 			SMaxCountPredicate pr;
 			CellSounds::iterator maxElement = std::max_element( cellLoopedSounds.begin(), cellLoopedSounds.end(), pr );
 			if ( maxElement != cellLoopedSounds.end() &&
@@ -143,8 +119,6 @@ void CMapSounds::CMapSoundCell::Update( class CSoundScene * pScene, const CMapSo
 			}
 		}		
 
-		//run next non looped sound
-			// remove current cound
 		if ( 0 != playingSound.wSceneID )
 		{
 			pScene->RemoveSound( playingSound.wSceneID );
@@ -166,28 +140,19 @@ void CMapSounds::CMapSoundCell::Update( class CSoundScene * pScene, const CMapSo
 
 		}
 
-		// set next run time
 		timeNextRun = CSoundScene::GetCurTime() + SSoundSceneConsts::SS_MAP_SOUND_PERIOND + rand() * SSoundSceneConsts::SS_MAP_SOUND_PERIOND_RANDOM / RAND_MAX;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*															CMapSounds
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapSounds::SetSoundScene( class CSoundScene *_pSoundScene )
 {
 	pSoundScene = _pSoundScene;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapSounds::InitSizes( const int nSizeX, const int nSizeY )
 {
-	// �����
 	soundIDs.Clear();
 	mapCells.SetSizes( nSizeX / SSoundSceneConsts::MAP_SOUND_CELL + 1, nSizeY / SSoundSceneConsts::MAP_SOUND_CELL + 1 );
 	cells.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapSounds::RemoveSound( const WORD wInstanceID )
 {
 	if ( 0 == wInstanceID ) return ;
@@ -195,10 +160,8 @@ void CMapSounds::RemoveSound( const WORD wInstanceID )
 	const SIntPair & vPos = cells[wInstanceID];
 	mapCells( vPos.x, vPos.y ).RemoveSound( wInstanceID, pSoundScene );
 	instanceIDs.AddToFreeId( wInstanceID );			// crash fixed
-	//soundIDs.AddToFreeId( wInstanceID );			// crash
 	cells.erase( wInstanceID );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 WORD CMapSounds::AddSound( const CVec2 &vPos, const char *pszName )
 {
 	const std::string szName = pszName;
@@ -210,30 +173,24 @@ WORD CMapSounds::AddSound( const CVec2 &vPos, const char *pszName )
 	CGDBPtr<SSoundRPGStats> pStats = static_cast<const SSoundRPGStats*>( CSoundScene::GetObjectDB()->GetRPGStats( pDesc ) );
 
 
-	// ���������������� ����
 	if ( !registeredSounds.IsPresent( pszName ) )
 	{
 		const WORD wNewID = soundIDs.GetFreeId();
 		registeredSounds.Add( szName, wNewID );
 	}
-	// wSoundID - ������������������ ����.
 	const WORD wSoundID = registeredSounds.ToT2( pszName );
 
-	// ���������� � ����� ������ �� ���������.
 	const SIntPair vCellPos( vPos.x / SSoundSceneConsts::MAP_SOUND_CELL, vPos.y / SSoundSceneConsts::MAP_SOUND_CELL );
 
 
 	const WORD wInstanceID = instanceIDs.GetFreeId();
 	
-	// �������� ��� � ��� ������.
 	mapCells( vCellPos.x, vCellPos.y ).AddSound( wSoundID, vPos, registeredSounds, wInstanceID, pStats->bLooped );
 
-	// �������� � ����� ������ - ID �����.
 	cells[wInstanceID] = vCellPos;
 	
 	return wInstanceID;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapSounds::Clear()
 {
 	soundIDs.Clear();
@@ -242,7 +199,6 @@ void CMapSounds::Clear()
 	registeredSounds.Clear();
 	instanceIDs.Clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapSounds::Update( interface ICamera *pCamera )
 {
 	if ( timeNextUpdate < CSoundScene::GetCurTime() )
@@ -254,7 +210,6 @@ void CMapSounds::Update( interface ICamera *pCamera )
 		const int nMinY = Max( 0, int(vPos.y - SSoundSceneConsts::DEFAULT_SCREEN_WIDTH*2) ) / SSoundSceneConsts::MAP_SOUND_CELL;
 		const int nMaxY = Min( mapCells.GetSizeY()-1, int(vPos.y + SSoundSceneConsts::DEFAULT_SCREEN_WIDTH*2) / SSoundSceneConsts::MAP_SOUND_CELL );
 
-		//scan only triugh cells near screen
 		for ( int x = nMinX; x < nMaxX; ++x )
 		{
 			for ( int y = nMinY; y < nMaxY; ++y )
@@ -265,27 +220,22 @@ void CMapSounds::Update( interface ICamera *pCamera )
 		timeNextUpdate = CSoundScene::GetCurTime() + SSoundSceneConsts::SS_MAP_SOUND_PERIOND;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CPlayList::Reset()
 { 
 	nIter = 0; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CPlayList::Clear()
 {
 	melodies.clear(); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CPlayList::Shuffle()
 { 
 	std::random_shuffle( melodies.begin(), melodies.end() ); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CPlayList::AddMelody( const std::string &pszFileName ) 
 {
 	melodies.push_back( pszFileName );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char* CSoundScene::CPlayList::GetNextMelody() 
 {
 	if ( 0 == melodies.size() )
@@ -297,11 +247,6 @@ const char* CSoundScene::CPlayList::GetNextMelody()
 	}
 	return melodies[nIter++].c_str();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*															CTerrainSound*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CTerrainSounds::CTerrainSound::AddCycledSound( const char * szName, interface ISoundManager *pSoundManager )
 {
 	CGDBPtr<SGDBObjectDesc> pDesc = CSoundScene::GetObjectDB()->GetDesc( szName );
@@ -317,7 +262,6 @@ void CSoundScene::CTerrainSounds::CTerrainSound::AddCycledSound( const char * sz
 		bNeedUpdate = true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CTerrainSounds::CTerrainSound::StartCycledSounds( ISFX *pSFX, bool bNonPeacefulOnly )
 {
 	for ( CCycledSounds::iterator it = cycledSounds.begin(); it != cycledSounds.end(); ++it )
@@ -328,14 +272,11 @@ void CSoundScene::CTerrainSounds::CTerrainSound::StartCycledSounds( ISFX *pSFX, 
 			pSFX->PlaySample( it->pSound, true );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CTerrainSounds::CTerrainSound::Update(	const SSoundTerrainInfo& info, 
 										const CVec3 &vCameraAnchor, 
 										const CVec2 &vScreenSize, 
 										const float fRelativeVolume )
 {
-	//calc volume and pan and set new volume to ISounds 
-	//if something changed set bNeedupdateFlag
 	vSoundPos	= info.vPos;
 
 	const CVec2 vNewOffset( info.vPos.x - vCameraAnchor.x, info.vPos.y - vCameraAnchor.y );
@@ -343,12 +284,9 @@ void CSoundScene::CTerrainSounds::CTerrainSound::Update(	const SSoundTerrainInfo
 	{
 		float fScreenSize = fabs( vScreenSize );
 		vOffset = vNewOffset;
-		//calc pan
 		fPan = vOffset.x / fScreenSize;
 		
-		//calc volume
 		const float fOffset = fabs(vOffset);
-			//dependence from distance
 		const float fMinRadius = SSoundSceneConsts::TERRAIN_SOUND_RADIUS_MIN * fScreenSize;
 		float fVolumeDist;
 		if ( fOffset < fMinRadius )
@@ -358,7 +296,6 @@ void CSoundScene::CTerrainSounds::CTerrainSound::Update(	const SSoundTerrainInfo
 					( SSoundSceneConsts::TERRAIN_SOUND_RADIUS_MAX * fScreenSize - fMinRadius );
 		fVolumeDist = fVolumeDist < 0.0f ? 0.0f : fVolumeDist;
 
-			//dependence from weight		
 		float fVolumeWeight;
 		if ( info.fWeight > SSoundSceneConsts::TERRAIN_CRITICAL_WEIGHT )
 			fVolumeWeight = 1.0f;
@@ -369,13 +306,11 @@ void CSoundScene::CTerrainSounds::CTerrainSound::Update(	const SSoundTerrainInfo
 		bNeedUpdate = true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CTerrainSounds::CTerrainSound::SetMustPlay( bool _bMustPlay ) 
 { 
 	bNeedUpdate &= ( bMustPlay == _bMustPlay );
 	bMustPlay = _bMustPlay; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CTerrainSounds::CTerrainSound::DoUpdate( ISFX * pSFX )
 {
 	if ( bMustPlay )
@@ -393,7 +328,6 @@ void CSoundScene::CTerrainSounds::CTerrainSound::DoUpdate( ISFX * pSFX )
 
 	bNeedUpdate = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CTerrainSounds::CTerrainSound::SetSound( const char *pszName, NTimer::STime timeWhenRestart )
 {
 	IScene * pScene = GetSingleton<IScene>();
@@ -416,7 +350,6 @@ void CSoundScene::CTerrainSounds::CTerrainSound::SetSound( const char *pszName, 
 	}
 	timeRestart = timeWhenRestart;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CTerrainSounds::CTerrainSound::StopSounds( ISFX * pSFX, bool bOnlyPeaceful )
 {
 	for ( CCycledSounds::iterator it = cycledSounds.begin(); it != cycledSounds.end(); ++it )
@@ -426,11 +359,6 @@ void CSoundScene::CTerrainSounds::CTerrainSound::StopSounds( ISFX * pSFX, bool b
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*															CTerrainSounds*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CTerrainSounds::Init( interface ITerrain *_pTerrain )
 {
 	Clear();
@@ -442,7 +370,6 @@ void CSoundScene::CTerrainSounds::Init( interface ITerrain *_pTerrain )
 	vScreen.x = abs( rScreen.right - rScreen.left );
 	vScreen.y = abs( rScreen.top - rScreen.bottom );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CTerrainSounds::Clear()
 {
 	for ( CSounds::iterator it = terrainSounds.begin(); it != terrainSounds.end();  ++it )
@@ -453,7 +380,6 @@ void CSoundScene::CTerrainSounds::Clear()
 	lastUpdateTime = 0;
 	bMuteAll = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CTerrainSounds::Mute( const bool bMute )
 {
 	bMuteAll = bMute;
@@ -466,13 +392,10 @@ void CSoundScene::CTerrainSounds::Mute( const bool bMute )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CTerrainSounds::Update( interface ICamera *pCamera, const bool bCombat )
 {
 	if ( !pTerrain || bMuteAll ) return ;
 
-	// ���� ������ ���������� - �������� ���������� � ������ ������,
-	// ��� �� ���������
 	const CVec3 vNewCameraAnchor( pCamera->GetAnchor() );
 
 	if ( vCameraAncor != vNewCameraAnchor || 
@@ -486,7 +409,6 @@ void CSoundScene::CTerrainSounds::Update( interface ICamera *pCamera, const bool
 
 		if ( 0 != nSize )
 		{
-			// mark sounds that must play (for one pass, so code may be ugly)
 			const int nMaxTerrain = pInfo[nSize-1].nTerrainType;
 			int nCurSizeIndex = 0;
 			for ( int i = 0; i <= nMaxTerrain; ++i )
@@ -504,15 +426,11 @@ void CSoundScene::CTerrainSounds::Update( interface ICamera *pCamera, const bool
 		}
 	}
 	
-	// ���������� all sounds 
 	for ( CSounds::iterator it = terrainSounds.begin(); it != terrainSounds.end();  ++it )
 	{
 		CTerrainSound &sound = (*it).second;
-		//if sound is to be changed and it is finished
-		// not cycle sound
 		if ( sound.GetRestartTime() <= CSoundScene::GetCurTime() && sound.IsMustPlay() )
 		{
-			//Update sound, run it again
 			const char *pszSound = pTerrain->GetTerrainSound( (*it).first );
 
 			sound.SetSound( pszSound, CSoundScene::GetCurTime() + SSoundSceneConsts::SS_AMBIENT_SOUND_CHANGE + 
@@ -520,7 +438,6 @@ void CSoundScene::CTerrainSounds::Update( interface ICamera *pCamera, const bool
 				
 		}
 
-		// create cycle sound
 		if ( !sound.HasCycleSound() ) //sound isn't started yet
 		{
 			std::string szName = pTerrain->GetTerrainCycleSound( (*it).first );
@@ -529,22 +446,15 @@ void CSoundScene::CTerrainSounds::Update( interface ICamera *pCamera, const bool
 			sound.StartCycledSounds( pSFX, bCombat );
 		}
 
-		// if in combat situation mute peaceful sounds or restart muted in noncombat situation
 		if ( bCombat )
 			sound.StopSounds( pSFX, true );
 		else
 			sound.StartCycledSounds( pSFX, false );
 
-		//update sounds
 		if ( sound.IsNeedUpdate() )
 			sound.DoUpdate( pSFX );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*															CFreeIds														*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CStreamingSounds::Init( class CSoundScene::CPlayList *_pIdle, class CSoundScene::CPlayList *_pCombat )
 {
 	pIdle = _pIdle;
@@ -552,7 +462,6 @@ void CSoundScene::CStreamingSounds::Init( class CSoundScene::CPlayList *_pIdle, 
 	pSFX = GetSingleton<ISFX>();
 	pGameTimer = GetSingleton<IGameTimer>();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CStreamingSounds::Init( const std::string &_szPartyName )
 {
 	std::string szPartyName = _szPartyName;
@@ -597,7 +506,6 @@ void CSoundScene::CStreamingSounds::Init( const std::string &_szPartyName )
 	
 	Init( pIdle, pCombat );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoundScene::CStreamingSounds::CStreamingSounds() 
 : eState( ESSS_IDLE_PAUSE ),
 	bCombatNotify( false ),
@@ -606,12 +514,10 @@ CSoundScene::CStreamingSounds::CStreamingSounds()
 	timeLastUpdate( 0 )
 {  
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CStreamingSounds::CombatNotify()
 {
 	bCombatNotify = true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CStreamingSounds::Update()
 {
 	const NTimer::STime curTime = pGameTimer->GetGameTime();
@@ -654,7 +560,6 @@ void CSoundScene::CStreamingSounds::Update()
 	case ESSS_FADE_IDLE:
 		{
 			const float fCurVol = pSFX->GetStreamVolume();
-			// ��������� Volume �����
 			if ( 0.0f == fCurVol ) //���� ��� ����� Volume==0
 			{
 				timeLastCombatNotify = curTime;
@@ -680,7 +585,6 @@ void CSoundScene::CStreamingSounds::Update()
 	case ESSS_START_COMBAT:
 		if ( !pSFX->IsStreamPlaying() )
 		{
-			// ��������� ��������� ������
 			eState = ESSS_COMBAT;
 		}
 
@@ -704,7 +608,6 @@ void CSoundScene::CStreamingSounds::Update()
 		else
 		{
 			const float fCurVol = pSFX->GetStreamVolume();
-			// ��������� Volume �����
 			if ( 0.0f == fCurVol ) //���� ��� ����� Volume ==0
 			{
 				timeLastUpdate = curTime;
@@ -729,7 +632,6 @@ void CSoundScene::CStreamingSounds::Update()
 				eState = ESSS_COMBAT;
 			else
 			{
-				//��������� Volume �����
 				const float fDesiredVol = SSoundSceneConsts::COMBAT_MUSIC_VOLUME * ( curTime - timeLastUpdate ) / SSoundSceneConsts::SS_COMBAT_MUSIC_FADE;
 				if ( fDesiredVol - fCurVol > 0.01 )
 					pSFX->SetStreamVolume( fDesiredVol );
@@ -754,7 +656,6 @@ void CSoundScene::CStreamingSounds::Update()
 
 	bCombatNotify = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CStreamingSounds::StartIdleMusic()
 {
 	if ( pIdle && !pIdle->IsEmpty() )
@@ -763,7 +664,6 @@ void CSoundScene::CStreamingSounds::StartIdleMusic()
 		pSFX->SetStreamVolume( SSoundSceneConsts::IDLE_MUSIC_VOLUME );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CStreamingSounds::Clear()
 {
 	if ( eState == ESSS_IDLE ||
@@ -780,7 +680,6 @@ void CSoundScene::CStreamingSounds::Clear()
 	timeLastCombatNotify =  -1;
 	timeLastUpdate = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CStreamingSounds::StartCombatMusic()
 {
 	if ( pCombat && !pCombat->IsEmpty() )
@@ -789,11 +688,6 @@ void CSoundScene::CStreamingSounds::StartCombatMusic()
 		pSFX->SetStreamVolume( SSoundSceneConsts::COMBAT_MUSIC_VOLUME );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*															CSoundScene::CSound*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoundScene::CSound::CSound(	const WORD wID, 
 															const std::string &szName,
 															interface ISound *pSound, 
@@ -822,31 +716,25 @@ CSoundScene::CSound::CSound(	const WORD wID,
 	nMinRadius = nMinRadius == 0 ? 1 : nMinRadius;
 	timeToPlay = pSample == 0 ? 0 : 1000 * pSample->GetLenght() / pSample->GetSampleRate();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoundScene::CSound::IsTimeToFinish()
 {
 	return CSoundScene::GetCurTime() - GetBeginTime() >= timeToPlay;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 unsigned int CSoundScene::CSound::GetSamplesPassed()
 {
 	return ( CSoundScene::GetCurTime() - GetBeginTime() ) * GetSound()->GetSampleRate() / 1000;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoundScene::CSound::~CSound()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CSoundScene::CSound::GetVolume( const NTimer::STime time, const float fDist ) const
 {
-	// ������� - ��������� ���������� �����
 	float fVolDim = 0.0f;
 	if ( bDimMark ) 
 		fVolDim = 1.0f * (time - timeBeginDim) / SSoundSceneConsts::SS_SOUND_DIM_TIME;
 	if ( fVolDim > 1.0f )
 		return 0.0f;
 
-	// ������ ����������� �� ����������
 	float fVolDist = 0.0f;
 	if ( fDist / SSoundSceneConsts::SS_SOUND_CELL_SIZE > nMinRadius )
 		fVolDist = 1.0f* ( fDist / SSoundSceneConsts::SS_SOUND_CELL_SIZE - nMinRadius ) / ( nMaxRadius - nMinRadius );
@@ -855,25 +743,21 @@ float CSoundScene::CSound::GetVolume( const NTimer::STime time, const float fDis
 
 	return ( 1.0f - fVolDim ) * ( 1.0f - fVolDist );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CSound::MarkToDim( const NTimer::STime time )
 {
 	timeBeginDim = time;
 	bDimMark = true;
 	wID = 0; // ���� ������ ����������� ������
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const std::string& CSoundScene::CSound::GetName() const
 {
 	return szName;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CSound::UnSubstitute()
 {
 	pSubstitute =0;
 	timeToPlay = pSample== 0 ? 0 : 1000 * pSample->GetLenght() / pSample->GetSampleRate();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CSound::Substitute( CSoundScene::CSubstSound *_pSubstitute, NTimer::STime nStartTime )
 {
 	pSubstitute = _pSubstitute;
@@ -882,59 +766,45 @@ void CSoundScene::CSound::Substitute( CSoundScene::CSubstSound *_pSubstitute, NT
 	timeBegin = nStartTime;
 	timeToPlay = pSound == 0 ? 0 : 1000 * pSound->GetLenght() / nSampleRate;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoundScene::CSound::GetRadiusMax() const
 {
 	return nMaxRadius;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CSound::SetPos( const CVec3 &_vPos )
 {
 	vPos = _vPos;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CSound::SetBeginTime( const NTimer::STime time )
 {
 	timeBegin = time;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CSound::MarkStarted()
 {
 	bStartedMark = true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoundScene::CSubstSound * CSoundScene::CSound::GetSubst()
 {
 	return pSubstitute;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ISound * CSoundScene::CSound::GetSound()
 {
 	if ( pSubstitute )
 		return pSubstitute->GetSound();
 	return pSample;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*															CSoundScene::CSoundCell::*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoundScene::CSoundCell::CSoundCell()
 : nRadius( 0 ), timeLastCombatHear( 0 )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CSoundCell::SetLastHearCombat( const NTimer::STime hearTime )
 {
 	timeLastCombatHear = hearTime;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CSoundCell::Clear()
 {
 	sounds.clear();
 	nRadius = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoundScene::CSoundCell::IsSoundHearable( const CSound *pSound, const int nRadius ) const
 {
 	return !pSound->IsMarkedFinished() &&
@@ -942,12 +812,10 @@ bool CSoundScene::CSoundCell::IsSoundHearable( const CSound *pSound, const int n
 		( pSound->GetCombatType() == ESCT_MUTE_DURING_COMBAT ? !IsCombat() : true ) ;
 		
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoundScene::CSoundCell::IsCombat() const
 {
 	return CSoundScene::GetCurTime() < timeLastCombatHear + SSoundSceneConsts::COMBAT_FEAR_TIME;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CSoundCell::RecountForDelete()
 {
 	nRadius = 0;
@@ -957,14 +825,12 @@ void CSoundScene::CSoundCell::RecountForDelete()
 		nRadius = Max( nRadius, (*it)->GetRadiusMax() );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CSoundCell::AddSound( class CSoundScene::CSound *pSound )
 {
 	NI_ASSERT_T( 0 != pSound->GetRadiusMax(), " 0 max radius" );
 	sounds.push_back( pSound );
 	nRadius = Max( nRadius, pSound->GetRadiusMax() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CSoundCell::RemoveSound( const WORD wID, ISFX * pSFX )
 {
 	for ( CSounds::iterator it = sounds.begin(); it != sounds.end();  )
@@ -982,7 +848,6 @@ void CSoundScene::CSoundCell::RemoveSound( const WORD wID, ISFX * pSFX )
 	}
 	NI_ASSERT_T( false, "not present" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoundScene::CSound * CSoundScene::CSoundCell::GetSound( const WORD wID )
 {
 	for ( CSounds::iterator it = sounds.begin(); it != sounds.end(); ++it )
@@ -992,7 +857,6 @@ CSoundScene::CSound * CSoundScene::CSoundCell::GetSound( const WORD wID )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CSoundCell::Update( ISFX * pSFX )
 {
 	bool bSomeSoundErased = false;
@@ -1030,17 +894,11 @@ void CSoundScene::CSoundCell::Update( ISFX * pSFX )
 	if ( bSomeSoundErased )
 		RecountForDelete();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*															CSoundScene::CSoundsCollector::
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CSoundsCollector::operator()( int nRadius, const SIntPair & vCell )
 {
 	NI_ASSERT_SLOW_T( cellsWSound.find(vCell) != cellsWSound.end(), NStr::Format("Can't find cell at {%d : %d}", vCell.x, vCell.y) );
 	cellsWSound[vCell]->EnumHearableSounds( nRadius, *this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CSoundsCollector::operator()( CSoundScene::CSound * sound, bool bHearable )
 {
 	if ( bHearable )
@@ -1048,7 +906,6 @@ void CSoundScene::CSoundsCollector::operator()( CSoundScene::CSound * sound, boo
 		CSoundSubstTable::iterator it = substTable.find( sound->GetName() );
 		if ( substTable.end() == it )
 		{
-			// ��� ���� ����� ����� �������
 			sounds[sound->GetName()].push_back( sound );
 		}
 		else
@@ -1059,11 +916,6 @@ void CSoundScene::CSoundsCollector::operator()( CSoundScene::CSound * sound, boo
 		muteSounds.push_back( sound );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*															CSoundScene
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::InitMap( const struct CMapSoundInfo *pSound, int nElements )
 {
 	for ( int nSoundIndex = 0; nSoundIndex < nElements; ++nSoundIndex )
@@ -1072,17 +924,14 @@ void CSoundScene::InitMap( const struct CMapSoundInfo *pSound, int nElements )
 		NStr::DebugTrace( "added sound to map \"%s\", to (%.2f, %.2f, %.2f)\n", pSound[nSoundIndex].szName.c_str(), pSound[nSoundIndex].vPos.x, pSound[nSoundIndex].vPos.y, pSound[nSoundIndex].vPos.z );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::InitTerrain( interface ITerrain *pTerrain )
 {
 	terrainSounds.Init( pTerrain );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::InitMusic(	const std::string &szParty )
 {
 	streamingSounds.Init( szParty );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::InitConsts()
 {
 	pGameTimer = GetSingleton<IGameTimer>();
@@ -1130,7 +979,6 @@ void CSoundScene::InitConsts()
 	
 	InitScreenResolutionConsts();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::InitScreenResolutionConsts()
 {
 	const int nScreenWidth = GetGlobalVar( "GFX.Mode.Mission.SizeX", 1024 );
@@ -1143,11 +991,9 @@ void CSoundScene::InitScreenResolutionConsts()
 	SSoundSceneConsts::COMBAT_SOUNDR_FEAR_RADIUS *= fWorldCellSize * sqrt( vScreenResize.x *  vScreenResize.y) / SSoundSceneConsts::SS_SOUND_CELL_SIZE ; 
 	SSoundSceneConsts::TERRAIN_CRITICAL_WEIGHT = vScreenResize.x * vScreenResize.y * SSoundSceneConsts::TERRAIN_CRITICAL_WEIGHT;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::Init( const int nMaxX, const int nMaxY )
 {
 	InitConsts();
-	//
 	vLimit.x = nMaxX;
 	vLimit.y = nMaxY;
 	soundCellsInBounds.SetSizes( vLimit.x, vLimit.y );
@@ -1163,7 +1009,6 @@ void CSoundScene::Init( const int nMaxX, const int nMaxY )
  	cellsPHS.Init( nMaxX, nMaxY );
 	mapSounds.InitSizes( nMaxX * fWorldCellSize, nMaxY * fWorldCellSize );
 	
-	//CRAP{ SOUNDS TESTING FOR LARGE RADIUS
 	/*{
 		IObjectsDB *pIDB = GetSingleton<IObjectsDB>();
 		const int nMaxDescs = pIDB->GetNumDescs();
@@ -1184,20 +1029,16 @@ void CSoundScene::Init( const int nMaxX, const int nMaxY )
 			}
 		}
 	}*/
-	//CRAP}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoundScene::CSoundScene()
 : pSFX( 0 ), pSoundManager( 0 ), pGameTimer( 0 )
 {
 	mapSounds.SetSoundScene( this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::Clear()
 {
 	freeIDs.Clear();
 	substTable.clear();
-	//interfaceSounds.clear();
 	streamingSounds.Clear();
 	soundCellsInBounds.Clear();
 	soundCellsWithSound.clear();
@@ -1211,19 +1052,16 @@ void CSoundScene::Clear()
 	deletedInterfaceSounds.clear();
 	cellsPHS.Clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::To2DSoundPos( const CVec3 &vPos, CVec3 *v2DPos )
 {
 	v2DPos->x = vPos.x - vPos.z * FP_SQRT_2;
 	v2DPos->y = vPos.y + vPos.z * FP_SQRT_2;
 	v2DPos->z = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::MuteTerrain( const bool bMute )
 {
 	terrainSounds.Mute( bMute );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 WORD CSoundScene::AddSound( const char *pszName, const CVec3 &vPos,
 												    const enum ESoundMixType eMixMode, const enum ESoundAddMode eAddMode,
 														const enum ESoundCombatType _eCombatType,
@@ -1272,7 +1110,6 @@ WORD CSoundScene::AddSound( const char *pszName, const CVec3 &vPos,
 		const WORD wID = bNeedID ? freeIDs.GetFreeId() : 0;
 		const bool bToCell = eMixMode != SFX_INTERFACE;
 
-	// �������� �� ��������� � ������ ��� ������� ������	
 		CVec3 vRealSoundPos = VNULL3;
 		if ( bToCell )
 			To2DSoundPos( vPos, &vRealSoundPos );
@@ -1296,12 +1133,10 @@ WORD CSoundScene::AddSound( const char *pszName, const CVec3 &vPos,
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const NTimer::STime & CSoundScene::GetCurTime()
 {
 	return curTime;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::SetMode( const enum ESoundSceneMode _eSoundSceneMode )
 {
 	eSoundSceneMode = _eSoundSceneMode;
@@ -1311,7 +1146,6 @@ void CSoundScene::SetMode( const enum ESoundSceneMode _eSoundSceneMode )
 
 		break;
 	case ESSM_INTERMISSION_INTERFACE:
-		// clear all game sounds
 		mapSounds.Clear();
 		freeIDs.Clear();
 		substTable.clear();
@@ -1324,13 +1158,10 @@ void CSoundScene::SetMode( const enum ESoundSceneMode _eSoundSceneMode )
 		break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoundScene::IsInBounds( int x, int y )
 { 
 	return x >= 0 && x < vLimit.x && y >=0 && y < vLimit.y ; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// helper function
 CSoundScene::CSoundCell * CSoundScene::GetSoundCell( const SIntPair &vCell )
 {
 	if ( IsInBounds( vCell.x, vCell.y ) )
@@ -1348,7 +1179,6 @@ CSoundScene::CSoundCell * CSoundScene::GetSoundCell( const SIntPair &vCell )
 			soundCellsOutOfBounds[vCell];
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::AddSound( const SIntPair &vCell, CSoundScene::CSound *pSound )
 {
 	CSoundCell *pCell = GetSoundCell( vCell );
@@ -1362,7 +1192,6 @@ void CSoundScene::AddSound( const SIntPair &vCell, CSoundScene::CSound *pSound )
 	if ( 0 != pSound->GetID() )
 		soundIDs[pSound->GetID()] = vCell;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::UpdateCombatMap( const SIntPair &vCell, CSoundScene::CSound *pSound )
 {
 	if ( pSound->GetCombatType() == ESCT_COMBAT )
@@ -1379,19 +1208,14 @@ void CSoundScene::UpdateCombatMap( const SIntPair &vCell, CSoundScene::CSound *p
 					soundCellsInBounds( vCur.x, vCur.y )->SetLastHearCombat( CSoundScene::GetCurTime() );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::UpdatePHSMap( const SIntPair &vCell, const int nFormerRadius, const int nNewRadius )
 {
 	if ( nNewRadius != nFormerRadius )
 	{
-		//CRAP{ TO DO
-		// for decrease and increase radius - special case
-		//CRAP}
 		cellsPHS.RemoveHearCell( vCell, nFormerRadius );
 		cellsPHS.AddHearCell( vCell, nNewRadius );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::RemoveSound( const WORD wID )
 {
 	if ( !pSFX->IsSFXEnabled() || 0 == wID ) 
@@ -1434,7 +1258,6 @@ void CSoundScene::RemoveSound( const WORD wID )
 	}
 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::SetSoundPos( const WORD wID, const CVec3 &vPos )
 {
 	if (	!pSFX->IsSFXEnabled() ||
@@ -1456,24 +1279,20 @@ void CSoundScene::SetSoundPos( const WORD wID, const CVec3 &vPos )
 	pSound->SetPos( vRealSoundPos );
 	const SIntPair vNewCell(  vRealSoundPos.x / SSoundSceneConsts::SS_SOUND_CELL_SIZE,
 														vRealSoundPos.y / SSoundSceneConsts::SS_SOUND_CELL_SIZE );
-	// ���� ������������ � ������ ������
 	if ( vFormerCell != vNewCell )
 	{
 		CSoundCell *pNewCell = GetSoundCell( vNewCell );
 		
-		// add sound to new cell
 		NI_ASSERT_T( pNewCell != 0, NStr::Format( "cannot create cell at (%d, %d )", vNewCell.x, vNewCell.y ) );
 		const int nFormerRadiusNewCell = pNewCell->GetRadius();
 		pNewCell->AddSound( pSound );
 		const int nNewRadiusNewCell = pNewCell->GetRadius();
 
 
-		// remove sound form old cell
 		const int nFormerRadiusOldCell = pFormerCell->GetRadius();
 		pFormerCell->RemoveSound( wID );
 		const int nNewRadiusOldCell = pFormerCell->GetRadius();
 		
-		// update PHS map
 		UpdatePHSMap( vNewCell, nFormerRadiusNewCell, nNewRadiusNewCell );
 		UpdatePHSMap( vFormerCell, nFormerRadiusOldCell, nNewRadiusOldCell );
 
@@ -1481,12 +1300,10 @@ void CSoundScene::SetSoundPos( const WORD wID, const CVec3 &vPos )
 		soundIDs[wID] = vNewCell;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IObjectsDB * CSoundScene::GetObjectDB()
 {
 	return pObjectsDB;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoundScene::IsFinished( const WORD wID )
 {
 	if (	!pSFX->IsSFXEnabled()||
@@ -1502,13 +1319,11 @@ bool CSoundScene::IsFinished( const WORD wID )
 	CSound *pSound = pos->second->GetSound( wID );
 	return !pSound || pSound->IsTimeToFinish();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CombatNotify()
 {
 	if ( pSFX->IsStreamingEnabled() )
 		streamingSounds.CombatNotify();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::Update( interface ICamera *pCamera )
 {
 	pSFX->Update( pCamera ); //�������� ������ ������ ������ �� ������!
@@ -1539,7 +1354,6 @@ void CSoundScene::Update( interface ICamera *pCamera )
 			if ( CSoundScene::GetCurTime() > timeLastUpdate + SSoundSceneConsts::SS_UPDATE_PERIOD ||
 					((vCameraCell.x == -1 || vCameraCell.y != -1) && vFormerCameraCell != vCameraCell) ) 
 			{// ������ ���������� - ������ ��������
-				// ------------- ������� ��� ���������� �����
 				for ( CSoundCellsWithSound::iterator it = soundCellsWithSound.begin(); it != soundCellsWithSound.end(); ++it )
 				{
 					NI_ASSERT_SLOW_T( it->second.IsValid(), NStr::Format("Invalid cell at ( delete finished sounds ){%d : %d}", it->first.x, it->first.y) );
@@ -1557,7 +1371,6 @@ void CSoundScene::Update( interface ICamera *pCamera )
 					it = updatedCells.erase( it );
 				}
 				
-				// -- ����� ��� �����, ������� ������ � ����������� ������
 				for ( CSoundCellsWithSound::iterator it = soundCellsWithSound.begin(); it != soundCellsWithSound.end(); ++it )
 				{
 					NI_ASSERT_SLOW_T( it->second.IsValid(), NStr::Format("Invalid cell at ( enum all sounds ){%d : %d}", it->first.x, it->first.y) );
@@ -1578,12 +1391,10 @@ void CSoundScene::Update( interface ICamera *pCamera )
 	}
 	curTime = pGameTimer->GetAbsTime() + 1000000;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::MixInterfaceSounds()
 {
 	for ( CHearableSounds::iterator it = interfaceSounds.begin(); it != interfaceSounds.end(); ++it )
 	{
-		//clear finished
 		for ( CSoundsList::iterator soundIter = (*it).second.begin(); soundIter != (*it).second.end(); )
 		{
 			CSound * pSound = (*soundIter);
@@ -1603,14 +1414,10 @@ void CSoundScene::MixInterfaceSounds()
 				++soundIter;
 		}
 
-		//mix not started
 
-		//������������� �� �� ������� ������.
 		CSoundStartTimePredicate pr;
 		(*it).second.sort( pr );
 
-		// ����� ������ ������, � ������� ������� �� ������� ������ Delta 
-		// � �������� �� Mix()
 		CSoundsList::iterator beginIterator = (*it).second.begin();
 		CSoundsList::iterator endIterator = (*it).second.begin();
 		while( (*it).second.end() != beginIterator )
@@ -1624,10 +1431,8 @@ void CSoundScene::MixInterfaceSounds()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::MixSingle( CSoundScene::CHearableSounds & sounds, const CVec3 & vCameraPos )
 {
-	//���������� ��������� �� ��������� ��� ����������.
 	for ( CHearableSounds::iterator substIter = sounds.begin(); substIter != sounds.end(); ++substIter )
 	{
 		const std::string &substName = (*substIter).first;
@@ -1644,22 +1449,16 @@ void CSoundScene::MixSingle( CSoundScene::CHearableSounds & sounds, const CVec3 
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::MixMixedWithDelta( CSoundScene::CHearableSounds & sounds, const CVec3 & vCameraPos )
 {
-	// 2) ������� �����, ������� ����� ���������� ���� ������ ��������� �� �������.
-				//������� ������.
 	for ( CHearableSounds::iterator substIter = sounds.begin(); substIter != sounds.end(); ++substIter )
 	{
 		const std::string &substName = (*substIter).first;
 
-		//������������� �� �� ������� ������.
 		CSoundsList & curSounds = (*substIter).second;
 		CSoundStartTimePredicate pr;
 		curSounds.sort( pr );
 
-		// ����� ������ ������, � ������� ������� �� ������� ������ Delta 
-		// � �������� �� Mix()
 		CSoundsList::iterator beginIterator = curSounds.begin();
 		CSoundsList::iterator endIterator = curSounds.begin();
 		while( curSounds.end() != beginIterator )
@@ -1672,11 +1471,8 @@ void CSoundScene::MixMixedWithDelta( CSoundScene::CHearableSounds & sounds, cons
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::MixMixedAlways( CSoundScene::CHearableSounds & sounds, const CVec3 & vCameraPos )
 {
-	// 1) ������� �����, ������� ������ ��� ���� ������, ���������� �� ����������.
-				//��������� �� ��������.
 	for ( CHearableSounds::iterator substIter = sounds.begin(); substIter != sounds.end(); ++substIter )
 	{
 		CSoundsList & curSounds = (*substIter).second;
@@ -1684,7 +1480,6 @@ void CSoundScene::MixMixedAlways( CSoundScene::CHearableSounds & sounds, const C
 		Mix( curSounds, curSounds.begin(), curSounds.end(), substName, vCameraPos, SFX_MIX_ALWAYS, 1 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::Mix(	CSoundsList & curSounds,
 												const CSoundsList::iterator begin_iter,
 												const CSoundsList::iterator end_iter,
@@ -1736,17 +1531,14 @@ void CSoundScene::Mix(	CSoundsList & curSounds,
 		
 		if ( !pSubstSruct )
 		{
-			// ������ ������� ������ � ��������� �� ��������
 			CPtr<ISound> pSubstituteSound = pSoundManager->GetSound2D( szSubstName.c_str() );
 			if ( pSubstituteSound == 0 ) // ������ ���� ������ �� �����
 				pSubstituteSound = pSound->GetSound();
 			pSubstSruct = new CSubstSound( pSubstituteSound, pSFX );
 		}
 
-		// ������� ������ ������ � ������� �� �� ���������� ������ ������
 		unsigned int nStartSample = 0; // ����� ��� ������������� �����
 		NTimer::STime nStartTime = 0;
-		// ���������� ����� ������ ( � ������� )
 		for ( CSoundsList::iterator soundsIter = begin_iter; soundsIter != end_iter; ++soundsIter)
 		{
 			CSound & sound = *(*soundsIter);
@@ -1759,7 +1551,6 @@ void CSoundScene::Mix(	CSoundsList & curSounds,
 			}
 		}
 
-		// ��� ��������
 		for ( CSoundsList::iterator soundsIter = begin_iter; soundsIter != end_iter; )
 		{
 			CSound & sound = *(*soundsIter);
@@ -1780,7 +1571,6 @@ void CSoundScene::Mix(	CSoundsList & curSounds,
 				++soundsIter;
 		}
 
-		// ������������ ���� � ������������ � ���, ��� �������������
 		fMaxHearRadius = 1.0f * pSound->GetRadiusMax() * SSoundSceneConsts::SS_SOUND_CELL_SIZE;
 		CalcVolNPan( &fVolume, &fPan, vSoundCoord, fMaxHearRadius );
 
@@ -1805,7 +1595,6 @@ void CSoundScene::Mix(	CSoundsList & curSounds,
 			
 			if ( !pSFX->IsPlaying( pSubstSound ) && ( nStartSample < nSoundLenght ) )
 			{
-				// ����������� �������� ����� 
 				const int nChannel = pSFX->PlaySample( pSubstSound, bLooped, nStartSample );
 			}
 			else
@@ -1813,11 +1602,8 @@ void CSoundScene::Mix(	CSoundsList & curSounds,
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::MuteSounds( CSoundScene::CSoundsList	* muteSounds )
 {
-// ��������� ��� ��������� �����.
-	// ---------------------------------------------
 	for ( CSoundsList::iterator it = muteSounds->begin(); it != muteSounds->end(); ++it )
 	{
 		CSound *sound = (*it);
@@ -1828,7 +1614,6 @@ void CSoundScene::MuteSounds( CSoundScene::CSoundsList	* muteSounds )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::CalcVolNPan( float *fVolume, float *fPan, const CVec3 &vSound, const float fMaxHear )
 {
 	*fVolume = 1.0f - fabs( vSound ) / fMaxHear;
@@ -1839,16 +1624,13 @@ void CSoundScene::CalcVolNPan( float *fVolume, float *fPan, const CVec3 &vSound,
 		*fPan = 0.0f;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 WORD CSoundScene::AddSoundToMap( const char *pszName, const CVec3 &vPos )
 {
 	CVec3 v2DPos;
 	To2DSoundPos( vPos, &v2DPos );
 	return mapSounds.AddSound( CVec2(v2DPos.x,v2DPos.y), pszName );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundScene::RemoveSoundFromMap( const WORD	wInstanceID )
 {
 	mapSounds.RemoveSound( wInstanceID );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

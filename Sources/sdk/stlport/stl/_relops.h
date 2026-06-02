@@ -28,6 +28,3 @@
  *   You should not attempt to use it directly.
  */
 
-// Local Variables:
-// mode:C++
-// End:

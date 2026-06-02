@@ -1,6 +1,3 @@
-// WeaponFrm.h : interface of the CWeaponFrame class
-//
-/////////////////////////////////////////////////////////////////////////////
 
 #ifndef __WEAPONFRM_H__
 #define __WEAPONFRM_H__
@@ -19,21 +16,13 @@ public:
 	CWeaponFrame();
 	virtual ~CWeaponFrame();
 
-// Attributes
 public:
 
-// Operations
 public:
 	virtual void GFXDraw();
-//	virtual void ShowFrameWindows( int nCommand );
 	
-// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CWeaponFrame)
 protected:
-	//}}AFX_VIRTUAL
 
-// Implementation
 private:
 
 protected:
@@ -43,20 +32,13 @@ protected:
 	void GetRPGStats( const SWeaponRPGStats &rpgStats, CTreeItem *pRootItem );
 
 	virtual bool ExportFrameData( IDataTree *pDT, const char *pszProjectName, const char *pszResultFileName, CTreeItem *pRootItem );
-//	virtual FILETIME FindMaximalSourceTime( const char *pszProjectName, CTreeItem *pRootItem );
 	virtual FILETIME FindMinimalExportFileTime( const char *pszResultFileName, CTreeItem *pRootItem );
 	
-// Generated message map functions
 protected:
-	//{{AFX_MSG(CWeaponFrame)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 
-/////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif		//__WEAPONFRM_H__

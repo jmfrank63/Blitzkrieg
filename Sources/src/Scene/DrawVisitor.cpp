@@ -3,7 +3,6 @@
 #include "DrawVisitor.h"
 
 #include "..\Main\TextSystem.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawVisitor::Init( ICamera *_pCamera, const SHMatrix &_matrix, const CTRect<short> &_rcScreen, const SPlane *pViewVolumePlanes )
 {
 	pCamera = _pCamera;
@@ -12,7 +11,6 @@ void CDrawVisitor::Init( ICamera *_pCamera, const SHMatrix &_matrix, const CTRec
 	memcpy( &vViewVolumePlanes, pViewVolumePlanes, sizeof(vViewVolumePlanes) );
 	depthoptimizer.SetScreenSize( _rcScreen.Width(), _rcScreen.Height() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawVisitor::Clear()
 {
 	sprites.clear();
@@ -22,7 +20,6 @@ void CDrawVisitor::Clear()
 	spriteFlashes.clear();
 	meshes.clear();
 	aviation.clear();
-	//meshTerraObjects.clear();
 	terraObjects.clear();
 	shadowObjects.clear();
 	particles.clear();
@@ -35,8 +32,6 @@ void CDrawVisitor::Clear()
 	depthoptimizer.Clear();
 	uiObjects.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// billboard sprite object
 void CDrawVisitor::VisitSprite( const SBasicSpriteInfo *pObj, int nType, int nPriority )
 {
 	switch ( nType ) 
@@ -69,8 +64,6 @@ void CDrawVisitor::VisitSprite( const SBasicSpriteInfo *pObj, int nType, int nPr
 			AddSingleSprite( pObj, &sprites, nPriority );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// mesh object
 void CDrawVisitor::VisitMeshObject( IMeshVisObj *pObj, int nType, int nPriority )
 {
 	switch ( nType )
@@ -81,35 +74,27 @@ void CDrawVisitor::VisitMeshObject( IMeshVisObj *pObj, int nType, int nPriority 
 			AddSingleMesh( pObj, &meshes );
 			break;
 		case SGVOGT_TERRAOBJ:
-			//AddSingleMesh( pObj, &meshTerraObjects );
 			break;
 		case -1:
 			AddSingleMeshUnchecked( pObj, &aviation );
 			break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// particles
 void CDrawVisitor::VisitParticles( IParticleSource *pObj )
 {
 	AddSingleParticleEffect( pObj, &particles );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// unknown scene object
 void CDrawVisitor::VisitSceneObject( ISceneObject *pObj )
 {
 	unknowns.push_back( pObj );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawVisitor::AddSingleSprite( const SBasicSpriteInfo *pObj, CSpriteVisList *pSprites, WORD wPriority )
 {
 	SBasicSpriteInfo *pInfo = const_cast<SBasicSpriteInfo*>( pObj );
 	pInfo->dwCheckFlags = ( pInfo->dwCheckFlags & 0x0000ffff ) | (DWORD(wPriority) << 16);
-	// transform sprite to screen
 	matrix.RotateHVector( &pInfo->relpos, pInfo->pos );
 	pInfo->relpos.x = MINT( pInfo->relpos.x );
 	pInfo->relpos.y = MINT( pInfo->relpos.y );
-	// get sprite's rect
 	CTRect<float> rcRect;
 	switch ( pInfo->type ) 
 	{
@@ -121,7 +106,6 @@ void CDrawVisitor::AddSingleSprite( const SBasicSpriteInfo *pObj, CSpriteVisList
 			rcRect = static_cast<SComplexSpriteInfo*>(pInfo)->pSprite->GetBoundBox();
 			break;
 	}
-	// check, is this sprite visible on the screen and add it if it is
 	rcRect.Move( pInfo->relpos.x, pInfo->relpos.y );
 	if ( rcScreen.IsInside(rcRect) ) 
 	{
@@ -134,7 +118,6 @@ void CDrawVisitor::AddSingleSprite( const SBasicSpriteInfo *pObj, CSpriteVisList
 		pSprites->push_back( pInfo );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawVisitor::AddSingleParticleEffect( IParticleSource *pPS, CParticlesVisMap *pParticles )
 {
 	const int nNumParticles = pPS->GetNumParticles();
@@ -153,13 +136,10 @@ void CDrawVisitor::AddSingleParticleEffect( IParticleSource *pPS, CParticlesVisM
 			info.maps = buffer[i].rcMaps;
 			info.specular =  0xFF000000;
 			info.fAngle = buffer[i].fAngle;
-			//
 			matrix.RotateHVector( &info.vPos, info.vPos );
 			info.vPos.x = MINT( info.vPos.x );
 			info.vPos.y = MINT( info.vPos.y );
-			//
 			const float fSize = info.fSize * FP_SQRT_2;
-			//
 			CTRect<float> rcRect( info.vPos.x - fSize, info.vPos.y - fSize, 
 				                    info.vPos.x + fSize, info.vPos.y + fSize );
 			if ( rcRect.IsIntersect(rcScreen) )
@@ -170,19 +150,16 @@ void CDrawVisitor::AddSingleParticleEffect( IParticleSource *pPS, CParticlesVisM
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawVisitor::AddSingleMeshUnchecked( IMeshVisObj *pMesh, CMeshVisList *pMeshes )
 {
 	pMeshes->push_back( pMesh );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawVisitor::AddSingleMesh( IMeshVisObj *pMesh, CMeshVisList *pMeshes )
 {
 	const DWORD dwClipFlags = pMesh->CheckForViewVolume( &(vViewVolumePlanes[0]) );
 	if ( dwClipFlags != GFXCP_OUT )
 		pMeshes->push_back( pMesh );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawVisitor::VisitText( const CVec3 &vPos, const char *pszText, IGFXFont *pFont, DWORD color )
 {
 	textes.push_back( STextObject() );
@@ -193,22 +170,18 @@ void CDrawVisitor::VisitText( const CVec3 &vPos, const char *pszText, IGFXFont *
 	text.color = color;
 	matrix.RotateHVector( &text.vScreenPos, vPos );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawVisitor::VisitBoldLine( CVec3 *corners, float fWidth, DWORD color )
 {
 	boldLines.push_back( SBoldLineObject(corners, color) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawVisitor::VisitMechTrace( const SMechTrace &trace )
 {
 	traces.push_back( trace );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawVisitor::VisitGunTrace( const SGunTrace &trace )
 {
 	gunTraces.push_back( trace );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawVisitor::VisitUIRects( IGFXTexture *pTexture, const int nShadingEffect, SGFXRect2 *pRects, const int nNumRects )
 {
 	if ( uiObjects.empty() || !uiObjects.back().IsRects() || 
@@ -219,7 +192,6 @@ void CDrawVisitor::VisitUIRects( IGFXTexture *pTexture, const int nShadingEffect
 		uiObjects.back().pTexture = pTexture;
 		uiObjects.back().nShadingEffect = nShadingEffect;
 	}
-	//
 	{
 		float fTexDiffX = 0, fTexDiffY = 0, fScrDiff = -0.5f;
 		if ( pTexture ) 
@@ -239,11 +211,9 @@ void CDrawVisitor::VisitUIRects( IGFXTexture *pTexture, const int nShadingEffect
 			}
 		}
 	}
-	//
 	if ( uiObjects.back().rects.empty() ) 
 		uiObjects.pop_back();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawVisitor::VisitUIText( IGFXText *pText, const CTRect<float> &rcRect, const int nY, const DWORD dwColor, const DWORD dwFlags )
 {
 	if ( (pText == 0) || (pText->GetText()->GetLength() == 0) || !rcScreen.IsIntersect(rcRect) ) 
@@ -256,7 +226,6 @@ void CDrawVisitor::VisitUIText( IGFXText *pText, const CTRect<float> &rcRect, co
 	obj.dwColor = dwColor;
 	obj.dwFlags = dwFlags;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawVisitor::VisitUICustom( interface IUIElement *pElement )
 {
 	if ( pElement == 0 ) 
@@ -264,15 +233,6 @@ void CDrawVisitor::VisitUICustom( interface IUIElement *pElement )
 	uiObjects.push_back( SUIObject(SUIObject::TYPE_CUSTOM) );
 	uiObjects.back().pElement = pElement;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** final sorting
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct STextureCmpFunctional
 {
 	bool operator()( const IMeshVisObj *pMesh1, const IMeshVisObj *pMesh2 ) const
@@ -280,10 +240,8 @@ struct STextureCmpFunctional
 		return pMesh1->GetTexture() < pMesh2->GetTexture();
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawVisitor::Sort()
 {
 	meshes.sort( STextureCmpFunctional() );
 	aviation.sort( STextureCmpFunctional() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

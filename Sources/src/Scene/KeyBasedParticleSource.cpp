@@ -3,27 +3,22 @@
 #include "KeyBasedParticleSource.h"
 #include "..\Misc\Win32Random.h"
 #include "FastSinCos.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IGFXTexture* CKeyBasedParticleSource::GetTexture() const
 {
 	return pTexture;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec3 CKeyBasedParticleSource::GetPos() const
 {
 	return vPosition;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CKeyBasedParticleSource::SetPos( const CVec3 &vPos )
 {
 	vPosition = vPos;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec3 CKeyBasedParticleSource::GetDirection() const
 {
 	return vDirection;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CKeyBasedParticleSource::SetDirection( const SHMatrix &mDir )
 {
 	mDir.RotateVector( &vDirection, V3_AXIS_Z );
@@ -32,22 +27,7 @@ void CKeyBasedParticleSource::SetDirection( const SHMatrix &mDir )
 	Normalize( &vDir );
 	fDirectionTheta = acos( vDir.z );
 	fDirectionPhi = fDirectionTheta == 0 ? 0 : ( vDir.y > 0 ? acos( Clamp(vDir.x / sin( fDirectionTheta ), -1.0f, 1.0f) ) : PI * 2 - acos( Clamp(vDir.x / sin( fDirectionTheta ), -1.0f, 1.0f) ) );
-	//fDirectionTheta = fmod( fDirectionTheta, FP_2PI );
-	//fDirectionPhi = fmod( fDirectionPhi, FP_2PI );
-	//NStr::DebugTrace("DirectionSet ( %f, %f, %f ) ( %f, %f )\n", vDir.x, vDir.y, vDir.z, fDirectionTheta, fDirectionPhi);
-	/*vDirection = vDir;
-	Normalize( &vDirection );
-	fDirectionTheta = acos( vDirection.z );
-	fDirectionPhi = fDirectionTheta == 0 ? 0 : ( vDirection.y > 0 ? acos( Clamp(vDirection.x / sin( fDirectionTheta ), -1.0f, 1.0f) ) : PI * 2 - acos( Clamp(vDirection.x / sin( fDirectionTheta ), -1.0f, 1.0f) ) );
-	const float fDirectionThetaTemp = acos( pData->vDirection.z );
-	const float fDirectionPhiTemp = fDirectionThetaTemp == 0 ? 0 : ( pData->vDirection.y > 0 ? acos( Clamp(pData->vDirection.x / sin( fDirectionThetaTemp ), -1.0f, 1.0f) ) : PI * 2 - acos( Clamp(pData->vDirection.x / sin( fDirectionThetaTemp ), -1.0f, 1.0f) ) );
-	fDirectionTheta += fDirectionThetaTemp;
-	fDirectionPhi += fDirectionPhiTemp;
-	fDirectionTheta = fmod( fDirectionTheta, FP_2PI );
-	fDirectionPhi = fmod( fDirectionPhi, FP_2PI );
-	//NStr::DebugTrace("DirectionSet ( %f, %f, %f ) ( %f, %f )\n", vDir.x, vDir.y, vDir.z, fDirectionTheta, fDirectionPhi);*/
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CKeyBasedParticleSource::SetStartTime( const NTimer::STime &time )
 {
 	nStartTime = time;
@@ -55,27 +35,22 @@ void CKeyBasedParticleSource::SetStartTime( const NTimer::STime &time )
 	nLastParticleUpdate = time;
 	lastError = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const NTimer::STime CKeyBasedParticleSource::GetStartTime() const
 {
 	return nStartTime;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const NTimer::STime CKeyBasedParticleSource::GetEffectLifeTime() const
 {
 	return MINT( float( pData->nLifeTime ) + pData->trackLife.GetValue(1.0f) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CKeyBasedParticleSource::IsFinished() const
 {
 	return particles.empty() && ( nLastUpdateTime > nStartTime + pData->nLifeTime || bStopped );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CKeyBasedParticleSource::GetNumParticles() const
 {
 	return particles.size();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CKeyBasedParticleSource::FillParticleBuffer( SSimpleParticle *buff ) const
 {
 	for ( std::list<SExtendedParticle>::const_iterator it = particles.begin(); it != particles.end() ; it++  )
@@ -84,7 +59,6 @@ void CKeyBasedParticleSource::FillParticleBuffer( SSimpleParticle *buff ) const
 		++buff;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CKeyBasedParticleSource::GetInfo( SParticleSourceInfo &info )
 {
 	SetStartTime( 0 );
@@ -110,15 +84,13 @@ void CKeyBasedParticleSource::GetInfo( SParticleSourceInfo &info )
 	info.fAverageSize = ( nAllSize * 64.0f) / ( GetEffectLifeTime() * 800.0f * 600.0f );
 	info.fAverageCount = ( nAllCount  * 64.0f )/ GetEffectLifeTime() ;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CKeyBasedParticleSource::Update( const NTimer::STime &time )
 {
 	NI_ASSERT_SLOW_T( pData != 0, "Updating uninitialized particle source!" );
-	//generate new particles
 	const int dt = time - nLastUpdateTime;
 	if ( dt > 64 && pData->nLifeTime + nStartTime > time )
 	{
-		const int nStep = 16; // т.е работаем с  промежутками в 16 миллисек.
+		const int nStep = 16; // пїЅ.пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ  пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ 16 пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
 		for ( int i = 0; i < dt; i += nStep )
 		{
 			const float fRelTime = (nLastUpdateTime + i - nStartTime) / float(pData->nLifeTime);
@@ -128,7 +100,6 @@ void CKeyBasedParticleSource::Update( const NTimer::STime &time )
 			CParticleGenerator::ResetGenerator( nNumForGenerating );
 			while ( nNumForGenerating > 0 && !bStopped && !bSuspended )
 			{
-				// непосредственно добавление частицы
 				SExtendedParticle part;
 				part.birthTime = nLastUpdateTime + i; 
 				part.deathTime = part.birthTime + pData->trackLife.GetValue( fRelTime, pData->trackLifeRandomizer );
@@ -144,8 +115,6 @@ void CKeyBasedParticleSource::Update( const NTimer::STime &time )
 				const float fSpeed = pData->trackBeginSpeed.GetValue( fRelTime, pData->trackBeginSpeedRandomizer );
 				const int nPhi = FSinCosMakeAngleChecked( GetRandomFromTrack( fRelTime, pData->trackBeginAngleRandomizer ) / 2 + fDirectionPhi );
 				const int nTheta = FSinCosMakeAngleChecked( GetRandomFromTrack( fRelTime, pData->trackBeginAngleRandomizer ) / 2 + fDirectionTheta );
-//				const float fPhi = fmod( GetRandomFromTrack( fRelTime, pData->trackBeginAngleRandomizer ) / 2 + fDirectionPhi, FP_2PI );
-//				const float fTheta = fmod( GetRandomFromTrack( fRelTime, pData->trackBeginAngleRandomizer ) / 2 + fDirectionTheta, FP_2PI );
 
 				part.vSpeed.x = FSinCalibrated( nTheta ) * FCosCalibrated( nPhi );
 				part.vSpeed.y = FSinCalibrated( nTheta ) * FSinCalibrated( nPhi );
@@ -164,7 +133,6 @@ void CKeyBasedParticleSource::Update( const NTimer::STime &time )
 		}
 		nLastUpdateTime += dt & 0xfffffff0;
 	}
-	//process old particles
 	if ( !particles.empty() )
 	{
 		for ( std::list<SExtendedParticle>::iterator it = particles.begin(); it != particles.end(); )
@@ -175,7 +143,6 @@ void CKeyBasedParticleSource::Update( const NTimer::STime &time )
 			}
 			else
 			{
-				// update particle
 				const float fTime = ( time - it->birthTime ) / float( it->deathTime - it->birthTime );
 				if ( fTime > it->contextSpeed.fTime && fTime < 1.0f )
 				{
@@ -195,12 +162,10 @@ void CKeyBasedParticleSource::Update( const NTimer::STime &time )
 	}
 	nLastParticleUpdate = time;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CKeyBasedParticleSource::Init( SParticleSourceData *_pData )
 {
 	NI_ASSERT_SLOW_T( _pData != 0, "Unable to initialize particle source with empty data!" );
 	pData = _pData;
-	// init rcRects
 	const float dx = 1.0f / pData->nTextureDX;
 	const float dy = 1.0f / pData->nTextureDY;
 	rcRects.reserve( pData->nTextureDX * pData->nTextureDY );
@@ -231,7 +196,6 @@ void CKeyBasedParticleSource::Init( SParticleSourceData *_pData )
 	fDirectionTheta = 0;
 	pData->trackDensity.CreateStartContext( &contextDensity );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CKeyBasedParticleSource::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -271,12 +235,10 @@ int CKeyBasedParticleSource::operator&( IStructureSaver &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CKeyBasedParticleSource::SetScale( float _fScale )
 {
 	fScale *= _fScale;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CKeyBasedParticleSource::GetArea() const
 {
 	float result = 0;
@@ -288,12 +250,10 @@ float CKeyBasedParticleSource::GetArea() const
 	}
 	return result;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CKeyBasedParticleSource::Stop()
 {
 	bStopped = true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CKeyBasedParticleSource::GetOptimalUpdateTime() const
 {
 	STrackContext context;
@@ -307,33 +267,28 @@ int CKeyBasedParticleSource::GetOptimalUpdateTime() const
 	}
 	return result;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CKeyBasedParticleSource::SetSuspendedState( bool bState )
 {
 	bSuspended = bState;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CVec3 CParticleGenerator::GetParticlePositionSquare( const float area, const CVec3 &vPosition )
 {
 	const float dx = NWin32Random::RandomCheck( -area, area );
 	const float dy = NWin32Random::RandomCheck( -area, area );
 	return CVec3( vPosition.x + dx, vPosition.y + dy, vPosition.z );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CVec3 CParticleGenerator::GetParticlePositionDisk( const float area, const CVec3 &vPosition )
 {
 	const float fRndRad = NWin32Random::RandomCheck( 0.0f, area );
 	const float fRndPhi = NWin32Random::RandomCheck( 0.0f, FP_2PI );
 	return CVec3( vPosition.x + fRndRad * FCos( fRndPhi ), vPosition.y + fRndRad * FSin( fRndPhi ), vPosition.z );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CVec3 CParticleGenerator::GetParticlePositionCircle( const float area, const CVec3 &vPosition )
 {
 	const float fRndPhi = fStartAngle + nCurrParticle * fStep;
 	nCurrParticle++;
 	return CVec3( vPosition.x + area * FCos( fRndPhi ), vPosition.y + area * FSin( fRndPhi ), vPosition.z );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParticleGenerator::ResetGenerator( int nNextNumParticles )
 {
 	if ( nNextNumParticles > 0 )
@@ -343,9 +298,6 @@ void CParticleGenerator::ResetGenerator( int nNextNumParticles )
 		fStep = FP_2PI / float( nNextNumParticles );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// CParticleGenerator static valiables
 float CParticleGenerator::fStartAngle;
 float CParticleGenerator::nCurrParticle;
 float CParticleGenerator::fStep;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

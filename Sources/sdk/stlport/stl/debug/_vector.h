@@ -168,7 +168,6 @@ public:
          const allocator_type& __a = allocator_type())
     : _STLP_DBG_VECTOR_BASE(__first, __last, __a), _M_iter_list((const _Base*)this) {}
 
-  // mysterious VC++ bug ?
   _DBG_vector(const_iterator __first, const_iterator __last , 
 	      const allocator_type& __a = allocator_type())
     : _STLP_DBG_VECTOR_BASE(__first._M_iterator, __last._M_iterator, __a),
@@ -212,7 +211,6 @@ public:
   }
 
 #ifdef _STLP_MEMBER_TEMPLATES
-  // Check whether it's an integral type.  If so, it's not an iterator.
   template <class _InputIterator>
   void insert(iterator __position, _InputIterator __first, _InputIterator __last) {
     _STLP_DEBUG_CHECK(__check_range(__first,__last))
@@ -336,6 +334,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_DBG_VECTOR_H */
 
-// Local Variables:
-// mode:C++
-// End:

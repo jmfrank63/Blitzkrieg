@@ -1,21 +1,17 @@
 #if !defined(__UIMiniMap__)
 #define __UIMiniMap__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\GFX\GFX.h"
 #include "..\GFX\GFXHelper.h"
 #include "UIBasic.h"
 #include "..\AILogic\AIConsts.h"
 #include "..\AILogic\AITypes.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct STextureMarker
 {
 	CTRect<float> textureRect; //0.0f ... 1.0f
 	CTRect<int> screenRect;	//� ������ HotSpot
 	CTPoint<int> size;
 
-	//constructors
 	STextureMarker()
 		: textureRect( 0.0f, 0.0f, 0.0f, 0.0f ), screenRect( 0, 0, 0, 0 ), size( 0, 0 ) {}
 	STextureMarker( const CTRect<float> &rTextureRect, const CTRect<int> &rScreenRect, const CTPoint<int> &rSize )
@@ -33,12 +29,10 @@ struct STextureMarker
 		return *this;
 	}
 
-	// serializing...
 	virtual int STDCALL operator&( IDataTree &ss );
 	virtual int STDCALL operator&( IStructureSaver &ss );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SMiniMapMarker : public STextureMarker
 {
 	std::string szName;	//��� �������� ����� � ����� �������
@@ -47,7 +41,6 @@ struct SMiniMapMarker : public STextureMarker
 	int nID;						//ID �������
 	NTimer::STime timeStart;		//����� �����������
 	NTimer::STime timeDuration; //����������������� �����������
-	//constructors
 	SMiniMapMarker()
 		: vPos( VNULL2 ), bActive( false ), nID( -1 ), timeStart( 0 ), timeDuration( 0 ) {}
 	SMiniMapMarker( const STextureMarker &rTextureMarker, const std::string &rszName, const CVec2 &vPos, bool _bActive, int _nID, const NTimer::STime &rTimeStart, const NTimer::STime &rTimeDuration )
@@ -73,7 +66,6 @@ struct SMiniMapMarker : public STextureMarker
 	virtual int STDCALL operator&( IStructureSaver &ss );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SMiniMapCircle
 {
 	CVec2 vCenter;
@@ -106,7 +98,6 @@ struct SMiniMapCircle
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMarkPixelFunctional
 {
 	CTextureLock<SGFXColor4444> *pTextureLock;
@@ -126,28 +117,6 @@ public:
 		}
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//�������� ����������� ��������� �������:
-// � ��������: ( � AI ������ ��� Y �������������)
-//0 ---------------- 3
-//  |  --------->   |
-//  |  |      ��� X |
-//  |  |            |
-//  |  |            |
-//  |  V ��� Y      |
-//1 ---------------- 2
-// �� ������ ( � �������� )
-//         0
-//        / \
-//      /     \
-//    /         \
-//1 /             \ 3
-//  \             /
-//    \         /
-//      \     /
-//        \ /
-//         2
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIMiniMap : public CSimpleWindow
 {
 	DECLARE_SERIALIZE;
@@ -156,68 +125,39 @@ class CUIMiniMap : public CSimpleWindow
   const static char MARKERS_TEXTURE_NAME[];
 	const static char MARKERS_TYPES_NAME[];
 
-	//�������� �������� pWarFog � pWarFogTexture (0 - ���� ������, 1 - ���� ������)
 	SGFXColor4444 pWarFogValues[SAIConsts::VIS_POWER + 1];
-	//����� ������ � ����������� �� ������
 	SGFXColor4444 pPartyColors[SAIConsts::MAX_NUM_OF_PLAYERS + 1];
-	//���� ����� ������
 	DWORD dwScreenFrameColor;
 	DWORD dwScreenFrameColorShadow;
-  //������ MiniMap �� ����������� ( ����������� �� XML ����� )
-  //������ MiniMap �� ��������� ����� nSize / 2
   int nSize;
 	int nPlayersCount;
-	//������ �������� ����������� ���� (0 - �����, 1 - ������� 3x3, 2 - ������� 5x5 ... )
   int nUnitCrossSize;
 
-	//������ ������� ���� � VIS ������ ( ������� �� AITerrain ��� ������������� )
   CTPoint<int> terrainSize;
-  //���������� ����������� VIS ������ �� ������ ������
   int nFiledVISTiles;
 
-  //������ AI �������� ( ����������� �� ���������� �� AILogic )
   std::vector<SMiniMapUnitInfo> units;
-  //������ �������� �������� ( ����������� �� ���������� �� AILogic )
   std::vector<SShootAreas> shootAreas;
-	//������ ������ ����������( ����������� �� ���������� �� AILogic )
 	std::list<SMiniMapCircle> circles;
 	
-	//������ �������, ������������ �������
 	std::unordered_map<std::string, STextureMarker> markersTypes;
 	std::list<SMiniMapMarker> markers;
 
 	bool isWarFogNeedUpdate;
 	bool isInstantObjectsNeedUpdate;
 
-	//�������� Fog Of War ( ����������� �� ���������� �� AILogic )
   CPtr<IGFXTexture> pWarFog;
-	//�������� Fog Of War ( ��� ��������������� ����������� � ����������� � �������������� �� ����� )
   CPtr<IGFXTexture> pWarFogTexture;
-	//�������� � �������, ��������� ���������  �.�. ( ����������� �� ���������� �� AILogic )
   CPtr<IGFXTexture> pInstantObjects;
-	//�������� � �������, ��������� ���������  �.�. ( ��� ��������������� ����������� � ����������� � �������������� �� ����� )
   CPtr<IGFXTexture> pInstantObjectsTexture;
-	//�������� Mini Map ( �������� �� �������� )
   CPtr<IGFXTexture> pBackgroundTexture;
-	//�������� Objective ( �������� �� �������� )
   CPtr<IGFXTexture> pMarkerTexture;
 
-  // ����� ����������� ������� ( � �������� �������� ������� )
-  //DWORD dwPreviousUpdateTime;
-  // ������� ���������� ���������� �� �������� �� MiniMap
-  //DWORD dwRefreshTimeout;
 
 	void CreateMiniMapTextures();
-	//���������� ���������� ������� ����� � ���������� ����������� ( isTopLeft == true - ������������� ��� Y )
-  //���������� ���������� ������� ����� � ����������� fog of war ( isTopLeft == false )
   void GetZeroPoint( float *pfXZeroPoint, float *pfYZeroPoint, bool isTopLeft = true );
-  //���������� ���������� ����� � ���������� ����������� ( isTopLeft == true - ������������� ��� Y )
-  //���������� ���������� ����� � ����������� fog of war ( isTopLeft == false )
   void PointToTextureMiniMap( float fXPos, float fYPos, float *pfXMiniMapPos, float *pfYMiniMapPos , bool isLeftTop = true );
-  //���������� ���������� ����� � ������� ����������� ( isTopLeft == true - ������������� ��� Y )
-  //���������� ���������� ����� � ������� ����������� ( isTopLeft == false )
 	void TextureMiniMapToPoint( float fXMiniMapPos, float fYMiniMapPos, float *pfXPos, float *pfYPos , bool isLeftTop = true );
-	//���������� Y �� ����� �, ���������� ����� ��������� ������ ���������� ����� ��� �����
 	float GetYByX( float fX, float fX0, float fY0, float fX1, float fY1 )
 	{
 		NI_ASSERT_SLOW_T( ( fX1 - fX0 ) != 0,
@@ -225,31 +165,22 @@ class CUIMiniMap : public CSimpleWindow
 		return ( fY1 * ( fX - fX0 ) - fY0 * ( fX - fX1 ) ) / ( fX1 - fX0 );
 
 	}
-	//����� X �� ���������� Y, ���������� ����� ��������� ������ ���������� ����� ��� �����
 	float GetXByY( float fY, float fX0, float fY0, float fX1, float fY1 )
 	{
 		NI_ASSERT_SLOW_T( ( fY1 - fY0 ) != 0,
 											NStr::Format( "Devision by zero: (%f)", fY1 - fY0 ) );
 		return ( fX1 * ( fY - fY0 ) - fX0 * ( fY - fY1 ) ) / ( fY1 - fY0 );
 	}
-	//���������� ����� ����� ������ �� miniMap � ����������� ������, � ������� �����������
-	//������������������ �����, ��� � ����� 0-1
 	void GetVerticalClippedScreenEdge( const CTPoint<float> &v0, const CTPoint<float> &v1, std::vector<CTPoint<float> > *pvPoints );
-	//���������� ����� ����� ������ �� miniMap � ����������� ������, � ������� �����������
-	//������������������ �����, ��� � ����� 1-2
 	void GetHorizontalClippedScreenEdge( const CTPoint<float> &v1, const CTPoint<float> &v2, std::vector<CTPoint<float> > *pvPoints );
-	//���������� ����� ������ �� miniMap � ����������� ������, � ������� �����������
-	//��������� ������� � ��������� �������� ���������� �������� � ������� ������ PointToTextureMiniMap()
 	void GetClippedScreenFrame( std::vector<CTPoint<float> > *pvPoints, IGFX *pGFX );
 
-	//������� ������ ������ SetScreenSize() ���� ��� �� �������, minimap �� ����� ���������
 	bool IsInitialized()
   {
     return ( ( terrainSize.x > 0 ) &&
              ( terrainSize.y > 0 ) );
   }
 
-	//�������� �������������� ����� �������������� minimap
 	bool InMiniMap( float fXPos, float fYPos )
 	{
 		return ( ( fXPos >= 0 ) &&
@@ -258,7 +189,6 @@ class CUIMiniMap : public CSimpleWindow
 				     ( fYPos <= terrainSize.y ) );
 	}
 
-	//
 	void DrawFireRanges( CTextureLock<SGFXColor4444> *pTextureLock );
 public:
 	CUIMiniMap( )
@@ -270,7 +200,6 @@ public:
 			pWarFogValues[nFogValue] = a << 12;
 		}
 
-		//CRAP{ ���������� ������� ���������������� ����� �������
 		pPartyColors[0] = 0xF0F0;
 		pPartyColors[1] = 0xFF00;
 		pPartyColors[2] = 0xF00F;
@@ -294,30 +223,20 @@ public:
 			pPartyColors[index] = 0x0000;
 		}
 		/**/
-		//}CRAP
 	}
 	~CUIMiniMap()
 	{
 	}
 
-	//���������� ������ ���� ��� ��������� ���������� �� fog of war, �������� ������ ����� ������� ������ �� ���� ��������
-  //������ � VIS ������
   virtual void STDCALL SetTerrainSize( int nXTerrainSize, int nYTerrainSize, int _nPlayersCount );
-	//���������� �������� �����
 	virtual void STDCALL SetBackgroundTexture( IGFXTexture *_pBackgroundTexture )
 	{
 		pBackgroundTexture = _pBackgroundTexture;
 	}
 
-	//�������� ���������� � fog of war, ������� �� AILogic ������� ������:
-	//���� �������� ��������� ������ ���������� - ������������ true
-	//����� - ������������ false
 	virtual bool STDCALL AddWarFogData( const BYTE *pVizBuffer, int nLength );
-	//�������� ���������� � ������, ������� �� AILogic ������� ������:
 	virtual void STDCALL AddUnitsData( const struct SMiniMapUnitInfo *pUnitsBuffer, int nUnitsCount );
-	//�������� ���������� �� ������������ �������� � ����� ��������
 	virtual void STDCALL AddFireRangeAreas( const struct SShootAreas *pShootAreasBuffer, int nShootAreasCount );
-	//
 	virtual void STDCALL AddCircle( const CVec2 &vCenter, const float fRadius, int nStyle, WORD wColor, const NTimer::STime &rStart, const NTimer::STime &rDuration, bool bRelative, LPARAM lParam );
 	virtual int STDCALL AddMarker( const std::string &rszName, const CVec2 &vPos, bool _bActive, int _nID, const NTimer::STime &rStart, const NTimer::STime &rDuration, bool bRelative );
 	virtual void STDCALL ActivateMarker( int _nID, bool _bActive );
@@ -325,24 +244,18 @@ public:
 	virtual void STDCALL RemoveMarker( int _nID );
 	virtual void STDCALL RemoveMarker( const std::string &rszName );
 	
-	//from UIControl interface
-	// serializing...
 	virtual int STDCALL operator&( IDataTree &ss );
 
-//Mouse moving
 	virtual bool STDCALL IsInside( const CVec2 &vPos );
 	virtual bool STDCALL OnLButtonDown( const CVec2 &vPos, EMouseState mouseState );
 	virtual bool STDCALL OnLButtonUp( const CVec2 &vPos, EMouseState mouseState );
 	virtual bool STDCALL OnMouseMove( const CVec2 &vPos, EMouseState mouseState );
 	virtual bool STDCALL OnRButtonUp( const CVec2 &vPos, EMouseState mouseState );
-// update
   virtual bool STDCALL Update( const NTimer::STime &currTime );
-// drawing
 	virtual void STDCALL Draw( interface IGFX *_pGFX ) = 0;
 	virtual void STDCALL Visit( interface ISceneVisitor *pVisitor );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIMiniMapBridge : public IUIMiniMap, public CUIMiniMap
 {
 	OBJECT_NORMAL_METHODS( CUIMiniMapBridge );
@@ -355,7 +268,6 @@ class CUIMiniMapBridge : public IUIMiniMap, public CUIMiniMap
 	virtual void STDCALL AddUnitsData( const struct SMiniMapUnitInfo *pUnitsBuffer, int nUnitsCount )  { CSuper::AddUnitsData( pUnitsBuffer, nUnitsCount ); }
 	virtual void STDCALL AddFireRangeAreas( const struct SShootAreas *pShootAreasBuffer, int nShootAreasCount )  { CSuper::AddFireRangeAreas( pShootAreasBuffer, nShootAreasCount ); }
 	virtual void STDCALL AddCircle( const CVec2 &vCenter, const float fRadius, int nStyle, WORD wColor, const NTimer::STime &rStart, const NTimer::STime &rDuration, bool bRelative, LPARAM lParam ) { CSuper::AddCircle( vCenter, fRadius, nStyle, wColor, rStart, rDuration, bRelative, lParam ); }
-	//
 	virtual int STDCALL AddMarker( const std::string &rszName, const CVec2 &vPos, bool _bActive, int _nID, const NTimer::STime &rStart, const NTimer::STime &rDuration, bool bRelative ) { return CSuper::AddMarker( rszName, vPos, _bActive, _nID, rStart, rDuration, bRelative ); }
 	virtual void STDCALL ActivateMarker( int _nID, bool _bActive ) { CSuper::ActivateMarker( _nID, _bActive ); }
 	virtual void STDCALL ActivateMarker( const std::string &rszName, bool _bActive ) { CSuper::ActivateMarker( rszName, _bActive ); }

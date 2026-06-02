@@ -1,15 +1,6 @@
 #include "StdAfx.h"
 
 #include "fmtTerrain.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** tileset description
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int STileMapsDesc::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -19,7 +10,6 @@ int STileMapsDesc::operator&( IDataTree &ss )
 	saver.Add( "maps3", &( maps[3] ) );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMainTileDesc::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -33,14 +23,12 @@ int SMainTileDesc::operator&( IDataTree &ss )
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int STileTypeDesc::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
 	saver.Add( "tiles", &tiles );
 	if ( saver.IsReading() )
 	{
-		// normalize probability values during reading
 		float fTotal = 0;
 		for ( std::vector<SMainTileDesc>::const_iterator it = tiles.begin(); it != tiles.end(); ++it )
 			fTotal += it->fProbFrom;
@@ -56,7 +44,6 @@ int STileTypeDesc::operator&( IDataTree &ss )
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*int STerrTypeDesc::STerrainLoopedSound::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -101,7 +88,6 @@ int STilesetDesc::operator&( IDataTree &ss )
 	saver.Add( "tilemaps", &tilemaps );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
 int SRoadTileTypeDesc::operator&( IDataTree &ss )
 {
@@ -125,7 +111,6 @@ int SRoadsetDesc::operator&( IDataTree &ss )
 	return 0;
 }
 /**/
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SCrossTileTypeDesc::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -147,4 +132,3 @@ int SCrossetDesc::operator&( IDataTree &ss )
 	saver.Add( "tilemaps", &tilemaps );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

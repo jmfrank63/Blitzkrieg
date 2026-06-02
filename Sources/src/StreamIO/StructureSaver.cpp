@@ -2,13 +2,11 @@
 
 #include "StructureSaverInternal.h"
 #include "DataTreeXML.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSaveLoadSystem theSaveLoadSystem;
 ISaveLoadSystem* STDCALL GetSLS()
 {
 	return &theSaveLoadSystem;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSaveLoadSystem::CSaveLoadSystem()
 {
 }
@@ -17,7 +15,6 @@ CSaveLoadSystem::~CSaveLoadSystem()
 	if ( pFactory )
 		delete pFactory;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSaveLoadSystem::AddFactory( IObjectFactory *_pFactory )
 {
 	if ( pFactory == 0 )	
@@ -25,14 +22,12 @@ void CSaveLoadSystem::AddFactory( IObjectFactory *_pFactory )
 	NI_ASSERT_SLOW_TF( pFactory != 0, "basic save-load factory was not created", return );
 	pFactory->Aggregate( _pFactory );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IStructureSaver* CSaveLoadSystem::CreateStructureSaver( IDataStream *pStream, IStructureSaver::EAccessMode eAccessMode, 
 		IStructureSaver::EStoreMode eStoreMode = IStructureSaver::ALL )
 {
 	NI_ASSERT_TF( pStream != 0, "Can't create structure saver from NULL stream", return 0 );
 	return new CStructureSaver( pStream, eAccessMode, eStoreMode, pFactory, pGDB );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IDataTree* CSaveLoadSystem::CreateDataTreeSaver( IDataStream *pStream, IDataTree::EAccessMode eAccessMode, DTChunkID idBaseNode )
 {
 	NI_ASSERT_TF( pStream != 0, "Can't create data tree saver from NULL stream", return 0 );
@@ -41,9 +36,6 @@ IDataTree* CSaveLoadSystem::CreateDataTreeSaver( IDataStream *pStream, IDataTree
 	pDT->Open( pStream, idBaseNode );
 	return pDT;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// chunks operations with whole saves
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool ReadShortChunkSave( IDataStream *pFile, SSChunkID &dwID, CMemoryStream &chunk )
 {
 	DWORD dwLeng = 0;
@@ -58,7 +50,6 @@ bool ReadShortChunkSave( IDataStream *pFile, SSChunkID &dwID, CMemoryStream &chu
 	DWORD dwRead = pFile->Read( chunk.GetBufferForWrite(), dwLeng );
 	return dwRead == dwLeng;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool WriteShortChunkSave( IDataStream *pFile, SSChunkID dwID, CMemoryStream &chunk )
 {
 	pFile->Write( &dwID, sizeof( dwID ) );
@@ -74,7 +65,6 @@ bool WriteShortChunkSave( IDataStream *pFile, SSChunkID dwID, CMemoryStream &chu
 	pFile->Write( chunk.GetBuffer(), chunk.GetSize() );
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool GetShortChunkSave( IDataStream *pFile, SSChunkID dwID, CMemoryStream &chunk, int nNumber = 1 )
 {
 	SSChunkID dwRid;
@@ -91,9 +81,6 @@ bool GetShortChunkSave( IDataStream *pFile, SSChunkID dwID, CMemoryStream &chunk
 	chunk.Clear();
 	return false;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// chunks operations with ChunkLevels
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <int N>
 inline void ReadPtrData( const unsigned char *pData, void *pDst, int &nPos, const SGenericNumber<N> &number )
 {
@@ -113,13 +100,11 @@ inline void ReadPtrData( const unsigned char *pData, void *pDst, int &nPos, cons
 	*(((unsigned char*)pDst) + 2) = *( pData + nPos + 2 );
 	nPos += 3;
 }
-// should copy data from start
 void WritePtrData( unsigned char *pDst, const void *pSrc, int *nPos, int nSize )
 {
 	memcpy( pDst + *nPos, pSrc, nSize );
 	*nPos += nSize;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStructureSaver::ReadShortChunk( CChunkLevel &src, int &nPos, CChunkLevel &res )
 {
 	const unsigned char *pSrc = data.GetBuffer() + src.nStart;
@@ -138,7 +123,6 @@ bool CStructureSaver::ReadShortChunk( CChunkLevel &src, int &nPos, CChunkLevel &
 	nPos += dwLeng;
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStructureSaver::WriteShortChunk( CChunkLevel &dst, SSChunkID dwID, const unsigned char *pData, int nLength )
 {
 	data.SetSize( dst.nStart + dst.nLength + 1 + 4 + nLength );
@@ -152,14 +136,12 @@ bool CStructureSaver::WriteShortChunk( CChunkLevel &dst, SSChunkID dwID, const u
 	}
 	else
 		WritePtrData( pDst, &dwLeng, &dst.nLength, 1 );
-	// prevent copying to itself
 	if ( pDst + dst.nLength != pData )
 		WritePtrData( pDst, pData, &dst.nLength, nLength );
 	else
 		dst.nLength += nLength;
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStructureSaver::GetShortChunk( CChunkLevel &src, SSChunkID dwID, CChunkLevel &res, int nNumber )
 {
 	int nPos = 0;
@@ -174,7 +156,6 @@ bool CStructureSaver::GetShortChunk( CChunkLevel &src, SSChunkID dwID, CChunkLev
 	}
 	return false;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CStructureSaver::CountShortChunks( CChunkLevel &src, SSChunkID dwID )
 {
 	int nPos = 0, nRes = 0;
@@ -186,9 +167,6 @@ int CStructureSaver::CountShortChunks( CChunkLevel &src, SSChunkID dwID )
 	}
 	return nRes;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// CStructureSaver main methods
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStructureSaver::DataChunk( const SSChunkID idChunk, void *pData, int nSize )
 {
 	CChunkLevel &last = chunks.back();
@@ -206,12 +184,9 @@ void CStructureSaver::DataChunk( const SSChunkID idChunk, void *pData, int nSize
 	else
 		WriteShortChunk( last, idChunk, (const unsigned char*) pData, nSize );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStructureSaver::DataChunk( IDataStream *pStream )
 {
-	// remember current position in the stream
 	int nStreamPos = pStream->GetPos();
-	// do all read/write actions
 	int nSize = pStream->GetSize();
 	DataChunk( 1, &nSize, sizeof(nSize) );
 	std::vector<BYTE> buffer( nSize );
@@ -225,10 +200,8 @@ void CStructureSaver::DataChunk( IDataStream *pStream )
 		pStream->Read( &(buffer[0]), nSize );
 		DataChunk( 2, &(buffer[0]), nSize );
 	}
-	// restore current position in the stream
 	pStream->Seek( nStreamPos, STREAM_SEEK_SET );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStructureSaver::WriteRawData( const void *pData, int nSize )
 {
 	CChunkLevel &res = chunks.back();
@@ -236,7 +209,6 @@ void CStructureSaver::WriteRawData( const void *pData, int nSize )
 	unsigned char *pDst = data.GetBufferForWrite() + res.nStart;
 	WritePtrData( pDst, pData, &res.nLength, nSize );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStructureSaver::RawData( void *pData, int nSize )
 {
 	if ( IsReading() )
@@ -250,7 +222,6 @@ void CStructureSaver::RawData( void *pData, int nSize )
 		WriteRawData( pData, nSize );
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStructureSaver::StoreObject( IRefCount *pObject )
 {
 	if ( (pObject != 0) && (storedObjects.find(pObject) == storedObjects.end()) && !IsDataOnly() )
@@ -260,7 +231,6 @@ void CStructureSaver::StoreObject( IRefCount *pObject )
 	}
 	RawData( &pObject, 4 );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IRefCount* CStructureSaver::LoadObject()
 {
 	void *pServerPtr = 0;
@@ -271,12 +241,9 @@ IRefCount* CStructureSaver::LoadObject()
 		if ( pFound != objects.end() )
 			return pFound->second;
 		NI_ASSERT_SLOW_T( 0, "we are in problem - stored object does not exist" );
-		// here  we are in problem - stored object does not exist
-		// actually i think we got to throw the exception
 	}
 	return reinterpret_cast<IRefCount*>( pServerPtr );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStructureSaver::StartChunk( const SSChunkID idChunk )
 {
 	CChunkLevel &last = chunks.back();
@@ -296,7 +263,6 @@ bool CStructureSaver::StartChunk( const SSChunkID idChunk )
 		return true;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStructureSaver::FinishChunk()
 {
 	if ( IsReading() ) 
@@ -312,27 +278,22 @@ void CStructureSaver::FinishChunk()
 		AlignDataFileSize();
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStructureSaver::AlignDataFileSize()
 {
 	CChunkLevel &last = chunks.back();
 	data.SetSize( last.nStart + last.nLength );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CStructureSaver::CountChunks( const SSChunkID idChunk )
 {
 	return CountShortChunks( chunks.back(), idChunk );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStructureSaver::SetChunkCounter( int nCount ) 
 { 
 	chunks.back().nChunkNumber = nCount; 
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStructureSaver::Start( IStructureSaver::EAccessMode eAccessMode, IStructureSaver::EStoreMode _eStoreMode )
 {
 	IDataStream *pRes = pDstStream;
-	//
 	chunks.clear();
 	obj.Clear();
 	data.Clear();
@@ -341,11 +302,9 @@ void CStructureSaver::Start( IStructureSaver::EAccessMode eAccessMode, IStructur
 	eStoreMode = _eStoreMode;
 	if ( bReading )
 	{
-		// read chunk with objects description
 		GetShortChunkSave( pRes, 0, obj );
 		GetShortChunkSave( pRes, 2, data );
 		chunks.back().nLength = data.GetSize();
-		// create all objects from obj
 		while ( obj.GetPosition() < obj.GetSize() )
 		{
 			int nTypeID = 0;
@@ -360,7 +319,6 @@ void CStructureSaver::Start( IStructureSaver::EAccessMode eAccessMode, IStructur
 			if ( !bValid )
 				CObj<IRefCount> pObj = pObject;
 		}
-		// read information about every created object
 		int nCount = CountChunks( SSChunkID( 1 ) );
 		for ( int i=0; i<nCount; ++i )
 		{
@@ -384,40 +342,33 @@ void CStructureSaver::Start( IStructureSaver::EAccessMode eAccessMode, IStructur
 		}
 		SetChunkCounter( 1 );
 
-		// read main objects data
 		chunks.back().Clear();
 		GetShortChunkSave( pRes, 1, data );
 		chunks.back().nLength = data.GetSize();
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStructureSaver::Finish()
 {
 	IDataStream *pRes = pDstStream;
 	NI_ASSERT_SLOW( chunks.size() == 1 );
 	if ( !IsReading() )
 	{
-		// save standard data
 		AlignDataFileSize();
 		WriteShortChunkSave( pRes, 1, data );
-		// store referenced objects
 		data.Clear();
 		chunks.back().Clear();
 		while ( !toStore.empty() )
 		{
 			CPtr<IRefCount> pObject = toStore.front();
 			toStore.pop_front();
-			// save object type and its server pointer
 			int nTypeID = pFactory->GetObjectTypeID( pObject );
 			bool bValid = pObject->IsValid();
 			NI_ASSERT_SLOW_T( nTypeID != -1, NStr::Format("unregistered object of type \"%s\"", typeid(*pObject).name()) );
 			obj.Write( &nTypeID, 4 );
 			obj.Write( &pObject, 4 );
 			obj.Write( &bValid, 1 );
-			// save object data
 			StartChunk( SSChunkID( 1 ) );
 			DataChunk( 0, &pObject, 4 );
-			//
 			if ( StartChunk( 1 ) )
 			{
 				pObject->operator&( *this );
@@ -425,7 +376,6 @@ void CStructureSaver::Finish()
 			}
 			FinishChunk();
 		}
-		// save data into resulting file
 		WriteShortChunkSave( pRes, 0, obj );
 		AlignDataFileSize();
 		WriteShortChunkSave( pRes, 2, data );
@@ -437,4 +387,3 @@ void CStructureSaver::Finish()
 	toStore.clear();
 	chunks.clear();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,10 +1,7 @@
 #ifndef __BIT_DATA_H__
 #define __BIT_DATA_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "2DArrayRLEWrapper.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CArray1Bit
 {
 	int xSize;
@@ -17,14 +14,11 @@ public:
 	CArray1Bit( const int size ) { SetSize( size ); }
 	CArray1Bit( const CArray1Bit &a ) : xSize( a.xSize ), array( a.array ) { }
 	~CArray1Bit() {}
-	//
 	const CArray1Bit& operator=( const CArray1Bit &a ) { xSize = a.xSize; array = a.array; return *this; }
-	//
 	void SetSize( const int size ) { xSize = size; array.resize( (size >> 3) + 1 ); }
 	void Clear() { xSize = 0; array.clear(); }
 	void SetZero() { if ( !IsEmpty() ) memset( &(array[0]), 0, array.size() ); }
 
-	//
 	int GetSize() const { return xSize; }
 	bool IsEmpty() const { return xSize == 0; }
 
@@ -43,7 +37,6 @@ public:
 		array[n >> 3] &= ~( 1 << (n & 7) );
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CArray2D4Bit
 {
 	int xSize;
@@ -55,17 +48,13 @@ public:
 	CArray2D4Bit( const int xsize, const int ysize ) { SetSizes( xsize, ysize ); }
 	CArray2D4Bit( const CArray2D4Bit &a ) : xSize( a.xSize ), array( a.array ) { }
 	~CArray2D4Bit() {}
-	//
 	const CArray2D4Bit& operator=( const CArray2D4Bit &a ) { xSize = a.xSize; array = a.array; return *this; }
-	//
 	void SetSizes( const int xsize, const int ysize ) { xSize = xsize; array.SetSizes( (xsize >> 1) + 1, ysize ); }
 	void Clear() { xSize = 0; array.Clear(); }
 	void SetZero() { array.SetZero(); }
 
-	//
 	int GetSizeX() const { return xSize; }
 	int GetSizeY() const { return array.GetSizeY(); }
-	//
 	bool IsEmpty() const { return array.IsEmpty(); }
 
 	void SetData( const int x, const int y, const BYTE cData )
@@ -86,7 +75,6 @@ public:
 
 	friend class CBitArray2DRLEWrapper<CArray2D4Bit>;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CArray2D1Bit
 {
 	int xSize;
@@ -98,14 +86,11 @@ public:
 	CArray2D1Bit( const int xsize, const int ysize )  { SetSizes( xsize, ysize ); }
 	CArray2D1Bit( const CArray2D1Bit &a ) : xSize( a.xSize ), array( a.array ) { }
 	~CArray2D1Bit() {}
-	//
 	const CArray2D1Bit& operator=( const CArray2D1Bit &a ) { xSize = a.xSize; array = a.array; return *this; }
-	//
 	void SetSizes( const int xsize, const int ysize ) { xSize = xsize; array.SetSizes( (xsize >> 3) + 1, ysize ); }
 	void Clear() { xSize = 0; array.Clear(); }
 	void SetZero() { array.SetZero(); }
 	void SetZeroFast() { memset( array.GetBuffer(), 0, array.GetSizeX() * array.GetSizeY() ); }
-	//
 	void CopyEqualSizes( CArray2D1Bit & dest ) 
 	{ 
 		NI_ASSERT_T( xSize == dest.xSize && array.GetSizeX() == dest.array.GetSizeX() && array.GetSizeY() == dest.array.GetSizeY(), "cannot copy, unequal sizes" );
@@ -118,7 +103,6 @@ public:
 
 	int GetSizeX() const { return xSize; }
 	int GetSizeY() const { return array.GetSizeY(); }
-	//
 	bool IsEmpty() const { return array.IsEmpty(); }
 
 	void SetData( const int x, const int y )
@@ -138,5 +122,4 @@ public:
 
 	friend class CBitArray2DRLEWrapper<CArray2D1Bit>;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __BIT_DATA_H__

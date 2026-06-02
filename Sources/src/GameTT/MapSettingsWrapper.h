@@ -1,15 +1,11 @@
 #ifndef __MAPSETTINGSWRAPPER_H__
 #define __MAPSETTINGSWRAPPER_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\RandomMapGen\MapInfo_Types.h"
 #include "..\StreamIO\OptionSystem.h"
 #include "MultiplayerCommandManager.h"
-//#include "OptionEntryWrapper.h"
 #include "..\UI\UI.h"
 class COptionsListWrapper;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMapSettingsWrapper : public IRefCount
 {
 	OBJECT_COMPLETE_METHODS(CMapSettingsWrapper);
@@ -32,7 +28,6 @@ public:
 		virtual bool STDCALL Set( const std::string &szVarName, const variant_t &var );
 		virtual bool STDCALL Get( const std::string &szVarName, variant_t *pVar ) const;
 		
-		// all others forward to main option system
 		virtual const SOptionDesc* STDCALL GetDesc( const std::string &szVarName ) const { return GetSingleton<IOptionSystem>()->GetDesc( szVarName ); }
 		virtual const std::vector<SOptionDropListValue>& STDCALL GetDropValues( const std::string &szVarName ) const { return GetSingleton<IOptionSystem>()->GetDropValues( szVarName ); }
 		virtual IOptionSystemIterator* STDCALL CreateIterator( const DWORD dwMask = 0xffffffff ) { return GetSingleton<IOptionSystem>()->CreateIterator( dwMask ); }
@@ -68,5 +63,4 @@ public:
 	void Apply();
 	
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __MAPSETTINGSWRAPPER_H__

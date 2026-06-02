@@ -8,31 +8,21 @@
 #include "StandartPath.h"
 
 #include "TimeCounter.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CStaticMap theStaticMap;
 extern NTimer::STime curTime;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( IPath );
 BASIC_REGISTER_CLASS( ISmoothPath );
 BASIC_REGISTER_CLASS( IMemento );
 BASIC_REGISTER_CLASS( IStaticPath );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												CCommonStaticPath													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CCommonStaticPath );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CCommonStaticPath::CCommonStaticPath( const interface IStaticPathFinder &staticPathFinder, const CVec2 &finishPoint )
 {
 	SetPath( staticPathFinder, staticPathFinder.GetPathLength(), finishPoint );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CCommonStaticPath::CCommonStaticPath( const interface IStaticPathFinder &staticPathFinder, const int nLen, const CVec2 &finishPoint )
 {
 	SetPath( staticPathFinder, nLen, finishPoint );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommonStaticPath::SetPath( const interface IStaticPathFinder &staticPathFinder, const int _nLen, const CVec2 &_finishPoint )
 {
 	nLen = _nLen;
@@ -44,17 +34,14 @@ void CCommonStaticPath::SetPath( const interface IStaticPathFinder &staticPathFi
 
 	if ( nLen > 0 )
 		staticPathFinder.GetStopTiles( &(path[0]), nLen );
-	// инициализация startTile и finishTile
 	startTile = staticPathFinder.GetStartTile();
 	finishTile = staticPathFinder.GetFinishTile();
 
-	// инициализация finishPoint
 	if ( !theStaticMap.IsPointInside( _finishPoint ) || finishTile != AICellsTiles::GetTile( _finishPoint ) )
 		finishPoint = AICellsTiles::GetPointByTile( finishTile );
 	else 
 		finishPoint = _finishPoint;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommonStaticPath::MoveStartTileTo( const int nStart )
 {
 	NI_ASSERT_T( nStart < nLen, "Wrong point to move start to" );
@@ -63,7 +50,6 @@ void CCommonStaticPath::MoveStartTileTo( const int nStart )
 	startTile = path[nStart];
 	path.erase( path.begin(), path.begin() + nStart );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommonStaticPath::MoveFinishTileTo( const int nFinish )
 {
 	NI_ASSERT_T( nFinish <= nLen && nFinish > 0, "Wrong point to move finish to" );
@@ -72,17 +58,11 @@ void CCommonStaticPath::MoveFinishTileTo( const int nFinish )
 	finishTile = path[nFinish-1];
 	finishPoint = AICellsTiles::GetPointByTile( finishTile );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommonStaticPath::MoveFinishPointBy( const CVec2 &vMove ) 
 { 
 	if ( AICellsTiles::GetTile( finishPoint + vMove ) == finishTile )
 		finishPoint += vMove;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													CStandartPath														*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartPath::SaveSmallPath( const int nToSave )
 {
 	if ( nToSave == -1 )
@@ -99,10 +79,8 @@ void CStandartPath::SaveSmallPath( const int nToSave )
 		memcpy( pathPoints, pathPoints+ENPathPoints, nCurPathPoint * sizeof( SVector ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartPath::CalculateSmallPath( const bool bLastStep )
 {
-	// попробовать пойти, чтобы сохранить относительную позицию
 	SVector nextTile;
 	if ( curStPathTile == pStPath->GetFinishTile() )
 		nextTile = AICellsTiles::GetTile( finishPoint );
@@ -112,7 +90,6 @@ void CStandartPath::CalculateSmallPath( const bool bLastStep )
 	bool bFound = true;
 	if ( theStaticMap.CanUnitGo( nBoundTileRadius, nextTile, aiClass ) )
 	{
-		// путь в точку со сдвигом длины не больше, чем 4 * mDistance( pathPoint[nCurTile], nextTile )
 		theStaticMap.MemMode();
 		theStaticMap.SetMode( ELM_STATIC );
 		const SVector goodTile = 
@@ -133,7 +110,6 @@ void CStandartPath::CalculateSmallPath( const bool bLastStep )
 	else
 		bFound = false;
 
-	// путь не найден
 	if ( !bFound )
 	{
 		theStaticMap.MemMode();
@@ -155,11 +131,9 @@ void CStandartPath::CalculateSmallPath( const bool bLastStep )
 	}
 	pPathFinder->SmoothPath();
 
-	// нельзя пойти точно в тайл последней точки
 	if ( curStPathTile == pStPath->GetFinishTile() && nextTile != pPathFinder->GetFinishTile() )
 		finishPoint = AICellsTiles::GetPointByTile( pPathFinder->GetFinishTile() );
 
-	// divide short path by 2 and go
 	int len = pPathFinder->GetPathLength();
 	if ( 2 * SConsts::MAX_LENGTH_OF_SMALL_PATH >= len )
 	{
@@ -180,23 +154,19 @@ void CStandartPath::CalculateSmallPath( const bool bLastStep )
 		bSmallPathTooLong = true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStandartPath::CalculateNewPath( const bool bShift )
 {
-	// маленький путь был слишком длинён
 	if ( bSmallPathTooLong )
 		CalculateSmallPath( nCurStaticPoint == pStPath->GetLength() );
 	else
 		if ( nCurStaticPoint < pStPath->GetLength() || !bShift )
 		{
-			// сдвинуть точку на большом пути
 			int shift;
 			if ( bShift )
 				shift = Min( nCurStaticPoint + SConsts::BIG_PATH_SHIFT, pStPath->GetLength() );
 			else
 				shift = nCurStaticPoint;
 
-			// пропустить все залоканные тайлы
 			while ( shift < pStPath->GetLength() && !theStaticMap.CanUnitGo( nBoundTileRadius, pStPath->GetTile( shift - 1 ), aiClass ) )
 				++shift;
 
@@ -212,7 +182,6 @@ bool CStandartPath::CalculateNewPath( const bool bShift )
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartPath::InitByStaticPath( IStaticPath *_pStPath, const CVec2 &_startPoint, const CVec2 &_finishPoint )
 {
 	NI_ASSERT_T( _pStPath != 0, "Null static path" );
@@ -236,13 +205,11 @@ void CStandartPath::InitByStaticPath( IStaticPath *_pStPath, const CVec2 &_start
 
 	CalculateNewPath( true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStandartPath::CStandartPath( const int _nBoundTileRadius, const BYTE _aiClass, IStaticPathFinder *_pPathFinder, interface IStaticPath *_pStPath, const CVec2 &startPoint, const CVec2 &finishPoint, const SVector &_lastKnownGoodTile )
 : nBoundTileRadius( _nBoundTileRadius ), aiClass( _aiClass ), pPathFinder( _pPathFinder ), lastKnownGoodTile( _lastKnownGoodTile )
 {
 	InitByStaticPath( _pStPath, startPoint, finishPoint );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartPath::RecoverState( const CVec2 &point, const SVector &_lastKnownGoodTile )
 {
 	lastKnownGoodTile = _lastKnownGoodTile;
@@ -252,7 +219,6 @@ void CStandartPath::RecoverState( const CVec2 &point, const SVector &_lastKnownG
 
 	InitByStaticPath( new CCommonStaticPath( *pPathFinder, finishPoint ), point, finishPoint );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartPath::Recalculate( const CVec2 &point, const SVector &_lastKnownGoodTile )
 {
 	lastKnownGoodTile = _lastKnownGoodTile;
@@ -264,7 +230,6 @@ void CStandartPath::Recalculate( const CVec2 &point, const SVector &_lastKnownGo
 
 	CalculateNewPath( false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CStandartPath::PeekPoint( int nShift )
 {
 	if ( nCurInsertedTile > -1 )
@@ -287,7 +252,6 @@ const CVec2 CStandartPath::PeekPoint( int nShift )
 	}
 
 	CVec2 result;
-	// потому что при проверке на конец пути могут поменяться pathPoints
 	if ( nPoint != nCurPathPoint )
 		result = AICellsTiles::GetPointByTile( pathPoints[nPoint] );
 
@@ -296,7 +260,6 @@ const CVec2 CStandartPath::PeekPoint( int nShift )
 	else
 		return result;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartPath::Shift( int nShift )
 {
 	if ( nCurInsertedTile > -1 )
@@ -323,7 +286,6 @@ void CStandartPath::Shift( int nShift )
 			break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartPath::InsertTiles( const std::list<SVector> &tiles )
 {
 	nInsertedTiles = 0;
@@ -336,50 +298,38 @@ void CStandartPath::InsertTiles( const std::list<SVector> &tiles )
 
 	nCurInsertedTile = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const BYTE CStandartPath::GetNextPos( BYTE n )
 {
 	return ( ++n == ENPathPoints ) ? 0 : n;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStandartPath::CanGoBackward( interface IBasePathUnit *pUnit )
 { 
 	return 
 		pUnit->CanGoBackward() && pStPath->GetLength() * float(SConsts::TILE_SIZE) <= pUnit->GetAABBHalfSize().y * 3.0f;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CStandartDirPath														*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStandartDirPath::CStandartDirPath( const CVec2 &_startPoint, const CVec2 &_dir, const CVec2 &_finishPoint )
 : dir( _dir ), startPoint( _startPoint ), finishPoint( _finishPoint ), curPoint( _startPoint )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStandartDirPath::IsFinished() const
 {
 	return mDistance( curPoint, finishPoint ) < 2;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2& CStandartDirPath::GetFinishPoint() const
 {
 	return finishPoint;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartDirPath::Recalculate( const CVec2 &point, const SVector &lastKnownGoodTile )
 {
 	startPoint = point;
 	dir = finishPoint - point;
 	Normalize( &dir );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartDirPath::RecoverState( const CVec2 &point, const SVector &lastKnownGoodTile )
 {
 	curPoint = point;
 	dir = Norm( finishPoint - curPoint );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CStandartDirPath::PeekPoint( const int nShift )
 {
 	if ( !IsFinished() )
@@ -387,8 +337,6 @@ const CVec2 CStandartDirPath::PeekPoint( const int nShift )
 		CVec2 res( curPoint );
 		int inc = 0;
 		
-//		dir = finishPoint.ToCVec2() - res;
-//		Normalize( &dir );
 		
 		while ( ( finishPoint - res ) * dir > 0  && inc < nShift )
 		{
@@ -404,7 +352,6 @@ const CVec2 CStandartDirPath::PeekPoint( const int nShift )
 	else 
 		return finishPoint;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartDirPath::Shift( const int nShift )
 {
 	if ( !IsFinished() )
@@ -421,9 +368,7 @@ void CStandartDirPath::Shift( const int nShift )
 			curPoint = finishPoint;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStandartDirPath::CanGoBackward( interface IBasePathUnit *pUnit )
 {
 	return pUnit->CanGoBackward();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

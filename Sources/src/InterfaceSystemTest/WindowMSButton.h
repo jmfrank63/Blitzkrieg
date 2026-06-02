@@ -1,6 +1,3 @@
-// WindowMSButton.h: interface for the CWindowMSButton class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_WINDOWMSBUTTON_H__CBE5FDBF_1AE1_48E8_8464_1E6952CB132E__INCLUDED_)
 #define AFX_WINDOWMSBUTTON_H__CBE5FDBF_1AE1_48E8_8464_1E6952CB132E__INCLUDED_

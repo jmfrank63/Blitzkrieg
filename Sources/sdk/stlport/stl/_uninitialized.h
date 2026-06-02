@@ -44,10 +44,7 @@
 
 _STLP_BEGIN_NAMESPACE
 
-// uninitialized_copy
 
-// Valid if copy construction is equivalent to assignment, and if the
-//  destructor is trivial.
 template <class _InputIter, class _ForwardIter>
 inline _ForwardIter 
 __uninitialized_copy(_InputIter __first, _InputIter __last, _ForwardIter __result,
@@ -92,7 +89,6 @@ uninitialized_copy(const wchar_t* __first, const wchar_t* __last, wchar_t* __res
 #  endif /* _STLP_HAS_WCHAR_T */
 
 # ifndef _STLP_NO_EXTENSIONS
-// uninitialized_copy_n (not part of the C++ standard)
 
 template <class _InputIter, class _Size, class _ForwardIter>
 _STLP_INLINE_LOOP 
@@ -140,7 +136,6 @@ __uninitialized_copy_n(_RandomAccessIter __first, _Size __count, _ForwardIter __
                                                                              _IS_POD_ITER(__result, _ForwardIter)));
 }
 
-// this is used internally in <rope> , which is extension itself.
 template <class _InputIter, class _Size, class _ForwardIter>
 inline pair<_InputIter, _ForwardIter>
 uninitialized_copy_n(_InputIter __first, _Size __count,
@@ -149,8 +144,6 @@ uninitialized_copy_n(_InputIter __first, _Size __count,
 }
 # endif /* _STLP_NO_EXTENSIONS */
 
-// Valid if copy construction is equivalent to assignment, and if the
-// destructor is trivial.
 template <class _ForwardIter, class _Tp>
 inline void
 __uninitialized_fill(_ForwardIter __first, _ForwardIter __last, 
@@ -176,8 +169,6 @@ inline void uninitialized_fill(_ForwardIter __first, _ForwardIter __last,  const
   __uninitialized_fill(__first, __last, __x, _IS_POD_ITER(__first, _ForwardIter));
 }
 
-// Valid if copy construction is equivalent to assignment, and if the
-//  destructor is trivial.
 template <class _ForwardIter, class _Size, class _Tp>
 inline _ForwardIter
 __uninitialized_fill_n(_ForwardIter __first, _Size __n,
@@ -208,13 +199,7 @@ uninitialized_fill_n(_ForwardIter __first, _Size __n, const _Tp& __x) {
   return __uninitialized_fill_n(__first, __n, __x, _IS_POD_ITER(__first, _ForwardIter));
 }
 
-// Extensions: __uninitialized_copy_copy, __uninitialized_copy_fill, 
-// __uninitialized_fill_copy.
 
-// __uninitialized_copy_copy
-// Copies [first1, last1) into [result, result + (last1 - first1)), and
-//  copies [first2, last2) into
-//  [result, result + (last1 - first1) + (last2 - first2)).
 
 template <class _InputIter1, class _InputIter2, class _ForwardIter>
 inline _ForwardIter
@@ -242,9 +227,6 @@ __uninitialized_copy_copy(_InputIter1 __first1, _InputIter1 __last1,
 # endif
 }
 
-// __uninitialized_fill_copy
-// Fills [result, mid) with x, and copies [first, last) into
-//  [mid, mid + (last - first)).
 template <class _ForwardIter, class _Tp, class _InputIter>
 inline _ForwardIter 
 __uninitialized_fill_copy(_ForwardIter __result, _ForwardIter __mid, const _Tp& __x,
@@ -261,9 +243,6 @@ __uninitialized_fill_copy(_ForwardIter __result, _ForwardIter __mid, const _Tp& 
 # endif
 }
 
-// __uninitialized_copy_fill
-// Copies [first1, last1) into [first2, first2 + (last1 - first1)), and
-//  fills [first2 + (last1 - first1), last2) with x.
 template <class _InputIter, class _ForwardIter, class _Tp>
 inline void
 __uninitialized_copy_fill(_InputIter __first1, _InputIter __last1,
@@ -282,6 +261,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_UNINITIALIZED_H */
 
-// Local Variables:
-// mode:C++
-// End:

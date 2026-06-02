@@ -24,13 +24,10 @@ public:
 	CSquadCommonPropsItem() { nItemType = E_SQUAD_COMMON_PROPS_ITEM; InitDefaultValues(); nImageIndex = 0; }
 	~CSquadCommonPropsItem() {};
 	
-	//Получение внутренних параметров
 	const char* GetSquadName() { return values[0].value; }
 	const char* GetSquadPicture() { return values[1].value; }
 	int GetSquadType();
 	
-	//Установка внутренних параметров
-//	void SetSquadName( const char *pszName ) { values[0].value = pszName; }
 
 	virtual void InitDefaultValues();
 };
@@ -54,9 +51,7 @@ public:
 	CSquadMemberPropsItem() { bStaticElements = true; nItemType = E_SQUAD_MEMBER_PROPS_ITEM; InitDefaultValues(); nImageIndex = 3; }
 	~CSquadMemberPropsItem() {};
 	
-	//Получение внутренних параметров
 	
-	//Установка внутренних параметров
 	
 	virtual void InitDefaultValues();
 	virtual void UpdateItemValue( int nItemId, const CVariant &value );
@@ -106,7 +101,6 @@ public:
 	void DeleteUnit( CTreeItem *pUnit );
 	void SetUnitPointer( int nIndex, CTreeItem *pUnit );
 	
-	//Получение внутренних параметров
 	int GetFormationType();
 	int GetHitSwitchFormation() { return values[1].value; }
 	int GetLieState();
@@ -117,7 +111,6 @@ public:
 	float GetCoverBonus() { return values[7].value; }
 	float GetVisibleBonus() { return values[8].value; }
 	
-	//Установка внутренних параметров
 	
 	virtual int operator&( IDataTree &ss );
 	virtual void InitDefaultValues();

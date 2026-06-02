@@ -11,9 +11,6 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */ 
 
-// WARNING: This is an internal header file, included by other C++
-// standard library headers.  You should not attempt to use this header
-// file directly.
 
 #ifndef _STLP_INTERNAL_CTRAITS_FUNCTIONS_H
 #define _STLP_INTERNAL_CTRAITS_FUNCTIONS_H
@@ -22,8 +19,6 @@
 #  include <stl/_function_base.h>
 # endif
 
-// This file contains a few small adapters that allow a character
-// traits class to be used as a function object.
 
 _STLP_BEGIN_NAMESPACE
 
@@ -86,9 +81,6 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_CTRAITS_FUNCTIONS_H */
 
-// Local Variables:
-// mode:C++
-// End:
 
 
 

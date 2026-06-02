@@ -62,7 +62,6 @@ public:
   typedef typename _Ht::reference       reference;
   typedef typename _Ht::const_reference const_reference;
 
-  // SunPro bug
   typedef typename _Ht::const_iterator const_iterator;
   typedef const_iterator iterator;
 
@@ -264,7 +263,6 @@ public:
   typedef typename _Ht::const_reference const_reference;
 
   typedef typename _Ht::const_iterator const_iterator;
-  // SunPro bug
   typedef const_iterator iterator;
 
   typedef typename _Ht::allocator_type allocator_type;
@@ -432,8 +430,6 @@ swap(hash_multiset<_Val,_HashFcn,_EqualKey,_Alloc>& __hs1,
 
 #endif /* _STLP_USE_SEPARATE_RELOPS_NAMESPACE */
 
-// Specialization of insert_iterator so that it will work for hash_set
-// and hash_multiset.
 
 #ifdef _STLP_CLASS_PARTIAL_SPECIALIZATION
 
@@ -493,11 +489,9 @@ public:
 #endif /* _STLP_CLASS_PARTIAL_SPECIALIZATION */
 _STLP_END_NAMESPACE
 
-// do a cleanup
 #  undef hash_set
 #  undef hash_multiset
 
-// provide a uniform way to access full funclionality 
 #  define __hash_set__       __FULL_NAME(hash_set)
 #  define __hash_multiset__  __FULL_NAME(hash_multiset)
 
@@ -507,7 +501,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_HASH_SET_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

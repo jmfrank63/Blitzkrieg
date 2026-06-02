@@ -15,7 +15,6 @@
 #include "UIConsts.h"
 #include "UnitTypes.h"
 #include "etypes.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum ECommands
 {
 	MC_UNITS				= 10003,
@@ -25,18 +24,15 @@ enum ECommands
 
 	E_START_WINDOW_ID	= 20000,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_ok"				,	IMC_OK				},
 	{ "inter_cancel"		, IMC_CANCEL		},
 	{ 0									,	0							}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceChapter::~CInterfaceChapter()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceChapter::operator &( interface IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -51,15 +47,12 @@ int CInterfaceChapter::operator &( interface IStructureSaver &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SChapterStats *CInterfaceChapter::ReadChapterStats()
 {
 	std::string szChapterName = GetGlobalVar( "Chapter.Current.Name" );
-	//��������� ���������� � �������
 	const SChapterStats *pStats = NGDB::GetGameStats<SChapterStats>( szChapterName.c_str(), IObjectsDB::CHAPTER );
 	return pStats;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SRandomMission
 {
 	std::string szRandomName;
@@ -70,19 +63,14 @@ struct SRandomMission
 	bool operator < ( const SRandomMission &b ) { return nPlayCount < b.nPlayCount; }
 	bool operator < ( const SRandomMission &b ) const { return nPlayCount > b.nPlayCount; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct STemplateMission
 {
 	std::string szName;
 	int nProbability;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceChapter::IncrementChapterVisited()
 {
 	int nFinishStatus = GetGlobalVar( "Mission.Last.FinishStatus", -1 );
-//	NI_ASSERT_T( nFinishStatus != -1, "Global var Mission.Last.FinishStatus does not setted up, error" );
-	//���� ���������� 0, �� ������ ������ ��������
-	//���� -1, �� ���������� ��� �� ���� �� ���������������, ������ ������ ������ ������ � �� ������ �� ����� ������
 	if ( nFinishStatus == ( -1 ) )
 	{
 		if ( CPtr<IScenarioTracker> pScenarioTracker = GetSingleton<IScenarioTracker>() )
@@ -98,13 +86,11 @@ void CInterfaceChapter::IncrementChapterVisited()
 		return;			//������ �� ���� ��������, ������ ���������������� �� ����
 	}
 
-	//�������� ������ templates ��������, ������� �������� ��� settings ������� �������
 	const SCampaignStats *pCampaignStats = CInterfaceCampaign::ReadCampaignStats();
 	if ( pCampaignStats == 0 ) 
 	{
 		return;
 	}
-	//
 	std::string szChapterName = GetGlobalVar( "Chapter.Current.Name" );
 	NStr::ToLower( szChapterName );
 	SChapterStats *pChapterStats = const_cast<SChapterStats *> ( NGDB::GetGameStats<SChapterStats>( szChapterName.c_str(), IObjectsDB::CHAPTER ) );
@@ -112,7 +98,6 @@ void CInterfaceChapter::IncrementChapterVisited()
 	{
 		return;
 	}
-	//�������� ��� ��������� ������ � �������, ��� ����� �������� �� ���������� ������ ���� � ������.
 	pChapterStats->RemoveTemplateMissions();
 
 	/**
@@ -144,7 +129,6 @@ void CInterfaceChapter::IncrementChapterVisited()
 		int nTotalProbability = 0;			//��� ������ ������ � ������ �����������
 		
 		std::unordered_map< std::string, int > missionFinishTimes;		//� ���� ������� ����� ������������ ����� ������ � ����� ��� �������� ��������� ���
-		//��������� ��������
 		for ( int i=0; i<nNumberOfFinishedMissions; i++ )
 		{
 			const std::string szVarName = NStr::Format( "Mission.Finished.%d", i );
@@ -164,7 +148,6 @@ void CInterfaceChapter::IncrementChapterVisited()
 			STemplateMission temp;
 			temp.szName = pCampaignStats->templateMissions[i];
 			
-			//���������, ����� ���� �������� ��������� ��� ��� ������
 			int nFinishTime = 0;
 			std::unordered_map< std::string, int >::iterator findIt = missionFinishTimes.find( temp.szName );
 			if ( findIt != missionFinishTimes.end() )
@@ -177,7 +160,6 @@ void CInterfaceChapter::IncrementChapterVisited()
 			templates.push_back( temp );
 		}
 		
-		//������ � ��� ���� ������ ���������� template ������ � �� �����������
 		NI_ASSERT_T( nTotalProbability != 0, "Error while randomization template mission, nTotalProbability is 0" );
 		if ( nTotalProbability == 0 )
 			break;
@@ -189,12 +171,10 @@ void CInterfaceChapter::IncrementChapterVisited()
 		if ( !nRes )
 			break;
 		
-		// �������� ��������� ������ placeHolders
 		std::vector<CVec2> tempPlaceHolders;
 		for ( int i = 0; i < pChapterStats->placeHolders.size(); ++i )
 			tempPlaceHolders.push_back( pChapterStats->placeHolders[i].vPosOnMap );
 
-		// ��� ������ �� ���������� ��������� ���� template �����
 		if ( CPtr<IScenarioTracker> pScenarioTracker = GetSingleton<IScenarioTracker>() )
 		{
 			for ( int nDifficulty = 0; nDifficulty < 3; ++nDifficulty )
@@ -205,7 +185,6 @@ void CInterfaceChapter::IncrementChapterVisited()
 					break;			//������ �� ������� ������ (place holders) ��� ������
 
 				int nRand = rand() % nTotalProbability;
-				//������ ��������������� ��� ������
 				int nCurrentTemplateMission = 0;
 				int nSum = 0;
 				for ( ; nCurrentTemplateMission < templates.size(); nCurrentTemplateMission++ )
@@ -219,17 +198,14 @@ void CInterfaceChapter::IncrementChapterVisited()
 				SChapterStats::SMission mission;
 				mission.szMission = templates[nCurrentTemplateMission].szName;
 
-				//������ ��������� �� ����� �������
 				nRand = rand() % tempPlaceHolders.size();
 				mission.vPosOnMap = tempPlaceHolders[nRand];
 				mission.pMission = NGDB::GetGameStats<SMissionStats> ( mission.szMission.c_str(), IObjectsDB::MISSION );
-				//����������� ����� �� ����������� random ������
 				mission.nMissionDifficulty = nDifficulty;
 				
 				mission.szMissionBonus = pScenarioTracker->GetRandomBonus( nDifficulty );
 				if ( mission.szMissionBonus.empty() )
 				{
-					//�������� ������ �������
 					std::vector<std::string> bonuses;
 					chapterContext.GetRandomBonuses( nDifficulty, bonuses );
 					for ( std::vector<std::string>::const_iterator bonusIterator = bonuses.begin(); bonusIterator != bonuses.end(); ++bonusIterator )
@@ -238,25 +214,20 @@ void CInterfaceChapter::IncrementChapterVisited()
 					}
 					mission.szMissionBonus = pScenarioTracker->GetRandomBonus( nDifficulty );
 				}
-				//mission.szMissionBonus = chapterContext.GetRandomBonus( nDifficulty );
 
 				chapterContext.GetAllRandomBonuses( nDifficulty, mission.szAllBonuses );
 				pChapterStats->AddMission( mission );
 
-				//�� �� ������ ������������ ������ ��� ���� template, ������� ��� ���� ������� �� ������ ���������� templates
-				//� ����� ������� �� ����� ������������
 				nTotalProbability -= templates[nCurrentTemplateMission].nProbability;
 				std::vector<STemplateMission>::iterator it = templates.begin() + nCurrentTemplateMission;
 				templates.erase( it );
 
-				//������ ������ ������� �� ���������� ������ placeHolders
 				std::vector<CVec2>::iterator tt = tempPlaceHolders.begin() + nRand;
 				tempPlaceHolders.erase( tt );
 			}
 		}
 	} while ( 0 );
 
-	//�������� chapter stats
 	IDataStorage *pStorage = GetSingleton<IDataStorage>();
 	const std::string szChapterFileName = pStorage->GetName() + szChapterName + ".xml";
 	{
@@ -268,7 +239,6 @@ void CInterfaceChapter::IncrementChapterVisited()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SMissionInfo
 {
 	int nIndex;
@@ -277,19 +247,15 @@ struct SMissionInfo
 	SMissionInfo() : nIndex( -1 ), vPos( VNULL2 ) {}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::unordered_map< std::string, std::vector<SMissionInfo> > CTemplateInfos;
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceChapter::Init()
 {
 	CInterfaceInterMission::Init();
 	commandMsgs.Init( pInput, commands );
-	//	SetBindSection( "intermission" );
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceChapter::StartInterface()
 {
 	CInterfaceInterMission::StartInterface();
@@ -297,7 +263,6 @@ void CInterfaceChapter::StartInterface()
 	pUIScreen->Load( "ui\\common\\chapter" );
 	pUIScreen->Reposition( pGFX->GetScreenRect() );
 
-	// ��������� ChapterScript
 	const bool bFirstEnter = GetSingleton<IScenarioTracker>()->StartChapter( GetGlobalVar("Chapter.Current.Name", "UnknownChapter") );
 	if ( bFirstEnter )
 	{
@@ -317,7 +282,6 @@ void CInterfaceChapter::StartInterface()
 		}
 	}
 	InitWindow();
-	// scare player if he passed 3 random missions in second chapter.
 	if ( !GetGlobalVar( "AlreadyScared", 0 ) && GetGlobalVar( "ItsSecondChapterAndThreeRandomMissions", 0 ) )
 	{
 		SetGlobalVar( "AlreadyScared", 1 );
@@ -326,18 +290,15 @@ void CInterfaceChapter::StartInterface()
 														 "Textes\\UI\\MessageBox\\go_scenario_mission_message" ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceChapter::InitWindow()
 {
 	IncrementChapterVisited();
 
-	//��������� ���������� � �������
 	const SChapterStats *pStats = ReadChapterStats();
 	if ( pStats == 0 )
 		return;
 	int nMission = GetGlobalVar( "Mission.Current.Index", 0 );		//��� �������� ������, ���� �� ������������ ����� �� ������ ������, �� �� != 0
 	
-	//��������� ���������� ������ ��� map image control
 	IUIContainer *pMap = checked_cast<IUIContainer *> ( pUIScreen->GetChildByID( 100 ) );
 	IGFXTexture *pTexture = GetSingleton<ITextureManager>()->GetTexture( pStats->szMapImage.c_str() );
 	NI_ASSERT_T( pTexture != 0, "Chapter map texture is invalid" );
@@ -346,7 +307,6 @@ void CInterfaceChapter::InitWindow()
 	pMap->SetWindowMap( rc );
 	pMap->SetWindowPlacement( 0, &CVec2( pStats->mapImageRect.x1, pStats->mapImageRect.y1 ) );
 	
-	//�������� ������
 	CPtr<IDataStream> pMissionButtonStream = GetSingleton<IDataStorage>()->OpenStream( "ui\\common\\missionbutton.xml", STREAM_ACCESS_READ );
 	CTreeAccessor missionButtonSaver = CreateDataTreeSaver( pMissionButtonStream, IDataTree::READ );
 	
@@ -360,10 +320,8 @@ void CInterfaceChapter::InitWindow()
 	int nNumberOfScenarioMissions = 0;
 	int nCheatEnabledMissions = GetGlobalVar( "Cheat.Enable.Missions", -1 );
 	
-	// ��������� ��� ����������� ������
 	for ( int i = 0; i < pStats->missions.size(); ++i )
 	{
-		//Read mission stats
 		std::string szMissionName = pStats->missions[i].szMission;
 		NStr::ToLower( szMissionName );
 		const SMissionStats *pMissionStats = NGDB::GetGameStats<SMissionStats>( szMissionName.c_str(), IObjectsDB::MISSION );
@@ -371,32 +329,26 @@ void CInterfaceChapter::InitWindow()
 		
 		if ( pMissionStats->IsTemplate() )
 			continue;
-		//������� ������
 		
 		if ( nCheatEnabledMissions == -1 )
 		{
-			//��������, ����� �� ��� ������ ��� ������, ����� �� �� ����� ���������� �� ������ ���
 			std::string szVarName = "Mission.";
 			szVarName += szMissionName;
 			szVarName += ".Finished";
 			if ( GetGlobalVar( szVarName.c_str(), -1 ) == 1 )
 			{
-				//������ ��� ��������
 				continue;
 			}
 			
-			//���������, ��������� �� ��� ������, ����� �� ���������� �� � ������ ������
 			szVarName = "Mission.";
 			szVarName += szMissionName;
 			szVarName += ".Enabled";
 			if ( GetGlobalVar( szVarName.c_str(), -1 ) != 1 )
 			{
-				//������ ����������
 				continue;
 			}
 		}
 
-		//������� ������ � ��������� �� � �����
 		CPtr<IUIElement> pMissionButton;
 		missionButtonSaver.Add( "Element", &pMissionButton );
 		CVec2 size;
@@ -412,10 +364,8 @@ void CInterfaceChapter::InitWindow()
 	}
 	nNumberOfScenarioMissions = missionIndeces.size();
 	
-	//��������� ��� ����������� ������
 	for ( int i = 0; i < pStats->missions.size(); ++i )
 	{
-		//Read mission stats
 		std::string szMissionName = pStats->missions[i].szMission;
 		NStr::ToLower( szMissionName );
 		const SMissionStats *pMissionStats = NGDB::GetGameStats<SMissionStats>( szMissionName.c_str(), IObjectsDB::MISSION );
@@ -442,7 +392,6 @@ void CInterfaceChapter::InitWindow()
 	else
 		SetGlobalVar( "NumberOfButtons", 0 );
 	
-	//��������� ����� ���������
 	IUIElement *pHeader = pUIScreen->GetChildByID( 20000 );
 	NI_ASSERT_T( pHeader != 0, "Invalid chapter header control" );
 	CPtr<IText> p2 = pTM->GetDialog( pStats->szHeaderText.c_str() );
@@ -454,20 +403,17 @@ void CInterfaceChapter::InitWindow()
 	int nFinishStatus = GetGlobalVar( "Mission.Last.FinishStatus", -1 );
 	if ( nFinishStatus == 0 || nFinishStatus == -1 )
 	{
-		//������� �������� ������ ��������
 		SetGlobalVar( "Mission.Last.FinishStatus", MISSION_FINISH_LOSE );		//��� ���� ����� � ������� �� ������������������ random �����
 		do
 		{
 			nMission = 0;
 			
-			//������ �������� ������, ������ ����� �����������
 			if ( nNumberOfScenarioMissions > 0 )
 			{
 				nMission = rand() % nNumberOfScenarioMissions;
 				break;
 			}
 			
-			//������ �������� ������ ����� template missions
 			int nNumberOfTemplateMissions = missionIndeces.size() - nNumberOfScenarioMissions;
 			NI_ASSERT_T( nNumberOfTemplateMissions > 0, "Can not select active missions. Possibly chapter script has error" );
 			if ( nNumberOfTemplateMissions > 0 )
@@ -480,7 +426,6 @@ void CInterfaceChapter::InitWindow()
 	}
 	else
 	{
-		//�������� ������ �������� �������
 		for ( int i=0; i<missionIndeces.size(); i++ )
 		{
 			if ( missionIndeces[i] == nMission )
@@ -494,7 +439,6 @@ void CInterfaceChapter::InitWindow()
 	NI_ASSERT_T( missionIndeces.size() > 0, "Error: There is no template or scenario missions" );
 	if ( !missionIndeces.empty() )
 	{
-		//��������� �������� ������
 		SetMissionDescription( nMission );
 		int nActiveMissionId = 1000 + nMission;
 		IUIElement *pMissionButton = pMap->GetChildByID( nActiveMissionId );
@@ -513,24 +457,18 @@ void CInterfaceChapter::InitWindow()
 	pUIScreen->Reposition( pGFX->GetScreenRect() );
 	pScene->AddUIScreen( pUIScreen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceChapter::SetMissionDescription( const int _nSelected )
 {
 	nSelected = _nSelected;
-	//const std::string szMissionName = pStats->missions[nSelected].szMission;
 	CheckRange( missionIndeces, nSelected );
 	CheckRange( ReadChapterStats()->missions, missionIndeces[nSelected] );
 	const SChapterStats::SMission &missionStats = ReadChapterStats()->missions[ missionIndeces[nSelected] ];
-	// complexity
-	// bonus for mission
-	// mission description
 	std::wstring szDescription;
 	CUIConsts::CreateDescription( &missionStats, &szDescription, true );
 	
 	IUIComplexScroll * pComplexScroll = checked_cast<IUIComplexScroll *> ( pUIScreen->GetChildByID( 2000 ) );
 	pComplexScroll->Clear();
 
-	// mission description (text)
 	{
 	const std::string szName = "UI\\common\\BlackStaticText.xml";
 	CPtr<IDataStorage> pStorage = GetSingleton<IDataStorage>();
@@ -545,7 +483,6 @@ void CInterfaceChapter::SetMissionDescription( const int _nSelected )
 	pComplexScroll->AddItem( pTextDescription, true );
 	}
 
-	// bonus units info
 	const std::string szName = "UI\\common\\UnitInfoItem.xml";
 	CPtr<IDataStorage> pStorage = GetSingleton<IDataStorage>();
 	CPtr<IDataStream> pStream = pStorage->OpenStream( szName.c_str(), STREAM_ACCESS_READ );
@@ -569,7 +506,6 @@ void CInterfaceChapter::SetMissionDescription( const int _nSelected )
 	}
 	pUIScreen->Reposition( pGFX->GetScreenRect() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceChapter::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceInterMission::ProcessMessage( msg ) )
@@ -593,7 +529,6 @@ bool CInterfaceChapter::ProcessMessage( const SGameMessage &msg )
 	{
 		case IMC_CANCEL:
 			{
-				//��������, ����� �� � custom chapter
 				int nCustomChapter = GetGlobalVar( "Custom.Chapter", 0 );
 				if ( nCustomChapter )
 				{
@@ -607,7 +542,6 @@ bool CInterfaceChapter::ProcessMessage( const SGameMessage &msg )
 			}
 
 		case MC_SAVE_GAME:
-			//FinishInterface( MISSION_COMMAND_STATS, "1" );
 			GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_IM_SAVE_MISSION, 0 );
 
 			return true;
@@ -622,15 +556,12 @@ bool CInterfaceChapter::ProcessMessage( const SGameMessage &msg )
 			return true;
 
 		case MC_WAREHOUSE:
-			//FinishInterface( MISSION_COMMAND_UPGRADE_UNIT, 0 );
 			FinishInterface( MISSION_COMMAND_WAREHOUSE, 0 );
 			return true;
 			
 		case IMC_OK:
-			//��������� ����� chapter'a
 			IUIContainer *pMap = checked_cast<IUIContainer *> ( pUIScreen->GetChildByID( 100 ) );
 			NI_ASSERT_T( pMap != 0, "Can't find element 100 - missions map!" );
-			//������ ���������� ������
 			
 			int nSelected = -1;
 			for ( int i=0; i<missionIndeces.size(); i++ )
@@ -658,7 +589,5 @@ bool CInterfaceChapter::ProcessMessage( const SGameMessage &msg )
 			return true;
 	}
 	
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

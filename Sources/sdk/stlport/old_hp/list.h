@@ -57,6 +57,3 @@ using STLPORT::__list__;
 
 #endif /* _STLP_LIST_H */
 
-// Local Variables:
-// mode:C++
-// End:

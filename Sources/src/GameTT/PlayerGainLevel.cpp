@@ -6,23 +6,19 @@
 #include "..\Main\PlayerSkill.h"
 #include "CommonId.h"
 #include "..\Main\GameStats.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_ok"				,	IMC_CANCEL		},
 	{ "inter_cancel"		, IMC_CANCEL		},
 	{ 0									,	0							}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICPlayerGainLevel::PostCreate( IMainLoop *pML, CInterfacePlayerGainLevel *pISM )
 {
 	pML->PushInterface( pISM );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfacePlayerGainLevel::~CInterfacePlayerGainLevel()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfacePlayerGainLevel::Init()
 {
 	CInterfaceInterMission::Init();
@@ -30,7 +26,6 @@ bool CInterfacePlayerGainLevel::Init()
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfacePlayerGainLevel::StartInterface()
 {
 	CInterfaceInterMission::StartInterface();
@@ -38,7 +33,6 @@ void CInterfacePlayerGainLevel::StartInterface()
 	pUIScreen->Load( "ui\\Popup\\PlayerRank" );
 	pUIScreen->Reposition( pGFX->GetScreenRect() );
 	
-	//установим текст звания
 	IUIContainer *pDialog = checked_cast<IUIContainer *> ( pUIScreen->GetChildByID( 100 ) );
 	pDialog = checked_cast<IUIContainer *> ( pDialog->GetChildByID( 101 ) );
 	IUIElement *pRankText = pDialog->GetChildByID( 20001 );
@@ -51,12 +45,10 @@ void CInterfacePlayerGainLevel::StartInterface()
 	if ( p1 != 0 )
 		pRankText->SetWindowText( 0, p1->GetString() );
 	
-	// caption - rank name
 	IUIElement *pCaption = pUIScreen->GetChildByID( 20000 );
 	IText * pTextCaption = GetSingleton<ITextManager>()->GetString( rank.szCurrentRank.c_str() );
 	pCaption->SetWindowText( 0, pTextCaption->GetString() );
 	
-	// display picture
 	const std::string	szMedalName = rank.szRankPicture;
 	
 	ITextureManager *pTM = GetSingleton<ITextureManager>();
@@ -71,7 +63,6 @@ void CInterfacePlayerGainLevel::StartInterface()
 	const SMedalStats *pMedalStats = NGDB::GetGameStats<SMedalStats>( szMedalName.c_str(), IObjectsDB::MEDAL );
 	NI_ASSERT_TF( pMedalStats != 0, "Invalid medal stats in SingleMedal interface", return );
 	
-	//установим правильный размер для картинки
 	const CVec2 vMedalSize ( pMedalStats->mapImageRect.x1,  pMedalStats->mapImageRect.y1 );
 	CVec2 vStaticSize;
 	CVec2 vStaticPos;
@@ -79,7 +70,6 @@ void CInterfacePlayerGainLevel::StartInterface()
 	CVec2 vMedalPos = vStaticPos + ( vStaticSize - vMedalSize ) / 2;
 	pPicture->SetWindowPlacement( &vMedalPos, &vMedalSize );
 
-	//установим map для картинки
 	CTRect<float> rc( 0.0f, 0.0f, pMedalStats->mapImageRect.x2, pMedalStats->mapImageRect.y2 );
 	pPicture->SetWindowMap( rc );
 	
@@ -90,7 +80,6 @@ void CInterfacePlayerGainLevel::StartInterface()
 	pUIScreen->Reposition( pGFX->GetScreenRect() );
 	pScene->AddUIScreen( pUIScreen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfacePlayerGainLevel::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceInterMission::ProcessMessage( msg ) )
@@ -103,7 +92,5 @@ bool CInterfacePlayerGainLevel::ProcessMessage( const SGameMessage &msg )
 			return true;
 	}
 	
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

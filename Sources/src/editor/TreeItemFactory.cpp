@@ -33,7 +33,6 @@ IObjectFactory* STDCALL GetTreeItemObjectFactory()
 
 CTreeItemObjectFactory::CTreeItemObjectFactory()
 {
-	//Animations tree items
 	REGISTER_CLASS( this, E_ANIMATION_ROOT_ITEM,				CAnimationTreeRootItem );
 	REGISTER_CLASS( this, E_UNIT_COMMON_PROPS_ITEM,			CUnitCommonPropsItem );
 	REGISTER_CLASS( this, E_LOCALIZATION_ITEM,					CLocalizationItem );
@@ -53,12 +52,10 @@ CTreeItemObjectFactory::CTreeItemObjectFactory()
 	REGISTER_CLASS( this, E_UNIT_ACK_TYPES_ITEM,				CUnitAckTypesItem );
 	REGISTER_CLASS( this, E_UNIT_ACK_TYPE_PROPS_ITEM,		CUnitAckTypePropsItem );
 	
-	//Sprite composer tree items
 	REGISTER_CLASS( this, E_SPRITE_ROOT_ITEM,						CSpriteTreeRootItem );
 	REGISTER_CLASS( this, E_SPRITE_PROPS_ITEM,					CSpritePropsItem );
 	REGISTER_CLASS( this, E_SPRITES_ITEM,								CSpritesItem );
 	
-	//Effect composer tree items
 	REGISTER_CLASS( this, E_EFFECT_ROOT_ITEM,						CEffectTreeRootItem );
 	REGISTER_CLASS( this, E_EFFECT_COMMON_PROPS_ITEM,		CEffectCommonPropsItem );
 	REGISTER_CLASS( this, E_EFFECT_ANIMATIONS_ITEM,			CEffectAnimationsItem );
@@ -71,7 +68,6 @@ CTreeItemObjectFactory::CTreeItemObjectFactory()
 	REGISTER_CLASS( this, E_EFFECT_FUNC_PROPS_ITEM,			CEffectFuncPropsItem );
 	REGISTER_CLASS( this, E_EFFECT_MAYA_PROPS_ITEM,			CEffectMayaPropsItem );
 	
-	//Object composer tree items
 	REGISTER_CLASS( this, E_OBJECT_ROOT_ITEM,						CObjectTreeRootItem );
 	REGISTER_CLASS( this, E_OBJECT_COMMON_PROPS_ITEM,		CObjectCommonPropsItem );
 	REGISTER_CLASS( this, E_OBJECT_GRAPHICS_ITEM,				CObjectGraphicsItem );
@@ -87,7 +83,6 @@ CTreeItemObjectFactory::CTreeItemObjectFactory()
 	REGISTER_CLASS( this, E_OBJECT_EFFECTS_ITEM,				CObjectEffectsItem );
 	REGISTER_CLASS( this, E_OBJECT_GRAPHICA1_PROPS_ITEM,CObjectGraphicA1PropsItem );
 	
-	//Mesh composer tree items
 	REGISTER_CLASS( this, E_MESH_ROOT_ITEM,							CMeshTreeRootItem );
 	REGISTER_CLASS( this, E_MESH_COMMON_PROPS_ITEM,			CMeshCommonPropsItem );
 	REGISTER_CLASS( this, E_MESH_DEFENCES_ITEM,					CMeshDefencesItem );
@@ -108,7 +103,6 @@ CTreeItemObjectFactory::CTreeItemObjectFactory()
 	REGISTER_CLASS( this, E_MESH_DEATH_CRATER_PROPS_ITEM, CMeshDeathCraterPropsItem );
 	REGISTER_CLASS( this, E_MESH_TRACK_ITEM,						CMeshTrackItem );
 	
-	//Weapon composer tree items
 	REGISTER_CLASS( this, E_WEAPON_ROOT_ITEM,						CWeaponTreeRootItem );
 	REGISTER_CLASS( this, E_WEAPON_COMMON_PROPS_ITEM,		CWeaponCommonPropsItem );
 	REGISTER_CLASS( this, E_WEAPON_SHOOT_TYPES_ITEM,		CWeaponShootTypesItem );
@@ -120,7 +114,6 @@ CTreeItemObjectFactory::CTreeItemObjectFactory()
 	REGISTER_CLASS( this, E_WEAPON_CRATER_PROPS_ITEM,		CWeaponCraterPropsItem );
 	REGISTER_CLASS( this, E_WEAPON_EFFECTS_ITEM,				CWeaponEffectsItem );
 
-	//Building composer tree items
 	REGISTER_CLASS( this, E_BUILDING_ROOT_ITEM,					CBuildingTreeRootItem );
 	REGISTER_CLASS( this, E_BUILDING_COMMON_PROPS_ITEM,	CBuildingCommonPropsItem );
 	REGISTER_CLASS( this, E_BUILDING_ENTRANCES_ITEM,		CBuildingEntrancesItem );
@@ -133,7 +126,6 @@ CTreeItemObjectFactory::CTreeItemObjectFactory()
 	REGISTER_CLASS( this, E_BUILDING_GRAPHIC3_PROPS_ITEM,CBuildingGraphic3PropsItem );
 	REGISTER_CLASS( this, E_BUILDING_DEFENCES_ITEM,			CBuildingDefencesItem );
 	REGISTER_CLASS( this, E_BUILDING_DEFENCE_PROPS_ITEM,CBuildingDefencePropsItem );
-	//дополнительные TreeItems для building composer
 	REGISTER_CLASS( this, E_BUILDING_SUMMER_PROPS_ITEM,	CBuildingSummerPropsItem );
 	REGISTER_CLASS( this, E_BUILDING_WINTER_PROPS_ITEM,	CBuildingWinterPropsItem );
 	REGISTER_CLASS( this, E_BUILDING_GRAPHICW1_PROPS_ITEM,CBuildingGraphicW1PropsItem );
@@ -148,7 +140,6 @@ CTreeItemObjectFactory::CTreeItemObjectFactory()
 	REGISTER_CLASS( this, E_BUILDING_SMOKES_ITEM,				CBuildingSmokesItem );
 	REGISTER_CLASS( this, E_BUILDING_SMOKE_PROPS_ITEM,	CBuildingSmokePropsItem );
 	
-	//TileSet composer tree items
 	REGISTER_CLASS( this, E_TILESET_ROOT_ITEM,					CTileSetTreeRootItem );
 	REGISTER_CLASS( this, E_TILESET_COMMON_PROPS_ITEM,	CTileSetCommonPropsItem );
 	REGISTER_CLASS( this, E_TILESET_TERRAINS_ITEM,			CTileSetTerrainsItem );
@@ -164,14 +155,12 @@ CTreeItemObjectFactory::CTreeItemObjectFactory()
 	REGISTER_CLASS( this, E_TILESET_LSOUNDS_ITEM,				CTileSetLSoundsItem );
 	REGISTER_CLASS( this, E_TILESET_LSOUND_PROPS_ITEM,	CTileSetLSoundPropsItem );
 
-	//Fence composer tree items
 	REGISTER_CLASS( this, E_FENCE_ROOT_ITEM,						CFenceTreeRootItem );
 	REGISTER_CLASS( this, E_FENCE_COMMON_PROPS_ITEM,		CFenceCommonPropsItem );
 	REGISTER_CLASS( this, E_FENCE_DIRECTION_ITEM,				CFenceDirectionItem );
 	REGISTER_CLASS( this, E_FENCE_INSERT_ITEM,					CFenceInsertItem );
 	REGISTER_CLASS( this, E_FENCE_PROPS_ITEM,						CFencePropsItem );
 	
-	//Particle composer tree items
 	REGISTER_CLASS( this, E_KEYFRAME_TREE_ITEM,					CKeyFrameTreeItem );
 	REGISTER_CLASS( this, E_PARTICLE_ROOT_ITEM,					CParticleTreeRootItem );
 	REGISTER_CLASS( this, E_PARTICLE_COMMON_PROPS_ITEM,	CParticleCommonPropsItem );
@@ -198,7 +187,6 @@ CTreeItemObjectFactory::CTreeItemObjectFactory()
 	REGISTER_CLASS( this, E_PARTICLE_COMPLEX_ITEM,			CParticleComplexItem );
 	REGISTER_CLASS( this, E_PARTICLE_C_RANDOM_SPEED_ITEM,	CParticleCRandomSpeedItem );
 	
-	//Trench composer tree items
 	REGISTER_CLASS( this, E_TRENCH_ROOT_ITEM,						CTrenchTreeRootItem );
 	REGISTER_CLASS( this, E_TRENCH_COMMON_PROPS_ITEM,		CTrenchCommonPropsItem );
 	REGISTER_CLASS( this, E_TRENCH_SOURCES_ITEM,				CTrenchSourcesItem );
@@ -206,7 +194,6 @@ CTreeItemObjectFactory::CTreeItemObjectFactory()
 	REGISTER_CLASS( this, E_TRENCH_DEFENCES_ITEM,				CTrenchDefencesItem );
 	REGISTER_CLASS( this, E_TRENCH_DEFENCE_PROPS_ITEM,	CTrenchDefencePropsItem );
 	
-	//Squad composer tree items
 	REGISTER_CLASS( this, E_SQUAD_ROOT_ITEM,						CSquadTreeRootItem );
 	REGISTER_CLASS( this, E_SQUAD_COMMON_PROPS_ITEM,		CSquadCommonPropsItem );
 	REGISTER_CLASS( this, E_SQUAD_MEMBERS_ITEM,					CSquadMembersItem );
@@ -214,7 +201,6 @@ CTreeItemObjectFactory::CTreeItemObjectFactory()
 	REGISTER_CLASS( this, E_SQUAD_FORMATIONS_ITEM,			CSquadFormationsItem );
 	REGISTER_CLASS( this, E_SQUAD_FORMATION_PROPS_ITEM,	CSquadFormationPropsItem );
 
-	//GUI composer tree items
 	REGISTER_CLASS( this, E_GUI_ROOT_ITEM,							CGUITreeRootItem );
 	REGISTER_CLASS( this, E_GUI_MOUSE_SELECT_ITEM,			CGUIMouseSelectItem );
 	REGISTER_CLASS( this, E_STATICS_TREE_ITEM,					CStaticsTreeItem );
@@ -234,11 +220,9 @@ CTreeItemObjectFactory::CTreeItemObjectFactory()
 	REGISTER_CLASS( this, E_LIST_PROPS_TREE_ITEM,				CListPropsTreeItem );
 	REGISTER_CLASS( this, E_DIALOG_PROPS_TREE_ITEM,			CDialogPropsTreeItem );
 	
-	//Mine composer tree items
 	REGISTER_CLASS( this, E_MINE_ROOT_ITEM,							CMineTreeRootItem );
 	REGISTER_CLASS( this, E_MINE_COMMON_PROPS_ITEM,			CMineCommonPropsItem );
 	
-	//Bridge composer tree items
 	REGISTER_CLASS( this, E_BRIDGE_ROOT_ITEM,						CBridgeTreeRootItem );
 	REGISTER_CLASS( this, E_BRIDGE_DEFENCES_ITEM,			  CBridgeDefencesItem );
 	REGISTER_CLASS( this, E_BRIDGE_DEFENCE_PROPS_ITEM,  CBridgeDefencePropsItem );
@@ -257,7 +241,6 @@ CTreeItemObjectFactory::CTreeItemObjectFactory()
 	REGISTER_CLASS( this, E_BRIDGE_SMOKES_ITEM,						CBridgeSmokesItem );
 	REGISTER_CLASS( this, E_BRIDGE_SMOKE_PROPS_ITEM,			CBridgeSmokePropsItem );
 	
-	//Mission composer tree items
 	REGISTER_CLASS( this, E_MISSION_ROOT_ITEM,					CMissionTreeRootItem );
 	REGISTER_CLASS( this, E_MISSION_COMMON_PROPS_ITEM,	CMissionCommonPropsItem );
 	REGISTER_CLASS( this, E_MISSION_OBJECTIVES_ITEM,		CMissionObjectivesItem );
@@ -265,17 +248,13 @@ CTreeItemObjectFactory::CTreeItemObjectFactory()
 	REGISTER_CLASS( this, E_MISSION_MUSICS_ITEM,				CMissionMusicsItem );
 	REGISTER_CLASS( this, E_MISSION_MUSIC_PROPS_ITEM,		CMissionMusicPropsItem );
 
-	//Chapter composer tree items
 	REGISTER_CLASS( this, E_CHAPTER_ROOT_ITEM,					CChapterTreeRootItem );
 	REGISTER_CLASS( this, E_CHAPTER_COMMON_PROPS_ITEM,	CChapterCommonPropsItem );
 	REGISTER_CLASS( this, E_CHAPTER_MISSIONS_ITEM,			CChapterMissionsItem );
 	REGISTER_CLASS( this, E_CHAPTER_MISSION_PROPS_ITEM,	CChapterMissionPropsItem );
-//	REGISTER_CLASS( this, E_CHAPTER_MUSICS_ITEM,				CChapterMusicsItem );
-//	REGISTER_CLASS( this, E_CHAPTER_MUSIC_PROPS_ITEM,		CChapterMusicPropsItem );
 	REGISTER_CLASS( this, E_CHAPTER_PLACES_ITEM,				CChapterPlacesItem );
 	REGISTER_CLASS( this, E_CHAPTER_PLACE_PROPS_ITEM,		CChapterPlacePropsItem );
 	
-	//Campaign composer tree items
 	REGISTER_CLASS( this, E_CAMPAIGN_ROOT_ITEM,					CCampaignTreeRootItem );
 	REGISTER_CLASS( this, E_CAMPAIGN_COMMON_PROPS_ITEM,	CCampaignCommonPropsItem );
 	REGISTER_CLASS( this, E_CAMPAIGN_CHAPTERS_ITEM,			CCampaignChaptersItem );
@@ -283,18 +262,15 @@ CTreeItemObjectFactory::CTreeItemObjectFactory()
 	REGISTER_CLASS( this, E_CAMPAIGN_TEMPLATES_ITEM,		CCampaignTemplatesItem );
 	REGISTER_CLASS( this, E_CAMPAIGN_TEMPLATE_PROPS_ITEM,CCampaignTemplatePropsItem );
 	
-	//3dRoad composer tree items
 	REGISTER_CLASS( this, E_3DROAD_ROOT_ITEM,						C3DRoadTreeRootItem );
 	REGISTER_CLASS( this, E_3DROAD_COMMON_PROPS_ITEM,		C3DRoadCommonPropsItem );
 	REGISTER_CLASS( this, E_3DROAD_LAYER_PROPS_ITEM,		C3DRoadLayerPropsItem );
 
-	//3dRiver composer tree items
 	REGISTER_CLASS( this, E_3DRIVER_ROOT_ITEM,					C3DRiverTreeRootItem );
 	REGISTER_CLASS( this, E_3DRIVER_BOTTOM_LAYER_PROPS_ITEM, C3DRiverBottomLayerPropsItem );
 	REGISTER_CLASS( this, E_3DRIVER_LAYER_PROPS_ITEM,		C3DRiverLayerPropsItem );
 	REGISTER_CLASS( this, E_3DRIVER_LAYERS_ITEM,				C3DRiverLayersItem );
 
-	//Medal composer tree items
 	REGISTER_CLASS( this, E_MEDAL_ROOT_ITEM,						CMedalTreeRootItem );
 	REGISTER_CLASS( this, E_MEDAL_COMMON_PROPS_ITEM,		CMedalCommonPropsItem );
 	REGISTER_CLASS( this, E_MEDAL_PICTURE_PROPS_ITEM,		CMedalPicturePropsItem );

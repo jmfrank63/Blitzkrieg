@@ -11,6 +11,3 @@
 
 #  include  <..\stdlib.h>
 
-// Local Variables:
-// mode:C++
-// End:

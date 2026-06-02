@@ -21,7 +21,6 @@ public:
 	virtual void STDCALL ShowWindow( int _nCmdShow );
 	virtual bool STDCALL ProcessMessage( const SUIMessage &msg );
 	
-	// serializing...
 	virtual int STDCALL operator&( IDataTree &ss );
 	
 	void SetMessageBoxType( int nType );

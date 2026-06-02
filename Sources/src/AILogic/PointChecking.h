@@ -2,9 +2,7 @@
 #define __POINT_CHECKING_H__
 
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "PathFinder.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAttackPointChecking : public IPointChecking
 {
 	OBJECT_COMPLETE_METHODS( CAttackPointChecking );
@@ -18,7 +16,6 @@ public:
 	
 	virtual bool IsGoodTile( const SVector &curTile ) const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAttackSideChecking : public IPointChecking
 {
 	OBJECT_COMPLETE_METHODS( CAttackSideChecking );
@@ -33,7 +30,6 @@ public:
 
 	virtual bool IsGoodTile( const SVector &curTile ) const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGoToDistance : public IPointChecking
 {
 	OBJECT_COMPLETE_METHODS( CGoToDistance );
@@ -43,13 +39,11 @@ class CGoToDistance : public IPointChecking
 
 public:
 	CGoToDistance() { }
-	// дистанция задаётся в тайлах
 	CGoToDistance( const float tileDistance, const SVector &_targetTile )
 		: tileDistance2( sqr( tileDistance ) ), targetTile( _targetTile ) { }
 
 	virtual bool IsGoodTile( const SVector &curTile ) const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAttackStObjectChecking : public IPointChecking
 {
 	OBJECT_COMPLETE_METHODS( CAttackStObjectChecking );
@@ -62,5 +56,4 @@ public:
 
 	virtual bool IsGoodTile( const SVector &curTile ) const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __POINT_CHECKING_H__

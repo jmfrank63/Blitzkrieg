@@ -1,6 +1,3 @@
-// SEditorMApObject.h: interface for the SEditorMApObject class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_SEDITORMAPOBJECT_H__F284DFBF_8E87_40C0_94F9_A78B24FD9E26__INCLUDED_)
 #define AFX_SEDITORMAPOBJECT_H__F284DFBF_8E87_40C0_94F9_A78B24FD9E26__INCLUDED_
@@ -12,7 +9,6 @@
 #include "..\Common\MapObject.h"
 #include "..\Misc\Manipulator.h"
 #include "EditorObjectItem.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class SUnitEditorObjectItem : public SEditorObjectItem
 {
 	virtual IManipulator* GetManipulator();
@@ -27,11 +23,9 @@ class SBuildingEditorObjectItem : public SEditorObjectItem
 {
 	virtual IManipulator* GetManipulator();
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTrenchManipulator : public CManipulator
 {
 	OBJECT_MINIMAL_METHODS( CTrenchManipulator );
-	//
 	SEditorObjectItem *m_obj;
 
 public:
@@ -46,14 +40,12 @@ public:
 	void SetObject( SEditorObjectItem *p )			{ m_obj = p;}
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 class CUnitManipulator : public CManipulator
 {
 	static const std::string FORMATIONS_LABELS[5];
 
 	OBJECT_MINIMAL_METHODS( CUnitManipulator );
-	//
 	SEditorObjectItem *m_obj;
 
 	std::string testString;
@@ -86,12 +78,10 @@ public:
 	void SetObject( SEditorObjectItem *p )			{ m_obj = p;}
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
 class CMultiUnitManipulator : public CManipulator
 {
 	OBJECT_MINIMAL_METHODS( CMultiUnitManipulator );
-	//
 	std::vector<SEditorObjectItem*> m_objects;
 
 public:
@@ -112,12 +102,10 @@ public:
 	void SetObject( SEditorObjectItem *p )			{ m_objects.clear(); AddObject( p ); }
 };
 /**/
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 class CBuildingManipulator : public CManipulator
 {
 	OBJECT_MINIMAL_METHODS( CBuildingManipulator );
-	//
 	SEditorObjectItem *m_obj;
 public:
 	CBuildingManipulator();
@@ -137,6 +125,5 @@ public:
 	void SetObject( SEditorObjectItem *p )			{ m_obj = p;}
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #endif // !defined(AFX_SEDITORMAPOBJECT_H__F284DFBF_8E87_40C0_94F9_A78B24FD9E26__INCLUDED_)

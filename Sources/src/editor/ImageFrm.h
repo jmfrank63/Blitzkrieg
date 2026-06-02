@@ -32,9 +32,7 @@ protected:
 	void InitScrollBars();
 
 protected:
-	//{{AFX_MSG(CImageFrame)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 

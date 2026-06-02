@@ -51,13 +51,11 @@
 # endif
 
 # ifdef __SUNPRO_CC
-// remove() conflict
 #  include <cstdio>
 # endif
 
 _STLP_BEGIN_NAMESPACE
 
-// for_each.  Apply a function to every element of a range.
 template <class _InputIter, class _Function>
 _STLP_INLINE_LOOP _Function 
 for_each(_InputIter __first, _InputIter __last, _Function __f) {
@@ -66,7 +64,6 @@ for_each(_InputIter __first, _InputIter __last, _Function __f) {
   return __f;
 }
 
-// count_if
 template <class _InputIter, class _Predicate>
 _STLP_INLINE_LOOP _STLP_DIFFERENCE_TYPE(_InputIter)
 count_if(_InputIter __first, _InputIter __last, _Predicate __pred) {
@@ -78,7 +75,6 @@ _STLP_DIFFERENCE_TYPE(_InputIter) __n = 0;
   return __n;
 }
 
-// adjacent_find.
 template <class _ForwardIter>
 _STLP_INLINE_LOOP _ForwardIter 
 adjacent_find(_ForwardIter __first, _ForwardIter __last) {
@@ -134,7 +130,6 @@ template <class _ForwardIter1, class _ForwardIter2>
 _ForwardIter1 search(_ForwardIter1 __first1, _ForwardIter1 __last1,
                      _ForwardIter2 __first2, _ForwardIter2 __last2);
 
-// search_n.  Search for __count consecutive copies of __val.
 template <class _ForwardIter, class _Integer, class _Tp>
 _ForwardIter search_n(_ForwardIter __first, _ForwardIter __last,
                       _Integer __count, const _Tp& __val);
@@ -164,7 +159,6 @@ _ForwardIter1
 find_end(_ForwardIter1 __first1, _ForwardIter1 __last1, 
          _ForwardIter2 __first2, _ForwardIter2 __last2);
 
-// swap_ranges
 template <class _ForwardIter1, class _ForwardIter2>
 _STLP_INLINE_LOOP _ForwardIter2 
 swap_ranges(_ForwardIter1 __first1, _ForwardIter1 __last1, _ForwardIter2 __first2) {
@@ -174,7 +168,6 @@ swap_ranges(_ForwardIter1 __first1, _ForwardIter1 __last1, _ForwardIter2 __first
   return __first2;
 }
 
-// transform
 template <class _InputIter, class _OutputIter, class _UnaryOperation>
 _STLP_INLINE_LOOP _OutputIter 
 transform(_InputIter __first, _InputIter __last, _OutputIter __result, _UnaryOperation __opr) {
@@ -193,7 +186,6 @@ transform(_InputIter1 __first1, _InputIter1 __last1,
   return __result;
 }
 
-// replace_if, replace_copy, replace_copy_if
 
 template <class _ForwardIter, class _Predicate, class _Tp>
 _STLP_INLINE_LOOP void 
@@ -225,7 +217,6 @@ replace_copy_if(_Iterator __first, _Iterator __last,
   return __result;
 }
 
-// generate and generate_n
 
 template <class _ForwardIter, class _Generator>
 _STLP_INLINE_LOOP void 
@@ -243,7 +234,6 @@ generate_n(_OutputIter __first, _Size __n, _Generator __gen) {
   return __first;
 }
 
-// remove, remove_if, remove_copy, remove_copy_if
 
 template <class _InputIter, class _OutputIter, class _Tp>
 _STLP_INLINE_LOOP _OutputIter 
@@ -295,7 +285,6 @@ remove_if(_ForwardIter __first, _ForwardIter __last, _Predicate __pred) {
   }
 }
 
-// unique and unique_copy
 template <class _InputIter, class _OutputIter>
 _OutputIter unique_copy(_InputIter __first, _InputIter __last, _OutputIter __result);
 
@@ -316,7 +305,6 @@ inline _ForwardIter unique(_ForwardIter __first, _ForwardIter __last,
   return unique_copy(__first, __last, __first, __binary_pred);
 }
 
-// reverse and reverse_copy, and their auxiliary functions
 
 template <class _BidirectionalIter>
 _STLP_INLINE_LOOP void 
@@ -356,7 +344,6 @@ _OutputIter reverse_copy(_BidirectionalIter __first,
   return __result;
 }
 
-// rotate and rotate_copy, and their auxiliary functions
 
 template <class _EuclideanRingElement>
 _STLP_INLINE_LOOP
@@ -381,7 +368,6 @@ inline _OutputIter rotate_copy(_ForwardIter __first, _ForwardIter __middle,
   return copy(__first, __middle, copy(__middle, __last, __result));
 }
 
-// random_shuffle
 
 template <class _RandomAccessIter>
 void random_shuffle(_RandomAccessIter __first, _RandomAccessIter __last);
@@ -391,7 +377,6 @@ void random_shuffle(_RandomAccessIter __first, _RandomAccessIter __last,
                     _RandomNumberGenerator& __rand);
 
 # ifndef _STLP_NO_EXTENSIONS
-// random_sample and random_sample_n (extensions, not part of the standard).
 
 template <class _ForwardIter, class _OutputIter, class _Distance>
 _OutputIter random_sample_n(_ForwardIter __first, _ForwardIter __last,
@@ -417,7 +402,6 @@ random_sample(_InputIter __first, _InputIter __last,
 
 # endif /* _STLP_NO_EXTENSIONS */
 
-// partition, stable_partition, and their auxiliary functions
 
 template <class _ForwardIter, class _Predicate>
 _ForwardIter partition(_ForwardIter __first, _ForwardIter __last, _Predicate   __pred);
@@ -427,7 +411,6 @@ template <class _ForwardIter, class _Predicate>
 _ForwardIter 
 stable_partition(_ForwardIter __first, _ForwardIter __last, _Predicate __pred);
 
-// sort() and its auxiliary functions. 
 
 template <class _Size>
 inline _Size __lg(_Size __n) {
@@ -441,7 +424,6 @@ void sort(_RandomAccessIter __first, _RandomAccessIter __last);
 template <class _RandomAccessIter, class _Compare>
 void sort(_RandomAccessIter __first, _RandomAccessIter __last, _Compare __comp);
 
-// stable_sort() and its auxiliary functions.
 template <class _RandomAccessIter>
 void stable_sort(_RandomAccessIter __first,
 		 _RandomAccessIter __last);
@@ -450,7 +432,6 @@ template <class _RandomAccessIter, class _Compare>
 void stable_sort(_RandomAccessIter __first,
 		 _RandomAccessIter __last, _Compare __comp);
 
-// partial_sort, partial_sort_copy, and auxiliary functions.
 
 template <class _RandomAccessIter>
 void 
@@ -472,7 +453,6 @@ partial_sort_copy(_InputIter __first, _InputIter __last,
                   _RandomAccessIter __result_first,
                   _RandomAccessIter __result_last, _Compare __comp);
 
-// nth_element() and its auxiliary functions.  
 
 template <class _RandomAccessIter>
 void nth_element(_RandomAccessIter __first, _RandomAccessIter __nth,
@@ -482,7 +462,6 @@ template <class _RandomAccessIter, class _Compare>
 void nth_element(_RandomAccessIter __first, _RandomAccessIter __nth,
                  _RandomAccessIter __last, _Compare __comp);
 
-// Binary search (lower_bound, upper_bound, equal_range, binary_search).
 
 template <class _ForwardIter, class _Tp>
 inline _ForwardIter lower_bound(_ForwardIter __first, _ForwardIter __last,
@@ -557,7 +536,6 @@ inline bool binary_search(_ForwardIter __first, _ForwardIter __last,
   return __i != __last && !__comp(__val, *__i);
 }
 
-// merge, with and without an explicitly supplied comparison function.
 
 template <class _InputIter1, class _InputIter2, class _OutputIter>
 _OutputIter merge(_InputIter1 __first1, _InputIter1 __last1,
@@ -571,7 +549,6 @@ _OutputIter merge(_InputIter1 __first1, _InputIter1 __last1,
                   _OutputIter __result, _Compare __comp);
 
 
-// inplace_merge and its auxiliary functions. 
 
 
 template <class _BidirectionalIter>
@@ -584,10 +561,6 @@ void inplace_merge(_BidirectionalIter __first,
 		   _BidirectionalIter __middle,
 		   _BidirectionalIter __last, _Compare __comp);
 
-// Set algorithms: includes, set_union, set_intersection, set_difference,
-// set_symmetric_difference.  All of these algorithms have the precondition
-// that their input ranges are sorted and the postcondition that their output
-// ranges are sorted.
 
 template <class _InputIter1, class _InputIter2>
 bool includes(_InputIter1 __first1, _InputIter1 __last1,
@@ -648,8 +621,6 @@ set_symmetric_difference(_InputIter1 __first1, _InputIter1 __last1,
                          _Compare __comp);
 
 
-// min_element and max_element, with and without an explicitly supplied
-// comparison function.
 
 template <class _ForwardIter>
 _ForwardIter max_element(_ForwardIter __first, _ForwardIter __last);
@@ -664,8 +635,6 @@ template <class _ForwardIter, class _Compare>
 _ForwardIter min_element(_ForwardIter __first, _ForwardIter __last,
                             _Compare __comp);
 
-// next_permutation and prev_permutation, with and without an explicitly 
-// supplied comparison function.
 
 template <class _BidirectionalIter>
 bool next_permutation(_BidirectionalIter __first, _BidirectionalIter __last);
@@ -685,9 +654,6 @@ bool prev_permutation(_BidirectionalIter __first, _BidirectionalIter __last,
 
 # ifndef _STLP_NO_EXTENSIONS
 
-// is_heap, a predicate testing whether or not a range is
-// a heap.  This function is an extension, not part of the C++
-// standard.
 
 template <class _RandomAccessIter>
 bool is_heap(_RandomAccessIter __first, _RandomAccessIter __last);
@@ -697,9 +663,6 @@ bool is_heap(_RandomAccessIter __first, _RandomAccessIter __last,
 	     _StrictWeakOrdering __comp);
 
 
-// is_sorted, a predicated testing whether a range is sorted in
-// nondescending order.  This is an extension, not part of the C++
-// standard.
 template <class _ForwardIter, class _StrictWeakOrdering>
 bool __is_sorted(_ForwardIter __first, _ForwardIter __last,
                  _StrictWeakOrdering __comp);
@@ -724,7 +687,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_ALGO_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

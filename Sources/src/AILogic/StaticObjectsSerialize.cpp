@@ -13,7 +13,6 @@
 #include "SmokeScreen.h"
 #include "Flag.h"
 #include "SaveDBID.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CStormableObject::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -27,7 +26,6 @@ int CStormableObject::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGivenPassabilityStObject::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -43,7 +41,6 @@ int CGivenPassabilityStObject::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CCommonStaticObject::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -53,7 +50,6 @@ int CCommonStaticObject::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSimpleStaticObject::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -64,7 +60,6 @@ int CSimpleStaticObject::operator&( IStructureSaver &ss )
 	saver.Add( 4, &bDelayedUpdate );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CBuilding::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -108,7 +103,6 @@ int CBuilding::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CBuildingStorage::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -118,14 +112,12 @@ int CBuildingStorage::operator&( IStructureSaver &ss )
 	saver.Add( 4, &timeLastBuildingRepair );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CBuildingSimple::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 	saver.AddTypedSuper( 1, static_cast<CBuilding*>(this) ); 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMineStaticObject::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -141,7 +133,6 @@ int CMineStaticObject::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CEntrenchment::SFireplaceInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -152,7 +143,6 @@ int CEntrenchment::SFireplaceInfo::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CEntrenchment::SInsiderInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -160,7 +150,6 @@ int CEntrenchment::SInsiderInfo::operator&( IStructureSaver &ss )
 	saver.Add( 2, &nFireplace );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CEntrenchment::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -178,7 +167,6 @@ int CEntrenchment::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CEntrenchmentPart::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -196,7 +184,6 @@ int CEntrenchmentPart::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CEntrenchmentTankPit::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -211,7 +198,6 @@ int CEntrenchmentTankPit::operator&( IStructureSaver &ss )
 	return 0;
 }
 /*
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CStaticObjects::CStoragesContainer2::CData::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -225,7 +211,6 @@ int CStaticObjects::CStoragesContainer2::CData::operator&( IStructureSaver &ss )
 	saver.Add( 8, &totalUnconnected );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CStaticObjects::CStoragesContainer2::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -246,7 +231,6 @@ int CStaticObjects::CStoragesContainer2::operator&( IStructureSaver &ss )
 	saver.Add( 14, &pData );
 	return 0;
 }*/
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CStaticObjects::CStoragesContainer::CPartyInfo::
 operator&( IStructureSaver &ss )
 {
@@ -255,7 +239,6 @@ operator&( IStructureSaver &ss )
 	saver.Add( 2, &secondary );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CStaticObjects::CStoragesContainer::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -264,7 +247,6 @@ int CStaticObjects::CStoragesContainer::operator&( IStructureSaver &ss )
 	saver.Add( 4, &updated );
 	saver.Add( 23, &storageSystem );
 
-	//CRAP{ FOR SAVES COMPATIBILITY
 	if ( saver.IsReading() && storageSystem.empty() )
 	{
 		storageSystem.resize( 2 );
@@ -272,11 +254,9 @@ int CStaticObjects::CStoragesContainer::operator&( IStructureSaver &ss )
 	}
 	else
 		bInitOnSegment = false;
-	//CRAP}
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CStaticObjects::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -294,12 +274,9 @@ int CStaticObjects::operator&( IStructureSaver &ss )
 	saver.Add( 13, &obstacleObjects );
 	saver.Add( 14, &containersAreaMap );
 	saver.Add( 15, &bIterCreated );
-	//saver.Add( 16, &storagesContainer2 );
-	//saver.Add( 17, &pWideSearch );
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CExistingObject::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -313,7 +290,6 @@ int CExistingObject::operator&( IStructureSaver &ss )
 	{
 		LoadDBID( &saver, 7, &dbID );
 
-		// legacy save
 		if ( dbID == -1 )
 			saver.Add( 3, &dbID );
 	}
@@ -322,7 +298,6 @@ int CExistingObject::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CStaticObject::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -331,7 +306,6 @@ int CStaticObject::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CBridgeSpan::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -347,7 +321,6 @@ int CBridgeSpan::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CArtilleryBulletStorage::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -357,7 +330,6 @@ int CArtilleryBulletStorage::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFullEntrenchment::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -385,7 +357,6 @@ int CFullEntrenchment::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFullBridge::SSpanLock::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -394,7 +365,6 @@ int CFullBridge::SSpanLock::operator&( IStructureSaver &ss )
 	saver.Add( 4, &tiles );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFullBridge::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -435,7 +405,6 @@ int CFullBridge::operator&( IStructureSaver &ss )
 	saver.Add( ++cnt, &nSpans );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CRotatingFireplacesObject::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -444,7 +413,6 @@ int CRotatingFireplacesObject::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CRotatingFireplacesObject::SUnitInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -455,7 +423,6 @@ int CRotatingFireplacesObject::SUnitInfo::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFence::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -473,7 +440,6 @@ int CFence::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTerraMeshStaticObject::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -484,7 +450,6 @@ int CTerraMeshStaticObject::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSmokeScreen::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -501,7 +466,6 @@ int CSmokeScreen::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFlag::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -518,8 +482,6 @@ int CFlag::operator&( IStructureSaver &ss )
 	saver.Add( 8, &nPlayerToCapture );
 	saver.Add( 9, &timeOfStartNeutralPartyCapturing );
 	saver.Add( 10, &bCapturingByNeutral );
-	// next available ID = 12
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

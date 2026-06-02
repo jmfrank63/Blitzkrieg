@@ -1,10 +1,8 @@
 #include "StdAfx.h"
 
 #include "..\Image\Image.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline int Height( const RECT &rect ) { return rect.bottom - rect.top; }
 inline int Width( const RECT &rect ) { return rect.right - rect.left; }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TYPE>
 inline void FlipX( TYPE *p1, TYPE *p2 )
 {
@@ -46,7 +44,6 @@ inline void FlipRombY( CImageAccessor &image, const RECT &rect )
 	for ( int i=0; i<nHalfY; ++i )
 		FlipY( &(image[rect.top + i][rect.left + nHalfX - i*2 - 1]), &(image[rect.bottom - i][rect.left + nHalfX - i*2 - 1]), i*4 + 2 );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CBrazenhaimLine
 {
 	int x1, y1, x2, y2;
@@ -63,7 +60,6 @@ public:
 		ylen = abs( ylen ) + 1;
 		len = Max( xlen, ylen );
 	}
-	//
 	bool Next()
 	{
 		if ( (x1 == x2) && (y1 == y2) )
@@ -79,7 +75,6 @@ public:
 	int GetX() const { return x1; }
 	int GetY() const { return y1; }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void FlipLines( CImageAccessor &image, CBrazenhaimLine &line1, CBrazenhaimLine &line2 )
 {
 	do 
@@ -89,7 +84,6 @@ void FlipLines( CImageAccessor &image, CBrazenhaimLine &line1, CBrazenhaimLine &
 		image[line2.GetY()][line2.GetX()] = val;
 	} while( line1.Next() && line2.Next() );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void FlipRomb1( CImageAccessor &image, const RECT &rect )
 {
 	int nHalfX = Width( rect ) / 2;
@@ -139,7 +133,6 @@ void FlipRomb1( CImageAccessor &image, const RECT &rect )
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void FlipRomb2( CImageAccessor &image, const RECT &rect )
 {
 	int nHalfX = Width( rect ) / 2;
@@ -189,7 +182,6 @@ void FlipRomb2( CImageAccessor &image, const RECT &rect )
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main( int argc, char *argv[] )
 {
 	if ( argc < 2 )
@@ -200,27 +192,21 @@ int main( int argc, char *argv[] )
 		printf( "Usage: OffsetRomb.exe <input file name> [<output file name>]\n" );
 		return -1;
 	}
-	//
 	std::string szInputFileName = argv[1], szOutputFileName = argc > 2 ? argv[2] : argv[1];
-	// load image
 	IImageProcessor *pIP = GetImageProcessor();
 	CPtr<IDataStorage> pStorage = OpenStorage( ".\\", STREAM_ACCESS_READ | STREAM_ACCESS_WRITE );
 	CPtr<IDataStream> pStream = pStorage->OpenStream( szInputFileName.c_str(), STREAM_ACCESS_READ );
 	NI_ASSERT_TF( pStream != 0, NStr::Format("Can't open image file \"%s\"", szInputFileName.c_str()), return 0xDEAD );
 	CPtr<IImage> pImage = pIP->LoadImage( pStream );
 	CImageAccessor image = pImage;
-	// process
 	int nSizeY = pImage->GetSizeY();
 	int nSizeX = pImage->GetSizeX();
 	RECT rect;
 	SetRect( &rect, 0, 0, nSizeX, nSizeY );
 	FlipRomb1( image, rect );
 	FlipRomb2( image, rect );
-	// save image
 	pStream = pStorage->OpenStream( szOutputFileName.c_str(), STREAM_ACCESS_WRITE );
 	NI_ASSERT_TF( pStream != 0, NStr::Format("Can't open image file \"%s\" to write", szOutputFileName.c_str()), return 0xDEAD );
 	pIP->SaveImageAsTGA( pStream, pImage );
-	//
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

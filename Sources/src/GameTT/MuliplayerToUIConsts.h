@@ -1,18 +1,14 @@
 #if !defined(_MULTIPLAYER_TO_UI_CONSTS_)
 #define _MULTIPLAYER_TO_UI_CONSTS_
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EMultiplayerToUICommands
 {
-	// for servers list
 	EMTUC_UPDATE_SERVER_INFO,
 	EMTUC_DELETE_SERVER,
 	EMTUC_CANT_RESOLVE_ADDRESS,
 	
-	// for staging room
 	EMTUC_GAME_INFO,
 	EMTUC_WRONG_RESOURCES,
 	EMTUC_WRONG_MAP,
@@ -27,13 +23,11 @@ enum EMultiplayerToUICommands
 	EMTUC_PLAYER_KICKED,
 	EMTUC_AIM_KICKED,
 
-	// for chat
 	EMTUC_UPDATE_CHAT_PLAYER_INFO,
 	EMTUC_PLAYER_CHANGED_NICK,
 	EMTUC_PLAYER_LEFT_GAMESPY,	
 	
 
-	//
 	EMTUC_CREATE_STAGING_ROOM,
 	EMTUC_START_GAME,
 	EMTUC_CONFIGURE_STAGING_ROOM,
@@ -43,15 +37,12 @@ enum EMultiplayerToUICommands
 
 	EMTUC_SERVER_SETTINGS_CHANGED,				// // SServerNewSettings is attached
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EUIToMultiplayerNotifications
 {
 	EUTMN_UNITIALIZED											= 0,
-	//notifications about interface change
 	EUTMN_GAMES_LIST_MODE									= 1,
 	EUTMN_STAGING_ROOM_MODE								= 2,
 	EUTMN_CHAT_MODE												= 3,
-	// когда вышли из chat обратно в serverslist
 	EUTMN_LEAVE_CHAT_MOVE									= 4,
 
 	EUTMN_PLAYER_READY										= 5,			// when player chaned ready state
@@ -64,7 +55,6 @@ enum EUIToMultiplayerNotifications
 	EUTMN_LEFT_GAME												= 10,
 	EUTMN_KICK_PLAYER											= 11,
 	
-	//FOR chat
 	EUTMN_SEND_CHAT_MESSAGE								= 12,
 	EUTMN_PLAYER_RELATION_CHANGED					= 13,			//when changed relation. sends SUIRelationNotify
 
@@ -78,5 +68,4 @@ enum EUIToMultiplayerNotifications
 	EUTMN_ADDRESS_BOOK_MODE								= 19,
 	EUTMN_SWITCH_MOD_OK										= 20,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif //_MULTIPLAYER_TO_UI_CONSTS_

@@ -8,7 +8,6 @@
 #include "..\AILogic\AIConsts.h"
 #include "..\GFX\GFXHelper.h"
 #include "..\Misc\Intersection.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
 inline int GetNextRoadByPriority( int nPriority, const SRoadsetDesc &roadset )
 {
@@ -22,15 +21,12 @@ inline int GetNextRoadByPriority( int nPriority, const SRoadsetDesc &roadset )
 			nLastPriority = roadset.roads[i].nPriority;
 		}
 	}
-	//
 	return nIndex;
 }
 /**/
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool STerrainCurrMeshData::Draw( IGFX *pGFX, IGFXTexture *pTileset, IGFXTexture *pCrosset, IGFXTexture *pNoise, bool bEnableNoise )
 {
 	{
-		//
 		pGFX->SetTexture( 0, pTileset );
 		if ( !mshNoiseTiles.IsEmpty() ) 
 		{
@@ -44,14 +40,12 @@ bool STerrainCurrMeshData::Draw( IGFX *pGFX, IGFXTexture *pTileset, IGFXTexture 
 			DrawTemp( pGFX, mshNoNoiseTiles.vertices, mshNoNoiseTiles.indices );
 		}
 	}
-	// crosses
 	if ( !mshBaseCrosses.IsEmpty() )
 	{
 		pGFX->SetTexture( 1, pCrosset );
 		pGFX->SetShadingEffect( 100 );
 		DrawTemp( pGFX, mshBaseCrosses.vertices, mshBaseCrosses.indices );
 	}
-	// noise with crosses
 	if ( !mshCrossLayers.empty() )
 	{
 		pGFX->SetTexture( 1, pCrosset );
@@ -60,7 +54,6 @@ bool STerrainCurrMeshData::Draw( IGFX *pGFX, IGFXTexture *pTileset, IGFXTexture 
 			pGFX->SetTexture( 0, pTileset );
 			pGFX->SetShadingEffect( 100 );
 			DrawTemp( pGFX, layer->mshCrosses.vertices, layer->mshCrosses.indices );
-			//
 			if ( !layer->mshNoises.IsEmpty() && bEnableNoise )
 			{
 				pGFX->SetTexture( 0, pNoise );
@@ -69,61 +62,48 @@ bool STerrainCurrMeshData::Draw( IGFX *pGFX, IGFXTexture *pTileset, IGFXTexture 
 			}
 		}
 	}
-	// ...over crosses (w/o crosses)
 	if ( !mshNoises.IsEmpty() && bEnableNoise )
 	{
 		pGFX->SetTexture( 0, pNoise );
 		pGFX->SetShadingEffect( 103 );
 		DrawTemp( pGFX, mshNoises.vertices, mshNoises.indices );
 	}
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTerrain::Draw( ICamera *pCamera )
 {
 	if ( ExtractVisiblePatches( pCamera ) )
 		MovePatches();
-	//
 	pGFX->SetDepthBufferMode( GFXDB_NONE );
 	mshCurrent.Draw( pGFX, pTileset, pCrosset, pNoise, bEnableNoise );
 	pGFX->SetDepthBufferMode( GFXDB_USE_Z );
 		
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTerrain::DrawVectorObjects()
 {
 	pGFX->SetDepthBufferMode( GFXDB_NONE );
 	pGFX->SetWorldTransforms( 0, &MONE, 1 );
-	// draw roads base (borders)
 	pGFX->SetShadingEffect( 8 );
 	for ( int i = 0; i != roads.size(); ++i )
 		roads[i].DrawBorder( pGFX );
-	// draw road layers (center)
 	pGFX->SetShadingEffect( 8 );
 	for ( int i = 0; i != roads.size(); ++i )
 		roads[i].DrawCenter( pGFX );
-	// draw water base (bottom)
 	pGFX->SetShadingEffect( 8 );
 	for ( int i = 0; i != rivers.size(); ++i )
 		rivers[i].DrawBase( pGFX );
-	// draw water layers
 	pGFX->SetShadingEffect( 303 );
 	for ( int i = 0; i != rivers.size(); ++i )
 		rivers[i].DrawWater( pGFX );
-	// disable texture animation
 	pGFX->SetShadingEffect( 304 );
 	pGFX->SetDepthBufferMode( GFXDB_USE_Z );
-	//
 	return true;
 }
 bool CTerrain::DrawMarkers()
 {
 	pGFX->SetDepthBufferMode( GFXDB_NONE );
-	// marker
 	DrawMarker();
-	// grid
 	if ( bGridOn )
 	{
 		pGFX->SetDepthBufferMode( GFXDB_NONE );
@@ -136,7 +116,6 @@ bool CTerrain::DrawMarkers()
 	pGFX->SetDepthBufferMode( GFXDB_USE_Z );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CreateGrid( const struct STerrainPatch &patch, const STerrainInfo &info, 
 								 std::vector<SGFXLineVertex> &vertices, std::vector<WORD> &indices );
 bool CTerrain::DrawGrid( const STerrainPatch &patch )
@@ -146,11 +125,9 @@ bool CTerrain::DrawGrid( const STerrainPatch &patch )
 	CreateGrid( patch, terrainInfo, vertices, indices );
 	return DrawTemp( pGFX, vertices, indices, GFXPT_LINELIST );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTerrain::DrawWarFog()
 {
 	pGFX->SetDepthBufferMode( GFXDB_NONE );
-	//
 	pGFX->SetupDirectTransform();
 	pGFX->SetTexture( 0, 0 );
 	pGFX->SetShadingEffect( 13 );
@@ -162,32 +139,26 @@ bool CTerrain::DrawWarFog()
 	}
 	pGFX->RestoreTransform();
 	DrawBorder( 0x80000000, 32, true );
-	//
 	pGFX->SetDepthBufferMode( GFXDB_USE_Z );
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTerrain::DrawMarker()
 {
 	if ( vismarker.info.empty() && aimarker.info.empty() )
 		return;
-	//
 	static CMatrixStack<4> mstack;
 	mstack.Push( pGFX->GetViewportMatrix() );
 	mstack.Push( pGFX->GetProjectionMatrix() );
 	mstack.Push( pGFX->GetViewMatrix() );
 	SHMatrix matTransform = mstack();
 	mstack.Pop( 3 );
-	//
 	const float fPatchSize = fWorldCellSize * STerrainPatchInfo::nSizeX;
 	const CVec3 vO( 0, fPatchSize * terrainInfo.patches.GetSizeY(), 0 );
 	CVec3 vScreenO;											// screen space position of the terrain's origin
 	matTransform.RotateHVector( &vScreenO, vO );
-	//
 	pGFX->SetShadingEffect( 3 );
 	pGFX->SetTexture( 0, 0 );
-	//
 	if ( !vismarker.info.empty() && !vismarker.vertices.empty() && !vismarker.indices.empty() )
 	{
 		CPtr<IGFXVertices> pVertices = pGFX->CreateVertices( vismarker.vertices.size(), SMarkerVertex::format, GFXPT_TRIANGLELIST, GFXD_DYNAMIC );
@@ -203,45 +174,30 @@ void CTerrain::DrawMarker()
 										pVertices, pIndices );
 		pGFX->Draw( pVertices, pIndices );
 	}
-	//
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline bool IsVisible( const float fMinX, const float fMinY, const float fMinHeight,
 											 const float fMaxX, const float fMaxY, const float fMaxHeight,
 											 const SPlane *pViewVolumePlanes )
 {
 	const DWORD dwCrossFlags = 
-		// AAA
 		CheckViewVolume4( CVec3(fMaxX, fMaxY, fMaxHeight), pViewVolumePlanes ) &
-		// AAI
 		CheckViewVolume4( CVec3(fMaxX, fMaxY, fMinHeight), pViewVolumePlanes ) &
-		// AIA
 		CheckViewVolume4( CVec3(fMaxX, fMinY, fMaxHeight), pViewVolumePlanes ) &
-		// AII
 		CheckViewVolume4( CVec3(fMaxX, fMinY, fMinHeight), pViewVolumePlanes ) &
-		// IAA
 		CheckViewVolume4( CVec3(fMinX, fMaxY, fMaxHeight), pViewVolumePlanes ) &
-		// IAI
 		CheckViewVolume4( CVec3(fMinX, fMaxY, fMinHeight), pViewVolumePlanes ) &
-		// IIA
 		CheckViewVolume4( CVec3(fMinX, fMinY, fMaxHeight), pViewVolumePlanes ) &
-		// III
 		CheckViewVolume4( CVec3(fMinX, fMinY, fMinHeight), pViewVolumePlanes );
 	return dwCrossFlags == 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool IsPatchVisible( const STerrainPatchInfo &patch, const STerrainInfo &info, const SPlane *pViewVolumePlanes, bool *flags )
 {
 	const float fMinX = patch.nStartX * fWorldCellSize;
 	const float fMinY = float( info.tiles.GetBoundY() - patch.nStartY - 16 ) * fWorldCellSize;
 	const float fMaxX = fMinX + 17.0f*fWorldCellSize;
 	const float fMaxY = fMinY + 17.0f*fWorldCellSize;
-	//
 	if ( IsVisible(fMinX, fMinY, patch.fMinHeight, fMaxX, fMaxY, patch.fMaxHeight, pViewVolumePlanes) )
 	{
-		// check for 4 sub-patches
-		// 0 1
-		// 2 3
 		flags[0] = IsVisible( fMinX                       , fMinY                       , patch.fSubMinHeight[0], 
 			                    fMinX + 10.0f*fWorldCellSize, fMinY + 10.0f*fWorldCellSize, patch.fSubMaxHeight[0], pViewVolumePlanes );
 
@@ -257,62 +213,45 @@ bool IsPatchVisible( const STerrainPatchInfo &patch, const STerrainInfo &info, c
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTerrain::ExtractVisiblePatches( ICamera *pCamera )
 {
 	const CVec3 vCamera = pCamera->GetAnchor();
 	if ( (vCamera.x == vOldAnchor.x) && (vCamera.y == vOldAnchor.y) && (vCamera.z == vOldAnchor.z) )
 		return false;
 	vOldAnchor = vCamera;
-	// get view volume planes
 	SPlane viewVolumePlanes[6];
 	pGFX->GetViewVolume( &(viewVolumePlanes[0]) );
-	//
 	const float fPatchHalfAxis = fCellSizeX * STerrainPatchInfo::nSizeX;
 	const float fPatchSize = fWorldCellSize * STerrainPatchInfo::nSizeX;
 	const float fTerrainPatchesX = terrainInfo.patches.GetSizeX();
 	const float fTerrainPatchesY = terrainInfo.patches.GetSizeY();
 	const float fTerrainSizeX = fTerrainPatchesX * fPatchSize;
 	const float fTerrainSizeY = fTerrainPatchesY * fPatchSize;
-	// выделить патчи, которые попадают в обзор
-	// это базисные линии (X, Y) системы координат ландшафта
 	CVec3 vAxisX, vAxisY;
 	GetLineEq( 0, 0, 1, 0, &vAxisX.x, &vAxisX.y, &vAxisX.z );
 	GetLineEq( 0, 1, 0, 0, &vAxisY.x, &vAxisY.y, &vAxisY.z );
-	//
 	const RECT rcScreen = pGFX->GetScreenRect();
-	// half-width and half-height
 	const float fWidth = ( rcScreen.right - rcScreen.left ) / 2;
 	const float fHeight = rcScreen.bottom - rcScreen.top;					// height * 2 due to camera yaw = 30 degrees
-	// оси камеры в мировой системе координат:
 	CVec2 vCameraX( fWidth / FP_SQRT_2, fWidth / FP_SQRT_2 ), vCameraY( -fHeight / FP_SQRT_2, fHeight / FP_SQRT_2 );
-	//
-	//
-	// определим грубый прямоугольник (в системе координат террейна, в целых тайлах), в который вписывается экран
-	// определение производим на основании расстояния от углов экрана до координатных осей системы террейна
-	// NOTE: границы по принципу [min, max)
 	const CVec2 vCameraO( vCamera.x, vCamera.y );
 	CTRect<int> rcL0Rect;								// level 0 of roughness rect
 	{
-		// LT => min x
 		const CVec2 point = vCameraO + vCameraY - vCameraX;
 		const float fDist = vAxisY.x*point.x + vAxisY.y*point.y + vAxisY.z;
 		rcL0Rect.minx = floor( Clamp( fDist / fPatchSize, 0.0f, fTerrainPatchesX ) );
 	}
 	{
-		// RT => min y
 		const CVec2 point = vCameraO + vCameraY + vCameraX;
 		const float fDist = vAxisX.x*point.x + vAxisX.y*point.y + vAxisX.z;
 		rcL0Rect.miny = floor( Clamp( fTerrainPatchesY - (fDist / fPatchSize), 0.0f, fTerrainPatchesY ) );
 	}
 	{
-		// RB => max x
 		const CVec2 point = vCameraO + vCameraX - vCameraY;
 		const float fDist = vAxisY.x*point.x + vAxisY.y*point.y + vAxisY.z;
 		rcL0Rect.maxx = floor( Clamp( fDist / fPatchSize, 0.0f, fTerrainPatchesX ) + 0.99f );
 	}
 	{
-		// LB => max y
 		const CVec2 point = vCameraO - vCameraY - vCameraX;
 		const float fDist = vAxisX.x*point.x + vAxisX.y*point.y + vAxisX.z;
 		rcL0Rect.maxy = floor( Clamp( fTerrainPatchesY - (fDist / fPatchSize), 0.0f, fTerrainPatchesY ) + 0.99f );
@@ -323,7 +262,6 @@ bool CTerrain::ExtractVisiblePatches( ICamera *pCamera )
 	rcL0Rect.maxx = Clamp( rcL0Rect.maxx, 0, terrainInfo.patches.GetSizeX() );
 	rcL0Rect.maxy = Clamp( rcL0Rect.maxy, 0, terrainInfo.patches.GetSizeY() );
 
-	// теперь из полученного прямоугольника (rcL0Rect) проверим все патчи
 	std::list< std::pair<int, int> > accepted;
 	for ( int j = rcL0Rect.miny; j < rcL0Rect.maxy; ++j )
 	{
@@ -333,7 +271,6 @@ bool CTerrain::ExtractVisiblePatches( ICamera *pCamera )
 			if ( IsPatchVisible(terrainInfo.patches[j][i], terrainInfo, viewVolumePlanes, flags) )
 			{
 				accepted.push_back( std::pair<int, int>( i, j ) );
-				// добавляем в старый список новых перцев
 				bool bExist = false;
 				for ( CPatchesList::iterator it = patches.begin(); it != patches.end(); ++it )
 				{
@@ -347,7 +284,6 @@ bool CTerrain::ExtractVisiblePatches( ICamera *pCamera )
 						break;
 					}
 				}
-				//
 				if ( !bExist )
 				{
 					patches.push_back( STerrainPatch() );
@@ -362,7 +298,6 @@ bool CTerrain::ExtractVisiblePatches( ICamera *pCamera )
 			}
 		}
 	}
-	// выбрасываем из старого списка не попавших в новый
 	for ( CPatchesList::iterator it = patches.begin(); it != patches.end(); )
 	{
 		if ( std::find( accepted.begin(), accepted.end(), std::pair<int, int>(it->nX, it->nY) ) == accepted.end() )
@@ -370,7 +305,6 @@ bool CTerrain::ExtractVisiblePatches( ICamera *pCamera )
 		else
 			++it;
 	}
-	// form vector with road patches
 	roadPatches.clear();
 	roadPatches.reserve( patches.size() );
 	for ( CPatchesList::const_iterator it = patches.begin(); it != patches.end(); ++it )
@@ -383,20 +317,15 @@ bool CTerrain::ExtractVisiblePatches( ICamera *pCamera )
 		roads[i].SelectPatches( roadPatches );	
 	for ( int i = 0; i != rivers.size(); ++i )
 		rivers[i].SelectPatches( roadPatches );	
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTerrain::DrawAISurface( const STerrainPatch &patch )
 {
 	IAILogic *pAILogic = GetSingleton<IAILogic>();
 	if ( pAILogic == 0 ) 
 		return false;
-	//
 	const float fStartX = patch.nX * STerrainPatchInfo::nSizeX;
 	const float fStartY = ( terrainInfo.patches.GetSizeY() - patch.nY ) * STerrainPatchInfo::nSizeY;
-	// vertices
-//	std::vector<SGFXVertex> vertices( (STerrainPatchInfo::nSizeY + 1) * (STerrainPatchInfo::nSizeX + 1) );
 	CTempBufferLock<SGFXVertex> vertices = pGFX->GetTempVertices( (STerrainPatchInfo::nSizeY + 1)*(STerrainPatchInfo::nSizeX + 1)*4, 
 		                                                             SGFXVertex::format, GFXPT_TRIANGLELIST );
 	SGFXVertex *pVerts = vertices.GetBuffer();
@@ -415,10 +344,8 @@ bool CTerrain::DrawAISurface( const STerrainPatch &patch )
 			++pVerts;
 		}
 	}
-	// indices
 	CTempBufferLock<WORD> indices = pGFX->GetTempIndices( STerrainPatchInfo::nSizeX*STerrainPatchInfo::nSizeY*6*4, 
 		                                                    GFXIF_INDEX16, GFXPT_TRIANGLELIST );
-//	std::vector<WORD> indices( STerrainPatchInfo::nSizeX*STerrainPatchInfo::nSizeY*6 );
 	WORD *pInds = indices.GetBuffer();
 	for ( int i = 0; i != STerrainPatchInfo::nSizeY*2; ++i )
 	{
@@ -436,10 +363,8 @@ bool CTerrain::DrawAISurface( const STerrainPatch &patch )
 			*pInds++ = nIdx3;
 		}
 	}
-	//
 	return pGFX->DrawTemp();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTerrain::DrawBorder( DWORD dwColor, int nTiles, bool bUseFog )
 {
 	typedef std::pair<int, int> CIndexPair;
@@ -623,7 +548,6 @@ void CTerrain::DrawBorder( DWORD dwColor, int nTiles, bool bUseFog )
 		}
 	}
 }
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTerrain::DrawPatchBorder( CVec3 &vStartPos, const CVec3 &vFarOffset, const CVec3 &vStepOffset, bool bRightOrder, bool bXIncrement, int nXStart, int nYStart, DWORD dwColor, bool bUseFog )
 {
 	CTempBufferLock<SGFXLineVertex> vertices = pGFX->GetTempVertices( (STerrainPatchInfo::nSizeY + 1) * 2, SGFXLineVertex::format, GFXPT_TRIANGLELIST );
@@ -672,4 +596,3 @@ void CTerrain::DrawPatchBorder( CVec3 &vStartPos, const CVec3 &vFarOffset, const
 	}
 	pGFX->DrawTemp();
 }
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

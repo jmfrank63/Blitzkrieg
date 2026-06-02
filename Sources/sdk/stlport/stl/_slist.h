@@ -71,7 +71,6 @@ struct _Slist_iterator_base {
   _Slist_iterator_base(_Slist_node_base* __x) : _M_node(__x) {}
 
   void _M_incr() { 
-//    _STLP_VERBOSE_ASSERT(_M_node != 0, _StlMsg_INVALID_ADVANCE)
     _M_node = _M_node->_M_next; 
   }
   bool operator==(const _Slist_iterator_base& __y ) const { 
@@ -129,7 +128,6 @@ template <class _Tp, class _Traits>
 inline _Tp* _STLP_CALL value_type(const _Slist_iterator<_Tp, _Traits>&) { return (_Tp*)0; }
 #endif /* OLD_QUERIES */
 
-// Base class that encapsulates details of allocators and simplifies EH
 
 template <class _Tp, class _Alloc> 
 struct _Slist_base {
@@ -225,15 +223,12 @@ public:
     { _M_insert_after_fill(&this->_M_head._M_data, __n, value_type()); }
 
 #ifdef _STLP_MEMBER_TEMPLATES
-  // We don't need any dispatching tricks here, because _M_insert_after_range
-  // already does them.
   template <class _InputIterator>
   slist(_InputIterator __first, _InputIterator __last,
         const allocator_type& __a _STLP_ALLOCATOR_TYPE_DFL) : 
     _Slist_base<_Tp,_Alloc>(__a)
   { _M_insert_after_range(&this->_M_head._M_data, __first, __last); }
 # ifdef _STLP_NEEDS_EXTRA_TEMPLATE_CONSTRUCTORS
-  // VC++ needs this crazyness
   template <class _InputIterator>
   slist(_InputIterator __first, _InputIterator __last) :
     _Slist_base<_Tp,_Alloc>(allocator_type())
@@ -258,10 +253,6 @@ public:
   ~slist() {}
 
 public:
-  // assign(), a generalized assignment member function.  Two
-  // versions: one that takes a count, and one that takes a range.
-  // The range version is a member template, so we dispatch on whether
-  // or not the type is an integer.
 
   void assign(size_type __n, const _Tp& __val)
     { _M_fill_assign(__n, __val); }
@@ -301,13 +292,6 @@ public:
 
 public:
 
-  // Experimental new feature: before_begin() returns a
-  // non-dereferenceable iterator that, when incremented, yields
-  // begin().  This iterator may be used as the argument to
-  // insert_after, erase_after, etc.  Note that even for an empty 
-  // slist, before_begin() is not the same iterator as end().  It 
-  // is always necessary to increment before_begin() at least once to
-  // obtain end().
   iterator before_begin() { return iterator((_Node*) &this->_M_head._M_data); }
   const_iterator before_begin() const
     { return const_iterator((_Node*) &this->_M_head._M_data); }
@@ -372,7 +356,6 @@ private:
 
 #ifdef _STLP_MEMBER_TEMPLATES
 
-  // Check whether it's an integral type.  If so, it's not an iterator.
   template <class _InIter>
   void _M_insert_after_range(_Node_base* __pos, 
                              _InIter __first, _InIter __last) {
@@ -432,8 +415,6 @@ public:
 
 #ifdef _STLP_MEMBER_TEMPLATES
 
-  // We don't need any dispatching tricks here, because _M_insert_after_range
-  // already does them.
   template <class _InIter>
   void insert_after(iterator __pos, _InIter __first, _InIter __last) {
     _M_insert_after_range(__pos._M_node, __first, __last);
@@ -468,8 +449,6 @@ public:
     
 #ifdef _STLP_MEMBER_TEMPLATES
 
-  // We don't need any dispatching tricks here, because _M_insert_after_range
-  // already does them.
   template <class _InIter>
   void insert(iterator __pos, _InIter __first, _InIter __last) {
     _M_insert_after_range(_Sl_global_inst::__previous(&this->_M_head._M_data, __pos._M_node), 
@@ -516,8 +495,6 @@ public:
   }
 
 public:
-  // Moves the range [__before_first + 1, __before_last + 1) to *this,
-  //  inserting it immediately after __pos.  This is constant time.
   void splice_after(iterator __pos, 
                     iterator __before_first, iterator __before_last)
   {
@@ -527,38 +504,29 @@ public:
     }
   }
 
-  // Moves the element that follows __prev to *this, inserting it immediately
-  //  after __pos.  This is constant time.
   void splice_after(iterator __pos, iterator __prev)
   {
     _Sl_global_inst::__splice_after(__pos._M_node,
                          __prev._M_node, __prev._M_node->_M_next);
   }
 
-  // Removes all of the elements from the list __x to *this, inserting
-  // them immediately after __pos.  __x must not be *this.  Complexity:
-  // linear in __x.size().
   void splice_after(iterator __pos, _Self& __x)
   {
     _Sl_global_inst::__splice_after(__pos._M_node, &__x._M_head._M_data);
   }
 
-  // Linear in distance(begin(), __pos), and linear in __x.size().
   void splice(iterator __pos, _Self& __x) {
     if (__x._M_head._M_data._M_next)
       _Sl_global_inst::__splice_after(_Sl_global_inst::__previous(&this->_M_head._M_data, __pos._M_node),
                            &__x._M_head._M_data, _Sl_global_inst::__previous(&__x._M_head._M_data, 0));
   }
 
-  // Linear in distance(begin(), __pos), and in distance(__x.begin(), __i).
   void splice(iterator __pos, _Self& __x, iterator __i) {
     _Sl_global_inst::__splice_after(_Sl_global_inst::__previous(&this->_M_head._M_data, __pos._M_node),
                          _Sl_global_inst::__previous(&__x._M_head._M_data, __i._M_node),
                          __i._M_node);
   }
 
-  // Linear in distance(begin(), __pos), in distance(__x.begin(), __first),
-  // and in distance(__first, __last).
   void splice(iterator __pos, _Self& __x, iterator __first, iterator __last)
   {
     if (__first != __last)
@@ -723,8 +691,6 @@ _STLP_END_NAMESPACE
 #endif
 
 _STLP_BEGIN_NAMESPACE
-// Specialization of insert_iterator so that insertions will be constant
-// time rather than linear time.
 
 #ifdef _STLP_CLASS_PARTIAL_SPECIALIZATION
 
@@ -771,7 +737,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_SLIST_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

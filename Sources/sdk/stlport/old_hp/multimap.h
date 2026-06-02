@@ -53,6 +53,3 @@ using STLPORT::__multimap__;
 
 #endif /* _STLP_MULTIMAP_H */
 
-// Local Variables:
-// mode:C++
-// End:

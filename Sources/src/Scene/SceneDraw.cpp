@@ -12,9 +12,7 @@
 #include "..\Formats\fmtMap.h"
 #include "..\Misc\Win32Random.h"
 #include "SoundScene.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define MESH_SHADOW_DENSITY 0.5f
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TYPE>
 class CRawBuffer
 {
@@ -24,11 +22,9 @@ class CRawBuffer
 public:
 	CRawBuffer() : pData( 0 ), nSize( 0 ), nCapacity( 0 ) {  }
 	~CRawBuffer() { if ( pData ) ::operator delete(pData); }
-	//
 	int size() const { return nSize; }
 	int capacity() const { return nCapacity; }
 	bool empty() const { return nSize == 0; }
-	//
 	void reserve( const int _nCapacity )
 	{
 		if ( nCapacity < _nCapacity ) 
@@ -47,7 +43,6 @@ public:
 		reserve( _nSize );
 		nSize = _nSize;
 	}
-	//
 	TYPE& operator[]( const int nIndex )
 	{
 		NI_ASSERT_SLOW_T( nIndex >= 0 && nIndex < nSize, NStr::Format("Can't access %d element in RAW buffer of range [0..%d]", nIndex, nSize) );
@@ -58,15 +53,12 @@ public:
 		NI_ASSERT_SLOW_T( nIndex >= 0 && nIndex < nSize, NStr::Format("Can't access %d element in RAW buffer of range [0..%d]", nIndex, nSize) );
 		return pData[nIndex];
 	}
-	//
 	const TYPE* begin() const { return pData; }
 	const TYPE* end() const { return pData + nSize; }
 	TYPE* begin() { return pData; }
 	TYPE* end() { return pData + nSize; }
-	//
 	typedef TYPE value_type;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TYPE>
 __forceinline bool DrawTemp( IGFX *pGFX, const CRawBuffer<TYPE> &vertices, const CRawBuffer<WORD> &indices, 
 										         EGFXPrimitiveType eGFXPT = GFXPT_TRIANGLELIST )
@@ -78,10 +70,8 @@ __forceinline bool DrawTemp( IGFX *pGFX, const CRawBuffer<TYPE> &vertices, const
 	memcpy( verts.GetBuffer(), &(vertices[0]), vertices.size() * sizeof(TYPE) );
 	CTempBufferLock<WORD> inds = pGFX->GetTempIndices( indices.size(), GFXIF_INDEX16, eGFXPT );
 	memcpy( inds.GetBuffer(), &(indices[0]), indices.size() * sizeof(WORD) );
-	//
 	return pGFX->DrawTemp();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TContainer>
 __forceinline typename TContainer::value_type* Resize2Fit( TContainer &data, const int nAdd )
 {
@@ -89,7 +79,6 @@ __forceinline typename TContainer::value_type* Resize2Fit( TContainer &data, con
 	data.resize( nOldSize + nAdd );
 	return &( data[nOldSize] );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float fCircleWidth = 10.0f;
 const int nNumSegments = 64;
 const float fAngleStep = FP_2PI / nNumSegments;
@@ -113,7 +102,6 @@ void DrawCircle( IGFX *pGFX, const CVec3 &vCenter3D, const float fR, const DWORD
 
 	pGFX->DrawTemp();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void DrawArea( IGFX *pGFX, const SShootArea &area, bool bFill )
 {
 	const float fCircleWidth = 10.0f;
@@ -159,12 +147,10 @@ void DrawArea( IGFX *pGFX, const SShootArea &area, bool bFill )
 		pGFX->DrawTemp();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void DrawMeshes( CMeshVisList &meshes, IGFX *pGFX, bool bEnableBBs, const SGFXLightDirectional &sunlight )
 {
 	if ( meshes.empty() ) 
 		return;
-	//
 	pGFX->EnableLighting( true );
 	pGFX->SetLight( 0, sunlight );
 	pGFX->EnableLight( 0, true );
@@ -172,7 +158,6 @@ void DrawMeshes( CMeshVisList &meshes, IGFX *pGFX, bool bEnableBBs, const SGFXLi
 	for ( CMeshVisList::iterator it = meshes.begin(); it != meshes.end(); ++it )
 		(*it)->Draw( pGFX );
 	pGFX->EnableLighting( false );
-	// draw bounding boxes
 	if ( bEnableBBs )
 	{
 		pGFX->SetTexture( 0, 0 );
@@ -180,12 +165,10 @@ void DrawMeshes( CMeshVisList &meshes, IGFX *pGFX, bool bEnableBBs, const SGFXLi
 			(*it)->DrawBB( pGFX );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void DrawMeshesChecked( CMeshVisList &meshes, IGFX *pGFX, bool bEnableBBs, const SGFXLightDirectional &sunlight, const SPlane *pvViewVolumePlanes )
 {
 	if ( meshes.empty() ) 
 		return;
-	//
 	pGFX->EnableLighting( true );
 	pGFX->SetLight( 0, sunlight );
 	pGFX->EnableLight( 0, true );
@@ -197,7 +180,6 @@ void DrawMeshesChecked( CMeshVisList &meshes, IGFX *pGFX, bool bEnableBBs, const
 			(*it)->Draw( pGFX );
 	}
 	pGFX->EnableLighting( false );
-	// draw bounding boxes
 	if ( bEnableBBs )
 	{
 		pGFX->SetTexture( 0, 0 );
@@ -209,43 +191,34 @@ void DrawMeshesChecked( CMeshVisList &meshes, IGFX *pGFX, bool bEnableBBs, const
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static CObj<CDrawVisitor> pDrawVisitor;
 void CScene::Draw( ICamera *pCamera )
 {
 	_control87( _RC_NEAR, _MCW_RC );
 
 	CTRect<short> rcScreenRect = pGFX->GetScreenRect();
-	//DWORD time = GetTickCount();
 	pCamera->Update();
 	pGFX->SetViewTransform( pCamera->GetPlacement() );
-	// form matrix to manually transform sprites to the screen
 	UpdateTransformMatrix();
-	// determine z-bias to keep z-buffer happy (treat sprites as vertical)
 	CVec3 vecZ1, vecZ2;
 	matTransform.RotateHVector( &vecZ1, CVec3(0, 0, 0) );
 	matTransform.RotateHVector( &vecZ2, CVec3(0, 0, 2.0f/FP_SQRT_3) );
 	fZBias = vecZ2.z - vecZ1.z;
 	matTransform.RotateHVector( &vecZ2, CVec3(-FP_SQRT_2, FP_SQRT_2, 0) );
 	fZBias2 = vecZ2.z - vecZ1.z;
-	// setup depth complexity rendering
 	if ( bEnableDepthComplexity )
 		pGFX->SetShadingEffect( 300 );
-	// draw terrain
 	if ( bEnableTerrain && pTerrain )
 	{
 		pGFX->SetupDirectTransform();
 		pTerrain->Draw( pCamera );
 		pGFX->RestoreTransform();
-		//
 		pTerrain->DrawVectorObjects();
 		pTerrain->DrawMarkers();
 	}
-	// form visibility list
 	if ( pDrawVisitor == 0 )
 		pDrawVisitor = new CDrawVisitor( GetGlobalVar("particlesdepth", 20.0f) );
 	pDrawVisitor->Clear();
-	// retrieve clip planes
 	SPlane vViewVolumePlanes[6];
 	{
 		pGFX->GetViewVolume( vViewVolumePlanes );
@@ -253,11 +226,9 @@ void CScene::Draw( ICamera *pCamera )
 	}
 	FormVisibilityLists( pCamera, pDrawVisitor );
 	pDrawVisitor->Sort();
-	// base sprite objects (terra + shadows)
 	if ( bEnableObjects )
 	{
 		pGFX->SetupDirectTransform();
-		// draw terrain objects (w/o depth buffer)
 		if ( !pDrawVisitor->terraObjects.empty() )
 		{
 			pGFX->SetDepthBufferMode( GFXDB_NONE );
@@ -273,16 +244,11 @@ void CScene::Draw( ICamera *pCamera )
 			pGFX->SetDepthBufferMode( GFXDB_USE_Z );
 		}
 		*/
-		//
-		// new draw areas
 		{
-			// NTimer::STime time = pTimer->GetGameTime();
-			// pGFX->SetWorldTransforms( 0, &MONE, 1 );
 		  pGFX->SetShadingEffect( 9 );
 			pGFX->SetTexture( 0, 0 );
 			pGFX->SetDepthBufferMode( GFXDB_NONE );
 			pGFX->SetCullMode( GFXC_NONE );
-			// draw areas
 			for ( CShootAreasList::iterator it = areas.begin(); it != areas.end(); ++it )
 			{
 				bool bIsBallistic = false;
@@ -295,12 +261,9 @@ void CScene::Draw( ICamera *pCamera )
 				for ( std::list<SShootArea>::iterator innerIter = it->areas.begin(); innerIter != it->areas.end(); ++innerIter )
 					DrawArea( pGFX, *innerIter, innerIter->eType != SShootArea::ESAT_LINE || !bIsBallistic );
 			}
-			//
 			pGFX->SetDepthBufferMode( GFXDB_USE_Z );
 			pGFX->SetCullMode( GFXC_CW );
 		}
-		///
-		//drawing directional arrow and markers
 		if ( bDrawArrow || !clickMarkers.empty() || !posMarkers.empty() )
 		{
 			pGFX->SetDepthBufferMode( GFXDB_NONE );
@@ -310,14 +273,12 @@ void CScene::Draw( ICamera *pCamera )
 			DrawMarkers();
 			pGFX->SetDepthBufferMode( GFXDB_USE_Z );			
 		}
-		//drawing black stripes on border
 		if ( pTerrain != 0 && pCamera != 0 && bEnableShowBorder )
 		{
 			pGFX->SetTexture( 0, 0 );
 			pGFX->SetShadingEffect( 2 );
 			pTerrain->DrawBorder( 0x00000000, 32, false );
 		}
-		// draw mech traces
 		if ( !pDrawVisitor->traces.empty() )
 		{
 			pGFX->SetDepthBufferMode( GFXDB_NONE );
@@ -327,12 +288,9 @@ void CScene::Draw( ICamera *pCamera )
 			DrawMechTraces( pDrawVisitor->traces );
 			pGFX->SetDepthBufferMode( GFXDB_USE_Z );
 		}
-		// draw shadow objects (/w special depth buffer)
 		if ( bEnableShadows )
 		{
 			pGFX->SetShadingEffect( 110 );
-			// для рендеринга теней для отсечения пересечений ставим режим z-buffer'а в '!=', т.е. чтобы рисовать с незаполненой области только
-			//pGFX->SetDepthBufferMode( GFXDB_USE_Z, GFXCMP_NOTEQUAL );
 			if ( !pDrawVisitor->shadowObjects.empty() )
 			{
 				pGFX->SetupDirectTransform();
@@ -340,29 +298,22 @@ void CScene::Draw( ICamera *pCamera )
 				DrawTerraObjects( pDrawVisitor->shadowObjects );
 				pGFX->RestoreTransform();
 			}
-			//pGFX->SetDepthBufferMode( GFXDB_NONE );
-			// draw shadows from 3D mesh objects
 			if ( !pDrawVisitor->meshes.empty() )
 			{
 				pGFX->SetShadingEffect( 112 );
-				// compose shadow matrix
 				SHMatrix matShadow;
 				Identity( &matShadow );
 				matShadow._13 = -sunlight.vDir.x / sunlight.vDir.z;
 				matShadow._23 = -sunlight.vDir.y / sunlight.vDir.z;
 				matShadow._33 = 0;
-				// enable lighting
 				pGFX->EnableSpecular( false );
 				pGFX->EnableLighting( true );
 				pGFX->EnableLight( 0, false );
-				//pGFX->SetShadingEffect( 8 );
-				// set material for shadow rendering
 				SGFXMaterial material;
 				Zero( material );
 				material.vDiffuse.a = MESH_SHADOW_DENSITY;
 				pGFX->SetMaterial( material );
 				pGFX->SetTexture( 0, 0 );
-				// main meshes
 				for ( CMeshVisList::iterator it = pDrawVisitor->meshes.begin(); it != pDrawVisitor->meshes.end(); ++it )
 				{
 					CVisObjDescMap::const_iterator pos = objdescs.find( *it );
@@ -375,10 +326,8 @@ void CScene::Draw( ICamera *pCamera )
 		}
 		pGFX->SetDepthBufferMode( GFXDB_USE_Z );
 	}
-	// units
 	if ( bEnableUnits )
 	{
-		// sprite
 		if ( !pDrawVisitor->spriteUnits.empty() )
 		{
 			pGFX->SetupDirectTransform();
@@ -386,39 +335,29 @@ void CScene::Draw( ICamera *pCamera )
 			DrawSprites( pDrawVisitor->spriteUnits );
 			pGFX->RestoreTransform();
 		}
-		// mesh
 		DrawMeshes( pDrawVisitor->meshes, pGFX, bEnableBBs, sunlight );
 	}
-	// other sprite objects
 	if ( bEnableObjects )
 	{
 		pGFX->SetupDirectTransform();
-		// draw sprite buildings
 		if ( !pDrawVisitor->spriteBuildings.empty() )
 		{
 			pGFX->SetShadingEffect( 3 );
 			DrawSprites( pDrawVisitor->spriteBuildings );
 		}
-		// draw main sprites
 		if ( !pDrawVisitor->sprites.empty() )
 		{
 			pGFX->SetShadingEffect( 3 );
 			DrawSprites( pDrawVisitor->sprites );
 		}
-		// draw icons
-		// bar/picture
 		if ( !pDrawVisitor->icons.empty() )
 		{
 			pGFX->SetDepthBufferMode( GFXDB_NONE );
-			// disable z-write and set 'icon drawing' state
 			pGFX->SetShadingEffect( 14 );
-			// draw icons
 			DrawSprites( pDrawVisitor->icons );
-			// enable z-write
 			pGFX->SetShadingEffect( 11 );
 			pGFX->SetDepthBufferMode( GFXDB_USE_Z );
 		}
-		// text
 		if ( !pDrawVisitor->textes.empty() )
 		{
 			pDrawVisitor->textes.sort( SSortByFont() );
@@ -430,41 +369,32 @@ void CScene::Draw( ICamera *pCamera )
 		}
 		pGFX->RestoreTransform();
 	}
-	// draw shadow from aviation
 	if ( bEnableShadows && !pDrawVisitor->aviation.empty() )
 	{
 		pGFX->SetDepthBufferMode( GFXDB_NONE );
 		pGFX->SetShadingEffect( 110 );
-		// draw shadows from 3D mesh objects
 		{
 			pGFX->SetShadingEffect( 112 );
-			// compose shadow matrix
 			SHMatrix matShadow;
 			Identity( &matShadow );
 			matShadow._13 = -sunlight.vDir.x / sunlight.vDir.z;
 			matShadow._23 = -sunlight.vDir.y / sunlight.vDir.z;
 			matShadow._33 = 0;
-			// enable lighting
 			pGFX->EnableSpecular( false );
 			pGFX->EnableLighting( true );
 			pGFX->EnableLight( 0, false );
-			//pGFX->SetShadingEffect( 8 );
-			// set material for shadow rendering
 			SGFXMaterial material;
 			Zero( material );
 			material.vDiffuse.a = MESH_SHADOW_DENSITY;
 			pGFX->SetMaterial( material );
 			pGFX->SetTexture( 0, 0 );
-			// avaiation
 			for ( CMeshVisList::iterator it = pDrawVisitor->aviation.begin(); it != pDrawVisitor->aviation.end(); ++it )
 				(*it)->DrawShadow( pGFX, &matShadow, sunlight.vDir );
-			//
 			pGFX->EnableLighting( false );
 		}
 		pGFX->SetShadingEffect( 113 );
 		pGFX->SetDepthBufferMode( GFXDB_USE_Z );
 	}
-	// draw gun traces
 	if ( !pDrawVisitor->gunTraces.empty() )
 	{
 		pGFX->SetDepthBufferMode( GFXDB_NONE );
@@ -480,7 +410,6 @@ void CScene::Draw( ICamera *pCamera )
 		DrawSnow();
 		DrawSand();
 	}
-	// draw particles
 	if ( bEnableEffects )
 	{
 		if ( !pDrawVisitor->particles.empty() )
@@ -497,7 +426,6 @@ void CScene::Draw( ICamera *pCamera )
 			pGFX->SetShadingEffect( 11 );
 			pGFX->RestoreTransform();
 		}
-		// draw booms
 		if ( !pDrawVisitor->spriteEffects.empty() )
 		{
 			pGFX->SetupDirectTransform();
@@ -506,7 +434,6 @@ void CScene::Draw( ICamera *pCamera )
 			pGFX->RestoreTransform();
 		}
 	}
-	// draw lines
 	if ( !pDrawVisitor->boldLines.empty() )
 	{
 		const int nNumLines = pDrawVisitor->boldLines.size();
@@ -519,7 +446,6 @@ void CScene::Draw( ICamera *pCamera )
 			vertices[nLine*4 + 1].Setup( it->corners[1], it->color );
 			vertices[nLine*4 + 2].Setup( it->corners[2], it->color );
 			vertices[nLine*4 + 3].Setup( it->corners[3], it->color );
-			//
 			indices[nLine*6 + 0] = 0;
 			indices[nLine*6 + 1] = 1;
 			indices[nLine*6 + 2] = 2;
@@ -527,13 +453,11 @@ void CScene::Draw( ICamera *pCamera )
 			indices[nLine*6 + 4] = 2;
 			indices[nLine*6 + 5] = 3;
 		}
-		//
 		pGFX->SetWorldTransforms( 0, &MONE, 1 );
 		pGFX->SetShadingEffect( 3 );
 		pGFX->SetTexture( 0, 0 );
 		pGFX->DrawTemp();
 	}
-	// draw additional meshes
 	pGFX->SetWorldTransforms( 0, &MONE, 1 );
 	for ( std::list<STemporalMesh>::iterator it = tempmeshes.begin(); it != tempmeshes.end(); )
 	{
@@ -545,7 +469,6 @@ void CScene::Draw( ICamera *pCamera )
 		else
 			++it;
 	}
-	// draw additional meshes 2
 	for ( std::list<SMeshPair2>::iterator it = meshpairs2.begin(); it != meshpairs2.end(); )
 	{
 		pGFX->SetTexture( 0, it->pTexture );
@@ -563,15 +486,8 @@ void CScene::Draw( ICamera *pCamera )
 		else
 			++it;
 	}
-	//pGFX->SetWorldTransforms( 0, &MONE, 1 );
-	//pGFX->SetShadingEffect( 3 );
-	//pGFX->SetTexture( 0, 0 );
-	// draw areas
-	//pGFX->SetCullMode( GFXC_CW );
-	// draw flashes
 	if ( !pDrawVisitor->spriteFlashes.empty() )
 	{
-		//pGFX->SetDepthBufferMode( GFXDB_NONE );
 		pGFX->SetupDirectTransform();
 		pGFX->SetShadingEffect( 16 );
 		pGFX->SetShadingEffect( 22 );
@@ -580,17 +496,14 @@ void CScene::Draw( ICamera *pCamera )
 		pGFX->SetDepthBufferMode( GFXDB_USE_Z );
 		pGFX->RestoreTransform();
 	}
-	// draw haze
 	if ( bEnableHaze )
 	{
 		pGFX->SetupDirectTransform();
-		// vertices
 		CTempBufferLock<SGFXLVertex> vertices = pGFX->GetTempVertices( 4, SGFXLVertex::format, GFXPT_TRIANGLELIST );
 		vertices[0].Setup( rcScreenRect.x1, rcScreenRect.y1, 0, 1, dwHazeColorTop, 0xff000000, 0, 0 );
 		vertices[1].Setup( rcScreenRect.x2, rcScreenRect.y1, 0, 1, dwHazeColorTop, 0xff000000, 0, 0 );
 		vertices[2].Setup( rcScreenRect.x1, rcScreenRect.y1 + rcScreenRect.Height()*fHazeHeight, 0, 1, dwHazeColorBottom, 0xff000000, 0, 0 );
 		vertices[3].Setup( rcScreenRect.x2, rcScreenRect.y1 + rcScreenRect.Height()*fHazeHeight, 0, 1, dwHazeColorBottom, 0xff000000, 0, 0 );
-		// indices
 		CTempBufferLock<WORD> indices = pGFX->GetTempIndices( 6, GFXIF_INDEX16, GFXPT_TRIANGLELIST );
 		indices[0] = 0;
 		indices[1] = 2;
@@ -598,7 +511,6 @@ void CScene::Draw( ICamera *pCamera )
 		indices[3] = 1;
 		indices[4] = 2;
 		indices[5] = 3;
-		//
 		pGFX->SetTexture( 0, 0 );
 		pGFX->SetShadingEffect( 15 );
 		pGFX->SetDepthBufferMode( GFXDB_NONE );
@@ -606,21 +518,14 @@ void CScene::Draw( ICamera *pCamera )
 		pGFX->SetDepthBufferMode( GFXDB_USE_Z );
 		pGFX->RestoreTransform();
 	}
- 	// draw fog of war
 	if ( bEnableWarFog && pTerrain )
 		pTerrain->DrawWarFog();
-	// units - aviation
 	if ( bEnableUnits )
 		DrawMeshesChecked( pDrawVisitor->aviation, pGFX, bEnableBBs, sunlight, &(vViewVolumePlanes[0]) );
-	//
-	// CODE{ 2D scene part
-	//
 	pGFX->SetupDirectTransform();
 	pGFX->SetDepthBufferMode( GFXDB_NONE );
-	// draw frame selection
 	if ( pFrameSelection->IsActive() )
 		pFrameSelection->Draw( pGFX );
-	// squad icons
 	if ( !squads.empty() ) 
 	{
 		CVec2 vPos( 5, 5 );
@@ -632,7 +537,6 @@ void CScene::Draw( ICamera *pCamera )
 			vPos.y += 35;
 		}
 	}
-	// draw UI screens
 	if ( !pDrawVisitor->uiObjects.empty() && bShowUI ) 
 	{
 		pGFX->SetShadingEffect( 3 );
@@ -666,7 +570,6 @@ void CScene::Draw( ICamera *pCamera )
 			(*it)->Draw( pGFX );
 	}
 	*/
-	// draw tooltip
 	if ( tooltip.bHasText )
 	{
 		pGFX->SetTexture( 0, 0 );
@@ -681,7 +584,6 @@ void CScene::Draw( ICamera *pCamera )
 		pGFX->DrawRects( &gfxRect, 1, false );
 		pGFX->DrawText( tooltip.pText, tooltip.rcRect, 0, FNT_FORMAT_CENTER );
 	}
-	// draw 'always' objects
 	if ( !alwaysObjects.empty() )
 	{
 		const NTimer::STime currTime = pTimer->GetGameTime();
@@ -696,17 +598,14 @@ void CScene::Draw( ICamera *pCamera )
 			}
 		}
 	}
-	// draw cursor
 	if ( pCursor )
 	{
 		pCursor->GetPos();
 		pCursor->Draw( pGFX );
 	}
-	//
 	if ( bEnableDepthComplexity )
 	{
 		pGFX->SetShadingEffect( 301 );
-		// rendering
 		SGFXRect2 rect;
 		rect.rect = pGFX->GetScreenRect();
 		rect.fZ = 0;
@@ -715,26 +614,12 @@ void CScene::Draw( ICamera *pCamera )
 			pGFX->SetShadingEffect( 310 + i );
 			pGFX->DrawRects( &rect, 1 );
 		}
-		//
 		pGFX->SetShadingEffect( 302 );
 	}
 	pGFX->SetDepthBufferMode( GFXDB_USE_Z );
 	pGFX->RestoreTransform();
-	//
-	// CODE} end of 2D scene
-	//
-	//
 	pDrawVisitor->Clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** sprites drawing
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSpritesSortFunctional
 {
 public:
@@ -746,7 +631,6 @@ public:
 			return (pSp1->dwCheckFlags & 0xffff0000) < (pSp2->dwCheckFlags & 0xffff0000);
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static struct SSpritesPackToDraw
 {
 	std::vector<const SSpriteInfo*> sprites;
@@ -770,14 +654,12 @@ inline void ReserveSprites2Draw( const int nNumElements )
 	Reserve2Draw( sprites2Draw, nNumElements );
 	Reserve2Draw( complexsprites2Draw, nNumElements );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TDepthCalculator>
 void DrawSprites( CSpriteVisList &sprites, const TDepthCalculator &calculator,
 								  const CTRect<float> &rcScreen, IGFX *pGFX )
 {
 	const int nNumSprites = sprites.size();
 	sprites.sort( CSpritesSortFunctional() );
-	// sort sprites and render
 	ReserveSprites2Draw( nNumSprites );
 	for ( CSpriteVisList::const_iterator it = sprites.begin(); it != sprites.end(); ++it )
 	{
@@ -814,7 +696,6 @@ void DrawSprites( CSpriteVisList &sprites, const TDepthCalculator &calculator,
 	if ( !complexsprites2Draw.sprites.empty() ) 
 		DrawComplexSpritesPack( complexsprites2Draw.sprites, calculator, rcScreen, pGFX );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef _USE_HWTL
 typedef SGFXLVertex SSpriteVertex;
 #else
@@ -822,42 +703,28 @@ typedef SGFXTLVertex SSpriteVertex;
 #endif // _USE_HWTL
 static CRawBuffer<SSpriteVertex> drawvertices;
 static CRawBuffer<WORD> drawindices;
-//
-//		Z1				 2		 4
-//	+---+					+---+
-//	|		|					|		|
-//	|		|					|		|
-//	+---+					+---+
-//		Z2				 1		 3
-//
 class CNormalDepthCalculator
 {
 	const float fZBias;
 	const float fZBias2;
 public:
 	CNormalDepthCalculator( const float _fZBias, const float _fZBias2 ) : fZBias( _fZBias ), fZBias2( _fZBias2 ) {  }
-	//
 	const float GetZ1( const SSpriteInfo *pInfo ) const 
 	{ 
-		//return pInfo->relpos.z - fZBias*pInfo->rect.y2;
 		return pInfo->relpos.z - fZBias*(pInfo->rect.y2 - pInfo->fDepthLeft) + fZBias2*pInfo->fDepthLeft;
 	}
 	const float GetZ2( const SSpriteInfo *pInfo ) const 
 	{ 
-		//return pInfo->relpos.z - fZBias*pInfo->rect.y1;
 		return pInfo->relpos.z - fZBias*(pInfo->rect.y1 - pInfo->fDepthLeft) + fZBias2*pInfo->fDepthLeft;
 	}
 	const float GetZ3( const SSpriteInfo *pInfo ) const 
 	{ 
-		//return pInfo->relpos.z - fZBias*pInfo->rect.y2;
 		return pInfo->relpos.z - fZBias*(pInfo->rect.y2 - pInfo->fDepthRight) + fZBias2*pInfo->fDepthRight;
 	}
 	const float GetZ4( const SSpriteInfo *pInfo ) const 
 	{ 
-		//return pInfo->relpos.z - fZBias*pInfo->rect.y1;
 		return pInfo->relpos.z - fZBias*(pInfo->rect.y1 - pInfo->fDepthRight) + fZBias2*pInfo->fDepthRight;
 	}
-	//
 	const float GetZ1( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSquare &square ) const 
 	{ 
 		return pInfo->relpos.z - fZBias*(square.vLeftTop.y + square.fDepthLeft + square.fSize) + fZBias2*square.fDepthLeft;
@@ -882,22 +749,11 @@ public:
 	const float GetZ2( const SSpriteInfo *pInfo ) const { return 0.999999f; }
 	const float GetZ3( const SSpriteInfo *pInfo ) const { return 0.999999f; }
 	const float GetZ4( const SSpriteInfo *pInfo ) const { return 0.999999f; }
-	//
 	const float GetZ1( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSquare &square ) const { return 0.999999f; }
 	const float GetZ2( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSquare &square ) const { return 0.999999f; }
 	const float GetZ3( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSquare &square ) const { return 0.999999f; }
 	const float GetZ4( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSquare &square ) const { return 0.999999f; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// x1 <= x < x2
-// y1 <= y < y2
-//			( (x <  x1)      ) |
-//			( (x >= x2) << 1 ) |
-//			( (y <  y1) << 2 ) |
-//			( (y >= y2) << 3 ) |
-//
-// 4 bits per point
-//
 inline const DWORD GetFlags( const float x1, const float y1, const float x2, const float y2, const float x, const float y )
 {
 	const float t1 = x - x1, t2 = y - y1, t3 = x2 - x - 1.0f, t4 = y2 - y - 1.0f;
@@ -911,7 +767,6 @@ inline const DWORD CheckForRect( const CTRect<float> &rect, const float x, const
 {
 	return GetFlags( rect.x1, rect.y1, rect.x2, rect.y2, x, y );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TDepthCalculator>
 int AddSquare( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSquare &square, const WORD wCurrVertex,
 							 const TDepthCalculator &calculator, const CTRect<float> &rcScreen,
@@ -921,7 +776,6 @@ int AddSquare( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSq
 	const float fX2 = MINT( pInfo->relpos.x + square.vLeftTop.x + square.fSize ) + fScrDiff;
 	const float fY1 = MINT( pInfo->relpos.y + square.vLeftTop.y ) + fScrDiff;
 	const float fY2 = MINT( pInfo->relpos.y + square.vLeftTop.y + square.fSize ) + fScrDiff;
-	// perform checking
 	if ( pInfo->dwCheckFlags & 1 ) 
 	{
 		const DWORD dwPoint1 = CheckForRect( rcScreen, fX1, fY2 );
@@ -931,19 +785,15 @@ int AddSquare( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSq
 		if ( (dwPoint1 & dwPoint2 & dwPoint3 & dwPoint4) != 0 ) 
 			return 0;
 	}
-	//
 	const float fZ1 = calculator.GetZ1( pInfo, square );
 	const float fZ2 = calculator.GetZ2( pInfo, square );
 	const float fZ3 = calculator.GetZ3( pInfo, square );
 	const float fZ4 = calculator.GetZ4( pInfo, square );
-	//
 	const float fMapX1 = square.rcMaps.x1 + fTexDiffX;
 	const float fMapY1 = square.rcMaps.y1 + fTexDiffY;
 	const float fMapX2 = square.rcMaps.x2 + fTexDiffX;
 	const float fMapY2 = square.rcMaps.y2 + fTexDiffY;
-	//
 	SSpriteVertex *pVertices = Resize2Fit( drawvertices, 4 );
-	//
 	pVertices->Setup( fX1, fY2, fZ1, 1, pInfo->color, pInfo->specular, fMapX1, fMapY2 );
 	++pVertices;
 	pVertices->Setup( fX1, fY1, fZ2, 1, pInfo->color, pInfo->specular, fMapX1, fMapY1 );
@@ -952,19 +802,15 @@ int AddSquare( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSq
 	++pVertices;
 	pVertices->Setup( fX2, fY1, fZ4, 1, pInfo->color, pInfo->specular, fMapX2, fMapY1 );
 	++pVertices;
-	//
 	WORD *pIndices = Resize2Fit( drawindices, 6 );
-	//
 	*pIndices++ = wCurrVertex + 2;
 	*pIndices++ = wCurrVertex + 1;
 	*pIndices++ = wCurrVertex + 0;
 	*pIndices++ = wCurrVertex + 1;
 	*pIndices++ = wCurrVertex + 2;
 	*pIndices++ = wCurrVertex + 3;
-	//
 	return 4;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TDepthCalculator>
 int AddSquare( const SSpriteInfo *pInfo, const WORD wCurrVertex,
 							 const TDepthCalculator &calculator, const CTRect<float> &rcScreen,
@@ -974,7 +820,6 @@ int AddSquare( const SSpriteInfo *pInfo, const WORD wCurrVertex,
 	const float fX2 = MINT( pInfo->relpos.x + pInfo->rect.x2 ) + fScrDiff;
 	const float fY1 = MINT( pInfo->relpos.y + pInfo->rect.y1 ) + fScrDiff;
 	const float fY2 = MINT( pInfo->relpos.y + pInfo->rect.y2 ) + fScrDiff;
-	// perform checking
 	if ( pInfo->dwCheckFlags & 1 ) 
 	{
 		const DWORD dwPoint1 = CheckForRect( rcScreen, fX1, fY2 );
@@ -984,17 +829,14 @@ int AddSquare( const SSpriteInfo *pInfo, const WORD wCurrVertex,
 		if ( (dwPoint1 & dwPoint2 & dwPoint3 & dwPoint4) != 0 ) 
 			return 0;
 	}
-	//
 	const float fZ1 = calculator.GetZ1( pInfo );
 	const float fZ2 = calculator.GetZ2( pInfo );
 	const float fZ3 = calculator.GetZ3( pInfo );
 	const float fZ4 = calculator.GetZ4( pInfo );
-	//
 	const float fMapX1 = pInfo->maps.x1 + fTexDiffX;
 	const float fMapY1 = pInfo->maps.y1 + fTexDiffY;
 	const float fMapX2 = pInfo->maps.x2 + fTexDiffX;
 	const float fMapY2 = pInfo->maps.y2 + fTexDiffY;
-	//
 	SSpriteVertex *pVertices = Resize2Fit( drawvertices, 4 );
 	pVertices->Setup( fX1, fY2, fZ1, 1, pInfo->color, pInfo->specular, fMapX1, fMapY2 );
 	++pVertices;
@@ -1004,7 +846,6 @@ int AddSquare( const SSpriteInfo *pInfo, const WORD wCurrVertex,
 	++pVertices;
 	pVertices->Setup( fX2, fY1, fZ4, 1, pInfo->color, pInfo->specular, fMapX2, fMapY1 );
 	++pVertices;
-	//
 	WORD *pIndices = Resize2Fit( drawindices, 6 );
 	*pIndices++ = wCurrVertex + 2;
 	*pIndices++ = wCurrVertex + 1;
@@ -1012,10 +853,8 @@ int AddSquare( const SSpriteInfo *pInfo, const WORD wCurrVertex,
 	*pIndices++ = wCurrVertex + 1;
 	*pIndices++ = wCurrVertex + 2;
 	*pIndices++ = wCurrVertex + 3;
-	//
 	return 4;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TDepthCalculator>
 bool DrawSingleSpritesPack( const std::vector<const SSpriteInfo*> &sprites, const TDepthCalculator &calculator, 
 													  const CTRect<float> &rcScreen, IGFX *pGFX )
@@ -1030,15 +869,12 @@ bool DrawSingleSpritesPack( const std::vector<const SSpriteInfo*> &sprites, cons
 		fTexDiffY = -0.5f / float( sprites[0]->pTexture->GetSizeY(0) );
 		fScrDiff = -0.5f;
 	}
-	//
 	WORD wCurrVertex = 0;
 	DWORD dwSpecularCheck = 0;;
-	//
 	drawvertices.resize( 0 );
 	drawvertices.reserve( nNumSprites * 4 );
 	drawindices.resize( 0 );
 	drawindices.reserve( nNumSprites * 6 );
-	//
 	_control87( _RC_CHOP, _MCW_RC );
 	for ( std::vector<const SSpriteInfo*>::const_iterator it = sprites.begin(); it != sprites.end(); ++it ) 
 	{
@@ -1046,12 +882,10 @@ bool DrawSingleSpritesPack( const std::vector<const SSpriteInfo*> &sprites, cons
 		dwSpecularCheck |= (*it)->specular;
 	}
 	_control87( _RC_NEAR, _MCW_RC );
-	//
 	pGFX->EnableSpecular( dwSpecularCheck != 0xff000000 );
 	pGFX->SetTexture( 0, sprites[0]->pTexture );
 	return DrawTemp( pGFX, drawvertices, drawindices );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TDepthCalculator>
 bool DrawComplexSpritesPack( const std::vector<const SComplexSpriteInfo*> &sprites, const TDepthCalculator &calculator, 
 														 const CTRect<float> &rcScreen, IGFX *pGFX )
@@ -1066,7 +900,6 @@ bool DrawComplexSpritesPack( const std::vector<const SComplexSpriteInfo*> &sprit
 		fTexDiffY = -0.5f / float( sprites[0]->pTexture->GetSizeY(0) );
 		fScrDiff = -0.5f;
 	}
-	// estimate num squares to draw
 	int nNumSquares = 0;
 	for ( std::vector<const SComplexSpriteInfo*>::const_iterator it = sprites.begin(); it != sprites.end(); ++it )
 		nNumSquares += (*it)->pSprite->squares.size();
@@ -1074,7 +907,6 @@ bool DrawComplexSpritesPack( const std::vector<const SComplexSpriteInfo*> &sprit
 	drawvertices.reserve( nNumSquares * 4 );
 	drawindices.resize( 0 );
 	drawindices.reserve( nNumSquares * 6 );
-	//
 	DWORD dwSpecularCheck = 0;
 	WORD wCurrVertex = 0;
 	_control87( _RC_CHOP, _MCW_RC );
@@ -1086,13 +918,11 @@ bool DrawComplexSpritesPack( const std::vector<const SComplexSpriteInfo*> &sprit
 		{
 			if ( drawvertices.size() > 65000 ) 
 			{
-				// draw
 				_control87( _RC_NEAR, _MCW_RC );
 				pGFX->EnableSpecular( dwSpecularCheck != 0xff000000 );
 				pGFX->SetTexture( 0, sprites[0]->pTexture );
 				DrawTemp( pGFX, drawvertices, drawindices );
 				_control87( _RC_CHOP, _MCW_RC );
-				// resize
 				drawvertices.resize( 0 );
 				drawvertices.reserve( nNumSquares * 4 );
 				drawindices.resize( 0 );
@@ -1102,34 +932,22 @@ bool DrawComplexSpritesPack( const std::vector<const SComplexSpriteInfo*> &sprit
 		}
 	}
 	_control87( _RC_NEAR, _MCW_RC );
-	//
 	pGFX->EnableSpecular( dwSpecularCheck != 0xff000000 );
 	pGFX->SetTexture( 0, sprites[0]->pTexture );
 	return DrawTemp( pGFX, drawvertices, drawindices );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::DrawSprites( CSpriteVisList &sprites )
 {
 	if ( sprites.empty() )
 		return;
 	::DrawSprites( sprites, CNormalDepthCalculator(fZBias, fZBias2), pGFX->GetScreenRect(), pGFX );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::DrawTerraObjects( CSpriteVisList &sprites )
 {
 	if ( sprites.empty() )
 		return;
 	::DrawSprites( sprites, CTerrainDepthCalculator(), pGFX->GetScreenRect(), pGFX );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** particles
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::DrawParticles( const CParticlesVisList &particles )
 {
 	if ( particles.empty() )
@@ -1137,13 +955,11 @@ void CScene::DrawParticles( const CParticlesVisList &particles )
 	int nNumParticles = particles.size();
 	DrawSingleParticlesPack( particles, nNumParticles );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline void FastRotate( float *pfX, float *pfY, const float fX, const float fY, const float fCos, const float fSin )
 {
 	*pfX = fX*fCos - fY*fSin;
 	*pfY = fX*fSin + fY*fCos;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::DrawSingleParticlesPack( const CParticlesVisList &particles, int nNumParticles )
 {
 	SSpriteVertex *pVertices = (SSpriteVertex*)pGFX->GetTempVertices( nNumParticles * 4, SSpriteVertex::format, GFXPT_TRIANGLELIST );
@@ -1157,7 +973,6 @@ void CScene::DrawSingleParticlesPack( const CParticlesVisList &particles, int nN
 		const int nAngleCalibrated = FSinCosMakeAngleChecked( info.fAngle );
 		const float fCos = FCosCalibrated( nAngleCalibrated );
 		const float fSin = FSinCalibrated( nAngleCalibrated );
-		//
 		FastRotate( &fX, &fY, -info.fSize, +info.fSize, fCos, fSin );
 		pVertices->Setup( info.vPos.x + fX, info.vPos.y + fY, info.vPos.z - fZBias*fY, 1, 
 			                info.color, info.specular, info.maps.x1, info.maps.y2 );
@@ -1184,15 +999,11 @@ void CScene::DrawSingleParticlesPack( const CParticlesVisList &particles, int nN
 		*pIndices++ = wCurrVertex + 1;
 		*pIndices++ = wCurrVertex + 2;
 		*pIndices++ = wCurrVertex + 3;
-		//
 		bSpecularEnable |= ( info.specular != 0xff000000 );
 	}
-	//
 	pGFX->EnableSpecular( bSpecularEnable );
-	//
 	pGFX->DrawTemp();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::DrawMechTraces( const std::list<SMechTrace> &traces )
 {
 	const int nNumTraces = traces.size();
@@ -1216,7 +1027,6 @@ void CScene::DrawMechTraces( const std::list<SMechTrace> &traces )
 		++pVertex;
 		pVertex->Setup( it->vCorners[3], it->dwColor, 0xff000000, CVec2(1, it->nNumTracks) );
 		++pVertex;
-		//
 		*pIndex++ = wCurrVertex + 0;
 		*pIndex++ = wCurrVertex + 1;
 		*pIndex++ = wCurrVertex + 2;
@@ -1224,10 +1034,8 @@ void CScene::DrawMechTraces( const std::list<SMechTrace> &traces )
 		*pIndex++ = wCurrVertex + 3;
 		*pIndex++ = wCurrVertex + 2;
 	}
-	//
 	pGFX->DrawTemp();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::DrawGunTraces( const std::list<SGunTrace> &traces )
 {
 	const int nNumTraces = traces.size();
@@ -1248,7 +1056,6 @@ void CScene::DrawGunTraces( const std::list<SGunTrace> &traces )
 		++pVertex;
 		pVertex->Setup( it->vPoints[3], dwGunTraceColor, 0xff000000, VNULL2 );
 		++pVertex;
-		//
 		*pIndex++ = wCurrVertex + 0;
 		*pIndex++ = wCurrVertex + 1;
 		*pIndex++ = wCurrVertex + 2;
@@ -1256,10 +1063,8 @@ void CScene::DrawGunTraces( const std::list<SGunTrace> &traces )
 		*pIndex++ = wCurrVertex + 2;
 		*pIndex++ = wCurrVertex + 3;
 	}
-	//
 	pGFX->DrawTemp();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::DrawRain()
 {
 	if ( rainDrops.size() != 0 )
@@ -1288,7 +1093,6 @@ void CScene::DrawRain()
 		pGFX->SetDepthBufferMode( GFXDB_USE_Z );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::DrawMarkers()
 {
 	if ( bDrawArrow )
@@ -1401,7 +1205,6 @@ void CScene::DrawMarkers()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::DrawSnow()
 {
 	if ( snowFlakes.size() != 0 )
@@ -1430,7 +1233,6 @@ void CScene::DrawSnow()
 		pGFX->SetDepthBufferMode( GFXDB_USE_Z );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::DrawSand()
 {
 	if ( pSandTexture == 0 )
@@ -1502,15 +1304,6 @@ void CScene::DrawSand()
 	}
 	pGFX->SetDepthBufferMode( GFXDB_USE_Z );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** visibility list forming
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool UpdateMechTrace( SMechTrace *pTrace, const NTimer::STime &time )
 {
 	if ( time > pTrace->deathTime ) 
@@ -1520,7 +1313,6 @@ bool UpdateMechTrace( SMechTrace *pTrace, const NTimer::STime &time )
 	pTrace->dwColor |= ( col << 16 ) | ( col << 8 ) | col;
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool UpdateGunTrace( SGunTrace *pTrace, const NTimer::STime &time, float fTraceLen )
 {
 	if ( time > pTrace->deathTime ) 
@@ -1542,13 +1334,11 @@ bool UpdateGunTrace( SGunTrace *pTrace, const NTimer::STime &time, float fTraceL
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::UpdateWeather()
 {
 	NTimer::STime time = GetSingleton<IGameTimer>()->GetAbsTime();
 	if ( !bWeatherInitialized )
 	{
-			//init weather
 		snowFlakes.resize( 0 );
 		const std::string szSeason = GetGlobalVar( "World.Season", "Summer" );
 		if ( strcmp( szSeason.c_str(), "Summer" ) == 0 )
@@ -1561,12 +1351,10 @@ void CScene::UpdateWeather()
 			eCurrSetting = ST_SNOW;
 		if ( eCurrSetting == ST_SNOW )
 			snowFlakes.resize( nMinSnowDensity );
-		//eWeatherCondition = SC_NONE;
 		bWeatherInitialized = true;
 	}
 	if ( nLastWeatherUpdate != 0 )
 	{
-		//rain
 		if ( eCurrSetting == ST_RAIN && rainDrops.size() != nRainDensity && (eWeatherCondition == SC_STARTING || eWeatherCondition == SC_ON) )
 		{
 			rainDrops.resize( Clamp(int(rainDrops.size() + float(time - nLastWeatherUpdate) / fChangeSpeed * nRainDensity), 0, nRainDensity) );
@@ -1594,7 +1382,6 @@ void CScene::UpdateWeather()
 			else
 				it->fLength += time - nLastWeatherUpdate;
 		}
-		//snow
 		if ( eCurrSetting == ST_SNOW && snowFlakes.size() != nMaxSnowDensity && (eWeatherCondition == SC_STARTING || eWeatherCondition == SC_ON) )
 		{
 			snowFlakes.resize( Clamp(int(snowFlakes.size() + float(time - nLastWeatherUpdate) / fChangeSpeed * (nMaxSnowDensity - nMinSnowDensity)), nMinSnowDensity, nMaxSnowDensity) );
@@ -1613,7 +1400,6 @@ void CScene::UpdateWeather()
 			it->fPhase += float(time - nLastWeatherUpdate) * fSnowFrequency;
 			it->vPos += float(time - nLastWeatherUpdate) * vSpeed ;
 		}
-		//sand
 		if ( eCurrSetting == ST_SAND && sandParticles.size() != nSandDensity && (eWeatherCondition == SC_STARTING || eWeatherCondition == SC_ON) )
 		{
 			sandParticles.resize( Clamp(int(sandParticles.size() + float(time - nLastWeatherUpdate) / fChangeSpeed * nSandDensity), 0, nSandDensity) );
@@ -1694,16 +1480,12 @@ void CScene::UpdateWeather()
 	}
 	nLastWeatherUpdate = time;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::FormVisibilityLists( ICamera *pCamera, ISceneVisitor *pVisitor )
 {
 	NTimer::STime time = pTimer->GetGameTime();
-	// select visible patches
 	CPatchesList patches;
 	SelectPatches( pCamera, areaUnits.GetSizeX(), areaUnits.GetSizeY(), AREA_MAP_CELL_SIZE, &patches );
-	// retrieve data from this patches
 	const CTRect<short> rcScreen = pGFX->GetScreenRect();
-	//weather
 	if ( bWeatherOn && bEnableEffects )
 	{
 		viewableTerrainRect.x1 = patches.begin()->first;
@@ -1725,10 +1507,8 @@ void CScene::FormVisibilityLists( ICamera *pCamera, ISceneVisitor *pVisitor )
 		viewableTerrainRect.y2 *= fCellSizeY * FP_SQRT_2 * STerrainPatchInfo::nSizeY;
 		UpdateWeather();
 	}
-	// units (dynamic)
 	for ( CPatchesList::const_iterator pos = patches.begin(); pos != patches.end(); ++pos )
 	{
-		// alive units
 		{
 			CObjVisObjArea::CDataList &data = areaUnits[pos->second][pos->first];
 			for ( CObjVisObjArea::CDataList::iterator it = data.begin(); it != data.end(); ++it )
@@ -1740,7 +1520,6 @@ void CScene::FormVisibilityLists( ICamera *pCamera, ISceneVisitor *pVisitor )
 				}
 			}
 		}
-		// dead mesh units
 		{
 			CMeshesArea::CDataList &data = meshGraveyardArea[pos->second][pos->first];
 			for ( CMeshesArea::CDataList::iterator it = data.begin(); it != data.end(); ++it )
@@ -1749,19 +1528,16 @@ void CScene::FormVisibilityLists( ICamera *pCamera, ISceneVisitor *pVisitor )
 				(*it)->Visit( pVisitor, SGVOGT_UNIT );
 			}
 		}
-		// sprite objects (static - don't need update!)
 		{
 			CSpritesArea::CDataList &data = spriteObjectsArea[pos->second][pos->first];
 			for ( CSpritesArea::CDataList::iterator it = data.begin(); it != data.end(); ++it )
 				(*it)->Visit( pVisitor, SGVOGT_OBJECT );
 		}
-		// terrain objects
 		{
 			CObjVisObjArea::CDataList &data = terraObjectsArea[pos->second][pos->first];
 			for ( CObjVisObjArea::CDataList::iterator it = data.begin(); it != data.end(); ++it )
 				(*it)->Visit( pVisitor, SGVOGT_TERRAOBJ );
 		}
-		// craters and shell-holes
 		for ( CObjFixedArea::iterator it( areaCraters.Iterate(pos->first, pos->second) ); !it.IsEnd(); it.Next() )
 		{
 #ifdef _DO_ASSERT_SLOW
@@ -1770,14 +1546,11 @@ void CScene::FormVisibilityLists( ICamera *pCamera, ISceneVisitor *pVisitor )
 #endif // _DO_ASSERT_SLOW
 			it->Visit( pVisitor, SGVOGT_TERRAOBJ );
 		}
-		// shadow objects
 		{
 			CSpritesArea::CDataList &data = shadowObjectsArea[pos->second][pos->first];
 			for ( CSpritesArea::CDataList::iterator it = data.begin(); it != data.end(); ++it )
 				(*it)->Visit( pVisitor, SGVOGT_SHADOW );
 		}
-		// mech trace objects
-		// CRAP{ к сожалению нет времени на хорошее продумывание...
 		{
 			CMechTraceArea::CDataList &data = mechTracesArea[pos->second][pos->first];
 			for ( CMechTraceArea::CDataList::iterator it = data.begin(); it != data.end(); )
@@ -1791,9 +1564,6 @@ void CScene::FormVisibilityLists( ICamera *pCamera, ISceneVisitor *pVisitor )
 				}
 			}
 		}
-		// CRAP}
-		// gun trace objects
-		// CRAP{ к сожалению нет времени на хорошее продумывание...
 		{
 			CGunTraceArea::CDataList &data = gunTracesArea[pos->second][pos->first];
 			for ( CGunTraceArea::CDataList::iterator it = data.begin(); it != data.end(); )
@@ -1807,9 +1577,7 @@ void CScene::FormVisibilityLists( ICamera *pCamera, ISceneVisitor *pVisitor )
 				}
 			}
 		}
-		// CRAP}
 	}
-	// effects (dynamic)
 	if ( bEnableEffects )
 	{
 		for ( CPatchesList::const_iterator pos = patches.begin(); pos != patches.end(); ++pos )
@@ -1817,7 +1585,6 @@ void CScene::FormVisibilityLists( ICamera *pCamera, ISceneVisitor *pVisitor )
 			CVisObjArea::CDataList &data = effectsArea[pos->second][pos->first];
 			for ( CVisObjArea::CDataList::iterator it = data.begin(); it != data.end();  )
 			{
-				// update. remove exhausted effects
 				if ( (*it)->Update( time ) == false )
 				{
 					objdescs.erase( *it );
@@ -1832,7 +1599,6 @@ void CScene::FormVisibilityLists( ICamera *pCamera, ISceneVisitor *pVisitor )
 			}
 		}
 	}
-	// outbound sprites
 	for ( CSpritesObjList::iterator it = outboundSprites.begin(); it != outboundSprites.end(); ++it )
 	{
 		if ( IsVisible(*it) )
@@ -1841,13 +1607,11 @@ void CScene::FormVisibilityLists( ICamera *pCamera, ISceneVisitor *pVisitor )
 			(*it)->Visit( pVisitor, SGVOGT_UNIT );
 		}
 	}
-	// outbound mesh objects
 	for ( CMeshObjList::iterator it = outboundObjects.begin(); it != outboundObjects.end(); ++it )
 	{
 		(*it)->Update( time );
 		(*it)->Visit( pVisitor, -1 );
 	}
-	// outbound objects 2
 	for ( CMeshObjList::iterator it = outboundObjects2.begin(); it != outboundObjects2.end(); ++it )
 	{
 		if ( IsVisible(*it) )
@@ -1856,10 +1620,8 @@ void CScene::FormVisibilityLists( ICamera *pCamera, ISceneVisitor *pVisitor )
 			(*it)->Visit( pVisitor, SGVOGT_UNIT );
 		}
 	}
-	// outbound effects
 	for ( CEffectObjList::iterator it = outboundEffects.begin(); it != outboundEffects.end(); )
 	{
-		// update. remove exhausted effects
 		if ( (*it)->Update( time ) == false )
 		{
 			objdescs.erase( *it );
@@ -1871,75 +1633,52 @@ void CScene::FormVisibilityLists( ICamera *pCamera, ISceneVisitor *pVisitor )
 			++it;
 		}
 	}
-	// line objects
 	for ( std::list< CPtr<IBoldLineVisObj> >::iterator it = boldLines.begin(); it != boldLines.end(); ++it )
 		(*it)->Visit( pVisitor );
-	// UI screens
 	if ( bShowUI ) 
 	{
 		for ( std::list< CPtr<IUIScreen> >::iterator it = uiScreens.begin(); it != uiScreens.end(); ++it )
 			(*it)->Visit( pVisitor );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::SelectPatches( ICamera *pCamera, float fPatchesX, float fPatchesY, float fPatchSize, CPatchesList *pPatches )
 {
 	const CVec3 vCamera = pCamera->GetAnchor();
-	//
 	const float fPatchHalfAxis = fPatchSize * FP_SQRT_2 / 2.0f; //fCellSizeX * STerrainPatchInfo::nSizeX;
-	// выделить патчи, которые попадают в обзор
-	// это базисные линии (X, Y) системы координат ландшафта
 	CVec3 vAxisX, vAxisY;
 	GetLineEq( 0, 0, 1, 0, &vAxisX.x, &vAxisX.y, &vAxisX.z );
 	GetLineEq( 0, 1, 0, 0, &vAxisY.x, &vAxisY.y, &vAxisY.z );
-	//
 	const RECT rcScreen = pGFX->GetScreenRect();
-	// half-width and half-height
 	const float fWidth = ( rcScreen.right - rcScreen.left ) / 2;
 	const float fHeight = rcScreen.bottom - rcScreen.top;					// height * 2 due to camera yaw = 30 degrees
-	// оси камеры в мировой системе координат:
 	CVec2 vCameraX( fWidth / FP_SQRT_2, fWidth / FP_SQRT_2 ), vCameraY( -fHeight / FP_SQRT_2, fHeight / FP_SQRT_2 );
-	//
-	//
-	// определим грубый прямоугольник (в мировой системе координат, в целых патчах), в который вписывается экран
-	// определение производим на основании расстояния от углов экрана до координатных осей мировой системы 
-	// NOTE: границы по принципу [min, max)
 	const CVec2 vCameraO( vCamera.x, vCamera.y );
 	CTRect<int> rcL0Rect;								// level 0 of roughness rect
 	{
-		// LT
 		const CVec2 point = vCameraO + vCameraY - vCameraX;
 		const float fDist = vAxisY.x*point.x + vAxisY.y*point.y + vAxisY.z;
 		rcL0Rect.minx = int( Clamp( fDist / fPatchSize, 0.0f, fPatchesX ) );
 	}
 	{
-		// RT
 		const CVec2 point = vCameraO + vCameraY + vCameraX;
 		const float fDist = vAxisX.x*point.x + vAxisX.y*point.y + vAxisX.z;
 		rcL0Rect.miny = int( Clamp( fDist / fPatchSize, 0.0f, fPatchesY ) );
 	}
 	{
-		// RB
 		const CVec2 point = vCameraO + vCameraX - vCameraY;
 		const float fDist = vAxisY.x*point.x + vAxisY.y*point.y + vAxisY.z;
 		rcL0Rect.maxx = int( Clamp( fDist / fPatchSize, 0.0f, fPatchesX ) );
 	}
 	{
-		// LB
 		const CVec2 point = vCameraO - vCameraY - vCameraX;
 		const float fDist = vAxisX.x*point.x + vAxisX.y*point.y + vAxisX.z;
 		rcL0Rect.maxy = int( Clamp( fDist / fPatchSize, 0.0f, fPatchesY ) );
 	}
 	rcL0Rect.Normalize();
-	//
-	//
-	// найдём расстояние (в патчах) от нуля мира до горизонтальных границ экрана (по Y) и до вертикальных (по X)
 	CTRect<int> rcL1Rect;								// level 1 of roughness rect
 	const CVec3 vTerraOX( 0, 0, 0 );
 	const CVec3 vTerraOY( 0, fPatchesY * fPatchSize, 0 );
-	//
 	{
-		// miny
 		const CVec2 vO = vCameraO + vCameraY;
 		CVec3 vLine;
 		GetLineEq( vO.x, vO.y, vO.x + 1000, vO.y + 1000, &vLine.x, &vLine.y, &vLine.z );
@@ -1947,7 +1686,6 @@ void CScene::SelectPatches( ICamera *pCamera, float fPatchesX, float fPatchesY, 
 		rcL1Rect.miny = nDist;
 	}
 	{
-		// maxy
 		const CVec2 vO = vCameraO - vCameraY;
 		CVec3 vLine;
 		GetLineEq( vO.x, vO.y, vO.x + 1000, vO.y + 1000, &vLine.x, &vLine.y, &vLine.z );
@@ -1955,7 +1693,6 @@ void CScene::SelectPatches( ICamera *pCamera, float fPatchesX, float fPatchesY, 
 		rcL1Rect.maxy = nDist;
 	}
 	{
-		// minx
 		const CVec2 vO = vCameraO - vCameraX;
 		CVec3 vLine;
 		GetLineEq( vO.x, vO.y, vO.x - 1000, vO.y + 1000, &vLine.x, &vLine.y, &vLine.z );
@@ -1963,7 +1700,6 @@ void CScene::SelectPatches( ICamera *pCamera, float fPatchesX, float fPatchesY, 
 		rcL1Rect.minx = nDist;
 	}
 	{
-		// maxx
 		const CVec2 vO = vCameraO + vCameraX;
 		CVec3 vLine;
 		GetLineEq( vO.x, vO.y, vO.x - 1000, vO.y + 1000, &vLine.x, &vLine.y, &vLine.z );
@@ -1971,10 +1707,6 @@ void CScene::SelectPatches( ICamera *pCamera, float fPatchesX, float fPatchesY, 
 		rcL1Rect.maxx = nDist;
 	}
 	rcL1Rect.Normalize();
-	//
-	// теперь из полученного прямоугольника (rcL0Rect) проверим все патчи на предмет следующих условий:
-	// сумма индексов патча (x, y) должна быть >= rcL1Rect.miny, <= rcL1Rect.maxy
-	// сумма индексов патча (x, y - num patches Y) должна быть >= rcL1Rect.minx, <= rcL1Rect.maxx
 	rcL0Rect.x1 = Clamp( rcL0Rect.x1, 0, int(fPatchesX) );
 	rcL0Rect.y1 = Clamp( rcL0Rect.y1, 0, int(fPatchesY) );
 	rcL0Rect.x2 = Clamp( rcL0Rect.x2 + 3, 0, int(fPatchesX) );
@@ -1994,4 +1726,3 @@ void CScene::SelectPatches( ICamera *pCamera, float fPatchesX, float fPatchesY, 
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

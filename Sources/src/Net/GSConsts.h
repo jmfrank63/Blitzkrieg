@@ -1,10 +1,7 @@
 #ifndef __GS_CONSTS_H__
 #define __GS_CONSTS_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "NetDriver.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline const INetDriver::EServerGameMode GetMode( const char *pszMode )
 {
 	if ( strcmp( pszMode, "wait" ) == 0 )
@@ -20,10 +17,8 @@ inline const INetDriver::EServerGameMode GetMode( const char *pszMode )
 	if ( strcmp( pszMode, "exiting" ) == 0 )
 		return INetDriver::ESGM_EXITING;
 
-//	NI_ASSERT_TF( false, NStr::Format( "Unknown game mode %s", pszMode ), INetDriver::ESGM_CLOSEDPLAYING );
 	return INetDriver::ESGM_CLOSEDPLAYING;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline const char* GetMode( const INetDriver::EServerGameMode eMode )
 {
 	switch ( eMode )
@@ -35,9 +30,7 @@ inline const char* GetMode( const INetDriver::EServerGameMode eMode )
 		case INetDriver::ESGM_DEBRIEFING:			return "debriefing";
 		case INetDriver::ESGM_EXITING:				return "exiting";
 		default:
-			//NI_ASSERT_TF( false, NStr::Format( "Unknown game mode %d", int(eMode) ), "closedplaying" );
 			return "closedplaying";
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __GS_CONSTS_H__

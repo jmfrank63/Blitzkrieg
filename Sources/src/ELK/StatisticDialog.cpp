@@ -8,19 +8,15 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CStatisticDialog::vID[] = 
 {
 	IDC_STATS_TREE,	//0
 	IDOK,						//1
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStatisticDialog::CStatisticDialog( CWnd* pParent )
 	: CResizeDialog( CStatisticDialog::IDD, pParent ), pELK( 0 )
 {
-	//{{AFX_DATA_INIT(CStatisticDialog)
-	//}}AFX_DATA_INIT
 
 	SetControlStyle( IDC_STATS_TREE, ANCHORE_LEFT_TOP | RESIZE_HOR_VER );
 	SetControlStyle( IDOK, ANCHORE_HOR_CENTER | ANCHORE_BOTTOM );
@@ -32,7 +28,6 @@ const char *STATICSTIC_COLUMN_NAME  [STATICSTIC_COLUMN_COUNT] = { _T( "Tree" ), 
 const int   STATICSTIC_COLUMN_FORMAT[STATICSTIC_COLUMN_COUNT] = { LVCFMT_LEFT, LVCFMT_RIGHT, LVCFMT_RIGHT, LVCFMT_RIGHT, LVCFMT_RIGHT };
 const int		STATICSTIC_COLUMN_WIDTH [STATICSTIC_COLUMN_COUNT] = { 200, 100, 100, 100, 100 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::string CStatisticDialog::GetRegistryKey()
 {
 	CString strPath;
@@ -45,21 +40,14 @@ std::string CStatisticDialog::GetRegistryKey()
 	return szRegistryKey;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStatisticDialog::DoDataExchange(CDataExchange* pDX)
 {
 	CResizeDialog::DoDataExchange(pDX);
-	//{{AFX_DATA_MAP(CStatisticDialog)
-	//}}AFX_DATA_MAP
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CStatisticDialog, CResizeDialog)
-	//{{AFX_MSG_MAP(CStatisticDialog)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CStatisticDialog::OnInitDialog()
 {
 	CResizeDialog::OnInitDialog();
@@ -86,12 +74,10 @@ BOOL CStatisticDialog::OnInitDialog()
   return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStatisticDialog::InitImageList()
 {
 	CBitmap bmp;
 
-	// normal tree images
 	imageListNormal.Create( 16, 16, true, IMAGE_COUNT, IMAGE_COUNT );
 	NI_ASSERT_T( imageListNormal.m_hImageList != 0, NStr::Format( _T( "CStatisticDialog::InitImageLists(), can't create normal image list" ) ) );
 
@@ -100,7 +86,6 @@ void CStatisticDialog::InitImageList()
 	bmp.DeleteObject();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStatisticDialog::CreateControls()
 {
 	InitImageList();
@@ -162,7 +147,6 @@ void SizeToStringWithSpaces( DWORD dwSize, CString& szBuffer )
   }
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStatisticDialog::FillTree()
 {
 	if ( pELK )
@@ -304,7 +288,6 @@ void CStatisticDialog::FillTree()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStatisticDialog::OnOK() 
 {
 	for ( int nColumnIndex = 0; nColumnIndex < STATICSTIC_COLUMN_COUNT; ++nColumnIndex )
@@ -315,7 +298,6 @@ void CStatisticDialog::OnOK()
 	CResizeDialog::OnOK();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStatisticDialog::OnCancel() 
 {
 	for ( int nColumnIndex = 0; nColumnIndex < STATICSTIC_COLUMN_COUNT; ++nColumnIndex )
@@ -325,4 +307,3 @@ void CStatisticDialog::OnCancel()
 
 	CResizeDialog::OnCancel();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

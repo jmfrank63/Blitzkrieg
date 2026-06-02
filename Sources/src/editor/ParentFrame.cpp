@@ -32,7 +32,6 @@
 
 
 static const int TRANSACTION_LIMIT = 100;
-//фильтр для открытия файлов только нужного типа
 static char BASED_CODE szComposerFilter[] =
 "Resource editor files|*.unt;*.gui;*.spt;*.eff;*.obt;*.msh;*.wpn;*.bld;*.til"
 ";*.rdc;*.fnc;*.pcp;*.trc;*.scp;*.mcp;*.bdg;*.mip;*.chc;*.cgc;*.3rd;*.3rv;*.mdc|"
@@ -64,7 +63,6 @@ static const int NO_CONFIG_FILE = -8;
 IMPLEMENT_DYNCREATE(CParentFrame, SECWorksheet)
 
 BEGIN_MESSAGE_MAP(CParentFrame, SECWorksheet)
-	//{{AFX_MSG_MAP(CParentFrame)
 	ON_COMMAND(ID_FILE_CLOSE, OnFileClose)
 	ON_WM_SETFOCUS()
 	ON_WM_CREATE()
@@ -141,8 +139,6 @@ BEGIN_MESSAGE_MAP(CParentFrame, SECWorksheet)
 	ON_COMMAND(ID_EDITORS_RIVEREDITOR, OnRiverEditor)
 	ON_UPDATE_COMMAND_UI(ID_EDITORS_RIVEREDITOR, OnUpdateRiverEditor)
 
-	//ON_COMMAND(ID_TOOLS_SAVEMAPOBJECTS, OnSaveObjects)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 enum ETransactionTypes
@@ -282,18 +278,14 @@ void CParentFrame::ClearPropView()
 
 BOOL CParentFrame::OnCmdMsg(UINT nID, int nCode, void* pExtra, AFX_CMDHANDLERINFO* pHandlerInfo) 
 {
-	// let the view have first crack at the command
 	if (pWndView->OnCmdMsg(nID, nCode, pExtra, pHandlerInfo))
 		return TRUE;
 	
-	// otherwise, do default handling
 	return SECWorksheet::OnCmdMsg(nID, nCode, pExtra, pHandlerInfo);
 }
 
 BOOL CParentFrame::PreCreateWindow(CREATESTRUCT& cs)
 {
-	// TODO: Modify the Window class or styles here by modifying
-	//  the CREATESTRUCT cs
 	
 	if( !SECWorksheet::PreCreateWindow(cs) )
 		return FALSE;
@@ -322,7 +314,6 @@ BOOL CParentFrame::PreTranslateMessage( MSG* pMsg )
 /*
 		case WM_KEYDOWN:
 		{
-//			if ( pMsg->lParam == )
 			if ( pOIDockBar )
 			{
 				CWnd *pWnd = GetFocus();
@@ -331,7 +322,6 @@ BOOL CParentFrame::PreTranslateMessage( MSG* pMsg )
 					pWnd->PostMessage( WM_KEYDOWN, pMsg->wParam, pMsg->lParam );
 					return FALSE;
 				}
-//					return pWnd->PreTranslateMessage( pMsg );
 			}
 		}
 */
@@ -364,7 +354,6 @@ BOOL CParentFrame::SaveFrame( bool bUnlock )
 			OnFileSave();
 			if ( bUnlock )
 			{
-				//разлочиваем файл
 				UnLockFile();
 			}
 			return FALSE;
@@ -373,10 +362,8 @@ BOOL CParentFrame::SaveFrame( bool bUnlock )
 			return TRUE;
 		else
 		{
-			//не сохраняем, но разлочиваем
 			if ( bUnlock )
 			{
-				//разлочиваем файл
 				UnLockFile();
 			}
 			return FALSE;
@@ -385,7 +372,6 @@ BOOL CParentFrame::SaveFrame( bool bUnlock )
 	
 	if ( bUnlock )
 	{
-		//разлочиваем файл
 		UnLockFile();
 	}
 	return FALSE;
@@ -471,7 +457,6 @@ void CParentFrame::SaveFrameOwnData( IDataTree *pDT )
 	pDT->StartChunk( "own_data" );
 	CTreeAccessor tree = pDT;
 	
-	//Сохраняем export file name
 	tree.Add( "export_file_name", &szPrevExportFileName );
 		
 	pDT->FinishChunk();
@@ -482,8 +467,6 @@ void CParentFrame::LoadFrameOwnData( IDataTree *pDT )
 	pDT->StartChunk( "own_data" );
 	CTreeAccessor tree = pDT;
 	
-	//Загружаем export dir
-	//TODO 
 	string szPrevExportDir;
 	tree.Add( "export_dir", &szPrevExportDir );
 	if ( szPrevExportDir.size() > 0 )
@@ -509,13 +492,11 @@ void CParentFrame::OnFileCreateNewProject()
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	if ( pTree != 0 )			//Если уже был создан проект
 	{
-		//Сохраняем предыдущий проект
 		if ( SaveFrame( true ) )
 			return;						//нажали cancel
 	}
 	
 	GenerateProjectName();
-	//Просим пользователя сразу ввести имя для проекта
 	string szTempFileName = szProjectFileName.substr( szProjectFileName.rfind('\\') + 1 );
 	string szNewProjectName;
 	string szTitle = "Create New ";
@@ -553,7 +534,6 @@ void CParentFrame::OnFileOpen()
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	if ( pTree != 0 )			//Если уже был создан проект
 	{
-		//Сохраняем предыдущий проект
 		if ( SaveFrame( true ) )
 			return;						//нажали cancel
 		pOIDockBar->ClearControl();
@@ -563,7 +543,6 @@ void CParentFrame::OnFileOpen()
 	string szTitle = "Open ";
 	szTitle += szComposerName;
 	szTitle += " Project";
-	//Спрашиваем у пользователя имя файла
 	if ( !ShowFileDialog( szNewProjectFile, (theApp.GetSourceDir() + szAddDir).c_str(), szTitle.c_str(), TRUE, szExtension.c_str(), 0, szComposerFilter ) )
 		return;
 	
@@ -578,7 +557,6 @@ void CParentFrame::OnFileOpen()
 	if ( pFrame )
 		pFrame->LoadComposerFile( szNewProjectFile.c_str() );
 
-	//Убиваем все сообщения от мышки нах
 	MSG msg;
 	PeekMessage( &msg, GetSafeHwnd(), WM_MOUSEMOVE, WM_RBUTTONUP, PM_REMOVE );
 }
@@ -593,7 +571,6 @@ void CParentFrame::LoadComposerFile( const char *pszFileName )
 	CETreeCtrl *pTree = CreateTrees();
 	CTreeItem *pRootItem = pTree->GetRootItem();
 	
-	//Загружаем дерево
 	{
 		CPtr<IDataStream> pXMLStream = OpenFileStream( szProjectFileName.c_str(), STREAM_ACCESS_READ );
 		if ( !pXMLStream )
@@ -605,7 +582,6 @@ void CParentFrame::LoadComposerFile( const char *pszFileName )
 		}
 		
 		CPtr<IDataTree> pDT = CreateDataTreeSaver( pXMLStream, IDataTree::READ, szComposerSaveName.c_str() );
-		//Загружаем проект
 		try
 		{
 			pTreeDockBar->LoadTrees( pDT );
@@ -625,7 +601,6 @@ void CParentFrame::LoadComposerFile( const char *pszFileName )
 		LoadFrameOwnData( pDT );
 		LoadRPGStats( pDT, pRootItem );
 		
-		//загружаем данные о транзакциях
 		LoadTransactions( pDT );
 	}
 	
@@ -641,8 +616,6 @@ void CParentFrame::OnFileSave()
 		m_szOldProjectName = szProjectFileName;
 	time = GetFileChangeTime( m_szOldProjectName.c_str() );
 	
-	//сначала перенесем старый проект в temp file, нужно для восстановления проектов, если при сохранении редактор упадет
-	//также с помощью dir /Q можно посмотреть автора последнего save file.
 	{
 		std::string szTemp = GetDirectory( szProjectFileName.c_str() );
 		szTemp += "backup.tmp";
@@ -656,7 +629,6 @@ void CParentFrame::OnFileSave()
 		return;
 	CPtr<IDataTree> pDT = CreateDataTreeSaver( pXMLStream, IDataTree::WRITE, szComposerSaveName.c_str() );
 	
-	//Сохраняем проект
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	CTreeItem *pRoot = pTree->GetRootItem();
 	
@@ -682,7 +654,6 @@ void CParentFrame::OnFileSaveProjectAs()
 	GenerateProjectName();
 	string szTempFileName = szProjectFileName.substr( szProjectFileName.rfind('\\') + 1 );
 	
-	//Спрашиваем у пользователя имя файла
 	if ( !ShowFileDialog( szNewProjectFile, (theApp.GetSourceDir()+szAddDir).c_str(), szTitle.c_str(), FALSE, szExtension.c_str(), szTempFileName.c_str(), szComposerFilter ) )
 	{
 		szProjectFileName = szOldProjectName;
@@ -691,8 +662,6 @@ void CParentFrame::OnFileSaveProjectAs()
 	szProjectFileName = szOldProjectName;
 	
 	/*
-	//сначала перенесем старый проект в temp file, нужно для восстановления проектов, если при сохранении редактор упадет
-	//также с помощью dir /Q можно посмотреть автора последнего save file.
 	{
 		std::string szTemp = GetDirectory( szProjectFileName.c_str() );
 		szTemp += "backup.tmp";
@@ -700,14 +669,12 @@ void CParentFrame::OnFileSaveProjectAs()
 		}
 	*/
 	
-	//скопирую рекурсивно директорию
 	std::string szDirFrom = GetDirectory( szProjectFileName.c_str() );
 	std::string szDirTo = GetDirectory( szNewProjectFile.c_str() );
 	if ( szDirFrom != szDirTo )
 	{
 		string szMask = "*.*";
 		vector<string> dirs;
-		//составляю полный список директорий
 		NFile::EnumerateFiles( szDirFrom.c_str(), szMask.c_str(), NFile::CGetAllDirectoriesRelative( szDirFrom.c_str(), &dirs ), true );
 		for ( int i=0; i<dirs.size(); i++ )
 		{
@@ -715,7 +682,6 @@ void CParentFrame::OnFileSaveProjectAs()
 			CreateDirectory( szRes.c_str(), NULL );
 		}
 
-		//составляю полный список файлов
 		vector<string> files;
 		NFile::EnumerateFiles( szDirFrom.c_str(), szMask.c_str(), NFile::CGetAllFilesRelative( szDirFrom.c_str(), &files ), true );
 		for ( int i=0; i<files.size(); i++ )
@@ -742,18 +708,15 @@ string CParentFrame::GetExportFileName()
 
 bool CParentFrame::ReadConfigFile( const char *pszDirectory, bool bBatchMode )
 {
-	//Считываю конфигурационный файл
 	std::string szConfigFile = pszDirectory;
 	szConfigFile += szConfigFileName;		//gamma.cfg
 	
 	CPtr<IDataStream> pConfigStream = OpenFileStream( szConfigFile.c_str(), STREAM_ACCESS_READ );
 	if ( !pConfigStream )
 	{
-		//нету такого файла
 		std::string szTempDir = pszDirectory;
 		if ( szTempDir.size() <= 3 )
 		{
-			//если мы поднялись до корня диска
 			m_fBrightness = 0;
 			m_fContrast = 0;
 			m_fGamma = 0;
@@ -772,13 +735,11 @@ bool CParentFrame::ReadConfigFile( const char *pszDirectory, bool bBatchMode )
 				return false;
 		}
 
-		//если мы еще не поднялись до корня диска, поднимемся в верхнюю директорию
 		szTempDir = szTempDir.substr( 0, szTempDir.size() - 1 );
 		szTempDir = GetDirectory( szTempDir.c_str() );
 		return ReadConfigFile( szTempDir.c_str(), bBatchMode );
 	}
 	
-	//файл найден, считаем из него информацию
 	CPtr<IDataTree> pDT = CreateDataTreeSaver( pConfigStream, IDataTree::READ );
 	CTreeAccessor saver = pDT;
 	saver.Add( "Brightness", &m_fBrightness );
@@ -789,17 +750,14 @@ bool CParentFrame::ReadConfigFile( const char *pszDirectory, bool bBatchMode )
 
 bool CParentFrame::WriteConfigFile( bool bAsk, bool bCurrentProjectOnly )
 {
-	//Записываю конфигурационный файл
 	std::string szConfigFile;
 	if ( !bCurrentProjectOnly )
 		szConfigFile = theApp.GetSourceDir() + szAddDir + szConfigFileName;
 	else
 		szConfigFile = GetDirectory( szProjectFileName.c_str() ) + szConfigFileName;
 
-	//Параметр bAsk сейчас всегда false, потому что тревожит лишний раз пользователя
 	if ( bAsk && _access( szConfigFile.c_str(), 04 ) )
 	{
-		//файл не существует
 		CString szErr;
 		szErr.Format( "Error: Can not find file\n%s\nDo you want to create new config file?", szConfigFile.c_str() );
 		int nRes = AfxMessageBox( szErr, MB_YESNO );
@@ -829,7 +787,6 @@ void CParentFrame::OnFileExportFiles()
 	if ( !ReadConfigFile( GetDirectory( szProjectFileName.c_str() ).c_str(), false ) )
 		return;
 
-	//Проверяем, экспортился ли этот проект раньше, если да, то предлагаем прежнее имя файла
 	string szExportFileName;
 	if ( !szPrevExportFileName.empty() )
 	{
@@ -858,7 +815,6 @@ void CParentFrame::OnFileExportFiles()
 		szExportFileName += GetExportFileName();
 	}
 
-	//display browse dialog
 	CBrowseDialog brs;
 	brs.SetFileName( szExportFileName.c_str() );
 	brs.SetFilter( szXMLFilter.c_str() );
@@ -879,15 +835,12 @@ void CParentFrame::OnFileExportFiles()
 			return;
 
 		szExportFileName = brs.GetFileName();
-		//Создаем директорию, если ее еще нету
 		CPtr<IDataStorage> pStorage = CreateStorage( GetDirectory( szExportFileName.c_str()).c_str(), STREAM_ACCESS_WRITE );
 
-		//Вычисляем относительное имя файла
 		nRes = MakeSubRelativePath( (theApp.GetDestDir() + szAddDir).c_str(), szExportFileName.c_str(), szRelFileName );
 		if ( !nRes )
 		{
 			szRelFileName = szExportFileName;
-			//выведем предупреждение об возможных ошибках
 			int nBox = AfxMessageBox( "This project is exporting to incorrect directory.\nThe export directory should be sub path relative to 'Export Directory' settings\nDo you want to continue export to that file?\n\n", MB_OKCANCEL );
 			if ( nBox == IDOK )
 				break;
@@ -901,12 +854,10 @@ void CParentFrame::OnFileExportFiles()
 		if ( !ShowFileDialog( szExportFileName, szExportDir.c_str(), szTitle.c_str(), FALSE, szExportExtension.c_str(), szShortExportFileName.c_str(), szXMLFilter.c_str() ) )
 			return;
 		
-		//Вычисляем относительное имя файла
 		nRes = MakeSubRelativePath( (theApp.GetDestDir() + szAddDir).c_str(), szExportFileName.c_str(), szRelFileName );
 		if ( !nRes )
 		{
 			szRelFileName = szExportFileName;
-			//выведем предупреждение об возможных ошибках
 			int nBox = AfxMessageBox( "This project is exporting to incorrect directory.\nThe export directory should be sub path relative to 'Export Directory' settings\nDo you want to continue export to that file?\n\n"
 				"Задаваемая Export директория для проекта должна быть вложенной\nотносительно настроек редактора. Иначе будут баги при batch mode\nПродолжить экспорт в эту директорию?", MB_OKCANCEL );
 			if ( nBox == IDOK )
@@ -926,12 +877,10 @@ void CParentFrame::OnFileExportFiles()
 	NI_ASSERT( pTree != 0 );
 	CTreeItem *pRootItem = pTree->GetRootItem();
 	
-	//Сохраняем RPG stats
 	bool bErr = false;
 	CPtr<IDataTree> pDT;
 	if ( nFrameType == CFrameManager::E_SPRITE_FRAME || nFrameType == CFrameManager::E_TILESET_FRAME )
 	{
-		//для этих фреймов нету файла 1.xml поэтому stream не создается
 		pDT = 0;
 	}
 	else
@@ -1023,19 +972,14 @@ void CParentFrame::OnViewAdvancedToolbar()
 	bool bVis = pToolBar->IsVisible();
 	int nCommand = bVis ? SW_HIDE : SW_SHOW;
 	theApp.ShowSECControlBar( pToolBar, nCommand );
-//	pToolBar->SetDockState( )
 }
 
 void CParentFrame::OnFileClose() 
 {
-	// To close the frame, just send a WM_CLOSE, which is the equivalent
-	// choosing close from the system menu.
 	
-//x3	SendMessage(WM_CLOSE);
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	if ( pTree )
 	{
-		//Сохраняем предыдущий проект
 		if ( SaveFrame( true ) )
 			return;						//нажали cancel
 
@@ -1134,7 +1078,6 @@ void CParentFrame::RunBatchExporter( const char *pszSourceDir, const char *pszDe
 {
 	vector<string> files, errorFiles, noConfigFiles;
 
-	//Сперва составляю полный список файлов, который потом будет конвертиться
 	NFile::EnumerateFiles( pszSourceDir, pszMask, NFile::CGetAllFiles( &files ), true );
 
 	BeginWaitCursor();
@@ -1143,9 +1086,7 @@ void CParentFrame::RunBatchExporter( const char *pszSourceDir, const char *pszDe
 	progressDialog.Create( IDD_PROGRESS_DIALOG, this );
 	progressDialog.ShowWindow( SW_SHOW );
 	szProjectFileName = "";
-//	progressDialog.DoModal();
 
-	//Теперь прохожу по списку файлов и для каждого вызываю конверт, неудавшиеся имена записываются в errorFiles
 	for ( int i=0; i<files.size(); i++ )
 	{
 		progressDialog.SetProjectName( files[i].c_str() );
@@ -1222,11 +1163,9 @@ int CParentFrame::ExportSingleFile( const char *pszFileName, const char *pszDest
 		else
 			return -4;
 		
-		//Создаем директорию, если ее еще нету
 		CPtr<IDataStorage> pStorage = CreateStorage( GetDirectory(szExportFileName.c_str()).c_str(), STREAM_ACCESS_WRITE );
 		if ( !bForceFlag )
 		{
-			//Рассчитываем максимальное время для исходников проекта
 			FILETIME sourceTime = FindMaximalSourceTime( pszFileName, pRootItem );
 			if ( sourceTime.dwHighDateTime == 0 && sourceTime.dwLowDateTime == 0 )
 				return -5;
@@ -1234,7 +1173,6 @@ int CParentFrame::ExportSingleFile( const char *pszFileName, const char *pszDest
 			if ( projectTime > sourceTime )
 				sourceTime = projectTime;
 			
-			//Рассчитываем минимальное время для результатов экспорта проекта
 			FILETIME exportTime = FindMinimalExportFileTime( szExportFileName.c_str(), pRootItem );
 			if ( exportTime < sourceTime )
 				bForceFlag = true;
@@ -1261,8 +1199,6 @@ int CParentFrame::ExportSingleFile( const char *pszFileName, const char *pszDest
 	
 	else
 	{
-		//сначала перенесем старый проект в temp file, нужно для восстановления проектов, если при сохранении редактор упадет
-		//также с помощью dir /Q можно посмотреть автора последнего save file.
 		{
 			std::string szTemp = GetDirectory( pszFileName );
 			szTemp += "backup.tmp";
@@ -1270,12 +1206,9 @@ int CParentFrame::ExportSingleFile( const char *pszFileName, const char *pszDest
 			CopyFile( pszFileName, szTemp.c_str(), FALSE );
 		}
 
-		//этот код открывает проект, сохраняет его и закрывает
 		CETreeCtrl *pTree = CreateTrees();
 		CPtr<CTreeItem> pRootItem = pTree->GetRootItem();
-//		CPtr<CTreeItem> pRootItem = pTree->CreateRootItem( nTreeRootItemID );
 		
-		//Загружаем дерево
 		{
 			szProjectFileName = pszFileName;
 			CPtr<IDataStream> pXMLStream = OpenFileStream( pszFileName, STREAM_ACCESS_READ );
@@ -1300,7 +1233,6 @@ int CParentFrame::ExportSingleFile( const char *pszFileName, const char *pszDest
 */
 		}
 
-		//сохраню проект нах
 		FILETIME time;
 		m_szOldProjectName = pszFileName;
 		time = GetFileChangeTime( m_szOldProjectName.c_str() );
@@ -1310,7 +1242,6 @@ int CParentFrame::ExportSingleFile( const char *pszFileName, const char *pszDest
 
 		SaveTransactions( &time, pDT, pszFileName, E_BATCH_SAVE );
 
-		//Сохраняем проект
 		pRootItem->operator &( *pDT );
 		SaveFrameOwnData( pDT );
 		SaveRPGStats( pDT, pRootItem, szProjectFileName.c_str() );
@@ -1358,7 +1289,6 @@ bool CParentFrame::LockFile()
 	NI_ASSERT( szProjectFileName.size() > 0 );
 	
 	std::string szDir = GetDirectory( szProjectFileName.c_str() );
-	//ищем залоченный файл
 	vector<string> files, errorFiles;
 	
 	std::string szUserName;
@@ -1369,7 +1299,6 @@ bool CParentFrame::LockFile()
 		szUserName = temp;
 	}
 
-	//Сперва составляю полный список файлов, который потом будет конвертиться
 	NFile::EnumerateFiles( szDir.c_str(), "locked_*", NFile::CGetAllFiles( &files ), false );
 	if ( !files.empty() )
 	{
@@ -1388,7 +1317,6 @@ bool CParentFrame::LockFile()
 		{
 			string szTemp = files[0].c_str();
 			szTemp = szTemp.substr( szTemp.rfind('\\') + 8 );
-			//проверяем, что файл не залочен этим же юзером
 			if ( szUserName == szTemp )
 				return true;			//файл уже залочен этим же юзером
 			int nRes = AfxMessageBox( NStr::Format("The file %s is locked by %s, do you want to open it?", szProjectFileName.c_str(), szTemp.c_str() ), MB_YESNO );
@@ -1399,7 +1327,6 @@ bool CParentFrame::LockFile()
 		}
 	}
 	
-	//создаем залоченный файл
 	const std::string szLockedFile = NStr::Format( "locked_%s", szUserName );
 	CPtr<IDataStream> pStream = CreateFileStream( (szDir + szLockedFile).c_str(), STREAM_ACCESS_WRITE );
 	return true;
@@ -1497,7 +1424,6 @@ void CParentFrame::SaveTransactions( FILETIME *pFT, IDataTree *pDT, const char *
 		tree.Add( "History", &transactions );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnExportPak() 
 {
 	std::string szCommandLine;
@@ -1506,7 +1432,6 @@ void CParentFrame::OnExportPak()
 	szCommandLine = " -9 -R -D \"" + szCommandLine + "\" *.*";
 	ShellExecute( 0, "open", "zip.exe", szCommandLine.c_str(), (theApp.GetDestDir()).c_str(), SW_SHOWNORMAL );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnRunGame() 
 {
 	std::string szMODPath = theApp.GetDestDir();
@@ -1514,13 +1439,11 @@ void CParentFrame::OnRunGame()
 	if ( ShellExecute( 0, "open", (theApp.GetExecDir() + "\\game.exe").c_str(), (theApp.GetExecArgs() + "-mod\"" + szMODPath.substr( nPos + 1 ) + "\"").c_str(), theApp.GetExecDir().c_str(), SW_SHOWNORMAL ) != 0 )
 		AfxMessageBox( "Unable to find zip.exe!\n Path to this file should be set in your PATH environment variable." );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnHelp() 
 {
 	std::string szPath = theApp.GetEditorDir() + "reshelp.chm";
 	ShellExecute( 0, "open", szPath.c_str(), NULL, NULL, SW_SHOWNORMAL );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::SwitchDockerVisible( SECControlBar *pBar )
 {
 	if ( !pBar )
@@ -1529,7 +1452,6 @@ void CParentFrame::SwitchDockerVisible( SECControlBar *pBar )
 	int nCommand = bVis ? SW_HIDE : SW_SHOW;
 	theApp.ShowSECControlBar( pBar, nCommand );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::UpdateShowMenu( CCmdUI* pCmdUI, SECControlBar *pBar )
 {
 	if ( pBar )
@@ -1543,27 +1465,22 @@ void CParentFrame::UpdateShowMenu( CCmdUI* pCmdUI, SECControlBar *pBar )
 	else
 		pCmdUI->Enable( 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnShowOI()
 {
 	SwitchDockerVisible( pOIDockBar );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateShowOI(CCmdUI* pCmdUI) 
 {
 	UpdateShowMenu( pCmdUI, pOIDockBar );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnShowTree()
 {
 	SwitchDockerVisible( pTreeDockBar );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateShowTree(CCmdUI* pCmdUI) 
 {
 	UpdateShowMenu( pCmdUI, pTreeDockBar );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnMODSettings()
 {
 	CMODDialog dlg;
@@ -1596,16 +1513,12 @@ void CParentFrame::OnMODSettings()
 		EndWaitCursor();
 	}	
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//Editors menu handlers
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::SwitchActiveFrame( int id )
 {
 	CParentFrame *pFrame = g_frameManager.GetFrame(	id );
 	g_frameManager.SetActiveFrame( pFrame );
 	pFrame->PostMessage( WM_SETFOCUS, 0, 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::UpdateFrameMenu( CCmdUI* pCmdUI, int id )
 {
 	if ( g_frameManager.GetActiveFrameType() == id )
@@ -1613,8 +1526,6 @@ void CParentFrame::UpdateFrameMenu( CCmdUI* pCmdUI, int id )
 	else
 		pCmdUI->SetCheck( 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnExpandTree()
 {
 	if ( CETreeCtrl *pETree = pTreeDockBar->GetTreeWithIndex( 0 ) )
@@ -1625,211 +1536,166 @@ void CParentFrame::OnExpandTree()
 				(*it)->ExpandTreeItem( bTreeExpand );
 		}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUnitEditor()
 {
 	SwitchActiveFrame( CFrameManager::E_MESH_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateUnitEditor(CCmdUI* pCmdUI) 
 {
 	UpdateFrameMenu( pCmdUI, CFrameManager::E_MESH_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnInfantryEditor()
 {
 	SwitchActiveFrame( CFrameManager::E_ANIMATION_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateInfantryEditor(CCmdUI* pCmdUI) 
 {
 	UpdateFrameMenu( pCmdUI, CFrameManager::E_ANIMATION_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnSquadEditor()
 {
 	SwitchActiveFrame( CFrameManager::E_SQUAD_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateSquadEditor(CCmdUI* pCmdUI) 
 {
 	UpdateFrameMenu( pCmdUI, CFrameManager::E_SQUAD_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnWeaponEditor()
 {
 	SwitchActiveFrame( CFrameManager::E_WEAPON_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateWeaponEditor(CCmdUI* pCmdUI) 
 {
 	UpdateFrameMenu( pCmdUI, CFrameManager::E_WEAPON_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnMineEditor()
 {
 	SwitchActiveFrame( CFrameManager::E_MINE_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateMineEditor(CCmdUI* pCmdUI) 
 {
 	UpdateFrameMenu( pCmdUI, CFrameManager::E_MINE_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnParticleEditor()
 {
 	SwitchActiveFrame( CFrameManager::E_PARTICLE_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateParticleEditor(CCmdUI* pCmdUI) 
 {
 	UpdateFrameMenu( pCmdUI, CFrameManager::E_PARTICLE_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnSpriteEditor()
 {
 	SwitchActiveFrame( CFrameManager::E_SPRITE_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateSpriteEditor(CCmdUI* pCmdUI) 
 {
 	UpdateFrameMenu( pCmdUI, CFrameManager::E_SPRITE_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnEffectEditor()
 {
 	SwitchActiveFrame( CFrameManager::E_EFFECT_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateEffectEditor(CCmdUI* pCmdUI) 
 {
 	UpdateFrameMenu( pCmdUI, CFrameManager::E_EFFECT_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnBuildingEditor()
 {
 	SwitchActiveFrame( CFrameManager::E_BUILDING_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateBuildingEditor(CCmdUI* pCmdUI) 
 {
 	UpdateFrameMenu( pCmdUI, CFrameManager::E_BUILDING_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnObjectEditor()
 {
 	SwitchActiveFrame( CFrameManager::E_OBJECT_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateObjectEditor(CCmdUI* pCmdUI) 
 {
 	UpdateFrameMenu( pCmdUI, CFrameManager::E_OBJECT_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnFenceEditor()
 {
 	SwitchActiveFrame( CFrameManager::E_FENCE_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateFenceEditor(CCmdUI* pCmdUI) 
 {
 	UpdateFrameMenu( pCmdUI, CFrameManager::E_FENCE_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnBridgeEditor()
 {
 	SwitchActiveFrame( CFrameManager::E_BRIDGE_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateBridgeEditor(CCmdUI* pCmdUI) 
 {
 	UpdateFrameMenu( pCmdUI, CFrameManager::E_BRIDGE_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnTrenchEditor()
 {
 	SwitchActiveFrame( CFrameManager::E_TRENCH_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateTrenchEditor(CCmdUI* pCmdUI) 
 {
 	UpdateFrameMenu( pCmdUI, CFrameManager::E_TRENCH_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnMissionEditor()
 {
 	SwitchActiveFrame( CFrameManager::E_MISSION_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateMissionEditor(CCmdUI* pCmdUI) 
 {
 	UpdateFrameMenu( pCmdUI, CFrameManager::E_MISSION_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnChapterEditor()
 {
 	SwitchActiveFrame( CFrameManager::E_CHAPTER_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateChapterEditor(CCmdUI* pCmdUI) 
 {
 	UpdateFrameMenu( pCmdUI, CFrameManager::E_CHAPTER_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnCampaignEditor()
 {
 	SwitchActiveFrame( CFrameManager::E_CAMPAIGN_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateCampaignEditor(CCmdUI* pCmdUI) 
 {
 	UpdateFrameMenu( pCmdUI, CFrameManager::E_CAMPAIGN_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnMedalEditor()
 {
 	SwitchActiveFrame( CFrameManager::E_MEDAL_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateMedalEditor(CCmdUI* pCmdUI) 
 {
 	UpdateFrameMenu( pCmdUI, CFrameManager::E_MEDAL_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnTerrainEditor()
 {
 	SwitchActiveFrame( CFrameManager::E_TILESET_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateTerrainEditor(CCmdUI* pCmdUI) 
 {
 	UpdateFrameMenu( pCmdUI, CFrameManager::E_TILESET_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnRoadEditor()
 {
 	SwitchActiveFrame( CFrameManager::E_3DROAD_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateRoadEditor(CCmdUI* pCmdUI) 
 {
 	UpdateFrameMenu( pCmdUI, CFrameManager::E_3DROAD_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnRiverEditor()
 {
 	SwitchActiveFrame( CFrameManager::E_3DRIVER_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnUpdateRiverEditor(CCmdUI* pCmdUI) 
 {
 	UpdateFrameMenu( pCmdUI, CFrameManager::E_3DRIVER_FRAME );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParentFrame::OnSaveObjects()
 {
 	std::string szSrc = theApp.GetSourceDir();
@@ -1939,6 +1805,3 @@ void CParentFrame::OnSaveObjects()
 		EndWaitCursor();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//End Editors menu handlers
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////

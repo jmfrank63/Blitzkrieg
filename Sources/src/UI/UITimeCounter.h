@@ -1,13 +1,10 @@
 #ifndef __UI_TIME_COUNTER_H__
 #define __UI_TIME_COUNTER_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "UIBasic.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUITimeCounter : public CSimpleWindow
 {
 	DECLARE_SERIALIZE;
-	//
 	DWORD dwBeginTime, dwRingTime;
 	bool bNeedAnimate;							//нужно ли просчитывать анимацию
 	float fBegin, fEnd, fCurrent;		//положение анимации
@@ -20,7 +17,6 @@ public:
 		fBegin( 0 ), fEnd( 0 ), fCurrent( 0 ), bVertical( true ), dwDisabledCounterColor( 0xffffffff ), dwCounterColor( 0xffffffff ), dwBGColor( 0xff000000 ) {}
 	virtual ~CUITimeCounter() {}
 	
-	// serializing...
 	virtual int STDCALL operator&( IDataTree &ss );
 	
 	virtual bool STDCALL Update( const NTimer::STime &currTime );
@@ -28,7 +24,6 @@ public:
 	virtual void STDCALL Visit( interface ISceneVisitor *pVisitor );
 	virtual bool STDCALL ProcessMessage( const SUIMessage &msg );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUITimeCounterBridge : public IUITimeCounter, public CUITimeCounter
 {
 	OBJECT_NORMAL_METHODS( CUITimeCounterBridge );
@@ -36,6 +31,5 @@ public:
 	DECLARE_SUPER( CUITimeCounter );
 	DEFINE_UIELEMENT_BRIDGE;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #endif		//__UI_TIME_COUNTER_H__

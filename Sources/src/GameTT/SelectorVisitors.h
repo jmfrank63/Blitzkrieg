@@ -1,10 +1,7 @@
 #ifndef __SELECTORVISITORS_H__
 #define __SELECTORVISITORS_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Common\MapObject.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGetActionsSelectiorVisitor : public ISelectorVisitor
 {
 	const IMapObj::EActionsType eActions;
@@ -12,7 +9,6 @@ class CGetActionsSelectiorVisitor : public ISelectorVisitor
 public:
 	CGetActionsSelectiorVisitor( const IMapObj::EActionsType _eActions, CUserActions *_pActions )
 		: eActions( _eActions ), pActions( _pActions ) {  }
-	//
 	virtual void STDCALL VisitMapObject( struct SMapObject *pMO ) const
 	{
 		CUserActions actions;
@@ -20,7 +16,6 @@ public:
 		*pActions |= actions;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGetActionsExceptSelectiorVisitor : public ISelectorVisitor
 {
 	const IMapObj::EActionsType eActions;
@@ -29,7 +24,6 @@ class CGetActionsExceptSelectiorVisitor : public ISelectorVisitor
 public:
 	CGetActionsExceptSelectiorVisitor( const IMapObj::EActionsType _eActions, CUserActions *_pActions, const IMapObj *_pException )
 		: eActions( _eActions ), pActions( _pActions ), pException( _pException ) {  }
-	//
 	virtual void STDCALL VisitMapObject( struct SMapObject *pMO ) const
 	{
 		if ( pMO != pException ) 
@@ -40,7 +34,6 @@ public:
 		}
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCollectObjectsSelectiorVisitor : public ISelectorVisitor
 {
 	mutable CMapObjectsList objects;
@@ -49,8 +42,6 @@ public:
 	{
 		objects.push_back( pMO );
 	}
-	//
 	CMapObjectsList& GetObjects() { return objects; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __SELECTORVISITORS_H__

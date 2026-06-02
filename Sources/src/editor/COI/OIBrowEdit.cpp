@@ -4,14 +4,8 @@
 #include "OIBrowEdit.h"
 #include "..\MyOpenFileDialog.h"
 
-//#include "MapEdit.h"
 
-/////////////////////////////////////////////////////////////////////////////
-// COIBrowseButton
-/////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(COIBrowseButton, CButton)
-//{{AFX_MSG_MAP(COIBrowseButton)
-//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 static std::string MakeOneSlash( std::string str )
@@ -34,8 +28,6 @@ COIBrowseButton::COIBrowseButton( COIBrowseEdit *pPrnt, CEdit* pEdtBrowse )
 {
   ASSERT( pPrnt );
   ASSERT( pEdtBrowse );
-  //{{AFX_DATA_INIT(COIBrowseButton)
-  //}}AFX_DATA_INIT
   
   m_pEdtBrowse = pEdtBrowse;
   m_pParentWnd = pPrnt;
@@ -48,19 +40,14 @@ COIBrowseButton::~COIBrowseButton()
 
 BOOL COIBrowseButton::Create()
 {
-  // Make sure we have an edit control.  
   ASSERT(m_pEdtBrowse != NULL);
   
-  // Get the parent edit control and shrink it by the width
-  // of the button to be created.
   CRect rc;
 
   m_pEdtBrowse->GetWindowRect(&rc);
   m_pEdtBrowse->SetWindowPos(NULL, 0, 0, rc.Width() - (BTN_WIDTH + 1),
     rc.Height(), SWP_NOZORDER | SWP_NOMOVE);
   
-  // Now calculate the size and location of the button, get an
-  // unused control ID, and create it.
   
   m_pParentWnd->ScreenToClient(&rc);
   rc.left = rc.right - BTN_WIDTH;
@@ -87,16 +74,11 @@ BOOL COIBrowseButton::OnChildNotify( UINT uiMsg, WPARAM wParam, LPARAM lParam,
   return FALSE;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// COIBrowseButton
-/////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(COIBrowseEdit, CWnd)
-//{{AFX_MSG_MAP(COIBrowseEdit)
   ON_WM_ENABLE()
 	ON_WM_CREATE()
 	ON_WM_SIZE()
 	ON_WM_SHOWWINDOW()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 COIBrowseEdit::COIBrowseEdit() : m_BrowseBtn( this, &m_Edit )
@@ -113,7 +95,6 @@ int COIBrowseEdit::OnCreate(LPCREATESTRUCT lpCreateStruct)
   if (CWnd::OnCreate(lpCreateStruct) == -1)
     return -1;
   
-  // Create font
   LOGFONT lf;
   memset(&lf, 0, sizeof(LOGFONT));			// zero out structure
   lf.lfHeight = 15;							// request a ?-pixel-height font
@@ -186,8 +167,6 @@ void COIBrowseEdit::OnSize(UINT nType, int cx, int cy)
 	CWnd::OnSize(nType, cx, cy);	
   m_Edit.MoveWindow( 0, 0, cx, cy );
 
-  // Get the parent edit control and shrink it by the width
-  // of the button to be created.
   CRect rc;
   m_Edit.GetWindowRect(&rc);
   m_Edit.SetWindowPos(NULL, 0, 0, rc.Width() - (BTN_WIDTH + 1),

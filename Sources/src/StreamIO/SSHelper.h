@@ -1,6 +1,5 @@
 #ifndef __SSHELPER_H__
 #define __SSHELPER_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #ifndef ZDATA_
 #define ZDATA_(a)
 #endif // ZDATA_
@@ -18,14 +17,11 @@
 #ifndef ZSKIP
 #define ZSKIP
 #endif // ZSKIP
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class T>
 inline char operator&( T &c, IStructureSaver &ss ) { return 0; }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSaverAccessor
 {
 	IStructureSaver *pSS;
-	// test data path for different objects
 	char __cdecl TestDataPath( ... ) { return 0; }
 	template <class T1, class T2>
 		int __cdecl TestDataPath( std::pair<T1, T2> * ) { return 0; }
@@ -51,7 +47,6 @@ class CSaverAccessor
 		int __cdecl TestDataPath( std::unordered_set<T1, T2, T3, T4> * ) { return 0; }
 	template <class T1, class T2, class T3, class T4, class T5>
 		int __cdecl TestDataPath( std::priority_queue<T1, T2, T3> * ) { return 0; }
-	// call serialize from object or raw data
 	template <class T>
 		void __cdecl CallObjectSerialize( const SSChunkID idChunk, T *pData, ... )
 		{
@@ -65,7 +60,6 @@ class CSaverAccessor
 		{
 			pSS->DataChunk( idChunk, pData, sizeof(T) );
 		}
-	// 'add internal' functions series for data storing
 	template <class T>
 		void __cdecl AddInternal( const SSChunkID idChunk, T *pData, ... )
 		{
@@ -73,26 +67,22 @@ class CSaverAccessor
 			SGenericNumber<N_HAS_SERIALIZE_TEST> separator;
 			CallObjectSerialize( idChunk, pData, &separator );
 		}
-	// for unknown reason, IRefCount derivatives cannot be serialized directly - we need IRefCount specialization
 	template <class T>
 		void __cdecl AddInternal( const SSChunkID idChunk, T *p, IRefCount *pData )
 		{
 			SGenericNumber<4> separator;
 			CallObjectSerialize( idChunk, pData, &separator );
 		}
-	// other specializations
 	template <class T1, class T2>
 		void __cdecl AddInternal( const SSChunkID idChunk, T1 *p, std::basic_string<T2> *pData ) 
 		{
 			if ( !pSS->StartChunk( idChunk ) )
 				return;
-			//
 			int nSize = IsReading() ? 0 : pData->size();
 			Add( 1, &nSize );
 			if ( IsReading() )
 				pData->resize( nSize );
 			AddRawData( 2, const_cast<T2*>( pData->c_str() ), sizeof(T2) * nSize );
-			//
 			pSS->FinishChunk();
 		}
 	template <class T, class T1, class T2>
@@ -156,15 +146,12 @@ class CSaverAccessor
 		void __cdecl AddInternal( const SSChunkID idChunk, T *p, std::unordered_set<T1, T2, T3, T4> *pData ) 
 		{
 			std::list<T1> elements;
-			// hash_set => list
 			if ( !IsReading() )
 			{
 				for ( std::unordered_set<T1, T2, T3, T4>::iterator it = pData->begin(); it != pData->end(); ++it )
 					elements.push_back( *it );
 			}
-			// add container
 			Add( idChunk, &elements );
-			// list => hash_set
 			if ( IsReading() )
 			{
 				pData->clear();
@@ -176,15 +163,12 @@ class CSaverAccessor
 		void __cdecl AddInternal( const SSChunkID idChunk, T *p, std::set<T1, T2, T3> *pData ) 
 		{
 			std::list<T1> elements;
-			// hash_set => list
 			if ( !IsReading() )
 			{
 				for ( std::set<T1, T2, T3>::iterator it = pData->begin(); it != pData->end(); ++it )
 					elements.push_back( *it );
 			}
-			// add container
 			Add( idChunk, &elements );
-			// list => hash_set
 			if ( IsReading() )
 			{
 				pData->clear();
@@ -209,8 +193,6 @@ class CSaverAccessor
 			Add( 2, &( pData->second ) );
 			pSS->FinishChunk();
 		}
-	// smart pointers specialization
-	// general smart ptr/obj
 	template <class T, class T1, class T2> 
 		void AddInternal( const SSChunkID idChunk, T *p, CPtrBase<T1, T2> *pData ) 
 		{
@@ -222,7 +204,6 @@ class CSaverAccessor
 				pSS->StoreObject( CastToRefCount(pData->GetPtr()) );
 			pSS->FinishChunk();
 		}
-	// database ptr
 	template <class T, class T1> 
 		void AddInternal( const SSChunkID idChunk, T *p, CGDBPtr<T1> *pData ) 
 	{
@@ -245,7 +226,6 @@ class CSaverAccessor
 		}
 		else
 		{
-			//NI_ASSERT_SLOW_TF( pData->GetPtr() != 0, "Can't store NULL database object", return );
 			if ( pData->GetPtr() != 0 )
 			{
 				std::string szString = (*pData)->GetParentName();
@@ -256,9 +236,6 @@ class CSaverAccessor
 		}
 		pSS->FinishChunk();
 	}
-	//
-	// 'Do...' functions
-	// vector
 	template <class T1, class T2> 
 		void DoVector( std::vector<T1, T2> &data )
 		{
@@ -289,7 +266,6 @@ class CSaverAccessor
 			if ( nSize > 0 )
 				AddRawData( 2, &data[0], sizeof(T1) * nSize );
 		}
-	// hash_map
 	template <class T1, class T2, class T3, class T4, class T5> 
 		void DoHashMap( std::unordered_map<T1, T2, T3, T4, T5> &data )
 		{
@@ -320,7 +296,6 @@ class CSaverAccessor
 				}
 			}
 		}
-	// map
 	template <class T1, class T2, class T3, class T4> 
 		void DoMap( std::map<T1, T2, T3, T4> &data )
 		{
@@ -351,7 +326,6 @@ class CSaverAccessor
 				}
 			}
 		}
-	//
 	template <class T> 
 		void Do2DArray( CArray2D<T> &a )
 		{
@@ -377,22 +351,18 @@ class CSaverAccessor
 			if ( nSizeX * nSizeY > 0 )
 				AddRawData( 3, &a[0][0], sizeof(T) * nSizeX * nSizeY );
 		}
-	// priority_queueu
 	template <class T1, class T2, class T3>
 		void DoPriorityQueue( std::priority_queue<T1, T2, T3> &data )
 		{
 			std::vector<T1> elements;
-			//
 			if ( IsReading() )
 			{
-				// clear container
 				while ( !data.empty() )
 					data.pop();
 			}
 			else
 			{
 				int nSize = data.size();
-				// queue => vector translation (with queue clearing)
 				elements.reserve( nSize );
 				while ( !data.empty() )
 				{
@@ -400,9 +370,7 @@ class CSaverAccessor
 					data.pop();
 				}
 			}
-			// serialize
 			Add( 1, &elements );
-			// vector => queue translation
 			for ( std::vector<T1>::iterator it = elements.begin(); it != elements.end(); ++it )
 				data.push( *it );
 		}
@@ -412,24 +380,18 @@ public:
 		: pSS( accessor.pSS ) {  }
 	CSaverAccessor( IStructureSaver *_pSS ) 
 		: pSS( _pSS ) {  }
-	// stream assigning and extracting
 	const CSaverAccessor& operator=( IStructureSaver *_pSS ) { pSS = _pSS; return *this; }
 	const CSaverAccessor& operator=( const CSaverAccessor &accessor ) { pSS = accessor.pSS; return *this; }
 	operator IStructureSaver*() const { return pSS; }
 	IStructureSaver* operator->() const { return pSS; }
-	// comparison operators
 	bool operator==( const CSaverAccessor &ptr ) const { return ( pSS == ptr.pSS ); }
 	bool operator==( IStructureSaver *pNewObject ) const { return ( pSS == pNewObject ); }
 	bool operator!=( const CSaverAccessor &ptr ) const { return ( pSS != ptr.pSS ); }
 	bool operator!=( IStructureSaver *pNewObject ) const { return ( pSS != pNewObject ); }
-	// are we in reading state?
 	bool IsReading() const { return pSS->IsReading(); }
-	// add raw data of specified size (in bytes)
 	void AddRawData( const SSChunkID idChunk, void *pData, int nSize ) { pSS->DataChunk( idChunk, pData, nSize ); }
-	// main add function - add all structures/classes/datas through it
 	template <class T>
 		void Add( const SSChunkID idChunk, T *p ) { AddInternal( idChunk, p, p ); }
-	// adding typed super class - use it only for super class members serialization
 	template <class T>
 		void AddTypedSuper( const SSChunkID idChunk, T *pData )
 		{
@@ -439,5 +401,4 @@ public:
 			pSS->FinishChunk();
 		}
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __SSHELPER_H__

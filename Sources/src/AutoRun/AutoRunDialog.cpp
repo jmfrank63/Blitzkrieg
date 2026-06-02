@@ -9,12 +9,10 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const DWORD CAutoRunDialog::FINISH_TIMER_ID = 1;
 const DWORD CAutoRunDialog::FINISH_TIMER_INTERVAL = 1000;
 const DWORD CAutoRunDialog::FINISH_TIMER_MAX_COUNT = 10;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAutoRunDialog::CheckGameApp( LPCSTR pszMainClass, LPCSTR pszMainTitle )
 {
   HWND hwndFind;
@@ -26,22 +24,16 @@ bool CAutoRunDialog::CheckGameApp( LPCSTR pszMainClass, LPCSTR pszMainTitle )
   return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAutoRunDialog::CheckPreviousApp( LPCSTR pszMainClass, LPCSTR pszMainTitle )
 {
   HWND hwndFind, hwndLast, hwndForeGround;
   DWORD dwFindID, dwForeGroundID;
-  // Check if application is already running
   hwndFind = ::FindWindow( pszMainClass, pszMainTitle );
   if ( hwndFind )
   {
-    // Bring previously running application's main
-    // window to the user's attention
     hwndForeGround = ::GetForegroundWindow();
     dwForeGroundID = ::GetWindowThreadProcessId( hwndForeGround, 0 );
     dwFindID = ::GetWindowThreadProcessId( hwndFind, 0 );
-    // Don't do anything if window is already in foreground
-    // Unless it is iconized.
     if ( ( dwFindID != dwForeGroundID ) || ::IsIconic( hwndFind ) )
     {
       hwndLast = ::GetLastActivePopup( hwndFind );
@@ -51,21 +43,17 @@ bool CAutoRunDialog::CheckPreviousApp( LPCSTR pszMainClass, LPCSTR pszMainTitle 
 			}
       ::SetForegroundWindow( hwndLast );
     }
-    // Prevent additional instance's of this application
-    // from running
     return false;
   }
   return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAutoRunDialog::SetFinishTimer()
 {
   KillFinishTimer();
   dwFinishTimer = SetTimer( FINISH_TIMER_ID, FINISH_TIMER_INTERVAL, 0 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAutoRunDialog::KillFinishTimer()
 {
   if ( dwFinishTimer != 0 )
@@ -75,7 +63,6 @@ void CAutoRunDialog::KillFinishTimer()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAutoRunDialog::OnFinishTimer()
 {
 	if ( !CheckGameApp( 0, menuSelector.GetRunningGameTitle() ) )
@@ -96,26 +83,18 @@ void CAutoRunDialog::OnFinishTimer()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAutoRunDialog::CAutoRunDialog( CWnd* pParent )
 	: CDialog( CAutoRunDialog::IDD, pParent ), lastMousePoint( 0, 0 ), lastMouseFlags( 0 ), bMoveWindow( false ), dwFinishTimer( 0 ), dwFinishTimerCount( 0 )
 {
-	//{{AFX_DATA_INIT(CAutoRunDialog)
-	//}}AFX_DATA_INIT
 	m_hIcon = AfxGetApp()->LoadIcon( IDI_AUTORUN_ICON );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAutoRunDialog::DoDataExchange( CDataExchange* pDX )
 {
 	CDialog::DoDataExchange(pDX);
-	//{{AFX_DATA_MAP(CAutoRunDialog)
-	//}}AFX_DATA_MAP
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CAutoRunDialog, CDialog)
-	//{{AFX_MSG_MAP(CAutoRunDialog)
 	ON_WM_PAINT()
 	ON_WM_MOUSEMOVE()
 	ON_WM_LBUTTONUP()
@@ -124,7 +103,6 @@ BEGIN_MESSAGE_MAP(CAutoRunDialog, CDialog)
 	ON_WM_TIMER()
 	ON_WM_QUERYDRAGICON()
 	ON_WM_CLOSE()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 bool CAutoRunDialog::Load()
@@ -152,7 +130,6 @@ bool CAutoRunDialog::Load()
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CAutoRunDialog::OnInitDialog()
 {
 	CDialog::OnInitDialog();
@@ -189,11 +166,9 @@ BOOL CAutoRunDialog::OnInitDialog()
 	SetWindowText( menuSelector.GetTitle() );
 	SetIcon( m_hIcon, true );			// Set big icon
 	SetIcon( m_hIcon, false );		// Set small icon
-	//ShowWindow( SW_HIDE );
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAutoRunDialog::OnPaint() 
 {
 	CPaintDC paintDC( this );
@@ -214,7 +189,6 @@ void CAutoRunDialog::OnPaint()
 	dc.SelectObject( pOldBitmap );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAutoRunDialog::OnMouseMove( UINT nFlags, CPoint point ) 
 {
 	lastMouseFlags = nFlags;
@@ -232,7 +206,6 @@ void CAutoRunDialog::OnMouseMove( UINT nFlags, CPoint point )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAutoRunDialog::OnLButtonUp( UINT nFlags, CPoint point ) 
 {
 	CDialog::OnLButtonUp(nFlags, point);
@@ -251,7 +224,6 @@ void CAutoRunDialog::OnLButtonUp( UINT nFlags, CPoint point )
 	RedrawWindow( 0, 0, RDW_INVALIDATE | RDW_UPDATENOW | RDW_NOERASE );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAutoRunDialog::OnLButtonDown( UINT nFlags, CPoint point ) 
 {
 	CDialog::OnLButtonDown(nFlags, point);
@@ -268,7 +240,6 @@ void CAutoRunDialog::OnLButtonDown( UINT nFlags, CPoint point )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAutoRunDialog::OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags ) 
 {
 	if ( nChar == VK_RETURN )
@@ -298,19 +269,16 @@ void CAutoRunDialog::OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAutoRunDialog::OnOK() 
 {
 	OnKeyDown( VK_RETURN, 0, 0 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAutoRunDialog::OnCancel() 
 {
 	OnKeyDown( VK_ESCAPE, 0, 0 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CAutoRunDialog::PreTranslateMessage( MSG* pMsg ) 
 {
 	if ( IsWindow( tooltips ) )
@@ -329,7 +297,6 @@ BOOL CAutoRunDialog::PreTranslateMessage( MSG* pMsg )
 	return CDialog::PreTranslateMessage( pMsg );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAutoRunDialog::OnTimer(UINT nIDEvent) 
 {
   if ( nIDEvent == FINISH_TIMER_ID )
@@ -339,9 +306,7 @@ void CAutoRunDialog::OnTimer(UINT nIDEvent)
 	CDialog::OnTimer(nIDEvent);
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAutoRunDialog::OnClose() 
 {
 	CDialog::OnOK();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

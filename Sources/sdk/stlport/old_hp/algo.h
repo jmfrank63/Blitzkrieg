@@ -60,7 +60,6 @@
 # ifdef _STLP_BROKEN_USING_DIRECTIVE
 using namespace STLPORT;
 # else
-// Names from <stl/_algo.h>
 using STLPORT::for_each; 
 using STLPORT::find; 
 using STLPORT::find_if; 
@@ -77,7 +76,6 @@ using STLPORT::replace_copy;
 using STLPORT::replace_copy_if; 
 using STLPORT::generate; 
 using STLPORT::generate_n; 
-// using STLPORT::remove; 
 using STLPORT::remove_if; 
 using STLPORT::remove_copy; 
 using STLPORT::remove_copy_if; 
@@ -117,13 +115,11 @@ using STLPORT::find_end;
 using STLPORT::is_sorted; 
 using STLPORT::is_heap; 
 
-// Names from stl_heap.h
 using STLPORT::push_heap;
 using STLPORT::pop_heap;
 using STLPORT::make_heap;
 using STLPORT::sort_heap;
 
-// Names from <stl/_numeric.h>
 using STLPORT::accumulate; 
 using STLPORT::inner_product; 
 using STLPORT::partial_sum; 
@@ -141,6 +137,3 @@ using STLPORT::iota;
 
 #endif /* _STLP_ALGO_H */
 
-// Local Variables:
-// mode:C++
-// End:

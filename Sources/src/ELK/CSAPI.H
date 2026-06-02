@@ -41,13 +41,8 @@
 
 /* Typedefs: Note: Also in csapiloc.h (ensure always match) */
 #ifndef CSAPILOC_H
-//#ifdef NT
 typedef unsigned     MDR;            	/* main dictionary reference*/
 typedef unsigned     UDR;            	/* user dictionary reference*/
-//#else
-//typedef unsigned short    MDR;			/* main dictionary reference*/
-//typedef unsigned short    UDR;          /* user dictionary reference*/
-//#endif
 typedef unsigned short    SCCC;         /* Spell Check Command Code */
 
 /* SPLID is the replacement for SID due to a conflict with the Windows NT 
@@ -60,10 +55,6 @@ typedef unsigned short    SCRS;         /* SpellCheckReturnStatus */
 typedef unsigned short LID;  			/* two byte language identifier code */
 
 /* Comment out duplicate definitions as needed */
-//typedef unsigned char CHAR;
-//typedef unsigned char BYTE;
-//typedef unsigned short WORD;
-//typedef short BOOL;
 
 /* All undefined or unused chars should be mapped to bIgnore. */
 typedef struct WizSpecChars
@@ -415,9 +406,6 @@ typedef SPATH * LPSPATH;
 #define PASCAL pascal
 #endif
 
-//#define GLOBAL		FAR PASCAL
-//#define GLOBALSEC	SEC FAR PASCAL 
-//#define GLOBAL		FAR 
 #define GLOBALSEC	SEC FAR 
 
 #ifdef MAC

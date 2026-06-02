@@ -1,28 +1,22 @@
 #ifndef __OBJVISOBJ_H__
 #define __OBJVISOBJ_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Icon.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TBase>
 class CTObjVisObj : public TBase
 {
 protected:
 	typedef CTObjVisObj<TBase> CObjVisObj;
 private:
-	//
 	DWORD dwGameType;											// object game type
 	CVec3 vPos;														// unit's position
 	int nDirection;												// 2D direction
 	bool bVisible;												// is this object visible?
 	int nPriority;												// this object priority
 	EVisObjSelectionState selectionState;	// selection state
-	// icons
 	CIconsList icons;
 protected:
 	DWORD dwLastUpdateTime;								// last time, update was calculated
-	//
 	virtual void RepositionIcons() {  }
 	void RepositionIconsLocal( const DWORD placement, const CTRect<float> &rcRect, const float fAddZ = 20 ) { ::RepositionIconsLocal( icons, placement, rcRect, fAddZ ); }
 	void VisitIcons( ISceneVisitor *pVisitor )
@@ -33,15 +27,12 @@ protected:
 			it->pIcon->Visit( pVisitor );
 		}
 	}
-	//
 	void SetPos( const CVec3 &_vPos ) { vPos = _vPos; }
 	const CVec3& GetPos() const { return vPos; }
 	const int GetPriority() const { return nPriority; }
 	const DWORD GetGameType( const DWORD dwType ) const { return dwGameType == 0 ? dwType : dwGameType; }
-	//
 	void SetDir( const int _nDirection ) { nDirection = _nDirection % 65536; }
 	const int GetDir() const { return nDirection; }
-	//
 	virtual ~CTObjVisObj() {  }
 public:
 	CTObjVisObj()
@@ -54,15 +45,9 @@ public:
 		nPriority = 0;
 		selectionState = SGVOSS_UNSELECTED;
 	}
-	//
-	// placement
-	//
 	virtual void STDCALL SetPlacement( const CVec3 &_vPos, const int _nDir ) { SetPosition( _vPos ); SetDirection( _nDir ); }
 	virtual const CVec3& STDCALL GetPosition() const { return vPos; }
 	virtual int STDCALL GetDirection() const { return nDirection; }
-	// 
-	// selection
-	//
 	virtual EVisObjSelectionState STDCALL GetSelectionState() const { return selectionState; }
 	virtual void STDCALL Select( EVisObjSelectionState state ) 
 	{ 
@@ -73,22 +58,15 @@ public:
 				it->pIcon->SetAlpha( selectionState == SGVOSS_SELECTED ? 0xff : 0x60 );
 		}
 	}
-	//
-	// visibility, priority, game type
-	//
 	virtual bool STDCALL IsVisible() const { return bVisible; }
 	virtual void STDCALL SetVisible( const bool _bVisible ) { bVisible = _bVisible; }
 	virtual void STDCALL SetPriority( const int _nPriority ) { nPriority = _nPriority; }
 	virtual void STDCALL SetGameType( const DWORD dwType ) { dwGameType = dwType; }
-	//
-	// icons
-	//
 	virtual void STDCALL AddIcon( ISceneIcon *pIcon, int nID, const CVec3 &vAddValue, const CVec3 &vAddStep, 
 		                            int nPriority, DWORD placement, bool bReposition = true )
 	{
 		if ( pIcon )
 		{
-			// remove old icon with similar ID
 			for ( CIconsList::iterator it = icons.begin(); it != icons.end(); ++it )
 			{
 				if ( it->nID == nID )
@@ -97,7 +75,6 @@ public:
 					break;
 				}
 			}
-			//
 			icons.push_back( SIconDesc() );
 			icons.back().pIcon = pIcon;
 			icons.back().nID = nID;
@@ -126,7 +103,6 @@ public:
 				}
 			}
 		}
-		//
 		if ( bReposition ) 
 			RepositionIcons();
 	}
@@ -139,9 +115,6 @@ public:
 		}
 		return 0;
 	}
-	//
-	// serialization
-	//
 	virtual int STDCALL operator&( IStructureSaver &ss )
 	{
 		CSaverAccessor saver = &ss;
@@ -158,5 +131,4 @@ public:
 		return 0;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __OBJVISOBJ_H__

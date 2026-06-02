@@ -2,7 +2,6 @@
 #define __UI_STATE_H__
 
 class CInterfaceMainMenu;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IUIState
 {
 private:
@@ -21,54 +20,44 @@ public:
 	virtual void Show();
 	virtual void Hide();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum ECommands
 {
-	//Main menu
 	IMC_MULTIPLAYER			=	10003,
 	IMC_LOAD_GAME				=	10004,
 	IMC_SETTINGS				=	10005,
 	IMC_EXIT_GAME				= 10006,
 	IMC_SHOW_EXIT_GAME	= 8888,
 	
-	//New game
 	IMC_TUTORIAL				= 10003,
 	IMC_SINGLE_MISSION	=	10004,
 	IMC_PLAYER_PROFILE	=	10005,
 	IMC_SCENARIO				= 10002,
 
-	//Select Campaign
 	IMC_GERMAN_CAMPAIGN	= 10004,
 	IMC_RUSSIAN_CAMPAIGN= 10003,
 	IMC_ALLIES_CAMPAIGN	=	10002,
 	
-	//Options
 	IMC_OPTIONS					=	10003,
 	IMC_VIDEO						= 10004,
 	IMC_CREDITS					=	10005,
 	IMC_MODS						= 10007,
 
-	//multiplayer
 	IMC_LAN							= 10003,
 	IMC_INTERNET				= 10002,
 	IMC_GAMESPY					= 10004,
 	
-	//custom games
 	IMC_CUSTOM_CAMPAIGNS	= 10003,
 	IMC_CUSTOM_CHAPTERS		= 10004,
 	IMC_CUSTOM_MISSIONS		= 10002,
 
-	//load game
 	IMC_LOAD_LOAD_GAME		=	10002,
 	IMC_LOAD_LOAD_REPLAY	= 10003,
 
-	//demo version menu
 	IMC_DEMO_NEW_GAME			= 10002,
 	IMC_DEMO_OPTIONS			= 10005,
 	IMC_DEMO_LOAD_GAME		= 10004,
 	IMC_DEMO_EXIT_GAME		= 10006,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIMainMenuState : public IUIState
 {
 public:
@@ -76,7 +65,6 @@ public:
 
 	virtual bool ProcessMessage( const SGameMessage &msg );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUINewGameState : public IUIState
 {
 public:
@@ -84,7 +72,6 @@ public:
 	virtual void Show();
 	virtual bool ProcessMessage( const SGameMessage &msg );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUISelectCampaignState : public IUIState
 {
 public:
@@ -93,7 +80,6 @@ public:
 	virtual void Show();
 	virtual bool ProcessMessage( const SGameMessage &msg );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIOptionsState : public IUIState
 {
 public:
@@ -101,7 +87,6 @@ public:
 
 	virtual bool ProcessMessage( const SGameMessage &msg );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIMultiplayerState : public IUIState
 {
 public:
@@ -109,7 +94,6 @@ public:
 
 	virtual bool ProcessMessage( const SGameMessage &msg );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUICustomGameState : public IUIState
 {
 public:
@@ -117,7 +101,6 @@ public:
 	
 	virtual bool ProcessMessage( const SGameMessage &msg );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUILoadGameState : public IUIState
 {
 public:
@@ -125,7 +108,6 @@ public:
 	
 	virtual bool ProcessMessage( const SGameMessage &msg );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUICreditsState : public IUIState
 {
 	bool bLeaveToMainMenu;
@@ -136,7 +118,6 @@ public:
 	virtual void Hide();
 	virtual bool ProcessMessage( const SGameMessage &msg );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIDemoMainMenuState : public IUIState
 {
 public:
@@ -144,5 +125,4 @@ public:
 
 	virtual bool ProcessMessage( const SGameMessage &msg );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif		//__UI_STATE_H__

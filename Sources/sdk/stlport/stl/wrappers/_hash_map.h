@@ -28,7 +28,6 @@
 namespace STLPORT { 
 # endif
 
-// provide a "default" hash_map adaptor
 #  if defined (_STLP_MINIMUM_DEFAULT_TEMPLATE_PARAMS)
 #   define __HM_TEMPLATE_HEADER  template <class _Key, class _Tp>
 #   define __HM_ARGUMENTS        _Key, _Tp
@@ -86,7 +85,6 @@ inline bool operator==(const hash_map< __HM_ARGUMENTS >& __hm1,
 }
 # endif
 
-// provide a "default" hash_multimap adaptor
 __HM_TEMPLATE_HEADER
 class hash_multimap : public __HMM_SUPER
 {
@@ -142,6 +140,3 @@ inline bool operator==(const hash_multimap< __HM_ARGUMENTS >& __hm1,
 
 #endif /* _STLP_INTERNAL_HASH_SET_H */
 
-// Local Variables:
-// mode:C++
-// End:

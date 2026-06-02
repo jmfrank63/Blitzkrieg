@@ -30,9 +30,7 @@
 #include "UnitGuns.h"
 #include "ArtilleryPaths.h"
 
-// for profiling
 #include "TimeCounter.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CStaticMap theStaticMap;
 extern CStaticObjects theStatObjs;
 extern NTimer::STime curTime;
@@ -42,7 +40,6 @@ extern CDiplomacy theDipl;
 extern CUnitCreation theUnitCreation;
 
 extern CTimeCounter timeCounter;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CPtr<CFormationStatesFactory> CFormationStatesFactory::pFactory = 0;
 
 CFormationStatesFactory* CFormationStatesFactory::Instance()
@@ -52,7 +49,6 @@ CFormationStatesFactory* CFormationStatesFactory::Instance()
 
 	return pFactory;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormationStatesFactory::CanCommandBeExecuted( CAICommand *pCommand )
 {
 	const EActionCommand &cmdType = pCommand->ToUnitCmd().cmdType;
@@ -105,13 +101,11 @@ bool CFormationStatesFactory::CanCommandBeExecuted( CAICommand *pCommand )
 			cmdType == ACTION_COMMAND_MOVE_TO_GRID
 		);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void StopAllUnits( CFormation *pFormation )
 {
 	for ( int i = 0; i < pFormation->Size(); ++i )
 		theGroupLogic.UnitCommand( SAIUnitCmd( ACTION_COMMAND_STOP ), (*pFormation)[i], false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool IsFormationCloseToEnemy( const CVec2 &enemyCenter, CFormation *pFormation )
 {
 	const float fGoodDistance = pFormation->GetMaxFireRange() * 1.2f;
@@ -127,7 +121,6 @@ bool IsFormationCloseToEnemy( const CVec2 &enemyCenter, CFormation *pFormation )
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationStatesFactory::ProduceState( CQueueUnit *pObj, CAICommand *pCommand )
 {
 	NI_ASSERT_T( dynamic_cast<CFormation*>(pObj) != 0, "Wrong unit passed" );
@@ -324,7 +317,6 @@ IUnitState* CFormationStatesFactory::ProduceState( CQueueUnit *pObj, CAICommand 
 		case ACTION_COMMAND_ATTACK_OBJECT:
 			{
 				CONVERT_OBJECT_PTR( CStaticObject, pStaticObj, cmd.pObject, NStr::Format( "Wrong static object to attack (%s)", typeid(cmd.pObject).name() ) );
-				// attack the artillery
 				if ( pStaticObj->GetObjectType() == ESOT_ARTILLERY_BULLET_STORAGE )
 				{
 					pCommand->ToUnitCmd().cmdType = ACTION_COMMAND_ATTACK_UNIT;
@@ -469,7 +461,6 @@ IUnitState* CFormationStatesFactory::ProduceState( CQueueUnit *pObj, CAICommand 
 
 	return pResult;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationStatesFactory::ProduceRestState( CQueueUnit *pUnit )
 {
 	NI_ASSERT_T( dynamic_cast<CFormation*>(pUnit) != 0, "Wrong unit's type" );
@@ -491,32 +482,23 @@ IUnitState* CFormationStatesFactory::ProduceRestState( CQueueUnit *pUnit )
 	else
 		return CFormationIdleTransportState::Instance( pFormation, pFormation->GetTransportUnit() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											 CFormationRestState												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationRestState::Instance( CFormation *pFormation, const CVec2 &guardPoint, const WORD wDir )
 {
 	return new CFormationRestState( pFormation, guardPoint, wDir );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationRestState::CFormationRestState( CFormation *_pFormation, const CVec2 &guardPoint, const WORD wDir )
 : pFormation( _pFormation ), CCommonRestState( guardPoint, wDir, _pFormation )
 {
 	pFormation->SetToWaitingState();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationRestState::Segment()
 {
 	CCommonRestState::Segment();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CCommonUnit* CFormationRestState::GetUnit() const 
 { 
 	return pFormation; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationRestState::TryInterruptState( CAICommand *pCommand )
 {
 	pFormation->UnsetFromWaitingState();
@@ -524,21 +506,14 @@ ETryStateInterruptResult CFormationRestState::TryInterruptState( CAICommand *pCo
 
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											 CFormationMoveToState											*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationMoveToState::Instance( CFormation *pFormation, const CVec2 &point )
 {
 	return new CFormationMoveToState( pFormation, point );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationMoveToState::CFormationMoveToState(  CFormation *_pFormation, const CVec2 &_point )
 : pFormation( _pFormation ), startTime( curTime ), bWaiting( true ), eMoveToState( EMTS_FORMATION_MOVING )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationMoveToState::FormationMovingState()
 {
 	if ( bWaiting )
@@ -575,7 +550,6 @@ void CFormationMoveToState::FormationMovingState()
 		eMoveToState = EMTS_UNITS_MOVING_TO_FORMATION_POINTS;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationMoveToState::UnitsMovingToFormationPoints()
 {
 	int i = 0;
@@ -585,7 +559,6 @@ void CFormationMoveToState::UnitsMovingToFormationPoints()
 	if ( i >= pFormation->Size() )
 		pFormation->SetCommandFinished();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationMoveToState::Segment()
 {
 	switch ( eMoveToState )
@@ -600,22 +573,15 @@ void CFormationMoveToState::Segment()
 			break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationMoveToState::TryInterruptState( class CAICommand *pCommand )
 { 
 	pFormation->SetCommandFinished();
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CFormationEnterBuildingState									*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationEnterBuildingState::Instance( CFormation *pFormation, CBuilding *pBuilding )
 {
 	return new CFormationEnterBuildingState( pFormation, pBuilding );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationEnterBuildingState::CFormationEnterBuildingState( CFormation *_pFormation, CBuilding *_pBuilding )
 : pFormation( _pFormation ), pBuilding( _pBuilding ), state( EES_START )
 {
@@ -632,7 +598,6 @@ CFormationEnterBuildingState::CFormationEnterBuildingState( CFormation *_pFormat
 			++i;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormationEnterBuildingState::SetPathForRunUp()
 {
 	CPtr<IStaticPath> pBestPath = pFormation->GetPathToBuilding( pBuilding, &nEntrance );
@@ -645,27 +610,22 @@ bool CFormationEnterBuildingState::SetPathForRunUp()
 		return true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationEnterBuildingState::SendUnitsToBuilding()
 {
-	// послать юнитов в здание
 	pFormation->StopUnit();
 	for ( int i = 0; i < pFormation->Size(); ++i )
 		theGroupLogic.UnitCommand( SAIUnitCmd( ACTION_COMMAND_ENTER, pBuilding, 0 ), (*pFormation)[i], false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormationEnterBuildingState::IsNotEnoughSpace()
 {
 	return
 		theDipl.GetDiplStatus( pFormation->GetPlayer(), pBuilding->GetPlayer() ) != EDI_ENEMY && pBuilding->GetNFreePlaces() < pFormation->Size() ||
 		theDipl.GetDiplStatus( pFormation->GetPlayer(), pBuilding->GetPlayer() ) == EDI_ENEMY && pBuilding->GetNFriendlyAttackers( pFormation->GetPlayer() ) + pFormation->Size() > pBuilding->GetNOverallPlaces();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationEnterBuildingState::Segment()
 {
 	NI_ASSERT_T( !pFormation->IsInWaitingState(), "Wrong formation waiting state" );
 	
-	// здание разрушено или там не хватит места
 	if ( !IsValidObj( pBuilding ) || 
 			 state != EES_WAITINIG_TO_ENTER && pBuilding->GetPlayer() != -1 && IsNotEnoughSpace() )
 	{
@@ -740,7 +700,6 @@ void CFormationEnterBuildingState::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationEnterBuildingState::TryInterruptState( class CAICommand *pCommand )
 {
 	const EActionCommand eCmd = pCommand ? pCommand->ToUnitCmd().cmdType : EActionCommand(0);
@@ -750,7 +709,6 @@ ETryStateInterruptResult CFormationEnterBuildingState::TryInterruptState( class 
 		while ( i < pFormation->Size() && !(*pFormation)[i]->IsInBuilding() )
 			++i;
 
-		// part of the squad is already in the building
 		if ( i < pFormation->Size() )
 			return TSIR_NO_COMMAND_INCOMPATIBLE;
 		else
@@ -782,7 +740,6 @@ ETryStateInterruptResult CFormationEnterBuildingState::TryInterruptState( class 
 	else
 		return TSIR_YES_WAIT;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormationEnterBuildingState::GetPurposePoint() const
 {
 	if ( IsValidObj( pBuilding ) )
@@ -790,26 +747,18 @@ const CVec2 CFormationEnterBuildingState::GetPurposePoint() const
 	else
 		return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*									CFormationEnterEntrenchmentState								*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationEnterEntrenchmentState::Instance( CFormation *pFormation, CEntrenchment *pEntrenchment )
 {
 	return new CFormationEnterEntrenchmentState( pFormation, pEntrenchment );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationEnterEntrenchmentState::CFormationEnterEntrenchmentState( CFormation *_pFormation, CEntrenchment *_pEntrenchment )
 : pFormation( _pFormation ), pEntrenchment( _pEntrenchment ), state( EES_START )
 {
 	if ( IsAnyPartCloseToEntrenchment() )
 		state = EES_RUN;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormationEnterEntrenchmentState::IsAnyPartCloseToEntrenchment() const
 {
-	// посмотреть положение центра формации
 	const float fFormationRadius2 = sqr( Max( pFormation->GetRadius(), SConsts::TILE_SIZE * 4.0f ) );
 	const CVec2 vFormationCenter = pFormation->GetCenter();
 	CVec2 vClosestPoint;
@@ -818,7 +767,6 @@ bool CFormationEnterEntrenchmentState::IsAnyPartCloseToEntrenchment() const
 	if ( fabs2( vClosestPoint - vFormationCenter ) < fFormationRadius2 )
 		return true;
 	
-	// посмотреть положения каждого из солдатиков
 	int i = 0;
 	while ( i < pFormation->Size() )
 	{
@@ -834,7 +782,6 @@ bool CFormationEnterEntrenchmentState::IsAnyPartCloseToEntrenchment() const
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormationEnterEntrenchmentState::SetPathForRunIn()
 {
 	CPtr<IStaticPath> pPath = pFormation->GetPathToEntrenchment( pEntrenchment );
@@ -847,7 +794,6 @@ bool CFormationEnterEntrenchmentState::SetPathForRunIn()
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationEnterEntrenchmentState::EnterToEntrenchment()
 {
 	for ( int i = 0; i < pFormation->Size(); ++i )
@@ -855,10 +801,8 @@ void CFormationEnterEntrenchmentState::EnterToEntrenchment()
 
 	state = EES_WAIT_TO_ENTER;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationEnterEntrenchmentState::Segment()
 {
-	// окоп non valid или там кто-то уже сидит
 	if ( !IsValidObj( pEntrenchment ) )
 		TryInterruptState( 0 );	
 	switch ( state )
@@ -898,7 +842,6 @@ void CFormationEnterEntrenchmentState::Segment()
 		break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationEnterEntrenchmentState::TryInterruptState( class CAICommand *pCommand )
 {
 	if ( state == EES_WAIT_TO_ENTER && pCommand && pCommand->ToUnitCmd().cmdType != ACTION_COMMAND_LEAVE )
@@ -922,32 +865,23 @@ ETryStateInterruptResult CFormationEnterEntrenchmentState::TryInterruptState( cl
 	pFormation->SetCommandFinished();
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormationEnterEntrenchmentState::GetPurposePoint() const
 {
 	return pEntrenchment->GetCenter();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*									CFormationIdleBuildingState											*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationIdleBuildingState::Instance( CFormation *pFormation, CBuilding *pBuilding )
 {
 	return new CFormationIdleBuildingState( pFormation, pBuilding );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationIdleBuildingState::CFormationIdleBuildingState( CFormation *_pFormation, CBuilding *_pBuilding )
 : pFormation( _pFormation ), pBuilding( _pBuilding )
 {
 	pFormation->StopFormationCenter();
 	pFormation->SetInBuilding( pBuilding );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationIdleBuildingState::Segment()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationIdleBuildingState::TryInterruptState( CAICommand *pCommand )
 {
 	if ( !pCommand || pCommand->ToUnitCmd().cmdType == ACTION_COMMAND_LEAVE )
@@ -959,28 +893,23 @@ ETryStateInterruptResult CFormationIdleBuildingState::TryInterruptState( CAIComm
 
 	if ( cmdType == ACTION_COMMAND_ENTER )
 	{
-		// the same building or command from mass load
 		if ( pFormation->GetBuilding() == pCommand->ToUnitCmd().pObject || pCommand->GetFlag() == 1 )
 			return TSIR_NO_COMMAND_INCOMPATIBLE;
 	}
 
-	// mass load
 	if ( cmdType == ACTION_COMMAND_LOAD && pCommand->GetFlag() == 1 )
 		return TSIR_NO_COMMAND_INCOMPATIBLE;
 	
-	//некотороые команды в данном состоянии невозможны
 	if ( cmdType == ACTION_COMMAND_ROTATE_TO || cmdType == ACTION_COMMAND_ROTATE_TO_DIR ||
 			 cmdType == ACTION_COMMAND_USE_SPYGLASS || IsRestCommand( cmdType ) || cmdType == ACTION_COMMAND_STAND_GROUND )
 		return TSIR_NO_COMMAND_INCOMPATIBLE;
 
-	// эти команды можно выполнить, не выходя из здания
 	if ( cmdType == ACTION_COMMAND_CATCH_FORMATION )
 	{
 		pFormation->SetCommandFinished();
 		return TSIR_YES_IMMIDIATELY;
 	}
 
-	// некоторые команды передать солдатам
 	if (	cmdType == ACTION_COMMAND_ATTACK_OBJECT ||
 				cmdType == ACTION_COMMAND_ATTACK_UNIT ||
 				cmdType == ACTION_COMMAND_AMBUSH ||
@@ -1008,7 +937,6 @@ ETryStateInterruptResult CFormationIdleBuildingState::TryInterruptState( CAIComm
 			return TSIR_NO_COMMAND_INCOMPATIBLE;
 	}
 
-	// все остальные команды - через выход из здания
 	if ( cmdType != ACTION_COMMAND_WAIT_TO_FORM	&&
 			 cmdType != ACTION_COMMAND_DISBAND_FORMATION &&
 			 cmdType != ACTION_COMMAND_FORM_FORMATION )
@@ -1030,32 +958,23 @@ ETryStateInterruptResult CFormationIdleBuildingState::TryInterruptState( CAIComm
 	pFormation->SetCommandFinished();
 	return TSIR_YES_MANAGED_ALREADY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormationIdleBuildingState::GetPurposePoint() const
 {
 	return pFormation->GetCenter();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*								CFormationIdleEntrenchmentState										*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationIdleEntrenchmentState::Instance( CFormation *pFormation, CEntrenchment *pEntrenchment )
 {
 	return new CFormationIdleEntrenchmentState( pFormation, pEntrenchment );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationIdleEntrenchmentState::CFormationIdleEntrenchmentState( CFormation *_pFormation, CEntrenchment *_pEntrenchment )
 : pFormation( _pFormation ), pEntrenchment( _pEntrenchment )
 {
 	pFormation->StopFormationCenter();
 	pFormation->SetInEntrenchment( pEntrenchment );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationIdleEntrenchmentState::Segment()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationIdleEntrenchmentState::TryInterruptState( class CAICommand *pCommand )
 {
 	if ( !pCommand || pCommand->ToUnitCmd().cmdType == ACTION_COMMAND_MOVE_TO )
@@ -1068,28 +987,23 @@ ETryStateInterruptResult CFormationIdleEntrenchmentState::TryInterruptState( cla
 
 	if ( cmdType == ACTION_COMMAND_ENTER )
 	{
-		// the same entrehcment or command from mass load
 		if ( pFormation->GetEntrenchment() == pCommand->ToUnitCmd().pObject || pCommand->GetFlag() == 1 )
 			return TSIR_NO_COMMAND_INCOMPATIBLE;
 	}
 
-		// mass load
 	if ( cmdType == ACTION_COMMAND_LOAD && pCommand->GetFlag() == 1 )
 		return TSIR_NO_COMMAND_INCOMPATIBLE;
 
-	//некотороые команды в данном состоянии невозможны
 	if ( cmdType == ACTION_COMMAND_ROTATE_TO || cmdType == ACTION_COMMAND_ROTATE_TO_DIR || 
 			 IsRestCommand( cmdType ) || cmdType == ACTION_COMMAND_STAND_GROUND )
 		return TSIR_NO_COMMAND_INCOMPATIBLE;
 
-		// эти команды можно выполнить, не выходя из здания
 	if ( cmdType == ACTION_COMMAND_CATCH_FORMATION )
 	{
 		pFormation->SetCommandFinished();
 		return TSIR_YES_IMMIDIATELY;
 	}
 
-	// некоторые команды передать солдатам
 	if (	cmdType == ACTION_COMMAND_ATTACK_OBJECT ||
 				cmdType == ACTION_COMMAND_ATTACK_UNIT ||
 				cmdType == ACTION_COMMAND_AMBUSH ||
@@ -1118,7 +1032,6 @@ ETryStateInterruptResult CFormationIdleEntrenchmentState::TryInterruptState( cla
 			return TSIR_NO_COMMAND_INCOMPATIBLE;
 	}
 
-	// все остальные команды - через выход из окопа.
 	if ( cmdType != ACTION_COMMAND_WAIT_TO_FORM	&&
 			 cmdType != ACTION_COMMAND_DISBAND_FORMATION &&
 			 cmdType != ACTION_COMMAND_FORM_FORMATION )
@@ -1136,26 +1049,18 @@ ETryStateInterruptResult CFormationIdleEntrenchmentState::TryInterruptState( cla
 
 	return TSIR_YES_MANAGED_ALREADY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormationIdleEntrenchmentState::GetPurposePoint() const
 {
 	return pFormation->GetCenter();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*									CFormationLeaveBuildingState										*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationLeaveBuildingState::Instance( CFormation *pFormation, CBuilding *pBuilding, const CVec2 &point )
 {
 	return new CFormationLeaveBuildingState( pFormation, pBuilding, point );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationLeaveBuildingState::CFormationLeaveBuildingState( CFormation *_pFormation, CBuilding *_pBuilding, const CVec2 &_point )
 : pFormation( _pFormation ), pBuilding( _pBuilding ), point( _point )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationLeaveBuildingState::Segment()
 {
 	if ( pBuilding->GetLastLeaveTime( pFormation->GetPlayer() ) + 2000 < curTime )
@@ -1199,33 +1104,24 @@ void CFormationLeaveBuildingState::Segment()
 		pFormation->SetCommandFinished();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationLeaveBuildingState::TryInterruptState( class CAICommand *pCommand )
 {
 	pFormation->SetCommandFinished();
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*									CFormationLeaveEntrenchmentState								*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationLeaveEntrenchmentState::Instance( CFormation *pFormation, CEntrenchment *pEntrenchment, const CVec2 &point )
 {
 	return new CFormationLeaveEntrenchmentState( pFormation, pEntrenchment, point );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationLeaveEntrenchmentState::CFormationLeaveEntrenchmentState( CFormation *_pFormation, CEntrenchment *_pEntrenchment, const CVec2 &_point )
 : pFormation( _pFormation ), pEntrenchment( _pEntrenchment ), point( _point )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationLeaveEntrenchmentState::Segment()
 {
 	CVec2 startPoint;
 	pEntrenchment->GetClosestPoint( point, &startPoint );
 
-	// найти первую точку пути вне окопа
 	CPtr<IStaticPath> pPath = CreateStaticPathToPoint( startPoint, point, VNULL2, pFormation );
 	if ( pPath != 0 )
 	{
@@ -1266,22 +1162,15 @@ void CFormationLeaveEntrenchmentState::Segment()
 
 	pFormation->SetCommandFinished();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationLeaveEntrenchmentState::TryInterruptState( class CAICommand *pCommand )
 {
 	pFormation->SetCommandFinished();
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CFormationAttackUnitState										*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationAttackUnitState::Instance( CFormation *pFormation, CAIUnit *pEnemy, const bool bSwarmAttack )
 {
 	return new CFormationAttackUnitState( pFormation, pEnemy, bSwarmAttack );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationAttackUnitState::CFormationAttackUnitState( CFormation *_pFormation, CAIUnit *_pEnemy, const bool _bSwarmAttack )
 : pFormation( _pFormation ), pEnemy( _pEnemy ), eState( EPM_MOVING ), bSwarmAttack( _bSwarmAttack ),
 	nEnemyParty( _pEnemy->GetParty() )
@@ -1294,7 +1183,6 @@ CFormationAttackUnitState::CFormationAttackUnitState( CFormation *_pFormation, C
 	}
 */
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationAttackUnitState::SetToWaitingState()
 {
 	eState = EPM_WAITING;
@@ -1321,7 +1209,6 @@ void CFormationAttackUnitState::SetToWaitingState()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationAttackUnitState::SetToMovingState()
 {
 	if ( CPtr<IStaticPath> pStaticPath = CreateStaticPathForAttack( pFormation, pEnemy, 0, pFormation->GetMaxFireRange() ) )
@@ -1337,7 +1224,6 @@ void CFormationAttackUnitState::SetToMovingState()
 		TryInterruptState( 0 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationAttackUnitState::Segment()
 {
 	if ( !IsValidObj( pEnemy ) )
@@ -1368,7 +1254,6 @@ void CFormationAttackUnitState::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationAttackUnitState::TryInterruptState( class CAICommand *pCommand )
 {
 	pFormation->UnsetFromWaitingState();
@@ -1377,7 +1262,6 @@ ETryStateInterruptResult CFormationAttackUnitState::TryInterruptState( class CAI
 
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormationAttackUnitState::GetPurposePoint() const
 {
 	if ( IsValidObj( pEnemy ) )
@@ -1385,7 +1269,6 @@ const CVec2 CFormationAttackUnitState::GetPurposePoint() const
 	else
 		return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 EUnitStateNames CFormationAttackUnitState::GetName()
 {
 	if ( !IsValidObj( pEnemy ) || pEnemy->IsFree() )
@@ -1393,20 +1276,14 @@ EUnitStateNames CFormationAttackUnitState::GetName()
 	else 
 		return EUSN_ATTACK_UNIT_IN_BUILDING;
 }
-//*******************************************************************
-//*										CFormationAttackCommonStatObjState						*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationAttackCommonStatObjState::Instance( CFormation *pFormation, CStaticObject *pObj )
 {
 	return new CFormationAttackCommonStatObjState( pFormation, pObj );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationAttackCommonStatObjState::CFormationAttackCommonStatObjState( CFormation *_pFormation, CStaticObject *_pObj )
 : pFormation( _pFormation ), pObj( _pObj ), eState( EPM_START )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationAttackCommonStatObjState::SetToWaitingState()
 {
 	eState = EPM_WAITING;
@@ -1416,7 +1293,6 @@ void CFormationAttackCommonStatObjState::SetToWaitingState()
 	for ( int i = 0; i < pFormation->Size(); ++i )
 		theGroupLogic.UnitCommand( SAIUnitCmd( ACTION_COMMAND_ATTACK_OBJECT, pObj ), (*pFormation)[i], false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationAttackCommonStatObjState::Segment()
 {
 	if ( !IsValidObj( pObj ) )
@@ -1455,7 +1331,6 @@ void CFormationAttackCommonStatObjState::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationAttackCommonStatObjState::TryInterruptState( class CAICommand *pCommand )
 {
 	pFormation->UnsetFromWaitingState();
@@ -1464,7 +1339,6 @@ ETryStateInterruptResult CFormationAttackCommonStatObjState::TryInterruptState( 
 
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormationAttackCommonStatObjState::GetPurposePoint() const
 {
 	if ( IsValidObj( pObj ) && pFormation && pFormation->IsValid() && pFormation->IsAlive() )
@@ -1472,28 +1346,19 @@ const CVec2 CFormationAttackCommonStatObjState::GetPurposePoint() const
 	else
 		return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CFormationRotateState													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationRotateState::Instance( CFormation *pFormation, const WORD wDir )
 {
 	return new CFormationRotateState( pFormation, wDir );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationRotateState::CFormationRotateState( CFormation *_pFormation, const WORD wDir )
 : pFormation( _pFormation )
 {
-	// повернуть формацию
 	pFormation->TurnToDir( wDir, false );
 
-	// сказать каждому юниту формации построиться
 	const SAIUnitCmd paradeCmd( ACTION_COMMAND_PARADE );
 	for ( int i = 0; i < pFormation->Size(); ++i )
 		theGroupLogic.UnitCommand( paradeCmd, (*pFormation)[i], false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationRotateState::Segment()
 {
 	int i = 0;
@@ -1503,27 +1368,19 @@ void CFormationRotateState::Segment()
 	if ( i == pFormation->Size() )
 		pFormation->SetCommandFinished();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationRotateState::TryInterruptState( class CAICommand *pCommand )
 {
 	pFormation->SetCommandFinished();
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormationRotateState::GetPurposePoint() const
 {
 	return pFormation->GetCenter();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*									CFormationEnterTransportState										*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationEnterTransportState::Instance( CFormation *pFormation, CMilitaryCar *pTransport )
 {
 	return new CFormationEnterTransportState( pFormation, pTransport );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationEnterTransportState::CFormationEnterTransportState( CFormation *_pFormation, CMilitaryCar *_pTransport )
 : pFormation( _pFormation ), pTransport( _pTransport ), eState( EETS_START ), lastCheck( curTime ), 
 	lastTransportPos( _pTransport->GetCenter() ), lastTransportDir( _pTransport->GetFrontDir() )
@@ -1531,7 +1388,6 @@ CFormationEnterTransportState::CFormationEnterTransportState( CFormation *_pForm
 	if ( pTransport->GetNAvailableSeats() < pFormation->Size() )
 		pFormation->SendAcknowledgement( 0, ACK_NEGATIVE );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormationEnterTransportState::SetPathToRunUp()
 {
 	lastTransportPos = pTransport->GetCenter();
@@ -1544,7 +1400,6 @@ bool CFormationEnterTransportState::SetPathToRunUp()
 	else
 		return false;
 }	
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationEnterTransportState::SendUnitsToTransport()
 {
 	pTransport->StopUnit();
@@ -1552,7 +1407,6 @@ void CFormationEnterTransportState::SendUnitsToTransport()
 	for ( int i = 0; i < pFormation->Size(); ++i )
 		theGroupLogic.UnitCommand( SAIUnitCmd( ACTION_COMMAND_ENTER_TRANSPORT_NOW, pTransport ), (*pFormation)[i], false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormationEnterTransportState::IsAllUnitsInside()
 {
 	int i = 0;
@@ -1561,7 +1415,6 @@ bool CFormationEnterTransportState::IsAllUnitsInside()
 
 	return i >= pFormation->Size();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationEnterTransportState::SetTransportToWaitState()
 {
 	if ( pTransport->GetState()->GetName() == EUSN_WAIT_FOR_PASSENGER )
@@ -1572,7 +1425,6 @@ void CFormationEnterTransportState::SetTransportToWaitState()
 		theGroupLogic.UnitCommand( cmd, pTransport, false );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormationEnterTransportState::IsAllTransportTurretsReturned() const
 {
 	for ( int i = 0; i < pTransport->GetNTurrets(); ++i )
@@ -1583,7 +1435,6 @@ bool CFormationEnterTransportState::IsAllTransportTurretsReturned() const
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationEnterTransportState::Segment()
 {
 	if ( !IsValidObj( pTransport ) || eState != EETS_WAITING && pTransport->GetNAvailableSeats() < pFormation->Size() )
@@ -1653,7 +1504,6 @@ void CFormationEnterTransportState::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationEnterTransportState::TryInterruptState( class CAICommand *pCommand )
 {
 	if ( pCommand && pCommand->ToUnitCmd().cmdType == ACTION_COMMAND_LOAD &&
@@ -1685,7 +1535,6 @@ ETryStateInterruptResult CFormationEnterTransportState::TryInterruptState( class
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormationEnterTransportState::GetPurposePoint() const
 {
 	if ( IsValidObj( pTransport ) )
@@ -1693,26 +1542,18 @@ const CVec2 CFormationEnterTransportState::GetPurposePoint() const
 	else
 		return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*									CFormationIdleTransportState										*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationIdleTransportState::Instance( CFormation *pFormation, CMilitaryCar *pTransport )
 {
 	return new CFormationIdleTransportState( pFormation, pTransport );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationIdleTransportState::CFormationIdleTransportState( CFormation *_pFormation, CMilitaryCar *_pTransport )
 : pFormation( _pFormation ), pTransport( _pTransport )
 {
 	pFormation->SetInTransport( pTransport );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationIdleTransportState::Segment()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationIdleTransportState::TryInterruptState( class CAICommand *pCommand )
 {
 	if ( !pCommand ||
@@ -1727,7 +1568,6 @@ ETryStateInterruptResult CFormationIdleTransportState::TryInterruptState( class 
 
 	return TSIR_NO_COMMAND_INCOMPATIBLE;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormationIdleTransportState::GetPurposePoint() const
 {
 	if ( IsValidObj( pTransport ) )
@@ -1735,33 +1575,22 @@ const CVec2 CFormationIdleTransportState::GetPurposePoint() const
 	else
 		return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*									CFormationEnterTransportByCheatPathState*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationEnterTransportByCheatPathState::Instance( class CFormation *_pFormation, class CMilitaryCar *_pTransport )
 {
 	return new CFormationEnterTransportByCheatPathState( _pFormation, _pTransport );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationEnterTransportByCheatPathState::CFormationEnterTransportByCheatPathState( class CFormation *_pFormation, class CMilitaryCar *_pTransport )
 : pFormation( _pFormation ), pTransport( _pTransport )
 {
-	// send all squad soldiers to transport via cheat path
 	const int nSoldiers = pFormation->Size();
 	for ( int i = 0; i < nSoldiers; ++i )
 	{
 		CSoldier *pSoldier = (*pFormation)[i];
-		//pSoldier->AddRef()
 		pSoldier->SetCurPath( new CArtilleryCrewPath( pSoldier, pSoldier->GetCenter(), pTransport->GetEntrancePoint(), pSoldier->GetMaxPossibleSpeed() ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationEnterTransportByCheatPathState::Segment()
 {
-	// wait while all is near transport,
-	// set them inside and set squad inside.
 	const int nSoldiers = pFormation->Size();
 	bool bAllInTransport = true;
 
@@ -1787,7 +1616,6 @@ void CFormationEnterTransportByCheatPathState::Segment()
 		theGroupLogic.UnitCommand( SAIUnitCmd( ACTION_COMMAND_IDLE_TRANSPORT, pTransport ), pFormation, false );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationEnterTransportByCheatPathState::TryInterruptState( class CAICommand *pCommand )
 {
 	if ( !pCommand )
@@ -1798,26 +1626,18 @@ ETryStateInterruptResult CFormationEnterTransportByCheatPathState::TryInterruptS
 	else
 		return TSIR_YES_WAIT;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormationEnterTransportByCheatPathState::GetPurposePoint() const 
 { 
 	return pTransport->GetEntrancePoint(); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*									CFormationEnterTransportNowState								*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationEnterTransportNowState::Instance( CFormation *pFormation, CMilitaryCar *pTransport )
 {
 	return new CFormationEnterTransportNowState( pFormation, pTransport );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationEnterTransportNowState::CFormationEnterTransportNowState( CFormation *_pFormation, CMilitaryCar *_pTransport )
 : pFormation( _pFormation ), pTransport( _pTransport )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationEnterTransportNowState::Segment()
 {
 	for ( int i = 0; i < pFormation->Size(); ++i )
@@ -1827,12 +1647,10 @@ void CFormationEnterTransportNowState::Segment()
 
 	pFormation->SetCommandFinished();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationEnterTransportNowState::TryInterruptState( class CAICommand *pCommand )
 {
 	return TSIR_YES_WAIT;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormationEnterTransportNowState::GetPurposePoint() const
 {
 	if ( IsValidObj( pTransport ) )
@@ -1840,16 +1658,10 @@ const CVec2 CFormationEnterTransportNowState::GetPurposePoint() const
 	else
 		return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CFormationCatchTransportState									*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationCatchTransportState::Instance( CFormation *pUnit, CAITransportUnit *pTransportToCatch, float fResursPerSoldier)
 {
 	return new CFormationCatchTransportState( pUnit, pTransportToCatch, fResursPerSoldier );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationCatchTransportState::CFormationCatchTransportState( class CFormation *_pUnit, class CAITransportUnit *_pTransportToCatch, float fResursPerSoldier )
 : pUnit ( _pUnit ), pTransportToCatch( _pTransportToCatch ), vEnterPoint( -1, -1 ),
 	fResursPerSoldier(  fResursPerSoldier ), timeLastUpdate( curTime )
@@ -1873,7 +1685,6 @@ CFormationCatchTransportState::CFormationCatchTransportState( class CFormation *
 		eState = E_SENDING;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationCatchTransportState::Segment()
 {
 	if ( !IsValidObj( pTransportToCatch ) )
@@ -1933,14 +1744,12 @@ void CFormationCatchTransportState::Segment()
 		vEnterPoint = pTransportToCatch->GetEntrancePoint();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationCatchTransportState::Interrupt()
 {
 	if ( pUnit->IsIdle() )
 		pUnit->StopUnit();
 	pUnit->SetCommandFinished();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationCatchTransportState::TryInterruptState( class CAICommand *pCommand )
 {
 	if ( !pCommand )
@@ -1951,7 +1760,6 @@ ETryStateInterruptResult CFormationCatchTransportState::TryInterruptState( class
 	else
 		return TSIR_NO_COMMAND_INCOMPATIBLE;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationCatchTransportState::UpdatePath( CSoldier * pSold, const bool bForce )
 {
 	const CVec2 vPt( pTransportToCatch->GetEntrancePoint() );
@@ -1962,7 +1770,6 @@ void CFormationCatchTransportState::UpdatePath( CSoldier * pSold, const bool bFo
 			pSold->SendAlongPath( pStaticPath, VNULL2 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormationCatchTransportState::GetPurposePoint() const
 {
 	if ( IsValidObj( pTransportToCatch ) )
@@ -1970,22 +1777,15 @@ const CVec2 CFormationCatchTransportState::GetPurposePoint() const
 	else
 		return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CFormationParaDropState												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationParaDropState::Instance( CFormation *pFormation )
 {
 	return new CFormationParaDropState( pFormation );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationParaDropState::CFormationParaDropState( class CFormation *pFormation )
 : pFormation( pFormation ), eState( EPS_WAIT_FOR_PARADROP_BEGIN )
 {
 	pFormation->SetSelectable( false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationParaDropState::Segment()
 {
 	switch( eState )
@@ -1995,7 +1795,6 @@ void CFormationParaDropState::Segment()
 		{
 			if ( EUSN_PARTROOP == (*pFormation)[i]->GetState()->GetName() )
 			{
-				//кто-то уже выпрыгнул
 				eState = EPS_WAIT_FOR_PARADROP_END;
 				return;
 			}
@@ -2007,7 +1806,6 @@ void CFormationParaDropState::Segment()
 			{
 				if ( EUSN_PARTROOP == (*pFormation)[i]->GetState()->GetName() )
 				{
-					//кто-то еще не долетел
 					return;
 				}
 			}
@@ -2018,7 +1816,6 @@ void CFormationParaDropState::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationParaDropState::TryInterruptState( class CAICommand *pCommand )
 {
 	if ( !pCommand )
@@ -2031,26 +1828,18 @@ ETryStateInterruptResult CFormationParaDropState::TryInterruptState( class CAICo
 	else
 		return TSIR_NO_COMMAND_INCOMPATIBLE;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormationParaDropState::GetPurposePoint() const
 {
 	return pFormation->GetCenter();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CFormationAttackFormationState								*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationAttackFormationState::Instance( CFormation *pFormation, CFormation *pTarget, const bool bSwarmAttack )
 {
 	return new CFormationAttackFormationState( pFormation, pTarget, bSwarmAttack );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationAttackFormationState::CFormationAttackFormationState( CFormation *pFormation, CFormation *_pTarget, const bool _bSwarmAttack )
 : pUnit( pFormation ), pTarget( _pTarget ), bSwarmAttack( _bSwarmAttack ), nEnemyParty( _pTarget->GetParty() )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationAttackFormationState::Segment()
 {
 	if ( !IsValidObj( pTarget ) || pTarget->Size() == 0 || pTarget->GetParty() != nEnemyParty )
@@ -2072,13 +1861,11 @@ void CFormationAttackFormationState::Segment()
 
 	TryInterruptState( 0 ) ;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationAttackFormationState::TryInterruptState( class CAICommand *pCommand )
 {
 	pUnit->SetCommandFinished();
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormationAttackFormationState::GetPurposePoint() const
 {
 	if ( IsValidObj( pTarget ) )
@@ -2086,16 +1873,10 @@ const CVec2 CFormationAttackFormationState::GetPurposePoint() const
 	else
 		return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CFormationParadeState													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationParadeState::Instance( CFormation *pFormation, const int nType )
 {
 	return new CFormationParadeState( pFormation, nType );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationParadeState::CFormationParadeState( CFormation *_pFormation, const int nType )
 : pFormation( _pFormation ), startTime( curTime )
 {
@@ -2133,38 +1914,28 @@ CFormationParadeState::CFormationParadeState( CFormation *_pFormation, const int
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationParadeState::Segment()
 {
 	if ( startTime + 1000 < curTime && pFormation->IsEveryUnitResting() )
 		pFormation->SetCommandFinished();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationParadeState::TryInterruptState( class CAICommand *pCommand )
 {
 	pFormation->SetCommandFinished();
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormationParadeState::GetPurposePoint() const
 {
 	return pFormation->GetCenter();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CFormationDisbandState												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationDisbandState::Instance( CFormation *pFormation )
 {
 	return new CFormationDisbandState( pFormation );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationDisbandState::CFormationDisbandState( CFormation *_pFormation )
 : pFormation( _pFormation )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationDisbandState::Segment()
 {
 	const int nGroup = pFormation->GetNGroup();
@@ -2195,31 +1966,22 @@ void CFormationDisbandState::Segment()
 	pFormation->Disable();
 	pFormation->SetCommandFinished();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationDisbandState::TryInterruptState( CAICommand *pCommand )
 {
 	return TSIR_NO_COMMAND_INCOMPATIBLE;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormationDisbandState::GetPurposePoint() const
 {
 	return pFormation->GetCenter();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CFormationFormState														*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationFormState::Instance( CFormation *pFormation )
 {
 	return new CFormationFormState( pFormation );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationFormState::CFormationFormState( CFormation *_pFormation )
 : pFormation( _pFormation )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationFormState::Segment()
 {
 	CSoldier *pMainSoldier = (*pFormation)[0];
@@ -2242,7 +2004,6 @@ void CFormationFormState::Segment()
 	{
 		pMemFormation->SetNewCoordinates( CVec3( pMainSoldier->GetCenter(), pMainSoldier->GetZ() ) );
 
-		// сформировать команду
 		SAIUnitCmd cmd;
 		if ( pMainSoldier->IsFree() )
 			cmd.cmdType = ACTION_COMMAND_MOVE_TO;
@@ -2261,7 +2022,6 @@ void CFormationFormState::Segment()
 			}
 		}
 
-		// раздать команду всем
 		SAIUnitCmd waitCmd( ACTION_COMMAND_WAIT_TO_FORM, pMainSoldier, 0.0f );
 		for ( int i = 0; i < pMemFormation->Size(); ++i )
 		{
@@ -2284,33 +2044,24 @@ void CFormationFormState::Segment()
 		pFormation->SetCommandFinished();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationFormState::TryInterruptState( CAICommand *pCommand )
 {
 	return TSIR_YES_WAIT;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormationFormState::GetPurposePoint() const
 {
 	return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CFormationWaitToFormState											*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationWaitToFormState::Instance( CFormation *pFormation, const float fMain, class CSoldier *pMainSoldier )
 {
 	return new CFormationWaitToFormState( pFormation, fMain, pMainSoldier );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationWaitToFormState::CFormationWaitToFormState( CFormation *_pFormation, const float fMain, class CSoldier *_pMainSoldier )
 : pFormation( _pFormation ), bMain( fMain == 1.0f ), pMainSoldier( _pMainSoldier )
 {
 	pFormFormation = pMainSoldier->GetMemFormation();
 	startTime = curTime;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationWaitToFormState::FinishState()
 {
 	if ( IsValidObj( pFormFormation ) && pFormFormation->Size() > 0 )
@@ -2323,7 +2074,6 @@ void CFormationWaitToFormState::FinishState()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationWaitToFormState::FormFormation()
 {
 	CVec2 vCenter( VNULL2 );
@@ -2366,10 +2116,8 @@ void CFormationWaitToFormState::FormFormation()
 	else
 		NI_ASSERT_T( false, "Wrong main soldier state" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationWaitToFormState::Segment()
 {
-	// проверять не сразу же, а когда команда дойдёт до всех солдат формации
 	if ( curTime - startTime > 10 * SConsts::AI_SEGMENT_DURATION )
 	{
 		if ( bMain )
@@ -2377,7 +2125,6 @@ void CFormationWaitToFormState::Segment()
 			bool bCanForm = true;
 			for ( int i = 0; i < pFormFormation->Size(); ++i )
 			{
-				// команда на формирование прервана
 				if ( !(*pFormFormation)[i]->IsInWait2Form() )
 				{
 					pFormation->SetCommandFinished();
@@ -2397,7 +2144,6 @@ void CFormationWaitToFormState::Segment()
 			pFormation->SetCommandFinished();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationWaitToFormState::TryInterruptState( CAICommand *pCommand )
 {
 	if ( pCommand && pCommand->ToUnitCmd().cmdType == ACTION_COMMAND_WAIT_TO_FORM )
@@ -2418,27 +2164,19 @@ ETryStateInterruptResult CFormationWaitToFormState::TryInterruptState( CAIComman
 		return TSIR_YES_IMMIDIATELY;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormationWaitToFormState::GetPurposePoint() const
 {
 	return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CCatchFormationState												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CCatchFormationState::Instance( CFormation *pCatchingFormation, CFormation *pFormation )
 {
 	return new CCatchFormationState( pCatchingFormation, pFormation );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CCatchFormationState::CCatchFormationState( CFormation *_pCatchingFormation, CFormation *_pFormation )
 : pCatchingFormation( _pCatchingFormation ), pFormation( _pFormation ), lastUpdateTime( 0 ), eState( ECFS_NONE ), 
 	lastFormationPos( _pFormation->GetCenter() ), pLastFormationObject( 0 )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCatchFormationState::MoveSoldierToFormation()
 {
 	pCatchingFormation->StopUnit();
@@ -2449,7 +2187,6 @@ void CCatchFormationState::MoveSoldierToFormation()
 	pFormation->MakeVirtualUnitReal( pSoldier );
 	pSoldier->SetSelectable( pFormation->IsSelectable() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCatchFormationState::JoinToFormation()
 {
 	CSoldier *pSoldier = (*pCatchingFormation)[0];
@@ -2458,7 +2195,6 @@ void CCatchFormationState::JoinToFormation()
 	pSoldier->SendAlongPath( 0, VNULL2 );
 	pCatchingFormation->Disappear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCatchFormationState::LeaveCurStaticObject()
 {
 	const CVec2 vFormationCenter = pFormation->GetCenter();
@@ -2480,25 +2216,20 @@ void CCatchFormationState::LeaveCurStaticObject()
 	if ( vLeavePoint.x != -1.0f )
 		theGroupLogic.InsertUnitCommand( SAIUnitCmd( ACTION_COMMAND_LEAVE, vLeavePoint ), pCatchingFormation );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCatchFormationState::AnalyzeFreeFormation()
 {
 	const CVec2 vFormationCenter = pFormation->GetCenter();
 	CSoldier *pSoldier = (*pCatchingFormation)[0];
 	
-	// если нужно откуда-то выбегать
 	if ( !pSoldier->IsFree() )
 		LeaveCurStaticObject();
-	// просто бежать к формации
 	else 
 	{
-		// добежали или формация сдвинулась
 		if ( pCatchingFormation->IsIdle() || fabs2( vFormationCenter - lastFormationPos ) >= sqr( float( 2 * SConsts::TILE_SIZE ) ) )
 		{
 			lastFormationPos = vFormationCenter;
 			const float fDist2 = fabs2( vFormationCenter - pCatchingFormation->GetCenter() );
 			
-			// близко
 			if ( fDist2 <= sqr( float( 8 * SConsts::TILE_SIZE ) ) )
 			{
 				if ( (*pFormation)[0]->CanJoinToFormation() )
@@ -2513,15 +2244,12 @@ void CCatchFormationState::AnalyzeFreeFormation()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCatchFormationState::AnalyzeFormationInBuilding( CBuilding *pBuilding )
 {
 	CSoldier *pSoldier = (*pCatchingFormation)[0];
 
-	// внутри объекта, но не того, который нужно
 	if ( !pSoldier->IsFree() && ( !pSoldier->IsInBuilding() || pSoldier->GetBuilding() != pBuilding ) )
 		LeaveCurStaticObject();
-	// не внутри объекта
 	else if ( pSoldier->IsFree() )
 	{
 		const CVec2 vCatchingFormationCenter = pCatchingFormation->GetCenter();
@@ -2530,15 +2258,12 @@ void CCatchFormationState::AnalyzeFormationInBuilding( CBuilding *pBuilding )
 		if ( pBuilding->ChooseEntrance( pCatchingFormation, vCatchingFormationCenter, &nEntrance ) )
 			vPointToGo = pBuilding->GetEntrancePoint( nEntrance );
 
-		// можно вбежать в это здание
 		if ( vPointToGo.x != -1.0f )
 		{
-			// уже близко
 			if ( fabs2( vCatchingFormationCenter - vPointToGo ) <= sqr( float( 5 * SConsts::TILE_SIZE ) ) )
 				theGroupLogic.InsertUnitCommand( SAIUnitCmd( ACTION_COMMAND_ENTER, pBuilding, 0 ), pCatchingFormation );
 			else
 			{
-				// нужно подправить путь
 				if ( pLastFormationObject.GetPtr() != pBuilding || pCatchingFormation->IsIdle() )
 				{
 					pLastFormationObject = pBuilding;
@@ -2556,7 +2281,6 @@ void CCatchFormationState::AnalyzeFormationInBuilding( CBuilding *pBuilding )
 			JoinToFormation();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCatchFormationState::AnalyzeFormationInEntrenchment( CEntrenchment *pEntrenchment )
 {
 	CSoldier *pSoldier = (*pCatchingFormation)[0];
@@ -2569,7 +2293,6 @@ void CCatchFormationState::AnalyzeFormationInEntrenchment( CEntrenchment *pEntre
 		CVec2 vPointToGo;
 		pEntrenchment->GetClosestPoint( pSoldier->GetCenter(), &vPointToGo );
 
-		// близко к точке входа
 		if ( fabs2( vCatchingFormationCenter - vPointToGo ) <= sqr( float( 5 * SConsts::TILE_SIZE ) ) )
 			theGroupLogic.InsertUnitCommand( SAIUnitCmd( ACTION_COMMAND_ENTER, pEntrenchment, 1 ), pCatchingFormation );
 		else if ( pCatchingFormation->IsIdle() || pLastFormationObject.GetPtr() != (IRefCount*)pEntrenchment )
@@ -2587,7 +2310,6 @@ void CCatchFormationState::AnalyzeFormationInEntrenchment( CEntrenchment *pEntre
 			JoinToFormation();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCatchFormationState::AnalyzeFormationInTransport( CMilitaryCar *pCar )
 {
 	CSoldier *pSoldier = (*pCatchingFormation)[0];
@@ -2598,7 +2320,6 @@ void CCatchFormationState::AnalyzeFormationInTransport( CMilitaryCar *pCar )
 	{
 		const CVec2 vTransportCenter = pCar->GetCenter();
 		const float fDist2 = fabs2( pCatchingFormation->GetCenter() - vTransportCenter );
-		// далеко, нужно подбежать
 		if ( fDist2 > sqr( float( 5*SConsts::TILE_SIZE ) ) && 
 				( pLastFormationObject.GetPtr() != (IRefCount*)pCar || pCatchingFormation->IsIdle() ) )
 		{
@@ -2608,7 +2329,6 @@ void CCatchFormationState::AnalyzeFormationInTransport( CMilitaryCar *pCar )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCatchFormationState::SetToDisbandedState()
 {
 	CSoldier *pSoldier = (*pCatchingFormation)[0];
@@ -2628,16 +2348,12 @@ void CCatchFormationState::SetToDisbandedState()
 
 	pCatchingFormation->Disappear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCatchFormationState::Segment()
 {
-	// формация расформирована
 	if ( pFormation->IsDisabled() )
 		SetToDisbandedState();
-	// пора проверить состояние формации
 	else if ( curTime - lastUpdateTime >= 1500 )
 	{
-		// всех невиртуальных убили
 		if ( pFormation->Size() == 0 )
 			JoinToFormation();
 		else
@@ -2657,29 +2373,21 @@ void CCatchFormationState::Segment()
 		lastUpdateTime = curTime;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CCatchFormationState::TryInterruptState( CAICommand *pCommand )
 {
 	pCatchingFormation->SetCommandFinished();
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												CFormationSwarmState											*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationSwarmState::Instance( CFormation *pFormation, const CVec2 &point, const float fContinue )
 {
 	return new CFormationSwarmState( pFormation, point, fContinue );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationSwarmState::CFormationSwarmState( CFormation *_pFormation, const CVec2 &_point, const float fContinue )
 : pFormation( _pFormation ), point( _point ), state( EFSS_START ), startTime( curTime ), bContinue( fContinue)
 {
 	for ( int i = 0; i < pFormation->Size(); ++i )
 		(*pFormation)[i]->ResetTargetScan();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationSwarmState::AnalyzeTargetScan()
 {
 	bool bAttacking = false;
@@ -2700,7 +2408,6 @@ void CFormationSwarmState::AnalyzeTargetScan()
 		startTime = curTime;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationSwarmState::Segment()
 {
 	switch ( state )
@@ -2743,7 +2450,6 @@ void CFormationSwarmState::Segment()
 			}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationSwarmState::TryInterruptState( CAICommand *pCommand )
 {
 	if ( pFormation->GetCurCmd() != 0 )
@@ -2754,16 +2460,10 @@ ETryStateInterruptResult CFormationSwarmState::TryInterruptState( CAICommand *pC
 
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CFormationEnterBuildingNowState								*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationEnterBuildingNowState::Instance( CFormation *pFormation, CBuilding *pBuilding )
 {
 	return new CFormationEnterBuildingNowState( pFormation, pBuilding );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationEnterBuildingNowState::CFormationEnterBuildingNowState( CFormation *_pFormation, CBuilding *pBuilding )
 : pFormation( _pFormation )
 {
@@ -2772,27 +2472,19 @@ CFormationEnterBuildingNowState::CFormationEnterBuildingNowState( CFormation *_p
 
 	theGroupLogic.UnitCommand( SAIUnitCmd( ACTION_COMMAND_IDLE_BUILDING, pBuilding ), pFormation, false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationEnterBuildingNowState::Segment()
 {
 	pFormation->SetCommandFinished();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationEnterBuildingNowState::TryInterruptState( CAICommand *pCommand )
 {
 	pFormation->SetCommandFinished();
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CFormationEnterEntrenchmentNowState						*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CFormationEnterEntrenchmentNowState::Instance( CFormation *pFormation, CEntrenchment *pEntrenchment )
 {
 	return new CFormationEnterEntrenchmentNowState( pFormation, pEntrenchment );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormationEnterEntrenchmentNowState::CFormationEnterEntrenchmentNowState( CFormation *_pFormation, CEntrenchment *pEntrenchment )
 : pFormation( _pFormation )
 {
@@ -2801,15 +2493,12 @@ CFormationEnterEntrenchmentNowState::CFormationEnterEntrenchmentNowState( CForma
 
 	theGroupLogic.UnitCommand( SAIUnitCmd( ACTION_COMMAND_IDLE_TRENCH, pEntrenchment, 2 ), pFormation, false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationEnterEntrenchmentNowState::Segment()
 {
 	pFormation->SetCommandFinished();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CFormationEnterEntrenchmentNowState::TryInterruptState( CAICommand *pCommand )
 {
 	pFormation->SetCommandFinished();
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

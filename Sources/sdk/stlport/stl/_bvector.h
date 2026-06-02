@@ -95,8 +95,6 @@ struct _Bit_iterator_base
 
   _Bit_iterator_base() : _M_p(0), _M_offset(0) {}
   _Bit_iterator_base(unsigned int* __x, unsigned int __y) : _M_p(__x), _M_offset(__y) {}
-  //  _Bit_iterator_base( const _Bit_iterator_base& __x) : _M_p(__x._M_p), _M_offset(__x._M_offset) {}
-  //  _Bit_iterator_base& operator = ( const _Bit_iterator_base& __x) { _M_p = __x._M_p ; _M_offset = __x._M_offset ; return *this; }
 
   void _M_advance (difference_type __i) {
     difference_type __n = __i + _M_offset;
@@ -152,8 +150,6 @@ struct _Bit_iter : public _Bit_iterator_base
   _Bit_iter(const _Bit_iter<_Bit_reference, _Bit_reference*>& __x): 
     _Bit_iterator_base((const _Bit_iterator_base&)__x) {}
 
-  //  _Self& operator = (const _Bit_iter<_Bit_reference, _Bit_reference*>& __x)
-  //   { (_Bit_iterator_base&)*this = (const _Bit_iterator_base&)__x; return *this; }
 
   reference operator*() const { 
     return _Bit_reference(_M_p, 1UL << _M_offset); 
@@ -214,8 +210,6 @@ inline bool* value_type(const _Bit_iter<bool, const bool*>&) {return (bool*)0;}
 typedef _Bit_iter<bool, const bool*> _Bit_const_iterator;
 typedef _Bit_iter<_Bit_reference, _Bit_reference*> _Bit_iterator;
 
-// Bit-vector base class, which encapsulates the difference between
-//  old SGI-style allocators and standard-conforming allocators.
 
 
 template <class _Alloc>
@@ -255,10 +249,6 @@ protected:
 };
 
 
-// The next few lines are confusing.  What we're doing is declaring a
-//  partial specialization of vector<T, Alloc> if we have the necessary
-//  compiler support.  Otherwise, we define a class bit_vector which uses
-//  the default allocator. 
 
 #if defined(_STLP_CLASS_PARTIAL_SPECIALIZATION) && ! defined(_STLP_NO_BOOL) && ! defined (__SUNPRO_CC)
 # define _STLP_VECBOOL_TEMPLATE
@@ -379,7 +369,6 @@ protected:
                            const forward_iterator_tag &) {
     size_type __n = distance(__first, __last);
     _M_initialize(__n);
-    //    copy(__first, __last, _M_start);
     copy(__first, __last, this->_M_start); // dwa 12/22/99 -- resolving ambiguous reference.
   }
 
@@ -492,7 +481,6 @@ public:
     _M_initialize_range(__first, __last, _STLP_ITERATOR_CATEGORY(__first, _InputIterator));
   }
 # ifdef _STLP_NEEDS_EXTRA_TEMPLATE_CONSTRUCTORS
-  // Check whether it's an integral type.  If so, it's not an iterator.
   template <class _InputIterator>
   __BVECTOR(_InputIterator __first, _InputIterator __last)
     : _Base(allocator_type())
@@ -541,10 +529,6 @@ public:
     return *this;
   }
 
-  // assign(), a generalized assignment member function.  Two
-  // versions: one that takes a count, and one that takes a range.
-  // The range version is a member template, so we dispatch on whether
-  // or not the type is an integer.
 
   void _M_fill_assign(size_t __n, bool __x) {
     if (__n > size()) {
@@ -656,7 +640,6 @@ public:
     _M_insert_range(__pos, __first, __last, _STLP_ITERATOR_CATEGORY(__first, _InputIterator));
   }
 
-  // Check whether it's an integral type.  If so, it's not an iterator.
   template <class _InputIterator>
   void insert(iterator __position,
               _InputIterator __first, _InputIterator __last) {
@@ -787,7 +770,6 @@ _STLP_RELOPS_OPERATORS( __BVEC_TMPL_HEADER, __BVECTOR_QUALIFIED )
 # endif /* NO_BOOL */
   
 #if !defined (_STLP_NO_BOOL)
-// This typedef is non-standard.  It is provided for backward compatibility.
   typedef __WORKAROUND_DBG_RENAME(vector) <bool, allocator<bool> > bit_vector;
 #endif
 
@@ -803,7 +785,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_BVECTOR_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

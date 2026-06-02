@@ -1,6 +1,5 @@
 #ifndef _MULTIPLAYER_COMMAND_MANAGER_
 #define _MULTIPLAYER_COMMAND_MANAGER_
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "iMission.h"
 #include "MuliplayerToUIConsts.h"
 #include "..\RandomMapGen\MapInfo_Types.h"
@@ -21,18 +20,14 @@ inline std::wstring MakeWideStringFromWordString( const WORD *pszText )
 
 	return szText;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline const WORD* ToWordString( const std::wstring &szText )
 {
 	return reinterpret_cast<const WORD*>( szText.c_str() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline const WORD* ToWordString( const wchar_t *pszText )
 {
 	return reinterpret_cast<const WORD*>( pszText );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//player state in chat
 enum EPlayerChatState
 {
 	EPCS_IN_CHAT,
@@ -43,26 +38,19 @@ enum EPlayerChatState
 	EPCS_ISNT_CHANGED,
 	EPCS_NONE,
 };
-// relation to player
 enum EPlayerRelation
 {
 	EPR_NORMAL,
 	EPR_FRIEND,
 	EPR_IGNORED,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SMultiplayerGameSettings
 {
-	//server settings
-	//FC settings
 	int nFlagScoreLimit;
 	int nKillScoreLimit;
-	//
 
-	//sabotage settings
 	int nTimeToCapture;										// in seconds
 
-	// common settings
 	int nTimeLimit;												// in seconds
 
 	std::string szGameSpeed;							// speed is set by server.
@@ -86,11 +74,6 @@ struct SMultiplayerGameSettings
 					 szGameSpeed == settings.szGameSpeed;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 									notifications from UI												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SFromUINotification
 {
 	EUIToMultiplayerNotifications eNotifyID;
@@ -104,7 +87,6 @@ struct SFromUINotification
 	{
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SNotificationStringParam : public IRefCount
 {
 	OBJECT_COMPLETE_METHODS( SNotificationStringParam );
@@ -114,7 +96,6 @@ public:
 	SNotificationStringParam( const std::string &_szParam ) : szParam( _szParam )  {  }
 	SNotificationStringParam( const char *pszParam ) : szParam( pszParam == 0 ? "" : pszParam )  {  }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SNotificationSimpleParam : public IRefCount
 {
 	OBJECT_COMPLETE_METHODS( SNotificationSimpleParam );
@@ -124,7 +105,6 @@ public:
 	SNotificationSimpleParam() : nParam( -1 ) { }
 	SNotificationSimpleParam( const int _nParam ) : nParam( _nParam ) { }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SPassword : public IRefCount
 {
 	OBJECT_COMPLETE_METHODS( SPassword );
@@ -135,7 +115,6 @@ public:
 	SPassword() : szPassword( "" ), bCancelFlag( true ) { }
 	SPassword( const std::string &_szPassword, const bool _bCancelFlag = false ) : szPassword( _szPassword ), bCancelFlag( _bCancelFlag ) { }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SServerNewSettings : public IRefCount
 {
 	OBJECT_COMPLETE_METHODS( SServerNewSettings );
@@ -148,7 +127,6 @@ public:
 	{
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SNewMapInfo : public IRefCount
 {
 	OBJECT_COMPLETE_METHODS( SNewMapInfo );
@@ -165,11 +143,6 @@ public:
 	SNewMapInfo( const char *pszMapName, const SQuickLoadMapInfo &_mapInfo, const SMultiplayerGameSettings & _settings, const std::string _szPassword )
 		: szMapName( pszMapName ), mapInfo( _mapInfo ), settings( _settings ), bPasswordRequired( !_szPassword.empty() ), szPassword( _szPassword ) { }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 										commands to UI														*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SToUICommand
 {
 	EMultiplayerToUICommands eCommandID;
@@ -178,8 +151,6 @@ struct SToUICommand
 	SToUICommand() { }
 	SToUICommand( const EMultiplayerToUICommands _eCommandID, IRefCount *_pCommandParams ) : eCommandID( _eCommandID ), pCommandParams( _pCommandParams ) { }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// info to confugure staging room
 struct SUIStagingRoomConfigure : public IRefCount
 {
 	OBJECT_COMPLETE_METHODS(SUIStagingRoomConfigure);
@@ -204,7 +175,6 @@ public:
 		return 0;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SChatMessage : public IRefCount
 {
 	OBJECT_COMPLETE_METHODS( SChatMessage );
@@ -228,8 +198,6 @@ public:
 		return 0;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// info about server in multiplayer interface screen
 struct SUIServerInfo : public IRefCount
 {
 	OBJECT_COMPLETE_METHODS(SUIServerInfo);
@@ -244,11 +212,9 @@ public:
 	float fPing;													// in seconds.
 	bool bSamePatch;											// the same version of Game.exe on  server
 	
-	// for MOD support
 	std::string szModName;								// eg "MyMod"
 	std::string szModVersion;							// eg "v. 1.1"
 
-	//server settings
 	CMapInfo::GAME_TYPE eGameType;						// map type of this server.
 	SMultiplayerGameSettings settings;
 		
@@ -287,7 +253,6 @@ public:
 			szModName( _pszModName ), szModVersion( _pszModVersion ), bSamePatch( _bSamePatch ),
 			eGameType( _eGameType ), settings( _gameSettings ) { }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SUIRelationNotify : public IRefCount
 {
 	OBJECT_COMPLETE_METHODS(SUIRelationNotify);
@@ -308,8 +273,6 @@ public:
 		: szName( MakeWideStringFromWordString( pszName ) ), eRelation( _eRelation)
 	{  }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//player's info fot chat
 struct SUIChatPlayerInfo : public IRefCount
 {
 	OBJECT_COMPLETE_METHODS( SUIChatPlayerInfo );
@@ -326,7 +289,6 @@ public:
 	SUIChatPlayerInfo( const WORD * pszName ) 
 		: eRelation( EPR_NORMAL ), eState( EPCS_IN_CHAT ), szName( MakeWideStringFromWordString( pszName ) ) { }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SUIChatPlayerChangedNick : public IRefCount
 {
 	OBJECT_COMPLETE_METHODS( SUIChatPlayerChangedNick );
@@ -338,8 +300,6 @@ public:
 	SUIChatPlayerChangedNick( const WORD *pwszOldNick, const WORD *pwszNewNick )
 		: wszOldNick( MakeWideStringFromWordString( pwszOldNick ) ), wszNewNick( MakeWideStringFromWordString( pwszNewNick ) ) { }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// to notify UI that local player changes side
 struct SUISideInfo : public IRefCount
 {
 	OBJECT_COMPLETE_METHODS( SUISideInfo );
@@ -349,7 +309,6 @@ public:
 	SUISideInfo() {  }
 	SUISideInfo( const char *pszParty ) : szPartyName( pszParty ) {  }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SUIPlayerInfo : public IRefCount
 {
 	OBJECT_COMPLETE_METHODS( SUIPlayerInfo );
@@ -368,7 +327,6 @@ public:
 	SUIPlayerInfo( const int _nID, const char *pszSide, const bool _bReady, const float _fPing, const WORD *pszName, const int _nDownloadCount )
 		: nID( _nID ), szSide( pszSide ), bReady( _bReady ), fPing( _fPing ), szName( MakeWideStringFromWordString( pszName ) ), nDownloadCount( _nDownloadCount ) { }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EMultiplayerConnectionType
 {
 	EMCT_LAN,
@@ -376,24 +334,19 @@ enum EMultiplayerConnectionType
 	EMCT_GAMESPY,
 	EMCT_NONE,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IMPToUICommandManager : public IRefCount
 {
 	enum { tidTypeID = GAMETT_MULTIPLAYER_TO_UI_COMMANDS };
 
-	//adding
 	virtual void STDCALL AddCommandToUI( SToUICommand &cmd ) = 0;
 	virtual void STDCALL AddNotificationFromUI( SFromUINotification &notify ) = 0;
 
-	//recieveing. return true if put command by ptr. if ptr == 0 or no more commands
-	// returns false;
 	virtual bool STDCALL GetCommandToUI( SToUICommand *pCmd ) = 0;
 	virtual bool STDCALL GetNotificationFromUI( SFromUINotification *pNotify ) = 0;
 	
 	virtual bool STDCALL PeekCommandToUI( SToUICommand *pCmd ) = 0;
 	virtual bool STDCALL PeekNotificationFromUI( SFromUINotification *pNotify ) = 0;
 
-	// chat
 	virtual SChatMessage* STDCALL GetChatMessageFromUI() = 0;
 	virtual SChatMessage* STDCALL GetChatMessageToUI() = 0;
 	virtual SChatMessage* STDCALL PeekChatMessageToUI() = 0;
@@ -401,16 +354,12 @@ interface IMPToUICommandManager : public IRefCount
 	virtual void STDCALL AddChatMessageToUI( SChatMessage *pMessage ) = 0;
 	virtual void STDCALL AddChatMessageFromUI( SChatMessage *pMessage ) = 0;
 
-	//to init from UI side.
 	virtual void STDCALL InitUISide() = 0;
 	
-	// manipulation with connection type
 	virtual void STDCALL SetConnectionType( const enum EMultiplayerConnectionType ) = 0;
 	virtual enum EMultiplayerConnectionType STDCALL GetConnectionType() const = 0;
 	
-	// delayed notifications to MP
 	virtual void STDCALL DelayedNotification( SFromUINotification &notify ) = 0;
 	virtual void STDCALL SendDelayedNotification() = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif //_MULTIPLAYER_COMMAND_MANAGER_

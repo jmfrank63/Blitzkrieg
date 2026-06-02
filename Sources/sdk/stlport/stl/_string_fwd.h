@@ -56,6 +56,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_STRING_FWD_H */
 
-// Local Variables:
-// mode:C++
-// End:

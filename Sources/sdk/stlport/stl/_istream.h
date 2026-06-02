@@ -18,7 +18,6 @@
 #ifndef _STLP_INTERNAL_ISTREAM_H
 #define _STLP_INTERNAL_ISTREAM_H
 
-// this block is included by _ostream.h, we include it here to lower #include level
 # if defined (_STLP_HAS_WCHAR_T) && !defined (_STLP_CWCHAR)
 #  include <cwchar>
 # endif
@@ -36,7 +35,6 @@
 #endif
 
 #include <stl/_ctraits_fns.h>    // Helper functions that allow char traits
-                                // to be used as function objects.
 _STLP_BEGIN_NAMESPACE
 
 template <class _CharT, class _Traits, class _Number> 
@@ -55,18 +53,11 @@ bool _M_init_skip(basic_istream<_CharT, _Traits>& __is);
 template <class _CharT, class _Traits>
 bool _M_init_noskip(basic_istream<_CharT, _Traits>& __is);
 
-//----------------------------------------------------------------------
-// Class basic_istream, a class that performs formatted input through
-// a stream buffer.
 
-// The second template parameter, _Traits, defaults to char_traits<_CharT>.
-// The default is declared in header <iosfwd>, and it isn't declared here
-// because C++ language rules do not allow it to be declared twice. 
 
 template <class _CharT, class _Traits>
 class basic_istream : virtual public basic_ios<_CharT, _Traits> {
 public:
-                         // Types
   typedef _CharT                     char_type;
   typedef typename _Traits::int_type int_type;
   typedef typename _Traits::pos_type pos_type;
@@ -89,7 +80,6 @@ public:                         // Constructor and destructor.
 public:                         // Nested sentry class.
 
 public:                         // Hooks for manipulators.  The arguments are
-                                // function pointers.
   _Self& operator>> (__istream_fn __f) { return __f(*this); }
   _Self& operator>> (__ios_fn __f) {  __f(*this); return *this; }
   _Self& operator>> (__ios_base_fn __f) { __f(*this); return *this; }
@@ -101,8 +91,6 @@ public:                         // Formatted input of numbers.
    _M_get_num(*this, __lval);
     __val = __STATIC_CAST(short, __lval);
     __uval = __lval;
-    // check if we lose digits
-    //    if ((__val != __lval) && ((unsigned short)__val != __lval))
     if ((__val != __lval) && ((long)__uval != __lval))
       this->setstate(ios_base::failbit); 
     return *this; 
@@ -113,8 +101,6 @@ public:                         // Formatted input of numbers.
     _M_get_num(*this, __lval);
     __val = __lval;
     __uval = __lval;
-    // check if we lose digits
-    //    if ((__val != __lval) && ((unsigned int)__val != __lval))
     if ((__val != __lval) && ((long)__uval != __lval))
       this->setstate(ios_base::failbit); 
     return *this;
@@ -197,8 +183,6 @@ private:                        // Number of characters extracted by the
 public:
 
 #if defined (_STLP_USE_TEMPLATE_EXPORT)
-  // If we are using DLL specs, we have not to use inner classes
-  // end class declaration here
   typedef _Isentry<_CharT, _Traits>      sentry;
 };
 #  define sentry _Isentry
@@ -212,7 +196,6 @@ class _Isentry {
     
   private:
     const bool _M_ok;
-    //    basic_streambuf<_CharT, _Traits>* _M_buf;
         
   public:
     typedef _Traits traits_type;
@@ -223,8 +206,6 @@ class _Isentry {
       /* , _M_buf(__is.rdbuf()) */
       {}
     
-    // Calling this constructor is the same as calling the previous one with 
-    // __noskipws = true, except that it doesn't require a runtime test.
     sentry(basic_istream<_CharT, _Traits>& __is, _No_Skip_WS) : /* _M_buf(__is.rdbuf()), */
       _M_ok(_M_init_noskip(__is)) {}
     
@@ -240,7 +221,6 @@ class _Isentry {
 # if defined (_STLP_USE_TEMPLATE_EXPORT)
 #  undef sentry
 # else
-  // close basic_istream class definition here
 };
 # endif
 
@@ -253,7 +233,6 @@ _STLP_EXPORT_TEMPLATE_CLASS basic_istream<wchar_t, char_traits<wchar_t> >;
 #  endif
 # endif /* _STLP_USE_TEMPLATE_EXPORT */
 
-// Non-member character and string extractor functions.
 
 template <class _CharT, class _Traits>
 inline basic_istream<_CharT, _Traits>& _STLP_CALL  
@@ -297,14 +276,10 @@ operator>>(basic_istream<char, _Traits>& __in, signed char* __s) {
   return __in;
 }
 
-//----------------------------------------------------------------------
-// istream manipulator.
 template <class _CharT, class _Traits>
 basic_istream<_CharT, _Traits>& _STLP_CALL
 ws(basic_istream<_CharT, _Traits>& __is);
 
-//----------------------------------------------------------------------
-// Class iostream.
 
 template <class _CharT, class _Traits>
 class basic_iostream 
@@ -339,6 +314,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_ISTREAM_H */
 
-// Local Variables:
-// mode:C++
-// End:

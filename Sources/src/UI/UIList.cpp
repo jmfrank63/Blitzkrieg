@@ -4,7 +4,6 @@
 #include "UIMessages.h"
 #include "..\GameTT\CommonId.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SUIListRow::operator &( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -12,7 +11,6 @@ int SUIListRow::operator &( IStructureSaver &ss )
 	saver.Add( 2, &nUserData );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SUIListHeader::operator &( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -20,7 +18,6 @@ int SUIListHeader::operator &( IStructureSaver &ss )
 	saver.Add( 2, &nUserData );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SColumnProperties::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -29,7 +26,6 @@ int SColumnProperties::operator&( IStructureSaver &ss )
 	saver.Add( 3, &nSorterType );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SColumnProperties::operator&( IDataTree &ss  )
 {
 	CTreeAccessor saver = &ss;
@@ -38,30 +34,25 @@ int SColumnProperties::operator&( IDataTree &ss  )
 	saver.Add( "Sorter", &nSorterType );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUIElement* SUIListRow::GetElement( int nIndex ) const
 {
 	NI_ASSERT_T( subItems.size() > nIndex, "Invalid index in vector operation" );
 	return subItems[nIndex];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUIElement* SUIListHeader::GetElement( int nIndex ) const
 {
 	NI_ASSERT_T( subItems.size() > nIndex, "Invalid index in vector operation" );
 	return subItems[nIndex].pElement;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CUIList::CUIList() : pScrollBar( 0 ), nLeftSpace( 10 ), nTopSpace( 5 ), nItemHeight( 30 ), nHeaderSize( 0 ),
 	nSortedHeaderIndex( -1 ), bSortAscending( false ), nHeaderTopSpace( 0 ), nHSubSpace( 2 ),
 	nVSubSpace( 2 ), bLeftScrollBar( false ), nScrollBarWidth( 30 ), nSelection( -1 ), bScrollBarAlwaysVisible( true )
 {
 	SetMouseWheelMultiplyer( 25.0f/4.8f );		//������� �������
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CUIList::~CUIList()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIList::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -86,7 +77,6 @@ int CUIList::operator&( IStructureSaver &ss )
 	saver.Add( 20, &bSortAscending );
 	saver.Add( 21, &nHeaderTopSpace );
 	
-	// scrollbar pointer
 	if ( saver.IsReading() )
 	{
 		saver.Add( 13, &pScrollBar );
@@ -100,7 +90,6 @@ int CUIList::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIList::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -119,8 +108,6 @@ int CUIList::operator&( IDataTree &ss )
 	
 	if ( saver.IsReading() )
 	{
-		//�������������� ������ headers
-		//if ( nHeaderSize > 0 )
 		{
 			headers.subItems.resize( columnProperties.size() );
 			for ( int i=0; i<columnProperties.size(); i++ )
@@ -130,11 +117,9 @@ int CUIList::operator&( IDataTree &ss )
 				headers.subItems[i].pElement = pElement;
 			}
 		}
-		// BLYAD, I ESHE V DVUH MESTAH!
 		/*else
 			headers.subItems.clear();*/
 
-		//�������������� pScrollBar
 		pScrollBar = checked_cast<IUIScrollBar *> ( GetChildByID( 1 ) );
 		
 		std::string szName;
@@ -173,7 +158,6 @@ int CUIList::operator&( IDataTree &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUIElement* CUIList::CreateComponent( const char *pszFileName )
 {
 	CPtr<IDataStorage> pStorage = GetSingleton<IDataStorage>();
@@ -190,7 +174,6 @@ IUIElement* CUIList::CreateComponent( const char *pszFileName )
 	AddChild( pElement );
 	return pElement;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::SetSelectionItem( int nSel ) 
 { 
 	if ( listItems.size() > nSel ) 
@@ -199,7 +182,6 @@ void CUIList::SetSelectionItem( int nSel )
 		EnsureSelectionVisible();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::InitItemHeight()
 {
 	nItemHeight = 0;
@@ -220,7 +202,6 @@ void CUIList::InitItemHeight()
 	nScrollBarWidth = size.x;
 	pScrollBar->SetMinValue( 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::AddItem( int nData )
 {
 	SUIListRow *pRow = new SUIListRow;
@@ -234,7 +215,6 @@ void CUIList::AddItem( int nData )
 	
 /*
 ��� ������ �����, ������ ��� ������ ��� ��� ���������� item ����� ����������� ������ ����� ������
-	//����������� items
 	if ( nSortedHeaderIndex != -1 )
 	{
 		bSortAscending = !bSortAscending;		//����� ������ Sort() ���������� �������������
@@ -242,13 +222,11 @@ void CUIList::AddItem( int nData )
 	}
 */
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::RemoveItem( int nIndex )
 {
 	NI_ASSERT_T( nIndex < listItems.size() && nIndex >= 0, NStr::Format("Wrong item (%d) to remove (max %d)", nIndex, listItems.size()) );
 	if ( nSelection == nIndex )
 	{
-		//delete selected element
 		RemoveFocusFromItem( nSelection );
 		nSelection = -1;
 	}
@@ -258,7 +236,6 @@ void CUIList::RemoveItem( int nIndex )
 		nSelection--;
 	}
 
-	//remove item from list control
 	CUIListItems::iterator it = listItems.begin() + nIndex;
 	for ( int i=0; i<(*it)->subItems.size(); i++ )
 	{
@@ -268,7 +245,6 @@ void CUIList::RemoveItem( int nIndex )
 	
 	NotifySelectionChanged();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUIListRow* CUIList::GetItem( int nIndex )
 {
 	if ( nIndex == -1 )
@@ -280,7 +256,6 @@ IUIListRow* CUIList::GetItem( int nIndex )
 	CUIListItems::iterator it = listItems.begin() + nIndex;
 	return *it;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIList::GetItemByID( int nID )
 {
 	for ( int i=0; i<listItems.size(); i++ )
@@ -291,10 +266,8 @@ int CUIList::GetItemByID( int nID )
 
 	return -1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::InitialUpdate()
 {
-//	InitItemHeight();
 	UpdateScrollBarStatus();
 	UpdateItemsCoordinates();
 
@@ -304,10 +277,8 @@ void CUIList::InitialUpdate()
 		Sort( nSortedHeaderIndex );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::UpdateItemsCoordinates()
 {
-	//������������� ���������� ��� ���� ���������� ���������
 	int nY = -pScrollBar->GetPosition();
 	CTRect<float> rect;
 	GetWindowPlacement( 0, 0, &rect );
@@ -324,7 +295,6 @@ void CUIList::UpdateItemsCoordinates()
 	{
 		if ( nY + nItemHeight - nVSubSpace < 0 || nY + nVSubSpace > rect.Height() - 2*nTopSpace )
 		{
-			//item �� �������
 			for ( SUIListRow::CUIListSubItems::iterator it=(*item)->subItems.begin(); it!=(*item)->subItems.end(); ++it )
 			{
 				(*it)->ShowWindow( UI_SW_HIDE );
@@ -332,7 +302,6 @@ void CUIList::UpdateItemsCoordinates()
 		}
 		else
 		{
-			//item �������
 			int left = nLeftSpace;
 			if ( bLeftScrollBar && pScrollBar && pScrollBar->IsVisible() )
 				left += nScrollBarWidth;
@@ -360,7 +329,6 @@ void CUIList::UpdateItemsCoordinates()
 	GetParent()->GetWindowPlacement( 0, 0, &rc );
 	Reposition( rc );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::UpdateScrollBarStatus()
 {
 	if ( !pScrollBar )
@@ -381,19 +349,16 @@ void CUIList::UpdateScrollBarStatus()
 			pScrollBar->ShowWindow( UI_SW_HIDE );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::Reposition( const CTRect<float> &rcParent )
 {
 	CTRect<float> rect = GetScreenRect();
 
-	//������� ������� ����������
 	{
 		CVec2 size;
 		pScrollBar->GetWindowPlacement( 0, &size, 0 );
 		pScrollBar->SetWindowPlacement( &CVec2(0, 0), &CVec2(size.x, rect.Height()) );
 	}
 
-	//���������� ���������
 	int left = nLeftSpace;
 	CVec2 vPos, vSize;
 	vPos.y = nHeaderTopSpace;
@@ -409,7 +374,6 @@ void CUIList::Reposition( const CTRect<float> &rcParent )
 
 	CMultipleWindow::Reposition( rcParent );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::NotifySelectionChanged()
 {
 	SUIMessage msg;
@@ -418,7 +382,6 @@ void CUIList::NotifySelectionChanged()
 	msg.nSecond = nSelection;
 	GetParent()->ProcessMessage( msg );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::NotifyDoubleClick( int nItem )
 {
 	SUIMessage msg;
@@ -427,12 +390,10 @@ void CUIList::NotifyDoubleClick( int nItem )
 	msg.nSecond = nItem;
 	GetParent()->ProcessMessage( msg );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::EnsureSelectionVisible()
 {
 	CTRect<float> rect = GetScreenRect();
 
-	//���������� ������� ������ selection
 	int nY = -pScrollBar->GetPosition();
 	nY += nSelection * nItemHeight;
 
@@ -441,7 +402,6 @@ void CUIList::EnsureSelectionVisible()
 		nTemp = nTopSpace;
 	if ( nY >= nTemp && nY + nItemHeight <= rect.Height() - 2 * nTopSpace - nHeaderSize - nHeaderTopSpace )
 	{
-		//selection ��������� �������
 		return;
 	}
 
@@ -467,7 +427,6 @@ void CUIList::EnsureSelectionVisible()
 		return;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIList::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD keyState )
 {
 	if ( !IsVisible() )
@@ -478,7 +437,6 @@ bool CUIList::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD keyS
 	switch ( nVirtualKey )
 	{
 		case VK_UP:
-		//case VK_LEFT:
 		if ( pFocused.GetPtr() == pScrollBar.GetPtr() )
 			return pScrollBar->OnChar( nAsciiCode, nVirtualKey, bPressed, keyState );
 		{
@@ -496,7 +454,6 @@ bool CUIList::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD keyS
 		}
 
 		case VK_DOWN:
-		//case VK_RIGHT:
 		if ( pFocused.GetPtr() == pScrollBar.GetPtr() )
 			return pScrollBar->OnChar( nAsciiCode, nVirtualKey, bPressed, keyState );
 		{
@@ -515,10 +472,8 @@ bool CUIList::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD keyS
 
 	return CMultipleWindow::OnChar( nAsciiCode, nVirtualKey, bPressed, keyState );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIList::ProcessMessage( const SUIMessage &msg )
 {
-	//ListControl ������������ NOTIFY ��������� �� ScrollBar
 	switch( msg.nMessageCode )
 	{
 	case UI_NOTIFY_POSITION_CHANGED:
@@ -563,10 +518,8 @@ bool CUIList::ProcessMessage( const SUIMessage &msg )
 	case UI_NOTIFY_STATE_CHANGED_MESSAGE:
 		if ( msg.nFirst >= 10 && msg.nFirst < 10 + headers.subItems.size() )
 		{
-			//������ �� ���� �� ����������, ���������� ������������� ���� �������
 			const int nColumn = msg.nFirst - 10;
 			Sort( nColumn );
-			//notify about resort
 			SUIMessage msg;
 			msg.nMessageCode = UI_NOTIFY_LIST_RESORTED;
 			msg.nFirst = GetWindowID();
@@ -578,14 +531,11 @@ bool CUIList::ProcessMessage( const SUIMessage &msg )
 	
 	return CMultipleWindow::ProcessMessage( msg );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::Visit( interface ISceneVisitor *pVisitor )
 {
 	if ( !IsVisible() )
 		return;
-	// ������ ��������
 	CSimpleWindow::Visit( pVisitor );
-	// ������ ���������� �����
 	CTRect<float> rect = GetScreenRect();
 	if ( pSelectionTexture && nSelection != -1 )
 	{
@@ -594,7 +544,6 @@ void CUIList::Visit( interface ISceneVisitor *pVisitor )
 
 		if ( nY + nItemHeight + nTopSpace + nHeaderSize + nHeaderTopSpace > 0 && nY < rect.Height() - nTopSpace - nHeaderSize - nHeaderTopSpace )
 		{
-			// selection �����
 			if ( !selSubRects.empty() )
 			{
 				const int nSize = selSubRects.size();
@@ -614,7 +563,6 @@ void CUIList::Visit( interface ISceneVisitor *pVisitor )
 					rc.color = 0xffffffff;
 					rc.specular = 0xff000000;
 					
-					//��������, ����� ����� ������ ����� selection
 					int nAdd = 0;
 					if ( nHeaderSize > 0 )
 						nAdd = nHeaderSize + nHeaderTopSpace;
@@ -639,11 +587,9 @@ void CUIList::Visit( interface ISceneVisitor *pVisitor )
 		}
 	}
 	
-	// ������ �����
 	for ( CWindowList::reverse_iterator ri = childList.rbegin(); ri != childList.rend(); ++ri )
 		(*ri)->Visit( pVisitor );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::Draw( IGFX *pGFX )
 {
 	NI_ASSERT_SLOW_T( false, "Can't user Draw() directly - use visitor pattern" );
@@ -652,11 +598,9 @@ void CUIList::Draw( IGFX *pGFX )
 	if ( !IsVisible() )
 		return;
 	
-	//������ ��������
 	pGFX->SetShadingEffect( 3 );
 	CSimpleWindow::Draw( pGFX );
 
-	//������ ���������� �����
 	CTRect<float> rect = GetScreenRect();
 	if ( pSelectionTexture && nSelection != -1 )
 	{
@@ -665,7 +609,6 @@ void CUIList::Draw( IGFX *pGFX )
 
 		if ( nY + nItemHeight + nTopSpace + nHeaderSize + nHeaderTopSpace > 0 && nY < rect.Height() - nTopSpace - nHeaderSize - nHeaderTopSpace )
 		{
-			//selection �����
 			SGFXRect2 rc;
 			pGFX->SetTexture( 0, pSelectionTexture );
 			
@@ -688,7 +631,6 @@ void CUIList::Draw( IGFX *pGFX )
 					rc.color = 0xffffffff;
 					rc.specular = 0xff000000;
 					
-					//��������, ����� ����� ������ ����� selection
 					int nAdd = 0;
 					if ( nHeaderSize > 0 )
 						nAdd = nHeaderSize + nHeaderTopSpace;
@@ -713,11 +655,9 @@ void CUIList::Draw( IGFX *pGFX )
 		}
 	}
 	
-	//������ �����
 	for ( CWindowList::reverse_iterator ri=childList.rbegin(); ri!=childList.rend(); ri++ )
 		(*ri)->Draw( pGFX );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIList::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 {
 	if ( pScrollBar->IsInside( vPos ) )
@@ -727,11 +667,8 @@ bool CUIList::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 	if ( !bRet )
 		return bRet;			//����� ��� ������
 	
-	//��� �������������� ��������� Selection
 	CTRect<float> rect = GetScreenRect();
 	float fSelIndex = vPos.y - rect.y1 - nHeaderSize - nHeaderTopSpace;
-	//������ fSelIndex �������� �������� ����� ������������ ������ items
-	//���� fSelIndex < 0, ������ ������ ��� ������� items, �������� � ������� header
 	if ( fSelIndex < 0 )
 		return true;
 	
@@ -739,18 +676,15 @@ bool CUIList::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 	if ( fSelIndex < 0 || fSelIndex >= listItems.size() )
 		return true;
 	
-	//������ fSelIndex ��� ������ item ��� ������
 	if ( nSelection == (int) fSelIndex )
 		return true;		//���������� ������� item ����� ����� �� ������, ������ �� ����������
 	
-	//selection ���������
 	RemoveFocusFromItem( nSelection );
 	nSelection = fSelIndex;
 	NotifySelectionChanged();
 	
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIList::OnLButtonDblClk( const CVec2 &vPos )
 {
 	if ( pScrollBar->IsInside( vPos ) )
@@ -760,11 +694,8 @@ bool CUIList::OnLButtonDblClk( const CVec2 &vPos )
 	if ( !bRet )
 		return bRet;			//����� ��� ������
 
-	//��� �������������� double click ������ ������
 	CTRect<float> rect = GetScreenRect();
 	float fSelIndex = vPos.y - rect.y1 - nHeaderSize - nHeaderTopSpace;
-	//������ fSelIndex �������� �������� ����� ������������ ������ items
-	//���� fSelIndex < 0, ������ ������ ��� ������� items, �������� � ������� header
 	if ( fSelIndex < 0 )
 		return true;
 	
@@ -772,18 +703,14 @@ bool CUIList::OnLButtonDblClk( const CVec2 &vPos )
 	if ( fSelIndex < 0 || fSelIndex >= listItems.size() )
 		return true;
 	
-	//������ fSelIndex ��� ������ item ��� ������
-	//�������� ��������� � double click
 	NotifyDoubleClick( fSelIndex );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::SetSortFunctor( int nColumn, IUIListSorter *pSorter )
 {
 	NI_ASSERT_T( nColumn < columnProperties.size(), "Invalid column index in CUIList::SetSortFunctor()" );
 	headers.subItems[nColumn].pSorter = pSorter;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SSortWrapper
 {
 private:
@@ -799,35 +726,27 @@ public:
 			/*bReverse ^*/ 
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIList::ReSort()
 {
-	//����������� items
 	if ( nSortedHeaderIndex == -1 )
 		return false;			//�� �����, �� ������ ������� �����������
 
 	bSortAscending = !bSortAscending;		//����� ������ Sort() ���������� �������������
 	return Sort( nSortedHeaderIndex );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIList::Sort( int nColumn, const int nSortType )
 {
-	// -1 - descending
-	//	1 - ascending
-	//	0 - doesnt matter (inner determie )
 
 	NI_ASSERT_T( nColumn < columnProperties.size(), "Invalid column index in CUIList::Sort()" );
 	if ( !headers.subItems[nColumn].pSorter )
 		return false;
 
-	//����� ����������� �������� ������� ���������� �������
 	SUIListRow *pSelectedRow = 0;
 	if ( nSelection < listItems.size() && nSelection >= 0 )
 		pSelectedRow = listItems[nSelection].GetPtr();
 
 	if ( nSortedHeaderIndex != nColumn )
 	{
-		//������� ��������� � nSortedHeaderIndex
 		if ( nSortedHeaderIndex != -1 )
 			headers.subItems[nSortedHeaderIndex].pElement->SetState( 0, false );
 		nSortedHeaderIndex = nColumn;
@@ -867,7 +786,6 @@ bool CUIList::Sort( int nColumn, const int nSortType )
 	std::stable_sort( listItems.begin(), listItems.end(), sw );
 	UpdateItemsCoordinates();
 
-	//��������������� ������� selection
 	if ( pSelectedRow )
 	{
 		int i = 0;
@@ -883,12 +801,8 @@ bool CUIList::Sort( int nColumn, const int nSortType )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::InitSortFunctors()
 {
-	// EBAT' V ROT
-	//if ( nHeaderSize == 0 )
-		//return;
 	NI_ASSERT_T( columnProperties.size() == headers.subItems.size(), "CUIList error: The size of headers does not equal the size of ColumnProperties" );
 	
 	for ( int i=0; i<columnProperties.size(); i++ )
@@ -907,7 +821,6 @@ void CUIList::InitSortFunctors()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::RemoveFocusFromItem( int nIndex )
 {
 	if ( nIndex < 0 || nIndex >= listItems.size() )
@@ -919,7 +832,6 @@ void CUIList::RemoveFocusFromItem( int nIndex )
 		(*it)->subItems[i]->SetFocus( false );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::MoveSelectionItemUp()
 {
 	if ( nSelection < 0 || nSelection >= listItems.size() )
@@ -931,7 +843,6 @@ void CUIList::MoveSelectionItemUp()
 		MoveWindowUp( (*it)->subItems[i] );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIList::OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, float fDelta )
 {
 	if ( !IsInside( vPos ) )
@@ -943,4 +854,3 @@ bool CUIList::OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, float fDe
 	pScrollBar->SetPosition( pScrollBar->GetPosition() + fDelta*GetMouseWheelMultiplyer() );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -154,8 +154,6 @@ inline ptrdiff_t* distance_type(const _List_iterator_base&) { return 0; }
 #endif
 
 
-// Base class that encapsulates details of allocators and helps 
-// to simplify EH
 
 template <class _Tp, class _Alloc>
 class _List_base 
@@ -193,7 +191,6 @@ public:
 template <class _Tp, _STLP_DEFAULT_ALLOCATOR_SELECT(_Tp) >
 class list;
 
-// helper functions to reduce code duplication
 template <class _Tp, class _Alloc, class _Predicate> 
 void _S_remove_if(list<_Tp, _Alloc>& __that, _Predicate __pred);
 
@@ -307,7 +304,6 @@ public:
     typedef typename _Is_integer<_InputIterator>::_Integral _Integral;
     _M_insert_dispatch(__pos, __first, __last, _Integral());
   }
-  // Check whether it's an integral type.  If so, it's not an iterator.
   template<class _Integer>
   void _M_insert_dispatch(iterator __pos, _Integer __n, _Integer __x,
                           const __true_type&) {
@@ -378,8 +374,6 @@ public:
     { this->insert(begin(), __n, _Tp()); }
 
 #ifdef _STLP_MEMBER_TEMPLATES
-  // We don't need any dispatching tricks here, because insert does all of
-  // that anyway.
 # ifdef _STLP_NEEDS_EXTRA_TEMPLATE_CONSTRUCTORS
   template <class _InputIterator>
   list(_InputIterator __first, _InputIterator __last)
@@ -412,10 +406,6 @@ public:
   list<_Tp, _Alloc>& operator=(const list<_Tp, _Alloc>& __x);
 
 public:
-  // assign(), a generalized assignment member function.  Two
-  // versions: one that takes a count, and one that takes a range.
-  // The range version is a member template, so we dispatch on whether
-  // or not the type is an integer.
 
   void assign(size_type __n, const _Tp& __val) { _M_fill_assign(__n, __val); }
 
@@ -567,7 +557,6 @@ _STLP_END_NAMESPACE
 #  include <stl/_list.c>
 # endif
 
-// do a cleanup
 # undef list
 # define __list__ __FULL_NAME(list)
 
@@ -581,6 +570,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_LIST_H */
 
-// Local Variables:
-// mode:C++
-// End:

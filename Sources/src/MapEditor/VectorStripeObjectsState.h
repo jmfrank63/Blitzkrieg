@@ -8,15 +8,12 @@
 #include "InputMultiState.h"
 #include "DrawingTools.h"
 
-//#include "TabVOVSODialog.h"
 #include "..\Image\Image.h"
 #include "..\Formats\FmtMap.h"
 #include "..\RandomMapGen\Polygons_Types.h"
 #include "..\RandomMapGen\RMG_Types.h"
 #include "..\RandomMapGen\VSO_Types.h"
 
-//CVectorStripeActivePoint
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct CVectorStripeActivePoint
 {
 	int nIndex;
@@ -26,14 +23,9 @@ struct CVectorStripeActivePoint
 	bool bBegin;
 	bool isValid;
 
-	//конструкторы и операторы присваивания
 	CVectorStripeActivePoint() : nIndex( 0 ), vDifference( VNULL3 ), fOpacity( 0.0f ), bControlPoint( true ), bBegin( true ), isValid( false ) {} 
 };
 
-//Vector Stripe Object state
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//CVSOSelectState
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CVSOSelectState : private IInputState
 {
 	friend class CInputMultiState;
@@ -41,7 +33,6 @@ class CVSOSelectState : private IInputState
 	
 	class CVSOState* pParentState;
 	
-	//конструкторы и операторы присваивания
 	CVSOSelectState() : pParentState( 0 )
   {
 		NI_ASSERT_T( pParentState != 0,
@@ -53,7 +44,6 @@ class CVSOSelectState : private IInputState
 								 NStr::Format( "Invalid parameter: %x", pParentState ) );
 	}
 
-	//IState interface
 	virtual void STDCALL OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame );
 	virtual void STDCALL OnLButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame );
 	virtual void STDCALL OnLButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame );
@@ -61,7 +51,6 @@ class CVSOSelectState : private IInputState
 	virtual void STDCALL OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags, CTemplateEditorFrame* pFrame );
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CVSOEditState : public IInputState
 {
 	friend class CInputMultiState;
@@ -69,7 +58,6 @@ class CVSOEditState : public IInputState
 	
 	class CVSOState* pParentState;
 	
-	//конструкторы и операторы присваивания
 	CVSOEditState() : pParentState( 0 )
   {
 		NI_ASSERT_T( pParentState != 0,
@@ -82,7 +70,6 @@ class CVSOEditState : public IInputState
 								 NStr::Format( "Invalid parameter: %x", pParentState ) );
 	}
 
-	//IState interface
 	virtual void STDCALL OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame );
 	virtual void STDCALL OnLButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame );
 	virtual void STDCALL OnRButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame );
@@ -92,7 +79,6 @@ class CVSOEditState : public IInputState
 	virtual void STDCALL OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags, CTemplateEditorFrame* pFrame );
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CVSOAddState : public IInputState
 {
 	friend class CInputMultiState;
@@ -100,7 +86,6 @@ class CVSOAddState : public IInputState
 	
 	class CVSOState* pParentState;
 	
-	//конструкторы и операторы присваивания
 	CVSOAddState() : pParentState( 0 )
   {
 		NI_ASSERT_T( pParentState != 0,
@@ -113,7 +98,6 @@ class CVSOAddState : public IInputState
 								 NStr::Format( "Invalid parameter: %x", pParentState ) );
 	}
 
-	//IState interface
 	virtual void STDCALL OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame );
 	virtual void STDCALL OnLButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame );
 	virtual void STDCALL OnLButtonDblClk( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame );
@@ -121,7 +105,6 @@ class CVSOAddState : public IInputState
 	virtual void STDCALL OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags, CTemplateEditorFrame* pFrame );
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CVSOState : public CInputMultiState
 {
 	enum VSO_INPUT_STATES
@@ -165,11 +148,9 @@ private:
 		}
 	}
 
-	//common tools
 	CInputStateParameter stateParameter;
 	CSceneDrawTool sceneDrawTool;
 	
-	//IState interface
 	virtual void STDCALL Enter();
 	virtual void STDCALL Leave();
 	virtual void STDCALL Update();
@@ -188,7 +169,6 @@ private:
 	virtual void STDCALL Draw( CTemplateEditorFrame* pFrame );
 
 public:
-	//конструкторы и операторы присваивания
 	CVSOState() : nCurrentVSO ( INVALID_INDEX ), nSelectedIndex( INVALID_INDEX )
 	{
 		int nStateNumber = CInputStateParameter::INVALID_STATE;
@@ -208,10 +188,7 @@ public:
 		SetActiveState( STATE_SELECT );
 	}
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//roads 3D
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRoads3DState : public CVSOState
 {
 	virtual bool CreateVSO( SVectorStripeObject *pRoad3D );
@@ -226,8 +203,6 @@ class CRoads3DState : public CVSOState
 	virtual bool NeedUpdateAI() { return false; }
 };
 
-//rivers
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRiversState : public CVSOState
 {
 	virtual bool CreateVSO( SVectorStripeObject *pRiver );
@@ -241,8 +216,4 @@ class CRiversState : public CVSOState
 	virtual CMapInfo::TERRAIN_HIT_TEST_TYPE GetTerrainHitTestType();
 	virtual bool NeedUpdateAI() { return true; }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // !defined(__VectorStripeObjects__State__)
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// basement storage  
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

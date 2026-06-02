@@ -8,7 +8,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SEnumFolderStructureParameter::IsFolderRelative( const TEnumFolders &rFolders, const std::string &rszFolder, const std::string &rszRelativeFolder )
 {
 	TEnumFolders::const_iterator folderIterator = rFolders.find( rszFolder );
@@ -19,7 +18,6 @@ bool SEnumFolderStructureParameter::IsFolderRelative( const TEnumFolders &rFolde
 	return false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SEnumFolderStructureParameter::SetRelativeFolder( TEnumFolders *pFolders, const std::string &rszFolder, const std::string &rszRelativeFolder )
 {
 	NI_ASSERT_T( pFolders != 0, NStr::Format( "Wrong parameter: %x\n", pFolders ) );
@@ -28,4 +26,3 @@ void SEnumFolderStructureParameter::SetRelativeFolder( TEnumFolders *pFolders, c
 		( *pFolders )[rszFolder].insert( rszRelativeFolder );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

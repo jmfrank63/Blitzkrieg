@@ -51,7 +51,4 @@ using STLPORT::pthread_alloc;
 
 #endif /* _STLP_PTHREAD_ALLOC_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

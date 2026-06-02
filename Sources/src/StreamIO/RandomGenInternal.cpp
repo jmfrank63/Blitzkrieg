@@ -4,7 +4,6 @@
 #include "RandomGenInternal.h"
 #include "..\Misc\FileUtils.h"
 #include "..\StreamIO\StreamIOHelper.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStreamAccessor& operator>>( CStreamAccessor &stream, SRandData &rnd )
 {
 	stream >> rnd.randcnt;
@@ -15,7 +14,6 @@ CStreamAccessor& operator>>( CStreamAccessor &stream, SRandData &rnd )
 	stream >> rnd.randc;
 	return stream;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStreamAccessor& operator<<( CStreamAccessor &stream, SRandData &rnd )
 {
 	stream << rnd.randcnt;
@@ -26,17 +24,7 @@ CStreamAccessor& operator<<( CStreamAccessor &stream, SRandData &rnd )
 	stream << rnd.randc;
 	return stream;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** random generator
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define ind(mm,x)  (*(unsigned _int32 *)(( unsigned _int8 *)(mm) + ((x) & ((RANDSIZ-1)<<2))))
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define rngstep(mix,a,b,mm,m,m2,r,x) \
 { \
   x = *m;  \
@@ -44,7 +32,6 @@ CStreamAccessor& operator<<( CStreamAccessor &stream, SRandData &rnd )
   *(m++) = y = ind( mm, x ) + a + b; \
   *(r++) = b = ind( mm, y >> RANDSIZL ) + x; \
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define mix(a,b,c,d,e,f,g,h) \
 { \
    a ^= b << 11; d += a; b += c; \
@@ -56,7 +43,6 @@ CStreamAccessor& operator<<( CStreamAccessor &stream, SRandData &rnd )
    g ^= h << 8;  b += g; h += a; \
    h ^= a >> 9;  c += h; a += b; \
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void Isaac( SRandData *pRnd )
 {
 	unsigned _int32 a, b, x, y, *m, *mm, *m2, *r, *mend;
@@ -81,7 +67,6 @@ void Isaac( SRandData *pRnd )
 	pRnd->randb = b; 
 	pRnd->randa = a;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRandomGenerator::Init()
 {
 	if ( bIsReady )
@@ -92,7 +77,6 @@ void CRandomGenerator::Init()
 	SetSeed( pSeed );
 	bIsReady = TRUE;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRandomGenerator::SetSeed( IRandomGenSeed *pSeed )
 {
 	if ( CRandomGenSeed *pRGS = dynamic_cast<CRandomGenSeed*>(pSeed) )
@@ -108,7 +92,6 @@ IRandomGenSeed* CRandomGenerator::GetSeed()
 	pSeed->SetRandData( rnd );
 	return pSeed;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CRandomGenerator::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -121,29 +104,18 @@ int CRandomGenerator::operator&( IStructureSaver &ss )
 	saver.Add( 7, &rnd.randc );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRandomGenerator::Store( IDataStream *pStream )
 {
 	CStreamAccessor stream = pStream;
 	stream << bIsReady;
 	stream << rnd;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRandomGenerator::Restore( IDataStream *pStream )
 {
 	CStreamAccessor stream = pStream;
 	stream >> bIsReady;
 	stream >> rnd;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** random generator seed
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRandomGenSeed::InitVariables()
 {
 	rnd.randa = rnd.randb = rnd.randc = 0;
@@ -151,10 +123,8 @@ void CRandomGenSeed::InitVariables()
 	unsigned _int32 *r = rnd.randrsl;
 	unsigned _int32 a, b, c, d, e, f, g, h;
 	a = b = c = d = e = f = g = h = 0x9e3779b9;  // the golden ratio
-	// scramble it
 	for ( int i = 0; i < 4; ++i )
 		mix( a, b, c, d, e, f, g, h );
-	// initialize using the contents of r[] as the seed
 	for ( int i = 0; i < RANDSIZ; i += 8 )
 	{
 		a+=r[i  ]; b+=r[i+1]; c+=r[i+2]; d+=r[i+3];
@@ -163,7 +133,6 @@ void CRandomGenSeed::InitVariables()
 		m[i  ]=a; m[i+1]=b; m[i+2]=c; m[i+3]=d;
 		m[i+4]=e; m[i+5]=f; m[i+6]=g; m[i+7]=h;
 	}
-	// do a second pass to make all of the seed affect all of m_
 	for ( int i = 0; i < RANDSIZ; i += 8 )
 	{
 		a+=m[i  ]; b+=m[i+1]; c+=m[i+2]; d+=m[i+3];
@@ -172,12 +141,9 @@ void CRandomGenSeed::InitVariables()
 		m[i  ]=a; m[i+1]=b; m[i+2]=c; m[i+3]=d;
 		m[i+4]=e; m[i+5]=f; m[i+6]=g; m[i+7]=h;
 	}
-	// fill in the first set of results
 	Isaac( &rnd );
-	// prepare to use the first set of results
 	rnd.randcnt = RANDSIZ;		
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRandomGenSeed::Init()
 {
 	if ( GetGlobalVar( "fixrandom", 0 ) != 0 )
@@ -187,13 +153,11 @@ void CRandomGenSeed::Init()
 
 	InitVariables();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRandomGenSeed::InitByZeroSeed()
 {
 	Zero( rnd.randrsl );
 	InitVariables();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int N_FROM_START = 1024;
 bool CRandomGenSeed::RecFindFile( LPSTR pszFindedName, LPCSTR pszBaseMask, int nToFind, int* pnTotFinded )
 {
@@ -220,13 +184,8 @@ bool CRandomGenSeed::RecFindFile( LPSTR pszFindedName, LPCSTR pszBaseMask, int n
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// The purpose of this func is to fill randrsl[RANDSIZ] arrays
-// with initial random values
-// It's uses first RANDSIZ values from random file for this
 void CRandomGenSeed::FillRandRsl()
 {
-	// find first drive
 	char buf[1024];
 	char pszMaskToFindFiles[256];
 	int nSize = GetLogicalDriveStrings( sizeof(buf), buf );
@@ -244,7 +203,6 @@ void CRandomGenSeed::FillRandRsl()
 	}
 	if ( i == nSize )
 		return; // cannot find any hd, run without initialization
-	//
 	srand( timeGetTime() );
 	char pszFindedName[256];
 	BOOL bSuccess = FALSE;
@@ -293,7 +251,6 @@ void CRandomGenSeed::FillRandRsl()
 			rnd.randrsl[i] ^= rand();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CRandomGenSeed::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -305,7 +262,6 @@ int CRandomGenSeed::operator&( IStructureSaver &ss )
 	saver.Add( 6, &rnd.randc );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CRandomGenSeed::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -317,16 +273,13 @@ int CRandomGenSeed::operator&( IDataTree &ss )
 	saver.AddRawData( "RandMem", &(rnd.randmem[0]), sizeof(rnd.randmem) );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRandomGenSeed::Store( IDataStream *pStream )
 {
 	CStreamAccessor stream = pStream;
 	stream << rnd;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRandomGenSeed::Restore( IDataStream *pStream )
 {
 	CStreamAccessor stream = pStream;
 	stream >> rnd;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,5 +1,3 @@
-// FrameTree.cpp : implementation file
-//
 
 #include "stdafx.h"
 #include "FrameTree.h"
@@ -11,8 +9,6 @@ static char THIS_FILE[] = __FILE__;
 #endif
 #define ID_TREE_LIST_HEADER 3
 #define ID_TREE_LIST_CTRL   1
-/////////////////////////////////////////////////////////////////////////////
-// CFrameTree
 const int CFrameTree::SCROLL_BAR_SIZE = 18;
 CFrameTree::CFrameTree() : ifInit(false), bCreateControls( false )
 {
@@ -30,24 +26,18 @@ CFrameTree::~CFrameTree()
 
 
 BEGIN_MESSAGE_MAP(CFrameTree, CWnd)
-	//{{AFX_MSG_MAP(CFrameTree)
 	ON_WM_PAINT()
 	ON_WM_SIZE()
 	ON_WM_CTLCOLOR()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CFrameTree message handlers
 
 void CFrameTree::OnPaint() 
 {
 	CPaintDC dc(this); // device context for painting
 	
-	// TODO: Add your message handler code here
 
-	// Do not call CWnd::OnPaint() for painting messages
 /*	{
 		RECT r;
 		GetClientRect( &r) ;
@@ -59,7 +49,6 @@ void CFrameTree::OnPaint()
 
 BOOL CFrameTree::Create(LPCTSTR lpszClassName, LPCTSTR lpszWindowName, DWORD dwStyle, const RECT& rect, CWnd* pParentWnd, UINT nID, CCreateContext* pContext) 
 {
-	// TODO: Add your specialized code here and/or call the base class
 	bool res = CWnd::Create(lpszClassName, lpszWindowName, dwStyle, rect, pParentWnd, nID, pContext);
 	Init();
 	ifInit = true;
@@ -71,7 +60,6 @@ void CFrameTree::Init()
 	RECT r;
 	GetClientRect( &r) ;
 
-	// create the header
 	CRect m_headerRect;
 	m_headerRect.left = m_headerRect.top = -1;
 	m_headerRect.right = r.right;
@@ -85,7 +73,6 @@ void CFrameTree::Init()
 
 BOOL CFrameTree::OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult) 
 {
-	// TODO: Add your specialized code here and/or call the base class
 	HD_NOTIFY *pHDN = (HD_NOTIFY*)lParam;
 	if((wParam == ID_TREE_LIST_HEADER) && (pHDN->hdr.code == HDN_ITEMCHANGED))
 	{
@@ -112,7 +99,6 @@ BOOL CFrameTree::OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult)
 
 BOOL CFrameTree::PreTranslateMessage(MSG* pMsg) 
 {
-	// TODO: Add your specialized code here and/or call the base class
 	return CWnd::PreTranslateMessage(pMsg);
 }
 
@@ -131,12 +117,9 @@ void CFrameTree::OnSize(UINT nType, int cx, int cy)
 		
 		m_tree.m_wndHeader.MoveWindow( 0, 0, cx, SCROLL_BAR_SIZE );
 	}
-	// TODO: Add your message handler code here
 	
 }
 HBRUSH CFrameTree::OnCtlColor( CDC* pDC, CWnd* pWnd, UINT nCtlColor )
 {
-//		pDC->SetBkColor( 0x00323232 );
-//		return (HBRUSH)(m_pEditBkBrush->GetSafeHandle());    
 	return CWnd::OnCtlColor( pDC, pWnd, nCtlColor );
 }

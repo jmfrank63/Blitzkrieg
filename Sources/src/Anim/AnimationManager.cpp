@@ -4,15 +4,6 @@
 
 #include "SpriteAnimation.h"
 #include "MeshAnimation.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// **  animation manager
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ISpriteAnimation* CAnimationManager::GetSpriteAnimation( const char *pszName )
 {
 	const std::string szName = pszName;
@@ -30,24 +21,19 @@ ISpriteAnimation* CAnimationManager::GetSpriteAnimation( const char *pszName )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IMeshAnimation* CAnimationManager::GetMeshAnimation( const char *pszName )
 {
 	std::string szName = pszName;
-	// get shared skeleton data
 	SMeshSkeletonData *pSkeletonData = skeletons.Get( szName );
 	if ( pSkeletonData == 0 )
 		return 0;
 	SMeshAnimationData *pMeshAnimation = meshanims.Get( szName );
-	// create skeleton
 	CMeshSkeleton *pSkeleton = CreateObject<CMeshSkeleton>( ANIM_MESH_SKELETON );
 	pSkeleton->Init( pSkeletonData );
-	// create animation system
 	CMeshAnimation *pAnim = CreateObject<CMeshAnimation>( ANIM_MESH_ANIMATION );
 	pAnim->Init( pSkeleton, pMeshAnimation );
 	return pAnim;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAnimationManager::Clear( const ISharedManager::EClearMode eMode, const int nUsage, const int nAmount )
 { 
 	if ( eMode == ISharedManager::CLEAR_ALL ) 
@@ -65,7 +51,6 @@ void CAnimationManager::Clear( const ISharedManager::EClearMode eMode, const int
 		meshanims.ClearUnreferencedResources(); 
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CAnimationManager::operator&( IStructureSaver &ss )
 {
 	sprites.Serialize( &ss );
@@ -74,4 +59,3 @@ int CAnimationManager::operator&( IStructureSaver &ss )
 	complexsprites.Serialize( &ss );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

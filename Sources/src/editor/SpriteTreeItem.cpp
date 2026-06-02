@@ -34,7 +34,6 @@ void CSpriteTreeRootItem::ComposeAnimations( const char *pszProjectFileName, con
 	CVectorOfStrings fileNameVector;
 	CVectorOfStrings invalidNameVector;
 
-	//всего одна анимация
 	vector<SAnimationDesc> animDescVector( 1 );
 	SAnimationDesc &animDesc = animDescVector[0];
 	if ( bSetCycledFlag )
@@ -47,7 +46,6 @@ void CSpriteTreeRootItem::ComposeAnimations( const char *pszProjectFileName, con
 	animDesc.ptFrameShift = pSpritesItem->GetPosition();
 	animDesc.szName = "effect";
 
-	//Заполняем вектор directions
 	fileNameVector.resize( nLastSprite );
 	animDesc.dirs.resize( 1 );
 
@@ -98,7 +96,6 @@ void CSpriteTreeRootItem::ComposeAnimations( const char *pszProjectFileName, con
 		AfxMessageBox( szErrorStr );
 	}
 
-	//если вообще ничего нету, то выходим
 	if ( k == 0 )
 	{
 		AfxMessageBox( "Error: no valid animations" );
@@ -114,7 +111,6 @@ void CSpriteTreeRootItem::ComposeAnimations( const char *pszProjectFileName, con
 		return;
 	}
 
-	//Пока сохраняю только 1.tga, 1.san файлы
 	CPtr<IDataStorage> pSaveStorage = CreateStorage( pszResultingDir, STREAM_ACCESS_WRITE, STORAGE_TYPE_FILE );
 	std::string szTemp = pszResultingDir;
 	szTemp += "1";
@@ -139,7 +135,6 @@ FILETIME CSpriteTreeRootItem::FindMaximalSourceTime( const char *pszProjectFileN
 	CSpritesItem *pSpritesItem = static_cast<CSpritesItem *>( GetChildItem( E_SPRITES_ITEM ) );
 	CVectorOfStrings fileNameVector;
 
-	//всего одна анимация
 	string szDirName;
 	szDirName = pSpritesItem->GetDirName();
 	if ( IsRelatedPath( szDirName.c_str() ) )
@@ -157,11 +152,9 @@ FILETIME CSpriteTreeRootItem::FindMaximalSourceTime( const char *pszProjectFileN
 			fileNameVector.push_back( szTempFileName );
 	}
 
-	//если вообще ничего нету, то выходим
 	if ( fileNameVector.empty() )
 		return zero;
 	
-	//Проходим по всем файлам и находим максимальное время изменения
 	FILETIME nMaxTime;
 	nMaxTime.dwHighDateTime = 0;
 	nMaxTime.dwLowDateTime = 0;
@@ -183,7 +176,6 @@ void CSpritePropsItem::InitDefaultValues()
 void CSpritePropsItem::MyLButtonClick()
 {
 /*
-	//В ThumbList отображаю Animations соответствующие этой папке
 	CTreeItem *pPapa = GetParentTreeItem();
 	NI_ASSERT( pPapa->GetItemType() == E_UNIT_ANIMATION_PROPS_ITEM );
 	
@@ -191,7 +183,6 @@ void CSpritePropsItem::MyLButtonClick()
 	g_frameManager.GetAnimationsFrame()->SetActiveAnimItem( pAnimProps );
 */
 
-	//В SelectedThumbList items выделяю item соответствующий this
 	CSpriteFrame *pFrame = static_cast<CSpriteFrame *> ( g_frameManager.GetFrame( CFrameManager::E_SPRITE_FRAME ) );
 	pFrame->SelectItemInSelectedThumbList( (long) this );
 }
@@ -202,7 +193,6 @@ void CSpritePropsItem::MyKeyDown( int nChar )
 	{
 		case VK_DELETE:
 /*
-			//Смотрим какой frame будет следующим выделенным в дереве и выделяем его в SelectedThumbList
 			HTREEITEM hNextSibling = pTreeCtrl->GetNextItem( hItem, TVGN_NEXT );
 			if ( hNextSibling )
 			{
@@ -211,7 +201,6 @@ void CSpritePropsItem::MyKeyDown( int nChar )
 					g_frameManager.GetFrame( CFrameManager::E_SPRITE_FRAME )->SelectItemInSelectedThumbList( (DWORD) pNextSelItem );
 			}
 */
-			//Убиваем этот frame
 			CSpriteFrame *pFrame = static_cast<CSpriteFrame *> ( g_frameManager.GetFrame( CFrameManager::E_SPRITE_FRAME ) );
 			pFrame->DeleteFrameInSelectedList( (DWORD) this );
 			DeleteMeInParentTreeItem();
@@ -280,7 +269,6 @@ bool CSpritesItem::CopyItemTo( CTreeItem *pToItem )
 	if ( !CTreeItem::CopyItemTo( pTo ) )
 		return false;
 
-	//Теперь копируем список CSpritePropsItem
 	pTo->RemoveAllChilds();
 	for ( CTreeItemList::iterator it=treeItemList.begin(); it!=treeItemList.end(); ++it )
 	{
@@ -311,9 +299,7 @@ void CSpritesItem::UpdateItemValue( int nItemId, const CVariant &value )
 	
 	if ( nItemId == 1 )
 	{
-		//Изменилось значение директории, загружаем все картинки из этой диры в AllThumbList
 /*
-		//Проверяем, что этот TreeItem выделен в дереве, иначе делаю его выделенным
 		HTREEITEM hSelected = pTreeCtrl->GetSelectedItem();
 		if ( hSelected != hItem )
 		{
@@ -324,7 +310,6 @@ void CSpritesItem::UpdateItemValue( int nItemId, const CVariant &value )
 
 		if ( !IsRelatedPath( value ) )
 		{
-			//Тут вычисляется относительный путь, относительно файла с проектом
 			string szProjectName = g_frameManager.GetFrame( CFrameManager::E_SPRITE_FRAME )->GetProjectFileName();
 			string szValue = value;
 			string szRelatedPath;
@@ -358,5 +343,4 @@ void CSpritesItem::UpdateItemValue( int nItemId, const CVariant &value )
 
 void CSpritesItem::MyLButtonClick()
 {
-//	g_frameManager.GetFrame( CFrameManager::E_SPRITE_FRAME )->SetActiveSpritesItem( this );
 }

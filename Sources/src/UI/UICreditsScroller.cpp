@@ -1,19 +1,15 @@
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "StdAfx.h"
 
 #include "UICreditsScroller.h"
 #include "..\Input\Input.h"
 #include "..\GameTT\CommonId.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CUICreditsScroller::CUICreditsScroller()
 {
 	bWorking = false;
 	nLastUpdate = 0;
 	nCurrOffset = -511;
 	nMaxOffset = 0;
-	//pGFXText = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUICreditsScroller::Visit( interface ISceneVisitor *pVisitor )
 {
 	if ( !nCmdShow || !states[0].pGfxText )
@@ -25,16 +21,13 @@ void CUICreditsScroller::Visit( interface ISceneVisitor *pVisitor )
 		pGFXText->EnableRedLine( false );
 		nMaxOffset = pGFXText->GetNumLines() * pGFXText->GetLineSpace();
 	}
-	// shadow
 	wndRect.x1 += 2;
 	wndRect.x2 += 2;
 	pVisitor->VisitUIText( pGFXText, wndRect, -nCurrOffset + 2, 0xff000000, FNT_FORMAT_CENTER );
-	// main text
 	wndRect.x1 -= 2;
 	wndRect.x2 -= 2;
 	pVisitor->VisitUIText( pGFXText, wndRect, -nCurrOffset, dwTextColor, FNT_FORMAT_CENTER );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUICreditsScroller::Draw( IGFX *pGFX )
 {
 	NI_ASSERT_SLOW_T( false, "Can't user Draw() directly - use visitor pattern" );
@@ -59,7 +52,6 @@ void CUICreditsScroller::Draw( IGFX *pGFX )
 	wndRect.x2 -= 2;
 	pGFX->DrawText( pGFXText, wndRect, -nCurrOffset, FNT_FORMAT_CENTER );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUICreditsScroller::Update( const NTimer::STime &currTime )
 {
 	int nTimePassed = currTime - nLastUpdate;
@@ -73,7 +65,6 @@ bool CUICreditsScroller::Update( const NTimer::STime &currTime )
 	nLastUpdate += nTimePassed ;
 	return CSimpleWindow::Update( currTime );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUICreditsScroller::ShowWindow( int _nCmdShow )
 {
 	CSimpleWindow::ShowWindow( _nCmdShow );
@@ -88,4 +79,3 @@ void CUICreditsScroller::ShowWindow( int _nCmdShow )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

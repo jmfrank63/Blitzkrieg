@@ -1,10 +1,7 @@
 #ifndef __SMOKE_SCREEN_H__
 #define __SMOKE_SCREEN_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "StaticObject.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSmokeScreen : public CExistingObject
 {
 	OBJECT_COMPLETE_METHODS( CSmokeScreen );
@@ -19,7 +16,6 @@ class CSmokeScreen : public CExistingObject
 	NTimer::STime nextSegmTime;
 	bool bTransparencySet;
 
-	//
 	void OctupleTrace( const int x, const int y, const bool bAdd );
 	void TraceToPoint( const int x, const int y, const bool bAdd );
 	void Trace( const bool bAdd );
@@ -35,7 +31,6 @@ public:
 	virtual void Segment();
 	virtual const NTimer::STime GetNextSegmentTime() const { return nextSegmTime; }
 
-	// сдетонировать, если при наезде данного юнита мина взрывается; true - если сдетонировала
 	virtual void TakeDamage( const float fDamage, const bool bFromExplosion, const int nPlayerOfShoot, CAIUnit *pShotUnit ) { }
 	virtual void Die( const float fDamage ) { }
 	virtual EStaticObjType GetObjectType() const { return ESOT_SMOKE_SCREEN; }
@@ -62,5 +57,4 @@ public:
 	virtual const WORD GetDir() const { return 0; }
 	virtual bool CanBeMovedTo( const CVec2 &newCenter ) const { return false; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __SMOKE_SCREEN_H__

@@ -32,16 +32,8 @@
 
 _STLP_BEGIN_NAMESPACE
 
-// ----------------------------------------------------------------------
 
-// Class basic_ios, a subclass of ios_base.  The only important difference
-// between the two is that basic_ios is a class template, parameterized
-// by the character type.  ios_base exists to factor out all of the
-// common properties that don't depend on the character type.
 
-// The second template parameter, _Traits, defaults to char_traits<_CharT>.
-// The default is declared in header <iosfwd>, and it isn't declared here
-// because C++ language rules do not allow it to be declared twice.
 
 template <class _CharT, class _Traits>
 class basic_ios : public ios_base {
@@ -74,7 +66,6 @@ public:                         // Members from clause 27.4.4.2
   basic_streambuf<_CharT, _Traits>*
   rdbuf(basic_streambuf<char_type, traits_type>*);
 
-  // Copies __x's state to *this.
   basic_ios<_CharT, _Traits>& copyfmt(const basic_ios<_CharT, _Traits>& __x);
 
   char_type fill() const { return _M_fill; }
@@ -85,7 +76,6 @@ public:                         // Members from clause 27.4.4.2
   }
 
 public:                         // Members from 27.4.4.3.  These four functions
-                                // can almost be defined in ios_base.
 
   void clear(iostate __state = goodbit) {
     _M_clear_nothrow(this->rdbuf() ? __state : iostate(__state|ios_base::badbit));
@@ -105,7 +95,6 @@ public:                         // Locale-related member functions.
   inline char narrow(_CharT, char) const ;
   inline _CharT widen(char) const; 
 
-  // Helper function that makes testing for EOF more convenient.
   static bool _STLP_CALL _S_eof(int_type __c) {
     const int_type __eof = _Traits::eof();
     return _Traits::eq_int_type(__c, __eof);
@@ -118,8 +107,6 @@ protected:
 
 public:
   
-  // Helper function used in istream and ostream.  It is called only from
-  // a catch clause.
   void _M_handle_exception(ios_base::iostate __flag);
   
 private:                        // Data members
@@ -172,9 +159,6 @@ _STLP_END_NAMESPACE
 #  include <stl/_ios.c>
 # endif
 
-// The following is needed to ensure that the inlined _Stl_loc_init functions
-// that ios_base::_Loc_init::_Loc_init() calls are found eventually.
-// Otherwise, undefined externs may be caused.
 
 #if defined(__BORLANDC__) && defined(_RTLDLL)
 # ifndef _STLP_INTERNAL_NUM_PUT_H
@@ -193,7 +177,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_IOS */
 
-// Local Variables:
-// mode:C++
-// End:
 

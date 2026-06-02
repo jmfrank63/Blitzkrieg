@@ -2,20 +2,17 @@
 #define __SOLDIER_STATES_H__
 
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "UnitStates.h"
 #include "StatesFactory.h"
 #include "CommonStates.h"
 #include "DamageToEnemyUpdater.h"
 #include "RectTiles.h"
 #include "..\Common\Actions.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CBuilding;
 class CEntrenchment;
 class CMineStaticObject;
 class CMilitaryCar;
 class CFormation;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierStatesFactory : public IStatesFactory
 {
 	OBJECT_COMPLETE_METHODS( CSoldierStatesFactory );
@@ -27,10 +24,8 @@ public:
 	virtual interface IUnitState* ProduceRestState( class CQueueUnit *pUnit );
 
 	virtual bool CanCommandBeExecuted( class CAICommand *pCommand );
-	// for Saving/Loading of static members
 	friend class CStaticMembers;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierRestState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CSoldierRestState );	
@@ -59,10 +54,8 @@ public:
 
 	class CAIUnit* GetTarget() const { return 0; }
 
-	// в 1 - некоторое малое время, чтобы произошло обновление, не 0 - т.к. это говорит о первом запуске сегмента
 	void SetNullLastMoveTime() { nextMove = 1; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierAttackState : public IUnitAttackingState, public CStandartBehaviour
 {
 	OBJECT_COMPLETE_METHODS( CSoldierAttackState );
@@ -91,15 +84,11 @@ class CSoldierAttackState : public IUnitAttackingState, public CStandartBehaviou
 	CDamageToEnemyUpdater damageToEnemyUpdater;
 	CRndRunUpToEnemy runUpToEnemy;
 
-	//
 	bool IsBruteMoving();
 	interface IStaticPath* BestSidePath();
 
-	// атака в лоб - ехать на юнит и, когда можно стрелять, стрелять
 	void AnalyzeBruteMovingPosition();
-	// идти на юнит до какого-то до него расстояния, а потом зайти со стороны
 	void AnalyzeMovingPosition();
-	// зайти на юнит со стороны
 	void AnalyzeMovingToSidePosition();
 
 	void FireNow();
@@ -124,7 +113,6 @@ public:
 	virtual bool IsAttacksUnit() const { return true; }
 	virtual class CAIUnit* GetTargetUnit() const { return GetTarget(); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierMoveToState : public IUnitState, public CFreeFireManager
 {
 	OBJECT_COMPLETE_METHODS( CSoldierMoveToState );
@@ -152,7 +140,6 @@ public:
 	
 	virtual EUnitStateNames GetName() { return EUSN_MOVE; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierTurnToPointState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CSoldierTurnToPointState );
@@ -176,7 +163,6 @@ public:
 	
 	virtual EUnitStateNames GetName() { return EUSN_TURN_TO_POINT; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierMoveByDirState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CSoldierMoveByDirState );
@@ -184,7 +170,6 @@ class CSoldierMoveByDirState : public IUnitState
 
 	CAIUnit *pUnit;
 
-	//
 	void Init( class CAIUnit *pUnit, const CVec2 &vTarget );
 public:
 	static IUnitState* Instance( class CAIUnit *pUnit, const CVec2 &vTarget );
@@ -198,10 +183,8 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 
-	// for Saving/Loading of static members
 	friend class CStaticMembers;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierEnterState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CSoldierEnterState );
@@ -217,7 +200,6 @@ class CSoldierEnterState : public IUnitState
 	
 	int nEfforts;
 
-	//
 	bool SetPathForRunUp();
 public:
 	static IUnitState* Instance( class CAIUnit *pUnit, class CBuilding *pBuilding );
@@ -232,7 +214,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierEnterEntrenchmentState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CSoldierEnterEntrenchmentState );
@@ -244,7 +225,6 @@ class CSoldierEnterEntrenchmentState : public IUnitState
 	CAIUnit *pUnit;
 	CPtr<CEntrenchment> pEntrenchment;
 
-	//
 	bool SetPathForRunIn();
 	void EnterToEntrenchment();
 public:
@@ -260,7 +240,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierAttackCommonStatObjState : public CCommonAttackCommonStatObjState
 {
 	OBJECT_COMPLETE_METHODS( CSoldierAttackCommonStatObjState );
@@ -283,7 +262,6 @@ public:
 	virtual const CVec2 GetPurposePoint() const;
 	virtual void Segment();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierParadeState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CSoldierParadeState );
@@ -305,7 +283,6 @@ public:
 
 	friend class CStaticMembers;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierPlaceMineNowState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CSoldierPlaceMineNowState );
@@ -328,7 +305,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierClearMineRadiusState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CSoldierClearMineRadiusState );
@@ -343,7 +319,6 @@ class CSoldierClearMineRadiusState : public IUnitState
 	CVec2 clearCenter;
 	NTimer::STime beginAnimTime;
 
-	//
 	bool FindMineToClear();
 public:
 	static IUnitState* Instance( class CAIUnit *pUnit, const CVec2 &clearCenter );
@@ -357,7 +332,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const { return clearCenter; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierAttackUnitInBuildingState : public CCommonAttackUnitInBuildingState
 {
 	OBJECT_COMPLETE_METHODS( CSoldierAttackUnitInBuildingState );
@@ -382,7 +356,6 @@ public:
 	virtual bool IsAttackingState() const { return true; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierEnterTransportNowState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CSoldierEnterTransportNowState );
@@ -393,7 +366,6 @@ class CSoldierEnterTransportNowState : public IUnitState
 
 	CAIUnit *pUnit;
 	CPtr<CMilitaryCar> pTransport;
-	// последний апдейт траектории (нужно для движущегося транспорта)
 	NTimer::STime timeLastTrajectoryUpdate;
 	CVec2 vLastTransportCenter;
 	WORD wLastTransportDir;
@@ -409,8 +381,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//state of soldiers that are dropped from carrier
 class CSoldierParaDroppingState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CSoldierParaDroppingState );
@@ -446,7 +416,6 @@ public:
 		virtual EUnitStateNames GetName() { return EUSN_PARTROOP; }
 
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierUseSpyglassState : public IUnitState, public CStandartBehaviour
 {
 	OBJECT_COMPLETE_METHODS( CSoldierUseSpyglassState );
@@ -455,7 +424,6 @@ class CSoldierUseSpyglassState : public IUnitState, public CStandartBehaviour
 	CSoldier *pSoldier;
 	CVec2 vPoint2Look;
 
-	//
 	void SetLookAnimation();
 public:
 	static IUnitState* Instance( class CSoldier *pSoldier, const CVec2 &point );
@@ -469,8 +437,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// юнит должен атаковать взвод. по 1 солдату.
 class CSoldierAttackFormationState: public IUnitAttackingState
 {
 	OBJECT_COMPLETE_METHODS( CSoldierAttackFormationState );
@@ -494,7 +460,6 @@ public:
 	virtual bool IsAttacksUnit() const { return true; }
 	virtual class CAIUnit* GetTargetUnit() const { return 0; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierIdleState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CSoldierIdleState );
@@ -513,10 +478,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// для атаки самолетов. в этом стейте юнит следит не приближаются ли
-// к нему наземные цели. если какая-то цель наземная появилась в радиусе видимости,
-// то происходит переключение на нее.
 class CAviation;
 class CSoldierAttackAviationState : public IUnitAttackingState
 {
@@ -588,7 +549,6 @@ public:
 	virtual bool IsAttacksUnit() const { return true; }
 	virtual class CAIUnit* GetTargetUnit() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierFireMoraleShellState : public IUnitState
 {
 	DECLARE_SERIALIZE;
@@ -609,7 +569,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const { return CVec2( -1.0f, -1.0f ); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierUseState : public IUnitState
 {
 	DECLARE_SERIALIZE;
@@ -630,5 +589,4 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_USE; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __SOLDIER_STATES_H__

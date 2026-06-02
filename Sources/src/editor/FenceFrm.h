@@ -23,10 +23,8 @@ public:
 	CFenceFrame();
 	virtual ~CFenceFrame();
 
-// Attributes
 public:
 
-// Operations
 public:
 	virtual void GFXDraw();
 	virtual void ShowFrameWindows( int nCommand );
@@ -51,14 +49,9 @@ public:
 	int GetFreeFenceIndex();
 	int GetMaxFenceIndex();
 	
-// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CFenceFrame)
 protected:
 	virtual LRESULT WindowProc(UINT message, WPARAM wParam, LPARAM lParam);
-	//}}AFX_VIRTUAL
 
-// Implementation
 private:
 	CFenceCommonPropsItem *m_pActiveCommonPropsItem;
 	CFenceInsertItem *m_pActiveInsertItem;
@@ -95,9 +88,7 @@ protected:
 	
 	virtual bool ExportFrameData( IDataTree *pDT, const char *pszProjectName, const char *pszResultFileName, CTreeItem *pRootItem );
 	
-	// Generated message map functions
 protected:
-	//{{AFX_MSG(CFenceFrame)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnMoveObject();
 	afx_msg void OnUpdateMoveObject(CCmdUI* pCmdUI);
@@ -112,13 +103,9 @@ protected:
 	afx_msg void OnUpdateDrawTransparence(CCmdUI* pCmdUI);
 	afx_msg void OnSetFocusTranseparence();
 	afx_msg void OnChangeTranseparence();
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 
-/////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif		//__FENCEFRM_H__

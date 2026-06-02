@@ -57,7 +57,6 @@ public:
 
 	virtual bool CopyItemTo( CTreeItem *pTo );
 
-	//Получение внутренних параметров
 	const char *GetDirName();
 	int GetFrameTime();
 	CVec2 GetPosition();

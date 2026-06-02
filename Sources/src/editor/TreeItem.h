@@ -15,8 +15,6 @@ struct SProp
 	DomenID nDomenType;				// ��� ��������
 	CVariant value;						// ��������
 	vector<string> szStrings; // ����� � ���������� ��� ���� DT_COMBO
-														// ��� DT_BROWSE ������ ������� ������� - ��������� ����������, ������ ������� - ������
-	//
 	int operator&( IDataTree &ss );
 };
 typedef vector<SProp> CPropVector;
@@ -24,7 +22,6 @@ typedef vector<SProp> CPropVector;
 
 enum ETreeItemType
 {
-	//Note, ��� ID ������ �������� ��� �� ����� �������� ������ saves
 	
 	E_UNKNOWN_ITEM	= 0,
 	EDITOR_TREE_BASE_VALUE				= 0x11000000,
@@ -102,7 +99,6 @@ enum ETreeItemType
 	E_WEAPON_EFFECT_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 87,
 	E_WEAPON_FLASH_PROPS_ITEM			= EDITOR_TREE_BASE_VALUE + 88,
 	
-	//89 ������, �� ����
 	E_BUILDING_ROOT_ITEM					= EDITOR_TREE_BASE_VALUE + 91,	//ROOT item ��� building composer
 	E_BUILDING_DEFENCES_ITEM			= EDITOR_TREE_BASE_VALUE + 89,
 	E_BUILDING_DEFENCE_PROPS_ITEM	= EDITOR_TREE_BASE_VALUE + 90,
@@ -226,7 +222,6 @@ enum ETreeItemType
 	E_CAMPAIGN_TEMPLATES_ITEM			= EDITOR_TREE_BASE_VALUE + 254,
 	E_CAMPAIGN_TEMPLATE_PROPS_ITEM= EDITOR_TREE_BASE_VALUE + 255,
 	
-	//���������� ��� building, ����� �� ������
 	E_BUILDING_SUMMER_PROPS_ITEM 	= EDITOR_TREE_BASE_VALUE + 261,
 	E_BUILDING_WINTER_PROPS_ITEM 	= EDITOR_TREE_BASE_VALUE + 262,
 	E_BUILDING_GRAPHICW1_PROPS_ITEM = EDITOR_TREE_BASE_VALUE + 263,
@@ -241,13 +236,11 @@ enum ETreeItemType
 	E_BUILDING_SMOKES_ITEM				= EDITOR_TREE_BASE_VALUE + 260,
 	E_BUILDING_SMOKE_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 272,
 	
-	//���������� ��� objects, ����� �� ������
 	E_OBJECT_GRAPHIC1_PROPS_ITEM	= EDITOR_TREE_BASE_VALUE + 273,
 	E_OBJECT_GRAPHICW1_PROPS_ITEM = EDITOR_TREE_BASE_VALUE + 274,
 	E_OBJECT_EFFECTS_ITEM					= EDITOR_TREE_BASE_VALUE + 275,
 	E_OBJECT_GRAPHICA1_PROPS_ITEM = EDITOR_TREE_BASE_VALUE + 276,
 
-	//���������� ��� weapons, ����� �� ������
 	E_WEAPON_CRATERS_ITEM					= EDITOR_TREE_BASE_VALUE + 281,
 	E_WEAPON_CRATER_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 282,
 
@@ -265,14 +258,12 @@ enum ETreeItemType
 	E_MEDAL_PICTURE_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 312,
 	E_MEDAL_TEXT_PROPS_ITEM				= EDITOR_TREE_BASE_VALUE + 313,
 	
-	//���������� ��� TileSet composer, ������ �� �������
 	E_TILESET_TILES_ITEM					= EDITOR_TREE_BASE_VALUE + 320,
 	E_TILESET_LSOUNDS_ITEM				= EDITOR_TREE_BASE_VALUE + 321,
 	E_TILESET_ASOUNDS_ITEM				= EDITOR_TREE_BASE_VALUE + 322,
 	E_TILESET_LSOUND_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 323,
 	E_TILESET_ASOUND_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 324,
 	
-	//���������� ��� Bridge composer, ������ �� �������
 	E_BRIDGE_FIRE_POINTS_ITEM					= EDITOR_TREE_BASE_VALUE + 330,
 	E_BRIDGE_FIRE_POINT_PROPS_ITEM		= EDITOR_TREE_BASE_VALUE + 331,
 	E_BRIDGE_DIR_EXPLOSIONS_ITEM			= EDITOR_TREE_BASE_VALUE + 332,
@@ -280,7 +271,6 @@ enum ETreeItemType
 	E_BRIDGE_SMOKES_ITEM							= EDITOR_TREE_BASE_VALUE + 334,
 	E_BRIDGE_SMOKE_PROPS_ITEM					= EDITOR_TREE_BASE_VALUE + 335,
 
-	//���������� ��� Particle composer, ������ �� �������
 	E_PARTICLE_RAND_LIFE_ITEM			= EDITOR_TREE_BASE_VALUE + 340,
 	E_PARTICLE_RAND_SPEED_ITEM		= EDITOR_TREE_BASE_VALUE + 341,
 	E_PARTICLE_COMPLEX_ITEM				= EDITOR_TREE_BASE_VALUE + 342,
@@ -352,7 +342,6 @@ public:
 	CTreeItem *GetParentTreeItem();
 	CTreeItem *GetSiblingItem( int nType, int nIndex = 0 );
 
-	//�������� �� ������� TreeItem
 	void AddChild( CTreeItem *pItem );				//��������� item � ������ treeItemList � � ������ pTreeCtrl
 	void RemoveChild( CTreeItem *pItem );			//������� item �� ������ � �� ������
 	void RemoveAllChilds();										//������� ��� ���������� item �� ������ � ������
@@ -375,7 +364,6 @@ protected:
 	void InsertNewTreeItem( CTreeItem *pItem );	//���������� ��������� item � ������
 
 	virtual void InitDefaultValues();		//���������� �� ���� �������������, ��� ���������������� defaultValues
-	//����� � ���� ������� ��������� defaultChilds ��� ������� ����������� ������ ���������� �� ������������.
 
 public:
 	virtual void UpdateItemValue( int nItemId, const CVariant &value );

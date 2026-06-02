@@ -1,6 +1,3 @@
-// PlaneFlightExecutor.h: interface for the CPlaneFlightExecutor class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_PLANEFLIGHTEXECUTOR_H__C3415880_828B_4197_B70E_467D6502407D__INCLUDED_)
 #define AFX_PLANEFLIGHTEXECUTOR_H__C3415880_828B_4197_B70E_467D6502407D__INCLUDED_

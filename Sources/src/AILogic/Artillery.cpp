@@ -25,9 +25,7 @@
 #include "..\Common\AdditionalActions.h"
 #include "..\Scene\Scene.h"
 
-// for profiling
 #include "TimeCounter.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CSupremeBeing theSupremeBeing;
 extern NTimer::STime curTime;
 extern CUpdater updater;
@@ -40,27 +38,22 @@ extern CMultiplayerInfo theMPInfo;
 extern CDifficultyLevel theDifficultyLevel;
 
 extern CTimeCounter timeCounter;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CArtillery );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CArtillery::~CArtillery()
 {
 	if ( bBulletStorageVisible && pBulletStorage.IsValid() )
 		HideAmmoBox();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAIUnit *CArtillery::GetHookingTransport()
 {
 	if ( IsBeingHooked() )
 		return pHookingTransport;
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CArtillery::IsBeingHooked() const
 {
 	return IsValidObj( pHookingTransport );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::SetBeingHooked( class CAIUnit *pUnit )
 {
 	pHookingTransport = pUnit;
@@ -75,21 +68,16 @@ void CArtillery::SetBeingHooked( class CAIUnit *pUnit )
 		updater.Update( ACTION_NOTIFY_STATE_CHANGED, this, ECS_UNHOOK_CANNON );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CUnitGuns* CArtillery::GetGuns() const 
 { 
 	return pGuns; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CUnitGuns* CArtillery::GetGuns() 
 { 
 	return pGuns; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::CreateAmmoBox()
 {
-	// у пушки должен быть ящик с патронами
-	// пока "Barrel"
 	CPtr<IObjectsDB> pIDB = GetSingleton<IObjectsDB>();
 
 	CGDBPtr<SGDBObjectDesc> pDesc = pIDB->GetDesc( "ShellBox02" );
@@ -102,7 +90,6 @@ void CArtillery::CreateAmmoBox()
 	pBulletStorage->MoveTo( GetAmmoBoxCoordinates() );
 	bBulletStorageVisible = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::UpdateAmmoBoxVisibility()
 {
 	if ( IsVisibleByPlayer() )
@@ -114,7 +101,6 @@ void CArtillery::UpdateAmmoBoxVisibility()
 		if ( bBulletStorageVisible )
 			HideAmmoBox();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::ShowAmmoBox()
 {
 	NI_ASSERT_T( pBulletStorage != 0, "Ammo box isn't created" );
@@ -128,7 +114,6 @@ void CArtillery::ShowAmmoBox()
 	
 	bBulletStorageVisible = true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::HideAmmoBox()
 {
 	NI_ASSERT_T( pBulletStorage != 0, "Ammo box isn't created" );
@@ -138,13 +123,11 @@ void CArtillery::HideAmmoBox()
 	
 	bBulletStorageVisible = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::TakeDamage( const float fDamage, const SWeaponRPGStats::SShell *pShell, const int nPlayerOfShoot, CAIUnit *pShotUnit )
 {
 	CAIUnit::TakeDamage( fDamage, pShell, nPlayerOfShoot, pShotUnit );
 	if ( GetHitPoints() <= 0.0f )
 	{
-		// пушка умерла, убить артиллеристов
 		if ( HasServeCrew() )
 		{
 			while ( IsValidObj( pCrew ) && pCrew->Size() != 0 )
@@ -159,7 +142,6 @@ void CArtillery::TakeDamage( const float fDamage, const SWeaponRPGStats::SShell 
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::Disappear()
 {
 	if ( HasServeCrew() && GetStats()->type != RPG_TYPE_ART_MORTAR && GetStats()->type != RPG_TYPE_ART_HEAVY_MG )
@@ -170,7 +152,6 @@ void CArtillery::Disappear()
 
 	CAIUnit::Disappear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CArtillery::GetAmmoBoxCoordinates() 
 {
 	const bool b360DegreesRotate = pStats->platforms[1].constraint.wMax >= 65535;
@@ -188,7 +169,6 @@ const CVec2 CArtillery::GetAmmoBoxCoordinates()
 	const CVec2 vAmmoPoint( pStats->vAmmoPoint.y, -pStats->vAmmoPoint.x );
 	return GetCenter() + ( vAmmoPoint^vGunDir);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CArtillery::TurnToDir( const WORD &newDir, const bool bCanBackward, const bool bForward )
 {
 	lastCheckToInstall = curTime;	
@@ -203,7 +183,6 @@ bool CArtillery::TurnToDir( const WORD &newDir, const bool bCanBackward, const b
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CArtillery::TurnToUnit( const CVec2 &targCenter )
 {
 	lastCheckToInstall = curTime;	
@@ -219,17 +198,14 @@ bool CArtillery::TurnToUnit( const CVec2 &targCenter )
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CArtillery::IsBeingCaptured() const 
 { 
 	return IsValidObj( pCapturingUnit ); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::SetCapturingUnit( CFormation * pFormation ) 
 { 
 	pCapturingUnit = pFormation; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::DelCrew()
 {
 	NI_ASSERT_T( MustHaveCrewToOperate(), "del crew from gun without possible crew" );
@@ -241,14 +217,11 @@ void CArtillery::DelCrew()
 		theGroupLogic.UnitCommand( SAIUnitCmd(ACTION_COMMAND_STOP_THIS_ACTION), this, false );
 	pCrew = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::ChangePlayer( const BYTE cPlayer )
 {
 	CAIUnit::ChangePlayer( cPlayer );
-	//register this artillery to supremeBeing again
 	theSupremeBeing.AddReinforcement( this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::SetCrew( class CFormation * _pCrew, const bool bCapture )
 {
 	NI_ASSERT_T( _pCrew != 0 , "wrong crew !");
@@ -261,22 +234,18 @@ void CArtillery::SetCrew( class CFormation * _pCrew, const bool bCapture )
 	if ( GetPlayer() != theDipl.GetNeutralPlayer() )
 		theSupremeBeing.UnitAskedForResupply( this, ERT_HUMAN_RESUPPLY, false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormation* CArtillery::GetCrew() const
 {
 	return pCrew;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CArtillery::MustHaveCrewToOperate()const
 {
 	return pStats->vGunners[0].size() != 0 ;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CArtillery::HasServeCrew()const
 {
 	return IsValidObj( pCrew );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::InitGuns()
 {
 	if ( pStats->platforms.size() > 1 )
@@ -306,7 +275,6 @@ void CArtillery::InitGuns()
 	if ( GetFirstArtilleryGun() != 0 )
 		behUpdateDuration = SConsts::LONG_RANGE_ARTILLERY_UPDATE_DURATION;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::Init( const CVec2 &center, const int z, const SUnitBaseRPGStats *_pStats, const float fHP, const WORD dir, const BYTE player, const WORD id, EObjVisType eVisType, const int dbID )
 {
 	nInitialPlayer = player;
@@ -330,7 +298,6 @@ void CArtillery::Init( const CVec2 &center, const int z, const SUnitBaseRPGStats
 
 	CreateAmmoBox();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IStatesFactory* CArtillery::GetStatesFactory() const
 {
 	if ( GetStats()->type == RPG_TYPE_ART_ROCKET )
@@ -338,7 +305,6 @@ IStatesFactory* CArtillery::GetStatesFactory() const
 
 	return CArtilleryStatesFactory::Instance();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CArtillery::IsInstallActionFinished()
 {
 	switch ( eCurInstallAction )
@@ -355,7 +321,6 @@ bool CArtillery::IsInstallActionFinished()
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CArtillery::ShouldSendInstallAction( const EActionNotify &eAction ) const
 {
 	switch ( eAction )
@@ -371,7 +336,6 @@ bool CArtillery::ShouldSendInstallAction( const EActionNotify &eAction ) const
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool IsInstallAction( const EActionNotify &eAction )
 {
 	return
@@ -379,7 +343,6 @@ bool IsInstallAction( const EActionNotify &eAction )
 		eAction == ACTION_NOTIFY_INSTALL_MOVE			 ||
 		eAction == ACTION_NOTIFY_INSTALL_ROTATE;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const EActionNotify GetOppositeInstallState( const EActionNotify &eAction )
 {
 	switch ( eAction )
@@ -393,7 +356,6 @@ const EActionNotify GetOppositeInstallState( const EActionNotify &eAction )
 		default:	return ACTION_NOTIFY_NONE;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CArtillery::GetRotateSpeed() const
 {
 	if ( !MustHaveCrewToOperate() )
@@ -402,7 +364,6 @@ const float CArtillery::GetRotateSpeed() const
 		return 0.00001f;
 	return fOperable * CAIUnit::GetRotateSpeed();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CArtillery::GetMaxSpeedHere( const CVec2 &point, bool bAdjust ) const
 {
 	if ( !MustHaveCrewToOperate() )
@@ -414,10 +375,8 @@ const float CArtillery::GetMaxSpeedHere( const CVec2 &point, bool bAdjust ) cons
 	
 	return fSpeed;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::SetOperable( float _fOperable )
 {
-	// если зенитка инсталлирована, была без расчёта, а он появился, то повернуть ствол
 	if ( fOperable == 0.0f && _fOperable != 0.0f && GetStats()->type == RPG_TYPE_ART_AAGUN && IsInstalled() )
 	{
 		for ( int i = 0; i < GetNTurrets(); ++i )
@@ -434,7 +393,6 @@ void CArtillery::SetOperable( float _fOperable )
 			GetGun( i )->StopFire();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::SetCamoulfage()
 {
 	CAIUnit::SetCamoulfage();
@@ -445,7 +403,6 @@ void CArtillery::SetCamoulfage()
 			(*pCrew)[i]->SetCamoulfage();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::RemoveCamouflage( ECamouflageRemoveReason eReason )
 {
 	CAIUnit::RemoveCamouflage( eReason );
@@ -456,12 +413,10 @@ void CArtillery::RemoveCamouflage( ECamouflageRemoveReason eReason )
 			(*pCrew)[i]->RemoveCamouflage( eReason );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::SetSelectable	( bool bSelectable )
 {
 	CAIUnit::SetSelectable( bSelectable );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::Segment()
 {
 	CAIUnit::Segment();
@@ -474,10 +429,8 @@ void CArtillery::Segment()
 
 	if ( eCurInstallAction != ACTION_NOTIFY_NONE )
 	{
-		// идёт поворот пушки в позицию для корректного выполнения installAction
 		if ( installActionTime == 0 )
 		{
-			// все пушки повёрнуты или нужно нулевое время на инсталляцию
 			int i = 0;
 			bool bCanDoInstallAction = true;
 			for ( int i = 0; i < GetNTurrets(); ++i )
@@ -526,7 +479,6 @@ void CArtillery::Segment()
 		{
 			bInstalled = IsInstallAction( eCurInstallAction );
 
-			// нужно повернуть в default position инсталлиравонного орудия
 			if ( bInstalled && ( pStats->type == RPG_TYPE_ART_AAGUN || pStats->type == RPG_TYPE_SPG_AAGUN ) && IsOperable() )
 			{
 				for ( int i = 0; i < GetNTurrets(); ++i )
@@ -553,7 +505,6 @@ void CArtillery::Segment()
 		installActionTime = 0;
 
 		const bool bAAGun = pStats->type == RPG_TYPE_ART_AAGUN || pStats->type == RPG_TYPE_SPG_AAGUN;
-		// доворачивать в default позицию только при deinstallation
 		if ( !IsInstallAction( eCurInstallAction ) )
 		{
 			for ( int i = 0; i < GetNTurrets(); ++i )
@@ -604,8 +555,6 @@ void CArtillery::Segment()
 		HideAmmoBox();
 	
 	
-	// артиллеристы должны быть но их нет.
-	// пушка в этом случае нейтральная.
 	if ( MustHaveCrewToOperate() && !HasServeCrew()  && ( IsOperable() || IsSelectable() || GetPlayer() != theDipl.GetNeutralPlayer()) )
 	{
 		SetSelectable( false );
@@ -631,14 +580,12 @@ void CArtillery::Segment()
 	else
 		lastCheckToInstall = curTime;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CVec2 CArtillery::GetTowPoint()
 {
 	const CVec2 vTurn( GetDirVector().y, -GetDirVector().x );
 	const CVec2 vTow( (pStats->vTowPoint) ^ vTurn );
 	return vTow + GetCenter();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::InstallBack( bool bAlreadyDone )
 {
 	switch( eCurrentStateOfInstall )
@@ -656,10 +603,8 @@ void CArtillery::InstallBack( bool bAlreadyDone )
 			NI_ASSERT_T(false,"wrtong call");
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::InstallAction( const EActionNotify eInstallAction, bool bAlreadyDone )
 {
-	//bAlreadyDone = true, значит действие сразу должно закончится.
 	if (	eInstallAction == ACTION_NOTIFY_INSTALL_ROTATE ||
 				eInstallAction == ACTION_NOTIFY_INSTALL_TRANSPORT ||
 				eInstallAction == ACTION_NOTIFY_INSTALL_MOVE )
@@ -692,7 +637,6 @@ void CArtillery::InstallAction( const EActionNotify eInstallAction, bool bAlread
 	for ( int i = 0; i < GetNTurrets(); ++i )
 		GetTurret( i )->StopTracing();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::ForceInstallAction()
 {
 	lastCheckToInstall = 0;
@@ -700,12 +644,10 @@ void CArtillery::ForceInstallAction()
 	for ( int i = 0; i < GetNTurrets(); ++i )
 		GetTurret( i )->StopTracing();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CArtillery::IsIdle() const
 {
 	return !pStaticPathToSend.IsValid() && !pIPathToSend.IsValid() && CAIUnit::IsIdle();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CArtillery::SendAlongPath( IStaticPath *pStaticPath, const CVec2 &_vShift, bool bSmoothTurn )
 {
 	if ( IsInstalled() || IsInInstallAction() )
@@ -717,12 +659,10 @@ bool CArtillery::SendAlongPath( IStaticPath *pStaticPath, const CVec2 &_vShift, 
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::SendAcknowledgement( EUnitAckType ack, bool bForce )
 {
 	SendAcknowledgement( GetCurCmd(), ack, bForce );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::SendAcknowledgement( CAICommand *pCommand, EUnitAckType ack, bool bForce )
 {
 	if ( HasServeCrew() )
@@ -732,7 +672,6 @@ void CArtillery::SendAcknowledgement( CAICommand *pCommand, EUnitAckType ack, bo
 		CAIUnit::SendAcknowledgement( pCommand, ack, bForce );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CArtillery::SendAlongPath( IPath *pPath )
 {
 	if ( IsInstalled() || IsInInstallAction() )
@@ -743,17 +682,14 @@ bool CArtillery::SendAlongPath( IPath *pPath )
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CArtillery::IsLightGun() const
 {
 	return pStats->type == RPG_TYPE_ART_GUN || pStats->type == RPG_TYPE_ART_AAGUN;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CArtillery::GetMaxFireRange() const
 {
 	return pGuns->GetMaxFireRange( this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::GetRangeArea( SShootAreas *pRangeArea ) const
 {
 	*pRangeArea = SShootAreas();	
@@ -771,42 +707,34 @@ void CArtillery::GetRangeArea( SShootAreas *pRangeArea ) const
 		area.wFinishAngle = 65535;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CArtillery::GetNGuns() const 
 { 
 	return pGuns->GetNTotalGuns(); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CBasicGun* CArtillery::GetGun( const int n ) const 
 { 
 	return pGuns->GetGun( n ); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const NTimer::STime& CArtillery::GetBehUpdateDuration() const
 {
 	return behUpdateDuration;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CBasicGun* CArtillery::ChooseGunForStatObj( CStaticObject *pObj, NTimer::STime *pTime ) 
 { 
 	return pGuns->ChooseGunForStatObj( this, pObj, pTime ); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CBasicGun* CArtillery::GetFirstArtilleryGun() const
 { 
 	return pGuns->GetFirstArtilleryGun(); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CArtillery::CanShootToPlanes() const 
 { 
 	return pGuns->CanShootToPlanes(); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CArtillery::HasSlaveTransport() 
 { 
 	return pSlaveTransport && pSlaveTransport->IsValid() && pSlaveTransport->IsAlive();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::DoAllowShoot( bool allow )
 {
 	for ( int i=0; i< GetNGuns(); ++i )
@@ -814,7 +742,6 @@ void CArtillery::DoAllowShoot( bool allow )
 		allow ? GetGun( i )->CanShoot() : GetGun( i )->DontShoot();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::ClearWaitForReload()
 {
 	for ( int i=0; i< GetNGuns(); ++i )
@@ -827,21 +754,17 @@ void CArtillery::ClearWaitForReload()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CArtillery::IsColliding() const
 {
 	return GetState()->GetName() != EUSN_BEING_TOWED;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::StopUnit()
 {
-	// если нулевое время на инсталляцию, произвести все необходимые после остановки манипуляции
 	if ( !ShouldSendInstallAction( ACTION_NOTIFY_INSTALL_TRANSPORT ) )
 		InstallAction( ACTION_NOTIFY_INSTALL_TRANSPORT );
 
 	CAIUnit::StopUnit();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec3 Multi( const SHMatrix &matrix, const CVec3 &vec )
 {
 	CVec3 vResult;
@@ -852,7 +775,6 @@ const CVec3 Multi( const SHMatrix &matrix, const CVec3 &vec )
 
 	return vResult;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const DWORD CArtillery::GetNormale( const CVec2 &vArtCenter ) const
 {
 	if ( GetState()->GetName() == EUSN_BEING_TOWED )
@@ -891,12 +813,10 @@ const DWORD CArtillery::GetNormale( const CVec2 &vArtCenter ) const
 	else
 		return CAIUnit::GetNormale();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const DWORD CArtillery::GetNormale() const
 {
 	return GetNormale( GetCenter() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec3 CArtillery::GetHookPoint3D() const
 {
 	const CVec3 vArtNormale = DWORDToVec3( GetNormale() );
@@ -912,32 +832,26 @@ const CVec3 CArtillery::GetHookPoint3D() const
 
 	return vArtCenter3D + vArtDir3D * static_cast<const SMechUnitRPGStats*>( GetStats() )->vTowPoint.y;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CArtillery::GetHookPoint() const
 {
 	const CVec3 vHookPoint3D( GetHookPoint3D() );
 	return CVec2( vHookPoint3D.x, vHookPoint3D.y );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtillery::LookForTarget( CAIUnit *pCurTarget, const bool bDamageUpdated, CAIUnit **pBestTarget, CBasicGun **pGun )
 {
 	CAIUnit::LookForTarget( pCurTarget, bDamageUpdated, pBestTarget, pGun );
 
-	// в радиусе цели нет
 	if ( *pBestTarget == 0 && 
 			 ( pCurTarget == 0 || pCurTarget->GetStats()->IsInfantry() ) && theDipl.IsAIPlayer( GetPlayer() ) )
 	{
 		LookForFarTarget( pCurTarget, bDamageUpdated, pBestTarget, pGun );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CArtillery::GetDispersionBonus() const
 { 
 	return fDispersionBonus * theDifficultyLevel.GetDispersionCoeff( theDipl.GetNParty( GetPlayer() ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CArtillery::NeedDeinstall() const
 { 
 	return GetStats()->nUninstallRotate != 0 || GetStats()->nUninstallTransport != 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

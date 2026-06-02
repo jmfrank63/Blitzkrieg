@@ -2,8 +2,6 @@
 #define __RANDOMIZE_H__
 
 #pragma ONCE
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// равномерно в круге с центром в 0 и радиусом fR
 inline void RandUniformlyInCircle( const float fR, CVec2 *pvRand )
 {
 	*pvRand = VNULL2;
@@ -14,8 +12,6 @@ inline void RandUniformlyInCircle( const float fR, CVec2 *pvRand )
 		pvRand->y = fR * Random( -1.0f, 1.0f );
 	} while ( sqr( pvRand->x ) + sqr( pvRand->y ) > sqr( fR ) );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// равномерно по углу и по радиусу в круге с центром в 0 и радиусом fR
 inline void RandQuadrInCircle(	const float fR, 
 																CVec2 *pvRand, 
 																const float fRatio=0.0f,
@@ -38,5 +34,4 @@ inline void RandQuadrInCircle(	const float fR,
 							CVec2( -vTrajLine.y, vTrajLine.x ) * fRandR * dir.y ;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __RANDOMIZE_H__

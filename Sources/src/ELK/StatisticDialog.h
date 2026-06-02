@@ -9,7 +9,6 @@
 #include "ResizeDialog.h"
 #include "ELK_Types.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CStatisticDialog : public CResizeDialog
 {
 protected:
@@ -49,14 +48,10 @@ public:
 
 	CStatisticDialog( CWnd* pParent = NULL );
 
-	//{{AFX_DATA(CStatisticDialog)
 	enum { IDD = IDD_STATISTIC };
-	//}}AFX_DATA
 
-	//{{AFX_VIRTUAL(CStatisticDialog)
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);
-	//}}AFX_VIRTUAL
 
 protected:
 	CImageList imageListNormal;
@@ -74,14 +69,10 @@ protected:
 	void CreateControls();
 	void FillTree();
 	
-	//{{AFX_MSG(CStatisticDialog)
 	virtual BOOL OnInitDialog();
 	virtual void OnOK();
 	virtual void OnCancel();
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//{{AFX_INSERT_LOCATION}}
 #endif // !defined(__ELK_STATISTIC_DIALOG__)
 

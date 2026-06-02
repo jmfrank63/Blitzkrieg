@@ -1,146 +1,93 @@
 #include "stdafx.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ����������� ���� ������
 const WORD SConsts::STANDART_VIS_ANGLE = 32768;
 
-// ����������, � ������� ����������� ����� ��� ������ ��� �������� ����. �������
 const int SConsts::MAX_DIST_TO_RECALC_FOG = 55 * SConsts::TILE_SIZE;
 
 const int SConsts::TURN_TOLERANCE = 0;
-// ��� ����� ������� � ���� ����� ������ ��������������
 const WORD SConsts::DIR_DIFF_TO_SMOOTH_TURNING = 2000;
-// ��������� forward iteration �������� ����� ��� �������� ����� �������
 const int SConsts::NUMBER_ITERS_TO_LOOK_AHEAD = 7;
 
-// ������������ ����� ���� � ������, ��� ������� ����� ����� �����
 const int SConsts::MAX_LEN_TO_GO_BACKWARD = 8;
 
 const int SConsts::SPEED_FACTOR = 800;
 
 const short int SConsts::SPLINE_STEP = 6;
 
-// size of "neighbours scan" cell
 const int SConsts::CELL_COEFF = 4;
 const int SConsts::CELL_SIZE = SConsts::CELL_COEFF * SConsts::TILE_SIZE;			// must be divisible by TILE_SIZE
 
 const int SConsts::BIG_CELL_COEFF = 8;
 const int SConsts::BIG_CELL_SIZE = SConsts::BIG_CELL_COEFF * SConsts::TILE_SIZE;
 
-// ������ ������ ��� ������ ������������� ��������
 const int SConsts::HIT_CELL_COEFF = 8;
 const int SConsts::HIT_CELL_SIZE = SConsts::HIT_CELL_COEFF * SConsts::TILE_SIZE;
 
-// max number of tiles, occupied by a unit
 const int SConsts::MAX_UNIT_TILE_RADIUS = 5;
 const int SConsts::MAX_UNIT_RADIUS = 160;
 
 const int SConsts::BIG_PATH_SHIFT = 10;
 
-// starting sizes of vectors
 const int SConsts::AI_START_VECTOR_SIZE = 10;
 
-//
-// ������������ ��������� ��� ����, ����� ����� ���� � ����� "�������" ������
 const int SConsts::GROUP_DISTANCE = 40 * SConsts::TILE_SIZE;
 
-// ������� ������������ ��� ������ ���������� ����� ��� antiartillery ������
 const float SConsts::ANTI_ARTILLERY_SCAN_TIME = 5000;
 
-// ����������� ��� ���������/��������� boundRect
 const float SConsts::BOUND_RECT_FACTOR = 1.0f;
-// ����������� ��� ���������/��������� boundRect ��� ������� ������
 const float SConsts::COEFF_FOR_LOCK = 1.0f;
-	// ���������� �� ����� ������� ���������� �� �����, ���� ������ ����� ����� �� ������
 const float SConsts::DIST_FOR_LAND = 1.2f * SConsts::TILE_SIZE;
-// ���������� �� ����� ������� ���������� �� �����, ���� ������ ����� ����� �� ������ ( ��� �������� "�����������" ����� )
 float SConsts::GOOD_LAND_DIST = 1.4f * SConsts::TILE_SIZE;
 
-// ������� ����� �� ������ ��� ����������� ��������
 const int SConsts::STATIC_OBJ_CELL = 8;
-// ������� ����� �� ������ ��� ����������� container ��������
 const int SConsts::STATIC_CONTAINER_OBJ_CELL = 32;
 
-// �������� ������� � ������� HP / tick
 float SConsts::CURE_SPEED_IN_BUILDING = 0.001f;
-// ����� ����� ������ ������� � ������� ����������� turret � default position
 int SConsts::TIME_TO_RETURN_GUN = 5000;
-// ���������� ����������� �� �������
 int SConsts::NUM_TO_SCAN_IN_SEGM = 50;
-// ����� ����� updates ���������
 NTimer::STime SConsts::BEH_UPDATE_DURATION = 2000;
-// ����� ����� updates ��������� ��� ������
 NTimer::STime SConsts::SOLDIER_BEH_UPDATE_DURATION = 3000;
 NTimer::STime SConsts::AA_BEH_UPDATE_DURATION = 200;
 NTimer::STime SConsts::LONG_RANGE_ARTILLERY_UPDATE_DURATION = 5000;
-// �����, ������� �������� �����
 NTimer::STime SConsts::DEAD_SEE_TIME = 2000;
-// �����, � ������� �������� ������� � ������
 int SConsts::TIME_OF_BUILDING_ALARM = 8000;
-// �����, ����� ������� ����� ��������������� � ��������� idle
 int SConsts::TIME_BEFORE_CAMOUFLAGE = 2000;
-// �����, ����� ������� �������� ����� ��������������� � ��������� idle
 int SConsts::TIME_BEFORE_SNIPER_CAMOUFLAGE = 1000;
-// ����� ������� ��� ���������
 int SConsts::TIME_OF_LYING_UNDER_FIRE = 2000;
-// cover ��� ������� - �����������, ��� �������
 float SConsts::LYING_SOLDIER_COVER = 0.7f;
-// ������ � ������ , ������� ������������, ����� ������, ��� ��������� ��� ���
 int SConsts::RADIUS_OF_HIT_NOTIFY = 5 * SConsts::TILE_SIZE;
-// ������������� ��������, ��� ��������� ��� ���
 int SConsts::TIME_OF_HIT_NOTIFY = 1000;
 
-// ������ ( � ������ ), � ������� ������� ����� ����
 int SConsts::MINE_VIS_RADIUS = 3 * SConsts::TILE_SIZE;
-// ������ ( � ������ ), � ������� ������� ������� ����
 int SConsts::MINE_CLEAR_RADIUS = 7 * SConsts::TILE_SIZE;
-// ������������ ���������� �������� �� ������ ��������
 int SConsts::RADIUS_OF_FORMATION = 10 * SConsts::TILE_SIZE;
 
-// ������, � ������� ����� ������ ��� guard state
 float SConsts::GUARD_STATE_RADIUS = 10 * SConsts::TILE_SIZE;
 
-// ��������� �� �������� ��� ��������
 float SConsts::LYING_SPEED_FACTOR = 0.5f;
 
-// ������ ��� call for help
 int SConsts::CALL_FOR_HELP_RADIUS = 20 * SConsts::TILE_SIZE;
 int SConsts::AI_CALL_FOR_HELP_RADIUS = 20 * SConsts::TILE_SIZE;
 
-// �����, ������� ������� ���������� � ������ ����� �������� � ������
 NTimer::STime SConsts::CAMPING_TIME = 2000;
 
-// ��������� �� weapon range ��� �������� ���������� ������ �������
 float SConsts::INSIDE_OBJ_WEAPON_FACTOR = 0.5f;
-// ������ �������, � ������� ���������� ��� ������� ������ �������
 NTimer::STime SConsts::INSIDE_OBJ_COMBAT_PERIOD = 800;
-// �����, ����� ������� ������� �������� ����� ������
 NTimer::STime SConsts::TIME_TO_DISAPPEAR = 5000;
 
-// ��������� ����� ������� install/uninstall ��� ����, ����� ����� install/uninstall ��������������
 NTimer::STime SConsts::THRESHOLD_INSTALL_TIME = 2000;
 
-// ���������� ��������� ��� ���������� ���������� �� �������
 int SConsts::SHOOTS_TO_RANGE = 4;
-// ����������� �� dispersion, ���� ������ �������� �� ������������� �������
 float SConsts::RANDGED_DISPERSION_RADIUS_BONUS = 0.5f;
-// ������ ������� ����������
 float SConsts::RANGED_AREA_RADIUS = 5 * SConsts::TILE_SIZE;
 
-// ����������, �� ������� ����� ���������� ���������� ��� ����, ����� �������� info � � ���������������
 float SConsts::RELOCATION_RADIUS = 5 * SConsts::TILE_SIZE;
-// ����. ������ �������� ������ ���������� ����������
 float SConsts::MAX_ANTI_ARTILLERY_RADIUS = 10 * SConsts::TILE_SIZE;
-// ���. ������ �������� ������ ���������� ����������
 float SConsts::MIN_ANTI_ARTILLERY_RADIUS = SConsts::TILE_SIZE;
-// ���������� ���������, ����� ������ MAX_ANTI_ARTILLERY_RADIUS � MIN_ANTI_ARTILLERY_RADIUS
 int SConsts::SHOTS_TO_MINIMIZE_LOCATION_RADIUS = 5;
 
-// �����, ������� �������� ����� ����� �������� �����
 NTimer::STime SConsts::AUDIBILITY_TIME = 20000;
-// ������������� ��������� ������ ������������������ ������
 NTimer::STime SConsts::REVEAL_CIRCLE_PERIOD = 2000;
 
-// ����������� ���������� �����, ��� ������� �� ����� �������������
 float SConsts::GOOD_ATTACK_RPOBABILITY = 0.6f;
 
 NTimer::STime SConsts::FIGHTER_PATROL_TIME = 180000;
@@ -160,26 +107,20 @@ float SConsts::ENGINEER_RESUPPLY_PER_QUANT = 1.0f;
 float SConsts::ENGINEER_ANTITANK_HALTH_PER_QUANT = 1.0f;
 float SConsts::ENGINEER_RU_CARRY_WEIGHT = 100.0f;
 
-// ������ ������ �������
 float SConsts::SPY_GLASS_RADIUS = 1920.f;
-// ���� ������ �������
 WORD SConsts::SPY_GLASS_ANGLE = 5000;
 
-// ����������� �� area damage
 float SConsts::AREA_DAMAGE_COEFF = 0.2f;
-// ����������� ����, �� ������� ����� ��������� ���� �� ����� ����� turret-��, ����� �������� ���� �������
 WORD SConsts::MIN_ROTATE_ANGLE = 6000;
 
 float SConsts::RADIUS_TO_START_ANTIARTILLERY_FIRE = 320.0f;
 
 float SConsts::TRANSPORT_RU_CAPACITY = 500.0f;
 
-// �����, ������� �������� alarm ��� �������� ����� ��������� �� �����������
 float SConsts::TIME_OF_ALARM_UNDER_FIRE = 15000.0f;
 
 float SConsts::STORAGE_RESUPPLY_RADIUS = 1000.0f;
 
-// ������������� ������� ��� ����
 float SConsts::TRAJ_BOMB_ALPHA = 0.0005f;
 float SConsts::TRAJECTORY_BOMB_G = 0.001f;
 
@@ -251,7 +192,6 @@ float SConsts::HEIGHT_FOR_VIS_RADIUS_INC = 1.0f;
 
 float SConsts::BURNING_SPEED = 0.002f;
 
-// follow ���������
 float SConsts::FOLLOW_STOP_RADIUS = SConsts::TILE_SIZE * 9;
 float SConsts::FOLLOW_EQUALIZE_SPEED_RADIUS = SConsts::TILE_SIZE * 12;
 float SConsts::FOLLOW_GO_RADIUS = SConsts::TILE_SIZE * 11;
@@ -259,7 +199,6 @@ float SConsts::FOLLOW_WAIT_RADIUS = SConsts::TILE_SIZE * 24;
 
 float SConsts::TRANSPORT_LOAD_RU_DISTANCE = 100.0f;
 int SConsts::RESUPPLY_MAX_PATH = 30;
-// fatality ���������
 float SConsts::FATALITY_PROBABILITY = 0.1f;
 float SConsts::DAMAGE_FOR_MASSIVE_DAMAGE_FATALITY = 0.7f;
 float SConsts::MASSIVE_DAMAGE_FATALITY_PROBABILITY = 0.8f;
@@ -301,7 +240,6 @@ int SConsts::GENERAL_CELL_SIZE = 0;
 
 float SConsts::FLAG_RADIUS = 320.0f;
 float SConsts::FLAG_POINTS_SPEED = 10.0f;
-// "�������� ����", ������� ������ ����, ���������� �� ����������� ������
 float SConsts::PLAYER_POINTS_SPEED = 10.0f;
 
 float SConsts::FLAG_POINTS_TO_REINFORCEMENT = 30.0f;
@@ -309,7 +247,6 @@ float SConsts::FLAG_TIME_TO_CAPTURE = 5000.0f;
 
 NTimer::STime SConsts::TIME_OF_PRE_DISAPPEAR_NOTIFY = 100;
 WORD SConsts::ANGLE_DIVEBOMBER_MIN_DIVE = 65535/8;
-// ������������ �����, ����������� area damage
 int SConsts::ARMOR_FOR_AREA_DAMAGE = 10;
 float SConsts::BUILDING_FIREPLACE_DEFAULT_COVER = 0.5f;
 
@@ -350,7 +287,6 @@ int SConsts::SHOW_ALL_TIME_COEFF = 5;
 std::unordered_map<int, SConsts::SRevealInfo> SConsts::REVEAL_INFO;
 
 float SConsts::REINFORCEMENT_GROUP_DISTANCE = 900.0f;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SConsts::Load()
 {
 	CTableAccessor constsTbl = NDB::OpenDataTable( "consts.xml" );
@@ -382,10 +318,8 @@ void SConsts::Load()
 	SHTURMOVIK_PATH_UPDATE_TIME = constsTbl.GetULong( "AI", "Aviation.ShturmovikPathUpdateTime", 6000 );
 	PLANE_TILT_PER_SECOND = constsTbl.GetFloat( "AI", "Aviation.PlaneTiltPerSecond", 100.0f );
 	PLANE_GUARD_STATE_RADIUS = constsTbl.GetFloat( "AI", "Aviation.PlaneGuardStateRadius", 1000.0f );
-	// ������� ��������� ��� ������ �����
 	SHTURMOVIK_APPROACH_RADIUS = constsTbl.GetFloat( "AI", "Aviation.ShturmovikApproachRadius", 1000.0f );
 	SHTURMOVIK_APPROACH_RADIUS_SQR = SHTURMOVIK_APPROACH_RADIUS*SHTURMOVIK_APPROACH_RADIUS;
-	// ����������� ������ ������ ���������
 	PLANE_MIN_HEIGHT = constsTbl.GetFloat( "AI", "Aviation.PlaneMinHeight", 300.0f );
 
 	CURE_SPEED_IN_BUILDING = constsTbl.GetFloat( "AI", "Buildings.CureSpeedInBuilding", 0.001f );
@@ -580,7 +514,6 @@ void SConsts::Load()
 
 	LoadRevealInfo( constsTbl );
 	
-	//
 	if ( AI_CALL_FOR_HELP_RADIUS > 2000 )
 	{
 		AI_CALL_FOR_HELP_RADIUS = 2000;
@@ -592,7 +525,6 @@ void SConsts::Load()
 		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format("CallForHelpRadius is too big, reduced to %d", CALL_FOR_HELP_RADIUS ), 0xffff0000, true );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SConsts::LoadRevealInfo( CTableAccessor &constsTbl )
 {
 	CPtr<IRPGStatsAutomagic> pAutoMagic = CreateObject<IRPGStatsAutomagic>( MAIN_AUTOMAGIC );
@@ -618,4 +550,3 @@ void SConsts::LoadRevealInfo( CTableAccessor &constsTbl )
 	}
 	while ( !pAutoMagic->IsLastStr( szStatsIter.c_str() ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

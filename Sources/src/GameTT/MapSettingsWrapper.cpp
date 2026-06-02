@@ -5,12 +5,10 @@
 #include "..\RandomMapGen\MapInfo_Types.h"
 #include "UIConsts.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapSettingsWrapper::CFakeOptionSystem::Set( const std::string &szVarName, const variant_t &var )
 {
 	if ( bServer )
 		GetSingleton<IOptionSystem>()->Set( szVarName, var );
-	// save this value to settings;
 
 	if ( szVarName == "Multiplayer.Timelimit" )
 	{
@@ -34,13 +32,11 @@ bool CMapSettingsWrapper::CFakeOptionSystem::Set( const std::string &szVarName, 
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapSettingsWrapper::CFakeOptionSystem::Get( const std::string &szVarName, variant_t *pVar ) const
 {
 	if ( bServer )
 		GetSingleton<IOptionSystem>()->Get( szVarName, pVar );
 
-	// get from options.
 	if ( szVarName == "Multiplayer.Timelimit" )
 	{
 		*pVar = long(settings.nTimeLimit);
@@ -63,7 +59,6 @@ bool CMapSettingsWrapper::CFakeOptionSystem::Get( const std::string &szVarName, 
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMapSettingsWrapper::CMapSettingsWrapper ( const bool _bCanChange, const int _nFlag )
 : bCanChange( _bCanChange ), nFlag( _nFlag )
 {
@@ -92,17 +87,14 @@ CMapSettingsWrapper::CMapSettingsWrapper ( const bool _bCanChange, const int _nF
 	}
 	
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapSettingsWrapper::Init( const SMultiplayerGameSettings &_settings )
 {
 	pOptionSystem->settings = _settings;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SMultiplayerGameSettings & CMapSettingsWrapper::GetSettingsWOApply() const
 {
 	return pOptionSystem->settings; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SMultiplayerGameSettings & CMapSettingsWrapper::GetSettings()
 { 
 	NI_ASSERT_T( pOptionSystem != 0, "not inititalized screen" );
@@ -110,30 +102,24 @@ const SMultiplayerGameSettings & CMapSettingsWrapper::GetSettings()
 	return pOptionSystem->settings; 
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapSettingsWrapper::Init( IUIListControl *_pList, IUIStatic *_pGameType )
 {
 	pList = _pList;
 	pGameType = _pGameType;
-	// Create options container and fill it with options.
 	pListWrapper = new COptionsListWrapper( nFlag, pList, 100, pOptionSystem );
 	if ( !bCanChange )
 		pListWrapper->DisableChange();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapSettingsWrapper::SetGameType ( const int /*SQuickLoadMapInfo::EMultiplayerMapType*/ nGameType )
 {
 	pGameType->SetWindowText( 0, CUIConsts::GetMapTypeString( nGameType ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapSettingsWrapper::Apply()
 {
 	pListWrapper->Apply();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapSettingsWrapper::ProcessMessage( const SGameMessage &msg )
 {
-	// process messages about changing options.
 	if ( pListWrapper && pListWrapper->ProcessMessage( msg ) ) return true;
 
 	return false;

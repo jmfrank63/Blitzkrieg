@@ -2,13 +2,11 @@
 #define __FORMATION_STATES_H__
 
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "UnitStates.h"
 #include "StatesFactory.h"
 #include "CommonStates.h"
 #include "..\Common\Actions.h"
 #include "StaticObjects.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CBuilding;
 class CEntrenchment;
 class CAIUnit;
@@ -21,12 +19,10 @@ class CArtillery;
 class CSoldier;
 class CFormation;
 class CEntrenchmentPart;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IEngineerFormationState : public IUnitState
 {
 	virtual void SetHomeTransport( class CAITransportUnit *pTransport ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationStatesFactory : public IStatesFactory
 {
 	OBJECT_COMPLETE_METHODS( CFormationStatesFactory );
@@ -39,10 +35,8 @@ public:
 	virtual interface IUnitState* ProduceRestState( class CQueueUnit *pUnit );
 
 	virtual bool CanCommandBeExecuted( class CAICommand *pCommand );
-	// for Saving/Loading of static members
 	friend class CStaticMembers;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationRestState : public CCommonRestState
 {
  	OBJECT_COMPLETE_METHODS( CFormationRestState );
@@ -65,7 +59,6 @@ public:
 
 	ETryStateInterruptResult TryInterruptState( class CAICommand *pCommand );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationMoveToState : public IUnitState
 {
   OBJECT_COMPLETE_METHODS( CFormationMoveToState );
@@ -80,7 +73,6 @@ class CFormationMoveToState : public IUnitState
 	NTimer::STime startTime;
 	bool bWaiting;
 
-	//
 	void FormationMovingState();
 	void UnitsMovingToFormationPoints();
 public:
@@ -97,7 +89,6 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_MOVE; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationParaDropState : public IUnitState
 {
   OBJECT_COMPLETE_METHODS( CFormationParaDropState );
@@ -123,7 +114,6 @@ public:
 	virtual const CVec2 GetPurposePoint() const;
 	virtual EUnitStateNames GetName() { return EUSN_PARTROOP; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationEnterBuildingState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationEnterBuildingState );
@@ -136,7 +126,6 @@ class CFormationEnterBuildingState : public IUnitState
 	CPtr<CBuilding> pBuilding;
 	int nEntrance;
 
-	//
 	bool SetPathForRunUp();
 	void SendUnitsToBuilding();
 	bool IsNotEnoughSpace();
@@ -154,7 +143,6 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_ENTER; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationEnterEntrenchmentState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationEnterEntrenchmentState );
@@ -166,7 +154,6 @@ class CFormationEnterEntrenchmentState : public IUnitState
 	class CFormation *pFormation;
 	CPtr<CEntrenchment> pEntrenchment;
 
-	//
 	bool IsAnyPartCloseToEntrenchment() const;
 	bool SetPathForRunIn();
 	void EnterToEntrenchment();
@@ -184,7 +171,6 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_ENTER_ENTRENCHMENT; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationIdleBuildingState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationIdleBuildingState );
@@ -207,7 +193,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationIdleEntrenchmentState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationIdleEntrenchmentState );
@@ -230,7 +215,6 @@ public:
 
 	class CEntrenchment* GetEntrenchment() const { return pEntrenchment; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationLeaveBuildingState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationLeaveBuildingState );
@@ -253,7 +237,6 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_GO_OUT; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationLeaveEntrenchmentState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationLeaveEntrenchmentState );
@@ -277,7 +260,6 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_GO_OUT_ENTRENCHMENT; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationPlaceMine : public IEngineerFormationState
 {
 	OBJECT_COMPLETE_METHODS( CFormationPlaceMine );
@@ -311,7 +293,6 @@ public:
 
 	virtual void SetHomeTransport( class CAITransportUnit *pTransport );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationClearMine : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationClearMine );
@@ -337,7 +318,6 @@ public:
 
 	virtual const CVec2 GetPurposePoint() const { return point; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationAttackUnitState : public IUnitAttackingState
 {
 	OBJECT_COMPLETE_METHODS( CFormationAttackUnitState );
@@ -351,7 +331,6 @@ class CFormationAttackUnitState : public IUnitAttackingState
 	bool bSwarmAttack;
 	int nEnemyParty;
 
-	//
 	void SetToMovingState();
 	void SetToWaitingState();
 public:
@@ -371,7 +350,6 @@ public:
 	
 	virtual EUnitStateNames GetName();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationAttackCommonStatObjState : public IUnitAttackingState
 {
 	OBJECT_COMPLETE_METHODS( CFormationAttackCommonStatObjState );
@@ -383,7 +361,6 @@ class CFormationAttackCommonStatObjState : public IUnitAttackingState
 	class CFormation *pFormation;
 	CPtr<CStaticObject> pObj;
 
-	//
 	void SetToWaitingState();
 public:
 	static IUnitState* Instance( class CFormation *pFormation, class CStaticObject *pObj );
@@ -402,7 +379,6 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_ATTACK_STAT_OBJECT; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationRotateState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationRotateState );
@@ -422,7 +398,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationEnterTransportState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationEnterTransportState );
@@ -438,12 +413,10 @@ class CFormationEnterTransportState : public IUnitState
 	CVec2 lastTransportPos;
 	WORD lastTransportDir;
 
-	//
 	bool SetPathToRunUp();
 	void SendUnitsToTransport();
 	bool IsAllUnitsInside();
 	void SetTransportToWaitState();
-	// все башни транпорта повёрнуты в default положение
 	bool IsAllTransportTurretsReturned() const;
 public:
   static IUnitState* Instance( class CFormation *pFormation, class CMilitaryCar *pTransport );
@@ -458,7 +431,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationIdleTransportState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationIdleTransportState );
@@ -480,7 +452,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationEnterTransportNowState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationEnterTransportNowState );
@@ -500,7 +471,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationEnterTransportByCheatPathState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationEnterTransportByCheatPathState );
@@ -520,24 +490,19 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// общий код для Repear, Resupply
 class CFormationServeUnitState: public IEngineerFormationState
 {
 	DECLARE_SERIALIZE;
 public:
-	//
 	class CFindUnitPredicate
 	{
 	public:
 		virtual bool HasUnit() = 0;
-		//returns true if we have to finish the search
 		virtual bool SetUnit( class CAIUnit *pUnit, const float fMissedHP, const float fDist  ) = 0;
 		virtual void SetNotEnoughRu() = 0;
 		static float CalcWeight( const float fMissedHP, const float fDist )
 		{ return fMissedHP * SConsts::HP_BALANCE_COEFF + 1000 / fDist;}
 	};
-	//
 	class CFindFirstUnitPredicate : public CFindUnitPredicate
 	{
 		CPtr<CAIUnit> pUnit;
@@ -550,7 +515,6 @@ public:
 		virtual void SetNotEnoughRu() { bNotEnoughtRu = true; }
 		bool IsNotEnoughRu() const { return bNotEnoughtRu; }
 	};
-	//
 	class CFindBestUnitPredicate : public CFindUnitPredicate
 	{
 		CPtr<CAIUnit> pUnit;
@@ -573,7 +537,6 @@ public:
 		bool IsNotEnoughRu() const { return bNotEnoughtRu; }
 		CAIUnit * GetUnit() { return pUnit; }
 	};
-	//
 protected:
 	enum EFormationServiceUnitState
 	{
@@ -602,8 +565,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const { return CVec2( -1.0f, -1.0f ); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//доходит до юнита и запускает каждому члену отряда данную команду
 class CFormationRepairUnitState : public CFormationServeUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationRepairUnitState );
@@ -622,7 +583,6 @@ class CFormationRepairUnitState : public CFormationServeUnitState
 	
 	static bool CheckUnit( CAIUnit *pU, CFormationServeUnitState::CFindUnitPredicate * pPred, const float fResurs, const CVec2 &vCenter );
 public:
-	// первое попавшееся наше хранилище для починки
 	class CFindFirstStorageToRepearPredicate : public CStaticObjects::IEnumStoragesPredicate
 	{
 		bool bHasStor;
@@ -655,7 +615,6 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_REPAIR_UNIT; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationResupplyUnitState : public CFormationServeUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationResupplyUnitState );
@@ -689,9 +648,6 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_RESUPPLY_UNIT; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// загрузка грузовичка ресурсами 
-// подходят к складу, делают Use, при этом в грузовик поступают ресурсы
 class CBuildingStorage;
 class CFormationLoadRuState: public CFormationServeUnitState
 {
@@ -715,8 +671,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const { return CVec2( -1.0f, -1.0f ); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// бегут за транспортом и садятся на ходу.
 class CFormationCatchTransportState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationCatchTransportState );
@@ -752,8 +706,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// кладут противотанковый еж
 class CFormationPlaceAntitankState : public IEngineerFormationState
 {
 	OBJECT_COMPLETE_METHODS( CFormationPlaceAntitankState );
@@ -790,9 +742,7 @@ public:
 	virtual const CVec2 GetPurposePoint() const { return vDesiredPoint; }
 	virtual void SetHomeTransport( class CAITransportUnit *pTransport );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CLongObjectCreation;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationBuildLongObjectState : public IEngineerFormationState
 {
 	DECLARE_SERIALIZE;
@@ -842,8 +792,6 @@ public:
 	virtual EUnitStateNames GetName() { return EUSN_BUILD_LONGOBJECT; }
 	
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// отдать себя в качестве обслуживающей команды
 class CFormationCaptureArtilleryState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationCaptureArtilleryState );
@@ -873,8 +821,6 @@ public:
 	
 	virtual EUnitStateNames GetName() { return EUSN_GUN_CAPTURE; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// обслуживание пушек артиллеристами. эта команда отдается самой пушкой.
 class CFormationGunCrewState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationGunCrewState );
@@ -884,7 +830,6 @@ class CFormationGunCrewState : public IUnitState
 	{
 		EActionNotify eAction;
 		WORD wDirection;
-		//
 		SCrewAnimation() : eAction( ACTION_NOTIFY_NONE ), wDirection( 0 ) {  }
 		SCrewAnimation( EActionNotify eAction, WORD wDirection )
 			:eAction( eAction ), wDirection ( wDirection )
@@ -939,10 +884,8 @@ class CFormationGunCrewState : public IUnitState
 	int nReloadPhaze;											// перезагрузка разделена на несколько фаз
 	bool b360DegreesRotate;							// gun has no horisontal constraints
 
-	// состояние пушки ( а также инжекс в массиве vGunners статов у пушки)
 	EGunServeState eGunState;
 	
-	// подсостояния пушки в режиме Operate
 	EGunOperateSubState eGunOperateSubState;
 
 	std::vector< SCrewMember > crew; // места с меньшим номером более приоритетны
@@ -969,11 +912,8 @@ class CFormationGunCrewState : public IUnitState
 	int nFormationSize;
 	CVec2 vGunPos;
 	
-	// сброс всех распределений - чтобы расставить арттиллеристов как-то по-новому
-	// return true - завершить состояние
 	bool ClearState();
 
-	// для каждого EGunServeState и по номел=ру юнита выдает нужную анимацию
 	SCrewAnimation CalcNeededAnimation( int iUnitNumber ) const;
 	SCrewAnimation CalcAniamtionForMG( int iUnitNumber ) const;
 
@@ -1005,8 +945,6 @@ public:
 	
 	CArtillery* GetArtillery() const { return pArtillery; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// 
 class CFormationInstallMortarState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationInstallMortarState );
@@ -1025,7 +963,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const { return CVec2(-1,-1);}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationUseSpyglassState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationUseSpyglassState );
@@ -1046,8 +983,6 @@ public:
 	
 	virtual EUnitStateNames GetName() { return EUSN_USE_SPYGLASS; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// для атаки взвода взводом
 class CFormationAttackFormationState : public IUnitAttackingState
 {
 	OBJECT_COMPLETE_METHODS( CFormationAttackFormationState );
@@ -1072,7 +1007,6 @@ public:
 	virtual bool IsAttacksUnit() const { return true; }
 	virtual class CAIUnit* GetTargetUnit() const { return 0; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationParadeState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationParadeState );
@@ -1094,7 +1028,6 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_PARADE; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationDisbandState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationDisbandState );
@@ -1113,7 +1046,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationFormState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationFormState );
@@ -1132,7 +1064,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationWaitToFormState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationWaitToFormState );
@@ -1144,7 +1075,6 @@ class CFormationWaitToFormState : public IUnitState
 	bool bMain;
 	NTimer::STime startTime;
 
-	//
 	void FinishState();
 	void FormFormation();
 public:
@@ -1160,7 +1090,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCatchFormationState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CCatchFormationState );
@@ -1172,14 +1101,10 @@ class CCatchFormationState : public IUnitState
 	CVec2 lastFormationPos;
 	CPtr<IRefCount> pLastFormationObject;
 
-	// формация, которая ловит
 	class CFormation *pCatchingFormation;
-	// формация, которую ловят
 	CPtr<CFormation> pFormation;
-	// время для периодических проверок состояния формации
 	NTimer::STime lastUpdateTime;
 
-	//
 	void LeaveCurStaticObject();
 	void MoveSoldierToFormation();
 	void JoinToFormation();
@@ -1201,7 +1126,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const { return CVec2( -1.0f, -1.0f ); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationSwarmState : public IUnitAttackingState
 {
 	OBJECT_COMPLETE_METHODS( CFormationSwarmState );
@@ -1217,7 +1141,6 @@ class CFormationSwarmState : public IUnitAttackingState
 	NTimer::STime startTime;
 	bool bContinue;
 
-	//
 	void AnalyzeTargetScan();
 public:
 	static IUnitState* Instance( class CFormation *pFormation, const CVec2 &point, const float fContinue );
@@ -1235,10 +1158,8 @@ public:
 	virtual bool IsAttacksUnit() const { return false; }
 	virtual class CAIUnit* GetTargetUnit() const { return 0; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFullBridge;
 class CBridgeSpan;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationRepairBridgeState : public IEngineerFormationState
 {
 	OBJECT_COMPLETE_METHODS( CFormationRepairBridgeState );
@@ -1279,7 +1200,6 @@ public:
 	virtual EUnitStateNames GetName() { return EUSN_REPAIR_BRIDGE; }
 
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationRepairBuildingState : public IEngineerFormationState
 {
 	OBJECT_COMPLETE_METHODS( CFormationRepairBuildingState );
@@ -1318,12 +1238,10 @@ public:
 
 	virtual void SetHomeTransport( class CAITransportUnit *pTransport );
 	
-	// returns nearest entrance
 	static int SendToNearestEntrance( CCommonUnit *pTransport, CBuilding * pStorage );
 
 	virtual EUnitStateNames GetName() { return EUSN_REPAIR_BUILDING; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationEnterBuildingNowState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationEnterBuildingNowState );
@@ -1342,7 +1260,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const { return CVec2(-1.0f,-1.0f); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationEnterEntrenchmentNowState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CFormationEnterEntrenchmentNowState );
@@ -1361,5 +1278,4 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const { return CVec2(-1.0f,-1.0f); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __FORMATION_STATES_H__

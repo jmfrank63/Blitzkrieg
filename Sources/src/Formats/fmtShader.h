@@ -1,8 +1,6 @@
 #ifndef __FMTSHADER_H__
 #define __FMTSHADER_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::pair<DWORD, DWORD> SShadeValue;
 struct SShaderDesc
 {
@@ -11,7 +9,6 @@ struct SShaderDesc
 	{
 		SValuesList rses;
 		std::vector<SValuesList> tsses;
-		//
 		int operator&( IStructureSaver &ss )
 		{
 			CSaverAccessor saver = &ss;
@@ -20,10 +17,8 @@ struct SShaderDesc
 			return 0;
 		}
 	};
-	//
 	SDefsBlock blockSet;
 	SDefsBlock blockRestore;
-	//
 	int operator&( IStructureSaver &ss )
 	{
 		CSaverAccessor saver = &ss;
@@ -32,14 +27,12 @@ struct SShaderDesc
 		return 0;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct STechnique
 {
 	int nNumTextures;
 	int nNumStages;
 	int nStencilDepth;
 	SShaderDesc shader;
-	//
 	int operator&( IStructureSaver &ss )
 	{
 		CSaverAccessor saver = &ss;
@@ -50,23 +43,11 @@ struct STechnique
 		return 0;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SShaderFileHeader
 {
 	enum { SIGNATURE = 0x00444853, VERSION = 1 };
-	//
 	DWORD dwSignature;										// file signature
 	DWORD dwVersion;											// shader version
-	//
 	SShaderFileHeader() : dwSignature( SIGNATURE ), dwVersion( VERSION ) {  }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** shader file structure:
-// **		1: file header (signature and version)
-// **		2: vector of techniques
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __FMTSHADER_H__

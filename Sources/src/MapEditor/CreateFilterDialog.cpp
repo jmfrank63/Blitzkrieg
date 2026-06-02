@@ -10,7 +10,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SSimpleFilter::Check( const std::string &rszFolder ) const
 {
 	if ( filter.empty() )
@@ -37,7 +36,6 @@ bool SSimpleFilter::Check( const std::string &rszFolder ) const
 	return false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SSimpleFilter::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -47,7 +45,6 @@ int SSimpleFilter::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SSimpleFilter::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -57,7 +54,6 @@ int SSimpleFilter::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CCreateFilterDialog::vID[] = 
 {
 	IDC_CF_FILTERS_LABEL,						//0
@@ -81,7 +77,6 @@ const char *FILTERS_COLUMN_NAME  [FILTERS_COLUMN_COUNT] = { "Name", "Size" };
 const int   FILTERS_COLUMN_FORMAT[FILTERS_COLUMN_COUNT] = { LVCFMT_LEFT, LVCFMT_RIGHT };
 const int		FILTERS_COLUMN_WIDTH [FILTERS_COLUMN_COUNT] = { 200, 60 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CALLBACK FiltersCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort )
 {
 	CCreateFilterDialog* pFilterDialog = reinterpret_cast<CCreateFilterDialog*>( lParamSort );
@@ -98,12 +93,9 @@ int CALLBACK FiltersCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSo
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CCreateFilterDialog::CCreateFilterDialog( CWnd* pParent )
 	: CResizeDialog( CCreateFilterDialog::IDD, pParent ), nSortColumn( 0 ), bCreateControls( true )
 {
-	//{{AFX_DATA_INIT(CCreateFilterDialog)
-	//}}AFX_DATA_INIT
 
 	SetControlStyle( IDC_CF_FILTERS_LABEL, ANCHORE_LEFT_TOP | RESIZE_HOR );
 	SetControlStyle( IDC_CF_FILTERS_LIST, ANCHORE_LEFT_TOP | RESIZE_HOR_VER, 0.5f, 0.5f, 1.0f, 0.5f );
@@ -125,20 +117,15 @@ CCreateFilterDialog::CCreateFilterDialog( CWnd* pParent )
 	SetControlStyle( IDCANCEL, ANCHORE_HOR_CENTER | ANCHORE_BOTTOM );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::DoDataExchange(CDataExchange* pDX)
 {
 	CResizeDialog::DoDataExchange(pDX);
-	//{{AFX_DATA_MAP(CCreateFilterDialog)
 	DDX_Control(pDX, IDC_CF_CONDITIONS_LIST, m_ConditionsList);
 	DDX_Control(pDX, IDC_CF_ALL_FOLDERS_LIST, m_FoldersList);
 	DDX_Control(pDX, IDC_CF_FILTERS_LIST, m_FiltersList);
-	//}}AFX_DATA_MAP
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CCreateFilterDialog, CResizeDialog)
-	//{{AFX_MSG_MAP(CCreateFilterDialog)
 	ON_NOTIFY(LVN_COLUMNCLICK, IDC_CF_FILTERS_LIST, OnColumnclickFiltersList)
 	ON_NOTIFY(NM_RCLICK, IDC_CF_FILTERS_LIST, OnRclickFiltersList)
 	ON_NOTIFY(LVN_ITEMCHANGED, IDC_CF_FILTERS_LIST, OnItemchangedFiltersList)
@@ -154,10 +141,8 @@ BEGIN_MESSAGE_MAP(CCreateFilterDialog, CResizeDialog)
 	ON_BN_CLICKED(IDC_CF_RENAME_FILTER_BUTTON, OnRenameFilterButton)
 	ON_COMMAND(IDC_CF_RENAME_FILTER_MENU, OnRenameFilterMenu)
 	ON_NOTIFY(NM_DBLCLK, IDC_CF_FILTERS_LIST, OnDblclkFiltersList)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CCreateFilterDialog::OnInitDialog()
 {
   CResizeDialog::OnInitDialog();
@@ -173,7 +158,6 @@ BOOL CCreateFilterDialog::OnInitDialog()
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::FillFilters()
 {
 	bCreateControls = true;
@@ -241,7 +225,6 @@ void CCreateFilterDialog::LoadFilterToControls()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::FillFolders( const TSimpleFilterItem &rSimpleFilterItem )
 {
 	bCreateControls = true;
@@ -279,7 +262,6 @@ void CCreateFilterDialog::FillFolders( const TSimpleFilterItem &rSimpleFilterIte
 	UpdateControls();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::CreateControls()
 {
 	bCreateControls = true;
@@ -300,12 +282,10 @@ void CCreateFilterDialog::CreateControls()
 	bCreateControls = false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::ClearControls()
 {
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::UpdateControls()
 {
 	bool bSelectedFilterExists = ( m_FiltersList.GetSelectedCount() > 0 );
@@ -359,7 +339,6 @@ void CCreateFilterDialog::UpdateControls()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::OnOK() 
 {
 	for ( int nColumnIndex = 0; nColumnIndex < FILTERS_COLUMN_COUNT; ++nColumnIndex )
@@ -370,7 +349,6 @@ void CCreateFilterDialog::OnOK()
 	CResizeDialog::OnOK();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::OnCancel() 
 {
 	for ( int nColumnIndex = 0; nColumnIndex < FILTERS_COLUMN_COUNT; ++nColumnIndex )
@@ -380,7 +358,6 @@ void CCreateFilterDialog::OnCancel()
 
 	CResizeDialog::OnCancel();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void CCreateFilterDialog::OnColumnclickFiltersList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
@@ -402,7 +379,6 @@ void CCreateFilterDialog::OnColumnclickFiltersList(NMHDR* pNMHDR, LRESULT* pResu
 	*pResult = 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::OnRclickFiltersList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	CMenu filtersMenu;
@@ -431,7 +407,6 @@ void CCreateFilterDialog::OnRclickFiltersList(NMHDR* pNMHDR, LRESULT* pResult)
 	*pResult = 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::OnItemchangedFiltersList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -443,7 +418,6 @@ void CCreateFilterDialog::OnItemchangedFiltersList(NMHDR* pNMHDR, LRESULT* pResu
 	*pResult = 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::OnSelchangeConditionsList() 
 {
 	if ( !bCreateControls )
@@ -452,7 +426,6 @@ void CCreateFilterDialog::OnSelchangeConditionsList()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::OnSelchangeAllFoldersList() 
 {
 	if ( !bCreateControls )
@@ -478,7 +451,6 @@ void CCreateFilterDialog::OnSelchangeAllFoldersList()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::OnAddConditionButton() 
 {
 	int nSelectedFilter = m_FiltersList.GetNextItem( -1, LVNI_SELECTED );
@@ -507,7 +479,6 @@ void CCreateFilterDialog::OnAddConditionButton()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::OnRemoveConditionButton() 
 {
 	int nSelectedFilter = m_FiltersList.GetNextItem( -1, LVNI_SELECTED );
@@ -547,7 +518,6 @@ void CCreateFilterDialog::OnRemoveConditionButton()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::GetUniqueFilterName( const std::string &rszNewFilterName, std::string *pszFullNewFilterName )
 {	
 	if ( pszFullNewFilterName )
@@ -563,9 +533,7 @@ void CCreateFilterDialog::GetUniqueFilterName( const std::string &rszNewFilterNa
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::OnAddFilterButton()
 {
 	CCreateFilterNameDialog createFilterNameDialog;
@@ -584,13 +552,11 @@ void CCreateFilterDialog::OnAddFilterButton()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::OnAddFilterMenu() 
 {
 	OnAddFilterButton();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::OnDeleteFilterButton() 
 {
 	int nSelectedFilter = m_FiltersList.GetNextItem( -1, LVNI_SELECTED );
@@ -611,19 +577,16 @@ void CCreateFilterDialog::OnDeleteFilterButton()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::OnDeleteFilterMenu() 
 {
 	OnDeleteFilterButton();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::OnDblclkAllFoldersList() 
 {
 	OnSelchangeAllFoldersList();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::OnRenameFilterButton() 
 {
 	int nSelectedFilter = m_FiltersList.GetNextItem( -1, LVNI_SELECTED );
@@ -655,13 +618,11 @@ void CCreateFilterDialog::OnRenameFilterButton()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::OnRenameFilterMenu() 
 {
 	OnRenameFilterButton();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCreateFilterDialog::OnDblclkFiltersList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_CF_RENAME_FILTER_BUTTON ) )
@@ -673,4 +634,3 @@ void CCreateFilterDialog::OnDblclkFiltersList(NMHDR* pNMHDR, LRESULT* pResult)
 	}
 	*pResult = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,7 +1,4 @@
-// STLport configuration file
-// It is internal STLport header - DO NOT include it directly
 
-// common configuration settings for Apple MPW MrCpp / SCpp
 
 #if defined(__MRC__) && __MRC__ < 0x500
 # error Apple's MPW MrCpp v.5.0.0 or better compiler required
@@ -86,7 +83,6 @@ typedef int wint_t;
 #undef _REENTRANT									//*ty 11/24/2001 - to make sure no thread facility is activated
 #define _NOTHREADS									//*ty 12/07/2001 - 
 
-// native library limitations
 #define _STLP_VENDOR_GLOBAL_STD						// mpw's c++ libs do not utilize namespace std yet
 #define _STLP_NO_BAD_ALLOC							// known limitation
 #define _STLP_HAS_NO_NEW_C_HEADERS					// known limitation
@@ -98,7 +94,6 @@ typedef int wint_t;
 #define _STLP_INCOMPLETE_EXCEPTION_HEADER			// known limitation
 #define _STLP_BROKEN_EXCEPTION_CLASS				// known limitation
 
-// compiler limitations
 # define _STLP_DONT_SIMULATE_PARTIAL_SPEC_FOR_TYPE_TRAITS
 
 # define _STLP_MPWFIX_TRY try{											//*TY 06/01/2000 - exception handling bug workaround
@@ -109,4 +104,3 @@ typedef int wint_t;
 # define _STLP_NO_PARTIAL_SPECIALIZATION_SYNTAX		// known limitation
 # define _STLP_NO_FUNCTION_TMPL_PARTIAL_ORDER		// known limitation
 # define _STLP_NO_RELOPS_NAMESPACE					// known limitation
-// end of stl_apple.h

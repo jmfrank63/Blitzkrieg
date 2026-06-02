@@ -1,7 +1,6 @@
 #include "StdAfx.h"
 
 #include "FrameSelection.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFrameSelection::Draw( IGFX *pGFX )
 {
 	static CMatrixStack<4> mstack;
@@ -9,13 +8,10 @@ bool CFrameSelection::Draw( IGFX *pGFX )
 	mstack.Push( pGFX->GetProjectionMatrix() );
 	mstack.Push( pGFX->GetViewMatrix() );
 	const SHMatrix &matTransform = mstack();
-	//
 	CVec3 vScrBegin, vScrEnd;
 	matTransform.RotateHVector( &vScrBegin, vBegin );
 	matTransform.RotateHVector( &vScrEnd, vEnd );
-	//
 	mstack.Pop( 3 );
-	//
 	pGFX->SetTexture( 0, 0 );
 	pGFX->SetShadingEffect( 3 );
 	SGFXRect2 rect;
@@ -29,9 +25,7 @@ bool CFrameSelection::Draw( IGFX *pGFX )
 	
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFrameSelection::Visit( ISceneVisitor *pVisitor, int nType )
 {
 	pVisitor->VisitSceneObject( this );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

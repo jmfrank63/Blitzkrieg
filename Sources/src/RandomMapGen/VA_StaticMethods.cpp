@@ -2,7 +2,6 @@
 
 #include "VA_Types.h"
 #include "..\Formats\FmtTerrain.h"
-//#include "RMG_LockArrays.h"
 #include "IB_Types.h"
 
 #ifdef _DEBUG
@@ -11,22 +10,11 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CVertexAltitudeInfo::CAMERA_ALPHA = ( FP_SQRT_2 / FP_SQRT_3 );
 const float CVertexAltitudeInfo::WORLD_CAMERA_ALPHA = CAMERA_ALPHA * fWorldCellSize;
 const CVec3 CVertexAltitudeInfo::V3_CAMERA_NEGATIVE( -1, -1, -( CVertexAltitudeInfo::CAMERA_ALPHA ) );
 const CVec3 CVertexAltitudeInfo::V3_CAMERA_POSITIVE( 1, 1, -( CVertexAltitudeInfo::CAMERA_ALPHA ) );
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//посчитать нормаль в точке
-// v1---v2
-// |\   | \
-// |  \ |   \
-// v6---fZ---v3
-//  \   | \  |
-//    \ |   \|
-//      v5---v4
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec3 CVertexAltitudeInfo::GetNormale( const STerrainInfo::TVertexAltitudeArray2D &rAltitude, int nXPos, int nYPos )
 {
 	if ( !IsValidIndices( rAltitude, nXPos, nYPos ) )
@@ -53,13 +41,11 @@ const CVec3 CVertexAltitudeInfo::GetNormale( const STerrainInfo::TVertexAltitude
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec3 CVertexAltitudeInfo::GetNormale( const STerrainInfo::TVertexAltitudeArray2D &rAltitude, const CTPoint<int> &rPoint )
 {
 	return GetNormale( rAltitude, rPoint.x, rPoint.y );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVertexAltitudeInfo::UpdateShades( STerrainInfo::TVertexAltitudeArray2D *pAltitude, const CTRect<int> &rUpdateRect, const SGFXLightDirectional &rSunlight )
 {
 	NI_ASSERT_TF( pAltitude != 0,
@@ -88,13 +74,11 @@ bool CVertexAltitudeInfo::UpdateShades( STerrainInfo::TVertexAltitudeArray2D *pA
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVertexAltitudeInfo::GetHeight( const STerrainInfo::TVertexAltitudeArray2D &rAltitude, const CVec2 &rvPos, float *pfHeight )
 {
 	return GetHeight( rAltitude, rvPos.x, rvPos.y, pfHeight );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVertexAltitudeInfo::GetHeight( const STerrainInfo::TVertexAltitudeArray2D &rAltitude, float fXPos, float fYPos, float *pfHeight )
 {
 	NI_ASSERT_TF( pfHeight != 0,
@@ -160,34 +144,11 @@ const float CStaticMap::GetVisZ( float x, float y ) const
 
 	if ( (theStaticMap.GetSizeX() + theStaticMap.GetSizeY()) == 0 ) 
 		return 0;
-	//
 	GetPoint4Spline( CVec2( x, y ), &u, &v, ptCtrls );
-	// высоты разжимаются обратно, т.к. для сплайна даётся сетка с шагом 1 ( а не 2 * TILE_SIZE )
-	// умножается на fAITileZCoeff1, чтобы перевести в AI высоты
 	return betaSpline3D.Value( u, v, ptCtrls ) * 2.0f * SConsts::TILE_SIZE * fAITileZCoeff1;
 }
 /**/
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// v1--------v2         Z
-//   \  n0  /           |
-//     \  /             |
-//      v0             / \
-//     /  \          /     \
-//   /  n1  \       Y       X
-// v3--------v4
-//
-// v0( nXPos + 0, nYPos + 0 )
-// v1( nXPos - 1, nYPos + 0 )
-// v2( nXPos + 0, nYPos - 1 )
-// v3( nXPos + 0, nYPos + 1 )
-// v4( nXPos + 1, nYPos + 0 )
-//
-//n0 = [(v2 - v0)(v1 - v0)]
-//n1 = [(v3 - v0)(v4 - v0)]
-//V3_CAMERA_NEGATIVE = ( -1, -1, -( SQRT_2 / SQRT_3 ) ) == V3_CAMERA
-//V3_CAMERA_POSITIVE = ( 1, 1, -( SQRT_2 / SQRT_3 ) ) == V3_CAMERA
-//
 bool CVertexAltitudeInfo::IsValidHeight( const STerrainInfo::TVertexAltitudeArray2D &rAltitude, int nXPos, int nYPos )
 {
 	if ( ( nXPos >= 0 ) &&
@@ -212,7 +173,6 @@ bool CVertexAltitudeInfo::IsValidHeight( const STerrainInfo::TVertexAltitudeArra
 	return false;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVertexAltitudeInfo::IsValidHeight( const STerrainInfo::TVertexAltitudeArray2D &rAltitude, const CTPoint<int> &rPoint )
 {
 	return IsValidHeight( rAltitude, rPoint.x, rPoint.y );
@@ -235,72 +195,6 @@ bool CVertexAltitudeInfo::IsValidHeight( const STerrainInfo::TVertexAltitudeArra
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//| i  j  k  |
-//| x0 y0 z0 |
-//| x1 y1 z1 |
-//
-// v0 ^ v1 = i(y0z1 - z0y1) + j(x1z0 - z1x0) + k(x0y1 - y0x1) 
-// v0 * v2 = x0x1 + y0y1 + z0z1
-//
-//      Z
-//      |
-//      |
-//     / \
-//   /     \
-//  Y       X
-//
-//
-//n0 = (v1 - v0)^(v2 - v0)
-//V3_CAMERA_NEGATIVE = ( -1, -1, -( SQRT_2 / SQRT_3 ) ) == V3_CAMERA
-//V3_CAMERA_POSITIVE = ( 1, 1, -( SQRT_2 / SQRT_3 ) ) == V3_CAMERA
-//
-//( n * V3_CAMERA_NEGATIVE ) >= 0
-//( n * V3_CAMERA_POSITIVE ) >= 0
-//
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-//      v0     v2--------v1
-//     /  \      \      /
-//   /      \      \  /
-// v1--------v2     v0
-//
-//( 2 * z0 ) - z2 - z1 + fWorldCellSize * ( SQRT_2 / SQRT_3 ) >= 0
-//z2 + z1 - ( 2 * z0 ) + fWorldCellSize * ( SQRT_2 / SQRT_3 ) >= 0
-//z0 = [ ( z1 + z2 - fWorldCellSize * ( SQRT_2 / SQRT_3 ) ) / 2;
-//			 ( z1 + z2 + fWorldCellSize * ( SQRT_2 / SQRT_3 ) ) / 2 ];
-//
-//      v2     v1--------v0
-//     /  \      \      /
-//   /      \      \  /
-// v0--------v1     v2
-//
-//( 2 * z2 ) - z1 - z0 + fWorldCellSize * ( SQRT_2 / SQRT_3 ) >= 0
-//z1 + z0 - ( 2 * z2 ) + fWorldCellSize * ( SQRT_2 / SQRT_3 ) >= 0
-//z0 = [ ( 2 * z2 ) - z1 - fWorldCellSize * ( SQRT_2 / SQRT_3 ),
-//			 ( 2 * z2 ) - z1 + fWorldCellSize * ( SQRT_2 / SQRT_3 ),
-//
-//      v1     v0--------v2
-//     /  \      \      /
-//   /      \      \  /
-// v2--------v0     v1
-//
-//( 2 * z1 ) - z2 - z0 + fWorldCellSize * ( SQRT_2 / SQRT_3 ) >= 0
-//z2 + z0 - ( 2 * z1 ) + fWorldCellSize * ( SQRT_2 / SQRT_3 ) >= 0
-//z0 = [ ( 2 * z1 ) - z2 - fWorldCellSize * ( SQRT_2 / SQRT_3 ),
-//			 ( 2 * z1 ) - z2 + fWorldCellSize * ( SQRT_2 / SQRT_3 ),
-//
-//
-//			\  /
-//       v0 
-//      /  \
-// \  /      \  /
-//  v1 rPoint v2
-// /  \      /  \
-//      \  /
-//       v3
-//      /  \
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVertexAltitudeInfo::ValidateHeights( STerrainInfo::TVertexAltitudeArray2D *pAltitude, int nPosX, int nPosY, int nSize, CTRect<int> *pAffectedRect )
 {
 	NI_ASSERT_T( pAffectedRect != 0,
@@ -321,13 +215,11 @@ bool CVertexAltitudeInfo::ValidateHeights( STerrainInfo::TVertexAltitudeArray2D 
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVertexAltitudeInfo::ValidateHeights( STerrainInfo::TVertexAltitudeArray2D *pAltitude, const CTPoint<int> &rPoint, int nSize, CTRect<int> *pAffectedRect )
 {
 	return ValidateHeights( pAltitude, rPoint.x, rPoint.y, nSize, pAffectedRect );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVertexAltitudeInfo::GetHeightsRange( const STerrainInfo::TVertexAltitudeArray2D &rAltitude, float *pfMinHeight, float *pfMaxHeight )
 {
 	NI_ASSERT_T( ( pfMinHeight != 0 ) && ( pfMaxHeight != 0 ),
@@ -355,7 +247,6 @@ bool CVertexAltitudeInfo::GetHeightsRange( const STerrainInfo::TVertexAltitudeAr
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVertexAltitudeInfo::GetShadesRange( const STerrainInfo::TVertexAltitudeArray2D &rAltitude, float *pfMinShade, float *pfMaxShade )
 {
 	NI_ASSERT_T( ( pfMinShade != 0 ) && ( pfMaxShade != 0 ),
@@ -383,7 +274,6 @@ bool CVertexAltitudeInfo::GetShadesRange( const STerrainInfo::TVertexAltitudeArr
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CVertexAltitudeInfo::GetHeightsImage( const STerrainInfo::TVertexAltitudeArray2D &rAltitude, float fRatio, bool bTerrainSize )
 {
 	CPtr<IImageProcessor> pImageProcessor = GetImageProcessor();
@@ -424,7 +314,6 @@ IImage* CVertexAltitudeInfo::GetHeightsImage( const STerrainInfo::TVertexAltitud
 	return pHeightsImage;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CVertexAltitudeInfo::GetShadesImage( const STerrainInfo::TVertexAltitudeArray2D &rAltitude, float fRatio, bool bTerrainSize )
 {
 	CPtr<IImageProcessor> pImageProcessor = GetImageProcessor();
@@ -464,11 +353,7 @@ IImage* CVertexAltitudeInfo::GetShadesImage( const STerrainInfo::TVertexAltitude
 	}
 	return pShadesImage;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// basement storage  
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
 							CTRect<int> rect( updateRect );
 							SVAPattern checkPattern;

@@ -2,16 +2,12 @@
 #include <comdef.h>
 #include "UIBasic.h"
 #include "UIBasicM.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// all properties register in this module
 CPropertiesRegister thePropertiesRegister;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CUIWindowManipulator::CUIWindowManipulator() 
 : CManipulator( &thePropertiesRegister, "UIWindow" ), pWindow( 0 )
 {
 	BEGIN_PROPERTIES_MAP( CUIWindow );
-	// fill properties
 	AddNewProperty( this, "Pos.X", &CUIWindowManipulator::SetPosX, &CUIWindowManipulator::GetPosX, SPropertyDesc::VAL_INT, SBaseProperty::LEAF );
 	AddNewProperty( this, "Pos.Y", &CUIWindowManipulator::SetPosY, &CUIWindowManipulator::GetPosY, SPropertyDesc::VAL_INT, SBaseProperty::LEAF );
 	AddNewProperty( this, "Size.X", &CUIWindowManipulator::SetSizeX, &CUIWindowManipulator::GetSizeX, SPropertyDesc::VAL_INT, SBaseProperty::LEAF );
@@ -20,7 +16,6 @@ CUIWindowManipulator::CUIWindowManipulator()
 	AddNewProperty( this, "Visible status", &CUIWindowManipulator::SetVisibleStatus, &CUIWindowManipulator::GetVisibleStatus, SPropertyDesc::VAL_INT, SBaseProperty::LEAF );
 	AddNewProperty( this, "States", CUIWindowProperty::SETFUNCTION(0), &CUIWindowManipulator::GetTexture, SPropertyDesc::VAL_BROWSEFILE, SBaseProperty::VECTOR );
 	AddNewProperty( this, "High sound", &CUIWindowManipulator::SetHighSound, &CUIWindowManipulator::GetHighSound, SPropertyDesc::VAL_BROWSEFILE, SBaseProperty::LEAF );
-	//
 	END_PROPERTIES_MAP;
 }
 
@@ -147,4 +142,3 @@ void CUIWindowManipulator::GetHighSound( variant_t *pValue, int nIndex )
 	pValue->bstrVal = bstr_t( pWindow->szHighSound.c_str() );
 
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,6 +1,5 @@
 #include "stdafx.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "TechnicsStates.h"
 #include "AIUnit.h"
 #include "Entrenchment.h"
@@ -12,28 +11,20 @@
 #include "EntrenchmentCreation.h"
 #include "UnitsIterators2.h"
 #include "Artillery.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CStaticObjects theStatObjs;
 extern NTimer::STime curTime;
 extern CUnitCreation theUnitCreation;
 extern CGroupLogic theGroupLogic;
 extern CStaticMap theStaticMap;
 extern CUpdater updater;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CSoldierEntrenchSelfState											*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CTankPitLeaveState::Instance( class CAIUnit *pTank )
 {
 	return new CTankPitLeaveState( pTank );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CTankPitLeaveState::CTankPitLeaveState( class CAIUnit  *pTank )
 : eState( TLTPS_ESTIMATING ), pUnit( pTank ), timeStartLeave( curTime )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTankPitLeaveState::Segment()
 {
 	switch( eState )
@@ -54,21 +45,14 @@ void CTankPitLeaveState::Segment()
 		break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CTankPitLeaveState::TryInterruptState( class CAICommand *pCommand )
 {
 	return TSIR_YES_WAIT;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CSoldierEntrenchSelfState*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierEntrenchSelfState::Instance( class CAIUnit * pUnit )
 {
 	return new CSoldierEntrenchSelfState( pUnit );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierEntrenchSelfState::CSoldierEntrenchSelfState( class CAIUnit * pUnit ) 
 : pUnit( pUnit ), eState( ESHD_ESTIMATE )
 {  
@@ -77,7 +61,6 @@ CSoldierEntrenchSelfState::CSoldierEntrenchSelfState( class CAIUnit * pUnit )
 	else
 		pUnit->StopUnit();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoldierEntrenchSelfState::CheckInfantry( const CAIUnit * pUnit, const SRect &rect ) const
 {
 	const CFormation *pFormation = 0;
@@ -97,12 +80,10 @@ bool CSoldierEntrenchSelfState::CheckInfantry( const CAIUnit * pUnit, const SRec
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoldierEntrenchSelfState::CheckTrenches( const CAIUnit * pUnit, const SRect &rectToTest ) const
 {
 	return !CEntrenchmentCreation::SearchTrenches( pUnit->GetCenter(), rectToTest );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierEntrenchSelfState::Segment()
 {
 	
@@ -111,7 +92,6 @@ void CSoldierEntrenchSelfState::Segment()
 	case ESHD_ESTIMATE:
 		{
 			pUnit->UnlockTiles();
-			// determine weather we can build tank pit from sand bags or can hull doun into ground
 			const SRect unitRect = pUnit->GetUnitRect();
 			CTilesSet unitTiles;
 			GetTilesCoveredByRect( unitRect, &unitTiles );
@@ -149,7 +129,6 @@ void CSoldierEntrenchSelfState::Segment()
 			
 			GetTilesNextToRect( rect, &tiles, 65535/2 + pUnit->GetFrontDir() );
 			
-			// проверить, не залоканы ли тайлы под TankPit
 			bool bCanAdd = true;
 			for ( CTilesSet::iterator i = tiles.begin(); i != tiles.end(); ++i )
 			{
@@ -167,8 +146,6 @@ void CSoldierEntrenchSelfState::Segment()
 
 			if ( bCanAdd )
 			{
-				//lock tiles where talnkpit will be build
-				//
 				theStaticMap.UpdateMaxesByTiles( tiles, AI_CLASS_ANY, true );
 				eState = ESHD_START_BUILD;
 				updater.Update( ACTION_NOTIFY_ENTRENCHMENT_STARTED, pUnit );
@@ -204,7 +181,6 @@ void CSoldierEntrenchSelfState::Segment()
 		break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierEntrenchSelfState::TryInterruptState( class CAICommand *pCommand )
 {
 	if ( !pUnit->IsValid() || !pUnit->IsAlive() )
@@ -217,4 +193,3 @@ ETryStateInterruptResult CSoldierEntrenchSelfState::TryInterruptState( class CAI
 	}
 	return	TSIR_YES_WAIT;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

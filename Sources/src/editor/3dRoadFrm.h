@@ -12,22 +12,15 @@ public:
 	C3DRoadFrame();
 	virtual ~C3DRoadFrame();
 	
-	// Attributes
 public:
 	
-	// Operations
 public:
 	void UpdateRoadView();
 
 	virtual void GFXDraw();
 	virtual void ShowFrameWindows( int nCommand );
 	
-	// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(C3DRoadFrame)
-	//}}AFX_VIRTUAL
 	
-	// Implementation
 private:
 	bool bMapLoaded;
 	bool bWireFrameMode;
@@ -44,14 +37,11 @@ protected:
 
 	void LoadRoadMap();
 	
-	// Generated message map functions
 protected:
-	//{{AFX_MSG(C3DRoadFrame)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnSwitchWireframeMode();
 	afx_msg void OnUpdateSwitchWireframeMode(CCmdUI* pCmdUI);
 	afx_msg void OnSetFocus(CWnd* pOldWnd);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 

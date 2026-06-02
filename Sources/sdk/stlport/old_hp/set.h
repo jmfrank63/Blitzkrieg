@@ -52,6 +52,3 @@ using STLPORT::__set__;
 
 #endif /* _STLP_SET_H */
 
-// Local Variables:
-// mode:C++
-// End:

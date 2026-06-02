@@ -9,11 +9,9 @@
 #include "ResizeDialog.h"
 #include "..\RandomMapGen\RMG_Types.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CALLBACK CC_PatchesCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
 int CALLBACK CC_ContainersCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRMGCreateContainerDialog : public CResizeDialog
 {
 	friend int CALLBACK CC_PatchesCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
@@ -21,19 +19,14 @@ class CRMGCreateContainerDialog : public CResizeDialog
 public:
 	CRMGCreateContainerDialog( CWnd* pParent = NULL );
 
-	//{{AFX_DATA(CRMGCreateContainerDialog)
 	enum { IDD = IDD_RMG_CREATE_CONTAINER };
 	CListCtrl	m_ContainersList;
 	CListCtrl	m_PatchesList;
-	//}}AFX_DATA
 
-	//{{AFX_VIRTUAL(CRMGCreateContainerDialog)
 	protected:
 	virtual void DoDataExchange( CDataExchange* pDX );
-	//}}AFX_VIRTUAL
 
 protected:
-	//{{AFX_MSG(CRMGCreateContainerDialog)
 	virtual BOOL OnInitDialog();
 	virtual void OnOK();
 	virtual void OnCancel();
@@ -65,7 +58,6 @@ protected:
 	afx_msg void OnFileSaveas();
 	afx_msg void OnFileExit();
 	afx_msg void OnCheckContainersButton();
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 
 protected:
@@ -96,7 +88,5 @@ protected:
 	void ClearControls();
 public:
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
 #endif // !defined(__RMG_Create_Container_Dialog__)

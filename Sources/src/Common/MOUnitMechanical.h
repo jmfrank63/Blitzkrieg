@@ -1,25 +1,19 @@
 #ifndef __MOUNITMECHANICAL_H__
 #define __MOUNITMECHANICAL_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "MOUnit.h"
 #include "Passangers.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMOUnitMechanical : public CMOUnit
 {
 	OBJECT_SERVICE_METHODS( CMOUnitMechanical );
 	DECLARE_SERIALIZE;
-	//
 	struct SModelChange
 	{
 		std::string szModelName;						// model to change to
 		NTimer::STime time;									// time to change in
-		//
 		SModelChange() {  }
 		SModelChange( const std::string &_szModelName, const NTimer::STime &_time )
 			: szModelName( _szModelName ), time( _time ) {  }
-		//
 		int operator&( IStructureSaver &ss )
 		{
 			CSaverAccessor saver = &ss;
@@ -28,17 +22,14 @@ class CMOUnitMechanical : public CMOUnit
 			return 0;
 		}
 	};
-	//
 	struct SAnimChange
 	{
 		int nAnim;													// animation index
 		NTimer::STime time;									// time to set this animation
 		NTimer::STime length;								// animation length
-		//
 		SAnimChange() {  }
 		SAnimChange( const int _nAnim, const NTimer::STime &_time, const NTimer::STime &_length )
 			: nAnim( _nAnim ), time( _time ), length( _length ) {  }
-		//
 		int operator&( IStructureSaver &ss )
 		{
 			CSaverAccessor saver = &ss;
@@ -48,20 +39,16 @@ class CMOUnitMechanical : public CMOUnit
 			return 0;
 		}
 	};
-	//
 	struct SEffect
 	{
 		CPtr<IEffectVisObj> pEffect;				// attached effect
 		int nPointIndex;										// point index, this effect attached to
 		NTimer::STime timeLastUpdate;				// last time, this effect was updated (or added/started)
-		//
 		SEffect() : nPointIndex( -1 ), timeLastUpdate( 0 ) {  }
 		SEffect( IEffectVisObj *_pEffect, int _nPointIndex, const NTimer::STime &_timeLastUpdate ) 
 			: pEffect( _pEffect ), nPointIndex( _nPointIndex ), timeLastUpdate( _timeLastUpdate ) {  }
-		//
 		int operator&( IStructureSaver &ss );
 	};
-	//
 	WORD wMoveSoundID;										// sound, this unit producas during movement (0 = invalid)
 	WORD wNonCycleSoundID;								// some noncycled sound, that must stop with unit destruction
 	bool bDiveMove;												// for dive bombers
@@ -81,94 +68,63 @@ class CMOUnitMechanical : public CMOUnit
 	float fTraceSpeedCoeff;
 	bool bSkipTrack;
 	std::list< CPtr<IEffectVisObj> > smokeEffects; // train smoke effects
-	//
 	typedef std::list<SModelChange> CModelChangesList;
 	CModelChangesList modelchanges;				// delayed model changes
 	typedef std::list<SAnimChange> CAnimChangeList;
 	CAnimChangeList animchanges;					// delayed animation changes
 	typedef std::list<SEffect> CEffectsList;
 	CEffectsList effects;									// attached effects
-	//
 	IMeshVisObj* GetVisObj() { return static_cast_ptr<IMeshVisObj*>( pVisObj ); }
 	IMeshAnimation* GetAnim() { return static_cast<IMeshAnimation*>( GetVisObj()->GetAnimation() ); }
 	const SMechUnitRPGStats* GetRPGStats() const { return static_cast_gdb<const SMechUnitRPGStats*>( pRPG ); }
-	//
 	int GetNumTotalSlots() const { return GetRPGStats()->nPassangers; }
 	int GetNumFreeSlots() const { return GetNumTotalSlots() - passangers.size(); }
-	//
 	void UpdateModelWithHP( const float fHP, IVisObjBuilder *pVOB );
 	void ChangeExtPassangers( IScene *pScene, IVisObjBuilder *pVOB );
-	//
-	// attached effects
 	bool HasEffects() const { return !effects.empty(); }
 	void AddEffect( IEffectVisObj *pEffect, int nPointIndex, const NTimer::STime &timeStart ) { effects.push_back( SEffect(pEffect, nPointIndex, timeStart) ); }
 	void RemoveExhaustedEffects( const NTimer::STime &time );
 	void UpdateAttachedEffects( const NTimer::STime &currTime, IScene *pScene = 0 );
-	//
 	virtual void MakeVisible( const bool bVisible );
-	// actions
 	void ActionMove( const SAINotifyAction &action, const NTimer::STime &currTime, IVisObjBuilder *pVOB, IScene *pScene );
 	void ActionDie( const SAINotifyAction &action, const NTimer::STime &currTime, IVisObjBuilder *pVOB, IScene *pScene );
 	void ActionStop( const SAINotifyAction &action, IScene *pScene );
 	int ActionInstall( const SAINotifyAction &action, const NTimer::STime &currTime, IVisObjBuilder *pVOB );
 	const int DoInstall( const int nAnimation, const NTimer::STime &timeAction, const int nRPGDuration, const char *pszModel2 = 0 );
 	const int DoUnInstall( const int nAnimation, const NTimer::STime &timeAction, const int nRPGDuration, IVisObjBuilder *pVOB, const char *pszModel3 = 0, bool bInstantly = false );
-	//
 	int ChangeModel( const std::string &szModelName, const NTimer::STime &currTime, const NTimer::STime &timeChange );
-	//
 	const SUnitBaseRPGStats::SAnimDesc* GetAnimationByType( int nType )
 	{
 		if ( (nType >= GetRPGStats()->animdescs.size()) || GetRPGStats()->animdescs[nType].empty() )
 			return 0;
 		return &( GetRPGStats()->animdescs[nType][ rand() % GetRPGStats()->animdescs[nType].size() ] );
 	}
-	//
 	void ChangeState( EUnitState state, const NTimer::STime &currTime );
-	//
 	virtual const CVec3 GetIconAddValue() const { return CVec3(0, 0, 10); }
-	//
 	CMOUnitMechanical();
 	virtual ~CMOUnitMechanical();
 public:
 	virtual bool STDCALL Create( IRefCount *pAIObj, const SGDBObjectDesc *pDesc, int nSeason, int nFrameIndex, float fHP, interface IVisObjBuilder *pVOB, IObjectsDB *pGDB );
-	//
 	virtual void STDCALL PrepareToRemove();
-	// get status for mission status bar
 	virtual void STDCALL GetStatus( struct SMissionStatusObject *pStatus ) const;
-	// change selection state for this object
 	virtual void STDCALL Select( ISelector *pSelector, bool bSelect, bool bSelectSuper );
-	// modified SetPlacement() for proper trace initialization
 	virtual void STDCALL SetPlacement( const CVec3 &vPos, const WORD &wDir );
-	//
 	virtual bool STDCALL Load( interface IMOUnit *pMO, bool bEnter );
-	// show icons of the passangers
 	virtual void STDCALL UpdatePassangers();
-	// get all passangers from container. return number of passangers. if pBuffer == 0, only returns number of passangers
 	virtual int STDCALL GetPassangers( IMOUnit **pBuffer, const bool bCanSelectOnly ) const;
-	// get free places
 	virtual int STDCALL GetFreePlaces() const { return 0; }
-	// get actions, which this object can perform or actions, thi object can be acted with
 	virtual void STDCALL GetActions( CUserActions *pActions, EActionsType eActions ) const;
-	// general update. called if this unit in the 'update' list. return true to remove unit from update list
 	virtual bool STDCALL Update( const NTimer::STime &currTime );
-	// common updates
 	virtual void STDCALL AIUpdatePlacement( const SAINotifyPlacement &placement, const NTimer::STime &currTime, IScene *pScene );
 	virtual void STDCALL LeaveTrace( SMechTrace *pTrace, const SAINotifyPlacement &placement, const NTimer::STime &currTime, bool secondTrack,	const SMechUnitRPGStats *pStats, const CVec3 &vPos, bool isForward, const CVec3 &dir, IScene *pScene );
 	virtual bool STDCALL AIUpdateRPGStats( const SAINotifyRPGStats &stats, IVisObjBuilder *pVOB, IScene * pScene );
 	virtual void STDCALL AIUpdateHit( const struct SAINotifyHitInfo &hit, const NTimer::STime &currTime, IScene *pScene, IVisObjBuilder *pVOB );
-	// unit commands
 	virtual IMapObj* STDCALL AIUpdateFireWithProjectile( const SAINotifyNewProjectile &projectile, const NTimer::STime &currTime, interface IVisObjBuilder *pVOB );
 	virtual int STDCALL AIUpdateActions( const SAINotifyAction &action, const NTimer::STime &currTime, IVisObjBuilder *pVOB, IScene *pScene, interface IClientAckManager *pAckManager );
 	virtual void STDCALL AIUpdateShot( const struct SAINotifyBaseShot &shot, const NTimer::STime &currTime, IVisObjBuilder *pVOB, IScene *pScene );
-	//
-	// visiting
 	virtual void STDCALL Visit( IMapObjVisitor *pVisitor );
-	// CRAP{ for animations testing
 	virtual void STDCALL AddAnimation( const SUnitBaseRPGStats::SAnimDesc *pDesc );
-	// CRAP}
 	virtual void STDCALL RemoveSounds(interface IScene * pScene );
-	// change look with blood settings
 	virtual bool STDCALL ChangeWithBlood( IVisObjBuilder *pVOB ) { return true; }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __MOUNITMECHANICAL_H__

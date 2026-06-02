@@ -1,5 +1,3 @@
-// ExcelExporter.cpp : Defines the entry point for the console application.
-//
 
 #include "stdafx.h"
 #include <afxdb.h>
@@ -21,16 +19,13 @@ CString CExcelExporter::GetExcelDriverName()
 	char *pszBuf = szBuf;
 	CString szDriver;
 	
-	// Get the names of the installed drivers ("odbcinst.h" has to be included )
 	if(!SQLGetInstalledDrivers(szBuf,cbBufMax,& cbBufOut))
 		return "";
 	
-	// Search for the driver...
 	do
 	{
 		if( strstr( pszBuf, "Excel" ) != 0 )
 		{
-			// Found !
 			szDriver = CString( pszBuf );
 			break;
 		}
@@ -52,7 +47,6 @@ void CExcelExporter::ConvertFilesToExcel( const vector<string> &files, const cha
 	if ( files.empty() )
 		return;
 	
-	//считываем поля из crap файла
 	std::vector< std::string > crapFields;
 	if ( strlen(pszCrapFile) > 0 )
 	{
@@ -78,7 +72,6 @@ void CExcelExporter::ConvertFilesToExcel( const vector<string> &files, const cha
 	if ( !bIgnoreFields && crapFields.empty() )
 		bIgnoreFields = true;
 
-	//считываем RPG информацию сразу из всех файлов
 	vector<CXMLReadVector> filesValuesVector( files.size() );
 	for ( int i=0; i<files.size(); i++ )
 	{
@@ -86,7 +79,6 @@ void CExcelExporter::ConvertFilesToExcel( const vector<string> &files, const cha
 		xmlReader.ReadRPGInformationFromFile( files[i].c_str(), filesValuesVector[i], crapFields, bIgnoreFields, pszNodeName );
 	}
 
-	// Create table structure
 	std::set<SXMLValue> mySet;
 	for ( int i=0; i<filesValuesVector.size(); i++ )
 	{
@@ -130,7 +122,6 @@ void CExcelExporter::ConvertFilesToExcel( const vector<string> &files, const cha
 	pStream->Write( szStrToSave.c_str(), szStrToSave.size() );
 
 
-	//formatting output
 	for ( int i=0; i<filesValuesVector.size(); i++ )
 	{
 		std::cout << files[i].c_str() << std::flush;
@@ -172,7 +163,6 @@ void CExcelExporter::ConvertFilesToExcel( const vector<string> &files, const cha
 		}
 		
 		{
-			// Insert data
 			szStrToSave += files[i];
 			szStrToSave += "\t";
 			
@@ -225,10 +215,8 @@ void CExcelExporter::ConvertExcelToXMLFiles( const char *pszExcelFileName, const
 		szCur[ strlen( szCur ) - 1 ] = '\0';
 		NStr::CStringIterator<> it( szCur, NStr::CCharSeparator('\t') );
 		NI_ASSERT_T( !it.IsEnd(), "The line is empty?" );
-		//read the file name
 		std::string szFileName = *it;
 
-		//узнаем имя ноды с информацией. По умолчанию - "RPG"
 		{
 			std::string szExtension = szFileName.substr( szFileName.rfind( '.' ) );
 			for ( int i=0; i<extensions.size(); i++ )
@@ -283,7 +271,6 @@ void CExcelExporter::ConvertExcelToXMLFiles( const char *pszExcelFileName, const
 				fieldNames.push_back( fieldinfo.m_strName );
 		}
 		
-		// Browse the result
 		while( !recset.IsEOF() )
 		{
 			CString szFileName;
@@ -307,17 +294,14 @@ void CExcelExporter::ConvertExcelToXMLFiles( const char *pszExcelFileName, const
 			else
 				cout << (const char *) szFileName << "    -FAILED" << endl;
 
-			// Skip to the next resultline
 			recset.MoveNext();
 		}
 		
-		// Close the database
 		database.Close();
 		
 	}
 	CATCH(CDBException, e)
 	{
-		// A database exception occured. Pop out the details...
 		AfxMessageBox("Database error: "+e->m_strError);
 	}
 	END_CATCH;
@@ -334,39 +318,25 @@ void ReadExcelFile( const char *pszFileName )
 	CString szDriver;
 	CString szDsn;
 	
-	// Retrieve the name of the Excel driver. This is 
-	// necessary because Microsoft tends to use language
-	// specific names like "Microsoft Excel Driver (*.xls)" versus
-	// "Microsoft Excel Treiber (*.xls)"
 	szDriver = GetExcelDriver();
 	if( szDriver.IsEmpty() )
 	{
-		// Blast! We didnґt find that driver!
 		AfxMessageBox("No Excel ODBC driver found");
 		return;
 	}
 	
-	// Create a pseudo DSN including the name of the Driver and the Excel file
-	// so we donґt have to have an explicit DSN installed in our ODBC admin
 	szDsn.Format("ODBC;DRIVER={%s};DSN='';DBQ=%s",szDriver,pszFileName);
 	
 	TRY
 	{
-		// Open the database using the former created pseudo DSN
 		database.Open(NULL,false,false,szDsn);
 		
-		// Allocate the recordset
 		CRecordset recset( &database );
 		
 		
-		// Build the SQL string
-		// Remember to name a section of data in the Excel sheet using "Insert->Names" to be
-		// able to work with the data like you would with a table in a "real" database. There
-		// may be more than one table contained in a worksheet.
 		szSql = "SELECT * "
 			"FROM demo ";
 		
-		// Execute that query (implicitly by opening the recordset)
 		recset.Open(CRecordset::forwardOnly,szSql,CRecordset::readOnly);
 		CString szTableName = recset.GetTableName();
 		int nCount = recset.GetODBCFieldCount();
@@ -379,7 +349,6 @@ void ReadExcelFile( const char *pszFileName )
 			strings.push_back( fieldinfo.m_strName );
 		}
 		
-		// Browse the result
 		while( !recset.IsEOF() )
 		{
 			for ( int i=0; i<strings.size(); i++ )
@@ -387,24 +356,18 @@ void ReadExcelFile( const char *pszFileName )
 				recset.GetFieldValue(strings[i], szItem1);
 			}
 /*
-			// Read the result line
 			recset.GetFieldValue("field_1",szItem1);
 			recset.GetFieldValue("field_2",szItem2);
 */		
-			// Insert result into the list
-//			m_ctrlList.AddString( szItem1 + " --> "+szItem2 );
 			
-			// Skip to the next resultline
 			recset.MoveNext();
 		}
 		
-		// Close the database
 		database.Close();
 		
 	}
 	CATCH(CDBException, e)
 	{
-		// A database exception occured. Pop out the details...
 		AfxMessageBox("Database error: "+e->m_strError);
 	}
 	END_CATCH;
@@ -421,18 +384,14 @@ void SaveExcelFile()
 		
 		TRY
 		{
-			// Build the creation string for access without DSN
 			
 			sSql.Format("DRIVER={%s};DSN='';FIRSTROWHASNAMES=1;READONLY=FALSE;CREATE_DB=\"%s\";DBQ=%s", sDriver,sExcelFile,sExcelFile);
 			
-			// Create the database (i.e. Excel sheet)
 			if( database.OpenEx(sSql,CDatabase::noOdbcDialog) )
 			{
-				// Create table structure
 				sSql = "CREATE TABLE demo (Name TEXT,Age NUMBER)";
 				database.ExecuteSQL(sSql);
 				
-				// Insert data
 				sSql = "INSERT INTO demo (Name,Age) VALUES ('Bruno Brutalinsky',45)";
 				database.ExecuteSQL(sSql);
 				
@@ -443,7 +402,6 @@ void SaveExcelFile()
 				database.ExecuteSQL(sSql);
 			}
 			
-			// Close database
 			database.Close();
 		}
 		CATCH_ALL(e)

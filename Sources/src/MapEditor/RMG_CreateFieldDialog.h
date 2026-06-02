@@ -12,10 +12,8 @@
 
 #define IDC_RMG_CF_FIELD_PROPERTIES_TAB 1521
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CALLBACK CF_FieldsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRMGCreateFieldDialog : public CResizeDialog
 {
 	friend int CALLBACK CF_FieldsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
@@ -27,18 +25,13 @@ public:
 	CRMGCreateFieldDialog( CWnd* pParent = NULL );
 	~CRMGCreateFieldDialog();
 
-	//{{AFX_DATA(CRMGCreateFieldDialog)
 	enum { IDD = IDD_RMG_CREATE_FIELD };
 	CListCtrl	m_FieldsList;
-	//}}AFX_DATA
 
-	//{{AFX_VIRTUAL(CRMGCreateFieldDialog)
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);
-	//}}AFX_VIRTUAL
 
 protected:
-	//{{AFX_MSG(CRMGCreateFieldDialog)
 	virtual BOOL OnInitDialog();
 	virtual void OnOK();
 	virtual void OnCancel();
@@ -57,7 +50,6 @@ protected:
 	afx_msg void OnRclickFieldsList(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnKeydownFieldsList(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnSaveButton();
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 
 protected:
@@ -99,6 +91,4 @@ protected:
 	class CRMGFieldObjectsDialog* GetRMGFieldObjectsDialog();
 	class CRMGFieldHeightsDialog* GetRMGFieldHeightsDialog();
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//{{AFX_INSERT_LOCATION}}
 #endif // !defined(__RMG_Create_Field_Dialog__)

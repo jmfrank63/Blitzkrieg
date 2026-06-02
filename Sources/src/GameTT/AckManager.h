@@ -1,12 +1,9 @@
 #ifndef __CLIENTACKMANAGERINTERNAL_H__
 #define __CLIENTACKMANAGERINTERNAL_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "iMission.h"
 #include "..\Misc\HashFuncs.h"
 #include "..\Common\Actions.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface ITextManager;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CClientAckManager : public IClientAckManager
 {
 	DECLARE_SERIALIZE;
@@ -26,14 +23,12 @@ private:
 		ESP_FROM_INTERFACE,
 		ESP_FROM_MAP,
 	};
-	//
 	enum EAcknowledgementAdditionalSound
 	{
 		AAS_NONE,
 		AAS_INFORMATION,
 		AAS_TAKING_OFF,
 	};
-	//
 	enum EAcknowledgementType
 	{
 		ACKT_POSITIVE,
@@ -43,7 +38,6 @@ private:
 		ACKT_BORED,
 		ACKT_VOID,									// �� �������� ������
 	};
-	//
 	class CBoredUnitsContainer
 	{
 		DECLARE_SERIALIZE;
@@ -61,8 +55,6 @@ private:
 
 		void AddUnit( interface IMOUnit *pUnit );
 		void DelUnit( interface IMOUnit *pUnit );
-		// ���� ����� �������, �� ���������� ���������� ����� ������� Ack. 
-		//���� ack �������, �� true;
 		bool SendAck( const NTimer::STime curTime, 
 									const EUnitAckType eBored, 
 									IClientAckManager *pAckManager,
@@ -70,7 +62,6 @@ private:
 		void Clear();
 	};
 
-	// 
 	struct SUnitAckInfo
 	{
 		EAcknowledgementType eType;
@@ -91,7 +82,6 @@ private:
 		{
 		}
 	};
-	//
 	struct SUnitAckInfoForLoad
 	{
 		std::string szAckName;
@@ -102,7 +92,6 @@ private:
 		EAcknowledgementAdditionalSound eSound;
 		ESoundPosition ePosition;
 		int nTimeAfterPrevious;
-		//
 		SUnitAckInfoForLoad() {  }
 		SUnitAckInfoForLoad( const std::string &_szAckName,
 									EAcknowledgementType _eType,
@@ -113,7 +102,6 @@ private:
 			: szTextKey( _szKey ), szAckName( _szAckName ), eColor( _eColor ), eSound( _eSound ), eType( _eType ), nTimeAfterPrevious( _nTimeAfterPrevious )
 		{
 		}
-		//
 		int operator&( IDataTree &ss )
 		{
 			CTreeAccessor tree = &ss;
@@ -128,7 +116,6 @@ private:
 		}
 
 	};
-	//
 	struct SAck
 	{
 		DECLARE_SERIALIZE;
@@ -139,7 +126,6 @@ private:
 		bool operator==( const SAck & ack ) const { return eAck == ack.eAck; }
 	};
 	typedef std::list< SAck > CAcks;
-	//	
 	struct SUnitAck
 	{
 		DECLARE_SERIALIZE;
@@ -151,7 +137,6 @@ private:
 		SUnitAck()
 			:wSoundID( 0 ), eCurrentAck( -1 ), timeRun( 0 ) { }
 	};
-	// acknowledgement of dead unit
 	struct SDeathAck
 	{
 		DECLARE_SERIALIZE;
@@ -163,13 +148,11 @@ private:
 		SDeathAck( const CVec3 &_vPos, const std::string &_szSoundName, const unsigned int nTimeSinceStart )
 			: vPos( _vPos ), szSoundName( _szSoundName ), timeSinceStart( nTimeSinceStart ) {  }
 	};
-	//
 	typedef std::unordered_map< int, SUnitAckInfo > CUnitAcksInfo;
 	typedef std::unordered_map< int, NTimer::STime > CUnitAcksPresence;
 	typedef std::unordered_map< CPtr<IMOUnit>, SUnitAck, SDefaultPtrHash > CUnitsAcks;
 	typedef std::list< SDeathAck > CDeathAcks;
 
-	//��� ������ ��������� ���� �����
 	class CAckPredicate
 	{
 		const EAcknowledgementType eType;
@@ -180,7 +163,6 @@ private:
 			{ return eType == info[a.eAck].eType; }
 	};
 
-	//NTimer::STime timeNextBored;
 	
 	ITextManager *pTextManager;
 	IConsoleBuffer *pConsoleBuffer;
@@ -189,7 +171,6 @@ private:
 	CPtr<IMOUnit> pLastSelected;
 	int nSelectionCounter;
 	
-	// ��� ���� � ������, ������������������ � bored ����������
 	typedef std::unordered_map<int, CBoredUnitsContainer> BoredUnits;
 	BoredUnits boredUnits;	
 
@@ -198,10 +179,8 @@ private:
 	CDeathAcks				deathAcks;					// for death acknowledgements;
 	NTimer::STime timeLastDeath;
 	
-	// �� �������������.
 	CUnitAcksInfo			acksInfo;						// ������ �� Ack'��
 	std::unordered_map<std::string,int> loadHelper;
-	// ���������
 	int MIN_ACK_RADIUS;
 	int MAX_ACK_RADIUS;
 	int TIME_ACK_WAIT;
@@ -230,5 +209,4 @@ public:
 	virtual void STDCALL RegisterAsBored( EUnitAckType eBored, interface IMOUnit *pObject );
 	virtual void STDCALL UnRegisterAsBored( EUnitAckType eBored, interface IMOUnit *pObject );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __CLIENTACKMANAGERINTERNAL_H__

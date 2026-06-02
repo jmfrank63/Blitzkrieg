@@ -10,8 +10,6 @@ static char THIS_FILE[] = __FILE__;
 #endif
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CSingleIcon
 
 CSingleIcon::CSingleIcon()
 {
@@ -25,10 +23,8 @@ CSingleIcon::~CSingleIcon()
 
 
 BEGIN_MESSAGE_MAP(CSingleIcon, CWnd)
-	//{{AFX_MSG_MAP(CSingleIcon)
 	ON_WM_PAINT()
 	ON_WM_CREATE()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 int CSingleIcon::OnCreate(LPCREATESTRUCT lpCreateStruct) 
@@ -39,8 +35,6 @@ int CSingleIcon::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// CSingleIcon message handlers
 
 void CSingleIcon::OnPaint() 
 {
@@ -55,7 +49,6 @@ void CSingleIcon::OnPaint()
 	dc.BitBlt( rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, &memDC, 0, 0, SRCCOPY );
 	memDC.SelectObject(pOldBitmap);
 
-	// Do not call CWnd::OnPaint() for painting messages
 }
 
 void CSingleIcon::LoadBitmap( const char *pszFullFileName, const char *pszInvalidFileName )
@@ -77,7 +70,6 @@ void CSingleIcon::LoadBitmap( const char *pszFullFileName, const char *pszInvali
 	if ( m_fB != 0 || m_fC != 0 || m_fG != 0 )
 		pImage = pImageProcessor->CreateGammaCorrection( pImage, m_fB, m_fC, m_fG );
 
-	//Создаем новый image и ресайзируем старый в него
 	int nSizeX = pImage->GetSizeX();
 	int nSizeY = pImage->GetSizeY();
 	double fRateX = (double) m_nSizeX/nSizeX;
@@ -89,7 +81,6 @@ void CSingleIcon::LoadBitmap( const char *pszFullFileName, const char *pszInvali
 	nSizeX = pScaleImage->GetSizeX();
 	nSizeY = pScaleImage->GetSizeY();
 	
-	//Создаем центрированный image чтобы он был посередине картинки
 	if ( nSizeY < m_nSizeY )
 	{
 		int nUp = (m_nSizeY - nSizeY)/2;
@@ -112,7 +103,6 @@ void CSingleIcon::LoadBitmap( const char *pszFullFileName, const char *pszInvali
 	nSizeX = pScaleImage->GetSizeX();
 	nSizeY = pScaleImage->GetSizeY();
 	
-	//Создаем HBITMAP чтобы прогрузить её в image list
 	BITMAPINFO bmi;
 	bmi.bmiHeader.biSize  = sizeof( bmi.bmiHeader );
 	bmi.bmiHeader.biWidth  = nSizeX;

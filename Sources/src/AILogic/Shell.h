@@ -2,18 +2,11 @@
 #define __SHELL_H__
 
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include <queue>
 #include "UpdatableObject.h"
 #include "LinkObject.h"
 #include "..\zlib\zlib.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAIUnit;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*														Hits																	*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CHitInfo : public CLinkObject
 {
 	OBJECT_COMPLETE_METHODS( CHitInfo );
@@ -43,11 +36,6 @@ public:
 	virtual void GetTilesForVisibility( CTilesSet *pTiles ) const { pTiles->clear(); }
 	virtual bool ShouldSuspendAction( const EActionNotify &eAction ) const { return false; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												“раектории																*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IBallisticTraj : public IRefCount
 {
 public:
@@ -61,16 +49,13 @@ public:
 
 	virtual const SWeaponRPGStats::SShell::ETrajectoryType GetTrajType() const = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CBallisticTraj: public IBallisticTraj
 {
 	OBJECT_COMPLETE_METHODS( CBallisticTraj	);
 	DECLARE_SERIALIZE;
 
 	CVec3 vStart3D;
-	// скорости
 	float fVx, fVy;
-	// ускорени€ свободного падени€
 
 	WORD wAngle; //вертикальнй угол
 
@@ -97,7 +82,6 @@ public:
 
 	virtual const SWeaponRPGStats::SShell::ETrajectoryType GetTrajType() const { return eType; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFakeBallisticTraj : public IBallisticTraj
 {
 	OBJECT_COMPLETE_METHODS( CFakeBallisticTraj );
@@ -124,7 +108,6 @@ public:
 
 	virtual const SWeaponRPGStats::SShell::ETrajectoryType GetTrajType() const { return SWeaponRPGStats::SShell::TRAJECTORY_CANNON; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CBombBallisticTraj : public IBallisticTraj
 {
 	OBJECT_COMPLETE_METHODS( CBombBallisticTraj );
@@ -155,10 +138,6 @@ public:
 	static CVec3 CalcTrajectoryFinish( const CVec3 &vSourcePoint, const CVec3 &vInitialSpeed, const CVec2 &vRandAcc );
 	static float GetTimeOfFly( const float fZ, const float fZSpeed );
 };
-//*******************************************************************
-//*								  ¬зрывы																					*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CExplosion : public IRefCount
 {
 	DECLARE_SERIALIZE;
@@ -174,7 +153,6 @@ protected:
 
 	CPtr<CHitInfo> pHitToSend;
 
-	//
 	const SAINotifyHitInfo::EHitType ProcessExactHit( class CAIUnit *pTarget, const SRect &combatRect, const CVec2 &explCoord, const int nRandPiercing, const int nRandArmor ) const;
 	void Init( class CAIUnit *pUnit, const struct SWeaponRPGStats *pWeapon, const float fDispersion, const float fDispRatio, const CVec2 &_explCoord, const float _z, const CVec2 &attackerPos, const BYTE nShellType, const bool bRandomize, const int nPlayerOfShoot );
 public:
@@ -201,14 +179,11 @@ public:
 	float GetMaxDamage() const ;
 	SWeaponRPGStats::SShell::ETrajectoryType GetTrajectoryType() const { return pWeapon->shells[nShellType].trajectory; }
 	
-	// если explosion моральный, то вернетс€ true.
 	bool ProcessMoraleExplosion() const;
-	// если explosion дымовой, то вернетс€ true.
 	bool ProcessSmokeScreenExplosion() const;
 
 	void AddHitToSend( CHitInfo *pHit );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CBurstExpl : public CExplosion
 {
 	OBJECT_COMPLETE_METHODS( CBurstExpl );
@@ -216,16 +191,12 @@ class CBurstExpl : public CExplosion
 	int nArmorDir;
 public:
 	CBurstExpl() { }
-	// nArmorDir == 0  -  просто по плоскому направлению ( это дл€ снар€дов )
-	// nArmorDir == 1  -  взрыв под днищем ( дл€ мин )
-	// nArmorDir == 2  -  взрыв над крышей
 
 	CBurstExpl( CAIUnit *pUnit, const class CBasicGun *pGun, const CVec2 &explCoord, const float z, const CVec2 &attackerPos, const BYTE nShellType, const bool bRandomize = true, int ArmorDir = 0 );
 	CBurstExpl( CAIUnit *pUnit, const SWeaponRPGStats *pWeapon, const CVec2 &explCoord, const float z, const CVec2 &attackerPos, const BYTE nShellType, const bool bRandomize = true, int ArmorDir = 0 );
 
 	virtual void Explode();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCumulativeExpl : public CExplosion
 {
 	OBJECT_COMPLETE_METHODS( CCumulativeExpl );
@@ -237,12 +208,6 @@ public:
 
 	virtual void Explode();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*								  —нар€ды																					*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// снар€д, попадающй мгновенно
 class CMomentShell
 {
 	DECLARE_SERIALIZE;
@@ -257,8 +222,6 @@ public:
 
 	float GetMaxDamage() const { return expl->GetMaxDamage(); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// снар€д
 class CShell
 {
 	DECLARE_SERIALIZE;
@@ -289,8 +252,6 @@ public:
 	float GetMaxDamage() const { return expl->GetMaxDamage(); }
 	SWeaponRPGStats::SShell::ETrajectoryType GetTrajectoryType() const { return expl->GetTrajectoryType(); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// невидимый снар€д
 class CInvisShell : public IRefCount, public CShell
 {
 	OBJECT_COMPLETE_METHODS( CInvisShell );
@@ -302,7 +263,6 @@ public:
 
 	bool operator < ( const CInvisShell &shell ) { return GetExplTime() > shell.GetExplTime(); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SInvisShellCmp
 {
 	bool operator()( const CPtr<CInvisShell> &shell1, const CPtr<CInvisShell> &shell2 ) const
@@ -310,8 +270,6 @@ struct SInvisShellCmp
 		return shell1->GetExplTime() > shell2->GetExplTime();
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// видимый снар€д
 class CVisShell : public CLinkObject, public CShell
 {
 	OBJECT_COMPLETE_METHODS( CVisShell );		
@@ -345,17 +303,10 @@ public:
 	
 	virtual const bool IsVisibleByPlayer() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*								  —клад снар€дов																	*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CShellsStore
 {
 	DECLARE_SERIALIZE;
-	// все невидимые снар€ды
 	std::priority_queue< CPtr<CInvisShell>, std::vector< CPtr<CInvisShell> >, SInvisShellCmp > invisShells;
-	// все видимые снар€ды
 	std::list< CPtr<CVisShell> > visShells;
 public:
 	CShellsStore() { };
@@ -367,8 +318,6 @@ public:
 
 	void Segment();
 	
-	// дл€ тестировани€ multiplayer
 	void UpdateCheckSum( uLong *pCheckSum );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif	// __SHELL_H__

@@ -3,10 +3,8 @@
 #include "IniFile.h"
 
 #include <io.h>
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int nIniFileBufferSize = 65535;
 using namespace NStr;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CIniFile::Load( IDataStream *pStream )
 {
 	const int nSize = pStream->GetSize();
@@ -17,21 +15,17 @@ bool CIniFile::Load( IDataStream *pStream )
 	szString.resize( nSize );
 	const int nRead = pStream->Read( &(szString[0]), nSize );
 	szString.resize( nRead );
-	//
 	if ( szString.empty() )
 		return false;
 
 	dwAccessMode = TABLE_ACCESS_READ;
 	LoadTables( szString );
-	//
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CIniFile::Open( const char *pszIniFileName, DWORD _dwAccessMode )
 {
 	szIniFileName = pszIniFileName;
 	dwAccessMode = _dwAccessMode;
-	//
 	FILE *file = fopen( pszIniFileName, "rt" );
 	if ( file == 0 )
 		return false;
@@ -40,14 +34,10 @@ bool CIniFile::Open( const char *pszIniFileName, DWORD _dwAccessMode )
 	szString.resize( nLength );
 	nLength = fread( &(szString[0]), 1, nLength, file );
 	fclose( file );
-	//
 	szString.resize( nLength );
-	//
 	LoadTables( szString );
-	//
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CIniFile::LoadTables( const std::string &szString )
 {
 	std::string szRow, szEntry, szData;
@@ -57,7 +47,6 @@ void CIniFile::LoadTables( const std::string &szString )
 		TrimBoth( *line );
 		if ( line->empty() )
 			continue;
-		// check for new row '[row name]'
 		if ( ( (*line)[0] == '[' ) && ((*line)[line->size() - 1] == ']') )
 		{
 			TrimLeft( *line, '[' );
@@ -80,13 +69,11 @@ void CIniFile::LoadTables( const std::string &szString )
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CIniFile::~CIniFile()
 {
 	if ( !bChanged )
 		return;
 	NI_ASSERT_TF( !szIniFileName.empty(), "Trying to save changed Ini-file with empty file name", return );
-	//
 	FILE *file = fopen( szIniFileName.c_str(), "wt" );
 	if ( file == 0 )
 		return;
@@ -98,7 +85,6 @@ CIniFile::~CIniFile()
 	}
 	fclose( file );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CIniFile::GetRowNames( char *pszBuffer, int nBufferSize )
 {
 	NI_ASSERT( CanRead() );
@@ -128,7 +114,6 @@ int CIniFile::GetEntryNames( const char *pszRow, char *pszBuffer, int nBufferSiz
 	*( pszBuffer + nCurrPos ) = '\0';
 	return nCurrPos + 1;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CIniFile::GetInt( const char *pszRow, const char *pszEntry, int defval )
 {
 	NI_ASSERT( CanRead() );
@@ -156,7 +141,6 @@ int CIniFile::GetRawData( const char *pszRow, const char *pszEntry, void *pBuffe
 	NI_ASSERT_T( 0, "not realized yet" );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CIniFile::SetInt( const char *pszRow, const char *pszEntry, int val )
 {
 	NI_ASSERT( CanWrite() );
@@ -181,4 +165,3 @@ void CIniFile::SetRawData( const char *pszRow, const char *pszEntry, const void 
 {
 	NI_ASSERT_T( 0, "not realized yet" );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

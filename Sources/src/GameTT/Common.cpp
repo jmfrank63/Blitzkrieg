@@ -31,7 +31,6 @@ FILETIME GetFileChangeTime( const char *pszFileName )
 	if ( !bRes )
 		return zero;
 	
-	//¬озвращаю максимальное врем€ из времени создани€ и времени последней модификации
 	if ( fileInfo.ftCreationTime > fileInfo.ftLastWriteTime )
 		return fileInfo.ftCreationTime;
 	else

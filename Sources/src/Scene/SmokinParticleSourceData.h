@@ -1,10 +1,7 @@
 #ifndef __SMOKIN_PARTICLESOURCEDATA_H__
 #define __SMIKIN_PARTICLESOURCEDATA_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Track.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SSmokinParticleSourceData : public CTRefCount<ISharedResource>
 {
 	OBJECT_SERVICE_METHODS( SSmokinParticleSourceData );
@@ -13,7 +10,6 @@ public:
 	SSmokinParticleSourceData();
 
 	bool bComplexParticleSource;					//тип источника, если true, complex particle source
-	// параметры генератора
 	int nLifeTime;												// время жизни всего источника
 	float fGravity;												// параметр гравитации (никакого отношения к физике не имеет)
 	CVec3 vWind;                          // ветер
@@ -23,7 +19,6 @@ public:
 	CTrack trackBeginSpeed;								// начальная скорость частицы при  вылете 
 	CTrack trackBeginSpeedRandomizer;     // ее рандомизатор
 	CTrack trackBeginAngleRandomizer;     // рандомизатор угла вылета
-	// параметры одной частицы
 	CTrack trackSpeed;                    // коэфф. скорости
 	CTrack trackSpeedRnd;                 // рандомизатор коэфф. скорости
 	CTrack trackWeight;										// масса партикла (никакого отношения к физической массе не имеет)
@@ -33,16 +28,12 @@ public:
 	CTrack trackIntegralMass;             // первообразная от g*m(t), умноженная на коэффициент скорости (без его рандома)
 	float fDensityCoeff;                  // коэффициент на плотность, берется из сеттингов
 	int nUpdateStep;                      // количество миллисекунд между update'ами
-	//
 
 	virtual void STDCALL SwapData( ISharedResource *pResource );
-	// internal container clearing
 	virtual void STDCALL ClearInternalContainer() {  }
 	virtual bool STDCALL Load( const bool bPreLoad = false );
-	//
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 	virtual void STDCALL InitIntegrals();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif 

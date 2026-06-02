@@ -5,9 +5,6 @@
 const float F_KEEP_ACCEPTED_TIME = 2000;
 namespace NNet
 {
-/////////////////////////////////////////////////////////////////////////////////////
-// CLoginSupport
-/////////////////////////////////////////////////////////////////////////////////////
 CLoginSupport::CLoginSupport( APPLICATION_ID _applicationID )
 	: applicationID(_applicationID), state(INACTIVE), nClientIDTrack(0), nSelfClientID(0) 
 {
@@ -15,7 +12,6 @@ CLoginSupport::CLoginSupport( APPLICATION_ID _applicationID )
 	NHPTimer::GetTime( &time );
 	uniqueServerID = time;
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CLoginSupport::WriteLogin( CBitStream *pBits, const CNodeAddressSet &localAddr )
 {
 	fLoginInterval *= 2;
@@ -23,12 +19,10 @@ void CLoginSupport::WriteLogin( CBitStream *pBits, const CNodeAddressSet &localA
 	(*pBits).Write( applicationID );
 	(*pBits).Write( nLoginAttempt );
 	(*pBits).Write( localAddr );
-	//pkt << nRate;
 	short nSize = pwd.GetSize();
 	(*pBits).Write( nSize );
 	(*pBits).Write( pwd.GetBuffer(), nSize );
 }
-/////////////////////////////////////////////////////////////////////////////////////
 bool CLoginSupport::ProcessLogin( const CNodeAddress &addr, CBitStream &bits, SLoginInfo *pRes )
 {
 	APPLICATION_ID appID;
@@ -44,7 +38,6 @@ bool CLoginSupport::ProcessLogin( const CNodeAddress &addr, CBitStream &bits, SL
 	bits.Read( pRes->pwd.GetBufferForWrite(), nSize );
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////
 CLoginSupport::SAcceptedLogin& CLoginSupport::GetAcceptedLogin( const CNodeAddress &addr, const SLoginInfo &info )
 {
 	for ( std::list<SAcceptedLogin>::iterator i = acceptedList.begin(); i != acceptedList.end(); ++i )
@@ -63,7 +56,6 @@ CLoginSupport::SAcceptedLogin& CLoginSupport::GetAcceptedLogin( const CNodeAddre
 	a.nClientID = ++nClientIDTrack;
 	return a;
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CLoginSupport::AcceptLogin( const CNodeAddress &addr, CBitStream *pBits, 
 	const SLoginInfo &info, int *pnClientID, const CNodeAddressSet &localAddr )
 {
@@ -74,13 +66,11 @@ void CLoginSupport::AcceptLogin( const CNodeAddress &addr, CBitStream *pBits,
 	(*pBits).Write( localAddr );
 	(*pBits).Write( uniqueServerID );
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CLoginSupport::RejectLogin( CBitStream *pBits, const SLoginInfo &info, int nReason )
 {
 	(*pBits).Write( info.nLoginAttempt );
 	(*pBits).Write( nReason );
 }
-/////////////////////////////////////////////////////////////////////////////////////
 bool CLoginSupport::HasAccepted( const CNodeAddress &addr, const SLoginInfo &info )
 {
 	for ( std::list<SAcceptedLogin>::iterator i = acceptedList.begin(); i != acceptedList.end(); ++i )
@@ -90,12 +80,10 @@ bool CLoginSupport::HasAccepted( const CNodeAddress &addr, const SLoginInfo &inf
 	}
 	return false;
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CLoginSupport::ProcessAccepted( const CNodeAddress &addr, CBitStream &bits )
 {
 	if ( server != addr )
 	{
-		//if (pCSLog) (*pCSLog) << "ERROR: Accepted msg received from unknown host " << addr.GetFastName() << endl;
 	}
 	else
 	{
@@ -103,7 +91,6 @@ void CLoginSupport::ProcessAccepted( const CNodeAddress &addr, CBitStream &bits 
 		bits.Read( nAckedAttempt );
 		if ( nAckedAttempt != nLoginAttempt )
 		{
-			//if (pCSLog) (*pCSLog) << "ERROR: Accepted msg received with wrong linkID" << endl;
 			return;
 		}
 		if ( state == LOGIN )
@@ -112,20 +99,16 @@ void CLoginSupport::ProcessAccepted( const CNodeAddress &addr, CBitStream &bits 
 			bits.Read( serverLocalAddr );
 			bits.Read( uniqueServerID );
 			state = ACCEPTED;
-			//if (pCSLog) (*pCSLog) << "Start connection" << endl;
 		}
 		else
 		{
-			//if (pCSLog) (*pCSLog) << "ERROR: Accept for already started session or without login from " << addr.GetFastName() << endl;
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CLoginSupport::ProcessRejected( const CNodeAddress &addr, CBitStream &bits )
 {
 	if ( server != addr )
 	{
-		//if (pCSLog) (*pCSLog) << "ERROR: Accepted msg received from unknown host " << addr.GetFastName() << endl;
 	}
 	else
 	{
@@ -133,18 +116,15 @@ void CLoginSupport::ProcessRejected( const CNodeAddress &addr, CBitStream &bits 
 		bits.Read( nAckedAttempt );
 		if ( nAckedAttempt != nLoginAttempt )
 		{
-			//if (pCSLog) (*pCSLog) << "ERROR: Accepted msg received with wrong linkID" << endl;
 			return;
 		}
 		if ( state == LOGIN )
 		{
 			state = REJECTED;
 			bits.Read( nLastReject );
-			//if (pCSLog) (*pCSLog) << "Start connection" << endl;
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CLoginSupport::Step( float fDeltaTime )
 {
 	if ( fLoginInterval != 0 )
@@ -155,7 +135,6 @@ void CLoginSupport::Step( float fDeltaTime )
 			if ( fLoginInterval > 3 )
 			{
 				state = INACTIVE;
-				//if (pCSLog) (*pCSLog) << "Connection failed" << endl;
 			}
 		}
 	}
@@ -168,7 +147,6 @@ void CLoginSupport::Step( float fDeltaTime )
 			++i;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CLoginSupport::StartLogin( const CNodeAddress &addr, const CMemoryStream &buf )
 {
 	state = LOGIN;
@@ -178,5 +156,4 @@ void CLoginSupport::StartLogin( const CNodeAddress &addr, const CMemoryStream &b
 	fLoginInterval = 0.1f;
 	nLoginAttempt = (int)GetTickCount();
 }
-/////////////////////////////////////////////////////////////////////////////////////
 }

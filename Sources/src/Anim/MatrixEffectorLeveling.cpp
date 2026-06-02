@@ -1,7 +1,6 @@
 #include "StdAfx.h"
 
 #include "MatrixEffectorLeveling.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMatrixEffectorLeveling::CMatrixEffectorLeveling()
 : lastQuat( QNULL )
 {
@@ -10,27 +9,19 @@ CMatrixEffectorLeveling::CMatrixEffectorLeveling()
 	lastUpdateTime = 0;
 	timeSetuped = 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// получить углы, необходимые для поворота этой нормали относительно осей X (phi) и Y (theta) 
-// для совпадения её с осью Z
 inline void GetAngles( const CVec3 &vNormal, float *pfPhi, float *pfTheta )
 {
-	// phi - поворот в плоскости ZY относительно оси X
-	// cos( phi ) = Z*N(x=0) = (0, 0, 1) * (0, Ny, Nz) / sqrt( Ny**2 + Nz**2 );
 	{
 		const float fLen2 = fabs2( vNormal.y, vNormal.z );
 		*pfPhi = fLen2 < 1e-8f ? 0 : vNormal.z / sqrt( fLen2 );
 		*pfPhi = -Sign( vNormal.y ) * acos( Clamp(*pfPhi, -1.0f, 1.0f) );
 	}
-	// theta - поворот в плоскости ZX относительно оси Y
-	// cos( theta ) = Z*N(y=0) = Nz / fabs( Nx, Nz )
 	{
 		const float fLen2 = fabs2( vNormal.x, vNormal.z );
 		*pfTheta = fLen2 < 1e-8f ? 0 : vNormal.z / sqrt( fLen2 );
 		*pfTheta = Sign( vNormal.x ) * acos( Clamp(*pfTheta, -1.0f, 1.0f) );
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMatrixEffectorLeveling::Update( const NTimer::STime &time )
 {
 	/*
@@ -47,12 +38,9 @@ bool CMatrixEffectorLeveling::Update( const NTimer::STime &time )
 	lastQuat *= q2;
 	matResult.Set( lastQuat );
 	fCoeff += fAddCoeff;
-	//
 	lastUpdateTime = time;
-	//
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMatrixEffectorLeveling::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -67,13 +55,10 @@ int CMatrixEffectorLeveling::operator&( IStructureSaver &ss )
 	saver.Add( 9, &fCoeff );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMatrixEffectorLeveling::SetupData( const CVec3 &vNormal, const NTimer::STime &currTime ) 
 { 
-	//NI_ASSERT_T( vNormal.z > 0, NStr::Format("normal (z = %g) must be > 0", vNormal.z) );
 	if ( vNormal.z <= 0 )
 	{
-		//NStr::DebugTrace( "normal (z = %g) must be > 0\n", vNormal.z );
 		return;
 	}
 	DWORD dwNormale = Vec3ToDWORD( vNormal );
@@ -86,4 +71,3 @@ void CMatrixEffectorLeveling::SetupData( const CVec3 &vNormal, const NTimer::STi
 	dwReferNormale = dwNormale;
 	fCoeff = 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

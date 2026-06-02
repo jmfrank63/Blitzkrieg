@@ -2,7 +2,6 @@
 
 #include "SmokinParticleSource.h"
 #include "FastSinCos.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SExtendedParticleSource::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -13,7 +12,6 @@ int SExtendedParticleSource::operator&( IStructureSaver &ss )
 	saver.Add( 5, &contextZSpeed );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IGFXTexture* CSmokinParticleSource::GetTexture() const
 {
 	if ( particles.empty() )
@@ -22,22 +20,18 @@ IGFXTexture* CSmokinParticleSource::GetTexture() const
 	}
 	return particles.begin()->pSource->GetTexture();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec3 CSmokinParticleSource::GetPos() const
 {
 	return vPosition;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSmokinParticleSource::SetPos( const CVec3 &vPos )
 {
 	vPosition = vPos;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec3 CSmokinParticleSource::GetDirection() const
 {
 	return vDirection;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSmokinParticleSource::SetDirection( const SHMatrix &mDir )
 {
 	mDir.RotateVector( &vDirection, V3_AXIS_Z );
@@ -46,23 +40,17 @@ void CSmokinParticleSource::SetDirection( const SHMatrix &mDir )
 	Normalize( &vDir );
 	fDirectionTheta = acos( vDir.z );
 	fDirectionPhi = fDirectionTheta == 0 ? 0 : ( vDir.y > 0 ? acos( Clamp(vDir.x / sin( fDirectionTheta ), -1.0f, 1.0f) ) : PI * 2 - acos( Clamp(vDir.x / sin( fDirectionTheta ), -1.0f, 1.0f) ) );
-	//fDirectionTheta = fmod( fDirectionTheta, FP_2PI );
-	//fDirectionPhi = fmod( fDirectionPhi, FP_2PI );
-	//NStr::DebugTrace("DirectionSet ( %f, %f, %f ) ( %f, %f )\n", vDir.x, vDir.y, vDir.z, fDirectionTheta, fDirectionPhi);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSmokinParticleSource::SetStartTime( const NTimer::STime &time )
 {
 	nStartTime = time;
 	nLastUpdateTime = time;
 	lastError = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const NTimer::STime CSmokinParticleSource::GetStartTime() const
 {
 	return nStartTime;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const NTimer::STime CSmokinParticleSource::GetEffectLifeTime() const
 {
 	if ( particles.empty() )
@@ -70,12 +58,10 @@ const NTimer::STime CSmokinParticleSource::GetEffectLifeTime() const
 	else
 		return pData->nLifeTime + particles.begin()->pSource->GetEffectLifeTime();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSmokinParticleSource::IsFinished() const
 {
 	return particles.empty() && ( nLastUpdateTime > nStartTime + pData->nLifeTime || bStopped );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CSmokinParticleSource::GetNumParticles() const
 {
 	int result = 0;
@@ -83,7 +69,6 @@ const int CSmokinParticleSource::GetNumParticles() const
 		result += it->pSource->GetNumParticles();
 	return result;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSmokinParticleSource::FillParticleBuffer( SSimpleParticle *buff ) const
 {
 	for ( std::list<SExtendedParticleSource>::const_iterator it = particles.begin(); it != particles.end() ; it++  )
@@ -92,7 +77,6 @@ void CSmokinParticleSource::FillParticleBuffer( SSimpleParticle *buff ) const
 		buff += it->pSource->GetNumParticles();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSmokinParticleSource::GetInfo( SParticleSourceInfo &info )
 {
 	SetStartTime( 0 );
@@ -114,7 +98,6 @@ void CSmokinParticleSource::GetInfo( SParticleSourceInfo &info )
 	info.fAverageSize = ( nAllSize * 64.0f) / ( GetEffectLifeTime() * 800.0f * 600.0f );
 	info.fAverageCount = ( nAllCount  * 64.0f ) / GetEffectLifeTime() ;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSmokinParticleSource::Update( const NTimer::STime &time )
 {
 	NI_ASSERT_SLOW_T( pData != 0, "Updating uninitialized particle source!" );
@@ -132,7 +115,6 @@ void CSmokinParticleSource::Update( const NTimer::STime &time )
 			CParticleGenerator::ResetGenerator( nNumForGenerating );
 			while ( nNumForGenerating > 0 && pData->nLifeTime + nStartTime > time && !bStopped )
 			{
-				// непосредственно добавление частицы
 				SExtendedParticleSource part;
 				part.pSource = pPM->GetKeyBasedSource( (pData->szParticleEffectName + ".xml").c_str() );
 				part.pSource->SetStartTime( nLastUpdateTime + i ); 
@@ -144,8 +126,6 @@ void CSmokinParticleSource::Update( const NTimer::STime &time )
 				const int nPhi = FSinCosMakeAngleChecked( GetRandomFromTrack( fRelTime, pData->trackBeginAngleRandomizer ) / 2 + fDirectionPhi );
 				const int nTheta = FSinCosMakeAngleChecked( GetRandomFromTrack( fRelTime, pData->trackBeginAngleRandomizer ) / 2 + fDirectionTheta );
 
-//				const float fPhi = fmod( GetRandomFromTrack( fRelTime, pData->trackBeginAngleRandomizer ) / 2 + fDirectionPhi, FP_2PI );
-//				const float fTheta = fmod( GetRandomFromTrack( fRelTime, pData->trackBeginAngleRandomizer ) / 2 + fDirectionTheta, FP_2PI );
 
 				part.vSpeed.x = FSinCalibrated( nTheta ) * FCosCalibrated( nPhi );
 				part.vSpeed.y = FSinCalibrated( nTheta ) * FSinCalibrated( nPhi );
@@ -164,7 +144,6 @@ void CSmokinParticleSource::Update( const NTimer::STime &time )
 			std::list<SExtendedParticleSource>::iterator it = particles.begin();
 			while ( it != particles.end() )
 			{
-				// update particle
 				it->pSource->Update( nLastUpdateTime + i );
 				if ( it->pSource->IsFinished() )
 				{
@@ -189,7 +168,6 @@ void CSmokinParticleSource::Update( const NTimer::STime &time )
 		nLastUpdateTime += dt - ( dt % nStep );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSmokinParticleSource::Init( SSmokinParticleSourceData *_pData )
 {
 	NI_ASSERT_SLOW_T( _pData != 0, "Unable to initialize particle source with empty data!" );
@@ -211,12 +189,10 @@ void CSmokinParticleSource::Init( SSmokinParticleSourceData *_pData )
 	}
 	pData->trackDensity.CreateStartContext( &contextDensity );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSmokinParticleSource::SetScale( float _fScale )
 {
 	fScale *= _fScale;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CSmokinParticleSource::GetArea() const
 {
 	float result = 0;
@@ -227,23 +203,19 @@ float CSmokinParticleSource::GetArea() const
 	}
 	return result;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSmokinParticleSource::Stop()
 {
 	bStopped = true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSmokinParticleSource::GetOptimalUpdateTime() const
 {
 	return 16;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSmokinParticleSource::SetSuspendedState( bool bState )
 {
 	for ( std::list<SExtendedParticleSource>::iterator it = particles.begin(); it != particles.end() ; it++  )
 		it->pSource->SetSuspendedState( bState );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int CSmokinParticleSource::operator&( IStructureSaver &ss )
 {
@@ -275,4 +247,3 @@ int CSmokinParticleSource::operator&( IStructureSaver &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

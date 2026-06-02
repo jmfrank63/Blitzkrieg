@@ -34,7 +34,6 @@
 # include <stl/_iterator_base.h>
 #endif
 
-// streambuf_iterators predeclarations must appear first
 #ifndef _STLP_IOSFWD
 # include <iosfwd>
 #endif
@@ -58,9 +57,6 @@
 #endif
 #endif /* _STLP_OWN_IOSTREAMS */
 
-// istream_iterator and ostream_iterator look very different if we're
-// using new, templatized iostreams than if we're using the old cfront
-// version.
 
 # if defined (_STLP_USE_NEW_IOSTREAMS) 
 
@@ -288,7 +284,6 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_USE_NEW_IOSTREAMS */
 
-// form-independent definiotion of stream iterators
 _STLP_BEGIN_NAMESPACE
 
 template < __ISI_TMPL_HEADER_ARGUMENTS >
@@ -338,6 +333,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_STREAM_ITERATOR_H */
 
-// Local Variables:
-// mode:C++
-// End:

@@ -11,17 +11,10 @@
 #include "Path.h"
 #include "PathFinder.h"
 #include "Weather.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern NTimer::STime curTime;
 extern CWeather theWeather;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CUnitGuns																			*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CUnitGuns );
 BASIC_REGISTER_CLASS( CMechUnitGuns );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitGuns::AddGun( const interface IGunsFactory &gunsFactory, const SWeaponRPGStats *pWeapon, int *nGuns, const int nAmmo )
 {
 	const int nCommonGun = gunsFactory.GetNCommonGun();
@@ -72,13 +65,11 @@ void CUnitGuns::AddGun( const interface IGunsFactory &gunsFactory, const SWeapon
 			nMainGun = (*nGuns) - 1;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitGuns::Segment()
 {
 	for ( int i = 0; i < guns.size(); ++i )
 		guns[i]->Segment();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUnitGuns::FindTimeToGo( CAIUnit *pUnit, CAIUnit *pEnemy, std::list< CUnitGuns::SWeaponPathInfo > *pPathInfo, const SWeaponRPGStats *pStats, CUnitGuns::SWeaponPathInfo *pInfo ) const
 {
 	const float fFireRangeMax = GetFireRangeMax( pStats, pUnit );
@@ -106,11 +97,9 @@ bool CUnitGuns::FindTimeToGo( CAIUnit *pUnit, CAIUnit *pEnemy, std::list< CUnitG
 		return true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitGuns::FindTimeToTurn( CAIUnit *pOwner, const WORD wWillPower, CTurret *pTurret, CAIUnit *pEnemy, const SVector &finishTile, const bool bIsEnemyInFireRange, NTimer::STime *pTimeToTurn ) const
 {
 	*pTimeToTurn = 0;
-	// нужно учесть время на развороты
 	if ( pOwner->CanRotate() && ( !bIsEnemyInFireRange || pTurret == 0 ) )
 	{
 		const WORD finishToEnemyDir = GetDirectionByVector( (pEnemy->GetTile() - finishTile).ToCVec2() );
@@ -140,7 +129,6 @@ void CUnitGuns::FindTimeToTurn( CAIUnit *pOwner, const WORD wWillPower, CTurret 
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUnitGuns::FindTimeToStatObjGo( CAIUnit *pUnit, CStaticObject *pObj, std::list< SWeaponPathInfo > *pPathInfo, const SWeaponRPGStats *pStats, CUnitGuns::SWeaponPathInfo *pInfo ) const
 {
 	const float fFireRangeMax = GetFireRangeMax( pStats, pUnit );
@@ -168,7 +156,6 @@ bool CUnitGuns::FindTimeToStatObjGo( CAIUnit *pUnit, CStaticObject *pObj, std::l
 		return true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CBasicGun* CUnitGuns::ChooseGunForStatObj( CAIUnit *pOwner, CStaticObject *pObj, NTimer::STime *pTime )
 {
 	if ( pOwner->GetNGuns() == 0 )
@@ -184,7 +171,6 @@ CBasicGun* CUnitGuns::ChooseGunForStatObj( CAIUnit *pOwner, CStaticObject *pObj,
 	{
 		CBasicGun *pGun = pOwner->GetGun(i);
 		const SWeaponRPGStats::SShell &shell = pGun->GetShell();
-		// разрывными снарядами и возможно дострелить
 		if ( shell.eDamageType != SWeaponRPGStats::SShell::DAMAGE_HEALTH || shell.fArea2 <= 0 )
 			pGun->SetRejectReason( ACK_NEGATIVE );
 		else if ( pGun->CanShootToObject( pObj ) )
@@ -192,7 +178,6 @@ CBasicGun* CUnitGuns::ChooseGunForStatObj( CAIUnit *pOwner, CStaticObject *pObj,
 			SWeaponPathInfo info;			
 			if ( !pOwner->CanMove() || FindTimeToStatObjGo( pOwner, pObj, &pathInfo, pWStats, &info ) )
 			{
-				// если мы в формации и нельзя выходить за её пределы, а чтобы стрелять в юнита, придётся				
 				if ( pOwner->CanMove() && !pOwner->CanGoToPoint( info.pStaticPath->GetFinishPoint() ) )
 					continue;
 
@@ -202,12 +187,9 @@ CBasicGun* CUnitGuns::ChooseGunForStatObj( CAIUnit *pOwner, CStaticObject *pObj,
 				else
 					time = 0;
 
-				// выстрелов, чтобы убить
 				const float fShotsToKill = pObj->GetHitPoints() / pGun->GetDamage();
-				// очередей
 				const int nBursts = ceil( fShotsToKill / pWStats->nAmmoPerBurst );
 
-				// кол-во очередей * ( время прицеливания + ( кол-во выстрелов - 1 ) * время между выстрелами )
 				time += nBursts * ( pWStats->nAimingTime + ( pWStats->nAmmoPerBurst - 1 ) * pGun->GetFireRate() );
 
 				if ( time < *pTime || nGun == -1 )
@@ -228,33 +210,27 @@ CBasicGun* CUnitGuns::ChooseGunForStatObj( CAIUnit *pOwner, CStaticObject *pObj,
 	else
 		return pOwner->GetGun( nGun );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitGuns::SetOwner( CAIUnit *pUnit )
 {
 	for ( int i = 0; i < guns.size(); ++i )
 		guns[i]->SetOwner( pUnit );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SBaseGunRPGStats& CUnitGuns::GetCommonGunStats( const int nCommonGun ) const
 {
 	NI_ASSERT_T( nCommonGun < nCommonGuns, NStr::Format( "Wrong number of gun (%d), total number of guns (%d)", nCommonGun, nCommonGuns ) );
 	return guns[gunsBegins[nCommonGun]]->GetGun();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitGuns::GetNAmmo( const int nCommonGun ) const
 {
 	NI_ASSERT_T( nCommonGun < nCommonGuns, NStr::Format( "Wrong number of gun (%d), total number of guns (%d)", nCommonGun, nCommonGuns ) );
 	return commonGunsInfo[nCommonGun]->nAmmo;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// nAmmo со знаком
 void CUnitGuns::ChangeAmmo( const int nCommonGun, const int nAmmo )
 {
 	NI_ASSERT_T( nCommonGun < nCommonGuns, NStr::Format( "Wrong number of gun (%d), total number of guns (%d)", nCommonGun, nCommonGuns ) );
 	commonGunsInfo[nCommonGun]->nAmmo += nAmmo;
 	commonGunsInfo[nCommonGun]->nAmmo = Clamp( commonGunsInfo[nCommonGun]->nAmmo, 0, GetNAmmo( nCommonGun ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const EUnitAckType CUnitGuns::GetRejectReason() const
 {
 	int nMaxPriority = 10000;
@@ -288,7 +264,6 @@ const EUnitAckType CUnitGuns::GetRejectReason() const
 
 	return eReason;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUnitGuns::DoesExistRejectReason( const EUnitAckType &ackType ) const
 {
 	for ( int i = 0; i < guns.size(); ++i )
@@ -299,7 +274,6 @@ bool CUnitGuns::DoesExistRejectReason( const EUnitAckType &ackType ) const
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CBasicGun* CUnitGuns::GetMainGun() const
 {
 	if ( guns.size() != 0 )
@@ -307,17 +281,11 @@ CBasicGun* CUnitGuns::GetMainGun() const
 	else
 		return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CUnitGuns::GetMaxFireRange( const CAIUnit *pOwner ) const
 {
 	const float fExpCoeff = pOwner ? pOwner->GetExpLevel().fBonusFireRange : 1.0f;
 	return fMaxFireRange * ( 1 + (SConsts::BAD_WEATHER_FIRE_RANGE_COEFFICIENT - 1) * (int)theWeather.IsActive() ) * fExpCoeff;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CMechUnitGuns																*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMechUnitGuns::Init( CCommonUnit *pCommonUnit )
 {
 	CAIUnit *pUnit = static_cast<CAIUnit*>(pCommonUnit);
@@ -370,7 +338,6 @@ void CMechUnitGuns::Init( CCommonUnit *pCommonUnit )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMechUnitGuns::SetActiveShellType( const enum SWeaponRPGStats::SShell::EDamageType eShellType )
 {
 	int i = 0;
@@ -390,7 +357,6 @@ bool CMechUnitGuns::SetActiveShellType( const enum SWeaponRPGStats::SShell::EDam
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CMechUnitGuns::GetActiveShellType() const
 {
 	if ( nFirstArtGun == -1 )
@@ -398,18 +364,12 @@ const int CMechUnitGuns::GetActiveShellType() const
 	else
 		return GetGun(nFirstArtGun)->GetShell().eDamageType;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CBasicGun* CMechUnitGuns::GetFirstArtilleryGun() const
 { 
 	if ( nFirstArtGun >= 0 ) 
 		return GetGun( nFirstArtGun ); 
 	else return 0; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CInfantryGuns																*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInfantryGuns::Init( CCommonUnit *pCommonUnit )
 {
 	CSoldier *pUnit = static_cast<CSoldier*>(pCommonUnit);
@@ -419,4 +379,3 @@ void CInfantryGuns::Init( CCommonUnit *pCommonUnit )
 	for ( int i = 0; i < pStats->guns.size(); ++i )
 		AddGun( CUnitsGunsFactory( pUnit, i, -1 ), pStats->guns[i].pWeapon, &nGuns, pStats->guns[i].nAmmo );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

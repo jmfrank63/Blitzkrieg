@@ -5,15 +5,12 @@
 #include "Diplomacy.h"
 #include "TimeCounter.h"
 #include "StaticObjectsIters.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CFence );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CDiplomacy theDipl;
 extern CStaticObjects theStatObjs;
 extern CUpdater updater;
 
 extern CTimeCounter timeCounter;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFence::CFence( const SFenceRPGStats *_pStats, const CVec2 &center, const int dbID, const float fHP, const int nFrameIndex, const int nDiplomacy, bool IsEditor )
 : pStats( _pStats ), CCommonStaticObject( center, dbID, fHP, nFrameIndex, ESOT_FENCE ), eLifeType( ETOL_SAFE )
 {
@@ -21,14 +18,12 @@ CFence::CFence( const SFenceRPGStats *_pStats, const CVec2 &center, const int db
 	bSuspendAppear = 
 		!IsEditor && !theDipl.IsNetGame() && theDipl.GetDiplStatus( nCreator, theDipl.GetMyNumber() ) == EDI_ENEMY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFence::ShouldSuspendAction( const EActionNotify &eAction ) const
 {
 	return
 		!theDipl.IsEditorMode() &&
 		( CCommonStaticObject::ShouldSuspendAction( eAction ) || eAction == ACTION_NOTIFY_NEW_ST_OBJ && bSuspendAppear );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFence::InitDirectionInfo()
 {
 	nDir = -1;
@@ -48,7 +43,6 @@ void CFence::InitDirectionInfo()
 
 	rightTile = leftTile = tiles.front();
 
-	// вертикальный
 	if ( nDir == 0 || nDir == 2 )
 	{
 		for ( CTilesSet::const_iterator iter = tiles.begin(); iter != tiles.end(); ++iter )
@@ -73,7 +67,6 @@ void CFence::InitDirectionInfo()
 			) 
 		);
 	}
-	// горизонтальный
 	else
 	{
 		for ( CTilesSet::const_iterator iter = tiles.begin(); iter != tiles.end(); ++iter )
@@ -99,7 +92,6 @@ void CFence::InitDirectionInfo()
 		);
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFence::AnalyzeConnection( CFence *pFence )
 {
 	if ( rightTile == pFence->leftTile )
@@ -123,7 +115,6 @@ void CFence::AnalyzeConnection( CFence *pFence )
 		}
 		else if ( leftTile == pFence->rightTile || leftTile == pFence->leftTile )
 		{
-			// вертикальна
 			if ( nDir == 0 || nDir == 3 )
 				pFence->dirToBreak.push_back( ETOL_LEFT );
 			else
@@ -146,7 +137,6 @@ void CFence::AnalyzeConnection( CFence *pFence )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFence::Init()
 {
 	timeCounter.Count( 0, true );
@@ -163,7 +153,6 @@ void CFence::Init()
 		if ( pObj->GetObjectType() == ESOT_FENCE && pObj != this )
 		{
 			NI_ASSERT_T( dynamic_cast<CFence*>( pObj ) != 0, "Wrong fence" );
-			// такого нет
 			if ( std::find( neighFences.begin(), neighFences.end(), pObj ) == neighFences.end() )
 				AnalyzeConnection( static_cast<CFence*>( pObj ) );
 		}
@@ -171,7 +160,6 @@ void CFence::Init()
 
 	timeCounter.Count( 0, false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFence::Delete()
 {
 	if ( eLifeType != ETOL_DESTROYED )
@@ -219,12 +207,10 @@ void CFence::Delete()
 		++dirIter;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFence::Die( const float fDamage )
 {
 	Delete();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFence::DamagePartially( const ETypesOfLife eType )
 {
  	if ( eType != eLifeType && eLifeType != ETOL_DESTROYED )
@@ -305,9 +291,7 @@ void CFence::DamagePartially( const ETypesOfLife eType )
 		updater.Update( ACTION_NOTIFY_CHANGE_FRAME_INDEX, this, nFrameIndex );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFence::CanUnitGoThrough( const EAIClass &eClass ) const
 {
 	return ( pStats->dwAIClasses & eClass ) == 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

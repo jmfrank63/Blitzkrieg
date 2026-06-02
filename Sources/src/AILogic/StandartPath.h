@@ -1,15 +1,7 @@
 #ifndef __STANDART_PATH_H__
 #define __STANDART_PATH_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Path.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												CCommonStaticPath													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// большой статический путь, вдоль которого идут юниты
 class CCommonStaticPath : public IStaticPath
 {
 	OBJECT_COMPLETE_METHODS( CCommonStaticPath );
@@ -17,7 +9,6 @@ class CCommonStaticPath : public IStaticPath
 
 	std::vector<SVector> path;
 	int nLen;
-	// в тайловых координатах
 	SVector startTile, finishTile;
 	CVec2 finishPoint;
 
@@ -27,11 +18,8 @@ public:
 	CCommonStaticPath( const interface IStaticPathFinder &staticPathFinder, const CVec2 &finishPoint );
 	CCommonStaticPath( const interface IStaticPathFinder &staticPathFinder, const int nLen, const CVec2 &finishPoint );
 	
-	// передвинуть начальный тайл на path[nStart]
 	void MoveStartTileTo( const int nStart );
-	// сделать конечным тайл на path[nFinish - 1]
 	void MoveFinishTileTo( const int nFinish );
-	// передвинуть конечную точку на vMove
 	void MoveFinishPointBy( const CVec2 &vMove );
 	
 	const int GetLength() const	{ return nLen; }
@@ -42,12 +30,6 @@ public:
 	virtual const SVector GetFinishTile() const	{ return finishTile; }
 	virtual const CVec2& GetFinishPoint() const { return finishPoint; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*							ѕуть дл€ юнитов и обычной наземной техники					*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// путь юнитов (идут вдоль большого статического пути)
 class CStandartPath : public IPath
 {
 	OBJECT_COMPLETE_METHODS( CStandartPath );
@@ -59,22 +41,15 @@ class CStandartPath : public IPath
 	int nBoundTileRadius;
 	BYTE aiClass;
 
-	// начальна€ и конечна€ точки
 	CVec2 startPoint, finishPoint;
-	// текущий тайл на большом статическом пути ( pStPath )
 	SVector curStPathTile;
-	// сдвиг от конечной точки ( н-р, из-за ходьбы группой )
 	CVec2 vShift;
-	// номер текущего тайла на маленьком статич. пути, записанном в pathPoints
 	int nCurTile;
 	
-	// номер точки на большом статич. пути, номер последнего тайла на маленьком пути
 	int nCurStaticPoint, nCurPathPoint;
-	// маленький путь слишком длинЄн, 
 	bool bSmallPathTooLong;
 
 	enum { ENPathPoints = 2 * SAIConsts::MAX_LENGTH_OF_SMALL_PATH+1 };
-	// точки малого статич. пути
 	SVector pathPoints[ENPathPoints + 2 * SAIConsts::MAX_LENGTH_OF_SMALL_PATH];
 	SVector lastKnownGoodTile;
 	
@@ -82,15 +57,12 @@ class CStandartPath : public IPath
 	int nInsertedTiles;
 	int nCurInsertedTile;
 
-	//
-	// подсчитать маленький статич. путь, bShift - сдвигать или нет точку на большом статич. пути
 	bool CalculateNewPath( const bool bShift );
 	void CalculateSmallPath( const bool bLastStep );
 	void SaveSmallPath( const int nToSave );
 	void MoveDistantAim( int nMove );
 	void InitByStaticPath( interface IStaticPath *pStPath, const CVec2 &startPoint, const CVec2 &finishPoint );
 
-	//
 	static const BYTE GetNextPos( BYTE n ); 
 public:
 	CStandartPath() : pStPath( 0 ), pPathFinder( 0 ) { }
@@ -111,11 +83,6 @@ public:
 	virtual bool CanGoBackward( interface IBasePathUnit *pUnit );
 	virtual bool ShouldCheckTurn() const { return true; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											ѕуть по направлению													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CStandartDirPath : public IPath
 {
 	OBJECT_COMPLETE_METHODS( CStandartDirPath );
@@ -143,11 +110,6 @@ public:
 	virtual bool CanGoBackward( interface IBasePathUnit *pUnit );
 	virtual bool ShouldCheckTurn() const { return false; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*									CStandartSmoothPathMemento											*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CStandartSmoothPathMemento : public IMemento
 {
 	OBJECT_COMPLETE_METHODS( CStandartSmoothPathMemento );
@@ -159,5 +121,4 @@ public:
 	friend class CStandartSmoothMechPath;	
 	friend class CStandartSmoothSoldierPath;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __STANDART_PATH_H__

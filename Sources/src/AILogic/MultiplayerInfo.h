@@ -1,25 +1,18 @@
 #ifndef __MULTIPLAYER_INFO_H__
 #define __MULTIPLAYER_INFO_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\RandomMapGen\MapInfo_Types.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMultiplayerInfo
 {
 	enum CMapInfo::GAME_TYPE eGameType;
 
 	struct SWinConditions
 	{
-		//FC settings
 		int nFlagScoreLimit;
 		int nKillScoreLimit;
-		//
 
-		//sabotage settings
 		NTimer::STime nTimeToCapture;										// in seconds
 
-		// common settings
 		NTimer::STime nTimeLimit;												// in seconds
 	};
 	SWinConditions winConditions;
@@ -30,7 +23,6 @@ class CMultiplayerInfo
 	std::vector<float> flagPoints4Script;
 	std::vector<float> troopsPoints;
 
-	// for sabotage mission
 	NTimer::STime timeOfFlagCaptured;
 	bool bCapturedByAttackingParty;
 	int nAttackingParty;
@@ -38,7 +30,6 @@ class CMultiplayerInfo
 
 	std::vector< std::unordered_set<int> > capturedByPartyFlags;
 
-	//
 	void CheckWinConditions();
 	void GameFinished( const EFeedBack eGameResult );
 
@@ -59,7 +50,6 @@ public:
 	void FlagCaptured( const int nParty, const int nFlagID );
 	void UnitsKilled( const int nKillerPlayer, const float fUnitsPrice, const int nKilledUnitsPlayer );
 
-	// �����, ��������� ��� ����, ����� ����, � ������� �������� ������ ����� ������ ������, ������� ����� ������
 	const NTimer::STime GetTimeToCaptureObject() const;
 
 	void AddFlagAtTheMap() { ++nFlagsAtTheMap; }
@@ -70,5 +60,4 @@ public:
 	void NoWin();
 	bool IsNoWin() const { return bNoWin; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __MULTIPLAYER_INFO_H__

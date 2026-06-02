@@ -1,6 +1,3 @@
-// Background.h: interface for the CBackground class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_BACKGROUND_H__E331DA1D_E450_4271_9D2D_E39295F8A0AF__INCLUDED_)
 #define AFX_BACKGROUND_H__E331DA1D_E450_4271_9D2D_E39295F8A0AF__INCLUDED_
@@ -14,7 +11,6 @@
 
 #include "DeepCPtrCopy.h"
 #include "..\Misc\Geometry.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CBackground : public IBackground
 {
 	DECLARE_SERIALIZE
@@ -27,8 +23,6 @@ public:
 	virtual void STDCALL SetPos( const CVec2 &vPos, const CVec2 &vSize );
 	virtual int STDCALL operator&( interface IDataTree &ss );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// not tiled, scaled to fit whole window.
 class CBackgroundPlainTexture : public CBackground
 {
 	DECLARE_SERIALIZE
@@ -41,15 +35,6 @@ public:
 	virtual void STDCALL Visit( interface ISceneVisitor * pVisitor );
 	virtual int STDCALL operator&( interface IDataTree &ss );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// tiled background. consists of folloeing elements. 
-// LT  T   T  RT
-// L   F   F  R
-// L   F   F  R
-// LB  B   B  RB
-// corner element (LT,RT,RB,LB). In case that only LT is given, all other are generated from it by rotating.
-// the same is for border elements (T,L,R,B), the base element is T.
-// inner element (F) is tiled to fill remaining space
 class CBackgroundTiledTexture : public CBackground
 {
 	DECLARE_SERIALIZE
@@ -75,7 +60,6 @@ class CBackgroundTiledTexture : public CBackground
 	void InitTiles( SSubRect *pSub );
 	void InitBorderAndFill();
 
-	// divides SSubRect into drawing rect
 	void DivideSubrects( const SSubRect &in, std::vector<SGFXRect2> *pArr );
 
 public:
@@ -84,5 +68,4 @@ public:
 	virtual int STDCALL operator&( interface IDataTree &ss );
 	virtual void STDCALL SetPos( const CVec2 &vPos, const CVec2 &vSize );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // !defined(AFX_BACKGROUND_H__E331DA1D_E450_4271_9D2D_E39295F8A0AF__INCLUDED_)

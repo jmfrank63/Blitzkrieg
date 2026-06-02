@@ -1,4 +1,3 @@
-///////////////////////////////////////////////////////////////////////////////
 #pragma once
 
 extern "C" {
@@ -11,7 +10,6 @@ class Script
 public:
 	typedef lua_CFunction CFunction;
 	
-	///////////////////////////////////////////////////////////////////////////
 	/**
 		Representation of a Lua script object residing on the Lua stack.
 	**/
@@ -122,7 +120,6 @@ public:
 			lua_settable(GetState(), m_stackIndex);
 		}
 		
-//		int CallFunction();
 		int Tag()								{  return lua_tag(GetState(), m_stackIndex);  }
 
 		/**
@@ -162,9 +159,6 @@ public:
 		int m_stackIndex;		//!< The stack index representing this object.
 	};
 
-	///////////////////////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////////////////////
-	///////////////////////////////////////////////////////////////////////////
 	/**
 	**/
 	class AutoBlock
@@ -196,7 +190,6 @@ public:
 	};
 
 
-	///////////////////////////////////////////////////////////////////////////
 	enum { NOREF = LUA_NOREF };
 	enum { REFNIL = LUA_REFNIL };
 	enum { ANYTAG = LUA_ANYTAG };
@@ -207,7 +200,6 @@ public:
 	void Init(bool initStandardLibrary = true);
 	void Clear();
 
-	// Basic stack manipulation.
 	int GetTop()								{  return lua_gettop(m_state);  }
 	void SetTop(int index)			{  lua_settop(m_state, index);  }
 	void PushValue(int index)		{  lua_pushvalue(m_state, index);  }
@@ -218,11 +210,9 @@ public:
 	Object GetObject(int index)					{  return Object(*this, index);  }
 	void PushObject(Object object)			{  lua_pushvalue(m_state, object.GetStackIndex());  }
 
-	// access functions (stack -> C)
 	int Equal(int index1, int index2)			{  return lua_equal(m_state, index1, index2);  }
 	int LessThan(int index1, int index2)	{  return lua_lessthan(m_state, index1, index2);  }
 
-	// push functions (C -> stack)
 	void PushBool(bool value)			{  if (value)  lua_pushnumber(m_state, 1);  else  lua_pushnil(m_state);  }
 	void PushNil()								{  lua_pushnil(m_state);  }
 	void PushNumber(double n)			{  lua_pushnumber(m_state, n);  }
@@ -231,7 +221,6 @@ public:
 	void PushCClosure(lua_CFunction fn, int n)	{  lua_pushcclosure(m_state, fn, n);  }
 	void PushUserTag(void *u, int tag)	{  lua_pushusertag(m_state, u, tag);  }
 
-	// get functions (Lua -> stack)
 	Object GetGlobal(const char *name)			{  lua_getglobal(m_state, name);  return Object(*this, GetTop());  }
 	void GetTable(int index)					{  lua_gettable(m_state, index);  }
 	void RawGet(int index)						{  lua_rawget(m_state, index);  }
@@ -243,7 +232,6 @@ public:
 
 	Object NewTable()							{  lua_newtable(m_state);  return Object(*this, GetTop());  }
 
-	// set functions(stack -> Lua)
 	void SetGlobal(const char *name)	{  lua_setglobal(m_state, name);  }
 	void SetTable(int index)		 			{  lua_settable(m_state, index);  }
 	void RawSet(int index)						{  lua_rawset(m_state, index);  }
@@ -253,7 +241,6 @@ public:
 	int Ref(int lock)							{  return lua_ref(m_state, lock);  }
 
 
-	// "do" functions(run Lua code)
 	int Call(int nargs, int nresults)			{  return lua_call(m_state, nargs, nresults);  }
 	void RawCall(int nargs, int nresults)	{  lua_rawcall(m_state, nargs, nresults);  }
 	int DoFile(const char *filename)		{  return lua_dofile(m_state, filename);  }
@@ -261,7 +248,6 @@ public:
 	int DoBuffer(const char *buff, size_t size, const char *name)	{  return lua_dobuffer(m_state, buff, size, name);  }
 
 
-	// miscellaneous functions
 	int NewTag()								{  return lua_newtag(m_state);  }
 	int CopyTagMethods(int tagto, int tagfrom)	{  return lua_copytagmethods(m_state, tagto, tagfrom);  }
 	void SetTag(int tag)						{  lua_settag(m_state, tag);  }
@@ -275,7 +261,6 @@ public:
 
 	void Concat(int n)							{  lua_concat(m_state, n);  }
 
-	// Helper function
 	void Pop(int amount = 1)					{  lua_pop(m_state, amount);  }
 
 	struct SRegFunction
@@ -331,11 +316,9 @@ inline Script::Script(lua_State* state)
 **/
 inline void Script::Clear()
 {
-	// Only close the Lua state if we own it.
 	if (m_ownState)
 		lua_close(m_state);
 }
-//
 inline Script::~Script()
 {
 	Clear();

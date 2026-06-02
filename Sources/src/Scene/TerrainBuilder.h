@@ -1,9 +1,7 @@
 #ifndef __TERRAINBUILDER_H__
 #define __TERRAINBUILDER_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Formats\fmtTerrain.h"
 #include "..\Image\Image.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTerrainBuilder
 {
 public:
@@ -13,7 +11,6 @@ public:
 		CCrossesList base;									// base crosses
 		std::vector<CCrossesList> layers;		// crosses with noise by layers 
 		CCrossesList noise;									// noise only
-		//
 		void Clear()
 		{
 			base.clear();
@@ -23,13 +20,11 @@ public:
 	};
 private:
 	const STilesetDesc &tileset;
-	//const SRoadsetDesc &roadset;
 	const SCrossetDesc &crosset;
 	typedef std::unordered_map<char, int> CTypesMap;
 	mutable CTypesMap terratypes;					// terrain type
 	mutable CTypesMap crossettypes;				// cross set type
 	mutable CTypesMap crosstypes;					// cross tile type
-	// terrain builder
 	void ConvertImageSegment( CImageAccessor &image, const CTRect<int> &rect ) const;
 	void GenerateTiles( const CImageAccessor &image, STerrainInfo *pTerrainInfo ) const;
 	int ComparePriority( BYTE r1, BYTE r2 ) const;
@@ -43,7 +38,6 @@ private:
 public:
 	CTerrainBuilder( const STilesetDesc &_tileset, const SCrossetDesc &_crosset/*, const SRoadsetDesc &_roadset*/ ) 
 		: tileset( _tileset ), crosset( _crosset )/* roadset( _roadset )*/{  }
-	//
 	const bool HasNoise( BYTE tile ) const;
 	int GetTerrainType( BYTE tile ) const;
 	int GetCrossType( BYTE tile ) const;
@@ -54,8 +48,6 @@ public:
 		                             const CTRect<int> &rect, const CTRect<int> &rcSuper, 
 																 SComplexCrosses *pCrosses ) const;
 	void PreprocessMap( IImage *pImage, STerrainInfo *pTerrainInfo ) const;
-	//
 	void CopyCrosses( STerrainPatchInfo *pPatch, const SComplexCrosses &crosses ) const;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __TERRAINBUILDER_H__

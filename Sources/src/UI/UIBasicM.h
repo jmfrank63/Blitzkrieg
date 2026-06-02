@@ -1,15 +1,11 @@
 #ifndef __UIBASIC_M_H__
 #define __UIBASIC_M_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Misc\Manipulator.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CPropertiesRegister thePropertiesRegister;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
 class CUIWindowStateManipulator : public CManipulator
 {
 	OBJECT_NORMAL_METHODS( CUIWindowStateManipulator );
-	//
 	SWindowState *pWindowState;
 public:
 	CUIWindowStateManipulator();
@@ -28,19 +24,15 @@ public:
 };
 */
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIWindowManipulator : public CManipulator
 {
 	OBJECT_NORMAL_METHODS( CUIWindowManipulator );
-	//
 	CSimpleWindow *pWindow;
 public:
 	CUIWindowManipulator();
 
 	void SetWindow( CSimpleWindow *_pWindow ) { pWindow = _pWindow; }
 	
-	//эти функции вызываются из редактора
-	//в качестве параметров фигурируют экранные координаты
 	void SetPosX( const variant_t &value );
 	void SetPosY( const variant_t &value );
 	void SetSizeX( const variant_t &value );
@@ -58,5 +50,4 @@ public:
 	void GetTexture( variant_t *pValue, int nIndex = -1 );
 	void GetHighSound( variant_t *pValue, int nIndex = -1 );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif		//__UIBASIC_M_H__

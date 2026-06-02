@@ -1,7 +1,3 @@
-//{{NO_DEPENDENCIES}}
-// Microsoft Developer Studio generated include file.
-// Used by PlanePathTest.rc
-//
 #define IDD_PLANEPATHTEST_DIALOG        102
 #define IDR_MAINFRAME                   128
 #define IDC_SLIDER1                     1000
@@ -13,8 +9,6 @@
 #define IDC_SLIDER6                     1007
 #define IDC_SLIDER7                     1008
 
-// Next default values for new objects
-// 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        129

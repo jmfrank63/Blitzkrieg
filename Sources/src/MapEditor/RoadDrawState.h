@@ -1,6 +1,3 @@
-// RoadDrawState.h: interface for the CRoadDrawState class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_ROADDRAWSTATE_H__0BCF6866_121A_4459_8337_B2EDCC515941__INCLUDED_)
 #define AFX_ROADDRAWSTATE_H__0BCF6866_121A_4459_8337_B2EDCC515941__INCLUDED_
@@ -22,10 +19,8 @@ namespace roadStateConsts
 
 class CRoadDrawState : public IInputState
 {
-	//Common tools
 	CInputStateParameter stateParameter;
 
-	//IInputState interface
 	virtual void STDCALL Enter();
 	virtual void STDCALL Leave();
 	virtual void STDCALL Update();

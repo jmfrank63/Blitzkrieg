@@ -15,9 +15,6 @@
  * modified is included with the above copyright notice.
  *
  */ 
-// WARNING: This is an internal header file, included by other C++
-// standard library headers.  You should not attempt to use this header
-// file directly.
 
 #ifndef _STLP_INTERNAL_CTYPE_H
 #define _STLP_INTERNAL_CTYPE_H
@@ -51,12 +48,10 @@ public:
   };
 };
 
-// ctype<> template
 
 template <class charT> class ctype {};
 template <class charT> class ctype_byname {};
 
-//ctype specializations
 
 _STLP_TEMPLATE_NULL
 class _STLP_CLASS_DECLSPEC ctype<char> :   public locale::facet, public ctype_base 
@@ -263,7 +258,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_CTYPE_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

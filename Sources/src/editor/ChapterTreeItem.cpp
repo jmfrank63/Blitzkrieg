@@ -168,7 +168,6 @@ void CChapterCommonPropsItem::UpdateItemValue( int nItemId, const CVariant &valu
 	
 	if ( nItemId == 1 || nItemId == 2 || nItemId == 3 || nItemId == 4 || nItemId == 5 || nItemId == 9 )
 	{
-		//сконвертим путь к файлу в относительный без расширения
 		if ( !IsRelatedPath( value ) )
 		{
 			string szValue = value;
@@ -176,7 +175,6 @@ void CChapterCommonPropsItem::UpdateItemValue( int nItemId, const CVariant &valu
 			bool bRes =	MakeSubRelativePath( g_frameManager.GetFrame( CFrameManager::E_CHAPTER_FRAME )->GetProjectFileName().c_str(), szValue.c_str(), szRelatedPath );
 			if ( bRes )
 			{
-				//обрежем расширение в конце
 				szRelatedPath = szRelatedPath.substr( 0, szRelatedPath.rfind( '.' ) );
 				CVariant newVal = szRelatedPath;
 				CTreeItem::UpdateItemValue( nItemId, newVal );
@@ -229,7 +227,6 @@ void CChapterMissionsItem::MyKeyDown( int nChar )
 	{
 		case VK_INSERT:
 			CTreeItem *pItem = new CChapterMissionPropsItem;
-			// string szName = NStr::Format( "Objective", GetChildsCount() );
 			pItem->SetItemName( "Mission" );
 			AddChild( pItem );
 			g_frameManager.GetFrame( CFrameManager::E_CHAPTER_FRAME )->SetChangedFlag( true );
@@ -243,7 +240,6 @@ void CChapterMissionsItem::MyRButtonClick()
 	if ( nRes == ID_INSERT_TREE_ITEM )
 	{
 		CTreeItem *pItem = new CChapterMissionPropsItem;
-		// string szName = NStr::Format( "Objective", GetChildsCount() );
 		pItem->SetItemName( "Mission" );
 		AddChild( pItem );
 		g_frameManager.GetFrame( CFrameManager::E_CHAPTER_FRAME )->SetChangedFlag( true );
@@ -338,7 +334,6 @@ void CChapterPlacesItem::MyKeyDown( int nChar )
 	{
 		case VK_INSERT:
 			CTreeItem *pItem = new CChapterPlacePropsItem;
-			// string szName = NStr::Format( "Objective", GetChildsCount() );
 			pItem->SetItemName( "Place" );
 			AddChild( pItem );
 			g_frameManager.GetFrame( CFrameManager::E_CHAPTER_FRAME )->SetChangedFlag( true );
@@ -352,7 +347,6 @@ void CChapterPlacesItem::MyRButtonClick()
 	if ( nRes == ID_INSERT_TREE_ITEM )
 	{
 		CTreeItem *pItem = new CChapterPlacePropsItem;
-		// string szName = NStr::Format( "Objective", GetChildsCount() );
 		pItem->SetItemName( "Place" );
 		AddChild( pItem );
 		g_frameManager.GetFrame( CFrameManager::E_CHAPTER_FRAME )->SetChangedFlag( true );

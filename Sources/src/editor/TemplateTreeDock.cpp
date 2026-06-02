@@ -15,15 +15,11 @@ CTemplateTreeDockBar::~CTemplateTreeDockBar()
 
 
 BEGIN_MESSAGE_MAP(CTemplateTreeDockBar, SECControlBar)
-	//{{AFX_MSG_MAP(CTemplateTreeDockBar)
 	ON_WM_SIZE()
 	ON_WM_CREATE()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CTemplateTreeDockBar message handlers
 
 int CTemplateTreeDockBar::OnCreate(LPCREATESTRUCT lpCreateStruct) 
 {
@@ -51,7 +47,6 @@ BOOL CTemplateTreeDockBar::PreTranslateMessage(MSG* pMsg)
 	switch ( pMsg->message )
 	{
 	case WM_USERTREESEL:
-		//Отображаем свойства выделенного компонента в ObjectInspector
 		pItem = (CTreeItem *) pMsg->lParam;
 		NI_ASSERT ( pItem != 0 );
 		NI_ASSERT( pPropView != 0 );

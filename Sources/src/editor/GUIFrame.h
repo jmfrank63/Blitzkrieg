@@ -25,11 +25,9 @@ public:
 	CGUIFrame();
 	virtual ~CGUIFrame();
 
-// Attributes
 public:
 	typedef vector< CPtr<IGFXVertices> > CVectorOfVertices;
 
-// Operations
 public:
 	virtual void Init( IGFX *_pGFX );			//��������������
 	virtual void ShowFrameWindows( int nCommand );
@@ -45,15 +43,9 @@ public:
 	void SetActiveTemplatePropsItem( CTemplatePropsTreeItem *pItem ) { pTemplatePropsItem = pItem; }
 	IUIElement *GUICreateElement();
 
-// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CGUIFrame)
 	protected:
-	//}}AFX_VIRTUAL
 
-// Implementation
 private:
-	// view for the client area of the frame.
 	CPropertyDockBar *pPropertyDockBar;
 	CTemplatePropsTreeItem *pTemplatePropsItem;
 	bool bRunning;								//���� ��� ���������, �������������� � ��������������� ��������
@@ -92,13 +84,10 @@ private:
 	};
 	EResizeMode m_resizeMode;			//��� ����������� ����������� resize
 
-	// undo/redo operations
 	typedef list< CPtr<IGUIUndo> > CUndoStack;
 	CUndoStack m_undoStack;
 	CPtr<IGUIUndo> pUnchanged;
 
-	//��� Run Mode
-//	CVec2 vCursorPos;
 	int mouseState;
 	NInput::CCommandRegistrator standardMsgs;
 	
@@ -108,12 +97,8 @@ protected:
 	virtual void SpecificClearBeforeBatchMode();
 	virtual void SpecificSave( IDataTree *pDT );						//���������� ��� ������ �������, ����� ������ � GUI composer
 
-	//������������ ���� ������, ���� ��� ��, ���������� 0, ����� ��� ������
 	virtual bool ExportFrameData( IDataTree *pDT, const char *pszProjectName, const char *pszResultFileName, CTreeItem *pRootItem );
-//	virtual FILETIME FindMaximalSourceTime( const char *pszProjectName, CTreeItem *pRootItem );
-//	virtual FILETIME FindMinimalExportFileTime( const char *pszResultFileName, CTreeItem *pRootItem );
 	
-	//GUI Module
 	CTRect<float> GetElementRect( IUIElement *pElement );
 	void SetElementRect( IUIElement *pElement, const CTRect<float> &rc );
 	void GFXDrawFrame( const CTRect<float> &rc, DWORD color, float width );
@@ -123,9 +108,7 @@ protected:
 	const char *GetDirectoryFromWindowType( int nWindowType );
 	CTreeItem *GetParentTreeItemForWindowType( int nWindowType );
 
-	// Generated message map functions
 protected:
-	//{{AFX_MSG(CGUIFrame)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnRunButton();
 	afx_msg void OnStopButton();
@@ -147,14 +130,10 @@ protected:
 	afx_msg void OnEditCut();
 	afx_msg void OnUpdateEditCut(CCmdUI* pCmdUI);
 	afx_msg void OnEditUndo();
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 
-/////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif		//__GUIFRAME_H__
 

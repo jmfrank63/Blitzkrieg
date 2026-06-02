@@ -20,35 +20,17 @@
 
 #ifndef _STLP_IOS_BASE_H
 #include <stl/_ios_base.h>      // Needed for ios_base bitfield members.
-                                // <ios_base> includes <iosfwd>.
 #endif
 
 #ifndef _STLP_STDIO_FILE_H
 #include <stl/_stdio_file.h>     // Declaration of struct FILE, and of
-                                // functions to manipulate it.
 #endif
 
 _STLP_BEGIN_NAMESPACE
 
-//----------------------------------------------------------------------
-// Class basic_streambuf<>, the base class of the streambuf hierarchy.
 
-// A basic_streambuf<> manages an input (get) area and an output (put)
-// area.  Each is described by three pointers: a beginning, an end, and a
-// current position.  basic_streambuf<> contains some very simple member
-// functions that manipulate those six pointers, but almost all of the real
-// functionality gets delegated to protected virtual member functions.
-// All of the public member functions are inline, and most of the protected
-// member functions are virtual.
 
-// Although basic_streambuf<> is not abstract, it is useful only as a base
-// class.  Its virtual member functions have default definitions such that
-// reading from a basic_streambuf<> will always yield EOF, and writing to a
-// basic_streambuf<> will always fail.
 
-// The second template parameter, _Traits, defaults to char_traits<_CharT>.
-// The default is declared in header <iosfwd>, and it isn't declared here
-// because C++ language rules do not allow it to be declared twice. 
 
 template <class _CharT, class _Traits>
 class basic_streambuf
@@ -97,9 +79,6 @@ protected:                      // Protected interface to the get area.
   }
 
 public:
-  // An alternate public interface to the above functions
-  // which allows us to avoid using templated friends which
-  // are not supported on some compilers.
 
   char_type* _M_eback() const { return eback(); }
   char_type* _M_gptr()  const { return gptr(); }
@@ -125,18 +104,12 @@ protected:                      // Virtual buffer management functions.
 
   virtual basic_streambuf<_CharT, _Traits>* setbuf(char_type*, streamsize);
 
-  // Alters the stream position, using an integer offset.  In this
-  // class seekoff does nothing; subclasses are expected to override it.
   virtual pos_type seekoff(off_type, ios_base::seekdir,
                            ios_base::openmode = ios_base::in | ios_base::out);
 
-  // Alters the stream position, using a previously obtained streampos.  In
-  // this class seekpos does nothing; subclasses are expected to override it.
   virtual pos_type
   seekpos(pos_type, ios_base::openmode = ios_base::in | ios_base::out);
 
-  // Synchronizes (i.e. flushes) the buffer.  All subclasses are expected to 
-  // override this virtual member function.
   virtual int sync();
 
 
@@ -155,58 +128,33 @@ public:                         // Buffer management.
   int pubsync() { return this->sync(); }
 
 protected:                      // Virtual get area functions, as defined in
-                                // 17.5.2.4.3 and 17.5.2.4.4 of the standard.
-  // Returns a lower bound on the number of characters that we can read,
-  // with underflow, before reaching end of file.  (-1 is a special value:
-  // it means that underflow will fail.)  Most subclasses should probably
-  // override this virtual member function.
   virtual streamsize showmanyc();
 
-  // Reads up to __n characters.  Return value is the number of 
-  // characters read.
   virtual streamsize xsgetn(char_type* __s, streamsize __n);
 
-  // Called when there is no read position, i.e. when gptr() is null
-  // or when gptr() >= egptr().  Subclasses are expected to override
-  // this virtual member function.
   virtual int_type underflow();
 
-  // Similar to underflow(), but used for unbuffered input.  Most 
-  // subclasses should probably override this virtual member function.
   virtual int_type uflow();
 
-  // Called when there is no putback position, i.e. when gptr() is null
-  // or when gptr() == eback().  All subclasses are expected to override
-  // this virtual member function.
   virtual int_type pbackfail(int_type = traits_type::eof());
 
 protected:                      // Virtual put area functions, as defined in
-                                // 27.5.2.4.5 of the standard.
 
-  // Writes up to __n characters.  Return value is the number of characters
-  // written.
   virtual streamsize xsputn(const char_type* __s, streamsize __n);
 
-  // Extension: writes up to __n copies of __c.  Return value is the number
-  // of characters written.
   virtual streamsize _M_xsputnc(char_type __c, streamsize __n);
 
-  // Called when there is no write position.  All subclasses are expected to
-  // override this virtual member function.
   virtual int_type overflow(int_type = traits_type::eof());
 
 public:                         // Public members for writing characters.
-  // Write a single character.
   int_type sputc(char_type __c) {
     return ((_M_pnext < _M_pend) ? _Traits::to_int_type(*_M_pnext++ = __c)
       : this->overflow(_Traits::to_int_type(__c)));
   }
 
-  // Write __n characters.
   streamsize sputn(const char_type* __s, streamsize __n)
     { return this->xsputn(__s, __n); }
 
-  // Extension: write __n copies of __c.
   streamsize _M_sputnc(char_type __c, streamsize __n)
     { return this->_M_xsputnc(__c, __n); }
 
@@ -219,20 +167,17 @@ public:                         // Public members for reading characters.
     return (_M_gnext < _M_gend) ? (_M_gend - _M_gnext) : this->showmanyc();
   }
   
-  // Advance to the next character and return it.
   int_type snextc() {
 	return ( _M_gend - _M_gnext > 1 ?
              _Traits::to_int_type(*++_M_gnext) :
              this->_M_snextc_aux());
   }
 
-  // Return the current character and advance to the next.
   int_type sbumpc() {
     return _M_gnext < _M_gend ? _Traits::to_int_type(*_M_gnext++) 
       : this->uflow();
   }
   
-  // Return the current character without advancing to the next.
   int_type sgetc() {
     return _M_gnext < _M_gend ? _Traits::to_int_type(*_M_gnext) 
       : this->underflow();
@@ -255,10 +200,6 @@ public:                         // Public members for reading characters.
 
 protected:                      // Virtual locale functions.
 
-  // This is a hook, called by pubimbue() just before pubimbue()
-  // sets the streambuf's locale to __loc.  Note that imbue should
-  // not (and cannot, since it has no access to streambuf's private
-  // members) set the streambuf's locale itself.
   virtual void imbue(const locale&);
 
 public:                         // Locale-related functions.
@@ -282,33 +223,7 @@ private: // Data members.
 };
 
 
-//----------------------------------------------------------------------
-// Specialization: basic_streambuf<char, char_traits<char> >
 
-// We implement basic_streambuf<char, char_traits<char> > very differently
-// than the general basic_streambuf<> template.  The main reason for this
-// difference is a requirement in the C++ standard: the standard input
-// and output streams cin and cout are required by default to be synchronized
-// with the C library components stdin and stdout.  This means it must be
-// possible to synchronize a basic_streambuf<char> with a C buffer.
-//
-// There are two basic ways to do that.  First, the streambuf could be
-// unbuffered and delegate all buffering to stdio operations.  This
-// would be correct, but slow: it would require at least one virtual
-// function call for every character.  Second, the streambuf could use 
-// a C stdio FILE as its buffer.  
-//
-// We choose the latter option.  Every streambuf has pointers to two
-// FILE objects, one for the get area and one for the put area.  Ordinarily
-// it just uses a FILE object as a convenient way to package the three
-// get/put area pointers.  If a basic_streambuf<char> is synchronized with
-// a stdio stream, though, then the pointers are to a FILE object that's
-// also used by the C library.
-//
-// The header <stl/_stdio_file.h> encapsulates the implementation details
-// of struct FILE.  It contains low-level inline functions that convert
-// between whe FILE's internal representation and the three-pointer 
-// representation that basic_streambuf<> needs.
 
 _STLP_TEMPLATE_NULL 
 class _STLP_CLASS_DECLSPEC basic_streambuf<char, char_traits<char> >
@@ -345,17 +260,14 @@ public:                         // Destructor.
 
 protected:                      // Constructors.
 
-  // The default constructor; defined here inline as some compilers require it
   basic_streambuf _STLP_PSPEC2(char, char_traits<char>) ()
     : _M_get(&_M_default_get),
       _M_put(&_M_default_put), _M_locale()
   {
-    // _M_lock._M_initialize();
     _FILE_I_set(_M_get, 0, 0, 0);
     _FILE_O_set(_M_put, 0, 0, 0);
   }
   
-  // Extension: a constructor for streambufs synchronized with C stdio files.
   basic_streambuf _STLP_PSPEC2(char, char_traits<char>) (FILE* __get, FILE* __put);
 
 protected:                      // Protected interface to the get area.
@@ -367,9 +279,6 @@ protected:                      // Protected interface to the get area.
     { _FILE_I_set(_M_get, __gbegin, __gnext, __gend); }
 
 public:
-  // An alternate public interface to the above functions
-  // which allows us to avoid using templated friends which
-  // are not supported on some compilers.
 
   char_type* _M_eback() const { return _FILE_I_begin(_M_get); }
   char_type* _M_gptr()  const { return _FILE_I_next(_M_get); }
@@ -423,7 +332,6 @@ protected:                      // Virtual put area functions.
   virtual int_type overflow(int_type = traits_type::eof());
 
 public:                         // Public members for writing characters.
-  // Write a single character.
   int_type sputc(char_type __c) {
     int_type __res;
 	if( _FILE_O_avail(_M_put) > 0 )
@@ -436,11 +344,9 @@ public:                         // Public members for writing characters.
     return __res;
   }
 
-  // Write __n characters.
   streamsize sputn(const char_type* __s, streamsize __n)
     { return this->xsputn(__s, __n); }
 
-  // Extension: write __n copies of __c.
   streamsize _M_sputnc(char_type __c, streamsize __n)
     { return this->_M_xsputnc(__c, __n); }
 
@@ -452,21 +358,18 @@ public:                         // Public members for reading characters.
     { return _FILE_I_avail(_M_get) > 0 ? _FILE_I_avail(_M_get) 
                                      : this->showmanyc(); }
   
-  // Advance to the next character and return it.
   int_type snextc() {
     return _FILE_I_avail(_M_get) > 1
       ? traits_type::to_int_type(_FILE_I_preincr(_M_get))
       : this->_M_snextc_aux();
   }
 
-  // Return the current character and advance to the next.
   int_type sbumpc() {
     return _FILE_I_avail(_M_get) > 0
       ? traits_type::to_int_type(_FILE_I_postincr(_M_get))
       : this->uflow();
   }
 
-  // Return the current character without advancing to the next.
   int_type sgetc() {
     return _FILE_I_avail(_M_get) > 0
       ? traits_type::to_int_type(*_FILE_I_next(_M_get))
@@ -521,6 +424,3 @@ _STLP_END_NAMESPACE
 # endif
 
 #endif
-// Local Variables:
-// mode:C++
-// End:

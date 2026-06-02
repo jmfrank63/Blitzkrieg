@@ -21,7 +21,6 @@
 
 #include "..\Scene\Scene.h"
 #include "..\Misc\CheckSums.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CCombatEstimator theCombatEstimator;
 extern CStaticMap theStaticMap;
 extern CUpdater updater;
@@ -34,18 +33,12 @@ extern CGlobalWarFog theWarFog;
 extern CWeather theWeather;
 extern CDifficultyLevel theDifficultyLevel;
 extern SCheats theCheats;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*														CHitInfo															*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CHitInfo::CHitInfo( const class CExplosion *pExpl, IRefCount *_pVictim, const enum SAINotifyHitInfo::EHitType &_eHitType, const CVec3 &_explCoord )
 : pWeapon( pExpl->GetWeapon() ), wShell( pExpl->GetShellType() ), wDir( pExpl->GetAttackDir() ), 
 	pVictim( _pVictim ), eHitType( _eHitType ), explCoord( _explCoord )
 {
 	SetUniqueId();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CHitInfo::GetHitInfo( SAINotifyHitInfo *pHitInfo ) const 
 { 
 	pHitInfo->explCoord = explCoord;
@@ -55,11 +48,6 @@ void CHitInfo::GetHitInfo( SAINotifyHitInfo *pHitInfo ) const
 	pHitInfo->wShell = wShell;
 	pHitInfo->eHitType = eHitType;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												CExplosion																*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExplosion::Init(	CAIUnit *_pUnit, 
 												const SWeaponRPGStats *_pWeapon, 
 												const float fDispersion, 
@@ -88,7 +76,6 @@ void CExplosion::Init(	CAIUnit *_pUnit,
 	explCoord = _explCoord + vRand;
 	attackDir = GetDirectionByVector( attackerPos - explCoord );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CExplosion::CExplosion( CAIUnit *pUnit, const SWeaponRPGStats *pWeapon, const CVec2 &explCoord, const float z, const CVec2 &attackerPos, const BYTE nShellType, const bool bRandomize )
 {
 	if ( pUnit != 0 )
@@ -96,7 +83,6 @@ CExplosion::CExplosion( CAIUnit *pUnit, const SWeaponRPGStats *pWeapon, const CV
 	else
 		Init( pUnit, pWeapon, pWeapon->fDispersion, 1, explCoord, z, attackerPos, nShellType, bRandomize, theDipl.GetNeutralPlayer() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CExplosion::CExplosion( CAIUnit *pUnit, const CBasicGun *pGun, const CVec2 &explCoord, const float z, const CVec2 &attackerPos, const BYTE nShellType, const bool bRandomize )
 {
 	float fDispRatio = pGun->GetDispRatio( nShellType, fabs(explCoord-attackerPos) );
@@ -105,13 +91,10 @@ CExplosion::CExplosion( CAIUnit *pUnit, const CBasicGun *pGun, const CVec2 &expl
 	else
 		Init( pUnit, pGun->GetWeapon(), pGun->GetDispersion(), fDispRatio, explCoord, z, attackerPos, nShellType, bRandomize, theDipl.GetNeutralPlayer() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SAINotifyHitInfo::EHitType CExplosion::ProcessExactHit( CAIUnit *pTarget, const SRect &combatRect, const CVec2 &explCoord, const int nRandPiercing, const int nRandArmor ) const
 {
-	// попали по комбат системе
 	if ( combatRect.IsPointInside( explCoord ) )
 	{
-		// пробили
 		if ( nRandPiercing >= nRandArmor && !pTarget->IsSavedByCover() )
 			return SAINotifyHitInfo::EHT_HIT;
 		else
@@ -120,48 +103,40 @@ const SAINotifyHitInfo::EHitType CExplosion::ProcessExactHit( CAIUnit *pTarget, 
 	else
 		return SAINotifyHitInfo::EHT_MISS;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CExplosion::GetRandomPiercing() const
 {
 	return
 		pWeapon->shells[nShellType].GetRandomPiercing() *
 		theDifficultyLevel.GetPiercingCoeff( theDipl.GetNParty( nPlayerOfShoot ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CExplosion::GetMaxDamage() const
 {
 	const float fMaxDamage = pWeapon->shells[nShellType].fDamagePower + pWeapon->shells[nShellType].nDamageRandom;
 	return
 		fMaxDamage * theDifficultyLevel.GetDamageCoeff( theDipl.GetNParty( nPlayerOfShoot ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CExplosion::GetRandomDamage() const
 {
 	const float fRandomDamage = pWeapon->shells[nShellType].GetRandomDamage();
 	return
 		fRandomDamage * theDifficultyLevel.GetDamageCoeff( theDipl.GetNParty( nPlayerOfShoot ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CExplosion::GetPartyOfShoot() const 
 {
 	NI_ASSERT_T( nPlayerOfShoot != -1, "Invalid shooting player" );
 	return theDipl.GetNParty( nPlayerOfShoot );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CExplosion::GetPlayerOfShoot() const
 {
 	NI_ASSERT_T( nPlayerOfShoot != -1, "Invalid shooting player" );
 	return nPlayerOfShoot; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CExplosion::ProcessMoraleExplosion() const
 {
 	const SWeaponRPGStats::SShell &rShell = pWeapon->shells[nShellType];
 	if ( rShell.eDamageType == SWeaponRPGStats::SShell::DAMAGE_MORALE )
 	{
-		// взрыв моральный
 		updater.Update( ACTION_NOTIFY_HIT, new CHitInfo( pWeapon, nShellType, attackDir, CVec3( GetExplCoordinates(), GetExplZ() ), SAINotifyHitInfo::EHT_GROUND ) );
-		// всем врагам в радиусе понизить мораль
 		for ( CUnitsIter<0,0> iter( pUnit->GetParty(), EDI_ENEMY, GetExplCoordinates(), rShell.fArea ); !iter.IsFinished(); iter.Iterate() )
 		{
 			CPtr<CAIUnit> curUnit = *iter;
@@ -173,15 +148,11 @@ bool CExplosion::ProcessMoraleExplosion() const
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CExplosion::ProcessSmokeScreenExplosion() const
 {
 	const SWeaponRPGStats::SShell &rShell = pWeapon->shells[nShellType];
 	if ( rShell.eDamageType == SWeaponRPGStats::SShell::DAMAGE_FOG )
 	{
-		// большой радиус взрыва - радиус завесы,
-		// nPiercing - прозрачность,
-		// fDamage - время существования
 		theStatObjs.AddNewSmokeScreen(
 			GetExplCoordinates(),
 			pWeapon->shells[nShellType].fArea,
@@ -193,19 +164,12 @@ bool CExplosion::ProcessSmokeScreenExplosion() const
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExplosion::AddHitToSend( CHitInfo *pHit )
 {
-	//чтобы удалилось
 	CPtr<CHitInfo> memHit = pHit;
 	if ( pHitToSend == 0 || pHitToSend->eHitType != SAINotifyHitInfo::EHT_HIT )
 		pHitToSend = pHit;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												CCumulativeExpl														*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CCumulativeExpl::CCumulativeExpl( CAIUnit *pUnit, const CBasicGun *pGun, const CVec2 &explCoord, const float z, const CVec2 &attackerPos, const BYTE nShellType, const bool bRandomize )
 : CExplosion( pUnit, pGun, explCoord, z, attackerPos, nShellType, bRandomize )
 {
@@ -214,7 +178,6 @@ CCumulativeExpl::CCumulativeExpl( CAIUnit *pUnit, const CBasicGun *pGun, const C
 	else
 		nArmorDir = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SAINotifyHitInfo::EHitType GetHitType( const CVec2 &vPoint )
 {
 	const SVector hitTile( AICellsTiles::GetTile( vPoint ) );
@@ -229,7 +192,6 @@ const SAINotifyHitInfo::EHitType GetHitType( const CVec2 &vPoint )
 
 	return SAINotifyHitInfo::EHT_NONE;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCumulativeExpl::Explode()
 {
 	if ( ProcessMoraleExplosion() ) return;
@@ -244,7 +206,6 @@ void CCumulativeExpl::Explode()
 	bool bHit = false;
 	bool bSoldierHit = false;
 	
-	// по юнитам
 	for ( CUnitsIter<0,0> iter( 0, ANY_PARTY, explCoord, 0.0f ); !iter.IsFinished(); iter.Iterate() )
 	{
 		CAIUnit *pTarget = *iter;
@@ -253,10 +214,8 @@ void CCumulativeExpl::Explode()
 			if ( nShellType == SWeaponRPGStats::SShell::TRAJECTORY_LINE || nShellType == SWeaponRPGStats::SShell::TRAJECTORY_GRENADE )
 				pTarget->Grazed( pUnit );
 			
-			// target жив, target не тот, кто стрелял и по высоте совпадает с высотой взрыва
 			if ( !bSoldierHit || !pTarget->GetStats()->IsInfantry() )
 			{
-				// чтобы не пропускался вызов функции из-за оптимизации вычисления bool выражений
 				const bool bExplResult = pTarget->ProcessCumulativeExpl( this, nArmorDir, false );
 				bHit = bHit || bExplResult;
 
@@ -274,11 +233,8 @@ void CCumulativeExpl::Explode()
 
 	if ( GetExplZ() == 0.0f )
 	{
-		// нельзя создавать 2 итератора по статическим объектам, внутри ProcessCumulativeExpl
-		// итератор нужен, значит здесь нельзя заводить итератор.
 		std::list<CExistingObject*> hitObjects;
 		
-		// по статическим объектам
 		for ( CStObjCircleIter<false> iter( explCoord, 0 ); !iter.IsFinished(); iter.Iterate() )
 		{
 			CExistingObject *pObj = *iter;
@@ -288,13 +244,11 @@ void CCumulativeExpl::Explode()
 		
 		for ( std::list<CExistingObject*>::iterator it = hitObjects.begin(); it != hitObjects.end(); ++it )
 		{
-			// чтобы не пропускался вызов функции из-за оптимизации вычисления bool выражений			
 			const bool bExplResult = (*it)->ProcessCumulativeExpl( this, nArmorDir, false );
 			bHit = bHit || bExplResult;
 		}
 	}
 	
-	// ни в кого не попало
 	if ( !bHit )
 	{
 		if ( GetExplZ() <= 0 ) 
@@ -305,25 +259,18 @@ void CCumulativeExpl::Explode()
 	else if ( pHitToSend != 0 )
 		updater.Update( ACTION_NOTIFY_HIT, pHitToSend );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												CBurstExpl																*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CBurstExpl::CBurstExpl( CAIUnit *pUnit, const CBasicGun *pGun, const CVec2 &explCoord, const float z, const CVec2 &attackerPos, const BYTE nShellType, const bool bRandomize, int ArmorDir )
 : CExplosion( pUnit, pGun, explCoord, z, attackerPos, nShellType, bRandomize ), nArmorDir( ArmorDir )
 {
 	if ( pWeapon->shells[nShellType].trajectory != SWeaponRPGStats::SShell::TRAJECTORY_LINE || (pUnit && pUnit->GetZ() > GetExplZ()) )
 		nArmorDir = 2;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CBurstExpl::CBurstExpl( CAIUnit *pUnit, const SWeaponRPGStats *pWeapon, const CVec2 &explCoord, const float z, const CVec2 &attackerPos, const BYTE nShellType, const bool bRandomize, int ArmorDir )
 : CExplosion( pUnit, pWeapon, explCoord, z, attackerPos, nShellType, bRandomize ), nArmorDir( ArmorDir )
 { 
 	if ( pWeapon->shells[nShellType].trajectory != SWeaponRPGStats::SShell::TRAJECTORY_LINE || (pUnit && pUnit->GetZ() > GetExplZ()) )
 		nArmorDir = 2;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBurstExpl::Explode()
 {
 	if ( ProcessMoraleExplosion() ) return;
@@ -343,7 +290,6 @@ void CBurstExpl::Explode()
 	NI_ASSERT_T( fRadius != 0, "Неверный тип взрыва" );
 
 	bool bHit = false;
-	// по юнитам
 	for ( CUnitsIter<0,0> iter( 0, ANY_PARTY, explCoord, fRadius ); !iter.IsFinished(); iter.Iterate() )
 	{
 		CAIUnit *pTarget = *iter;
@@ -353,7 +299,6 @@ void CBurstExpl::Explode()
 					 ( nShellType == SWeaponRPGStats::SShell::TRAJECTORY_LINE || nShellType == SWeaponRPGStats::SShell::TRAJECTORY_GRENADE ) )
 				pTarget->Grazed( pUnit );
 
-			// чтобы не пропускался вызов функции из-за оптимизации вычисления bool выражений
 			const bool bExplResult = pTarget->ProcessBurstExpl( this, nArmorDir, fRadius, fSmallRadius );
 			bHit = bHit || bExplResult;
 
@@ -368,12 +313,8 @@ void CBurstExpl::Explode()
 
 	if ( GetExplZ() == 0.0f )
 	{	
-		// по статическим объектам
-		// нельзя создавать 2 итератора по статическим объектам, внутри ProcessCumulativeExpl
-		// итератор нужен, значит здесь нельзя заводить итератор.
 		std::list<CExistingObject*> hitObjects;
 		
-		// по статическим объектам
 		for ( CStObjCircleIter<false> iter( explCoord, fSmallRadius ); !iter.IsFinished(); iter.Iterate() )
 		{
 			CExistingObject *pObj = *iter;
@@ -382,13 +323,11 @@ void CBurstExpl::Explode()
 		}
 		for ( std::list<CExistingObject*>::iterator it = hitObjects.begin(); it != hitObjects.end(); ++it )
 		{
-			// чтобы не пропускался вызов функции из-за оптимизации вычисления bool выражений			
 			const bool bExplResult = (*it)->ProcessBurstExpl( this, nArmorDir, fRadius, fSmallRadius );
 			bHit = bHit || bExplResult;
 		}
 	}
 
-	// так никуда и не попали
 	if ( !bHit )
 	{
 		if ( GetExplZ() <= 0 ) 
@@ -399,11 +338,6 @@ void CBurstExpl::Explode()
 	else if ( pHitToSend != 0 )
 		updater.Update( ACTION_NOTIFY_HIT, pHitToSend );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													CShell																	*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CShell::CShell( const NTimer::STime &_explTime, CExplosion *_expl, const int _nGun )
 : explTime( _explTime ), expl( _expl ), nGun( _nGun )
 {
@@ -418,16 +352,10 @@ CShell::CShell( const NTimer::STime &_explTime, CExplosion *_expl, const int _nG
 	const CVec2 vExplCoord( expl->GetExplCoordinates() );
 	vFinishVisZ = theStaticMap.GetVisZ( vExplCoord.x, vExplCoord.y );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IRefCount* CShell::GetWhoFired() const 
 { 
 	return expl->GetWhoFire(); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												CVisShell																	*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVisShell::GetPlacement(  SAINotifyPlacement *pPlacement, const NTimer::STime timeDiff )
 {
 	pPlacement->pObj = this;
@@ -444,12 +372,10 @@ void CVisShell::GetPlacement(  SAINotifyPlacement *pPlacement, const NTimer::STi
 
 	pPlacement->fSpeed = fabs( vSpeed3 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CVisShell::IsVisibleByPlayer() const
 {
 	return theCheats.IsHistoryPlaying() || bVisible;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVisShell::CalcVisibility()
 {
 	const bool bVisibleByPlayer = theWarFog.IsTileVisible( AICellsTiles::GetTile( center.x, center.y ), theDipl.GetMyParty() );
@@ -459,7 +385,6 @@ void CVisShell::CalcVisibility()
 		updater.Update( ACTION_NOTIFY_CHANGE_VISIBILITY, this, IsVisibleByPlayer() );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVisShell::Segment()
 {
 	const CVec3 oldCenter( center );
@@ -470,7 +395,6 @@ void CVisShell::Segment()
 
 	CalcVisibility();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVisShell::GetProjectileInfo( struct SAINotifyNewProjectile *pProjectileInfo )
 {
 	pProjectileInfo->pObj = this;
@@ -480,7 +404,6 @@ void CVisShell::GetProjectileInfo( struct SAINotifyNewProjectile *pProjectileInf
 	pProjectileInfo->flyingTime = GetExplTime() - GetStartTime();
 	pProjectileInfo->startTime = GetStartTime();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CVisShell::GetTerrainHeight( const float x, const float y, const NTimer::STime timeDiff ) const
 {
 	float fRatio;
@@ -494,23 +417,16 @@ float CVisShell::GetTerrainHeight( const float x, const float y, const NTimer::S
 	else 
 		return GetStartVisZ() * ( 1 - fRatio ) + GetFinishVisZ() * fRatio;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*								  CShellsStore																		*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CShellsStore::AddShell( CMomentShell &shell )
 {
 	shell.Explode();
 	theCombatEstimator.AddShell( curTime, shell.GetMaxDamage() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CShellsStore::AddShell( CInvisShell *pShell )
 { 
 	invisShells.push( pShell );
 	theCombatEstimator.AddShell( curTime, pShell->GetMaxDamage() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CShellsStore::AddShell( CVisShell *pShell )
 {
 	visShells.push_back( pShell );
@@ -520,22 +436,18 @@ void CShellsStore::AddShell( CVisShell *pShell )
 			 pShell->GetTrajectoryType() == SWeaponRPGStats::SShell::TRAJECTORY_GRENADE )
 		theCombatEstimator.AddShell( curTime, pShell->GetMaxDamage() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CShellsStore::Segment()
 {
-	// взорвать невидимые снаряды
 	while ( !invisShells.empty() && invisShells.top()->GetExplTime() <= curTime + SConsts::AI_SEGMENT_DURATION / 2 )
 	{
 		invisShells.top()->Explode();
 		invisShells.pop();
 	}
 
-	// обновить видимые
 	std::list< CPtr<CVisShell> >::iterator iter = visShells.begin();
 	while ( iter != visShells.end() )
 	{
 		CVisShell *shell = *iter;
-		// долетел
 		if ( shell->GetExplTime() <= curTime )
 		{
 			shell->Explode();
@@ -549,7 +461,6 @@ void CShellsStore::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CShellsStore::Clear()
 {
 	while ( !invisShells.empty() )
@@ -557,7 +468,6 @@ void CShellsStore::Clear()
 
 	visShells.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CShellsStore::UpdateCheckSum( uLong *pCheckSum )
 {
 	using namespace NCheckSums;
@@ -592,17 +502,11 @@ void CShellsStore::UpdateCheckSum( uLong *pCheckSum )
 
 	*pCheckSum = crc32( *pCheckSum, &(checkSumBuf.buf[0]), checkSumBuf.nCnt );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CBombBallisticTraj													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CBombBallisticTraj::CBombBallisticTraj( const CVec3 &_point, const CVec3 &_v, const NTimer::STime &_explTime, const CVec2 &_vRandAcc )
 : point( _point ), v( _v ), wDir( GetDirectionByVector( CVec2( _v.x, _v.y ) ) ), 
 	startTime( curTime ), explTime( _explTime ), vRandAcc( _vRandAcc )
 { 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CVec3 CBombBallisticTraj::CalcTrajectoryFinish( const CVec3 &vSourcePoint, const CVec3 &vInitialSpeed, const CVec2 &vRandAcc )
 {
 	const float fTimeOfFly = GetTimeOfFly( vSourcePoint.z, vInitialSpeed.z );
@@ -611,7 +515,6 @@ CVec3 CBombBallisticTraj::CalcTrajectoryFinish( const CVec3 &vSourcePoint, const
 	const float fCoeff = GetCoeff( fTimeOfFly );
 	return CVec3( vSourcePoint.x + vInitialSpeed.x * fCoeff + vRandAcc.x * fTimeOfFly2 / 2.0f, vSourcePoint.y + vInitialSpeed.y * fCoeff + vRandAcc.y * fTimeOfFly2 / 2.0f, 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec3 CBombBallisticTraj::GetCoordinates() const
 {
 	const float timeDiff = curTime - startTime;
@@ -623,27 +526,19 @@ const CVec3 CBombBallisticTraj::GetCoordinates() const
 
 	return CVec3( point.x + vPointX + vRandAcc.x * timeDiff2 / 2.0f, point.y + vPointY + vRandAcc.y * timeDiff2 / 2.0f, point.z + vPointZ );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CBombBallisticTraj::GetCoeff( const float &timeDiff )
 {
 	return ( 1 - exp( -1.0f * SConsts::TRAJ_BOMB_ALPHA * timeDiff ) ) / SConsts::TRAJ_BOMB_ALPHA;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CBombBallisticTraj::GetTimeOfFly( const float fZ, const float fZSpeed )
 {
 	return ( sqrt( sqr(fZSpeed) + 2 * SConsts::TRAJECTORY_BOMB_G * fZ ) + fZSpeed ) / SConsts::TRAJECTORY_BOMB_G;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CFakeBallisticTraj														*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFakeBallisticTraj::CFakeBallisticTraj( const CVec3 &_point, const CVec3 &_v, const NTimer::STime &_explTime, const float _A1, const float _A2 )
 : point( _point ), v( _v ), wDir( GetDirectionByVector( CVec2( _v.x, _v.y ) ) ), 
 	startTime( curTime ), explTime( _explTime ), A1( _A1 ), A2( _A2 ) 
 { 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec3 CFakeBallisticTraj::GetCoordinates() const
 {
 	const NTimer::STime timeDiff = curTime - startTime;
@@ -653,11 +548,6 @@ const CVec3 CFakeBallisticTraj::GetCoordinates() const
 	return CVec3 ( point.x + firstPoint.x, point.y + firstPoint.y, 
 								 point.z + firstPoint.z + A1 * sqr( r ) + A2 * r );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													CBallisticTraj													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CBallisticTraj::CBallisticTraj( const CVec3 &_vStart, const CVec2 &vFinish, float fV, const SWeaponRPGStats::SShell::ETrajectoryType _eType, WORD wMaxAngle, float fMaxRange )
 : startTime( curTime ), vStart3D( _vStart ), eType( _eType )
 {
@@ -680,20 +570,17 @@ CBallisticTraj::CBallisticTraj( const CVec3 &_vStart, const CVec2 &vFinish, floa
 		fV = sqr( fV );
 		fG = fV / fMaxRange / 2;
 		const float fCoeff = fG * x0;
-		// добавить скорости, если не хватает
 		if ( fV < fCoeff + 0.001f )
 			fV = fCoeff + 0.001f;
 
 		const float fSqrt1 = sqrt( fV + fCoeff );
 		const float fSqrt2 = sqrt( fV - fCoeff );
 
-		// крутая траектория
 		/*if ( eType == SWeaponRPGStats::SShell::TRAJECTORY_GRENADE )
 		{
  			fVx = 0.5f * ( fSqrt1 - fSqrt2 );
 			fVy = 0.5f * ( fSqrt1 + fSqrt2 );
 		}
-		// пологая траектория
 		else*/
 		{
 			fVx = 0.5f * ( fSqrt1 + fSqrt2 );
@@ -705,17 +592,14 @@ CBallisticTraj::CBallisticTraj( const CVec3 &_vStart, const CVec2 &vFinish, floa
 	
 	explTime = startTime + x0 / fVx;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec3 CBallisticTraj::GetCoordinates() const
 {
 	const float fT = curTime - startTime;
 	const CVec3 vRet = vStart3D + CVec3( vDir * fVx * fT, fVy * fT - fG * sqr( fT ) / 2 );
 	return vRet;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 WORD CBallisticTraj::GetTrajectoryZAngle( const CVec2 &vToAim, const float z, float fV, const SWeaponRPGStats::SShell::ETrajectoryType eType, WORD wMaxAngle, float fMaxRange )
 {
 	const CBallisticTraj traj( VNULL3, vToAim, fV, eType, wMaxAngle, fMaxRange );
 	return traj.wAngle;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

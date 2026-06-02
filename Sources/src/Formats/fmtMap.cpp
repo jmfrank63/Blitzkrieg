@@ -2,18 +2,8 @@
 
 #include "fmtMap.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int STerrainPatchInfo::nSizeX = 16;
 const int STerrainPatchInfo::nSizeY = 16;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** map object format
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMapObjectInfo::SLinkInfo::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -25,13 +15,11 @@ int SMapObjectInfo::SLinkInfo::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SMapObjectInfo::SMapObjectInfo() 
 : nDir( 0 ), nPlayer( -1 ), nScriptID( -1 ), fHP( 1 ), nFrameIndex( -1 ) 
 {  
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMapObjectInfo::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -44,12 +32,10 @@ int SMapObjectInfo::operator&( IDataTree &ss )
 	saver.Add( "HP", &fHP );
 	saver.Add( "FrameIndex", &nFrameIndex );
 	saver.Add( "Link", &link );
-	//saver.Add( "Logic", &szLogic );
 
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMapObjectInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -62,20 +48,10 @@ int SMapObjectInfo::operator&( IStructureSaver &ss )
 	saver.Add( 6, &fHP );
 	saver.Add( 7, &nFrameIndex );
 	saver.Add( 8, &link );
-	//saver.Add( 9, &szLogic );
 
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** entrenchment
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SEntrenchmentInfo::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -83,7 +59,6 @@ int SEntrenchmentInfo::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SEntrenchmentInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -91,15 +66,6 @@ int SEntrenchmentInfo::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** terrain map format
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SCrossTileInfo::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -111,7 +77,6 @@ int SCrossTileInfo::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRoadTileInfo::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -121,7 +86,6 @@ int SRoadTileInfo::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRoadItem::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -131,7 +95,6 @@ int SRoadItem::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int STerrainPatchInfo::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -140,25 +103,18 @@ int STerrainPatchInfo::operator&( IDataTree &ss )
 	saver.Add( "BaseCrosses", &basecrosses );
 	saver.Add( "LayerCrosses", &layercrosses );
 	saver.Add( "NoiseCrosses", &noisecrosses );
-	//saver.Add( "roads0", &roads[0] );
-	//saver.Add( "roads1", &roads[1] );
-	//saver.Add( "roads2", &roads[2] );
-	//saver.Add( "roads3", &roads[3] );
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int STerrainInfo::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
 	
 	saver.Add( "tileset", &szTilesetDesc );
 	saver.Add( "crosset", &szCrossetDesc );
-	//saver.Add( "roadset", &szRoadsetDesc );
 	saver.Add( "noise", &szNoise );
 	saver.Add( "patches", &patches );
 	saver.Add( "tiles", &tiles );	
-	//saver.Add( "vector_roads", &roads );
 	saver.Add( "Rivers", &rivers );
 	saver.Add( "Roads", &roads3 );
 	saver.Add( "Altitudes", &altitudes );
@@ -166,7 +122,6 @@ int STerrainInfo::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int STerrainPatchInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -176,25 +131,18 @@ int STerrainPatchInfo::operator&( IStructureSaver &ss )
 	saver.Add( 3, &basecrosses );
 	saver.Add( 4, &layercrosses );
 	saver.Add( 5, &noisecrosses );
-	//saver.Add( 6, &roads[0] );
-	//saver.Add( 7, &roads[1] );
-	//saver.Add( 8, &roads[2] );
-	//saver.Add( 9, &roads[3] );
 	
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int STerrainInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 	
 	saver.Add( 1, &szTilesetDesc );
 	saver.Add( 2, &szCrossetDesc );
-	//saver.Add( 3, &szRoadsetDesc );
 	saver.Add( 4, &patches );
 	saver.Add( 5, &tiles );	
-	//saver.Add( 6, &roads );
 	saver.Add( 7, &rivers );
 	saver.Add( 8, &roads3 );
 	saver.Add( 9, &altitudes );
@@ -202,10 +150,8 @@ int STerrainInfo::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void STerrainInfo::FillMinMaxHeights()
 {
-	// loop through all paches
 	for ( int i = 0; i < patches.GetSizeY(); ++i )
 	{
 		for ( int j = 0; j < patches.GetSizeX(); ++j )
@@ -213,7 +159,6 @@ void STerrainInfo::FillMinMaxHeights()
 			STerrainPatchInfo &patch = patches[i][j];
 			patch.fSubMinHeight[0] = patch.fSubMinHeight[1] = patch.fSubMinHeight[2] = patch.fSubMinHeight[3] = 1e6f;
 			patch.fSubMaxHeight[0] = patch.fSubMaxHeight[1] = patch.fSubMaxHeight[2] = patch.fSubMaxHeight[3] = -1e6f;
-			// loop through all vertices in this patch
 			for ( int m = 0; m <= 9; ++m )
 			{
 				for ( int n = 0; n <= 9; ++n )
@@ -229,7 +174,6 @@ void STerrainInfo::FillMinMaxHeights()
 					patch.fSubMaxHeight[1] = Max( patch.fSubMaxHeight[1], fAltitude );
 				}
 			}
-			// loop through all vertices in this patch
 			for ( int m = 7; m <= 16; ++m )
 			{
 				for ( int n = 0; n <= 9; ++n )
@@ -245,7 +189,6 @@ void STerrainInfo::FillMinMaxHeights()
 					patch.fSubMaxHeight[3] = Max( patch.fSubMaxHeight[3], fAltitude );
 				}
 			}
-			//
 			patch.fMinHeight = Min( Min( patch.fSubMinHeight[0], patch.fSubMinHeight[1] ),
 				                      Min( patch.fSubMinHeight[2], patch.fSubMinHeight[3] ) );
 			patch.fMaxHeight = Max( Max( patch.fSubMaxHeight[0], patch.fSubMaxHeight[1] ),
@@ -253,15 +196,6 @@ void STerrainInfo::FillMinMaxHeights()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** script areas
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const std::string SScriptArea::names[2] = { "Rectangle", "Circle" };
 int SScriptArea::operator&( IDataTree &ss )
 {
@@ -292,7 +226,6 @@ int SScriptArea::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SScriptArea::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -306,7 +239,6 @@ int SScriptArea::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SReinforcementGroupInfo::SGroupsVector::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -314,7 +246,6 @@ int SReinforcementGroupInfo::SGroupsVector::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SReinforcementGroupInfo::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -322,7 +253,6 @@ int SReinforcementGroupInfo::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SReinforcementGroupInfo::SGroupsVector::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -330,13 +260,9 @@ int SReinforcementGroupInfo::SGroupsVector::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SReinforcementGroupInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 	saver.Add( 1, &groups );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//basement storage
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

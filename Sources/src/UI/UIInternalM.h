@@ -5,11 +5,9 @@
 struct SUIWindowSubState;
 extern CPropertiesRegister thePropertiesRegister;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIWindowSubStateManipulator : public CManipulator
 {
 	OBJECT_NORMAL_METHODS( CUIWindowSubStateManipulator );
-	//
 	CUIWindowSubState *pSubState;
 public:
 	CUIWindowSubStateManipulator();
@@ -27,11 +25,9 @@ public:
 	void GetMapSizeX( variant_t *pValue, int nIndex = -1 );
 	void GetMapSizeY( variant_t *pValue, int nIndex = -1 );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CWindowStateManipulator : public CManipulator
 {
 	OBJECT_NORMAL_METHODS( CWindowStateManipulator );
-	//
 	CWindowState *pState;
 public:
 	CWindowStateManipulator();
@@ -45,5 +41,4 @@ public:
 	void GetClickSound( variant_t *pValue, int nIndex = -1 );
 	void GetText( variant_t *pValue, int nIndex = -1 );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif		//__UI_INTERNAL_MANIPULATOR_H__

@@ -5,21 +5,13 @@
 #include "AIStaticMap.h"
 #include "SerializeOwner.h"
 #include "UnitsIterators2.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CStaticMap theStaticMap;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										  CLockWithUnlockPossibilities								*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CLockWithUnlockPossibilities::TryLockAlongTheWay( const bool bLock, const BYTE _bAIClass )
 {
-	// залочить/разлочить тайлы 
 	if ( bLock )
 	{
 		NI_ASSERT_T( pathTiles.size() == 0, "wrong call" );
 		NI_ASSERT_T( formerTilesType.size() == 0, "wrong call" );
-		// найти количество юнитов, которые могут быть на нашем пути.
 		int nUnits = 0;
 		for ( CUnitsIter<0,3> iter( 0, ANY_PARTY, bigRect.center, Max( bigRect.width, Max(bigRect.lengthAhead,bigRect.lengthBack) ) );
 					!iter.IsFinished(); iter.Iterate() )
@@ -31,8 +23,6 @@ bool CLockWithUnlockPossibilities::TryLockAlongTheWay( const bool bLock, const B
 			}
 		}
 
-		// разлочить танк
-		// запомнить состояние залоченности на всем пути и выяснить возможность танку выехать
 		GetTilesCoveredByRect( bigRect, &pathTiles );
 
 		
@@ -55,10 +45,8 @@ bool CLockWithUnlockPossibilities::TryLockAlongTheWay( const bool bLock, const B
 		}
 		else
 		{
-			// разлочить старые
 			Unlock();
 
-			// все по-новому залочить
 			for ( CTilesSet::iterator it = pathTiles.begin(); it != pathTiles.end(); ++it )
 			{
 				theStaticMap.LockTile( (*it), AI_CLASS_ANY );
@@ -72,14 +60,12 @@ bool CLockWithUnlockPossibilities::TryLockAlongTheWay( const bool bLock, const B
 	{
 		if ( pathTiles.size() != 0 ) // что-то лочили
 		{
-			//разлочить 
 			for ( CTilesSet::iterator it = pathTiles.begin(); it != pathTiles.end(); ++it )
 				theStaticMap.UnlockTile( (*it), AI_CLASS_ANY );
 			SVector vMax, vMin;
 			theStaticMap.CalcMaxesBoundsByTiles( pathTiles, &vMin, &vMax );
 			theStaticMap.UpdateMaxesForRemovedStObject( vMin.x, vMax.x, vMin.y, vMax.y, AI_CLASS_ANY );
 
-			//залочить как было до начала движения
 			Lock();
 
 			pathTiles.clear();
@@ -88,7 +74,6 @@ bool CLockWithUnlockPossibilities::TryLockAlongTheWay( const bool bLock, const B
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CLockWithUnlockPossibilities::Lock()
 {
 	int i=0;
@@ -107,7 +92,6 @@ void CLockWithUnlockPossibilities::Lock()
 		theStaticMap.UpdateMaxesForAddedStObject( vMin.x, vMax.x, vMin.y, vMax.y, AI_CLASS_ANY );
 	theStaticMap.UpdateMaxesForAddedStObject( vMin.x, vMax.x, vMin.y, vMax.y, aiClass&(~AI_CLASS_ANY) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CLockWithUnlockPossibilities::Unlock()
 {
 	int i=0;
@@ -126,7 +110,6 @@ void CLockWithUnlockPossibilities::Unlock()
 		theStaticMap.UpdateMaxesForRemovedStObject( vMin.x, vMax.x, vMin.y, vMax.y, AI_CLASS_ANY );
 	theStaticMap.UpdateMaxesForRemovedStObject( vMin.x, vMax.x, vMin.y, vMax.y, aiClass&(~AI_CLASS_ANY) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CLockWithUnlockPossibilities::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -138,4 +121,3 @@ int CLockWithUnlockPossibilities::operator&( IStructureSaver &ss )
 	saver.Add( 9, &bAIClass );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

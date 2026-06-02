@@ -22,7 +22,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int   CFT_SHELLS_COLUMN_START = 0;
 const int   CFT_SHELLS_COLUMN_COUNT = 3;
 const char *CFT_SHELLS_COLUMN_NAME  [CFT_SHELLS_COLUMN_COUNT] = { "N", "Tiles Count", "Size" };
@@ -34,7 +33,6 @@ const float CRMGFieldTerrainDialog::DEFAULT_SHELL_WIDTH = 2.0f;
 const char CRMGFieldTerrainDialog::UNKNOWN_TILE[] = "Unknown";
 const char CRMGFieldTerrainDialog::MULTIPLE_SELECTION[] = "Multiple selection...";
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CALLBACK CFT_ShellsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort )
 {
 	CRMGFieldTerrainDialog* pFieldTerrainDialog = reinterpret_cast<CRMGFieldTerrainDialog*>( lParamSort );
@@ -52,12 +50,9 @@ int CALLBACK CFT_ShellsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lPara
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CRMGFieldTerrainDialog::CRMGFieldTerrainDialog( CWnd* pParent )
 	: CResizeDialog( CRMGFieldTerrainDialog::IDD, pParent ), nSortColumn( -1 ), pRMGCreateFieldDialog( 0 ), bCreateControls( true ), pRMFieldSet( 0 ), nSelectedSeason( 0 ), nOldSelectedSeason( CB_ERR ), nCurrentShell( CB_ERR )
 {
-	//{{AFX_DATA_INIT(CRMGFieldTerrainDialog)
-	//}}AFX_DATA_INIT
 
 	SetControlStyle( IDC_CF_TS_SEASON_LABEL, ANCHORE_LEFT_TOP );
 	SetControlStyle( IDC_CF_TS_SEASON_COMBO, ANCHORE_LEFT_TOP | RESIZE_HOR, 0.5f, 0.5f, 0.5f, 1.0f );
@@ -81,21 +76,16 @@ CRMGFieldTerrainDialog::CRMGFieldTerrainDialog( CWnd* pParent )
 	SetControlStyle( IDCANCEL, ANCHORE_LEFT_TOP, ANCHORE_LEFT_TOP );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::DoDataExchange(CDataExchange* pDX)
 {
 	CResizeDialog::DoDataExchange(pDX);
-	//{{AFX_DATA_MAP(CRMGFieldTerrainDialog)
 	DDX_Control(pDX, IDC_CF_TS_SEASON_COMBO, m_SeasonComboBox);
 	DDX_Control(pDX, IDC_CF_TS_SHELLS_LIST, m_ShellsList);
 	DDX_Control(pDX, IDC_CF_TS_TILES_LIST, m_TilesList);
 	DDX_Control(pDX, IDC_CF_TS_AVAILABLE_TILES_LIST, m_AvailableTilesList);
-	//}}AFX_DATA_MAP
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CRMGFieldTerrainDialog, CResizeDialog)
-	//{{AFX_MSG_MAP(CRMGFieldTerrainDialog)
 	ON_WM_DESTROY()
 	ON_CBN_SELCHANGE(IDC_CF_TS_SEASON_COMBO, OnSelchangeSeasonCombo)
 	ON_NOTIFY(LVN_ITEMCHANGED, IDC_CF_TS_SHELLS_LIST, OnItemchangedShellsList)
@@ -125,10 +115,8 @@ BEGIN_MESSAGE_MAP(CRMGFieldTerrainDialog, CResizeDialog)
 	ON_NOTIFY(NM_RCLICK, IDC_CF_TS_AVAILABLE_TILES_LIST, OnRclickAvailableTilesList)
 	ON_NOTIFY(LVN_KEYDOWN, IDC_CF_TS_AVAILABLE_TILES_LIST, OnKeydownAvailableTilesList)
 	ON_WM_SIZE()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CRMGFieldTerrainDialog::OnInitDialog()
 {
   CResizeDialog::OnInitDialog();
@@ -142,7 +130,6 @@ BOOL CRMGFieldTerrainDialog::OnInitDialog()
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::CreateControls()
 {
 	bCreateControls = true;
@@ -185,7 +172,6 @@ void CRMGFieldTerrainDialog::CreateControls()
 	bCreateControls = false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnSize( UINT nType, int cx, int cy ) 
 {
 	CResizeDialog::OnSize( nType, cx, cy );
@@ -198,7 +184,6 @@ void CRMGFieldTerrainDialog::OnSize( UINT nType, int cx, int cy )
 	m_TilesList.Arrange( LVA_DEFAULT );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::FillAvailableTiles( int nSeason )
 {
 	CTabTileEditDialog *pTabTileEditDialog = g_frameManager.GetTemplateEditorFrame()->m_mapEditorBarPtr->GetTabTileEditDialog();
@@ -207,7 +192,6 @@ void CRMGFieldTerrainDialog::FillAvailableTiles( int nSeason )
 	{
 		if ( LoadDataResource( NStr::Format( "%stileset", CMapInfo::SEASON_FOLDERS[nSeason] ), "", false, 0, "tileset", tilesetDesc ) )
 		{
-			//по тайлам пробегаем
 			for ( int nTileIndex = 0; nTileIndex < tilesetDesc.terrtypes.size(); ++nTileIndex )
 			{
 				const int nImageIndex = pTabTileEditDialog->seasonTilesIndices[MAKELPARAM( nSeason, nTileIndex )];
@@ -221,7 +205,6 @@ void CRMGFieldTerrainDialog::FillAvailableTiles( int nSeason )
 	m_AvailableTilesList.Arrange( LVA_DEFAULT );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::LoadFieldToControls()
 {
 	bCreateControls = true;
@@ -298,7 +281,6 @@ void CRMGFieldTerrainDialog::LoadFieldToControls()
 	bCreateControls = false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::UpdateControls()
 {
 	if ( CWnd *pWnd = GetDlgItem( IDC_CF_TS_SHELLS_LIST ) )
@@ -335,14 +317,12 @@ void CRMGFieldTerrainDialog::UpdateControls()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::SetShellItem( int nItem, const SRMTileSetShell &rTileSetShell )
 {
 	m_ShellsList.SetItem( nItem, 1, LVIF_TEXT, NStr::Format( "%2d", rTileSetShell.tiles.size() ), 0, 0, 0, 0 );
 	m_ShellsList.SetItem( nItem, 2, LVIF_TEXT, NStr::Format( "%.2f", rTileSetShell.fWidth ), 0, 0, 0, 0 );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::FillShellTilesList( int nSeason, int nSelectedShell )
 {
 	if ( pRMFieldSet )
@@ -353,7 +333,6 @@ void CRMGFieldTerrainDialog::FillShellTilesList( int nSeason, int nSelectedShell
 			CTabTileEditDialog *pTabTileEditDialog = g_frameManager.GetTemplateEditorFrame()->m_mapEditorBarPtr->GetTabTileEditDialog();
 			const SRMTileSetShell &rTileSetShell = pRMFieldSet->tilesShells[nSelectedShell];
 
-			//по тайлам пробегаем
 			for ( int nTileIndex = 0; nTileIndex < rTileSetShell.tiles.size(); ++nTileIndex )
 			{
 				const int nSelectedTileIndex = rTileSetShell.tiles[nTileIndex];
@@ -374,7 +353,6 @@ void CRMGFieldTerrainDialog::FillShellTilesList( int nSeason, int nSelectedShell
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnDestroy() 
 {
 	for ( int nColumnIndex = 0; nColumnIndex < CFT_SHELLS_COLUMN_COUNT; ++nColumnIndex )
@@ -385,7 +363,6 @@ void CRMGFieldTerrainDialog::OnDestroy()
 	CResizeDialog ::OnDestroy();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnOK() 
 {
 	if ( pRMGCreateFieldDialog )
@@ -394,7 +371,6 @@ void CRMGFieldTerrainDialog::OnOK()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnCancel() 
 {
 	if ( pRMGCreateFieldDialog )
@@ -403,7 +379,6 @@ void CRMGFieldTerrainDialog::OnCancel()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnItemchangedShellsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -432,7 +407,6 @@ void CRMGFieldTerrainDialog::OnItemchangedShellsList(NMHDR* pNMHDR, LRESULT* pRe
 	*pResult = 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnSelchangeSeasonCombo() 
 {
 	if ( !bCreateControls )
@@ -482,7 +456,6 @@ void CRMGFieldTerrainDialog::OnSelchangeSeasonCombo()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnItemchangedTilesList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -497,7 +470,6 @@ void CRMGFieldTerrainDialog::OnItemchangedTilesList(NMHDR* pNMHDR, LRESULT* pRes
 	*pResult = 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnItemchangedAvailableTilesList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -512,7 +484,6 @@ void CRMGFieldTerrainDialog::OnItemchangedAvailableTilesList(NMHDR* pNMHDR, LRES
 	*pResult = 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnColumnclickShellsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -533,7 +504,6 @@ void CRMGFieldTerrainDialog::OnColumnclickShellsList(NMHDR* pNMHDR, LRESULT* pRe
 	*pResult = 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnTileProperties() 
 {
 	if ( pRMFieldSet && ( fieldSets.size() < 2 ) )
@@ -620,7 +590,6 @@ void CRMGFieldTerrainDialog::OnTileProperties()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnAvailableTileProperties()
 {
 	int nSelectedItem = m_AvailableTilesList.GetNextItem( CB_ERR, LVNI_SELECTED );
@@ -670,7 +639,6 @@ void CRMGFieldTerrainDialog::OnAvailableTileProperties()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnRemoveTile() 
 {
 	if ( pRMFieldSet && ( fieldSets.size() < 2 ) )
@@ -714,7 +682,6 @@ void CRMGFieldTerrainDialog::OnRemoveTile()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnAddTile() 
 {
 	if ( pRMFieldSet && ( fieldSets.size() < 2 ) )
@@ -763,7 +730,6 @@ void CRMGFieldTerrainDialog::OnAddTile()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnShellProperties() 
 {
 	if ( pRMFieldSet && ( fieldSets.size() < 2 ) )
@@ -819,7 +785,6 @@ void CRMGFieldTerrainDialog::OnShellProperties()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnRemoveShell() 
 {
 	if ( pRMFieldSet && ( fieldSets.size() < 2 ) )
@@ -863,7 +828,6 @@ void CRMGFieldTerrainDialog::OnRemoveShell()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnAddShell() 
 {
 	if ( pRMFieldSet && ( fieldSets.size() < 2 ) )
@@ -877,32 +841,27 @@ void CRMGFieldTerrainDialog::OnAddShell()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnAddShellMenu() 
 {
 	OnAddShell();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnRemoveShellMenu() 
 {
 	OnRemoveShell();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnShellPropertiesMenu() 
 {
 	OnShellProperties();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnDblclkShellsList( NMHDR* pNMHDR, LRESULT* pResult ) 
 {
 	OnShellProperties();
 	*pResult = 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnRclickShellsList( NMHDR* pNMHDR, LRESULT* pResult ) 
 {
 	CMenu composersMenu;
@@ -930,7 +889,6 @@ void CRMGFieldTerrainDialog::OnRclickShellsList( NMHDR* pNMHDR, LRESULT* pResult
 	*pResult = 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnKeydownShellsList( NMHDR* pNMHDR, LRESULT* pResult ) 
 {
 	LV_KEYDOWN* pLVKeyDown = (LV_KEYDOWN*)pNMHDR;
@@ -967,45 +925,38 @@ void CRMGFieldTerrainDialog::OnKeydownShellsList( NMHDR* pNMHDR, LRESULT* pResul
 	*pResult = 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnAddTileMenu() 
 {
 	OnAddTile();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnRemoveTileMenu() 
 {
 	OnRemoveTile();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnTilePropertiesMenu() 
 {
 	OnTileProperties();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnAvailableTilePropertiesMenu() 
 {
 	OnAvailableTileProperties();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnDblclkTilesList( NMHDR* pNMHDR, LRESULT* pResult ) 
 {
 	OnTileProperties();
 	*pResult = 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnDblclkAvailableTilesList( NMHDR* pNMHDR, LRESULT* pResult ) 
 {
 	OnAddTile();
 	*pResult = 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnRclickTilesList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	CMenu composersMenu;
@@ -1029,7 +980,6 @@ void CRMGFieldTerrainDialog::OnRclickTilesList(NMHDR* pNMHDR, LRESULT* pResult)
 	*pResult = 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnRclickAvailableTilesList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	CMenu composersMenu;
@@ -1053,7 +1003,6 @@ void CRMGFieldTerrainDialog::OnRclickAvailableTilesList(NMHDR* pNMHDR, LRESULT* 
 	*pResult = 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnKeydownTilesList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	LV_KEYDOWN* pLVKeyDown = (LV_KEYDOWN*)pNMHDR;
@@ -1080,7 +1029,6 @@ void CRMGFieldTerrainDialog::OnKeydownTilesList(NMHDR* pNMHDR, LRESULT* pResult)
 	*pResult = 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldTerrainDialog::OnKeydownAvailableTilesList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	LV_KEYDOWN* pLVKeyDown = (LV_KEYDOWN*)pNMHDR;
@@ -1106,4 +1054,3 @@ void CRMGFieldTerrainDialog::OnKeydownAvailableTilesList(NMHDR* pNMHDR, LRESULT*
 	}
 	*pResult = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

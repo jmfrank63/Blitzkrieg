@@ -1,11 +1,8 @@
 #ifndef __PARTICLESOURCEDATA_H__
 #define __PARTICLESOURCEDATA_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "PFX.h"
 #include "Track.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SExtendedParticle: public SSimpleParticle
 {
 	NTimer::STime birthTime;              // время рождения
@@ -18,14 +15,12 @@ struct SExtendedParticle: public SSimpleParticle
 	STrackContext contextZSpeed; 
 	STrackContext contextSpin;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum
 {
 	PSA_TYPE_SQUARE = 0,
 	PSA_TYPE_DISK   = 1,
 	PSA_TYPE_CIRCLE = 2
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SParticleSourceData : public CTRefCount<ISharedResource>
 {
 	OBJECT_SERVICE_METHODS( SParticleSourceData );
@@ -35,7 +30,6 @@ public:
 	SParticleSourceData();
 
 	bool bComplexParticleSource;					//тип источника, если true, complex particle source
-	// параметры генератора
 	int nLifeTime;												// время жизни всего источника
 	float fGravity;												// параметр гравитации (никакого отношения к физике не имеет)
 	int nTextureDX;												// сколько кадров по X (для анимированной текстуры)
@@ -55,7 +49,6 @@ public:
 	CTrack trackGenerateSpin;							// начальная угловая скорость при вылете 
 	CTrack trackGenerateSpinRandomizer;   // рандомизатор предыдущего (пусть задается, но пока не юзается)
 	CTrack trackGenerateOpacity;					// начальная прозрачность при вылете ( 0 - 255 ) 
-	// параметры одной частицы
 	CTrack trackSpin;                     // коэфф. угловой скорости (0-1)
 	CTrack trackSpeed;                    // коэфф. скорости (0-1)
 	CTrack trackSpeedRnd;                 // его рандомизатор (0-1)
@@ -65,15 +58,11 @@ public:
 	CTrack trackOpacity;									// коэффициент на прозрачность (0-1)
 	CTrack trackIntegralMass;             // первообразная от g*m(t), умноженная на коэффициент скорости (без его рандома) (сохранять не надо, рассчитывается по ходу дела)
 	float fDensityCoeff;                  // коэффициент на плотность, берется из сеттингов
-	//
 	virtual void STDCALL Init();
 	virtual void STDCALL InitIntegrals();
 	virtual void STDCALL SwapData( ISharedResource *pResource );
-	// internal container clearing
 	virtual void STDCALL ClearInternalContainer() {  }
 	virtual bool STDCALL Load( const bool bPreLoad = false );
-	//
 	virtual int STDCALL operator&( IDataTree &ss );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __PARTICLESOURCEDATA_H__

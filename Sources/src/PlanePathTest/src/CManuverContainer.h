@@ -5,30 +5,24 @@
 
 #include "..\..\AILogic\AIClassesID.h"
 
-// PlanePathTest-specific manuver IDs (not in main AIClassesID.h)
 #define AI_PLANE_MANUVER_GENERIC 1000
 #define AI_PLANE_MANUVER_GORKA   1001
 
-/////////////////////////////////////////////////////////////////////////////
 enum EPlanesAttitude
 {
 	EPA_ATTACK							= 0,
 	EPA_RETREAT							= 1,
 };
-/////////////////////////////////////////////////////////////////////////////
 enum EManuverDestination
 {
 	EMD_PREDICTED_POINT,										// 
 	EMD_MANUVER_DEPENDENT,									// manuver desides the plane's end point
 };
-/////////////////////////////////////////////////////////////////////////////
 enum EManuverID
 {
-	//ASSIGN REAL IDS FROM OBJECT FACTORY
 	EMID_GENERIC									= AI_PLANE_MANUVER_GENERIC,
 	EMID_GORKA										= AI_PLANE_MANUVER_GORKA,
 };
-/////////////////////////////////////////////////////////////////////////////
 enum EParameterID
 {
 	EPID_ENEMY_DIRECTION		= 0,										// to enemy form plane's front direction
@@ -45,7 +39,6 @@ enum EParameterID
 	
 	_EPID_COUNT							,
 };
-/////////////////////////////////////////////////////////////////////////////
 enum ESpeedRelation
 {
 	ESR_NEAR_STALL,
@@ -55,14 +48,8 @@ enum ESpeedRelation
 	
 	_ESR_COUNT,
 };
-/////////////////////////////////////////////////////////////////////////////
 typedef std::pair<float/*lower bound*/,float/*higher bound*/> CParameterRange;
 typedef std::vector<float> CParameters;
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
-//	CManuverStateDescriptor
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
 class CManuverStateDescriptor
 {
 	CParameters parameters;
@@ -74,14 +61,8 @@ public:
 
 	float Get( const /*enum EParameterID*/ int id ) const { return parameters[id]; }
 	
-	// fill parameters according plane's & enemy's state
 	void Init( const enum EPlanesAttitude _att, interface IPlane *pPos, interface IPlane *pEnemy );
 };
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
-//	CManuverDescriptor
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
 struct SManuverDescriptorForLoad
 {
 	std::vector<CParameterRange> parameters;
@@ -100,7 +81,6 @@ struct SManuverDescriptorForLoad
 		return 0;
 	}	
 };
-/////////////////////////////////////////////////////////////////////////////
 class CManuverDescriptor
 {
 	DECLARE_SERIALIZE;
@@ -140,14 +120,8 @@ public:
 	}
 };
 /*
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
-//	namespace NAttitude
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
 namespace NAttitude
 {
-// attitude table
 struct SAttitude
 {
 	EPlanesAttitude atts;
@@ -203,29 +177,20 @@ struct SSingleHeightAttitude
 typedef std::vector<SSingleHeightAttitude> CAttitudes;
 };
 */
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
-//	CManuverContainer ::
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
 class CManuverContainer 
 {
 	static std::vector<int> suitableIndeces;
 	static CManuverStateDescriptor state;				// temprorary value, used inside CreateManuver()
 
-	// all manuvers descriptors
 	typedef std::vector<CManuverDescriptor> CDescriptors;
 	CDescriptors descriptors;
 
-	// manuvers
 	typedef std::list<int> CManuverIndeces;
 	typedef std::unordered_map<int/*EPlanesAttitude*/, CManuverIndeces> CManuvers;
 	CManuvers manuvers;
 
-	// choose manuver to perform. return 0 if none chousen
 	const CManuverDescriptor * Choose( const CManuverStateDescriptor &current ) const;
 
-	// default plane's behaviour. _must_ always return non null IManuver
 	interface IManuver * CreateDefaultManuver( const enum EPlanesAttitude att, interface IPlane *pPos, interface IPlane *pEnemy ) const;
 	
 	enum EPlanesAttitude GetAttitude( interface IPlane *pPlane, interface IPlane *pEnemy ) const;
@@ -234,13 +199,10 @@ public:
 
 	void Init();
 
-	// manuvers for air fight.
 	interface IManuver* CreateManuver ( interface IPlane *pPos, interface IPlane *pEnemy ) const;
 
-	// for travel to point. suitable for fighter patrol, bombers, etc.
 	interface IManuver* CreatePointManuver ( interface IPlane *pPos, const CVec3 &vPoint ) const;
 
 	
 };
-/////////////////////////////////////////////////////////////////////////////
 #endif //CMANUVERCONTAINER_H

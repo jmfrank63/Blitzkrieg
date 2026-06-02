@@ -58,6 +58,3 @@ using _STLP_STD::wstreambuf;
 
 #endif /* _STLP_STREAMBUF_H */
 
-// Local Variables:
-// mode:C++
-// End:

@@ -4,16 +4,10 @@
 
 #include "..\Misc\FileUtils.h"
 #include "..\zlib\zlib.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//#define _DO_BETA_CHECK
-//#define _SET_BETA_KEY_USER
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NMain
 {
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const int s_nKey2Length = 20;
 static BYTE s_cKey2[s_nKey2Length] = { 151, 186, 179, 161, 73, 225, 127, 233, 147, 69, 6, 46, 90, 162, 2, 30, 101, 251, 13, 48 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 DWORD MakeCheckSum( const std::string &szUserName, const std::string &szExpiryDate )
 {
 	std::vector<BYTE> checksum;
@@ -24,20 +18,11 @@ DWORD MakeCheckSum( const std::string &szUserName, const std::string &szExpiryDa
 	const uLong uCheckSum = crc32( 0L, &(checksum[0]), checksum.size() );
 	return uCheckSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// key file contains the next information (by lines):
-// Personal User Name
-// expiry date
-// control code
-//
-//
 bool CheckBetaKey()
 {
 #ifdef _DO_BETA_CHECK
 	char buffer[1024];
 	std::vector<std::string> szStrings;
-	//
 	{
 		GetCurrentDirectory( 1024, buffer );
 		std::string szFileName = buffer;
@@ -56,25 +41,20 @@ bool CheckBetaKey()
 		const std::string szReadString = buffer;
 		NStr::SplitString( szReadString, szStrings, '\n' );
 	}
-	//
 	if ( szStrings.size() != 3 ) 
 		return false;
-	//
 	const std::string szUserName = szStrings[0];
 	const std::string szExpiryDate = szStrings[1];
 	const uLong uCode = NStr::ToInt( szStrings[2] );
-	//
 #ifdef _SET_BETA_KEY_USER
 	SetGlobalVar( "CopyUserName", szUserName.c_str() );
 #endif // _SET_BETA_KEY_USER
-	// check expiry date
 	time_t ltime;
 	time( &ltime );
 	tm *pTime = localtime( &ltime );
 	const int nCurrYear = pTime->tm_year + 1900;
 	const int nCurrMonth = pTime->tm_mon + 1;
 	const int nCurrDay = pTime->tm_mday;
-	//
 	szStrings.clear();
 	NStr::SplitString( szExpiryDate, szStrings, '.' );
 	if ( szStrings.size() != 3 ) 
@@ -91,13 +71,9 @@ bool CheckBetaKey()
 				return false;
 		}
 	}
-	// check 'checksum' code
 	if ( uCode != MakeCheckSum(szUserName, szExpiryDate) ) 
 		return false;
 #endif // _DO_BETA_CHECK
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

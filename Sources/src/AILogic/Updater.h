@@ -2,15 +2,11 @@
 #define __UPDATER_H__
 
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Common\Actions.h"
 #include "AIHashFuncs.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IUpdatableObj;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUpdater
 {
-//	OBJECT_NORMAL_METHODS( CUpdater );
 	DECLARE_SERIALIZE;
 
 	const static int nUpdateTypes;
@@ -28,7 +24,6 @@ public:
 		SSimpleUpdate( const SSimpleUpdate& update ) : pObj( update.pObj ), nParam( update.nParam ) { }
 
 		bool operator==( const SSimpleUpdate &simpleUpdate ) const { return pObj == simpleUpdate.pObj; }
-//		const int GetUniqueId() const;
 
 		virtual int STDCALL operator&( interface IStructureSaver &ss ) { 	CSaverAccessor saver = &ss; saver.Add( 1, &pObj ); saver.Add( 2, &nParam ); return 0; }
 	};
@@ -38,7 +33,6 @@ private:
 	typedef std::unordered_map< int, SSimpleUpdate> CSimpleUpdatesSet;
 	typedef std::unordered_map< int, CObj<IUpdatableObj> > CComplexUpdatesSet;
 
-	// simpleUpdate - �� actions, � ������� �� ����� 1, complexUpdates - �� actions, � ������� �� ����� 0
 	std::vector<CSimpleUpdatesSet> simpleUpdates;
 	std::vector<CComplexUpdatesSet> complexUpdates;
 	
@@ -48,15 +42,12 @@ private:
 	CComplexUpdatesSet garbage;
 	CComplexUpdatesSet updatedPlacements;
 
-	// ����� ������� updates placement ������ ����� ����, ��� ��� ������ � ���
 	bool bPlacementsUpdated;
 	bool bDestroying;
 
 	int nShootAreasGroup;
 	bool bGameFinishUpdateSend;
-	//
 	void DestroyContents();
-	// � ����������� �� ���� update ��������� ��� � ������ ������ - simpleUpdates ��� complexUpdates
 	void AddUpdate( const EActionNotify updateType, IUpdatableObj *pObj, const int nParam );
 public:
 	CUpdater();
@@ -68,8 +59,6 @@ public:
 	void EndUpdates();
 
 	void Update( const enum EActionNotify updateType, IUpdatableObj *pObj, const int nParam = -1 );
-	// ��� �������, ������� ������� �� ���������� ������.
-	//void UpdateComplexObject( const EActionNotify eAction, IUpdatableObj * pObj );
 	void DelUpdate( const enum EActionNotify updateType, IUpdatableObj *pObj );
 	void DelActionUpdates( IUpdatableObj *pObj );
 	void ClearAllUpdates( const enum EActionNotify updateType );
@@ -102,11 +91,9 @@ public:
 	void GetNewBridgeSpans( struct SNewUnitInfo **pObjects, int *pnLen );
 	void GetRevealCircles( CCircle **pCircleBuffer, int *pnLen );
 	
-	//
 	void AddFeedBack( const SAIFeedBack &feedBack );
 	void UpdateFeedBacks( struct SAIFeedBack **pFeedBacksBuffer, int *pnLen );
 	
-	//
 	void UpdateAreasGroup( const int nGroup );
 	void ResetAreasGroupIfEqual( const int nGroup ) { if ( nShootAreasGroup == nGroup ) UpdateAreasGroup( -1 ); }
 
@@ -115,11 +102,9 @@ public:
 	
 	void Add2Garbage( IUpdatableObj *pObj );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline const NTimer::STime GetAIGetSegmTime( ISegmentTimer *pGameSegment )
 {
 	return pGameSegment->Get() + pGameSegment->GetSegmentTime();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __UPDATER_H__
 

@@ -1,8 +1,6 @@
 #ifndef __PLAYERPSKILL_H__
 #define __PLAYERPSKILL_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SPlayerRank
 {
 	std::string szCurrentRank;						// key to local rank name (короткое имя) ( leutenant, general )
@@ -11,10 +9,8 @@ struct SPlayerRank
 	float fValue;													// 0 - just recieved current rank, 1 - near next rank.
 	float fFormerValue;										// former rank value
 	int nRankNumber;											//
-	//
 	SPlayerRank()
 		: fValue( 0 ), nRankNumber( 0 ), fFormerValue( 0 ) {  }
-	//
 	int operator&( IStructureSaver &ss )
 	{
 		CSaverAccessor saver = &ss;
@@ -36,7 +32,6 @@ struct SPlayerRank
 		return 0;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SPlayerSkill
 {
 	std::string szSkillName;							// key to local string (skill name)
@@ -51,7 +46,6 @@ struct SPlayerSkill
 	}
 	void NormalizeValues( const bool bInitial );
 
-	//
 	int operator&( IStructureSaver &ss )
 	{
 		CSaverAccessor saver = &ss;
@@ -69,5 +63,4 @@ struct SPlayerSkill
 		return 0;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif //__PLAYERPSKILL_H__

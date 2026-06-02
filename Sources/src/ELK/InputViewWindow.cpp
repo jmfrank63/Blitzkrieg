@@ -9,25 +9,20 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInputViewWindow::CInputViewWindow() : bGameExists( false )
 {
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInputViewWindow::~CInputViewWindow()
 {
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CInputViewWindow,CWnd)
-	//{{AFX_MSG_MAP(CInputViewWindow)
 	ON_WM_PAINT()
 	ON_WM_CREATE()
 	ON_WM_DESTROY()
 	ON_WM_SIZE()
 	ON_WM_SETFOCUS()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 void CInputViewWindow::SetMainFrameWindow( CWnd *_pwndMainFrame )
@@ -35,7 +30,6 @@ void CInputViewWindow::SetMainFrameWindow( CWnd *_pwndMainFrame )
 	wndForm.pwndMainFrame = _pwndMainFrame;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CInputViewWindow::PreCreateWindow( CREATESTRUCT& cs ) 
 {
 	if ( !CWnd::PreCreateWindow( cs ) )
@@ -50,15 +44,11 @@ BOOL CInputViewWindow::PreCreateWindow( CREATESTRUCT& cs )
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputViewWindow::OnPaint() 
 {
 	CPaintDC dc(this);
-	//...
-	// Do not call CWnd::OnPaint() for painting messages
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInputViewWindow::OnCreate( LPCREATESTRUCT lpCreateStruct ) 
 {
 	if (CWnd ::OnCreate(lpCreateStruct) == -1)
@@ -72,7 +62,6 @@ int CInputViewWindow::OnCreate( LPCREATESTRUCT lpCreateStruct )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputViewWindow::OnDestroy() 
 {
 	if( wndForm.GetSafeHwnd() != 0 )
@@ -82,7 +71,6 @@ void CInputViewWindow::OnDestroy()
 	CWnd::OnDestroy();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputViewWindow::OnSize(UINT nType, int cx, int cy) 
 {
 	CWnd::OnSize( nType, cx, cy );
@@ -93,7 +81,6 @@ void CInputViewWindow::OnSize(UINT nType, int cx, int cy)
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputViewWindow::OnSetFocus(CWnd* pOldWnd) 
 {
 	wndForm.SetFocus();
@@ -103,7 +90,6 @@ void CInputViewWindow::OnSetFocus(CWnd* pOldWnd)
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputViewWindow::ClearControls()
 {
 	CString strEmptyString;
@@ -123,7 +109,6 @@ void CInputViewWindow::ClearControls()
 	EnableControlsForText( false );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputViewWindow::EnableControlsForText( bool bEnable )
 {
 	if ( CWnd *pWnd = wndForm.GetDlgItem( IDC_IV_ORIGINAL_EDIT ) )
@@ -148,7 +133,6 @@ void CInputViewWindow::EnableControlsForText( bool bEnable )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputViewWindow::EnableControlsForFolder( bool bEnable )
 {
 	if ( CWnd *pWnd = wndForm.GetDlgItem( IDC_IV_NOT_TRANSLATED_RADIO_BUTTON ) )
@@ -165,7 +149,6 @@ void CInputViewWindow::EnableControlsForFolder( bool bEnable )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputViewWindow::EnableNextButton( bool bEnable )
 {
 	if ( CWnd *pWnd = wndForm.GetDlgItem( IDC_IV_NEXT_BUTTON ) )
@@ -174,7 +157,6 @@ void CInputViewWindow::EnableNextButton( bool bEnable )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputViewWindow::EnableBackButton( bool bEnable )
 {
 	if ( CWnd *pWnd = wndForm.GetDlgItem( IDC_IV_BACK_BUTTON ) )
@@ -183,7 +165,6 @@ void CInputViewWindow::EnableBackButton( bool bEnable )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputViewWindow::SetOriginalText( const CString &rstrText )
 {
 	if ( CWnd *pWnd = wndForm.GetDlgItem( IDC_IV_ORIGINAL_EDIT ) )
@@ -192,7 +173,6 @@ void CInputViewWindow::SetOriginalText( const CString &rstrText )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputViewWindow::SetTranslatedText( const CString &rstrText )
 {
 	if ( CEdit *pWnd = static_cast<CEdit*>( wndForm.GetDlgItem( IDC_IV_TRANSLATE_EDIT ) ) )
@@ -204,7 +184,6 @@ void CInputViewWindow::SetTranslatedText( const CString &rstrText )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputViewWindow::SetDescription( const CString &rstrText )
 {
 	if ( CWnd *pWnd = wndForm.GetDlgItem( IDC_IV_ORIGINAL_DESCRIPTION_EDIT ) )
@@ -213,14 +192,12 @@ void CInputViewWindow::SetDescription( const CString &rstrText )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputViewWindow::SetState( int nState )
 {
 	wndForm.CheckRadioButton( IDC_IV_NOT_TRANSLATED_RADIO_BUTTON, IDC_IV_APPROVED_RADIO_BUTTON, IDC_IV_NOT_TRANSLATED_RADIO_BUTTON + nState );
 	wndForm.nInitialState = nState;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputViewWindow::GetTranslatedText( CString *pstrText )
 {
 	NI_ASSERT_T( pstrText != 0, NStr::Format( _T( "CInputViewWindow::GetTranslatedText() wrong parameter: pstrText %x" ), pstrText ) );
@@ -234,19 +211,16 @@ void CInputViewWindow::GetTranslatedText( CString *pstrText )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInputViewWindow::GetState()
 {
 	return wndForm.GetCheckedRadioButton( IDC_IV_NOT_TRANSLATED_RADIO_BUTTON, IDC_IV_APPROVED_RADIO_BUTTON ) - IDC_IV_NOT_TRANSLATED_RADIO_BUTTON;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CEdit* CInputViewWindow::GetTranslateEdit()
 {
 	return static_cast<CEdit*>( wndForm.GetDlgItem( IDC_IV_TRANSLATE_EDIT ) );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputViewWindow::SelectText( const SMainFrameParams::SSearchParam &rSearchParam )
 {
 	CEdit *pWnd = 0;
@@ -270,11 +244,8 @@ void CInputViewWindow::SelectText( const SMainFrameParams::SSearchParam &rSearch
 }
 
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputViewWindow::LoadGameImage( const std::string &rszGameImagePath )
 {
 	wndForm.LoadGameImage( rszGameImagePath );
-	//wndForm.UpdateWindow();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

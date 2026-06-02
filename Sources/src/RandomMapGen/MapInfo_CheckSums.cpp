@@ -8,11 +8,8 @@
 #include "..\zlib\zlib.h"
 #include "..\Misc\CheckSums.h"
 #include "Resource_Types.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::unordered_set<const IGDBObject*, SDefaultPtrHash> CMapInfo::gdbObjects;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 using namespace NCheckSums;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::GetTerrainCheckSum( uLong *pResourcesCheckSum, uLong *pMapCheckSum )
 {
 	SCheckSumBufferStorage bufRes;
@@ -27,12 +24,8 @@ void CMapInfo::GetTerrainCheckSum( uLong *pResourcesCheckSum, uLong *pMapCheckSu
 			CopyToBuf( &bufMap, terrain.altitudes[i][j].fHeight );
 	}
 
-	// terrain params
 	STilesetDesc tilesetDesc;
 	LoadDataResource( terrain.szTilesetDesc, "", false, 0, "tileset", tilesetDesc ); 
-	//CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( NStr::Format("%s.xml", terrain.szTilesetDesc.c_str()), STREAM_ACCESS_READ );
-	//CTreeAccessor tree = CreateDataTreeSaver( pStream, IDataTree::READ );
-	//tree.Add( "tileset", &tilesetDesc );
 
 	for ( int i = 0; i < tilesetDesc.terrtypes.size(); ++i )
 	{
@@ -55,7 +48,6 @@ void CMapInfo::GetTerrainCheckSum( uLong *pResourcesCheckSum, uLong *pMapCheckSu
 			CopyToBuf( &bufMap, terrain.tiles[y][x].tile );
 	}
 
-	// 3d roads
 	for ( int i = 0; i < terrain.roads3.size(); ++i )
 	{
 		CopyToBuf( &bufRes, terrain.roads3[i].fPassability );
@@ -71,7 +63,6 @@ void CMapInfo::GetTerrainCheckSum( uLong *pResourcesCheckSum, uLong *pMapCheckSu
 		}
 	}
 
-	// rivers
 	for ( int i = 0; i < terrain.rivers.size(); ++i )
 	{
 		CopyToBuf( &bufMap, terrain.rivers[i].points.size() );
@@ -86,7 +77,6 @@ void CMapInfo::GetTerrainCheckSum( uLong *pResourcesCheckSum, uLong *pMapCheckSu
 	*pResourcesCheckSum = crc32( 0L, &(bufRes.buf[0]), bufRes.nCnt );
 	*pMapCheckSum = crc32( 0L, &(bufMap.buf[0]), bufMap.nCnt );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::ProcessObjectCheckSum( const char *pszObjectName, SCheckSumBufferStorage *pBufRes, SCheckSumBufferStorage *pBufMap )
 {
 	const IGDBObject *pObject = NGDB::GetRPGStats<IGDBObject>( pszObjectName );
@@ -97,7 +87,6 @@ void CMapInfo::ProcessObjectCheckSum( const char *pszObjectName, SCheckSumBuffer
 		gdbObjects.insert( pObject );
 	}
 
-//	CopyToBuf( pBufMap, objectCheckSum );
 
 	const int nNameLen = NStr::GetStrLen( pszObjectName );
 	const int nRequiredSize = pBufMap->nCnt + nNameLen;
@@ -107,7 +96,6 @@ void CMapInfo::ProcessObjectCheckSum( const char *pszObjectName, SCheckSumBuffer
 	memcpy( &(pBufMap->buf[0]) + pBufMap->nCnt, pszObjectName, nNameLen );
 	pBufMap->nCnt += nNameLen;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::GetObjectsCheckSum( uLong *pResourcesCheckSum, uLong *pMapCheckSum )
 {
 	SCheckSumBufferStorage bufRes;
@@ -132,7 +120,6 @@ void CMapInfo::GetObjectsCheckSum( uLong *pResourcesCheckSum, uLong *pMapCheckSu
 	*pResourcesCheckSum = crc32( 0L, &(bufRes.buf[0]), bufRes.nCnt );
 	*pMapCheckSum = crc32( 0L, &(bufMap.buf[0]), bufMap.nCnt );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::GetEntrenchmentsCheckSum( uLong *pResourcesCheckSum, uLong *pMapCheckSum )
 {
 	SCheckSumBufferStorage bufMap;
@@ -149,7 +136,6 @@ void CMapInfo::GetEntrenchmentsCheckSum( uLong *pResourcesCheckSum, uLong *pMapC
 	*pResourcesCheckSum = 0L;
 	*pMapCheckSum = crc32( 0L, &(bufMap.buf[0]), bufMap.nCnt );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::GetBridgesCheckSum( uLong *pResourcesCheckSum, uLong *pMapCheckSum )
 {
 	SCheckSumBufferStorage bufMap;
@@ -163,7 +149,6 @@ void CMapInfo::GetBridgesCheckSum( uLong *pResourcesCheckSum, uLong *pMapCheckSu
 	*pResourcesCheckSum = 0L;
 	*pMapCheckSum = crc32( 0L, &(bufMap.buf[0]), bufMap.nCnt );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::GetReinforcementsCheckSum( uLong *pResourcesCheckSum, uLong *pMapCheckSum )
 {
 	SCheckSumBufferStorage bufMap;
@@ -178,7 +163,6 @@ void CMapInfo::GetReinforcementsCheckSum( uLong *pResourcesCheckSum, uLong *pMap
 	*pResourcesCheckSum = 0L;
 	*pMapCheckSum = crc32( 0L, &(bufMap.buf[0]), bufMap.nCnt );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::GetScriptFileCheckSum( uLong *pResourcesCheckSum, uLong *pMapCheckSum )
 {
 	*pResourcesCheckSum = 0L;
@@ -197,7 +181,6 @@ void CMapInfo::GetScriptFileCheckSum( uLong *pResourcesCheckSum, uLong *pMapChec
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::GetScriptAreasCheckSum( uLong *pResourcesCheckSum, uLong *pMapCheckSum )
 {
 	SCheckSumBufferStorage bufMap;
@@ -213,7 +196,6 @@ void CMapInfo::GetScriptAreasCheckSum( uLong *pResourcesCheckSum, uLong *pMapChe
 	*pResourcesCheckSum = 0L;
 	*pMapCheckSum = crc32( 0L, &(bufMap.buf[0]), bufMap.nCnt );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::GetDiplomaciesCheckSum( uLong *pResourcesCheckSum, uLong *pMapCheckSum )
 {
 	SCheckSumBufferStorage bufMap;
@@ -224,7 +206,6 @@ void CMapInfo::GetDiplomaciesCheckSum( uLong *pResourcesCheckSum, uLong *pMapChe
 	*pResourcesCheckSum = 0L;
 	*pMapCheckSum = crc32( 0L, &(bufMap.buf[0]), bufMap.nCnt );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::GetUnitCreationCheckSum( uLong *pResourcesCheckSum, uLong *pMapCheckSum )
 {
 	SCheckSumBufferStorage bufRes;
@@ -232,7 +213,6 @@ void CMapInfo::GetUnitCreationCheckSum( uLong *pResourcesCheckSum, uLong *pMapCh
 
 	for ( int i = 0; i < unitCreation.units.size(); ++i )
 	{
-		// aviation
 		SUCAviation &aviation = unitCreation.units[i].aviation;
 		for ( int j = 0; j < aviation.aircrafts.size(); ++j )
 		{
@@ -248,7 +228,6 @@ void CMapInfo::GetUnitCreationCheckSum( uLong *pResourcesCheckSum, uLong *pMapCh
 		for ( std::list<CVec3>::iterator iter = aviation.vAppearPoints.begin(); iter != aviation.vAppearPoints.end(); ++iter )
 			CopyToBuf( &bufMap, *iter );
 
-		//
 		if ( !unitCreation.units[i].szPartyName.empty() )
 		{
 			const int nSize = unitCreation.units[i].szPartyName.size() * sizeof( unitCreation.units[i].szPartyName[0] );
@@ -263,7 +242,6 @@ void CMapInfo::GetUnitCreationCheckSum( uLong *pResourcesCheckSum, uLong *pMapCh
 	*pResourcesCheckSum = crc32( 0L, &(bufRes.buf[0]), bufRes.nCnt );
 	*pMapCheckSum = crc32( 0L, &(bufMap.buf[0]), bufMap.nCnt );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::GetStartCommandsListCheckSum( uLong *pResourcesCheckSum, uLong *pMapCheckSum )
 {
 	SCheckSumBufferStorage bufMap;
@@ -283,7 +261,6 @@ void CMapInfo::GetStartCommandsListCheckSum( uLong *pResourcesCheckSum, uLong *p
 	*pResourcesCheckSum = 0L;
 	*pMapCheckSum = crc32( 0L, &(bufMap.buf[0]), bufMap.nCnt );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::GetReservePositionsListCheckSum( uLong *pResourcesCheckSum, uLong *pMapCheckSum )
 {
 	SCheckSumBufferStorage bufMap;
@@ -298,7 +275,6 @@ void CMapInfo::GetReservePositionsListCheckSum( uLong *pResourcesCheckSum, uLong
 	*pResourcesCheckSum = 0L;
 	*pMapCheckSum = crc32( 0L, &(bufMap.buf[0]), bufMap.nCnt );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::GetAIConstsCheckSum( uLong *pResourcesCheckSum, uLong *pMapCheckSum )
 {
 	SCheckSumBufferStorage bufRes;
@@ -312,7 +288,6 @@ void CMapInfo::GetAIConstsCheckSum( uLong *pResourcesCheckSum, uLong *pMapCheckS
 	*pResourcesCheckSum = crc32( 0L, &(bufRes.buf[0]), bufRes.nCnt );
 	*pMapCheckSum = 0L;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::UpdateCheckSum( TGetCheckSumFunc pCheckSumFunc, uLong *pResourcesCheckSum, uLong *pMapCheckSum )
 {
 	uLong resourcesCheckSum, mapCheckSum;
@@ -321,7 +296,6 @@ void CMapInfo::UpdateCheckSum( TGetCheckSumFunc pCheckSumFunc, uLong *pResources
 	*pResourcesCheckSum = GetCRC( resourcesCheckSum, *pResourcesCheckSum );
 	*pMapCheckSum = GetCRC( mapCheckSum, *pMapCheckSum );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::GetCheckSums( uLong *pResourcesCheckSum, uLong *pMapCheckSum )
 {
 	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24, 0xfffff );
@@ -345,4 +319,3 @@ void CMapInfo::GetCheckSums( uLong *pResourcesCheckSum, uLong *pMapCheckSum )
 	*pMapCheckSum = GetCRC( nType, *pMapCheckSum );
 	*pMapCheckSum = GetCRC( nAttackingSide, *pMapCheckSum );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -48,7 +48,6 @@
 #include <stl/_alloc.h>
 #endif
 
-// Old SGI names
 _STLP_BEGIN_NAMESPACE
 
 typedef __sgi_alloc alloc;
@@ -97,7 +96,4 @@ using _STLP_STD::allocator;
 
 #endif /* _STLP_ALLOC_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

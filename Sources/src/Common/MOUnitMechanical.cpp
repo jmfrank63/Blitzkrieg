@@ -18,10 +18,8 @@
 #include "..\Misc\Checker.h"
 #include "..\GFX\GFX.h"
 #include "MOUnitInfantry.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define MAX_NUM_EXT_PASSANGERS 6
 #define INTERIM_STEP 10
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMOUnitMechanical::CMOUnitMechanical()
 {
 	bInstalled = true;
@@ -35,10 +33,8 @@ CMOUnitMechanical::CMOUnitMechanical()
 	bInEditor = ( GetGlobalVar( "editor", 0 ) == 1 );
 	bSkipTrack = true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMOUnitMechanical::~CMOUnitMechanical()
 {
-		// удалить звук движения
 	if ( 0 != wMoveSoundID )
 	{
 		GetSingleton<IScene>()->RemoveSound( wMoveSoundID );
@@ -49,11 +45,9 @@ CMOUnitMechanical::~CMOUnitMechanical()
 		GetSingleton<IScene>()->RemoveSound( wNonCycleSoundID );
 		wNonCycleSoundID = 0;
 	}
-	//
 	for ( CPassangersList::iterator it = passangers.begin(); it != passangers.end(); ++it )
 		it->pUnit->SetContainer( 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMOUnitMechanical::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDescLocal, int _nSeason, int nFrameIndex, 
 															  float fNewHP, interface IVisObjBuilder *pVOB, IObjectsDB *pGDB )
 {
@@ -63,19 +57,14 @@ bool CMOUnitMechanical::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pD
 	NI_ASSERT_TF( pRPG != 0, NStr::Format("Can't find RPG stats for object \"%s\"", pDesc->szKey.c_str()), return 0 );
 	if ( pRPG == 0 )
 		return false;
-	// create vis object
 	const std::string szModelName = "\\1";
 	const std::string szTextureName = GetSeason() == 0 ? "\\1" : (GetSeason() == 1 ? "\\1w" : "\\1a");
 	pVisObj = pVOB->BuildObject( (pDesc->szPath + szModelName).c_str(), (pDesc->szPath + szTextureName).c_str(), pDesc->eVisType );
 	NI_ASSERT_T( pVisObj != 0, NStr::Format("Can't create object \"%s\" from path \"%s\"", pDesc->szKey.c_str(), pDesc->szPath.c_str()) );
-	// set scenario index
 	SetScenarioIndex( nFrameIndex );
-	//
 	UpdateModelWithHP( fNewHP / pRPG->fMaxHP, pVOB );
 	CommonUpdateHP( fNewHP / pRPG->fMaxHP );
-	//
 	pAIObj = pAIObjLocal;
-	// add HP bar
 	ISceneIconBar *pBar;
 	if ( GetGlobalVar("MultiplayerGame", 0) == 1 )
 		pBar = static_cast<ISceneIconBar*>( pVOB->BuildSceneObject( "icons\\mechhpmp", SCENE_OBJECT_TYPE_ICON, ICON_HP_BAR ) );
@@ -85,21 +74,16 @@ bool CMOUnitMechanical::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pD
 	GetVisObj()->AddIcon( pBar, ICON_HP_BAR, VNULL3, VNULL3, ICON_HP_BAR, ICON_ALIGNMENT_HCENTER | ICON_ALIGNMENT_TOP | ICON_PLACEMENT_VERTICAL );
 	pBar->SetLength( fHP );
 	pBar->SetColor( MakeHPBarColor(fHP) );
-	// add effector leveling
 	IMatrixEffectorLeveling *pEffector = CreateObject<IMatrixEffectorLeveling>( ANIM_EFFECTOR_LEVELING );
 	pEffector->SetupTimes( 0, -1 );
 	pEffector->SetupData( V3_AXIS_Z, 0 );
 	GetAnim()->AddEffector( pEffector, ANIM_EFFECTOR_LEVELING, -2 );
-	//
 	GetVisObj()->SetVisible( IsVisibleLocal() );
 	if ( pExtPassangers ) 
 		pExtPassangers->SetVisible( IsVisibleLocal() );
-	//
 	CMOUnit::OnCreate();
-	//
 	return pVisObj != 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitMechanical::PrepareToRemove()
 {
 	for ( CEffectsList::iterator it = effects.begin(); it != effects.end(); ++it )
@@ -108,7 +92,6 @@ void CMOUnitMechanical::PrepareToRemove()
 			it->pEffect->Stop();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline int GetUnitDamageState( float fNewHP ) { return fNewHP > 0 ? 0 : 1; }
 void CMOUnitMechanical::UpdateModelWithHP( const float fNewHP, IVisObjBuilder *pVOB )
 {
@@ -121,25 +104,18 @@ void CMOUnitMechanical::UpdateModelWithHP( const float fNewHP, IVisObjBuilder *p
 			GetVisObj()->RemoveEffector( -1, -1 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// visiting
 void CMOUnitMechanical::Visit( IMapObjVisitor *pVisitor )
 {
 	const bool bOutbound = GetRPGStats()->type == RPG_TYPE_ART_SUPER;
 	pVisitor->VisitMesh( pVisObj, pDesc->eGameType, pDesc->eVisType, bOutbound );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitMechanical::GetStatus( struct SMissionStatusObject *pStatus ) const
 {
 	CMOUnit::GetStatus( pStatus );
-	//
 	if ( GetRPGStats()->IsTransport() ) 
 		pStatus->params[1] = PackParams( GetAmmo(0), 1000 );
-	// 
 	GetStatusFromRPGStats( pStatus, GetRPGStats(), IsEnemy() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// get actions, which this object can perform or actions, thi object can be acted with
 void CMOUnitMechanical::GetActions( CUserActions *pActions, EActionsType eActions ) const
 {
 	CUserActions actions;
@@ -150,7 +126,6 @@ void CMOUnitMechanical::GetActions( CUserActions *pActions, EActionsType eAction
 		{
 			if ( GetNumFreeSlots() == GetNumTotalSlots() ) 
 				actions.RemoveAction( USER_ACTION_LEAVE );	
-			// check for installed/uninstalled artillery (for artillery)
 			if ( bInstalled ) 
 				actions.RemoveAction( USER_ACTION_INSTALL );
 			else
@@ -161,7 +136,6 @@ void CMOUnitMechanical::GetActions( CUserActions *pActions, EActionsType eAction
 				actions.RemoveAction( USER_ACTION_SUPPRESS );
 				actions.RemoveAction( USER_ACTION_AMBUSH );
 			}
-			// check for hooked/unhooked artillery (for transport cargo)
 			if ( bArtilleryHooked ) 
 			{
 				actions.RemoveAction( USER_ACTION_HOOK_ARTILLERY );
@@ -174,10 +148,8 @@ void CMOUnitMechanical::GetActions( CUserActions *pActions, EActionsType eAction
 		{
 			if ( !CanSelect() ) 
 				actions.RemoveAction( USER_ACTION_HOOK_ARTILLERY );
-			// check for hooked/unhooked artillery (for artillery itself)
 			if ( bArtilleryHooked ) 
 				actions.RemoveAction( USER_ACTION_HOOK_ARTILLERY );
-			// check for neutral unit
 			if ( IsNeutral() ) 
 				actions.RemoveAction( USER_ACTION_BOARD );
 		}
@@ -188,7 +160,6 @@ void CMOUnitMechanical::GetActions( CUserActions *pActions, EActionsType eAction
 	}
 	*pActions |= actions;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMOUnitMechanical::Load( IMOUnit *pMO, bool bEnter )
 {
 	if ( bEnter )
@@ -213,7 +184,6 @@ bool CMOUnitMechanical::Load( IMOUnit *pMO, bool bEnter )
 	UpdatePassangers();
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMOUnitMechanical::GetPassangers( IMOUnit **pBuffer, const bool bCanSelectOnly ) const
 {
 	if ( bCanSelectOnly ) 
@@ -247,7 +217,6 @@ int CMOUnitMechanical::GetPassangers( IMOUnit **pBuffer, const bool bCanSelectOn
 		return passangers.size();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitMechanical::ChangeExtPassangers( IScene *pScene, IVisObjBuilder *pVOB )
 {
 	const std::string szModelName = NStr::Format( "%s\\%dp", pDesc->szPath.c_str(), nNumExtPassangers );
@@ -271,11 +240,9 @@ void CMOUnitMechanical::ChangeExtPassangers( IScene *pScene, IVisObjBuilder *pVO
 		pExtPassangers->SetVisible( IsVisibleLocal() );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitMechanical::UpdatePassangers()
 {
 	EnablePassangersIcons( passangers, GetVisObj(), IsFriend() || IsPassangersVisible(passangers) );
-//	if ( GetRPGStats()->IsArmor() ) 
 	{
 		IScene *pScene = GetSingleton<IScene>();
 		IVisObjBuilder *pVOB = GetSingleton<IVisObjBuilder>();
@@ -300,15 +267,6 @@ void CMOUnitMechanical::UpdatePassangers()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** general update
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitMechanical::RemoveExhaustedEffects( const NTimer::STime &time )
 {
 	for ( CEffectsList::iterator it = effects.begin(); it != effects.end(); )
@@ -319,13 +277,11 @@ void CMOUnitMechanical::RemoveExhaustedEffects( const NTimer::STime &time )
 			++it;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitMechanical::UpdateAttachedEffects( const NTimer::STime &currTime, IScene *pScene )
 {
 	RemoveExhaustedEffects( currTime );
 	if ( !HasEffects() )
 		return;
-	//
 	pVisObj->Update( currTime );
 	const int nNumNodes = GetAnim()->GetNumNodes();
 	const SHMatrix *matrices = GetVisObj()->GetMatrices();
@@ -336,34 +292,28 @@ void CMOUnitMechanical::UpdateAttachedEffects( const NTimer::STime &currTime, IS
 		const SHMatrix &matrix = matrices[it->nPointIndex];
 		const CVec3 vNewPos = matrix.GetTrans3();
 		CVec3 vPos = it->pEffect->GetPosition();
-		// do interim updates only if effect was moved far enough
 		if ( fabs2(vNewPos - vPos) >= 25 )
 		{
 			NTimer::STime diff = currTime - it->timeLastUpdate;
 			const CVec3 vPosStep = ( vNewPos - vPos ) / ( float(diff) / INTERIM_STEP );
-			//
 			while ( diff > INTERIM_STEP ) 
 			{
 				it->timeLastUpdate += INTERIM_STEP;
 				diff -= INTERIM_STEP;
 				vPos += vPosStep;
-				//
 				if ( (pScene == 0) || (pScene->MoveObject(it->pEffect, vPos) == false) ) 
 					it->pEffect->SetPlacement( vPos, 0 );
 				it->pEffect->Update( it->timeLastUpdate );
 			}
 		}
-		// final update
 		if ( (pScene == 0) || (pScene->MoveObject(it->pEffect, vNewPos) == false) ) 
 			it->pEffect->SetPlacement( vNewPos, 0 );
 		it->pEffect->SetEffectDirection( matrix );
 		it->pEffect->SetSuspendedState( !(GetVisObj()->IsVisible()) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMOUnitMechanical::Update( const NTimer::STime &currTime )
 {
-	// change model
 	for ( CModelChangesList::iterator it = modelchanges.begin(); it != modelchanges.end(); )
 	{
 		if ( it->time <= currTime ) 
@@ -374,7 +324,6 @@ bool CMOUnitMechanical::Update( const NTimer::STime &currTime )
 		else
 			++it;
 	}
-	// change animation
 	for ( CAnimChangeList::iterator it = animchanges.begin(); it != animchanges.end(); )
 	{
 		if ( it->time <= currTime )
@@ -386,12 +335,9 @@ bool CMOUnitMechanical::Update( const NTimer::STime &currTime )
 		else
 			++it;
 	}
-	// update attached effects
 	UpdateAttachedEffects( currTime );
-	//
 	return modelchanges.empty() && animchanges.empty() && effects.empty();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMOUnitMechanical::ChangeModel( const std::string &szModelName, const NTimer::STime &currTime, const NTimer::STime &timeChange )
 {
 	if ( timeChange <= currTime )
@@ -407,22 +353,12 @@ int CMOUnitMechanical::ChangeModel( const std::string &szModelName, const NTimer
 		return 1;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitMechanical::ChangeState( EUnitState state, const NTimer::STime &currTime )
 {
 	if ( GetCurrState() == state ) 
 		return;
 	SetCurrState( state );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** AI updates
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitMechanical::AIUpdatePlacement( const SAINotifyPlacement &placement, const NTimer::STime &currTime, IScene *pScene )
 {
 	CMOUnit::AIUpdatePlacement( placement, currTime, pScene );
@@ -430,9 +366,7 @@ void CMOUnitMechanical::AIUpdatePlacement( const SAINotifyPlacement &placement, 
 		pScene->SetSoundPos( wMoveSoundID, pVisObj->GetPosition() );
 	if ( 0 != wNonCycleSoundID )
 		pScene->SetSoundPos( wNonCycleSoundID, pVisObj->GetPosition() );
-	// update attached effects
 	UpdateAttachedEffects( currTime, pScene );
-	// update leveling
 	IMeshAnimation *pAnim = GetAnim();
 	if ( IMatrixEffectorLeveling *pEffector = static_cast<IMatrixEffectorLeveling*>( pAnim->GetEffector( ANIM_EFFECTOR_LEVELING, -2 ) ) )
 	{
@@ -444,16 +378,13 @@ void CMOUnitMechanical::AIUpdatePlacement( const SAINotifyPlacement &placement, 
 		matInvPlacement.RotateVector( &vNormal, vNormal );
 		pEffector->SetupData( vNormal, currTime );
 	}
-	// update external passangers
 	if ( pExtPassangers ) 
 	{
 		CVec3 vPos;
 		AI2Vis( &vPos, placement.center.x, placement.center.y, placement.z );
-		// move 'external passangers' object
 		pExtPassangers->SetDirection( placement.dir );
 		pScene->MoveObject( pExtPassangers, vPos );
 	}
-	// add trace
 	const SMechUnitRPGStats *pStats = GetRPGStats();
 	if ( pStats->bLeavesTracks )
 	{
@@ -492,7 +423,6 @@ void CMOUnitMechanical::AIUpdatePlacement( const SAINotifyPlacement &placement, 
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitMechanical::LeaveTrace( SMechTrace *pTrace, const SAINotifyPlacement &placement, const NTimer::STime &currTime, bool secondTrack,	const SMechUnitRPGStats *pStats, const CVec3 &vPos, bool isForward, const CVec3 &dir, IScene *pScene )
 {
 	const int idx = secondTrack ? 2 : 0;
@@ -571,7 +501,6 @@ void CMOUnitMechanical::LeaveTrace( SMechTrace *pTrace, const SAINotifyPlacement
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitMechanical::SetPlacement( const CVec3 &vPos, const WORD &wDir )
 {
 	CMOUnit::SetPlacement( vPos, wDir );
@@ -597,20 +526,17 @@ void CMOUnitMechanical::SetPlacement( const CVec3 &vPos, const WORD &wDir )
 		fTraceLenSq = fabs2( pStats->vAABBVisHalfSize.y * (1 - pStats->fTrackEnd - pStats->fTrackStart) * 1.5f );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMOUnitMechanical::AIUpdateRPGStats( const SAINotifyRPGStats &stats, IVisObjBuilder *pVOB, IScene * pScene )
 {
 	const float fNewHP = stats.fHitPoints / GetRPG()->fMaxHP;
 	CommonUpdateRPGStats( fNewHP, stats, pVOB );
 	return fNewHP > 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IMapObj* CMOUnitMechanical::AIUpdateFireWithProjectile( const SAINotifyNewProjectile &projectile,
 																											  const NTimer::STime &currTime, IVisObjBuilder *pVOB )
 {
 	const SMechUnitRPGStats::SGun &gun = GetRPGStats()->guns[projectile.nGun];
 	const SWeaponRPGStats::SShell &shell = gun.pWeapon->shells[projectile.nShell];
-	//
 	IMOEffect *pMO = 0;
 	if ( !shell.szEffectTrajectory.empty() )
 	{
@@ -622,18 +548,14 @@ IMapObj* CMOUnitMechanical::AIUpdateFireWithProjectile( const SAINotifyNewProjec
 			pMO = 0;
 		}
 	}
-	//
 	if ( pMO == 0 ) 
 		return 0;
-	// lets calc difference between unit's position and gun's fire point
 	WORD wDir = 0;
 	CVec3 vDiffPos = VNULL3, vUnitPos;
 	GetPlacement( &vUnitPos, &wDir );
-	//
 	pMO->SetPlacement( vUnitPos, 0 );
 	if ( gun.nShootPoint >= 0 ) 
 	{
-//		pVisObj->Update( currTime );
 		const SHMatrix *matrices = GetVisObj()->GetMatrices();
 		if ( gun.nShootPoint < GetAnim()->GetNumNodes() ) 
 		{
@@ -647,12 +569,9 @@ IMapObj* CMOUnitMechanical::AIUpdateFireWithProjectile( const SAINotifyNewProjec
 			vDiffPos = VNULL3;
 		}
 	}
-	//
 	static_cast<CMOProjectile*>(pMO)->Init( projectile.startTime, projectile.flyingTime, vDiffPos );
-	//
 	return pMO;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMOUnitMechanical::AIUpdateActions( const SAINotifyAction &action, const NTimer::STime &currTime, IVisObjBuilder *pVOB, IScene *pScene, interface IClientAckManager *pAckManager )
 {
 	int nRetVal = 0;
@@ -786,28 +705,16 @@ int CMOUnitMechanical::AIUpdateActions( const SAINotifyAction &action, const NTi
 		default:
 			nRetVal = CMOUnit::AIUpdateActions( action, currTime, pVOB, pScene, pAckManager );
 	}
-	//
 	return nRetVal;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** actions
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitMechanical::ActionMove( const SAINotifyAction &action, const NTimer::STime &currTime, IVisObjBuilder *pVOB, IScene *pScene )
 {
 	const SMechUnitRPGStats *pRPG = GetRPGStats();
 	IMeshVisObj *pObj = GetVisObj();
 	IMeshAnimation *pAnim = GetAnim();
-	// add exhaust effect (diesel)
 	if ( IsVisibleLocal() && !pRPG->exhaustPoints.empty() )
 	{
 		RemoveExhaustedEffects( currTime );
-		//
 		const std::string szEffectName = "effects\\effects\\" + pRPG->szEffectDiesel;
 		pVisObj->Update( currTime );
 		const SHMatrix *matrices = pObj->GetMatrices();
@@ -820,7 +727,6 @@ void CMOUnitMechanical::ActionMove( const SAINotifyAction &action, const NTimer:
 				if ( IEffectVisObj *pEffect = static_cast<IEffectVisObj*>(pVOB->BuildObject(szEffectName.c_str(), 0, SGVOT_EFFECT)) )
 				{
 					const SHMatrix &matrix = matrices[ pRPG->exhaustPoints[i] ];
-					//
 					pEffect->SetPlacement( matrix.GetTrans3(), 0 );
 					pEffect->SetEffectDirection( matrix );
 					pEffect->SetStartTime( timeEffect );
@@ -832,11 +738,9 @@ void CMOUnitMechanical::ActionMove( const SAINotifyAction &action, const NTimer:
 			}
 		}
 	}
-	//CRAP{ разобраться
 /*	switch ( action.nParam )
 	{
 	case MOVE_TYPE_DIVE:
-		//CRAP{ как задавать звук DiveBomber'a 
 		if ( !bDiveMove )
 		{
 			if ( wMoveSoundID )
@@ -844,15 +748,12 @@ void CMOUnitMechanical::ActionMove( const SAINotifyAction &action, const NTimer:
 			wMoveSoundID = pScene->AddSound( "Sounds\\Move\\stallbomber",pVisObj->GetPosition(), SFX_MIX_ALWAYS, SAM_LOOPED_NEED_ID, 25, 40 );
 		}
 		bDiveMove = true;
-		//CRAP}
 		break;
 	case MOVE_TYPE_MOVE:*/
 		{
-			// 'start move' sound effect
 			if ( !pRPG->szSoundMoveStart.empty() )
 				pScene->AddSound( pRPG->szSoundMoveStart.c_str(), pVisObj->GetPosition(), 
 													SFX_MIX_IF_TIME_EQUALS, SAM_ADD_N_FORGET, ESCT_GENERIC, 1, 100 );
-			// 'cycle move' sound effect
 			/*if ( bDiveMove && 0 != wMoveSoundID )
 			{
 				pScene->RemoveSound( wMoveSoundID );
@@ -861,12 +762,9 @@ void CMOUnitMechanical::ActionMove( const SAINotifyAction &action, const NTimer:
 			if ( !pRPG->szSoundMoveCycle.empty() && 0 == wMoveSoundID )
 				wMoveSoundID = pScene->AddSound( pRPG->szSoundMoveCycle.c_str(), pVisObj->GetPosition(), 
 																					SFX_MIX_ALWAYS, SAM_LOOPED_NEED_ID, ESCT_GENERIC, 1, 100 );
-			//bDiveMove = false;
 		}
 		/*break;
 	}*/
-	//CRAP}
-	// add movement effectors for technics
 	
 	if ( pRPG->platforms[0].nModelPart >= 0 ) 
 	{
@@ -878,7 +776,6 @@ void CMOUnitMechanical::ActionMove( const SAINotifyAction &action, const NTimer:
 		pAnim->AddEffector( pEffector, ANIM_EFFECTOR_JOGGING, pRPG->platforms[0].nModelPart );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitMechanical::ActionDie( const SAINotifyAction &action, const NTimer::STime &currTime, IVisObjBuilder *pVOB, IScene *pScene )
 {
 	SetVisible( true );
@@ -888,20 +785,15 @@ void CMOUnitMechanical::ActionDie( const SAINotifyAction &action, const NTimer::
 		(*it)->Stop();
 		++it;
 	}
-	// set death texture
 	pVOB->ChangeObject( pVisObj, 0, (pDesc->szPath + "\\2" + GetSeasonApp2(GetSeason())).c_str(), pDesc->eVisType );
 	GetVisObj()->RemoveEffector( -1, -1 );
-	//
 	const NTimer::STime timeEffect = Min( action.time, currTime );
 	const NTimer::STime timePassed = currTime - timeEffect;
 	const SMechUnitRPGStats *pRPG = GetRPGStats();
 	IMeshVisObj *pObj = GetVisObj();
-	// при смерти удаляем все иконки из объекта
 	pObj->RemoveIcon( -1 );
-	// при смерти удаляем jogging из объекта
 	if ( !pRPG->platforms.empty() && (pRPG->platforms[0].nModelPart >= 0) )
 		GetAnim()->RemoveEffector( ANIM_EFFECTOR_JOGGING, pRPG->platforms[0].nModelPart );
-	// stop all animations and run death animation
 	if ( ((action.nParam & 0xffff) != 0xffff) && !pRPG->IsAviation() ) 
 	{
 		ChangeModel( "2", timeEffect, timeEffect );
@@ -915,7 +807,6 @@ void CMOUnitMechanical::ActionDie( const SAINotifyAction &action, const NTimer::
 	}
 	else
 		GetAnim()->CutProceduralAnimation( timeEffect );
-	// удалить звук движения
 	if ( 0 != wMoveSoundID )
 	{
 		pScene->RemoveSound( wMoveSoundID );
@@ -928,7 +819,6 @@ void CMOUnitMechanical::ActionDie( const SAINotifyAction &action, const NTimer::
 		wNonCycleSoundID = pScene->AddSound( "plane_fly_death", pVisObj->GetPosition(),
 																				SFX_MIX_ALWAYS, SAM_NEED_ID);
 	}
-	// add death smoke, if it is
 	if ( (int((action.nParam >> 16) & 0x0fff) == ANIMATION_DEATH) || ((action.nParam & 0xffff)== 0xffff) ) 
 	{
 		if ( !pRPG->damagePoints.empty() && pRPG->HasSmokeEffect() ) 
@@ -937,7 +827,6 @@ void CMOUnitMechanical::ActionDie( const SAINotifyAction &action, const NTimer::
 			const SHMatrix *matrices = pObj->GetMatrices();
 			CheckFixedRange( nIndex, GetAnim()->GetNumNodes(), pDesc->szPath.c_str() );
 			const SHMatrix &matrix = matrices[nIndex];
-			//
 			if ( IEffectVisObj *pEffect = PlayEffect(pRPG->szEffectSmoke, matrix.GetTrans3(), timeEffect, pRPG->IsAviation(), 
 				                                       pScene, pVOB, timePassed, SFX_MIX_IF_TIME_EQUALS, SAM_ADD_N_FORGET, ESCT_GENERIC) )
 			{
@@ -956,7 +845,6 @@ void CMOUnitMechanical::ActionDie( const SAINotifyAction &action, const NTimer::
 				const SHMatrix &matrix = matrices[pRPG->nFatalitySmokePoint];
 				CheckFixedRange( pRPG->nFatalitySmokePoint, GetAnim()->GetNumNodes(), pDesc->szPath.c_str() );
 				const CVec3 vEffPos = matrix.GetTrans3();
-				//
 				if ( IEffectVisObj *pEffect = PlayEffect(pRPG->szEffectFatality, vEffPos, timeEffect, pRPG->IsAviation(), 
 					                                       pScene, pVOB, timePassed, SFX_MIX_IF_TIME_EQUALS, SAM_ADD_N_FORGET, ESCT_GENERIC) )
 				{
@@ -979,14 +867,12 @@ void CMOUnitMechanical::ActionDie( const SAINotifyAction &action, const NTimer::
 			}
 		}
 	}
-	// добавляем под танчиком 'гавно-после-смерти'
 	if ( ((action.nParam & 0x80000000) != 0) && !pRPG->IsAviation() && !pRPG->deathCraters.empty() )
 	{
 		SetCraterEffect( pRPG->deathCraters[rand() % pRPG->deathCraters.size()], 
 		                 GetSeason(), pVisObj->GetPosition(), 100, pScene, pVOB );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitMechanical::ActionStop( const SAINotifyAction &action, IScene *pScene )
 {
 	if ( 0 != wMoveSoundID )
@@ -994,12 +880,10 @@ void CMOUnitMechanical::ActionStop( const SAINotifyAction &action, IScene *pScen
 		pScene->RemoveSound( wMoveSoundID );
 		wMoveSoundID = 0;
 	}
-	// play 'stop move'
 	const SMechUnitRPGStats *pRPG = GetRPGStats();
 	if ( !pRPG->szSoundMoveStop.empty() )
 		pScene->AddSound( pRPG->szSoundMoveStop.c_str(), pVisObj->GetPosition(),
 											SFX_MIX_IF_TIME_EQUALS, SAM_ADD_N_FORGET, ESCT_GENERIC, 1, 100 );
-	// remove 'jogging' effector
 	if ( !pRPG->platforms.empty() && (pRPG->platforms[0].nModelPart >= 0) )
 		GetAnim()->RemoveEffector( ANIM_EFFECTOR_JOGGING, pRPG->platforms[0].nModelPart );
 	std::list< CPtr<IEffectVisObj> >::iterator it = smokeEffects.begin();
@@ -1009,15 +893,12 @@ void CMOUnitMechanical::ActionStop( const SAINotifyAction &action, IScene *pScen
 		++it;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CMOUnitMechanical::DoInstall( const int nAnimation, const NTimer::STime &timeAction, 
 																			  const int nRPGDuration, const char *pszModel2 )
 {
 	RemoveIcon( ICON_UNINSTALL );
-	// change mode to animable
 	if ( pszModel2 ) 
 		ChangeModel( pszModel2, timeAction, timeAction );
-	// run animation (currently in animable model mode)
 	IMeshAnimation *pAnim = GetAnim();
 	int nAddTime = 0;
 	if ( const SUnitBaseRPGStats::SAnimDesc *pAnimDesc = GetAnimationByType(nAnimation) )
@@ -1027,7 +908,6 @@ const int CMOUnitMechanical::DoInstall( const int nAnimation, const NTimer::STim
 		pAnim->SetAnimSpeedCoeff( float(pAnimDesc->nLength) / float(nRPGDuration) );
 		nAddTime = nRPGDuration;
 	}
-	// set delayed model change => to combat
 	return ChangeModel( "1", timeAction, timeAction + nAddTime );
 }
 const int CMOUnitMechanical::DoUnInstall( const int nAnimation, const NTimer::STime &timeAction, 
@@ -1037,7 +917,6 @@ const int CMOUnitMechanical::DoUnInstall( const int nAnimation, const NTimer::ST
 	int nAddTime = 0;
 	if ( !bInstantly ) 
 	{
-		// set animable model and run animation
 		ChangeModel( "2", timeAction, timeAction );
 		IMeshAnimation *pAnim = GetAnim();
 		if ( const SUnitBaseRPGStats::SAnimDesc *pAnimDesc = GetAnimationByType(nAnimation) )
@@ -1048,15 +927,12 @@ const int CMOUnitMechanical::DoUnInstall( const int nAnimation, const NTimer::ST
 			nAddTime = nRPGDuration;
 		}
 	}
-	// set delayed model change => to transportable
 	return pszModel3 == 0 ? 0 : ChangeModel( pszModel3, timeAction, timeAction + nAddTime );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMOUnitMechanical::ActionInstall( const SAINotifyAction &action, const NTimer::STime &currTime, IVisObjBuilder *pVOB )
 {
 	const NTimer::STime timeAction = Min( action.time, currTime );
 	int nRetVal = 0;
-	//
 	switch( action.typeID ) 
 	{
 		case ACTION_NOTIFY_INSTALL_ROTATE:
@@ -1084,10 +960,8 @@ int CMOUnitMechanical::ActionInstall( const SAINotifyAction &action, const NTime
 			bInstalled = false;
 			break;
 	}
-	//
 	return nRetVal;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitMechanical::AddAnimation( const SUnitBaseRPGStats::SAnimDesc *pDesc )
 {
 	if ( animchanges.empty() )
@@ -1101,7 +975,6 @@ void CMOUnitMechanical::AddAnimation( const SUnitBaseRPGStats::SAnimDesc *pDesc 
 		animchanges.push_back( SAnimChange(pDesc->nIndex, change.time + change.length + 2000, pDesc->nLength) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitMechanical::RemoveSounds( interface IScene * pScene )
 {
 	if ( 0 != wMoveSoundID )
@@ -1115,19 +988,16 @@ void CMOUnitMechanical::RemoveSounds( interface IScene * pScene )
 		wNonCycleSoundID = 0;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitMechanical::AIUpdateHit( const struct SAINotifyHitInfo &hit, const NTimer::STime &currTime, IScene *pScene, IVisObjBuilder *pVOB )
 {
 	if ( hit.wShell >= hit.pWeapon->shells.size() )
 		return;
 	const SWeaponRPGStats::SShell &shell = hit.pWeapon->shells[hit.wShell];
 	PlayEffect( *GetHitEffect(hit, shell), pVisObj->GetPosition(), currTime, GetRPGStats()->IsAviation(), pScene, pVOB, 0, SFX_MIX_IF_TIME_EQUALS, SAM_ADD_N_FORGET, ESCT_COMBAT );
-	// flash
 	const CVec3 vPos = pVisObj->GetPosition();
 	if ( shell.flashExplosion.HasFlash() ) 
 		SetFlashEffect( shell.flashExplosion, currTime, vPos, GetFlashExpColor(), pScene, pVOB );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitMechanical::Select( ISelector *pSelector, bool bSelect, bool bSelectSuper )
 {
 	if ( !bCanSelect && bSelect )
@@ -1137,7 +1007,6 @@ void CMOUnitMechanical::Select( ISelector *pSelector, bool bSelect, bool bSelect
 	else
 		pVisObj->Select( bSelect ? SGVOSS_SELECTED : SGVOSS_UNSELECTED );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitMechanical::AIUpdateShot( const struct SAINotifyBaseShot &_shot, const NTimer::STime &currTime, 
 																		  IVisObjBuilder *pVOB, IScene *pScene )
 {
@@ -1146,7 +1015,6 @@ void CMOUnitMechanical::AIUpdateShot( const struct SAINotifyBaseShot &_shot, con
 	const SMechUnitRPGStats::SGun &gun = pRPG->guns[shot.cGun];
 	const SWeaponRPGStats::SShell &shell = gun.pWeapon->shells[shot.cShell];
 	const NTimer::STime timeEffect = Min( currTime, shot.time );
-	// first, try to play 'hand-crafted' animation and if it fails, add procedural recoil
 	IMeshAnimation *pAnim = GetAnim();
 	bool bProceduralAnimation = true;
 	if ( (GetAnimationByType(ANIMATION_SHOOT) == 0) && gun.bRecoil && (gun.nModelPart != -1) ) // add procedural recoil
@@ -1155,7 +1023,6 @@ void CMOUnitMechanical::AIUpdateShot( const struct SAINotifyBaseShot &_shot, con
 		pAnim->AddProceduralNode( gun.nModelPart, timeEffect, timeEffect, timeEffect + gun.recoilTime, -gun.fRecoilLength );
 		pAnim->AddProceduralNode( gun.nModelPart, timeEffect, timeEffect + gun.recoilTime, timeEffect + gun.recoilTime*10, 0 );
 	}
-	// add effect
 	if ( (gun.nShootPoint != -1) && (gun.pWeapon != 0) && !shell.szEffectGunFire.empty() )
 	{
 		pVisObj->Update( currTime );
@@ -1163,7 +1030,6 @@ void CMOUnitMechanical::AIUpdateShot( const struct SAINotifyBaseShot &_shot, con
 		const SHMatrix *matrices = pObj->GetMatrices();
 		CheckFixedRange( gun.nShootPoint, GetAnim()->GetNumNodes(), pDesc->szPath.c_str() );
 		const SHMatrix &matGlobalShoot = matrices[ gun.nShootPoint ];
-		// трассеры
 		if ( shell.trajectory == SWeaponRPGStats::SShell::TRAJECTORY_LINE && NWin32Random::Random( 100 ) + 1 <= shell.fTraceProbability * fTraceProbabilityCoeff * 100.0f )
 		{
 			const CVec3 vStart = matGlobalShoot.GetTrans3();
@@ -1171,7 +1037,6 @@ void CMOUnitMechanical::AIUpdateShot( const struct SAINotifyBaseShot &_shot, con
 			AI2Vis( &vEnd, shot.vDestPos );
 			UpdateGunTraces( vStart, vEnd, AI2VisX(shell.fSpeed) * shell.fTraceSpeedCoeff * fTraceSpeedCoeff, shot.time, pScene );
 		}
-		// эффект вздрагивания техники
 		if ( gun.bRecoil && bProceduralAnimation && (gun.nRecoilShakeTime > 0) )
 		{
 			SHMatrix matInverse; // inverse object's matrix
@@ -1185,16 +1050,13 @@ void CMOUnitMechanical::AIUpdateShot( const struct SAINotifyBaseShot &_shot, con
 			pEffector->SetupData( gun.fRecoilShakeAngle, vAxis );
 			pObj->AddEffector( SCENE_EFFECTOR_RECOIL, pEffector );
 		}
-		// particle effect
 		if ( IsVisibleLocal() || GetRPGStats()->IsAviation() ) 
 		{
-			// shoot
 			if ( IEffectVisObj *pEffect = PlayEffect(shell.szEffectGunFire, matGlobalShoot.GetTrans3(), timeEffect, GetRPGStats()->IsAviation(), pScene, pVOB, 0, SFX_MIX_IF_TIME_EQUALS, SAM_ADD_N_FORGET, ESCT_COMBAT) )
 			{
 				pEffect->SetEffectDirection( matGlobalShoot );
 				AddEffect( pEffect, gun.nShootPoint, timeEffect );
 			}
-			// flash effect
 			if ( shell.flashFire.HasFlash() ) 
 			{
 				CVec3 vPos = matGlobalShoot.GetTrans3();
@@ -1203,7 +1065,6 @@ void CMOUnitMechanical::AIUpdateShot( const struct SAINotifyBaseShot &_shot, con
 				AI2Vis( &vPos );
 				SetFlashEffect( shell.flashFire, currTime, vPos, GetFlashFireColor(), pScene, pVOB );
 			}
-			// dust
 			if ( (pRPG->pPrimaryGun == &(pRPG->guns[shot.cGun])) && !pRPG->szEffectShootDust.empty() ) 
 			{
 				if ( IEffectVisObj *pEffect = PlayEffect(pRPG->szEffectShootDust, pVisObj->GetPosition(), timeEffect, false, pScene, pVOB, 0, SFX_MIX_IF_TIME_EQUALS, SAM_ADD_N_FORGET, ESCT_COMBAT) )
@@ -1220,13 +1081,11 @@ void CMOUnitMechanical::AIUpdateShot( const struct SAINotifyBaseShot &_shot, con
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitMechanical::MakeVisible( const bool bVisible )
 {
 	GetVisObj()->SetVisible( bVisible );
 	UpdateAttachedEffects( GetSingleton<IGameTimer>()->GetGameTime() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMOUnitMechanical::SEffect::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -1235,7 +1094,6 @@ int CMOUnitMechanical::SEffect::operator&( IStructureSaver &ss )
 	saver.Add( 3, &timeLastUpdate );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMOUnitMechanical::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -1256,7 +1114,5 @@ int CMOUnitMechanical::operator&( IStructureSaver &ss )
 	saver.Add( 18, &smokeEffects );
 	saver.Add( 19, &effects );
 	saver.Add( 20, &wNonCycleSoundID );
-	// do not use id's 11,13,14
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

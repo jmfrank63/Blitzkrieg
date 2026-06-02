@@ -1,7 +1,3 @@
-//{{NO_DEPENDENCIES}}
-// Microsoft Developer Studio generated include file.
-// Used by editor.rc
-//
 #define IDAPPLY                         3
 #define IDD_ABOUTBOX                    100
 #define IDR_LISTBAR                     101
@@ -497,8 +493,6 @@
 #define ID_SHOW_FIRE_RANGE_FILTER       61219
 #define IDC_SHORTCUTBAR                 61849
 
-// Next default values for new objects
-// 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_3D_CONTROLS                     1

@@ -1,9 +1,7 @@
 #include "stdafx.h"
 
 #include "Scripts\Scripts.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CScripts *pScripts;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::SScriptInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -15,7 +13,6 @@ int CScripts::SScriptInfo::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::SReinforcementObject::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -26,7 +23,6 @@ int CScripts::SReinforcementObject::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -34,7 +30,6 @@ int CScripts::operator&( IStructureSaver &ss )
 	if ( saver.IsReading() )
 	{
 		pScripts = this;
-		// �������� lua state
 		script.Clear();
 		script.Init();
 	}
@@ -43,10 +38,8 @@ int CScripts::operator&( IStructureSaver &ss )
 		pConsole = GetSingleton<IConsoleBuffer>();
 
 	saver.Add( 3, &groups );
-//	saver.Add( 7, &name2script );										// ��������� �� �����
 	saver.Add( 8, &szScriptFile );
 
-	// ��������� ���������� �� �������� ��������
 	if ( !saver.IsReading() )
 	{
 		std::list<SScriptInfo> activeScriptsInfo;
@@ -56,7 +49,6 @@ int CScripts::operator&( IStructureSaver &ss )
 		saver.Add( 9, &activeScriptsInfo );
 	}
 	else
-	// ������������ ��������� lua	
 	{
 		std::list<SScriptInfo> activeScriptsInfo;
 		saver.Add( 9, &activeScriptsInfo );
@@ -97,4 +89,3 @@ int CScripts::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

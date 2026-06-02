@@ -1,21 +1,13 @@
 #ifndef __AI_STATIC_MAP_H__
 #define __AI_STATIC_MAP_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "RectTiles.h"
 #include "BetaSpline3D.h"
 #include "..\Misc\BitData.h"
 #include "..\Formats\fmtMap.h"
 #include <set>
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										  CStaticMap																	*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum ELockMode { ELM_STATIC = 0, ELM_ALL = 1 };
 enum ETerrainTypes { ETT_EARTH_TERRAIN = 0, ETT_RIVER_TERRAIN = 1, ETT_EARTH_SEA_TERRAIN = 2 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CStaticMap
 {
 	DECLARE_SERIALIZE;
@@ -28,17 +20,13 @@ class CStaticMap
 	CArray2D<BYTE> transparency;
 	CArray2D<BYTE> passTypes;
 	std::vector<float> passabilities;
-	// �� ���� terrain - ��� ai ������������
 	std::vector<DWORD> passClasses;
-	// �� ������ ����� terrain - ��� ���
 	std::vector<BYTE> terrSubTypes;
 
 	std::unordered_map<int, SRect> unitsRects;
 
-	// ������ �� ����� ���������� ����� �����
 	CArray2D<float> heights;
 	CBetaSpline3D betaSpline3D;
-	// ������ �� ������� AI ������
 	CArray2D<float> tileHeights;
 
 	CArray2D4Bit terrainTypes;
@@ -47,7 +35,6 @@ class CStaticMap
 	int nCellsSizeX, nCellsSizeY;					// --- � �������
 	int nBigCellsSizeX, nBigCellsSizeY;		// --- � ������� �������
 
-	// 0 - ������. �������, 0xff - ������. � �������. �������
 	ELockMode eMode;
 	ELockMode eMemMode;
 
@@ -64,10 +51,8 @@ class CStaticMap
 	std::list<STmpUnlockUnitsBuf> tmpUnlockUnitsBuf;
 
 	CArray2D1Bit bridgeTiles;
-	// ���� ����� - ����� �� ��������� �����, ������ � �.�.
 	CArray2D<BYTE> soil;
 
-	//
 	void CommonInit();
 	void InitMaxes();
 	void LoadPassabilities( const struct STerrainInfo &terrainInfo );
@@ -82,18 +67,13 @@ class CStaticMap
 	bool UnitLocksTile( const SVector &tile );
 	bool UnitUnlocksTile( const SVector &tile );
 
-	// �������� ������ ��� ������� ����� ������, ��� ����� AI_CLASS_ANY
-	// ���� ����������� ��� AI_CLASS_ANY, �� ����������� � ������� ������
 	bool IsLocked4Class( const int x, const int y, const BYTE aiClassIndex ) const
 	{ return x < 0 || y < 0 || x >= nSizeX || y >= nSizeY || buf[aiClassIndex].GetData( x, y ) || ( unitsBuf[y][x] * eMode * BYTE( aiClassIndex == classToIndex[AI_CLASS_ANY] ) ) != 0; }
-	// �������� ������ ��� ����� ������, ��� ����� AI_CLASS_ANY
 	bool IsLocked4Class( const SVector &coord, const BYTE aiClass ) const { return IsLocked4Class( coord.x, coord.y, aiClass ); }
 
-	//
 	void AddRiverTiles( const CTilesSet &tiles );
 	void AddEarthSeaTiles( const CTilesSet &tiles );
 
-	// ��� �������
 	bool CanPut( const int x, const int y, const int d, const BYTE aiClass );
 	void GetPoint4Spline( const CVec2 &vPoint, float *pu, float *pv, float ptCtrls[] ) const;
 public:
@@ -108,7 +88,6 @@ public:
 	void MemMode() { eMemMode = eMode; }
 	void RestoreMode() { eMode = eMemMode; }
 
-	// operation with tiles and coordinates
 	const int GetSizeX()	const	{ return nSizeX; }
 	const int GetSizeY() const	{ return nSizeY; }
 	const int GetCellsSizeX() const	{ return nCellsSizeX; }
@@ -116,15 +95,12 @@ public:
 	const int GetBigCellsSizeX() const	{ return nBigCellsSizeX; }
 	const int GetBigCellsSizeY() const	{ return nBigCellsSizeY; }
 	
-	// cell num by the cells coordinates
 	const int GetCellNum( int x, int y ) const	{	NI_ASSERT_T( x >= 0 && y >= 0, "Wrong coordinates in GetCellNum" ); return ( y*nCellsSizeX+x ); }
-	// big cell num by the cells coordinates
 	const int GetBigCellNum( int x, int y ) const	{	NI_ASSERT_T( x >= 0 && y >= 0, "Wrong coordinates in GetCellNum" ); return ( y*nCellsSizeX+x ); }
 
 	bool IsTileInside( const int x, const int y ) const { return x >= 0 && y >= 0 && x < nSizeX && y < nSizeY; }
 	bool IsTileInside( const SVector &tile ) const { return IsTileInside( tile.x, tile.y ); }
 
-	// �������� ������. ��������
 	void LockTile( const int x, const int y, const BYTE aiClasses )
 	{
 		if ( aiClasses == AI_CLASS_ANY )
@@ -138,7 +114,6 @@ public:
 			}
 		}
 	}
-	// ��������� �� ������. �������
 	void UnlockTile( const int x, const int y, const BYTE aiClasses )
 	{ 
 		if ( aiClasses == AI_CLASS_ANY )
@@ -156,7 +131,6 @@ public:
 	{
 		return IsLocked( x, y, AI_CLASS_HUMAN);
 	}
-	// �������� � ������ eMode
 	bool IsLocked ( const int x, const int y, const BYTE aiClass ) const 
 	{ return x < 0 || y < 0 || x >= nSizeX || y >= nSizeY || buf[classToIndex[aiClass]].GetData( x, y ) || buf[classToIndex[AI_CLASS_ANY]].GetData( x, y ) || ( unitsBuf[y][x] * eMode ) != 0; }
 	void LockTile( const SVector &coord, const BYTE aiClasses )	{ LockTile( coord.x, coord.y, aiClasses ); }
@@ -172,7 +146,6 @@ public:
 
 	BYTE GetTileLockInfo( const SVector &tile ) const { return GetTileLockInfo( tile.x, tile.y ); }
 
-	// �������� ��������� ��� ����� ������ ����������� ��������
 	bool IsStaticLocked4Class( const int x, const int y, const BYTE aiClass ) const
 	{ return x < 0 || y < 0 || x >= nSizeX || y >= nSizeY || buf[classToIndex[aiClass]].GetData( x, y ); }
 	bool IsStaticLocked4Class( const SVector &coord, const BYTE aiClass ) const { return IsStaticLocked4Class( coord.x, coord.y, aiClass ); }
@@ -183,7 +156,6 @@ public:
 	const DWORD GetNormal( const float x, const float y ) const;
 	const float GetTileHeight( const SVector &tile ) const;
 
-	// units related functions
 	bool CanUnitGo( const int nBoundTileRadius, const SVector &tile, const SVector &dir, const BYTE aiClass ) const
 	{	
 		const SVector tileToGo( tile + dir );
@@ -247,7 +219,6 @@ public:
 	bool IsPointInside( const float x, const float y ) const { return x >= 0 && y >= 0 && x < GetSizeX() * SAIConsts::TILE_SIZE && y < GetSizeY() * SAIConsts::TILE_SIZE; }
 	bool IsPointInside( const CVec2 &point ) const { return IsPointInside( point.x, point.y ); }
 
-	//
 	void SetTransparency( const int x, const int y, const BYTE cTransp ) { transparency[y][x] &= ~7; transparency[y][x] |= cTransp; }
 	void SetTransparency( const SVector &tile, const BYTE cTransp ) { SetTransparency( tile.x, tile.y, cTransp ); }
 	void RemoveTransparency( const int x, const int y ) { transparency[y][x] &= ~7; }
@@ -261,7 +232,6 @@ public:
 			return transparency[tile.y][tile.x] & 7;
 	}
 
-	//
 	void SetOneWayTransp( const int x, const int y, const BYTE cDir ) { transparency[y][x] &= 7; transparency[y][x] |= ( ( cDir << 1 ) | 1 ) << 3; }
 	void RemoveOneWayTransp( const int x, const int y ) { transparency[y][x] &= 7; }
 
@@ -283,13 +253,10 @@ public:
 	const ETerrainTypes GetTerrainType( const int nX, const int nY ) const;
 	const ETerrainTypes GetTerrainType( const SVector &tile ) const { return GetTerrainType( tile.x, tile.y ); }
 	
-	// true - ���� ��� ��������� unlock ��� ������, false - ���� ��� �� ����� ��� ������ unlock
 	bool TemporaryUnlockUnitRect( const int id );
 	void RemoveTemporaryUnlocking();
-	// ���� ���� id �������� ������ �����, �� �������
 	void RemoveTemporaryUnlockingByUnit( const int id );
 
-	// terrain passability
 	const float GetPass( const CVec2 &point ) const { return GetPass( point.x, point.y ); }
 	const float GetPass( const int nX, const int nY ) const
 	{
@@ -306,18 +273,13 @@ public:
 	}
 
 	const int GetTerrainPassabilityType( const int nX, const int nY ) const;
-	// ����������� ���� � ������������ � ������������� terrain
 	void RemoveTerrainPassability( const int nX, const int nY );
-	// � �������������� ���� ������� �������, ���� ������ ������
 	void UpdateTerrainPassabilityRect( const int nMinX, const int nMinY, const int nMaxX, const int nMaxY, bool bRemove );
-	// ������ ���� � ������������ ������������ � ������������ � terrain nTerrainType, 
 	void SetTerrainPassability( const int nX, const int nY, const int nTerrainType );
-	// �� ������ ����� ����� ��� terrain
 	const int GetTerrainPassTypeByTileNum( const int nTile ) { return terrSubTypes[nTile]; }
 	const bool CanDigEntrenchment( const int x, const int y ) const;
 	const void AddUndigableTiles( const CTilesSet &tiles );
 	
-	// is the tile on a bridge?
 	const bool IsBridge( const SVector &tile ) const;
 	void AddBridgeTile( const SVector &tile );
 	void RemoveBridgeTile( const SVector &tile );
@@ -330,7 +292,6 @@ public:
 
 	void UpdateRiverPassability( const SVectorStripeObject &river, bool bAdd, bool bUpdate );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTemporaryUnitRectUnlocker
 {
 	bool bLocking;
@@ -338,5 +299,4 @@ public:
 	explicit CTemporaryUnitRectUnlocker( const int nUnitID );
 	~CTemporaryUnitRectUnlocker();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __AI_STATIC_MAP_H__

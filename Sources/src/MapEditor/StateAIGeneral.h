@@ -10,8 +10,6 @@
 #include "InputMultiState.h"
 #include "DrawingTools.h"
 
-//CVectorStripeActivePoint
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct CAIGActivePoint
 {
 	int nIndex;
@@ -20,11 +18,9 @@ struct CAIGActivePoint
 	bool bArrow;
 	bool isValid;
 
-	//конструкторы и операторы присваивания
 	CAIGActivePoint() : nIndex( 0 ), vDifference( VNULL3 ), bParcel( true ), bArrow( false ), isValid( false ) {} 
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAIGSelectState : private IInputState
 {
 	friend class CInputMultiState;
@@ -44,13 +40,11 @@ class CAIGSelectState : private IInputState
 								 NStr::Format( "Invalid parameter: %x", pParentState ) );
 	}
 
-	//IState interface
 	virtual void STDCALL OnLButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame );
 	virtual void STDCALL OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame );
 	virtual void STDCALL OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags, CTemplateEditorFrame* pFrame );
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAIGEditState : public IInputState
 {
 	friend class CInputMultiState;
@@ -69,13 +63,11 @@ class CAIGEditState : public IInputState
 								 NStr::Format( "Invalid parameter: %x", pParentState ) );
 	}
 
-	//IState interface
 	virtual void STDCALL OnLButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame );
 	virtual void STDCALL OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame );
 	virtual void STDCALL OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags, CTemplateEditorFrame* pFrame );
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAIGAddState : public IInputState
 {
 	friend class CInputMultiState;
@@ -94,15 +86,8 @@ class CAIGAddState : public IInputState
 								 NStr::Format( "Invalid parameter: %x", pParentState ) );
 	}
 
-	//IState interface
-	//virtual void STDCALL OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame );
-	//virtual void STDCALL OnLButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame );
-	//virtual void STDCALL OnLButtonDblClk( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame );
-	//virtual void STDCALL OnRButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame );
-	//virtual void STDCALL OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags, CTemplateEditorFrame* pFrame );
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAIGState : public CInputMultiState
 {
 	enum INPUT_STATES_AIG
@@ -147,13 +132,10 @@ protected:
 private:
 	CAIGActivePoint activePoint;
 
-	//common tools
 	CInputStateParameter stateParameter;
 	CSceneDrawTool sceneDrawTool;
 	
-	//common methods
 
-	//IState interface
 	virtual void STDCALL Enter();
 	virtual void STDCALL Leave();
 	virtual void STDCALL Update();
@@ -180,5 +162,4 @@ public:
 		SetActiveState( STATE_SELECT );
 	}
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // !defined(__State__AI_General__)

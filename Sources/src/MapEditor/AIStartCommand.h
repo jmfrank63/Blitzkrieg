@@ -8,7 +8,6 @@
 #include "..\Formats\FmtMap.h"
 #include "..\Misc\Manipulator.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTemplateEditorFrame;
 
 class CMutableAIStartCommand;
@@ -37,19 +36,13 @@ public:
 class CMutableAIStartCommand : public SAIStartCommand
 {
 public:
-	//добавочные поля
 	std::list<SMapObject*> pMapObjects;
 	bool flag;
 	
-	//манипулятор
 	virtual IManipulator* GetManipulator();
-	//void Update( CTemplateEditorFrame *pFrame );
-	//static void Update( TMutableAIStartCommandList *pCommands, CTemplateEditorFrame *pFrame );
 
-	//конструктор
 	CMutableAIStartCommand() : flag( false ) {}
 	
-	//преобразование
 	CMutableAIStartCommand( const SAIStartCommand &rAIStartCommand )
 		: flag( false ),
 			SAIStartCommand( rAIStartCommand ) {}
@@ -59,7 +52,6 @@ public:
 	}
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAIStartCommandManipulator : public CManipulator
 {
 	OBJECT_MINIMAL_METHODS( SAIStartCommandManipulator );
@@ -86,5 +78,4 @@ public:
 
 	inline void SetObject( CMutableAIStartCommand *_pMutableObject ) { pMutableObject = _pMutableObject; }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // !defined(__AIStartCommand__MANIPULATOR__)

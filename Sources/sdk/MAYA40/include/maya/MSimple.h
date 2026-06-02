@@ -3,32 +3,10 @@
 #endif
 #ifndef _MSimple
 #define _MSimple
-//
-// *****************************************************************************
-//
-// Copyright (C) 1997-2001 Alias|Wavefront Inc.
-//
-// These coded instructions, statements and computer programs contain
-// unpublished information proprietary to Alias|Wavefront Inc. and are 
-// protected by Canadian and US federal copyright laws. They may not be 
-// disclosed to third parties or copied or duplicated, in whole or in part, 
-// without prior written consent of Alias|Wavefront Inc.
-//
-// Unpublished-rights reserved under the Copyright Laws of the United States.
-//
-// *****************************************************************************
-//
-// CLASS:    MSimple
-//
-// *****************************************************************************
-//
-// *****************************************************************************
 
 #if defined __cplusplus
 
-// *****************************************************************************
 
-// INCLUDED HEADER FILES
 
 #include <maya/MString.h>
 #include <maya/MArgList.h>
@@ -36,7 +14,6 @@
 #include <maya/MPxCommand.h>
 #include <maya/MObject.h>
 
-///
 /**
   This header contains two macros that can be used to simplify the creation
   of plug-in commands.
@@ -131,7 +108,6 @@ MStatus uninitializePlugin( MObject _obj )						\
 	return stat;												\
 }
 
-// *****************************************************************************
 
 #endif /* __cplusplus */
 #endif /* _MSimple */

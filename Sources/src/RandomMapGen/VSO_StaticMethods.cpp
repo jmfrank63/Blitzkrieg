@@ -1,7 +1,6 @@
 #include "StdAfx.h"
 
 #include "..\Misc\Spline.h"
-//#include "..\AILogic\AILogic.h"
 #include "..\Formats\fmtTerrain.h"
 #include "VSO_Types.h"
 
@@ -11,13 +10,11 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CVSOBuilder::DEFAULT_WIDTH = 120.0f;
 const float CVSOBuilder::DEFAULT_HEIGHT = 0.0f;
 const float CVSOBuilder::DEFAULT_STEP = 30.0f;
 const float CVSOBuilder::DEFAULT_OPACITY = 1.0f;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CVSOBuilder::SliceSpline( const CAnalyticBSpline2 &spline,
 															std::list<SVectorStripeObjectPoint> *pPoints,
 															float *pfRest,
@@ -35,7 +32,6 @@ int CVSOBuilder::SliceSpline( const CAnalyticBSpline2 &spline,
 		while ( fLen < fStep ) 
 		{
 			vLastPos = vPos;
-			// make step
 			fT += dt;
 			vPos = spline.Get( fT );
 			fLen += fabs( vLastPos - vPos );
@@ -44,7 +40,6 @@ int CVSOBuilder::SliceSpline( const CAnalyticBSpline2 &spline,
 		}
 		if ( (fT > 1) || (fLen < fStep) ) 
 			break;
-		//
 		SVectorStripeObjectPoint point;
 		point.vPos = spline( fT );
 		point.vNorm = spline.GetDiff1( fT );
@@ -54,16 +49,12 @@ int CVSOBuilder::SliceSpline( const CAnalyticBSpline2 &spline,
 		point.fRadius = spline.GetCurvatureRadius( fT );
 		pPoints->push_back( point );
 		fLastT = fT;
-		//
 		++nCounter;
 	}
 	pPoints->back().bKeyPoint = true;
-	//
 	*pfRest = spline.GetLength( fLastT, 1.0f, 100 );
-	//
 	return nCounter;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
 int CVSOBuilder::SliceSpline( const CAnalyticBSpline2 &spline,
 															std::list<SVectorStripeObjectPoint> *pPoints,
@@ -73,7 +64,6 @@ int CVSOBuilder::SliceSpline( const CAnalyticBSpline2 &spline,
 	int nCounter = 0;
 	const float dt = spline.GetStep( fStep );
 	float t = *pfRest == 0 ? dt : spline.GetStep( fStep - *pfRest );
-	// do other steps
 	for ( ; t <= 1; t += dt, ++nCounter )
 	{
 		pPoints->push_back( SVectorStripeObjectPoint() );
@@ -83,17 +73,13 @@ int CVSOBuilder::SliceSpline( const CAnalyticBSpline2 &spline,
 		point.vNorm.Set( -point.vNorm.y, point.vNorm.x, 0 );
 		point.bKeyPoint = false;
 		Normalize( &point.vNorm );
-		//
 		point.fRadius = spline.GetCurvatureRadius( t );
 	}
 	pPoints->back().bKeyPoint = true;
-	//
 	*pfRest = spline.GetLength() - spline.GetLength( t - dt );
-	//
 	return nCounter;
 }
 */
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOBuilder::SampleCurve( const std::vector<CVec3> &rControlPoints,
 															 std::vector<SVectorStripeObjectPoint> *pPoints,
 															 float fStep, 
@@ -105,7 +91,6 @@ void CVSOBuilder::SampleCurve( const std::vector<CVec3> &rControlPoints,
 	NI_ASSERT_T( pPoints != 0,
 							 NStr::Format( "Wrong parameter: %x\n", pPoints ) );
 
-	//collect spline points
 	std::vector<CVec3> plots;
 	plots.push_back( rControlPoints[0] - 
 									 ( rControlPoints[1] - rControlPoints[0] ) );
@@ -116,7 +101,6 @@ void CVSOBuilder::SampleCurve( const std::vector<CVec3> &rControlPoints,
 	plots.push_back( rControlPoints[rControlPoints.size() - 1] + 
 									 ( rControlPoints[rControlPoints.size() - 1] - rControlPoints[rControlPoints.size() - 2] ) );
 
-	//form spline points
 	const float fSplineStep = fStep;
 	float fRestLength = fSplineStep - 1e-8f;
 	std::list<SVectorStripeObjectPoint> points;
@@ -140,14 +124,11 @@ void CVSOBuilder::SampleCurve( const std::vector<CVec3> &rControlPoints,
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOBuilder::SmoothCurveWidth( std::vector<SVectorStripeObjectPoint> *pPoints )
 {
 	NI_ASSERT_T( pPoints != 0,
 							 NStr::Format( "Wrong parameter: %x\n", pPoints ) );
 
-	// count key points
-	// collect key point indices in the vector
 	std::vector<int> keyPoints;
 	std::vector<float> widths;
 	widths.reserve( pPoints->size() );
@@ -160,7 +141,6 @@ void CVSOBuilder::SmoothCurveWidth( std::vector<SVectorStripeObjectPoint> *pPoin
 		widths.push_back( ( *pPoints )[nPointIndex].fWidth );
 	}
 
-	// form indices for spline
 	std::vector<int> indices;
 	indices.reserve( keyPoints.size() + 4 );
 	indices.push_back( 0 );
@@ -195,14 +175,12 @@ void CVSOBuilder::SmoothCurveWidth( std::vector<SVectorStripeObjectPoint> *pPoin
 		}
 	}
 
-	// write widths to the result array
 	for ( int nPointIndex = 0; nPointIndex < pPoints->size(); ++nPointIndex )
 	{
 		( *pPoints )[nPointIndex].fWidth = widths[nPointIndex];
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVSOBuilder::UpdateZ( const STerrainInfo::TVertexAltitudeArray2D &rAltitude, CVec3 *pPos )
 {
 	NI_ASSERT_T( pPos != 0,
@@ -221,7 +199,6 @@ bool CVSOBuilder::UpdateZ( const STerrainInfo::TVertexAltitudeArray2D &rAltitude
 	/**/
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVSOBuilder::UpdateZ( const STerrainInfo::TVertexAltitudeArray2D &rAltitude, SVectorStripeObject *pVectorStripeObject )
 {
 	NI_ASSERT_T( pVectorStripeObject != 0,
@@ -245,13 +222,11 @@ bool CVSOBuilder::UpdateZ( const STerrainInfo::TVertexAltitudeArray2D &rAltitude
 	return bResult;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVSOBuilder::Update( SVectorStripeObject *pVectorStripeObject, bool bKeepKeyPoints, float fStep, float fWidth, float fOpacity )
 {
 	NI_ASSERT_T( pVectorStripeObject != 0,
 							 NStr::Format( "Wrong parameter: %x\n", pVectorStripeObject ) );
 	
-	//сохряняем ширины
 	SBackupKeyPoints backupKeyPoints;
 	if ( bKeepKeyPoints )
 	{
@@ -270,7 +245,6 @@ bool CVSOBuilder::Update( SVectorStripeObject *pVectorStripeObject, bool bKeepKe
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVSOBuilder::GetVSOPointPolygon( const SVectorStripeObject &rVectorStripeObject, int nPointIndex, std::vector<CVec3> *pPolygon, float fRelWidth )
 {
 	NI_ASSERT_T( pPolygon != 0,
@@ -294,7 +268,6 @@ bool CVSOBuilder::GetVSOPointPolygon( const SVectorStripeObject &rVectorStripeOb
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVSOBuilder::GetPointsSequence( const SVSOCircle &rCircleBegin, const SVSOCircle &rCircleEnd, int nSegmentsCountBegin, int nSegmentsCountEnd, std::list<CVec2> *pPointsSequence )
 {
 	NI_ASSERT_TF( pPointsSequence != 0,
@@ -365,7 +338,6 @@ bool CVSOBuilder::GetPointsSequence( const SVSOCircle &rCircleBegin, const SVSOC
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVSOBuilder::GetPointsSequence( const CVec2 &vBegin0, const CVec2 &vEnd0, float fRadius0, int nSegmentsCount0, bool bBegin0,
 																		 const CVec2 &vBegin1, const CVec2 &vEnd1, float fRadius1, int nSegmentsCount1, bool bBegin1,
 																		 std::list<CVec2> *pPointsSequence )
@@ -457,7 +429,6 @@ bool CVSOBuilder::GetPointsSequence( const CVec2 &vBegin0, const CVec2 &vEnd0, f
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVSOBuilder::FindPath( const CVec2 &vBegin0, const CVec2 &vEnd0, bool bBegin0,
 														const CVec2 &vBegin1, const CVec2 &vEnd1, bool bBegin1,
 														float fRadius, int nSegmentsCount, float fMinEdgeLength, float fDistance, float fDisturbance,
@@ -468,7 +439,6 @@ bool CVSOBuilder::FindPath( const CVec2 &vBegin0, const CVec2 &vEnd0, bool bBegi
 	{
 		return false;
 	}
-	//std::list<CVec2> currentPath0;
 	if ( !GetPointsSequence( vBegin0, vEnd0, fRadius, nSegmentsCount, bBegin0, vBegin1, vEnd1, fRadius, nSegmentsCount, bBegin1, pPointsSequence ) )
 	{
 		return false;
@@ -585,11 +555,9 @@ bool CVSOBuilder::FindPath( const CVec2 &vBegin0, const CVec2 &vEnd0, bool bBegi
 											 &currentPath1, rLockedPolygons, pUsedPoints,
 											 nDepth - 1 ) )
 				{
-					//слить оболочки
 					pPointsSequence->insert( pPointsSequence->end(), currentPath0.begin(), currentPath0.end() );
 					currentPath1.erase( currentPath1.begin() );
 					pPointsSequence->insert( pPointsSequence->end(), currentPath1.begin(), currentPath1.end() );
-					//UniquePolygon<std::list<CVec2>, CVec2>( pPointsSequence, RMGC_MINIMAL_VIS_POINT_DISTANCE );
 					return true;
 				}
 				else
@@ -603,13 +571,10 @@ bool CVSOBuilder::FindPath( const CVec2 &vBegin0, const CVec2 &vEnd0, bool bBegi
 	}
 	
 	pPointsSequence->insert( pPointsSequence->end(), currentPath0.begin(), currentPath0.end() );
-	//UniquePolygon<std::list<CVec2>, CVec2>( pPointsSequence, RMGC_MINIMAL_VIS_POINT_DISTANCE );
 	return true;
 	/**/
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//первый VSO продолжается на 2 controlPoints, край уводится в 0
 bool CVSOBuilder::MergeVSO( SVectorStripeObject *pVSO0, bool bVSO0Begin,
 														SVectorStripeObject *pVSO1, bool bVSO1Begin )
 {
@@ -742,7 +707,6 @@ bool CVSOBuilder::MergeVSO( SVectorStripeObject *pVSO0, bool bVSO0Begin,
 	return true;
 }
 
-//вернуть первую не нулевую высоту или высоту на конце ( true )
 float CVSOBuilder::GetVSOEdgeHeght( const STerrainInfo::TVertexAltitudeArray2D &rAltitude, const SVectorStripeObject &rVectorStripeObject, bool bBegin, bool bFirst )
 {
 	float fHeight = 0.0f;
@@ -771,6 +735,3 @@ float CVSOBuilder::GetVSOEdgeHeght( const STerrainInfo::TVertexAltitudeArray2D &
 	return fHeight;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// basement storage  
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

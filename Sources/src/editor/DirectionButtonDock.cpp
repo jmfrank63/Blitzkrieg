@@ -11,22 +11,17 @@ CDirectionButtonDockBar::~CDirectionButtonDockBar()
 
 
 BEGIN_MESSAGE_MAP(CDirectionButtonDockBar, SECControlBar)
-//{{AFX_MSG_MAP(CDirectionButtonDockBar)
 ON_WM_CREATE()
 ON_WM_SIZE()
-//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CDirectionButtonDockBar message handlers
 
 int CDirectionButtonDockBar::OnCreate(LPCREATESTRUCT lpCreateStruct) 
 {
 	if (SECControlBar::OnCreate(lpCreateStruct) == -1)
 		return -1;
 	
-	// create a list control
 	DWORD dwStyle = WS_CHILD | WS_VISIBLE | WS_BORDER;
 	m_DirectionButton.Create( 0, "Direction button", dwStyle,
 		CRect(0, 0, 0, 0), this, 3000 );

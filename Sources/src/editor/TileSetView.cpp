@@ -10,8 +10,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CTileSetView
 
 CTileSetView::CTileSetView()
 {
@@ -23,15 +21,11 @@ CTileSetView::~CTileSetView()
 
 
 BEGIN_MESSAGE_MAP(CTileSetView, CWnd)
-//{{AFX_MSG_MAP(CTileSetView)
 ON_WM_PAINT()
 ON_WM_SIZE()
-//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CTileSetView message handlers
 
 BOOL CTileSetView::PreCreateWindow(CREATESTRUCT& cs) 
 {

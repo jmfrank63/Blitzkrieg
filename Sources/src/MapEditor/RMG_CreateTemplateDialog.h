@@ -10,13 +10,11 @@
 #include "..\RandomMapGen\RMG_Types.h"
 #include "PropertieDialog.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CALLBACK CT_TemplatesCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
 int CALLBACK CT_FieldsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
 int CALLBACK CT_VSOCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
 int CALLBACK CT_TemplateGraphsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTemplateUnitsDialog : public CPropertieDialog
 {
 	public:
@@ -45,7 +43,6 @@ class CTemplateUnitsDialog : public CPropertieDialog
 	}
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRMGCreateTemplateDialog : public CResizeDialog
 {
 	friend int CALLBACK CT_TemplatesCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
@@ -56,7 +53,6 @@ class CRMGCreateTemplateDialog : public CResizeDialog
 public:
 	CRMGCreateTemplateDialog( CWnd* pParent = NULL );
 
-	//{{AFX_DATA(CRMGCreateTemplateDialog)
 	enum { IDD = IDD_RMG_CREATE_TEMPLATE };
 	CEdit	m_ScriptFileNameEdit;
 	CListCtrl	m_VSOList;
@@ -64,15 +60,11 @@ public:
 	CListCtrl	m_GraphsList;
 	CListCtrl	m_TemplatesList;
 	CComboBox	m_MODComboBox;
-	//}}AFX_DATA
 
-	//{{AFX_VIRTUAL(CRMGCreateTemplateDialog)
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);
-	//}}AFX_VIRTUAL
 
 protected:
-	//{{AFX_MSG(CRMGCreateTemplateDialog)
 	virtual BOOL OnInitDialog();
 	virtual void OnOK();
 	virtual void OnCancel();
@@ -132,15 +124,11 @@ protected:
 	afx_msg void OnTemplateDiplomacyButton();
 	afx_msg void OnTemplateDiplomacyMenu();
 	afx_msg void OnSelchangeModComboBox();
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
-	//afx_msg void OnSelchangeForestsCircleSoundCombo();
-	//afx_msg void OnSelchangeForestsAmbientSoundCombo();
 
 protected:
 	const static int vID[];
 	CRMTemplatesHashMap templates;
-	//bool isChanged;
 	
 	std::string szMODNameBackup;
 	std::string szMODVersionBackup;
@@ -174,5 +162,4 @@ protected:
 	void UpdateControls();
 public:
 };
-//{{AFX_INSERT_LOCATION}}
 #endif // !defined(__RMG_Create_Template_Dialog__)

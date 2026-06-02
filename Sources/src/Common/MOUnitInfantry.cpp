@@ -14,7 +14,6 @@
 #include "..\Misc\Win32Random.h"
 #include "ObjectStatus.h"
 #include "..\Misc\Checker.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline const int GetHPIconState( const float fHP )
 {
 	if ( fHP <= 0.7f ) 
@@ -24,7 +23,6 @@ inline const int GetHPIconState( const float fHP )
 	else
 		return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline const char* GetNameWithSeason( const int nSeason, const bool bTakeBloodyInAccount )
 {
 	const bool bBloody = bTakeBloodyInAccount ? GetGlobalVar( "Options.GFX.Blood", 0 ) : false;
@@ -50,14 +48,12 @@ inline const char* GetNameWithSeason( const int nSeason, const bool bTakeBloodyI
 		return "\\1";
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMOUnitInfantry::CMOUnitInfantry()
 : nDeadCounter( 0 )
 {
 	fTraceProbabilityCoeff = GetGlobalVar( "Scene.GunTrace.ProbabilityCoeff", 1.0f );
 	fTraceSpeedCoeff = GetGlobalVar( "Scene.GunTrace.SpeedCoeff", 1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMOUnitInfantry::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDescLocal, int _nSeason, int nFrameIndex, 
 														  float fNewHP, interface IVisObjBuilder *pVOB, IObjectsDB *pGDB )
 {
@@ -67,26 +63,19 @@ bool CMOUnitInfantry::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDes
 	NI_ASSERT_TF( pRPG != 0, NStr::Format("Can't find RPG stats for object \"%s\"", pDesc->szKey.c_str()), return 0 );
 	if ( pRPG == 0 )
 		return false;
-	// create main vis obj:
-	// try bloody
 	{
 		const std::string szModelName = GetNameWithSeason( GetSeason(), true );
 		pVisObj = pVOB->BuildObject( (pDesc->szPath + szModelName).c_str(), 0, pDesc->eVisType );
 	}
-	// try non-bloody variant
 	if ( pVisObj == 0 ) 
 	{
 		const std::string szModelName = GetNameWithSeason( GetSeason(), false );
 		pVisObj = pVOB->BuildObject( (pDesc->szPath + szModelName).c_str(), 0, pDesc->eVisType );
 		NI_ASSERT_T( pVisObj != 0, NStr::Format("Can't create object \"%s\" from path \"%s\"", pDesc->szKey.c_str(), pDesc->szPath.c_str()) );
 	}
-	// set scenario index
 	SetScenarioIndex( nFrameIndex );
-	//
 	CommonUpdateHP( fNewHP / pRPG->fMaxHP );
-	//
 	pAIObj = pAIObjLocal;
-	// add HP bar
 	ISceneIconBar *pBar;
 	if ( GetGlobalVar("MultiplayerGame", 0) == 1 )
 		pBar = static_cast<ISceneIconBar*>( pVOB->BuildSceneObject( "icons\\infhpmp", SCENE_OBJECT_TYPE_ICON, ICON_HP_BAR ) );
@@ -101,41 +90,31 @@ bool CMOUnitInfantry::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDes
 	szVarName = szVarName + GetGlobalVar( "World.Season", "Summer" ) + ".Direction.";
 	vSunDir = CVec3( GetGlobalVar((szVarName + "X").c_str(), 1), GetGlobalVar((szVarName + "Y").c_str(), 1), GetGlobalVar((szVarName + "Z").c_str(), -2) );
 	Vis2AI( &vSunDir, vSunDir );
-	//
 	UpdateVisibility();
-	//
 	CMOUnit::OnCreate();
-	//
 	return pVisObj != 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// visiting
 void CMOUnitInfantry::Visit( IMapObjVisitor *pVisitor )
 {
 	pVisitor->VisitSprite( pVisObj, pDesc->eGameType, pDesc->eVisType );
 	if ( pShadow ) 
 		pVisitor->VisitSprite( pShadow, SGVOGT_SHADOW, SGVOT_SPRITE );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitInfantry::GetStatus( struct SMissionStatusObject *pStatus ) const
 {
 	CMOUnit::GetStatus( pStatus );
 	GetStatusFromRPGStats( pStatus, GetRPGStats(), IsEnemy() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// get actions, which this object can perform or actions, thi object can be acted with
 void CMOUnitInfantry::GetActions( CUserActions *pActions, EActionsType eActions ) const
 {
 	CUserActions acts;
 	GetActionsLocal( eActions, &acts );
-	//
 	if ( IsValid() && pSquad )
 	{
 		CUserActions acts2;
 		pSquad->GetActions( &acts2, eActions );
 		acts |= acts2;
 	}
-	// check for reduced actions set in building
 	if ( GetContainer() ) 
 	{
 		if ( acts.HasAction(USER_ACTION_MOVE) ) 
@@ -151,7 +130,6 @@ void CMOUnitInfantry::GetActions( CUserActions *pActions, EActionsType eActions 
 		*pActions |= acts;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitInfantry::UpdateVisibility()
 {
 	if ( GetContainer() ) 
@@ -172,7 +150,6 @@ void CMOUnitInfantry::UpdateVisibility()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitInfantry::UpdateHPBarVisibility( const float fHP )
 {
 	if ( ISceneIcon *pIcon = GetVisObj()->GetIcon(ICON_HP_BAR) )
@@ -185,12 +162,10 @@ void CMOUnitInfantry::UpdateHPBarVisibility( const float fHP )
 			pIcon->Enable( false );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMOUnitInfantry::AIUpdateRPGStats( const SAINotifyRPGStats &stats, IVisObjBuilder *pVOB, IScene * pScene )
 {
 	const float fNewHP = stats.fHitPoints / GetRPG()->fMaxHP;
 
-	//
 	const int nOldHPIconState = GetHPIconState( fHP );
 	const int nNewHPIconState = GetHPIconState( fNewHP );
 	if ( nOldHPIconState != nNewHPIconState ) 
@@ -198,12 +173,9 @@ bool CMOUnitInfantry::AIUpdateRPGStats( const SAINotifyRPGStats &stats, IVisObjB
 		if ( ISceneIcon *pIcon = GetVisObj()->GetIcon(ICON_HP_BAR) )
 			UpdateHPBarVisibility( fNewHP );
 	}
-	//
 	CommonUpdateRPGStats( fNewHP, stats, pVOB );
-	//
 	return fNewHP > 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitInfantry::AIUpdatePlacement( const struct SAINotifyPlacement &placement, const NTimer::STime &currTime, IScene *pScene )
 {
 	CMOUnit::AIUpdatePlacement( placement, currTime, pScene );
@@ -211,7 +183,6 @@ void CMOUnitInfantry::AIUpdatePlacement( const struct SAINotifyPlacement &placem
 	{
 		if ( (placement.fSpeed > 0) && (pAnim->GetAnimation() > 0) ) 
 		{
-			// киломерты/час <=> точки/тик
 			const float fAnimSpeed = pAnim->GetSpeed() * float( ( 1000.0 * double( SAIConsts::TILE_SIZE ) ) / ( 3600.0 * 1000.0 ) );
 			pAnim->SetAnimSpeedCoeff( placement.fSpeed / fAnimSpeed );
 		}
@@ -233,7 +204,6 @@ void CMOUnitInfantry::AIUpdatePlacement( const struct SAINotifyPlacement &placem
 		pShadow->Update( currTime );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IMapObj* CMOUnitInfantry::AIUpdateFireWithProjectile( const SAINotifyNewProjectile &projectile,
 																										  const NTimer::STime &currTime, interface IVisObjBuilder *pVOB )
 {
@@ -242,7 +212,6 @@ IMapObj* CMOUnitInfantry::AIUpdateFireWithProjectile( const SAINotifyNewProjecti
 	NI_ASSERT_SLOW_T( gun.pWeapon != 0, NStr::Format("Weapon \"%s\" in gun %d of the soldier \"%s\" are empty", gun.szWeapon.c_str(), projectile.nGun, pDesc->szKey.c_str()) );
 	CheckRange( gun.pWeapon->shells, projectile.nShell );
 	const SWeaponRPGStats::SShell &shell = gun.pWeapon->shells[projectile.nShell];
-	//
 	IMOEffect *pMO = 0;
 	if ( !shell.szEffectTrajectory.empty() )
 	{
@@ -254,17 +223,12 @@ IMapObj* CMOUnitInfantry::AIUpdateFireWithProjectile( const SAINotifyNewProjecti
 			pMO = 0;
 		}
 	}
-	//
 	if ( pMO == 0 ) 
 		return 0;
-	//
 	pMO->SetPlacement( VNULL3, 0 );
-	//
 	static_cast<CMOProjectile*>(pMO)->Init( projectile.startTime, projectile.flyingTime, CVec3(0, 0, 15) );
-	//
 	return pMO;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMOUnitInfantry::AIUpdateActions( const struct SAINotifyAction &action, const NTimer::STime &currTime, IVisObjBuilder *pVOB, IScene *pScene, interface IClientAckManager *pAckManager )
 {
 	bool bDieAnimation = false;
@@ -278,21 +242,16 @@ int CMOUnitInfantry::AIUpdateActions( const struct SAINotifyAction &action, cons
 				pScene->RemoveObject( pShadow );
 				pShadow = 0;
 			}
-			// TRICK: here we needn't a 'break' statement
 		case ACTION_NOTIFY_DIE_LYING:
 			nAnimation = GetAnimationFromAction( action.typeID );
-			// TRICK: here we needn't a 'break' statement
 		case ACTION_NOTIFY_DIE_TRENCH:
 		case ACTION_NOTIFY_DIE_BUILDING:
 		case ACTION_NOTIFY_DIE_TRANSPORT:
 			SendDeathAcknowledgement( pAckManager, currTime - Min( action.time, currTime )  );
 			pAckManager->UnitDead( this, pScene );
-			// "выходим" его из контейнера
 			if ( GetContainer() )
 				GetContainer()->Load( this, false );
-			// при смерти удаляем все иконки из объекта
 			GetVisObj()->RemoveIcon( -1 );
-			// если перец умер в домике или в машинке, то он невидимый
 			SetVisible( !((action.typeID == ACTION_NOTIFY_DIE_BUILDING) || (action.typeID == ACTION_NOTIFY_DIE_TRANSPORT)) );
 			bDieAnimation = true;
 			break;
@@ -313,18 +272,15 @@ int CMOUnitInfantry::AIUpdateActions( const struct SAINotifyAction &action, cons
 				IObjectsDB *pGDB = GetSingleton<IObjectsDB>();
 				pDesc = pGDB->GetDesc( action.nParam );
 				pRPG = NGDB::GetRPGStats<SHPObjectRPGStats>( pGDB, pDesc );
-				// bloody variant
 				ChangeWithBlood( pVOB );
 				ClearLocalName();
 				GetVisObj()->AddIcon( 0, 0, VNULL3, VNULL3, 0, 0 );
-				// remove shadow from parashute
 				if ( pShadow )
 				{
 					pScene->RemoveObject( pShadow );
 					pShadow = 0;
 				}
 			}
-			// bound this unit 
 			pScene->RemoveObject( pVisObj );
 			pScene->AddObject( pVisObj, SGVOGT_UNIT, pDesc );
 			break;
@@ -339,7 +295,6 @@ int CMOUnitInfantry::AIUpdateActions( const struct SAINotifyAction &action, cons
 					pShadow->SetPosition( pVisObj->GetPosition() );
 					pScene->AddObject( pShadow, SGVOGT_SHADOW );
 				}
-				// make this unit outbound
 				pScene->RemoveObject( pVisObj );
 				pScene->AddOutboundObject( pVisObj, SGVOGT_UNIT );
 			}
@@ -347,7 +302,6 @@ int CMOUnitInfantry::AIUpdateActions( const struct SAINotifyAction &action, cons
 		default:
 			return CMOUnit::AIUpdateActions( action, currTime, pVOB, pScene, pAckManager );
 	}
-	//
 	if ( (nAnimation != -1) && (nDeadCounter < 100) ) 
 	{
 		IAnimation *pAnimation = GetAnim();
@@ -359,34 +313,27 @@ int CMOUnitInfantry::AIUpdateActions( const struct SAINotifyAction &action, cons
 			pAnim->SetAnimation( nAnimation );
 			pAnim->SetStartTime( Min(action.time, currTime) );
 		}
-		// re-arrange icons
 		if ( CanShowIcons() ) 
 			GetVisObj()->AddIcon( 0, 0, GetIconAddValue(), VNULL3, 0, 0 );
-		// forbid other animations
 		if ( bDieAnimation ) 
 			nDeadCounter = 100;
 	}
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitInfantry::AIUpdateHit( const struct SAINotifyHitInfo &hit, const NTimer::STime &currTime, IScene *pScene, IVisObjBuilder *pVOB )
 {
 	if ( hit.wShell >= hit.pWeapon->shells.size() )
 		return;
 	const SWeaponRPGStats::SShell &shell = hit.pWeapon->shells[hit.wShell];
 	const CVec3 &vPos = pVisObj->GetPosition();
-	//PlayEffect( *GetHitEffect(hit, shell), vPos, currTime, false, pScene, pVOB );
 	if ( (hit.eHitType != SAINotifyHitInfo::EHT_HIT) || (shell.fArea > 0) ) 
 		PlayEffect( shell.szEffectHitGround, vPos, currTime, false, pScene, pVOB, 0, SFX_MIX_IF_TIME_EQUALS, SAM_ADD_N_FORGET, ESCT_COMBAT );
-	//
 	if ( shell.HasCraters() ) 
 		SetCraterEffect( shell.GetRandomCrater(), GetSeason(), vPos, 110, pScene, pVOB );
-	// flash
 	if ( shell.flashExplosion.HasFlash() ) 
 		SetFlashEffect( shell.flashExplosion, currTime, vPos, GetFlashExpColor(), pScene, pVOB );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitInfantry::Select( ISelector *pSelector, bool bSelect, bool bSelectSuper )
 {
 	if ( bSelectSuper && pSquad )
@@ -397,7 +344,6 @@ void CMOUnitInfantry::Select( ISelector *pSelector, bool bSelect, bool bSelectSu
 		UpdateHPBarVisibility( fHP );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitInfantry::AIUpdateShot( const struct SAINotifyBaseShot &_shot, const NTimer::STime &currTime, 
 																		  IVisObjBuilder *pVOB, IScene *pScene )
 {
@@ -411,14 +357,12 @@ void CMOUnitInfantry::AIUpdateShot( const struct SAINotifyBaseShot &_shot, const
 		AI2Vis( &vEnd, shot.vDestPos );
 		UpdateGunTraces( vStart, vEnd, AI2VisX(shell.fSpeed) * shell.fTraceSpeedCoeff * fTraceSpeedCoeff, shot.time, pScene );
 	}
-	// sound
 	if ( !shell.szFireSound.empty() )
 	{
 		pScene->AddSound( shell.szFireSound.c_str(), pVisObj->GetPosition(),
 											SFX_MIX_IF_TIME_EQUALS, SAM_ADD_N_FORGET, ESCT_COMBAT, 1, 100 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitInfantry::MakeVisible( const bool bVisible )
 {
 	if ( GetContainer() ) 
@@ -429,7 +373,6 @@ void CMOUnitInfantry::MakeVisible( const bool bVisible )
 	else
 		GetVisObj()->SetVisible( bVisible );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitInfantry::SetSquad( interface IMOSquad *_pSquad )
 {
 	if ( pSquad )
@@ -447,13 +390,11 @@ void CMOUnitInfantry::SetSquad( interface IMOSquad *_pSquad )
 		SetObserver( 0 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitInfantry::SetContainer( IMOContainer *_pContainer )
 {
 	CMOUnit::SetContainer( _pContainer );
 	if ( _pContainer == 0 ) 
 	{
-		// enable icons on unload
 		IObjVisObj *pVisObj = GetVisObj();
 		for ( int i = 1; i < ICON_NUM_ICONS; ++i )
 		{
@@ -462,7 +403,6 @@ void CMOUnitInfantry::SetContainer( IMOContainer *_pContainer )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMOUnitInfantry::ChangeWithBlood( IVisObjBuilder *pVOB )
 {
 	bool bChanged = false;
@@ -470,7 +410,6 @@ bool CMOUnitInfantry::ChangeWithBlood( IVisObjBuilder *pVOB )
 		const std::string szModelName = GetNameWithSeason( GetSeason(), true );
 		bChanged = pVOB->ChangeObject( pVisObj, (pDesc->szPath + szModelName).c_str(), 0, pDesc->eVisType );
 	}
-	// try non-bloody
 	if ( !bChanged ) 
 	{
 		const std::string szModelName = GetNameWithSeason( GetSeason(), false );
@@ -478,7 +417,6 @@ bool CMOUnitInfantry::ChangeWithBlood( IVisObjBuilder *pVOB )
 	}
 	return bChanged;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMOUnitInfantry::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -488,7 +426,6 @@ int CMOUnitInfantry::operator&( IStructureSaver &ss )
 	saver.Add( 4, &vSunDir );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOUnitInfantry::SetHPSimpleBar( bool bSimple )
 {
 	IVisObjBuilder *pVOB = GetSingleton<IVisObjBuilder>();
@@ -507,4 +444,3 @@ void CMOUnitInfantry::SetHPSimpleBar( bool bSimple )
 	pBar->Enable( GetHPIconState(fHP) != 0 );
 	pBar->SetBorderColor( GetGlobalVar(NStr::Format("Scene.PlayerColors.Player%d", GetPlayerIndex()), int(0xff000000)) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -68,7 +68,6 @@ http://developer.gamespy.com
   Added ServerGetBoolValue() to get generic boolean values.  Most game servers return 1or0
   for boolean values, but some (unreal engine) games return booleans as "True" or "False".
 ******/
-//todo: max results and ordering
 
 #ifndef _GOACENG_H
 #define _GOACENG_H
@@ -112,10 +111,8 @@ typedef enum {qt_basic, qt_info, qt_rules, qt_players, qt_info_rules, qt_status,
 #define	LIST_STATECHANGED		1 // ServerListState changed, no parameters
 #define LIST_PROGRESS			2 // New Server updated, param1 = GServer (server updated), param2 = percent done
 
-//Single callback function into the client app for status  / progress messages
 typedef void (*ListCallBackFn)(GServerList serverlist, int msg, void *instance, void *param1, void *param2);
 
-// Callback function used for enumerating the keys/values for a server
 typedef void (*KeyEnumFn)(char *key, char *value, void *instance);
 
 

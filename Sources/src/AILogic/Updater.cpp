@@ -9,16 +9,13 @@
 #include "Formation.h"
 #include "SuspendedUpdates.h"
 #include "AILogicInternal.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CSuspendedUpdates theSuspendedUpdates;
 extern NTimer::STime curTime;
 extern CStaticMap theStaticMap;
 extern CDiplomacy theDipl;
 CUpdater updater;
 extern CAILogic *pAILogic;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CUpdater::nUpdateTypes = 200;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CUpdater::CUpdater()
 {
 	simpleUpdates.clear(); simpleUpdates.resize( nUpdateTypes );
@@ -32,18 +29,15 @@ CUpdater::CUpdater()
 	bDestroying = false;
 	bGameFinishUpdateSend = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CUpdater::~CUpdater()
 {
 	bDestroying = true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::DestroyContents()
 {
 	CUpdater::~CUpdater();
 	new(this) CUpdater();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::Init()
 {
 	pGameTimer = GetSingleton<IGameTimer>();
@@ -53,26 +47,22 @@ void CUpdater::Init()
 	nShootAreasGroup = -1;
 	bGameFinishUpdateSend = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::AddUpdate( const EActionNotify updateType, IUpdatableObj *pObj, const int nParam )
 {
 	if ( updateType & 1 )
 	{
-		// чтобы, если пришли 2 update с одним объектом, но разными nParam, то записался последний
 		const SSimpleUpdate update( pObj, nParam );
 		simpleUpdates[updateType >> 4][pObj->GetUniqueId()] = update;
 	}
 	else
 		complexUpdates[updateType >> 4][pObj->GetUniqueId()] = pObj;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::Update( const EActionNotify updateType, IUpdatableObj *pObj, const int nParam )
 {
 	if ( !bDestroying )
 	{
 		NI_ASSERT_T( ( updateType & 1 ) || nParam == -1, "Complex update with nParam" );
 
-		// если симметричный update на new/deleted object, то не посылать
 		if ( updateType == ACTION_NOTIFY_NEW_ST_OBJ || updateType == ACTION_NOTIFY_DELETED_ST_OBJ )
 		{
 			if ( complexUpdates[updateType >> 4].find( pObj->GetUniqueId() ) == complexUpdates[updateType >> 4].end() )
@@ -87,7 +77,6 @@ void CUpdater::Update( const EActionNotify updateType, IUpdatableObj *pObj, cons
 		}
 
 		const int nAnimation = GetAnimationFromAction( updateType );
-		// это анимация с параметром
 		const bool bAnimation = ( (updateType & 1) == 1 && nAnimation != -1 );
 
 		if ( nAnimation != -1 )
@@ -127,7 +116,6 @@ void CUpdater::Update( const EActionNotify updateType, IUpdatableObj *pObj, cons
 		if ( updateType != ACTION_NOTIFY_NONE && ( bAnimation && DoWeNeedAction( updateType ) || !bAnimation ) )
 			AddUpdate( updateType, pObj, nParam );
 
-			// для того, чтобы пока этот объект не ушёл к Юре, на его месте не создался новый	
 		if ( updateType != ACTION_NOTIFY_NONE )
 			garbage.insert( CComplexUpdatesSet::value_type( pObj->GetUniqueId(), pObj ) );
 
@@ -135,12 +123,10 @@ void CUpdater::Update( const EActionNotify updateType, IUpdatableObj *pObj, cons
 			updatedPlacements.insert( CComplexUpdatesSet::value_type( pObj->GetUniqueId(), pObj ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::EndUpdates()
 {
 	garbage.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::DelUpdate( const EActionNotify updateType, IUpdatableObj *pObj )
 {
 	if ( updateType & 1 )
@@ -148,7 +134,6 @@ void CUpdater::DelUpdate( const EActionNotify updateType, IUpdatableObj *pObj )
 	else
 		complexUpdates[updateType >> 4].erase( pObj->GetUniqueId() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::DelActionUpdates( IUpdatableObj *pObj )
 {
 	for ( int i = 0; i < simpleUpdates.size(); ++i )
@@ -157,7 +142,6 @@ void CUpdater::DelActionUpdates( IUpdatableObj *pObj )
 			DelUpdate( EActionNotify( ( i << 4 ) | 1 ), pObj );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::ClearAllUpdates( const EActionNotify updateType )
 {
 	if ( updateType & 1 )
@@ -187,7 +171,6 @@ void CUpdater::ClearAllUpdates( const EActionNotify updateType )
 			complexUpdates[updateType >> 4].clear();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::ClearAllUpdates()
 {
 	for ( int i = 0; i < simpleUpdates.size(); ++i )
@@ -197,7 +180,6 @@ void CUpdater::ClearAllUpdates()
 
 	unitAnimation.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
 void AddRecalled( const EActionNotify &eAction, T *pBuffer, int *pnLen )
 {
@@ -209,7 +191,6 @@ void AddRecalled( const EActionNotify &eAction, T *pBuffer, int *pnLen )
 		++(*pnLen);
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<>
 void AddRecalled( const EActionNotify &eAction, SNewUnitInfo *pObjects, int *pnLen )
 {
@@ -218,14 +199,12 @@ void AddRecalled( const EActionNotify &eAction, SNewUnitInfo *pObjects, int *pnL
 		::new ( &pObjects[(*pnLen)] ) SNewUnitInfo();
 		theSuspendedUpdates.GetRecalled( eAction, &pObjects[(*pnLen)] );
 
-		// т.к. для следа после смерти записывается не dbID, а специальный параметр
 		if ( pObjects[(*pnLen)].nFrameIndex != -2 )
 			pObjects[(*pnLen)].dbID = checked_cast<IUpdatableObj*>(pObjects[(*pnLen)].pObj)->GetDBID();
 
 		++(*pnLen);
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::UpdateActions( SAINotifyAction **pActionsBuffer, int *pnLen )
 {
 	if ( !theDipl.IsNetGame() || pAILogic->IsNetGameStarted() )
@@ -248,7 +227,6 @@ void CUpdater::UpdateActions( SAINotifyAction **pActionsBuffer, int *pnLen )
 		*pnLen = 0;
 		*pActionsBuffer = GetTempBuffer<SAINotifyAction>( nTotalSize );
 
-		// по всем actions
 		for ( int i = 0; i < simpleUpdates.size(); ++i )
 		{
 			EActionNotify eAction = EActionNotify( ( i << 4 ) | 1 );
@@ -264,7 +242,6 @@ void CUpdater::UpdateActions( SAINotifyAction **pActionsBuffer, int *pnLen )
 				(*pActionsBuffer)[*pnLen].typeID = eAction;
 				(*pActionsBuffer)[*pnLen].pObj = update.pObj;
 
-					// в nParam нужно послать IRefCount*
 				if ( eAction == ACTION_NOTIFY_SERVED_ARTILLERY || eAction == ACTION_NOTIFY_SELECT_CHECKED ||
 						 eAction == ACTION_SET_SELECTION_GROUP )
 				{
@@ -282,7 +259,6 @@ void CUpdater::UpdateActions( SAINotifyAction **pActionsBuffer, int *pnLen )
 			ClearAllUpdates( eAction );
 		}
 
-		//
 		for ( CAnimationSet::iterator iter = unitAnimation.begin(); iter != unitAnimation.end(); ++iter )
 		{
 			(*pActionsBuffer)[*pnLen].pObj = GetObjectByUniqueIdSafe<CLinkObject>( iter->first );
@@ -296,7 +272,6 @@ void CUpdater::UpdateActions( SAINotifyAction **pActionsBuffer, int *pnLen )
 		}
 		unitAnimation.clear();
 
-		//
 		AddRecalled( ACTION_NOTIFY_DEAD_UNIT, *pActionsBuffer, pnLen );
 		for ( CComplexUpdatesSet::iterator iter = complexUpdates[ACTION_NOTIFY_DEAD_UNIT >> 4].begin(); iter != complexUpdates[ACTION_NOTIFY_DEAD_UNIT >> 4].end(); ++iter )
 		{
@@ -312,7 +287,6 @@ void CUpdater::UpdateActions( SAINotifyAction **pActionsBuffer, int *pnLen )
 		ClearAllUpdates( ACTION_NOTIFY_DEAD_UNIT );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::UpdatePlacements( SAINotifyPlacement **pObjPosBuffer, int *pnLen )
 {
 	*pnLen = 0;
@@ -346,7 +320,6 @@ void CUpdater::UpdatePlacements( SAINotifyPlacement **pObjPosBuffer, int *pnLen 
 		bPlacementsUpdated = true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::UpdateRPGParams( SAINotifyRPGStats **pUnitRPGBuffer, int *pnLen )
 {
 	*pnLen = 0;
@@ -375,7 +348,6 @@ void CUpdater::UpdateRPGParams( SAINotifyRPGStats **pUnitRPGBuffer, int *pnLen )
 		ClearAllUpdates( ACTION_NOTIFY_RPG_CHANGED );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::UpdateHits( SAINotifyHitInfo **pHits, int *pnLen )
 {
 	*pnLen = 0;
@@ -394,7 +366,6 @@ void CUpdater::UpdateHits( SAINotifyHitInfo **pHits, int *pnLen )
 		ClearAllUpdates( ACTION_NOTIFY_HIT );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::UpdateStObjPlacements( SAINotifyPlacement **pObjPosBuffer, int *pnLen )
 {
 	*pnLen = 0;
@@ -415,7 +386,6 @@ void CUpdater::UpdateStObjPlacements( SAINotifyPlacement **pObjPosBuffer, int *p
 		ClearAllUpdates( ACTION_NOTIFY_ST_OBJ_PLACEMENT );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::GetNewProjectiles( struct SAINotifyNewProjectile **pProjectiles, int *pnLen )
 {
 	*pnLen = 0;
@@ -429,7 +399,6 @@ void CUpdater::GetNewProjectiles( struct SAINotifyNewProjectile **pProjectiles, 
 		ClearAllUpdates( ACTION_NOTIFY_NEW_PROJECTILE );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::GetDeadProjectiles( IRefCount ***pProjectilesBuf, int *pnLen )
 {
 	*pnLen = 0;
@@ -448,7 +417,6 @@ void CUpdater::GetDeadProjectiles( IRefCount ***pProjectilesBuf, int *pnLen )
 		ClearAllUpdates( ACTION_NOTIFY_DEAD_PROJECTILE );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::GetNewUnits( SNewUnitInfo **pNewUnitBuffer, int *pnLen )
 {
 	*pnLen = 0;
@@ -471,7 +439,6 @@ void CUpdater::GetNewUnits( SNewUnitInfo **pNewUnitBuffer, int *pnLen )
 		ClearAllUpdates( ACTION_NOTIFY_NEW_UNIT );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::GetDisappearedUnits( IRefCount ***pUnitsBuffer, int *pnLen )
 {
 	*pnLen = 0;
@@ -484,7 +451,6 @@ void CUpdater::GetDisappearedUnits( IRefCount ***pUnitsBuffer, int *pnLen )
 			IUpdatableObj *pObj = iter->second->GetDieObject();
 			(*pUnitsBuffer)[(*pnLen)++] = pObj;
 
-			// если отложенный update на смерть юнита и юнит должен оставить после себя кратер
 			const bool bShouldPlaceDeathCrater = 
 				theSuspendedUpdates.DoesExistSuspendedUpdate( pObj, ACTION_NOTIFY_DEAD_UNIT ) && 
 				iter->second->ShouldSuspendAction( ACTION_NOTIFY_NEW_ST_OBJ );
@@ -493,15 +459,12 @@ void CUpdater::GetDisappearedUnits( IRefCount ***pUnitsBuffer, int *pnLen )
 
 			if ( bShouldPlaceDeathCrater )
 			{
-				// взять центр юнита
 				CTilesSet tiles;
 				iter->second->GetTilesForVisibility( &tiles );
 
-				// взять информацию об юните
 				SAINotifyAction dyingInfo;
 				iter->second->GetDyingInfo( &dyingInfo );
 
-				// сделать update для кратера
 				if ( (dyingInfo.nParam & 0x80000000) != 0 && !theStaticMap.IsBridge( tiles.front() ) )
 				{
 					SNewUnitInfo deathCraterUpdate;
@@ -519,7 +482,6 @@ void CUpdater::GetDisappearedUnits( IRefCount ***pUnitsBuffer, int *pnLen )
 		ClearAllUpdates( ACTION_NOTIFY_DISSAPEAR_UNIT );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::GetNewStaticObjects( struct SNewUnitInfo **pObjects, int *pnLen )
 {
 	const int nSize = 
@@ -544,7 +506,6 @@ void CUpdater::GetNewStaticObjects( struct SNewUnitInfo **pObjects, int *pnLen )
 
 	ClearAllUpdates( ACTION_NOTIFY_NEW_ST_OBJ );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::GetDeletedStaticObjects( IRefCount ***pObjBuffer, int *pnLen )
 {
 	*pObjBuffer = GetTempBuffer<IRefCount*>( complexUpdates[ACTION_NOTIFY_DELETED_ST_OBJ >> 4].size() );
@@ -555,7 +516,6 @@ void CUpdater::GetDeletedStaticObjects( IRefCount ***pObjBuffer, int *pnLen )
 
 	ClearAllUpdates( ACTION_NOTIFY_DELETED_ST_OBJ );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::UpdateTurretTurn( SAINotifyTurretTurn **pTurretsBuffer, int *pnLen )
 {
 	*pnLen = 0;
@@ -580,7 +540,6 @@ void CUpdater::UpdateTurretTurn( SAINotifyTurretTurn **pTurretsBuffer, int *pnLe
 		ClearAllUpdates( ACTION_NOTIFY_TURRET_VERT_TURN );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::UpdateShots( SAINotifyMechShot **pShots, int *pnLen )
 {
 	*pnLen = 0;
@@ -603,7 +562,6 @@ void CUpdater::UpdateShots( SAINotifyMechShot **pShots, int *pnLen )
 		ClearAllUpdates( ACTION_NOTIFY_MECH_SHOOT );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::UpdateShots( SAINotifyInfantryShot **pShots, int *pnLen )
 {
 	*pnLen = 0;
@@ -626,7 +584,6 @@ void CUpdater::UpdateShots( SAINotifyInfantryShot **pShots, int *pnLen )
 		ClearAllUpdates( ACTION_NOTIFY_INFANTRY_SHOOT );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::UpdateEntranceStates( SAINotifyEntranceState **pUnits, int *pnLen )
 {
 	*pnLen = 0;
@@ -647,7 +604,6 @@ void CUpdater::UpdateEntranceStates( SAINotifyEntranceState **pUnits, int *pnLen
 		ClearAllUpdates( ACTION_NOTIFY_ENTRANCE_STATE );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::GetEntrenchments( SSegment2Trench **pEntrenchemnts, int *pnLen )
 {
 	*pnLen = 0;
@@ -673,7 +629,6 @@ void CUpdater::GetEntrenchments( SSegment2Trench **pEntrenchemnts, int *pnLen )
 		ClearAllUpdates( ACTION_NOTIFY_NEW_ENTRENCHMENT );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::GetFormations( struct SSoldier2Formation **pFormations, int *pnLen )
 {
 	*pnLen = 0;
@@ -699,7 +654,6 @@ void CUpdater::GetFormations( struct SSoldier2Formation **pFormations, int *pnLe
 		ClearAllUpdates( ACTION_NOTIFY_NEW_FORMATION );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::GetNewBridgeSpans( SNewUnitInfo **pObjects, int *pnLen )
 {
 	*pObjects = GetTempBuffer<SNewUnitInfo>( complexUpdates[ACTION_NOTIFY_NEW_BRIDGE_SPAN >> 4].size() );
@@ -710,7 +664,6 @@ void CUpdater::GetNewBridgeSpans( SNewUnitInfo **pObjects, int *pnLen )
 
 	ClearAllUpdates( ACTION_NOTIFY_NEW_BRIDGE_SPAN );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::GetRevealCircles( CCircle **pCircleBuffer, int *pnLen )
 {
 	*pnLen = 0;
@@ -724,7 +677,6 @@ void CUpdater::GetRevealCircles( CCircle **pCircleBuffer, int *pnLen )
 		ClearAllUpdates( ACTION_NOTIFY_REVEAL_ARTILLERY );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::UpdateDiplomacies( SAINotifyDiplomacy **pDiplomaciesBuffer, int *pnLen )
 {
 	*pnLen = 0;
@@ -757,7 +709,6 @@ void CUpdater::UpdateDiplomacies( SAINotifyDiplomacy **pDiplomaciesBuffer, int *
 		ClearAllUpdates( ACTION_NOTIFY_UPDATE_DIPLOMACY );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::UpdateShootAreas( SShootAreas **pShootAreas, int *pnLen )
 {
 	*pnLen = 0;
@@ -787,7 +738,6 @@ void CUpdater::UpdateShootAreas( SShootAreas **pShootAreas, int *pnLen )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::UpdateRangeAreas( SShootAreas **pRangeAreas, int *pnLen )
 {
 	*pnLen = 0;
@@ -813,13 +763,11 @@ void CUpdater::UpdateRangeAreas( SShootAreas **pRangeAreas, int *pnLen )
 				}
 			}
 
-			// если есть пристрелочная область
 			if ( bGoodAreas )
 				++(*pnLen);
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::AddFeedBack( const SAIFeedBack &feedBack )
 {
 	const bool bFinishGame = 
@@ -833,7 +781,6 @@ void CUpdater::AddFeedBack( const SAIFeedBack &feedBack )
 		feedBacks.push_back( feedBack );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::UpdateFeedBacks( SAIFeedBack **pFeedBacksBuffer, int *pnLen )
 {
 	*pFeedBacksBuffer = GetTempBuffer<SAIFeedBack>( feedBacks.size() );
@@ -847,26 +794,21 @@ void CUpdater::UpdateFeedBacks( SAIFeedBack **pFeedBacksBuffer, int *pnLen )
 	
 	feedBacks.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::UpdateAreasGroup( const int nGroup ) 
 { 
  	nShootAreasGroup = nGroup; 
 	ClearAllUpdates( ACTION_NOTIFY_SHOOT_AREA );
 	ClearAllUpdates( ACTION_NOTIFY_RANGE_AREA );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUpdater::IsPlacementUpdated( IUpdatableObj *pObj ) const
 {
 	return updatedPlacements.find( pObj->GetUniqueId() ) != updatedPlacements.end();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::ClearPlacementsUpdates()
 {
 	updatedPlacements.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUpdater::Add2Garbage( IUpdatableObj *pObj )
 { 
 	garbage.insert( CComplexUpdatesSet::value_type( pObj->GetUniqueId(), pObj ) ); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

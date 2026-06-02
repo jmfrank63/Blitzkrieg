@@ -4,10 +4,8 @@
 
 #include "InputSlider.h"
 #include "Visitors.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CCombo );
 BASIC_REGISTER_CLASS( CInputBinder );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline const EInputBindActivationType GetTypeFromName( const std::string &szName )
 {
 	if ( szName == "event down" ) 
@@ -18,10 +16,8 @@ inline const EInputBindActivationType GetTypeFromName( const std::string &szName
 		return INPUT_BIND_ACTIVATION_TYPE_SLIDER_PLUS;
 	else if ( szName == "slider minus" ) 
 		return INPUT_BIND_ACTIVATION_TYPE_SLIDER_MINUS;
-	//
 	return INPUT_BIND_ACTIVATION_TYPE_UNKNOWN;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline const std::string GetNameFromType( const EInputBindActivationType eType )
 {
 	switch ( eType ) 
@@ -37,15 +33,6 @@ inline const std::string GetNameFromType( const EInputBindActivationType eType )
 	}
 	return "unknown";
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** 
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CControl::NotifyAllCombos( const bool bActivated, const DWORD time, const int nParam )
 {
 	if ( bActivated ) 
@@ -59,7 +46,6 @@ void CControl::NotifyAllCombos( const bool bActivated, const DWORD time, const i
 			(*it)->NotifyControlStateChanged( bActivated, time, nParam );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SCombosCmp
 {
 	const bool operator()( const CObj<CCombo> &c1, const CObj<CCombo> &c2 ) const
@@ -76,20 +62,11 @@ void CControl::AddCombo( CCombo *pCombo )
 		combos.sort( SCombosCmp() );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CControl::SetBindSection( const std::string &szName )
 {
 	for ( CCombosList::iterator it = combos.begin(); it != combos.end(); ++it )
 		(*it)->ChangeMappingSection( szName );
 }
-// ************************************************************************************************************************ //
-// **
-// ** binder support structures: combo
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CCombo::CCombo( const CControlsPtrList &_controls ) 
 : pMapping( 0 ), nSuppressCounter( 0 ), bFormed( false ), bLastNotifyFormed( false ), fPower( 0 ), nBestParam( 0 )
 {  
@@ -98,7 +75,6 @@ CCombo::CCombo( const CControlsPtrList &_controls )
 	for ( CControlsPtrList::const_iterator it = controls.begin(); it != controls.end(); ++it )
 		eControlType = Max( eControlType, (*it)->GetType() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CCombo::~CCombo()
 {
 	for ( CMappingsMap::iterator it = mappings.begin(); it != mappings.end(); ++it ) 
@@ -110,33 +86,26 @@ CCombo::~CCombo()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCombo::SMapping::Suppress( const int nAdd, const DWORD time )
 {
 	for ( CCombo::CCombosList::iterator it = suppressives.begin(); it != suppressives.end(); ++it )
 		(*it)->Suppress( nAdd, time );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCombo::Suppress( const int nAdd, DWORD time )
 {
 	if ( !IsBinded() ) 
 		return;
-	//
 	if ( (nSuppressCounter == 0) && (nAdd < 0) ) 
 	{
 		NStr::DebugTrace( "Special case reached: suppress counter == 0 and suppressing < 0! This can be possible only during bind section changing.\n" );
 		return;
 	}
-	// notify about this combo deactivation (suppressed)
 	if ( (nSuppressCounter == 0) && bFormed ) 
 		NotifyBinds( false, time );
-	// change suppression counter
 	nSuppressCounter += nAdd;
-	// notify about this combo reactivation (unsuppressed)
 	if ( nSuppressCounter == 0 ) 
 		NotifyBinds( bFormed, time );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCombo::NotifyBinds( const bool bFormedLocal, const DWORD time, const bool bForced )
 {
 	if ( (bLastNotifyFormed != bFormedLocal) || bForced )
@@ -146,7 +115,6 @@ void CCombo::NotifyBinds( const bool bFormedLocal, const DWORD time, const bool 
 	}
 	bLastNotifyFormed = bFormedLocal;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCombo::ChangeMappingSection( const std::string &szMapping ) 
 { 
 	pMapping = &( mappings[szMapping] ); 
@@ -154,13 +122,10 @@ void CCombo::ChangeMappingSection( const std::string &szMapping )
 	nSuppressCounter = 0;
 	nBestParam = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCombo::NotifyControlStateChanged( const bool bActivated, const DWORD time, const int nParam )
 {
-	// don't process combo activation if there are no binds in this bind section for this combo
 	if ( !IsBinded() ) 
 		return;
-	//
 	if ( nParam & 0x40000000 ) 
 		nBestParam = nParam;
 	bool bFormedLocal = true;
@@ -176,25 +141,20 @@ void CCombo::NotifyControlStateChanged( const bool bActivated, const DWORD time,
 	}
 	if ( bFormedLocal != bFormed ) 
 	{
-		// suppress all dependent combos
 		pMapping->Suppress( bFormedLocal ? 1 : -1, time );
-		// notify all binds
 		if ( nSuppressCounter == 0 ) 
 			NotifyBinds( bFormedLocal, time );
 	}
 	else if ( bFormedLocal && (nSuppressCounter == 0) )	// повторная активация с другим значением возможна только для 'rotational axis'
 		NotifyBinds( bFormedLocal, time, true );
 	bFormed = bFormedLocal;
-	//
 	if ( !bActivated ) 
 		nBestParam = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCombo::AddBind( CBind *pBind )
 {
 	if ( std::find(pMapping->binds.begin(), pMapping->binds.end(), pBind) == pMapping->binds.end() )
 	{
-		//NStr::DebugTrace( "adding bind with command \"%s\" to mapping section \"%s\" of the combo\n", pBind->GetCommand()->szName.c_str(), pMapping->szName.c_str() );
 		pMapping->binds.push_back( pBind );
 	}
 	else
@@ -202,8 +162,6 @@ void CCombo::AddBind( CBind *pBind )
 		NI_ASSERT_T( false, "Bind already exist in the mapping!" );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// is c1 subset of c2
 inline bool IsSubset( const std::vector<const CControl*> &c1, const std::vector<const CControl*> &c2 )
 {
 	for ( std::vector<const CControl*>::const_iterator it = c1.begin(); it != c1.end(); ++it )
@@ -223,15 +181,6 @@ inline const ESetCompare Compare( const std::vector<const CControl*> &c1, const 
 		return IsSubset( c2, c1 ) ? SET_COMPARE_SUPERSET : SET_COMPARE_UNRELATED;
 }
 const ESetCompare CCombo::Compare( const std::vector<const CControl*> &c1 ) const { return ::Compare( controls, c1 ); }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** bind support structs: bind
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBindEventForm::NotifyComboStateChanged( const bool bFormed, const float fPower, const EControlType eControlType, 
 																						  const DWORD time, const int nParam )
 {
@@ -254,15 +203,6 @@ void CBindSliderMinus::NotifyComboStateChanged( const bool bFormed, const float 
 {
 	pCommand->ActivateSlider( bFormed, -fPower, eControlType, time, nParam );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** bind support structs: command
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SCommand::ActivateSlider( const bool bActivate, const float fPower, EControlType eControlType, const DWORD time, const int nParam )
 {
 	if ( (pInput->GetTextModeLocal() == INPUT_TEXT_MODE_SYSKEYS) && !bSystem ) 
@@ -296,39 +236,26 @@ void SCommand::ActivateSlider( const bool bActivate, const float fPower, EContro
 			break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SCommand::ActivateEvent( const DWORD time, const int nParam )
 {
 	if ( IsRegistered() && 
 		   ((pInput->GetTextModeLocal() != INPUT_TEXT_MODE_SYSKEYS) || 
 			  ((pInput->GetTextModeLocal() == INPUT_TEXT_MODE_SYSKEYS) && bSystem)) ) 
 	{
-		//NStr::DebugTrace( "Command \"%s\" activated as event\n", szName.c_str() );
 		pInput->AddEventLocal( nEventID, nParam );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** main binder class
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInputBinder::CInputBinder()
 : szCurrentMapping( "default" )
 {
 	bMappingChanged = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TYPE>
 inline void Add( std::list<TYPE> &lst, TYPE element )
 {
 	if ( std::find(lst.begin(), lst.end(), element) == lst.end() )
 		lst.push_back( element );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputBinder::TransformBind( SBindsConfig::SBindSection::SCommandBind *pRes, const IInputBind *pBind )
 {
 	pRes->szName = pBind->GetCommand();
@@ -338,14 +265,12 @@ void CInputBinder::TransformBind( SBindsConfig::SBindSection::SCommandBind *pRes
 	for ( int i = 0; i < nNumControls; ++i )
 		pRes->controls.push_back( pBind->GetControl(i) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputBinder::TransformBind( IInputBind *pRes, const SBindsConfig::SBindSection::SCommandBind *pBind )
 {
 	pRes->SetCommand( pBind->szName.c_str(), GetTypeFromName(pBind->szBindType) );
 	for ( std::vector<std::string>::const_iterator it = pBind->controls.begin(); it != pBind->controls.end(); ++it )
 		pRes->AddControl( it->c_str() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputBinder::AddBind( const IInputBind *pInputBind )
 {
 	SBindsConfig::SBindSection::SCommandBind bind;
@@ -373,23 +298,19 @@ void CInputBinder::AddBind( const IInputBind *pInputBind )
 		{
 			if ( (cmd->szName == bind.szName) && (cmd->szBindType == bind.szBindType) ) 
 			{
-				// change old bind
 				*cmd = bind;
 				return;
 			}
 		}
-		// add new bind...
 		pSection->commands.push_back( bind );
 		bMappingChanged = true;
 		return;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInputBinder::AddBindLocal( const SBindsConfig::SBindSection::SCommandBind &bind )
 {
 	if ( bind.szName.empty() || bind.szBindType.empty() || bind.controls.empty() )
 		return false;
-	//
 	const EInputBindActivationType eActivationType = GetTypeFromName( bind.szBindType );
 	if ( eActivationType == INPUT_BIND_ACTIVATION_TYPE_UNKNOWN ) 
 	{
@@ -398,10 +319,7 @@ bool CInputBinder::AddBindLocal( const SBindsConfig::SBindSection::SCommandBind 
 		NI_ASSERT_T( eActivationType != INPUT_BIND_ACTIVATION_TYPE_UNKNOWN, szError.c_str() );
 		return false;
 	}
-	// retrieve command (or create new one)
 	SCommand *pCommand = GetCommand( bind.szName );
-	//
-	// compose controls list
 	const int nNumControls = bind.controls.size();
 	std::vector<const CControl*> controls;
 	controls.reserve( bind.controls.size() );
@@ -419,7 +337,6 @@ bool CInputBinder::AddBindLocal( const SBindsConfig::SBindSection::SCommandBind 
 		}
 		controls.push_back( pControl );
 	}
-	// find all subsets, supersets and equal combo
 	std::list<CCombo*> subsets, supersets;
 	CPtr<CCombo> pCombo;
 	for ( std::vector<const CControl*>::const_iterator control = controls.begin(); control != controls.end(); ++control )
@@ -444,16 +361,12 @@ bool CInputBinder::AddBindLocal( const SBindsConfig::SBindSection::SCommandBind 
 	if ( pCombo == 0 ) 
 		pCombo = new CCombo( controls );
 	pCombo->ChangeMappingSection( szCurrentMapping );
-	// add this combo to all controls
 	for ( std::vector<const CControl*>::iterator it = controls.begin(); it != controls.end(); ++it )
 		const_cast<CControl*>( (*it) )->AddCombo( pCombo );
-	// add all subset combos to suppress by this one
 	for ( std::list<CCombo*>::iterator it = subsets.begin(); it != subsets.end(); ++it )
 		pCombo->AddSuppressive( *it );
-	// add this combo to all supersets to suppress
 	for ( std::list<CCombo*>::iterator it = supersets.begin(); it != supersets.end(); ++it )
 		(*it)->AddSuppressive( pCombo );
-	// create new bind...
 	CBind *pLocalBind = 0;
 	switch ( eActivationType ) 
 	{
@@ -470,18 +383,14 @@ bool CInputBinder::AddBindLocal( const SBindsConfig::SBindSection::SCommandBind 
 			pLocalBind = new CBindSliderMinus( pCommand );
 			break;
 	}
-	// remove old bind
 	{
 		CPtr<IInputBind> pInputBind = CreateObject<IInputBind>( INPUT_BIND );
 		TransformBind( pInputBind, &bind );
 		RemoveBind( pInputBind );
 	}
-	// add this bind to combo
 	pCombo->AddBind( pLocalBind );
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputBinder::SetBindSection( const char *pszSectionName )
 {
 	NStr::DebugTrace( "****** Set bind section to \"%s\"\n", pszSectionName );
@@ -489,7 +398,6 @@ void CInputBinder::SetBindSection( const char *pszSectionName )
 	CSetBindSectionVisitor visitor( pszSectionName );
 	VisitControls( &visitor );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputBinder::RemoveBind( const IInputBind *pBind )
 {
 	const char *pszCommand = pBind->GetCommand();
@@ -507,17 +415,14 @@ void CInputBinder::RemoveBind( const IInputBind *pBind )
 			return;
 		}
 	}
-	//
 	CCommandsMap::iterator pos = commands.find( pszCommand );
 	if ( pos == commands.end() ) 
 		return;
-	//
 	SCommand *pCommand = &( pos->second );
 	CFindBindVisitor visitor( pCommand, eType, controls );
 	VisitControls( &visitor );
 	if ( (visitor.GetBind() == 0) || (visitor.GetCombo() == 0) ) 
 		return;
-	//
 	CPtr<CCombo> pCombo = visitor.GetCombo();
 	pCombo->RemoveBind( visitor.GetBind() );
 	delete ( visitor.GetBind() );
@@ -527,26 +432,22 @@ void CInputBinder::RemoveBind( const IInputBind *pBind )
 		VisitControls( &visRemove );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputBinder::RegisterCommand( const char *pszName, const int nEventID )
 {
 	SCommand *pCommand = GetCommand( pszName );
 	pCommand->SetEventID( nEventID );
 	pCommand->Register( true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputBinder::UnRegisterCommand( const char *pszName ) 
 {  
 	CCommandsMap::iterator pos = commands.find( pszName );
 	if ( pos != commands.end() ) 
 		pos->second.Register( false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IInputSlider* CInputBinder::CreateSlider( const char *pszName, const float fPower ) 
 { 
 	return new CInputSlider( this, GetCommand(pszName), fPower );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputBinder::Repair( IDataTree *pSS, const bool bToDefault )
 {
 	if ( pSS == 0 ) 
@@ -557,11 +458,9 @@ void CInputBinder::Repair( IDataTree *pSS, const bool bToDefault )
 		CTreeAccessor saver = pSS;
 		saver.Add( "Binds", &repairs );
 	}
-	//
 	if ( bToDefault ) 
 	{
 		config.Clear();
-		// clear all binds
 	}
 	const SBindsConfig::SBindSection *pDefaultSection = 0;
 	for ( std::vector<SBindsConfig::SBindSection>::const_iterator itConfigSect = config.sections.begin(); itConfigSect != config.sections.end(); ++itConfigSect )
@@ -572,7 +471,6 @@ void CInputBinder::Repair( IDataTree *pSS, const bool bToDefault )
 			break;
 		}
 	}
-	// double clicks
 	for ( std::vector<std::string>::const_iterator it = repairs.dblclks.begin(); it != repairs.dblclks.end(); ++it )
 	{
 		if ( std::find(config.dblclks.begin(), config.dblclks.end(), *it) == config.dblclks.end() )
@@ -582,7 +480,6 @@ void CInputBinder::Repair( IDataTree *pSS, const bool bToDefault )
 			bMappingChanged = true;
 		}
 	}
-	// powers
 	for ( std::vector<SBindsConfig::SControlPower>::const_iterator it = repairs.powers.begin(); it != repairs.powers.end(); ++it )
 	{
 		if ( std::find(config.powers.begin(), config.powers.end(), *it) == config.powers.end() ) 
@@ -592,11 +489,9 @@ void CInputBinder::Repair( IDataTree *pSS, const bool bToDefault )
 			bMappingChanged = true;
 		}
 	}
-	// add new binds
 	for ( std::vector<SBindsConfig::SBindSection>::const_iterator itRepairSect = repairs.sections.begin(); itRepairSect != repairs.sections.end(); ++itRepairSect )
 	{
 		bool bFoundSection = false;
-		// find this section in the config
 		for ( std::vector<SBindsConfig::SBindSection>::const_iterator itConfigSect = config.sections.begin(); itConfigSect != config.sections.end(); ++itConfigSect )
 		{
 			if ( itConfigSect->szName == itRepairSect->szName ) 
@@ -605,15 +500,11 @@ void CInputBinder::Repair( IDataTree *pSS, const bool bToDefault )
 				break;
 			}
 		}
-		// add this section entirelly, if not found in the config
 		if ( !bFoundSection )	
 		{
-			// set bind section
 			SetBindSection( itRepairSect->szName.c_str() );
-			// add this section bind
 			for ( std::vector<SBindsConfig::SBindSection::SCommandBind>::const_iterator bind = itRepairSect->commands.begin(); bind != itRepairSect->commands.end(); ++bind )
 				AddBindLocal( *bind );
-			// add default section binds
 			if ( pDefaultSection ) 
 			{
 				for ( std::vector<SBindsConfig::SBindSection::SCommandBind>::const_iterator bind = pDefaultSection->commands.begin(); bind != pDefaultSection->commands.end(); ++bind )
@@ -621,12 +512,10 @@ void CInputBinder::Repair( IDataTree *pSS, const bool bToDefault )
 			}
 			else if ( itRepairSect->szName == "default" ) 
 				pDefaultSection = &( *itRepairSect );
-			//
 			config.sections.push_back( *itRepairSect );
 			bMappingChanged = true;
 		}
 	}
-	// system commands
 	for ( std::vector<std::string>::const_iterator it = repairs.syscmds.begin(); it != repairs.syscmds.end(); ++it )
 	{
 		if ( std::find(config.syscmds.begin(), config.syscmds.end(), *it) == config.syscmds.end() )
@@ -636,60 +525,45 @@ void CInputBinder::Repair( IDataTree *pSS, const bool bToDefault )
 			bMappingChanged = true;
 		}
 	}
-	// restore bind section
 	SetBindSection( szOldBindSection.c_str() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInputBinder::SerializeConfig( IDataTree *pSS )
 {
 	if ( pSS == 0 ) 
 		return false;
-	//
 	CTreeAccessor saver = pSS;
 	if ( saver.IsReading() ) 
 		config.Clear();
 	saver.Add( "Binds", &config );
 	if ( saver.IsReading() ) 
 	{
-		// setup from config
-		// double clicks
 		for ( std::vector<std::string>::const_iterator it = config.dblclks.begin(); it != config.dblclks.end(); ++it )
 			AddDoubleClick( *it );
-		// powers
 		for ( std::vector<SBindsConfig::SControlPower>::const_iterator it = config.powers.begin(); it != config.powers.end(); ++it )
 			SetPower( it->szControlName, it->fPower );
-		// binds
 		const SBindsConfig::SBindSection *pDefaultSection = 0;
 		for ( std::vector<SBindsConfig::SBindSection>::const_iterator section = config.sections.begin(); section != config.sections.end(); ++section )
 		{
-			// set bind section
 			SetBindSection( section->szName.c_str() );
-			// add this section bind
 			for ( std::vector<SBindsConfig::SBindSection::SCommandBind>::const_iterator bind = section->commands.begin(); bind != section->commands.end(); ++bind )
 				AddBindLocal( *bind );
-			// add default section binds
 			if ( pDefaultSection ) 
 			{
 				for ( std::vector<SBindsConfig::SBindSection::SCommandBind>::const_iterator bind = pDefaultSection->commands.begin(); bind != pDefaultSection->commands.end(); ++bind )
 					AddBindLocal( *bind );
 			}
-			// assign default section
 			if ( section->szName == "default" ) 
 			{
 				NI_ASSERT_T( pDefaultSection == 0, "Can't assign default section - this section already assigned" );
 				pDefaultSection = &( *section );
 			}
 		}
-		// system commands
 		for ( std::vector<std::string>::const_iterator it = config.syscmds.begin(); it != config.syscmds.end(); ++it )
 			SetSystemCommand( *it );
 	}
-	// set 'default' bind section
 	SetBindSection( "default" );
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInputBinder::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -703,4 +577,3 @@ int CInputBinder::operator&( IStructureSaver &ss )
 	saver.AddTypedSuper( 10, static_cast<CInputAPI*>(this) );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

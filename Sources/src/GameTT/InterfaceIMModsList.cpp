@@ -5,14 +5,11 @@
 #include "InterfaceIMModsList.h"
 #include "MainMenu.h"
 #include "MultiplayerCommandManager.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceIMModsList::~CInterfaceIMModsList()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceIMModsList::Init()
 {
-	//инициализируем имена
 	fileMasks.clear();
 	fileMasks.push_back( "*.pak" );
 	szTopDir = GetSingleton<IMainLoop>()->GetBaseDir();
@@ -23,17 +20,13 @@ bool CInterfaceIMModsList::Init()
 	nFirstSortColumn = 0;
 	bStorageFiles = false;
 	bOnlyDirs = true;
-	//
 	CInterfaceBaseList::Init();
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceIMModsList::PrepareList( std::vector<std::string> *pFiles )
 {
 	pFiles->push_back( "" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceIMModsList::FillListItem( IUIListRow *pRow, const std::string &szMODPath, bool *pSelectedItem )
 {
 	IUIElement *pElement = pRow->GetElement( 0 );
@@ -71,10 +64,8 @@ bool CInterfaceIMModsList::FillListItem( IUIListRow *pRow, const std::string &sz
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceIMModsList::OnOk( const std::string &szFullFileName )
 {
-	// attach mod
 	IMainLoop *pML = GetSingleton<IMainLoop>();
 
 	const int nPos = szFullFileName.rfind( '\\' );
@@ -87,7 +78,6 @@ bool CInterfaceIMModsList::OnOk( const std::string &szFullFileName )
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceIMModsList::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceBaseList::ProcessMessage( msg ) )
@@ -101,6 +91,5 @@ bool CInterfaceIMModsList::ProcessMessage( const SGameMessage &msg )
 			return true;
 		}
 	}
-	//
 	return false;
 }

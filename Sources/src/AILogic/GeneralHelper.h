@@ -1,17 +1,13 @@
 #ifndef __GENERAL_HELPER__
 #define __GENERAL_HELPER__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "GeneralInternalInterfaces.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SGeneralHelper
 {
 	static bool IsUnitNearParcel( const class CCommonUnit *pUnit, const struct SAIGeneralParcelInfo &parcel );
 	static bool IsUnitInParcel( const class CCommonUnit *pUnit, const struct SAIGeneralParcelInfo &parcel );
 	static float CalcUnitSeverity( const class CCommonUnit *pUnit );
-	//return true if any removed 
 	static bool RemoveDead( CommonUnits *pUnits );
 
-	//
 	struct SRandomFunctor 
 	{
 		int operator()( int N )
@@ -26,8 +22,6 @@ struct SGeneralHelper
 		SSeverityCountPredicate() : fCount( 0 ) {  }
 		void operator()( const CCommonUnit *pUnit );
 	};
-	//
-	// 
 	struct SFindByEnumeratorPredicate
 	{
 		IWorkerEnumerator * pEn;
@@ -35,7 +29,6 @@ struct SGeneralHelper
 		SFindByEnumeratorPredicate( interface IWorkerEnumerator * pEnumerator, const enum EForceType eType ) : pEn( pEnumerator ), eType( eType ) {  }
 		bool operator()( class CCommonUnit *pU1 );
 	};
-	//
 	struct SFindBestByEnumeratorPredicate
 	{
 		IWorkerEnumerator * pEn;
@@ -45,19 +38,15 @@ struct SGeneralHelper
 		SFindBestByEnumeratorPredicate( interface IWorkerEnumerator * pEn, const enum EForceType eType ) : pEn ( pEn ), eType( eType ) {  }
 		void operator()( class CCommonUnit *pU1 );
 	};
-	//
 	struct SCountPredicate
 	{
 		int nCount;
 		SCountPredicate() : nCount( 0 ) {  }
 		void operator() ( void * ) { ++nCount; }
 	};
-	//
 	struct SDeadPredicate
 	{
-		// return true if unit is dead
 		bool operator() ( class CCommonUnit * pUnit );
 	};
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __GENERAL_HELPER__

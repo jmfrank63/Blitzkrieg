@@ -35,7 +35,6 @@ public:
 	SThumbItems* GetThumbItems() { return &m_thumbItems; }
 	CImageList*  GetImageList() { return &imageList; }
 	
-	//Получение внутренних параметров
 	const char *GetFenceName() { return values[0].value; }
 	const char *GetDirName() { return values[1].value; }
 	int GetFenceHealth() { return values[2].value; }
@@ -98,7 +97,6 @@ public:
 	}
 	~CFencePropsItem() {};
 
-//	void FillRPGStruct( SFenceRPGStats::SSegmentRPGStats &rpgStats );
 	
 	virtual void InitDefaultValues();
 	virtual int operator&( IDataTree &ss );

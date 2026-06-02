@@ -1,8 +1,6 @@
 
-// include system features file
 # include <sys/feature_tests.h>
 
-// system-dependent defines 
 
 # if defined (__SunOS_5_8) && ! defined (_STLP_HAS_NO_NEW_C_HEADERS) && ( __cplusplus >= 199711L)
 #  define _STLP_HAS_NATIVE_FLOAT_ABS
@@ -17,7 +15,6 @@
 # define _STLP_NO_NATIVE_WIDE_FUNCTIONS 1
 #endif
 
-// boris : this should always be defined for Solaris 5 & 6. Any ideas how to do it ?
 # if !(defined ( __KCC ) && __KCC_VERSION > 3400 ) && \
   ((defined(__SunOS_5_5_1) || defined(__SunOS_5_6) ))
 #  ifndef _STLP_NO_NATIVE_MBSTATE_T
@@ -25,7 +22,6 @@
 #  endif
 # endif /* KCC */
 
-// For SPARC we use lightweight synchronization
 # if defined (__sparc) /* &&  (defined (_REENTRANT) || defined (_PTHREADS)) */ \
      && ((defined (__GNUC__) && defined (__sparc_v9__)) || \
      ((defined (__sparcv9) || defined (__sparcv8plus)) && ! defined (_STLP_NO_OWN_IOSTREAMS)) ) \

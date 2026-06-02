@@ -55,6 +55,3 @@ using STLPORT::__map;
 
 #endif /* _STLP_MAP_H */
 
-// Local Variables:
-// mode:C++
-// End:

@@ -2,12 +2,10 @@
 #define __TANK_STATES_H__
 
 #pragma ONCE
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "StatesFactory.h"
 #include "RectTiles.h"
 #include "UnitStates.h"
 #include "CLockWithUnlockPossibilities.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTankStatesFactory : public IStatesFactory
 {
 	OBJECT_COMPLETE_METHODS( CTankStatesFactory );
@@ -19,8 +17,6 @@ public:
 	virtual interface IUnitState* ProduceRestState( class CQueueUnit *pUnit );
 
 	virtual bool CanCommandBeExecuted( class CAICommand *pCommand );
-	// for Saving/Loading of static members
 	friend class CStaticMembers;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __TANK_STATES_H__

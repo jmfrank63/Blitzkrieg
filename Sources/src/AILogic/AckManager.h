@@ -1,13 +1,10 @@
 #ifndef __ACKMANAGER_H__
 #define __ACKMANAGER_H__
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Common\Actions.h"
 #include "..\misc\HashFuncs.h"
 #include "AIHashFuncs.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAIUnit;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAckManager
 {
 	DECLARE_SERIALIZE;
@@ -24,12 +21,9 @@ class CAckManager
 public:
 	CAckManager();
 	virtual ~CAckManager();
-	//������ ������� Acknowledgements
 	void UpdateAcknowledgments( SAIAcknowledgment **pAckBuffer, int *pnLen );
-	//������ ������� Bored Acknowledgements
 	void UpdateAcknowledgments( SAIBoredAcknowledgement **pAckBuffer, int *pnLen );
 
-	// ��� BORED acknowledgements
 	void RegisterAsBored(	EUnitAckType eAck, class CAIUnit *pObject );
 	void UnRegisterAsBored(	EUnitAckType eAck, class CAIUnit *pObject );
 

@@ -1,7 +1,6 @@
 #include "StdAfx.h"
 #include "UINumberIndicator.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUINumberIndicator::SValueColor::operator &( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -11,7 +10,6 @@ int CUINumberIndicator::SValueColor::operator &( IDataTree &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUINumberIndicator::SValueColor::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -20,7 +18,6 @@ int CUINumberIndicator::SValueColor::operator&( IStructureSaver &ss )
 	saver.Add( 2, &dwColor );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUINumberIndicator::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -32,12 +29,10 @@ int CUINumberIndicator::operator&( IDataTree &ss )
 	if ( saver.IsReading() )
 	{
 		std::sort( valueColors.begin(), valueColors.end() );
-//		valueColors.sort();
 	}
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUINumberIndicator::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -48,25 +43,21 @@ int CUINumberIndicator::operator&( IStructureSaver &ss )
 	if ( saver.IsReading() )
 	{
 		std::sort( valueColors.begin(), valueColors.end() );
-//		valueColors.sort();
 	}
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUINumberIndicator::Visit( interface ISceneVisitor *pVisitor )
 {
 	if ( !IsVisible() )
 		return;
 	CSimpleWindow::Visit( pVisitor );
 	
-	// ������ ����������
 	DWORD dwColor = 0xffffffff;
 	if ( valueColors.size() >= 2 )
 	{
 		do
 		{
-			//������������� ����
 			if ( m_fVal <= valueColors[0].fVal )
 			{
 				dwColor = valueColors[0].dwColor;
@@ -101,7 +92,6 @@ void CUINumberIndicator::Visit( interface ISceneVisitor *pVisitor )
 			dwColor |= nTemp;
 		} while ( 0 );
 	}
-	//
 	SGFXRect2 rc;
 	rc.rect = wndRect;
 	rc.rect.right = m_fVal * (wndRect.right - wndRect.left) + wndRect.left;
@@ -109,7 +99,6 @@ void CUINumberIndicator::Visit( interface ISceneVisitor *pVisitor )
 	rc.fZ = 0;
 	pVisitor->VisitUIRects( 0, 3, &rc, 1 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUINumberIndicator::Draw( IGFX *pGFX )
 {
 	NI_ASSERT_SLOW_T( false, "Can't user Draw() directly - use visitor pattern" );
@@ -119,14 +108,12 @@ void CUINumberIndicator::Draw( IGFX *pGFX )
 		return;
 	CSimpleWindow::Draw( pGFX );
 	
-	//������ ����������
 	pGFX->SetShadingEffect( 3 );
 	DWORD dwColor = 0xffffffff;
 	if ( valueColors.size() >= 2 )
 	{
 		do
 		{
-			//������������� ����
 			if ( m_fVal <= valueColors[0].fVal )
 			{
 				dwColor = valueColors[0].dwColor;
@@ -170,7 +157,6 @@ void CUINumberIndicator::Draw( IGFX *pGFX )
 	rc.fZ = 0;
 	pGFX->DrawRects( &rc, 1 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUINumberIndicator::SetColor( float fVal, DWORD dwColor )
 {
 	for ( std::vector<SValueColor>::iterator it=valueColors.begin(); it!=valueColors.end(); ++it )
@@ -190,7 +176,6 @@ void CUINumberIndicator::SetColor( float fVal, DWORD dwColor )
 	val.fVal = fVal;
 	valueColors.push_back( val );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUINumberIndicator::SetValue( float fVal )
 {
 	NI_ASSERT_T( !valueColors.empty(), "Empty CUINumberIndicator control, SetValue() error" );
@@ -204,4 +189,3 @@ void CUINumberIndicator::SetValue( float fVal )
 	else
 		m_fVal = fVal;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

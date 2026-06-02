@@ -487,7 +487,6 @@ void CWeaponEffectPropsItem::UpdateItemValue( int nItemId, const CVariant &value
 	
 	if ( nItemId == 2 )
 	{
-		//сконвертим путь к звуковому файлу в относительный без расширени€
 		if ( !IsRelatedPath( value ) )
 		{
 			string szValue = value;
@@ -495,7 +494,6 @@ void CWeaponEffectPropsItem::UpdateItemValue( int nItemId, const CVariant &value
 			bool bRes =	MakeSubRelativePath( theApp.GetEditorDataDir().c_str(), szValue.c_str(), szRelatedPath );
 			if ( bRes )
 			{
-				//обрежем расширение в конце
 				szRelatedPath = szRelatedPath.substr( 0, szRelatedPath.rfind( '.' ) );
 				CVariant newVal = szRelatedPath;
 				CTreeItem::UpdateItemValue( nItemId, newVal );
@@ -585,15 +583,12 @@ void CWeaponCratersItem::UpdateItemValue( int nItemId, const CVariant &value )
 	
 	if ( nItemId == 1 )
 	{
-		//изменилась директори€, считываю все *.san файлы из поддиректорий
 		std::string szVal = value;
 		string szMask = "*.san";
 		vector<string> files;
 		
-		//—перва составл€ю полный список san файлов
 		std::string szBaseDir = theApp.GetEditorDataDir();
 		
-		//обновим им€ директории
 		std::string szShortDirName;
 		bool bRes = MakeSubRelativePath( szBaseDir.c_str(), szVal.c_str(), szShortDirName );
 		if ( !bRes )

@@ -6,7 +6,6 @@
 #include "ShaderParser.h"
 #include "Shader.h"
 
-// Define missing D3D9 constants from older DirectX SDK (not in Windows SDK d3d9.h)
 #ifndef D3DTEXF_FLATCUBIC
 #define D3DTEXF_FLATCUBIC 4
 #endif
@@ -32,31 +31,25 @@
 #define D3DTSS_MIPFILTER 19
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ParseTechnique( _ReductionPtr reduction, STechnique *pTechnique );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CShaderParser::CShaderParser()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CShaderParser::Init()
 {
 	return CParser::Init( "shader.cgt" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CShaderParser::ErrorLexical( const int nLineNumber )
 {
 	printf( "ERROR in the line %d:\n", nLineNumber );
 	printf( "lexical error - unrecognized token \"%s\"\n", (const char*)(GetParser()->CurrentToken()->Name) );
 	return false;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CShaderParser::ErrorSyntax( const int nLineNumber )
 {
 	printf( "ERROR in the line %d:\n", nLineNumber );
 	printf( "Syntax error - unexpected token readed\n" );
 	printf( "The next tokens were expected:\n" );
-	//
 	_GOLDParserPtr parser = GetParser();
 	for ( short i = 0; i < parser->TokenCount(); ++i )
 	{
@@ -65,26 +58,22 @@ bool CShaderParser::ErrorSyntax( const int nLineNumber )
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CShaderParser::ErrorComment( const int nLineNumber )
 {
 	printf( "ERROR in the line %d:\n", nLineNumber );
 	printf( "The end of the input was reached while reading a comment.\n" );
 	printf( "This is caused by a comment that was not terminated\n" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CShaderParser::ErrorInternal( const int nLineNumber )
 {
 	printf( "ERROR in the line %d:\n", nLineNumber );
 	printf( "Internal compiler error!\n" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CShaderParser::ErrorNotLoaded( const int nLineNumber )
 {
 	printf( "ERROR in the line %d:\n", nLineNumber );
 	printf( "ERROR: Compiled grammar tables not loaded - load it first\n" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void DumpReduction( _ReductionPtr reduction, const int nLevel )
 {
 	const short nTag = reduction->GetTag();
@@ -96,7 +85,6 @@ void DumpReduction( _ReductionPtr reduction, const int nLevel )
 		ParseTechnique( reduction, &technique );
 	for ( short i = 0; i < reduction->TokenCount; ++i )
 	{
-		//_bstr_t str = parser->GetCurrentReduction()->
 		_TokenPtr token = reduction->GetTokens(i);
 		_bstr_t strName = token->GetName();
 		printf( "token %s", (const char*)strName );
@@ -125,7 +113,6 @@ void DumpReduction( _ReductionPtr reduction, const int nLevel )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CShaderParser::DoneParsing( _ReductionPtr reduction )
 {
 	const int nTableIndex = reduction->ParentRule->GetTableIndex();
@@ -146,17 +133,14 @@ bool CShaderParser::DoneParsing( _ReductionPtr reduction )
 	}
 	return true;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TTokenVisitor>
 void VisitTokens( _ReductionPtr reduction, TTokenVisitor &visitor )
 {
 	for ( short i = 0; i < reduction->TokenCount; ++i )
 	{
 		_TokenPtr token = reduction->GetTokens(i);
-		// CRAP{ for testing
 		_bstr_t strName = token->GetName();
 		printf( "token %s", (const char*)strName );
-		// CRAP}
 		variant_t var = token->GetData();
 		if ( var.vt == VT_DISPATCH ) 
 		{
@@ -173,7 +157,6 @@ void VisitTokens( _ReductionPtr reduction, TTokenVisitor &visitor )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int GetIntValue( _ReductionPtr reduction )
 {
 	for ( short i = 0; i < reduction->TokenCount; ++i )
@@ -206,7 +189,6 @@ int GetIntValueFromRule( _ReductionPtr rule )
 	}
 	return static_cast<DWORD>(-1);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool GetBoolValue( _ReductionPtr reduction )
 {
 	for ( short i = 0; i < reduction->TokenCount; ++i )
@@ -234,15 +216,6 @@ bool GetBoolValueFromRule( _ReductionPtr rule )
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** 
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SPair
 {
 	DWORD first, second;
@@ -261,15 +234,6 @@ int GetRuleIndex( _ReductionPtr rule )
 {
 	return rule->GetParentRule()->GetTableIndex();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** render states and stage props
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const SPair stencilActions[] = 
 {
 	{ static_cast<DWORD>(RULE_STENCILACTION_KEEP), static_cast<DWORD>(D3DSTENCILOP_KEEP) },
@@ -287,7 +251,6 @@ DWORD GetStencilAction( _ReductionPtr rule )
 	const DWORD dwTableIndex = rule->GetParentRule()->GetTableIndex();
 	return FindVal( dwTableIndex, stencilActions );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const SPair cullModes[] = 
 {
 	{ static_cast<DWORD>(RULE_CULLMODE_NONE), static_cast<DWORD>(D3DCULL_NONE) },
@@ -311,7 +274,6 @@ DWORD GetCullModeFromRule( _ReductionPtr rule )
 	}
 	return static_cast<DWORD>(-1);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const SPair cpmFuncs[] = 
 {
 	{ static_cast<DWORD>(RULE_CMPFUNCCMP_LESS), static_cast<DWORD>(D3DCMP_LESS) },
@@ -329,7 +291,6 @@ DWORD GetCmpFunc( _ReductionPtr rule )
 	const DWORD dwTableIndex = rule->GetParentRule()->GetTableIndex();
 	return FindVal( dwTableIndex, cpmFuncs );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const SPair blendModes[] = 
 {
 	{ static_cast<DWORD>(RULE_BLENDOP_ADD), static_cast<DWORD>(D3DBLENDOP_ADD) },
@@ -337,7 +298,6 @@ static const SPair blendModes[] =
 	{ static_cast<DWORD>(RULE_BLENDOP_REVSUB), static_cast<DWORD>(D3DBLENDOP_REVSUBTRACT) },
 	{ static_cast<DWORD>(RULE_BLENDOP_MIN), static_cast<DWORD>(D3DBLENDOP_MIN) },
 	{ static_cast<DWORD>(RULE_BLENDOP_MAX), static_cast<DWORD>(D3DBLENDOP_MAX) },
-	//
 	{ static_cast<DWORD>(RULE_BLENDMODES_ZERO), static_cast<DWORD>(D3DBLEND_ZERO) },
 	{ static_cast<DWORD>(RULE_BLENDMODES_ONE), static_cast<DWORD>(D3DBLEND_ONE) },
 	{ static_cast<DWORD>(RULE_BLENDMODES_SRCCOLOR), static_cast<DWORD>(D3DBLEND_SRCCOLOR) },
@@ -349,7 +309,6 @@ static const SPair blendModes[] =
 	{ static_cast<DWORD>(RULE_BLENDMODES_DSTCOLOR), static_cast<DWORD>(D3DBLEND_DESTCOLOR) },
 	{ static_cast<DWORD>(RULE_BLENDMODES_INVDSTCOLOR), static_cast<DWORD>(D3DBLEND_INVDESTCOLOR) },
 	{ static_cast<DWORD>(RULE_BLENDMODES_SRCALPHASAT), static_cast<DWORD>(D3DBLEND_SRCALPHASAT) },
-	//
 	{ 0, 0 }
 };
 DWORD GetBlendVal( _ReductionPtr rule )
@@ -357,7 +316,6 @@ DWORD GetBlendVal( _ReductionPtr rule )
 	const DWORD dwTableIndex = rule->GetParentRule()->GetTableIndex();
 	return FindVal( dwTableIndex, blendModes );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const SPair wrapModes[] = 
 {
 	{ static_cast<DWORD>(RULE_TEXWRAPMODE_WRAP), static_cast<DWORD>(D3DTADDRESS_WRAP) },
@@ -372,7 +330,6 @@ DWORD GetWrapMode( _ReductionPtr rule )
 	const DWORD dwTableIndex = rule->GetParentRule()->GetTableIndex();
 	return FindVal( dwTableIndex, wrapModes );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const SPair filterModes[] = 
 {
 	{ static_cast<DWORD>(RULE_TEXFILTERMODE_NONE), static_cast<DWORD>(D3DTEXF_NONE) },
@@ -388,7 +345,6 @@ DWORD GetFilterMode( _ReductionPtr rule )
 	const DWORD dwTableIndex = rule->GetParentRule()->GetTableIndex();
 	return FindVal( dwTableIndex, filterModes );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const SPair transformFlagModes[] = 
 {
 	{ static_cast<DWORD>(RULE_TRANSFORMFLAGS_DISABLE), static_cast<DWORD>(D3DTTFF_DISABLE) },
@@ -407,7 +363,6 @@ DWORD GetTransformFlagMode( _ReductionPtr rule )
 	const DWORD dwTableIndex = rule->GetParentRule()->GetTableIndex();
 	return FindVal( dwTableIndex, transformFlagModes );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const SPair texGenModes[] = 
 {
 	{ static_cast<DWORD>(RULE_TEXGEN_CAMERASPACENORMAL), static_cast<DWORD>(D3DTSS_TCI_CAMERASPACENORMAL) },
@@ -420,7 +375,6 @@ DWORD GetTexGenMode( _ReductionPtr rule )
 	const DWORD dwTableIndex = rule->GetParentRule()->GetTableIndex();
 	return FindVal( dwTableIndex, texGenModes );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ParseTexPropList( _ReductionPtr rule, std::vector<SShadeValue> &props )
 {
 	const int nRuleIndex = rule->GetParentRule()->GetTableIndex();
@@ -441,7 +395,6 @@ void ParseTexPropList( _ReductionPtr rule, std::vector<SShadeValue> &props )
 		}
 		return;
 	}
-	//
 	switch ( nRuleIndex )
 	{
 		case RULE_TEXSINGLEPROP_FILTER_LPARAN_COMMA_COMMA_RPARAN_SEMI:	// filter 3 args
@@ -457,7 +410,6 @@ void ParseTexPropList( _ReductionPtr rule, std::vector<SShadeValue> &props )
 					if ( var.vt == VT_DISPATCH ) 
 						dwArgs[nCount++] = GetFilterMode( var.pdispVal );
 				}
-				//
 				props.push_back( SShadeValue(D3DTSS_MINFILTER, dwArgs[0]) );
 				props.push_back( SShadeValue(D3DTSS_MAGFILTER, dwArgs[1]) );
 				if ( nNumArgs == 3 ) 
@@ -478,7 +430,6 @@ void ParseTexPropList( _ReductionPtr rule, std::vector<SShadeValue> &props )
 					if ( var.vt == VT_DISPATCH ) 
 						dwArgs[nCount++] = GetWrapMode( var.pdispVal );
 				}
-				//
 				props.push_back( SShadeValue(D3DTSS_ADDRESSU, dwArgs[0]) );
 				props.push_back( SShadeValue(D3DTSS_ADDRESSV, dwArgs[1]) );
 				if ( nNumArgs == 3 ) 
@@ -527,7 +478,6 @@ void ParseTexPropList( _ReductionPtr rule, std::vector<SShadeValue> &props )
 			}
 			break;
 	}
-	//
 }
 class CParsePropertiesTokenVisitor
 { 
@@ -535,7 +485,6 @@ class CParsePropertiesTokenVisitor
 	std::vector<SShadeValue> &renderstates;
 	bool bHasAlphaBlend;
 	bool bHasStencil;
-	//
 	void ReadStencilArgs( _ReductionPtr &rule, const int nRuleIndex )
 	{
 		bHasStencil = true;
@@ -586,7 +535,6 @@ class CParsePropertiesTokenVisitor
 				break;
 		}
 	}
-	//
 	void ReadStencilActions( _ReductionPtr &rule, const int nRuleTableIndex )
 	{
 		const DWORD dwOp[3] = { D3DRS_STENCILPASS, D3DRS_STENCILZFAIL, D3DRS_STENCILFAIL };
@@ -610,7 +558,6 @@ public:
 		renderstates.push_back( SShadeValue(D3DRS_ALPHABLENDENABLE, bHasAlphaBlend) );
 		renderstates.push_back( SShadeValue(D3DRS_STENCILENABLE, bHasStencil) );
 	}
-	//
 	void operator()( _ReductionPtr &rule, const int nRuleIndex )
 	{
 		switch ( nRuleIndex ) 
@@ -656,7 +603,6 @@ public:
 						if ( var.vt == VT_DISPATCH ) 
 							dwVals[nCurrVal++] = GetBlendVal( var.pdispVal );
 					}
-					//
 					renderstates.push_back( SShadeValue(D3DRS_BLENDOP, dwVals[0]) );
 					renderstates.push_back( SShadeValue(D3DRS_SRCBLEND, dwVals[1]) );
 					renderstates.push_back( SShadeValue(D3DRS_DESTBLEND, dwVals[2]) );
@@ -771,16 +717,6 @@ public:
 	{
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** color and alpha expression parsing
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//typedef std::pair<SYMBOL_CONSTANTS, D3DTEXTUREOP> SOpPair;
 static const SPair ruleColorOperations[] = 
 {
 	{ static_cast<DWORD>(RULE_EXP2_ADD), static_cast<DWORD>(D3DTOP_ADD) },
@@ -811,7 +747,6 @@ DWORD GetD3DTOP( const DWORD dwOp )
 	}
 	return 0xffffffff;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 DWORD GetArg( _ReductionPtr rule )
 {
 	for ( short i = 0; i < rule->TokenCount; ++i )
@@ -836,7 +771,6 @@ DWORD GetArg( _ReductionPtr rule )
 	}
 	return static_cast<DWORD>(-1);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 DWORD GetRuleSimpleArg( const int nTableIndex )
 {
 	switch ( nTableIndex ) 
@@ -856,11 +790,9 @@ DWORD GetRuleSimpleArg( const int nTableIndex )
 	}
 	return D3DTA_CURRENT;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 DWORD GetRuleComplexArg( _ReductionPtr &rule2, const int nRule2Index )
 {
 	const DWORD dwModifier = nRule2Index == RULE_ARG_REPLICATE_LPARAN_RPARAN ? D3DTA_ALPHAREPLICATE : D3DTA_COMPLEMENT;
-	//
 	for ( short j = 0; j < rule2->TokenCount; ++j )
 	{
 		_TokenPtr token2 = rule2->GetTokens(j);
@@ -871,14 +803,12 @@ DWORD GetRuleComplexArg( _ReductionPtr &rule2, const int nRule2Index )
 	}
 	return static_cast<DWORD>(-1);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CParseColorAlphaTokenVisitor
 {
 	const bool bColor;
 	std::vector< std::vector<SShadeValue> > &stages;
 	int nCurrStage;
 	DWORD dwOpFlags;
-	//
 	void GetFuncArgs( _ReductionPtr &rule, DWORD *dwArgs, const int nNumArgs )
 	{
 		for ( short i = 0, nCurrArg = 0; (i < rule->TokenCount) && (nCurrArg < nNumArgs); ++i )
@@ -925,11 +855,9 @@ class CParseColorAlphaTokenVisitor
 			}
 		}
 	}
-	//
 	void GetFunctionToken( _ReductionPtr &rule, std::vector<SShadeValue> &tokens )
 	{
 		DWORD dwOp = 0;
-		// function
 		{
 			short i = 0;
 			_TokenPtr token = rule->GetTokens(i);
@@ -941,7 +869,6 @@ class CParseColorAlphaTokenVisitor
 				dwOp = GetD3DTOP( nRule2Index );
 			}
 		}
-		// arguments
 		DWORD dwArgs[3] = { static_cast<DWORD>(-1), static_cast<DWORD>(-1), static_cast<DWORD>(-1) };
 		int nNumArgs = 0;
 		{
@@ -965,10 +892,8 @@ class CParseColorAlphaTokenVisitor
 				}
 			}
 		}
-		// build D3D texture stage states
 		tokens.reserve( tokens.size() + 1 + nNumArgs );
 		tokens.push_back( SShadeValue(bColor ? D3DTSS_COLOROP : D3DTSS_ALPHAOP, dwOp) );
-		//
 		tokens.push_back( SShadeValue(bColor ? D3DTSS_COLORARG1 : D3DTSS_ALPHAARG1, dwArgs[0]) );
 		tokens.push_back( SShadeValue(bColor ? D3DTSS_COLORARG2 : D3DTSS_ALPHAARG2, dwArgs[1]) );
 		if ( nNumArgs == 3 ) 
@@ -982,9 +907,7 @@ public:
 		nCurrStage = 0;
 		dwOpFlags = 0;
 	}
-	//
 	const DWORD GetOpFlags() const { return dwOpFlags; }
-	//
 	void operator()( _ReductionPtr &rule, const int nRuleIndex )
 	{
 		switch ( nRuleIndex ) 
@@ -996,7 +919,6 @@ public:
 			case RULE_EXP:	// 2 argument function
 			case RULE_EXP2:	// 3 argument function
 				dwOpFlags |= ( 1 << nCurrStage );
-				// retrieve function
 				stages.resize( Max(int(stages.size()), nCurrStage + 1) );
 				GetFunctionToken( rule, stages[nCurrStage] );
 				++nCurrStage;
@@ -1033,21 +955,11 @@ public:
 	{
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** defs block parsing
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CParseDefsBlockTokenVisitor
 {
 	SShaderDesc::SDefsBlock &defsBlock;
 	DWORD dwColorOpsFilled;								// flags for color ops stages
 	DWORD dwAlphaOpsFilled;								// 
-	//
 	bool HasColorOp( const int nStage ) const { return ( dwColorOpsFilled & (1 << nStage) ) != 0; }
 	bool HasAlphaOp( const int nStage ) const { return ( dwAlphaOpsFilled & (1 << nStage) ) != 0; }
 public:
@@ -1055,7 +967,6 @@ public:
 		: defsBlock( _defsBlock ), dwColorOpsFilled( 0 ), dwAlphaOpsFilled( 0 ) {  }
 	~CParseDefsBlockTokenVisitor()
 	{
-		// fill 'intermediate' alpha and color stages
 		if ( dwColorOpsFilled != dwAlphaOpsFilled ) 
 		{
 			for ( int i = 0; i < 32; ++i )
@@ -1068,7 +979,6 @@ public:
 					break;
 			}
 		}
-		// disable last stage
 		if ( (dwColorOpsFilled | dwAlphaOpsFilled) != 0 ) 
 		{
 			const int nMSB = GetMSB( dwColorOpsFilled | dwAlphaOpsFilled ) + 1;
@@ -1077,7 +987,6 @@ public:
 			defsBlock.tsses[nMSB].push_back( SShadeValue(D3DTSS_ALPHAOP, D3DTOP_DISABLE) );
 		}
 	}
-	//
 	void operator()( _ReductionPtr &rule, const int nRuleIndex )
 	{
 		switch ( nRuleIndex ) 
@@ -1105,17 +1014,14 @@ public:
 	{
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CParseSetRestoreTokenVisitor
 {
 	SShaderDesc::SDefsBlock &defsBlock;
 public:
 	CParseSetRestoreTokenVisitor( SShaderDesc::SDefsBlock &_defsBlock )
 		: defsBlock( _defsBlock ) {  }
-	//
 	void operator()( _ReductionPtr &rule, const int nRuleIndex )
 	{
-		//
 		switch ( nRuleIndex ) 
 		{
 			case RULE_DEFSBLOCK:
@@ -1128,15 +1034,6 @@ public:
 	{
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** 
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CParseTechniqueTokenVisitor
 {
 	STechnique *pTechnique;
@@ -1148,7 +1045,6 @@ public:
 		pTechnique->nNumTextures = 0;
 		pTechnique->nStencilDepth = 0;
 	}
-	//
 	void operator()( _ReductionPtr &rule, const int nRuleIndex )
 	{
 		switch ( nRuleIndex ) 
@@ -1177,21 +1073,11 @@ public:
 	{
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ParseTechnique( _ReductionPtr reduction, STechnique *pTechnique )
 {
 	CParseTechniqueTokenVisitor visitor( pTechnique );
 	VisitTokens( reduction, visitor );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** 
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CShaderParser::Save( const char *pszFileName )
 {
 	CPtr<IDataStream> pStream = CreateFileStream( pszFileName, STREAM_ACCESS_WRITE );
@@ -1206,4 +1092,3 @@ bool CShaderParser::Save( const char *pszFileName )
 	saver.Add( 2, &techniques );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

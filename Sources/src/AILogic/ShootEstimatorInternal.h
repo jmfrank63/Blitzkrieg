@@ -2,13 +2,10 @@
 #define __SHOOT_ESTIMATOR_INTERNAL_H__
 
 #pragma ONCE
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "ShootEstimator.h"
 #include "Obstacle.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAIUnit;
 class CBasicGun;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTankShootEstimator : public IShootEstimator
 {
 	OBJECT_COMPLETE_METHODS( CTankShootEstimator );
@@ -27,9 +24,6 @@ class CTankShootEstimator : public IShootEstimator
 	
 	CGDBPtr<SUnitBaseRPGStats> pMosinStats;
 
-	// �����, ���������, ����� ��������� pGun �� pEnemy
-	//const float FindTimeToTurn( CAIUnit *pEnemy, CBasicGun *pGun ) const;
-	// ������� gun ��� pEnemy
 	void ChooseGun( CBasicGun **pBestGun, int *nBestGun, CAIUnit *pEnemy );
 
 	const float GetRating( CAIUnit *pEnemy, CBasicGun *pGun ) const;
@@ -44,7 +38,6 @@ public:
 	virtual class CBasicGun* GetBestGun() const;
 	virtual const int GetNumberOfBestGun() const;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierShootEstimator : public IShootEstimator
 {
 	OBJECT_COMPLETE_METHODS( CSoldierShootEstimator );
@@ -62,14 +55,12 @@ class CSoldierShootEstimator : public IShootEstimator
 	float fBestRating;
 
 	bool bHasGrenades;
-	// ������� �������, �� �������� ����� ������� ������ ���� �� ��������
 	bool bThrowGrenade;
 
 	DWORD dwForbidden;
 
 	CGDBPtr<SUnitBaseRPGStats> pMosinStats;
 
-	// ������� gun ��� pEnemy
 	void ChooseGun( CBasicGun **pBestGun, int *nBestGun, CAIUnit *pEnemy );
 
 	const float GetRating( CAIUnit *pEnemy, CBasicGun *pGun ) const;
@@ -84,8 +75,6 @@ public:
 	virtual class CBasicGun* GetBestGun() const;
 	virtual const int GetNumberOfBestGun() const;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// �������� �� �������� ���������� ����� ��� ���������
 class CPlaneDeffensiveFireShootEstimator : public IShootEstimator
 {
 	OBJECT_COMPLETE_METHODS( CPlaneDeffensiveFireShootEstimator );
@@ -114,8 +103,6 @@ public:
 	virtual class CBasicGun* GetBestGun() const;
 	virtual const int GetNumberOfBestGun() const;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// for 
 class CBuilding;
 class CPlaneShturmovikShootEstimator : public IShootEstimator
 {
@@ -132,7 +119,6 @@ class CPlaneShturmovikShootEstimator : public IShootEstimator
 		WORD wSpeedDiff;
 		WORD wDirToTarget;
 		float fRating;
-		//
 		void Reset()
 		{
 			bCanTargetShootToPlanes = false;
@@ -173,8 +159,6 @@ public:
 	virtual class CBasicGun* GetBestGun() const { NI_ASSERT_T(false,"Wrong call"); return 0;} 
 	virtual const int GetNumberOfBestGun() const{ NI_ASSERT_T(false,"Wrong call"); return 0;} 
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ��� �������� �� ������������. 
 class CShootEstimatorForObstacles : public IObstacleEnumerator
 {
 	class CCommonUnit *pOwner;
@@ -186,5 +170,4 @@ public:
 	virtual bool AddObstacle( IObstacle *pObstacle );
 	virtual interface IObstacle * GetBest() const;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif __SHOOT_ESTIMATOR_INTERNAL_H__

@@ -18,13 +18,7 @@
 #ifndef _STLP_internal_complex_h
 #define _STLP_internal_complex_h
 
-// This header declares the template class complex, as described in 
-// in the draft C++ standard.  Single-precision complex numbers
-// are complex<float>, double-precision are complex<double>, and
-// quad precision are complex<long double>.
 
-// Note that the template class complex is declared within namespace
-// std, as called for by the draft C++ standard.  
 
 #include <cmath>
 #include <iosfwd>
@@ -47,7 +41,6 @@ struct complex {
   typedef _Tp value_type;
   typedef complex<_Tp> _Self;
 
-  // Constructors, destructor, assignment operator.
   complex() : _M_re(0), _M_im(0) {}
   complex(const value_type& __x)
     : _M_re(__x), _M_im(0) {}
@@ -75,11 +68,9 @@ struct complex {
   }
 #endif /* _STLP_MEMBER_TEMPLATES */
 
-  // Element access.
   value_type real() const { return _M_re; }
   value_type imag() const { return _M_im; }
 
-  // Arithmetic op= operations involving one real argument.
 
   _Self& operator= (const value_type& __x) {
     _M_re = __x;
@@ -105,7 +96,6 @@ struct complex {
     return *this;
   }
 
-  // Arithmetic op= operations involving two complex arguments.
 
   static void  _STLP_CALL _div(const value_type& __z1_r, const value_type& __z1_i,
                    const value_type& __z2_r, const value_type& __z2_i,
@@ -177,23 +167,17 @@ struct complex {
     return *this;
   }
 
-  // Data members.
   value_type _M_re;
   value_type _M_im;
 };
 
 #if !defined(_STLP_NO_COMPLEX_SPECIALIZATIONS)		//*TY 02/25/2000 - added for MPW compiler workaround
-// Explicit specializations for float, double, long double.  The only
-// reason for these specializations is to enable automatic conversions
-// from complex<float> to complex<double>, and complex<double> to
-// complex<long double>.
 
 
 _STLP_TEMPLATE_NULL
 struct _STLP_CLASS_DECLSPEC complex<float> {
   typedef float value_type;
   typedef complex<float> _Self;
-  // Constructors, destructor, assignment operator.
 
   complex(value_type __x = 0.0, value_type __y = 0.0)
     : _M_re(__x), _M_im(__y) {}
@@ -204,11 +188,9 @@ struct _STLP_CLASS_DECLSPEC complex<float> {
 # ifndef _STLP_NO_LONG_DOUBLE
   inline explicit complex(const complex<long double>& __z);
 # endif
-  // Element access.
   value_type real() const { return _M_re; }
   value_type imag() const { return _M_im; }
 
-  // Arithmetic op= operations involving one real argument.
 
   _Self& operator= (value_type __x) {
     _M_re = __x;
@@ -234,7 +216,6 @@ struct _STLP_CLASS_DECLSPEC complex<float> {
     return *this;
   }
 
-  // Arithmetic op= operations involving two complex arguments.
 
   static void _STLP_CALL _div(const float& __z1_r, const float& __z1_i,
                               const float& __z2_r, const float& __z2_i,
@@ -323,7 +304,6 @@ struct _STLP_CLASS_DECLSPEC complex<float> {
     return *this;
   }
 
-  // Data members.
   value_type _M_re;
   value_type _M_im;
 };
@@ -332,7 +312,6 @@ _STLP_TEMPLATE_NULL struct _STLP_CLASS_DECLSPEC complex<double> {
   typedef double value_type;
   typedef complex<double> _Self;
 
-  // Constructors, destructor, assignment operator.
 
   complex(value_type __x = 0.0, value_type __y = 0.0)
     : _M_re(__x), _M_im(__y) {}
@@ -343,11 +322,9 @@ _STLP_TEMPLATE_NULL struct _STLP_CLASS_DECLSPEC complex<double> {
 # ifndef _STLP_NO_LONG_DOUBLE
   explicit inline complex(const complex<long double>& __z);
 # endif
-  // Element access.
   value_type real() const { return _M_re; }
   value_type imag() const { return _M_im; }
 
-  // Arithmetic op= operations involving one real argument.
 
   _Self& operator= (value_type __x) {
     _M_re = __x;
@@ -373,7 +350,6 @@ _STLP_TEMPLATE_NULL struct _STLP_CLASS_DECLSPEC complex<double> {
     return *this;
   }
 
-  // Arithmetic op= operations involving two complex arguments.
 
   static void _STLP_CALL _div(const double& __z1_r, const double& __z1_i,
                               const double& __z2_r, const double& __z2_i,
@@ -461,7 +437,6 @@ _STLP_TEMPLATE_NULL struct _STLP_CLASS_DECLSPEC complex<double> {
     return *this;
   }
 
-  // Data members.
   value_type _M_re;
   value_type _M_im;
 };
@@ -472,7 +447,6 @@ _STLP_TEMPLATE_NULL struct _STLP_CLASS_DECLSPEC complex<long double> {
   typedef long double value_type;
   typedef complex<long double> _Self;
 
-  // Constructors, destructor, assignment operator.
   complex(value_type __x = 0.0, value_type __y = 0.0)
     : _M_re(__x), _M_im(__y) {}
 
@@ -481,11 +455,9 @@ _STLP_TEMPLATE_NULL struct _STLP_CLASS_DECLSPEC complex<long double> {
   inline complex(const complex<float>& __z);
   inline complex(const complex<double>& __z);
 
-  // Element access.
   value_type real() const { return _M_re; }
   value_type imag() const { return _M_im; }
 
-  // Arithmetic op= operations involving one real argument.
 
   _Self& operator= (value_type __x) {
     _M_re = __x;
@@ -511,7 +483,6 @@ _STLP_TEMPLATE_NULL struct _STLP_CLASS_DECLSPEC complex<long double> {
     return *this;
   }
 
-  // Arithmetic op= operations involving two complex arguments.
 
   static void _STLP_CALL _div(const long double& __z1_r, const long double& __z1_i,
                               const long double& __z2_r, const long double& __z2_i,
@@ -600,15 +571,12 @@ _STLP_TEMPLATE_NULL struct _STLP_CLASS_DECLSPEC complex<long double> {
     return *this;
   }
 
-  // Data members.
   value_type _M_re;
   value_type _M_im;
 };
 
 # endif /* _STLP_NO_LONG_DOUBLE */
 
-// Converting constructors from one of these three specialized types
-// to another.
 
 inline complex<float>::complex(const complex<double>& __z)
   : _M_re(__z._M_re), _M_im(__z._M_im) {}
@@ -627,7 +595,6 @@ inline complex<long double>::complex(const complex<double>& __z)
 
 # endif /* SPECIALIZATIONS */
 
-// Unary non-member arithmetic operators.
 
 template <class _Tp>
 inline complex<_Tp> _STLP_CALL operator+(const complex<_Tp>& __z) {
@@ -639,7 +606,6 @@ inline complex<_Tp> _STLP_CALL  operator-(const complex<_Tp>& __z) {
   return complex<_Tp>(-__z._M_re, -__z._M_im);
 }
 
-// Non-member arithmetic operations involving one real argument.
 
 template <class _Tp> 
 inline complex<_Tp> _STLP_CALL operator+(const _Tp& __x, const complex<_Tp>& __z) {
@@ -685,7 +651,6 @@ inline complex<_Tp> _STLP_CALL operator/(const complex<_Tp>& __z, const _Tp& __x
   return complex<_Tp>(__z._M_re / __x, __z._M_im / __x);
 }
 
-// Non-member arithmetic operations involving two complex arguments
 
 template <class _Tp> 
 inline complex<_Tp> _STLP_CALL 
@@ -716,7 +681,6 @@ operator/(const complex<_Tp>& __z1, const complex<_Tp>& __z2) {
   return __result;
 }
 
-// Comparison operators.
 
 template <class _Tp> 
 inline bool _STLP_CALL operator==(const complex<_Tp>& __z1, const complex<_Tp>& __z2) {
@@ -752,7 +716,6 @@ inline bool _STLP_CALL operator!=(const _Tp& __x, const complex<_Tp>& __z) {
   return __x != __z._M_re || 0 != __z._M_im;
 }
 
-// Other basic arithmetic operations
 
 template <class _Tp> 
 inline _Tp _STLP_CALL real(const complex<_Tp>& __z) {
@@ -811,8 +774,6 @@ complex<_Tp> _STLP_CALL polar(const _Tp& __rho, const _Tp& __phi) {
 
 #ifdef _STLP_USE_NEW_IOSTREAMS
 
-// Complex output, in the form (re,im).  We use a two-step process 
-// involving stringstream so that we get the padding right.  
 template <class _Tp, class _CharT, class _Traits>
 basic_ostream<_CharT, _Traits>&  _STLP_CALL 
 operator<<(basic_ostream<_CharT, _Traits>& __os, const complex<_Tp>& __z);
@@ -821,7 +782,6 @@ template <class _Tp, class _CharT, class _Traits>
 basic_istream<_CharT, _Traits>& _STLP_CALL 
 operator>>(basic_istream<_CharT, _Traits>& __is, complex<_Tp>& __z);
 
-// Specializations for narrow characters; lets us avoid widen.
 
 _STLP_OPERATOR_TEMPLATE
 _STLP_DECLSPEC basic_istream<char, char_traits<char> >& _STLP_CALL 
@@ -882,9 +842,6 @@ istream& _STLP_CALL  operator>>(istream& s, complex<_Tp>& a);
 #endif /* _STLP_USE_NEW_IOSTREAMS */
 
 
-// Transcendental functions.  These are defined only for float, 
-//  double, and long double.  (Sqrt isn't transcendental, of course,
-//  but it's included in this section anyway.)
 
 _STLP_DECLSPEC complex<float> _STLP_CALL sqrt(const complex<float>&);
 
@@ -953,6 +910,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_template_complex */
 
-// Local Variables:
-// mode:C++
-// End:

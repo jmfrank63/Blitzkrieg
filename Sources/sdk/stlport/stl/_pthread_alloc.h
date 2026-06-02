@@ -26,18 +26,6 @@
 #ifndef _STLP_PTHREAD_ALLOC_H
 #define _STLP_PTHREAD_ALLOC_H
 
-// Pthread-specific node allocator.
-// This is similar to the default allocator, except that free-list
-// information is kept separately for each thread, avoiding locking.
-// This should be reasonably fast even in the presence of threads.
-// The down side is that storage may not be well-utilized.
-// It is not an error to allocate memory in thread A and deallocate
-// it in thread B.  But this effectively transfers ownership of the memory,
-// so that it can only be reallocated by thread B.  Thus this can effectively
-// result in a storage leak if it's done on a regular basis.
-// It can also result in frequent sharing of
-// cache lines among processors, with potentially serious performance
-// consequences.
 
 #include <pthread.h>
 
@@ -58,39 +46,24 @@ union _Pthread_alloc_obj {
     char __client_data[_STLP_DATA_ALIGNMENT];    /* The client sees this.    */
 };
 
-// Pthread allocators don't appear to the client to have meaningful
-// instances.  We do in fact need to associate some state with each
-// thread.  That state is represented by
-// _Pthread_alloc_per_thread_state<_Max_size>.
 
 template<size_t _Max_size>
 struct _Pthread_alloc_per_thread_state {
   typedef _Pthread_alloc_obj __obj;
   enum { _S_NFREELISTS = _Max_size/_STLP_DATA_ALIGNMENT };
 
-  // Free list link for list of available per thread structures.
-  // When one of these becomes available for reuse due to thread
-  // termination, any objects in its free list remain associated
-  // with it.  The whole structure may then be used by a newly
-  // created thread.
   _Pthread_alloc_per_thread_state() : __next(0)
   {
     memset((void *)__free_list, 0, (size_t)_S_NFREELISTS * sizeof(__obj *));
   }
-  // Returns an object of size __n, and possibly adds to size n free list.
   void *_M_refill(size_t __n);
   
   _Pthread_alloc_obj* volatile __free_list[_S_NFREELISTS]; 
   _Pthread_alloc_per_thread_state<_Max_size> * __next; 
-  // this data member is only to be used by per_thread_allocator, which returns memory to the originating thread.
   _STLP_mutex _M_lock;
 
  };
 
-// Pthread-specific allocator.
-// The argument specifies the largest object size allocated from per-thread
-// free lists.  Larger objects are allocated using malloc_alloc.
-// Max_size must be a power of 2.
 template < __DFL_NON_TYPE_PARAM(size_t, _Max_size, _MAX_BYTES) >
 class _Pthread_alloc {
 
@@ -100,8 +73,6 @@ public: // but only for internal use:
   typedef _Pthread_alloc_per_thread_state<_Max_size> __state_type;
   typedef char value_type;
 
-  // Allocates a chunk for nobjs of size size.  nobjs may be reduced
-  // if it is inconvenient to allocate the requested number.
   static char *_S_chunk_alloc(size_t __size, size_t &__nobjs);
 
   enum {_S_ALIGN = _STLP_DATA_ALIGNMENT};
@@ -114,8 +85,6 @@ public: // but only for internal use:
   }
 
 private:
-  // Chunk allocation state. And other shared state.
-  // Protected by _S_chunk_allocator_lock.
   static _STLP_mutex_base _S_chunk_allocator_lock;
   static char *_S_start_free;
   static char *_S_end_free;
@@ -123,18 +92,11 @@ private:
   static _Pthread_alloc_per_thread_state<_Max_size>* _S_free_per_thread_states;
   static pthread_key_t _S_key;
   static bool _S_key_initialized;
-        // Pthread key under which per thread state is stored. 
-        // Allocator instances that are currently unclaimed by any thread.
   static void _S_destructor(void *instance);
-        // Function to be called on thread exit to reclaim per thread
-        // state.
   static _Pthread_alloc_per_thread_state<_Max_size> *_S_new_per_thread_state();
 public:
-        // Return a recycled or new per thread state.
   static _Pthread_alloc_per_thread_state<_Max_size> *_S_get_per_thread_state();
 private:
-        // ensure that the current thread has an associated
-        // per thread state.
   class _M_lock;
   friend class _M_lock;
   class _M_lock {
@@ -187,7 +149,6 @@ public:
     *__my_free_list = __q;
   }
 
-  // boris : versions for per_thread_allocator
   /* n must be > 0      */
   static void * allocate(size_t __n, __state_type* __a)
   {
@@ -198,8 +159,6 @@ public:
         return(__malloc_alloc<0>::allocate(__n));
     }
 
-    // boris : here, we have to lock per thread state, as we may be getting memory from
-    // different thread pool.
     _STLP_mutex_lock __lock(__a->_M_lock);
 
     __my_free_list = __a -> __free_list + _S_freelist_index(__n);
@@ -223,8 +182,6 @@ public:
         return;
     }
 
-    // boris : here, we have to lock per thread state, as we may be returning memory from
-    // different thread.
     _STLP_mutex_lock __lock(__a->_M_lock);
 
     __my_free_list = __a->__free_list + _S_freelist_index(__n);
@@ -274,14 +231,11 @@ public:
   pointer address(reference __x) const { return &__x; }
   const_pointer address(const_reference __x) const { return &__x; }
 
-  // __n is permitted to be 0.  The C++ standard says nothing about what
-  // the return value is when __n == 0.
   _Tp* allocate(size_type __n, const void* = 0) {
     return __n != 0 ? __STATIC_CAST(_Tp*,_S_Alloc::allocate(__n * sizeof(_Tp)))
                     : 0;
   }
 
-  // p is not permitted to be a null pointer.
   void deallocate(pointer __p, size_type __n)
     { _S_Alloc::deallocate(__p, __n * sizeof(_Tp)); }
 
@@ -359,10 +313,6 @@ __stl_alloc_create(pthread_allocator<_Tp1>&, const _Tp2*) {
 
 #endif /* _STLP_MEMBER_TEMPLATE_CLASSES */
 
-//
-// per_thread_allocator<> : this allocator always return memory to the same thread 
-// it was allocated from.
-//
 
 template <class _Tp>
 class per_thread_allocator {
@@ -398,13 +348,10 @@ public:
   pointer address(reference __x) const { return &__x; }
   const_pointer address(const_reference __x) const { return &__x; }
 
-  // __n is permitted to be 0.  The C++ standard says nothing about what
-  // the return value is when __n == 0.
   _Tp* allocate(size_type __n, const void* = 0) {
     return __n != 0 ? __STATIC_CAST(_Tp*,_S_Alloc::allocate(__n * sizeof(_Tp), _M_state)): 0;
   }
 
-  // p is not permitted to be a null pointer.
   void deallocate(pointer __p, size_type __n)
     { _S_Alloc::deallocate(__p, __n * sizeof(_Tp), _M_state); }
 
@@ -414,7 +361,6 @@ public:
   void construct(pointer __p, const _Tp& __val) { _STLP_PLACEMENT_NEW (__p) _Tp(__val); }
   void destroy(pointer _p) { _p->~_Tp(); }
 
-  // state is being kept here
   __state_type* _M_state;
 };
 
@@ -484,6 +430,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_PTHREAD_ALLOC */
 
-// Local Variables:
-// mode:C++
-// End:

@@ -2,7 +2,6 @@
 
 #include "PlaneStates.h"
 #include "SerializeOwner.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlaneRestState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -14,7 +13,6 @@ int CPlaneRestState::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlaneDeffensiveFire::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -23,7 +21,6 @@ int CPlaneDeffensiveFire::operator&( IStructureSaver &ss )
 	saver.Add( 5, &pShootEstimator );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlanePatrolState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -34,7 +31,6 @@ int CPlanePatrolState::operator&( IStructureSaver &ss )
 	saver.Add( 3, &nCurPointIndex );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlaneBombState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -53,7 +49,6 @@ int CPlaneBombState::operator&( IStructureSaver &ss )
 	saver.AddTypedSuper( 17, static_cast<CPlaneDeffensiveFire*>(this) );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlaneParaDropState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -67,7 +62,6 @@ int CPlaneParaDropState::operator&( IStructureSaver &ss )
 	saver.Add( 19, &nDroppingSoldier );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlaneScoutState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -78,7 +72,6 @@ int CPlaneScoutState::operator&( IStructureSaver &ss )
 	saver.Add( 5, &timeOfStart );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlaneLeaveState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -89,7 +82,6 @@ int CPlaneLeaveState::operator&( IStructureSaver &ss )
 	saver.Add( 18, &nAviaType );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlaneShturmovikPatrolState::CEnemyContainer::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -100,7 +92,6 @@ int CPlaneShturmovikPatrolState::CEnemyContainer::operator&( IStructureSaver &ss
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlaneShturmovikPatrolState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -122,7 +113,6 @@ int CPlaneShturmovikPatrolState::operator&( IStructureSaver &ss )
 	saver.Add( 21, &eCalledAs );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlaneFighterPatrolState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -143,7 +133,6 @@ int CPlaneFighterPatrolState::operator&( IStructureSaver &ss )
 	saver.Add( 11, &fPartolRadius );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlaneFlyDeadState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -158,4 +147,3 @@ int CPlaneFlyDeadState::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

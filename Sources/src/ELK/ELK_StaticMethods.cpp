@@ -21,32 +21,24 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SELKElement::GetDataBaseFolder( const std::string &rszELKPath, std::string *pszDataBaseFolder )
 {
 	NI_ASSERT_T( pszDataBaseFolder != 0, NStr::Format( _T( "CELK::GetDataBaseFolder() wrong parameter: pszDataBaseFolder %x" ), pszDataBaseFolder ) );
 	if ( pszDataBaseFolder )
 	{
-		//( *pszDataBaseFolder ) = rszELKPath.substr( 0, rszELKPath.rfind( '.' ) );
-		//( *pszDataBaseFolder ) +=	DATA_BASE_FOLDER;
 		( *pszDataBaseFolder ) = rszELKPath + std::string( DATA_BASE_FOLDER );
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SELKElement::GetDataBaseReserveFolder( const std::string &rszELKPath, std::string *pszDataBaseReserveFolder )
 {
 	NI_ASSERT_T( pszDataBaseReserveFolder != 0, NStr::Format( _T( "CELK::GetDataBaseReserveFolder() wrong parameter: pszDataBaseReserveFolder %x" ), pszDataBaseReserveFolder ) );
 	if ( pszDataBaseReserveFolder )
 	{
-		//( *pszDataBaseReserveFolder ) = rszELKPath.substr( 0, rszELKPath.rfind( '.' ) );
-		//( *pszDataBaseReserveFolder ) +=	DATA_BASE_RESERVE_FOLDER;
 		( *pszDataBaseReserveFolder ) =	rszELKPath + std::string( DATA_BASE_RESERVE_FOLDER );
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// = _T( "MICROSOFT EXCEL DRIVER (*.XLS)" );
 bool GetExcelODBCDriverName( CString *pstrExcelODBCDriverName )
 {
 	if ( pstrExcelODBCDriverName )
@@ -74,7 +66,6 @@ bool GetExcelODBCDriverName( CString *pstrExcelODBCDriverName )
 	return false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CELK::ToText( const std::vector<BYTE> &rBuffer, CString *pstrText, int nCodePage, bool bRemove_0D )
 {
 	NI_ASSERT_T( pstrText != 0, NStr::Format( _T( "CELK::ToText() wrong parameter: pstrText %x" ), pstrText ) );
@@ -116,7 +107,6 @@ void CELK::ToText( const std::vector<BYTE> &rBuffer, CString *pstrText, int nCod
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CELK::FromText( const CString &rstrText, std::vector<BYTE> *pBuffer, int nCodePage, bool bAdd_0D )
 {
 	NI_ASSERT_T( pBuffer != 0, NStr::Format( _T( "CELK::ToText() wrong parameter: pBuffer %x" ), pBuffer ) );
@@ -159,14 +149,12 @@ void CELK::FromText( const CString &rstrText, std::vector<BYTE> *pBuffer, int nC
 		wszText = wszText.substr( 0, nLastIndex + 1 );
 	}
 	
-	//����� 0 �� �����
 	pBuffer->resize( 2 + ( wszText.size() - 1 ) * sizeof( wchar_t ) );
 	( *pBuffer )[0] = 0xFF;
 	( *pBuffer )[1] = 0xFE;
 	memcpy( &( ( *pBuffer )[2] ), &( wszText[0] ), ( wszText.size() - 1 ) * sizeof( wchar_t ) );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CELK::GetOriginalText( const std::string &rszTextPath, CString *pstrText, int nCodePage, bool bRemove_0D )
 {
 	NI_ASSERT_T( pstrText != 0, NStr::Format( _T( "CELK::GetOriginalText() wrong parameter: pstrText %x" ), pstrText ) );
@@ -185,7 +173,6 @@ void CELK::GetOriginalText( const std::string &rszTextPath, CString *pstrText, i
 	}	
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CELK::GetTranslatedText( const std::string &rszTextPath, CString *pstrText,  int nCodePage, bool bRemove_0D )
 {
 	NI_ASSERT_T( pstrText != 0, NStr::Format( _T( "CELK::GetTranslatedText() wrong parameter: pstrText %x" ), pstrText ) );
@@ -204,7 +191,6 @@ void CELK::GetTranslatedText( const std::string &rszTextPath, CString *pstrText,
 	}	
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CELK::GetDescription( const std::string &rszTextPath, CString *pstrText, int nCodePage, bool bRemove_0D )
 {
 	NI_ASSERT_T( pstrText != 0, NStr::Format( _T( "CELK::GetDescription() wrong parameter: pstrText %x" ), pstrText ) );
@@ -239,7 +225,6 @@ void CELK::GetDescription( const std::string &rszTextPath, CString *pstrText, in
 	}	
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CELK::GetState( const std::string &rszTextPath, bool *pbTranslated )
 {
 	SELKTextProperty textProperty;
@@ -259,7 +244,6 @@ int CELK::GetState( const std::string &rszTextPath, bool *pbTranslated )
 	return textProperty.nState;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CELK::SetTranslatedText( const std::string &rszTextPath, const CString &rstrText, int nCodePage, bool bAdd_0D )
 {
 	CPtr<IDataStream> pFileStream = 0;
@@ -271,7 +255,6 @@ void CELK::SetTranslatedText( const std::string &rszTextPath, const CString &rst
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CELK::SetState( const std::string &rszTextPath, int nState, bool *pbTranslated )
 {
 	SELKTextProperty textProperty;
@@ -309,7 +292,6 @@ int CELK::SetState( const std::string &rszTextPath, int nState, bool *pbTranslat
 	return nPreviousState;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CELK::CreatePAK( const std::string &rszGamePath, const std::string &rszFilePath, const std::string &rszZIPToolPath, CProgressDialog* pwndProgressDialog )
 {
 	if ( pwndProgressDialog && ( pwndProgressDialog->GetSafeHwnd() != 0 ) )
@@ -392,7 +374,6 @@ bool CELK::CreatePAK( const std::string &rszGamePath, const std::string &rszFile
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CELK::ExportToPAK( const std::string &rszELKPath,
 												const std::string &rszPAKPath,
 												const std::string &rszZIPToolPath,
@@ -493,7 +474,6 @@ bool CELK::ExportToPAK( const std::string &rszELKPath,
 			}
 			pFileStream = 0;
 			
-			//��������� ����� ��������
 			CString strSymbols;
 			GetTranslatedText( szTempFileName, &strSymbols, nCodePage, true );
 			if ( !strSymbols.IsEmpty() )
@@ -562,7 +542,6 @@ bool CELK::ExportToPAK( const std::string &rszELKPath,
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CImportFromPAKEraseFile
 {
 	std::unordered_set<std::string> *pUsedPaths;
@@ -589,7 +568,6 @@ public:
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CELK::ImportFromPAK( const std::string &rszPAKPath, const std::string &rszELKPath, bool bAbsolute, std::string *pszNewVersion, CProgressDialog* pwndProgressDialog )
 {
 	if ( pwndProgressDialog && ( pwndProgressDialog->GetSafeHwnd() != 0 ) )
@@ -640,7 +618,6 @@ bool CELK::ImportFromPAK( const std::string &rszPAKPath, const std::string &rszE
 
 		std::unordered_set<std::string> usedPaths;
 
-		//��������� TXT � ELK
 		for ( std::list<std::string>::const_iterator nameIterator = enumFilesInDataStorageParameter[0].fileNames.begin(); nameIterator != enumFilesInDataStorageParameter[0].fileNames.end(); ++nameIterator )
 		{
 			if ( CPtr<IDataStream> pStream = pStorage->OpenStream( nameIterator->c_str(), STREAM_ACCESS_READ ) )
@@ -718,7 +695,6 @@ bool CELK::ImportFromPAK( const std::string &rszPAKPath, const std::string &rszE
 			}
 		}
 
-		//��������� ����������
 		for ( int nParameterIndex = 1; nParameterIndex < enumFilesInDataStorageParameter.size(); ++nParameterIndex )
 		{
 			for ( std::list<std::string>::const_iterator nameIterator = enumFilesInDataStorageParameter[nParameterIndex].fileNames.begin(); nameIterator != enumFilesInDataStorageParameter[nParameterIndex].fileNames.end(); ++nameIterator )
@@ -767,7 +743,6 @@ bool CELK::ImportFromPAK( const std::string &rszPAKPath, const std::string &rszE
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CELK::ExportToXLS( const CELK &rELK, const std::string &rszXLSPath, CELKTreeWindow *pwndELKTreeWindow, int nCodePage, CProgressDialog* pwndProgressDialog )
 {
 	if ( pwndProgressDialog && ( pwndProgressDialog->GetSafeHwnd() != 0 ) )
@@ -865,7 +840,6 @@ bool CELK::ExportToXLS( const CELK &rELK, const std::string &rszXLSPath, CELKTre
 	return true;	
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CELK::ImportFromXLS( const CELK &rELK, const std::string &rszXLSPath, std::string *pszNewVersion, int nCodePage, CProgressDialog* pwndProgressDialog )
 {
 	if ( pwndProgressDialog && ( pwndProgressDialog->GetSafeHwnd() != 0 ) )
@@ -894,7 +868,6 @@ bool CELK::ImportFromXLS( const CELK &rELK, const std::string &rszXLSPath, std::
   CDatabase database;
 	CString strDriver;
 	GetExcelODBCDriverName( &strDriver );
-	//CString strSql;
 	CString strDsn;
 
 	TRY
@@ -902,7 +875,6 @@ bool CELK::ImportFromXLS( const CELK &rELK, const std::string &rszXLSPath, std::
 		strDsn.Format( _T( "ODBC;DRIVER={%s};DSN='';DBQ=%s;MAXSCANROWS=0" ), LPCTSTR( strDriver ), rszXLSPath.c_str() );
 		database.Open( NULL, false, false, strDsn );
 		CBlitzkriegELKRecordset recset( &database );
-		//recset.m_strSort = "Path";
 		recset.Open( CRecordset::forwardOnly, 0, CRecordset::readOnly );
 
 		int nOverallStatesCount = 0;
@@ -925,12 +897,10 @@ bool CELK::ImportFromXLS( const CELK &rELK, const std::string &rszXLSPath, std::
 		while( !recset.IsEOF() )
 		{
 			CString strFileName = recset.m_Path;
-			//recset.GetFieldValue( _T( "Path" ), strFileName );
 			strFileName.Replace( '`', '\'' );
 			std::string szText = strFileName;
 
 			CString strOriginalText = recset.m_Original;
-			//recset.GetFieldValue( _T( "Original" ), strOriginalText );
 			strOriginalText.Replace( '`', '\'' );
 			strOriginalText.TrimRight( "\t\r\n " );
 
@@ -942,7 +912,6 @@ bool CELK::ImportFromXLS( const CELK &rELK, const std::string &rszXLSPath, std::
 			}
 			
 			CString strTranslatedText = recset.m_Translation;
-			//recset.GetFieldValue( _T( "Translation" ), strTranslatedText );
 			strTranslatedText.Replace( '`', '\'' );
 			szText = LPCTSTR( strTranslatedText );
 
@@ -1091,7 +1060,6 @@ bool CELK::ImportFromXLS( const CELK &rELK, const std::string &rszXLSPath, std::
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CELK::CreateStatistic( SELKStatistic *pStatistic, class CELKTreeWindow *pwndELKTreeWindow, int nCodePage, CProgressDialog* pwndProgressDialog )
 {
 	NI_ASSERT_T( pStatistic != 0, NStr::Format( _T( "CELK::CreateStatistic() wrong parameter: pStatistic %x" ), pStatistic ) );
@@ -1179,7 +1147,6 @@ bool CELK::CreateStatistic( SELKStatistic *pStatistic, class CELKTreeWindow *pwn
 	return true;	
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CELK::UpdateELK( const std::string &rszPath, const std::string &rszPAKFileName, class CProgressDialog* pwndProgressDialog )
 {
 /**
@@ -1229,7 +1196,6 @@ bool CELK::UpdateELK( const std::string &rszPath, const std::string &rszPAKFileN
 	}
 	else
 	{
-		//���� ��� ����� ������� � �� ��������� ������
 		for ( NFile::CFileIterator _NFileIterator( NStr::Format( _T( "%s*%s" ), szFolder.c_str(), UPD_EXTENTION ) ); !_NFileIterator.IsEnd(); ++_NFileIterator )
 		{
 			int nNumber = -1;
@@ -1262,7 +1228,6 @@ bool CELK::UpdateELK( const std::string &rszPath, const std::string &rszPAKFileN
 		}
 	}
 
-	//Update Existing ELK Elements
 	for ( std::vector<SELKElement>::iterator elementIterator = elk.elements.begin(); elementIterator != elk.elements.end(); )
 	{
 		std::string szFileName = elementIterator->szPath.substr( elementIterator->szPath.rfind( '\\' ) + 1 );
@@ -1271,7 +1236,6 @@ bool CELK::UpdateELK( const std::string &rszPath, const std::string &rszPAKFileN
 		{
 			if ( ( !rszPAKFileName.empty() ) || ( elementIterator->nLastUpdateNumber < fileIterator->second ) )
 			{
-				//Update ELKElement
 				elementIterator->nLastUpdateNumber = fileIterator->second;
 				std::string szPAKFile;
 				bool bUPDFile = true;
@@ -1296,7 +1260,6 @@ bool CELK::UpdateELK( const std::string &rszPath, const std::string &rszPAKFileN
 											 bUPDFile,
 											 &( elementIterator->szVersion ),
 											 pwndProgressDialog );
-				//Update ELKElement Description
 				{
 					std::string szDataBaseFolder;
 					elementIterator->GetDataBaseFolder( &szDataBaseFolder );
@@ -1325,7 +1288,6 @@ bool CELK::UpdateELK( const std::string &rszPath, const std::string &rszPAKFileN
 		}
 	}
 
-	//Add New ELK Elements
 	for ( std::unordered_map<std::string, int>::const_iterator fileIterator = files.begin(); fileIterator != files.end(); ++fileIterator )
 	{
 		elk.elements.push_back( SELKElement() );
@@ -1355,7 +1317,6 @@ bool CELK::UpdateELK( const std::string &rszPath, const std::string &rszPAKFileN
 									 bUPDFile,
 									 &( rELKElement.szVersion ),
 									 pwndProgressDialog );
-		//Update ELKElement Description
 		{
 			std::string szDataBaseFolder;
 			rELKElement.GetDataBaseFolder( &szDataBaseFolder );
@@ -1377,7 +1338,6 @@ bool CELK::UpdateELK( const std::string &rszPath, const std::string &rszPAKFileN
 	return ( !elk.elements.empty() );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CELK::UpdateGame( const CELK &rELK,
 											 const std::string &rszZIPToolPath,
 											 class CELKTreeWindow *pwndELKTreeWindow,
@@ -1423,47 +1383,39 @@ void CELK::UpdateGame( const CELK &rELK,
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFontGen::IsFit( const SFontInfo &fi, DWORD dwNumChars, DWORD dwSizeX, DWORD dwSizeY )
 {
 	return ( dwSizeX / ( fi.tm.tmAveCharWidth + 2 ) ) * ( dwSizeY / fi.tm.tmHeight ) >= dwNumChars;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFontGen::EstimateTextureSize( SFontInfo &fi, DWORD dwNumChars )
 {
   for ( int i = 6; i < 13; ++i )
   {
-    // first, try to estimate 2:1 size
     if ( IsFit( fi, dwNumChars, 1L << i, 1L << ( i - 1 ) ) )
     {
       fi.nTextureSizeX = 1L << i;
       fi.nTextureSizeY = 1L << ( i - 1 );
       return true;
     }
-    // then, try to estimate 1:1 size
     else if ( IsFit( fi, dwNumChars, 1L << i, 1L << i ) )
     {
       fi.nTextureSizeX = fi.nTextureSizeY = 1L << i;
       return true;
     }
   }
-  // too big texture!!!
   return false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFontGen::MeasureFont( HDC hdc, SFontInfo &fi, std::vector<WORD> &chars, bool bSingleByte, int nCodePage )
 {
   GetTextMetrics( hdc, &fi.tm );
-	//����������
 	if ( std::find( chars.begin(), chars.end(), fi.tm.tmDefaultChar ) == chars.end() )
 	{
 		chars.push_back( fi.tm.tmDefaultChar );
 	}
 	std::sort( chars.begin(), chars.end() );
   
-	// translate chars to UNICODE and re-map kerns and chars
 	{
 		std::wstring wszText;
 		{
@@ -1521,23 +1473,18 @@ void CFontGen::MeasureFont( HDC hdc, SFontInfo &fi, std::vector<WORD> &chars, bo
 		}
 	}
 	
-	// Measure TrueType fonts with GetCharABCWidths:
 	fi.abc.resize( chars.size() );
 	int nkpsCount = GetKerningPairs( hdc, 0, 0 );
 	fi.kps.resize( nkpsCount );
 	if ( !GetCharABCWidths( hdc, chars[0], chars[0], &( fi.abc[0] ) ) )
   {
-		// 
 		ABC abc;
 		Zero( abc );
 		std::fill( fi.abc.begin(), fi.abc.end(), abc );
-    // If it's not a TT font, use GetTextExtentPoint32 to fill array abc:
     SIZE size;
 		for ( int i = 0; i < chars.size(); ++i )
 		{
-      // get width of character...
       GetTextExtentPoint32( hdc, (LPCTSTR)&( chars[i] ), 1, &size );
-      // ...and store it in abcB:
       fi.abc[i].abcB = size.cx;
 		}
   }
@@ -1549,19 +1496,15 @@ void CFontGen::MeasureFont( HDC hdc, SFontInfo &fi, std::vector<WORD> &chars, bo
 		}
 	}
 
-  // get kerning pairs
 	KERNINGPAIR kernpair;
 	Zero( kernpair );
 	std::fill( fi.kps.begin(), fi.kps.end(), kernpair );
   GetKerningPairs( hdc, nkpsCount, &( fi.kps[0] ) );
-  // remove kerning pairs with '0' kern value
   fi.kps.erase( std::remove_if( fi.kps.begin(), fi.kps.end(), SKPZeroFunctional( &( fi.translate ) ) ), fi.kps.end() );
-  // estimate texture size
   if ( EstimateTextureSize( fi, chars.size() ) == false )
   {
 		throw 1; // too large texture !!!
 	}
-  // check and correct size estimating
   int x = 0, y = 0;
 	for ( int i = 0; i < chars.size(); ++i )
 	{
@@ -1584,7 +1527,6 @@ void CFontGen::MeasureFont( HDC hdc, SFontInfo &fi, std::vector<WORD> &chars, bo
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFontGen::LoadFont( HWND hWnd,
 												 SFontInfo &fi,
 												 int nHeight,
@@ -1597,38 +1539,25 @@ void CFontGen::LoadFont( HWND hWnd,
 												 bool bSingleByte,
 												 std::vector<WORD> &chars )
 {
-  // create an HFONT:
   if ( fi.hFont )
   { 
     DeleteObject( fi.hFont ); 
     fi.hFont = 0;
   }
-  // create font (in this version this will be with the hardcoded height)
-  // in the next version I want completely remove 'ChooseFont' dialog and take all info from the .ini file
   fi.hFont = ::CreateFont( nHeight, 0, 0, 0, nWeight, bItalic, FALSE, FALSE, 
                            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, 
                            bAntialias ? ANTIALIASED_QUALITY : NONANTIALIASED_QUALITY,
                            dwPitch, LPCTSTR( strFaceName ) );
-  // retrieve logfont
-//  ::GetObject( fi.hFont, sizeof(fi.lf), &fi.lf );
-  // get HDC:
   HDC hdc = GetDC( hWnd );
-  // select font:
   HFONT hOldFont = (HFONT)::SelectObject( hdc, fi.hFont );
-	//
-  // get text metrics and char widths:
   MeasureFont( hdc, fi, chars, bSingleByte, nCodePage );
 
-  // select old font
   ::SelectObject( hdc, hOldFont );
-  // release HDC:
   ReleaseDC( hWnd, hdc );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFontGen::DrawFont( HDC hdc, const SFontInfo &fi, const std::vector<WORD> &chars )
 {
-  // Draw characters:
   int x = 0, y = 0;
 	for ( int i=0; i<chars.size(); ++i )
 	{
@@ -1652,13 +1581,10 @@ bool CFontGen::DrawFont( HDC hdc, const SFontInfo &fi, const std::vector<WORD> &
   return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CFontGen::CreateFontImage( const SFontInfo &fi, const std::vector<WORD> &chars )
 {
-  // Create an offscreen bitmap:
   int width = fi.nTextureSizeX;//16 * fi.tm.tmMaxCharWidth;
   int height = fi.nTextureSizeY;//14 * fi.tm.tmHeight;
-  // Prepare to create a bitmap
   BYTE *pBitmapBits = 0;
   BITMAPINFO bmi;
   memset( &bmi.bmiHeader, 0, sizeof(bmi.bmiHeader) );
@@ -1669,25 +1595,18 @@ IImage* CFontGen::CreateFontImage( const SFontInfo &fi, const std::vector<WORD> 
   bmi.bmiHeader.biCompression = BI_RGB;
   bmi.bmiHeader.biBitCount    = 24;
   bmi.bmiHeader.biSizeImage   = abs( bmi.bmiHeader.biWidth * bmi.bmiHeader.biHeight * bmi.bmiHeader.biBitCount / 8 );
-  // Create a DC and a bitmap for the font
   HDC hDC = CreateCompatibleDC( 0 );
   HBITMAP hbmBitmap = CreateDIBSection( hDC, &bmi, DIB_RGB_COLORS, (void**)&pBitmapBits, 0, 0 );
   HBITMAP hOldBmp = (HBITMAP)SelectObject( hDC, hbmBitmap );
   HFONT hOldFont = (HFONT)SelectObject( hDC, fi.hFont );
-  // Clear background to black:
   SelectObject( hDC, GetStockObject(BLACK_BRUSH) );
   Rectangle( hDC, 0, 0, width, height );
   SetBkMode( hDC, TRANSPARENT );           // do not fill character background
   SetTextColor( hDC, RGB(255, 255, 255) ); // text color white
   SetTextAlign( hDC, TA_TOP );
-  // Draw characters:
   DrawFont( hDC, fi, chars );
-  //
   SelectObject( hDC, hOldFont );
   SelectObject( hDC, hOldBmp );
-  //
-  // create image.
-	// use only one color component due to gray-scale image
   std::vector<DWORD> imagedata( fi.nTextureSizeX * fi.nTextureSizeY );
   for ( int i=0, j=0; i<fi.nTextureSizeX * fi.nTextureSizeY * 3; i+=3, ++j )
   {
@@ -1701,14 +1620,11 @@ IImage* CFontGen::CreateFontImage( const SFontInfo &fi, const std::vector<WORD> 
 	return pImage;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SFontFormat* CFontGen::CreateFontFormat( const std::string &szFaceName, const SFontInfo &fi, const std::vector<WORD> &chars )
 {
 	SFontFormat *pFF = new SFontFormat();
-	// face name
 	pFF->szFaceName = szFaceName;
 	NStr::ToLower( pFF->szFaceName );
-	// metrics
 	pFF->metrics.nHeight = fi.tm.tmHeight;
 	pFF->metrics.nAscent = fi.tm.tmAscent;
 	pFF->metrics.nDescent = fi.tm.tmDescent;
@@ -1718,22 +1634,18 @@ SFontFormat* CFontGen::CreateFontFormat( const std::string &szFaceName, const SF
 	pFF->metrics.nMaxCharWidth = fi.tm.tmMaxCharWidth;
 	pFF->metrics.wDefaultChar = fi.Translate( fi.tm.tmDefaultChar );
 	pFF->metrics.cCharSet = fi.tm.tmCharSet;
-	// pFF->metrics.fSpaceWidth will be filled later 
-	// kerning pairs
 	for ( int i=0; i<fi.kps.size(); ++i )
 	{
 		DWORD dwFirst = fi.Translate( fi.kps[i].wFirst );
 		DWORD dwSecond = fi.Translate( fi.kps[i].wSecond );
 		pFF->kerns[ (dwFirst << 16) | dwSecond ] = fi.kps[i].iKernAmount;
 	}
-	// chars
   int x = 0, y = 0;
 	for ( int i=0; i<chars.size(); ++i )
 	{
 		BYTE ansicode = chars[i];
 		WORD unicode = fi.Translate( chars[i] );
 		SFontFormat::SCharDesc &chardesc = pFF->chars[unicode];
-		//
     int nNextCharShift = fi.abc[i].abcB + abs( fi.abc[i].abcC );
     if ( x + nNextCharShift + LEADING_PIXELS > fi.nTextureSizeX )
     {
@@ -1741,27 +1653,20 @@ SFontFormat* CFontGen::CreateFontFormat( const std::string &szFaceName, const SF
       x = 0;
     }
     x += LEADING_PIXELS;
-    // char ABC parameters in the texture's respective size
     chardesc.fA = fi.abc[i].abcA;
     chardesc.fB = fi.abc[i].abcB;
     chardesc.fC = fi.abc[i].abcC;
     chardesc.fWidth = fi.abc[i].abcB + ( fi.abc[i].abcC > 0 ? fi.abc[i].abcC : 0 );
-    // character rect in the texture's coords
-    // add '0.5f' to all coords to achive an excellent letter quality (due to texel center in (0.5,0.5) with respect to pixel center)
     chardesc.x1 = float( x + 0.5f ) / fi.nTextureSizeX;
     chardesc.y1 = float( y * fi.tm.tmHeight + 0.5f ) / fi.nTextureSizeY;
     chardesc.x2 = float( x + chardesc.fWidth + 0.5f ) / fi.nTextureSizeX;
     chardesc.y2 = float( ( y + 1 ) * fi.tm.tmHeight + 0.5f ) / fi.nTextureSizeY;
-    //
     x += nNextCharShift;
 	}
-  //
 	pFF->metrics.fSpaceWidth = pFF->chars[ fi.Translate(32) ].fWidth;
-	//
 	return pFF;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFontGen::GenerateFont( const std::string &rszFolder,
 														 const std::set<WORD> &rSymbols,
 														 bool bSingleByte,
@@ -1792,7 +1697,6 @@ bool CFontGen::GenerateFont( const std::string &rszFolder,
 			}
 		}
 	}
-	//
 	DWORD fontsSize[FONTS_COUNT];
 	for ( int nFontIndex = 0; nFontIndex < FONTS_COUNT; ++nFontIndex )
 	{
@@ -1812,7 +1716,6 @@ bool CFontGen::GenerateFont( const std::string &rszFolder,
 			}
 		}
 	}
-	//
 	CString strFontName = rstrFontName;
 	{
 		HFONT hFont = ::CreateFont( FONTS_SIZE[2], 0, 0, 0, FW_NORMAL, false, FALSE, FALSE, 
@@ -1875,7 +1778,6 @@ bool CFontGen::GenerateFont( const std::string &rszFolder,
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CALLBACK EnumAllFontsCallback( ENUMLOGFONTEX *lpelfe,    // logical-font data
 																	 NEWTEXTMETRICEX *lpntme,  // physical-font data
 																	 DWORD dwFontType,         // type of font
@@ -1892,7 +1794,6 @@ int CALLBACK EnumAllFontsCallback( ENUMLOGFONTEX *lpelfe,    // logical-font dat
 	return 1;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFontGen::GetFonts( DWORD nCodePage, std::set<CString> *pFontsList )
 {
 	CHARSETINFO cs;
@@ -1911,4 +1812,3 @@ int CFontGen::GetFonts( DWORD nCodePage, std::set<CString> *pFontsList )
 
 	return pFontsList->size();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

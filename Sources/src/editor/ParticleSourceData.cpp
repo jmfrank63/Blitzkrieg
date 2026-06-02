@@ -2,7 +2,6 @@
 
 #include "..\Scene\ParticleSourceData.h"
 #include "..\Misc\Win32Helper.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SParticleSourceData::Load( const bool bPreLoad )
 {
 	const std::string szStreamName = GetSharedResourceFullName();
@@ -14,17 +13,14 @@ bool SParticleSourceData::Load( const bool bPreLoad )
 	saver.Add( "KeyData", this );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SParticleSourceData::SParticleSourceData() 
 : bComplexParticleSource( false )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SParticleSourceData::operator&( IStructureSaver &ss )
 {
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SParticleSourceData::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -67,12 +63,10 @@ int SParticleSourceData::operator&( IDataTree &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SParticleSourceData::SwapData( ISharedResource *pResource )
 {
 	SParticleSourceData *pRes = dynamic_cast<SParticleSourceData*>( pResource );
 	NI_ASSERT_TF( pRes != 0, "shared resource is not a SParticleSourceData", return );
-	//
 	std::swap( trackGenerateSpin, pRes->trackGenerateSpin );
 	std::swap( trackLife, pRes->trackLife );
 	std::swap( trackDensity, pRes->trackDensity );
@@ -103,11 +97,8 @@ void SParticleSourceData::SwapData( ISharedResource *pResource )
 	std::swap( fDensityCoeff, pRes->fDensityCoeff );
 	std::swap( bComplexParticleSource, pRes->bComplexParticleSource );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SParticleSourceData::Init()
 {
-	// for compartability with old version
-	//{
 	if ( trackBeginSpeedRandomizer.IsEmpty() )
 	{
 		trackBeginSpeedRandomizer.AddKey( 0, 0 );
@@ -133,17 +124,12 @@ void SParticleSourceData::Init()
 		trackTextureFrame.AddKey( 0, 0 );
 		trackTextureFrame.AddKey( 1, 0 );
 	}
-	// CRAP{ for compartability with old version
 	trackSpeed.AddKey( trackSpeed.GetTimeByIndex( 1 ) * 0.5, trackSpeed.GetValue( trackSpeed.GetTimeByIndex( 1 ) * 0.5 ) );
 	trackSpeed.RemoveKey( 0 );
 	trackSpeed.AddKey( 0, 1 );
-	// CRAP}
 	Normalize( &vDirection );
-	//}
-	// optimization
 	InitIntegrals();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SParticleSourceData::InitIntegrals()
 {	
 	CTrack trackIndIntegral;
@@ -188,4 +174,3 @@ void SParticleSourceData::InitIntegrals()
 	}
 	trackIntegralMass.Normalize( 1 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

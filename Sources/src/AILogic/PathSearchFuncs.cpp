@@ -7,9 +7,7 @@
 #include "AIStaticMap.h"
 #include "PointChecking.h"
 #include "Path.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CStaticMap theStaticMap;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IStaticPath* CreateStaticPathToPoint( const CVec2 &finishPoint, const CVec2 &vShift, IBasePathUnit *pUnit, const bool bCanGoOutOfRadius )
 {
 	if ( !bCanGoOutOfRadius && !pUnit->CanGoToPoint( finishPoint ) )
@@ -24,7 +22,6 @@ IStaticPath* CreateStaticPathToPoint( const CVec2 &finishPoint, const CVec2 &vSh
 			pUnit->CreateBigStaticPath( startPoint, finishPoint, 0 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IStaticPath* CreateStaticPathToPoint( const CVec2 &_startPoint, const CVec2 &finishPoint, const CVec2 &vShift, IBasePathUnit *pUnit, const bool bCanGoOutOfRadius )
 {
 	if ( !bCanGoOutOfRadius && !pUnit->CanGoToPoint( finishPoint ) )
@@ -39,10 +36,8 @@ IStaticPath* CreateStaticPathToPoint( const CVec2 &_startPoint, const CVec2 &fin
 			pUnit->CreateBigStaticPath( startPoint, finishPoint, 0 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IStaticPath* CreateStaticPathForAttack( IBasePathUnit *pUnit, CAIUnit *pTarget, const float fRangeMin, const float fRangeMax, const float fRandomCant )
 {
-	// видно в любой стороны
 	if ( !( pTarget->GetStats()->IsInfantry() && 
 				  static_cast<CSoldier*>(pTarget)->IsInBuilding() && ( static_cast<CSoldier*>(pTarget)->GetMinAngle() !=0 || static_cast<CSoldier*>(pTarget)->GetMaxAngle() != 65535 ) ) )
 	{
@@ -71,7 +66,6 @@ IStaticPath* CreateStaticPathForAttack( IBasePathUnit *pUnit, CAIUnit *pTarget, 
 				CPtr<IStaticPath> pGarbage = pPath;
 				return 0;
 			}
-			// путь не найден
 			else if ( fabs2( pPath->GetFinishPoint() - pTarget->GetCenter() ) > sqr( fRangeMax ) )
 			{
 				CPtr<IStaticPath> pGarbage = pPath;
@@ -105,7 +99,6 @@ IStaticPath* CreateStaticPathForAttack( IBasePathUnit *pUnit, CAIUnit *pTarget, 
 				fRangeMin, fRangeMax, fMinDist, ( pSoldier->GetMaxAngle() - pSoldier->GetMinAngle() ) / 2 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IStaticPath* CreateStaticPathForSideAttack( IBasePathUnit *pUnit, CAIUnit *pTarget, const CVec2 &attackDir, const float fRangeMin, const float fRangeMax, const float fDistToPoint, const WORD wHalfAngle )
 {
 	const WORD wAttackDir = GetDirectionByVector( attackDir );
@@ -117,7 +110,6 @@ IStaticPath* CreateStaticPathForSideAttack( IBasePathUnit *pUnit, CAIUnit *pTarg
 	{
 		CVec2 finishDir = pPath->GetFinishPoint() - pTarget->GetCenter();
 		const WORD wFinishDir = GetDirectionByVector( finishDir );
-		// нельзя дойти до точки, откуда можно будет атаковать
 		if ( DirsDifference( wFinishDir, wAttackDir ) > wHalfAngle || fabs2( pPath->GetFinishPoint() - pTarget->GetCenter() ) > sqr( fRangeMax ) )
 		{
 			CPtr<IStaticPath> pGarbage = pPath;			
@@ -133,10 +125,8 @@ IStaticPath* CreateStaticPathForSideAttack( IBasePathUnit *pUnit, CAIUnit *pTarg
 	else
 		return pPath;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IStaticPath* CreatePathWithChecking( IBasePathUnit *pUnit, const SVector &vTargetTile, IPointChecking *pPointChecking )
 {
-	// чтобы удалилось
 	CPtr<IPointChecking> pGarbage = pPointChecking;
 
 	IStaticPath *pPath = pUnit->CreateBigStaticPath( pUnit->GetCenter(), AICellsTiles::GetPointByTile( vTargetTile ), pPointChecking );
@@ -148,7 +138,6 @@ IStaticPath* CreatePathWithChecking( IBasePathUnit *pUnit, const SVector &vTarge
 
 	return pPath;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IStaticPath* CreateStaticPathForStObjAttack( IBasePathUnit *pUnit, CStaticObject *pObj, const float fRangeMin, const float fRangeMax )
 {
 	const CVec2 vUnitCenter( pUnit->GetCenter() );	
@@ -164,7 +153,6 @@ IStaticPath* CreateStaticPathForStObjAttack( IBasePathUnit *pUnit, CStaticObject
 
 	return pPath;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CanUnitApproachToUnitByPath( const CAIUnit *Moving, const IStaticPath *Path, const CAIUnit *Standing )
 {
 	if( !Path ) 
@@ -182,7 +170,6 @@ bool CanUnitApproachToUnitByPath( const CAIUnit *Moving, const IStaticPath *Path
 	return 
 		rMovingFinal.IsIntersected( rStanding );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CanUnitApproachToPointByPath( const CAIUnit *Moving, const IStaticPath *Path, const CVec2 &point )
 {
 	if( !Path ) 
@@ -200,7 +187,6 @@ bool CanUnitApproachToPointByPath( const CAIUnit *Moving, const IStaticPath *Pat
 	return 
 		rMovingFinal.IsPointInside( point );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CanUnitApproachToObjectByPath( const CAIUnit *Moving, const IStaticPath *Path, const CStaticObject *standing )
 {
 	if( !Path ) 
@@ -220,7 +206,6 @@ bool CanUnitApproachToObjectByPath( const CAIUnit *Moving, const IStaticPath *Pa
 	return 
 		rMovingFinal.IsIntersected( rStanding );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool IsUnitNearObject( const CAIUnit *pUnit, const CStaticObject *pObj )
 {
 	SRect r1 = pUnit->GetUnitRect();
@@ -232,7 +217,6 @@ bool IsUnitNearObject( const CAIUnit *pUnit, const CStaticObject *pObj )
 	
 	return r1.IsIntersected( r2 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool IsUnitNearUnit( const CAIUnit *pUnit1, const CAIUnit *pUnit2 )
 {
 	SRect r1 = pUnit1->GetUnitRect();
@@ -243,7 +227,6 @@ bool IsUnitNearUnit( const CAIUnit *pUnit1, const CAIUnit *pUnit2 )
 	
 	return r1.IsIntersected( r2 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool IsUnitNearPoint( const CAIUnit *pUnit, const CVec2 &point, const int add )
 {
 	SRect r1 = pUnit->GetUnitRect();
@@ -251,9 +234,7 @@ bool IsUnitNearPoint( const CAIUnit *pUnit, const CVec2 &point, const int add )
 
 	return r1.IsPointInside( point );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool IsPointNearPoint( const CVec2 &point1, const CVec2 &point2 )
 {
 	return fabs2(point1-point2) < sqr(static_cast<int>(SConsts::TILE_SIZE) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

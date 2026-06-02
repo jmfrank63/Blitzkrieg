@@ -5,19 +5,15 @@
 #include "MultiplayerCommandManager.h"
 #include "..\Main\iMainCommands.h"
 #include "..\Main\ScenarioTracker.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICIMLoadMission::PostCreate( IMainLoop *pML, CInterfaceIMLoadMission *pILM )
 {
 	pML->PushInterface( pILM );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceIMLoadMission::~CInterfaceIMLoadMission()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceIMLoadMission::Init()
 {
-	//инициализируем имена
 	fileMasks.clear();
 	fileMasks.push_back( "*.sav" );
 	szTopDir = GetSingleton<IMainLoop>()->GetBaseDir();
@@ -32,12 +28,9 @@ bool CInterfaceIMLoadMission::Init()
 	szInterfaceName = "ui\\Lists\\IMLoadMission";
 	nSortType = E_SORT_BY_TIME;
 	nFirstSortColumn = 1;
-	//
 	CInterfaceBaseList::Init();
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceIMLoadMission::FillListItem( IUIListRow *pRow, const std::string &szFullFileName, bool *pSelectedItem )
 {
 	IUIElement *pElement = pRow->GetElement( 1 );
@@ -49,7 +42,6 @@ bool CInterfaceIMLoadMission::FillListItem( IUIListRow *pRow, const std::string 
 	pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszVal.c_str() ) );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceIMLoadMission::OnOk( const std::string &szFullFileName )
 {
 	IMainLoop *pML = GetSingleton<IMainLoop>();
@@ -59,7 +51,6 @@ bool CInterfaceIMLoadMission::OnOk( const std::string &szFullFileName )
 	pML->Command( MAIN_COMMAND_CMD, NStr::Format("%d", CMD_GAME_UNPAUSE_MENU) );	//уберем паузу
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceIMLoadMission::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceBaseList::ProcessMessage( msg ) )
@@ -71,7 +62,6 @@ bool CInterfaceIMLoadMission::ProcessMessage( const SGameMessage &msg )
 		case IMC_SELECTION_CHANGED:
 			if ( !bLoadGameIM )
 			{
-				//попробуем взять текущий selection из list control
 				IUIElement *pElement = pUIScreen->GetChildByID( 1000 );		//should be List Control
 				IUIListControl *pList = checked_cast<IUIListControl*>( pElement );
 				if ( !pList )
@@ -82,7 +72,6 @@ bool CInterfaceIMLoadMission::ProcessMessage( const SGameMessage &msg )
 				
 				IUIListRow *pSelRow = pList->GetItem( nSave );
 				std::string szEdit = szSaves[ pSelRow->GetUserData() ];
-				//отобразим этот элемент в загружаемом имени
 				pElement = pUIScreen->GetChildByID( 2000 );
 				pElement->SetWindowText( 0, NStr::ToUnicode(szEdit).c_str() );
 			}
@@ -102,7 +91,6 @@ bool CInterfaceIMLoadMission::ProcessMessage( const SGameMessage &msg )
 /*
 		case IMC_OK:
 			{
-				//попробуем взять текущий selection из list control
 				IUIElement *pElement = pUIScreen->GetChildByID( 1000 );		//should be List Control
 				IUIListControl *pList = checked_cast<IUIListControl*>( pElement );
 				if ( !pList )
@@ -123,6 +111,5 @@ bool CInterfaceIMLoadMission::ProcessMessage( const SGameMessage &msg )
 	*/
 	}
 
-	//
 	return false;
 }

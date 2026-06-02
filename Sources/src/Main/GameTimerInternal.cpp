@@ -4,15 +4,6 @@
 
 #include "iMain.h"
 #include "GameTimerInternal.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** time slider
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTimeSlider::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -20,15 +11,6 @@ int CTimeSlider::operator&( IStructureSaver &ss )
 	saver.Add( 2, &timeLastTime );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** segment timer
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSegmentTimer::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -38,21 +20,11 @@ int CSegmentTimer::operator&( IStructureSaver &ss )
 	saver.Add( 4, &nSegment );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** single timer
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSingleTimer::SetGuarantieFPS( const float fFPS )
 {
 	fGuarantieFPS = fFPS; 
 	nGuarantieTimeStep = (fGuarantieFPS > 0) && (fGuarantieFPS < 1000.0f) ? int( 1000.0f / fGuarantieFPS ) : 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSingleTimer::Update( const NTimer::STime &time )
 {
 	NTimer::STime dT = prevTime == 0 ? 0 : time - prevTime;
@@ -65,7 +37,6 @@ void CSingleTimer::Update( const NTimer::STime &time )
 		currTime += nGuarantieTimeStep > 0 ? int( nGuarantieTimeStep * fTimeScale ) : dT;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSingleTimer::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -79,15 +50,6 @@ int CSingleTimer::operator&( IStructureSaver &ss )
 		prevTime = 0;
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** game timer
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameTimer::Init()
 {
 	pGameTimer = CreateObject<ISingleTimer>( MAIN_SINGLE_TIMER );
@@ -98,30 +60,25 @@ void CGameTimer::Init()
 	nTimeCoeff = 0;
 	nPauseReason = -1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameTimer::DoPause( bool bPause, int nType, ISingleTimer *pTimer, CPausesMap &pauses )
 {
 	if ( bPause ) 
 	{
-		// set pause
 		pauses[nType] = 1;
 		pTimer->Pause( bPause );
 	}
 	else
 	{
-		// remove pause
 		std::unordered_map<int, int>::iterator pos = pauses.find( nType );
 		if ( pos != pauses.end() )
 			pauses.erase( pos );
 		if ( pauses.empty() ) 
 			pTimer->Pause( bPause );
 	}
-	// re-calc pause reason
 	nPauseReason = -1;
 	for ( CPausesMap::const_iterator it = pauses.begin(); it != pauses.end(); ++it )
 		nPauseReason = Max( nPauseReason, it->first );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameTimer::PauseGame( bool bPause, int nType )
 {
 	DoPause( bPause, nType, pGameTimer, gamepauses );
@@ -130,26 +87,22 @@ void CGameTimer::PauseSync( bool bPause, int nType )
 {
 	DoPause( bPause, nType, pSyncTimer, syncpauses );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGameTimer::HasPause( const int nReason ) const
 {
 	return gamepauses.find(nReason) != gamepauses.end();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameTimer::SetGuarantieFPS( const float fFPS ) 
 { 
 	pGameTimer->SetGuarantieFPS( fFPS );
 	pSyncTimer->SetGuarantieFPS( fFPS );
 	pAbsTimer->SetGuarantieFPS( fFPS );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameTimer::Update( const NTimer::STime &time )
 {
 	pGameTimer->Update( time );
 	pSyncTimer->Update( time );
 	pAbsTimer->Update( time );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameTimer::SetupTimeScaleForTimers()
 {
 	const float fCoeff = NTimer::GetCoeffFromSpeed( nTimeCoeff );
@@ -164,7 +117,6 @@ int CGameTimer::SetSpeed( const int _nSpeed )
 	SetupTimeScaleForTimers();
 	return GetSpeed();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGameTimer::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -179,4 +131,3 @@ int CGameTimer::operator&( IStructureSaver &ss )
 	saver.Add( 9, &nPauseReason );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

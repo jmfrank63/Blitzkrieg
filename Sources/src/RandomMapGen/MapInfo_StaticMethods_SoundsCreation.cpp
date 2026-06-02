@@ -1,7 +1,3 @@
-//тут лишний код
-//REMOVE_OBJECTS_FROM_RECT
-//тут происходит апдейт linkID
-//UPDATE_LINK_ID
 
 #include "stdafx.h"
 
@@ -14,7 +10,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::AddSounds( const SLoadMapInfo &rLoadMapInfo, TMapSoundInfoList *pSoundsList, DWORD dwSoundTypeBits )
 {
 	CPtr<IObjectsDB> pODB = GetSingleton<IObjectsDB>();
@@ -35,8 +30,6 @@ bool CMapInfo::AddSounds( const SLoadMapInfo &rLoadMapInfo, TMapSoundInfoList *p
 	float bCircleRatio = 1.0f;					//вероятность постановки
 	float bAmbientRatio = 0.5f;					//вероятность постановки
 	
-	//Rivers
-	//Vis точки
 	if ( ( dwSoundTypeBits & SOUND_TYPE_BITS_RIVERS ) == SOUND_TYPE_BITS_RIVERS )
 	{
 		int nRiverIndex = 0;
@@ -69,8 +62,6 @@ bool CMapInfo::AddSounds( const SLoadMapInfo &rLoadMapInfo, TMapSoundInfoList *p
 		}
 	}
 
-	//дома и леса
-	//AI точки
 	if ( ( ( dwSoundTypeBits & SOUND_TYPE_BITS_BUILDINGS ) == SOUND_TYPE_BITS_BUILDINGS ) ||
 			 ( ( dwSoundTypeBits & SOUND_TYPE_BITS_FORESTS ) == SOUND_TYPE_BITS_FORESTS ) )
 	{
@@ -270,4 +261,3 @@ bool CMapInfo::AddSounds( const SLoadMapInfo &rLoadMapInfo, TMapSoundInfoList *p
 	
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

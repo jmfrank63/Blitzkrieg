@@ -19,29 +19,20 @@
 
 #include "..\Scene\Scene.h"
 #include "..\Scene\Terrain.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStaticMap theStaticMap;
 extern CStaticObjects theStatObjs;
 extern CUnits units;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												  CStaticMap															*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::vector<SVector> CStaticMap::oneWayDirs;
 std::vector<BYTE> CStaticMap::classToIndex;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CStaticMap::CanDigEntrenchment( const int x, const int y ) const
 {
 	return !entrenchPossibility.GetData( x, y );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const void CStaticMap::AddUndigableTiles( const CTilesSet &tiles )
 {
 	for ( CTilesSet::const_iterator it = tiles.begin(); it != tiles.end(); ++it )
 		entrenchPossibility.SetData( it->x, it->y );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::LoadPassabilities( const struct STerrainInfo &terrainInfo )
 {
 	passTypes.SetSizes( nSizeX / 2 + 1, nSizeY / 2 + 1 );
@@ -87,7 +78,6 @@ void CStaticMap::LoadPassabilities( const struct STerrainInfo &terrainInfo )
 			soil[rightY * 2][rightX * 2 ] = soil[rightY * 2][rightX * 2 + 1] = 
 			soil[rightY * 2 + 1][rightX * 2	] = soil[rightY * 2 + 1][rightX * 2 + 1] = cSoilType;
 
-			// инициализировать возможность строительства окопов
 			if ( !tileEntrenchPossibility[terrSubTypes[terrainInfo.tiles[y][x].tile]] )
 			{
 				entrenchPossibility.SetData( rightX * 2,			rightY * 2 );
@@ -111,7 +101,6 @@ void CStaticMap::LoadPassabilities( const struct STerrainInfo &terrainInfo )
 				LockTile( rightX * 2 + 1, rightY * 2 + 1, aiClass );
 			}
 
-			// инициализировать типы terrain для воронок
 			if ( passClasses[ terrSubTypes[terrainInfo.tiles[y][x].tile] ] & 0x80000000 )
 			{				
 				int nX = Clamp( rightX * 2, 0, terrainTypes.GetSizeX() - 1 );
@@ -133,7 +122,6 @@ void CStaticMap::LoadPassabilities( const struct STerrainInfo &terrainInfo )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const ETerrainTypes CStaticMap::GetTerrainType( const int nX, const int nY ) const
 {
 	if ( !IsTileInside( nX, nY ) )
@@ -141,7 +129,6 @@ const ETerrainTypes CStaticMap::GetTerrainType( const int nX, const int nY ) con
 	else
 		return ETerrainTypes( terrainTypes.GetData( nX, nY ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::AddRiverTiles( const CTilesSet &tiles )
 {
 	for ( CTilesSet::const_iterator iter = tiles.begin(); iter != tiles.end(); ++iter )
@@ -151,7 +138,6 @@ void CStaticMap::AddRiverTiles( const CTilesSet &tiles )
 			terrainTypes.SetData( tile.x, tile.y, ETT_RIVER_TERRAIN );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::AddEarthSeaTiles( const CTilesSet &tiles )
 {
 	for ( CTilesSet::const_iterator iter = tiles.begin(); iter != tiles.end(); ++iter )
@@ -160,7 +146,6 @@ void CStaticMap::AddEarthSeaTiles( const CTilesSet &tiles )
 			terrainTypes.SetData( iter->x, iter->y, ETT_EARTH_SEA_TERRAIN );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void GetRiverTiles( const SVectorStripeObject &vectorStripeObject, const int j, const float fCoeff, CTilesSet *pTiles )
 {
 	const CVec2 vCenter1( vectorStripeObject.points[j].vPos.x, vectorStripeObject.points[j].vPos.y );
@@ -180,8 +165,6 @@ void GetRiverTiles( const SVectorStripeObject &vectorStripeObject, const int j, 
 	Vis2AI( &v[2] );
 	Vis2AI( &v[3] );
 
-//	NI_ASSERT_T( fabs( v[2] - v[1] ) != 0, "Intersecting river's normals" );
-//	NI_ASSERT_T( fabs( v[3] - v[0] ) != 0, "Intersecting river's normals" );
 
 	const float fDist12 = fabs( v[2] - v[1] );
 	if ( fDist12 < 2.5 * (float)SConsts::TILE_SIZE )
@@ -209,7 +192,6 @@ void GetRiverTiles( const SVectorStripeObject &vectorStripeObject, const int j, 
 	}
 	
 
-	// отсортировать точки против часовой стрелки
 	const CVec2 vCenter = ( v[0] + v[1] + v[2] + v[3] ) / 4.0f;
 	for ( int i = 0; i < 3; ++i )
 	{
@@ -225,7 +207,6 @@ void GetRiverTiles( const SVectorStripeObject &vectorStripeObject, const int j, 
 
 	GetTilesCoveredByQuadrangle( v[0], v[1], v[2], v[3], pTiles );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::Load3DRoads( const STerrainInfo &terrainInfo )
 {
 	const int nTerrTypes = passabilities.size();
@@ -260,10 +241,8 @@ void CStaticMap::Load3DRoads( const STerrainInfo &terrainInfo )
 				{
 					entrenchPossibility.SetData( tile.x, tile.y );
 
-					// влияние на скорость юнитов
 					passTypes[tile.y / 2][tile.x / 2] = nPassIndex;
 
-					// проходимость
 					for ( int i = 1; i < 16; i *= 2 )
 						UnlockTile( tile.x, tile.y, i );
 					UnlockTile( tile.x, tile.y, AI_CLASS_ANY );
@@ -276,12 +255,10 @@ void CStaticMap::Load3DRoads( const STerrainInfo &terrainInfo )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::UpdateRiverPassability( const SVectorStripeObject &river, bool bAdd, bool bUpdate )
 {
 	for ( int j = 0; j < river.points.size() - 1; ++j )
 	{
-		// залокать тайлы реки
 		CTilesSet tiles;			
 		GetRiverTiles( river, j, 1.0f, &tiles );
 
@@ -327,7 +304,6 @@ void CStaticMap::UpdateRiverPassability( const SVectorStripeObject &river, bool 
 			RestoreMode();
 		}
 
-		// добавить реку для разрывов снарядов
 		if ( bAdd )
 		{
 			tiles.clear();
@@ -336,13 +312,11 @@ void CStaticMap::UpdateRiverPassability( const SVectorStripeObject &river, bool 
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::LoadRivers( const STerrainInfo &terrainInfo )
 {
 	for ( int i = 0; i < terrainInfo.rivers.size(); ++i )
 		UpdateRiverPassability( terrainInfo.rivers[i], true, true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::InitMaxes()
 {
 	for ( int i = 0; i < 5; ++i )
@@ -380,12 +354,10 @@ void CStaticMap::InitMaxes()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool IsGoodPoint( const int i, const int j, const CArray2D<float> &heights )
 {
 	return i >= 0 && j >= 0 && i < heights.GetSizeY() && j < heights.GetSizeX();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::LoadNormals( const STerrainInfo::TVertexAltitudeArray2D &initHeights )
 {
 	const int nInitSizeX = initHeights.GetSizeX();
@@ -427,7 +399,6 @@ void CStaticMap::LoadNormals( const STerrainInfo::TVertexAltitudeArray2D &initHe
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::CommonInit()
 {
 	oneWayDirs.resize( 16 );
@@ -455,7 +426,6 @@ void CStaticMap::CommonInit()
 	classToIndex[AI_CLASS_HUMAN]		 = 3;
 	classToIndex[AI_CLASS_ANY]			 = 4;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::LoadMap( const struct STerrainInfo &terrainInfo, const bool bLoadRivers )
 {
 	CommonInit();
@@ -512,7 +482,6 @@ void CStaticMap::LoadMap( const struct STerrainInfo &terrainInfo, const bool bLo
 	InitExplosionTerrainTypes();
 	tmpUnlockID = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::UpdateMaxesForRemovedTiles( const int downX, const int upX, const int downY, const int upY, const BYTE cl )
 {
 	for ( int y = downY; y <= upY; ++y )
@@ -612,7 +581,6 @@ void CStaticMap::UpdateMaxesForRemovedTiles( const int downX, const int upX, con
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::UpdateMaxesForAddedTiles( const int downX, const int upX, const int downY, const int upY, const BYTE cl )
 {
 	for ( int y = downY; y <= upY; ++y )
@@ -709,18 +677,15 @@ void CStaticMap::UpdateMaxesForAddedTiles( const int downX, const int upX, const
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStaticMap::UnitLocksTile( const SVector &tile )
 {
 	return ( ++unitsBuf[tile.y][tile.x] == 1 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStaticMap::UnitUnlocksTile( const SVector &tile )
 {
 	NI_ASSERT_T( unitsBuf[tile.y][tile.x] > 0, "Wrong locked tiles by units info" );	
 	return ( --unitsBuf[tile.y][tile.x] == 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::AddLockedUnitTiles( const SRect &rect, const int id, bool bAddToRects, bool bUpdate )
 {
 	if ( tmpUnlockID == id )
@@ -730,9 +695,7 @@ void CStaticMap::AddLockedUnitTiles( const SRect &rect, const int id, bool bAddT
 	SetMode( ELM_ALL );
 	
 	CTilesSet tiles;
-	//CRAP{ какие-то глюки с float
 	GetTilesCoveredByQuadrangle( SVector(rect.v1).ToCVec2(), SVector(rect.v2).ToCVec2(), SVector(rect.v3).ToCVec2(), SVector(rect.v4).ToCVec2(), &tiles );
-	//}CRAP
 
 	int downX = 2 * SConsts::MAX_MAP_SIZE, downY = 2 * SConsts::MAX_MAP_SIZE;
 	int upX = -10, upY = -10;
@@ -766,13 +729,9 @@ void CStaticMap::AddLockedUnitTiles( const SRect &rect, const int id, bool bAddT
 	if ( bAddToRects )
 		unitsRects[id] = rect;
 
-//	CheckMaxes( downX, upX, downY, upY );
-//	SetMode( ELM_STATIC );
-//	CheckMaxes( downX, upX, downY, upY );
 
 	RestoreMode();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::RemoveLockedUnitTiles( const int id, const bool bUpdate )
 {
 	if ( tmpUnlockID == id )
@@ -783,9 +742,7 @@ void CStaticMap::RemoveLockedUnitTiles( const int id, const bool bUpdate )
 	
 	CTilesSet tiles;
 	const SRect rect = unitsRects[id];
-	//CRAP{ какие-то глюки с float
 	GetTilesCoveredByQuadrangle( SVector(rect.v1).ToCVec2(), SVector(rect.v2).ToCVec2(), SVector(rect.v3).ToCVec2(), SVector(rect.v4).ToCVec2(), &tiles );
-	//}CRAP
 
 	int downX = 2 * SConsts::MAX_MAP_SIZE, downY = 2 * SConsts::MAX_MAP_SIZE;
 	int upX = -10, upY = -10;
@@ -818,13 +775,9 @@ void CStaticMap::RemoveLockedUnitTiles( const int id, const bool bUpdate )
 
 	unitsRects.erase( id );
 
-//	CheckMaxes( downX, upX, downY, upY );
-//	SetMode( ELM_STATIC );
-//	CheckMaxes( downX, upX, downY, upY );
 
 	RestoreMode();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStaticMap::CanPut( const int x, const int y, const int d, const BYTE aiClass )
 {
 	if ( x - d < 0 )
@@ -847,7 +800,6 @@ bool CStaticMap::CanPut( const int x, const int y, const int d, const BYTE aiCla
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStaticMap::CheckMaxes( const int downX, const int upX, const int downY, const int upY, const BYTE aiClass )
 {
 	for ( int y = downY; y <= upY; ++y )
@@ -871,7 +823,6 @@ bool CStaticMap::CheckMaxes( const int downX, const int upX, const int downY, co
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::Clear()
 {
 	for ( int i = 0; i < 5; ++i )
@@ -890,7 +841,6 @@ void CStaticMap::Clear()
 	unitsRects.clear();
 	nSizeX = nSizeY = nCellsSizeX = nCellsSizeY = nBigCellsSizeX = nBigCellsSizeY = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::CalcMaxesBoundsByTiles( const CTilesSet &tiles, SVector *vMin, SVector *vMax )
 {
 	int minX = theStaticMap.GetSizeX()-1;
@@ -916,7 +866,6 @@ void CStaticMap::CalcMaxesBoundsByTiles( const CTilesSet &tiles, SVector *vMin, 
 	vMin->y = minY;
 	vMax->y = maxY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::UpdateMaxesByTiles( const CTilesSet &tiles, const BYTE aiClasses, bool bAdd )
 {
 	int minTerrainX = theStaticMap.GetSizeX()-1;
@@ -945,7 +894,6 @@ void CStaticMap::UpdateMaxesByTiles( const CTilesSet &tiles, const BYTE aiClasse
 	else
 		UpdateMaxesForRemovedStObject( vMin.x, vMax.x, vMin.y, vMax.y, aiClasses );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::UpdateMaxesForAddedStObject( const int downX, const int upX, const int downY, const int upY, const BYTE aiClasses )
 {
 	MemMode();
@@ -996,7 +944,6 @@ void CStaticMap::UpdateMaxesForAddedStObject( const int downX, const int upX, co
 
 	RestoreMode();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::UpdateMaxesForRemovedStObject( const int downX, const int upX, const int downY, const int upY, const BYTE aiClasses )
 {
 	MemMode();
@@ -1047,7 +994,6 @@ void CStaticMap::UpdateMaxesForRemovedStObject( const int downX, const int upX, 
 
 	RestoreMode();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::GetPoint4Spline( const CVec2 &vPoint, float *pu, float *pv, float ptCtrls[] ) const
 {
 	SVector visTile = AICellsTiles::GetTile( vPoint / 2 );
@@ -1063,14 +1009,12 @@ void CStaticMap::GetPoint4Spline( const CVec2 &vPoint, float *pu, float *pv, flo
 	NI_ASSERT_T( *pu >= 0 && *pu <= 1, "Wrong u" );
 	NI_ASSERT_T( *pv >= 0 && *pv <= 1, "Wrong v" );
 
-	// высоты сжимаются, т.к. для сплайна даётся сетка с шагом 1 ( а не 2 * TILE_SIZE )
 	for ( int i = 0; i < 4; ++i )
 	{
 		for ( int j = 0; j < 4; ++j )
 			ptCtrls[i * 4 + j] = heights[visTile.y + i][visTile.x + j] / ( 2.0f * SConsts::TILE_SIZE );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const DWORD CStaticMap::GetNormal( const float x, const float y ) const
 {
 	if ( !IsPointInside( x, y ) )
@@ -1088,7 +1032,6 @@ const DWORD CStaticMap::GetNormal( const float x, const float y ) const
 		return Vec3ToDWORD( result );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CStaticMap::GetVisZ( float x, float y ) const
 {
 	float u, v;
@@ -1099,13 +1042,9 @@ const float CStaticMap::GetVisZ( float x, float y ) const
 
 	if ( (theStaticMap.GetSizeX() + theStaticMap.GetSizeY()) == 0 ) 
 		return 0;
-	//
 	GetPoint4Spline( CVec2( x, y ), &u, &v, ptCtrls );
-	// высоты разжимаются обратно, т.к. для сплайна даётся сетка с шагом 1 ( а не 2 * TILE_SIZE )
-	// умножается на fAITileZCoeff1, чтобы перевести в AI высоты
 	return betaSpline3D.Value( u, v, ptCtrls ) * 2.0f * SConsts::TILE_SIZE * fAITileZCoeff1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CStaticMap::GetTileHeight( const SVector &tile ) const 
 { 
 	const int inMapX = Min( Max( 0, tile.x ), GetSizeX() - 1 );
@@ -1113,7 +1052,6 @@ const float CStaticMap::GetTileHeight( const SVector &tile ) const
 	
 	return tileHeights[inMapY][inMapX];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CStaticMap::GetIntersectionWithTerrain( CVec3 *pvResult, const CVec3 &vBegin, const CVec3 &vEnd ) const
 {
 /*	
@@ -1130,10 +1068,8 @@ const bool CStaticMap::GetIntersectionWithTerrain( CVec3 *pvResult, const CVec3 
 		return VNULL3;
 */
 	
-	// не проинициализирована
 	if ( GetSizeX() + GetSizeY() == 0 ) 
 		return false;
-	// неправильные точки
 	if ( GetVisZ( vBegin.x, vBegin.y ) >= vBegin.z ) 
 		return false;
 
@@ -1159,7 +1095,6 @@ const bool CStaticMap::GetIntersectionWithTerrain( CVec3 *pvResult, const CVec3 
 	*pvResult = vMiddlePoint;
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SFunc4TerrainHeight
 {
 	bool operator ()( const int nX, const int nY, const float fHeight )
@@ -1168,7 +1103,6 @@ struct SFunc4TerrainHeight
 		return true;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::ApplyPattern( const SVAPattern &rPattern )
 {
 	const CTRect<int> rRect( 0, 0, heights.GetSizeX() - 1, heights.GetSizeY() - 1 );
@@ -1193,12 +1127,10 @@ void CStaticMap::ApplyPattern( const SVAPattern &rPattern )
 		pObj->SetNewPlacement( pObj->GetCenter(), pObj->GetDir() );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::SetHeightForPatternApplying( const int nX, const int nY, const float fHeight )
 {
 	heights[heights.GetSizeY() - 2 - nY][nX + 1] += fHeight;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::UpdateAllHeights()
 {
 	IScene *pScene = GetSingleton<IScene>();
@@ -1213,7 +1145,6 @@ void CStaticMap::UpdateAllHeights()
 
 	theStatObjs.UpdateAllObjectsPos();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::InitExplosionTerrainTypes()
 {
 	CArray2D4Bit terrainTypesOld( terrainTypes );
@@ -1248,7 +1179,6 @@ void CStaticMap::InitExplosionTerrainTypes()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStaticMap::TemporaryUnlockUnitRect( const int id )
 {
 	if ( tmpUnlockID != id && tmpUnlockID != 0 )
@@ -1296,7 +1226,6 @@ bool CStaticMap::TemporaryUnlockUnitRect( const int id )
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::RemoveTemporaryUnlocking()
 {
 	NI_ASSERT_T( tmpUnlockID != 0, "Wrong tmpUnlockID (0)" );
@@ -1322,13 +1251,11 @@ void CStaticMap::RemoveTemporaryUnlocking()
 
 	tmpUnlockID = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::RemoveTemporaryUnlockingByUnit( const int id )
 {
 	if ( tmpUnlockID == id )
 		RemoveTemporaryUnlocking();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CStaticMap::GetTerrainPassabilityType( const int nX, const int nY ) const
 {
 	if ( !IsTileInside( nX, nY ) )
@@ -1336,7 +1263,6 @@ const int CStaticMap::GetTerrainPassabilityType( const int nX, const int nY ) co
 	else
 		return passTypes[nY >> 1][nX >> 1];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::RemoveTerrainPassability( const int nX, const int nY )
 {
 	if ( IsTileInside( nX, nY ) )
@@ -1345,7 +1271,6 @@ void CStaticMap::RemoveTerrainPassability( const int nX, const int nY )
 		UnlockTile( nX, nY, aiClass );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::SetTerrainPassability( const int nX, const int nY, const int nTerrainType )
 {
 	if ( IsTileInside( nX, nY ) )
@@ -1355,7 +1280,6 @@ void CStaticMap::SetTerrainPassability( const int nX, const int nY, const int nT
 		LockTile( nX, nY, aiClass );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::UpdateMaxesForAddedRect( const int nDownX, const int nDownY, const int nUpX, const int nUpY )
 {
 	const int nMinX = Max( nDownX - SConsts::MAX_UNIT_RADIUS - 1, 0 );
@@ -1389,7 +1313,6 @@ void CStaticMap::UpdateMaxesForAddedRect( const int nDownX, const int nDownY, co
 */
 	RestoreMode();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::UpdateMaxesForRemovedRect( const int nDownX, const int nDownY, const int nUpX, const int nUpY )
 {
 	const int nMinX = Max( nDownX - SConsts::MAX_UNIT_RADIUS - 1, 0 );
@@ -1423,7 +1346,6 @@ void CStaticMap::UpdateMaxesForRemovedRect( const int nDownX, const int nDownY, 
 */
 	RestoreMode();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::UpdateTerrainPassabilityRect( const int nMinX, const int nMinY, const int nMaxX, const int nMaxY, bool bRemove )
 {
 	for ( int x = nMinX; x <= nMaxX; ++x )
@@ -1437,7 +1359,6 @@ void CStaticMap::UpdateTerrainPassabilityRect( const int nMinX, const int nMinY,
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CStaticMap::IsBridge( const SVector &tile ) const
 {
 	if ( IsTileInside( tile.x, tile.y ) )
@@ -1445,31 +1366,22 @@ const bool CStaticMap::IsBridge( const SVector &tile ) const
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::AddBridgeTile( const SVector &tile )
 {
 	if ( IsTileInside( tile.x, tile.y ) )
 		bridgeTiles.SetData( tile.x, tile.y );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticMap::RemoveBridgeTile( const SVector &tile )
 {
 	if ( IsTileInside( tile.x, tile.y ) )
 		bridgeTiles.RemoveData( tile.x, tile.y );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												CTemporaryUnitRectUnlocker								*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CTemporaryUnitRectUnlocker::CTemporaryUnitRectUnlocker( const int nUnitID )
 {
 	bLocking = theStaticMap.TemporaryUnlockUnitRect( nUnitID );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CTemporaryUnitRectUnlocker::~CTemporaryUnitRectUnlocker()
 {
 	if ( bLocking )
 		theStaticMap.RemoveTemporaryUnlocking();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

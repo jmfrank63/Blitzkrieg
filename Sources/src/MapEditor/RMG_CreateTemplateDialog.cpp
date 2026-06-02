@@ -19,7 +19,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char *CT_TEMPLATES_XML_NAME = "Templates";
 const char *CT_TEMPLATES_FILE_NAME = "Editor\\DefaultTemplates";
 const char *CT_TEMPLATES_DIALOG_TITLE = "Templates Composer";
@@ -53,7 +52,6 @@ const int		CT_DEFAULT_GRAPH_WEIGHT = 1;
 const int		CT_DEFAULT_VSO_WEIGHT = 1;
 const int		CT_DEFAULT_FIELD_WEIGHT = 1;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CALLBACK CT_TemplatesCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort )
 {
 	CRMGCreateTemplateDialog* pTemplateDialog = reinterpret_cast<CRMGCreateTemplateDialog*>( lParamSort );
@@ -70,7 +68,6 @@ int CALLBACK CT_TemplatesCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lPa
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CALLBACK CT_FieldsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort )
 {
 	CRMGCreateTemplateDialog* pTemplateDialog = reinterpret_cast<CRMGCreateTemplateDialog*>( lParamSort );
@@ -87,7 +84,6 @@ int CALLBACK CT_FieldsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParam
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CALLBACK CT_VSOCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort )
 {
 	CRMGCreateTemplateDialog* pTemplateDialog = reinterpret_cast<CRMGCreateTemplateDialog*>( lParamSort );
@@ -104,7 +100,6 @@ int CALLBACK CT_VSOCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSor
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CALLBACK CT_TemplateGraphsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort )
 {
 	CRMGCreateTemplateDialog* pTemplateDialog = reinterpret_cast<CRMGCreateTemplateDialog*>( lParamSort );
@@ -121,7 +116,6 @@ int CALLBACK CT_TemplateGraphsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARA
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CRMGCreateTemplateDialog::vID[] = 
 {
 	IDC_RMG_CT_DELIMITER_00,										//0
@@ -165,12 +159,9 @@ const int CRMGCreateTemplateDialog::vID[] =
 	IDC_RMG_CT_MOD_COMBO_BOX,										//30
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CRMGCreateTemplateDialog::CRMGCreateTemplateDialog( CWnd* pParent )
 	: CResizeDialog( CRMGCreateTemplateDialog::IDD, pParent ), nSortColumn( 0 ), bCreateControls( true )
 {
-	//{{AFX_DATA_INIT(CRMGCreateTemplateDialog)
-	//}}AFX_DATA_INIT
 	SetControlStyle( IDC_RMG_CT_DELIMITER_00, ANCHORE_LEFT_TOP | RESIZE_HOR );
 
 	SetControlStyle( IDC_RMG_CT_TEMPLATES_LABEL, ANCHORE_LEFT_TOP | RESIZE_HOR );
@@ -212,23 +203,18 @@ CRMGCreateTemplateDialog::CRMGCreateTemplateDialog( CWnd* pParent )
 	SetControlStyle( IDC_RMG_CT_MOD_COMBO_BOX, ANCHORE_RIGHT_BOTTOM | RESIZE_HOR, 0.5f, 0.5f, 0.5f, 1.0f );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::DoDataExchange(CDataExchange* pDX)
 {
 	CResizeDialog::DoDataExchange(pDX);
-	//{{AFX_DATA_MAP(CRMGCreateTemplateDialog)
 	DDX_Control(pDX, IDC_RMG_CT_SCRIPT_FILE_NAME_EDIT, m_ScriptFileNameEdit);
 	DDX_Control(pDX, IDC_RMG_CT_VSO_LIST, m_VSOList);
 	DDX_Control(pDX, IDC_RMG_CT_FIELDS_LIST, m_FieldsList);
 	DDX_Control(pDX, IDC_RMG_CT_GRAPHS_LIST, m_GraphsList);
 	DDX_Control(pDX, IDC_RMG_CT_TEMPLATES_LIST, m_TemplatesList);
 	DDX_Control(pDX, IDC_RMG_CT_MOD_COMBO_BOX, m_MODComboBox );
-	//}}AFX_DATA_MAP
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CRMGCreateTemplateDialog, CResizeDialog)
-	//{{AFX_MSG_MAP(CRMGCreateTemplateDialog)
 	ON_NOTIFY(LVN_COLUMNCLICK, IDC_RMG_CT_VSO_LIST, OnColumnclickVsoList)
 	ON_NOTIFY(LVN_COLUMNCLICK, IDC_RMG_CT_TEMPLATES_LIST, OnColumnclickTemplatesList)
 	ON_NOTIFY(LVN_COLUMNCLICK, IDC_RMG_CT_GRAPHS_LIST, OnColumnclickGraphsList)
@@ -285,20 +271,11 @@ BEGIN_MESSAGE_MAP(CRMGCreateTemplateDialog, CResizeDialog)
 	ON_BN_CLICKED(IDC_RMG_CT_TEMPLATE_DIPLOMACY_BUTTON, OnTemplateDiplomacyButton)
 	ON_COMMAND(IDC_RMG_CT_TEMPLATE_DIPLOMACY_MENU, OnTemplateDiplomacyMenu)
 	ON_CBN_SELCHANGE(IDC_RMG_CT_MOD_COMBO_BOX, OnSelchangeModComboBox)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CRMGCreateTemplateDialog::OnInitDialog() 
 {
 	CResizeDialog::OnInitDialog();
-	//0 открытие TempatesHashMap
-	//1 добавление template
-	//2 добавление Graph
-	//3 добавление VSO
-	//4 добавление field
-	//5 Browse Script file name
-	//6 текущий TemplatesHashMap
 	
 	if ( resizeDialogOptions.szParameters.size() < 7 )
 	{
@@ -319,7 +296,6 @@ BOOL CRMGCreateTemplateDialog::OnInitDialog()
 	return true;
 }	
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRMGCreateTemplateDialog::LoadTemplatesList()
 {
 	IDataStorage* pDataStorage = GetSingleton<IDataStorage>();
@@ -330,10 +306,8 @@ bool CRMGCreateTemplateDialog::LoadTemplatesList()
 
 	SetWindowText( NStr::Format( "%s - [%s]", CT_TEMPLATES_DIALOG_TITLE, resizeDialogOptions.szParameters[6] ) );
 	BeginWaitCursor();
-	//считываем templates с диска
 	LoadDataResource( resizeDialogOptions.szParameters[6], "", false, 0, CT_TEMPLATES_XML_NAME, templates );
 	
-	//заполняем информацию по templates
 	m_TemplatesList.DeleteAllItems();
 	for ( CRMTemplatesHashMap::const_iterator templateIterator = templates.begin();  templateIterator != templates.end(); ++templateIterator )
 	{
@@ -351,7 +325,6 @@ bool CRMGCreateTemplateDialog::LoadTemplatesList()
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRMGCreateTemplateDialog::SaveTemplatesList()
 {
 	IDataStorage* pDataStorage = GetSingleton<IDataStorage>();
@@ -362,7 +335,6 @@ bool CRMGCreateTemplateDialog::SaveTemplatesList()
 
 	SetWindowText( NStr::Format( "%s - [%s]", CT_TEMPLATES_DIALOG_TITLE, resizeDialogOptions.szParameters[6] ) );
 	BeginWaitCursor();
-	//сохраняем templates на диск
 	for ( CRMTemplatesHashMap::const_iterator templateIterator = templates.begin();  templateIterator != templates.end(); ++templateIterator )
 	{
 		CPtr<IDataStream> pStreamXML = CreateFileStream( ( pDataStorage->GetName() + templateIterator->first + ".xml" ).c_str(), STREAM_ACCESS_WRITE );
@@ -382,7 +354,6 @@ bool CRMGCreateTemplateDialog::SaveTemplatesList()
 		saver.Add( RMGC_QUICK_LOAD_MAP_INFO_NAME, &quickLoadMapInfo );
 	}
 
-	//сохраняем список templates на диск
 	if ( !SaveDataResource( resizeDialogOptions.szParameters[6], "", false, 0, CT_TEMPLATES_XML_NAME, templates ) )
 	{
 		EndWaitCursor();
@@ -392,7 +363,6 @@ bool CRMGCreateTemplateDialog::SaveTemplatesList()
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::GetAllMODs( std::vector<std::string> *pMODsList )
 {
 	if ( pMODsList )
@@ -407,17 +377,13 @@ void CRMGCreateTemplateDialog::GetAllMODs( std::vector<std::string> *pMODsList )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRMGCreateTemplateDialog::LoadTemplateToControls()
 {
-	//обновляем контролы по текущему темплейту
 	bCreateControls = true;
 	m_GraphsList.DeleteAllItems();
 	m_VSOList.DeleteAllItems();
 	m_FieldsList.DeleteAllItems();
 	m_ScriptFileNameEdit.SetWindowText( "" );
-	//m_ForestsAmbientSoundsComboBox.SetCurSel( -1 );
-	//m_ForestsCircleSoundsComboBox.SetCurSel( -1 );
 
 	int nFocusedItem = m_TemplatesList.GetNextItem( -1, LVNI_FOCUSED );
 	if ( nFocusedItem != ( -1 ) )
@@ -508,10 +474,8 @@ bool CRMGCreateTemplateDialog::LoadTemplateToControls()
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRMGCreateTemplateDialog::SaveTemplateFromControls()
 {
-	//обновляем состояние темплейта в списке темплейтов
 	int nFocusedItem = m_TemplatesList.GetNextItem( -1, LVNI_FOCUSED );
 	if ( nFocusedItem != ( -1 ) )
 	{
@@ -522,7 +486,6 @@ bool CRMGCreateTemplateDialog::SaveTemplateFromControls()
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::SetTemplateItem( int nItem, const SRMTemplate &rTemplate )
 {
 	m_TemplatesList.SetItem( nItem, 1, LVIF_TEXT, NStr::Format( "%4dx%-4d", rTemplate.size.x, rTemplate.size.y ), 0, 0, 0, 0 );
@@ -581,7 +544,6 @@ void CRMGCreateTemplateDialog::SetTemplateItem( int nItem, const SRMTemplate &rT
 	m_TemplatesList.SetItem( nItem, 12, LVIF_TEXT, ( CMODCollector::GetKey( rTemplate.szMODName, rTemplate.szMODVersion ) ).c_str(), 0, 0, 0, 0 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::SetGraphItem( int nItem, int nWeight, const SRMGraph &rGraph )
 {
 	m_GraphsList.SetItem( nItem, 1, LVIF_TEXT, NStr::Format( "%4d", nWeight ), 0, 0, 0, 0 );
@@ -620,7 +582,6 @@ void CRMGCreateTemplateDialog::SetGraphItem( int nItem, int nWeight, const SRMGr
 	m_GraphsList.SetItem( nItem, 8, LVIF_TEXT, szUsedScripAreas.c_str(), 0, 0, 0, 0 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::SetVSOItem( int nItem, int nWeight, const SRMVSODesc &rVSODesc )
 {
 	m_VSOList.SetItem( nItem, 1, LVIF_TEXT, NStr::Format( "%4d", nWeight ), 0, 0, 0, 0 );
@@ -628,7 +589,6 @@ void CRMGCreateTemplateDialog::SetVSOItem( int nItem, int nWeight, const SRMVSOD
 	m_VSOList.SetItem( nItem, 3, LVIF_TEXT, NStr::Format( "%.2f", rVSODesc.fOpacity * 100.0f ), 0, 0, 0, 0 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::SetFieldItem( int nItem, int nWeight, bool bDefault, const SRMFieldSet &rFieldSet )
 {
 	m_FieldsList.SetItem( nItem, 1, LVIF_TEXT, NStr::Format( "%4d", nWeight ), 0, 0, 0, 0 );
@@ -637,7 +597,6 @@ void CRMGCreateTemplateDialog::SetFieldItem( int nItem, int nWeight, bool bDefau
 	m_FieldsList.SetItem( nItem, 4, LVIF_TEXT, NStr::Format( "%4d", rFieldSet.objectsShells.size() ), 0, 0, 0, 0 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnOK() 
 {
 	for ( int nColumnIndex = 0; nColumnIndex < CT_TEMPLATES_COLUMN_COUNT; ++nColumnIndex )
@@ -661,7 +620,6 @@ void CRMGCreateTemplateDialog::OnOK()
 	CResizeDialog::OnOK();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnCancel() 
 {
 	for ( int nColumnIndex = 0; nColumnIndex < CT_TEMPLATES_COLUMN_COUNT; ++nColumnIndex )
@@ -683,12 +641,10 @@ void CRMGCreateTemplateDialog::OnCancel()
 	CResizeDialog::OnCancel();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::CreateControls()
 {
 	bCreateControls = true;
 	
-	//m_PlaceComboBox.ResetContent();
 	
 	m_TemplatesList.SetExtendedStyle( m_TemplatesList.GetExtendedStyle() | LVS_EX_FULLROWSELECT );
 	for ( int nColumnIndex = 0; nColumnIndex < CT_TEMPLATES_COLUMN_COUNT; ++nColumnIndex )
@@ -770,17 +726,14 @@ void CRMGCreateTemplateDialog::CreateControls()
 	bCreateControls = false;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::ClearControls()
 {
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::UpdateControls()
 {
 	int nFocusedTemplate = m_TemplatesList.GetNextItem( -1, LVNI_FOCUSED );
 	CWnd* pWnd = 0;
-	//Templates buttons
 	if ( pWnd = GetDlgItem( IDC_RMG_CT_DELETE_TEMPLATE_BUTTON ) )
 	{
 		pWnd->EnableWindow( m_TemplatesList.GetSelectedCount() > 0 );
@@ -798,7 +751,6 @@ void CRMGCreateTemplateDialog::UpdateControls()
 		pWnd->EnableWindow( m_TemplatesList.GetItemCount() > 0 );
 	}
 	
-	//Graphs buttons
 	int nFocusedGraph = m_GraphsList.GetNextItem( -1, LVNI_FOCUSED );
 	if ( pWnd = GetDlgItem( IDC_RMG_CT_ADD_GRAPH_BUTTON ) )
 	{
@@ -813,7 +765,6 @@ void CRMGCreateTemplateDialog::UpdateControls()
 		pWnd->EnableWindow( ( nFocusedTemplate != ( -1 ) ) && ( nFocusedGraph != ( -1 ) ) );
 	}
 
-	//VSO buttons
 	int nFocusedVSO = m_VSOList.GetNextItem( -1, LVNI_FOCUSED );
 	if ( pWnd = GetDlgItem( IDC_RMG_CT_ADD_VSO_BUTTON ) )
 	{
@@ -828,7 +779,6 @@ void CRMGCreateTemplateDialog::UpdateControls()
 		pWnd->EnableWindow( ( nFocusedTemplate != ( -1 ) ) && ( nFocusedVSO != ( -1 ) ) );
 	}
 
-	//Fields buttons
 	int nFocusedField = m_FieldsList.GetNextItem( -1, LVNI_FOCUSED );
 	if ( pWnd = GetDlgItem( IDC_RMG_CT_ADD_FIELD_BUTTON ) )
 	{
@@ -843,7 +793,6 @@ void CRMGCreateTemplateDialog::UpdateControls()
 		pWnd->EnableWindow( ( nFocusedTemplate != ( -1 ) ) && ( nFocusedField != ( -1 ) ) );
 	}
 	
-	//other
 	if ( pWnd = GetDlgItem( IDC_RMG_CT_SCRIPT_FILE_NAME_EDIT ) )
 	{
 		pWnd->EnableWindow( nFocusedTemplate != ( -1 ) );
@@ -853,14 +802,12 @@ void CRMGCreateTemplateDialog::UpdateControls()
 		pWnd->EnableWindow( nFocusedTemplate != ( -1 ) );
 	}
 
-	//MOD support
 	if ( pWnd = GetDlgItem( IDC_RMG_CT_MOD_COMBO_BOX ) )
 	{
 		pWnd->EnableWindow( nFocusedTemplate != ( -1 ) );
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnColumnclickTemplatesList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -881,7 +828,6 @@ void CRMGCreateTemplateDialog::OnColumnclickTemplatesList(NMHDR* pNMHDR, LRESULT
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnColumnclickFieldsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -902,7 +848,6 @@ void CRMGCreateTemplateDialog::OnColumnclickFieldsList(NMHDR* pNMHDR, LRESULT* p
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnColumnclickVsoList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -923,7 +868,6 @@ void CRMGCreateTemplateDialog::OnColumnclickVsoList(NMHDR* pNMHDR, LRESULT* pRes
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnColumnclickGraphsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -944,7 +888,6 @@ void CRMGCreateTemplateDialog::OnColumnclickGraphsList(NMHDR* pNMHDR, LRESULT* p
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnFileNew() 
 {
 	SaveTemplatesList();
@@ -953,7 +896,6 @@ void CRMGCreateTemplateDialog::OnFileNew()
 	UpdateControls();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnFileOpen() 
 {
 	IDataStorage* pDataStorage = GetSingleton<IDataStorage>();
@@ -998,19 +940,16 @@ void CRMGCreateTemplateDialog::OnFileOpen()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnFileSave() 
 {
 	SaveTemplatesList();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnSaveButton() 
 {
 	SaveTemplatesList();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnFileSaveas() 
 {
 	IDataStorage* pDataStorage = GetSingleton<IDataStorage>();
@@ -1051,13 +990,11 @@ void CRMGCreateTemplateDialog::OnFileSaveas()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnFileExit() 
 {
 	OnOK();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnAddTemplateButton() 
 {
 	IDataStorage* pDataStorage = GetSingleton<IDataStorage>();
@@ -1136,7 +1073,6 @@ void CRMGCreateTemplateDialog::OnAddTemplateButton()
 	delete[] fileDialog.m_ofn.lpstrFile;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnDeleteTemplateButton() 
 {
 	CString strTitle;
@@ -1161,7 +1097,6 @@ void CRMGCreateTemplateDialog::OnDeleteTemplateButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnTemplateUnitsButton()
 {
 	int nFocusedItem = m_TemplatesList.GetNextItem( -1, LVNI_FOCUSED );
@@ -1179,7 +1114,6 @@ void CRMGCreateTemplateDialog::OnTemplateUnitsButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnTemplateDiplomacyButton() 
 {
 	int nFocusedItem = m_TemplatesList.GetNextItem( -1, LVNI_FOCUSED );
@@ -1205,7 +1139,6 @@ void CRMGCreateTemplateDialog::OnTemplateDiplomacyButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnDblclkTemplatesList( NMHDR* pNMHDR, LRESULT* pResult ) 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_RMG_CT_TEMPLATE_UNITS_BUTTON ) )
@@ -1218,7 +1151,6 @@ void CRMGCreateTemplateDialog::OnDblclkTemplatesList( NMHDR* pNMHDR, LRESULT* pR
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnRclickTemplatesList( NMHDR* pNMHDR, LRESULT* pResult ) 
 {
 	CMenu composersMenu;
@@ -1250,7 +1182,6 @@ void CRMGCreateTemplateDialog::OnRclickTemplatesList( NMHDR* pNMHDR, LRESULT* pR
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnKeydownTemplatesList( NMHDR* pNMHDR, LRESULT* pResult ) 
 {
 	LV_KEYDOWN* pLVKeyDown = (LV_KEYDOWN*)pNMHDR;
@@ -1297,13 +1228,11 @@ void CRMGCreateTemplateDialog::OnKeydownTemplatesList( NMHDR* pNMHDR, LRESULT* p
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnAddTemplateMenu() 
 {
 	OnAddTemplateButton();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnDeleteTemplateMenu() 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_RMG_CT_DELETE_TEMPLATE_BUTTON ) )
@@ -1315,7 +1244,6 @@ void CRMGCreateTemplateDialog::OnDeleteTemplateMenu()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnTemplateUnitsMenu() 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_RMG_CT_TEMPLATE_UNITS_BUTTON ) )
@@ -1327,7 +1255,6 @@ void CRMGCreateTemplateDialog::OnTemplateUnitsMenu()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnTemplateDiplomacyMenu() 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_RMG_CT_TEMPLATE_DIPLOMACY_BUTTON ) )
@@ -1339,12 +1266,10 @@ void CRMGCreateTemplateDialog::OnTemplateDiplomacyMenu()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnCheckTemplatesButton() 
 {
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnItemchangedTemplatesList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -1356,7 +1281,6 @@ void CRMGCreateTemplateDialog::OnItemchangedTemplatesList(NMHDR* pNMHDR, LRESULT
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
 void CRMGCreateTemplateDialog::OnSelchangeForestsAmbientSoundCombo() 
 {
@@ -1378,7 +1302,6 @@ void CRMGCreateTemplateDialog::OnSelchangeForestsAmbientSoundCombo()
 /**/
 
 /**
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnSelchangeForestsCircleSoundCombo() 
 {
 	if ( !bCreateControls )
@@ -1398,7 +1321,6 @@ void CRMGCreateTemplateDialog::OnSelchangeForestsCircleSoundCombo()
 }
 /**/
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnChangeRmgFileNameEdit() 
 {
 	if ( !bCreateControls )
@@ -1419,7 +1341,6 @@ void CRMGCreateTemplateDialog::OnChangeRmgFileNameEdit()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnSelchangeModComboBox() 
 {
 	if ( !bCreateControls )
@@ -1466,7 +1387,6 @@ void CRMGCreateTemplateDialog::OnSelchangeModComboBox()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
 void CRMGCreateTemplateDialog::OnSelchangePlaceCombo() 
 {
@@ -1509,7 +1429,6 @@ void CRMGCreateTemplateDialog::OnChangePlaceEdit()
 	}
 }
 /**/
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnScriptFileNameBrowseButton() 
 {
 	IDataStorage* pDataStorage = GetSingleton<IDataStorage>();
@@ -1559,7 +1478,6 @@ void CRMGCreateTemplateDialog::OnScriptFileNameBrowseButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnAddGraphButton() 
 {
 	IDataStorage* pDataStorage = GetSingleton<IDataStorage>();
@@ -1644,7 +1562,6 @@ void CRMGCreateTemplateDialog::OnAddGraphButton()
 					return;
 				}
 
-				//check stats!
 				if ( rTemplate.graphs.empty() )
 				{
 					rTemplate.size = graph.size;
@@ -1742,7 +1659,6 @@ void CRMGCreateTemplateDialog::OnAddGraphButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnDeleteGraphButton() 
 {
 	int nFocusedItem = m_TemplatesList.GetNextItem( -1, LVNI_FOCUSED );
@@ -1789,7 +1705,6 @@ void CRMGCreateTemplateDialog::OnDeleteGraphButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnGraphPropertiesButton() 
 {
 	int nFocusedItem = m_TemplatesList.GetNextItem( -1, LVNI_FOCUSED );
@@ -1831,7 +1746,6 @@ void CRMGCreateTemplateDialog::OnGraphPropertiesButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnAddGraphMenu() 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_RMG_CT_ADD_GRAPH_BUTTON ) )
@@ -1843,7 +1757,6 @@ void CRMGCreateTemplateDialog::OnAddGraphMenu()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnDeleteGraphMenu() 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_RMG_CT_DELETE_GRAPH_BUTTON ) )
@@ -1855,7 +1768,6 @@ void CRMGCreateTemplateDialog::OnDeleteGraphMenu()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnGraphPropertiesMenu() 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_RMG_CT_GRAPH_PROPERTIES_BUTTON ) )
@@ -1867,7 +1779,6 @@ void CRMGCreateTemplateDialog::OnGraphPropertiesMenu()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnDblclkGraphsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_RMG_CT_GRAPH_PROPERTIES_BUTTON ) )
@@ -1880,7 +1791,6 @@ void CRMGCreateTemplateDialog::OnDblclkGraphsList(NMHDR* pNMHDR, LRESULT* pResul
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnRclickGraphsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	CMenu composersMenu;
@@ -1908,7 +1818,6 @@ void CRMGCreateTemplateDialog::OnRclickGraphsList(NMHDR* pNMHDR, LRESULT* pResul
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnItemchangedGraphsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -1916,7 +1825,6 @@ void CRMGCreateTemplateDialog::OnItemchangedGraphsList(NMHDR* pNMHDR, LRESULT* p
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnKeydownGraphsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	LV_KEYDOWN* pLVKeyDown = (LV_KEYDOWN*)pNMHDR;
@@ -1953,7 +1861,6 @@ void CRMGCreateTemplateDialog::OnKeydownGraphsList(NMHDR* pNMHDR, LRESULT* pResu
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnAddVsoButton() 
 {
 	IDataStorage* pDataStorage = GetSingleton<IDataStorage>();
@@ -2045,7 +1952,6 @@ void CRMGCreateTemplateDialog::OnAddVsoButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnDeleteVsoButton() 
 {
 	int nFocusedItem = m_TemplatesList.GetNextItem( -1, LVNI_FOCUSED );
@@ -2082,7 +1988,6 @@ void CRMGCreateTemplateDialog::OnDeleteVsoButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnVsoPropertiesButton() 
 {
 	int nFocusedItem = m_TemplatesList.GetNextItem( -1, LVNI_FOCUSED );
@@ -2134,7 +2039,6 @@ void CRMGCreateTemplateDialog::OnVsoPropertiesButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnAddVsoMenu() 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_RMG_CT_ADD_VSO_BUTTON ) )
@@ -2146,7 +2050,6 @@ void CRMGCreateTemplateDialog::OnAddVsoMenu()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnDeleteVsoMenu() 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_RMG_CT_DELETE_VSO_BUTTON ) )
@@ -2158,7 +2061,6 @@ void CRMGCreateTemplateDialog::OnDeleteVsoMenu()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnVsoPropertiesMenu() 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_RMG_CT_VSO_PROPERTIES_BUTTON ) )
@@ -2170,7 +2072,6 @@ void CRMGCreateTemplateDialog::OnVsoPropertiesMenu()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnDblclkVsoList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_RMG_CT_VSO_PROPERTIES_BUTTON ) )
@@ -2183,7 +2084,6 @@ void CRMGCreateTemplateDialog::OnDblclkVsoList(NMHDR* pNMHDR, LRESULT* pResult)
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnRclickVsoList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	CMenu composersMenu;
@@ -2211,7 +2111,6 @@ void CRMGCreateTemplateDialog::OnRclickVsoList(NMHDR* pNMHDR, LRESULT* pResult)
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnItemchangedVsoList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -2219,7 +2118,6 @@ void CRMGCreateTemplateDialog::OnItemchangedVsoList(NMHDR* pNMHDR, LRESULT* pRes
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnKeydownVsoList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	LV_KEYDOWN* pLVKeyDown = (LV_KEYDOWN*)pNMHDR;
@@ -2256,7 +2154,6 @@ void CRMGCreateTemplateDialog::OnKeydownVsoList(NMHDR* pNMHDR, LRESULT* pResult)
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnAddFieldButton() 
 {
 	IDataStorage* pDataStorage = GetSingleton<IDataStorage>();
@@ -2363,7 +2260,6 @@ void CRMGCreateTemplateDialog::OnAddFieldButton()
 						if ( rTemplate.fields[nIndex] == szFieldPath )
 						{
 							rTemplate.nDefaultFieldIndex = nIndex;
-							//SetFieldItem( nSelectedItem, rTemplate.fields.GetWeight( nIndex ), true, field );
 							m_FieldsList.SetItem( nSelectedItem, 2, LVIF_TEXT, CT_DEFAULT_FIELD_LABEL, 0, 0, 0, 0 );
 							break;
 						}
@@ -2381,7 +2277,6 @@ void CRMGCreateTemplateDialog::OnAddFieldButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnDeleteFieldButton()
 {
 	int nFocusedItem = m_TemplatesList.GetNextItem( -1, LVNI_FOCUSED );
@@ -2422,7 +2317,6 @@ void CRMGCreateTemplateDialog::OnDeleteFieldButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnFieldPropertiesButton() 
 {
 	int nFocusedItem = m_TemplatesList.GetNextItem( -1, LVNI_FOCUSED );
@@ -2463,7 +2357,6 @@ void CRMGCreateTemplateDialog::OnFieldPropertiesButton()
 									std::string szInnerFieldPath = m_FieldsList.GetItemText( nSelectedItem, 0 );
 									if ( szInnerFieldPath == rTemplate.fields[rTemplate.nDefaultFieldIndex] )
 									{
-										//SetFieldItem( nSelectedItem, rTemplate.fields.GetWeight( nIndex ), true, field );
 										m_FieldsList.SetItem( nSelectedItem, 2, LVIF_TEXT, "", 0, 0, 0, 0 );
 										break;
 									}
@@ -2478,13 +2371,11 @@ void CRMGCreateTemplateDialog::OnFieldPropertiesButton()
 						{
 							rTemplate.nDefaultFieldIndex = nFieldIndex;
 							bCreateControls = true;
-							//SetFieldItem( nSelectedItem, rTemplate.fields.GetWeight( nIndex ), true, field );
 							m_FieldsList.SetItem( nFocusedFieldItem, 2, LVIF_TEXT, CT_DEFAULT_FIELD_LABEL, 0, 0, 0, 0 );
 							bCreateControls = false;
 						}
 
 						bCreateControls = true;
-						//SetFieldItem( nSelectedItem, rTemplate.fields.GetWeight( nIndex ), true, field );
 						m_FieldsList.SetItem( nFocusedFieldItem, 1, LVIF_TEXT, NStr::Format( "%4d", rTemplate.fields.GetWeight( nFieldIndex ) ), 0, 0, 0, 0 );
 						bCreateControls = false;
 						SaveTemplateFromControls();
@@ -2497,7 +2388,6 @@ void CRMGCreateTemplateDialog::OnFieldPropertiesButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnAddFieldMenu() 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_RMG_CT_ADD_FIELD_BUTTON ) )
@@ -2509,7 +2399,6 @@ void CRMGCreateTemplateDialog::OnAddFieldMenu()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnDeleteFieldMenu() 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_RMG_CT_DELETE_FIELD_BUTTON ) )
@@ -2521,7 +2410,6 @@ void CRMGCreateTemplateDialog::OnDeleteFieldMenu()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnFieldPropertiesMenu() 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_RMG_CT_FIELD_PROPERTIES_BUTTON ) )
@@ -2533,7 +2421,6 @@ void CRMGCreateTemplateDialog::OnFieldPropertiesMenu()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnDblclkFieldsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_RMG_CT_FIELD_PROPERTIES_BUTTON ) )
@@ -2546,7 +2433,6 @@ void CRMGCreateTemplateDialog::OnDblclkFieldsList(NMHDR* pNMHDR, LRESULT* pResul
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnRclickFieldsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	CMenu composersMenu;
@@ -2574,7 +2460,6 @@ void CRMGCreateTemplateDialog::OnRclickFieldsList(NMHDR* pNMHDR, LRESULT* pResul
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnItemchangedFieldsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -2582,7 +2467,6 @@ void CRMGCreateTemplateDialog::OnItemchangedFieldsList(NMHDR* pNMHDR, LRESULT* p
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateTemplateDialog::OnKeydownFieldsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	LV_KEYDOWN* pLVKeyDown = (LV_KEYDOWN*)pNMHDR;
@@ -2618,6 +2502,3 @@ void CRMGCreateTemplateDialog::OnKeydownFieldsList(NMHDR* pNMHDR, LRESULT* pResu
 	}
 	*pResult = 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// basement storage  
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

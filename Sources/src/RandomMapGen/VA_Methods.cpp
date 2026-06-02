@@ -8,7 +8,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SVAGradient::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -28,7 +27,6 @@ int SVAGradient::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SVAGradient::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -48,7 +46,6 @@ int SVAGradient::operator&( IDataTree &ss )
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SVAGradient::UpdateHeightRanges()
 {
 	std::vector<float>::iterator it = heights.begin();
@@ -85,7 +82,6 @@ void SVAGradient::UpdateHeightRanges()
 	heightRange.min = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SVAGradient::CreateFromImage( IImage *pImage, const CTPoint<float> &rRange, const CTPoint<float> &rHeightRange )
 {
 	heights.clear();
@@ -128,7 +124,6 @@ bool SVAGradient::CreateFromImage( IImage *pImage, const CTPoint<float> &rRange,
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float SVAGradient::operator()( float fPosition, bool isSquareInterpolated ) const
 {
 	NI_ASSERT_T( ( ( heights.size() > 2 ) && isSquareInterpolated ) || 
@@ -185,7 +180,6 @@ float SVAGradient::operator()( float fPosition, bool isSquareInterpolated ) cons
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SVAPattern::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -197,7 +191,6 @@ int SVAPattern::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SVAPattern::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -209,7 +202,6 @@ int SVAPattern::operator&( IDataTree &ss )
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SVAPattern::CreateFromGradient( const SVAGradient &rGradient, int nGridLines, float fRatio )
 {
 	NI_ASSERT_TF( ( ( nGridLines > 0 ) && ( ( nGridLines & 0x1 ) == 0 ) ), 
@@ -243,11 +235,9 @@ bool SVAPattern::CreateValue( float fValue, int nGridLines, bool bAll )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float SVAPattern::GetAverageHeight( const STerrainInfo::TVertexAltitudeArray2D &rAltidude )
 {
 	SVACalculateAverageHeightFunctional functional( &rAltidude );
 	ApplyVAPattern( CTRect<int>( 0, 0, rAltidude.GetSizeX(), rAltidude.GetSizeY() ), (*this), functional, true );
 	return functional.GetAverageHeight();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,27 +1,21 @@
 #include "StdAfx.h"
 
 #include "EffectVisObj.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CEffectVisObj::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
-	//
 	saver.Add( 1, &sprites );
 	saver.Add( 2, &particles );
-	//
 	saver.Add( 3, &dwStartTime );
 	saver.Add( 4, &dwDuration );
 	saver.Add( 5, &vPos );
 	saver.Add( 6, &nDirection );
 	saver.Add( 7, &selectionState );
-	//
 	saver.Add( 9, &szSoundName );
 	saver.Add( 10, &bStopped );
 	saver.Add( 11, &bSuspended );
-	//
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEffectVisObj::Stop() 
 { 
 	bStopped = true; 
@@ -30,7 +24,6 @@ void CEffectVisObj::Stop()
 		it->pObj->Stop();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEffectVisObj::SetSuspendedState( bool bState ) 
 { 
 	bSuspended = bState; 
@@ -39,7 +32,6 @@ void CEffectVisObj::SetSuspendedState( bool bState )
 		it->pObj->SetSuspendedState( bState );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CEffectVisObj::Update( const NTimer::STime &time, bool bForced )
 {
 	if ( time < dwStartTime )
@@ -47,7 +39,6 @@ bool CEffectVisObj::Update( const NTimer::STime &time, bool bForced )
 	DWORD dt = time - dwStartTime;
 	if ( dt > dwDuration )
 		return false;
-	// sprite effects
 	for ( std::vector<SSpriteEffect>::iterator it = sprites.begin(); it != sprites.end(); ++it )
 	{
 		if ( (dt >= it->dwStart) && (dt < it->dwEnd) )
@@ -59,7 +50,6 @@ bool CEffectVisObj::Update( const NTimer::STime &time, bool bForced )
 		else
 			it->bActive = false;
 	}
-	// particle effects
 	bool bHasParticles = false;
 	for ( std::vector<SParticleEffect>::iterator it = particles.begin(); it != particles.end(); ++it )
 	{
@@ -75,10 +65,8 @@ bool CEffectVisObj::Update( const NTimer::STime &time, bool bForced )
 	}
 	if ( bStopped && !bHasParticles ) 
 		return false;
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEffectVisObj::AddSpriteEffect( ISpriteVisObj *pObj, DWORD dwStart, int nRepeat, const CVec3 &vPos )
 {
 	pObj->SetAnimation( 0 );
@@ -94,7 +82,6 @@ void CEffectVisObj::AddSpriteEffect( ISpriteVisObj *pObj, DWORD dwStart, int nRe
 	
 	dwDuration = Max( dwDuration, effect.dwEnd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEffectVisObj::AddParticleEffect( IParticleSource *pObj, DWORD dwStart, int nDuration, const CVec3 &vPos )
 {
 	particles.push_back( SParticleEffect() );
@@ -111,11 +98,9 @@ void CEffectVisObj::AddParticleEffect( IParticleSource *pObj, DWORD dwStart, int
 
 	dwDuration = Max( dwDuration, effect.dwEnd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEffectVisObj::CalibrateDuration( const NTimer::STime &timeDuration )
 {
 	const float fCoeff = float(timeDuration) / float(dwDuration);
-	// calibrate duration of the sprite effects
 	for ( std::vector<SSpriteEffect>::iterator it = sprites.begin(); it != sprites.end(); ++it )
 	{
 		if( IAnimation *pAnim = it->pObj->GetAnimation() )
@@ -123,16 +108,13 @@ void CEffectVisObj::CalibrateDuration( const NTimer::STime &timeDuration )
 		it->dwStart = it->dwStart * fCoeff;
 		it->dwEnd = it->dwEnd * fCoeff;
 	}
-	// calibrate duration of the particles effects
 	for ( std::vector<SParticleEffect>::iterator it = particles.begin(); it != particles.end(); ++it )
 	{
 		it->dwStart = it->dwStart * fCoeff;
 		it->dwEnd = it->dwEnd * fCoeff;
 	}
-	// total duration
 	dwDuration = dwDuration * fCoeff;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CEffectVisObj::Draw( IGFX *pGFX )
 {
 	for ( std::vector<SSpriteEffect>::iterator it = sprites.begin(); it != sprites.end(); ++it )
@@ -142,7 +124,6 @@ bool CEffectVisObj::Draw( IGFX *pGFX )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEffectVisObj::Visit( ISceneVisitor *pVisitor, int nType )
 {
 	if ( !bSuspended )
@@ -159,7 +140,6 @@ void CEffectVisObj::Visit( ISceneVisitor *pVisitor, int nType )
 			pVisitor->VisitParticles( it->pObj );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEffectVisObj::GetSpriteEffects( const SSpriteInfo ***ppEffects, int *pnNumEffects, bool bAll )
 {
 	const SSpriteInfo **pEffects = *ppEffects = GetTempBuffer<const SSpriteInfo*>( sprites.size() );
@@ -170,7 +150,6 @@ void CEffectVisObj::GetSpriteEffects( const SSpriteInfo ***ppEffects, int *pnNum
 			pEffects[(*pnNumEffects)++] = it->pObj->GetSpriteInfo();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEffectVisObj::GetParticleEffects( IParticleSource ***ppEffects, int *pnNumEffects, bool bAll )
 {
 	IParticleSource **pEffects = *ppEffects = GetTempBuffer<IParticleSource*>( sprites.size() );
@@ -181,14 +160,12 @@ void CEffectVisObj::GetParticleEffects( IParticleSource ***ppEffects, int *pnNum
 			pEffects[(*pnNumEffects)++] = it->pObj;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEffectVisObj::SetDirection( const int nDir ) 
 { 
 	nDirection = nDir; 
 	for ( std::vector<SSpriteEffect>::iterator it = sprites.begin(); it != sprites.end(); ++it )
 		it->pObj->SetDirection( nDir );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEffectVisObj::SetEffectDirection( const SHMatrix &matrix )
 {
 	CVec3 vDir;
@@ -199,13 +176,11 @@ void CEffectVisObj::SetEffectDirection( const SHMatrix &matrix )
 		it->pObj->SetDirection( matrix );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEffectVisObj::SetScale( const float fScale )
 {
 	for ( std::vector<SParticleEffect>::iterator it = particles.begin(); it != particles.end(); ++it )
 		it->pObj->SetScale( fScale );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CEffectVisObj::IsFinished( const NTimer::STime &time )
 { 
 	if ( time - dwStartTime > dwDuration )
@@ -217,4 +192,3 @@ bool CEffectVisObj::IsFinished( const NTimer::STime &time )
 	}
 	return bStopped && !bHasParticles;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -13,7 +13,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CTabVOVSODialog::vID[] = 
 {
 	IDC_VSO_OBJECTS_LIST_LABEL,		//0
@@ -34,7 +33,6 @@ const int CTabVOVSODialog::vID[] =
 	IDC_VSO_OPACITY_LABEL_RIGHT,	//11
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
 DWORD CTabVOVSOImageList::Fill( int nImageIndex )
 {
@@ -45,12 +43,9 @@ DWORD CTabVOVSOImageList::Fill( int nImageIndex )
 }
 /**/
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CTabVOVSODialog::CTabVOVSODialog( CWnd* pParent )
 	: CResizeDialog( CTabVOVSODialog::IDD, pParent ), bWidthChanged( false ), isSetEditCtrlValue( true )
 {
-	//{{AFX_DATA_INIT(CTabVOVSODialog)
-	//}}AFX_DATA_INIT
 
 	SetControlStyle( IDC_VSO_OBJECTS_LIST_LABEL, ANCHORE_LEFT_TOP | RESIZE_HOR );
 	SetControlStyle( IDC_VSO_OBJECTS_LIST, ANCHORE_LEFT_TOP | RESIZE_HOR_VER );
@@ -70,9 +65,7 @@ CTabVOVSODialog::CTabVOVSODialog( CWnd* pParent )
 	SetControlStyle( IDC_VSO_OPACITY_LABEL_RIGHT, ANCHORE_RIGHT_TOP );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP( CTabVOVSODialog, CResizeDialog )
-	//{{AFX_MSG_MAP(CTabVOVSODialog)
 	ON_NOTIFY( LVN_ITEMCHANGED, IDC_VSO_OBJECTS_LIST, OnItemchangedVsoObjectsList )
 	ON_BN_CLICKED( IDC_VSO_SINGLE_WIDTH_RADIO, OnVsoSingleWidthRadio )
 	ON_BN_CLICKED( IDC_VSO_MUlTI_WIDTH_RADIO, OnVsoMultiWidthRatio )
@@ -81,23 +74,18 @@ BEGIN_MESSAGE_MAP( CTabVOVSODialog, CResizeDialog )
 	ON_EN_CHANGE( IDC_VSO_OPACITY, OnChangeVsoOpacity )
 	ON_WM_SIZE()
 	ON_WM_DESTROY()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CTabVOVSODialog::OnInitDialog() 
 {
 	CResizeDialog::OnInitDialog();
 	
-	//nChangeWidth
 	if ( resizeDialogOptions.nParameters.size() < 1 )
 	{
 		resizeDialogOptions.nParameters.resize( 1 );
 		resizeDialogOptions.nParameters[0] = CW_SINGLE;
 	}
 
-	//fWidth
-	//fOpacity
 	if ( resizeDialogOptions.fParameters.size() < 2 )
 	{
 		resizeDialogOptions.fParameters.resize( 2 );
@@ -114,7 +102,6 @@ BOOL CTabVOVSODialog::OnInitDialog()
 	return TRUE;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabVOVSODialog::OnSize( UINT nType, int cx, int cy ) 
 {
 	CResizeDialog::OnSize( nType, cx, cy );
@@ -124,32 +111,27 @@ void CTabVOVSODialog::OnSize( UINT nType, int cx, int cy )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabVOVSODialog::OnItemchangedVsoObjectsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabVOVSODialog::OnVsoSingleWidthRadio() 
 {
 	resizeDialogOptions.nParameters[0] = CW_SINGLE;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabVOVSODialog::OnVsoMultiWidthRatio() 
 {
 	resizeDialogOptions.nParameters[0] = CW_MULTI;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabVOVSODialog::OnVsoAllWidthRatio() 
 {
 	resizeDialogOptions.nParameters[0] = CW_ALL;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabVOVSODialog::OnChangeVsoWidth() 
 {
 	if ( !isSetEditCtrlValue )
@@ -161,7 +143,6 @@ void CTabVOVSODialog::OnChangeVsoWidth()
 		{
 			resizeDialogOptions.fParameters[0] = _fWidth;
 			isSetEditCtrlValue = true;
-			//SetDlgItemInt( vID[7], nWidth );
 			isSetEditCtrlValue = false;
 		}
 		else
@@ -176,7 +157,6 @@ void CTabVOVSODialog::OnChangeVsoWidth()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabVOVSODialog::OnChangeVsoOpacity() 
 {
 	if ( !isSetEditCtrlValue )
@@ -188,7 +168,6 @@ void CTabVOVSODialog::OnChangeVsoOpacity()
 		{
 			resizeDialogOptions.fParameters[1] = _fOpacity;
 			isSetEditCtrlValue = true;
-			//SetDlgItemText( vID[10], NStr::Format("%g", fOpacity ) );
 			isSetEditCtrlValue = false;
 		}
 		else
@@ -204,7 +183,6 @@ void CTabVOVSODialog::OnChangeVsoOpacity()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabVOVSODialog::SetWidth( float _nWidth )
 {
 	if ( _nWidth < 1.0f )
@@ -223,7 +201,6 @@ void CTabVOVSODialog::SetWidth( float _nWidth )
 	isSetEditCtrlValue = false;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabVOVSODialog::SetOpacity( float _fOpacity )
 {
 	if ( _fOpacity < 0.0f )
@@ -242,13 +219,11 @@ void CTabVOVSODialog::SetOpacity( float _fOpacity )
 	isSetEditCtrlValue = false;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabVOVSODialog::SetListLabel( const std::string &rszLabel )
 {
 	SetDlgItemText( IDC_VSO_OBJECTS_LIST_LABEL, rszLabel.c_str() );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabVOVSODialog::CreateVSOList( const std::string &rVSOFolder )
 {
 	if ( IDataStorage* pDataStorage = GetSingleton<IDataStorage>() )
@@ -292,13 +267,11 @@ void CTabVOVSODialog::CreateVSOList( const std::string &rVSOFolder )
 
 						for ( std::vector<std::string>::const_iterator fileIterator = vsoNames.begin(); fileIterator != vsoNames.end(); ++fileIterator )
 						{
-							//грузим картинку
 							const std::string szImageFileName = ( *fileIterator ).substr( 0, ( *fileIterator ).rfind( '.' ) );
 							{
 								CPtr<IImage> pImage = LoadImageFromDDSImageResource( szImageFileName );
 								if ( !pImage )
 								{
-									//Загрузка паттерна VSO
 									SVectorStripeObjectDesc vsoDesc;
 									if ( LoadDataResource( szImageFileName, "", false, 0, "VSODescription", vsoDesc ) )
 									{
@@ -358,7 +331,6 @@ void CTabVOVSODialog::CreateVSOList( const std::string &rVSOFolder )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTabVOVSODialog::GetDescriptionName( std::string *pVSODescName )
 {
 	if ( IDataStorage* pDataStorage = GetSingleton<IDataStorage>() )
@@ -380,7 +352,6 @@ bool CTabVOVSODialog::GetDescriptionName( std::string *pVSODescName )
 	return false;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabVOVSODialog::OnDestroy() 
 {
 	CResizeDialog::SaveResizeDialogOptions();
@@ -388,8 +359,6 @@ void CTabVOVSODialog::OnDestroy()
 	vsoImageList.DeleteImageList();
 }
 
-//MODs support
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabVOVSODialog::DeleteImageList()
 {
 	if ( CListCtrl *pListCtrl = static_cast<CListCtrl*>( GetDlgItem( IDC_VSO_OBJECTS_LIST ) ) )
@@ -399,8 +368,6 @@ void CTabVOVSODialog::DeleteImageList()
 	vsoImageList.DeleteImageList();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabVOVSODialog::CreateImageList()
 {
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

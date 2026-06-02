@@ -17,19 +17,12 @@ public:
 	CMineFrame();
 	virtual ~CMineFrame();
 
-// Attributes
 public:
 
-// Operations
 public:
 
-// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CMineFrame)
 protected:
-	//}}AFX_VIRTUAL
 
-// Implementation
 private:
 
 protected:
@@ -41,17 +34,11 @@ protected:
 	virtual bool ExportFrameData( IDataTree *pDT, const char *pszProjectName, const char *pszResultFileName, CTreeItem *pRootItem );
 	virtual FILETIME FindMinimalExportFileTime( const char *pszResultFileName, CTreeItem *pRootItem );
 
-// Generated message map functions
 protected:
-	//{{AFX_MSG(CMineFrame)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 
-/////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif		//__MINEFRM_H__

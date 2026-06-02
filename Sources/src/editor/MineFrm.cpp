@@ -24,19 +24,13 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CMineFrame
 
 IMPLEMENT_DYNCREATE(CMineFrame, CParentFrame)
 
 BEGIN_MESSAGE_MAP(CMineFrame, CParentFrame)
-	//{{AFX_MSG_MAP(CMineFrame)
 	ON_WM_CREATE()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////
-// CMineFrame construction/destruction
 
 CMineFrame::CMineFrame()
 {
@@ -62,7 +56,6 @@ int CMineFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		return -1;
 	g_frameManager.AddFrame( this );
 
-	// create a view to occupy the client area of the frame
 	if (!pWndView->Create(NULL, NULL,  WS_CHILD | WS_VISIBLE, 
 		CRect(0, 0, 0, 0), this, AFX_IDW_PANE_FIRST, NULL))
 	{
@@ -73,8 +66,6 @@ int CMineFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// CMineFrame message handlers
 
 void CMineFrame::FillRPGStats( SMineRPGStats &rpgStats, CTreeItem *pRootItem )
 {
@@ -121,10 +112,8 @@ bool CMineFrame::ExportFrameData( IDataTree *pDT, const char *pszProjectName, co
 	NI_ASSERT( pRootItem != 0 );
 	NI_ASSERT( pRootItem->GetItemType() == E_MINE_ROOT_ITEM );
 	
-	//Сохраняем RPG stats
 	SaveRPGStats( pDT, pRootItem, pszProjectName );
 	
-	//	CMineTreeRootItem *pMineRoot = (CMineTreeRootItem *) pRootItem;	
 	string szPictureName, szShadowName, szResultName;
 	szPictureName = GetDirectory( pszProjectName );
 	szPictureName += "1.tga";

@@ -2,7 +2,6 @@
 #include "FileUtils.h"
 #include "ARBitmap.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CARBitmap::Load( const std::vector<BYTE> &rData, CDC *pDC )
 {
 	long nFileStart = 0;
@@ -14,7 +13,6 @@ bool CARBitmap::Load( const std::vector<BYTE> &rData, CDC *pDC )
 	BITMAPINFOHEADER bitmapInfoHeader;
 	memcpy( static_cast<void*>( &bitmapInfoHeader ), static_cast<const void*>( pData + sizeof( BITMAPFILEHEADER ) ), sizeof( BITMAPINFOHEADER ) );
 
-	// read all necessary data
 	size.x = bitmapInfoHeader.biWidth;
 	size.y = bitmapInfoHeader.biHeight;
 
@@ -32,4 +30,3 @@ bool CARBitmap::Load( const std::vector<BYTE> &rData, CDC *pDC )
 	memDC.SelectObject( pOldBitmap );
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

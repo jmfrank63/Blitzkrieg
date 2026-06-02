@@ -1,19 +1,14 @@
 #ifndef __INTERFACEMPMAPSETTINGS_H__
 #define __INTERFACEMPMAPSETTINGS_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Common\InterfaceScreenBase.h"
 #include "..\Input\InputHelper.h"
 #include "iMission.h"
 #include "MapSettingsWrapper.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInterfaceMPMapSettings : public CInterfaceScreenBase
 {
 	OBJECT_NORMAL_METHODS( CInterfaceMPMapSettings );
-	//
 	NInput::CCommandRegistrator msgs;
-	//
 	CPtr<IUIButton> pButtonOK;
 	CPtr<IUIButton> pButtonCancel;
 	bool bFinished;												// interface is closed
@@ -31,7 +26,6 @@ public:
 	virtual bool STDCALL Init();
 	void Create( const bool bDisableChanges, const bool bStagingRoom );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CICMPMapSettings : public CInterfaceCommandBase<CInterfaceMPMapSettings, MISSION_INTERFACE_MP_MAP_SETTINGS>
 {
 	OBJECT_NORMAL_METHODS( CICMPMapSettings );
@@ -44,7 +38,6 @@ class CICMPMapSettings : public CInterfaceCommandBase<CInterfaceMPMapSettings, M
 		pInterface->Create( bDisableChange, bStagingRoom );
 		pML->PushInterface( pInterface ); 
 	}
-	//
 	CICMPMapSettings() : bDisableChange( false ), bStagingRoom( false ) {  }
 
 public:
@@ -63,5 +56,4 @@ public:
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __INTERFACEMPMAPSETTINGS_H__

@@ -12,7 +12,6 @@ static const NInput::SRegisterCommandEntry commands[] =
 	{ "inter_ok",					IMC_OK				},
 	{ 0									,	0							}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EInterfaceElements
 {
 	E_PLAYER_RELATION_ICON			= 113,
@@ -38,9 +37,6 @@ enum EInterfaceElements
 	IMC_SHOW_PLAYER_INFO				= 8888,
 	IMC_HIDE_PLAYER_INFO				= 8889,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//	CInterfaceMPChat
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMPChat::Init()
 {
 	CInterfaceMultiplayerScreen::Init();
@@ -48,7 +44,6 @@ bool CInterfaceMPChat::Init()
 
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPChat::StartInterface()
 {
 	CInterfaceMultiplayerScreen::StartInterface();
@@ -77,13 +72,10 @@ void CInterfaceMPChat::StartInterface()
 			pGameSpyLogo->ShowWindow( UI_SW_SHOW );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//IWhisper
 const WORD * CInterfaceMPChat::GetDestinationName()
 {
 	return reinterpret_cast<const WORD*>( playerList.GetCurInfo()->szName.c_str() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMPChat::ProcessMPCommand( SToUICommand & cmd )
 {
 	switch ( cmd.eCommandID )
@@ -103,7 +95,6 @@ bool CInterfaceMPChat::ProcessMPCommand( SToUICommand & cmd )
 	return true;
 	
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPChat::AddPlayer( SUIChatPlayerInfo * pInfo )
 {
 	IUIListRow *pRow = playerList.Add( pInfo );
@@ -127,7 +118,6 @@ void CInterfaceMPChat::AddPlayer( SUIChatPlayerInfo * pInfo )
 	IUIStatic * pPlayerName = checked_cast<IUIStatic*>( pRow->GetElement( 2 ) );
 	pPlayerName->SetWindowText( 0, reinterpret_cast<const WORD*>( pInfo->szName.c_str() ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMPChat::ProcessMessage( const SGameMessage &msg ) 
 { 
 	if ( CInterfaceMultiplayerScreen::ProcessMessage( msg ) )
@@ -135,7 +125,6 @@ bool CInterfaceMPChat::ProcessMessage( const SGameMessage &msg )
 
 	if ( WCC_MULTIPLAYER_TO_UI_UPDATE == msg.nEventID )
 	{
-		// update games list
 		SToUICommand cmd;
 
 		if ( pCommandManager->PeekCommandToUI( &cmd ) &&
@@ -150,7 +139,6 @@ bool CInterfaceMPChat::ProcessMessage( const SGameMessage &msg )
 			if ( !ProcessMPCommand( cmd ) ) 
 				return true;
 		}
-		// chat message
 		SChatMessage * pChatMessage;
 		while ( pChatMessage = pCommandManager->GetChatMessageToUI() )
 		{
@@ -160,7 +148,6 @@ bool CInterfaceMPChat::ProcessMessage( const SGameMessage &msg )
 	}
 
 	chat.ProcessMessage( msg );
-	//process buttons pressings
 	switch( msg.nEventID )
 	{
 	case UI_NOTIFY_EDIT_BOX_RETURN:
@@ -171,7 +158,6 @@ bool CInterfaceMPChat::ProcessMessage( const SGameMessage &msg )
 		return true;
 	case UI_NOTIFY_EDIT_BOX_ESCAPE:
 		{
-			// clear editbox text
 			IUIEditBox * pEdit = checked_cast<IUIEditBox*> ( pUIScreen->GetChildByID( E_CHAT_ENTRY_FEILD ) );
 			pEdit->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
 		}
@@ -224,7 +210,6 @@ bool CInterfaceMPChat::ProcessMessage( const SGameMessage &msg )
 		return true;
 	return false; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPChat::OnPlayerInfoOk()
 {
 	IUIButton * pButtonRelation = checked_cast<IUIButton*>( pDialog->GetChildByID( E_DIALOG_BUTTON_RELATION ) );
@@ -236,7 +221,6 @@ void CInterfaceMPChat::OnPlayerInfoOk()
 		pCommandManager->AddNotificationFromUI( notify );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPChat::ShowPlayerInfo( SUIChatPlayerInfo *pInfo )
 {
 	pCurEdittedInfo = pInfo;
@@ -262,7 +246,6 @@ void CInterfaceMPChat::ShowPlayerInfo( SUIChatPlayerInfo *pInfo )
 
 	GetSingleton<IInput>()->AddMessage( SGameMessage( IMC_SHOW_PLAYER_INFO ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPChat::UpdateButtons()
 {
 	SUIChatPlayerInfo * pInfo = playerList.GetCurInfo();
@@ -273,7 +256,6 @@ void CInterfaceMPChat::UpdateButtons()
 	IUIButton * pButtonWhisper = checked_cast<IUIButton*>( pUIScreen->GetChildByID( E_BUTTON_WHISPER ) );
 	pButtonWhisper->EnableWindow( pInfo != 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPChat::SendTextFromEditBox( const bool bWhisper )
 {
 	IUIEditBox * pEdit = checked_cast<IUIEditBox*> ( pUIScreen->GetChildByID( E_CHAT_ENTRY_FEILD ) );
@@ -283,7 +265,6 @@ void CInterfaceMPChat::SendTextFromEditBox( const bool bWhisper )
 	pCommandManager->AddChatMessageFromUI( pMessage );
 	pEdit->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMPChat::StepLocal( bool bAppActive )
 {
 	if ( bAwayPressed && GetSingleton<IGameTimer>()->GetAbsTime() > timeLastAwayPressed + 5000 )

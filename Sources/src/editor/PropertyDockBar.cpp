@@ -2,8 +2,6 @@
 #include "resource.h"
 #include "PropertyDockBar.h"
 
-/////////////////////////////////////////////////////////////////////////////
-// CPropertyDockBar
 
 CPropertyDockBar::CPropertyDockBar()
 {
@@ -15,15 +13,11 @@ CPropertyDockBar::~CPropertyDockBar()
 
 
 BEGIN_MESSAGE_MAP(CPropertyDockBar, SECControlBar)
-	//{{AFX_MSG_MAP(CPropertyDockBar)
 	ON_WM_CREATE()
 	ON_WM_SIZE()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CPropertyDockBar message handlers
 
 int CPropertyDockBar::OnCreate(LPCREATESTRUCT lpCreateStruct) 
 {
@@ -84,7 +78,6 @@ BOOL CPropertyDockBar::PreTranslateMessage(MSG* pMsg)
 	{
 	case WM_KEY_FRAME_RCLICK:
 		{
-			//Отображаем меню
 			CMenu menu;
 			menu.LoadMenu( IDR_KEYFRAME_ZOOM_MENU );
 			CMenu *popupMenu = menu.GetSubMenu( 0 );
@@ -95,9 +88,7 @@ BOOL CPropertyDockBar::PreTranslateMessage(MSG* pMsg)
 	case WM_KEY_FRAME_UPDATE:
 		if ( pActiveKeyItem )
 		{
-			//Обновляем список значений
 			pActiveKeyItem->SetFramesList( m_pKeyFramer->GetFramesList() );
-			//сейчас работает только с ParticleFrame
 			g_frameManager.GetParticleFrame()->SetChangedFlag( true );
 		}
 		return true;
@@ -155,7 +146,6 @@ HTREEITEM CPropertyDockBar::AddEmptyNode( std::string &str, HTREEITEM hPARoot )
 		return hPA;
 }
 
-//!!!!!!!!!!!!!!!!!!!!!!!Надо переделать 
 int CPropertyDockBar::GetVariable( std::string &name)
 {
 	
@@ -184,7 +174,6 @@ int CPropertyDockBar::GetVariable( std::string &name)
 void CPropertyDockBar::ClearVariables()
 {
 	m_pCurrentObject = 0;
-	//!!!!
 	m_tree.m_tree.DeleteAllItems();
 	m_varHandles.clear();
 }
@@ -197,7 +186,6 @@ void CPropertyDockBar::AddManipulatorVariable( std::string &str, IManipulator *p
 	std::string tmpStr;
 	if( szVector.size() != 1 )
 	{
-		// есть ветви 
 		for( std::vector<std::string>::iterator it = szVector.begin(); it != szVector.end() - 1; ++it )
 		{
 			tmpStr += (*it);

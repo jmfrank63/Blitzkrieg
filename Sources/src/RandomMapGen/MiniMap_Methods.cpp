@@ -8,12 +8,10 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float SRMImageCreateParameter::INTERMISSION_IMAGE_BRIGHTNESS = 0.0f;
 const float SRMImageCreateParameter::INTERMISSION_IMAGE_CONSTRAST = 0.0f;
 const float SRMImageCreateParameter::INTERMISSION_IMAGE_GAMMA = 0.0f;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMImageCreateParameter::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -29,7 +27,6 @@ int SRMImageCreateParameter::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMImageCreateParameter::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -45,7 +42,6 @@ int SRMImageCreateParameter::operator&( IDataTree &ss )
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMMiniMapCreateParameter::SMiniMapLayer::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -63,7 +59,6 @@ int SRMMiniMapCreateParameter::SMiniMapLayer::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMMiniMapCreateParameter::SMiniMapLayer::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -81,7 +76,6 @@ int SRMMiniMapCreateParameter::SMiniMapLayer::operator&( IDataTree &ss )
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMMiniMapCreateParameter::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -97,7 +91,6 @@ int SRMMiniMapCreateParameter::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMMiniMapCreateParameter::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -112,4 +105,3 @@ int SRMMiniMapCreateParameter::operator&( IDataTree &ss )
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

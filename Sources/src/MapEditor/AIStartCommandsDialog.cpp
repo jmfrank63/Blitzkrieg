@@ -15,7 +15,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CAIStartCommandsDialog::vID[] = 
 {
 	IDC_SCP_COMMANDS_LIST,								//0
@@ -25,13 +24,10 @@ const int CAIStartCommandsDialog::vID[] =
 	IDCANCEL,															//3
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAIStartCommandsDialog::CAIStartCommandsDialog(CWnd* pParent /*=NULL*/)
 	: CResizeDialog(CAIStartCommandsDialog::IDD, pParent),
 		m_frame( 0 ), bAddCommand( false )
 {
-	//{{AFX_DATA_INIT(CAIStartCommandsDialog)
-	//}}AFX_DATA_INIT
 
 	SetControlStyle( IDC_SCP_COMMANDS_LIST, ANCHORE_LEFT_TOP | RESIZE_HOR_VER );
 
@@ -42,17 +38,12 @@ CAIStartCommandsDialog::CAIStartCommandsDialog(CWnd* pParent /*=NULL*/)
 	SetControlStyle( IDCANCEL, ANCHORE_RIGHT_BOTTOM );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandsDialog::DoDataExchange(CDataExchange* pDX)
 {
 	CResizeDialog::DoDataExchange(pDX);
-	//{{AFX_DATA_MAP(CAIStartCommandsDialog)
-	//}}AFX_DATA_MAP
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CAIStartCommandsDialog, CResizeDialog)
-	//{{AFX_MSG_MAP(CAIStartCommandsDialog)
 	ON_BN_CLICKED(IDC_SCP_DELETE_BUTTON, OnScpDeleteButton)
 	ON_NOTIFY(LVN_ITEMCHANGED, IDC_SCP_COMMANDS_LIST, OnItemchangedScpCommandsList)
 	ON_BN_CLICKED(IDC_SCP_EDIT_BUTTON, OnScpEditButton)
@@ -63,16 +54,13 @@ BEGIN_MESSAGE_MAP(CAIStartCommandsDialog, CResizeDialog)
 	ON_NOTIFY(LVN_KEYDOWN, IDC_SCP_COMMANDS_LIST, OnKeydownScpCommandsList)
 	ON_BN_CLICKED(IDC_SCP_ADD_BUTTON, OnAddButton)
 	ON_COMMAND(IDC_SCP_ADD_MENU, OnAddMenu)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int   PROPERTIES_COLUMN_COUNT = 4;
 const char *PROPERTIES_COLUMN_NAME  [PROPERTIES_COLUMN_COUNT] = { "Type", "Units", "Position", "Parameter" };
 const int   PROPERTIES_COLUMN_FORMAT[PROPERTIES_COLUMN_COUNT] = { LVCFMT_LEFT, LVCFMT_RIGHT, LVCFMT_LEFT, LVCFMT_LEFT };
 int					PROPERTIES_COLUMN_WIDTH [PROPERTIES_COLUMN_COUNT] = { 250, 60, 100, 100 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CAIStartCommandsDialog::OnInitDialog() 
 {
 	CResizeDialog::OnInitDialog();
@@ -85,7 +73,6 @@ BOOL CAIStartCommandsDialog::OnInitDialog()
 	return TRUE;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandsDialog::AddColumns()
 {
 	if ( m_frame )
@@ -111,7 +98,6 @@ void CAIStartCommandsDialog::AddColumns()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandsDialog::AddElements()
 {
 	if ( m_frame )
@@ -169,7 +155,6 @@ void CAIStartCommandsDialog::AddElements()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandsDialog::OnOK() 
 {
 	if ( m_frame )
@@ -190,7 +175,6 @@ void CAIStartCommandsDialog::OnOK()
 	CResizeDialog::OnOK();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandsDialog::OnCancel() 
 {
 	if ( m_frame )
@@ -211,7 +195,6 @@ void CAIStartCommandsDialog::OnCancel()
 	CResizeDialog::OnCancel();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandsDialog::OnScpEditButton() 
 {
 	if ( m_frame )
@@ -220,7 +203,6 @@ void CAIStartCommandsDialog::OnScpEditButton()
 		if ( pListCtrl )
 		{
 			int item = -1;
-			//пометим элементы к удалению
 
 			m_frame->dlg = new CPropertieDialog;
 			m_frame->dlg->Create( CPropertieDialog::IDD, m_frame );
@@ -254,7 +236,6 @@ void CAIStartCommandsDialog::OnScpEditButton()
 				}
 			}
 			m_frame->dlg->AddObjectWithProp( pMan );
-			//m_frame->DrawAIStartCommandRedLines();
 			m_frame->RedrawWindow();
 
 			CResizeDialog::OnOK();
@@ -262,7 +243,6 @@ void CAIStartCommandsDialog::OnScpEditButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandsDialog::OnScpDeleteButton() 
 {
 	if ( m_frame )
@@ -271,7 +251,6 @@ void CAIStartCommandsDialog::OnScpDeleteButton()
 		if ( pListCtrl )
 		{
 			int item = -1;
-			//пометим элементы к удалению
 			while ( ( item = pListCtrl->GetNextItem( item, LVNI_SELECTED ) ) != ( -1 ) )
 			{
 				int nCount = pListCtrl->GetItemData( item );
@@ -286,7 +265,6 @@ void CAIStartCommandsDialog::OnScpDeleteButton()
 					++nIndex;
 				}
 			}
-			//удалим помеченные
 			for ( TMutableAIStartCommandList::iterator it = m_startCommands.begin(); it != m_startCommands.end(); )
 			{
 				if ( it->pMapObjects.empty() )
@@ -304,7 +282,6 @@ void CAIStartCommandsDialog::OnScpDeleteButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandsDialog::UpdateButtons()
 {
 	if ( m_frame )
@@ -326,7 +303,6 @@ void CAIStartCommandsDialog::UpdateButtons()
 	}	
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandsDialog::OnItemchangedScpCommandsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	HD_NOTIFY *phdn = (HD_NOTIFY *) pNMHDR;
@@ -334,7 +310,6 @@ void CAIStartCommandsDialog::OnItemchangedScpCommandsList(NMHDR* pNMHDR, LRESULT
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandsDialog::OnRclickScpCommandsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	CMenu tabsMenu;
@@ -363,7 +338,6 @@ void CAIStartCommandsDialog::OnRclickScpCommandsList(NMHDR* pNMHDR, LRESULT* pRe
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandsDialog::OnDblclkScpCommandsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_SCP_EDIT_BUTTON ) )
@@ -376,7 +350,6 @@ void CAIStartCommandsDialog::OnDblclkScpCommandsList(NMHDR* pNMHDR, LRESULT* pRe
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandsDialog::OnScpDeleteMenu() 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_SCP_DELETE_BUTTON ) )
@@ -388,7 +361,6 @@ void CAIStartCommandsDialog::OnScpDeleteMenu()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandsDialog::OnScpEditMenu() 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_SCP_EDIT_BUTTON ) )
@@ -400,7 +372,6 @@ void CAIStartCommandsDialog::OnScpEditMenu()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandsDialog::OnKeydownScpCommandsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	LV_KEYDOWN* pLVKeyDown = (LV_KEYDOWN*)pNMHDR;
@@ -427,14 +398,12 @@ void CAIStartCommandsDialog::OnKeydownScpCommandsList(NMHDR* pNMHDR, LRESULT* pR
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandsDialog::OnAddButton() 
 {
 	bAddCommand = true;
 	OnOK();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandsDialog::OnAddMenu() 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_SCP_ADD_BUTTON ) )
@@ -445,6 +414,3 @@ void CAIStartCommandsDialog::OnAddMenu()
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// basement storage  
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,5 +1,3 @@
-// SECShortcutBarWithNotify.cpp : implementation file
-//
 
 #include "stdafx.h"
 #include "editor.h"
@@ -11,8 +9,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// SECShortcutBarWithNotify
 
 SECShortcutBarWithNotify::SECShortcutBarWithNotify()
 {
@@ -24,14 +20,9 @@ SECShortcutBarWithNotify::~SECShortcutBarWithNotify()
 
 
 BEGIN_MESSAGE_MAP(SECShortcutBarWithNotify, SECShortcutBar)
-	//{{AFX_MSG_MAP(SECShortcutBarWithNotify)
-		// NOTE - the ClassWizard will add and remove mapping macros here.
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// SECShortcutBarWithNotify message handlers
 
 BOOL SECShortcutBarWithNotify::OnChangeBar( int Index)
 {

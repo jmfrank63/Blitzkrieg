@@ -25,13 +25,10 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CParticleFrame
 
 IMPLEMENT_DYNCREATE(CParticleFrame, CParentFrame)
 
 BEGIN_MESSAGE_MAP(CParticleFrame, CParentFrame)
-	//{{AFX_MSG_MAP(CParticleFrame)
 	ON_WM_CREATE()
 	ON_COMMAND(ID_RUN_BUTTON, OnRunButton)
 	ON_COMMAND(ID_STOP_BUTTON, OnStopButton)
@@ -47,11 +44,8 @@ BEGIN_MESSAGE_MAP(CParticleFrame, CParentFrame)
 	ON_UPDATE_COMMAND_UI(ID_BUTTON_CAMERA, OnUpdateButtonCamera)
 	ON_COMMAND(ID_SHOW_FUNCTION, OnShowFunctionFrame)
 	ON_UPDATE_COMMAND_UI(ID_SHOW_FUNCTION, OnUpdateShowFunctionFrame)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////
-// CParticleFrame construction/destruction
 
 CParticleFrame::CParticleFrame()
 {
@@ -86,7 +80,6 @@ int CParticleFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		return -1;
 	g_frameManager.AddFrame( this );
 
-	// create a view to occupy the client area of the frame
 	if (!pWndView->Create(NULL, NULL,  WS_CHILD | WS_VISIBLE, 
 		CRect(0, 0, 0, 0), this, AFX_IDW_PANE_FIRST, NULL))
 	{
@@ -105,8 +98,6 @@ void CParticleFrame::SetKeyFrameDockBar( CKeyFrameDockWnd *pWnd )
 	pTreeDockBar->SetKeyFrameDockWnd( pWnd );
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// CParticleFrame message handlers
 
 void CParticleFrame::GetParticleInfo()
 {
@@ -211,7 +202,6 @@ void CParticleFrame::ShowFrameWindows( int nCommand )
 
 BOOL CParticleFrame::Run()
 {
-	//	OutputDebugString( NStr::Format("%s\n", IsActive() ? "active" : "inactive") );
 	if ( !bRunning )
 		return FALSE;
 
@@ -260,7 +250,6 @@ static void CopyFramesListToKeyTrack( CTrack &track, const CFramesList &framesLi
 
 	if ( i == 1 )
 	{
-		//добавляем еще один элемент в конец key frame, необходимо для Кости
 		track.AddKey( 1000, framesList.front().second * multy );
 	}
 }
@@ -278,7 +267,6 @@ static void CopyFramesListToAngleTrack( CTrack &track, const CFramesList &frames
 
 	if ( i == 1 )
 	{
-		//добавляем еще один элемент в конец key frame, необходимо для Кости
 		track.AddKey( 1000, fValue );
 	}
 }
@@ -288,8 +276,6 @@ void CParticleFrame::FillRPGStats( SParticleSourceData &particleSetup, CTreeItem
 	NI_ASSERT( pRoot->GetItemType() == E_PARTICLE_ROOT_ITEM );
 	CParticleCommonPropsItem *pCommonPropsItem = static_cast<CParticleCommonPropsItem *> ( pRoot->GetChildItem( E_PARTICLE_COMMON_PROPS_ITEM ) );
 	
-//	particleSetup.trackBeginAngleRandomizer = 0;
-//	particleSetup.vPosition = pCommonPropsItem->GetPositionVector();
 	particleSetup.fGravity = pCommonPropsItem->GetGravity();
 	particleSetup.nLifeTime = pCommonPropsItem->GetLifeTime();
 	particleSetup.vDirection = pCommonPropsItem->GetDirectionVector();
@@ -297,7 +283,6 @@ void CParticleFrame::FillRPGStats( SParticleSourceData &particleSetup, CTreeItem
 	particleSetup.fRadialWind = pCommonPropsItem->GetWindPower();
 	particleSetup.nAreaType = pCommonPropsItem->GetAreaType();
 
-//	float fScale = pCommonPropsItem->GetScaleFactor();
 	float fScale = 1.0f;
 
 	{
@@ -355,8 +340,6 @@ void CParticleFrame::FillRPGStats2( SSmokinParticleSourceData &particleSetup, CT
 	NI_ASSERT( pRoot->GetItemType() == E_PARTICLE_ROOT_ITEM );
 	CParticleCommonPropsItem *pCommonPropsItem = static_cast<CParticleCommonPropsItem *> ( pRoot->GetChildItem( E_PARTICLE_COMMON_PROPS_ITEM ) );
 	
-//	particleSetup.nGenerateAngel = 0;
-//	particleSetup.vPosition = pCommonPropsItem->GetPositionVector();
 	particleSetup.fGravity = pCommonPropsItem->GetGravity();
 	particleSetup.nLifeTime = pCommonPropsItem->GetLifeTime();
 	particleSetup.vDirection = pCommonPropsItem->GetDirectionVector();
@@ -364,7 +347,6 @@ void CParticleFrame::FillRPGStats2( SSmokinParticleSourceData &particleSetup, CT
 	particleSetup.fRadialWind = pCommonPropsItem->GetWindPower();
 	particleSetup.nAreaType = pCommonPropsItem->GetAreaType();
 	
-//	float fScale = pCommonPropsItem->GetScaleFactor();
 	float fScale = 1.0f;
 	
 	{
@@ -459,37 +441,28 @@ void CParticleFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const c
 void CParticleFrame::GetRPGStats( const SParticleSourceData &particleSetup, CTreeItem *pRootItem )
 {
 	bComplexSource = false;
-	///UpdateSourceType( true );
 
 	{
 		CParticleSourcePropItems *pProps = static_cast<CParticleSourcePropItems *> ( pRootItem->GetChildItem( E_PARTICLE_SOURCE_PROP_ITEMS ) );
-//		pProps->SetTextureXSize( particleSetup.nTextureDX );
-//		pProps->SetTextureYSize( particleSetup.nTextureDY );
 		pProps->SetTextureFileName( particleSetup.szTextureName.c_str() );
 	}
 	
-	//остальные параметры не устанавливаю
-	//не стоит ручками изменять XML файлы
 }
 
 void CParticleFrame::GetRPGStats2( const SSmokinParticleSourceData &particleSetup, CTreeItem *pRootItem )
 {
 	bComplexSource = true;
-	//UpdateSourceType( true );
 	
 	{
 		CParticleComplexSourceItem *pProps = static_cast<CParticleComplexSourceItem *> ( pRootItem->GetChildItem( E_PARTICLE_COMPLEX_SOURCE_ITEM ) );
 		pProps->SetParticleName( particleSetup.szParticleEffectName.c_str() );
 	}
 	
-	//остальные параметры не устанавливаю
-	//не стоит ручками изменять XML файлы
 }
 
 struct SSourceType
 {
 	bool bComplexParticleSource;			//тип источника, если true, то сложный particle source
-	//
 	SSourceType() : bComplexParticleSource( false ) {}
 	virtual int STDCALL operator&( IDataTree &ss );
 };
@@ -526,7 +499,6 @@ void CParticleFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 
 bool CParticleFrame::ExportFrameData( IDataTree *pDT, const char *pszProjectName, const char *pszResultFileName, CTreeItem *pRootItem )
 {
-	//Сохраняем RPG stats
 	SaveRPGStats( pDT, pRootItem, pszProjectName );
 	return true;
 }
@@ -535,7 +507,6 @@ void CParticleFrame::CreateEffectDescriptionFile()
 {
 	string szDir = theApp.GetEditorTempDir();
 	{
-		//Сохраняем RPG stats
 		CPtr<IDataStorage> pStorage = CreateStorage( szDir.c_str(), STREAM_ACCESS_WRITE, STORAGE_TYPE_FILE );
 		CPtr<IDataStream> pXMLStream = pStorage->CreateStream( "particle.xml", STREAM_ACCESS_WRITE );
 		ASSERT( pXMLStream != 0 );
@@ -551,7 +522,6 @@ void CParticleFrame::CreateEffectDescriptionFile()
 		CParticleCommonPropsItem *pCommonPropsItem = static_cast<CParticleCommonPropsItem *> ( pRoot->GetChildItem( E_PARTICLE_COMMON_PROPS_ITEM ) );
 		SaveRPGStats( pDT, pRoot, szProjectFileName.c_str() );
 		
-		//Создаем описание эффекта
 		if ( bComplexSource )
 		{
 			SSmokinParticleEffectDesc smokinParticleEffectDesc;
@@ -599,7 +569,6 @@ void CParticleFrame::OnRunButton()
 		return;
 	bRunning = !bRunning;
 	
-	//показываем Game окно
 	g_frameManager.GetGameWnd()->ShowWindow( SW_SHOW );
 	CreateEffectDescriptionFile();
 
@@ -627,7 +596,6 @@ void CParticleFrame::OnStopButton()
 
 	bRunning = !bRunning;
 
-	//Скрываем Game окно
 	g_frameManager.GetGameWnd()->ShowWindow( SW_HIDE );
 
 	IScene *pSG = GetSingleton<IScene>();
@@ -692,7 +660,6 @@ void CParticleFrame::UpdateSourceType( bool bOnlyDelete )
 	CTreeItem *pRootItem = pTree->GetRootItem();
 	/*if ( !bOnlyDelete )
 	{
-		//создадим новые item
 		pRootItem->RemoveAllChilds();
 		pRootItem->CreateDefaultChilds();
 		pRootItem->InsertChildItems();
@@ -750,14 +717,11 @@ void CParticleFrame::OnUpdateButtonCamera(CCmdUI* pCmdUI)
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	pCmdUI->Enable( pTree != 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParticleFrame::OnShowFunctionFrame()
 {
 	SwitchDockerVisible( pKeyFrameDockBar );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParticleFrame::OnUpdateShowFunctionFrame(CCmdUI* pCmdUI) 
 {
 	UpdateShowMenu( pCmdUI, pKeyFrameDockBar );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////

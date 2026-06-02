@@ -17,10 +17,6 @@
  */ 
 
 
-// This header defines classes basic_stringbuf, basic_istringstream,
-// basic_ostringstream, and basic_stringstream.  These classes 
-// represent streamsbufs and streams whose sources or destinations are
-// C++ strings.
 
 #ifndef _STLP_SSTREAM_H
 #define _STLP_SSTREAM_H
@@ -39,17 +35,7 @@
 
 _STLP_BEGIN_NAMESPACE
 
-//----------------------------------------------------------------------
-// This version of basic_stringbuf relies on the internal details of
-// basic_string.  It relies on the fact that, in this implementation,
-// basic_string's iterators are pointers.  It also assumes (as allowed
-// by the standard) that _CharT is a POD type.
 
-// We have a very small buffer for the put area, just so that we don't
-// have to use append() for every sputc.  Conceptually, the buffer
-// immediately follows the end of the underlying string.  We use this
-// buffer when appending to write-only streambufs, but we don't use it
-// for read-write streambufs.
 
 template <class _CharT, class _Traits, class _Alloc>
 class basic_stringbuf : public basic_streambuf<_CharT, _Traits>
@@ -95,7 +81,6 @@ protected:                      // Overridden virtual member functions.
                                       = ios_base::in | ios_base::out);
 
 private:                        // Helper functions.
-  // Append the internal buffer to the string if necessary.
   void _M_append_buffer() const;
   void _M_set_ptrs();
 
@@ -114,8 +99,6 @@ _STLP_EXPORT_TEMPLATE_CLASS basic_stringbuf<wchar_t, char_traits<wchar_t>, alloc
 #  endif
 # endif /* _STLP_USE_TEMPLATE_EXPORT */
 
-//----------------------------------------------------------------------
-// Class basic_istringstream, an input stream that uses a stringbuf.
 
 template <class _CharT, class _Traits, class _Alloc>
 class basic_istringstream : public basic_istream<_CharT, _Traits>
@@ -151,8 +134,6 @@ private:
 };
 
 
-//----------------------------------------------------------------------
-// Class basic_ostringstream, an output stream that uses a stringbuf.
 
 template <class _CharT, class _Traits, class _Alloc>
 class basic_ostringstream : public basic_ostream<_CharT, _Traits>
@@ -189,8 +170,6 @@ private:
 };
 
 
-//----------------------------------------------------------------------
-// Class basic_stringstream, a bidirectional stream that uses a stringbuf.
 
 template <class _CharT, class _Traits, class _Alloc>
 class basic_stringstream : public basic_iostream<_CharT, _Traits>
@@ -247,6 +226,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_SSTREAM_H */
 
-// Local Variables:
-// mode:C++
-// End:

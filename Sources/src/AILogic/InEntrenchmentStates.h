@@ -2,14 +2,11 @@
 #define __IN_ENTRENCHMENT_STATES_H__
 
 #pragma ONCE
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "UnitStates.h"
 #include "StatesFactory.h"
 #include "Behaviour.h"
 #include "CommonStates.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAIUnit;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInEntrenchmentStatesFactory : public IStatesFactory
 {
 	OBJECT_COMPLETE_METHODS( CInEntrenchmentStatesFactory );
@@ -21,10 +18,8 @@ public:
 	virtual interface IUnitState* ProduceRestState( class CQueueUnit *pUnit );
 	virtual bool CanCommandBeExecuted( class CAICommand *pCommand );
 	
-	// for Saving/Loading of static members
 	friend class CStaticMembers;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierRestInEntrenchmentState : public IUnitState, public CStandartBehaviour
 {
 	OBJECT_COMPLETE_METHODS( CSoldierRestInEntrenchmentState );
@@ -47,10 +42,8 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 
-	// for Saving/Loading of static members
 	friend class CStaticMembers;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierAttackInEtrenchState : public IUnitAttackingState
 {
 	OBJECT_COMPLETE_METHODS( CSoldierAttackInEtrenchState );
@@ -67,7 +60,6 @@ class CSoldierAttackInEtrenchState : public IUnitAttackingState
 
 	CDamageToEnemyUpdater damageToEnemyUpdater;
 
-	//
 	void AnalyzeCurrentState();
 	void FinishState();
 public:
@@ -84,5 +76,4 @@ public:
 	virtual bool IsAttacksUnit() const { return true; }
 	virtual class CAIUnit* GetTargetUnit() const;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __IN_ENTRENCHMENT_STATES_H__

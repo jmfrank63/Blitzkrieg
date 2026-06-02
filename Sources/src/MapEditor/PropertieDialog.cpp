@@ -11,43 +11,31 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CPropertieDialog::CPropertieDialog( CWnd* pParent )
 	: CResizeDialog( CPropertieDialog::IDD, pParent ), m_pCurrentObject( 0 ) 
 {
-	//{{AFX_DATA_INIT(CPropertieDialog)
-	//}}AFX_DATA_INIT
 	m_checkButton.SetBitmapIDs( IDB_PUSHPIN );
 
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPropertieDialog::DoDataExchange(CDataExchange* pDX)
 {
 	CResizeDialog::DoDataExchange(pDX); 
-	//{{AFX_DATA_MAP(CPropertieDialog)
 	DDX_Control(pDX, IDC_PIN_BUTTON, m_checkButton);
-	//}}AFX_DATA_MAP
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CPropertieDialog, CResizeDialog)
-	//{{AFX_MSG_MAP(CPropertieDialog)
 	ON_WM_DESTROY()
 	ON_WM_SIZE()
 	ON_BN_CLICKED(IDC_PIN_BUTTON, OnPinButton)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int nButtonShift = 25;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int   VALUE_COLUMN_COUNT = 2;
 const char *VALUE_COLUMN_NAME  [VALUE_COLUMN_COUNT] = { "Name", "Value" };
 int					VALUE_COLUMN_WIDTH [VALUE_COLUMN_COUNT] = { 220, 250 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CPropertieDialog::OnInitDialog() 
 {
 	CResizeDialog::OnInitDialog();
@@ -62,7 +50,6 @@ BOOL CPropertieDialog::OnInitDialog()
 	RECT r;
 	GetClientRect( &r );
 	r.left	+= nButtonShift;
-	//r.right	-= nButtonShift;
 	m_tree.Create( NULL, "MultiTreeCtrl", WS_CHILD | WS_VISIBLE, r, this, 0 );
 	m_tree.ModifyStyleEx( 0 , WS_EX_CLIENTEDGE );
 
@@ -93,7 +80,6 @@ BOOL CPropertieDialog::OnInitDialog()
 	return TRUE;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPropertieDialog::AddRootVariable( std::string &str, int variable)
 {
 	if( str == "Player" )
@@ -114,7 +100,6 @@ void CPropertieDialog::AddRootVariable( std::string &str, int variable)
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 HTREEITEM CPropertieDialog::AddEmptyNode( std::string &str, HTREEITEM hPARoot )
 {
 		HTREEITEM hPA = m_tree.m_tree.InsertItemEx( str.c_str(), hPARoot, TVI_LAST, emptyItem );
@@ -123,7 +108,6 @@ HTREEITEM CPropertieDialog::AddEmptyNode( std::string &str, HTREEITEM hPARoot )
 		return hPA;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPropertieDialog::GetVariable( std::string &name)
 {
 
@@ -149,7 +133,6 @@ int CPropertieDialog::GetVariable( std::string &name)
 	return -1;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPropertieDialog::ClearVariables()
 {
 	m_tree.m_tree.SafeDeleteAllItems();
@@ -157,17 +140,11 @@ void CPropertieDialog::ClearVariables()
 	m_pCurrentObject = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPropertieDialog::OnOK() 
 {
-	//resizeDialogOptions.nParameters[1] = m_tree.m_tree.GetColumnWidth( 0 );
-	//resizeDialogOptions.nParameters[2] = m_tree.m_tree.GetColumnWidth( 1 );
 
-	//ClearVariables();
-	//reinterpret_cast<CWnd *>( g_frameManager.GetTemplateEditorFrame() )->PostMessage( WM_USER + 5 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPropertieDialog::OnCancel() 
 {
 	resizeDialogOptions.nParameters[1] = m_tree.m_tree.GetColumnWidth( 0 );
@@ -176,7 +153,6 @@ void CPropertieDialog::OnCancel()
 	reinterpret_cast<CWnd *>( g_frameManager.GetTemplateEditorFrame() )->PostMessage( WM_USER + 5 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 LRESULT CPropertieDialog::DefWindowProc(UINT message, WPARAM wParam, LPARAM lParam) 
 {
 	if ( ::IsWindow(m_checkButton.m_hWnd) )
@@ -195,7 +171,6 @@ LRESULT CPropertieDialog::DefWindowProc(UINT message, WPARAM wParam, LPARAM lPar
 	return CResizeDialog::DefWindowProc(message, wParam, lParam);
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPropertieDialog::OnDestroy() 
 {
 	CRect rect;
@@ -207,7 +182,6 @@ void CPropertieDialog::OnDestroy()
 }
 
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void	CPropertieDialog::AddManipulatorVariable( std::string &str, IManipulator *ptr )
 {
 	std::vector<std::string> szVector;
@@ -216,7 +190,6 @@ void	CPropertieDialog::AddManipulatorVariable( std::string &str, IManipulator *p
 	std::string tmpStr;
 	if( szVector.size() != 1 )
 	{
-		// есть ветви 
 		for( std::vector<std::string>::iterator it = szVector.begin(); it != szVector.end() - 1; ++it )
 		{
 			tmpStr += (*it);
@@ -235,7 +208,6 @@ void	CPropertieDialog::AddManipulatorVariable( std::string &str, IManipulator *p
 	AddPropertieNode( *(szVector.end() - 1), str, ptr, hPARoot);
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPropertieDialog::OnSize(UINT nType, int cx, int cy ) 
 {
 	CResizeDialog::OnSize( nType, cx, cy );
@@ -252,7 +224,6 @@ void CPropertieDialog::OnSize(UINT nType, int cx, int cy )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 HTREEITEM	CPropertieDialog::AddPropertieNode( std::string &str, std::string &propName, IManipulator *pManipulator, HTREEITEM hPARoot )
 {
 	CPropertieTreeItem *ptr ;	
@@ -302,7 +273,6 @@ HTREEITEM	CPropertieDialog::AddPropertieNode( std::string &str, std::string &pro
 	return hPA;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPropertieDialog::AddObjectWithProp( IManipulator *pMan )
 {
 	m_insertedNodes.clear();
@@ -314,11 +284,9 @@ void CPropertieDialog::AddObjectWithProp( IManipulator *pMan )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPropertieDialog::UpdateObjectProp()
 {
 	m_tree.m_tree.SafeDeleteAllItems();
-	//m_tree.m_tree.DeleteAllItems();
 	m_varHandles.clear();
 	m_insertedNodes.clear();
 
@@ -329,15 +297,12 @@ void CPropertieDialog::UpdateObjectProp()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IManipulator* CPropertieDialog::GetCurrentManipulator()
 {
 	return m_pCurrentObject;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPropertieDialog::OnPinButton() 
 {
 	resizeDialogOptions.nParameters[0] = m_checkButton.IsPinned() ? 1 : 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

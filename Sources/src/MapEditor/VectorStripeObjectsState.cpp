@@ -12,8 +12,6 @@ static char THIS_FILE[]=__FILE__;
 #define new DEBUG_NEW
 #endif
 
-//Vector Stripe Object state
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int			CVSOState::INVALID_INDEX				= ( -1 );
 const float		CVSOState::CONTROL_POINT_RADIUS	= fWorldCellSize / 5.0f;
 const int			CVSOState::CONTROL_POINT_PARTS	= 8;
@@ -25,8 +23,6 @@ const SColor	CVSOState::POINT_COLOR					= SColor( 0xFF, 0x20, 0xFF, 0x20 );
 const SColor	CVSOState::POLYGON_COLOR				= SColor( 0xFF, 0x20, 0xFF, 0x20 );
 const float		CVSOState::OPACITY_DELIMITER		= 100.0f;
 
-//CVSOSelectState
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void CVSOSelectState::OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
@@ -35,7 +31,6 @@ void CVSOSelectState::OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint,
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOSelectState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( pParentState->stateParameter.Update( CInputStateParameter::ISE_LBUTTONDOWN, rMousePoint, pFrame ) )
@@ -66,13 +61,11 @@ void CVSOSelectState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMousePoin
 					pParentState->SetActiveState( CVSOState::STATE_ADD );
 				}
 			}
-			//pParentState->Draw( pFrame );
 			pFrame->RedrawWindow();
 		}
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOSelectState::OnLButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( pParentState->stateParameter.Update( CInputStateParameter::ISE_LBUTTONUP, rMousePoint, pFrame ) )
@@ -86,13 +79,11 @@ void CVSOSelectState::OnLButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint,
 			
 			pParentState->SetActiveState( CVSOState::STATE_EDIT );
 
-			//pParentState->Draw( pFrame );
 			pFrame->RedrawWindow();
 		}
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOSelectState::OnRButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( pParentState->stateParameter.Update( CInputStateParameter::ISE_RBUTTONDOWN, rMousePoint, pFrame ) )
@@ -103,13 +94,11 @@ void CVSOSelectState::OnRButtonDown( UINT nFlags, const CTPoint<int> &rMousePoin
 			pParentState->ValidateSelectedIndex();
 			pParentState->nCurrentVSO = pParentState->selectedIndices[pParentState->nSelectedIndex];
 
-			//pParentState->Draw( pFrame );
 			pFrame->RedrawWindow();
 		}
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOSelectState::OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags, CTemplateEditorFrame* pFrame )
 {
 	/**
@@ -119,16 +108,11 @@ void CVSOSelectState::OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags, CTemplat
 		{
 			pParentState->ValidateSelectedIndex();
 			pParentState->nCurrentVSO = pParentState->selectedIndices[pParentState->nSelectedIndex];
-			//pParentState->Draw( pFrame );
-			//не надо
-			//pFrame->RedrawWindow();
 		}
 	}
 	/**/
 }
 
-//CVSOEditState
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOEditState::OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( pParentState->stateParameter.Update( CInputStateParameter::ISE_MOUSEMOVE, rMousePoint, pFrame ) )
@@ -272,12 +256,10 @@ void CVSOEditState::OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint, C
 			}
 		}
 		
-		//pParentState->Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOEditState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( pParentState->stateParameter.Update( CInputStateParameter::ISE_LBUTTONDOWN, rMousePoint, pFrame ) )
@@ -310,7 +292,6 @@ void CVSOEditState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint,
 						pAIEditor->DeleteRiver( *pCurrentVSO );
 					}
 				}
-				//pParentState->Draw( pFrame );
 				pFrame->RedrawWindow();
 				return;
 			}
@@ -343,7 +324,6 @@ void CVSOEditState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint,
 							pAIEditor->DeleteRiver( *pCurrentVSO );
 						}
 					}
-					//pParentState->Draw( pFrame );
 					pFrame->RedrawWindow();
 					return;
 				}
@@ -371,7 +351,6 @@ void CVSOEditState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint,
 							pAIEditor->DeleteRiver( *pCurrentVSO );
 						}
 					}
-					//pParentState->Draw( pFrame );
 					pFrame->RedrawWindow();
 					return;
 				}
@@ -402,7 +381,6 @@ void CVSOEditState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint,
 					pParentState->nCurrentVSO = pParentState->selectedIndices[pParentState->nSelectedIndex];
 					pParentState->SetActiveState( CVSOState::STATE_SELECT );
 
-					//pParentState->Draw( pFrame );
 					pFrame->RedrawWindow();
 				}
 			}
@@ -410,7 +388,6 @@ void CVSOEditState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint,
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOEditState::OnRButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( pParentState->stateParameter.Update( CInputStateParameter::ISE_RBUTTONDOWN, rMousePoint, pFrame ) )
@@ -443,7 +420,6 @@ void CVSOEditState::OnRButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint,
 					pParentState->GetTabVOVSODialog( pFrame )->SetOpacity( pCurrentVSO->points[pParentState->activePoint.nIndex].fOpacity );
 					pParentState->GetTabVOVSODialog( pFrame )->SetWidth( int( 0.5f + ( pCurrentVSO->points[pParentState->activePoint.nIndex].fWidth * 2.0f / fWorldCellSize ) ) );
 					
-					//pParentState->Draw( pFrame );
 					pFrame->RedrawWindow();
 					return;
 				}
@@ -462,7 +438,6 @@ void CVSOEditState::OnRButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint,
 					pParentState->GetTabVOVSODialog( pFrame )->SetOpacity( pCurrentVSO->points[pParentState->activePoint.nIndex].fOpacity );
 					pParentState->GetTabVOVSODialog( pFrame )->SetWidth( int( 0.5f + ( pCurrentVSO->points[pParentState->activePoint.nIndex].fWidth * 2.0f / fWorldCellSize ) ) );
 
-					//pParentState->Draw( pFrame );
 					pFrame->RedrawWindow();
 					return;
 				}
@@ -471,7 +446,6 @@ void CVSOEditState::OnRButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint,
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOEditState::OnLButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( pParentState->stateParameter.Update( CInputStateParameter::ISE_LBUTTONUP, rMousePoint, pFrame ) )
@@ -493,12 +467,10 @@ void CVSOEditState::OnLButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, C
 		pParentState->activePoint.isValid = false;
 		pParentState->backupKeyPoints.Clear();
 
-		//pParentState->Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOEditState::OnRButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( pParentState->stateParameter.Update( CInputStateParameter::ISE_RBUTTONUP, rMousePoint, pFrame ) )
@@ -506,12 +478,10 @@ void CVSOEditState::OnRButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, C
 		pParentState->activePoint.isValid = false;
 		pParentState->backupKeyPoints.Clear();
 
-		//pParentState->Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOEditState::OnLButtonDblClk( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( pParentState->stateParameter.Update( CInputStateParameter::ISE_LBUTTONDBLCLK, rMousePoint, pFrame ) )
@@ -520,12 +490,10 @@ void CVSOEditState::OnLButtonDblClk( UINT nFlags, const CTPoint<int> &rMousePoin
 		pParentState->nCurrentVSO = CVSOState::INVALID_INDEX;
 		pParentState->SetActiveState( CVSOState::STATE_SELECT );
 		
-		//pParentState->Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOEditState::OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags, CTemplateEditorFrame* pFrame )
 {
 	if ( pParentState->stateParameter.Update( CInputStateParameter::ISE_KEYDOWN, CTPoint<int>( 0, 0 ), pFrame ) )
@@ -577,7 +545,6 @@ void CVSOEditState::OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags, CTemplateE
 					CVSOBuilder::UpdateZ( rTerrainInfo.altitudes, pCurrentVSO );
 					pParentState->UpdateVSO( pCurrentVSO->nID );
 
-					//pParentState->Draw( pFrame );
 					pFrame->RedrawWindow();
 					return;
 				}
@@ -613,7 +580,6 @@ void CVSOEditState::OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags, CTemplateE
 					pParentState->activePoint.isValid = false;
 				}
 				
-				//pParentState->Draw( pFrame );
 				pFrame->RedrawWindow();
 				return;
 			}
@@ -626,7 +592,6 @@ void CVSOEditState::OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags, CTemplateE
 				pParentState->nCurrentVSO = CVSOState::INVALID_INDEX;
 				pParentState->SetActiveState( CVSOState::STATE_SELECT );
 				
-				//pParentState->Draw( pFrame );
 				pFrame->RedrawWindow();
 				return;
 			}
@@ -637,19 +602,13 @@ void CVSOEditState::OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags, CTemplateE
 			pParentState->nCurrentVSO = CVSOState::INVALID_INDEX;
 			pParentState->SetActiveState( CVSOState::STATE_SELECT );
 			
-			//pParentState->Draw( pFrame );
 			pFrame->RedrawWindow();
 			return;
 		}
 
-		//pParentState->Draw( pFrame );
-		//не надо
-		//pFrame->RedrawWindow();
 	}
 }
 
-//CVSOAddState
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOAddState::OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( pParentState->stateParameter.Update( CInputStateParameter::ISE_MOUSEMOVE, rMousePoint, pFrame ) )
@@ -657,24 +616,20 @@ void CVSOAddState::OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint, CT
 		pParentState->addPoints.pop_back();
 		pParentState->addPoints.push_back( pParentState->stateParameter.vLastPos );
 
-		//pParentState->Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOAddState::OnLButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( pParentState->stateParameter.Update( CInputStateParameter::ISE_LBUTTONUP, rMousePoint, pFrame ) )
 	{
 		pParentState->addPoints.push_back( pParentState->stateParameter.vLastPos );
 
-		//pParentState->Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOAddState::OnLButtonDblClk( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( pParentState->stateParameter.Update( CInputStateParameter::ISE_LBUTTONDBLCLK, rMousePoint, pFrame ) )
@@ -713,12 +668,10 @@ void CVSOAddState::OnLButtonDblClk( UINT nFlags, const CTPoint<int> &rMousePoint
 			pParentState->SetActiveState( CVSOState::STATE_SELECT );
 		}
 
-		//pParentState->Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOAddState::OnRButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( pParentState->stateParameter.Update( CInputStateParameter::ISE_RBUTTONUP, rMousePoint, pFrame ) )
@@ -736,12 +689,10 @@ void CVSOAddState::OnRButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, CT
 			pParentState->SetActiveState( CVSOState::STATE_SELECT );
 		}
 
-		//pParentState->Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOAddState::OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags, CTemplateEditorFrame* pFrame )
 {
 	if ( pParentState->stateParameter.Update( CInputStateParameter::ISE_KEYDOWN, CTPoint<int>( 0, 0 ), pFrame ) )
@@ -782,31 +733,22 @@ void CVSOAddState::OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags, CTemplateEd
 				pParentState->SetActiveState( CVSOState::STATE_SELECT );
 			}
 		
-			//pParentState->Draw( pFrame );
 			pFrame->RedrawWindow();
 			return;
 		}
 
-		//pParentState->Draw( pFrame );
-		//не надо
-		//pFrame->RedrawWindow();
 	}
 }
 
-//CVSOState
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOState::Enter()
 {
 	SetActiveState( STATE_SELECT );
 	if ( CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame() )
 	{
-		//Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
-	//CInputMultiState::Enter();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOState::Leave()
 {
 	activePoint.isValid = false;
@@ -818,14 +760,11 @@ void CVSOState::Leave()
 
 	if ( CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame() )
 	{
-		//Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 
-	//CInputMultiState::Leave();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOState::Draw( CTemplateEditorFrame* pFrame )
 {
 	if ( IScene *pScene = GetSingleton<IScene>() )
@@ -944,7 +883,6 @@ void CVSOState::Draw( CTemplateEditorFrame* pFrame )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CVSOState::Update()
 {
 	if ( IScene *pScene = GetSingleton<IScene>() )
@@ -980,7 +918,6 @@ void CVSOState::Update()
 							}
 						}
 
-						//Draw( pFrame );
 						pFrame->RedrawWindow();
 					}
 				}
@@ -989,8 +926,6 @@ void CVSOState::Update()
 	}
 }
 
-//roads 3D
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRoads3DState::CreateVSO( SVectorStripeObject *pRoad3D )
 {
 	NI_ASSERT_T( pRoad3D != 0,
@@ -998,13 +933,10 @@ bool CRoads3DState::CreateVSO( SVectorStripeObject *pRoad3D )
 	
 	if ( CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame() )
 	{
-		//Загрузка паттерна дороги
 		std::string szRoad3DDescName;
-		//SVectorStripeObjectDesc road3DDesc;
 		if ( !GetTabVOVSODialog( pFrame )->GetDescriptionName( &szRoad3DDescName ) )
 		{
 			return false;
-			//szRoad3DDescName = std::string( CMapInfo::SEASON_FOLDERS[pFrame->GetSeason()] ) + std::string( "Roads3D\\defaultRoad" );
 		}
 		CVSOBuilder::CreateVSO( pRoad3D, szRoad3DDescName, addPoints );
 		return true;
@@ -1012,7 +944,6 @@ bool CRoads3DState::CreateVSO( SVectorStripeObject *pRoad3D )
 	return false;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRoads3DState::AddVSO( const SVectorStripeObject &rVSO )
 {
 	IScene *pScene = GetSingleton<IScene>();
@@ -1032,7 +963,6 @@ void CRoads3DState::AddVSO( const SVectorStripeObject &rVSO )
 	}
 }
 	
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRoads3DState::UpdateVSO( int nID )
 {
 	IScene *pScene = GetSingleton<IScene>();
@@ -1042,7 +972,6 @@ void CRoads3DState::UpdateVSO( int nID )
 	pTerrainEditor->UpdateRoad( nID );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRoads3DState::RemoveVSO( int nID )
 {
 	IScene *pScene = GetSingleton<IScene>();
@@ -1052,7 +981,6 @@ void CRoads3DState::RemoveVSO( int nID )
 	pTerrainEditor->RemoveRoad( nID );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SVectorStripeObject* CRoads3DState::GetVSO( int nVSOIndex )
 {
 	IScene *pScene = GetSingleton<IScene>();
@@ -1063,7 +991,6 @@ SVectorStripeObject* CRoads3DState::GetVSO( int nVSOIndex )
 	return &( rTerrainInfo.roads3[nVSOIndex] );
 }
 	
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SVectorStripeObject* CRoads3DState::GetCurrentVSO()
 {
 	IScene *pScene = GetSingleton<IScene>();
@@ -1074,7 +1001,6 @@ SVectorStripeObject* CRoads3DState::GetCurrentVSO()
 	return &( rTerrainInfo.roads3[nCurrentVSO] );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRoads3DState::IsCurrentVSOValid()
 {
 	IScene *pScene = GetSingleton<IScene>();
@@ -1085,21 +1011,16 @@ bool CRoads3DState::IsCurrentVSOValid()
 	return ( ( nCurrentVSO >= 0 ) && ( nCurrentVSO < rTerrainInfo.roads3.size() ) );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CTabVOVSODialog* CRoads3DState::GetTabVOVSODialog( CTemplateEditorFrame *pFrame )
 {
 	return pFrame->m_mapEditorBarPtr->GetRoads3DTab();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMapInfo::TERRAIN_HIT_TEST_TYPE CRoads3DState::GetTerrainHitTestType()
 {
 	return CMapInfo::THT_ROADS3D;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//rivers
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRiversState::CreateVSO( SVectorStripeObject *pRiver )
 {
 	NI_ASSERT_T( pRiver != 0,
@@ -1107,13 +1028,10 @@ bool CRiversState::CreateVSO( SVectorStripeObject *pRiver )
 
 	if ( CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame() )
 	{
-		//Загрузка паттерна реки
 		std::string szRiverDescName;
-		//SVectorStripeObjectDesc riverDesc;
 		if ( !GetTabVOVSODialog( pFrame )->GetDescriptionName( &szRiverDescName ) )
 		{
 			return false;
-			//szRiverDescName = std::string( CMapInfo::SEASON_FOLDERS[pFrame->GetSeason()] ) + std::string( "Rivers\\defaultRiver" );
 		}
 		CVSOBuilder::CreateVSO( pRiver, szRiverDescName, addPoints );
 		return true;
@@ -1121,7 +1039,6 @@ bool CRiversState::CreateVSO( SVectorStripeObject *pRiver )
 	return false;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRiversState::AddVSO( const SVectorStripeObject &rVSO )
 {
 	IScene *pScene = GetSingleton<IScene>();
@@ -1146,7 +1063,6 @@ void CRiversState::AddVSO( const SVectorStripeObject &rVSO )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRiversState::UpdateVSO( int nID )
 {
 	IScene *pScene = GetSingleton<IScene>();
@@ -1156,7 +1072,6 @@ void CRiversState::UpdateVSO( int nID )
 	pTerrainEditor->UpdateRiver( nID );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRiversState::RemoveVSO( int nID )
 {
 	IScene *pScene = GetSingleton<IScene>();
@@ -1178,7 +1093,6 @@ void CRiversState::RemoveVSO( int nID )
 	pTerrainEditor->RemoveRiver( nID );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SVectorStripeObject* CRiversState::GetVSO( int nVSOIndex )
 {
 	IScene *pScene = GetSingleton<IScene>();
@@ -1189,7 +1103,6 @@ SVectorStripeObject* CRiversState::GetVSO( int nVSOIndex )
 	return &( rTerrainInfo.rivers[nVSOIndex] );
 }
 	
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SVectorStripeObject* CRiversState::GetCurrentVSO()
 {
 	IScene *pScene = GetSingleton<IScene>();
@@ -1200,7 +1113,6 @@ SVectorStripeObject* CRiversState::GetCurrentVSO()
 	return &( rTerrainInfo.rivers[nCurrentVSO] );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRiversState::IsCurrentVSOValid()
 {
 	IScene *pScene = GetSingleton<IScene>();
@@ -1211,16 +1123,13 @@ bool CRiversState::IsCurrentVSOValid()
 	return ( ( nCurrentVSO >= 0 ) && ( nCurrentVSO < rTerrainInfo.rivers.size() ) );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CTabVOVSODialog* CRiversState::GetTabVOVSODialog( CTemplateEditorFrame *pFrame )
 {
 	return pFrame->m_mapEditorBarPtr->GetRiversTab();
 }
 	
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMapInfo::TERRAIN_HIT_TEST_TYPE CRiversState::GetTerrainHitTestType()
 {
 	return CMapInfo::THT_RIVERS;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

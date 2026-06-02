@@ -10,24 +10,16 @@
 #include "AIUnit.h"
 #include "Graveyard.h"
 
-// for testing
 #include "..\Scene\Scene.h"
 #include "..\Scene\Terrain.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CStaticMap theStaticMap;
 extern CDiplomacy theDipl;
 extern SCheats theCheats;
 extern CGraveyard theGraveyard;
 CGlobalWarFog theWarFog;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*														CWarFog																*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CWarFog::TVisFunc CWarFog::visFuncs[2] = { &CWarFog::VisFunc0, &CWarFog::VisFunc1 };
 const CWarFog::TSegmTypes CWarFog::checkSegms[9][9] = 
 {
-//			0									1						2								3									4							5							6								7								8											
 /*0*/{ &CWarFog::CSf, &CWarFog::CSf, &CWarFog::CSf, &CWarFog::CSf, &CWarFog::CSt, &CWarFog::CS1, &CWarFog::CSf, &CWarFog::CS1, &CWarFog::CS1 },
 /*1*/{ &CWarFog::CSf, &CWarFog::CSf, &CWarFog::CSf, &CWarFog::CS2, &CWarFog::CSt, &CWarFog::CS1, &CWarFog::CS2, &CWarFog::CSt, &CWarFog::CS1 },
 /*2*/{ &CWarFog::CSf, &CWarFog::CSf, &CWarFog::CSf, &CWarFog::CS2, &CWarFog::CSt, &CWarFog::CSf, &CWarFog::CS2, &CWarFog::CS2, &CWarFog::CSf },
@@ -38,7 +30,6 @@ const CWarFog::TSegmTypes CWarFog::checkSegms[9][9] =
 /*7*/{ &CWarFog::CS1, &CWarFog::CSt, &CWarFog::CS2, &CWarFog::CS1, &CWarFog::CSt, &CWarFog::CS2, &CWarFog::CSf, &CWarFog::CSf, &CWarFog::CSf },
 /*8*/{ &CWarFog::CS1, &CWarFog::CS1, &CWarFog::CSf, &CWarFog::CS1, &CWarFog::CSt, &CWarFog::CSf, &CWarFog::CSf, &CWarFog::CSf, &CWarFog::CSf }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWarFog::Init( const struct SVector &upLeft, const struct SVector &downLeft, 
 										const struct SVector &downRight, const struct SVector &upRight )
 {
@@ -68,7 +59,6 @@ void CWarFog::Init( const struct SVector &upLeft, const struct SVector &downLeft
 	corners[2] = downRight; 
 	corners[3] = upRight;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWarFog::InitVisCheck( const struct SVector &upLeft, const struct SVector &downLeft, 
 														const struct SVector &downRight, const struct SVector &upRight )
 {
@@ -85,7 +75,6 @@ void CWarFog::InitVisCheck( const struct SVector &upLeft, const struct SVector &
 	NI_ASSERT_SLOW_TF( minSum <= maxSum, "Wrong points order", return );
 	NI_ASSERT_SLOW_TF( minDiff <= maxDiff, "Wrong points order", return );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWarFog::CheckSegm( const SVector &p1, const SVector &p2, const int n ) const
 {
   const int xSign1 = ( Sign( (center.x - r) - p1.x ) + Sign( ( center.x + r ) - p1.x ) ) / 2 + 1;
@@ -95,7 +84,6 @@ bool CWarFog::CheckSegm( const SVector &p1, const SVector &p2, const int n ) con
 	
 	return ( this->*checkSegms[3*ySign1 + xSign1][3*ySign2 + xSign2] )( n ) ;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWarFog::IsInfluencedUnit( const struct SVector &center ) const 
 {
 	return 
@@ -103,7 +91,6 @@ bool CWarFog::IsInfluencedUnit( const struct SVector &center ) const
 		CheckSegm( corners[0], corners[1], minSum ) || CheckSegm( corners[1], corners[2], maxDiff ) ||
 		CheckSegm( corners[2], corners[3], maxSum ) || CheckSegm( corners[3], corners[0], minDiff );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CWarFog::TraceToPointForScan( const SVector &center, const SVector &finishPoint )
 {
 	CBres bres;
@@ -121,7 +108,6 @@ int CWarFog::TraceToPointForScan( const SVector &center, const SVector &finishPo
 
 	return vis;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWarFog::DetermineRegion()
 {
 	if ( IsPointInside( center ) )
@@ -159,13 +145,11 @@ void CWarFog::DetermineRegion()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWarFog::AddUnit( const SFogInfo &fogInfo )
 {
 	if ( fogInfo.r <= 2 )
 		return;
 
-	// переменные center и r используются в IsInfluencedUnit
 	center = fogInfo.center;
 	r = fogInfo.r;
 
@@ -182,7 +166,6 @@ void CWarFog::AddUnit( const SFogInfo &fogInfo )
 			fogInfo.pObject->SetTransparencies();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWarFog::GetVisibilities( SAIVisInfo **pVisBuffer, int *pnLen )
 {
 	*pVisBuffer = GetTempBuffer<SAIVisInfo>( sizeSum*sizeDiff );	
@@ -192,7 +175,6 @@ void CWarFog::GetVisibilities( SAIVisInfo **pVisBuffer, int *pnLen )
 	{
 		for ( int sum = ( minSum + minSum % 2 ) / 2; sum <= ( maxSum - maxSum % 2 ) / 2; ++sum )
 		{
-			// делятся на 2
 			if ( ( ((sum + diff) & 1) == 0 ) && ( ((sum-diff) & 1) == 0 ) )
 			{
 				(*pVisBuffer)[*pnLen].x = (sum + diff) / 2;
@@ -226,11 +208,6 @@ void CWarFog::GetVisibilities( SAIVisInfo **pVisBuffer, int *pnLen )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*														CGlobalWarFog													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalWarFog::Init()
 {
 	fogCnts.resize( 2 );
@@ -266,7 +243,6 @@ void CGlobalWarFog::Init()
 	areasOpenTiles.SetSizes( theStaticMap.GetSizeX(), theStaticMap.GetSizeY() );
 	areasOpenTiles.SetZero();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalWarFog::Clear()
 {
 	unitsInfo.clear();
@@ -278,7 +254,6 @@ void CGlobalWarFog::Clear()
 	areasOpenTiles.Clear();
 	areas.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalWarFog::AddUnit( const int id, int nParty, const SFogInfo &fogInfo )
 {
 	if ( id >= unitsInfo.size() )
@@ -295,11 +270,9 @@ void CGlobalWarFog::AddUnit( const int id, int nParty, const SFogInfo &fogInfo )
 	unitsInfo[id].nParty = nParty;
 	unitsInfo[id].nHeapPos = -2;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalWarFog::DeleteUnit( const int id )
 {
 	NI_ASSERT_SLOW_T( unitsInfo.size() > id, "out of bounds" );
-	// не новый юнит
 	if ( unitsInfo[id].nHeapPos != -2 )
 	{
 		deletedUnits.push_back( SDeletedUnitInfo() );
@@ -314,7 +287,6 @@ void CGlobalWarFog::DeleteUnit( const int id )
 		removedObjects4Units[id].clear();
 		addedObjects4Units[id].clear();
 	}
-	// новый, туман ещё не просчитан
 	else
 	{
 		std::list<int>::iterator iter = newUnits.begin();
@@ -325,7 +297,6 @@ void CGlobalWarFog::DeleteUnit( const int id )
 		newUnits.erase( iter );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CGlobalWarFog::GetWeight( const SFogInfo &oldFog, const SFogInfo &newFog )
 {
 	if ( ( oldFog.bAngleLimited != newFog.bAngleLimited ) || 
@@ -335,7 +306,6 @@ const int CGlobalWarFog::GetWeight( const SFogInfo &oldFog, const SFogInfo &newF
 		return 100;
 	return SquareOfDistance( oldFog.center, newFog.center );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalWarFog::UpdateUnit( const int id, SFogInfo &newFogInfo, const int weight )
 {
 	NI_ASSERT_SLOW_T( newUnitsInfo.size() > id, "out of bounds" );
@@ -344,7 +314,6 @@ void CGlobalWarFog::UpdateUnit( const int id, SFogInfo &newFogInfo, const int we
 	if ( weight != 0 )
 	{
 		int &nHeapPos = unitsInfo[id].nHeapPos;
-		// если лежит в куче
 		if ( nHeapPos >= 0 ) 
 		{
 			if ( weight > weights[nHeapPos].nWeight )
@@ -360,28 +329,22 @@ void CGlobalWarFog::UpdateUnit( const int id, SFogInfo &newFogInfo, const int we
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalWarFog::ChangeUnitCoord( const int id, SFogInfo &newFogInfo )
 {
-	// новый, туман ещё не считался
 	if ( unitsInfo[id].nHeapPos == -2 )
 		unitsInfo[id].fogInfo = newFogInfo;
 	else
 		UpdateUnit( id, newFogInfo, SquareOfDistance( unitsInfo[id].fogInfo.center, newFogInfo.center ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalWarFog::ChangeUnitState( const int id, SFogInfo &newFogInfo )
 {
-	// новый, туман ещё не считался
 	if ( unitsInfo[id].nHeapPos == -2 )
 		unitsInfo[id].fogInfo = newFogInfo;
 	else
 		UpdateUnit( id, newFogInfo, GetWeight( unitsInfo[id].fogInfo, newFogInfo ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalWarFog::ChangeUnitParty( const int id, const int nParty )
 {
-	// новый, туман ещё не считался
 	if ( unitsInfo[id].nHeapPos == -2 )
 		unitsInfo[id].nParty = nParty;
 	else
@@ -392,10 +355,8 @@ void CGlobalWarFog::ChangeUnitParty( const int id, const int nParty )
 		AddUnit( id, nParty, fogInfo );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalWarFog::RecalculateForRemovedObject( const int id, const float fDist, CExistingObject *pObject )
 {
-	// если туман для этого юнита уже рассчитан
 	if ( unitsInfo[id].nHeapPos != -2 )
 	{
 		UpdateUnit( id, unitsInfo[id].fogInfo, Max( 1.0f, fDist / ( SConsts::TILE_SIZE * 5.0f ) ) );
@@ -408,10 +369,8 @@ void CGlobalWarFog::RecalculateForRemovedObject( const int id, const float fDist
 			addedObjects4Units[id].erase( iter );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalWarFog::RecalculateForAddedObject( const int id, const float fDist, CExistingObject *pObject )
 {
-	// если туман для этого юнита уже рассчитан
 	if ( unitsInfo[id].nHeapPos != -2 )
 	{
 		UpdateUnit( id, unitsInfo[id].fogInfo, Max( 1.0f, fDist / ( SConsts::TILE_SIZE * 5.0f ) ) );
@@ -424,7 +383,6 @@ void CGlobalWarFog::RecalculateForAddedObject( const int id, const float fDist, 
 			removedObjects4Units[id].erase( iter );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalWarFog::ReclaculateFogAfterRemoveObject( CExistingObject *pObj )
 {
 	const CVec2 objCenter = pObj->GetCenter();
@@ -440,7 +398,6 @@ void CGlobalWarFog::ReclaculateFogAfterRemoveObject( CExistingObject *pObj )
 	for ( std::list<SDeletedUnitInfo>::iterator iter = deletedUnits.begin(); iter != deletedUnits.end(); ++iter )
 		iter->removedObjects.push_back( pObj );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalWarFog::ReclaculateFogAfterAddObject( CExistingObject *pObj )
 {
 	const CVec2 vCenter( pObj->GetCenter() );
@@ -456,19 +413,15 @@ void CGlobalWarFog::ReclaculateFogAfterAddObject( CExistingObject *pObj )
 	for ( std::list<SDeletedUnitInfo>::iterator iter = deletedUnits.begin(); iter != deletedUnits.end(); ++iter )
 		iter->addedObjects.push_back( pObj );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool operator < ( const SVector &a, const SVector &b )
 {
 	return a.x < b.x || a.x == b.x && a.y < b.y;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalWarFog::RemoveUnitWarfog( SUnitInfo &unitInfo, const CObjectsList &removedObjects, const CObjectsList &addedObjects )
 {
-	// убрать прозрачности для тех объектов, которые были поставлены между расчётами тумана для этого юнита
 	for ( CObjectsList::const_iterator iter = addedObjects.begin(); iter != addedObjects.end(); ++iter )
 		(*iter)->RemoveTransparencies();
 
-	// поставить прозрачности для тех объектов, которые были удалены между расчётами тумана для этого юнита
 	for ( CObjectsList::const_iterator iter = removedObjects.begin(); iter != removedObjects.end(); ++iter )
 	{
 		if ( IsValidObj( *iter ) )
@@ -527,7 +480,6 @@ void CGlobalWarFog::RemoveUnitWarfog( SUnitInfo &unitInfo, const CObjectsList &r
 
 			bShow =  true;
 		}
-//		NI_ASSERT_T( unitInfo.addedTiles.size() == unitInfo.deletedTiles.size(), "Wrong added/deleted tiles size" );
 		else
 		{
 			std::list<SVector>::iterator addedTilesIter = unitInfo.addedTiles.begin();
@@ -552,7 +504,6 @@ void CGlobalWarFog::RemoveUnitWarfog( SUnitInfo &unitInfo, const CObjectsList &r
 #else
 */
 	CWarFogTracer<SDelWarFog> delTracer( SDelWarFog( unitInfo.nParty ), fogInfo );
-//#endif // #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
 
 	if ( fogInfo.pObject.IsValid() )
 		fogInfo.pObject->SetTransparencies();
@@ -563,7 +514,6 @@ void CGlobalWarFog::RemoveUnitWarfog( SUnitInfo &unitInfo, const CObjectsList &r
 	for ( CObjectsList::const_iterator iter = addedObjects.begin(); iter != addedObjects.end(); ++iter )
 		(*iter)->SetTransparencies();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalWarFog::AddUnitWarfog( SUnitInfo &unitInfo )
 {
 	const SFogInfo &fogInfo = unitInfo.fogInfo;
@@ -578,12 +528,10 @@ void CGlobalWarFog::AddUnitWarfog( SUnitInfo &unitInfo )
 #else
 */
 	CWarFogTracer<SAddWarFog> addTracer( SAddWarFog( unitInfo.nParty ), fogInfo );
-//#endif // #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
 
 	if ( fogInfo.pObject.IsValid() )
 		fogInfo.pObject->SetTransparencies();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalWarFog::ProcessDeletedUnits( bool bAllUnits )
 {
 	int cnt = 0;
@@ -599,7 +547,6 @@ void CGlobalWarFog::ProcessDeletedUnits( bool bAllUnits )
 		++cnt;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalWarFog::ProcessNewUnits( bool bAllUnits )
 {
 	int cnt = 0;
@@ -614,7 +561,6 @@ void CGlobalWarFog::ProcessNewUnits( bool bAllUnits )
 		++cnt;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalWarFog::Segment( bool bAllUnits )
 {
 	ProcessDeletedUnits( bAllUnits );
@@ -657,7 +603,6 @@ void CGlobalWarFog::Segment( bool bAllUnits )
 		NI_ASSERT_T( i == unitsInfo[weights[i].id].nHeapPos, NStr::Format( "Wrong weights heap state, i = %d, nHeapPos = %d, heap size = %d\n", i, unitsInfo[weights[i].id].nHeapPos, weights.Size() ) );
 #endif // #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGlobalWarFog::IsTileVisible( const SVector &tile, const int nParty ) const
 { 
 	if ( theCheats.GetTurnOffWarFog() )
@@ -669,7 +614,6 @@ bool CGlobalWarFog::IsTileVisible( const SVector &tile, const int nParty ) const
 
 	return fogCnts[nParty][tile.y][tile.x] != 0; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BYTE CGlobalWarFog::GetTileVis( const int tileX, const int tileY, const int nParty ) const
 { 
 	if ( !theDipl.IsNetGame() && IsOpenBySriptArea( tileX, tileY ) && theDipl.GetMyParty() == nParty )
@@ -681,7 +625,6 @@ BYTE CGlobalWarFog::GetTileVis( const int tileX, const int tileY, const int nPar
 	else
 		return maxVis[nParty].GetData( tileX, tileY ); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BYTE CGlobalWarFog::GetClientTileVis( const int tileX, const int tileY, const int nParty ) const
 {
 	if ( theStaticMap.IsTileInside( tileX, tileY ) && areasOpenTiles.GetData( tileX, tileY ) > 0 )
@@ -691,7 +634,6 @@ BYTE CGlobalWarFog::GetClientTileVis( const int tileX, const int tileY, const in
 	else
 		return Max( GetTileVis( tileX, tileY, 0 ), GetTileVis( tileX, tileY, 1 ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalWarFog::GetMiniMapInfo( BYTE **pVisBuffer, int *pnLen, const int nParty, bool bFirstTime )
 {
 	int nShift;
@@ -751,7 +693,6 @@ void CGlobalWarFog::GetMiniMapInfo( BYTE **pVisBuffer, int *pnLen, const int nPa
 
 	NI_ASSERT_T( nMiniMapY < theStaticMap.GetSizeY() / 2, "Wrong nMiniMapY" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGlobalWarFog::IsUnitVisible( const int nParty, const SVector &tile, bool bCamouflated, const float fCamouflage ) const
 {
 	if ( theCheats.GetTurnOffWarFog() )
@@ -766,7 +707,6 @@ bool CGlobalWarFog::IsUnitVisible( const int nParty, const SVector &tile, bool b
 
 	return GetMinCoeff2( tile, nParty ) <= sqr( fCamouflage * (float)GetTileVis( tile, nParty ) / float( SConsts::VIS_POWER ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalWarFog::ToggleOpen4ScriptAreaTiles( const SScriptArea &scriptArea, bool bOpen )
 {
 	if ( !(bOpen ^ (areas.find( scriptArea.szName ) == areas.end())) )
@@ -789,9 +729,7 @@ void CGlobalWarFog::ToggleOpen4ScriptAreaTiles( const SScriptArea &scriptArea, b
 		CWarFogTracer<SScriptAreaFog> tracer( SScriptAreaFog( bOpen ), fogInfo );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGlobalWarFog::IsOpenBySriptArea( const int x, const int y ) const
 {
 	return theStaticMap.IsTileInside( x, y ) && areasOpenTiles.GetData( x, y ) > 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

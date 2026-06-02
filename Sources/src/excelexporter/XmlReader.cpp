@@ -5,7 +5,6 @@
 #include "..\StreamIO\StreamAdaptor.h"
 
 #include <ocidl.h>
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace
 {
 	inline std::string ToString( const _bstr_t &value )
@@ -64,7 +63,6 @@ bool CXMLReader::IsCrappedValue( const std::string &szValName, const vector<stri
 	{
 		string szCur = szValName;
 		{
-			//?????? ?? ??????? ??? ????????? ???????? item(**)
 			const char *pTemp = szCur.c_str();
 			do
 			{
@@ -86,7 +84,6 @@ bool CXMLReader::IsCrappedValue( const std::string &szValName, const vector<stri
 					continue;
 				}
 
-				//?? ????? ??????, ?????? ??????
 				szCur.erase( pTemp - szCur.c_str() + 4, 4 );
 				pTemp += 4;
 			} while( pTemp );
@@ -106,7 +103,6 @@ bool CXMLReader::IsCrappedValue( const std::string &szValName, const vector<stri
 
 		if ( bCompareOnlyFirstSymbols )
 		{
-			//????????, ????? ???? ??????????? 
 		}
 	}
 	
@@ -123,7 +119,6 @@ bool CXMLReader::ReadRPGInformationFromFile( const char *pszFileName, CXMLReadVe
 	if ( !xmlDocument->load( _variant_t( static_cast<IUnknown*>( &comstream ) ) ) )
 		return false;
 
-	//?????????? ?? ?????, ???? ?? ?????? ???? ? ?????? RPG
 	MSXML2::IXMLDOMNodePtr xmlCurrNode = xmlDocument;						// ??????? node
 	MSXML2::IXMLDOMNodeListPtr childs = xmlCurrNode->childNodes;
 	xmlCurrNode = FindRPGNode( childs->Getitem( childs->length-1 ), pszNodeName );
@@ -138,7 +133,6 @@ void CXMLReader::ReadInformation( MSXML2::IXMLDOMNodePtr node, const string &szP
 {
 	MSXML2::IXMLDOMNodeListPtr childs = node->childNodes;
 	MSXML2::IXMLDOMNamedNodeMapPtr attributes = node->attributes;
-	//??????? ????? ???? ??? ???? ????????? ????? ????
 	if ( attributes )
 	{
 		for ( int i=0; i<attributes->length; i++ )
@@ -158,7 +152,6 @@ void CXMLReader::ReadInformation( MSXML2::IXMLDOMNodePtr node, const string &szP
 
 	int nItemIndex = 0;
 
-	//?????? ?????????? ??????? ??????? ??? ???? childs
 	for ( int i=0; i<childs->length; i++ )
 	{
 		string szNewPrefix = szPrefix;
@@ -166,7 +159,6 @@ void CXMLReader::ReadInformation( MSXML2::IXMLDOMNodePtr node, const string &szP
 
 		bool bString = false;
 		{
-			//?????????, ????? current ??? ???????, ????? ?? ????? ????????
 			MSXML2::IXMLDOMNodeListPtr currentChilds = current->childNodes;
 			MSXML2::IXMLDOMNamedNodeMapPtr currentAttributes = current->attributes;
 			
@@ -209,7 +201,6 @@ void CXMLWriter::FindNodeAndSetAttribute( MSXML2::IXMLDOMNodePtr startNode, cons
 	if ( nPos != -1 )
 	{
 		string szCurrentFindNodeName = szName.substr( 0, nPos );
-		//?????? child ? ????? ??????
 		MSXML2::IXMLDOMNodeListPtr childs = startNode->childNodes;
 		int i = 0;
 		int nItemIndex = 0;
@@ -235,7 +226,6 @@ void CXMLWriter::FindNodeAndSetAttribute( MSXML2::IXMLDOMNodePtr startNode, cons
 		string szNextNodeName = szName.substr( nPos + 1 );
 		if ( i == childs->length )
 		{
-			//???????? ???? ? ????? ??????
 			MSXML2::IXMLDOMNodePtr newNode = xmlDocument->createElement( _bstr_t( szCurrentFindNodeName.c_str() ) );
 			startNode->appendChild( newNode );
 			FindNodeAndSetAttribute( newNode, szNextNodeName, szAttributeValue );
@@ -246,7 +236,6 @@ void CXMLWriter::FindNodeAndSetAttribute( MSXML2::IXMLDOMNodePtr startNode, cons
 	}
 	else
 	{
-		//??? ';' ?????? ??? ??? ????????, ???????? ??????? ? ????? ??????
 		MSXML2::IXMLDOMElementPtr element = startNode;
 		if ( szName == "#text" )
 			element->text = _bstr_t( szAttributeValue.c_str() );
@@ -269,7 +258,6 @@ bool CXMLWriter::SaveRPGInformationToXML( const char *pszFileName, const CXMLVal
 			return false;
 	}
 	
-	//?????????? ?? ?????, ???? ?? ?????? ???? ? ?????? RPG
 	MSXML2::IXMLDOMNodePtr xmlStartNode = xmlDocument;						// ????????? node
 	MSXML2::IXMLDOMNodeListPtr childs = xmlStartNode->childNodes;
 	xmlStartNode = FindRPGNode( childs->Getitem( childs->length-1 ), pszNodeName );
@@ -282,7 +270,6 @@ bool CXMLWriter::SaveRPGInformationToXML( const char *pszFileName, const CXMLVal
 			FindNodeAndSetAttribute( xmlStartNode, it->first, it->second );
 	}
 
-	//????????? ????
 	{
 		CPtr<IDataStream> pStream = OpenFileStream( pszFileName, STREAM_ACCESS_WRITE );
 		CStreamCOMAdaptor comstream( pStream );

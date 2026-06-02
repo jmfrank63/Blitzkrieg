@@ -6,7 +6,6 @@
 #include "..\Common\Icons.h"
 #include "..\GameTT\iMission.h"
 #include "..\Formats\fmtTerrain.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMOProjectile::CMOProjectile()
 {
 	wMoveSoundID = 0;
@@ -14,14 +13,12 @@ CMOProjectile::CMOProjectile()
 }
 CMOProjectile::~CMOProjectile()
 {
-	// удалить звук движения
 	if ( wMoveSoundID != 0 )
 	{
 		GetSingleton<IScene>()->RemoveSound( wMoveSoundID );
 		wMoveSoundID = 0;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMOProjectile::Create( IRefCount *pAIObj, const SGDBObjectDesc *pDesc, int nSeason, int nFrameIndex, 
 													  float fHP, interface IVisObjBuilder *pVOB, IObjectsDB *pGDB )
 {
@@ -34,31 +31,25 @@ bool CMOProjectile::Create( IRefCount *pAIObjLocal, const char *pszName, interfa
 	pAIObj = pAIObjLocal;
 	return pVisObj != 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// visiting
 void CMOProjectile::Visit( IMapObjVisitor *pVisitor )
 {
 	pVisitor->VisitEffect( pVisObj, SGVOGT_EFFECT, SGVOT_EFFECT );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOProjectile::Init( const NTimer::STime &_timeStart, const NTimer::STime &_timeDuration, const CVec3 &_delta )
 {
 	fTimeStart = _timeStart;
 	fTimeDuration = _timeDuration;
 	delta = _delta;
 	timeLastTime = _timeStart;
-	//
 	GetVisObj()->SetStartTime( _timeStart );
 	GetVisObj()->CalibrateDuration( _timeDuration );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOProjectile::SetPlacement( const CVec3 &vPos, const WORD &wDir )
 {
 	pVisObj->SetPlacement( vPos, wDir );
 	if ( pVisObj && (wMoveSoundID == 0) ) 
 	{
 		const std::string &szSoundName = static_cast_ptr<IEffectVisObj*>(pVisObj)->GetSoundEffect();
-		// add movement sound
 		if ( !szSoundName.empty() ) 
 		{
 			wMoveSoundID = GetSingleton<IScene>()->AddSound( szSoundName.c_str(), vPos, 
@@ -72,17 +63,13 @@ void CMOProjectile::GetPlacement( CVec3 *pvPos, WORD *pwDir )
 	*pvPos = pVisObj->GetPosition();
 	*pwDir = pVisObj->GetDirection();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOProjectile::AIUpdatePlacement( const SAINotifyPlacement &placement, const NTimer::STime &currTime, IScene *pScene )
 {
 	const float dt = float( currTime - fTimeStart );
 	if ( dt > fTimeDuration )
 		return;
-	//
 	CVec3 vPos;
 	AI2Vis( &vPos, placement.center.x, placement.center.y, placement.z );
-	// move main object
-	// generate particles to create smooth path
 	for ( NTimer::STime time = timeLastTime; time < currTime; time += 20 )
 	{
 		const float dt = float( time - fTimeStart );
@@ -93,7 +80,6 @@ void CMOProjectile::AIUpdatePlacement( const SAINotifyPlacement &placement, cons
 	}
 	timeLastTime = currTime;
 	vLastPos = vPos;
-	//
 	vPos += ( 1 - dt/fTimeDuration )*delta;
 	pVisObj->SetDirection( placement.dir );
 	pScene->MoveObject( pVisObj, vPos );
@@ -101,7 +87,6 @@ void CMOProjectile::AIUpdatePlacement( const SAINotifyPlacement &placement, cons
 	if ( wMoveSoundID != 0 )
 		pScene->SetSoundPos( wMoveSoundID, vPos );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMOProjectile::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -114,7 +99,6 @@ int CMOProjectile::operator&( IStructureSaver &ss )
 	saver.Add( 7, &timeLastTime );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMOProjectile::AIUpdateActions( const struct SAINotifyAction &action, const NTimer::STime &currTime, IVisObjBuilder *pVOB, IScene *pScene, interface IClientAckManager *pAckManager ) 
 { 
 	int nRetVal = 0;
@@ -126,7 +110,5 @@ int CMOProjectile::AIUpdateActions( const struct SAINotifyAction &action, const 
 		default:
 			break;
 	}
-	//
 	return nRetVal;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

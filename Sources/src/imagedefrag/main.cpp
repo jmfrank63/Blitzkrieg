@@ -7,9 +7,6 @@
 #include "..\\RandomMapGen\\RMG_Types.h"
 #include "..\\Misc\\FileUtils.h"
 
-//const float fCellSizeY = 16;
-//const float fCellSizeX = fCellSizeY * 2.0f;
-//const float fWorldCellSize = fCellSizeX * FP_SQRT_2;
 
 typedef IImage* PIImage;
 bool LoadImageLibrary()
@@ -77,7 +74,6 @@ int CalculateWeight( const std::string &originalImage, DWORD dwMinAlpha )
 	blue /= count;
 	green /= count;
 
-  //printf( "Weight: r, g, b =  %d, %d, %d\npoints: %d\n", red,	blue, green, count );
   return 0;
 }
 
@@ -501,8 +497,6 @@ int main( int argc, char* argv[] )
 	CPtr<IObjectsDB> pODB = CreateObjectsDB();
 	pODB->LoadDB();
 	RegisterSingleton( IObjectsDB::tidTypeID, pODB );
-	//
-	//GetSLS()->SetGDB( pODB );
   
 	int nImageSize;
 	sscanf(argv[1], "%d", &nImageSize );
@@ -651,9 +645,6 @@ int main( int argc, char* argv[] )
   return nStatus;
 /**/
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// basement storage  
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
 
 	int count = 5;

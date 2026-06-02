@@ -1,5 +1,3 @@
-// editor.cpp : Defines the class behaviors for the application.
-//
 
 #include "stdafx.h"
 #include <crtdbg.h>
@@ -42,26 +40,19 @@ static char THIS_FILE[] = __FILE__;
 
 static const char szVersion[] = "0.09";
 
-/////////////////////////////////////////////////////////////////////////////
-// CEditorApp
 
 BEGIN_MESSAGE_MAP(CEditorApp, CWinApp)
-	//{{AFX_MSG_MAP(CEditorApp)
 	ON_COMMAND(ID_APP_ABOUT, OnAppAbout)
 	ON_COMMAND(ID_FILE_NEW, OnFileNew)
 	ON_COMMAND_RANGE(ID_FILE_RECENT_0, ID_FILE_RECENT_6, OnRecentFile)
 	ON_UPDATE_COMMAND_UI(ID_FILE_RECENT_0, OnUpdateRecentFile)
 	ON_UPDATE_COMMAND_UI_RANGE(ID_FILE_RECENT_0, ID_FILE_RECENT_6, OnUpdateRecentFileRange)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP() 
 
-/////////////////////////////////////////////////////////////////////////////
-// CEditorApp construction
 
 CEditorApp::CEditorApp()
 {
 	_CrtSetDbgFlag( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
-//	_CrtSetBreakAlloc( 80 );
 
 	int nBreakId = -1;
 	_CrtSetBreakAlloc( nBreakId );
@@ -81,8 +72,6 @@ CEditorApp::CEditorApp()
 	szDestDir = "";
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// The one and only CEditorApp object
 
 CEditorApp theApp;
 
@@ -99,28 +88,18 @@ float CEditorApp::GetProfileFloat( const char *pszName )
 	return *pTemp;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// CEditorApp initialization
 
 BOOL CEditorApp::InitInstance()
 {
-	// check for network drive
 	if ( !NMain::CanLaunch() )
 		return false;
-	//
 	
 #ifndef _DEBUG
-	// legacy Stingray splash disabled during migration
 #endif		//! _DEBUG
 	
 #if defined( _DO_SEH ) && !defined( _DEBUG )
-	// set StructuredExceptionHandler 
 	SetCrashHandlerFilter( CrashHandlerFilter );
 #endif // defined( _DO_SEH ) && !defined( _DEBUG )
-	// Standard initialization
-	// If you are not using these features and wish to reduce the size
-	//  of your final executable, you should remove from the following
-	//  the specific initialization routines you do not need.
 
 #ifdef _AFXDLL
 	Enable3dControls();			// Call this when using MFC in a shared DLL
@@ -128,10 +107,6 @@ BOOL CEditorApp::InitInstance()
 	Enable3dControlsStatic();	// Call this when linking to MFC statically
 #endif
 
-	// Change the registry key under which our settings are stored.
-	// TODO: You should modify this string to be something appropriate
-	// such as the name of your company or organization.
-//	SetRegistryKey(_T("Local AppWizard-Generated Applications"));
 	SetRegistryKey( "Nival Interactive" );
 	m_pRecentFileList = new CRecentFileList( 0, "MRU", "file%d", 7 );
 	m_pRecentFileList->ReadList();
@@ -143,19 +118,13 @@ BOOL CEditorApp::InitInstance()
 		SHDeleteKey( HKEY_CURRENT_USER, (str + "Layout").c_str() );
 	}
 	
-	// To create the main window, this code creates a new frame window
-	// object and then sets it as the application's main window object.
 	m_pMainFrame = new CMainFrame;
 	m_pMainWnd = m_pMainFrame;
 
-	// create main MDI frame window
 	m_nCmdShow = SW_HIDE;
 	if (!m_pMainFrame->LoadFrame(IDR_EDITORTYPE))
 		return FALSE;
 	
-	// try to load shared MDI menus and accelerator table
-	//TODO: add additional member variables and load calls for
-	//	additional menu types your application may need. 
 	
 	/*
   SECSplashWnd *pSplashWnd = new SECSplashWnd( IDB_EDITOR_STARTUP );
@@ -169,15 +138,12 @@ BOOL CEditorApp::InitInstance()
 	
 	m_bInitFinished = false;
 	CWnd *pActiveFrame = 0;
-	//����� ������ ������������ � AnimationFrame ����� �� ������� ������
 	pActiveFrame = g_frameManager.GetFrame( CFrameManager::E_ANIMATION_FRAME );
 	pActiveFrame->SendMessage( WM_SETFOCUS, 0, 0 );
 	
-	// The main window has been initialized, so show and update it.
 	m_pMainFrame->ShowWindow(m_nCmdShow);
 	m_pMainFrame->UpdateWindow();
 	
-	//����� ��������������� ����� � ��������� �������� ������, ������ �������� ���������� � �������, �� �������
 	int nActiveFrame = LoadLastActiveModuleID();
 	pActiveFrame = g_frameManager.GetFrame( nActiveFrame );
 	NI_ASSERT( pActiveFrame != 0 );
@@ -186,7 +152,6 @@ BOOL CEditorApp::InitInstance()
 	
 	if ( RunBatchMode() )
 	{
-		//close the application
 		return FALSE;
 	}
 	
@@ -197,7 +162,6 @@ BOOL CEditorApp::InitInstance()
 
 bool CEditorApp::RunBatchMode()
 {
-	//read command line params
 	int nArgsCount = 0;
 	LPWSTR pCommandLine = GetCommandLineW();
 	LPWSTR *pRes = CommandLineToArgvW( pCommandLine, &nArgsCount );
@@ -205,7 +169,6 @@ bool CEditorApp::RunBatchMode()
 	if ( nArgsCount == 1 )
 		return false;
 	
-	//��������, ������� �� batch mode
 	if ( nArgsCount < 4 )
 	{
 		std::string szMessage = "ResEditor command line batch mode:\nreseditor.exe <*.project extensions> <folder with projects> <destination folder> [-f] [-os]\n"
@@ -245,7 +208,6 @@ void CEditorApp::LoadRegisterData()
 	LoadDirs();
 	LoadFileDialogRegisterData();
 
-	// ��������� source & destination directory ��� ���� �������
 	for ( int i=0; i<g_frameManager.frames.size(); i++ )
 		g_frameManager.frames[i]->LoadRegisterData();
 }
@@ -326,16 +288,12 @@ UINT CEditorApp::MyGetProfileInt( LPCTSTR lpszSection, LPCTSTR lpszEntry, int nD
 	return GetProfileInt( lpszSection, lpszEntry, nDefault );
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// CEditorApp message handlers
 
 int CEditorApp::ExitInstance() 
 {
 #if defined( _DO_SEH ) && !defined( _DEBUG )
-	// set StructuredExceptionHandler 
 	SetCrashHandlerFilter( 0 );
 #endif // defined( _DO_SEH ) && !defined( _DEBUG )
-	//TODO: handle additional resources you may have added
 	if (m_hMDIMenu != NULL)
 		FreeResource(m_hMDIMenu);
 	if (m_hMDIAccel != NULL)
@@ -404,73 +362,47 @@ void CEditorApp::SetMainWindowText( const char *pszText )
 	m_pMainFrame->SetMainWindowText( pszText );
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// CAboutDlg dialog used for App About
 
 class CAboutDlg : public CDialog
 {
 public:
 	CAboutDlg();
 
-// Dialog Data
-	//{{AFX_DATA(CAboutDlg)
 	enum { IDD = IDD_ABOUTBOX };
-	//}}AFX_DATA
 
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CAboutDlg)
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
-	//}}AFX_VIRTUAL
 
-// Implementation
 protected:
-	//{{AFX_MSG(CAboutDlg)
-		// No message handlers
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 
 CAboutDlg::CAboutDlg() : CDialog(CAboutDlg::IDD)
 {
-	//{{AFX_DATA_INIT(CAboutDlg)
-	//}}AFX_DATA_INIT
 }
 
 void CAboutDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
-	//{{AFX_DATA_MAP(CAboutDlg)
-	//}}AFX_DATA_MAP
 }
 
 BEGIN_MESSAGE_MAP(CAboutDlg, CDialog)
-	//{{AFX_MSG_MAP(CAboutDlg)
-		// No message handlers
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-// App command to run the dialog
 void CEditorApp::OnAppAbout()
 {
 	CAboutDlg aboutDlg;
 	aboutDlg.DoModal();
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// CEditorApp message handlers
 
 
 #ifdef OLD
 BOOL CEditorApp::ProcessMessageFilter(int code, LPMSG lpMsg) 
 {
 /*
-	//���� � ������ �������� ESC � �� ���� ����� �� ����������
 	if ( (lpMsg->hwnd == pPropertyWindow->GetSafeHwnd() ) ||
 		::IsChild( pPropertyWindow->GetSafeHwnd(), lpMsg->hwnd ) )
-    // Use ::IsChild to get messages that may be going
-		// to the dialog's controls.  In the case of
-		// WM_KEYDOWN this is required.
 	{
 		if ( lpMsg->message == WM_KEYDOWN && lpMsg->wParam == VK_ESCAPE )
 		{
@@ -518,8 +450,6 @@ BOOL CEditorApp::OnIdle(LONG lCount)
 	static int nMyCount = 0;
 	nMyCount++;
 
-//	OutputDebugString( NStr::Format( "%d", nMyCount ) );
-//	GetSingleton( (IGameTimer*)0 )->Update( timeGetTime() );
 	
 	if ( nMyCount == 1024 )
 	{
@@ -577,11 +507,9 @@ void CEditorApp::OnFileNew()
 {
 	CMainFrame* pFrame = STATIC_DOWNCAST(CMainFrame, m_pMainWnd);
 	
-	// create a new MDI child window
 	CMDIChildWnd* pChildWnd = pFrame->CreateNewChild(
 		RUNTIME_CLASS(CParentFrame), IDR_EDITORTYPE, NULL, m_hMDIAccel);
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEditorApp::ReadMODFile( const std::string &szPath, std::string &szName, std::string &szVersion, std::string &szDesc )
 {
 	CPtr<IDataStream> pXMLStream = OpenFileStream( (szPath + "mod.xml").c_str(), STREAM_ACCESS_READ );
@@ -595,7 +523,6 @@ void CEditorApp::ReadMODFile( const std::string &szPath, std::string &szName, st
 	saver.Add( "MODVersion", &szVersion );
 	saver.Add( "MODDesc", &szDesc );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEditorApp::WriteMODFile( const std::string &szPath, const std::string &szName, const std::string &szVersion, const std::string &szDesc )
 {
 	CPtr<IDataStream> pXMLStream = CreateFileStream( (szPath + "mod.xml").c_str(), STREAM_ACCESS_WRITE );
@@ -620,10 +547,8 @@ void CEditorApp::WriteMODFile( const std::string &szPath, const std::string &szN
 		CPtr<IDataStorage> pStorage = GetSingleton<IDataStorage>();
 		CPtr<IDataStream> pStream = pStorage->OpenStream( "editor\\modobjects.xml", STREAM_ACCESS_READ );
 		pStream->CopyTo( pResultStream, pStream->GetSize() );
-		//CopyFile( (GetEditorDataDir() + "editor\\modobjects.xml").c_str(), (szPath + "modobjects.xml").c_str(), TRUE );
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEditorApp::OnUpdateRecentFile( CCmdUI *pCmdUI )
 {
 	std::list<std::string> files;
@@ -657,12 +582,10 @@ void CEditorApp::OnUpdateRecentFile( CCmdUI *pCmdUI )
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEditorApp::OnUpdateRecentFileRange( CCmdUI *pCmdUI )
 {
 	pCmdUI->Enable( true );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CEditorApp::OnRecentFile( UINT nID )
 {
 	std::list<std::string> files;
@@ -691,6 +614,5 @@ void CEditorApp::OnRecentFile( UINT nID )
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

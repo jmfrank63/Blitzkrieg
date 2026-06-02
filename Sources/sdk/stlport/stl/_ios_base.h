@@ -33,14 +33,7 @@
 
 _STLP_BEGIN_NAMESPACE
 
-// ----------------------------------------------------------------------
 
-// Class ios_base.  This is the base class of the ios hierarchy, which
-// includes basic_istream and basic_ostream.  Classes in the ios
-// hierarchy are actually quite simple: they are just glorified
-// wrapper classes.  They delegate buffering and physical character
-// manipulation to the streambuf classes, and they delegate most
-// formatting tasks to a locale.
 
 class _STLP_CLASS_DECLSPEC ios_base {
 public:
@@ -60,11 +53,9 @@ public:
   typedef fmtflags fmt_flags;
 # endif
 
-  // Formatting flags.
 # ifdef _STLP_STATIC_CONST_INIT_BUG
   enum  {
 # else
-  // boris : type for all those constants is int   
   static const int
 # endif
     left       = 0x0001,
@@ -86,13 +77,11 @@ public:
     basefield   = dec | hex | oct,
     floatfield  = scientific | fixed,
     
-    // State flags.
     goodbit = 0x00,
     badbit  = 0x01,
     eofbit  = 0x02,
     failbit = 0x04,
     
-    // Openmode flags.
     __default_mode = 0x0, /* implementation detail */
     app    = 0x01,
     ate    = 0x02,
@@ -101,7 +90,6 @@ public:
     out    = 0x10,
     trunc  = 0x20,
     
-    // Seekdir flags
     
     beg = 0x01,
     cur = 0x02,
@@ -164,14 +152,9 @@ public:                         // Callbacks.
   void register_callback(event_callback __fn, int __index);
 
 public:                         // This member function affects only
-                                // the eight predefined ios objects:
-                                // cin, cout, etc.
   static bool _STLP_CALL sync_with_stdio(bool __sync = true);
 
 public:                         // The C++ standard requires only that these
-                                // member functions be defined in basic_ios.
-                                // We define them in the non-template
-                                // base class to avoid code duplication.
   operator void*() const { return !fail() ? (void*) __CONST_CAST(ios_base*,this) : (void*) 0; }
   bool operator!() const { return fail(); }
 
@@ -184,10 +167,6 @@ public:                         // The C++ standard requires only that these
 
 protected:                      // The functional protected interface.
 
-  // Copies the state of __x to *this.  This member function makes it
-  // possible to implement basic_ios::copyfmt without having to expose
-  // ios_base's private data members.  Does not copy _M_exception_mask
-  // or _M_iostate.
   void _M_copy_state(const ios_base& __x);
 
   void _M_setstate_nothrow(iostate __state) { _M_iostate |= __state; }
@@ -210,7 +189,6 @@ protected:                        // Initialization of the I/O system
   static bool _S_was_synced;
   
 private:                        // Invalidate the copy constructor and
-                                // assignment operator.
   ios_base(const ios_base&);
   void operator=(const ios_base&);
 
@@ -230,7 +208,6 @@ private:                        // Data members.
   pair<event_callback, int>* _M_callbacks;
   size_t _M_num_callbacks;      // Size of the callback array.
   size_t _M_callback_index;     // Index of the next available callback;
-                                // initially zero.
 
   long* _M_iwords;              // Auxiliary storage.  The count is zero
   size_t _M_num_iwords;         // if and only if the pointer is null.
@@ -241,22 +218,15 @@ private:                        // Data members.
   static int _S_index;
 
 protected:
-  // Cached copies of the curent locale's facets.  Set by init() and imbue().
   locale::facet* _M_cached_ctype;
   locale::facet* _M_cached_numpunct;
   string         _M_cached_grouping;
 public:
-  // Equivalent to &use_facet< Facet >(getloc()), but faster.
   const locale::facet* _M_ctype_facet() const { return _M_cached_ctype; }
   const locale::facet* _M_numpunct_facet() const { return _M_cached_numpunct; }
   const string&  _M_grouping() const { return _M_cached_grouping; }
 public:
 
-  // ----------------------------------------------------------------------
-  // Nested initializer class.  This is an implementation detail, but it's
-  // prescribed by the standard.  The static initializer object (on 
-  // implementations where such a thing is required) is declared in
-  // <iostream>
   
   class _STLP_CLASS_DECLSPEC Init {
   public:
@@ -267,7 +237,6 @@ public:
     friend class ios_base;
   };
 
-  // this class is needed to ensure locale initialization w/o <iostream> inclusion
   class _STLP_CLASS_DECLSPEC _Loc_init {
   public:
     _Loc_init();
@@ -281,7 +250,6 @@ public:
 
 public:
 # ifndef _STLP_NO_ANACHRONISMS
-  //  31.6  Old iostreams members                         [depr.ios.members]
   typedef iostate  io_state;
   typedef openmode open_mode;
   typedef seekdir  seek_dir;
@@ -296,11 +264,7 @@ locale::facet* _M_get_facet(ios_base& __i, Facet*)
 
 }
 
-// ----------------------------------------------------------------------
-// ios_base manipulator functions, from section 27.4.5 of the C++ standard.
-// All of them are trivial one-line wrapper functions.
 
-// fmtflag manipulators, section 27.4.5.1
 inline ios_base& _STLP_CALL boolalpha(ios_base& __s)
   { __s.setf(ios_base::boolalpha); return __s;}
 
@@ -344,7 +308,6 @@ inline ios_base& _STLP_CALL nounitbuf(ios_base& __s)
   { __s.unsetf(ios_base::unitbuf); return __s;}
 
 
-// adjustfield manipulators, section 27.4.5.2
 inline ios_base& _STLP_CALL internal(ios_base& __s)
   { __s.setf(ios_base::internal, ios_base::adjustfield); return __s; }
 
@@ -354,7 +317,6 @@ inline ios_base& _STLP_CALL left(ios_base& __s)
 inline ios_base& _STLP_CALL right(ios_base& __s)
   { __s.setf(ios_base::right, ios_base::adjustfield); return __s; }
 
-// basefield manipulators, section 27.4.5.3
 inline ios_base& _STLP_CALL dec(ios_base& __s)
   { __s.setf(ios_base::dec, ios_base::basefield); return __s; }
 
@@ -365,7 +327,6 @@ inline ios_base& _STLP_CALL oct(ios_base& __s)
   { __s.setf(ios_base::oct, ios_base::basefield); return __s; }
 
 
-// floatfield manipulators, section 27.4.5.3
 inline ios_base& _STLP_CALL fixed(ios_base& __s)
   { __s.setf(ios_base::fixed, ios_base::floatfield); return __s; }
 
@@ -402,7 +363,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_IOS_BASE */
 
-// Local Variables:
-// mode:C++
-// End:
 

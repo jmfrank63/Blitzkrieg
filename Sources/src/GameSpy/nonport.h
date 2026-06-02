@@ -120,7 +120,6 @@ devsupport@gamespy.com
 	#include <errno.h>
 	#include <sys/time.h>
 	#include <limits.h>
-	//#include <sys/syslimits.h>
 	#include <netinet/tcp.h>
 #endif
 #endif
@@ -171,7 +170,6 @@ void SocketShutDown();
 #ifdef KGTRN_NEXGEN
 	#define FD_SETSIZE NG_FD_MAX
 	#define select selectsocket
-	//#define shutdown(a,b) //ACK! shutdown isn't linking! FIX THIS
 #endif
 
 #if defined(_WIN32) && !defined(UNDER_CE)
@@ -373,7 +371,6 @@ int DisableNagle(SOCKET sock);
 int SetReceiveBufferSize(SOCKET sock, int size);
 
 #if defined(UNDER_CE) || defined(KGTRN_PLANET_WEB) || defined(KGTRN_NEXGEN)
-//CE does not have the stdlib time() call
 	#if defined(KGTRN_PLANET_WEB) || defined(KGTRN_NEXGEN)
 		typedef long	time_t;
 	#endif

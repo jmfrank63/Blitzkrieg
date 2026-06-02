@@ -1,11 +1,8 @@
 #ifndef __COMBATESTIMATOR_H__
 #define __COMBATESTIMATOR_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Misc\HashFuncs.h"
 #include "AIHashFuncs.h"
 class CAIUnit;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ��� ����������� ��������� �������
 class CCombatEstimator
 {
 	DECLARE_SERIALIZE;
@@ -14,7 +11,6 @@ class CCombatEstimator
 	{
 		NTimer::STime time;
 		float fDamage;
-		//
 		SShellInfo() {}
 		SShellInfo( NTimer::STime time, float fDamage )
 			:time( time ), fDamage( fDamage ) { }

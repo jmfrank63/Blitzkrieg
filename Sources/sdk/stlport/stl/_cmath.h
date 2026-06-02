@@ -22,8 +22,6 @@ _STLP_BEGIN_NAMESPACE
 
 # ifdef _STLP_SAME_FUNCTION_NAME_RESOLUTION_BUG
 
-// this proxy is needed for some compilers to resolve problems
-// calling sqrt() from within sqrt(), etc.
 template <class _Tp>
 struct _STL_math_proxy {
   static inline _Tp _do_abs(const _Tp& __x)     { return _STLP_VENDOR_CSTD::fabs(__x); } 
@@ -137,7 +135,6 @@ inline float floor(float __x)                 { return _STLP_DO_FLOOR(float)(__x
 inline float fmod (float __x, float __y)      { return _STLP_DO_FMOD(float)(__x, __y); }
 inline float frexp(float __x, int* __y)       { return _STLP_DO_FREXP(float)(__x, __y); }
 inline float ldexp(float __x, int __y)        { return _STLP_DO_LDEXP(float)(__x, __y); }
-// fbp : float versions are not always available
 #if !defined(_STLP_VENDOR_LONG_DOUBLE_MATH)		//*ty 11/25/2001 - 
 inline float modf (float __x, float* __y)     { 
   double __dd[2]; 
@@ -182,7 +179,6 @@ inline long double floor(long double __x)                 { return _STLP_DO_FLOO
 inline long double fmod (long double __x, long double __y)      { return _STLP_DO_FMOD(long double)(__x, __y); }
 inline long double frexp(long double __x, int* __y)       { return _STLP_DO_FREXP(long double)(__x, __y); }
 inline long double ldexp(long double __x, int __y)        { return _STLP_DO_LDEXP(long double)(__x, __y); }
-// fbp : long double versions are not available
 inline long double modf (long double __x, long double* __y)     { 
   double __dd[2]; 
   double __res = _STLP_DO_MODF(double)((double)__x, __dd); 

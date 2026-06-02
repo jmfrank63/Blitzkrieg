@@ -42,11 +42,9 @@ bool CBridgeFrame::ComputeMaxAndMinPositions( const CVec3 &vPos3 )
 	CVec2 vPos2;
 	pSG->GetPos2( &vPos2, vPos3 );
 	
-	//найдем минимальную и максимальную координаты движка, для задания горизонтального положения точки стрельбы
 	if ( pActiveSpansItem->lockedTiles.empty() )
 		return false;
 	
-	//Сперва найдем минимальные и максимальные координаты тайлов в pActiveSpansItem->lockedTiles
 	int nTileMinX = pActiveSpansItem->lockedTiles.front().nTileX, nTileMaxX = pActiveSpansItem->lockedTiles.front().nTileX;
 	int nTileMinY = pActiveSpansItem->lockedTiles.front().nTileY, nTileMaxY = pActiveSpansItem->lockedTiles.front().nTileY;
 	CListOfTiles::iterator it=pActiveSpansItem->lockedTiles.begin();
@@ -77,10 +75,7 @@ bool CBridgeFrame::ComputeMaxAndMinPositions( const CVec3 &vPos3 )
     3
 */
 
-	//линия 21 это OY
-	//линия 23 это OX
 
-	// найдем пересечение с линией 21
 	CGridFrame::GetGameTileCoordinates( nTileMinX, nTileMinY, fx1, fy1, fx2, fy2, fx3, fy3, fx4, fy4 );
 	x1 = fx2;
 	y1 = fy2;
@@ -97,7 +92,6 @@ bool CBridgeFrame::ComputeMaxAndMinPositions( const CVec3 &vPos3 )
 	}
 	else
 	{
-		// найдем пересечение с линией 14
 		x1 = x2;
 		y1 = y2;
 		
@@ -113,18 +107,14 @@ bool CBridgeFrame::ComputeMaxAndMinPositions( const CVec3 &vPos3 )
 		}
 		else
 		{
-//			AfxMessageBox( "Error: The shoot point should be inside horizontal locked tile position, it need be deleted" );
-//			pTreeDockBar->SetFocus();
 		}
 	}
 
 	if ( !bFound )
 	{
-		//Значит точка нигде не пересекает залоченные тайлы
 		return false;
 	}
 
-	// найдем пересечение с линией 23
 	CGridFrame::GetGameTileCoordinates( nTileMinX, nTileMinY, fx1, fy1, fx2, fy2, fx3, fy3, fx4, fy4 );
 	x1 = fx2;
 	y1 = fy2;
@@ -138,7 +128,6 @@ bool CBridgeFrame::ComputeMaxAndMinPositions( const CVec3 &vPos3 )
 		yMax = y;
 	else
 	{
-		// найдем пересечение с линией 34
 		x1 = x2;
 		y1 = y2;
 		

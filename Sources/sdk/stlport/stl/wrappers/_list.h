@@ -45,7 +45,6 @@ namespace STLPORT {
 # endif
 
 
-// provide a "default" list adaptor
 template <class _Tp>
 class list : public __LIST_SUPER
 {
@@ -81,6 +80,3 @@ inline bool operator<(const list<_Tp>& __x, const list<_Tp>& __y) {
 
 #endif /* _STLP_INTERNAL_LIST_H */
 
-// Local Variables:
-// mode:C++
-// End:

@@ -20,16 +20,10 @@
 #include "Turret.h"
 
 #include "MPLog.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern NTimer::STime curTime;
 extern CDiplomacy theDipl;
 extern CGroupLogic theGroupLogic;
 extern CHitsStore theHitsStore;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												CShootEstimatorLighAA											*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CShootEstimatorLighAA::Init( CCommonUnit *_pUnit )
 {
 	pUnit = _pUnit;
@@ -43,13 +37,11 @@ void CShootEstimatorLighAA::Init( CCommonUnit *_pUnit )
 	pGun = 0;
 	bCanShootNow = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CShootEstimatorLighAA::Init( class CCommonUnit *pUnit, CBasicGun *_pGun )
 {
 	Init( pUnit );
 	pGun = _pGun;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CShootEstimatorLighAA::AddUnit( CAIUnit *pTarget )
 {
 	if ( IsValidObj( pTarget ) && pTarget->GetStats()->IsAviation() )
@@ -57,7 +49,6 @@ void CShootEstimatorLighAA::AddUnit( CAIUnit *pTarget )
 		if ( pGun != 0 && ( !pGun->CanShootByHeight( pTarget ) || !pGun->CanBreakArmor( pTarget ) ) ) return;
 		
 		CBasicGun *pChosenGun = pGun;
-		// gun не задан, нужно его выбрать и найти время для убиения врага
 		if ( pChosenGun == 0 )
 		{
 			int i = 0;
@@ -65,16 +56,13 @@ void CShootEstimatorLighAA::AddUnit( CAIUnit *pTarget )
 				++i;
 			if ( i >= pUnit->GetNGuns() )
 				return;
-			//CRAP{ считаем, что у зениток 1 пушка
 			pChosenGun = pUnit->GetGun( i );
-			//CRAP}
 		}
 
 
 		const float fDistance = fabs2( pUnit->GetCenter() - pTarget->GetCenter() );
 		const float fDamage = pTarget->GetMaxDamage( pUnit );
 		
-		//его можно прострелить
 		if ( pChosenGun != 0 )
 		{
 			static NTimer::STime timeToShoot = DirsDifference( GetDirectionByVector( pTarget->GetCenter() - pUnit->GetCenter() ), pChosenGun->GetGlobalDir() );
@@ -89,10 +77,6 @@ void CShootEstimatorLighAA::AddUnit( CAIUnit *pTarget )
 			}
 			else
 			{
-				// он может нанести больший damage 
-				// или может стрелять (исходя из дистанции)
-				// или он нанесёт такой же damage, но его быстрее пристрелить
-				// или damage и время совпадают, но он ближе
 				if (	fDamage > fWorstDamage ||
 							fDamage == fWorstDamage && bCanShoot && !bCanShootNow ||
 							fDamage == fWorstDamage && bCanShoot == bCanShootNow && bestTime > timeToShoot ||
@@ -108,48 +92,36 @@ void CShootEstimatorLighAA::AddUnit( CAIUnit *pTarget )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAIUnit* CShootEstimatorLighAA::GetBestUnit()
 {
 	return pResult;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												CStandartBehaviour												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAIUnit* CStandartBehaviour::LookForTargetInFireRange( CCommonUnit *pUnit )
 {
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartBehaviour::ResetTime( CCommonUnit *pUnit )
 {
 	underFireAnalyzeTime = 0;
 	lastTimeOfRotate = -1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartBehaviour::UponFire( class CCommonUnit *pUnit, class CAIUnit *pWho, class CAICommand *pCommand )
 {
 /*
 	if ( IsValidObj( pWho ) )
 	{
 		SBehaviour &beh = pUnit->GetBehaviour();
-		// если return fire
 		if ( beh.fire == SBehaviour::EFReturn )
 		{
-			// если свободное блуждание или нет команд и не нужно держать позицию и в радиусе видимости
 			if ( ( beh.moving == SBehaviour::EMRoaming ) || ( pCommand == 0 && beh.moving != SBehaviour::EMHoldPos )
 					 && pWho->IsVisible( pUnit->GetParty() ) && pUnit->InVisSector( pWho) )
 				theGroupLogic.InsertUnitCommand( SAIUnitCmd( ACTION_COMMAND_ATTACK_UNIT, pWho ), pUnit, true );
-			// если follow the path и в радиусе огня
 			if ( beh.moving == SBehaviour::EMFollow && pUnit->InFireRange( pWho ) )
 				theGroupLogic.InsertUnitCommand( SAIUnitCmd( ACTION_COMMAND_ATTACK_UNIT, pWho ), pUnit, true );
 		}
 	}
 */
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStandartBehaviour::TryToTraceEnemy( CAIUnit *pUnit )
 {
 	const int nParty = pUnit->GetParty();	
@@ -222,7 +194,6 @@ bool CStandartBehaviour::TryToTraceEnemy( CAIUnit *pUnit )
 		return false;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartBehaviour::AnalyzeUnderFire( CAIUnit *pUnit )
 {
 	if ( curTime >= underFireAnalyzeTime )
@@ -236,7 +207,6 @@ void CStandartBehaviour::AnalyzeUnderFire( CAIUnit *pUnit )
 			 if ( ( theHitsStore.WasHit( pUnit->GetCenter(), 2 * SConsts::RADIUS_OF_HIT_NOTIFY, CHitsStore::EHT_ANY ) ||
 							lastTimeOfRotate != NTimer::STime( -1 ) && curTime - lastTimeOfRotate < 10000 + Random( 0, 10 * SConsts::AI_SEGMENT_DURATION ) ) )
 				{
-					// если танк с перебитой гусеницей или зенитка
 					if ( pUnit->GetTurret( 0 )->GetHorTurnConstraint() != 0 && 
 							( !pUnit->CanMove() && pUnit->GetStats()->IsArmor() || pUnit->GetStats()->type == RPG_TYPE_ART_AAGUN ) 
 						 )
@@ -303,4 +273,3 @@ void CStandartBehaviour::AnalyzeUnderFire( CAIUnit *pUnit )
 		underFireAnalyzeTime = curTime + SConsts::TIME_OF_HIT_NOTIFY + Random( 0, 1000 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

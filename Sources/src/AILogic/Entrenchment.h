@@ -1,18 +1,10 @@
 #ifndef __ENTRENCHMENT_H__
 #define __ENTRENCHMENT_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "StaticObject.h"
 #include "StormableObject.h"
 #include "RotatingFireplacesObject.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldier;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												  CEntrenchment														*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CEntrenchment : public CStaticObject, public ILoadableObject, public CStormableObject, public CRotatingFireplacesObject
 {
 	OBJECT_COMPLETE_METHODS( CEntrenchment );
@@ -25,7 +17,6 @@ class CEntrenchment : public CStaticObject, public ILoadableObject, public CStor
 	public:
 		CVec2 center;
 		CPtr<CSoldier> pUnit;
-		// номер сегмента, опис. данный fireplace в статах
 		int nFrameIndex;
 
 		SFireplaceInfo() : nFrameIndex( -1 ) { }
@@ -38,7 +29,6 @@ class CEntrenchment : public CStaticObject, public ILoadableObject, public CStor
 		public:
 
 		CPtr<CSoldier> pUnit;
-		// -1, если в резерве
 		int nFireplace;
 
 		SInsiderInfo() { }
@@ -58,7 +48,6 @@ class CEntrenchment : public CStaticObject, public ILoadableObject, public CStor
 
 	NTimer::STime nextSegmTime;
 
-	//
 	static CVec2 GetShift( const CVec2 &vPoint, const CVec2 &vDir );
 	void ProcessEmptyFireplace( const int nFireplace );
 protected:
@@ -88,7 +77,6 @@ public:
 	
 	virtual EStaticObjType GetObjectType() const { return ESOT_ENTRENCHMENT; }
 	
-	// итерирование по fire slots
 	virtual void StartIterate() { iter = insiders.begin(); }
 	virtual void Iterate();
 	virtual bool IsIterateFinished() { return iter == insiders.end(); }
@@ -101,30 +89,18 @@ public:
 
 	void Delete();
 	
-	// возвращает в pvResult точку в окопе, ближаюшую к vPoint 
 	void GetClosestPoint( const CVec2 &vPoint, CVec2 *pvResult ) const;
 	virtual const bool IsVisibleForDiplomacyUpdate() { return IsAnyInsiderVisible(); }
 	
 	virtual bool CanUnitGoThrough( const EAIClass &eClass ) const { return true; }
 	
-	// можно ли менять слот у этого слодата
 	virtual bool CanRotateSoldier( class CSoldier *pSoldier ) const;
-	// поставить солдата в place вместо сидящего там
 	virtual void ExchangeUnitToFireplace( class CSoldier *pSoldier, int nFirePlace );
-	// количество fireplaces
 	const int GetNFirePlaces() const;
-	// солдат, сидящий в fireplace, если fireplace пуст, то возвращает 0
 	class CSoldier* GetSoldierInFireplace( const int nFireplace) const;
-	//
 	const CVec2 GetFirePlaceCoord( const int nFirePlace );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CEntrenchmentPart														*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFullEntrenchment;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CEntrenchmentPart : public CExistingObject
 {
 	OBJECT_COMPLETE_METHODS( CEntrenchmentPart );
@@ -144,17 +120,13 @@ class CEntrenchmentPart : public CExistingObject
 
 	NTimer::STime nextSegmTime;
 	
-	//
-	// виден всеми сторонами
 	bool CanUnregister() const;
-	//
 	static CVec2 GetShift( const CVec2 &vPoint, const CVec2 &vDir );
 protected:
 	virtual void SetNewPlaceWithoutMapUpdate( const CVec2 &_center, const WORD _dir = 0 );
 public:
 	CEntrenchmentPart() { }
 	void Init();
-	// nFrameIndex - индекс в векторе SEntrenchmentRPGStats::segments
 	CEntrenchmentPart( const SEntrenchmentRPGStats *pStats, const CVec2& center, const WORD dir, const int nFrameIndex, const int dbID, float fHP );
 	static SRect CalcBoundRect( const CVec2 & center, const WORD _dir, const SEntrenchmentRPGStats::SSegmentRPGStats& stats);
 
@@ -185,7 +157,6 @@ public:
 	virtual const SHPObjectRPGStats* GetStats() const { return pStats; }
 
 	virtual void TakeDamage( const float fDamage, const bool bFromExplosion, const int nPlayerOfShoot, CAIUnit *pShotUnit );
-	// бессмертен
 	virtual void Die( const float fDamage ) { }
 	
 	virtual EStaticObjType GetObjectType() const { return ESOT_ENTR_PART; }
@@ -199,11 +170,6 @@ public:
 
 	virtual bool CanUnitGoThrough( const EAIClass &eClass ) const { return true; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												 CFullEntrenchment												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFullEntrenchment : public IRefCount
 {
 	OBJECT_COMPLETE_METHODS( CFullEntrenchment );
@@ -216,8 +182,6 @@ public:
 	void AddEntrenchmentPart( class CEntrenchmentPart *pEntrenchmentPart );
 	void SetVisible();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// танковый окоп
 class CEntrenchmentTankPit : public CGivenPassabilityStObject
 {
 	OBJECT_COMPLETE_METHODS( CEntrenchmentTankPit );
@@ -235,7 +199,6 @@ protected:
 	virtual void SetNewPlaceWithoutMapUpdate( const CVec2 &_center, const WORD _dir = 0 ) { }
 public:
 	CEntrenchmentTankPit() { }
-	// nFrameIndex - индекс в векторе SEntrenchmentRPGStats::segments
 	CEntrenchmentTankPit( const SMechUnitRPGStats *pStats, const CVec2& center, const WORD dir,const int nFrameIndex, const int dbID, const class CVec2 &vResizeFactor, const CTilesSet &tilesToLock, class CAIUnit *_pOwner );
 
 	virtual const WORD GetDir() const { return wDir; }
@@ -268,5 +231,4 @@ public:
 	virtual bool CanUnitGoThrough( const EAIClass &eClass ) const { return false; }
 	virtual bool ShouldSuspendAction( const EActionNotify &eAction ) const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __ENTRENCHMENT_H__

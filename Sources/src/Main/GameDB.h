@@ -1,22 +1,15 @@
 #ifndef __GAMEDB_H__
 #define __GAMEDB_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Ensure interface macro is defined
 #ifndef interface
 #define interface struct
 #endif
-// Ensure STDCALL macro is defined  
 #ifndef STDCALL
 #define STDCALL __stdcall
 #endif
-//
 #include "..\Misc\Basic.h"
 #include "..\zlib\zlib.h"
-// Ensure IGDB is available
 #include "..\Misc\Basic.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EObjVisType
 {
 	SGVOT_UNKNOWN   = 0,
@@ -52,41 +45,30 @@ enum EObjGameType
 
 	SGVOGT_FORCE_DWORD = 0x7fffffff
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// general descriptor
 struct SGDBObjectDesc : public IGDBObject
 {
 	std::string szKey;										// object key name
 	std::string szPath;										// path to game resources for this object
 	EObjVisType eVisType;									// visualization type (sprite/mesh/particles/etc.)
 	EObjGameType eGameType;								// game type (unit/building/object/effect/etc.)
-	//
 	virtual const char* STDCALL GetName() const { return szKey.c_str(); }
 	virtual const char* STDCALL GetParentName() const { return "Desc"; }
 	virtual const uLong STDCALL GetCheckSum() const { return 0L; }
-	//
 	bool IsObj() const { return (eGameType == SGVOGT_UNIT) || (eGameType == SGVOGT_BUILDING) || (eGameType == SGVOGT_OBJECT) || (eGameType == SGVOGT_FENCE) || (eGameType == SGVOGT_ENTRENCHMENT) || (eGameType == SGVOGT_FORTIFICATION); }
 	bool IsHuman() const { return (eGameType == SGVOGT_UNIT) && (eVisType == SGVOT_SPRITE); }
 	bool IsTechnics() const { return (eGameType == SGVOGT_UNIT) && (eVisType == SGVOT_MESH); }
 	bool IsDestructable() const { return (eGameType == SGVOGT_UNIT) || (eGameType == SGVOGT_BUILDING) || (eGameType == SGVOGT_OBJECT) || (eGameType == SGVOGT_FENCE) || (eGameType == SGVOGT_ENTRENCHMENT) || (eGameType == SGVOGT_FORTIFICATION); }
-	//
 	int operator&( IDataTree &ss );
 	int operator&( IStructureSaver &ss );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// objects database
-// Note: IGDB is defined in Basic.h
 interface IObjectsDB : public ::IGDB
 {
-	// type ID
 	enum { tidTypeID = 1 };
-	// add stats type
 	enum EAddStatsType
 	{
 		WEAPON,
 		ACKS
 	};
-	// game stats type
 	enum EGameStatsType
 	{
 		MISSION,
@@ -95,7 +77,6 @@ interface IObjectsDB : public ::IGDB
 		MEDAL,
 		BASIC
 	};
-	//
 	virtual const IGDBObject* STDCALL Get( const char *pszName, const char *pszParentName ) = 0;
 	virtual const SGDBObjectDesc* STDCALL GetDesc( int nIndex ) const = 0;
 	virtual const SGDBObjectDesc* STDCALL GetDesc( const char *pszName ) const = 0;
@@ -103,19 +84,15 @@ interface IObjectsDB : public ::IGDB
 	virtual int STDCALL GetIndex( const char *pszName ) const = 0;
 	virtual int STDCALL GetNumDescs() const = 0;
 	virtual const SGDBObjectDesc* STDCALL GetAllDescs() const = 0;
-	// additional object info retrieving
 	virtual const IGDBObject* STDCALL GetRPGStats( const IGDBObject *pObject ) = 0;
 	virtual const IGDBObject* STDCALL GetAddStats( const char *pszName, EAddStatsType type ) = 0;
 	virtual const IGDBObject* STDCALL GetGameStats( const char *pszName, EGameStatsType type ) = 0;
 	virtual const IGDBObject* STDCALL GetExpLevels( const int nUnitType ) const = 0;
-	//
 	virtual bool STDCALL LoadDB() = 0;
 };
 IObjectsDB* STDCALL CreateObjectsDB();
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NGDB
 {
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TYPE>
 	inline const TYPE* GetRPGStats( IObjectsDB *pGDB, int nIndex )
 	{
@@ -168,7 +145,5 @@ template <class TYPE>
 	}
 template <class TYPE>
 	inline const TYPE* GetGameStats( const char *pszName, IObjectsDB::EGameStatsType type ) { return GetGameStats<TYPE>( GetSingleton<IObjectsDB>(), pszName, type ); }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __GAMEDB_H__

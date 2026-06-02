@@ -1,7 +1,3 @@
-//{{NO_DEPENDENCIES}}
-// Microsoft Developer Studio generated include file.
-// Used by ELK.rc
-//
 #define IDC_CHFS_SET_DEFAULT_BUTTON     3
 #define IDD_ABOUTBOX                    100
 #define IDR_MAINFRAME                   128
@@ -237,8 +233,6 @@
 #define IDS_REGISTRY_FONT_NAME          61279
 #define IDS_FONT_SIZE_DIMENSIONS_FORMAT 61280
 
-// Next default values for new objects
-// 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_3D_CONTROLS                     1

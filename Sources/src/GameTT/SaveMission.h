@@ -1,25 +1,18 @@
 #ifndef __SAVE_MISSION_H__
 #define __SAVE_MISSION_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Common\InterfaceScreenBase.h"
 #include "..\Input\InputHelper.h"
 #include "iMission.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInterfaceSaveMission : public CInterfaceScreenBase
 {
 	OBJECT_NORMAL_METHODS( CInterfaceSaveMission );
-	//
 	std::vector<std::string> szSaves;
 	std::string szProspecitveSave;
-	// input
 	NInput::CCommandRegistrator savemissionMsgs;
-	//
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
 	virtual bool STDCALL StepLocal( bool bAppActive );
 	virtual void STDCALL DrawAdd();
-	// disable explicit destruction
 	virtual ~CInterfaceSaveMission();
 
 	void OnSave();
@@ -32,7 +25,6 @@ public:
 
 	void Configure( const int nMode );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CICSaveMission : public CInterfaceCommandBase<CInterfaceSaveMission, MISSION_INTERFACE_SAVE_MISSION>
 {
 	OBJECT_NORMAL_METHODS( CICSaveMission );
@@ -45,7 +37,6 @@ class CICSaveMission : public CInterfaceCommandBase<CInterfaceSaveMission, MISSI
 		pInterface->Configure( nType );
 		pML->PushInterface( pInterface ); 
 	}
-	//
 	CICSaveMission() {  }
 public:
 	virtual void STDCALL Configure( const char *pszConfig )
@@ -56,5 +47,4 @@ public:
 			nType = NStr::ToInt( pszConfig );
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __SAVE_MISSION_H__

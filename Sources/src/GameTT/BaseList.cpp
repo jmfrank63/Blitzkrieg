@@ -5,7 +5,6 @@
 #include "BaseList.h"
 #include "SaveLoadCommon.h"
 #include "CommonId.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commonCommands[] = 
 {
 	{ "cancel_load"	,	IMC_CANCEL					},
@@ -16,7 +15,6 @@ static const NInput::SRegisterCommandEntry commonCommands[] =
 	{ "key_right",		MESSAGE_KEY_RIGHT		},
 	{ 0							,	0										}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGetAllDirsRelative::operator() ( const NFile::CFileIterator &it )
 {
 	if ( it.IsDirectory() )
@@ -27,23 +25,19 @@ void CGetAllDirsRelative::operator() ( const NFile::CFileIterator &it )
 		pFileVector->push_back( szName );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceBaseList::~CInterfaceBaseList()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceBaseList::FillListFromCurrentDir()
 {
 	IUIListControl *pList = checked_cast<IUIListControl*>( pUIScreen->GetChildByID( 1000 ) );
 	NI_ASSERT( pList != 0 );
 	
-	//������� ��� items �� ListControl
 	for ( int i = pList->GetNumberOfItems() - 1; i >= 0; i-- )
 	{
 		pList->RemoveItem( i );
 	}
 	
-	// enumerate all available files and dirs
 	dirsList.clear();
 	filesList.clear();
 	std::vector< std::string > dirs;		//��������� ��������� ����������
@@ -62,12 +56,10 @@ void CInterfaceBaseList::FillListFromCurrentDir()
 			if ( strncmp( pStats->pszName, szCurrentDir.c_str(), szCurrentDir.size() ) )
 				continue;			//�� �����
 
-			//��������, ��� ������ ���� ��������� ����������
 			std::string szCurrentName = pStats->pszName + szCurrentDir.size();
 			int nPos = szCurrentName.rfind( '\\' );
 			if ( nPos != std::string::npos )		//������ ���� ��� ����������
 			{
-				//������� ��� ����������
 				szCurrentName = szCurrentName.substr( 0, szCurrentName.find('\\') );
 				setOfDirs.insert( szCurrentName );
 				continue;
@@ -76,7 +68,6 @@ void CInterfaceBaseList::FillListFromCurrentDir()
 			nPos = szCurrentName.rfind( '.' );
 			if ( nPos == std::string::npos )
 			{
-				//��� ����������, ��������� �� � ������ ����������
 				dirs.push_back( szCurrentName );
 			}
 			std::string szExtension = szCurrentName.substr( nPos );
@@ -84,7 +75,6 @@ void CInterfaceBaseList::FillListFromCurrentDir()
 			{
 				if ( szExtension == fileMasks[k].c_str() + 1 )
 				{
-					//��������� ����� �����, ��������� � ������ ������
 					files.push_back( szCurrentName );
 				}
 			}
@@ -97,11 +87,8 @@ void CInterfaceBaseList::FillListFromCurrentDir()
 	}
 	else
 	{
-		//����������
 		NFile::EnumerateFiles( szCurrentDir.c_str(), "*.*", CGetAllDirsRelative(szCurrentDir.c_str(), &dirs), false );
-		//	std::sort( dirs.begin(), dirs.end() );
 		
-		//�����
 		switch ( nSortType )
 		{
 		case E_SORT_BY_NAME:
@@ -146,18 +133,15 @@ void CInterfaceBaseList::FillListFromCurrentDir()
 	
 	if ( szCurrentDir.size() > szTopDir.size() )
 	{
-		//��������� ���������� ���� ������
 		dirs.insert( dirs.begin(), ".." );
 	}
 	
-	// add strings to list control
 	for ( int i = 0; i < dirs.size(); i++ )
 	{
 		pList->AddItem();
 		IUIListRow *pRow = pList->GetItem( i );
 		pRow->SetUserData( i );
 		
-		//��������� ��� ����������
 		IUIContainer *pContainer = checked_cast<IUIContainer*> ( pRow->GetElement( 0 ) );
 		dirsList.push_back( dirs[i] );
 		std::wstring wszTemp;
@@ -182,10 +166,8 @@ void CInterfaceBaseList::FillListFromCurrentDir()
 		IUIListRow *pRow = pList->GetItem( nItemNumber );
 		pRow->SetUserData( nItemNumber );
 		
-		//��������� ��� �����
 		IUIContainer *pContainer = checked_cast<IUIContainer*> ( pRow->GetElement( 0 ) );
 		filesList.push_back( files[i] );
-		//������� extension
 		std::wstring wszTemp;
 		NStr::ToUnicode( &wszTemp, files[i].substr( 0, files[i].rfind( '.' ) ) );
 		pContainer->SetWindowText( 0, reinterpret_cast<const WORD*>( wszTemp.c_str() ) );
@@ -193,7 +175,6 @@ void CInterfaceBaseList::FillListFromCurrentDir()
 		IUIElement *pElement = pContainer->GetChildByID( 1 );
 		NI_ASSERT_T( pElement != 0, "Invalid list control name dialog, it should contain icon" );
 		pElement->SetState( 1 );			//����
-		//TODO ������ 1 ������� ��������������� �����
 
 		std::string szFullName = szCurrentDir;
 		szFullName += files[i];
@@ -209,7 +190,6 @@ void CInterfaceBaseList::FillListFromCurrentDir()
 
 	pList->InitialUpdate();
 	
-	//��������� ������� ���������� �������
 	if ( !bSelected )
 	{
 		if ( pList->GetNumberOfItems() < nBeginSelItem )
@@ -219,7 +199,6 @@ void CInterfaceBaseList::FillListFromCurrentDir()
 	
 	pUIScreen->Reposition( pGFX->GetScreenRect() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceBaseList::Init()
 {
 	NStr::SetCodePage( GetACP() );
@@ -229,7 +208,6 @@ bool CInterfaceBaseList::Init()
 	
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceBaseList::StartInterface()
 {
 	CInterfaceScreenBase::StartInterface();
@@ -242,27 +220,22 @@ void CInterfaceBaseList::StartInterface()
 
 	FillListFromCurrentDir();
 
-	// add UI screen to scene
 	pScene->AddUIScreen( pUIScreen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceBaseList::FillListItem( IUIListRow *pRow, const std::string &szFullFileName, bool *pSelectedItem )
 {
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceBaseList::OnOk( const std::string &szFullFileName )
 {
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceBaseList::ProcessMessage( const SGameMessage &msg )
 {
 	switch ( msg.nEventID )
 	{
 		case IMC_OK:
 			{
-				//��������� ����� ������� selection �� list control
 				IUIElement *pElement = pUIScreen->GetChildByID( 1000 );		//should be List Control
 				IUIListControl *pList = checked_cast<IUIListControl*>( pElement );
 				
@@ -282,10 +255,8 @@ bool CInterfaceBaseList::ProcessMessage( const SGameMessage &msg )
 				int nSel = pSelRow->GetUserData();						//������ � �������
 				if ( nSel < dirsList.size() )
 				{
-					//������ ������� ����������
 					if ( dirsList[ nSel ] == ".." )
 					{
-						//���������� ������
 						NI_ASSERT_T( !stack.empty(), "Popup stack is empty" );
 						nBeginSelItem = stack.back();
 						stack.pop_back();
@@ -313,19 +284,15 @@ bool CInterfaceBaseList::ProcessMessage( const SGameMessage &msg )
 				return true;
 			}
 	}
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceBaseList::StepLocal( bool bAppActive )
 {
 	if ( !bAppActive ) 
 		return false;
-	//
 	const CVec2 vPos = pCursor->GetPos();
 	CInterfaceScreenBase::OnCursorMove( vPos );
 	if ( pUIScreen )		//� ��������� ������� pUIScreen ����
 		pUIScreen->Update( pTimer->GetAbsTime() );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

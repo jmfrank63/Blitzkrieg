@@ -17,14 +17,8 @@
 #include "..\GameTT\MultiplayerCommandManager.h"
 #include "..\Common\PauseGame.h"
 #include "..\Main\TextSystem.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												CMultiPlayerTransceiver										*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CMultiPlayerTransceiver::MAX_LATENCY = 128;
 const NTimer::STime CMultiPlayerTransceiver::TIME_TO_START_LAG_BY_NO_SEGMENT_DATA = 3000;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMultiPlayerTransceiver::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -34,7 +28,6 @@ int CMultiPlayerTransceiver::operator&( IStructureSaver &ss )
 		pAILogic = GetSingleton<IAILogic>();
 		pCmdsHistory = GetSingleton<ICommandsHistory>();
 	}
-	//
 	saver.Add( 1, &nLatency );
 	saver.Add( 2, &nNumPlayers );
 	saver.Add( 3, &nSegment );
@@ -62,7 +55,6 @@ int CMultiPlayerTransceiver::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::Init( ISingleton *pSingleton, const int nMultiplayerType )
 {
 	CTableAccessor constsTbl = NDB::OpenDataTable( "consts.xml" );
@@ -101,10 +93,8 @@ void CMultiPlayerTransceiver::Init( ISingleton *pSingleton, const int nMultiplay
 	pMultiplayer->Init();
 	timeOut.Init( pMultiplayer );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::LoadGameSettings()
 {
-	// my number info
 	nMyNumber = GetGlobalVar( "Multiplayer.OurPlayerID", -1 );
 	NI_ASSERT_T( nMyNumber != -1, "Wrong number of our player" );
 	timeOut.InitGameStart( nMyNumber );
@@ -112,7 +102,6 @@ void CMultiPlayerTransceiver::LoadGameSettings()
 	nNumPlayersInMap = GetGlobalVar( "Multiplayer.NumPlayersInMap", -1 );
 	pAILogic->SetNPlayers( nNumPlayersInMap );
 
-	// number of players info
 	nNumPlayers = GetGlobalVar( "Multiplayer.NumGamingPlayers", 0 );
 	
 	wMask = 0;
@@ -120,7 +109,6 @@ void CMultiPlayerTransceiver::LoadGameSettings()
 	
 	players.clear();
 
-	// all players info
 	std::string szValueName;
 	std::vector<int> busyNumbers( 16, 0 );
 	for ( int i = 0; i != nNumPlayers; ++i )
@@ -146,7 +134,6 @@ void CMultiPlayerTransceiver::LoadGameSettings()
 		if ( player.nSide != -1 && szSideName != "Unknown" )
 			SetGlobalVar( NStr::Format( "Multiplayer.Side%d.Name", player.nSide ), szSideName.c_str() );
 
-		//
 		IPlayerScenarioInfo *pScenarioTrackerPlayer = pScenarioTracker->AddPlayer( player.nLogicID );
 		if ( player.nLogicID == nMyNumber )
 		{
@@ -158,7 +145,6 @@ void CMultiPlayerTransceiver::LoadGameSettings()
 		pScenarioTrackerPlayer->SetName( player.szName.c_str() );
 		pScenarioTrackerPlayer->SetDiplomacySide( player.nSide );
 
-		//
 		if ( (player.nSide == -1) || (player.nLogicID == -1) )
 		{
 			NI_ASSERT_T( false, NStr::Format("Player %d has wrong information. Skipping", i) );
@@ -193,7 +179,6 @@ void CMultiPlayerTransceiver::LoadGameSettings()
 		}
 	}
 	
-	// add neutral players
 	for ( int i = 0; i < 16; ++i )
 	{
 		if ( busyNumbers[i] == 0 )
@@ -207,10 +192,8 @@ void CMultiPlayerTransceiver::LoadGameSettings()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::InitVariables()
 {
-	// clear checksums stream
 	IConsoleBuffer *pBuffer = GetSingleton<IConsoleBuffer>();
 	while ( const char *pszString = pBuffer->ReadASCII(CONSOLE_STREAM_MULTIPLAYER_CHECK) );
 
@@ -218,7 +201,6 @@ void CMultiPlayerTransceiver::InitVariables()
 
 	bTotalOutOfSync = false;
 
-	//
 	receivedCmds.clear();
 	segmFinished.clear(); segmFinished.resize( MAX_LATENCY, 0 );
 	lastFinishedSegment.clear(); lastFinishedSegment.resize( MAX_LATENCY, 0 );
@@ -250,7 +232,6 @@ void CMultiPlayerTransceiver::InitVariables()
 
 	pAILogic->SetNetGame( true );
 	
-	//
 	SetGlobalVar( "MultiplayerGame", 1 );
 
 	bGameStarted = true;
@@ -258,13 +239,11 @@ void CMultiPlayerTransceiver::InitVariables()
 
 	bHistoryPlaying = GetGlobalVar( "History.Playing", 0 ) == 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::LoadAllGameParameters()
 {
 	pAILogic = GetSingleton<IAILogic>();
 	NI_ASSERT_T( pMultiplayer != 0, "Can't start game: doesn't have multiplayer object" );
 
-	// enter campaign
 	IScenarioTracker *pScenarioTracker = GetSingleton<IScenarioTracker>();
 	pScenarioTracker->StartCampaign( "MULTIPLAYER", CAMPAIGN_TYPE_MULTIPLAYER );
 	LoadGameSettings();
@@ -273,31 +252,26 @@ void CMultiPlayerTransceiver::LoadAllGameParameters()
 	pScenarioTracker->StartMission( "MULTIPLAYER" );
 	InitVariables();
 
-	// reset timer
 	GetSingleton<IGameTimer>()->GetGameTimer()->Reset();
 	GetSingleton<IGameTimer>()->GetGameSegmentTimer()->Set( 0xffffffff );
 
 	bSpeedSet = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::SendChatMessages()
 {
 	IConsoleBuffer *pBuffer = GetSingleton<IConsoleBuffer>();
 	while ( const wchar_t *pszString = pBuffer->Read( CONSOLE_STREAM_NET_CHAT ) )
 	{
-		// скопировать во временную переменную, чтобы не затёрлось следующим вызовом pBuffer->Read
 		std::wstring szMessageType = pszString;
 		const wchar_t *pszString1 = pBuffer->Read( CONSOLE_STREAM_NET_CHAT );
 		pMultiplayer->SendInGameChatMessage( reinterpret_cast<const WORD*>( szMessageType.c_str() ), reinterpret_cast<const WORD*>( pszString1 ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::SegmentFinished()
 {
 	if ( !bTotalOutOfSync )
 	{
 		IConsoleBuffer *pBuffer = GetSingleton<IConsoleBuffer>();
-		// checksums от AI
 		while ( const char *pszString = pBuffer->ReadASCII(CONSOLE_STREAM_MULTIPLAYER_CHECK) )
 		{
 			unsigned long checkSum = 0;
@@ -307,40 +281,28 @@ void CMultiPlayerTransceiver::SegmentFinished()
 			AddCommandToSend( pCheckSumCommand );
 		}
 
-		// add segment data
 		pktOutgoing << BYTE(NGM_ID_SEGMENT);
-		// послать об окончании команд моего сегмента
 		pMultiplayer->SendClientCommands( pktOutgoing );
 		pktOutgoing->SetSize( 0 );
 	}
 
-	//
 	segmFinished[nSegment] |= 1UL << nMyNumber;
 	lastFinishedSegment[nMyNumber] = nCommonSegment;
 
-	// segment finished sent, don't need to send "I am alive" message
 	timeOfLastSegmFinished[nMyNumber] = GetSingleton<IGameTimer>()->GetAbsTime();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::SetLatency( int nSegments )
 {
-	// CRAP{ не всё так просто. для корректной работы надо послать команду на изменение latency для этого клиента
-	// выполнить лишние сегменты
 	nLatency = nSegments;
-	// CRAP}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CMultiPlayerTransceiver::GetPastSegmentNum( const int nLatency ) const
 {
-	// прибавляется MAX_LATENCY, т.к. модуль от отрицательных чисел считается неправильно
 	return ( nSegment - nLatency + MAX_LATENCY ) % MAX_LATENCY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CMultiPlayerTransceiver::GetCommonPastSegmentNum() const
 {
 	return ( nCommonSegment - nLatency );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::AddCommandToSend( IAILogicCommand *pCommand )
 {
 	const int nModule = nCommonSegment % nSegmentsPackSize;
@@ -349,7 +311,6 @@ void CMultiPlayerTransceiver::AddCommandToSend( IAILogicCommand *pCommand )
 
 	pCommand->Store( pktOutgoing );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::RemovePlayer( const int nLogicID )
 {
 	wMask &= ~(1UL << nLogicID);
@@ -369,7 +330,6 @@ void CMultiPlayerTransceiver::RemovePlayer( const int nLogicID )
 		while ( nSegmentToChange != nSegment );
 	}
 
-	//
 	CPlayersList::iterator iter = players.begin();
 	while ( iter != players.end() && iter->nLogicID != nLogicID )
 		++iter;
@@ -385,13 +345,10 @@ void CMultiPlayerTransceiver::RemovePlayer( const int nLogicID )
 	if ( timeOut.GetTimeOutPlayer() == nLogicID )
 		timeOut.UnsetTimeOut( false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::SetPlayerAlive( const int nPlayer )
 {
-	// if nodata lag set
 	if ( noSegmDataLags[nPlayer] == 1 )
 	{
-		// no segments received from this player
 		if ( timeOfLastSegmFinished[nPlayer] == -1 )
 			SetPlayerLoading( nPlayer, false );
 		else						
@@ -402,7 +359,6 @@ void CMultiPlayerTransceiver::SetPlayerAlive( const int nPlayer )
 
 	timeOfLastSegmFinished[nPlayer] = GetSingleton<IGameTimer>()->GetAbsTime();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::ProcessMultiplayerCommands()
 {
 	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24, 0xfffff );
@@ -419,13 +375,11 @@ void CMultiPlayerTransceiver::ProcessMultiplayerCommands()
 						lastFinishedSegment[pCommand->nPlayer] += nSegmentsPackSize;
 
 						const WORD wPlayerSegment = lastFinishedSegment[pCommand->nPlayer] % MAX_LATENCY;
-						// segment message received - now add all commands to 'cmds'
 						while ( !receivedCmds.empty() ) 
 						{
 							cmds[wPlayerSegment][pCommand->nPlayer].push_back( receivedCmds.front() );
 							receivedCmds.pop_front();
 						}
-						// signal, that 'nPlayer' has finished 'wPlayerSegment'
 						segmFinished[wPlayerSegment] |= ( 1UL << pCommand->nPlayer );
 
 						SetPlayerAlive( pCommand->nPlayer );
@@ -473,8 +427,6 @@ void CMultiPlayerTransceiver::ProcessMultiplayerCommands()
 				{
 					const int nChange = pCommand->nParam;
 					IMainLoop *pMainLoop = GetSingleton<IMainLoop>();
-					// посылаем через interface команду, чтобы после старта multiplayer можно было 
-					// сразу давать команду на изменения скрости
 					for ( int i = 0; i < abs( nChange ); ++i )
 					{
 						if ( nChange < 0 )
@@ -504,19 +456,15 @@ void CMultiPlayerTransceiver::ProcessMultiplayerCommands()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::SetNoSegmentDataLags()
 {
 	NTimer::STime curAbsTime = GetSingleton<IGameTimer>()->GetAbsTime();
-	// time to set lags
 	if ( lastTimeToCheckNoSegmDataLag + 1000 < curAbsTime )
 	{
 		lastTimeToCheckNoSegmDataLag = curAbsTime;
 
-		// find loading players
 		for ( int i = 0; i < 16; ++i )
 		{
-			// player i exists, doesn't have a pause and started the game
 			if ( i != nMyNumber && ( wMask & ( 1UL << i ) ) && noSegmDataLags[i] == 0 )
 			{
 				if ( timeOfLastSegmFinished[i] + TIME_TO_START_LAG_BY_NO_SEGMENT_DATA < curAbsTime && timeOfLastSegmFinished[i] == -1 )
@@ -527,12 +475,10 @@ void CMultiPlayerTransceiver::SetNoSegmentDataLags()
 			}
 		}
 
-		// find lagging players
 		if ( nLoadingPlayers == 0 )
 		{
 			for ( int i = 0; i < 16; ++i )
 			{
-				// player i exists, doesn't have a pause and started the game
 				if ( i != nMyNumber && ( wMask & ( 1UL << i ) ) && noSegmDataLags[i] == 0 )
 				{
 					if ( timeOfLastSegmFinished[i] + TIME_TO_START_LAG_BY_NO_SEGMENT_DATA < curAbsTime && timeOfLastSegmFinished[i] >= 0 )
@@ -545,7 +491,6 @@ void CMultiPlayerTransceiver::SetNoSegmentDataLags()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::SetPlayerLoading( const int nPlayer, const bool bSet )
 {
 	if ( loadingPlayers[nPlayer] == 1 && bSet || loadingPlayers[nPlayer] == 0 && !bSet )
@@ -570,10 +515,8 @@ void CMultiPlayerTransceiver::SetPlayerLoading( const int nPlayer, const bool bS
 
 	loadingPlayers[nPlayer] = (int)bSet;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::SetPlayerLag( const int nPlayer, const bool bSet )
 {
-	// if player is loading, don't process his lags
 	if ( loadingPlayers[nPlayer] == 1 )
 		return;
 	
@@ -596,7 +539,6 @@ void CMultiPlayerTransceiver::SetPlayerLag( const int nPlayer, const bool bSet )
 		);
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::UpdateLags()
 {
 	for ( CPlayersList::iterator iter = players.begin(); iter != players.end(); ++iter )
@@ -621,7 +563,6 @@ void CMultiPlayerTransceiver::UpdateLags()
 		
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::SendIAmAlive()
 {
 	IGameTimer *pGameTimer = GetSingleton<IGameTimer>();
@@ -629,7 +570,6 @@ void CMultiPlayerTransceiver::SendIAmAlive()
 	if ( !pGameTimer->HasPause( PAUSE_TYPE_INACTIVE ) && !pGameTimer->HasPause( PAUSE_TYPE_PREMISSION ) )
 	{
 		NTimer::STime curAbsTime = pGameTimer->GetAbsTime();	
-		// waiting for segments from other players, send "I am alive" message
 		if ( timeOfLastSegmFinished[nMyNumber] + TIME_TO_START_LAG_BY_NO_SEGMENT_DATA / 2 < curAbsTime && nCommonSegment > 0 )
 		{
 			timeOfLastSegmFinished[nMyNumber] = curAbsTime;
@@ -637,13 +577,10 @@ void CMultiPlayerTransceiver::SendIAmAlive()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// perform segments for AI
 void CMultiPlayerTransceiver::DoSegments()
 {
 	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24, 0xfffff );
 
-	//
 	if ( !bHistoryPlaying && pMultiplayer->GetState() != IMultiplayer::EMS_PLAYING )
 		bGameStarted = false;
 
@@ -661,7 +598,6 @@ void CMultiPlayerTransceiver::DoSegments()
 		IGameTimer *pGameTimer = GetSingleton<IGameTimer>();
 		ISegmentTimer *pGameSegment = pGameTimer->GetGameSegmentTimer();
 
-		// set game speed		
 		if ( bHistoryPlaying && !bSpeedSet )
 		{
 			const int nGameSpeed = GetGlobalVar( "Multiplayer.GameSpeed", 0 );
@@ -675,64 +611,49 @@ void CMultiPlayerTransceiver::DoSegments()
 
 		UpdateLags();
 		timeOut.Segment();
-		// check for segment time
 		while ( pGameSegment->BeginSegments(pGameTimer->GetGameTime()) )
 		{
 			const int nPastSegment = GetPastSegmentNum( nLatency );
 			const int nCommonPastSegmentNum = GetCommonPastSegmentNum();
-			// time to execute pack of commands
 			if ( nCommonPastSegmentNum % nSegmentsPackSize == 0 )
 			{
-				// all commands received
-				// играется history или побитовое >=
 				if ( bHistoryPlaying || ( ~segmFinished[nPastSegment] & wMask ) == 0 )
 				{
-					// пришли сегменты от всех игроков, можно открыть туман и юниты
 					if ( nCommonSegment >= nLatency && nCommonSegment <= 2 * nLatency )
 						GetSingleton<IAILogic>()->NetGameStarted();
 					
-					// remove forced segment pause
 					pGameTimer->PauseGame( false, PAUSE_TYPE_MP_NO_SEGMENT_DATA );
-					// исполнить загруженную history команд
 					if ( nCommonSegment >= nSegmentsPackSize )
 					{
-						// цикл для того, чтобы single player history можно было проигрывать в multiplayer
 						for ( int i = nCommonSegment - nSegmentsPackSize + 1; i <= nCommonSegment; ++i )
 							pCmdsHistory->ExecuteSegmentCommands( i, this );
 					}
-					// finish segment => send data
 					if ( !bHistoryPlaying )
 						SegmentFinished();
-					// do all commands for 'past segment'
 					_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24, 0xfffff );
-					//
 					for ( int i = 0; i < nNumPlayersInMap; ++i )
 					{
 						for ( CAILogicCommandsList::iterator it = cmds[nPastSegment][i].begin(); it != cmds[nPastSegment][i].end(); ++it )
 						{
 							(*it)->Execute( pAILogic );
 
-							// команда пришла на сегменте GetCommonPastSegmentNum(), добавить в список команд
 							pCmdsHistory->AddCommand( GetCommonPastSegmentNum(), *it );
 						}
 						cmds[nPastSegment][i].clear();
 					}
 
 					segmFinished[nPastSegment] = 0;
-					// do 'NextSegment()' for segment timer and call 'Segment()' for AI logic
 					pGameSegment->NextSegment();
 
 					if ( !bHistoryPlaying && !bTotalOutOfSync )
 						CControlSumCheckCommand::Check( nMyNumber );
 
 					pAILogic->Segment();
-					// increment internal segment-loop counter
 					nSegment = ( nSegment + 1 ) % MAX_LATENCY;
 					++nCommonSegment;
 				}
 				else
 				{
-					// set forced segment pause until we have all necessary data
 					pGameTimer->PauseGame( true, PAUSE_TYPE_MP_NO_SEGMENT_DATA );
 					SetNoSegmentDataLags();
 					SendIAmAlive();
@@ -752,30 +673,23 @@ void CMultiPlayerTransceiver::DoSegments()
 
 		SendIAmAlive();
 
-		// check for remove forced segment pause
 		if ( segmFinished[GetPastSegmentNum( nLatency )] == wMask )
 			pGameTimer->PauseGame( false, PAUSE_TYPE_MP_NO_SEGMENT_DATA );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// register group of units to AI
 int CMultiPlayerTransceiver::CommandRegisterGroup( IRefCount **pUnitsBuffer, const int nLen )
 {
 	if ( !bHistoryPlaying )
 	{
 		const WORD wID = pAILogic->GenerateGroupNumber();
 		pAILogic->SubstituteUniqueIDs( pUnitsBuffer, nLen );
-		//
 		IAILogicCommand *pAICmd = new CRegisterGroupCommand( pUnitsBuffer, nLen, wID, pAILogic );
 		AddCommandToSend( pAICmd );
-		//
 		return wID;
 	}
 	else
 		return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// unregister group 
 void CMultiPlayerTransceiver::CommandUnregisterGroup( const WORD wGroup )
 {
 	if ( !bHistoryPlaying )
@@ -784,8 +698,6 @@ void CMultiPlayerTransceiver::CommandUnregisterGroup( const WORD wGroup )
 		AddCommandToSend( pAICmd );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// send command to group of units
 void CMultiPlayerTransceiver::CommandGroupCommand( const SAIUnitCmd *pCommand, const WORD wGroup, bool bPlaceInQueue )
 {
 	if ( !bHistoryPlaying )
@@ -797,8 +709,6 @@ void CMultiPlayerTransceiver::CommandGroupCommand( const SAIUnitCmd *pCommand, c
 		AddCommandToSend( pAICmd );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// set single command to call planes, reinforcements, etc. returns group number, which was created
 int CMultiPlayerTransceiver::CommandUnitCommand( const struct SAIUnitCmd *pCommand )
 {
 	if ( !bHistoryPlaying )
@@ -814,7 +724,6 @@ int CMultiPlayerTransceiver::CommandUnitCommand( const struct SAIUnitCmd *pComma
 	else
 		return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::CommandShowAreas( int nGroupID, int nAreaType, bool bShow )
 {
 	if ( !bHistoryPlaying )
@@ -823,22 +732,18 @@ void CMultiPlayerTransceiver::CommandShowAreas( int nGroupID, int nAreaType, boo
 		AddCommandToSend( pAICmd );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::Done()
 {
 	players.clear();
 	pMultiplayer = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::CommandClientTogglePause()
 {
-	//pMultiplayer->TogglePause();
 /*
 	if ( bHistoryPlaying )
 		GetSingleton<IInput>()->AddMessage( SGameMessage( CMD_GAME_PAUSE ) );
 */
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::CommandClientSpeed( const int nChange )
 {
 /*	
@@ -856,7 +761,6 @@ void CMultiPlayerTransceiver::CommandClientSpeed( const int nChange )
 	}
 */
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::CommandClientDropPlayer( const WORD *pszPlayerNick )
 {
 	CPlayersList::iterator iter = players.begin();
@@ -872,12 +776,10 @@ void CMultiPlayerTransceiver::CommandClientDropPlayer( const WORD *pszPlayerNick
 		RemovePlayer( iter->nLogicID );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMultiPlayerTransceiver::GetNumberOfPlayers() const
 {
 	return pMultiplayer->GetNumberOfPlayers();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::CommandTimeOut( const bool bSet )
 {
 	if ( bSet )
@@ -885,23 +787,19 @@ void CMultiPlayerTransceiver::CommandTimeOut( const bool bSet )
 	else
 		timeOut.UnsetTimeOut( true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMultiPlayerTransceiver::JoinToServer( const char *pszIPAddress, const int nPort, bool bPasswordRequired, const char* pszPassword )
 {
 	return pMultiplayer->InitJoinToServer( pszIPAddress, nPort, bPasswordRequired, pszPassword );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::CreateServer()
 {
 	pMultiplayer->InitServersList();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::InitByCreateServersList()
 {
 	if ( pMultiplayer->GetState() == IMultiplayer::EMS_NONE )
 		pMultiplayer->InitServersList();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 NTimer::STime CMultiPlayerTransceiver::GetMultiplayerTime()
 {
 	if ( !GetSingleton<IAILogic>()->IsNoWin() )
@@ -912,12 +810,10 @@ NTimer::STime CMultiPlayerTransceiver::GetMultiplayerTime()
 
 	return fLastSentMultiplayerTime;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::SetTotalOutOfSync()
 { 
 	bTotalOutOfSync = true; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiPlayerTransceiver::GameFinished()
 {
 	if ( bGameStarted )
@@ -926,7 +822,6 @@ void CMultiPlayerTransceiver::GameFinished()
 		pMultiplayer->FinishGame();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 INetDriver* CMultiPlayerTransceiver::GetInGameNetDriver() const
 {
 	if ( pMultiplayer )
@@ -934,11 +829,6 @@ INetDriver* CMultiPlayerTransceiver::GetInGameNetDriver() const
 	else
 		return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*															CTimeOut														*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTimeOut::Init( IMultiplayer *_pMultiplayer )
 {
 	pMultiplayer = _pMultiplayer;
@@ -950,7 +840,6 @@ void CTimeOut::Init( IMultiplayer *_pMultiplayer )
 	timeBWTimeOuts = constsTbl.GetInt( "Net", "TimeBWGamePlayTimeOuts", 30 ) * 1000;
 	lastTimeOutTime = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTimeOut::InitGameStart( const int n )
 {
 	nMyNumber = n;
@@ -960,11 +849,9 @@ void CTimeOut::InitGameStart( const int n )
 
 	SetGlobalVar( "temp.LocalPlayer.UntimeOutEnable", 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTimeOut::SetTimeOut( const int nPlayer )
 {
 	NTimer::STime curTime = GetSingleton<IGameTimer>()->GetAbsTime();
-	// или команда пришла не от нашего клиента, или уже прошло время после предыдущего timeOut
 	const bool bCanSetTimeOutNow = nPlayer != nMyNumber || lastTimeOutTime + timeBWTimeOuts < curTime;
 	if ( bCanSetTimeOutNow && ( !IsActive() || nPlayer < nTimeOutPlayer ) )
 	{
@@ -980,7 +867,6 @@ void CTimeOut::SetTimeOut( const int nPlayer )
 		GetSingleton<IInput>()->AddMessage( SGameMessage( CMD_GAME_TIMEOUT, nPlayer ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTimeOut::UnsetTimeOut( const bool bByClientCommand )
 {
 	if ( IsActive() )
@@ -999,7 +885,6 @@ void CTimeOut::UnsetTimeOut( const bool bByClientCommand )
 		SetGlobalVar( "temp.LocalPlayer.TimeOutEnable", 0 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTimeOut::Segment()
 {
 	if ( IsActive() )
@@ -1019,4 +904,3 @@ void CTimeOut::Segment()
 			SetGlobalVar( "temp.LocalPlayer.TimeOutEnable", 1 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

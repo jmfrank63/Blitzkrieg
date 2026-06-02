@@ -5,21 +5,13 @@
 #include "ComplexPathFraction.h"
 #include "..\..\PlanePathTest\src\CPlanePreferences.h"
 #include "..\..\PlanePathTest\src\CManuverBuilder.h"
-/////////////////////////////////////////////////////////////////////////////
 extern float g = 0.0000000983f;
 BASIC_REGISTER_CLASS( CManuver );
 BASIC_REGISTER_CLASS( IManuver );
 BASIC_REGISTER_CLASS( CManuverSteepClimb );
 BASIC_REGISTER_CLASS( CManuverGeneric );
 
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
-//	SPlanesConsts
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
 const float SPlanesConsts::MIN_HEIGHT = 100.0f;
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
 int CManuverGeneric::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -46,32 +38,21 @@ int CManuver::operator&( IStructureSaver &ss )
 	saver.Add( 5, &vSpeed );
 	saver.Add( 6, &vNormal );			
 
-	//SerializeOwner( 1, &pPlane, &saver );
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
-//	CManuver
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
 const CVec3 CManuver::CalcPredictedPoint( interface IPlane *pPos, interface IPlane *pEnemy )
 {
-	// distance to enemy
 	const float fDist = fabs( pEnemy->GetPosB2() - pPos->GetPosB2() );
 	
-	// speed
 	const float fSpeed = fabs( pPos->GetSpeedB2() );
 
-	// time
 	const float fTime = fDist / fSpeed;
 
 	return pEnemy->GetManuver()->GetProspectivePoint( fTime );
 }
-/////////////////////////////////////////////////////////////////////////////
 CVec3 CManuver::GetProspectivePoint( const float fT ) const
 {
-	// assume that speed is constant
 	const float fAdd = fT * fSpeed;
 	const float fDiff = fAdd + fProgress  - pPath->GetLength();
 	
@@ -80,7 +61,6 @@ CVec3 CManuver::GetProspectivePoint( const float fT ) const
 	else
 		return pPath->GetPoint( fAdd + fProgress );
 }
-/////////////////////////////////////////////////////////////////////////////
 void CManuver::InitCommon( interface IPathFraction *_pPath, interface IPlane *_pPlane )
 {
 	pPlane = _pPlane;
@@ -92,31 +72,24 @@ void CManuver::InitCommon( interface IPathFraction *_pPath, interface IPlane *_p
 	CalcPoint();
 	CalcSpeed();
 	CalcNormale();
-	//NStr::DebugTrace( NStr::Format( "Initted(%f,%f,%f)\n", vSpeed.x, vSpeed.y,vSpeed.z ) );
 }
-/////////////////////////////////////////////////////////////////////////////
 void CManuver::CalcSpeed()
 {
 	vSpeed = pPath->GetTangent( fProgress );
 	Normalize( &vSpeed );
 	vSpeed *= fSpeed;
-	//NStr::DebugTrace( NStr::Format( "dir (%f,%f,%f)\n", vSpeed.x, vSpeed.y,vSpeed.z ) );
 }
-/////////////////////////////////////////////////////////////////////////////
 void CManuver::CalcPoint()
 {
 	vCenter = pPath->GetPoint( fProgress );
 }
-/////////////////////////////////////////////////////////////////////////////
 void CManuver::CalcNormale()
 {
 	vNormal = pPath->GetNormale( fProgress );
 	Normalize( &vNormal );
 }
-/////////////////////////////////////////////////////////////////////////////
 bool CManuver::GetToHorisontalOffset( const CVec3 &vSpeed, const float _fTurnRadius, const float fHeight, CVec3 *pManuverPos ) const
 {
-	//NI_ASSERT_T( vSpeed.z < 0, "not diving, need not check" );
 	const float fAlpha = asinf( vSpeed.z / fabs( vSpeed ) );
 	const float fSinAHalf = sinf( 0.5f * fAlpha );
 	const float fCrit = 2 * _fTurnRadius * sqr( fSinAHalf );
@@ -131,7 +104,6 @@ bool CManuver::GetToHorisontalOffset( const CVec3 &vSpeed, const float _fTurnRad
 	}
 	return false;
 }
-/////////////////////////////////////////////////////////////////////////////
 bool CManuver::AdvanceCommon( const NTimer::STime timeDiff )
 {
 	fProgress += fSpeed * timeDiff;
@@ -140,9 +112,7 @@ bool CManuver::AdvanceCommon( const NTimer::STime timeDiff )
 	
 	fDz -= vCenter.z;
 
-	//CRAP{ IMPLEMENT PREFERENCES
 	fSpeed += 2 * g * fDz / fSpeed;
-	//CRAP}
 
 	CalcSpeed();
 	CVec3 vTmp = vNormal;
@@ -150,40 +120,28 @@ bool CManuver::AdvanceCommon( const NTimer::STime timeDiff )
 	if ( vNormal == VNULL3 )
 		vNormal = vTmp;
 
-	// check if it is time to finish diving
 	if ( vSpeed.z < 0 ) // plane is currently diving
 	{
 		CVec3 vOffset;
 		if ( GetToHorisontalOffset( vSpeed, pPlane->GetPreferencesB2().GetR( fSpeed ), vCenter.z, &vOffset ) )
 		{
-			// to horisontal manuver
 			CPathFractionArcLine3D * pNewPath = new CPathFractionArcLine3D;
 			pNewPath->Init( vCenter, vSpeed, vCenter + vOffset, pPlane->GetPreferencesB2().GetR( fSpeed ) );
 		}
 	}
-	// check if it is time to gain speed
 	else if ( fSpeed <= pPlane->GetPreferencesB2().GetStallSpeed() ) 
 	{
-		// to horisontal manuver
 		
 	}
 
 	
 	return fProgress + fSpeed * timeDiff >= pPath->GetLength();
 }
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
-//	CManuverSteepClimb
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
 void CManuverSteepClimb::Init( const enum EManuverDestination dest, interface IPlane *_pPlane, interface IPlane *pEnemy )
 {
 	NI_ASSERT_T( EMD_MANUVER_DEPENDENT == dest, "CANNOT DO GORKA ANYWERE OTHER THEN EMD_MANUVER_DEPENDENT" );
-	//CRAP{ SOME DIFFERENCES BASED ON DISTANCE WILL BE GOOD
 	Init( _pPlane );
-	//CRAP}
 }
-/////////////////////////////////////////////////////////////////////////////
 void CManuverSteepClimb::Init( interface IPlane *pPos )
 {
 	const CPlanePreferences &pref = pPos->GetPreferencesB2();
@@ -203,18 +161,11 @@ void CManuverSteepClimb::Init( interface IPlane *pPos )
 	
 	InitCommon( pNewPath, pPos );
 }
-/////////////////////////////////////////////////////////////////////////////
 bool CManuverSteepClimb::Advance( const NTimer::STime timeDiff )
 {
-	// determine if it is circle path fraction or not.
 	const bool bRet = AdvanceCommon( timeDiff );
 	return bRet;
 }
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
-//	CManuverGeneric::
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
 void CManuverGeneric::Init( interface IPlane *pPos, const CVec3 &vPos )
 {
 	const CPlanePreferences &pref = pPos->GetPreferencesB2();
@@ -225,10 +176,8 @@ void CManuverGeneric::Init( interface IPlane *pPos, const CVec3 &vPos )
 	
 	InitCommon( pNewPath, pPos );
 }
-/////////////////////////////////////////////////////////////////////////////
 bool CManuverGeneric::Advance( const NTimer::STime timeDiff )
 {
-	// determine if it is circle path fraction or not.
 	const bool bRet = AdvanceCommon( timeDiff );
 	return bRet;
 }

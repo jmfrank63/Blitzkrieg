@@ -3,52 +3,28 @@
 #include "Manipulator.h"
 
 #include <comdef.h>
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** propertiaes register
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPropertiesRegister::AddProperty( const std::string &szRegister, const std::string &szName, SBaseProperty *pPropertyDesc )
 {
 	NProperty::SProperties &properties = registers[szRegister];
 	NI_ASSERT_SLOW_TF( properties.GetProperty(szName) == 0, NStr::Format("property \"%s\" already exist in the register \"%s\"", szRegister.c_str(), szName.c_str()), return false );
-	// add to map
 	properties.propMap[szName] = pPropertyDesc;
-	// add to list
 	properties.propList.push_back( NProperty::SPropDesc(szName, pPropertyDesc) );
-	//
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SBaseProperty* CPropertiesRegister::GetProperty( const std::string &szRegister, const std::string &szName )
 {
 	NProperty::SProperties *pRegister = GetProperties( szRegister );
 	NI_ASSERT_SLOW_TF( pRegister != 0, NStr::Format("Can't find register \"%s\"", szRegister.c_str()), return 0 );
 
 	SBaseProperty *pProp = pRegister->GetProperty( szName );
-//	NI_ASSERT_SLOW_TF( pProp != 0, NStr::Format("can't find property \"%s\" in the register \"%s\"", szName.c_str(), szRegister.c_str()), return 0 );
 
 	return pProp;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** manipulator
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CManipulator::DoWeNeedFillProps() const
 {
 	NI_ASSERT_TF( pRegister != 0, "set register first!!!", return false );
 	return !pRegister->HasRegister( szRegister );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SPropertyDesc* CManipulator::FillTempProps( const char *pszName, const SBaseProperty *pProp )
 {
 	if ( (pszName == 0) || (pProp == 0) )
@@ -60,17 +36,14 @@ const SPropertyDesc* CManipulator::FillTempProps( const char *pszName, const SBa
 	tempPropDesc.ePropType = pProp->ePropType;
 	return &tempPropDesc;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SPropertyDesc* STDCALL CManipulator::GetPropertyDesc( const char *pszName ) 
 {
 	std::string szRestName;
 	int nIndex = -1;
 	const SBaseProperty *pProperty = GetProperty( pszName, &szRestName, &nIndex );
-	//
 	NI_ASSERT_TF( pProperty != 0, NStr::Format("Can't find property \"%s\" in the register \"%s\" during direct call", pszName, szRegister.c_str()), return 0 );
 	if ( pProperty->nodeType != SBaseProperty::LEAF )
 	{
-		// non-leaf props
 		CPtr<IManipulator> pMan = GetPropertyAsManipulator( const_cast<SBaseProperty*>(pProperty), nIndex );
 		if ( pMan != 0 )
 		{
@@ -85,7 +58,6 @@ const SPropertyDesc* STDCALL CManipulator::GetPropertyDesc( const char *pszName 
 	else
 		return FillTempProps( pszName, pProperty );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SBaseProperty* CManipulator::GetProperty( const std::string &szFullName, std::string *pRestName, int *pnIndex )
 {
 	std::string &szRest = *pRestName;
@@ -109,34 +81,26 @@ SBaseProperty* CManipulator::GetProperty( const std::string &szFullName, std::st
 		if ( pProp != 0 ) 
 			break;
 
-		//NI_ASSERT_TF( szRest[nPos] == '.', "Non-terminal property must be separated with '.' symbol", return false );
 		szName += '.';
 	}
-	//
 	if ( pProp == 0 )
 		return 0;
-	//
 	if ( pProp->nodeType == SBaseProperty::VECTOR )
 	{
-		// extract index from property name
 		int nPos = szRest.find( ']' );
 		NI_ASSERT_TF( nPos != std::string::npos, NStr::Format("VECTOR property \"%s\" must have an index in the form of '[x]'", szName.c_str()), return false );
 		std::string szIndex = szRest.substr( 0, nPos );
 		NI_ASSERT_TF( NStr::IsDecNumber( szIndex ), NStr::Format("index for VECTOR property \"%s\" must be a decimal number", szName.c_str()), return false );
 		int nIndex = NStr::ToInt( szIndex );
-		// extract rest name
 		nPos = szRest.find( '.' );
 		NI_ASSERT_TF( nPos != std::string::npos, NStr::Format("VECTOR property \"%s\" must have rest name, separated by '.'", szName.c_str()), return false );
 		szRest = szRest.substr( nPos + 1 );
-		//
 		*pnIndex = nIndex;
 	}
 	else if ( pProp->nodeType == SBaseProperty::SINGLE )
 		*pnIndex = -1;
-	//
 	return pProp;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IManipulator* CManipulator::GetPropertyAsManipulator( SBaseProperty *pProp, int nIndex )
 {
 	variant_t varMan;
@@ -154,7 +118,6 @@ IManipulator* CManipulator::GetPropertyAsManipulator( SBaseProperty *pProp, int 
 		return pMan;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CManipulator::GetValue( const char *pszValueName, variant_t *pValue )
 {
 	NI_ASSERT_T( pszValueName != 0, "Value name must be != 0" );
@@ -175,7 +138,6 @@ bool CManipulator::GetValue( const char *pszValueName, variant_t *pValue )
 		return pMan != 0 ? pMan->GetValue( szRest.c_str(), pValue ) : 0;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CManipulator::SetValue( const char *pszValueName, const variant_t &value )
 {
 	NI_ASSERT_T( pszValueName != 0, "Value name must be != 0" );
@@ -197,20 +159,10 @@ bool CManipulator::SetValue( const char *pszValueName, const variant_t &value )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** manipulator iterator
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IManipulatorIterator* CManipulator::Iterate()
 {
 	return new CManipulatorIterator( this );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SPropertyDesc* CManipulatorIterator::GetFirst()
 {
 	if ( !pPropLocal )
@@ -219,16 +171,13 @@ const SPropertyDesc* CManipulatorIterator::GetFirst()
 		return 0;
 	if ( (pPropLocal->nodeType == SBaseProperty::VECTOR) && (nPropIndexLocal < 0) )
 		return 0;
-	//
 	CPtr<IManipulator> pMan;
-	// get manipulator from SINGLE or VECTOR property
 	{
 		variant_t var;
 		pPropLocal->Get( pManipulator, &var, nPropIndexLocal );
 		pMan = reinterpret_cast<IManipulator*>( var.byref );
 		var.vt = VT_EMPTY;
 	}
-	//
 	if ( pMan == 0 )
 		return 0;
 	pItLocal = pMan->Iterate();
@@ -243,7 +192,6 @@ const SPropertyDesc* CManipulatorIterator::GetFirst()
 		return &propDesc;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SPropertyDesc* CManipulatorIterator::GetNext()
 {
 	if ( pItLocal->IsEnd() || pItLocal->Next() ==  false )
@@ -261,7 +209,6 @@ const SPropertyDesc* CManipulatorIterator::GetNext()
 		return &propDesc;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CManipulatorIterator::GetNextLocal()
 {
 	if ( (pProperties == 0) || (itProps == pProperties->end()) )
@@ -276,12 +223,10 @@ bool CManipulatorIterator::GetNextLocal()
 	FillLocals();
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SPropertyDesc* CManipulatorIterator::GetFirstProperty()
 {
 	if ( pPropLocal == 0 )
 		return 0;
-	//
 	if ( pPropLocal->nodeType == SBaseProperty::LEAF )
 	{
 		szPropName = itProps->szName;
@@ -289,7 +234,6 @@ const SPropertyDesc* CManipulatorIterator::GetFirstProperty()
 		propDesc.ePropType = itProps->pProperty->ePropType;
 		propDesc.nType = itProps->pProperty->nType;
 		propDesc.values = itProps->pProperty->values;
-		//
 		return &propDesc;
 	}
 	else
@@ -298,12 +242,10 @@ const SPropertyDesc* CManipulatorIterator::GetFirstProperty()
 		return GetFirst();
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SPropertyDesc* CManipulatorIterator::GetNextProperty()
 {
 	if ( pItLocal )
 	{
-		// iterate through external manipulator props
 		const SPropertyDesc *pDesc = GetNext();
 		if ( pDesc == 0 )
 		{
@@ -318,7 +260,6 @@ const SPropertyDesc* CManipulatorIterator::GetNextProperty()
 	}
 	else
 	{
-		// iterate through local props
 		if ( GetNextLocal() == false )
 			return 0;
 		if ( pPropLocal->nodeType == SBaseProperty::LEAF )
@@ -328,7 +269,6 @@ const SPropertyDesc* CManipulatorIterator::GetNextProperty()
 			propDesc.ePropType = itProps->pProperty->ePropType;
 			propDesc.nType = itProps->pProperty->nType;
 			propDesc.values = itProps->pProperty->values;
-			//
 			return &propDesc;
 		}
 		else
@@ -338,26 +278,14 @@ const SPropertyDesc* CManipulatorIterator::GetNextProperty()
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** multimanipulator
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SVariantCmpEq
 {
 	bool operator()( const VARIANT &var1, const VARIANT &var2 ) const
 	{
-		// self-cmp
 		if ( &var1 == &var2 )
 			return true;
-		// Variants not equal if types don't match
 		if ( var1.vt != var2.vt )
 			return false;
-		// Check type specific values
 		switch ( var1.vt )
 		{
 			case VT_EMPTY:
@@ -401,14 +329,12 @@ struct SVariantCmpEq1
 {
 	SVariantCmpEq cmp;
 	VARIANT variant;
-	//
 	explicit SVariantCmpEq1( const VARIANT &var )
 	{
 		variant = var;
 	}
 	bool operator()( const VARIANT &var ) const { return cmp( variant, var ); }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiManipulator::AddManipulator( IManipulator *pMan )
 {
 	CPtr<IManipulator> pTempMan = pMan;
@@ -432,7 +358,6 @@ void CMultiManipulator::AddManipulator( IManipulator *pMan )
 			{
 				if ( prop.ePropType != pDesc->ePropType )
 					--prop.nCounter;
-				// values intersection
 				if ( !prop.values.empty() )
 				{
 					for ( std::vector<variant_t>::iterator it = prop.values.begin(); it != prop.values.end(); )
@@ -446,10 +371,8 @@ void CMultiManipulator::AddManipulator( IManipulator *pMan )
 			}
 		}
 	}
-	//
 	manipulators.push_back( pMan );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SMultiManPropCmpLess
 {
 	bool operator()( const SMultiManipulatorProperty *pProp1, const SMultiManipulatorProperty *pProp2 ) const
@@ -461,35 +384,27 @@ void CMultiManipulator::BuildProps()
 {
 	if ( bPropsAlreadyBuilt )
 		return;
-	//
 	int nMans = manipulators.size();
 	for ( CPropsMap::iterator it = propsMap.begin(); it != propsMap.end(); ++it )
 	{
 		if ( it->second.nCounter == nMans )
 			propsList.push_back( &(it->second) );
 	}
-	//
 	propsList.sort( SMultiManPropCmpLess() );
-	//
 	bPropsAlreadyBuilt = true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMultiManipulator::GetValue( const char *pszValueName, variant_t *pValue )
 {
 	BuildProps();
-	//
 	SVariantCmpEq comparator;
 	variant_t var, tmpvar;
 	var.vt = VT_EMPTY;
-	//
 	int nPropsCounter = 0;
-	//
 	for ( CManipulatorsList::iterator it = manipulators.begin(); it != manipulators.end(); ++it )
 	{
 		if ( (*it)->GetValue( pszValueName, &tmpvar ) == false )
 			continue;
 		++nPropsCounter;
-		//
 		if ( var.vt == VT_EMPTY )
 			var = tmpvar;
 		else
@@ -503,19 +418,15 @@ bool CMultiManipulator::GetValue( const char *pszValueName, variant_t *pValue )
 			}
 		}
 	}
-	//
 	if ( nPropsCounter > 0 )
 	{
 		*pValue = var;
 		return true;
 	}
-	//
 	return false;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IManipulatorIterator* CMultiManipulator::Iterate() 
 { 
 	BuildProps();
 	return new CMultiManipulatorIterator( this ); 
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -7,7 +7,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CMapEditorOptionsDialog::vID[] = 
 {
 	IDC_OPTIONS_COMMAND_LINE_LABEL,		//0
@@ -19,12 +18,9 @@ const int CMapEditorOptionsDialog::vID[] =
 	IDCANCEL,													//6
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMapEditorOptionsDialog::CMapEditorOptionsDialog( CWnd* pParent )
 	: CResizeDialog( CMapEditorOptionsDialog::IDD, pParent ), bIsBZM( true )
 {
-	//{{AFX_DATA_INIT(CMapEditorOptionsDialog)
-	//}}AFX_DATA_INIT
 	SetControlStyle( IDC_OPTIONS_COMMAND_LINE_LABEL, ANCHORE_LEFT_TOP | RESIZE_HOR );
 	SetControlStyle( IDC_OPTIONS_COMMAND_LINE_EDIT, ANCHORE_LEFT_TOP | RESIZE_HOR );
 
@@ -37,29 +33,21 @@ CMapEditorOptionsDialog::CMapEditorOptionsDialog( CWnd* pParent )
 
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapEditorOptionsDialog::DoDataExchange(CDataExchange* pDX)
 {
 	CResizeDialog::DoDataExchange( pDX );
-	//{{AFX_DATA_MAP(CMapEditorOptionsDialog)
 	DDX_Control(pDX, IDC_OPTIONS_COMMAND_LINE_EDIT, m_Parameters);
-	//}}AFX_DATA_MAP
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CMapEditorOptionsDialog, CResizeDialog)
-	//{{AFX_MSG_MAP(CMapEditorOptionsDialog)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapEditorOptionsDialog::LoadControls()
 {
 	m_Parameters.SetWindowText( resizeDialogOptions.szParameters[0].c_str() );
 	CheckRadioButton( IDC_OPTIONS_DEF_EXTENTION_BZM, IDC_OPTIONS_DEF_EXTENTION_XML, IDC_OPTIONS_DEF_EXTENTION_BZM + resizeDialogOptions.nParameters[0] );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapEditorOptionsDialog::SaveControls()
 {
 	CString strString;
@@ -68,7 +56,6 @@ void CMapEditorOptionsDialog::SaveControls()
 	resizeDialogOptions.nParameters[0] = GetCheckedRadioButton( IDC_OPTIONS_DEF_EXTENTION_BZM, IDC_OPTIONS_DEF_EXTENTION_XML ) - IDC_OPTIONS_DEF_EXTENTION_BZM;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CMapEditorOptionsDialog::OnInitDialog() 
 {
 	CResizeDialog::OnInitDialog();
@@ -88,17 +75,14 @@ BOOL CMapEditorOptionsDialog::OnInitDialog()
 	return TRUE;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapEditorOptionsDialog::OnOK() 
 {
 	SaveControls();
 	CResizeDialog::OnOK();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapEditorOptionsDialog::OnCancel() 
 {
 	SaveControls();
 	CResizeDialog::OnCancel();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

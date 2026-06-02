@@ -4,10 +4,8 @@
 
 #include <stdio.h>
 #include <math.h>
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const int WHITE_PIXEL = 255;
 static const int BLACK_PIXEL = 0;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma pack( 1 )
 struct SARGB
 {
@@ -18,7 +16,6 @@ struct CONTRIB
 {
   int pixel;
   double weight;
-	//
 	CONTRIB() 
 		: pixel( 0 ), weight( 0 ) {  }
 };
@@ -26,11 +23,9 @@ struct CLIST
 {
   int n;         /* number of contributors */
   CONTRIB *p;    /* pointer to list of contributions */
-	//
 	CLIST()
 		: n( 0 ), p( 0 ) {  }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline SARGB get_pixel( const CImage *pImg, int x, int y )
 {
 	return bit_cast<SARGB>( pImg->Get( x, y ) );
@@ -55,16 +50,6 @@ inline void get_column(SARGB *column, const CImage *pImg, int x)
   for ( int i=0; i<pImg->GetSizeY(); ++i ) 
     column[i] = bit_cast<SARGB>( pImg->Get( x, i ) );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// **
-// **  filter functions
-// **
-// **
-// **
-// **
-// ************************************************************************************************************************ //
 static const double point_support = 0.0;
 
 double point_filter( double t )
@@ -87,7 +72,6 @@ double filter( double t )
 	else
 		return 0.0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const double box_support = 0.5;
 
 double box_filter( double t )
@@ -97,7 +81,6 @@ double box_filter( double t )
 	else
 		return 0.0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const double triangle_support = 1.0;
 
 double triangle_filter( double t )
@@ -109,7 +92,6 @@ double triangle_filter( double t )
 	else
 		return 0.0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const double bell_support = 1.5;
 
 double bell_filter( double t )      /* box (*) box (*) box */
@@ -126,7 +108,6 @@ double bell_filter( double t )      /* box (*) box (*) box */
 	else
 		return 0.0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const double B_spline_support = 2.0;
 
 double B_spline_filter( double t )  /* box (*) box (*) box (*) box */
@@ -148,7 +129,6 @@ double B_spline_filter( double t )  /* box (*) box (*) box (*) box */
 	else
 		return 0.0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 double sinc( double x )
 {
 	x *= PI;
@@ -169,7 +149,6 @@ double Lanczos3_filter( double t )
 	else
 		return 0.0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const double Mitchell_support = 2.0;
 
 static const double B = (1.0/3.0);
@@ -196,16 +175,6 @@ double Mitchell_filter( double t )
 }
 
 typedef double (*FILTERFUNC)( double t );
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** image scaling routine
-// **
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ImageScale( const CImage *pSrcImg, CImage *pDstImg, EImageScaleMethod method )
 {
 	FILTERFUNC pfnFilterFunc = Lanczos3_filter;
@@ -234,12 +203,9 @@ void ImageScale( const CImage *pSrcImg, CImage *pDstImg, EImageScaleMethod metho
 			pfnFilterFunc = Mitchell_filter, filterwidth = Mitchell_support;
 			break;
 	}
-	// create intermediate image to hold horizontal zoom
 	CImage *pTmpImg = new CImage( pDstImg->GetSizeX(), pSrcImg->GetSizeY() );
-  // x/y scaling
   double xscale = double( pDstImg->GetSizeX() ) / double( pSrcImg->GetSizeX() );
   double yscale = double( pDstImg->GetSizeY() ) / double( pSrcImg->GetSizeY() );
-  // pre-calculate filter contributions for a row
   CLIST *contrib = new CLIST[pDstImg->GetSizeX()];
   if ( contrib != 0 ) 
 	{
@@ -294,7 +260,6 @@ void ImageScale( const CImage *pSrcImg, CImage *pDstImg, EImageScaleMethod metho
       }
     }
 
-    // apply filter to zoom horizontally from src to tmp
     SARGB *raster = new SARGB[pSrcImg->GetSizeX()];
     if ( raster != 0 ) 
 		{
@@ -321,13 +286,11 @@ void ImageScale( const CImage *pSrcImg, CImage *pDstImg, EImageScaleMethod metho
       delete []raster;
     }
 
-    // free the memory allocated for horizontal filter weights
     for ( int i=0; i<pTmpImg->GetSizeX(); ++i ) 
       delete [](contrib[i].p);
     delete []contrib;
   }
 
-  // pre-calculate filter contributions for a column
   contrib = new CLIST[pDstImg->GetSizeY()];
   if ( contrib != 0 ) 
 	{
@@ -382,7 +345,6 @@ void ImageScale( const CImage *pSrcImg, CImage *pDstImg, EImageScaleMethod metho
       }
     }
 
-    // apply filter to zoom vertically from tmp to dst
     SARGB *raster = new SARGB[pTmpImg->GetSizeY()];
     if ( raster != 0 ) 
 		{
@@ -409,12 +371,9 @@ void ImageScale( const CImage *pSrcImg, CImage *pDstImg, EImageScaleMethod metho
     }
     delete []raster;
 
-    // free the memory allocated for vertical filter weights
     for ( int i=0; i<pDstImg->GetSizeY(); ++i ) 
       delete [](contrib[i].p);
     delete []contrib;
   }
-	//
 	delete pTmpImg;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -3,7 +3,6 @@
 #include "TerrainWater.h"
 #include "TerrainInternal.h"
 #include "..\GFX\GFXHelper.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int STerrainRiver::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -11,17 +10,13 @@ int STerrainRiver::operator&( IStructureSaver &ss )
 	saver.Add( 2, &layers );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTerrainWater::Init( const SVectorStripeObject &_riverInfo, ITerrain *pTerrain )
 {
 	CTerrainVectorObject::Init( _riverInfo );
 	BuildLayers();
-	// retrieve textures
 	ITextureManager *pTM = GetSingleton<ITextureManager>();
-	// bottom
 	river.bottom.textures.clear();
 	river.bottom.textures.push_back( pTM->GetTexture( GetDesc().bottom.szTexture.c_str() ) );
-	// layers
 	for ( int i = 0; i != river.layers.size(); ++i )
 	{
 		river.layers[i].textures.clear();
@@ -34,38 +29,32 @@ void CTerrainWater::Init( const SVectorStripeObject &_riverInfo, ITerrain *pTerr
 			river.layers[i].textures.push_back( pTM->GetTexture( GetDesc().layers[i].szTexture.c_str() ) );
 	}
 } 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTerrainWater::BuildLayers()
 {
 	CreateRiver( GetDesc(), &river );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTerrainWater::SelectPatches( const std::vector<DWORD> &sels )
 {
 	river.bottom.SelectPatches( sels, GetDesc().points.size() );
 	for ( std::vector<STVOLayer>::iterator layer = river.layers.begin(); layer != river.layers.end(); ++layer )
 		layer->SelectPatches( sels, GetDesc().points.size() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTerrainWater::DrawBase( IGFX *pGFX ) const
 {
 	pGFX->SetTexture( 0, river.bottom.textures[0] );
 	::DrawTemp( pGFX, river.bottom.vertices, river.bottom.indices );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTerrainWater::DrawWater( IGFX *pGFX ) const
 {
 	SHMatrix matTranslate = MONE;
 	const NTimer::STime timeCurr = GetSingleton<IGameTimer>()->GetAbsTime();
 	for ( int i = 0; i != river.layers.size(); ++i )
 	{
-		// set texture coords animation (translation along x-axis)
 		const float fTimeCoeff = GetDesc().layers[i].fStreamSpeed != 0 ? 1000.0f / GetDesc().layers[i].fStreamSpeed : 1.0f;
 		const float fTranslate = GetDesc().layers[i].fStreamSpeed != 0 ? float( fmod( timeCurr, fTimeCoeff ) ) / fTimeCoeff : 0;
 		matTranslate._13 = -fTranslate;
 		pGFX->SetTextureTransform( 0, matTranslate );
-		//
 		if ( GetDesc().layers[i].bAnimated )
 		{
 			const int nFrame = 7 - ( timeCurr / 70 ) % 8;
@@ -73,13 +62,10 @@ bool CTerrainWater::DrawWater( IGFX *pGFX ) const
 		}
 		else
 			pGFX->SetTexture( 0, river.layers[i].textures[0] );
-		// water render by patches
 		::DrawTemp( pGFX, river.layers[i].vertices, river.layers[i].indices );
 	}
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTerrainWater::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -87,4 +73,3 @@ int CTerrainWater::operator&( IStructureSaver &ss )
 	saver.Add( 2, &river );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

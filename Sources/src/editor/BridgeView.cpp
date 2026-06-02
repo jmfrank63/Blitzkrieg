@@ -10,8 +10,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CBridgeView
 
 CBridgeView::CBridgeView()
 {
@@ -23,14 +21,10 @@ CBridgeView::~CBridgeView()
 
 
 BEGIN_MESSAGE_MAP(CBridgeView, CWnd)
-//{{AFX_MSG_MAP(CBridgeView)
 ON_WM_PAINT()
-//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CBridgeView message handlers
 
 BOOL CBridgeView::PreCreateWindow(CREATESTRUCT& cs) 
 {

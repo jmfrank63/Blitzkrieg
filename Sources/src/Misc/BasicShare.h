@@ -1,8 +1,6 @@
 #ifndef __BASICSHARE_H__
 #define __BASICSHARE_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template < class TKey, class TValue, int NClassTypeID, class THash = std::hash<TKey> >
 class CBasicShare
 {
@@ -23,7 +21,6 @@ protected:
 		pObj->SetSharedResourceName( key );
 		if ( pObj->Load(true) ) 
 			return pObj;
-		// delete - can't load data :P
 		pObj->AddRef();
 		pObj->Release();
 		return 0;
@@ -32,14 +29,12 @@ protected:
 public:
 	CBasicShare( int _nID, const char *pszExt = "" )
 		: nID( _nID ), eSerialMode( SDSM_MERGE ), eShareMode( SDSM_SHARE ), szExt( pszExt ) {  }
-	//
 	bool Init() 
 	{ 
 		SetGlobalVar( TValue::GetSharedResourceExtVarName(), szExt.c_str() );
 		return true; 
 	}
 	void Clear() { data.clear(); }
-	//
 	void SetExt( const char *pszExt ) 
 	{ 
 		szExt = pszExt; 
@@ -50,17 +45,14 @@ public:
 			ReloadAllData();
 		}
 	}
-	//
 	void SetSerialMode( ESharedDataSerialMode _eSerialMode ) { eSerialMode = _eSerialMode; }
 	void SetShareMode( ESharedDataSharingMode _eShareMode ) { eShareMode = _eShareMode; }
-	//
 	void AddPair( const TKey &key, TValue *pValue ) 
 	{ 
 		NI_ASSERT_SLOW_T( data.find(key) == data.end(), NStr::Format("Adding data to share with key \"%s\", which is already exists", key.c_str()) );
 		data[key] = pValue; 
 		pValue->SetSharedResourceName( key );
 	}
-	//
 	TValue* Get( const TKey &key )
 	{
 		CDataHash::iterator pos = data.find( key );
@@ -110,7 +102,6 @@ public:
 			else if ( eSerialMode == SDSM_MERGE )
 			{
 				CDataHash holder = data;
-				//
 				saver.Add( GetID(), &data );
 				for ( CDataHash::const_iterator i = data.begin(); i != data.end(); ++i )
 				{
@@ -132,7 +123,6 @@ public:
 			else if ( eSerialMode == SDSM_ADD )
 			{
 				CDataHash holder;
-				//
 				saver.Add( GetID(), &holder );
 				for ( CDataHash::const_iterator i = holder.begin(); i != holder.end(); ++i )
 				{
@@ -153,7 +143,6 @@ public:
 		else
 			saver.Add( GetID(), &data );
 	}
-	//
 	const TKey* GetKey( TValue *pValue )
 	{
 		for ( typename CDataHash::const_iterator it = data.begin(); it != data.end(); ++it )
@@ -163,24 +152,19 @@ public:
 		}
 		return 0;
 	}
-	//
 	void ClearUnreferencedResources()
 	{
 		std::list<TKey> keys;
-		// form 'candidates-to-delete' list
 		for ( CDataHash::const_iterator it = data.begin(); it != data.end(); ++it )
 		{
 			if ( (it->second->GetRefCounter() & 0x00ffffff) == NRefCount::REF_ADD_OBJ )
 				keys.push_back( it->first );
 		}
-		// delete all candidates from the list
 		for ( std::list<TKey>::const_iterator it = keys.begin(); it != keys.end(); ++it )
 			data.erase( *it );
 	}
-	// return freed amount of resources
 	int ClearLRUResources( const int nUsage, const int nAmount )
 	{
-		// form 'candidates-to-delete' list. use std::map to sort elements
 		std::multimap<int, TValue*> keys;
 		for ( CDataHash::const_iterator it = data.begin(); it != data.end(); ++it )
 		{
@@ -188,7 +172,6 @@ public:
 			if ( (nLastUsage < nUsage) && (it->second->GetResourceConsumption() > 0) ) 
 				keys.insert( std::multimap<int, TValue*>::value_type(nLastUsage, it->second) );
 		}
-		// clear selected elements containers
 		int nFreedResources = 0;
 		for ( std::multimap<int, TValue*>::const_iterator it = keys.begin(); it != keys.end() && nFreedResources < nAmount; ++it )
 		{
@@ -197,7 +180,6 @@ public:
 		}
 		return nFreedResources;
 	}
-	// 
 	void ClearContainers()
 	{
 		for ( CDataHash::const_iterator i = data.begin(); i != data.end(); ++i )
@@ -206,7 +188,6 @@ public:
 				i->second->ClearInternalContainer();
 		}
 	}
-	//
 	void ReloadAllData()
 	{
 		for ( CDataHash::const_iterator i = data.begin(); i != data.end(); ++i )
@@ -217,15 +198,12 @@ public:
 			i->second->Load( true );
 		}
 	}
-	//
 	const bool HasData( const TKey &key ) const { return data.find( key ) != data.end(); }
-	//
 	iterator begin() { return data.begin(); }
 	const_iterator begin() const { return data.begin(); }
 	iterator end() { return data.end(); }
 	const_iterator end() const { return data.end(); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define BASIC_SHARE_DECLARE( TShareName, TKey, TValue, NClassTypeID, nShareID, pszExt )	\
 class TShareName : public CBasicShare<TKey, TValue, NClassTypeID>												\
 {																																												\
@@ -233,5 +211,4 @@ public:																																									\
 	typedef CBasicShare<TKey, TValue, NClassTypeID> CBase;																\
 	TShareName() : CBasicShare<TKey, TValue, NClassTypeID>( nShareID, pszExt ) {  }				\
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __BASICSHARE_H__

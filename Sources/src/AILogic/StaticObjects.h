@@ -1,15 +1,12 @@
 #ifndef __STATIC_OBJECTS_H__
 #define __STATIC_OBJECTS_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Misc\AreaMap.h"
 #include "..\Misc\HashFuncs.h"
 #include "..\Common\Actions.h"
 #include "RectTiles.h"
 #include <set>
 #include "PathFinder.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CExistingObject;
 class CStaticObject;
 class CBuildingStorage;
@@ -17,11 +14,6 @@ class CBuildingStorage;
 template<bool bOnlyContainers> class CStObjIter;
 typedef std::list< CPtr<CBuildingStorage> > CStoragesList;
 typedef std::unordered_set<int> CIntHash;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												  CStaticObjects													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IObstacle;
 interface IUpdatableObj;
 class CStaticObjects : public IRefCount
@@ -48,24 +40,18 @@ private:
 		bool operator()( const CPtr<CStaticObject> &segmObj1, const CPtr<CStaticObject> &segmObj2 ) const;
 	};
 
-	// for iterators
 	bool bIterCreated;
 	StaticObjectsAreaMap& GetAreaMap() { return areaMap; }
 	StaticObjectsAreaMap& GetContainersAreaMap() { return containersAreaMap; }
 	void SetIterCreated( bool _bCreated ) { bIterCreated = _bCreated; }
 	bool IsIterCreated() const { return bIterCreated; }
 public:
-		// ��� �������� ���� ���������
 	interface IEnumStoragesPredicate
 	{
-		// ���������� ������ �������������� ���������
 		virtual bool OnlyConnected() const = 0;
-		// true - ���������, ��, ��� ����� ��� �������
-		// ����� ���� - � ������
 		virtual bool AddStorage( class CBuildingStorage * pStorage, const float fPathLenght ) = 0;
 	};
 
-	// ��� �������� ���������� � ������� RU 
 	class CStoragesContainer
 	{
 		DECLARE_SERIALIZE;
@@ -82,7 +68,6 @@ public:
 		};
 		std::vector<CPartyInfo> storageSystem;
 
-		// ������ ����� ���������
 		CStorages storages;									// for speed search storages
 		
 		WORD updated;
@@ -111,7 +96,6 @@ public:
 public:
 	CStoragesContainer storagesContainer;
 	
-	// ����� ����� �� ��������������!
 	typedef std::set< CPtr<CStaticObject>, SSegmentObjectsSort > CSegmObjects;
 	CSegmObjects segmObjects;
 
@@ -122,7 +106,6 @@ public:
 
 	std::unordered_set<int> burningObjects;
 
-	//
 	void AddToAreaMap( CExistingObject *pObj );
 	void AddObjectToAreaMapTile( CExistingObject *pObj, const SVector &tile );
 	void RemoveFromAreaMap( CExistingObject *pObj );
@@ -134,11 +117,9 @@ public:
 	void Init( const int nMapTileSizeX, const int nMapTileSizeY );
 	void Clear() 
 	{ 
-		//storagesContainer2.Clear(); 
 		DestroyContents(); 
 	}
 
-	// for editor
 	void RecalcPassabilityForPlayer( CArray2D<BYTE> *array, const int nParty );
 
 	void AddObstacle( interface IObstacle *pObstacle );
@@ -167,15 +148,10 @@ public:
 	void RegisterSegment( class CStaticObject *pObj );
 	void UnregisterSegment( class CStaticObject *pObj );
 
-	//void UpdateRUStorageAreas( const EActionNotify eAction, const int nDipl );
 
 	void Segment();
 
-	// for RU storages 
-	//void UpdateStoragesForParty( const int nParty, const bool bNewStorage, const bool bIncreasePassibility );
-	//void UpdateAllPartiesStorages( const bool bNewStorage, const bool bIncreasePassibility );
 
-	// ���������� ������ ������ ���������� ���������
 	void DeleteInternalObjectInfo( class CExistingObject *pObj );
 	void DeleteInternalObjectInfoForEditor( class CExistingObject *pObj );
 	void DeleteInternalEntrenchmentInfo( class CEntrenchment *pEntrench );
@@ -183,10 +159,8 @@ public:
 	void StartBurning( class CExistingObject *pObj );
 	void EndBurning( class CExistingObject *pObj );
 
-	//bool IsPointUnderSupply( const int nPlayer, const CVec2 &vCenter ) const;
 	void StorageChangedDiplomacy( class CBuildingStorage *pNewStorage, const int nNewPlayer );
 	
-	// ��� ���������
 	void UpdateAllObjectsPos();
 
 	void EnumObstaclesInRange( const CVec2 &vCenter, const float fRadius, interface IObstacleEnumerator *f );
@@ -198,5 +172,4 @@ public:
 	friend class CStObjIter<false>;
 	friend class CStObjIter<true>;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __STATIC_OBJECTS_H__

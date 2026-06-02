@@ -2,10 +2,7 @@
 
 #include "RMG_GraphNodePropertiesDialog.h"
 
-//#include "editor.h"
 
-//#include "MapEditorBarWnd.h"
-//#include "TemplateEditorFrame1.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -13,7 +10,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CRMGGraphNodePropertiesDialog::vID[] = 
 {
 	IDC_RMG_GNP_SIZE_LABEL_LEFT,					//0
@@ -25,13 +21,10 @@ const int CRMGGraphNodePropertiesDialog::vID[] =
 	IDCANCEL,															//6
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CRMGGraphNodePropertiesDialog::CRMGGraphNodePropertiesDialog( CWnd* pParent )
 	: CResizeDialog( CRMGGraphNodePropertiesDialog::IDD, pParent )
 {
-	//{{AFX_DATA_INIT(CRMGGraphNodePropertiesDialog)
 	m_strSize = _T("");
-	//}}AFX_DATA_INIT
 	SetControlStyle( vID[0], ANCHORE_LEFT_TOP );
 	SetControlStyle( vID[1], ANCHORE_LEFT_TOP | RESIZE_HOR );
 	SetControlStyle( vID[2], ANCHORE_LEFT_TOP | RESIZE_HOR );
@@ -41,25 +34,18 @@ CRMGGraphNodePropertiesDialog::CRMGGraphNodePropertiesDialog( CWnd* pParent )
 	SetControlStyle( vID[6], ANCHORE_BOTTOM | ANCHORE_HOR_CENTER );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGGraphNodePropertiesDialog::DoDataExchange(CDataExchange* pDX)
 {
 	CResizeDialog::DoDataExchange( pDX );
-	//{{AFX_DATA_MAP(CRMGGraphNodePropertiesDialog)
 	DDX_Control(pDX, IDC_RMG_GNP_CONTAINER_EDIT, m_ContainerPathEdit);
 	DDX_Text(pDX, IDC_RMG_GNP_SIZE_LABEL_RIGHT, m_strSize);
-	//}}AFX_DATA_MAP
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CRMGGraphNodePropertiesDialog, CResizeDialog)
-	//{{AFX_MSG_MAP(CRMGGraphNodePropertiesDialog)
 	ON_BN_CLICKED(IDC_RMG_GNP_CONTAINER_BROWSE_BUTTON, OnContainerBrowseButton)
 	ON_EN_CHANGE(IDC_RMG_GNP_CONTAINER_EDIT, OnChangeContainerEdit)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CRMGGraphNodePropertiesDialog::OnInitDialog() 
 {
 	CResizeDialog::OnInitDialog();
@@ -73,7 +59,6 @@ BOOL CRMGGraphNodePropertiesDialog::OnInitDialog()
 	return TRUE;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGGraphNodePropertiesDialog::OnContainerBrowseButton() 
 {
 	IDataStorage* pDataStorage = GetSingleton<IDataStorage>();
@@ -119,13 +104,9 @@ void CRMGGraphNodePropertiesDialog::OnContainerBrowseButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGGraphNodePropertiesDialog::OnChangeContainerEdit() 
 {
 	CString szBuffer;
 	m_ContainerPathEdit.GetWindowText( szBuffer );
 	szContainerInitialFileName = szBuffer;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// basement storage  
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

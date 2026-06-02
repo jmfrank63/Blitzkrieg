@@ -43,7 +43,6 @@ namespace STLPORT {
 #  define __HMS_SUPER __hash_multiset< __HS_BASE_ARGUMENTS >
 
 
-// provide a "default" hash_set adaptor
 __HS_TEMPLATE_HEADER
 class hash_set : public __HS_SUPER 
 {
@@ -87,7 +86,6 @@ inline bool operator==(const hash_set< __HS_ARGUMENTS >& hs1,
 }
 # endif
 
-// provide a "default" hash_multiset adaptor
 __HS_TEMPLATE_HEADER
 class hash_multiset : public __HMS_SUPER
 {
@@ -145,6 +143,3 @@ inline bool operator==(const hash_multiset< __HS_ARGUMENTS >& __hs1,
 
 #endif /* _STLP_INTERNAL_HASH_SET_H */
 
-// Local Variables:
-// mode:C++
-// End:

@@ -1,16 +1,6 @@
 #ifndef __STREAMIO_HELPER_H__
 #define __STREAMIO_HELPER_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** stream accessor helper class
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CStreamAccessor : public CPtr<IDataStream>
 {
 	template <class T1>
@@ -42,7 +32,6 @@ public:
 	CStreamAccessor() {  }
 	CStreamAccessor( const CStreamAccessor &accessor ) : CPtr<IDataStream>( accessor ) {  }
 	CStreamAccessor( IDataStream *_pStream ) : CPtr<IDataStream>( _pStream ) {  }
-	// general read/write functions
 	template<class T>
 		CStreamAccessor& operator>>( T &res )
 		{
@@ -57,12 +46,9 @@ public:
 			NI_ASSERT_SLOW_T( nCheck == sizeof(res), NStr::Format("%d bytes written instead of %d", nCheck, sizeof(res)) );
 			return *this;
 		}
-	// read/write template specialization for string
 	template<> CStreamAccessor& operator>>( std::string &str ) { ReadString( str ); return *this; }
 	template<> CStreamAccessor& operator<<( const std::string &str ) { WriteString( str ); return *this; }
-	// read/write template specialization for Unicode string (wide char)
 	template<> CStreamAccessor& operator>>( std::wstring &str ) { ReadString( str ); return *this; }
 	template<> CStreamAccessor& operator<<( const std::wstring &str ) { WriteString( str ); return *this; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __STREAMIO_HELPER_H__

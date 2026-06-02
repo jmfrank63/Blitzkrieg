@@ -3,35 +3,29 @@
 #include "SwitchToNextChapter.h"
 #include "CommonId.h"
 #include "..\Main\GameStats.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_ok"				,	IMC_OK				},
 	{ "inter_cancel"		, IMC_CANCEL		},
 	{ 0									,	0							}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands1[] = 
 {
 	{ "inter_ok"				,	IMC_OK				},
 	{ "inter_cancel"		, IMC_OK				},
 	{ 0									,	0							}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceNextChapter::CInterfaceNextChapter() : CInterfaceInterMission( "InterMission" )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceNextChapter::~CInterfaceNextChapter()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceNextChapter::Init()
 {
 	CInterfaceInterMission::Init();
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceNextChapter::StartInterface()
 {
 	CInterfaceInterMission::StartInterface();
@@ -39,11 +33,9 @@ void CInterfaceNextChapter::StartInterface()
 	
 	
 	std::string szChapterName = GetGlobalVar( "Chapter.Current.Name" );
-	//загружаем информацию о чаптере
 	const SChapterStats *pStats = NGDB::GetGameStats<SChapterStats>( szChapterName.c_str(), IObjectsDB::CHAPTER );
 
 	bool bTemplateExists = false;
-	// check if there is random mission ( if only scenario then do not allow stay in chapter )
 	for ( int i = 0; i < pStats->missions.size(); ++i )
 	{
 		if ( pStats->missions[i].pMission->IsTemplate() )
@@ -68,7 +60,6 @@ void CInterfaceNextChapter::StartInterface()
 	pUIScreen->Reposition( pGFX->GetScreenRect() );
 	pScene->AddUIScreen( pUIScreen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceNextChapter::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceInterMission::ProcessMessage( msg ) )
@@ -82,16 +73,13 @@ bool CInterfaceNextChapter::ProcessMessage( const SGameMessage &msg )
 				CloseInterface();
 				return true;
 			}
-			// no break - OK
 		case IMC_OK:
 		{
-			//установим global var, что текущий чаптер уже пройден
 			std::string szChapterName = GetGlobalVar( "Chapter.Current.Name", "" );
 			NI_ASSERT_T( szChapterName.size() > 0, "There is no global var Chapter.Current.Name" );
 			std::string szVarName = "Chapter." + szChapterName + ".Status";
 			SetGlobalVar( szVarName.c_str(), 2 );
 
-			//Сменим глобальную переменную нового чаптера
 			szVarName = "Chapter.New.Available";
 			std::string szNewChapter = GetGlobalVar( szVarName.c_str(), "" );
 			NI_ASSERT_T( szNewChapter.size() > 0, "New chapter name is empty" );
@@ -105,7 +93,5 @@ bool CInterfaceNextChapter::ProcessMessage( const SGameMessage &msg )
 		}
 	}
 	
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

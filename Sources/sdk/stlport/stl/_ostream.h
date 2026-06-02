@@ -43,8 +43,6 @@ template <class _CharT, class _Traits>
 bool
 _M_init(basic_ostream<_CharT, _Traits>& __str);
 
-//----------------------------------------------------------------------
-// class basic_ostream<>
 
 template <class _CharT, class _Traits>
 class basic_ostream : virtual public basic_ios<_CharT, _Traits>
@@ -89,10 +87,8 @@ public:                         // Unformatted output.
   _Self& write(const char_type* __s, streamsize __n);
 
 public:                         // Formatted output.
-  // Formatted output from a streambuf.
   _Self& operator<<(basic_streambuf<_CharT, _Traits>* __buf);
 # ifndef _STLP_NO_FUNCTION_TMPL_PARTIAL_ORDER
-  // this is needed for compiling with option char = unsigned
   _Self& operator<<(unsigned char __x) { _M_put_char(__x); return *this; }
 # endif
   _Self& operator<<(short __x) { return _M_put_num(*this,  __STATIC_CAST(long,__x)); }
@@ -143,8 +139,6 @@ public:                         // Buffer positioning and manipulation.
   }
 
 #if defined (_STLP_USE_TEMPLATE_EXPORT)
-  // If we are using DLL specs, we have not to use inner classes
-  // end class declaration here
   typedef _Osentry<_CharT, _Traits>  sentry;
 };
 #  define sentry _Osentry
@@ -157,7 +151,6 @@ public:                         // Buffer positioning and manipulation.
 # endif
     private:
       basic_ostream<_CharT, _Traits>& _M_str;
-      //      basic_streambuf<_CharT, _Traits>* _M_buf;
       bool _M_ok;
     public:
       explicit sentry(basic_ostream<_CharT, _Traits>& __str)
@@ -181,7 +174,6 @@ public:                         // Buffer positioning and manipulation.
 # if defined (_STLP_USE_TEMPLATE_EXPORT)
 #  undef sentry
 # else
-  // close basic_ostream class definition here    
 };
 # endif
   
@@ -201,7 +193,6 @@ _M_get_ostreambuf(basic_ostream<_CharT, _Traits>& __St)
   return __St.rdbuf();
 }
 
-// Non-member functions.
 
 template <class _CharT, class _Traits>
 inline basic_ostream<_CharT, _Traits>& _STLP_CALL
@@ -218,7 +209,6 @@ operator<<(basic_ostream<_CharT, _Traits>& __os, const _CharT* __s) {
 }
 
 # ifdef _STLP_NO_FUNCTION_TMPL_PARTIAL_ORDER
-// some specializations
 
 inline basic_ostream<char, char_traits<char> >& _STLP_CALL
 operator<<(basic_ostream<char, char_traits<char> >& __os, char __c) {
@@ -258,7 +248,6 @@ operator<<(basic_ostream<char, char_traits<char> >& __os, const unsigned char* _
 
 # else
 
-// also for compilers who might use that
 template <class _CharT, class _Traits>
 inline basic_ostream<_CharT, _Traits>& _STLP_CALL
 operator<<(basic_ostream<_CharT, _Traits>& __os, char __c) {
@@ -316,8 +305,6 @@ operator<<(basic_ostream<char, _Traits>& __os, const unsigned char* __s) {
 }
 # endif /* _STLP_NO_FUNCTION_TMPL_PARTIAL_ORDER */
 
-//----------------------------------------------------------------------
-// basic_ostream manipulators.
 
 template <class _CharT, class _Traits>
 inline basic_ostream<_CharT, _Traits>& _STLP_CALL
@@ -351,6 +338,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_OSTREAM_H */
 
-// Local Variables:
-// mode:C++
-// End:

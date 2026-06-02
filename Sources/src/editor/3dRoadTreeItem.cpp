@@ -170,11 +170,9 @@ void C3DRoadCommonPropsItem::UpdateItemValue( int nItemId, const CVariant &value
 	
 	if ( nItemId == 2 )
 	{
-		//Изменился флаг бордюра
 		bool bVal = HasBorders();
 		if ( bVal == true && bOldBordersFlag == false )
 		{
-			//добавим бордюры
 			C3DRoadLayerPropsItem *pLayerProps = new C3DRoadLayerPropsItem;
 			pLayerProps->SetItemName( "Border layer" );
 			GetParentTreeItem()->AddChild( pLayerProps );
@@ -182,7 +180,6 @@ void C3DRoadCommonPropsItem::UpdateItemValue( int nItemId, const CVariant &value
 		
 		if ( bVal == false && bOldBordersFlag == true )
 		{
-			//удалим бордюры
 			CTreeItem *pLayer = GetParentTreeItem()->GetChildItem( E_3DROAD_LAYER_PROPS_ITEM, 1 );
 			NI_ASSERT( pLayer != 0 );
 			pLayer->DeleteMeInParentTreeItem();
@@ -261,7 +258,6 @@ void C3DRoadLayerPropsItem::UpdateItemValue( int nItemId, const CVariant &value 
 	
 	pFrame->UpdateRoadView();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BYTE C3DRoadCommonPropsItem::GetSoilParams()
 {
 	BYTE res = 0x00;
@@ -271,5 +267,4 @@ BYTE C3DRoadCommonPropsItem::GetSoilParams()
 		res = res | SVectorStripeObjectDesc::ESP_TRACE;
 	return res;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

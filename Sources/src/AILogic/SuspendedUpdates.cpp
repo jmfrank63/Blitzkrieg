@@ -10,24 +10,18 @@
 #include "..\StreamIO\StreamIOTypes.h"
 #include "..\StreamIO\Globals.h"
 
-// for debug
 #include "MPLog.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSuspendedUpdates theSuspendedUpdates;
 extern CDiplomacy theDipl;
 extern CUpdater updater;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ��������� - �� update, ������� ����� ���� �������, ��� ���������� �����
 std::unordered_map< int, int > numeration;
 
 const int N_CELL_SIZE = 8;
 const int N_SUSPENDED_ACTIONS = 7;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSuspendedUpdates::CSuspendedUpdates()
 : objectsByCells( N_CELL_SIZE )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSuspendedUpdates::CommonInit()
 {
 	recalledUpdates.clear();
@@ -43,7 +37,6 @@ void CSuspendedUpdates::CommonInit()
 
 	NI_ASSERT_T( numeration.size() == N_SUSPENDED_ACTIONS, "Wrong number of suspeneded actions" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSuspendedUpdates::Init( const int nStaticMapSizeX, const int nStaticMapSizeY )
 {
 	nMyParty = theDipl.GetMyParty();
@@ -51,7 +44,6 @@ void CSuspendedUpdates::Init( const int nStaticMapSizeX, const int nStaticMapSiz
 
 	CommonInit();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSuspendedUpdates::Clear()
 {
 	objectsByCells.Clear();
@@ -62,17 +54,13 @@ void CSuspendedUpdates::Clear()
 	recalledUpdates.clear();
 	visibleTiles.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSuspendedUpdates::TileBecameVisible( const SVector &tile, const int nParty )
 {
-	// ������� ���� � ��� ���� ������� �� suspended updates
 	if ( nParty == nMyParty && !objectsByCells[tile.y / N_CELL_SIZE][tile.x / N_CELL_SIZE].empty() )
 		visibleTiles.insert( tile );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSuspendedUpdates::DeleteUpdate( IUpdatableObj *pObj, const EActionNotify &eAction )
 {
-	// ����������� ������ - ���������� update ����������
 	if ( eAction == ACTION_NOTIFY_UPDATE_DIPLOMACY )
 		diplomacyUpdates.erase( pObj );
 	else
@@ -83,7 +71,6 @@ void CSuspendedUpdates::DeleteUpdate( IUpdatableObj *pObj, const EActionNotify &
 			if ( updates[pObj].size() > nNumeration )
 				updates[pObj][nNumeration] = 0;
 
-			// ������ �� recalled updates
 			CRecalledUpdatesType::iterator iter = recalledUpdates[nNumeration].begin();
 			while ( iter != recalledUpdates[nNumeration].end() )
 			{
@@ -93,7 +80,6 @@ void CSuspendedUpdates::DeleteUpdate( IUpdatableObj *pObj, const EActionNotify &
 					++iter;
 			}
 
-			// ������� o�����, ���� ��� ��� ��������� ��� update
 			int i = 0;
 			while ( i < updates[pObj].size() && updates[pObj][i] == 0 )
 				++i;
@@ -103,11 +89,9 @@ void CSuspendedUpdates::DeleteUpdate( IUpdatableObj *pObj, const EActionNotify &
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSuspendedUpdates::SuspendUpdate( const EActionNotify &eAction, IUpdatableObj * pObj, const SSuspendedUpdate &update )
 {
 	bool bShouldSuspend = true;
-	// ������ ������� ��� ���
 	if ( tilesOfObj.find( pObj->GetUniqueId() ) == tilesOfObj.end() || updates.find( pObj ) == updates.end() )
 	{
 		CTilesSet tiles;
@@ -136,17 +120,14 @@ void CSuspendedUpdates::SuspendUpdate( const EActionNotify &eAction, IUpdatableO
 		update.Pack( updates[pObj][numeration[eAction]] );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSuspendedUpdates::AddComplexObjectUpdate( const EActionNotify &eAction, IUpdatableObj * pObj, const  SSuspendedUpdate &update )
 {
 	SuspendUpdate( eAction, pObj, update );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSuspendedUpdates::CheckToSuspend( const EActionNotify &eAction, IUpdatableObj *pObj, const SSuspendedUpdate &update )
 {
 	if ( pObj->ShouldSuspendAction( eAction ) )
 	{
-		// ����������� ������ - ���������� update ����������
 		if ( eAction == ACTION_NOTIFY_UPDATE_DIPLOMACY )
 		{
 			if ( !pObj->IsVisibleForDiplomacyUpdate() )
@@ -176,12 +157,10 @@ bool CSuspendedUpdates::CheckToSuspend( const EActionNotify &eAction, IUpdatable
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSuspendedUpdates::IsRecalledEmpty( const EActionNotify &eAction ) const
 {
 	return numeration.find( eAction ) == numeration.end() || recalledUpdates[numeration[eAction]].empty();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CSuspendedUpdates::GetNRecalled( const EActionNotify &eAction ) const
 {
 	if ( numeration.find( eAction ) == numeration.end() )
@@ -192,7 +171,6 @@ const int CSuspendedUpdates::GetNRecalled( const EActionNotify &eAction ) const
 		return recalledUpdates[nNumeration].size();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSuspendedUpdates::GetRecalled( const EActionNotify &eAction, SSuspendedUpdate *pUpdate )
 {
 	NI_ASSERT_T( numeration.find( eAction ) != numeration.end(), NStr::Format( "Can't recall %d action", eAction ) );
@@ -203,7 +181,6 @@ void CSuspendedUpdates::GetRecalled( const EActionNotify &eAction, SSuspendedUpd
 	recalledUpdates[nNumeration].back().Recall( pUpdate );
 	recalledUpdates[nNumeration].pop_back();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSuspendedUpdates::UpdateVisibleTiles( const std::unordered_set<SVector, STilesHash> &tilesSet, std::unordered_set<SVector, STilesHash> *pCoverTiles )
 {
 	for ( std::unordered_set< SVector, STilesHash >::const_iterator visTilesIter = tilesSet.begin(); visTilesIter != visibleTiles.end(); ++visTilesIter )
@@ -217,7 +194,6 @@ void CSuspendedUpdates::UpdateVisibleTiles( const std::unordered_set<SVector, ST
 		{
 			IUpdatableObj *pObj = *objIter;
 			++objIter;
-			// ������ ���� �����
 			const int nUniqueId = pObj->GetUniqueId();
 			if ( tilesOfObj[nUniqueId].find( tile ) != tilesOfObj[nUniqueId].end() )
 			{
@@ -238,7 +214,6 @@ void CSuspendedUpdates::UpdateVisibleTiles( const std::unordered_set<SVector, ST
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSuspendedUpdates::Segment()
 {
 	std::unordered_set<SVector, STilesHash> coveredTiles;
@@ -259,30 +234,23 @@ void CSuspendedUpdates::Segment()
 	for ( std::list<IUpdatableObj*>::iterator iter = delDiplomacyUpdates.begin(); iter != delDiplomacyUpdates.end(); ++iter )
 		diplomacyUpdates.erase( *iter );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSuspendedUpdates::DeleteObjectInfo( IUpdatableObj *pObj )
 {
-	// ������ ������ �� �����
 	for ( std::unordered_set<SVector, STilesHash>::iterator tilesOfObjIter = tilesOfObj[pObj->GetUniqueId()].begin(); tilesOfObjIter != tilesOfObj[pObj->GetUniqueId()].end(); ++tilesOfObjIter )
 		objectsByCells.RemoveFromPosition( pObj, *tilesOfObjIter );
 
-	// ������ ��� ����� ��� ��������� �������
 	tilesOfObj.erase( pObj->GetUniqueId() );
-	// ������ ��� updates �������
 	updates.erase( pObj );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSuspendedUpdates::DeleteUpdates( IUpdatableObj *pObj )
 {
 	if ( tilesOfObj.find( pObj->GetUniqueId() ) != tilesOfObj.end() )
 		DeleteObjectInfo( pObj );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSuspendedUpdates::DoesExistSuspendedUpdate( IUpdatableObj *pObj, const EActionNotify &eAction )
 {
 	return updates.find( pObj ) != updates.end() && updates[pObj][numeration[eAction]] != 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSuspendedUpdates::SRecalledUpdate::Recall( SSuspendedUpdate *pRecallTo )
 {
 	if ( pUpdateInfo )
@@ -294,4 +262,3 @@ void CSuspendedUpdates::SRecalledUpdate::Recall( SSuspendedUpdate *pRecallTo )
 
 	updater.Add2Garbage( pObj );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

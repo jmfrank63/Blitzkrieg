@@ -44,7 +44,6 @@ namespace STLPORT {
 #   define __SET_SUPER  __set< _Key, _Compare, _STLP_DEFAULT_ALLOCATOR(_Key) >
 #   define __MSET_SUPER __multiset< _Key, _Compare, _STLP_DEFAULT_ALLOCATOR(_Key) >
 
-// provide a "default" set adaptor
 __SET_TEMPLATE_HEADER
 class set : public __SET_SUPER
 {
@@ -52,9 +51,7 @@ class set : public __SET_SUPER
 public:
     typedef __SET_SUPER _Super;
     __IMPORT_WITH_REVERSE_ITERATORS(_Super)
-    // copy & assignment from super
     __IMPORT_SUPER_COPY_ASSIGNMENT(set,_Self,__SET_SUPER)
-    // specific constructors
     explicit set() : __SET_SUPER(_Compare()) {}
     explicit set(const _Compare& __comp) : __SET_SUPER(__comp) {}
     set(const value_type* __first, const value_type* __last) : 
@@ -83,7 +80,6 @@ inline bool operator<(const set< __SET_ARGUMENTS >& __x,
 }
 #  endif
 
-// provide a "default" multiset adaptor
 __MSET_TEMPLATE_HEADER 
 class multiset : public __MSET_SUPER
 {
@@ -91,7 +87,6 @@ class multiset : public __MSET_SUPER
 public:
     typedef __MSET_SUPER _Super;
     __IMPORT_WITH_REVERSE_ITERATORS(_Super)
-    // copy & assignment from super
     __IMPORT_SUPER_COPY_ASSIGNMENT(multiset, _Self, __MSET_SUPER)
     explicit multiset() : __MSET_SUPER(_Compare()) {}
     explicit multiset(const _Compare& __comp) : __MSET_SUPER(__comp) {}
@@ -136,6 +131,3 @@ inline bool operator<(const multiset< __MSET_ARGUMENTS >& __x,
 
 #endif /* _STLP_INTERNAL_WRAP_SET_H */
 
-// Local Variables:
-// mode:C++
-// End:

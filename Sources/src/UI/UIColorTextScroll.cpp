@@ -2,7 +2,6 @@
 
 #include "UIColorTextScroll.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int STDCALL CUIColorTextScroll::CColorTextEntry::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -15,7 +14,6 @@ int STDCALL CUIColorTextScroll::CColorTextEntry::operator&( IStructureSaver &ss 
 	saver.Add( 7, &entryStrings );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CVisibleString CUIColorTextScroll::CColorTextEntry::CreateString( const std::wstring &szSource, const int nWidth, const DWORD dwColor, const int nRedLine )
 {
 	CVisibleString result;
@@ -36,7 +34,6 @@ CVisibleString CUIColorTextScroll::CColorTextEntry::CreateString( const std::wst
 	}
 	return result;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIColorTextScroll::CColorTextEntry::Get1LineHeight() const
 {
 	if ( entry.second )
@@ -45,7 +42,6 @@ int CUIColorTextScroll::CColorTextEntry::Get1LineHeight() const
 		return caption.second->GetLineSpace();
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CUIColorTextScroll::CColorTextEntry::CColorTextEntry( const wchar_t *pszCaptionText, const DWORD _dwCaptionColor,
 										 const wchar_t *pszEntryText, const DWORD _dwEntryColor,
 										 const int _nY, const int nWidth )
@@ -54,7 +50,6 @@ CUIColorTextScroll::CColorTextEntry::CColorTextEntry( const wchar_t *pszCaptionT
 	dwEntryColor( _dwEntryColor ), 
 	entryStartX( 0 ), nHeight( 0 )
 {
-	// determine caption size
 	if ( pszCaptionText )
 	{
 		szCaptionString = pszCaptionText;
@@ -68,13 +63,11 @@ CUIColorTextScroll::CColorTextEntry::CColorTextEntry( const wchar_t *pszCaptionT
 		entry = CreateString( entryStrings[0], nWidth, dwEntryColor, entryStartX );
 	}
 
-	//determine total item height 
 	if ( entry.second )
 		nHeight = entry.second->GetNumLines() * entry.second->GetLineSpace();
 	else if ( caption.second )
 		nHeight = caption.second->GetLineSpace();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIColorTextScroll::CColorTextEntry::Visit( interface ISceneVisitor *pVisitor, const CTRect<float> &border, const int nYOffset )
 {
 	if ( caption.second )
@@ -83,7 +76,6 @@ void CUIColorTextScroll::CColorTextEntry::Visit( interface ISceneVisitor *pVisit
 	if ( entry.second )
 		pVisitor->VisitUIText( entry.second, border, nY + nYOffset, dwEntryColor, FNT_FORMAT_LEFT );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIColorTextScroll::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -91,7 +83,6 @@ int CUIColorTextScroll::operator&( IStructureSaver &ss )
 	saver.Add( 2,  &colors );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIColorTextScroll::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -99,28 +90,22 @@ int CUIColorTextScroll::operator&( IDataTree &ss )
 	saver.Add( "Colors",  &colors );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIColorTextScroll::Reposition( const CTRect<float> &rcParent )
 {
 	RepositionScrollbar();
 	CMultipleWindow::Reposition( rcParent );
 	UpdateScrollBar( 0, 0 );
 	
-	// ToDo if needed
-	// reposition entrys
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIColorTextScroll::SetWindowText( int nState, const WORD *pszText ) 
 { 
 	textEntrys.clear(); 
 	AppendMessage( pszText, 0, IUIColorTextScroll::E_COLOR_DEFAULT );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIColorTextScroll::Draw( IGFX *pGFX )
 {
 	NI_ASSERT_T( false, "wrong call" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIColorTextScroll::AppendMessage( const WORD *pszCaption, const WORD *pszMessage,
 																			const enum IUIColorTextScroll::EColorEntrys color )
 {
@@ -138,11 +123,9 @@ void CUIColorTextScroll::AppendMessage( const WORD *pszCaption, const WORD *pszM
 																						 
 	const int nSize = Max( nCurrentYSize - rect.Height(), 0.0f );
 
-	//const int nLineHeigth = states[nState].pGfxText->GetLineSpace();
 	
 	UpdateScrollBar( nSize, nSize );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIColorTextScroll::Visit( interface ISceneVisitor *pVisitor )
 {
 	CUIScrollTextBox::Visit( pVisitor );
@@ -151,11 +134,8 @@ void CUIColorTextScroll::Visit( interface ISceneVisitor *pVisitor )
 	GetBorderRect( &borderRect );
 
 
-	// draw visible text entrys
-	// to do: draw only visible
 	for ( CTextEntrys::iterator it = textEntrys.begin(); it != textEntrys.end(); ++it )
 	{
 		(*it)->Visit( pVisitor, borderRect, GetY() );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

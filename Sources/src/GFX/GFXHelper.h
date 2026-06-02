@@ -1,20 +1,9 @@
 #ifndef __GFXHELPER_H__
 #define __GFXHELPER_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline const DWORD MAKE_ARGB( const DWORD a, const DWORD r, const DWORD g, const DWORD b ) { return (a << 24) | (r << 16) | (g << 8) | b; }
 inline const DWORD MAKE_RGB( const DWORD a, const DWORD r, const DWORD g, const DWORD b ) { return 0xff000000 | (r << 16) | (g << 8) | b; }
 inline DWORD MakeShade( const DWORD dwShade ) { return 0xff000000 | (dwShade << 16) | (dwShade << 8) | dwShade; }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** color format structures
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SGFXColor8888
 {
 	union
@@ -28,11 +17,9 @@ struct SGFXColor8888
 			DWORD a : 8;
 		};
 	};
-	//
 	SGFXColor8888() {  }
 	SGFXColor8888( DWORD dwColor )	: color( dwColor ) {  }
 	SGFXColor8888( BYTE _a, BYTE _r, BYTE _g, BYTE _b ) : b( _b ), g( _g ), r( _r ), a( _a ) {  }
-	//
 	operator DWORD() const { return color; }
 };
 struct SGFXColor1555
@@ -48,11 +35,9 @@ struct SGFXColor1555
 			WORD a : 1;
 		};
 	};
-	//
 	SGFXColor1555() {  }
 	SGFXColor1555( WORD wColor )	: color( wColor ) {  }
 	SGFXColor1555( BYTE _a, BYTE _r, BYTE _g, BYTE _b ) : b( _b ), g( _g ), r( _r ), a( _a ) {  }
-	//
 	operator WORD() const { return color; }
 };
 struct SGFXColor4444
@@ -68,11 +53,9 @@ struct SGFXColor4444
 			WORD a : 4;
 		};
 	};
-	//
 	SGFXColor4444() {  }
 	SGFXColor4444( WORD wColor )	: color( wColor ) {  }
 	SGFXColor4444( BYTE _a, BYTE _r, BYTE _g, BYTE _b ) : b( _b ), g( _g ), r( _r ), a( _a ) {  }
-	//
 	operator WORD() const { return color; }
 };
 struct SGFXColor0555
@@ -88,11 +71,9 @@ struct SGFXColor0555
 			WORD a : 1;
 		};
 	};
-	//
 	SGFXColor0555() {  }
 	SGFXColor0555( WORD wColor )	: color( wColor ) {  }
 	SGFXColor0555( BYTE _a, BYTE _r, BYTE _g, BYTE _b ) : b( _b ), g( _g ), r( _r ), a( _a ) {  }
-	//
 	operator WORD() const { return color; }
 };
 struct SGFXColor0565
@@ -108,22 +89,11 @@ struct SGFXColor0565
 			WORD a : 1;
 		};
 	};
-	//
 	SGFXColor0565() {  }
 	SGFXColor0565( WORD wColor )	: color( wColor ) {  }
 	SGFXColor0565( BYTE _a, BYTE _r, BYTE _g, BYTE _b ) : b( _b ), g( _g ), r( _r ), a( _a ) {  }
-	//
 	operator WORD() const { return color; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** vertex format structures
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SGFXVertex
 {
 	enum { format = GFXFVF_XYZ | GFXFVF_NORMAL | GFXFVF_TEX1 };
@@ -142,7 +112,6 @@ struct SGFXVertex
 			CVec2 tex;
 		};
 	};
-	//
 	void Setup( float _x, float _y, float _z, float _nx, float _ny, float _nz, float _tu, float _tv )
 	{
 		x = _x;
@@ -181,7 +150,6 @@ struct SGFXVertex2
 			CVec2 tex1;
 		};
 	};
-	//
 	void Setup( float _x, float _y, float _z, float _nx, float _ny, float _nz, float _tu, float _tv, float _tu1, float _tv1 )
 	{
 		x = _x;
@@ -221,9 +189,7 @@ struct SGFXLVertex
 			CVec2 tex;
 		};
 	};
-	//
 	SGFXLVertex() : x(0), y(0), z(0), color(0), specular(0), tu(0), tv(0) {}
-	//
 	void Setup( float _x, float _y, float _z, DWORD _color, DWORD _specular, float _tu, float _tv )
 	{
 		x = _x;
@@ -241,7 +207,6 @@ struct SGFXLVertex
 		specular = _specular;
 		tex = _tex;
 	}
-	// this two setup functions use fake '_rhw' parameter for TL => non-TL vertices compatibility
 	void Setup( float _x, float _y, float _z, float _rhw, DWORD _color, DWORD _specular, float _tu, float _tv )
 	{
 		x = _x;
@@ -279,7 +244,6 @@ struct SGFXLVertex2
 			CVec2 tex, tex1;
 		};
 	};
-	//
 	void Setup( float _x, float _y, float _z, DWORD _color, DWORD _specular, float _tu, float _tv, float _tu1, float _tv1 )
 	{
 		x = _x;
@@ -300,7 +264,6 @@ struct SGFXLVertex2
 		tex = _tex;
 		tex1 = _tex1;
 	}
-	// this two setup functions use fake '_rhw' parameter for TL => non-TL vertices compatibility
 	void Setup( float _x, float _y, float _z, float _rhw, DWORD _color, DWORD _specular, float _tu, float _tv, float _tu1, float _tv1 )
 	{
 		x = _x;
@@ -340,7 +303,6 @@ struct SGFXTLVertex
 			CVec2 tex;
 		};
 	};
-	//
 	SGFXTLVertex() {}  // Default constructor
 	void Setup( float _sx, float _sy, float _sz, float _rhw, DWORD _color, DWORD _specular, float _tu, float _tv )
 	{
@@ -381,7 +343,6 @@ struct SGFXTLVertex2
 			CVec2 tex1;
 		};
 	};
-	//
 	void Setup( float _x, float _y, float _z, float _rhw, DWORD _color, DWORD _specular, float _tu, float _tv, float _tu1, float _tv1 )
 	{
 		x = _x;
@@ -404,7 +365,6 @@ struct SGFXTLVertex2
 		tex1 = _tex1;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SGFXTLPoint
 {
 	enum { format = GFXFVF_XYZRHW | GFXFVF_DIFFUSE };
@@ -421,7 +381,6 @@ struct SGFXTLPoint
 			DWORD color;
 		};
 	};
-	//
 	void Setup( float _sx, float _sy, float _sz, float _rhw, DWORD _color )
 	{
 		x = _sx;
@@ -436,7 +395,6 @@ struct SGFXTLPoint
 		color = _color;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SGFXLineVertex
 {
 	enum { format = GFXFVF_XYZ | GFXFVF_DIFFUSE };
@@ -453,7 +411,6 @@ struct SGFXLineVertex
 			DWORD color;
 		};
 	};
-	//
 	SGFXLineVertex() {}  // Default constructor
 	void Setup( float _x, float _y, float _z, DWORD _color )
 	{
@@ -468,15 +425,6 @@ struct SGFXLineVertex
 		color = _color;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** texture and surface lockers
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TColor>
 class CTextureLock
 {
@@ -506,8 +454,6 @@ public:
 	int GetSizeX() const { return pTexture->GetSizeX( nLevel ); }
 	int GetSizeY() const { return rows.size(); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// texture locker with easy and convinient data access
 template <class TColor>
 class CSurfaceLock
 {
@@ -536,15 +482,6 @@ public:
 	int GetSizeX() const { return pSurface->GetSizeX(); }
 	int GetSizeY() const { return rows.size(); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** vertex/index buffer lockers
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TBuffer, class TData>
 class CBaseGeometryLock
 {
@@ -561,7 +498,6 @@ public:
 		if ( pMemory )
 			pBuffer->Unlock();
 	}
-	//
 	TData* GetBuffer() const { return pMemory; }
 	TData& operator[]( int nIndex ) { return pMemory[nIndex]; }
 	const TData& operator[]( int nIndex ) const { return pMemory[nIndex]; }
@@ -580,7 +516,6 @@ public:
 	CIndicesLock<TIndex>( IGFXIndices *pIndices )
 		: CBaseGeometryLock<IGFXIndices, TIndex>( pIndices ) {  }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TData>
 class CTempBufferLock
 {
@@ -588,7 +523,6 @@ class CTempBufferLock
 public:
 	CTempBufferLock( void *_pData )
 		: pData( reinterpret_cast<TData*>(_pData) ) {  }
-	//
 	CTempBufferLock& operator=( void *_pData ) { pData = reinterpret_cast<TData*>( _pData ); return *this; }
 	CTempBufferLock& operator=( const std::vector<TData> &data )
 	{
@@ -604,39 +538,22 @@ public:
 			*pTempData++ = *it;
 		return *this;
 	}
-	//
 	operator const TData*() const { return pData; }
 	operator TData*() { return pData; }
 	const TData* operator->() const { return pData; }
 	TData* operator->() { return pData; }
-	//
 	CTempBufferLock& operator++() { ++pData; return *this; }
 	CTempBufferLock& operator--() { --pData; return *this; }
-	//
 	TData* GetBuffer() const { return pData; }
 	TData& operator[]( int nIndex ) { return pData[nIndex]; }
 	const TData& operator[]( int nIndex ) const { return pData[nIndex]; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** gamma correction funtction
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// brightness, contrast and gamma are in range [-1..1]
 inline bool SetGammaCorrectionBounded( const float fBrightness, const float fContrast, const float fGamma, IGFX *pGFX, bool bCalibrate, bool bStoreValues = true )
 {
-  // calculate equation params for Y = A*X + B
-  // contrast: a*x + b
-  // если contrast < 0, то a = 1/a (наклон <45 градусов)
   float fA = 1.0f + 4.0f*fabs( fContrast );
   if ( fContrast < 0 )
     fA = 1.0f / fA;
   float fB = 0.5f*( 1.0f - fA );
-  // gamma: x^power
   float fPower = 1;
   {
     if ( fGamma > 0 )
@@ -644,8 +561,6 @@ inline bool SetGammaCorrectionBounded( const float fBrightness, const float fCon
     else if ( fGamma < 0 )
       fPower = 1.0f / ( 0.5f*fGamma + 1 );
   }
-  // brightness: x + b
-  //
   SGFXGammaRamp ramp;
   for ( int i = 0; i < 256; ++i )
   {
@@ -655,32 +570,17 @@ inline bool SetGammaCorrectionBounded( const float fBrightness, const float fCon
     const float fResult = Clamp( fContrastValue + fBrightness, 0.0f, 1.0f );
     ramp.red[i] = ramp.green[i] = ramp.blue[i] = fResult * 256 * 255;
   }
-	//
 	if ( bStoreValues ) 
 		pGFX->SetGammaCorrectionValues( fBrightness, fContrast, fGamma );
 	return pGFX->SetGammaRamp( ramp, bCalibrate );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline bool SetGammaCorrection( float fBrightness, float fContrast, float fGamma, IGFX *pGFX, bool bCalibrate )
 {
-  // build ramp from the brightness, contrast and gamma values
-  // y = a*x + b
-  //
   fBrightness = Clamp( fBrightness, -1.0f, 1.0f ) * 0.5f; // to avoid complete dark and complete white values
   fContrast = Clamp( fContrast, -1.0f, 1.0f ) * 0.5f;
   fGamma = Clamp( fGamma, -1.0f, 1.0f ) * 0.5f;
-	//
 	return SetGammaCorrectionBounded( fBrightness, fContrast, fGamma, pGFX, bCalibrate );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** temp draw helper
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TYPE>
 inline bool DrawTemp( interface IGFX *pGFX, const std::vector<TYPE> &vertices, const std::vector<WORD> &indices, 
 										  EGFXPrimitiveType eGFXPT = GFXPT_TRIANGLELIST )
@@ -692,8 +592,6 @@ inline bool DrawTemp( interface IGFX *pGFX, const std::vector<TYPE> &vertices, c
 	verts = vertices;
 	CTempBufferLock<WORD> inds = pGFX->GetTempIndices( indices.size(), GFXIF_INDEX16, eGFXPT );
 	inds = indices;
-	//
 	return pGFX->DrawTemp();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __GFXHELPER_H__

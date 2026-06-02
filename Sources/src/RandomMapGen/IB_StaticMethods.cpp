@@ -9,10 +9,8 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSpritesPackBuilder::GetActualRect( SSpritesPack::CSpritesList::const_iterator spritesListIterator, CTRect<int> *pActualRect )
 {
-	//ищем размеры картинки
 	CTRect<int> bounds( INT_MAX, INT_MAX, INT_MIN, INT_MIN );
 	for ( SSpritesPack::SSprite::CSquaresList::const_iterator squareIterator = spritesListIterator->squares.begin(); squareIterator != spritesListIterator->squares.end(); ++squareIterator )
 	{
@@ -44,10 +42,8 @@ void CSpritesPackBuilder::GetActualRect( SSpritesPack::CSpritesList::const_itera
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSpritesPackBuilder::GetMinimalImageSize( const SSpritesPack *pSpritesPack, CTPoint<int> *pMinimalImageSize, CTPoint<int> *pCollectedSquareSideSize, int *pnSquaresCount )
 {
-	//определяем площадь занимаемую квадратами
 	int nPackedSquareSize = 0;
 	( *pnSquaresCount ) = 0;
 	
@@ -76,7 +72,6 @@ bool CSpritesPackBuilder::GetMinimalImageSize( const SSpritesPack *pSpritesPack,
 							 NStr::Format( "Invalid collected sizes: %d %d\n", pCollectedSquareSideSize->min, pCollectedSquareSideSize->max ) );
 	/**/
 	
-	//если нет квадрататов
 	if ( ( ( *pnSquaresCount ) == 0 ) )
 	{
 		pCollectedSquareSideSize->min = 0;
@@ -86,7 +81,6 @@ bool CSpritesPackBuilder::GetMinimalImageSize( const SSpritesPack *pSpritesPack,
 		return false;
 	}
 
-	//определяем размер запакованной картинки исходя из необходимой площади
 	pMinimalImageSize->x = 1;
 	pMinimalImageSize->y = 1;
 
@@ -102,10 +96,8 @@ bool CSpritesPackBuilder::GetMinimalImageSize( const SSpritesPack *pSpritesPack,
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSpritesPackBuilder::CollectSquares( int nCurrentDepth, const CTPoint<int> &rLeftTop, int nSquareSideSize, SCollectSquaresParameter *pParameter )
 {
-	//пробегаем по квадратам меньшего размера
 	int nSquaresCount = 0;
 	for ( int nSquareYIndex = 0; nSquareYIndex < 2;	++nSquareYIndex )
 	{
@@ -114,7 +106,6 @@ bool CSpritesPackBuilder::CollectSquares( int nCurrentDepth, const CTPoint<int> 
 			bool bResult = false;
 			if ( nCurrentDepth < pParameter->nMaxDepth )
 			{
-				//рекурсия
 				bResult = CollectSquares( nCurrentDepth + 1,
 																	CTPoint<int>( rLeftTop.x + nSquareXIndex * ( nSquareSideSize / 2 ),
 																								rLeftTop.y + nSquareYIndex * ( nSquareSideSize / 2 ) ),
@@ -123,8 +114,6 @@ bool CSpritesPackBuilder::CollectSquares( int nCurrentDepth, const CTPoint<int> 
 			}
 			else
 			{
-				//наибольшая глубина рекурсии
-				//если квадрат попадает в картинку
 				CTRect<int> indices( rLeftTop.x - pParameter->shift.x + nSquareXIndex * ( nSquareSideSize / 2 ),
 														 rLeftTop.y - pParameter->shift.y + nSquareYIndex * ( nSquareSideSize / 2 ),
 														 rLeftTop.x - pParameter->shift.x + ( nSquareXIndex + 1 ) * ( nSquareSideSize / 2 ),
@@ -152,7 +141,6 @@ bool CSpritesPackBuilder::CollectSquares( int nCurrentDepth, const CTPoint<int> 
 			}
 			if ( bResult )
 			{
-				//добавить квадратик
 				int nSize = nSquareSideSize / 2;
 				CTPoint<int> leftTop( rLeftTop.x + nSquareXIndex * nSize, rLeftTop.y + nSquareYIndex * nSize );
 				leftTop -= ( pParameter->pSprite->center + pParameter->shift );
@@ -171,7 +159,6 @@ bool CSpritesPackBuilder::CollectSquares( int nCurrentDepth, const CTPoint<int> 
 	}
 	if ( nSquaresCount == 4 )
 	{
-		//удалить квадратики
 		for ( int index = 0; index < nSquaresCount; ++index )
 		{
 			pParameter->pSprite->squares.pop_back();
@@ -182,7 +169,6 @@ bool CSpritesPackBuilder::CollectSquares( int nCurrentDepth, const CTPoint<int> 
 	return false;
 }							
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSpritesPackBuilder::CollectSquares( SSpritesPack *pSpritesPack, const CPackParameters &rPackParameters, int nMaxSquareSideSize, int nMaxDepth, int nMinDepth )
 {
 	pSpritesPack->sprites.clear();
@@ -191,7 +177,6 @@ bool CSpritesPackBuilder::CollectSquares( SSpritesPack *pSpritesPack, const CPac
 	collectSquaresParameter.nMaxDepth = nMaxDepth;
 	for ( CPackParameters::const_iterator packParameterIterator = rPackParameters.begin(); packParameterIterator != rPackParameters.end(); ++packParameterIterator )
 	{
-		//добавляем запакованную картинку - пока пустую
 		pSpritesPack->sprites.push_back( SSpritesPack::SSprite() );
 		pSpritesPack->sprites.back().center = packParameterIterator->center;
 
@@ -202,7 +187,6 @@ bool CSpritesPackBuilder::CollectSquares( SSpritesPack *pSpritesPack, const CPac
 		CTPoint<int> shiftedImageSize( 0, 0 );
 		CTPoint<int> mainSquaresCount( 0, 0 );
 
-		//центруем квадраты относительно начала кординат
 		if ( ( pSpritesPack->sprites.back().center.x % nMaxSquareSideSize ) != 0 )
 		{
 			collectSquaresParameter.shift.x = nMaxSquareSideSize - ( pSpritesPack->sprites.back().center.x % nMaxSquareSideSize );
@@ -220,7 +204,6 @@ bool CSpritesPackBuilder::CollectSquares( SSpritesPack *pSpritesPack, const CPac
 			collectSquaresParameter.shift.y = 0;
 		}
 
-		//количество квадратов должно быть достаточно для вмещения всей картинки
 		shiftedImageSize.x = packParameterIterator->pImage->GetSizeX() + collectSquaresParameter.shift.x;
 		shiftedImageSize.y = packParameterIterator->pImage->GetSizeY() + collectSquaresParameter.shift.y;
 
@@ -233,11 +216,9 @@ bool CSpritesPackBuilder::CollectSquares( SSpritesPack *pSpritesPack, const CPac
 			shiftedImageSize.y += nMaxSquareSideSize - ( shiftedImageSize.y % nMaxSquareSideSize );
 		}
 		
-		//количество квадратов максимального размера
 		mainSquaresCount.x = ( shiftedImageSize.x / nMaxSquareSideSize );
 		mainSquaresCount.y = ( shiftedImageSize.y / nMaxSquareSideSize );
 
-		//коллекционирование квадратов различного размера
 		for ( int nMainYIndex = 0; nMainYIndex < mainSquaresCount.y; ++nMainYIndex )
 		{
 			for ( int nMainXIndex = 0; nMainXIndex < mainSquaresCount.x ; ++nMainXIndex )
@@ -248,7 +229,6 @@ bool CSpritesPackBuilder::CollectSquares( SSpritesPack *pSpritesPack, const CPac
 														 nMaxSquareSideSize,
 														 &collectSquaresParameter ) )
 				{
-					//необходимо вставить квадрат максимального размера
 					CTPoint<int> leftTop( nMainXIndex * nMaxSquareSideSize, nMainYIndex * nMaxSquareSideSize );
 					leftTop -= ( pSpritesPack->sprites.back().center + collectSquaresParameter.shift );
 
@@ -267,27 +247,6 @@ bool CSpritesPackBuilder::CollectSquares( SSpritesPack *pSpritesPack, const CPac
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// \ 0--------------15--------------31
-//00 ..............****.............. 
-//01 ............********............
-//02 ..........************..........
-//03 ........****************........
-//04 ......********************......
-//05 ....************************....
-//06 ..****************************..
-//07 ********************************
-//08 ********************************
-//09 ..****************************..
-//10 ....************************....
-//11 ......********************......
-//12 ........****************........
-//13 ..........************..........
-//14 ............********............
-//15 ..............****..............
-//
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSpritesPackBuilder::MarkLockedTile( IImage *pImage, const CTPoint<int> &rPoint )
 {
 	CUnsafeImageAccessor imageAccessor = pImage;
@@ -332,7 +291,6 @@ void CSpritesPackBuilder::MarkLockedTile( IImage *pImage, const CTPoint<int> &rP
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CSpritesPackBuilder::CreateLockArrayImage( const CArray2D<BYTE> &rLockedTiles, const CTPoint<int> &rLockedTilesCenter, const CTRect<int> rActualRect )
 {
 	IImageProcessor *pImageProcessor = GetImageProcessor();
@@ -497,7 +455,6 @@ IImage* CSpritesPackBuilder::CreateLockArrayImage( const CArray2D<BYTE> &rLocked
 	return pLockedArrayImage;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const CPackParameters &rPackParameters, int nMaxSquareSideSize, int nDepth )
 {
 	NI_ASSERT_TF( pSpritesPack != 0,
@@ -513,7 +470,6 @@ IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const CPackParame
 	CTPoint<int> packedImageSize( 0, 0 );
 	int nSquaresCount = 0;
 	
-	//площадь картинки с максимальной глубиной и с глубиной на одну меньше:
 	{
 		SSpritesPack spritesPackMaxDepth;
 		CTPoint<int> collectedSquareSideSizeMaxDepth( 0, 0 );
@@ -565,11 +521,9 @@ IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const CPackParame
 		return 0;
 	}
 
-	//размещаем квадраты в новой картинке ( пока только выставляем текстурные координаты )
 	CArray2D<BYTE> lockedSquares( packedImageSize.x / collectedSquareSideSize.min,
 																packedImageSize.y / collectedSquareSideSize.min );
 	
-	//lockedSquares.Set( RMGC_UNLOCKED );
 	lockedSquares.SetZero();
 
 	int nGranularity = static_cast<int>( collectedSquareSideSize.max ) /
@@ -630,7 +584,6 @@ IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const CPackParame
 		nGranularity /= 2;
 	}
 
-	//создаем запакованную картинку и помещаем в нее изображения
 	IImage *pPackedImage = pImageProcessor->CreateImage( packedImageSize.x, packedImageSize.y );
 	if ( pPackedImage == 0 )
 	{
@@ -646,7 +599,6 @@ IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const CPackParame
 			CTRect<int> imageActualSquareRect( 0, 0, 0, 0 );
 			GetActualRect( spritesListIterator, &imageActualSquareRect );
 			CPtr<IImage> pLockArrayImage = CreateLockArrayImage( packParameterIterator->lockedTiles, packParameterIterator->lockedTilesCenter, imageActualSquareRect );
-			//пакуем квадраты
 			CUnsafeImageAccessor imageAccessor = packParameterIterator->pImage;
 			for ( SSpritesPack::SSprite::CSquaresList::iterator squareIterator = spritesListIterator->squares.begin(); squareIterator != spritesListIterator->squares.end(); ++squareIterator )
 			{
@@ -655,7 +607,6 @@ IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const CPackParame
 																			static_cast<int>( squareIterator->vLeftTop.x + squareIterator->fSize ),
 																			static_cast<int>( squareIterator->vLeftTop.y + squareIterator->fSize ) );
 
-				//определяем для каждого квадрата его глубину
 				if ( pLockArrayImage )
 				{
 					CUnsafeImageAccessor lockArrayImageAccessor = pLockArrayImage;
@@ -666,7 +617,6 @@ IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const CPackParame
 					int nLockArrayMinXIndex = actualSquareRect.minx - imageActualSquareRect.minx;
 					int nLockArrayMaxXIndex = ( actualSquareRect.maxx - 1 ) - imageActualSquareRect.minx;
 
-					//для minx
 					if ( ( nLockArrayMinXIndex >= 0 ) && ( nLockArrayMinXIndex < pLockArrayImage->GetSizeX() ) )
 					{
 						for ( int nYIndex = ( pLockArrayImage->GetSizeY() - 1); nYIndex >= 0; --nYIndex )
@@ -679,7 +629,6 @@ IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const CPackParame
 							}
 						}
 					}
-					//для maxx
 					if ( ( nLockArrayMaxXIndex >= 0 ) && ( nLockArrayMaxXIndex < pLockArrayImage->GetSizeX() ) )
 					{
 						for ( int nYIndex = ( pLockArrayImage->GetSizeY() - 1); nYIndex >= 0; --nYIndex )
@@ -712,7 +661,6 @@ IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const CPackParame
 					int nMinXIndex = actualSquareRect.minx + spritesListIterator->center.x;
 					int nMaxXIndex = ( actualSquareRect.maxx - 1 ) + spritesListIterator->center.x;
 
-					//для minx
 					if ( ( nMinXIndex >= 0 ) && ( nMinXIndex < packParameterIterator->pImage->GetSizeX() ) )
 					{
 						for ( int nYIndex = ( packParameterIterator->pImage->GetSizeY() - 1 ); nYIndex >= 0; --nYIndex )
@@ -725,7 +673,6 @@ IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const CPackParame
 							}
 						}
 					}
-					//для maxx
 					if ( ( nMaxXIndex >= 0 ) && ( nMaxXIndex < packParameterIterator->pImage->GetSizeX() ) )
 					{
 						for ( int nYIndex = ( packParameterIterator->pImage->GetSizeY() - 1 ); nYIndex >= 0; --nYIndex )
@@ -781,7 +728,6 @@ IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const CPackParame
 					shift.x -= actualSquareRect.minx;
 					shift.y -= actualSquareRect.miny;
 
-					//переписываем квадрат
 					pPackedImage->CopyFrom( packParameterIterator->pImage,
 																	&( static_cast<RECT>( actualSquareRect ) ),
 																	squareIterator->rcMaps.minx * packedImageSize.x - shift.x,
@@ -790,7 +736,6 @@ IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const CPackParame
 				}
 			}
 
-			//создаем границу спрайта для точного выделения мышкой
 			spritesListIterator->edge.edges.Clear();
 
 			spritesListIterator->edge.rcBoundBox.minx = 0.0f;
@@ -800,13 +745,11 @@ IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const CPackParame
 			
 			spritesListIterator->edge.bHorizontal = true;
 
-			//если есть нужная альфа!
 			if ( !spritesListIterator->squares.empty() )
 			{
 				CTPoint<int> imageSize( packParameterIterator->pImage->GetSizeX(), packParameterIterator->pImage->GetSizeY() );
 				CTRect<int> bounds( imageSize.x, imageSize.y, -1, -1 );
 				
-				//определяем bounding box:
 				for ( int nYindex = 0; nYindex < imageSize.y; ++nYindex )
 				{
 					for ( int nXindex = 0; nXindex < imageSize.x; ++nXindex )
@@ -838,10 +781,8 @@ IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const CPackParame
 				spritesListIterator->edge.rcBoundBox.maxx = bounds.maxx - spritesListIterator->center.x;
 				spritesListIterator->edge.rcBoundBox.maxy = bounds.maxy - spritesListIterator->center.y;
 
-				//получим количество элементов при горизонтальном расположении краев
 				int nHorizontalElements = 0;
 				{
-					//get total pixels number
 					for ( int nYindex = bounds.miny; nYindex <= bounds.maxy; ++nYindex )
 					{
 						bool isOdd = false;
@@ -903,13 +844,11 @@ IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const CPackParame
 						spritesListIterator->edge.bHorizontal = true;
 					}
 					
-					//fill edges structure
 					if ( spritesListIterator->edge.bHorizontal )
 					{
 						spritesListIterator->edge.edges.SetSizes( nHorizontalElements, bounds.Height() + 1 );
 						for ( int nYindex = bounds.miny; nYindex <= bounds.maxy; ++nYindex )
 						{
-							//first circle - for current line pixels number
 							int nElements = 0;
 							bool isOdd = false;
 							for ( int nXindex = bounds.minx; nXindex <= bounds.maxx; ++nXindex )
@@ -928,10 +867,8 @@ IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const CPackParame
 							{
 								++nElements;      
 							}
-							//set line length
 							spritesListIterator->edge.edges.SetLineLength( nYindex - bounds.miny, nElements );
 							
-							//second circle - for fill edges structure
 							nElements = 0;
 							isOdd = false;
 							for ( int nXindex = bounds.minx; nXindex <= bounds.maxx; ++nXindex )
@@ -1008,7 +945,6 @@ IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const CPackParame
 	return pPackedImage;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const SPackParameter &rPackParameter, int nMaxSquareSideSize, int nDepth )
 {
 	CPackParameters packParameters;
@@ -1016,7 +952,6 @@ IImage* CSpritesPackBuilder::Pack( SSpritesPack *pSpritesPack, const SPackParame
 	return Pack( pSpritesPack, packParameters, nMaxSquareSideSize, nDepth );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CSpritesPackBuilder::Unpack( SSpritesPack *pSpritesPack, IImage *pPackedImage, int nSpriteIndex, CTRect<int> *pActualRect )
 {
 	NI_ASSERT_TF( ( pSpritesPack != 0 ) && ( pPackedImage != 0 ),
@@ -1032,18 +967,15 @@ IImage* CSpritesPackBuilder::Unpack( SSpritesPack *pSpritesPack, IImage *pPacked
 		return 0;
 	}
 
-	//картинка
 	SSpritesPack::CSpritesList::const_iterator spritesListIterator = pSpritesPack->sprites.begin();
 	for ( int nSpritePackIndex = 0; nSpritePackIndex < nSpriteIndex; ++nSpritePackIndex )
 	{
 		++spritesListIterator;
 	}
 	
-	//ищем размеры картинки
 	CTRect<int> bounds( 0, 0, 0, 0 );
 	GetActualRect( spritesListIterator, &bounds );
 
-	//создаем картинку и помещаем в нее изображения
 	IImage *pOriginalImage = pImageProcessor->CreateImage( bounds.Width(), bounds.Height() );
 	if ( pOriginalImage )
 	{
@@ -1075,7 +1007,6 @@ IImage* CSpritesPackBuilder::Unpack( SSpritesPack *pSpritesPack, IImage *pPacked
 	return pOriginalImage;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CSpritesPackBuilder::UnpackAndMarkEdge( SSpritesPack *pSpritesPack, IImage *pPackedImage, int nSpriteIndex, CTRect<int> *pActualRect )
 {
 	CTRect<int> actualRect( 0, 0, 0, 0 );
@@ -1091,7 +1022,6 @@ IImage* CSpritesPackBuilder::UnpackAndMarkEdge( SSpritesPack *pSpritesPack, IIma
 
 	CUnsafeImageAccessor imageAccessor = pUnpackedImage;
 
-	//картинка
 	SSpritesPack::CSpritesList::const_iterator spritesListIterator = pSpritesPack->sprites.begin();
 	for ( int nSpritePackIndex = 0; nSpritePackIndex < nSpriteIndex; ++nSpritePackIndex )
 	{
@@ -1132,7 +1062,6 @@ IImage* CSpritesPackBuilder::UnpackAndMarkEdge( SSpritesPack *pSpritesPack, IIma
 	return pUnpackedImage;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CSpritesPackBuilder::UnpackAndMarkBounds( SSpritesPack *pSpritesPack, IImage *pPackedImage, int nSpriteIndex, CTRect<int> *pActualRect )
 {
 	CTRect<int> actualRect( 0, 0, 0, 0 );
@@ -1148,7 +1077,6 @@ IImage* CSpritesPackBuilder::UnpackAndMarkBounds( SSpritesPack *pSpritesPack, II
 
 	CUnsafeImageAccessor imageAccessor = pUnpackedImage;
 
-	//картинка
 	SSpritesPack::CSpritesList::const_iterator spritesListIterator = pSpritesPack->sprites.begin();
 	for ( int nSpritePackIndex = 0; nSpritePackIndex < nSpriteIndex; ++nSpritePackIndex )
 	{
@@ -1197,7 +1125,6 @@ IImage* CSpritesPackBuilder::UnpackAndMarkBounds( SSpritesPack *pSpritesPack, II
 	return pUnpackedImage;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CSpritesPackBuilder::UnpackAndMarkInEdge( SSpritesPack *pSpritesPack, IImage *pPackedImage, int nSpriteIndex, CTRect<int> *pActualRect )
 {
 	CTRect<int> actualRect( 0, 0, 0, 0 );
@@ -1213,7 +1140,6 @@ IImage* CSpritesPackBuilder::UnpackAndMarkInEdge( SSpritesPack *pSpritesPack, II
 
 	CUnsafeImageAccessor imageAccessor = pUnpackedImage;
 
-	//картинка
 	SSpritesPack::CSpritesList::const_iterator spritesListIterator = pSpritesPack->sprites.begin();
 	for ( int nSpritePackIndex = 0; nSpritePackIndex < nSpriteIndex; ++nSpritePackIndex )
 	{
@@ -1256,7 +1182,6 @@ IImage* CSpritesPackBuilder::UnpackAndMarkDepth( SSpritesPack *pSpritesPack, IIm
 
 	CUnsafeImageAccessor imageAccessor = pUnpackedImage;
 
-	//картинка
 	SSpritesPack::CSpritesList::const_iterator spritesListIterator = pSpritesPack->sprites.begin();
 	for ( int nSpritePackIndex = 0; nSpritePackIndex < nSpriteIndex; ++nSpritePackIndex )
 	{
@@ -1307,7 +1232,6 @@ IImage* CSpritesPackBuilder::UnpackAndMarkDepth( SSpritesPack *pSpritesPack, IIm
 	return pUnpackedImage;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CSpritesPackBuilder::UnpackAndMarkAlpha( SSpritesPack *pSpritesPack, IImage *pPackedImage, int nSpriteIndex, DWORD dwMinAlpha, DWORD dwMaxAlpha, CTRect<int> *pActualRect )
 {
 	CTRect<int> actualRect( 0, 0, 0, 0 );
@@ -1323,7 +1247,6 @@ IImage* CSpritesPackBuilder::UnpackAndMarkAlpha( SSpritesPack *pSpritesPack, IIm
 
 	CUnsafeImageAccessor imageAccessor = pUnpackedImage;
 
-	//картинка
 	SSpritesPack::CSpritesList::const_iterator spritesListIterator = pSpritesPack->sprites.begin();
 	for ( int nSpritePackIndex = 0; nSpritePackIndex < nSpriteIndex; ++nSpritePackIndex )
 	{
@@ -1352,7 +1275,6 @@ IImage* CSpritesPackBuilder::UnpackAndMarkAlpha( SSpritesPack *pSpritesPack, IIm
 	return pUnpackedImage;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRMImageBuilder::ApplyFilter( IImage *pImage, const CArray2D<int> &rFilter, DWORD dwMinAlpha )
 {
 	NI_ASSERT_T( pImage != 0,
@@ -1386,15 +1308,6 @@ bool CRMImageBuilder::ApplyFilter( IImage *pImage, const CArray2D<int> &rFilter,
 											 ( rFilter.GetSizeY() / 2 ),
 											 pImage->GetSizeX() - ( rFilter.GetSizeX() / 2 ),
 											 pImage->GetSizeY() - ( rFilter.GetSizeY() / 2 ) );
-	//середина
-	//********
-	//********
-	//**0000**
-	//**0000**
-	//**0000**
-	//**0000**
-	//********
-	//********
 	for ( int nXIndex = indices.minx; nXIndex < indices.maxx; ++nXIndex )
 	{
 		for ( int nYIndex = indices.miny; nYIndex < indices.maxy; ++nYIndex )
@@ -1402,15 +1315,6 @@ bool CRMImageBuilder::ApplyFilter( IImage *pImage, const CArray2D<int> &rFilter,
 			filterFunctional( nXIndex, nYIndex );
 		}
 	}
-	//левый и правый края
-	//00****00
-	//00****00
-	//00****00
-	//00****00
-	//00****00
-	//00****00
-	//00****00
-	//00****00
 	for ( int nYIndex = 0; nYIndex < pImage->GetSizeY(); ++nYIndex )
 	{
 		for ( int nXIndex = 0; nXIndex < indices.minx; ++nXIndex )
@@ -1422,15 +1326,6 @@ bool CRMImageBuilder::ApplyFilter( IImage *pImage, const CArray2D<int> &rFilter,
 			filterInBoundsFunctional( nXIndex, nYIndex );
 		}
 	}
-	//верхний и нижний края
-	//**0000**
-	//**0000**
-	//********
-	//********
-	//********
-	//********
-	//**0000**
-	//**0000**
 	for ( int nXIndex = indices.minx; nXIndex < indices.maxx; ++nXIndex )
 	{
 		for ( int nYIndex = 0; nYIndex < indices.miny; ++nYIndex )
@@ -1446,7 +1341,6 @@ bool CRMImageBuilder::ApplyFilter( IImage *pImage, const CArray2D<int> &rFilter,
 	return pImage->CopyFrom( pDestImage, 0, 0 ,0 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRMImageBuilder::Emboss( IImage *pImage, const CTPoint<int> &rShiftPoint, const CArray2D<int> &rFilter, DWORD dwMinAlpha )
 {
 	NI_ASSERT_T( pImage != 0,
@@ -1519,7 +1413,6 @@ bool CRMImageBuilder::Emboss( IImage *pImage, const CTPoint<int> &rShiftPoint, c
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRMImageBuilder::Noise( IImage *pImage, IImage *pNoise, DWORD dwMinAlpha )
 {
 	NI_ASSERT_T( ( pImage != 0 ) && ( pNoise != 0 ),
@@ -1651,7 +1544,6 @@ bool CRMImageBuilder::FastAddImageByColor( IImage *pImage, IImage *pImageToAdd, 
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CRMImageBuilder::GetEdge( IImage *pImage, SColor edgeColor,  SColor nonEdgeColor, DWORD dwMinAlpha )
 {
 	NI_ASSERT_T( pImage != 0,
@@ -1673,15 +1565,6 @@ IImage* CRMImageBuilder::GetEdge( IImage *pImage, SColor edgeColor,  SColor nonE
 
 		SRMGetImageEdgeFunctional getImageEdgeFunctional( pImage, pEdgedImage, edgeColor, dwMinAlpha );
 		SRMGetImageEdgeInBoundsFunctional getImageEdgeInBoundsFunctional( pImage, pEdgedImage, edgeColor, dwMinAlpha );
-		//середина
-		//********
-		//********
-		//**0000**
-		//**0000**
-		//**0000**
-		//**0000**
-		//********
-		//********
 		for ( int nXIndex = 1; nXIndex < ( pImage->GetSizeX() - 1 ); ++nXIndex )
 		{
 			for ( int nYIndex = 1; nYIndex < ( pImage->GetSizeY() - 1 ); ++nYIndex )
@@ -1689,15 +1572,6 @@ IImage* CRMImageBuilder::GetEdge( IImage *pImage, SColor edgeColor,  SColor nonE
 				getImageEdgeFunctional( nXIndex, nYIndex );
 			}
 		}
-		//левый и правый края
-		//00****00
-		//00****00
-		//00****00
-		//00****00
-		//00****00
-		//00****00
-		//00****00
-		//00****00
 		for ( int nYIndex = 0; nYIndex < pImage->GetSizeY(); ++nYIndex )
 		{
 			int nXIndex = 0;
@@ -1705,15 +1579,6 @@ IImage* CRMImageBuilder::GetEdge( IImage *pImage, SColor edgeColor,  SColor nonE
 			nXIndex = ( pImage->GetSizeX() - 1 );
 			getImageEdgeInBoundsFunctional( nXIndex, nYIndex );
 		}
-		//верхний и нижний края
-		//**0000**
-		//**0000**
-		//********
-		//********
-		//********
-		//********
-		//**0000**
-		//**0000**
 		for ( int nXIndex = 1; nXIndex < ( pImage->GetSizeX() - 1 ); ++nXIndex )
 		{
 			int nYIndex = 0;
@@ -1725,7 +1590,6 @@ IImage* CRMImageBuilder::GetEdge( IImage *pImage, SColor edgeColor,  SColor nonE
 	return pEdgedImage;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CRMImageBuilder::GetShadow( IImage *pImage, const CTPoint<int> &rShiftPoint, SColor shadowColor, SColor nonShadowColor, DWORD dwMinAlpha )
 {
 	NI_ASSERT_T( pImage != 0,
@@ -1772,7 +1636,6 @@ IImage* CRMImageBuilder::GetShadow( IImage *pImage, const CTPoint<int> &rShiftPo
 	return pShadowImage;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CRMImageBuilder::GetAlphaEmboss( IImage *pImage, const CTPoint<int> &rShiftPoint, int nFilterSize, DWORD dwMinAlpha )
 {
 	NI_ASSERT_T( pImage != 0,
@@ -1796,7 +1659,6 @@ IImage* CRMImageBuilder::GetAlphaEmboss( IImage *pImage, const CTPoint<int> &rSh
 		return 0;
 	}
 
-	//сдвиги относительно начальной точки
 	CTPoint<int> frontShift( ( rShiftPoint.x / 2 ), ( rShiftPoint.y / 2 ) );
 	CTPoint<int> backShift( frontShift * ( -1 ) );
 	if ( ( rShiftPoint.x & 0x01 ) > 0 )
@@ -1881,7 +1743,6 @@ IImage* CRMImageBuilder::GetAlphaEmboss( IImage *pImage, const CTPoint<int> &rSh
 	return pEmbossImage;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CRMImageBuilder::FastComposeImagesByAlpha( const std::vector<CPtr<IImage> > &rImages, DWORD dwMinAlpha )
 {
 	NI_ASSERT_T( !rImages.empty(),
@@ -1926,7 +1787,6 @@ IImage* CRMImageBuilder::FastComposeImagesByAlpha( const std::vector<CPtr<IImage
 	return pComposeImage;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CRMImageBuilder::FastComposeImagesByColor( const std::vector<CPtr<IImage> > &rImages, SColor color )
 {
 	NI_ASSERT_T( !rImages.empty(),
@@ -1970,4 +1830,3 @@ IImage* CRMImageBuilder::FastComposeImagesByColor( const std::vector<CPtr<IImage
 
 	return pComposeImage;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

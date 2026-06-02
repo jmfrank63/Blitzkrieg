@@ -1,6 +1,3 @@
-// GamesList.cpp: implementation of the CGamesList class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include "MultiplayerGamesList.h"
@@ -14,11 +11,9 @@
 #include "..\Main\ScenarioTracker.h"
 #include "UIMapInfo.h"
 #include "MPConnectionError.h"
-//////////////////////////////////////////////////////////////////////
 extern SMultiplayerGameSettings configuration;	
 extern bool bServerconfiguration;
 
-//////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_cancel"		, IMC_CANCEL		},
@@ -28,7 +23,6 @@ static const NInput::SRegisterCommandEntry commands[] =
 #endif // !defined(_FINALRELEASE) || defined(_DEVVERSION)
 	{ 0									,	0							}
 };
-//////////////////////////////////////////////////////////////////////
 enum EButtonsInMPGamesList
 {
 	E_CAPTION						= 20000,
@@ -57,30 +51,22 @@ enum EButtonsInMPGamesList
 	E_PASSWORD_OK						= 10002,	
 	E_DIALOG_WAIT_CONNECTION	= 3013,
 };
-//////////////////////////////////////////////////////////////////////
-//**		CInterfaceMPGamesList
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
 CInterfaceMPGamesList::CInterfaceMPGamesList() 
 : CInterfaceMultiplayerScreen ( "InterMission" ) 
 { 
 }
-//////////////////////////////////////////////////////////////////////
 void CInterfaceMPGamesList::Done()
 {
 	CInterfaceMultiplayerScreen::Done();
 	bServerconfiguration = false;	
 }
-//////////////////////////////////////////////////////////////////////
 bool CInterfaceMPGamesList::Init()
 {
 	CInterfaceMultiplayerScreen::Init();
 
-	// help context
 	commandMsgs.Init( pInput, commands );
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPGamesList::StartInterface()
 {
 	CInterfaceMultiplayerScreen::StartInterface();
@@ -104,7 +90,6 @@ void CInterfaceMPGamesList::StartInterface()
 	}
 	
 	
-	// set caption:
 	IUIStatic *pCaption = checked_cast<IUIStatic *> ( pUIScreen->GetChildByID( E_CAPTION ) );
 	ITextManager *pTextM = GetSingleton<ITextManager>();
 	
@@ -142,7 +127,6 @@ void CInterfaceMPGamesList::StartInterface()
 	pUIScreen->Reposition( pGFX->GetScreenRect() );
 	pScene->AddUIScreen( pUIScreen );
 }
-//////////////////////////////////////////////////////////////////////
 void CInterfaceMPGamesList::EnableButtonsByServerInfo( const SUIServerInfo *pInfo )
 {
 	if ( !pInfo )
@@ -160,7 +144,6 @@ void CInterfaceMPGamesList::EnableButtonsByServerInfo( const SUIServerInfo *pInf
 		EnableButton ( static_cast<int>(E_BUTTON_INFO), true );
 	}
 }
-//////////////////////////////////////////////////////////////////////
 void CInterfaceMPGamesList::EnableButton( const int nButtonID, bool bEnable )
 {
 	IUIElement * pEl = pUIScreen->GetChildByID( nButtonID );
@@ -170,7 +153,6 @@ void CInterfaceMPGamesList::EnableButton( const int nButtonID, bool bEnable )
 		pButton->EnableWindow( bEnable );
 	}
 }
-//////////////////////////////////////////////////////////////////////
 bool CInterfaceMPGamesList::ProcessMessage( const SGameMessage &msg ) 
 { 
 	if ( CInterfaceMultiplayerScreen::ProcessMessage( msg ) )
@@ -186,10 +168,8 @@ bool CInterfaceMPGamesList::ProcessMessage( const SGameMessage &msg )
 		return true;
 	}
 
-	//try process options if exists
 	if ( pOptions && pOptions->ProcessMessage( msg ) ) return true;
 
-	//process buttons pressings
 	switch( msg.nEventID )
 	{
 	case IMC_OK:
@@ -240,7 +220,6 @@ bool CInterfaceMPGamesList::ProcessMessage( const SGameMessage &msg )
 		else if ( pDialogEnterPassword && pDialogEnterPassword->IsVisible() )
 		{
 			pDialogEnterPassword->ShowWindow( UI_SW_HIDE );
-			// cancel connection
 			pCommandManager->AddNotificationFromUI( 
 					SFromUINotification( EUTMN_PASSWORD, new SPassword ));				
 		}
@@ -268,15 +247,12 @@ bool CInterfaceMPGamesList::ProcessMessage( const SGameMessage &msg )
 		
 		return true;
 	case E_BUTTON_INFO:
-		// info about selected game
 		{
-			//FinishInterface( MISSION_COMMAND_MULTIPLAYER_STARTINGGAME, "1"  );
 			ShowServerInfo( serversList.GetCurInfo() );
 		}
 
 		return true;
 	case E_BUTTON_SETTINGS:
-		//settings for local server
 		ShowLocalSettings();
 		
 		return true;
@@ -290,7 +266,6 @@ bool CInterfaceMPGamesList::ProcessMessage( const SGameMessage &msg )
 		return true;
 	return false; 
 }
-//////////////////////////////////////////////////////////////////////
 void CInterfaceMPGamesList::TryJoin()
 {
 	IUIButton *pJoinButton = checked_cast<IUIButton*>( pUIScreen->GetChildByID( E_BUTTON_JOIN ) );
@@ -302,7 +277,6 @@ void CInterfaceMPGamesList::TryJoin()
 	if ( pInfo )
 	{
 
-		// check for version match
 		if ( !pInfo->bSamePatch )
 		{
 			SToUICommand cmd( EMTUC_WRONG_GAMEEXE_VERSION,0 );
@@ -310,7 +284,6 @@ void CInterfaceMPGamesList::TryJoin()
 			return;
 		}
 
-		// check if MOD is the same as server's mod.
 		const std::string szModName = GetGlobalVar( "MOD.Name", "" );
 		const std::string szModVersion = GetGlobalVar( "MOD.Version", "" );
 		
@@ -347,18 +320,15 @@ void CInterfaceMPGamesList::TryJoin()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////
 void CInterfaceMPGamesList::Configure( const WORD wServerID )
 {
 	pCommandManager->AddNotificationFromUI( 
 					SFromUINotification( EUTMN_JOIN, new SNotificationSimpleParam( wServerID ) ) );
 }
-//////////////////////////////////////////////////////////////////////
 void CInterfaceMPGamesList::OnLocalSettingsOK()
 {
 	pOptions->Apply();
 }
-//////////////////////////////////////////////////////////////////////
 void CInterfaceMPGamesList::ShowServerInfo( SUIServerInfo * pServerInfo )
 {
 	if ( pServerInfo )
@@ -368,7 +338,6 @@ void CInterfaceMPGamesList::ShowServerInfo( SUIServerInfo * pServerInfo )
 		GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_MP_MAP_SETTINGS, NStr::Format( "%d;1", true ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////
 void CInterfaceMPGamesList::ShowLocalSettings()
 {
 	IUIDialog * pDialogOptions = checked_cast<IUIDialog*>( pUIScreen->GetChildByID( E_DIALOG_SETTINGS ) );
@@ -378,7 +347,6 @@ void CInterfaceMPGamesList::ShowLocalSettings()
 
 	GetSingleton<IInput>()->AddMessage( SGameMessage( IMC_SHOW_SETTINGS ) );
 }
-//////////////////////////////////////////////////////////////////////
 void CInterfaceMPGamesList::AskPassword()
 {
 	if ( pDialogWaitForConnection )
@@ -394,7 +362,6 @@ void CInterfaceMPGamesList::AskPassword()
 	pElement->SetFocus( true );
 	pDialogEnterPassword->ShowWindow( UI_SW_SHOW_MODAL );
 }
-//////////////////////////////////////////////////////////////////////
 bool CInterfaceMPGamesList::ProcessMPCommand( const SToUICommand &cmd )
 {
 	switch( cmd.eCommandID )
@@ -408,7 +375,6 @@ bool CInterfaceMPGamesList::ProcessMPCommand( const SToUICommand &cmd )
 	case EMTUC_WRONG_GAMEEXE_VERSION:
 	case EMTUC_AIM_KICKED:
 		
-		//NStr::DebugTrace( " +++++++++++++ connection ERROR %i", cmd.eCommandID );
 		CMPConnectionError::DisplayError( cmd.eCommandID );
 		if ( pDialogWaitForConnection )
 		{
@@ -441,17 +407,14 @@ bool CInterfaceMPGamesList::ProcessMPCommand( const SToUICommand &cmd )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////
 void CInterfaceMPGamesList::DeleteServer( SUIServerInfo * pServerInfo )
 {
 	serversList.Delete( pServerInfo );
 }
-//////////////////////////////////////////////////////////////////////
 void CInterfaceMPGamesList::UpdateServerInfo( SUIServerInfo * pServerInfo )
 {
 	IUIListRow * pRow = serversList.Add( pServerInfo );
 
-	// set inviting/password icon
 	IUIDialog * pPasswordDialog = checked_cast<IUIDialog*> ( pRow->GetElement( 0 ) );
 	IUIStatic * pPasswordIcon = checked_cast<IUIStatic*>( pPasswordDialog->GetChildByID( E_SERVER_ICON ) );
 
@@ -467,28 +430,21 @@ void CInterfaceMPGamesList::UpdateServerInfo( SUIServerInfo * pServerInfo )
 	pPasswordIcon->SetState( nState );
 	pPasswordIcon->EnableWindow( false );
 
-	// set server name
 	IUIStatic * pElementServerName = checked_cast<IUIStatic*>( pRow->GetElement( 1 ) );
 	pElementServerName->SetWindowText( 0, pServerInfo->szName.c_str() );
-	//
 
-	// set mod name
 	IUIStatic * pElementModName = checked_cast<IUIStatic*>( pRow->GetElement( 2 ) );
 	pElementModName->SetWindowText( 0, NStr::ToUnicode( pServerInfo->szModName ).c_str() );
 	
-	// set mod version
 	IUIStatic * pElementModVersion = checked_cast<IUIStatic*>( pRow->GetElement( 3 ) );
 	pElementModVersion->SetWindowText( 0, NStr::ToUnicode( pServerInfo->szModVersion ).c_str()  );
 
-	//set map name
 	IUIStatic *pMapName = checked_cast<IUIStatic*>( pRow->GetElement( 4 ) );
 	pMapName->SetWindowText( 0, SUIMapInfo::GetVisualName( pServerInfo->szMapName ) );
 	
-	// game type
 	IUIStatic *pGameType = checked_cast<IUIStatic*>( pRow->GetElement( 5 ) );
 	pGameType->SetWindowText( 0, CUIConsts::GetMapTypeString( pServerInfo->eGameType ) );
 
-	//set num of players
 	IUIStatic *pPlayersNum = checked_cast<IUIStatic*>( pRow->GetElement( 6 ) );
 	pPlayersNum->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%d/%d", pServerInfo->nPlayers, pServerInfo->nPlayersMax ) ).c_str() );
 

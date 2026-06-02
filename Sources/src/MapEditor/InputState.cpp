@@ -19,7 +19,6 @@ static char THIS_FILE[]=__FILE__;
 
 const int CInputStateParameter::INVALID_STATE = ( -1 );
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInputStateParameter::Update( INPUT_STATE_EVENT nType, const CTPoint<int> &rPoint, CTemplateEditorFrame* pFrame, bool bSetZToZero )
 {
 	NI_ASSERT_TF( ( nType >= 0 ) && ( nType < ISE_COUNT ),
@@ -48,7 +47,6 @@ bool CInputStateParameter::Update( INPUT_STATE_EVENT nType, const CTPoint<int> &
 					g_frameManager.GetGameWnd()->ClientToScreen( &point );
 				}
 				/**/
-				//g_frameManager.GetGameWnd()->ScreenToClient( &point );
 
 				/**
 				RECT screenRect;
@@ -97,7 +95,6 @@ bool CInputStateParameter::Update( INPUT_STATE_EVENT nType, const CTPoint<int> &
 	return false;	
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputStateParameter::UpdateSatusBar( bool bValid )
 {
 	int nControlIndex = theApp.GetMainFrame()->m_wndStatusBar.CommandToIndex( ID_INDICATOR_TILEPOS );
@@ -142,7 +139,6 @@ void CInputStateParameter::UpdateSatusBar( bool bValid )
 	theApp.GetMainFrame()->m_wndStatusBar.SetPaneText( nControlIndex, szMessage.c_str() );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInputStateParameter::LastPointInTerrain()
 {
 	if ( IScene *pScene = GetSingleton<IScene>() )
@@ -164,4 +160,3 @@ bool CInputStateParameter::LastPointInTerrain()
 	}
 	return false;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

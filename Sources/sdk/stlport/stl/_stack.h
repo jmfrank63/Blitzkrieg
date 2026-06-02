@@ -100,6 +100,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_STACK_H */
 
-// Local Variables:
-// mode:C++
-// End:

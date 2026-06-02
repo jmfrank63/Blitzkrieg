@@ -43,12 +43,9 @@ attain their correct values by one of these means:
 
 EXAMPLE:
 
-//Copy an array of elements which have non-trivial copy constructors
 template <class T> void copy(T* source, T* destination, int n, __false_type);
-//Copy an array of elements which have trivial copy constructors. Use memcpy.
 template <class T> void copy(T* source, T* destination, int n, __true_type);
 
-//Copy an array of any type by using the most efficient copy mechanism
 template <class T> inline void copy(T* source,T* destination,int n) {
    copy(source, destination, n,
         typename __type_traits<T>::has_trivial_copy_constructor());
@@ -75,7 +72,6 @@ struct __bool2type<1> { typedef __true_type _Ret; };
 _STLP_TEMPLATE_NULL
 struct __bool2type<0> { typedef __false_type _Ret; };
 
-// logical end of 3 predicated
 template <class _P1, class _P2, class _P3>
 struct _Land3 {
   typedef __false_type _Ret;
@@ -87,7 +83,6 @@ struct _Land3<__true_type, __true_type, __true_type> {
 };
 
 
-// Forward declarations.
 template <class _Tp> struct __type_traits; 
 template <int _IsPOD> struct __type_traits_aux {
    typedef __false_type    has_trivial_default_constructor;
@@ -117,21 +112,11 @@ struct __type_traits_aux<1> {
 
 # ifdef _STLP_SIMULATE_PARTIAL_SPEC_FOR_TYPE_TRAITS
 
-// Boris : simulation technique is used here according to Adobe Open Source License Version 1.0.
-// Copyright 2000 Adobe Systems Incorporated and others. All rights reserved.
-// Authors: Mat Marcus and Jesse Jones
-// The original version of this source code may be found at
-// http://opensource.adobe.com.
 
 struct _PointerShim {
-  // Since the compiler only allows at most one non-trivial
-  // implicit conversion we can make use of a shim class to
-  // be sure that IsPtr below doesn't accept classes with
-  // implicit pointer conversion operators
   _PointerShim(const volatile void*); // no implementation
 };
 
-// These are the discriminating functions
 
 char _STLP_CALL _IsP(bool, _PointerShim); // no implementation is required
 char* _STLP_CALL _IsP(bool, ...);          // no implementation is required
@@ -150,10 +135,6 @@ struct _IsSame {
 template <class _Tp>
 struct _IsPtr {
   
-  // This template meta function takes a type T
-  // and returns true exactly when T is a pointer.
-  // One can imagine meta-functions discriminating on
-  // other criteria.
   static _Tp& __null_rep();
   enum { _Ret = (sizeof(_IsP(false,__null_rep())) == sizeof(char)) };
 
@@ -177,7 +158,6 @@ struct _BothPtrType {
   static _Type _Ret() { return _Type(); }
 };
 
-// we make general case dependant on the fact the type is actually a pointer.
  
 template <class _Tp>
 struct __type_traits : __type_traits_aux<_IsPtr<_Tp>::_Ret> {};
@@ -221,8 +201,6 @@ template <class _Tp1, class _Tp2>  struct _BothPtrType {
 template <class _Tp1, class _Tp2>
 struct _IsSame { enum { _Ret = 0 }; };
 
-// template <class _Tp1, class _Tp2>
-// struct _IsSameType {   static __false_type _Ret() { return __false_type(); }  };
 
 #  ifdef _STLP_CLASS_PARTIAL_SPECIALIZATION
 template <class _Tp>  struct _IsPtr<_Tp*> { enum { _Ret = 1 }; };
@@ -238,9 +216,6 @@ struct _IsSame<_Tp, _Tp> { enum { _Ret = 1 }; };
 
 # endif /* _STLP_SIMULATE_PARTIAL_SPEC_FOR_TYPE_TRAITS */
 
-// Provide some specializations.  This is harmless for compilers that
-//  have built-in __types_traits support, and essential for compilers
-//  that don't.
 #ifndef _STLP_NO_BOOL
 _STLP_TEMPLATE_NULL struct __type_traits<bool> : __type_traits_aux<1> {};
 #endif /* _STLP_NO_BOOL */
@@ -276,8 +251,6 @@ _STLP_TEMPLATE_NULL struct __type_traits<long double> : __type_traits_aux<1> {};
 template <class _Tp> struct __type_traits<_Tp*> : __type_traits_aux<1> {};
 #endif
 
-// The following could be written in terms of numeric_limits.  
-// We're doing it separately to reduce the number of dependencies.
 
 template <class _Tp> struct _Is_integer {
   typedef __false_type _Integral;
@@ -385,8 +358,6 @@ inline _IsPOD<_Tp>  _Is_POD (_Tp*) { return _IsPOD<_Tp>(); }
 #  endif
 
 # ifdef _STLP_DEFAULT_CONSTRUCTOR_BUG
-// Those adaptors are here to fix common compiler bug regarding builtins:
-// expressions like int k = int() should initialize k to 0
 template <class _Tp>
 inline _Tp __default_constructed_aux(_Tp*, const __false_type&) {
   return _Tp();
@@ -411,7 +382,4 @@ _STLP_END_NAMESPACE
 
 #endif /* __TYPE_TRAITS_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

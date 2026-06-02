@@ -19,20 +19,8 @@
 #ifndef _STLP_BITSET_H
 #define _STLP_BITSET_H
 
-// A bitset of size N has N % (sizeof(unsigned long) * CHAR_BIT) unused 
-// bits.  (They are the high- order bits in the highest word.)  It is
-// a class invariant of class bitset<> that those unused bits are
-// always zero.
 
-// Most of the actual code isn't contained in bitset<> itself, but in the 
-// base class _Base_bitset.  The base class works with whole words, not with
-// individual bits.  This allows us to specialize _Base_bitset for the
-// important special case where the bitset is only a single word.
 
-// The C++ standard does not define the precise semantics of operator[].
-// In this implementation the const version of operator[] is equivalent
-// to test(), except that it does no range checking.  The non-const version
-// returns a reference to a bit, again without doing any range checking.
 
 
 # ifndef _STLP_INTERNAL_ALGOBASE_H
@@ -68,19 +56,13 @@
 
 _STLP_BEGIN_NAMESPACE
 
-// structure to aid in counting bits
 template<class _Dummy> 
 class _Bs_G {
 public:
   static unsigned char _S_bit_count[256];
-  // Mapping from 8 bit unsigned integers to the index of the first one
-  // bit:
   static unsigned char _S_first_one[256];
 };
 
-//
-// Base class: general case.
-//
 
 template<size_t _Nw>
 struct _Base_bitset {
@@ -181,16 +163,11 @@ struct _Base_bitset {
 
   unsigned long _M_do_to_ulong() const; 
 
-  // find first "on" bit
   size_t _M_do_find_first(size_t __not_found) const;
 
-  // find the next "on" bit that follows "prev"
   size_t _M_do_find_next(size_t __prev, size_t __not_found) const;
 };
 
-//
-// Base class: specialization for a single word.
-//
 
 _STLP_TEMPLATE_NULL
 struct _Base_bitset<1UL> {
@@ -253,26 +230,18 @@ struct _Base_bitset<1UL> {
 
   inline size_t _M_do_find_first(size_t __not_found) const;
 
-  // find the next "on" bit that follows "prev"
   inline size_t _M_do_find_next(size_t __prev, size_t __not_found) const; 
 
 };
 
 
-// ------------------------------------------------------------
-//
-// Definitions of should-be-non-inline functions from the single-word version of
-//  _Base_bitset.
-//
 
 inline size_t 
 _Base_bitset<1UL>::_M_do_find_first(size_t __not_found) const
 {
-  //  typedef unsigned long _WordT;
   _WordT __thisword = _M_w;
 
   if ( __thisword != __STATIC_CAST(_WordT,0) ) {
-    // find byte within word
     for ( size_t __j = 0; __j < sizeof(_WordT); __j++ ) {
       unsigned char __this_byte
         = __STATIC_CAST(unsigned char,(__thisword & (~(unsigned char)0)));
@@ -282,7 +251,6 @@ _Base_bitset<1UL>::_M_do_find_first(size_t __not_found) const
       __thisword >>= CHAR_BIT;
     }
   }
-  // not found, so return a value that indicates failure.
   return __not_found;
 }
 
@@ -290,22 +258,16 @@ inline size_t
 _Base_bitset<1UL>::_M_do_find_next(size_t __prev, 
                                    size_t __not_found ) const
 {
-  // make bound inclusive
   ++__prev;
 
-  // check out of bounds
   if ( __prev >= __BITS_PER_WORD )
     return __not_found;
 
-    // search first (and only) word
   _WordT __thisword = _M_w;
 
-  // mask off bits below bound
   __thisword &= (~__STATIC_CAST(_WordT,0)) << _S_whichbit(__prev);
 
   if ( __thisword != __STATIC_CAST(_WordT,0) ) {
-    // find byte within word
-    // get first byte into place
     __thisword >>= _S_whichbyte(__prev) * CHAR_BIT;
     for ( size_t __j = _S_whichbyte(__prev); __j < sizeof(_WordT); __j++ ) {
       unsigned char __this_byte
@@ -317,13 +279,10 @@ _Base_bitset<1UL>::_M_do_find_next(size_t __prev,
     }
   }
 
-  // not found, so return a value that indicates failure.
   return __not_found;
 } // end _M_do_find_next
 
 
-// ------------------------------------------------------------
-// Helper class to zero out the unused high-order bits in the highest word.
 
 template <size_t _Extrabits> struct _Sanitize {
   static void _STLP_CALL _M_do_sanitize(unsigned long& __val)
@@ -334,9 +293,6 @@ _STLP_TEMPLATE_NULL struct _Sanitize<0UL> {
   static void _STLP_CALL _M_do_sanitize(unsigned long) {}
 };
 
-// ------------------------------------------------------------
-// Class bitset.
-//   _Nb may be any nonzero number of type size_t.
 
 
 template<size_t _Nb>
@@ -356,15 +312,12 @@ public:
   struct reference;
   friend struct reference;
 
-  // bit reference:
   struct reference {
   typedef _Base_bitset<_Words > _Bitset_base;
   typedef bitset<_Nb> _Bitset;
-    //    friend _Bitset;
     _WordT *_M_wp;
     size_t _M_bpos;
 
-    // should be left undefined
     reference() {}
 
     reference( _Bitset& __b, size_t __pos ) {
@@ -375,7 +328,6 @@ public:
   public:
     ~reference() {}
 
-    // for b[i] = __x;
     reference& operator=(bool __x) {
       if ( __x )
         *_M_wp |= _Bitset_base::_S_maskbit(_M_bpos);
@@ -385,7 +337,6 @@ public:
       return *this;
     }
 
-    // for b[i] = b[__j];
     reference& operator=(const reference& __j) {
       if ( (*(__j._M_wp) & _Bitset_base::_S_maskbit(__j._M_bpos)) )
         *_M_wp |= _Bitset_base::_S_maskbit(_M_bpos);
@@ -395,20 +346,16 @@ public:
       return *this;
     }
 
-    // flips the bit
     bool operator~() const { return (*(_M_wp) & _Bitset_base::_S_maskbit(_M_bpos)) == 0; }
 
-    // for __x = b[i];
     operator bool() const { return (*(_M_wp) & _Bitset_base::_S_maskbit(_M_bpos)) != 0; }
 
-    // for b[i].flip();
     reference& flip() {
       *_M_wp ^= _Bitset_base::_S_maskbit(_M_bpos);
       return *this;
     }
   };
 
-  // 23.3.5.1 constructors:
   bitset() {}
 
   bitset(unsigned long __val) : _Base_bitset<_Words>(__val) { _M_do_sanitize(); }
@@ -446,7 +393,6 @@ public:
   }
 #endif /* _STLP_MEMBER_TEMPLATES */
 
-  // 23.3.5.2 bitset operations:
   bitset<_Nb>& operator&=(const bitset<_Nb>& __rhs) {
     this->_M_do_and(__rhs);
     return *this;
@@ -474,10 +420,6 @@ public:
     return *this;
   }
 
-  //
-  // Extension:
-  // Versions of single-bit set, reset, flip, test with no range checking.
-  //
 
   bitset<_Nb>& _Unchecked_set(size_t __pos) {
     this->_M_getword(__pos) |= _Base_bitset<_Words > ::_S_maskbit(__pos);
@@ -507,7 +449,6 @@ public:
     return (this->_M_getword(__pos) & this->_S_maskbit(__pos)) != __STATIC_CAST(_WordT,0);
   }
 
-  // Set, reset, and flip.
 
   bitset<_Nb>& set() {
     this->_M_do_set();
@@ -556,8 +497,6 @@ public:
     return bitset<_Nb>(*this).flip();
   }
 
-  // element access:
-  //for b[i];
   reference operator[](size_t __pos) { return reference(*this,__pos); }
   bool operator[](size_t __pos) const { return _Unchecked_test(__pos); }
 
@@ -608,23 +547,13 @@ public:
     __result >>= __pos ;  return __result; 
   }
 
-  //
-  // EXTENSIONS: bit-find operations.  These operations are
-  // experimental, and are subject to change or removal in future
-  // versions.
-  // 
 
-  // find the index of the first "on" bit
   size_t _Find_first() const 
     { return this->_M_do_find_first(_Nb); }
 
-  // find the index of the next "on" bit after prev
   size_t _Find_next( size_t __prev ) const 
     { return this->_M_do_find_next(__prev, _Nb); }
 
-//
-// Definitions of should-be non-inline member functions.
-//
 # if defined (_STLP_MEMBER_TEMPLATES)
   template<class _CharT, class _Traits, class _Alloc>
     void _M_copy_from_string(const basic_string<_CharT,_Traits,_Alloc>& __s,
@@ -641,7 +570,6 @@ public:
       const size_t __Nbits = (min) (__tmp, (min) (__n, __s.size() - __pos));
       for ( size_t __i= 0; __i < __Nbits; ++__i) {
         typename _Traits::int_type __k = _Traits::to_int_type(__s[__pos + __Nbits - __i - 1]);
-        // boris : widen() ?
         if (__k == '1')
           set(__i);
         else if (__k !='0')
@@ -683,10 +611,6 @@ public:
 
 };
 
-// ------------------------------------------------------------
-//
-// 23.3.5.3 bitset operations:
-//
 
 # if ! defined (_STLP_NON_TYPE_TMPL_PARAM_BUG)
 
@@ -731,7 +655,6 @@ operator<<(basic_ostream<_CharT, _Traits>& __os, const bitset<_Nb>& __x);
 
 #elif ! defined ( _STLP_USE_NO_IOSTREAMS )
 
-// (reg) For Watcom IO, this tells if ostream class is in .exe or in .dll
 template <size_t _Nb>
 _ISTREAM_DLL& _STLP_CALL
 operator>>(_ISTREAM_DLL& __is, bitset<_Nb>& __x);
@@ -762,7 +685,4 @@ _STLP_END_NAMESPACE
 #endif /* _STLP_BITSET_H */
 
 
-// Local Variables:
-// mode:C++
-// End:
 

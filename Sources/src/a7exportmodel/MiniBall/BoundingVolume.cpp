@@ -9,7 +9,6 @@ namespace MiniBall
 {
 	bool BoundingVolume::visible(const ViewFrustum &viewFrustum) const
 	{
-		// NOTE: Conservative test, not exact
 
 		return !backSide(viewFrustum.nearPlane) &&
 		       !backSide(viewFrustum.farPlane) &&

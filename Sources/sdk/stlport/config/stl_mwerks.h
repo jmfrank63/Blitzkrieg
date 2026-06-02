@@ -1,16 +1,9 @@
-// STLport configuration file
-// It is internal STLport header - DO NOT include it directly
 
-// Bring in definition of __MSL__ and related items
 #include <mslGlobals.h>
 #include <ansi_parms.h>
 
-//
-//  Compiler features
-//
 
 
-// *** CodeWarrior Compiler Common Features ***
 #  if __option(longlong)
 #   define _STLP_LONG_LONG	long long
 #  endif
@@ -31,12 +24,10 @@
 # define _STLP_WCHAR_T_IS_USHORT
 #endif
 
-// *** CodeWarrior Compiler Common Bugs ***
 #  define __MSL_FIX_ITERATORS__(myType)		// Some MSL headers rely on this
 #  define _STLP_NO_FRIEND_TEMPLATES 1	// Bug mysteriously reintroduced in this version.
 #  define _STLP_THROW_RETURN_BUG	1
 
-//  *** Version-specific settings ***
 
 #  if __MWERKS__ >= 0x2405
 #   define _STLP_HAS_NATIVE_FLOAT_ABS
@@ -83,7 +74,6 @@
 #   define _STLP_FORCED_INLINE_INSTANTIATION_BUG	1
 #   define _STLP_MULTI_CONST_TEMPLATE_ARG_BUG	1
 #   define _STLP_INLINE_NAME_RESOLUTION_BUG	1
-// *** Metrowerks Standard Library Bug ***
 #   define _STLP_MSVC50_COMPATIBILITY 1
 #  endif
 
@@ -108,7 +98,6 @@
 #  endif
 
 
-// fixes to native inclusion wrappers. 
 # if __MWERKS__ >= 0x2300	// CWPro5 changes paths - dwa 2/28/99
 
 #  define _STLP_NATIVE_INCLUDE_PATH  ../include
@@ -129,7 +118,6 @@
 
 # endif
 
-     // fbp
 # if !defined( __MSL_CPP__ ) || __MSL_CPP__ <= 0x4105
 #   define _STLP_NO_NATIVE_WIDE_STREAMS 1
 #  endif
@@ -137,4 +125,3 @@
 # define _STLP_LIB_BASENAME stlport_mwerks_x86
 # define _STLP_DLLEXPORT_NEEDS_PREDECLARATION 1
 
-// # include <config/vc_select_lib.h>

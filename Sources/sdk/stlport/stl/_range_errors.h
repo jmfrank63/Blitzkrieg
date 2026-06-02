@@ -15,18 +15,12 @@
 #ifndef _STLP_RANGE_ERRORS_H
 #define _STLP_RANGE_ERRORS_H
 
-// A few places in the STL throw range errors, using standard exception
-// classes defined in <stdexcept>.  This header file provides functions
-// to throw those exception objects.
 
-// _STLP_DONT_THROW_RANGE_ERRORS is a hook so that users can disable
-// this exception throwing.
 #if defined(_STLP_CAN_THROW_RANGE_ERRORS) && defined(_STLP_USE_EXCEPTIONS) \
     && !defined(_STLP_DONT_THROW_RANGE_ERRORS)
 # define _STLP_THROW_RANGE_ERRORS
 #endif
 
-// For the STLport iostreams, only declaration here, definition is in the lib
 
 #if defined ( _STLP_OWN_IOSTREAMS  ) && ! defined (_STLP_EXTERN_RANGE_ERRORS) 
 #  define _STLP_EXTERN_RANGE_ERRORS
@@ -60,8 +54,6 @@ _STLP_END_NAMESPACE
 # endif
 #endif
 
-// For wrapper mode and throwing range errors, include the
-// stdexcept header and throw the appropriate exceptions directly.
 
 _STLP_BEGIN_NAMESPACE
 inline void _STLP_DECLSPEC _STLP_CALL __stl_throw_range_error(const char* __msg) { 
@@ -92,6 +84,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_RANGE_ERRORS_H */
 
-// Local Variables:
-// mode:C++
-// End:

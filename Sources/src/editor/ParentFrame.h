@@ -47,7 +47,6 @@ public:
 	int DisplayInsertMenu();																//���������� ���� � ������� insert
 	int DisplayDeleteMenu();
 	
-	//������� ��� ���������� � �������� ���������� � �������
 	void SaveRegisterData();
 	void LoadRegisterData();
 
@@ -65,7 +64,6 @@ public:
 	int GetLowShadowFormat() { NI_ASSERT( m_nLowShadowFormat != -1 ); return m_nLowShadowFormat; }
 	int GetHighShadowFormat() { NI_ASSERT( m_nHighShadowFormat != -1 ); return m_nHighShadowFormat; }
 	
-	//������������� OI � ������
 	void SetTreeDockBar( CTreeDockWnd *pWnd ) { pTreeDockBar = pWnd; }
 	void SetOIDockBar( CPropView *pWnd );
 	void SetToolBar( SECCustomToolBar *pWnd ) { pToolBar = pWnd; }
@@ -96,7 +94,6 @@ protected:
 	int m_nLowShadowFormat;
 	int m_nHighShadowFormat;
 
-	//��� ����������
 	struct STransaction
 	{
 		string szSourceName;
@@ -114,7 +111,6 @@ protected:
 	string m_szOldProjectName;					//��� ����������� ����� �������
 	vector<STransaction> transactions;
 
-	//��� ��������� ������ ������������������ � ������������ ��� ������� ���������
 	string szComposerName;							//��� composer, ������������ � title
 	string szExtension;									//���������� ��� �������� ���������
 	string szExportExtension;						//���������� ��� �������� ������ �������
@@ -124,7 +120,6 @@ protected:
 	bool bDefaultExportName;						//���� ���������� ����, �� ��� �������� ����� ������������ ��� ����� 1.xml �� ���������
 	int nFrameType;
 
-	//���������, ����������� � �������
 /*
 	string szLocalSourceDir;						//���������� ����������
 	string szLocalDestDir;							//���������� �����������
@@ -139,9 +134,6 @@ protected:
 	void ComputeCaption();							//��������� title ������
 	void GenerateProjectName();					//������� ��� ��� ������ �������, ������������ ��� �������� ������ �������
 
-	//��������� ���� �� ����������������� ����� (���� ���������� ���������� ����� ��������� gamma.cfg ����)
-	//������ �������� - ��� ����������, ������������ ������� ���������� ����� ����������� ����� ������ ���������������� ����
-	//������ �������� - ����, ��������� �� �� � ������ batch mode, ����� �� ��������
 	bool ReadConfigFile( const char *pszDirectory, bool bBatchMode );
 	bool WriteConfigFile( bool bAsk, bool bCurrentProjectOnly );	//���������� ���� � ������ ����
 
@@ -151,7 +143,6 @@ protected:
 	CETreeCtrl *CreateTrees();
 	virtual string GetExportFileName();
 
-	//����������� ��������� ��������� ��� ������
 	virtual BOOL SpecificTranslateMessage( MSG *pMsg ) { return FALSE; }
 	virtual void SpecificInit() {}													//��� ������������� ���������� ������ ����� �������� ������� ��� �������� ������
 	virtual void SpecificSave( IDataTree *pDT ) {}					//���������� ��� ������ �������, ����� ������ � GUI composer
@@ -160,33 +151,20 @@ protected:
 	virtual void SaveFrameOwnData( IDataTree *pDT );				//��� ���������� ����������� ������ �������
 	virtual void LoadFrameOwnData( IDataTree *pDT );				//��� ��������
 
-	//��������� RPG stats ��������� � pDT, ��������� �������� pRootItem ��� ���� ����� ������� ����� ���� �������� �� batch mode
 	virtual void SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const char *pszProjectName ) {}
-	//��������� RPG stats
 	virtual void LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem ) {}
 
 /*
-	//��������� rpgStats �� ������ ����� ���������� ������� � ���� (��� ��� �������� ������ �������)
 	void FillRPGStats( SCommonRPGStats *pCommonRpgStats, CTreeItem *pRootItem );
-	//�������������� ������ � ������ ��� �������� �������
 	void GetRPGStats( const SCommonRPGStats *pCommonRpgStats, CTreeItem *pRootItem );
 */
 
-	//BATCH MODE
-	//������������ ���� ������, ���� ��� ��, ���������� 0, ����� ��� ������
 	int ExportSingleFile( const char *pszFileName, const char *pszDestDir, bool bForceFlag, bool bOpenSave );
-	//��������� ������ ����� ��������� �������, ������������ � object, building, mesh �������
 	virtual bool LoadFramePreExportData( const char *pszProjectFile, CTreeItem *pRootItem ) { return true; }
-	//��������� ������������ ����� ��������� ��� ���������� �������
 	virtual FILETIME FindMaximalSourceTime( const char *pszProjectName, CTreeItem *pRootItem ) { FILETIME time; time.dwHighDateTime = 0xffffffff; time.dwLowDateTime = 0xffffffff; return time; }
-	//��������� ����������� ����� ��� ����������� ��������
 	virtual FILETIME FindMinimalExportFileTime( const char *pszResultFileName, CTreeItem *pRootItem ) { FILETIME time; time.dwHighDateTime = 0; time.dwLowDateTime = 0; return time; }
-	//��������� ���������
-	//��� ������� ������������ ��� ������ �������, ���������� ��� �� batch mode, ��� � ��� OnFileSave()
-	//���������: ��� ��������� �������, ��� ����� ����������, RootItem, �������������� ����
 	virtual bool ExportFrameData( IDataTree *pDT, const char *pszProjectName, const char *pszResultFileName, CTreeItem *pRootItem ) { return true; }
 	
-	//��� ��������� ���������
 	bool LockFile();				//���������� false ���� �� ����� �������� ���� (��� �������)
 	bool UnLockFile();			//���������� false ���� �� ����� ��������� (������ �������� ����� ��� ��� ����� ���)
 	void SwitchDockerVisible( SECControlBar *pBar );
@@ -198,23 +176,13 @@ protected:
 public:
 	void LoadComposerFile( const char *pszFileName );
 
-	// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CAnimationFrame)
 protected:
-//	virtual BOOL PreTranslateMessage(MSG* pMsg);
-//	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
-//	virtual LRESULT WindowProc(UINT message, WPARAM wParam, LPARAM lParam);
 	virtual BOOL OnCmdMsg(UINT nID, int nCode, void* pExtra, AFX_CMDHANDLERINFO* pHandlerInfo);
 	virtual void OnUpdateFrameTitle( BOOL bAddToTitle ) { /* ��� ����� ������ ���� ������ */ }
 	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
 	virtual BOOL PreTranslateMessage(MSG* pMsg);
-	//}}AFX_VIRTUAL
 	
-	// Generated message map functions
 protected:
-	//{{AFX_MSG(CAnimationFrame)
-//	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnSetFocus(CWnd* pOldWnd);
 	afx_msg void OnFileCreateNewProject();
 	afx_msg void OnFileOpen();
@@ -290,7 +258,6 @@ protected:
 	afx_msg void OnRiverEditor();	
 	afx_msg void OnUpdateRiverEditor(CCmdUI* pCmdUI);
 	afx_msg void OnSaveObjects();
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 

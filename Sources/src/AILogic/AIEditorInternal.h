@@ -1,10 +1,7 @@
 #ifndef __AI_EDITOR_INTERNAL_H__
 #define __AI_EDITOR_INTERNAL_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "AILogic.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAIEditor : public IAIEditor
 {
 	OBJECT_NORMAL_METHODS( CAIEditor );
@@ -42,15 +39,12 @@ public:
 	
 	virtual const int STDCALL GetUnitDBID( IRefCount *pObj ) const;
 	
-	// проверяется: лежит ли объект внутри карты
 	virtual bool STDCALL IsObjectInsideOfMap( const struct SMapObjectInfo &object ) const;
-	// проверяется: лежит ли объект внутри карты и не ставится ли он на залоканные тайлы
 	virtual bool STDCALL CanAddObject( const struct SMapObjectInfo &object ) const;
 	
 	virtual void STDCALL ApplyPattern( const struct SVAPattern &rPattern );
 	virtual void STDCALL UpdateAllHeights();
 
-	// влючить - выключить что-нибудь, возвращает: true - включено, false - выключено
 	virtual bool STDCALL ToggleShow( const int nShowType );
 	
 	virtual void STDCALL UpdateTerrain( const CTRect<int> &rect, const struct STerrainInfo &terrainInfo );
@@ -63,5 +57,4 @@ public:
 	virtual void STDCALL DeleteRiver( const SVectorStripeObject &river );
 	virtual void STDCALL AddRiver( const SVectorStripeObject &river );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __AI_EDITOR_INTERNAL_H__

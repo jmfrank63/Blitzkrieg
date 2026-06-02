@@ -17,10 +17,8 @@ public:
 	CParticleFrame();
 	virtual ~CParticleFrame();
 
-// Attributes
 public:
 
-// Operations
 public:
 	virtual void GFXDraw();
 	virtual void ShowFrameWindows( int nCommand );
@@ -30,13 +28,8 @@ public:
 
 	void SetKeyFrameDockBar( CKeyFrameDockWnd *pWnd );
 
-// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CParticleFrame)
 protected:
-		//}}AFX_VIRTUAL
 
-// Implementation
 private:
 	CKeyFrameDockWnd *pKeyFrameDockBar;
 	
@@ -44,7 +37,6 @@ private:
 	bool bRunning;
 	bool bComplexSource;
 
-	//информация, отображаемая в status bar
 	float m_fNumberOfParticles;
 	float m_fMaxSize;
 	float m_fAverageSize;
@@ -69,9 +61,7 @@ protected:
 	void UpdateSourceType( bool bOnlyDelete = false );
 	void UpdateSourceTypeTB();
 	
-// Generated message map functions
 protected:
-	//{{AFX_MSG(CParticleFrame)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnRunButton();
 	afx_msg void OnStopButton();
@@ -86,7 +76,6 @@ protected:
 	afx_msg void OnUpdateButtonCamera(CCmdUI* pCmdUI);
 	afx_msg void OnShowFunctionFrame();	
 	afx_msg void OnUpdateShowFunctionFrame(CCmdUI* pCmdUI);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 

@@ -4,41 +4,31 @@
 #include "StrProc.h"
 #include "Mmsystem.h"
 #include "Shellapi.h"
-//	int STDCALL GetInt( const char *pszRow, const char *pszEntry, int defval );
-//	double STDCALL GetDouble( const char *pszRow, const char *pszEntry, double defval );
-//	const char* STDCALL GetString( const char *pszRow, const char *pszEntry, const char *defval, char *pszBuffer, int nBufferSize );
 
 #include "FileUtils.h"
 #include "AutoRunDialog.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SARButton::Load( const std::string &rszName, CIniFile& rIniFile, std::unordered_map<std::string, SARMenu> *pMenus, const SARMainSection &rMainSection )
 {
 	char pBuffer[0xFFF];
 	dwPresentState = static_cast<DWORD>( rIniFile.GetInt( rszName.c_str(), "PresentState", GAME_INSTALLED | GAME_NOT_INSTALLED ) );	
 	dwEnableState = static_cast<DWORD>( rIniFile.GetInt( rszName.c_str(), "EnableState", GAME_INSTALLED | GAME_NOT_INSTALLED ) );
 	bSelectable = static_cast<bool>( rIniFile.GetInt( rszName.c_str(), "Selectable", 1 ) );
-	//
 	szLabelFileName = rIniFile.GetString( rszName.c_str(), "LabelFileName", "", pBuffer, 0xFFF );
 	szTooltipFileName = rIniFile.GetString( rszName.c_str(), "TooltipFileName", "", pBuffer, 0xFFF );
 	szFocusedSoundFileName = rIniFile.GetString( rszName.c_str(), "FocusedSoundFileName", "", pBuffer, 0xFFF );
 	szActionSoundFileName = rIniFile.GetString( rszName.c_str(), "ActionSoundFileName", "", pBuffer, 0xFFF );
-	//
 	dwColors.resize( 4 );
 	dwColors[SARMainSection::STATE_NORMAL] = static_cast<DWORD>( rIniFile.GetInt( rszName.c_str(), "NormalColor", rMainSection.dwColors[SARMainSection::STATE_NORMAL] ) );
 	dwColors[SARMainSection::STATE_FOCUSED] = static_cast<DWORD>( rIniFile.GetInt( rszName.c_str(), "FocusedColor", rMainSection.dwColors[SARMainSection::STATE_FOCUSED] ) );
 	dwColors[SARMainSection::STATE_SELECTED] = static_cast<DWORD>( rIniFile.GetInt( rszName.c_str(), "SelectedColor", rMainSection.dwColors[SARMainSection::STATE_SELECTED] ) );
 	dwColors[SARMainSection::STATE_DISABLED] = static_cast<DWORD>( rIniFile.GetInt( rszName.c_str(), "DisabledColor", rMainSection.dwColors[SARMainSection::STATE_DISABLED] ) );
 	dwShadowColor = static_cast<DWORD>( rIniFile.GetInt( rszName.c_str(), "ShadowColor", rMainSection.dwShadowColor ) );
-	//
 	dwAlign = static_cast<DWORD>( rIniFile.GetInt( rszName.c_str(), "LabelAlign", rMainSection.dwAlign ) );
-	//
 	position.left = rIniFile.GetInt( rszName.c_str(), "PosX", 0 ); 
 	position.top = rIniFile.GetInt( rszName.c_str(), "PosY", 0 ); 
 	position.right = position.left + rIniFile.GetInt( rszName.c_str(), "Width", 0 ); 
 	position.bottom = position.top + rIniFile.GetInt( rszName.c_str(), "Height", 0 ); 
-	//
 	nFontSize = rIniFile.GetInt( rszName.c_str(), "FontSize", 20 ); 
-	//
 	action = ACTION_COUNT;
 	std::string szActionName = rIniFile.GetString( rszName.c_str(), "Action", "", pBuffer, 0xFFF );
 	NStr::ToLower( szActionName ); 
@@ -49,7 +39,6 @@ bool SARButton::Load( const std::string &rszName, CIniFile& rIniFile, std::unord
 			action = static_cast<EAction>( nActionIndex );
 		}
 	}
-	//
 	actionBehaviour = AB_COUNT;
 	std::string szActionBehaviourName = rIniFile.GetString( rszName.c_str(), "ActionBehaviour", "", pBuffer, 0xFFF );
 	NStr::ToLower( szActionBehaviourName ); 
@@ -60,7 +49,6 @@ bool SARButton::Load( const std::string &rszName, CIniFile& rIniFile, std::unord
 			actionBehaviour = static_cast<EActionBehaviour>( nABIndex );
 		}
 	}
-	//
 	szActionTarget = rIniFile.GetString( rszName.c_str(), "ActionTarget", "", pBuffer, 0xFFF );
 	szActionParameter = rIniFile.GetString( rszName.c_str(), "ActionParameter", "", pBuffer, 0xFFF );
 	szActionFolderName = rIniFile.GetString( rszName.c_str(), "ActionFolder", "", pBuffer, 0xFFF );
@@ -72,7 +60,6 @@ bool SARButton::Load( const std::string &rszName, CIniFile& rIniFile, std::unord
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SARMenu::Load( const std::string &rszName, CIniFile& rIniFile, std::unordered_map<std::string, SARMenu> *pMenus,  const SARMainSection &rMainSection )
 {
 	buttons.clear();
@@ -89,7 +76,6 @@ bool SARMenu::Load( const std::string &rszName, CIniFile& rIniFile, std::unorder
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SARMainSection::SRegistryKey::Load( const std::string &rszName, const std::string &rszPrefix, CIniFile& rIniFile )
 {
 	char pBuffer[0xFFF];
@@ -108,7 +94,6 @@ bool SARMainSection::SRegistryKey::Load( const std::string &rszName, const std::
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SARMainSection::Load( const std::string &rszName, CIniFile& rIniFile )
 {
 	char pBuffer[0xFFF];
@@ -169,7 +154,6 @@ bool SARMainSection::Load( const std::string &rszName, CIniFile& rIniFile )
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CARMenuSelector::PlayStartSound()
 {
 	const CARSound* pARSound = dataStorage.GetSound( mainSection.szSoundFileName );
@@ -180,7 +164,6 @@ void CARMenuSelector::PlayStartSound()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CARMenuSelector::DrawBackgroundAndLogos( CDC *pDC )
 {
 	{
@@ -216,7 +199,6 @@ void CARMenuSelector::DrawBackgroundAndLogos( CDC *pDC )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CARMenuSelector::HitTest( const CPoint &rMousePoint )
 {
 	const SARMenu &rMenu = mainSection.menus[ menuStack.back() ];
@@ -237,7 +219,6 @@ int CARMenuSelector::HitTest( const CPoint &rMousePoint )
 	return ( -1 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CARMenuSelector::DrawMenu( CDC *pDC, const CPoint &rMousePoint, int nMouseFlags )
 {
 	int nHitButton = HitTest( rMousePoint );
@@ -362,7 +343,6 @@ void CARMenuSelector::DrawMenu( CDC *pDC, const CPoint &rMousePoint, int nMouseF
 	}
 }
 	
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CARMenuSelector::Load( CWnd *pWnd )
 {
 	mainSection.Clear();
@@ -396,7 +376,6 @@ bool CARMenuSelector::Load( CWnd *pWnd )
 			szActionFolders[nFolderIndex].clear();
 		}
 
-    //current folder
 		{
 			char pBuffer[0xfff];
 			GetModuleFileName( 0, pBuffer, 0xfff );
@@ -404,10 +383,8 @@ bool CARMenuSelector::Load( CWnd *pWnd )
 			szExeName = szExeName.substr( 0, szExeName.rfind( '\\' ) );
 			szActionFolders[AF_CURRENT] = szExeName.c_str();
 		}
-		//install folder
 		{
 			DWORD dwDisposition;
-			//install folder
 			{
 				HKEY hRegistrySection;
 				std::string szRegistryFolder = mainSection.rkInstallFolder.szKey.substr( 0, mainSection.rkInstallFolder.szKey.rfind( '\\' ) );
@@ -443,7 +420,6 @@ bool CARMenuSelector::Load( CWnd *pWnd )
 				::RegCloseKey( hRegistrySection );
 			}
 			
-			//uninstall folder
 			{
 				HKEY hRegistrySection;
 				std::string szRegistryFolder = mainSection.rkUninstallFolder.szKey.substr( 0, mainSection.rkUninstallFolder.szKey.rfind( '\\' ) );
@@ -490,7 +466,6 @@ bool CARMenuSelector::Load( CWnd *pWnd )
 	return false;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CARMenuSelector::Action( CAutoRunDialog *pWnd, const CPoint &rMousePoint )
 {
 	int nHitButton = HitTest( rMousePoint );
@@ -550,20 +525,17 @@ bool CARMenuSelector::Action( CAutoRunDialog *pWnd, const CPoint &rMousePoint )
 	return false;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CARMenuSelector::ReturnMenu()
 {
 	menuStack.pop_back();
 	return menuStack.empty();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CARMenuSelector::ActionShortcut( int nShortcut )
 {
 	return false;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CARMenuSelector::FillToolTips( CToolTipCtrl *pToolTipCtrl, const CPoint &rMousePoint )
 {
 	if ( pToolTipCtrl )
@@ -589,7 +561,6 @@ void CARMenuSelector::FillToolTips( CToolTipCtrl *pToolTipCtrl, const CPoint &rM
 	nCurrentFocusedButton = HitTest( rMousePoint );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CString CARMenuSelector::GetTitle()
 {
 	CString szTitle;
@@ -601,19 +572,16 @@ CString CARMenuSelector::GetTitle()
 	return CString(" ") + szTitle;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CString CARMenuSelector::GetRunningGameTitle()
 {
 	return CString(" ") + mainSection.szRuningGameTitle.c_str();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CString CARMenuSelector::GetRunningInstallTitle()
 {
 	return mainSection.szRuningInstallTitle.c_str();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CARMenuSelector::ExecuteTarget( CAutoRunDialog *pWnd, const std::string &szTarget, const std::string &szParameters, const std::string &szDirectory, bool bWait, bool bCurrent )
 {
 	char pszCommandLine[0xFFF];
@@ -636,7 +604,6 @@ bool CARMenuSelector::ExecuteTarget( CAutoRunDialog *pWnd, const std::string &sz
 		strcat( pszCommandLine, " " );
 		strcat( pszCommandLine, szParameters.c_str() );
 	}
-	//
 	STARTUPINFO startinfo;
 	PROCESS_INFORMATION procinfo;
 	memset( &startinfo, 0, sizeof( STARTUPINFO ) );
@@ -654,7 +621,6 @@ bool CARMenuSelector::ExecuteTarget( CAutoRunDialog *pWnd, const std::string &sz
 		bRetVal = CreateProcess( 0, pszCommandLine, 0, 0, false, 0, 0, szDirectory.c_str(), &startinfo, &procinfo );
 		dwResult = GetLastError();
 	}
-	//pWnd->MessageBox( NStr::Format( "pszCommandLine <%s>\nszDirectory <%s>\nbRetVal %d, dwResult %d", pszCommandLine, szDirectory.c_str(), bRetVal, dwResult ), "Debug Output", MB_OK );
 	if ( bRetVal != FALSE ) 
 	{
 		if ( bWait )
@@ -718,23 +684,18 @@ bool CARMenuSelector::ExecuteTarget( CAutoRunDialog *pWnd, const std::string &sz
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CARMenuSelector::ShellExecuteTarget( CAutoRunDialog *pWnd, const std::string &szTarget, const std::string &szParameters, const std::string &szDirectory, bool bWait, bool bCurrent )
 {
 	char pszCommandLine[0xFFF];
 	if ( !szDirectory.empty() )
 	{
-		//strcpy( pszCommandLine, "\"" );
 		strcpy( pszCommandLine, szDirectory.c_str() );
 		strcat( pszCommandLine, "\\");
 		strcat( pszCommandLine, szTarget.c_str() );
-		//strcat( pszCommandLine, "\"" );
 	}
 	else
 	{
-		//strcpy( pszCommandLine, "\"" );
 		strcpy( pszCommandLine, szTarget.c_str() );
-		//strcat( pszCommandLine, "\"" );
 	}
 	int nResult = 33;
 	if ( szDirectory.empty() )
@@ -780,7 +741,6 @@ bool CARMenuSelector::ShellExecuteTarget( CAutoRunDialog *pWnd, const std::strin
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::string CARMenuSelector::ParseFolder( const std::string &rszFolder, bool *pbCurrent )
 {
 	std::string szFolder = rszFolder;
@@ -788,12 +748,10 @@ std::string CARMenuSelector::ParseFolder( const std::string &rszFolder, bool *pb
 	{
 		szFolder = szFolder.substr( 0, szFolder.size() - 1 );
 	}
-	//
 	if ( pbCurrent )
 	{
 		( *pbCurrent ) = false;
 	}
-	//
 	if ( szFolder.find( "<" ) == 0 )
 	{
 		int nArrowchar = szFolder.find( ">" );
@@ -812,7 +770,6 @@ std::string CARMenuSelector::ParseFolder( const std::string &rszFolder, bool *pb
 					{
 						szLabel = szLabel.substr( 0, szLabel.size() - 1 );
 					}
-					//
 					if ( pbCurrent )
 					{
 						if ( nFolderIndex == AF_CURRENT )
@@ -835,4 +792,3 @@ std::string CARMenuSelector::ParseFolder( const std::string &rszFolder, bool *pb
 	}
 	return szFolder;
 }	
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

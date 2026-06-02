@@ -1,6 +1,3 @@
-// WindowConsole.h: interface for the CWindowConsole class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_WINDOWCONSOLE_H__3222DEC4_B4EB_4831_9CE4_417F561454C6__INCLUDED_)
 #define AFX_WINDOWCONSOLE_H__3222DEC4_B4EB_4831_9CE4_417F561454C6__INCLUDED_
@@ -11,7 +8,6 @@
 
 #include "Window.h"
 class CWindowEditLine;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CWindowConsole : public CWindow  
 {
 	OBJECT_COMPLETE_METHODS(CWindowConsole)
@@ -43,16 +39,13 @@ class CWindowConsole : public CWindow
 	NTimer::STime currTime;
 	int nCursorPos;							//������� ������� � ������� ������������� ������
 	int nBeginString;						//��������� ������������ ������ �� ������ �����
-															//0 ��������� ����� ������ ��������
 	int nBeginCommand;					//������� ������� �� ���� ������
 	bool bCanLaunchEffect;									// console is notified about open effect finish.
 	DWORD dwColor;
 
-	// message sink registration
 	void RegisteMessageSinks();
 	void UnRegisteMessageSinks();
 
-	//��� ���� ���������� ����� ���������� ����� �������� �� ������
 	void ParseCommand( const std::wstring &szCommand );
 public:
 	CWindowConsole() : currTime( 0 ), bCanLaunchEffect( true ), nBeginCommand( 0 ),
@@ -76,6 +69,5 @@ public:
 
 	virtual int STDCALL operator&( IDataTree &ss );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #endif // !defined(AFX_WINDOWCONSOLE_H__3222DEC4_B4EB_4831_9CE4_417F561454C6__INCLUDED_)

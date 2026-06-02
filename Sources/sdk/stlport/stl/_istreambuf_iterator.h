@@ -15,9 +15,6 @@
  * modified is included with the above copyright notice.
  *
  */ 
-// WARNING: This is an internal header file, included by other C++
-// standard library headers.  You should not attempt to use this header
-// file directly.
 
 
 #ifndef _STLP_INTERNAL_ISTREAMBUF_ITERATOR_H
@@ -33,13 +30,9 @@
 
 _STLP_BEGIN_NAMESPACE
 
-// defined in _istream.h
 template <class _CharT, class _Traits>
 extern basic_streambuf<_CharT, _Traits>* _STLP_CALL _M_get_istreambuf(basic_istream<_CharT, _Traits>& ) ;
 
-// We do not read any characters until operator* is called. operator* calls sgetc 
-// unless the iterator is unchanged from the last call in which case a cached value is
-// used. Calls to operator++ use sbumpc.
 
 template<class _CharT, class _Traits>
 class istreambuf_iterator
@@ -59,7 +52,6 @@ public:
 
 public:
   istreambuf_iterator(streambuf_type* __p = 0) { this->_M_init(__p); }
-  //  istreambuf_iterator(basic_istream<_CharT, _Traits>& __is) { this->_M_init(_M_get_istreambuf(__is)); }
   inline istreambuf_iterator(basic_istream<_CharT, _Traits>& __is);
 
   char_type operator*() const { this->_M_getc(); return _M_c; }
@@ -78,7 +70,6 @@ private:
   void _M_init(streambuf_type* __p) {
     _M_buf = __p;
     _M_eof = !__p;
-    //    _M_is_initialized = _M_eof;
     _M_have_c = false;
   }
 
@@ -161,7 +152,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_ISTREAMBUF_ITERATOR_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

@@ -16,7 +16,6 @@
 #include "StaticObjectsIters.h"
 #include "StaticObject.h"
 #include "AIClassesID.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CPtr<IStaticPathFinder> pThePathFinder;
 extern CPtr<IStaticPathFinder> pThePlanePathFinder;
 extern CPtr<IStaticPathFinder> pTheTrainPathFinder;
@@ -25,13 +24,7 @@ extern CUnits units;
 extern CUpdater updater;
 extern NTimer::STime curTime;
 extern CDifficultyLevel theDifficultyLevel;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													CPathUnit																*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CPathUnit );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::Init( class CAIUnit *_pOwner, const CVec2 &_center, const int _z, const WORD _dir, const WORD id )
 {
 	pOwner = _pOwner;
@@ -81,7 +74,6 @@ void CPathUnit::Init( class CAIUnit *_pOwner, const CVec2 &_center, const int _z
 	
 	nextSecondPathSegmTime = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::UpdateDirection( const WORD newDir )
 {
 	const WORD wOldDir = placement.dir;
@@ -103,24 +95,20 @@ void CPathUnit::UpdateDirection( const WORD newDir )
 		LockTiles();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::UpdateDirectionForEditor( const CVec2 &dirVec ) 
 { 
 	UpdateDirection( dirVec ); 
 	ForceLockingTiles();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::SetFrontDirWOUpdate( const WORD newDir )
 {
 	placement.dir = newDir;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::UpdateDirection( const CVec2 &dirVec )
 {
 	NI_ASSERT_T( dirVec != VNULL2, "Wrong direction" );
 	UpdateDirection( GetDirectionByVector( dirVec ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::FirstSegment()
 {
 	if ( pOwner->CanMovePathfinding() && !IsIdle() )
@@ -172,7 +160,6 @@ void CPathUnit::FirstSegment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::CheckForDestroyedObjects( const CVec2 &center ) const
 {
 	const CVec2 vCenter = GetCenter();
@@ -200,7 +187,6 @@ void CPathUnit::CheckForDestroyedObjects( const CVec2 &center ) const
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::SecondSegment( const bool bUpdate )
 {
 	if ( pOwner->CanMovePathfinding() && ( !IsIdle() || stayTime == 0 ) )
@@ -219,7 +205,6 @@ void CPathUnit::SecondSegment( const bool bUpdate )
 
 		speed = GetSmoothPath()->GetSpeedLen() * GetDirVector();
 
-		// сдвинулись
 		if ( center != newCenter2D || GetFrontDir() != oldDir )
 			stayTime = 0;
 		else
@@ -289,7 +274,6 @@ void CPathUnit::SecondSegment( const bool bUpdate )
 	if ( !IsIdle() || GetDirAtTheBeginning() != GetDir() )
 		nextSecondPathSegmTime = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::LockTiles( bool bUpdate )
 {
 	if ( CanLockTiles() && !updater.IsPlacementUpdated( pOwner ) /*&& IsIdle() */&& !bFixUnlock )
@@ -298,7 +282,6 @@ void CPathUnit::LockTiles( bool bUpdate )
 		bLocking = true;
 	}	
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::ForceLockingTiles( bool bUpdate )
 {
 	if ( CanLockTiles( true ) )
@@ -307,7 +290,6 @@ void CPathUnit::ForceLockingTiles( bool bUpdate )
 		bLocking = true;
 	}	
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::LockTilesForEditor()
 {
 	if ( CanLockTiles()  )
@@ -316,7 +298,6 @@ void CPathUnit::LockTilesForEditor()
 		bLocking = true;
 	}	
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::UnlockTiles( const bool bUpdate )
 {
 	if ( CanUnlockTiles() )
@@ -325,12 +306,10 @@ void CPathUnit::UnlockTiles( const bool bUpdate )
 		bLocking = false;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPathUnit::SendAlongPath( IPath *pPath )
 {
 	bool bResult = false;
 	
-	// чтобы удалилось
 	CPtr<IPath> pUnitPath = pPath;
 	if ( pOwner->CanMovePathfinding() )
 	{
@@ -354,11 +333,9 @@ bool CPathUnit::SendAlongPath( IPath *pPath )
 	CalculateIdle();
 	return bResult;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPathUnit::SendAlongPath( IStaticPath *pStaticPath, const CVec2 &vShift, bool bSmoothTurn )
 {
 	bool bResult = true;
-	// чтобы удалилось
 	CPtr<IStaticPath> pUnitPath = pStaticPath;
 	if ( pOwner->CanMovePathfinding() )
 	{
@@ -404,7 +381,6 @@ bool CPathUnit::SendAlongPath( IStaticPath *pStaticPath, const CVec2 &vShift, bo
 
 	return bResult;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPathUnit::CanGoByDir( const CVec2 &dir, const SRect &forceRect, SRect bannedRect, CVec2 forceSpeed, int *numIntersect, float *distance, int *nBadness )
 {
 	SRect unitRect( GetUnitRect() );
@@ -450,7 +426,6 @@ bool CPathUnit::CanGoByDir( const CVec2 &dir, const SRect &forceRect, SRect bann
 		return true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::SetCollision( ICollision *pCollision )
 {
 	IPath *pNewPath = pCollision->GetPath();
@@ -470,12 +445,10 @@ void CPathUnit::SetCollision( ICollision *pCollision )
 
 	CalculateIdle();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::StopTurning()
 {
 	bTurning = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::StopUnit()
 {
 	pPathMemento = 0;
@@ -494,17 +467,14 @@ void CPathUnit::StopUnit()
 
 	CalculateIdle();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::CalculateIdle()
 {
 	bIdle = ( pCollMemento == 0 && GetCollision()->IsSolved() && vSuspendedPoint.x == -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPathUnit::IsIdle() const
 {
 	return bIdle;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CPathUnit::GetCenterShift() const
 {
 	const CVec2 realDirVec( GetFrontDirVec() );
@@ -512,7 +482,6 @@ const CVec2 CPathUnit::GetCenterShift() const
 
 	return CVec2( realDirVec * pOwner->GetStats()->vAABBCenter.y + dirPerp * pOwner->GetStats()->vAABBCenter.x );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SRect CPathUnit::GetUnitRect() const
 {
 	const float length = pOwner->GetStats()->vAABBHalfSize.y * SConsts::BOUND_RECT_FACTOR;
@@ -523,7 +492,6 @@ const SRect CPathUnit::GetUnitRect() const
 
 	return unitRect;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SRect CPathUnit::GetSmallRect() const
 {
 	const float fCoeff = GetStats()->IsInfantry() ? 0.5 : 0.8;
@@ -535,7 +503,6 @@ const SRect CPathUnit::GetSmallRect() const
 
 	return smallRect;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SRect CPathUnit::GetUnitRectForLock() const
 {
 	const float length = pOwner->GetStats()->vAABBHalfSize.y * SConsts::COEFF_FOR_LOCK;
@@ -546,7 +513,6 @@ const SRect CPathUnit::GetUnitRectForLock() const
 
 	return unitRect;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SRect CPathUnit::GetFullSpeedRect( bool bForInfantry ) const
 {
 	const float width = pOwner->GetStats()->vAABBHalfSize.x * SConsts::BOUND_RECT_FACTOR;// * 1.3f;
@@ -571,7 +537,6 @@ const SRect CPathUnit::GetFullSpeedRect( bool bForInfantry ) const
 
 	return speedRect;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SRect CPathUnit::GetSpeedRect( bool bForInfantry ) const
 {
 	const float width = pOwner->GetStats()->vAABBHalfSize.x * SConsts::BOUND_RECT_FACTOR;// * 1.3f;
@@ -593,7 +558,6 @@ const SRect CPathUnit::GetSpeedRect( bool bForInfantry ) const
 	
 	return speedRect;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPathUnit::CanSetNewCoord( const CVec3 &newCenter )
 {
 	const SAINotifyPlacement oldPlacement( placement );
@@ -614,7 +578,6 @@ bool CPathUnit::CanSetNewCoord( const CVec3 &newCenter )
 
 	return bResult;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPathUnit::CanSetNewDir( const CVec2 &newDir )
 {
 	const CVec2 oldDir = dirVec;
@@ -631,7 +594,6 @@ bool CPathUnit::CanSetNewDir( const CVec2 &newDir )
 
 	return bResult;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::SetNewCoordinates( const CVec3 &newCenter, bool bStopUnit )
 {
 	if ( bStopUnit )
@@ -651,7 +613,6 @@ void CPathUnit::SetNewCoordinates( const CVec3 &newCenter, bool bStopUnit )
 	updater.Update( ACTION_NOTIFY_PLACEMENT, pOwner );
 	pOwner->WarFogChanged();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::SetCoordWOUpdate( const CVec3 &newCenter )
 {
 	placement.center.x = newCenter.x;
@@ -661,22 +622,18 @@ void CPathUnit::SetCoordWOUpdate( const CVec3 &newCenter )
 	
 	updater.Update( ACTION_NOTIFY_PLACEMENT, pOwner );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPathUnit::CanLockTiles( bool bForceLocking  ) const
 {
 	return !bLocking && ( bForceLocking || !pOwner->GetStats()->IsInfantry() ) && !pOwner->GetStats()->IsAviation();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPathUnit::CanUnlockTiles() const
 {
 	return bLocking;// && !pOwner->GetStats()->IsInfantry();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2& CPathUnit::GetDirVector() const 
 {
 	return dirVec; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const WORD CPathUnit::GetDir() const
 { 
 	if ( bRightDir )
@@ -684,7 +641,6 @@ const WORD CPathUnit::GetDir() const
 	else
 		return placement.dir + 32768;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::SetRightDir( bool _bRightDir )
 {
 	if ( bRightDir != _bRightDir )
@@ -693,10 +649,8 @@ void CPathUnit::SetRightDir( bool _bRightDir )
 		dirVec = -dirVec;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::ChooseDirToTurn( const WORD &newDir )
 {
-	// можно весь путь ехать задом
 	if ( GetSmoothPath()->CanGoBackward() || ( pOwner->CanGoBackward() && bOnLockedTiles && !bTurning ) )
 	{
 		const WORD rightDir = DirsDifference( placement.dir, newDir );
@@ -707,7 +661,6 @@ void CPathUnit::ChooseDirToTurn( const WORD &newDir )
 	else
 		bRightDir = true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPathUnit::MakeTurnToDir( const WORD newDir )
 {
 	const WORD realNewDir = newDir + !bRightDir * 32768;
@@ -741,7 +694,6 @@ bool CPathUnit::MakeTurnToDir( const WORD newDir )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPathUnit::TurnToDir( const WORD &newDir, const bool bCanBackward, const bool bCanForward )
 {
 	bTurnCalled = true;
@@ -752,7 +704,6 @@ bool CPathUnit::TurnToDir( const WORD &newDir, const bool bCanBackward, const bo
 	}
 	else
 	{
-		// начало поворота или поворот к другому направлению
 		if ( !bTurning || newDir != desDir )
 		{
 			if ( bCanBackward && bCanForward )
@@ -768,50 +719,41 @@ bool CPathUnit::TurnToDir( const WORD &newDir, const bool bCanBackward, const bo
 		return MakeTurnToDir( newDir );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IPath* CPathUnit::CreatePathByDirection( const CVec2 &startPoint, const CVec2 &dir, const CVec2 &finishPoint ) 
 { 
 	return pPathFinder->CreatePathByDirection( startPoint, dir, finishPoint, pOwner->GetStats()->nBoundTileRadius ); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CPathUnit::GetRotateSpeed() const 
 { 
 	return 
 		pOwner->GetStats()->fRotateSpeed * theDifficultyLevel.GetRotateSpeedCoeff( pOwner->GetParty() ) * pOwner->GetExpLevel().fBonusRotate;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CPathUnit::GetMaxPossibleSpeed() const 
 { 
 	return pOwner->GetExpLevel().fBonusSpeed * pOwner->GetStats()->fSpeed;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CPathUnit::GetBoundTileRadius() const 
 { 
 	return pOwner->GetStats()->nBoundTileRadius; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CPathUnit::GetAABBHalfSize() const 
 { 
 	return pOwner->GetStats()->vAABBHalfSize; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SUnitBaseRPGStats* CPathUnit::GetStats() const
 {
 	return pOwner->GetStats();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPathUnit::CanTurnToFrontDir( const WORD wDir )
 {
 	return CanRotateTo( GetUnitRect(), GetVectorByDirection( wDir ), true, false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::GetSpeed3( CVec3 *pSpeed ) const 
 { 
 	GetSmoothPath()->GetSpeed3( pSpeed );
 	if ( VNULL3 == *pSpeed )
 		*pSpeed = CVec3( speed, 0.0f ); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::GetPlacement( SAINotifyPlacement *pPlacement, const NTimer::STime timeDiff ) const 
 { 
 	CVec3 pos( placement.center.x, placement.center.y, placement.z );
@@ -826,32 +768,26 @@ void CPathUnit::GetPlacement( SAINotifyPlacement *pPlacement, const NTimer::STim
 	
 	pPlacement->fSpeed = fabs(vSpeed3);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BYTE CPathUnit::GetAIClass() const
 {
 	return GetStats()->aiClass;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPathUnit::IsStopped() const 
 { 
 	return speed == VNULL2 && GetSmoothPath()->IsFinished(); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CPathUnit::GetSpeedLen() const 
 { 
 	return GetSmoothPath()->GetSpeedLen(); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPathUnit::GetID() const
 {
 	return pOwner->GetID();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathUnit::UpdateCollStayTime( const NTimer::STime candStayTime ) 
 { 
 	collStayTime = Max( collStayTime, Min( stayTime, candStayTime ) ); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPathUnit::CanRotateTo( SRect smallRect, const CVec2 &vNewDir, bool bWithUnits, bool bCanGoBackward )
 {
 	if ( pOwner->GetStats()->IsInfantry() || pOwner->GetStats()->IsAviation() )
@@ -865,7 +801,6 @@ bool CPathUnit::CanRotateTo( SRect smallRect, const CVec2 &vNewDir, bool bWithUn
 	WORD wFinalDir = GetDirectionByVector( vNewDir );
 	const WORD wFinalDirBack = wFinalDir + 32768;
 
-	// если выгоднее ехать задом
 	if ( bCanGoBackward && DirsDifference( wCurDir, wFinalDirBack ) < DirsDifference( wCurDir, wFinalDir ) )
 		wFinalDir = wFinalDirBack;
 
@@ -913,7 +848,6 @@ bool CPathUnit::CanRotateTo( SRect smallRect, const CVec2 &vNewDir, bool bWithUn
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPathUnit::CanMake180DegreesTurn( SRect rect )
 {
 	CTemporaryUnitRectUnlocker unlocker( GetID() );
@@ -929,7 +863,6 @@ bool CPathUnit::CanMake180DegreesTurn( SRect rect )
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPathUnit::CheckToTurn( const WORD wNewDir )
 {
 	const SRect rect( GetUnitRectForLock() );
@@ -1010,7 +943,6 @@ bool CPathUnit::CheckToTurn( const WORD wNewDir )
 
 	return bResult;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IStaticPath* CPathUnit::CreateBigStaticPath( const CVec2 &vStartPoint, const CVec2 &vFinishPoint, IPointChecking *pPointChecking )
 {
 	UnlockTiles( true );
@@ -1031,36 +963,26 @@ IStaticPath* CPathUnit::CreateBigStaticPath( const CVec2 &vStartPoint, const CVe
 	else
 		return new CCommonStaticPath( *pPathFinder, vFinishPoint );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPathUnit::IsInOneTrain( IBasePathUnit *pUnit ) const
 {
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SVector CPathUnit::GetLastKnownGoodTile() const
 {
 	return lastKnownGoodTile;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPathUnit::CanRotate() const
 { 
 	return
 		pOwner->GetStats()->IsInfantry() || pOwner->GetStats()->fRotateSpeed != 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												CSimplePathUnit														*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ISmoothPath* CSimplePathUnit::GetSmoothPath() const
 {
 	return pSmoothPath;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimplePathUnit::InitAviationPath( const SMechUnitRPGStats* pStats )
 {
 	float fRatio = 1.0f;
-	//радиусы поворота брать из статов
 	switch ( pStats->type )
 	{
 		case RPG_TYPE_AVIA_ATTACK:
@@ -1074,7 +996,6 @@ void CSimplePathUnit::InitAviationPath( const SMechUnitRPGStats* pStats )
 	const float fMultiply = Random( 0.9f, 1.0f );
 	pSmoothPath = new CPlaneSmoothPath( pStats->fTurnRadius * fMultiply, pStats->fTurnRadius * 2 * fMultiply,	pStats->fSpeed, fRatio );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimplePathUnit::Init( class CAIUnit *pOwner, const CVec2 &center, const int z, const WORD dir, const WORD id )
 {
 	CPathUnit::Init( pOwner, center, z, dir, id );
@@ -1098,14 +1019,12 @@ void CSimplePathUnit::Init( class CAIUnit *pOwner, const CVec2 &center, const in
 
 	pSmoothPath->SetOwner( GetOwner() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimplePathUnit::SetCurPath( interface ISmoothPath *pNewPath )
 { 
 	if ( !pDefaultPath )
 		pDefaultPath = pSmoothPath;
 	pSmoothPath = pNewPath;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimplePathUnit::RestoreDefaultPath()
 { 
 	if ( pDefaultPath )
@@ -1113,4 +1032,3 @@ void CSimplePathUnit::RestoreDefaultPath()
 	
 	pDefaultPath = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

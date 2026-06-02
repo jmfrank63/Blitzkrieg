@@ -1,14 +1,7 @@
 #ifndef __STANDART_SMOOTH_SOLDIER_PATH_H__
 #define __STANDART_SMOOTH_SOLDIER_PATH_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Path.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CStandartSmoothSoldierPath										*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CStandartSmoothSoldierPath : public ISmoothPath
 {
 	OBJECT_COMPLETE_METHODS( CStandartSmoothSoldierPath	);
@@ -16,7 +9,6 @@ class CStandartSmoothSoldierPath : public ISmoothPath
 	
 	CPtr<IPath> pPath;
 	CPtr<CFormation> pFormation;
-	// владелец пути
 	interface IBasePathUnit *pUnit;
 
 	CBSpline spline;
@@ -31,11 +23,8 @@ class CStandartSmoothSoldierPath : public ISmoothPath
 	float fRemain;
 	int nPoints;
 
-	//
 	void AddSmoothTurn();
 	int InitSpline();
-	// проверить на наличие впереди залоканных тайлов. ≈сли есть, то пересчитать путь
-	// true - if Ok, false - if path had to be recalculated
 	bool ValidateCurPath( const CVec2 &center, const CVec2 &newPoint );
 
 	void CutDriveToFormationPath( class CCommonStaticPath *pPath );
@@ -82,5 +71,4 @@ public:
 	
 	virtual bool IsWithFormation() const { return bWithFormation; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __STANDART_SMOOTH_SOLDIER_PATH_H__

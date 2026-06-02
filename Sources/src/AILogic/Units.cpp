@@ -11,26 +11,18 @@
 #include "UnitsIterators.h"
 
 #include "UnitsIterators2.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CSupremeBeing theSupremeBeing;
 extern CStaticMap theStaticMap;
 CUnits units;
 extern CDiplomacy theDipl;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													  CUnits																*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SVector GetLeveledCell( const SVector &bigCell, const int nCellLevel )
 {
 	return SVector( bigCell.x / (1 << (nCellLevel+1)), bigCell.y / (1 << (nCellLevel+1) ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CUnits::IsUnitInCell( const int nUnitID ) const
 {
 	return posUnitInCell[nUnitID].nUnitPos != 0 || posUnitInCell[nUnitID].nCellID != 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnits::Init()
 {
   nUnitsOfType.resize( 3 );
@@ -68,7 +60,6 @@ void CUnits::Init()
 	
 	unitsInCells.resize( 2 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnits::CheckCorrectness( const SVector &tile )
 {
 	const SVector cell = AICellsTiles::GetBigCell( AICellsTiles::GetPointByTile( tile ) );
@@ -88,7 +79,6 @@ void CUnits::CheckCorrectness( const SVector &tile )
 	const int nUnitsInCell = nUnitsCell[cell.y][cell.x];
 	NI_ASSERT_T( cnt == nUnitsInCell, "Wrong number of units in cell" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnits::AddUnitToLeveledCells( CAIUnit *pUnit, const SVector &bigCell, const int nVis )
 {
 	NI_ASSERT_T( nVis < 2, NStr::Format( "Wrong nVis (%d)", nVis ) );
@@ -101,7 +91,6 @@ void CUnits::AddUnitToLeveledCells( CAIUnit *pUnit, const SVector &bigCell, cons
 		++numUnits[nVis][i][nUnitParty][!bUnitMech][leveledCell.y][leveledCell.x];
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnits::DelUnitFromLeveledCells( CAIUnit *pUnit, const SVector &bigCell, const int nVis )
 {
 	NI_ASSERT_T( nVis < 2, NStr::Format( "Wrong nVis (%d)", nVis ) );
@@ -116,7 +105,6 @@ void CUnits::DelUnitFromLeveledCells( CAIUnit *pUnit, const SVector &bigCell, co
 		NI_ASSERT_T( numUnits[nVis][i][nUnitParty][!bUnitMech][leveledCell.y][leveledCell.x] >= 0, "Wrong number of units in leveled cell" );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CUnits::GetVisIndex( CAIUnit *pUnit )
 {
 	const int nUnitParty = pUnit->GetParty();
@@ -124,14 +112,11 @@ const int CUnits::GetVisIndex( CAIUnit *pUnit )
 
 	return pUnit->IsVisible( nOppositeParty ) || pUnit->IsRevealed();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnits::AddUnitToConcreteCell( CAIUnit *pUnit, const SVector &cell, bool bWithLeveledCelles )
 {
-	// если юнит единственный в свой €чейке, записать €чейку в список
 	if ( ++nUnitsCell[cell.y][cell.x] == 1 )
 		nCell[cell.y][cell.x] = cellsIds.GetFreeId();
 	
-	// добавить юнит в список сто€щих на этой €чейке
 	const int newId = nCell[cell.y][cell.x] * 2 * 3 + ( 2 * pUnit->GetParty() + BYTE( pUnit->GetStats()->IsInfantry() ) ) + 1;
 
 	if ( newId >= unitsInCells[0].GetListsNum() || newId >= unitsInCells[1].GetListsNum() )
@@ -143,7 +128,6 @@ void CUnits::AddUnitToConcreteCell( CAIUnit *pUnit, const SVector &cell, bool bW
 	const int nUnitID = pUnit->GetID();
 	const int nVisIndex = pUnit->GetNVisIndexInUnits();
 
-//	NI_ASSERT_T( !IsUnitInCell( nUnitID ), "Unit is in cell, trying to add to another cell" );
 
 	posUnitInCell[nUnitID].nCellID = newId;
 	posUnitInCell[nUnitID].nUnitPos = unitsInCells[nVisIndex].Add( newId, nUnitID );
@@ -152,17 +136,14 @@ void CUnits::AddUnitToConcreteCell( CAIUnit *pUnit, const SVector &cell, bool bW
 	if ( bWithLeveledCelles )
 		AddUnitToLeveledCells( pUnit, cell, nVisIndex );
 
-//	NI_ASSERT_T( unitsInCellsSet.find( nUnitID ) == unitsInCellsSet.end(), "Unit is in cell" );
 	unitsInCellsSet.insert( nUnitID );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnits::AddUnitToCell( CAIUnit *pUnit, const CVec2 &newPos, bool bWithLeveledCelles )
 {
 	const SVector bigCell( AICellsTiles::GetBigCell( newPos ) );
 	if ( theStaticMap.IsBigCellInside( bigCell ) )
 		AddUnitToConcreteCell( pUnit, bigCell, bWithLeveledCelles );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnits::AddUnitToCell( CAIUnit *pUnit, bool bWithLeveledCelles )
 {
 	const CVec2 vCenter( pUnit->GetCenter() );
@@ -171,7 +152,6 @@ void CUnits::AddUnitToCell( CAIUnit *pUnit, bool bWithLeveledCelles )
 	if ( theStaticMap.IsBigCellInside( bigCell ) )
 		AddUnitToConcreteCell( pUnit, bigCell, bWithLeveledCelles );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnits::DelUnitFromCell( CAIUnit *pUnit, bool bWithLeveledCelles )
 {
 	const int nUnitID = pUnit->GetID();
@@ -194,7 +174,6 @@ void CUnits::DelUnitFromCell( CAIUnit *pUnit, bool bWithLeveledCelles )
 		unitsInCellsSet.erase( nUnitID );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnits::AddUnitToUnits( CAIUnit *pUnit, const int nPlayer, const int nUnitType )
 {
 	const int nParty = theDipl.GetNParty( nPlayer );
@@ -202,7 +181,6 @@ int CUnits::AddUnitToUnits( CAIUnit *pUnit, const int nPlayer, const int nUnitTy
 
 	return units.Add( nParty, pUnit );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnits::AddUnitToMap( CAIUnit *pUnit )
 {
 	if ( pUnit->GetStats()->IsAviation() )
@@ -212,7 +190,6 @@ void CUnits::AddUnitToMap( CAIUnit *pUnit )
 	if ( nUnitID >= posUnitInCell.size() )
 		posUnitInCell.resize( nUnitID * 1.5 );
 
-	// нужно добавить в €чейку
 	if ( !pUnit->IsInSolidPlace() )
 		AddUnitToCell( pUnit, true );
 
@@ -226,7 +203,6 @@ void CUnits::AddUnitToMap( CAIUnit *pUnit )
 	else
 		++nUnitsOfType[nParty][nUnitType];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnits::DeleteUnitFromMap( CAIUnit *pUnit )
 {
 	if ( pUnit->GetStats()->IsAviation() )
@@ -236,7 +212,6 @@ void CUnits::DeleteUnitFromMap( CAIUnit *pUnit )
 	}
 
 	const int nUnitID = pUnit->GetID();
-	// ещЄ не удалЄн из €чеек
 	if ( units.GetEl( nUnitID ) != 0 )
 	{
 		DelUnitFromCell( pUnit, true );
@@ -247,7 +222,6 @@ void CUnits::DeleteUnitFromMap( CAIUnit *pUnit )
 	--nUnitsOfType[pUnit->GetParty()][nType];
 	--sizes[pUnit->GetParty()];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnits::FullUnitDelete( CAIUnit *pUnit )
 {
 	const int nParty = pUnit->GetParty();
@@ -255,7 +229,6 @@ void CUnits::FullUnitDelete( CAIUnit *pUnit )
 
 	units.Erase( nParty, pUnit->GetID() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnits::UnitChangedPosition( CAIUnit *pUnit, const CVec2 &newPos )
 {
 	const int nUnitID = pUnit->GetID();
@@ -277,7 +250,6 @@ void CUnits::UnitChangedPosition( CAIUnit *pUnit, const CVec2 &newPos )
 		const int nVisIndex = pUnit->GetNVisIndexInUnits();
 		NI_ASSERT_T( nVisIndex < 2, NStr::Format( "Wrong nVis (%d)", nVisIndex ) );
 
-		// leveled cells
 		const int nUnitParty = pUnit->GetParty();
 		const bool bUnitMech = pUnit->IsMech();
 		for ( int i = 0; i < N_CELLS_LEVELS; ++i )
@@ -302,18 +274,15 @@ void CUnits::UnitChangedPosition( CAIUnit *pUnit, const CVec2 &newPos )
 	if ( AICellsTiles::GetGeneralCell( pUnit->GetCenter() ) != AICellsTiles::GetGeneralCell( newPos ) )
 		theSupremeBeing.UnitChangedPosition( pUnit, newPos );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAIUnit* CUnits::operator[]( const int id )
 { 
 	NI_ASSERT_T( units.GetEl( id ) == 0 || !units.GetEl( id )->IsValid() || units.GetEl( id )->GetID() == id, "Wrong units' id" );
 	return units.GetEl( id ); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnits::ChangePlayer( CAIUnit *pUnit, const BYTE cNewPlayer )
 {
 	if ( pUnit->GetPlayer() != cNewPlayer )
 	{
-		// чтобы не удалилс€		
 		CObj<CAIUnit> pSaveUnit = pUnit;
 		DeleteUnitFromMap( pUnit );
 		FullUnitDelete( pUnit );
@@ -326,25 +295,21 @@ void CUnits::ChangePlayer( CAIUnit *pUnit, const BYTE cNewPlayer )
 		AddUnitToMap( pUnit );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnits::AddFormation( CFormation *pFormation )
 {
 	formations.insert( pFormation );
 	return units.Add( 3, 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnits::DelFormation( CFormation *pFormation )
 {
 	units.Erase( 3, pFormation->GetID() );	
 	formations.erase( pFormation );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CUnits::Size( const int nParty ) const
 {
 	NI_ASSERT_T( nParty < 3, "Wrong number of party" );
 	return sizes[nParty];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CUnits::GetNSoldiers( const CVec2 &vCenter, const float fRadius, const int nParty )
 {
 	int cnt = 0;
@@ -362,7 +327,6 @@ const int CUnits::GetNSoldiers( const CVec2 &vCenter, const float fRadius, const
 
 	return cnt;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CUnits::GetNUnits( const CVec2 &vCenter, const float fRadius, const int nParty )
 {
 	int cnt = 0;
@@ -377,7 +341,6 @@ const int CUnits::GetNUnits( const CVec2 &vCenter, const float fRadius, const in
 
 	return cnt;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnits::CheckUnitCell()
 {
 	for ( int k = 0; k < 2; ++k )
@@ -437,7 +400,6 @@ void CUnits::CheckUnitCell()
 		DEBUG_BREAK;
 	*/
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnits::UpdateUnitVis4Enemy( CAIUnit *pUnit )
 {
 	const int nVisIndex = GetVisIndex( pUnit );
@@ -458,4 +420,3 @@ void CUnits::UpdateUnitVis4Enemy( CAIUnit *pUnit )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

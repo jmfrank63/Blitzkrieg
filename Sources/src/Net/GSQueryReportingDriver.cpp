@@ -7,14 +7,11 @@
 
 #include "..\Main\MultiplayerConsts.h"
 #include "..\GameTT\MultiplayerCommandManager.h"
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 using namespace NWin32Helper;
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CGSQueryReportingDriver::CGSQueryReportingDriver()
 : CThread( 50 ), bInitialized( false )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CGSQueryReportingDriver::~CGSQueryReportingDriver()
 {
 	if ( bInitialized )
@@ -27,7 +24,6 @@ CGSQueryReportingDriver::~CGSQueryReportingDriver()
 	
 	StopThread();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGSQueryReportingDriver::Init( const APPLICATION_ID _nApplicationID, int _nGamePort, bool _bClientOnly )
 {
 	nGamePort = _nGamePort;
@@ -35,7 +31,6 @@ bool CGSQueryReportingDriver::Init( const APPLICATION_ID _nApplicationID, int _n
 	std::string szSecretKey;
 	szSecretKey.resize( 6 );
 
-	//set the secret key, in a semi-obfuscated manner
 	szSecretKey[0] = 'f';
 	szSecretKey[1] = 'Y';
 	szSecretKey[2] = 'D';
@@ -59,7 +54,6 @@ bool CGSQueryReportingDriver::Init( const APPLICATION_ID _nApplicationID, int _n
 
 	return bInitialized;
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 INetDriver::EState CGSQueryReportingDriver::GetState() const
 {
 	if ( bInitialized )
@@ -67,16 +61,13 @@ INetDriver::EState CGSQueryReportingDriver::GetState() const
 	else
 		return INACTIVE;
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 INetDriver::EReject CGSQueryReportingDriver::GetRejectReason() const
 {
 	return NONE;
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGSQueryReportingDriver::StartGame()
 {
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGSQueryReportingDriver::StartGameInfoSend( const SGameInfo &_gameInfo )
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
@@ -87,12 +78,10 @@ void CGSQueryReportingDriver::StartGameInfoSend( const SGameInfo &_gameInfo )
 		qr_send_statechanged( gsHandler );
 	}
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGSQueryReportingDriver::StopGameInfoSend()
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGSQueryReportingDriver::StartNewPlayerAccept()
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
@@ -101,7 +90,6 @@ void CGSQueryReportingDriver::StartNewPlayerAccept()
 	if ( GetState() == ACTIVE )
 		qr_send_statechanged( gsHandler );
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGSQueryReportingDriver::StopNewPlayerAccept()
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
@@ -110,21 +98,18 @@ void CGSQueryReportingDriver::StopNewPlayerAccept()
 	if ( GetState() == ACTIVE )
 		qr_send_statechanged( gsHandler );
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGSQueryReportingDriver::Step()
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
 	if ( GetState() == ACTIVE )
 		qr_process_queries( gsHandler );
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGSQueryReportingDriver::QRBasicCallBack( char *pszOutBuf, int nMaxLen )
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
 	if ( GetSingleton<IGlobalVars>() )
 		sprintf( pszOutBuf, "\\gamename\\%s\\gamever\\%d", GetGlobalVar("GameSpyGameName"), GetGlobalVar("NetGameVersion", 1) );
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGSQueryReportingDriver::QRInfoCallBack( char *pszOutBuf, int nMaxLen )
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
@@ -132,7 +117,6 @@ void CGSQueryReportingDriver::QRInfoCallBack( char *pszOutBuf, int nMaxLen )
 	NStr::SetCodePage( GetACP() );
 	std::string szServerName = NStr::ToAscii( gameInfo.wszServerName );
 
-	// replace all \ to /
 	std::string szGSMapName = NStr::ToAscii( gameInfo.wszMapName );
 	for ( int i = 0; i < szGSMapName.size(); ++i )
 	{
@@ -140,7 +124,6 @@ void CGSQueryReportingDriver::QRInfoCallBack( char *pszOutBuf, int nMaxLen )
 			szGSMapName[i] = '/';
 	}
 
-	//
 	std::string szGameMode = GetMode( gameInfo.eGameMode );
 
 	std::string szGameType = gameInfo.szGameType;
@@ -158,7 +141,6 @@ void CGSQueryReportingDriver::QRInfoCallBack( char *pszOutBuf, int nMaxLen )
 
 	strcpy( pszOutBuf, szFormatString.c_str() );
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGSQueryReportingDriver::QRRulesCallBack( char *pszOutBuf, int nMaxLen )
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
@@ -177,30 +159,23 @@ void CGSQueryReportingDriver::QRRulesCallBack( char *pszOutBuf, int nMaxLen )
 		strcpy( pszOutBuf, szFormatString.c_str() );
 	}
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGSQueryReportingDriver::QRPlayersCallBack( char *pszOutBuf, int nMaxLen )
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// callbacks
 void CGSQueryReportingDriver::qr_basic_callback( char *pszOutBuf, int nMaxLen, void *pUserData )
 {
 	reinterpret_cast<CGSQueryReportingDriver*>(pUserData)->QRBasicCallBack( pszOutBuf, nMaxLen );
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGSQueryReportingDriver::qr_info_callback( char *pszOutBuf, int nMaxLen, void *pUserData )
 {
 	reinterpret_cast<CGSQueryReportingDriver*>(pUserData)->QRInfoCallBack( pszOutBuf, nMaxLen );
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGSQueryReportingDriver::qr_rules_callback( char *pszOutBuf, int nMaxLen, void *pUserData )
 {
 	reinterpret_cast<CGSQueryReportingDriver*>(pUserData)->QRRulesCallBack( pszOutBuf, nMaxLen );
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGSQueryReportingDriver::qr_players_callback( char *pszOutBuf, int nMaxLen, void *pUserData )
 {
 	reinterpret_cast<CGSQueryReportingDriver*>(pUserData)->QRPlayersCallBack( pszOutBuf, nMaxLen );
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

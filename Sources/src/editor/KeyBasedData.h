@@ -1,6 +1,3 @@
-// KeyBasedData.h: interface for the CKeyBasedData class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_KEYBASEDDATA_H__A200BF93_5018_4053_AF5A_78E9878C0636__INCLUDED_)
 #define AFX_KEYBASEDDATA_H__A200BF93_5018_4053_AF5A_78E9878C0636__INCLUDED_
@@ -8,7 +5,6 @@
 #pragma ONCE
 
 #include "SParticleKey.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SParticleSetup
 {
 	CTrack	trackSpin;												// коофицент на угловую скорость   ( 1 - 0 ) ( время 0 - 100 )
@@ -34,29 +30,22 @@ struct SParticleSetup
 	int			nLifeTime;												// время жизни
 	CTrack	trackGenerateSpinRand;						// размер rand() на вращение(в процентах )  ( 0 - 100 )
 	CTrack  trackTextureFrame;								// frame in texture [0..1]
-	//
 	int operator&( IStructureSaver &ss );
 	int operator&( IDataTree &ss );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CKeyBasedData  : public ISharedResource
 {
 	OBJECT_COMPLETE_METHODS( CKeyBasedData );
 	SHARED_RESOURCE_METHODS( nRefData.a );
 public:
 	SParticleSetup keyData;
-	//
 	virtual void STDCALL SwapData( ISharedResource *pResource )
 	{
 		CKeyBasedData *pRes = dynamic_cast<CKeyBasedData*>( pResource );
 		NI_ASSERT_TF( pRes != 0, "shared resource is not a CKeyBasedData", return );
-		// slow
 		std::swap( keyData, pRes->keyData );
 	}
-	// internal container clearing
 	virtual void STDCALL ClearInternalContainer() {  }
-	//
 	virtual int STDCALL operator&( IDataTree &ss );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // !defined(AFX_KEYBASEDDATA_H__A200BF93_5018_4053_AF5A_78E9878C0636__INCLUDED_)

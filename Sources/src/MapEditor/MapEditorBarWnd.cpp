@@ -4,8 +4,6 @@
 
 #include "MapEditorBarWnd.h"
 
-//#include "tabwnd3.h"
-//#include "tabwnd.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -13,16 +11,12 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP( CInputControlBar, SECControlBar )
-	//{{AFX_MSG_MAP(CInputControlBar)
 	ON_WM_CREATE()
 	ON_WM_SIZE()
 	ON_NOTIFY( CInputNotifyShortcutBar::NM_CHANGE_PAGE, IDC_INPUT_NOTIFY_SHOTRCUT_BAR_00, OnNotifyShortcutChangePage )
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInputControlBar::OnCreate( LPCREATESTRUCT lpCreateStruct ) 
 {
 	if ( SECControlBar::OnCreate( lpCreateStruct ) == -1 )
@@ -33,36 +27,29 @@ int CInputControlBar::OnCreate( LPCREATESTRUCT lpCreateStruct )
 	isCreating = true;
 
 	inputShortcutBar.Create( this, WS_CHILD | WS_VISIBLE | SEC_OBS_VERT | SEC_OBS_ANIMATESCROLL, IDC_INPUT_NOTIFY_SHOTRCUT_BAR_00 );
-	//inputShortcutBar.ModifyStyleEx( 0, WS_EX_CLIENTEDGE );
 
-	//CTabTileEditDialog
-	//CShadeEditorWnd
 	if ( CInput3DTabWindow *pInput3DTabWindow = inputShortcutBar.AddInputTabWindow( static_cast<CInput3DTabWindow*>( 0 ) ) )
 	{
 		pInput3DTabWindow->Create( &inputShortcutBar, WS_CHILD | WS_VISIBLE | TWS_TABS_ON_BOTTOM | TWS_DRAW_3D_NORMAL );
 
-		//CTabTileEditDialog
 		if ( CTabTileEditDialog *pTabTileEditDialog = pInput3DTabWindow->AddInputTabWindow( static_cast<CTabTileEditDialog*>( 0 ) ) )
 		{
 			pTabTileEditDialog->Create( CTabTileEditDialog::IDD, pInput3DTabWindow );
 			pInput3DTabWindow->AddTab( pTabTileEditDialog, CTemplateEditorFrame::STATE_TERRAIN_TAB_LABELS[CTemplateEditorFrame::STATE_TERRAIN_TILES] );
 		}
 
-		//CShadeEditorWnd
 		if ( CShadeEditorWnd *pShadeEditorWnd = pInput3DTabWindow->AddInputTabWindow( static_cast<CShadeEditorWnd*>( 0 ) ) )
 		{
 			pShadeEditorWnd->Create( CShadeEditorWnd::IDD, pInput3DTabWindow );
 			pInput3DTabWindow->AddTab( pShadeEditorWnd, CTemplateEditorFrame::STATE_TERRAIN_TAB_LABELS[CTemplateEditorFrame::STATE_TERRAIN_ALTITUDES] );
 		}
 
-		//CTabTerrainFieldsDialog
 		if ( CTabTerrainFieldsDialog *pTabTerrainFieldsDialog = pInput3DTabWindow->AddInputTabWindow( static_cast<CTabTerrainFieldsDialog*>( 0 ) ) )
 		{
 			pTabTerrainFieldsDialog->Create( CTabTerrainFieldsDialog::IDD, pInput3DTabWindow );
 			pInput3DTabWindow->AddTab( pTabTerrainFieldsDialog, CTemplateEditorFrame::STATE_TERRAIN_TAB_LABELS[CTemplateEditorFrame::STATE_TERRAIN_FIELDS] );
 		}
 
-		//проверить на количество созданных табов
 		NI_ASSERT_T( ( pInput3DTabWindow->GetTabCount() == CTemplateEditorFrame::STATE_TERRAIN_COUNT ) &&
 								 ( pInput3DTabWindow->inputTabWindows.size() == CTemplateEditorFrame::STATE_TERRAIN_COUNT ),
 								 NStr::Format( "Wrong tab number: %d\n", pInput3DTabWindow->GetTabCount() ) );
@@ -75,35 +62,28 @@ int CInputControlBar::OnCreate( LPCREATESTRUCT lpCreateStruct )
 		inputShortcutBar.AddBar( pInput3DTabWindow, CTemplateEditorFrame::STATE_TAB_LABELS[CTemplateEditorFrame::STATE_TERRAIN], true );
 	}
 	
-	//CTabSimpleObjectsDialog
-	//CFenceSetupWindow
-	//CBridgeSetupDialog
 	if ( CInput3DTabWindow *pInput3DTabWindow = inputShortcutBar.AddInputTabWindow( static_cast<CInput3DTabWindow*>( 0 ) ) )
 	{
 		pInput3DTabWindow->Create( &inputShortcutBar, WS_CHILD | WS_VISIBLE | TWS_TABS_ON_BOTTOM | TWS_DRAW_3D_NORMAL );
 
-		//CTabSimpleObjectsDialog
 		if ( CTabSimpleObjectsDialog *pTabSimpleObjectsDialog = pInput3DTabWindow->AddInputTabWindow( static_cast<CTabSimpleObjectsDialog*>( 0 ) ) )
 		{
 			pTabSimpleObjectsDialog->Create( CTabSimpleObjectsDialog::IDD, pInput3DTabWindow );
 			pInput3DTabWindow->AddTab( pTabSimpleObjectsDialog, CTemplateEditorFrame::STATE_SO_TAB_LABELS[CTemplateEditorFrame::STATE_SO_OBJECTS] );
 		}
 
-		//CFenceSetupWindow
 		if ( CFenceSetupWindow *pFenceSetupWindow = pInput3DTabWindow->AddInputTabWindow( static_cast<CFenceSetupWindow*>( 0 ) ) )
 		{
 			pFenceSetupWindow->Create( CFenceSetupWindow::IDD, pInput3DTabWindow );
 			pInput3DTabWindow->AddTab( pFenceSetupWindow, CTemplateEditorFrame::STATE_SO_TAB_LABELS[CTemplateEditorFrame::STATE_SO_FENCES] );
 		}
 
-		//CBridgeSetupDialog
 		if ( CBridgeSetupDialog *pBridgeSetupDialog = pInput3DTabWindow->AddInputTabWindow( static_cast<CBridgeSetupDialog*>( 0 ) ) )
 		{
 			pBridgeSetupDialog->Create( CBridgeSetupDialog::IDD, pInput3DTabWindow );
 			pInput3DTabWindow->AddTab( pBridgeSetupDialog, CTemplateEditorFrame::STATE_SO_TAB_LABELS[CTemplateEditorFrame::STATE_SO_BRIDGES] );
 		}
 
-		//проверить на количество созданных табов
 		NI_ASSERT_T( ( pInput3DTabWindow->GetTabCount() == CTemplateEditorFrame::STATE_SO_COUNT ) &&
 								 ( pInput3DTabWindow->inputTabWindows.size() == CTemplateEditorFrame::STATE_SO_COUNT ),
 								 NStr::Format( "Wrong tab number: %d\n", pInput3DTabWindow->GetTabCount() ) );
@@ -116,22 +96,16 @@ int CInputControlBar::OnCreate( LPCREATESTRUCT lpCreateStruct )
 		inputShortcutBar.AddBar( pInput3DTabWindow, CTemplateEditorFrame::STATE_TAB_LABELS[CTemplateEditorFrame::STATE_SIMPLE_OBJECTS], true );
 	}
 	
-	//CTrenchSetupWindow
-	//CRoad3DSetupWindow
-	//CRiverSetupWindow
 	if ( CInput3DTabWindow *pInput3DTabWindow = inputShortcutBar.AddInputTabWindow( static_cast<CInput3DTabWindow*>( 0 ) ) )
 	{
-		//pInput3DTabWindow->Create( &inputShortcutBar, WS_CHILD | WS_VISIBLE | TWS_TABS_ON_LEFT );
 		pInput3DTabWindow->Create( &inputShortcutBar, WS_CHILD | WS_VISIBLE | TWS_TABS_ON_BOTTOM | TWS_DRAW_3D_NORMAL );// | TWS_DRAW_3D_NORMAL | TWS_NOACTIVE_TAB_ENLARGED
 
-		//CTrenchSetupWindow
 		if ( CTrenchSetupWindow *pTrenchSetupWindow = pInput3DTabWindow->AddInputTabWindow( static_cast<CTrenchSetupWindow*>( 0 ) ) )
 		{
 			pTrenchSetupWindow->Create( CTrenchSetupWindow::IDD, pInput3DTabWindow );
 			pInput3DTabWindow->AddTab( pTrenchSetupWindow, CTemplateEditorFrame::STATE_VO_TAB_LABELS[CTemplateEditorFrame::STATE_VO_ENTRENCHMENTS] );
 		}
 
-		//CRoadSetupWindow
 		if ( CTabVOVSODialog *pTabVOVSODialog = pInput3DTabWindow->AddInputTabWindow( static_cast<CTabVOVSODialog*>( 0 ) ) )
 		{
 			pTabVOVSODialog->SetDialogName( "CRoadSetupWindow" );
@@ -140,7 +114,6 @@ int CInputControlBar::OnCreate( LPCREATESTRUCT lpCreateStruct )
 			pInput3DTabWindow->AddTab( pTabVOVSODialog, CTemplateEditorFrame::STATE_VO_TAB_LABELS[CTemplateEditorFrame::STATE_VO_ROADS3D] );
 		}
 
-		//CRiverSetupWindow
 		if ( CTabVOVSODialog *pTabVOVSODialog = pInput3DTabWindow->AddInputTabWindow( static_cast<CTabVOVSODialog*>( 0 ) ) )
 		{
 			pTabVOVSODialog->SetDialogName( "CRiverSetupWindow" );
@@ -149,7 +122,6 @@ int CInputControlBar::OnCreate( LPCREATESTRUCT lpCreateStruct )
 			pInput3DTabWindow->AddTab( pTabVOVSODialog, CTemplateEditorFrame::STATE_VO_TAB_LABELS[CTemplateEditorFrame::STATE_VO_RIVERS] );
 		}
 
-		//проверить на количество созданных табов
 		NI_ASSERT_T( ( pInput3DTabWindow->GetTabCount() == CTemplateEditorFrame::STATE_VO_COUNT ) &&
 								 ( pInput3DTabWindow->inputTabWindows.size() == CTemplateEditorFrame::STATE_VO_COUNT ),
 								 NStr::Format( "Wrong tab number: %d\n", pInput3DTabWindow->GetTabCount() ) );
@@ -162,28 +134,24 @@ int CInputControlBar::OnCreate( LPCREATESTRUCT lpCreateStruct )
 		inputShortcutBar.AddBar( pInput3DTabWindow, CTemplateEditorFrame::STATE_TAB_LABELS[CTemplateEditorFrame::STATE_VECTOR_OBJECTS], true );
 	}
 
-	//CTabToolsDialog
 	if ( CTabToolsDialog *pTabToolsDialog = inputShortcutBar.AddInputTabWindow( static_cast<CTabToolsDialog*>( 0 ) ) )
 	{
 		pTabToolsDialog->Create( CTabToolsDialog::IDD, &inputShortcutBar );
 		inputShortcutBar.AddBar( pTabToolsDialog, CTemplateEditorFrame::STATE_TAB_LABELS[CTemplateEditorFrame::STATE_TOOLS], true );
 	}
 
-	//CGroupManagerDialog
 	if ( CGroupManagerDialog *pGroupManagerDialog = inputShortcutBar.AddInputTabWindow( static_cast<CGroupManagerDialog*>( 0 ) ) )
 	{
 		pGroupManagerDialog->Create( CGroupManagerDialog::IDD, &inputShortcutBar );
 		inputShortcutBar.AddBar( pGroupManagerDialog, CTemplateEditorFrame::STATE_TAB_LABELS[CTemplateEditorFrame::STATE_GROUPS], true );
 	}
 
-	//CTabAIGeneralDialog
 	if ( CTabAIGeneralDialog *pTabAIGeneralDialog = inputShortcutBar.AddInputTabWindow( static_cast<CTabAIGeneralDialog*>( 0 ) ) )
 	{
 		pTabAIGeneralDialog->Create( CTabAIGeneralDialog::IDD, &inputShortcutBar );
 		inputShortcutBar.AddBar( pTabAIGeneralDialog, CTemplateEditorFrame::STATE_TAB_LABELS[CTemplateEditorFrame::STATE_AI_GENERAL], true );
 	}
 
-	//проверить на количество созданных шорткатов
 	NI_ASSERT_T( ( inputShortcutBar.GetBarCount() == CTemplateEditorFrame::STATE_COUNT ) &&
 							 ( inputShortcutBar.inputTabWindows.size() == CTemplateEditorFrame::STATE_COUNT ),
 							 NStr::Format( "Wrong shortcut number: %d\n", inputShortcutBar.GetBarCount() ) );
@@ -193,7 +161,6 @@ int CInputControlBar::OnCreate( LPCREATESTRUCT lpCreateStruct )
 	return 0; 
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputControlBar::OnSize(UINT nType, int cx, int cy ) 
 {
 	SECControlBar::OnSize(nType, cx, cy );
@@ -206,7 +173,6 @@ void CInputControlBar::OnSize(UINT nType, int cx, int cy )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputControlBar::OnNotifyShortcutChangePage( NMHDR *pNotifyStruct, LRESULT *pResult )
 {
 	if ( !isCreating )
@@ -224,4 +190,3 @@ void CInputControlBar::OnNotifyShortcutChangePage( NMHDR *pNotifyStruct, LRESULT
 	if ( pResult )
 		*pResult = 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

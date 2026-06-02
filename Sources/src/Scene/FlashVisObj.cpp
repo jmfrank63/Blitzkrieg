@@ -1,7 +1,6 @@
 #include "StdAfx.h"
 
 #include "FlashVisObj.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFlashVisObj::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -17,14 +16,10 @@ int CFlashVisObj::operator&( IStructureSaver &ss )
 		spriteInfo.pTexture = pTexture;
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// visiting
 void CFlashVisObj::Visit( interface ISceneVisitor *pVisitor, int nType )
 {
 	pVisitor->VisitSprite( &spriteInfo, SGVOGT_FLASH, 0 );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// update state
 bool CFlashVisObj::Update( const NTimer::STime &time, bool bForced )
 {
 	if ( time < timeStart ) 
@@ -32,13 +27,10 @@ bool CFlashVisObj::Update( const NTimer::STime &time, bool bForced )
 	const NTimer::STime timeDiff = time - timeStart;
 	if ( timeDiff > timeDuration ) 
 		return false;
-	//
 	const NTimer::STime timeRaise = timeDuration / 10;
 	if ( timeDiff <= timeRaise ) 
 		SetAlpha( dwAlpha * timeDiff / timeRaise );
 	else
 		SetAlpha( dwAlpha - dwAlpha*( timeDiff - timeRaise )/( timeDuration - timeRaise ) );
-	//
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

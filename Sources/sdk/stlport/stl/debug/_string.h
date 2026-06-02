@@ -51,7 +51,6 @@ public:
   typedef _DBG_iter<_Base, _Const_traits<value_type> > const_iterator;
   _STLP_DECLARE_RANDOM_ACCESS_REVERSE_ITERATORS;
 # ifdef _STLP_USE_NATIVE_STRING
-  // this typedef is being used for conversions
   typedef _STLP_VENDOR_STD::basic_string<_CharT,_Traits, 
     _STLP_VENDOR_STD::allocator<_CharT> >  __std_string;
 # endif
@@ -111,14 +110,11 @@ public:                         // Constructor, destructor, assignment.
 #endif
 
 # ifdef _STLP_USE_NATIVE_STRING
-  // these conversion operations still needed for
-  // strstream, etc.
   basic_string (const __std_string& __x)
     : _STLP_DBG_STRING_BASE(__x.begin(), __x.end()), _M_iter_list(_Get_base()) {}
   operator __std_string() const { return __std_string(this->data()); }
 # endif
 
-  // constructor from non-debug version
   basic_string (const _Base& __x)
     : _STLP_DBG_STRING_BASE(__x), _M_iter_list(_Get_base()) {}
 
@@ -221,8 +217,6 @@ public:                         // Append, operator+=, push_back.
 
 #ifdef _STLP_MEMBER_TEMPLATES
 
-  // Check to see if _InputIterator is an integer type.  If so, then
-  // it can't be an iterator.
   template <class _InputIter>
   _Self& append(_InputIter __first, _InputIter __last) {
     _Base::append(__first, __last);
@@ -386,7 +380,6 @@ public:                         // Substring.
                  allocator_type());
   }
 public:                         // Replace.  (Conceptually equivalent
-                                // to erase followed by insert.)
   _Self& replace(size_type __pos, size_type __n, 
                         const _Self& __s) {
     _Base::replace(__pos, __n, __s);
@@ -494,7 +487,6 @@ public:                         // Other modifier member functions.
 };
 
 
-// This is a hook to instantiate STLport exports in a designated DLL
 # if defined (_STLP_USE_TEMPLATE_EXPORT)
 _STLP_EXPORT template class _STLP_CLASS_DECLSPEC basic_string<char, char_traits<char>, allocator<char> >;
 #  if defined (_STLP_HAS_WCHAR_T)
@@ -503,8 +495,6 @@ _STLP_EXPORT template class _STLP_CLASS_DECLSPEC basic_string<wchar_t, char_trai
 # endif /* _STLP_USE_TEMPLATE_EXPORT */
 
 
-// ------------------------------------------------------------
-// Non-member functions.
 
 template <class _CharT, class _Traits, class _Alloc>
 inline basic_string<_CharT,_Traits,_Alloc> _STLP_CALL
@@ -546,7 +536,6 @@ operator+(const basic_string<_CharT,_Traits,_Alloc>& __x,
 
 #ifdef _STLP_EXTRA_OPERATORS_FOR_DEBUG
 
-// Operator== and operator!=
 
 template <class _CharT, class _Traits, class _Alloc>
 inline bool _STLP_CALL
@@ -571,7 +560,6 @@ operator==(const basic_string<_CharT,_Traits,_Alloc>& __x,
   return (*__x._Get_base() == __s);
 }
 
-// Operator< (and also >, <=, and >=).
 
 template <class _CharT, class _Traits, class _Alloc>
 inline bool _STLP_CALL
@@ -693,7 +681,6 @@ operator>=(const basic_string<_CharT,_Traits,_Alloc>& __x,
 }
 #endif /*  if 0 */
 
-// Swap.
 #ifdef _STLP_FUNCTION_TMPL_PARTIAL_ORDER
 template <class _CharT, class _Traits, class _Alloc>
 inline void swap(basic_string<_CharT,_Traits,_Alloc>& __x,
@@ -702,7 +689,6 @@ inline void swap(basic_string<_CharT,_Traits,_Alloc>& __x,
 }
 #endif /* _STLP_FUNCTION_TMPL_PARTIAL_ORDER */
 
-// I/O.  
 
 #ifdef _STLP_EXTRA_OPERATORS_FOR_DEBUG
 #if defined (_STLP_USE_NEW_IOSTREAMS) && ! defined (_STLP_OWN_IOSTREAMS)
@@ -743,7 +729,4 @@ _STLP_END_NAMESPACE
 #endif /* _STLP_DBG_STRING */
 
 
-// Local Variables:
-// mode:C++
-// End:
 

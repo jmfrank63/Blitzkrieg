@@ -61,8 +61,5 @@ using _STLP_STD::bit_vector;
 
 #endif /* _STLP_BVECTOR_H */
 
-// Local Variables:
-// mode:C++
-// End:
 
 

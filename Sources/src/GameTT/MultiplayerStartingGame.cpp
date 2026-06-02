@@ -12,17 +12,9 @@
 bool bServerconfiguration = false;
 SMultiplayerGameSettings configuration ;	// server configuration (to display in MP settings )
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
-//**		CInterfaceMPStartingGame
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_cancel"		, IMC_CANCEL		},
-//	{	"inter_ok", 				IMC_OK				},
 #if !defined(_FINALRELEASE) || defined(_DEVVERSION)
 	{ "show_console"		, MC_SHOW_CONSOLE		},
 #endif // !defined(_FINALRELEASE) || defined(_DEVVERSION)
@@ -53,17 +45,11 @@ enum EButtonsInMPStartingGame
 	E_DOWNLOAD_COUNT							= 114,
 
 };
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
-//**		CICMultyplayerStartingGame
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
 int CICMultyplayerStartingGame::operator&( IStructureSaver & ss )
 {
 	CSaverAccessor saver = &ss;
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////
 int CICGameSpyClientConnect::operator&( IStructureSaver & ss )
 {
 	CSaverAccessor saver = &ss;
@@ -75,7 +61,6 @@ int CICGameSpyClientConnect::operator&( IStructureSaver & ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////
 bool CInterfaceMPStartingGame::Init()
 {
 	CInterfaceMultiplayerScreen::Init();
@@ -83,7 +68,6 @@ bool CInterfaceMPStartingGame::Init()
 
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPStartingGame::StartInterface()
 {
 	RemoveGlobalVar( "MultiplayerOptions.Changed" );
@@ -103,7 +87,6 @@ void CInterfaceMPStartingGame::StartInterface()
 	SFromUINotification notify( EUTMN_STAGING_ROOM_MODE, 0 );
 	pCommandManager->AddNotificationFromUI( notify );
 	
-	//Disable all buttons
 	for ( int i = E_BUTTONS_BEGIN; i <= E_BUTTON_END; ++i )
 	{
 		IUIElement * pButton = pUIScreen->GetChildByID( i );
@@ -122,19 +105,16 @@ void CInterfaceMPStartingGame::StartInterface()
 			pGameSpyLogo->ShowWindow( UI_SW_SHOW );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPStartingGame::AddMessageToChat( const SChatMessage *pChatMessage )
 {
 	chat.AddMessageToChat( pChatMessage );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPStartingGame::OnStart( const bool bForced )
 {
 	SNotificationSimpleParam *pParam = new SNotificationSimpleParam( bForced );
 	pCommandManager->AddNotificationFromUI( SFromUINotification( EUTMN_START_GAME, pParam ) );
 	bStarted = true;
 }	
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPStartingGame::OnGetFocus( bool bFocus )
 {
 	CInterfaceMultiplayerScreen::OnGetFocus( bFocus );
@@ -153,14 +133,12 @@ void CInterfaceMPStartingGame::OnGetFocus( bool bFocus )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPStartingGame::NotifyOptionsChanged()
 {
 	CPtr<CMapSettingsWrapper> pMamSettings = new CMapSettingsWrapper( true, OPTION_FLAG_BEFORE_MULTIPLAYER_START );
 	SFromUINotification notify( EUTMN_SERVER_SETTINGS_CHANGED, new SServerNewSettings( pMamSettings->GetSettingsWOApply() ) );
 	pCommandManager->AddNotificationFromUI( notify );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMPStartingGame::ProcessMPCommand( const SToUICommand &cmd )
 {
 	switch( cmd.eCommandID )
@@ -230,7 +208,6 @@ bool CInterfaceMPStartingGame::ProcessMPCommand( const SToUICommand &cmd )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////
 void CInterfaceMPStartingGame::PlayerLeft( const SUIPlayerInfo * pInfo )
 {
 	CPtr<ITextManager> pTextM = GetSingleton<ITextManager>();
@@ -242,7 +219,6 @@ void CInterfaceMPStartingGame::PlayerLeft( const SUIPlayerInfo * pInfo )
 	}
 	DeletePlayer( pInfo );
 }
-//////////////////////////////////////////////////////////////////////
 void CInterfaceMPStartingGame::PlayerKicked( const SUIPlayerInfo * pInfo )
 {
 	CPtr<ITextManager> pTextM = GetSingleton<ITextManager>();
@@ -254,7 +230,6 @@ void CInterfaceMPStartingGame::PlayerKicked( const SUIPlayerInfo * pInfo )
 	}
 	DeletePlayer( pInfo );
 }
-//////////////////////////////////////////////////////////////////////
 void CInterfaceMPStartingGame::UpdateButtons()
 {
 	IUIButton * pKickButton = checked_cast<IUIButton*>( pUIScreen->GetChildByID( E_BUTTON_KICK ) );
@@ -263,11 +238,9 @@ void CInterfaceMPStartingGame::UpdateButtons()
 														playerList.GetCurInfo() != 0 &&
 														playerList.GetCurInfo()->nID != 0 );
 	
-	//join button
 	IUIButton * pJoinButton = checked_cast<IUIButton*>( pUIScreen->GetChildByID( E_BUTTON_JOIN ) );
 	pJoinButton->EnableWindow( pConfiguration && playerList.GetSize() <= pConfiguration->nPlayersMax );
 }
-//////////////////////////////////////////////////////////////////////
 void CInterfaceMPStartingGame::OnNewServerSettings( const SMultiplayerGameSettings &serverSettings, const bool bVisialNotify )
 {
 	configuration = serverSettings;
@@ -286,7 +259,6 @@ void CInterfaceMPStartingGame::OnNewServerSettings( const SMultiplayerGameSettin
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////
 void CInterfaceMPStartingGame::ConfigureStagingRoom( SUIStagingRoomConfigure *pInfo )
 {
 	pConfiguration = pInfo;
@@ -304,7 +276,6 @@ void CInterfaceMPStartingGame::ConfigureStagingRoom( SUIStagingRoomConfigure *pI
 		const std::string szFullPathName = "maps\\" + pInfo->szMapLocation;
 		CMinimapCreation::Create1Minimap( szFullPathName, szFullPathName );
 	
-		//установим правильный размер для map image control
 		IUIObjMap *pMap = checked_cast<IUIObjMap *> ( pUIScreen->GetChildByID( 100 ) );
 		IGFXTexture *pTexture = GetSingleton<ITextureManager>()->GetTexture(  CUIConsts::CreateTexturePathFromMapPath( pInfo->szMapLocation.c_str() ).c_str() );
 		NI_ASSERT_T( pTexture != 0, "Mission map texture is invalid" );
@@ -312,7 +283,6 @@ void CInterfaceMPStartingGame::ConfigureStagingRoom( SUIStagingRoomConfigure *pI
 		pMap->Init();
 	}
 		
-	//server always ready
 	pCommandManager->AddNotificationFromUI( 
 					SFromUINotification( EUTMN_PLAYER_READY, new SNotificationSimpleParam( pInfo->bServer ) ) 
 																				);
@@ -330,7 +300,6 @@ void CInterfaceMPStartingGame::ConfigureStagingRoom( SUIStagingRoomConfigure *pI
 	if ( bFirstConfiguration )
 	{
 		bFirstConfiguration = false;
-		// display advice
 		ITextManager *pTM = GetSingleton<ITextManager>();
 		IText *pText = 0;
 		if ( pConfiguration->bServer )
@@ -342,25 +311,21 @@ void CInterfaceMPStartingGame::ConfigureStagingRoom( SUIStagingRoomConfigure *pI
 			chat.AddImportantText( pText->GetString() );
 	}
 }
-//////////////////////////////////////////////////////////////////////
 void CInterfaceMPStartingGame::Done()
 {
 	CInterfaceMultiplayerScreen::Done();
 	bServerconfiguration = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const WORD * CInterfaceMPStartingGame::GetDestinationName()
 {
 	SUIPlayerInfo * pInfo = playerList.GetCurInfo();
 	if ( !pInfo ) return 0;
 	return pInfo->szName.c_str();
 }
-//////////////////////////////////////////////////////////////////////
 void CInterfaceMPStartingGame::DeletePlayer( const SUIPlayerInfo *pPlayerInfo )
 {
 	playerList.Delete( pPlayerInfo );
 }
-//////////////////////////////////////////////////////////////////////
 void CInterfaceMPStartingGame::AddOrUpdatePlayer( SUIPlayerInfo *pPlayerInfo )
 {
 	IUIListRow * pRow = playerList.Add( pPlayerInfo );
@@ -370,7 +335,6 @@ void CInterfaceMPStartingGame::AddOrUpdatePlayer( SUIPlayerInfo *pPlayerInfo )
 	IUIStatic * pDownload = checked_cast<IUIStatic*>( pReadyDialog->GetChildByID( E_DOWNLOAD_COUNT ) );
 	if ( pPlayerInfo->nDownloadCount < 100 )
 	{
-		// download progress
 		pReadyIcon->ShowWindow( UI_SW_HIDE );
 		pDownload->ShowWindow( UI_SW_SHOW );
 		pDownload->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%i%%", pPlayerInfo->nDownloadCount ) ).c_str() );
@@ -405,7 +369,6 @@ void CInterfaceMPStartingGame::AddOrUpdatePlayer( SUIPlayerInfo *pPlayerInfo )
 		pButton->EnableWindow( true );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMPStartingGame::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceMultiplayerScreen::ProcessMessage( msg ) )
@@ -413,7 +376,6 @@ bool CInterfaceMPStartingGame::ProcessMessage( const SGameMessage &msg )
 
 	if ( WCC_MULTIPLAYER_TO_UI_UPDATE == msg.nEventID )
 	{
-		// update games list
 		SToUICommand cmd;
 		
 		if ( pCommandManager->PeekCommandToUI( &cmd ) &&
@@ -438,7 +400,6 @@ bool CInterfaceMPStartingGame::ProcessMessage( const SGameMessage &msg )
 			if ( !ProcessMPCommand( cmd ) ) 
 				return true;
 		}
-		// chat message
 		SChatMessage * pChatMessage;
 		while ( pChatMessage = pCommandManager->GetChatMessageToUI() )
 		{
@@ -448,7 +409,6 @@ bool CInterfaceMPStartingGame::ProcessMessage( const SGameMessage &msg )
 	}
 
 	if ( !bStarted && chat.ProcessMessage( msg ) ) return true;
-	//process buttons pressings
 	switch( msg.nEventID )
 	{
 	case UI_NOTIFY_EDIT_BOX_ESCAPE:
@@ -473,7 +433,6 @@ bool CInterfaceMPStartingGame::ProcessMessage( const SGameMessage &msg )
 
 			return true;
 		}
-		// no break - OK
 	case E_BUTTON_JOIN:
 	case E_BUTTON_LAUNCH:
 		if ( pConfiguration && pConfiguration->bServer )
@@ -499,7 +458,6 @@ bool CInterfaceMPStartingGame::ProcessMessage( const SGameMessage &msg )
 		return true; 
 	case E_BUTTON_KICK:
 		{
-			//const int nSelection = pPlayersList->GetSelectionItem();
 			SUIPlayerInfo * pInfo = playerList.GetCurInfo();
 
 			pCommandManager->AddNotificationFromUI( 
@@ -521,23 +479,19 @@ bool CInterfaceMPStartingGame::ProcessMessage( const SGameMessage &msg )
 		return true;
 	return false; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPStartingGame::SetParams( const char * pszParams )
 {
 	std::string szParams = pszParams;
 	
 	const int nType = NStr::ToInt( szParams ); // nType == 0 => server
 
-	// hide specific button
 	IUIElement * pButtonJoin = checked_cast<IUIElement*> ( pUIScreen->GetChildByID( E_BUTTON_JOIN ) );
 	pButtonJoin->ShowWindow( nType == 0 ? UI_SW_HIDE : UI_SW_SHOW );
 
-	//show
 	IUIElement * pB1 = checked_cast<IUIElement*> ( pUIScreen->GetChildByID( E_BUTTON_READY ) );
 	pB1->ShowWindow( nType == 1 ? UI_SW_HIDE : UI_SW_SHOW );
 	
 	pB1 = checked_cast<IUIElement*> ( pUIScreen->GetChildByID( E_BUTTON_KICK ) );
-	//pB1->ShowWindow( nType == 1 ? UI_SW_HIDE : UI_SW_SHOW );
 	pB1->ShowWindow( UI_SW_SHOW );
 	
 	pB1 = checked_cast<IUIElement*> ( pUIScreen->GetChildByID( E_BUTTON_LAUNCH ) );

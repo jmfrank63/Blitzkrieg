@@ -6,22 +6,17 @@
 
 #include "IPlanePathFraction.h"
 
-/////////////////////////////////////////////////////////////////////////////
-// move to separate file
 struct SPlanesConsts
 {
 	static const float MIN_HEIGHT;
 };
 
-/////////////////////////////////////////////////////////////////////////////
 interface IPlane;
 
-/////////////////////////////////////////////////////////////////////////////
 /**
  * в маневре в зависимости от участка траектории задается крен самолета (либо от вертикали, либо от направления
  * к центру кривизны.
  */
-/////////////////////////////////////////////////////////////////////////////
 class CManuver : public IManuver 
 {
 	DECLARE_SERIALIZE;
@@ -45,18 +40,14 @@ private:
 	void CalcPoint();
 	void CalcNormale();
 	
-	// height difference needed to start horisontal move
 	bool GetToHorisontalOffset( const CVec3 &vSpeed, const float _fTurnRadius, const float fHeight, CVec3 *pManuverPos ) const;
 public:
 
-	//CRAP{ FOR TEST
-	// preferred top direction
 	virtual CVec3 STDCALL GetTopDirection() const
 	{
 		return CVec3(0,0,1.0f);
 	}
 	virtual const CVec3 STDCALL GetEndPoint() const { return pPath->GetEndPoint(); }
-	//CRAP}
 
 	virtual CVec3 STDCALL GetPos() const { return vCenter; }
 	virtual CVec3 STDCALL GetSpeed() const { return vSpeed; }
@@ -64,12 +55,8 @@ public:
 
 	virtual CVec3 GetProspectivePoint( const float fT ) const;
 	
-	// helper functions
 	static const CVec3 CalcPredictedPoint( interface IPlane *pPos, interface IPlane *pEnemy );
 };
-/////////////////////////////////////////////////////////////////////////////
-//	CManuverGeneric
-/////////////////////////////////////////////////////////////////////////////
 class CManuverGeneric: public CManuver 
 {
 	OBJECT_COMPLETE_METHODS( CManuverGeneric );
@@ -79,11 +66,6 @@ public:
 	void Init( interface IPlane *pPos, const CVec3 &vPos );
 	virtual bool STDCALL Advance( const NTimer::STime timeDiff );
 };
-/////////////////////////////////////////////////////////////////////////////
-//	CManuverSteepClimb
-/////////////////////////////////////////////////////////////////////////////
-// 30-45 degrees gorka
-//
 class CManuverSteepClimb : public CManuver 
 {
 	OBJECT_COMPLETE_METHODS( CManuverSteepClimb );

@@ -26,9 +26,7 @@ struct SImagePack
       }
     };
   
-    //original (defragmented) image LeftTop corner position
     CTPoint<int> originalLeftTop;
-    //fragmented image to original image fragment map
     std::vector<SPackedImageNode> vPackedImageNodes;
 
     SPackedImage() : originalLeftTop( 0, 0 ) {  }

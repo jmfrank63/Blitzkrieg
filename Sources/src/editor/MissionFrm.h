@@ -18,19 +18,12 @@ public:
 	
 	void SetActiveObjective( CMissionObjectivePropsItem *pObjective );
 
-	// Attributes
 public:
 	
-	// Operations
 public:
 	
-	// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CMissionFrame)
 protected:
-	//}}AFX_VIRTUAL
 	
-	// Implementation
 private:
 	std::string szPrefix;		//эта переменная используется для передачи параметра в функцию FillRpgStats, чтобы не было необходимости изменять интерфейс
 	CMissionObjectivePropsItem *pActiveObjective;
@@ -47,22 +40,16 @@ protected:
 	virtual void SpecificInit();
 	virtual void SpecificClearBeforeBatchMode();
 	
-	// Generated message map functions
 protected:
-	//{{AFX_MSG(CMissionFrame)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
 	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
 	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
 	afx_msg void OnGenerateImage();
 	afx_msg void OnUpdateGenerateImage(CCmdUI* pCmdUI);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 
-/////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif		//__MISSIONFRM_H__

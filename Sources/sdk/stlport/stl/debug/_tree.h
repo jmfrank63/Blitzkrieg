@@ -150,7 +150,6 @@ public:
 # ifndef _STLP_MSVC
       _STLP_STD::pair<typename _Base::iterator, bool>
 # else
-          // MSVC fails on typename here
     _STLP_STD::pair<_Base::iterator, bool>
 # endif          
         __res = _Base::insert_unique(__x);
@@ -295,7 +294,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_DBG_TREE_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

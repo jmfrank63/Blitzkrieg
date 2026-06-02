@@ -8,7 +8,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SaveImageToTGAImageResource( IImage *pImage, const std::string &rszTGAImageResourceFileName )
 {
 	try
@@ -36,7 +35,6 @@ bool SaveImageToTGAImageResource( IImage *pImage, const std::string &rszTGAImage
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SaveImageToDDSImageResource( IImage *pImage, const std::string &rszDDSImageResourceFileName,
 																	EGFXPixelFormat nCompressedFormat,
 																	EGFXPixelFormat nLowFormat,
@@ -53,11 +51,9 @@ bool SaveImageToDDSImageResource( IImage *pImage, const std::string &rszDDSImage
 			szDDSImageResourceFileName = pDataStorage->GetName() + szDDSImageResourceFileName;
 		}
 		
-		//COMPRESSION_DXT, GFXPF_DXT1
 		{
 			CPtr<IDDSImage> pDDSImage = pImageProcessor->Compress( pImage, nCompressedFormat );
 
-			//сохранаяем картинку
 			CPtr<IDataStream> pDDSStream = CreateFileStream( ( szDDSImageResourceFileName + GetDDSImageExtention( COMPRESSION_DXT ) ).c_str(), STREAM_ACCESS_WRITE );
 			if ( !pDDSStream )
 			{
@@ -65,11 +61,9 @@ bool SaveImageToDDSImageResource( IImage *pImage, const std::string &rszDDSImage
 			}
 			pImageProcessor->SaveImageAsDDS( pDDSStream, pDDSImage );
 		}
-		//COMPRESSION_LOW_QUALITY, GFXPF_ARGB0565
 		{
 			CPtr<IDDSImage> pDDSImage = pImageProcessor->Compress( pImage, nLowFormat );
 
-			//сохранаяем картинку
 			CPtr<IDataStream> pDDSStream = CreateFileStream( ( szDDSImageResourceFileName + GetDDSImageExtention( COMPRESSION_LOW_QUALITY ) ).c_str(), STREAM_ACCESS_WRITE );
 			if ( !pDDSStream )
 			{
@@ -77,11 +71,9 @@ bool SaveImageToDDSImageResource( IImage *pImage, const std::string &rszDDSImage
 			}
 			pImageProcessor->SaveImageAsDDS( pDDSStream, pDDSImage );
 		}
-		//COMPRESSION_HIGH_QUALITY GFXPF_DXT1
 		{
 			CPtr<IDDSImage> pDDSImage = pImageProcessor->Compress( pImage, nHighFormat );
 
-			//сохранаяем картинку
 			CPtr<IDataStream> pDDSStream = CreateFileStream( ( szDDSImageResourceFileName + GetDDSImageExtention( COMPRESSION_HIGH_QUALITY ) ).c_str(), STREAM_ACCESS_WRITE );
 			if ( !pDDSStream )
 			{
@@ -97,7 +89,6 @@ bool SaveImageToDDSImageResource( IImage *pImage, const std::string &rszDDSImage
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* LoadImageFromTGAImageResource( const std::string &rszTGAImageResourceFileName )
 {
 	try
@@ -136,7 +127,6 @@ IImage* LoadImageFromTGAImageResource( const std::string &rszTGAImageResourceFil
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* LoadImageFromDDSImageResource( const std::string &rszDDSImageResourceFileName )
 {
 	try
@@ -176,7 +166,6 @@ IImage* LoadImageFromDDSImageResource( const std::string &rszDDSImageResourceFil
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void EnumFilesInDataStorage( std::vector<SEnumFilesInDataStorageParameter> *pParameters, IDataStorage *pStorage, SEnumFolderStructureParameter *pEnumFolderStructureParameter )
 {
 	if ( pParameters || pEnumFolderStructureParameter )
@@ -267,12 +256,10 @@ void EnumFilesInDataStorage( std::vector<SEnumFilesInDataStorageParameter> *pPar
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool ExecuteProcess( const std::string &szCommand, const std::string &szCmdLine, const std::string &szDirectory, bool bWait )
 {
 	char pszCommandLine[2048];
 	strcpy( pszCommandLine, szCmdLine.c_str() );
-	//
 	STARTUPINFO startinfo;
 	PROCESS_INFORMATION procinfo;
 	Zero( startinfo );
@@ -289,4 +276,3 @@ bool ExecuteProcess( const std::string &szCommand, const std::string &szCmdLine,
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

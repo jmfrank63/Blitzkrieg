@@ -19,7 +19,6 @@
 #pragma set woff 1209
 #pragma set woff 1174
 #pragma set woff 1375
-// from iterator_base.h
 #pragma set woff 1183
 
 #elif defined(__DECCXX)
@@ -30,7 +29,6 @@
 # endif
 
 #elif defined(__IBMCPP__)
-// supress EDC3130: A constant is being used as a conditional expression
 #pragma info(nocnd)
 
 #elif defined (__HP_aCC)

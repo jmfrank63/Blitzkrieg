@@ -8,7 +8,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CRegistrySection::CRegistrySection( HKEY hKey, REGSAM samDesired, LPCTSTR pszRegistrySection )
 {
   LONG result = ERROR_SUCCESS;
@@ -28,7 +27,6 @@ CRegistrySection::CRegistrySection( HKEY hKey, REGSAM samDesired, LPCTSTR pszReg
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CRegistrySection::~CRegistrySection()
 {
   if ( hRegistrySection != 0 )
@@ -38,7 +36,6 @@ CRegistrySection::~CRegistrySection()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 LONG CRegistrySection::LoadString( LPCTSTR pszRegistryKey, std::string *pszLoadValue, const std::string &rszDefaultValue ) const
 {
   if ( ( pszLoadValue != 0 ) && ( hRegistrySection != 0 ) )
@@ -71,7 +68,6 @@ LONG CRegistrySection::LoadString( LPCTSTR pszRegistryKey, std::string *pszLoadV
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 LONG CRegistrySection::SaveString( LPCTSTR pszRegistryKey, const std::string &szSaveValue ) const
 {
 	return ::RegSetValueEx( hRegistrySection,
@@ -81,4 +77,3 @@ LONG CRegistrySection::SaveString( LPCTSTR pszRegistryKey, const std::string &sz
 													reinterpret_cast<const BYTE*>( szSaveValue.c_str() ),
 													szSaveValue.size() + 1 );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

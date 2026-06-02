@@ -57,6 +57,3 @@ using STLPORT::__hash_multimap__;
 
 #endif /* _STLP_HASH_MAP_H */
 
-// Local Variables:
-// mode:C++
-// End:

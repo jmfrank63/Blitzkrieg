@@ -2,7 +2,6 @@
 
 #include "FmtUnitCreation.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char* SUnitCreationInfo::DEFAULT_AIRCRAFT_NAME[SUCAviation::AT_COUNT] =
 {
 	"Po_2",
@@ -15,7 +14,6 @@ const char* SUnitCreationInfo::DEFAULT_PARADROP_SOLDIER_NAME = "USSR_rpd_43";
 const char* SUnitCreationInfo::DEFAULT_PARTY_NAME = "USSR";
 const int   SUnitCreationInfo::DEFAULT_RELAX_TIME = 20;
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SUnitCreationInfo::Validate()
 {
 	while ( units.size() < ( UT_COUNT - 1 ) )
@@ -24,7 +22,6 @@ void SUnitCreationInfo::Validate()
 	}
 	for ( int nUnitTypeIndex = 0; nUnitTypeIndex <  units.size(); ++nUnitTypeIndex )
 	{
-		//самолеты
 		for ( int nAircraftIndex = SUCAviation::AT_SCOUT; nAircraftIndex < SUCAviation::AT_COUNT; ++nAircraftIndex )
 		{
 			if ( units[nUnitTypeIndex].aviation.aircrafts[nAircraftIndex].szName.empty() )
@@ -52,6 +49,3 @@ void SUnitCreationInfo::Validate()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//basement storage
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

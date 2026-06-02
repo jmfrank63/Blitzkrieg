@@ -6,7 +6,6 @@
 #include "UIScreen.h"
 
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIObjectiveScreen::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -16,13 +15,10 @@ int CUIObjectiveScreen::operator&( IDataTree &ss )
 	
 	if ( saver.IsReading() )
 	{
-		//�������������� pSB
 		pSB = checked_cast<IUIShortcutBar *> ( GetChildByID(10) );
-		//		NI_ASSERT_T( pSB != 0, "Can't find ShortcutBar with ID 10" );
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIObjectiveScreen::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -32,12 +28,10 @@ int CUIObjectiveScreen::operator&( IStructureSaver &ss )
 	
 	if ( saver.IsReading() )
 	{
-		//�������������� pSB
 		CPtr<IUIElement> pElement;
 		saver.Add( 3, &pElement );
 		pSB = checked_cast<IUIShortcutBar *> ( pElement.GetPtr() );
 		
-		//		pSB = checked_cast<IUIShortcutBar *> ( GetChildByID(10) );
 		NI_ASSERT_T( pSB != 0, "Can't find ShortcutBar with ID 10" );
 	}
 	else
@@ -48,7 +42,6 @@ int CUIObjectiveScreen::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIObjectiveScreen::ShowWindow( int _nCmdShow )
 {
 	if ( bool(_nCmdShow) == IsVisible() )
@@ -63,14 +56,12 @@ void CUIObjectiveScreen::ShowWindow( int _nCmdShow )
 	
 	std::string szMissionName = GetGlobalVar( "Mission.Current.Name" );
 	const SMissionStats *pStats = NGDB::GetGameStats<SMissionStats>( szMissionName.c_str(), IObjectsDB::MISSION );
-	//	NI_ASSERT_T( pStats != 0, NStr::Format( "Invalid mission %s stats", szMissionName ) );
 	if ( !pStats )
 	{
 		pSB->InitialUpdate();
 		return;
 	}
 	
-	//������� Objectives
 	ITextManager *pTM = GetSingleton<ITextManager>();
 	CPtr<IDataStorage> pStorage = GetSingleton<IDataStorage>();
 
@@ -111,7 +102,6 @@ void CUIObjectiveScreen::ShowWindow( int _nCmdShow )
 		if ( nObjectiveState == -1 )
 			continue;		//objective �� �����
 		
-		//Add bar
 		IUIDialog *pDialog = checked_cast<IUIDialog *> ( pSB->AddBar() );
 		CPtr<IUIElement> pElement = pDialog->GetChildByID( 11 );
 		if ( pElement->IsVisible() )
@@ -149,7 +139,6 @@ void CUIObjectiveScreen::ShowWindow( int _nCmdShow )
 		pDialog->SetWindowText( 1, p1->GetString() );
 		pDialog->SetWindowID( i );
 
-		//Add text item
 		CPtr<IText> p2 = pTM->GetDialog( pStats->objectives[i].szDescriptionText.c_str() );
 		NI_ASSERT_TF( p2 != 0, NStr::Format( "There is no file %s", pStats->objectives[i].szDescriptionText ), continue );		//�� ����� ������
 		pSB->AddTextItem( p2->GetString() );
@@ -162,4 +151,3 @@ void CUIObjectiveScreen::ShowWindow( int _nCmdShow )
 		pSB->SetBarExpandState( nFirstActiveObjective, true, false );
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

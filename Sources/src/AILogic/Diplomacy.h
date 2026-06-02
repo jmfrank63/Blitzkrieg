@@ -2,13 +2,10 @@
 #define __DIPLOMACY_H__
 
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// последняя party обязательно должна быть нейтральна ко всем
 class CDiplomacy
 {
 	DECLARE_SERIALIZE;
 	
-	// 0, 1 - игровые стороны, 2 - нейтралы
 	std::vector<BYTE> playerParty;
 	int nMyNumber;
 
@@ -67,7 +64,6 @@ public:
 	const BYTE GetMyParty() const { return GetNParty( GetMyNumber() ); }
 	const bool IsAIPlayer( const BYTE cPlayer ) const { return !bNetGame && cPlayer == 1; }
 	const BYTE GetNeutralPlayer() const { return GetNPlayers() - 1; }
-	// номер нейтральной стороны
 	int GetNeutralParty() const { return 2; }
 
 	void SetParty( const BYTE nPlayer, const BYTE newParty ) { playerParty[nPlayer] = newParty; }
@@ -77,14 +73,10 @@ public:
 	
 	bool IsNetGame() const { return bNetGame; }
 
-	//
 	bool IsPlayerExist( const int nPlayer ) const;
 	void SetPlayerNotExist( const int nPlayer );
 
-	//
 	bool IsEditorMode() const { return bEditorMode; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int ANY_PARTY = EDI_FRIEND | EDI_ENEMY | EDI_NEUTRAL;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __DIPLOMACY_H__

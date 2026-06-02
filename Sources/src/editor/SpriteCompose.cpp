@@ -11,7 +11,6 @@
 #include "SpriteCompose.h"
 #include "ParentFrame.h"
 #include "Frames.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SAnimationDesc::SDirDesc::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -19,7 +18,6 @@ int SAnimationDesc::SDirDesc::operator&( IDataTree &ss )
 	saver.Add( "FrameShift", &ptFrameShift );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SAnimationDesc::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -103,7 +101,6 @@ bool BuildSpritesPack( const CSpritesPackBuilder::SPackParameter &rPackParameter
   return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* BuildAnimations( std::vector<SAnimationDesc> *pSrc, SSpriteAnimationFormat *pDst,
 												 std::vector<std::string> &szFileNames, bool bProcessImages, DWORD dwMinAlpha )
 {
@@ -126,10 +123,8 @@ IImage* BuildAnimations( std::vector<SAnimationDesc> *pSrc, SSpriteAnimationForm
 				indices[i] = nameIndices[ szFileNames[i] ];
 		}
 	}
-	// fill dst structures
 	SSpriteAnimationFormat &animations = *pDst;
 	std::vector<SAnimationDesc> &animdescs = *pSrc;
-	// find biggest index for number of animations
 	int nMaxAnimationIndex = 0;
 	for ( int i=0; i<animdescs.size(); ++i )
 	{
@@ -137,7 +132,6 @@ IImage* BuildAnimations( std::vector<SAnimationDesc> *pSrc, SSpriteAnimationForm
 		nMaxAnimationIndex = Max( nMaxAnimationIndex, GetActionFromName( animdesc.szName ) );
 	}
 	animations.animations.resize( nMaxAnimationIndex + 1 );
-	//
 	for ( int i=0; i<animdescs.size(); ++i )
 	{
 		SAnimationDesc &animdesc = animdescs[i];
@@ -148,7 +142,6 @@ IImage* BuildAnimations( std::vector<SAnimationDesc> *pSrc, SSpriteAnimationForm
 		pAnimation->bCycled = animdesc.bCycled;
 		pAnimation->dirs.resize( animdesc.dirs.size() );
 		pAnimation->nFrameTime = animdesc.nFrameTime;
-		// �������� ����� � �������� � ����� ������� � ���������� ������ ��������, ������������ � ���� ��������
 		for ( int j=0; j<pAnimation->dirs.size(); ++j )
 		{
 			pAnimation->dirs[j].frames.resize( animdesc.dirs[j].frames.size() );
@@ -158,22 +151,17 @@ IImage* BuildAnimations( std::vector<SAnimationDesc> *pSrc, SSpriteAnimationForm
 				animdesc.AddUsedFrame( pAnimation->dirs[j].frames[k] );
 			}
 		}
-		// ��������� ������ ��������, ������������ � ���� ��������
 		std::sort( animdesc.usedFrames.begin(), animdesc.usedFrames.end() );
-		// ��������� ����� ������� � ��������� ������� ���� ��������
 		for ( int j=0; j<pAnimation->dirs.size(); ++j )
 		{
 			for ( int k=0; k<pAnimation->dirs[j].frames.size(); ++k )
 				pAnimation->dirs[j].frames[k] = animdesc.GetUsedFrameIndex( pAnimation->dirs[j].frames[k] );
 		}
-		//
 		pAnimation->rects.resize( animdesc.usedFrames.size() );
 	}
 	IImageProcessor *pIP = GetImageProcessor();
 	std::vector<IImage*> images;
 	images.reserve( 1000 );
-	//
-	// load images
 	for ( std::vector<std::string>::const_iterator it = szNewFileNames.begin(); it != szNewFileNames.end(); ++it )
 	{
 		CPtr<IDataStream> pStream = OpenFileStream( it->c_str(), STREAM_ACCESS_READ );
@@ -183,8 +171,6 @@ IImage* BuildAnimations( std::vector<SAnimationDesc> *pSrc, SSpriteAnimationForm
 		pImage->AddRef();
 		images.push_back( pImage );
 	}
-	//
-	// compose result image
 	std::vector<RECT> rects( images.size() );
 	std::vector<RECT> rectsMain( images.size() );
 	IImage *pImage = 0;
@@ -198,24 +184,17 @@ IImage* BuildAnimations( std::vector<SAnimationDesc> *pSrc, SSpriteAnimationForm
 		pImage = pIP->CreateImage( images[0]->GetSizeX(), images[0]->GetSizeY() );
 		pImage->CopyFrom( images[0], 0, 0, 0 );
 	}
-	// release source images
 	for ( int i=0; i<images.size(); ++i )
 		images[i]->Release();
-	//
 	for ( int i=0; i<rects.size(); ++i )
 	{
 		NI_ASSERT_TF( (rects[i].left != rects[i].right) && (rects[i].top != rects[i].bottom), NStr::Format("Image \"%s\" are empty. May be this is a 4 dir animation", szNewFileNames[i].c_str()), continue );
 	}
-	//
-	// compose sprite animation data
 	CUnsafeImageAccessor unsafeImageAccessor = pImage;
 	for ( int i=0; i<animdescs.size(); ++i )
 	{
 		SAnimationDesc &animdesc = animdescs[i];
 		SSpriteAnimationFormat::SSpriteAnimation *pAnimation = &( animations.animations[GetActionFromName(animdesc.szName)] );
-		// �� ����� ������ ����� �������� � animdesc.usedFrames.
-		// ���������� ��������� �� ��� ����� �����
-		//
 		for ( int j=0; j<pAnimation->rects.size(); ++j )
 		{
 			const RECT &rcSubRect = rects[ animdesc.usedFrames[j] ];
@@ -224,9 +203,7 @@ IImage* BuildAnimations( std::vector<SAnimationDesc> *pSrc, SSpriteAnimationForm
 			pAnimation->rects[j].maps.y1 = ( float( rcSubRect.top    ) + 0.5f ) / float( pImage->GetSizeY() );
 			pAnimation->rects[j].maps.y2 = ( float( rcSubRect.bottom ) + 0.5f ) / float( pImage->GetSizeY() );
 			const RECT &rcBase = rectsMain[ animdesc.usedFrames[j]  ];
-			// CRAP{ �.�. ������ � ����, ��� � ���� �������� ������� ����� ���� � �� ��
 			CVec2 ptFrame = animdesc.frames.begin()->second;//animdesc.frames[nOldIndex];
-			// CRAP}
 			pAnimation->rects[j].rect.Set(	rcSubRect.left - rcBase.left - ptFrame.x,
 																			rcSubRect.top - rcBase.top - ptFrame.y, 
 																			rcSubRect.right - rcBase.left - ptFrame.x, 
@@ -256,25 +233,19 @@ IImage* BuildAnimations( std::vector<SAnimationDesc> *pSrc, SSpriteAnimationForm
 	}
 	return pImage;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 ComputeSpriteNewZeroPos( const IVisObj *pSprite, const CVec3 &vZero3, const CVec2 &vZero2Shift )
 {
 	NI_ASSERT_TF( pSprite != 0, "Can't compute new sprite zero position from NULL sprite", return VNULL2 );
 
 	IScene *pSG = GetSingleton<IScene>();
-	// 2D cross position
 	CVec2 vZero2;
 	pSG->GetPos2( &vZero2, vZero3 );
 	vZero2 += vZero2Shift;
-	// 2D sprite position
 	CVec2 vSprite2;
 	pSG->GetPos2( &vSprite2, pSprite->GetPosition() );
-	// new 2D sprite zero with respect to sprite's texture top-left corner
 	CVec2 vZeroNew;
 	{
-		// �������� ��������� ���� �������� � �������� �����������
 		const SSpriteInfo *pInfo = static_cast<const ISpriteVisObj*>(pSprite)->GetSpriteInfo();
-		// �����. �� ������ �������� �� �������� ���� ������� (w, h)
 		int w0 = pInfo->pTexture->GetSizeX( 0 );
 		int h0 = pInfo->pTexture->GetSizeY( 0 );
 		int w1 = ceil( pInfo->maps.left * w0 - 0.5f );
@@ -283,7 +254,6 @@ const CVec2 ComputeSpriteNewZeroPos( const IVisObj *pSprite, const CVec3 &vZero3
 		int h2 = abs( pInfo->rect.top );
 		int w = w1 + w2;
 		int h = h1 + h2;
-		// ��������� ������ ���� ������������ ������ ��������
 		vZeroNew = vZero2 - ( vSprite2 - CVec2(w, h) );
 	}
 
@@ -293,7 +263,6 @@ const CVec2 ComputeSpriteNewZeroPos( const IVisObj *pSprite, const CVec3 &vZero3
 	return vZeroNew;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec3 Get3DPosition( const CVec3 &vSpritePos, const CVec2 &vPointPos, const SSpritesPack &rSpritesPack, int nSpriteIndex, const CVec2 &vCenter, IGFX *pGFX )
 {
 	CMatrixStack<4> mstack;
@@ -301,11 +270,9 @@ const CVec3 Get3DPosition( const CVec3 &vSpritePos, const CVec2 &vPointPos, cons
 	mstack.Push( pGFX->GetProjectionMatrix() );
 	mstack.Push( pGFX->GetViewMatrix() );
 	const SHMatrix &matTransform = mstack();
-	//
 	CVec3 vTempPos;
 	matTransform.RotateHVector( &vTempPos, vSpritePos );
 	const CVec3 vSpriteScreenPos = vTempPos;
-	// determine z-bias to keep z-buffer happy (treat sprites as vertical)
 	CVec3 vecZ1, vecZ2;
 	matTransform.RotateHVector( &vecZ1, CVec3(0, 0, 0) );
 	matTransform.RotateHVector( &vecZ2, CVec3(0, 0, 2.0f/FP_SQRT_3) );
@@ -313,11 +280,9 @@ const CVec3 Get3DPosition( const CVec3 &vSpritePos, const CVec2 &vPointPos, cons
 	matTransform.RotateHVector( &vecZ2, CVec3(-FP_SQRT_2, FP_SQRT_2, 0) );
 	const float fZBias2 = vecZ2.z - vecZ1.z;
 	
-	// calculate distance from zero line to object's border and write values to:
 	float fZero2Border = 0.0f;
 	float fBorder2Point = -vPointPos.y;
 
-	//��������
 	SSpritesPack::CSpritesList::const_iterator spritesListIterator = rSpritesPack.sprites.begin();
 	for ( int nSpritePackIndex = 0; nSpritePackIndex < nSpriteIndex; ++nSpritePackIndex )
 	{
@@ -353,17 +318,14 @@ const CVec3 Get3DPosition( const CVec3 &vSpritePos, const CVec2 &vPointPos, cons
 	const float fZDepth = fZBias2*fZero2Border + fZBias*fBorder2Point;
 	const CVec3 vScreenDepthPos = CVec3( vPointPos.x + vSpriteScreenPos.x, 
 		                                   vPointPos.y + vSpriteScreenPos.y, vSpriteScreenPos.z + fZDepth );
-	//
 	SHMatrix matInverse;
 	Invert( &matInverse, matTransform );
 	CVec3 vPointPos3;
 	matInverse.RotateHVector( &vPointPos3, vScreenDepthPos );
 	vPointPos3 -= vSpritePos;
-	//
 	return vPointPos3;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec3 Get3DPosition( const CVec3 &vSpritePos, const CVec2 &vPointPos, const CVec2 &vCenter, const CImageAccessor &rImageAccessor, DWORD dwMinAlpha, IGFX *pGFX )
 {
 	CMatrixStack<4> mstack;
@@ -371,11 +333,9 @@ const CVec3 Get3DPosition( const CVec3 &vSpritePos, const CVec2 &vPointPos, cons
 	mstack.Push( pGFX->GetProjectionMatrix() );
 	mstack.Push( pGFX->GetViewMatrix() );
 	const SHMatrix &matTransform = mstack();
-	//
 	CVec3 vTempPos;
 	matTransform.RotateHVector( &vTempPos, vSpritePos );
 	const CVec3 vSpriteScreenPos = vTempPos;
-	// determine z-bias to keep z-buffer happy (treat sprites as vertical)
 	CVec3 vecZ1, vecZ2;
 	matTransform.RotateHVector( &vecZ1, CVec3(0, 0, 0) );
 	matTransform.RotateHVector( &vecZ2, CVec3(0, 0, 2.0f/FP_SQRT_3) );
@@ -383,7 +343,6 @@ const CVec3 Get3DPosition( const CVec3 &vSpritePos, const CVec2 &vPointPos, cons
 	matTransform.RotateHVector( &vecZ2, CVec3(-FP_SQRT_2, FP_SQRT_2, 0) );
 	const float fZBias2 = vecZ2.z - vecZ1.z;
 	
-	// calculate distance from zero line to object's border and write values to:
 	float fZero2Border = 0.0f;
 	float fBorder2Point = -vPointPos.y;
 	
@@ -400,20 +359,16 @@ const CVec3 Get3DPosition( const CVec3 &vSpritePos, const CVec2 &vPointPos, cons
 			}
 		}
 	}
-	//
 	const float fZDepth = fZBias2*fZero2Border + fZBias*fBorder2Point;
 	const CVec3 vScreenDepthPos = CVec3( vPointPos.x + vSpriteScreenPos.x, 
 		                                   vPointPos.y + vSpriteScreenPos.y, vSpriteScreenPos.z + fZDepth );
-	//
 	SHMatrix matInverse;
 	Invert( &matInverse, matTransform );
 	CVec3 vPointPos3;
 	matInverse.RotateHVector( &vPointPos3, vScreenDepthPos );
 	vPointPos3 -= vSpritePos;
-	//
 	return vPointPos3;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 GetOrigin2DPosition( const CVec2 &vOrigin )
 {
 	IGFX *pGFX = GetSingleton<IGFX>();
@@ -422,19 +377,16 @@ const CVec2 GetOrigin2DPosition( const CVec2 &vOrigin )
 	mstack.Push( pGFX->GetProjectionMatrix() );
 	mstack.Push( pGFX->GetViewMatrix() );
 	const SHMatrix &matTransform = mstack();
-	//
 	CVec3 vOriginSreenPos, vSpriteScreenPos;
 	matTransform.RotateHVector( &vOriginSreenPos, CVec3(-vOrigin.x, -vOrigin.y, 0) );
 	matTransform.RotateHVector( &vSpriteScreenPos, VNULL3 );
 	vOriginSreenPos -= vSpriteScreenPos;
 	return CVec2( vOriginSreenPos.x, vOriginSreenPos.y );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int GetActionFromName( const std::string &szAnimName )
 {
 	std::string szName = szAnimName;
 	NStr::ToLower( szName );
-	//
 	if ( szName == "idle" )
 		return ANIMATION_IDLE;
 	else if ( szName == "idle down" )
@@ -490,11 +442,9 @@ int GetActionFromName( const std::string &szAnimName )
 	else if ( szName == "prisoning" )
 		return ANIMATION_PRISONING;
 		
-	//
 	NI_ASSERT_T( 0, NStr::Format("Don't know animation \"%s\"", szAnimName.c_str()) );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::vector<std::string> CVectorOfStrings;
 bool ComposeSingleSprite( const char *pszFileName, const char *pszResultingDir, const char *pszResName, bool bFence )
 {
@@ -508,7 +458,6 @@ bool ComposeSingleSprite( const char *pszFileName, const char *pszResultingDir, 
 	if ( bFence )
 	{
 		IImageProcessor *pIP = GetImageProcessor();
-		//�������� zeroPos, ��� ��� ������� ����� ���������� �����
 		{
 			CPtr<IDataStream> pStream = OpenFileStream( pszFileName, STREAM_ACCESS_READ );
 			NI_ASSERT_T( pStream != 0, NStr::Format("Can't open file \"%s\" to compose sprite", pszFileName) );
@@ -522,7 +471,6 @@ bool ComposeSingleSprite( const char *pszFileName, const char *pszResultingDir, 
 	animDesc.ptFrameShift = zeroPos;
 	animDesc.szName = "default";
 	
-	//��������� ������ directions
 	fileNameVector.resize( nLastSprite );
 	animDesc.dirs.resize( 1 );
 	
@@ -553,11 +501,9 @@ bool ComposeSingleSprite( const char *pszFileName, const char *pszResultingDir, 
 	
 	if ( !pImage )
 	{
-//		AfxMessageBox( "Composing images failed!" );
 		return false;
 	}
 
-	//�������� .dds, .san �����
 	std::string szTemp = pszResultingDir;
 	szTemp += pszResName;
 	SaveTexture8888( pImage, szTemp.c_str() );
@@ -573,7 +519,6 @@ bool ComposeSingleSprite( const char *pszFileName, const char *pszResultingDir, 
 	saver.Add( 1, &spriteAnimFmt );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SaveCompressedTexture( IImage *pSrc, const char *pszDestFileName )
 {
 	CParentFrame *pFrame = g_frameManager.GetActiveFrame();
@@ -583,7 +528,6 @@ void SaveCompressedTexture( IImage *pSrc, const char *pszDestFileName )
 	CPtr<IDataStream> pStream;
 	std::string szName;
 
-	//Compressed format
 	szName = pszDestFileName;
 	szName += "_c.dds";
 	if ( pFrame->GetFrameType() == CFrameManager::E_MESH_FRAME )
@@ -593,7 +537,6 @@ void SaveCompressedTexture( IImage *pSrc, const char *pszDestFileName )
 	pStream = CreateFileStream( szName.c_str(), STREAM_ACCESS_WRITE );
 	pIP->SaveImageAsDDS( pStream, pDDS );
 	
-	//Low format
 	szName = pszDestFileName;
 	szName += "_l.dds";
 	if ( pFrame->GetFrameType() == CFrameManager::E_MESH_FRAME )
@@ -603,14 +546,12 @@ void SaveCompressedTexture( IImage *pSrc, const char *pszDestFileName )
 	pStream = CreateFileStream( szName.c_str(), STREAM_ACCESS_WRITE );
 	pIP->SaveImageAsDDS( pStream, pDDS );
 	
-	//High format
 	szName = pszDestFileName;
 	szName += "_h.dds";
 	pDDS = pIP->Compress( pImage, (EGFXPixelFormat) pFrame->GetHighFormat() );
 	pStream = CreateFileStream( szName.c_str(), STREAM_ACCESS_WRITE );
 	pIP->SaveImageAsDDS( pStream, pDDS );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SaveCompressedShadow( IImage *pSrc, const char *pszDestFileName )
 {
 	CParentFrame *pFrame = g_frameManager.GetActiveFrame();
@@ -619,28 +560,24 @@ void SaveCompressedShadow( IImage *pSrc, const char *pszDestFileName )
 	CPtr<IDataStream> pStream;
 	std::string szName;
 	
-	//Compressed format
 	szName = pszDestFileName;
 	szName += "_c.dds";
 	pDDS = pIP->Compress( pSrc, (EGFXPixelFormat) pFrame->GetCompressedShadowFormat() );
 	pStream = CreateFileStream( szName.c_str(), STREAM_ACCESS_WRITE );
 	pIP->SaveImageAsDDS( pStream, pDDS );
 	
-	//Low format
 	szName = pszDestFileName;
 	szName += "_l.dds";
 	pDDS = pIP->Compress( pSrc, (EGFXPixelFormat) pFrame->GetLowShadowFormat() );
 	pStream = CreateFileStream( szName.c_str(), STREAM_ACCESS_WRITE );
 	pIP->SaveImageAsDDS( pStream, pDDS );
 	
-	//High format
 	szName = pszDestFileName;
 	szName += "_h.dds";
 	pDDS = pIP->Compress( pSrc, (EGFXPixelFormat) pFrame->GetHighShadowFormat() );
 	pStream = CreateFileStream( szName.c_str(), STREAM_ACCESS_WRITE );
 	pIP->SaveImageAsDDS( pStream, pDDS );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SaveTexture8888( IImage *pSrc, const char *pszDestFileName )
 {
 	IImageProcessor *pIP = GetSingleton<IImageProcessor>();
@@ -650,7 +587,6 @@ void SaveTexture8888( IImage *pSrc, const char *pszDestFileName )
 	CPtr<IDataStream> pStream = CreateFileStream( szName.c_str(), STREAM_ACCESS_WRITE );
 	pIP->SaveImageAsDDS( pStream, pDDS );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SaveTexture8888( const char *pszSrc, const char *pszDestFileName )
 {
 	IImageProcessor *pIP = GetSingleton<IImageProcessor>();
@@ -659,4 +595,3 @@ void SaveTexture8888( const char *pszSrc, const char *pszDestFileName )
 	CPtr<IImage> pImage = pIP->LoadImage( pStream );
 	SaveTexture8888( pImage, pszDestFileName );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

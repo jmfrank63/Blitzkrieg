@@ -10,11 +10,9 @@
 extern "C" {
 #include "S3TC.h"
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CImageProcessor::LoadImage( IDataStream *pStream ) const
 {
 	NI_ASSERT_T( pStream != 0, "Can't load to NULL stream" );
-	//
   if ( NImage::RecognizeFormatPNG(pStream) )
     return NImage::LoadImagePNG( pStream );
   else if ( NImage::RecognizeFormatBMP(pStream) )
@@ -24,27 +22,22 @@ IImage* CImageProcessor::LoadImage( IDataStream *pStream ) const
 	else 
 		return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IDDSImage* CImageProcessor::LoadDDSImage( IDataStream *pStream ) const
 {
 	return NImage::LoadImageDDS( pStream );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CImageProcessor::SaveImageAsPNG( IDataStream *pStream, const IImage *pImage ) const
 {
 	return NImage::SaveImageAsPNG( pStream, pImage );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CImageProcessor::SaveImageAsTGA( IDataStream *pStream, const IImage *pImage ) const
 {
 	return NImage::SaveImageAsTGA( pStream, pImage );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CImageProcessor::SaveImageAsDDS( IDataStream *pStream, const IDDSImage *pImage ) const
 {
 	return NImage::SaveImageAsDDS( pStream, pImage );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ImageScale( const CImage *pSrcImg, CImage *pDstImg, EImageScaleMethod method );
 IImage* CImageProcessor::CreateScale( const IImage *pImage, float fScaleFactor, EImageScaleMethod method ) const
 {
@@ -58,25 +51,21 @@ IImage* CImageProcessor::CreateScale( const IImage *pImage, float fScaleX, float
 	ImageScale( static_cast<const CImage*>(pImage), pScale, method );
 	return pScale;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CImageProcessor::CreateScaleBySize( const IImage *pImage, int nSizeX, int nSizeY, EImageScaleMethod method ) const
 {
 	CImage *pScale = new CImage( nSizeX, nSizeY );
 	ImageScale( static_cast<const CImage*>(pImage), pScale, method );
 	return pScale;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CImageProcessor::CreateMip( const IImage *pImage, int nLevel ) const
 {
 	return CreateScale( pImage, 1.0 / double( 1UL << nLevel ), ISM_LANCZOS3 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IDDSImage* CompressDXTN( const IImage *pImage, EGFXPixelFormat format )
 {
 	float fWeights[] = { 0.309f, 0.609f, 0.082f, 0, 0, 0, 0, 0 };
 	DWORD dwEncodeType = 0;
 	SDDSPixelFormat ddsformat;
-	// compose encoding type
 	GetDDSPixelFormat( format, &ddsformat );
 	switch ( format )
 	{
@@ -96,7 +85,6 @@ IDDSImage* CompressDXTN( const IImage *pImage, EGFXPixelFormat format )
 			dwEncodeType = S3TC_ENCODE_RGB_FULL | S3TC_ENCODE_ALPHA_INTERPOLATED;
 			break;
 	}
-	// compose in header
 	DDSURFACEDESC ddsdIn;
 	Zero( ddsdIn );
 	ddsdIn.dwSize = sizeof( DDSURFACEDESC );
@@ -114,22 +102,17 @@ IDDSImage* CompressDXTN( const IImage *pImage, EGFXPixelFormat format )
 	ddsdIn.ddpfPixelFormat.dwGBitMask = 0x0000FF00;
 	ddsdIn.ddpfPixelFormat.dwBBitMask = 0x000000FF;
 	ddsdIn.ddpfPixelFormat.dwRGBAlphaBitMask = 0xFF000000;
-	// compose out header
 	DDSURFACEDESC ddsdOut;
 	Zero( ddsdOut );
 	ddsdOut.dwSize = sizeof( DDSURFACEDESC );
 	int nNumCompressedBytes = S3TCgetEncodeSize( &ddsdIn, dwEncodeType );
-	// create MMP image and add empty mip
 	CImageDDS *pImageMMP = new CImageDDS( pImage->GetSizeX(), pImage->GetSizeY(), ddsformat );
 	std::vector<BYTE> &outdata = pImageMMP->AddEmptyMipLevel();
 	outdata.resize( nNumCompressedBytes );
-	//
 	S3TCsetAlphaReference( 0 );
 	S3TCencode( &ddsdIn, 0, &ddsdOut, &(outdata[0]), dwEncodeType, fWeights );
-	//
 	return pImageMMP;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IDDSImage* CompressRGBA( const IImage *pImage, EGFXPixelFormat format )
 {
 	SPixelConvertInfo pci;
@@ -152,7 +135,6 @@ IDDSImage* CompressRGBA( const IImage *pImage, EGFXPixelFormat format )
 		default:
 			return false;
 	}
-	//
 	int nSizeX = pImage->GetSizeX();
 	int nSizeY = pImage->GetSizeY();
 	int nBPP = ::GetBPP( format );
@@ -162,39 +144,31 @@ IDDSImage* CompressRGBA( const IImage *pImage, EGFXPixelFormat format )
 	outdata.resize( nSizeX * nSizeY * nBPP / 8 );
 
 	const DWORD *pSrc = reinterpret_cast<const DWORD*>( pImage->GetLFB() );
-	//std::vector<BYTE> buffer( nSizeX * nSizeY * nBPP / 8 );
 	if ( nBPP == 16 )
 	{
 		WORD *pDst = reinterpret_cast<WORD*>( &( outdata[0] ) );
 		for ( int i=0; i<nSizeX*nSizeY; ++i, ++pDst )
 			*pDst = pci.ComposeColorSlow( pSrc[i] );
-		//pImageMMP->AddMipLevel( &(outdata[0]), outdata.size() );
 		return pImageMMP;
 	}
 	else if ( nBPP == 32 )
 	{
 		DWORD *pDst = reinterpret_cast<DWORD*>( &( outdata[0] ) );
 		memcpy( pDst, pSrc, nSizeX*nSizeY*nBPP/8 );
-		//pImageMMP->AddMipLevel( &(buffer[0]), buffer.size() );
 		return pImageMMP;
 	}
-	// unsuccessfull load - destroy image
 	delete pImageMMP;
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IDDSImage* CImageProcessor::Compress( const IImage *pImage, EGFXPixelFormat format ) const
 {
 	if ( (format >= GFXPF_DXT1) && (format <= GFXPF_DXT5) )
 		return CompressDXTN( pImage, format );
 	else if ( (format >= GFXPF_ARGB8888) || (format <= GFXPF_ARGB0565) )
 		return CompressRGBA( pImage, format );
-	// CRAP{ still not all formats are realized
 	else
 		return 0;
-	// CRAP}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CImageProcessor::Decompress( const IDDSImage *pImage ) const
 {
 	if ( pImage->GetGFXFormat() == GFXPF_ARGB8888 ) 
@@ -203,9 +177,6 @@ IImage* CImageProcessor::Decompress( const IDDSImage *pImage ) const
 		memcpy( pDstImage->GetLFB(), pImage->GetLFB(), pImage->GetSizeX(0)*pImage->GetSizeY(0)*sizeof(SColor) );
 		return pDstImage;
 	}
-	//
-	//
-	//
 	DDSURFACEDESC ddsdIn;
 	Zero( ddsdIn );
 	ddsdIn.dwSize = sizeof( DDSURFACEDESC );
@@ -214,7 +185,6 @@ IImage* CImageProcessor::Decompress( const IDDSImage *pImage ) const
 	ddsdIn.dwHeight = pImage->GetSizeY( 0 );
 	ddsdIn.lpSurface = const_cast<void*>( pImage->GetLFB(0) );
 	ddsdIn.ddpfPixelFormat.dwSize = sizeof( DDPIXELFORMAT );
-	//
 	switch ( pImage->GetGFXFormat() ) 
 	{
 		case GFXPF_DXT1:
@@ -248,19 +218,15 @@ IImage* CImageProcessor::Decompress( const IDDSImage *pImage ) const
 			ddsdIn.ddpfPixelFormat.dwRGBAlphaBitMask = 0xFF000000;
 			break;
 	}
-	// compose out header
 	DDSURFACEDESC ddsdOut;
 	Zero( ddsdOut );
 	ddsdOut.dwSize = sizeof( DDSURFACEDESC );
 	const int nNumUncompressedBytes = S3TCgetDecodeSize( &ddsdIn );
-	// create MMP image and add empty mip
 	std::vector<DWORD> outdata( nNumUncompressedBytes / 4 );
 	S3TCdecode( &ddsdIn, &ddsdOut, &(outdata[0]) );
 	CImage *pDstImage = new CImage( pImage->GetSizeX(0), pImage->GetSizeY(0), outdata );
 	return pDstImage;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// generate mip-levels and compress
 IDDSImage* CImageProcessor::GenerateAndCompress( const IImage *pSrcImage, EGFXPixelFormat format, int nNumMipLevels ) const
 {
 	SDDSPixelFormat ddsformat;
@@ -275,10 +241,8 @@ IDDSImage* CImageProcessor::GenerateAndCompress( const IImage *pSrcImage, EGFXPi
 		CPtr<IDDSImage> pMMP = Compress( pScaled, format );
 		pResultMMP->AddMipLevels( pMMP );
 	}
-	//
 	return pResultMMP;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CImageProcessor::CreateImage( int nSizeX, int nSizeY )
 {
 	return new CImage( nSizeX, nSizeY );
@@ -289,11 +253,8 @@ IImage* CImageProcessor::CreateImage( int nSizeX, int nSizeY, void *pData )
 	memcpy( pImage->GetLFB(), pData, nSizeX*nSizeY*4 );
 	return pImage;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CImageProcessor::RestoreImage( IImage *pImage, const SColor &bg )
 {
-	// c0 * alpha + bg * (1 - alpha) = c1  => c0 = ( c1 - bg * (1 - alpha) ) / alpha
-	//                                        c0 = c0, if alpha == 0
 	SColor *pColors = pImage->GetLFB();
 	float fBGr = float( bg.r ), fBGg = float( bg.g ), fBGb = float( bg.b );
 	for ( int i=0; i<pImage->GetSizeX()*pImage->GetSizeY(); ++i )
@@ -310,7 +271,6 @@ void CImageProcessor::RestoreImage( IImage *pImage, const SColor &bg )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CImageProcessor::GenerateImage( int nSizeX, int nSizeY, int nType )
 {
 	IImage *pImage = 0;
@@ -346,7 +306,6 @@ IImage* CImageProcessor::GenerateImage( int nSizeX, int nSizeY, int nType )
 	}
 	return pImage;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline BYTE GetGammaCorrection( BYTE val, float fBrightness, float fPower, float fA, float fB )
 {
   const float fVal = float( val ) / 255.0f;
@@ -355,27 +314,18 @@ inline BYTE GetGammaCorrection( BYTE val, float fBrightness, float fPower, float
   const float fResult = Clamp( fContrastValue + fBrightness, 0.0f, 1.0f );
 	return BYTE( fResult * 255.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CImageProcessor::CreateGammaCorrection( IImage *pSrc, float fBrightness, float fContrast, float fGamma )
 {
 	if ( (fBrightness == 0) && (fContrast == 0) && (fGamma == 0) )
 		return CreateImage( pSrc->GetSizeX(), pSrc->GetSizeY(), pSrc->GetLFB() );
-	//
 	IImage *pDst = CreateImage( pSrc->GetSizeX(), pSrc->GetSizeY() );
-  // build ramp from the brightness, contrast and gamma values
-  // y = a*x + b
-  // 
   fBrightness = Clamp( fBrightness, -1.0f, 1.0f ) * 0.5f; // to avoid complete dark and complete white values
   fContrast = Clamp( fContrast, -1.0f, 1.0f ) * 0.5f;
   fGamma = Clamp( fGamma, -1.0f, 1.0f ) * 0.5f;
-  // calculate equation params for Y = A*X + B
-  // contrast: a*x + b
-  // если contrast < 0, то a = 1/a (наклон <45 градусов)
   float fA = 1.0f + 4.0f*fabs( fContrast );
   if ( fContrast < 0 )
     fA = 1.0f / fA;
   float fB = 0.5f*( 1.0f - fA );
-  // gamma: x^power
   float fPower = 1;
   {
     if ( fGamma > 0 )
@@ -383,8 +333,6 @@ IImage* CImageProcessor::CreateGammaCorrection( IImage *pSrc, float fBrightness,
     else if ( fGamma < 0 )
       fPower = 1.0f / ( 0.5f*fGamma + 1 );
   }
-  // brightness: x + b
-  // 
 	for ( int i = 0; i != pSrc->GetSizeY(); ++i )
 	{
 		SColor *pDstColor = pDst->GetLine( i );
@@ -397,7 +345,5 @@ IImage* CImageProcessor::CreateGammaCorrection( IImage *pSrc, float fBrightness,
 			pDstColor[j].b = GetGammaCorrection( pSrcColor[j].b, fBrightness, fPower, fA, fB );
 		}
 	}
-	//
 	return pDst;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

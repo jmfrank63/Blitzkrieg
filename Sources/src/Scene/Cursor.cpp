@@ -7,16 +7,14 @@
 #include "DTHelper.h"
 #include "Input.h"
 #include "Actions.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern HINSTANCE hDLLInstance;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 struct SCursorRegister
 {
 	const char *pszName;									// file name (for game cursor)
 	int nMode;														// mode, this cursor used for
 	WORD wResourceID;											// Windows resource ID for HW cursor
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const SCursorRegister modeTypes[] = 
 {	
 	{ "unknown"						, USER_ACTION_UNKNOWN											, IDC_UNKNOWN						},
@@ -74,7 +72,6 @@ inline const SCursorRegister* FindMode( const std::string &szMode )
 	NI_ASSERT_T( false, NStr::Format("Can't recognize action \"%s\" for cursor", szMode.c_str()) );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SCursorModeInfo
 {
 	int nMode;
@@ -82,7 +79,6 @@ struct SCursorModeInfo
 	CVec2 vHotSpot;
 	CVec2 vSize;
 	int wResourceID;
-	//
 	int operator&( IDataTree &ss )
 	{
 		CTreeAccessor saver = &ss;
@@ -108,7 +104,6 @@ struct SCursorModeInfo
 		return 0;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CCursor::CCursor() 
 {
 	eUpdateMode = ICursor::UPDATE_MODE_INPUT;
@@ -124,14 +119,12 @@ CCursor::CCursor()
 	nCurrMode = -1;
 	bAcquired = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCursor::Init( ISingleton *pSingleton )
 {
 	IInput *pInput = GetSingleton<IInput>( pSingleton );
 	pScrollX = pInput->CreateSlider( "cursor_x", 1000 );
 	pScrollY = pInput->CreateSlider( "cursor_y", 1000 );
 	pTM = GetSingleton<ITextureManager>( pSingleton );
-	//
 	std::vector<SCursorModeInfo> shapes;
 	{
 		CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( "cursor\\1.xml", STREAM_ACCESS_READ );
@@ -146,7 +139,6 @@ void CCursor::Done()
 	DestroyContents();
 	Acquire( false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCursor::Clear()
 {
 	for ( CCursorsModeMap::iterator it = modes.begin(); it != modes.end(); ++it )
@@ -154,20 +146,17 @@ void CCursor::Clear()
 	SetMode( nCurrMode );
 	SetModifier( nCurrModifier );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCursor::Show( bool _bShow ) 
 { 
 	bShow = _bShow; 
 	if ( eUpdateMode == ICursor::UPDATE_MODE_WINDOWS ) 
 		OnSetCursor();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCursor::SetBounds( int x1, int y1, int x2, int y2 ) 
 { 
 	rcBounds.Set( x1, y1, x2, y2 ); 
 	AcquireLocal();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCursor::AcquireLocal()
 {
 	if ( eUpdateMode != ICursor::UPDATE_MODE_WINDOWS ) 
@@ -175,7 +164,6 @@ void CCursor::AcquireLocal()
 		::ClipCursor( 0 );
 		return;
 	}
-	//
 	if ( bAcquired ) 
 	{
 		if ( !rcBounds.IsEmpty() ) 
@@ -187,20 +175,17 @@ void CCursor::AcquireLocal()
 	else
 		::ClipCursor( 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCursor::Acquire( bool bAcquire )
 {
 	bAcquired = bAcquire;
 	AcquireLocal();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCursor::SetPos( int nX, int nY ) 
 { 
 	vPos = CVec2( nX, nY ); 
 	if ( eUpdateMode == ICursor::UPDATE_MODE_WINDOWS ) 
 		SetCursorPos( nX, nY );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCursor::LockPos( bool bLock ) 
 { 
 	bPosLocked = bLock;
@@ -218,7 +203,6 @@ void CCursor::LockPos( bool bLock )
 			AcquireLocal();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCursor::SetUpdateMode( const EUpdateMode _eUpdateMode ) 
 { 
 	if ( (_eUpdateMode != eUpdateMode) && (_eUpdateMode == ICursor::UPDATE_MODE_WINDOWS) ) 
@@ -227,7 +211,6 @@ void CCursor::SetUpdateMode( const EUpdateMode _eUpdateMode )
 	AcquireLocal();
 	OnSetCursor();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCursor::OnSetCursor()
 {
 	if ( eUpdateMode == ICursor::UPDATE_MODE_WINDOWS ) 
@@ -248,7 +231,6 @@ void CCursor::OnSetCursor()
 	else
 		::SetCursor( 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCursor::Update()
 {
 	if ( bPosLocked )
@@ -274,19 +256,16 @@ void CCursor::Update()
 				SetCursorPos( vPos.x, vPos.y );
 		}
 	}
-	//
 	if ( fabs2(vPos - vLastPos) > 1 ) 
 	{
 		vLastPos = vPos;
 		timeLast = timeAbs;
 	}
-	//
 	if ( pMode && pMode->pVisObj ) 
 		pMode->pVisObj->Update( timeAbs );
 	if ( pModifier && pModifier->pVisObj ) 
 		pModifier->pVisObj->Update( timeAbs );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCursor::RegisterMode( int nMode, const char *pszPictureName, int nSizeX, int nSizeY, int hotX, int hotY, WORD wResourceID )
 {
 	SCursorMode mode;
@@ -298,7 +277,6 @@ void CCursor::RegisterMode( int nMode, const char *pszPictureName, int nSizeX, i
 
 	modes.insert( CCursorsModeMap::value_type(nMode, mode) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CCursor::LoadCursor( int nMode )
 {
 	CCursorsModeMap::iterator pos = modes.find( nMode );
@@ -312,7 +290,6 @@ bool CCursor::LoadCursor( int nMode )
 		pos->second.pVisObj->SetAnimation( 0 );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SCursorMode* CCursor::GetCursor( int nMode )
 {
 	CCursorsModeMap::iterator pos = modes.find( nMode );
@@ -327,10 +304,8 @@ SCursorMode* CCursor::GetCursor( int nMode )
 		if ( LoadCursor( nMode ) == false )
 			return 0;
 	}
-	//
 	return &( pos->second );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CCursor::SetMode( int nMode )
 {
 	if ( SCursorMode *pCursor = GetCursor(nMode) )
@@ -343,7 +318,6 @@ bool CCursor::SetMode( int nMode )
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CCursor::SetModifier( int nMode )
 {
 	if ( nMode == -1 ) 
@@ -365,48 +339,39 @@ bool CCursor::SetModifier( int nMode )
 		return false;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool DrawCursor( SCursorMode *pMode, const CVec2 &vPos, IGFX *pGFX )
 {
 	if ( pMode == 0 ) 
 		return false;
-	//
 	if ( pMode->pVisObj ) 
 	{
-		// animated
 		const SSpriteInfo *pInfo = pMode->pVisObj->GetSpriteInfo();
 		SGFXRect2 rect;
 		CVec2 point = vPos - pMode->vHotSpot;
 		rect.rect.Set( point.x + pInfo->rect.x1, point.y + pInfo->rect.y1, point.x + pInfo->rect.x2, point.y + pInfo->rect.y2 );
 		rect.maps = pInfo->maps;
 		rect.fZ = 0;
-		//
 		pGFX->SetTexture( 0, pMode->pVisObj->GetTexture() );
 		pGFX->SetShadingEffect( 3 );
 		return pGFX->DrawRects( &rect, 1 );
 	}
 	else
 	{
-		// static
 		SGFXRect2 rect;
 		CVec2 point = vPos - pMode->vHotSpot;
 		rect.rect.Set( point.x, point.y, point.x + pMode->rect.Width(), point.y + pMode->rect.Height() );
 		rect.maps.Set( 0, 0, 1, 1 );
 		rect.fZ = 0;
-		//
 		pGFX->SetTexture( 0, pMode->pTexture );
 		pGFX->SetShadingEffect( 3 );
 		return pGFX->DrawRects( &rect, 1 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CCursor::Draw( interface IGFX *pGFX )
 {
 	if ( !bShow )
 		return false;
-	//
 	Update();
-	//
 	if ( eUpdateMode == ICursor::UPDATE_MODE_INPUT ) 
 	{
 		const bool bRetVal = DrawCursor( pMode, vPos, pGFX );
@@ -416,12 +381,10 @@ bool CCursor::Draw( interface IGFX *pGFX )
 	else
 		return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCursor::Visit( ISceneVisitor *pVisitor, int nType )
 {
 	pVisitor->VisitSceneObject( this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SCursorMode::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -432,7 +395,6 @@ int SCursorMode::operator&( IStructureSaver &ss )
 	saver.Add( 5, &wResourceID );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CCursor::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -447,16 +409,12 @@ int CCursor::operator&( IStructureSaver &ss )
 	saver.Add( 9, &timeLast );
 	saver.Add( 10, &nCurrModifier );
 	saver.Add( 11, &bAcquired );
-	// read/write current cursor mode
 	if ( saver.IsReading() )
 	{
 		SetMode( nCurrMode );
 		SetModifier( nCurrModifier );
-		// for HW cursor
 		AcquireLocal();
 		SetPos( vPos.x, vPos.y );
 	}
-	//
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

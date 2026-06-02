@@ -3,13 +3,11 @@
 
 #pragma ONCE
 #include "RectTiles.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CEntrenchmentPart;
 class CCommonStaticObject;
 class CEntrenchment;
 class CAIUnit;
 class CFence;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CLongObjectCreation : public IRefCount
 {
 	DECLARE_SERIALIZE;
@@ -19,52 +17,37 @@ public:
 	CLongObjectCreation() : fWorkAccumulated( 0.0f ) {  }
 	virtual bool PreCreate( const CVec2 &vFrom, const CVec2 &vTo ) = 0;
 	
-	// максимальный размер окопа
 	virtual const int GetMaxIndex() const = 0;
 	
-	// текущее состояние строительства
 	virtual const int GetCurIndex() const = 0;
 
-	// точка, где должы стоять строители
 	virtual const CVec2 GetNextPoint( const int nPlace, const int nMaxPlace ) const = 0;
 
-	// ставит очередной сегмент и переносит терминатор
-	// для первого сегмента ставит начальный терминатор
 	virtual void BuildNext() { fWorkAccumulated = 0.0f; }
 
-	// находит юнитов, которые мещают дальнейшему строительству
 	virtual void GetUnitsPreventing( std::list< CPtr<CAIUnit> > * units ) = 0;
 	
-	// есть ли хоть 1 юнит, который мешает
 	virtual bool IsAnyUnitPrevent() const = 0;
 
-	// может лт следуюший сегмент быть построен ( без учета юнитов )
 	virtual bool CanBuildNext() const = 0;
 
-	// чтобы каждый раз не проверять
 	virtual void LockCannotBuild() = 0;
 
-	// залочивает под сегментом, чтобы никто не встал сверху
 	virtual void LockNext() = 0;
 
-	// линия, с которой нужно убрать юнитов
 	virtual CLine2 GetCurLine() = 0;
 	
 	virtual float GetPrice() = 0;
 
 	virtual float GetBuildSpeed() = 0;
 
-	// нужно ли читить, когда ходим от сегмента к сегменту
 	virtual bool IsCheatPath() const { return false; }
 	
-	//when work finished, engineers must say that furter building impossible
 	virtual bool CannotFinish() const { return false; }
 
-	// work accumulation
 	virtual void AddWork( const float fAdd ) { fWorkAccumulated += fAdd; }
 	virtual float GetWorkDone() const { return fWorkAccumulated; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CEntrenchmentCreation : public CLongObjectCreation
 {
 	DECLARE_SERIALIZE;
@@ -93,13 +76,7 @@ private:
 
 	CTilesSet tilesUnder;									// ТАйлы под следующим сегментом
 
-	//consts
-	//CGDBPtr<SGDBObjectDesc> pDesc;
-  //CGDBPtr<SEntrenchmentRPGStats> pRPG;
-	//int dbID;
-	//int nTermInd;
 	
-	//
 	bool CanDig( const SEntrenchmentRPGStats *pRPG, int dbID, const CVec2 &pt, WORD angle, int nFrameIndex );
 	CEntrenchmentPart * AddElement( const SEntrenchmentRPGStats *pRPG, int dbID, const CVec2 &pt, WORD angle, int nFrameIndex );
 	void CreateNewEndTerminator();
@@ -128,12 +105,10 @@ public:
 	float GetBuildSpeed() { return SConsts::ENGINEER_ENTRENCH_LENGHT_PER_QUANT ;}
 	virtual bool CannotFinish() const { return bSayAck; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFenceCreation : public CLongObjectCreation
 {
 	DECLARE_SERIALIZE;
 	OBJECT_COMPLETE_METHODS( CFenceCreation );
-	//скопировал у Костика
 	struct APointHelper
 	{
 	 std::vector<CVec2> m_points;
@@ -173,15 +148,12 @@ public:
 	void LockCannotBuild(){ bCannot = true; }
 	float GetBuildSpeed() { return SConsts::ENGINEER_FENCE_LENGHT_PER_QUANT; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFullBridge;
 class CBridgeSpan;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CBridgeCreation : public CLongObjectCreation
 {
 	DECLARE_SERIALIZE;
 	OBJECT_COMPLETE_METHODS( CBridgeCreation );
-	// для сортировки
 	struct SBridgeSpanSort
 	{
 		bool operator()( const CObj<CBridgeSpan> &s1, const CObj<CBridgeSpan> &s2 );
@@ -202,11 +174,9 @@ public:
 
 	static CVec2 SortBridgeSpans( std::vector< CObj<CBridgeSpan> > *spans, class CCommonUnit *pUnit );
 
-	//specific
 	const CVec2 & GetStartPoint() const;	// куда посылать грузовик
 	bool IsFirstSegmentBuilt() const;
 
-	// common
 	CLine2 GetCurLine();
 	const int GetMaxIndex() const;
 	const int GetCurIndex() const;
@@ -215,7 +185,6 @@ public:
 	float GetPrice();
 	float GetBuildSpeed();
 
-	//
 	bool IsAnyUnitPrevent() const { return false; }
 	bool CanBuildNext() const { return true; }
 	void LockNext() { }
@@ -224,5 +193,4 @@ public:
 	void GetUnitsPreventing( std::list< CPtr<CAIUnit> > * units ){}
 	virtual bool IsCheatPath() const { return true; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // _ENTRENCHMENT_CREATION_INTERNAL_

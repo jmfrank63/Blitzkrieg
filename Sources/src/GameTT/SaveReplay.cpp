@@ -7,24 +7,20 @@
 #include "..\Main\CommandsHistoryInterface.h"
 #include "..\UI\UIMessages.h"
 #include "..\Main\ScenarioTracker.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EControls
 {
 	E_REPLAY_EDIT_BOX											= 2000,
 	E_OK_BUTTON														= 10002,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_ok"				,	IMC_OK				},
 	{ "inter_cancel"		, IMC_CANCEL		},
 	{ 0									,	0							}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceSaveReplay::~CInterfaceSaveReplay()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceSaveReplay::Init()
 {
 	CInterfaceInterMission::Init();
@@ -32,7 +28,6 @@ bool CInterfaceSaveReplay::Init()
 	
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceSaveReplay::StartInterface()
 {
 	CInterfaceInterMission::StartInterface();
@@ -47,7 +42,6 @@ void CInterfaceSaveReplay::StartInterface()
 	pScene->AddUIScreen( pUIScreen );
 	CheckEnableOk();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceSaveReplay::CheckEnableOk() const
 {
 	IUIElement * pEdit = pUIScreen->GetChildByID( E_REPLAY_EDIT_BOX );
@@ -55,7 +49,6 @@ void CInterfaceSaveReplay::CheckEnableOk() const
 	IUIElement *pButtonOK = pUIScreen->GetChildByID( E_OK_BUTTON );
 	pButtonOK->EnableWindow( !szName.empty() );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceSaveReplay::OnGetFocus( bool bFocus )
 {
 	CInterfaceInterMission::OnGetFocus( bFocus );
@@ -65,16 +58,13 @@ void CInterfaceSaveReplay::OnGetFocus( bool bFocus )
 		Save();
 	}*/
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceSaveReplay::OnSave()
 {
-	//запишем replay
 	GetSingleton<ICommandsHistory>()->Save( szSaveReplayFile.c_str() );
 
 	SetGlobalVar( "ReplaySaved", 1 );
 	CloseInterface();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceSaveReplay::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceInterMission::ProcessMessage( msg ) )
@@ -96,7 +86,6 @@ bool CInterfaceSaveReplay::ProcessMessage( const SGameMessage &msg )
 		case IMC_OK:
 			{
 				IMainLoop *pML = GetSingleton<IMainLoop>();
-				//получим имя для сохранения replay file
 				szSaveReplayFile = pML->GetBaseDir();
 				const std::string szModname = GetSingleton<IUserProfile>()->GetMOD();
 				if ( !szModname.empty() )
@@ -123,7 +112,5 @@ bool CInterfaceSaveReplay::ProcessMessage( const SGameMessage &msg )
 			}
 	}
 	
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

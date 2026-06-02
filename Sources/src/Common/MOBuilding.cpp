@@ -9,13 +9,11 @@
 #include "..\Input\Input.h"
 #include "PlayEffect.h"
 #include "..\Misc\Win32Random.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMOBuilding::~CMOBuilding()
 {
 	for ( CPassangersList::iterator it = passangers.begin(); it != passangers.end(); ++it )
 		it->pUnit->SetContainer( 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMOBuilding::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDescLocal, int _nSeason, int nFrameIndex, 
 												  float fNewHP, interface IVisObjBuilder *pVOB, IObjectsDB *pGDB )
 {
@@ -25,29 +23,21 @@ bool CMOBuilding::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDescLoc
 	NI_ASSERT_TF( pRPG != 0, NStr::Format("Can't find RPG stats for building \"%s\"", pDesc->szKey.c_str()), return 0 );
 	if ( pRPG == 0 )
 		return false;
-	// create vis data
 	UpdateModelWithHP( fNewHP / pRPG->fMaxHP, pVOB, true );
-	//
 	if ( IsDOT() ) 
 	{
 		checked_cast<IObjVisObj*>(pVisObj.GetPtr())->SetPriority( 91 );
 	}
-	//
 	NI_ASSERT_T( pVisObj != 0, NStr::Format("Can't create building \"%s\" from path \"%s\"", pDesc->szKey.c_str(), pDesc->szPath.c_str()) );
-	// set frame index
-	// main sprite
 	ISpriteAnimation *pAnim = static_cast<ISpriteAnimation*>( static_cast<IObjVisObj*>( pVisObj.GetPtr() )->GetAnimation() );
 	pAnim->SetFrameIndex( nFrameIndex );
-	// shadow
 	if ( pShadow )
 	{
 		pAnim = static_cast<ISpriteAnimation*>( static_cast<IObjVisObj*>( pShadow.GetPtr() )->GetAnimation() );
 		pAnim->SetFrameIndex( nFrameIndex );
 	}
-	//
 	pAIObj = pAIObjLocal;
 	fHP = fNewHP / pRPG->fMaxHP;
-	// add HP bar
 	ISceneIconBar *pBar;
 	if ( GetGlobalVar("MultiplayerGame", 0) == 1 )
 		pBar = static_cast<ISceneIconBar*>( pVOB->BuildSceneObject( "icons\\mechhpmp", SCENE_OBJECT_TYPE_ICON, ICON_HP_BAR ) );
@@ -60,10 +50,8 @@ bool CMOBuilding::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDescLoc
 	pBar->Enable( false );
 	fTraceProbabilityCoeff = GetGlobalVar( "Scene.GunTrace.ProbabilityCoeff", 1.0f );
 	fTraceSpeedCoeff = GetGlobalVar( "Scene.GunTrace.SpeedCoeff", 1.0f );
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOBuilding::Visit( IMapObjVisitor *pVisitor )
 {
 	pVisitor->VisitSprite( pVisObj, IsDOT() ? SGVOGT_FORTIFICATION : pDesc->eGameType, SGVOT_SPRITE );
@@ -72,7 +60,6 @@ void CMOBuilding::Visit( IMapObjVisitor *pVisitor )
 	if ( pGarbage ) 
 		pVisitor->VisitSprite( pGarbage, SGVOGT_TERRAOBJ, SGVOT_SPRITE );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMOBuilding::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -83,15 +70,6 @@ int CMOBuilding::operator&( IStructureSaver &ss )
 	saver.Add( 5, &nSeason );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** actions managing
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMOBuilding::CanEnterOrBoard() const
 {
 	int nCounter = 0;
@@ -99,8 +77,6 @@ bool CMOBuilding::CanEnterOrBoard() const
 		nCounter += int( it->pUnit->IsFriend() );
 	return GetNumTotalSlots() > nCounter;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// get actions, which this object can perform or actions, thi object can be acted with
 void CMOBuilding::GetActions( CUserActions *pActions, EActionsType eActions ) const
 {
 	CUserActions actions;
@@ -117,33 +93,20 @@ void CMOBuilding::GetActions( CUserActions *pActions, EActionsType eActions ) co
 	}
 	else if ( eActions == IMapObj::ACTIONS_WITH ) 
 	{
-		// we can fill RU from (alive) storages
 		if ( ( (GetRPGStats()->eType == SBuildingRPGStats::TYPE_MAIN_RU_STORAGE) || 
 			     (GetRPGStats()->eType == SBuildingRPGStats::TYPE_TEMP_RU_STORAGE) ) &&
 				 (fHP > 0) )
 			actions.SetAction( USER_ACTION_FILL_RU );
-		// we can board building with free slots
 		if ( (fHP > 0) && CanEnterOrBoard() )
 			actions.SetAction( USER_ACTION_BOARD );
-		// we can repair buildings with HP < 1
 		if ( fHP < 1 ) 
 			actions.SetAction( USER_ACTION_ENGINEER_REPAIR_BUILDING );
-		// we can attack building with HP > 0
 		if ( fHP > 0 ) 
 			actions.SetAction( USER_ACTION_ATTACK );
 	}
 	actions.SetAction( USER_ACTION_UNKNOWN );
 	*pActions |= actions;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** passanger functions
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMOBuilding::Load( IMOUnit *pMO, bool bEnter )
 {
 	if ( bEnter )
@@ -167,7 +130,6 @@ bool CMOBuilding::Load( IMOUnit *pMO, bool bEnter )
 	UpdatePassangers();
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOBuilding::UpdatePassangers()
 {
 	const bool bPassangersVisible = IsPassangersVisible( passangers );
@@ -175,7 +137,6 @@ void CMOBuilding::UpdatePassangers()
 	if ( ISceneIcon *pIcon = GetVisObj()->GetIcon(ICON_HP_BAR) ) 
 		pIcon->Enable( IsAlive() && (bPassangersVisible || IsEnemy() || (pVisObj->GetSelectionState() == SGVOSS_SELECTED)) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMOBuilding::GetPassangers( IMOUnit **pBuffer, const bool bCanSelectOnly ) const
 {
 	if ( bCanSelectOnly ) 
@@ -209,15 +170,6 @@ int CMOBuilding::GetPassangers( IMOUnit **pBuffer, const bool bCanSelectOnly ) c
 		return passangers.size();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** other functions
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOBuilding::SetPlacement( const CVec3 &vPos, const WORD &wDir )
 {
 	pVisObj->SetPlacement( vPos, wDir );
@@ -231,23 +183,19 @@ void CMOBuilding::GetPlacement( CVec3 *pvPos, WORD *pwDir )
 	*pvPos = pVisObj->GetPosition();
 	*pwDir = pVisObj->GetDirection();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOBuilding::GetStatus( struct SMissionStatusObject *pStatus ) const
 {
 	pStatus->nScenarioIndex = -1;
 	pStatus->dwIconsStatus = 0;
 	pStatus->dwPlayer = -1;
-	// primary stats
 	pStatus->params[0] = PackParams( MINT(fHP * pRPG->fMaxHP), MINT(pRPG->fMaxHP) );
 	pStatus->params[1] = 0;
 	pStatus->params[2] = 0;
 	pStatus->params[3] = 0;
-	// armors
 	pStatus->armors[0] = GetRPGStats()->GetArmor( RPG_FRONT );
 	pStatus->armors[1] = ( GetRPGStats()->GetArmor( RPG_LEFT ) + GetRPGStats()->GetArmor( RPG_RIGHT ) ) / 2;
 	pStatus->armors[2] = GetRPGStats()->GetArmor( RPG_BACK );
 	pStatus->armors[3] = GetRPGStats()->GetArmor( RPG_TOP );
-	// weapon stats
 	if ( GetRPGStats()->pPrimaryGun && !GetRPGStats()->pPrimaryGun->pWeapon->shells.empty() ) 
 	{
 		const SWeaponRPGStats::SShell &shell = GetRPGStats()->pPrimaryGun->pWeapon->shells[0];
@@ -257,7 +205,6 @@ void CMOBuilding::GetStatus( struct SMissionStatusObject *pStatus ) const
 	}
 	else
 		Zero( pStatus->weaponstats );
-	// name (unicode)
 	if ( IText *pName = GetLocalName() ) 
 		memcpy( pStatus->pszName, pName->GetString(), (pName->GetLength() + 1) * 2 );
 	else
@@ -267,29 +214,24 @@ void CMOBuilding::GetStatus( struct SMissionStatusObject *pStatus ) const
 		memcpy( pStatus->pszName, szName.c_str(), (szName.size() + 1) * sizeof(szName[0]) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOBuilding::AIUpdatePlacement( const SAINotifyPlacement &placement, const NTimer::STime &currTime, IScene *pScene )
 {
 	CVec3 vPos;
 	AI2Vis( &vPos, placement.center.x, placement.center.y, placement.z );
-	// move main object
 	pVisObj->SetDirection( placement.dir );
 	pScene->MoveObject( pVisObj, vPos );
 	pVisObj->Update( currTime, true );
-	// move shadow
 	if ( pShadow )
 	{
 		pScene->MoveObject( pShadow, vPos );
 		pShadow->Update( currTime, true );
 	}
-	// move garbage
 	if ( pGarbage ) 
 	{
 		pScene->MoveObject( pGarbage, vPos );
 		pGarbage->Update( currTime, true );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline int GetBuildingDamageState( float fHP )
 {
 	if ( fHP > 0.5f )
@@ -299,61 +241,49 @@ inline int GetBuildingDamageState( float fHP )
 	else
 		return 2;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IVisObj* UpdateVisObj( IVisObj *pVisObj, const std::string &szBaseName, const char *pszSeasonApp, 
 											 const char *pszShadowApp, IVisObjBuilder *pVOB )
 {
 	if ( pVisObj == 0 ) 
 	{
-		// create new vis obj
 		pVisObj = pVOB->BuildObject( (szBaseName + pszSeasonApp + pszShadowApp).c_str(), 0, SGVOT_SPRITE );
 		if ( pVisObj == 0 ) 
 			pVisObj = pVOB->BuildObject( (szBaseName + pszShadowApp).c_str(), 0, SGVOT_SPRITE );
 	}
 	else
 	{
-		// change existed object
 		if ( pVOB->ChangeObject(pVisObj, (szBaseName + pszSeasonApp + pszShadowApp).c_str(), 0, SGVOT_SPRITE) == false )
 		{
 			if ( pVOB->ChangeObject(pVisObj, (szBaseName + pszShadowApp).c_str(), 0, SGVOT_SPRITE) == false )
 				pVisObj = 0;
 		}
 	}
-	//
 	return pVisObj;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMOBuilding::UpdateModelWithHP( const float fNewHP, IVisObjBuilder *pVOB, const bool bForced )
 {
 	const NTimer::STime currTime = GetSingleton<IGameTimer>()->GetGameTime();
-	//
 	const int nOldState = GetBuildingDamageState( fHP );
 	const int nNewState = GetBuildingDamageState( fNewHP );
 	if ( (nNewState != nOldState) || bForced )
 	{
 		const std::string szBaseModelName = NStr::Format( "%s\\%d", pDesc->szPath.c_str(), nNewState + 1 );
-		//
 		CPtr<IVisObj> pTempVO = UpdateVisObj( pVisObj, szBaseModelName, GetSeasonApp(nSeason), "", pVOB );
 		if ( pTempVO == 0 ) 
 			GetSingleton<IScene>()->RemoveObject( pVisObj );
 		pVisObj = pTempVO;
-		//
 		pTempVO = UpdateVisObj( pShadow, szBaseModelName, GetSeasonApp(nSeason), "s", pVOB );
 		if ( pTempVO == 0 ) 
 			GetSingleton<IScene>()->RemoveObject( pShadow );
 		pShadow = pTempVO;
-		// garbage
 		pTempVO = UpdateVisObj( pGarbage, szBaseModelName, GetSeasonApp(nSeason), "g", pVOB );
 		if ( pTempVO == 0 ) 
 			GetSingleton<IScene>()->RemoveObject( pGarbage );
 		pGarbage = pTempVO;
-		//
 		return true;
 	}
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IVisObj* AddDirEffect( const std::string &szEffect, const CVec3 &vPos, const float fHDir, const float fVDir, 
 											const NTimer::STime &timeEffect, const NTimer::STime &timePassed, IVisObjBuilder *pVOB, IScene *pScene )
 {
@@ -366,13 +296,11 @@ IVisObj* AddDirEffect( const std::string &szEffect, const CVec3 &vPos, const flo
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOBuilding::AddEffectsAtDamagePoints( const int nDamageState, const NTimer::STime &timeEffect, 
 																					  const NTimer::STime &timePassed, IVisObjBuilder *pVOB, IScene *pScene )
 {
 	const SBuildingRPGStats *pRPGStats = GetRPGStats();
 	const CVec3 vPos = pVisObj->GetPosition();
-	// smoke effects
 	if ( !pRPGStats->szSmokeEffect.empty() && !pRPGStats->smokePoints.empty() ) 
 	{
 		for ( std::vector<SBuildingRPGStats::SFirePoint>::const_iterator it = pRPGStats->smokePoints.begin(); it != pRPGStats->smokePoints.end(); ++it )
@@ -381,7 +309,6 @@ void CMOBuilding::AddEffectsAtDamagePoints( const int nDamageState, const NTimer
 				            it->fVerticalAngle, timeEffect, timePassed, pVOB, pScene );
 		}
 	}
-	// fires
 	if ( (nDamageState == 1) && !pRPGStats->firePoints.empty() ) 
 	{
 		for ( std::vector<SBuildingRPGStats::SFirePoint>::const_iterator it = pRPGStats->firePoints.begin(); it != pRPGStats->firePoints.end(); ++it )
@@ -394,7 +321,6 @@ void CMOBuilding::AddEffectsAtDamagePoints( const int nDamageState, const NTimer
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMOBuilding::AIUpdateRPGStats( const SAINotifyRPGStats &stats, IVisObjBuilder *pVOB, IScene *pScene )
 {
 	const float fNewHP = stats.fHitPoints / pRPG->fMaxHP;
@@ -411,7 +337,6 @@ bool CMOBuilding::AIUpdateRPGStats( const SAINotifyRPGStats &stats, IVisObjBuild
 			pScene->AddObject( pGarbage, SGVOGT_TERRAOBJ );
 		}
 	}
-	// change HP bar
 	if ( fHP != fNewHP ) 
 	{
 		ISceneIconBar *pBar = static_cast<ISceneIconBar*>( static_cast_ptr<IObjVisObj*>(pVisObj)->GetIcon( ICON_HP_BAR ) );
@@ -423,12 +348,9 @@ bool CMOBuilding::AIUpdateRPGStats( const SAINotifyRPGStats &stats, IVisObjBuild
 				pBar->Enable( false );
 		}
 	}
-	//
 	fHP = fNewHP;
-	//
 	return fNewHP > 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOBuilding::SetIcon( const int nType, IVisObjBuilder *pVOB )
 {
 	const int nTypeID = nType & 0xffff;
@@ -443,7 +365,6 @@ void CMOBuilding::RemoveIcon( const int nType )
 {
 	static_cast_ptr<IObjVisObj*>(pVisObj)->RemoveIcon( nType & 0xffff );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMOBuilding::AIUpdateDiplomacy( const SAINotifyDiplomacy &_diplomacy )
 {
 	SetDiplomacy( _diplomacy.eDiplomacy );
@@ -465,7 +386,6 @@ bool CMOBuilding::AIUpdateDiplomacy( const SAINotifyDiplomacy &_diplomacy )
 	UpdatePassangers();
 	return IsFriend();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMOBuilding::AIUpdateActions( const struct SAINotifyAction &action, const NTimer::STime &currTime, IVisObjBuilder *pVOB, IScene *pScene, interface IClientAckManager *pAckManager )
 {
 	switch ( action.typeID ) 
@@ -482,15 +402,12 @@ int CMOBuilding::AIUpdateActions( const struct SAINotifyAction &action, const NT
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOBuilding::AIUpdateHit( const struct SAINotifyHitInfo &hit, const NTimer::STime &currTime, IScene *pScene, IVisObjBuilder *pVOB )
 {
 	if ( (hit.wShell >= hit.pWeapon->shells.size()) || GetRPGStats()->dirExplosions.empty() || GetRPGStats()->szDirExplosionEffect.empty() )
 		return;
-	// check for 'light' weapon. which can't produce effects on the building
 	if ( hit.pWeapon->shells[hit.wShell].fArea == 0 )
 		return;
-	//
 	const float fAngle = float( hit.wDir ) / 65535.0f * FP_2PI;
 	float fMinDiff = 1e5f;
 	const SBuildingRPGStats::SDirectionExplosion *pDir = 0;
@@ -503,21 +420,18 @@ void CMOBuilding::AIUpdateHit( const struct SAINotifyHitInfo &hit, const NTimer:
 			pDir = &( *it );
 		}
 	}
-	//
 	if ( pDir ) 
 	{
 		AddDirEffect( GetRPGStats()->szDirExplosionEffect, pVisObj->GetPosition() + pDir->vWorldPosition, 
 		              pDir->fDirection, pDir->fVerticalAngle, currTime, 0, pVOB, pScene );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOBuilding::Select( ISelector *pSelector, bool bSelect, bool bSelectSuper )
 {
 	pVisObj->Select( bSelect ? SGVOSS_SELECTED : SGVOSS_UNSELECTED );
 	if ( ISceneIcon *pIcon = GetVisObj()->GetIcon(ICON_HP_BAR) ) 
 		pIcon->Enable( bSelect || IsPassangersVisible(passangers) || IsEnemy() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOBuilding::AIUpdateShot( const struct SAINotifyBaseShot &_shot, const NTimer::STime &currTime, IVisObjBuilder *pVOB, IScene *pScene )
 {
 	const SAINotifyInfantryShot &shot = *( static_cast<const SAINotifyInfantryShot*>(&_shot) );
@@ -527,10 +441,8 @@ void CMOBuilding::AIUpdateShot( const struct SAINotifyBaseShot &_shot, const NTi
 		const NTimer::STime timePassed = currTime - timeEffect;
 		const SWeaponRPGStats::SShell &shell = shot.pWeapon->shells[0];
 		const CVec3 &vPos = pVisObj->GetPosition();
-		// sound
 		if ( !shell.szFireSound.empty() ) 
 			pScene->AddSound( shell.szFireSound.c_str(), vPos, SFX_MIX_IF_TIME_EQUALS, SAM_ADD_N_FORGET, ESCT_COMBAT, 1, 100, timePassed  );
-		// effect
 		const SBuildingRPGStats *pRPGStats = GetRPGStats();
 		if ( (shot.nSlot >= 0) && (shot.nSlot < pRPGStats->slots.size()) ) 
 		{
@@ -562,7 +474,6 @@ void CMOBuilding::AIUpdateShot( const struct SAINotifyBaseShot &_shot, const NTi
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOBuilding::UpdateGunTraces( const CVec3 &vStart, const CVec3 &vEnd, float fSpeed, NTimer::STime nCurrTime, IScene *pScene )
 {
 	SGunTrace trace;
@@ -576,4 +487,3 @@ void CMOBuilding::UpdateGunTraces( const CVec3 &vStart, const CVec3 &vEnd, float
 	trace.deathTime = int( fabs( trace.vDir ) / fSpeed ) + trace.birthTime;
 	pScene->AddGunTrace( trace );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

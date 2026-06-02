@@ -11,7 +11,6 @@
 #include "PathUnit.h"
 #include "Diplomacy.h"
 #include "StaticObject.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CGraveyard theGraveyard;
 
 extern CUpdater updater;
@@ -22,22 +21,15 @@ extern CGlobalWarFog theWarFog;
 extern CUnits units;
 extern CSuspendedUpdates theSuspendedUpdates;
 extern CDiplomacy theDipl;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													CGraveyard															*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGraveyard::Segment()
 {
 	std::list<SKilledUnit>::iterator iter = killed.begin();
 	while ( iter != killed.end() )
 	{
 		SKilledUnit unit = *iter;
-		// играется фаталити, ещё не локали конечную позицию, перевалили через action point
 		if ( iter->bFatality && iter->actionTime != 0 && curTime >= iter->actionTime )
 		{
 			iter->pUnit->UnlockTiles();
-			//theStatObjs.UpdateAllPartiesStorages( false, true );
 			theStaticMap.UpdateMaxesByTiles( iter->lockedTiles, AI_CLASS_ANY, true );
 			iter->actionTime = 0;
 		}
@@ -66,17 +58,13 @@ void CGraveyard::Segment()
 			{
 				iter->endSceneTime = 0;
 
-				// фаталити играется
 				if ( iter->bFatality )
 					theStaticMap.UpdateMaxesByTiles( iter->lockedTiles, AI_CLASS_ANY, false );
 				else
 				{
-				// фаталити не играется, разлокать тайлы под юнитом
 					iter->pUnit->UnlockTiles();
-					//theStatObjs.UpdateAllPartiesStorages( false, true );
 				}
 
-				// солдаты исчезать не должны					
 				if ( !iter->pUnit->GetStats()->IsInfantry() )
 				{
 					const bool bPutMud = !theStaticMap.IsBridge( iter->pUnit->GetTile() );
@@ -107,7 +95,6 @@ void CGraveyard::Segment()
 
 	CheckSoonBeDead();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGraveyard::GetDeadUnits( SAINotifyDeadAtAll **pDeadUnitsBuffer, int *pnLen )
 {
 	NTimer::STime curTime = GetAIGetSegmTime( GetSingleton<IGameTimer>()->GetGameSegmentTimer() );
@@ -140,7 +127,6 @@ void CGraveyard::GetDeadUnits( SAINotifyDeadAtAll **pDeadUnitsBuffer, int *pnLen
 		++(*pnLen);
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGraveyard::AddKilledUnit( CAIUnit *pUnit, const NTimer::STime &timeOfVisDeath, const int nFatality )
 {
 	pUnit->UnfixUnlocking();
@@ -149,7 +135,6 @@ void CGraveyard::AddKilledUnit( CAIUnit *pUnit, const NTimer::STime &timeOfVisDe
 		
 	SKilledUnit killInfo;
 	const SUnitBaseRPGStats *pStats = pUnit->GetStats();
-	// играем fatality
 	if ( nFatality > -1 )
 	{
 		killInfo.actionTime = timeOfVisDeath + pStats->animdescs[ANIMATION_DEATH_FATALITY][nFatality].nAction;
@@ -193,13 +178,11 @@ void CGraveyard::AddKilledUnit( CAIUnit *pUnit, const NTimer::STime &timeOfVisDe
 	killed.push_back( killInfo );
 	units.DeleteUnitFromMap( pUnit );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGraveyard::PushToKilled( const SKilledUnit &killedUnit, CAIUnit *pUnit )
 {
 	killed.push_back( killedUnit );
 	killed.back().pUnit = pUnit;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGraveyard::DelKilledUnitsFromRect( const SRect &rect, CAIUnit *pShotUnit )
 {
 	CTilesSet rectTiles;
@@ -236,10 +219,8 @@ void CGraveyard::DelKilledUnitsFromRect( const SRect &rect, CAIUnit *pShotUnit )
 
 	theStaticMap.RestoreMode();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGraveyard::CheckSoonBeDead()
 {
-	// The quection is: to be or not to be?...
 	std::list<CAIUnit*> deadObjs;
 	for ( UpdateObjSet::iterator iter = soonBeDead.begin(); iter != soonBeDead.end(); ++iter )
 	{
@@ -261,7 +242,6 @@ void CGraveyard::CheckSoonBeDead()
 	for ( std::list<CAIUnit*>::iterator iter = deadObjs.begin(); iter != deadObjs.end(); ++iter )
 		soonBeDead.erase( *iter );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGraveyard::Clear()
 {
 	killed.clear();
@@ -269,17 +249,14 @@ void CGraveyard::Clear()
 	bridgeSoldiersSet.clear();
 	bridgeDeadSoldiers.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGraveyard::AddToSoonBeDead( CAIUnit *pUnit, const float fDamage )
 {
 	soonBeDead[pUnit] = fDamage;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int GetTileNum( const SVector &tile )
 {
 	return (tile.x << 12) | tile.y;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGraveyard::AddBridgeKilledSoldier( const SVector &tile, CAIUnit *pSoldier )
 {
 	CDeadUnit *pDeadUnit = new CDeadUnit( pSoldier, 0, ACTION_NOTIFY_NONE, pSoldier->GetDBID(), false );
@@ -287,7 +264,6 @@ void CGraveyard::AddBridgeKilledSoldier( const SVector &tile, CAIUnit *pSoldier 
 
 	bridgeSoldiersSet.insert( pSoldier );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGraveyard::FreeBridgeTile( const SVector &tile )
 {
 	const int nTileNum = GetTileNum( tile );
@@ -300,7 +276,6 @@ void CGraveyard::FreeBridgeTile( const SVector &tile )
 	
 	bridgeDeadSoldiers.erase( nTileNum );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGraveyard::UpdateFog4RemovedObject( class CExistingObject *pObj )
 {
 	for ( std::list<SKilledUnit>::iterator iter = killed.begin(); iter != killed.end(); ++iter )
@@ -313,7 +288,6 @@ void CGraveyard::UpdateFog4RemovedObject( class CExistingObject *pObj )
 	}
 		
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGraveyard::UpdateFog4AddedObject( class CExistingObject *pObj )
 {
 	for ( std::list<SKilledUnit>::iterator iter = killed.begin(); iter != killed.end(); ++iter )
@@ -325,35 +299,26 @@ void CGraveyard::UpdateFog4AddedObject( class CExistingObject *pObj )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												CDeadUnit																	*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CDeadUnit::CDeadUnit( CCommonUnit *_pDieObj, const NTimer::STime _dieTime, const EActionNotify _dieAction, bool _bPutMud )
 : pDieObj( _pDieObj ), dieTime( _dieTime ), dieAction( _dieAction ), nFatality( -1 ), tileCenter( _pDieObj->GetTile() ), bPutMud( _bPutMud )
 {
 	SetUniqueId();	
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CDeadUnit::CDeadUnit( CCommonUnit *_pDieObj, const NTimer::STime _dieTime, const EActionNotify _dieAction, const int _nFatality, bool _bPutMud )
 : pDieObj( _pDieObj ), dieTime( _dieTime ), dieAction( _dieAction ), nFatality( _nFatality ), tileCenter( _pDieObj->GetTile() ), bPutMud( _bPutMud )
 {
 	SetUniqueId();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CDeadUnit::IsVisible( const BYTE cParty ) const
 {
 	return theWarFog.IsTileVisible( tileCenter, cParty );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDeadUnit::GetTilesForVisibility( CTilesSet *pTiles ) const
 {
 	pTiles->clear();
 	if ( theStaticMap.IsTileInside( tileCenter ) )
 		pTiles->push_back( tileCenter );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CDeadUnit::ShouldSuspendAction( const EActionNotify &eAction ) const
 {
 	return
@@ -362,13 +327,11 @@ bool CDeadUnit::ShouldSuspendAction( const EActionNotify &eAction ) const
 			eAction == ACTION_NOTIFY_GET_DEAD_UNITS_UPDATE ||
 			eAction == ACTION_NOTIFY_NEW_ST_OBJ );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDeadUnit::GetDyingInfo( SAINotifyAction *pDyingInfo )
 {
 	pDyingInfo->pObj = pDieObj;
 	pDyingInfo->time = dieTime;
 	pDyingInfo->typeID = dieAction;
-	// для disappeared units
 	if ( dieAction != ACTION_NOTIFY_NONE )
 	{
 		if ( nFatality >= 0 )
@@ -387,9 +350,7 @@ void CDeadUnit::GetDyingInfo( SAINotifyAction *pDyingInfo )
 	if ( bPutMud )
 		pDyingInfo->nParam |= 0x80000000;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUpdatableObj* CDeadUnit::GetDieObject() const 
 { 
 	return pDieObj; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

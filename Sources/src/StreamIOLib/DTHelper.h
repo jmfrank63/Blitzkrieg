@@ -2,7 +2,6 @@
 #define __STREAMIOLIB_DTHELPER_H__
 #include "StreamIO.h"
 #include "StructureSaver.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #ifndef ZDATA_
 #define ZDATA_(a)
 #endif // ZDATA_
@@ -26,14 +25,11 @@
 #ifndef ZSKIP
 #define ZSKIP
 #endif // ZSKIP
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class T>
 inline char operator&( T &c, IDataTree &ss ) { return 0; }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTreeAccessor
 {
 	CPtr<IDataTree> pSS;
-	// test data path for different objects
 	char __cdecl TestDataPath( ... ) { return 0; }
 	template <class T1, class T2>
 		int __cdecl TestDataPath( std::pair<T1, T2> * ) { return 0; }
@@ -61,7 +57,6 @@ class CTreeAccessor
 		int __cdecl TestDataPath( std::set<T1, T2, T3> * ) { return 0; }
 	template <class T1, class T2, class T3, class T4, class T5>
 		int __cdecl TestDataPath( std::priority_queue<T1, T2, T3> * ) { return 0; }
-	// add integer built-in types
 	template <class TYPE>
 		void AddIntData( DTChunkID idChunk, TYPE *pData ) 
 		{ 
@@ -73,7 +68,6 @@ class CTreeAccessor
 			if ( IsReading() )
 				*pData = (TYPE)nData;
 		}
-	// add fp built-in types
 	template <class TYPE>
 		void AddFPData( DTChunkID idChunk, TYPE *pData ) 
 		{ 
@@ -85,7 +79,6 @@ class CTreeAccessor
 			if ( IsReading() )
 				*pData = (TYPE)fData;
 		}
-	// call serialize from object or raw data
 	template <class T>
 		void __cdecl CallObjectSerialize( const DTChunkID idChunk, T *pData, ... )
 		{
@@ -102,7 +95,6 @@ class CTreeAccessor
 			NI_ASSERT_T( sizeof(T) <= 4, NStr::Format("Complex object of type \"%s\" have no serialization operator", typeid(*pData).name()) );
 			AddRawData( idChunk, pData, sizeof(T) );
 		}
-	// simple built-in data specialization
 	template <> 
 		void __cdecl CallObjectSerialize<bool>( const DTChunkID idChunk, bool *pData, SGenericNumber<1> *pp )
 		{
@@ -163,7 +155,6 @@ class CTreeAccessor
 		{
 			AddFPData( idChunk, pData );
 		}
-	// 'add internal' functions series for data storing
 	template <class T>
 		void __cdecl AddInternal( const DTChunkID idChunk, T *pData, ... )
 		{
@@ -178,14 +169,12 @@ class CTreeAccessor
 			int nVal = pSS->StartChunk( idChunk );
 			if ( nVal == 0 )
 				return;
-			//
 			if ( IsReading() )
 			{
 				int nSize = pSS->GetChunkSize();
 				pData->resize( nSize );
 			}
 			pSS->StringData( const_cast<T2*>( pData->c_str() ) );
-			//
 			if ( nVal != -1 )
 				pSS->FinishChunk();
 		}
@@ -260,18 +249,15 @@ class CTreeAccessor
 		void __cdecl AddInternal( const DTChunkID idChunk, T *p, std::priority_queue<T1, T2, T3> *pData ) 
 		{
 			std::vector<T1> elements;
-			//
 			std::priority_queue<T1, T2, T3> &data = *pData;
 			if ( IsReading() )
 			{
-				// clear container
 				while ( !data.empty() )
 					data.pop();
 			}
 			else
 			{
 				int nSize = data.size();
-				// queue => vector translation (with queue clearing)
 				elements.reserve( nSize );
 				while ( !data.empty() )
 				{
@@ -279,9 +265,7 @@ class CTreeAccessor
 					data.pop();
 				}
 			}
-			// serialize
 			Add( idChunk, &elements );
-			// vector => queue translation
 			for ( std::vector<T1>::iterator it = elements.begin(); it != elements.end(); ++it )
 				data.push( *it );
 		}
@@ -289,16 +273,13 @@ class CTreeAccessor
 		void __cdecl AddInternal( const DTChunkID idChunk, T *p, std::unordered_set<T1, T2, T3, T4> *pData ) 
 		{
 			std::vector<T1> elements;
-			// hash_set => vector
 			if ( !IsReading() )
 			{
 				elements.reserve( pData->size() );
 				for ( std::unordered_set<T1, T2, T3, T4>::iterator it = pData->begin(); it != pData->end(); ++it )
 					elements.push_back( *it );
 			}
-			// add container
 			Add( idChunk, &elements );
-			// vector => hash_set
 			if ( IsReading() )
 			{
 				pData->clear();
@@ -310,15 +291,12 @@ class CTreeAccessor
 		void __cdecl AddInternal( const DTChunkID idChunk, T *p, std::set<T1, T2, T3> *pData ) 
 		{
 			std::list<T1> elements;
-			// hash_set => list
 			if ( !IsReading() )
 			{
 				for ( std::set<T1, T2, T3>::iterator it = pData->begin(); it != pData->end(); ++it )
 					elements.push_back( *it );
 			}
-			// add container
 			Add( idChunk, &elements );
-			// list => hash_set
 			if ( IsReading() )
 			{
 				pData->clear();
@@ -326,17 +304,14 @@ class CTreeAccessor
 					pData->insert( *it );
 			}
 		}
-	// some additional 'AddInternal' specializations
 	template <class T>
 		void __cdecl AddInternal( const DTChunkID idChunk, T *p, CVec2 *pData ) 
 		{
 			int nVal = pSS->StartChunk( idChunk );
 			if ( nVal == 0 )
 				return;
-			//
 			Add( "x", &pData->x );
 			Add( "y", &pData->y );
-			//
 			if ( nVal != -1 )
 				pSS->FinishChunk();
 		}
@@ -346,11 +321,9 @@ class CTreeAccessor
 			int nVal = pSS->StartChunk( idChunk );
 			if ( nVal == 0 )
 				return;
-			//
 			Add( "x", &pData->x );
 			Add( "y", &pData->y );
 			Add( "z", &pData->z );
-			//
 			if ( nVal != -1 )
 				pSS->FinishChunk();
 		}
@@ -360,12 +333,10 @@ class CTreeAccessor
 			int nVal = pSS->StartChunk( idChunk );
 			if ( nVal == 0 )
 				return;
-			//
 			Add( "x", &pData->x );
 			Add( "y", &pData->y );
 			Add( "z", &pData->z );
 			Add( "w", &pData->w );
-			//
 			if ( nVal != -1 )
 				pSS->FinishChunk();
 		}
@@ -375,7 +346,6 @@ class CTreeAccessor
 			int nVal = pSS->StartChunk( idChunk );
 			if ( nVal == 0 )
 				return;
-			//
 			Add( "x1", &pData->x1 );
 			Add( "y1", &pData->y1 );
 			Add( "x2", &pData->x2 );
@@ -389,12 +359,10 @@ class CTreeAccessor
 			int nVal = pSS->StartChunk( idChunk );
 			if ( nVal == 0 )
 				return;
-			//
 			Add( "x1", &pData->left );
 			Add( "y1", &pData->top );
 			Add( "x2", &pData->right );
 			Add( "y2", &pData->bottom );
-			//
 			if ( nVal != -1 )
 				pSS->FinishChunk();
 		}
@@ -404,10 +372,8 @@ class CTreeAccessor
 			int nVal = pSS->StartChunk( idChunk );
 			if ( nVal == 0 )
 				return;
-			//
 			Add( "x", &pData->x );
 			Add( "y", &pData->y );
-			//
 			if ( nVal != -1 )
 				pSS->FinishChunk();
 		}
@@ -417,10 +383,8 @@ class CTreeAccessor
 			int nVal = pSS->StartChunk( idChunk );
 			if ( nVal == 0 )
 				return;
-			//
 			Add( "x", &pData->x );
 			Add( "y", &pData->y );
-			//
 			if ( nVal != -1 )
 				pSS->FinishChunk();
 		}
@@ -430,29 +394,23 @@ class CTreeAccessor
 			int nVal = pSS->StartChunk( idChunk );
 			if ( nVal == 0 )
 				return;
-			//
 			Add( "first", &( pData->first ) );
 			Add( "second", &( pData->second ) );
-			//
 			if ( nVal != -1 )
 				pSS->FinishChunk();
 		}
-	// smart pointer specializations
 	template <class T, class T1, class T2>
 		void __cdecl AddInternal( const DTChunkID idChunk, T *p, CPtrBase<T1, T2> *pData )
 		{
 			int nVal = pSS->StartChunk( idChunk );
 			if ( nVal == 0 )
 				return;
-			//
 			if ( IsReading() )
 			{
 				int nTypeID = -1;
 				Add( "ClassTypeID", &nTypeID );
-				// CRAP{ ��� ������������� �� ������� ���������
 				if ( nTypeID == -1 )
 					Add( "type", &nTypeID );
-				// CRAP}
 				*pData = static_cast<T1*>( GetCommonFactory()->CreateObject( nTypeID ) );
 				Add( "", pData->GetPtr() );
 			}
@@ -462,18 +420,15 @@ class CTreeAccessor
 				Add( "ClassTypeID", &nTypeID );
 				Add( "", pData->GetPtr() );
 			}
-			//
 			if ( nVal != -1 )
 				pSS->FinishChunk();
 		}
-	// database ptr
 	template <class T, class T1> 
 		void AddInternal( const DTChunkID idChunk, T *p, CGDBPtr<T1> *pData ) 
 		{
 			int nVal = pSS->StartChunk( idChunk );
 			if ( nVal == 0 )
 				return;
-			//
 			if ( IsReading() ) 
 			{
 				if ( IObjectsDB *pGDB = GetSingleton<IObjectsDB>() )
@@ -499,13 +454,9 @@ class CTreeAccessor
 					Add( "Name", &szString );
 				}
 			}
-			//
 			if ( nVal != -1 )
 				pSS->FinishChunk();
 		}
-	//
-	// 'Do' functions
-	// vector
 	template <class T1, class T2> 
 		void DoVector( std::vector<T1, T2> &data, const int nExtSize )
 		{
@@ -523,7 +474,6 @@ class CTreeAccessor
 				Add( "", &data[i] );
 			}
 		}
-	// hash_map
 	template <class T1, class T2, class T3, class T4, class T5> 
 		void DoHashMap( std::unordered_map<T1, T2, T3, T4, T5> &data, const int nExtSize )
 		{
@@ -550,7 +500,6 @@ class CTreeAccessor
 				}
 			}
 		}
-	// hash_multimap
 	template <class T1, class T2, class T3, class T4, class T5>
 		void DoHashMultiMap( std::hash_multimap<T1, T2, T3, T4, T5> &data, const int nExtSize )
 		{
@@ -581,7 +530,6 @@ class CTreeAccessor
 				}
 			}
 		}
-	// map
 	template <class T1, class T2, class T3, class T4> 
 		void DoMap( std::map<T1, T2, T3, T4> &data, const int nExtSize )
 		{
@@ -617,13 +565,11 @@ class CTreeAccessor
 			pSS->SetChunkCounter( 0 );
 			Add( "size_x", &nSizeX );
 			Add( "size_y", &nSizeY );
-			// resize during reading
 			if ( IsReading() )
 			{
 				data.Clear();
 				data.SetSizes( nSizeX, nSizeY );
 			}
-			// serialize other elements
 			for ( int i=0; i<nSizeX*nSizeY; ++i )
 			{
 				pSS->SetChunkCounter( i + 1 );
@@ -639,13 +585,11 @@ class CTreeAccessor
 			pSS->SetChunkCounter( 0 );
 			Add( "size_x", &nSizeX );
 			Add( "size_y", &nSizeY );
-			// resize during reading
 			if ( IsReading() )
 			{
 				data.Clear();
 				data.SetSizes( nSizeX, nSizeY );
 			}
-			// serialize other elements
 			for ( int i=0; i<nSizeY; ++i )
 			{
 				pSS->SetChunkCounter( i + 1 );
@@ -658,36 +602,27 @@ public:
 		: pSS( accessor.pSS ) {  }
 	CTreeAccessor( IDataTree *_pSS ) 
 		: pSS( _pSS ) {  }
-	// stream assigning and extracting
 	const CTreeAccessor& operator=( IDataTree *_pSS ) { pSS = _pSS; return *this; }
 	const CTreeAccessor& operator=( const CTreeAccessor &accessor ) { pSS = accessor.pSS; return *this; }
 	operator IDataTree*() const { return pSS; }
 	IDataTree* operator->() const { return pSS; }
-	// comparison operators
 	bool operator==( const CTreeAccessor &ptr ) const { return ( pSS == ptr.pSS ); }
 	bool operator==( IDataTree *pNewObject ) const { return ( pSS == pNewObject ); }
 	bool operator!=( const CTreeAccessor &ptr ) const { return ( pSS != ptr.pSS ); }
 	bool operator!=( IDataTree *pNewObject ) const { return ( pSS != pNewObject ); }
-	// 
 	bool IsReading() const { return pSS->IsReading(); }
-	// add raw data of specified size (in bytes)
 	void AddRawData( const DTChunkID idChunk, void *pData, int nSize ) 
 	{ 
 		int nVal = pSS->StartChunk( idChunk );
 		if ( nVal == 0 )
 			return;
-		//
 		(*this)->RawData( pData, nSize );
-		//
 		if ( nVal != -1 )
 			(*this)->FinishChunk();
 	}
-	// main add function - add all structures/classes/datas through it
 	template <class T>
 		void Add( const DTChunkID idChunk, T *p ) { AddInternal( idChunk, p, p ); }
-	// adding typed super class - use it only for super class members serialization
 	template <class T>
 		void AddTypedSuper( T *pData ) { pData->T::operator&( *pSS ); }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __DTHELPER_H__

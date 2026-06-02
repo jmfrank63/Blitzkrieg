@@ -19,7 +19,6 @@
 # error This file should be removed from installations not using the Metrowerks Standard Library
 #else
 # include <numeric>
-//# include <algo.h>
 #endif
 
 # endif // _STLP_NUMERIC_H

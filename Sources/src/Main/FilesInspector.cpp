@@ -1,7 +1,6 @@
 #include "StdAfx.h"
 
 #include "FilesInspector.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFilesInspector::AddEntry( const std::string &szName, IFilesInspectorEntry *pEntry )
 {
 	if ( GetEntry(szName) != 0 ) 
@@ -9,11 +8,9 @@ bool CFilesInspector::AddEntry( const std::string &szName, IFilesInspectorEntry 
 		NI_ASSERT_SLOW_TF( GetEntry(szName) == 0, NStr::Format("Can't add entry \"%s\" - one already exist", szName.c_str()), return false );
 		return false;
 	}
-	//
 	entries.push_back( SEntry(szName, pEntry) );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFilesInspector::RemoveEntry( const std::string &szName )
 {
 	for ( CEntriesList::iterator it = entries.begin(); it != entries.end(); ++it )
@@ -26,7 +23,6 @@ bool CFilesInspector::RemoveEntry( const std::string &szName )
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IFilesInspectorEntry* CFilesInspector::GetEntry( const std::string &szName )
 {
 	for ( CEntriesList::iterator it = entries.begin(); it != entries.end(); ++it )
@@ -36,10 +32,8 @@ IFilesInspectorEntry* CFilesInspector::GetEntry( const std::string &szName )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFilesInspector::InspectStorage( IDataStorage *pStorage )
 {
-	// for each file
 	CPtr<IStorageEnumerator> pEnumerator = pStorage->CreateEnumerator();
 	pEnumerator->Reset( "*.*" );
 	while (	pEnumerator->Next() )
@@ -48,34 +42,22 @@ bool CFilesInspector::InspectStorage( IDataStorage *pStorage )
 		if ( pStats->type != SET_STREAM ) 
 			continue;
 		const std::string szName = pStats->pszName;
-		// test for each entry
 		for ( CEntriesList::iterator it = entries.begin(); it != entries.end(); ++it )
 			it->second->InspectStream( szName );
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFilesInspector::Clear()
 {
 	for ( CEntriesList::iterator it = entries.begin(); it != entries.end(); ++it )
 		it->second->Clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFilesInspector::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 	saver.Add( 1, &entries );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** collector entry
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFilesInspectorEntryCollector::Configure( const char *pszConfig )
 {
 	if ( !pszConfig ) return;
@@ -89,7 +71,6 @@ void CFilesInspectorEntryCollector::Configure( const char *pszConfig )
 		szPrefix = szStrings[0];
 	if ( szStrings.size() > 1 ) 
 		szSuffix = szStrings[1];
-	//
 	if ( !szPrefix.empty() && !szSuffix.empty() ) 
 		nMatchType = 0;
 	else if ( !szPrefix.empty() ) 
@@ -98,7 +79,6 @@ void CFilesInspectorEntryCollector::Configure( const char *pszConfig )
 		nMatchType = 2;
 	SetMatchFunction( nMatchType );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFilesInspectorEntryCollector::SetMatchFunction( const int _nMatchType )
 {
 	switch ( _nMatchType ) 
@@ -117,7 +97,6 @@ void CFilesInspectorEntryCollector::SetMatchFunction( const int _nMatchType )
 	}
 	NI_ASSERT_SLOW_T( pfnAddIfMatched != 0, NStr::Format("Can't set match function of type %d", _nMatchType) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFilesInspectorEntryCollector::AddIfPrefixMatched( const std::string &szName )
 {
 	if ( szName.compare( 0, szPrefix.size(), szPrefix ) == 0 )
@@ -134,12 +113,10 @@ void CFilesInspectorEntryCollector::AddIfBothMatched( const std::string &szName 
 	     (szName.compare( szName.size() - szSuffix.size(), szSuffix.size(), szSuffix ) == 0) )
 		szNames.push_back( szName );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFilesInspectorEntryCollector::InspectStream( const std::string &szName )
 {
 	(this->*pfnAddIfMatched)( szName );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFilesInspectorEntryCollector::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -151,4 +128,3 @@ int CFilesInspectorEntryCollector::operator&( IStructureSaver &ss )
 		SetMatchFunction( nMatchType );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

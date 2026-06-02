@@ -14,7 +14,6 @@
 #if defined( _STLP_USE_MSIPL ) && !defined( _STLP_MSL_STRING_H_ )
 #define _STLP_MSL_STRING_H_
 
-//# define char_traits __msl_char_traits
 # define basic_string __msl_basic_string
 # define b_str_ref __msl_b_str_ref
 # define basic_istream __msl_basic_istream
@@ -30,7 +29,6 @@ namespace std
 }
 
 # include _STLP_NATIVE_HEADER(string)
-// # undef char_traits
 # undef basic_string
 # undef b_str_ref
 # undef basic_istream

@@ -41,7 +41,6 @@ bool CSTreeItem::KillEditor()
 		tmp = str; 
 		
 		var = GetOleData();
-		//
 		try
 		{
 			tmp.ChangeType( var.vt, NULL) ; //если не получилочь сконвертить
@@ -61,9 +60,6 @@ bool CSTreeItem::KillEditor()
 	}
 	return bKilleditor;
 }
-//---------------------------------------------------------------------------------------------
-//																	CTrueFalseTreeItem
-//---------------------------------------------------------------------------------------------
 bool CTrueFalseTreeItem::BuildEditor( HTREEITEM *item , CMultiTree *treePtr)
 {
 	CRect rect;
@@ -97,9 +93,6 @@ bool CTrueFalseTreeItem::KillEditor()
 	}
 	return bKilleditor;
 }
-//---------------------------------------------------------------------------------------------
-//																	CProcentTreeItem
-//---------------------------------------------------------------------------------------------
 bool CProcentTreeItem::BuildEditor( HTREEITEM *item , CMultiTree *treePtr)
 {
 	CRect rect;
@@ -137,9 +130,6 @@ bool CProcentTreeItem::KillEditor()
 	}
 	return bKilleditor;
 }
-//---------------------------------------------------------------------------------------------
-//																	CNumComboBoxTreeItem
-//---------------------------------------------------------------------------------------------
 bool CNumComboBoxTreeItem::BuildEditor( HTREEITEM *item , CMultiTree *treePtr)
 {
 	CRect rect;
@@ -184,9 +174,6 @@ std::string			  CNumComboBoxTreeItem::GetNormalProperty()
 	return std::string(rString);
 }
 
-//---------------------------------------------------------------------------------------------
-//																	CEmptyTreeItem
-//---------------------------------------------------------------------------------------------
 bool CEmptyTreeItem::BuildEditor( HTREEITEM *item , CMultiTree *treePtr)
 {
 	treePtr->SendMessage( WM_USER + 2);
@@ -197,9 +184,6 @@ bool CEmptyTreeItem::KillEditor()
 {
 	return false;
 }
-//---------------------------------------------------------------------------------------------
-//																	CPropertieTreeItem
-//---------------------------------------------------------------------------------------------
 bool CPropertieTreeItem::BuildEditor( HTREEITEM *item , CMultiTree *treePtr)
 {
 	CRect rect;
@@ -282,9 +266,6 @@ bool CPropertieTreeItem::KillEditor()
 	}
 	return bKilleditor;
 }
-//---------------------------------------------------------------------------------------------
-//																	CComboBoxTreeItemPropertieTreeItem
-//---------------------------------------------------------------------------------------------
 bool CComboBoxTreeItemPropertieTreeItem::BuildEditor( HTREEITEM *item , CMultiTree *treePtr)
 {
 	CRect rect;
@@ -314,7 +295,6 @@ bool CComboBoxTreeItemPropertieTreeItem::BuildEditor( HTREEITEM *item , CMultiTr
 				{
 					COleVariant tmp;
 					tmp = m_pManipulator->GetPropertyDesc( m_propName.c_str() )->values[i];
-					//ptr->GetValue( m_propName.c_str(), &tmp );
 					tmp.ChangeType( VT_BSTR, NULL );
 					CString strBuffer = tmp.bstrVal;	
 					m_ComboBoxCtrl->AddString( strBuffer );
@@ -344,7 +324,6 @@ bool CComboBoxTreeItemPropertieTreeItem::KillEditor()
 		tmp = str; 	
 		m_pManipulator->GetValue( m_propName.c_str(), &var_t );
 		var = var_t;
-		//
 		try
 		{
 			tmp.ChangeType( var.vt, NULL ); //если не получилочь сконвертить
@@ -365,9 +344,6 @@ bool CComboBoxTreeItemPropertieTreeItem::KillEditor()
 	}
 	return bKilleditor;
 }
-//---------------------------------------------------------------------------------------------
-//																	FileChosePropertieTreeItem
-//---------------------------------------------------------------------------------------------
 bool CFileChosePropertieTreeItem::BuildEditor( HTREEITEM *item , CMultiTree *treePtr)
 {
 	CFileDialog dlg( true );//. dlg( "Select Directory" );
@@ -397,9 +373,6 @@ bool CFileChosePropertieTreeItem::KillEditor()
 {
 	return false;
 }
-//---------------------------------------------------------------------------------------------
-//																	FileChosePropertieTreeItem
-//---------------------------------------------------------------------------------------------
 bool CDirChosePropertieTreeItem::BuildEditor( HTREEITEM *item , CMultiTree *treePtr)
 {
 	SECDirSelectDlg dlg;//. dlg( "Select Directory" );
@@ -428,9 +401,6 @@ bool CDirChosePropertieTreeItem::KillEditor()
 {
 	return false;
 }
-//---------------------------------------------------------------------------------------------
-//																	FileChosePropertieTreeItem
-//---------------------------------------------------------------------------------------------
 bool CUnitsPropertieTreeItem::BuildEditor( HTREEITEM *item , CMultiTree *treePtr)
 {
 	COleVariant tmp;

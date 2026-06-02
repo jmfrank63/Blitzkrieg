@@ -5,8 +5,6 @@
 
 using std::string;
 
-/////////////////////////////////////////////////////////////////////////////
-// CReferenceDialog dialog
 
 enum EReferenceType
 {
@@ -34,31 +32,22 @@ enum EReferenceType
 
 class CReferenceDialog : public CDialog
 {
-// Construction
 public:
 	CReferenceDialog(CWnd* pParent = NULL);   // standard constructor
 	void Init( int nRefId );
 	string GetValue();
 	static void InitLists();
 
-// Dialog Data
-	//{{AFX_DATA(CReferenceDialog)
 	enum { IDD = IDD_REFERENCE_DIALOG };
 	CListBox m_refList;
 	CString m_refVal;
-	//}}AFX_DATA
 
 
-// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CReferenceDialog)
 	public:
 	virtual BOOL PreTranslateMessage(MSG* pMsg);
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
-	//}}AFX_VIRTUAL
 	
-// Implementation
 protected:
 	EReferenceType nReferenceType;
 	static const std::string szSpritesDir;
@@ -110,11 +99,8 @@ protected:
 	void LoadItems( EReferenceType eType );
 	void CheckedAdd( const std::list<std::string> &entries, const std::string &szRef );
 		
-	// Generated message map functions
-	//{{AFX_MSG(CReferenceDialog)
 	virtual BOOL OnInitDialog();
 	afx_msg void OnDblclkReferenceList();
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 

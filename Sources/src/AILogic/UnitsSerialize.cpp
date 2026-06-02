@@ -2,7 +2,6 @@
 
 #include "Units.h"
 #include "UnitsIterators.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnits::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -66,18 +65,15 @@ int CUnits::operator&( IStructureSaver &ss )
 		nUnitsOfType.resize( 3 );
 
 	saver.Add( 102, &posUnitInCell );
-	// for compatibitlity with old saves
 	if ( posUnitInCell.empty() )
 		posUnitInCell.resize( 10000 );
 
 	saver.Add( 103, &unitsInCells );
-	// for compatibitlity with old saves
 	if ( unitsInCells.empty() )
 		unitsInCells.resize( 2 );
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGlobalIter::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -89,7 +85,6 @@ int CGlobalIter::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlanesIter::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -98,4 +93,3 @@ int CPlanesIter::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

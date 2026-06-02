@@ -9,30 +9,23 @@
 #include "ResizeDialog.h"
 #include "..\RandomMapGen\RMG_Types.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CALLBACK PlayersCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTabSimpleObjectsDiplomacyDialog : public CResizeDialog
 {
 	friend int CALLBACK PlayersCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
 public:
 	CTabSimpleObjectsDiplomacyDialog( CWnd* pParent = NULL );
 
-	//{{AFX_DATA(CTabSimpleObjectsDiplomacyDialog)
 	enum { IDD = IDD_TAB_SIMPLE_OBJECTS_DIPLOMACY };
 	CComboBox	m_Types;
 	CComboBox	m_Sides;
 	CListCtrl	m_PlayersList;
-	//}}AFX_DATA
 
-	//{{AFX_VIRTUAL(CTabSimpleObjectsDiplomacyDialog)
 	protected:
 	virtual void DoDataExchange( CDataExchange* pDX );
-	//}}AFX_VIRTUAL
 
 protected:
-	//{{AFX_MSG(CTabSimpleObjectsDiplomacyDialog)
 	virtual BOOL OnInitDialog();
 	virtual void OnOK();
 	virtual void OnCancel();
@@ -50,7 +43,6 @@ protected:
 	afx_msg void OnKeydownPlayersList(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnSelchangeSoDiplomacyTypeComboBox();
 	afx_msg void OnSelchangeSoDiplomacyAttackSideComboBox();
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 
 protected:
@@ -79,7 +71,5 @@ public:
 	int GetType() { return nType; }
 	int GetAttackingSide() { return nAttackingSide; }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
 #endif // !defined(__Tabs__Simple_Objects_Diplomacy_Dialog__)

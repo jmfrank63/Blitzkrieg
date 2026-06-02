@@ -23,11 +23,7 @@
 #  include <..\string.h>
 
 # ifndef __IN_STLPORT_CSTRING
-// okay, include STLPort header
 #  include  <..\string.>
 # endif /* __IN_STLPORT_CSTRING */
 
 
-// Local Variables:
-// mode:C++
-// End:

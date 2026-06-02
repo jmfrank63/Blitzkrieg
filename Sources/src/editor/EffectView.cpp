@@ -1,5 +1,3 @@
-// EffectView.cpp : implementation file
-//
 
 #include "StdAfx.h"
 #include "EffectView.h"
@@ -13,8 +11,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CEffectView
 
 CEffectView::CEffectView()
 {
@@ -26,14 +22,10 @@ CEffectView::~CEffectView()
 
 
 BEGIN_MESSAGE_MAP(CEffectView, CWnd)
-//{{AFX_MSG_MAP(CEffectView)
 ON_WM_PAINT()
-//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CEffectView message handlers
 
 BOOL CEffectView::PreCreateWindow(CREATESTRUCT& cs) 
 {

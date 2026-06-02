@@ -28,7 +28,6 @@
 #include "..\..\LuaLib\Script.h"
 
 #include "..\..\Scene\Scene.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CWeather theWeather;
 extern CSupremeBeing theSupremeBeing;
 extern CGroupLogic theGroupLogic;
@@ -42,23 +41,19 @@ extern SCheats theCheats;
 extern CStatistics theStatistics;
 extern CStaticMap theStaticMap;
 extern CStaticObjects theStatObjs;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CScripts* pScripts;
 const int CScripts::TIME_TO_CHECK_SUSPENDED_REINF = 200;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define CHECK_ERROR( bCond, message, nReturn )																												\
 if ( !(bCond) )																																												\
 {																																																			\
 	pScripts->OutScriptError( ( std::string("Script error. ") + std::string(message) ).c_str() );				\
 	return ( nReturn );																																									\
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CScripts::~CScripts()
 {
 	for ( std::unordered_map<int, SScriptInfo>::iterator iter = activeScripts.begin(); iter != activeScripts.end(); ++iter )
 		script.Unref( iter->first );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetScriptID( IUpdatableObj *pObj ) const
 {
 	if ( groupUnits.find( pObj->GetUniqueId() ) != groupUnits.end() )
@@ -66,7 +61,6 @@ int CScripts::GetScriptID( IUpdatableObj *pObj ) const
 
 	return -1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScripts::AddObjToScriptGroup( IUpdatableObj *pObj, const int nGroup )
 {
 	if ( nGroup != -1 )
@@ -76,13 +70,11 @@ void CScripts::AddObjToScriptGroup( IUpdatableObj *pObj, const int nGroup )
 		pObj->SetScriptID( nGroup );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScripts::AddUnitToReinforcGroup( const SMapObjectInfo &mapObject, const int nGroup, const SHPObjectRPGStats *pStats, IScenarioUnit *pScenarioUnit )
 {
 	NI_ASSERT_T( nGroup != -1, "Wrong number of reinforcement group" );
 	reinforcs[nGroup].push_back( SReinforcementObject( mapObject, pStats, pScenarioUnit ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScripts::Init( const SLoadMapInfo &mapInfo )
 {
 	pScripts = this;
@@ -104,25 +96,20 @@ void CScripts::Init( const SLoadMapInfo &mapInfo )
 	
 	bShowErrors = GetGlobalVar( "ShowScriptErrors", 0 ) != 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScripts::InitAreas( const SScriptArea scriptAreas[], const int nLen )
 {
 	for ( int i = 0; i < nLen; ++i )
 		areas[scriptAreas[i].szName] = scriptAreas[i];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScripts::ReadScriptFile()
 {
-	// register global script functions
 	script.Register( pRegList );
-	// read and execute script
 	if ( szScriptFile != "" )
 	{
 		CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( (szScriptFile + ".lua").c_str(), STREAM_ACCESS_READ );
 		if ( pStream )
 		{
 			int nSize = pStream->GetSize();
-			// +10 �� ������ ������
 			std::vector<char> buffer( nSize + 10 );
 			pStream->Read( &(buffer[0]), nSize );
 
@@ -134,7 +121,6 @@ bool CScripts::ReadScriptFile()
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScripts::Load( const std::string &_szScriptFile )
 {
 	szScriptFile = _szScriptFile;
@@ -144,7 +130,6 @@ void CScripts::Load( const std::string &_szScriptFile )
 		script.Call( 0, 0 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::KillActiveScript( const std::string szName )
 {
 	CHECK_ERROR( name2script.find( szName ) != name2script.end(), NStr::Format( "Attempt to kill non-active script %s", szName.c_str() ), 0 );
@@ -163,7 +148,6 @@ int CScripts::KillActiveScript( const std::string szName )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScripts::CanUnitLand( const SMapObjectInfo &mapObject, IObjectsDB *pIDB, const CVec2 &vShift )
 {
 	CGDBPtr<SGDBObjectDesc> pDesc = pIDB->GetDesc( mapObject.szName.c_str() );
@@ -196,7 +180,6 @@ bool CScripts::CanUnitLand( const SMapObjectInfo &mapObject, IObjectsDB *pIDB, c
 		return false;
 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScripts::CanFormationLand( const SMapObjectInfo &mapObject, IObjectsDB *pIDB, const CVec2 &vShift )
 {
 	CGDBPtr<SGDBObjectDesc> pDesc = pIDB->GetDesc( mapObject.szName.c_str() );
@@ -219,7 +202,6 @@ bool CScripts::CanFormationLand( const SMapObjectInfo &mapObject, IObjectsDB *pI
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScripts::CanLandWithShift( const SMapObjectInfo &mapObject, IObjectsDB *pIDB, CVec2 *pvShift )
 {
 	CGDBPtr<SGDBObjectDesc> pDesc = pIDB->GetDesc( mapObject.szName.c_str() );
@@ -268,13 +250,11 @@ bool CScripts::CanLandWithShift( const SMapObjectInfo &mapObject, IObjectsDB *pI
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool IsUnit( const SMapObjectInfo &mapObject, IObjectsDB *pIDB )
 {
 	CGDBPtr<SGDBObjectDesc> pDesc = pIDB->GetDesc( mapObject.szName.c_str() );
 	return ( dynamic_cast<const SUnitBaseRPGStats*>(pIDB->GetRPGStats( pDesc )) != 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScripts::LandSuspendedReiforcements()
 {
 	if ( curTime >= lastTimeToCheckSuspendedReinforcs + TIME_TO_CHECK_SUSPENDED_REINF )
@@ -317,10 +297,8 @@ void CScripts::LandSuspendedReiforcements()
 									)
 							{
 								if ( false )
-//								if ( !CanLand( candreinforcsIter->mapObject, pIDB ) )
 								{
 									bCanLand = false;
-									// �� ������ �� ������� ������������, �.�. ����� ������ �������, ������� ����-������ ���������
 									suspendedReinforcs.splice( suspendedReinforcs.begin(), candObjects );
 									break;
 								}
@@ -328,7 +306,6 @@ void CScripts::LandSuspendedReiforcements()
 								{
 									candidates.insert( nLinkID );
 									CReinfList::iterator oldIter = candreinforcsIter++;
-									// �� ������ �� ������� ������������, �.�. ����� ������ �������, ������� ����-������ ���������
 									candObjects.splice( candObjects.begin(), suspendedReinforcs, oldIter );
 									bAdded = true;
 								}
@@ -355,10 +332,8 @@ void CScripts::LandSuspendedReiforcements()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScripts::Segment()
 {
-	// retrieve all script calls
 	{
 		bool bOldShowScriptErrors = bShowErrors;
 		bShowErrors = true;
@@ -369,7 +344,6 @@ void CScripts::Segment()
 		}
 		bShowErrors = bOldShowScriptErrors;
 	}
-	//
 	segmIter = activeScripts.begin();
 	while ( segmIter != activeScripts.end() )
 	{
@@ -385,7 +359,6 @@ void CScripts::Segment()
 			const std::string name = segmIter->second.szName;
 			
 			const int nRef = segmIter->first;
-			// ��� ����������� �������� ��������
 			++segmIter;
 
 			script.GetRef( nRef );
@@ -401,7 +374,6 @@ void CScripts::Segment()
 
 	LandSuspendedReiforcements();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScripts::CallScriptFunction( const char *pszCommand )
 {
 	const int oldtop = script.GetTop();
@@ -430,7 +402,6 @@ void CScripts::CallScriptFunction( const char *pszCommand )
 	if ( !szAnswer.empty() )
 			pConsole->WriteASCII( CONSOLE_STREAM_CONSOLE, szAnswer.c_str(), 0xff00ff00 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScripts::DelInvalidBegin( const int targetId )
 {
 	if ( groups.find( targetId ) != groups.end() )
@@ -458,7 +429,6 @@ void CScripts::DelInvalidBegin( const int targetId )
 		groupUnits.erase( nDeleted );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScripts::DelInvalidUnits( const int scriptId )
 {
 	if ( groups.find( scriptId ) != groups.end() )
@@ -489,7 +459,6 @@ void CScripts::DelInvalidUnits( const int scriptId )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetCheckObjectsInScriptArea( const SScriptArea &area, const interface ICheckObjects &check )
 {
 	float fR = area.eType == SScriptArea::EAT_CIRCLE ? area.fR : Max( area.vAABBHalfSize.x, area.vAABBHalfSize.y );	
@@ -503,15 +472,12 @@ int CScripts::GetCheckObjectsInScriptArea( const SScriptArea &area, const interf
 
 	return nResult;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScripts::OutScriptError( const char *pszString )
 {
 	if ( bShowErrors )
 		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CONSOLE, pszString, 0xffff0000, true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 Script::SRegFunction CScripts::pRegList[] =
 {
 	{ "_ERRORMESSAGE",												CScripts::Error_out },
@@ -603,7 +569,6 @@ Script::SRegFunction CScripts::pRegList[] =
 
 	{ 0, 0 } // End
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetAviationState( struct lua_State *state )
 {
 	Script script(state);
@@ -612,7 +577,6 @@ int CScripts::GetAviationState( struct lua_State *state )
 	script.PushNumber( theUnitCreation.GetLastCalledAviation( nPlayer ) );
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::AddIronMan( struct lua_State *state )
 {
 	Script script(state);
@@ -620,7 +584,6 @@ int CScripts::AddIronMan( struct lua_State *state )
 	theSupremeBeing.AddIronman( nScriptID );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::Error_out( struct lua_State *state )
 {
 	Script script(state);
@@ -628,10 +591,8 @@ int CScripts::Error_out( struct lua_State *state )
 	pScripts->OutScriptError( NStr::Format("Script error: %s", obj.GetString() ) );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::EnableAviation( struct lua_State *state )
 {
-// params: <party of player : -1 - anyplayer> <type of aviation: -1 - any aviation>; returns: none;
 	Script script(state);
 
 	CHECK_ERROR( script.IsNumber( 1 ), "EnableAviation: the first parameter is not a player number", 0 );
@@ -642,7 +603,6 @@ int CScripts::EnableAviation( struct lua_State *state )
 	theUnitCreation.EnableAviationScript( nPlayer, nAvia );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::DisableAviation( struct lua_State *state )
 {
 	Script script(state);
@@ -655,7 +615,6 @@ int CScripts::DisableAviation( struct lua_State *state )
 	theUnitCreation.DisableAviationScript( nPlayer, nAvia );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::RunScript( struct lua_State *state ) 
 {
 	Script script( state );
@@ -687,14 +646,12 @@ int CScripts::RunScript( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::Suicide( struct lua_State *state )
 {
 	pScripts->bKill = true;
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::KillScript( struct lua_State *state )
 {
 	Script script( state );
@@ -704,7 +661,6 @@ int CScripts::KillScript( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetNUnitsInCircle( struct lua_State *state )
 {
 	Script script( state );
@@ -735,7 +691,6 @@ int CScripts::GetNUnitsInCircle( struct lua_State *state )
 	
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetNUnitsInScriptGroup( struct lua_State *state )
 {
 	Script script( state );
@@ -774,10 +729,8 @@ int CScripts::GetNUnitsInScriptGroup( struct lua_State *state )
 	
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScripts::SetNewLinksToReinforcement( CReinfList *pReinf, std::unordered_map<int, int> *pOld2NewLinks )
 {
-	// set new links (not intersected with existing)
 	std::list<int> freeLinks;
 	CLinkObject::GetFreeLinks( &freeLinks, pReinf->size() );
 	for ( CReinfList::iterator iter = pReinf->begin(); iter != pReinf->end(); ++iter )
@@ -794,7 +747,6 @@ void CScripts::SetNewLinksToReinforcement( CReinfList *pReinf, std::unordered_ma
 			iter->mapObject.link.nLinkWith = (*pOld2NewLinks)[nLinkWith];
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScripts::LandReinforcementWithoutLandCheck( CReinfList *pReinf, const CVec2 &vShift )
 {
 	std::unordered_map<int, int> old2NewLinks;
@@ -802,12 +754,10 @@ void CScripts::LandReinforcementWithoutLandCheck( CReinfList *pReinf, const CVec
 
 	std::list<CCommonUnit*> pUnits;
 
-	// land reinforcement
 	CPtr<IObjectsDB> pIDB = GetSingleton<IObjectsDB>();
 
 	LinkInfo linksInfo;
 	CReinfList transports;
-	// ��������� ��� �� ���������
 	for ( CReinfList::iterator iter = pReinf->begin(); iter != pReinf->end(); ++iter )
 	{
 		const IGDBObject *pObject = NGDB::GetRPGStats<IGDBObject>( iter->mapObject.szName.c_str() );
@@ -832,7 +782,6 @@ void CScripts::LandReinforcementWithoutLandCheck( CReinfList *pReinf, const CVec
 			transports.push_back( *iter );
 	}
 
-	// ��������� ��� ���������
 	for ( CReinfList::iterator iter = transports.begin(); iter != transports.end(); ++iter )
 	{
 		iter->mapObject.vPos += CVec3( vShift, 0.0f );
@@ -857,7 +806,6 @@ void CScripts::LandReinforcementWithoutLandCheck( CReinfList *pReinf, const CVec
 
 	theSupremeBeing.GiveNewUnitsToGenerals( pUnits );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScripts::SendShowReinoforcementPlacementFeedback( std::list<CVec2> *pCenters )
 {
 	CVec2 vMostLeftCenter = pCenters->front();
@@ -889,7 +837,6 @@ void CScripts::SendShowReinoforcementPlacementFeedback( std::list<CVec2> *pCente
 	
 	updater.AddFeedBack( SAIFeedBack( EFB_REINFORCEMENT_CENTER, MAKELONG( vGroupCenter.x, vGroupCenter.y ) ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::LandReinforcement( struct lua_State *state )
 {
 	Script script( state );
@@ -909,7 +856,6 @@ int CScripts::LandReinforcement( struct lua_State *state )
 		{
 			pScripts->suspendedReinforcs.push_front( *iter );
 
-			//
 			if ( nPlayer == theDipl.GetMyNumber() )
 				bSendAck = true;
 
@@ -938,7 +884,6 @@ int CScripts::LandReinforcement( struct lua_State *state )
 		playersOfReinforcement >>= 1;
 	}
 	
-	// ���������� �������� ��� ������������
 	if ( pScripts->lastTimeToCheckSuspendedReinforcs != curTime )
 	{
 		pScripts->lastTimeToCheckSuspendedReinforcs = 0;
@@ -948,7 +893,6 @@ int CScripts::LandReinforcement( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::ReserveAviationForTimes( struct lua_State *pState )
 {
 	Script script( pState );
@@ -964,14 +908,12 @@ int CScripts::ReserveAviationForTimes( struct lua_State *pState )
 	theSupremeBeing.ReserveAviationForTimes( nParty, times );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::Draw( struct lua_State *state )
 {
 	Script script( state );
 	updater.AddFeedBack( SAIFeedBack( EFB_DRAW ) );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::Win( struct lua_State *state )
 {
 	Script script( state );
@@ -986,14 +928,12 @@ int CScripts::Win( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::Loose( struct lua_State *state )
 {
 	updater.AddFeedBack( SAIFeedBack( EFB_LOOSE ) );
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::ProcessCommand( struct lua_State *state, const bool bPlaceInQueue )
 {
 	Script script( state );
@@ -1005,13 +945,10 @@ int CScripts::ProcessCommand( struct lua_State *state, const bool bPlaceInQueue 
 	int nGroup = -1;
 	bool bAviationCallCommand = false;
 	std::list< std::pair<CCommonUnit*, int> > oldUnitsGroups;
-	// ������� � ���������
 	if ( scriptId != -1 && pScripts->groups.find( scriptId ) != pScripts->groups.end() )
 	{
-		//CHECK_ERROR( pScripts->groups.find( scriptId ) != pScripts->groups.end(), NStr::Format( "GiveCommand: wrong script id, %d", scriptId ), 0 );
 
 		pScripts->DelInvalidUnits( scriptId );
-		// group registration
 		IRefCount **pObjects = GetTempBuffer<IRefCount*>( pScripts->groups[scriptId].size() );
 		int nLen = 0;
 		for ( std::list<CPtr<IUpdatableObj> >::iterator iter = pScripts->groups[scriptId].begin(); iter != pScripts->groups[scriptId].end(); ++iter )
@@ -1026,7 +963,6 @@ int CScripts::ProcessCommand( struct lua_State *state, const bool bPlaceInQueue 
 		nGroup = pAILogic->GenerateGroupNumber();
 		pAILogic->RegisterGroup( pObjects, nLen, nGroup );
 	}
-	// ������������ �������
 	SAIUnitCmd command;
 	command.cmdType = EActionCommand( int( script.GetObject( 1 ) ) );
 	bool bValid = true;
@@ -1163,10 +1099,8 @@ int CScripts::ProcessCommand( struct lua_State *state, const bool bPlaceInQueue 
 				command.vPos.x = script.GetObject( 4 );
 				command.vPos.y = script.GetObject( 5 );
 				command.fNumber = 1;
-				// �������� ������� Call(plane)
 				pAILogic->UnitCommand( &command, nGroup, nPlayer );
 				
-				// ���� ���������
 				if ( theGroupLogic.BeginGroup( nGroup ) != theGroupLogic.EndGroup() )
 				{
 					for ( int i = 6; ; i += 2 )
@@ -1183,7 +1117,6 @@ int CScripts::ProcessCommand( struct lua_State *state, const bool bPlaceInQueue 
 						else
 							break;
 					}
-					// send takeoff command
 					{
 						SAIUnitCmd cmd;
 						cmd.cmdType = ACTION_COMMAND_PLANE_TAKEOFF_NOW;
@@ -1383,17 +1316,14 @@ int CScripts::ProcessCommand( struct lua_State *state, const bool bPlaceInQueue 
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GiveCommand( struct lua_State *state )
 {
 	return ProcessCommand( state, false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GiveQCommand( struct lua_State *state )
 {
 	return ProcessCommand( state, true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::ShowActiveScripts( struct lua_State *state )
 {
 	for ( std::unordered_map<std::string, int>::iterator iter = pScripts->name2script.begin(); iter != pScripts->name2script.end(); ++iter )
@@ -1401,7 +1331,6 @@ int CScripts::ShowActiveScripts( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetNUnitsInArea( struct lua_State *state )
 {
 	Script script( state );
@@ -1445,7 +1374,6 @@ int CScripts::GetNUnitsInArea( struct lua_State *state )
 	
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetNScriptUnitsInArea( struct lua_State *state )
 {
 	Script script( state );
@@ -1468,7 +1396,6 @@ int CScripts::GetNScriptUnitsInArea( struct lua_State *state )
 		int nResult = 0;
 		if ( area.eType == SScriptArea::EAT_CIRCLE ) 
 		{
-			// CRAP{ ����� ���������� static objects � �����, � ���������� �� dynamic_cast
 			for ( std::list< CPtr<IUpdatableObj> >::iterator iter = pScripts->groups[nScriptGroup].begin(); iter != pScripts->groups[nScriptGroup].end(); ++iter )
 			{
 				if ( CFormation *pFormation = dynamic_cast_ptr<CFormation*>( *iter ) )
@@ -1488,13 +1415,11 @@ int CScripts::GetNScriptUnitsInArea( struct lua_State *state )
 						++nResult;
 				}
 			}
-			// }CRAP
 		}
 		else
 		{
 			SRect areaRect;
 			areaRect.InitRect( area.center, CVec2( 1, 0 ), area.vAABBHalfSize.x, area.vAABBHalfSize.y );
-			// CRAP{ ����� ���������� static objects � �����, � ���������� �� dynamic_cast
 			for ( std::list<CPtr<IUpdatableObj> >::iterator iter = pScripts->groups[nScriptGroup].begin(); iter != pScripts->groups[nScriptGroup].end(); ++iter )
 			{
 				if ( CFormation *pFormation = dynamic_cast_ptr<CFormation*>( *iter ) )
@@ -1514,7 +1439,6 @@ int CScripts::GetNScriptUnitsInArea( struct lua_State *state )
 						++nResult;
 				}
 			}
-			// }CRAP
 		}
 
 		script.PushNumber( nResult );	
@@ -1522,7 +1446,6 @@ int CScripts::GetNScriptUnitsInArea( struct lua_State *state )
 		
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::ChangeWarFog( struct lua_State *state )
 {
 	Script script( state );
@@ -1536,7 +1459,6 @@ int CScripts::ChangeWarFog( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::ChangePlayer( struct lua_State *state )
 {
 	Script script( state );
@@ -1560,7 +1482,6 @@ int CScripts::ChangePlayer( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::God( struct lua_State *state )
 {
 	Script script( state );
@@ -1574,12 +1495,6 @@ int CScripts::God( struct lua_State *state )
 	CHECK_ERROR( nPlayer >= 0 && nPlayer < theDipl.GetNPlayers(), NStr::Format( "God: wrong nubmer of party (%d), total number of parties (%d)", nPlayer, theDipl.GetNPlayers() ), 0 );
 	CHECK_ERROR( nMode >= 0 && nMode <= 5, NStr::Format( "God: wrong nubmer of mode (%d), total number of modes (%d)", nMode, 5 ), 0 );
 
-	// nMode = 0 - ����� god mode ���������
-	// nMode = 1 - �������������
-	// nMode = 2 - ������������� � ����������� �������
-	// nMode = 3 - ����������� �������
-	// nMode = 4 - ����� ������ �������������
-	// nMode = 5 - ����� ������ ����������� �������
 
 	switch ( nMode )
 	{
@@ -1593,7 +1508,6 @@ int CScripts::God( struct lua_State *state )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::SetIGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -1605,7 +1519,6 @@ int CScripts::SetIGlobalVar( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::SetFGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -1617,7 +1530,6 @@ int CScripts::SetFGlobalVar( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::SetSGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -1629,7 +1541,6 @@ int CScripts::SetSGlobalVar( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetIGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -1641,7 +1552,6 @@ int CScripts::GetIGlobalVar( struct lua_State *state )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetFGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -1653,7 +1563,6 @@ int CScripts::GetFGlobalVar( struct lua_State *state )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetSGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -1665,7 +1574,6 @@ int CScripts::GetSGlobalVar( struct lua_State *state )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetObjectHPs( struct lua_State *state )
 {
 	Script script( state );
@@ -1684,7 +1592,6 @@ int CScripts::GetObjectHPs( struct lua_State *state )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetNUnitsInParty( struct lua_State *state )
 {
 	Script script( state );
@@ -1709,7 +1616,6 @@ int CScripts::GetNUnitsInParty( struct lua_State *state )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetNUnitsInPartyUF( struct lua_State *state )
 {
 	Script script( state );
@@ -1734,7 +1640,6 @@ int CScripts::GetNUnitsInPartyUF( struct lua_State *state )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetNUnitsInPlayerUF( struct lua_State *state )
 {
 	Script script( state );
@@ -1759,7 +1664,6 @@ int CScripts::GetNUnitsInPlayerUF( struct lua_State *state )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void GetTraceFormatResult( Script *pScript, std::string *pResult )
 {
 	const char *pStr = pScript->GetObject( 1 );
@@ -1796,7 +1700,6 @@ void GetTraceFormatResult( Script *pScript, std::string *pResult )
 			break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::Trace( struct lua_State *state )
 {
 	Script script( state );
@@ -1812,7 +1715,6 @@ int CScripts::Trace( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::DisplayTrace( struct lua_State *state )
 {
 	Script script( state );
@@ -1830,7 +1732,6 @@ int CScripts::DisplayTrace( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::ChangeFormation( struct lua_State *state )
 {
 	Script script( state );
@@ -1855,7 +1756,6 @@ int CScripts::ChangeFormation( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::ObjectiveChanged( struct lua_State *state )
 {
 	Script script( state );
@@ -1873,7 +1773,6 @@ int CScripts::ObjectiveChanged( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetNAmmo( struct lua_State *state )
 {
 	Script script( state );
@@ -1912,7 +1811,6 @@ int CScripts::GetNAmmo( struct lua_State *state )
 
 	return 2;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetPartyOfUnits( struct lua_State *state )
 {
 	Script script( state );
@@ -1930,7 +1828,6 @@ int CScripts::GetPartyOfUnits( struct lua_State *state )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::DamageObject( struct lua_State *pState )
 {
 	Script script( pState );
@@ -1987,14 +1884,12 @@ int CScripts::DamageObject( struct lua_State *pState )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::CallAssert( struct lua_State *pState )
 {
 	NI_ASSERT_T( false, "You are welcome!" );
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetUnitState( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2022,7 +1917,6 @@ int CScripts::GetUnitState( struct lua_State *pState )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetSquadInfo( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2048,7 +1942,6 @@ int CScripts::GetSquadInfo( struct lua_State *pState )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::IsFollowing( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2074,7 +1967,6 @@ int CScripts::IsFollowing( struct lua_State *pState )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetFrontDir( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2098,7 +1990,6 @@ int CScripts::GetFrontDir( struct lua_State *pState )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::IsWarehouseConnected( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2119,7 +2010,6 @@ int CScripts::IsWarehouseConnected( struct lua_State *pState )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::IsUnitUnderSupply( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2136,12 +2026,10 @@ int CScripts::IsUnitUnderSupply( struct lua_State *pState )
 
 	CHECK_ERROR( pUnit != 0, NStr::Format( "IsUnitUnderSupply: object with scriptID (%d) isn't a unit", nScriptID ), 1 );
 
-	//script.PushNumber( (int)theStatObjs.IsPointUnderSupply( pUnit->GetPlayer(), pUnit->GetCenter() ) );
 	script.PushNumber( 1 );
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetUnitMorale( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2162,7 +2050,6 @@ int CScripts::GetUnitMorale( struct lua_State *pState )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetActiveShellType( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2183,7 +2070,6 @@ int CScripts::GetActiveShellType( struct lua_State *pState )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::AskClient( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2195,7 +2081,6 @@ int CScripts::AskClient( struct lua_State *pState )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::RandomFloat( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2204,7 +2089,6 @@ int CScripts::RandomFloat( struct lua_State *pState )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::RandomInt( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2220,7 +2104,6 @@ int CScripts::RandomInt( struct lua_State *pState )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::ChangeSelection( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2241,7 +2124,6 @@ int CScripts::ChangeSelection( struct lua_State *pState )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::ReturnScriptIDs( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2273,7 +2155,6 @@ int CScripts::ReturnScriptIDs( struct lua_State *pState )
 						
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetPlayersMask( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2289,7 +2170,6 @@ int CScripts::GetPlayersMask( struct lua_State *pState )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetObjCoord( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2314,7 +2194,6 @@ int CScripts::GetObjCoord( struct lua_State *pState )
 
 	return 2;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetScriptAreaParams( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2340,7 +2219,6 @@ int CScripts::GetScriptAreaParams( struct lua_State *pState )
 
 	return 4;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::IsPlayerPresent( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2350,7 +2228,6 @@ int CScripts::IsPlayerPresent( struct lua_State *pState )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::SwitchWeather( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2358,7 +2235,6 @@ int CScripts::SwitchWeather( struct lua_State *pState )
 	theWeather.Switch( bOn );
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::SwitchWeatherAutomatic( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2366,7 +2242,6 @@ int CScripts::SwitchWeatherAutomatic( struct lua_State *pState )
 	theWeather.SwitchAutomatic( bOn );
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetNUnitsInSide( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2378,7 +2253,6 @@ int CScripts::GetNUnitsInSide( struct lua_State *pState )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::SetDifficultyLevel( struct lua_State *state )
 {
 	Script script( state );
@@ -2390,7 +2264,6 @@ int CScripts::SetDifficultyLevel( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::SetCheatDifficultyLevel( struct lua_State *state )
 {
 	Script script( state );
@@ -2402,7 +2275,6 @@ int CScripts::SetCheatDifficultyLevel( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::DeleteReinforcement( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2421,7 +2293,6 @@ int CScripts::DeleteReinforcement( struct lua_State *pState )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::ViewZone( struct lua_State *pState )
 {
 	if ( !theDipl.IsNetGame() )
@@ -2448,7 +2319,6 @@ int CScripts::ViewZone( struct lua_State *pState )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::IsStandGround( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2468,7 +2338,6 @@ int CScripts::IsStandGround( struct lua_State *pState )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::IsEntrenched( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2488,7 +2357,6 @@ int CScripts::IsEntrenched( struct lua_State *pState )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetNMinesInScriptArea( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2510,7 +2378,6 @@ int CScripts::GetNMinesInScriptArea( struct lua_State *pState )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetNTrenchesInScriptArea( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2532,7 +2399,6 @@ int CScripts::GetNTrenchesInScriptArea( struct lua_State *pState )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetNFencesInScriptArea( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2554,7 +2420,6 @@ int CScripts::GetNFencesInScriptArea( struct lua_State *pState )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetNAntitankInScriptArea( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2576,7 +2441,6 @@ int CScripts::GetNAntitankInScriptArea( struct lua_State *pState )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetNAPFencesInScriptArea( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2598,7 +2462,6 @@ int CScripts::GetNAPFencesInScriptArea( struct lua_State *pState )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::Password( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2608,7 +2471,6 @@ int CScripts::Password( struct lua_State *pState )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::SetGameSpeed( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2620,7 +2482,6 @@ int CScripts::SetGameSpeed( struct lua_State *pState )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetNUnitsOfType( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2641,7 +2502,6 @@ int CScripts::GetNUnitsOfType( struct lua_State *pState )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScripts::GetMapSize( struct lua_State *pState )
 {
 	Script script( pState );
@@ -2651,5 +2511,4 @@ int CScripts::GetMapSize( struct lua_State *pState )
 
 	return 2;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #undef CHECK_ERROR

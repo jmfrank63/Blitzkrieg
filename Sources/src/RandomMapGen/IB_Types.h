@@ -3,8 +3,6 @@
 
 #include "..\Image\Image.h"
 #include "..\Formats\FmtSprite.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//без массива дл€ использовани€ в мех DLL св€з€х
 inline std::string GetDDSImageExtention( ECompressionType compressionType )
 {
 	if ( compressionType == COMPRESSION_DXT )
@@ -21,12 +19,10 @@ inline std::string GetDDSImageExtention( ECompressionType compressionType )
 	}
 	return "";
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUnsafeImageAccessor
 {
 	IImage *pImage;
 	std::vector<SColor*> rows;
-	//
 	void Set( IImage *_pImage )
 	{
 		pImage = _pImage;
@@ -42,24 +38,20 @@ class CUnsafeImageAccessor
 public:
 	CUnsafeImageAccessor() {  }
 	CUnsafeImageAccessor( IImage *_pImage ) { Set( _pImage ); }
-	// image assigning and extracting
 	const CUnsafeImageAccessor& operator=( IImage *_pImage ) { Set( _pImage ); return *this; }
 	const CUnsafeImageAccessor& operator=( const CUnsafeImageAccessor &accessor ) { Set( accessor.pImage ); return *this; }
 	operator IImage*() const { return pImage; }
 	IImage* operator->() const { return pImage; }
-	// comparison operators
 	bool operator==( const CUnsafeImageAccessor &ptr ) const { return ( pImage == ptr.pImage ); }
 	bool operator==( IImage *pNewObject ) const { return ( pImage == pNewObject ); }
 	bool operator!=( const CUnsafeImageAccessor &ptr ) const { return ( pImage != ptr.pImage ); }
 	bool operator!=( IImage *pNewObject ) const { return ( pImage != pNewObject ); }
-	//
 	const SColor* operator[]( int nY ) const { return rows[nY]; }
 	SColor* operator[]( int nY ) { return rows[nY]; }
 	const SColor& operator()( int nX, int nY ) const { return rows[nY][nX]; }
 	SColor& operator()( int nX, int nY ) { return rows[nY][nX]; }
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSpritesPackBuilder
 {
 	CSpritesPackBuilder() {}	
@@ -131,7 +123,6 @@ class CSpritesPackBuilder
 	static IImage* Pack( SSpritesPack *pSpritesPack, const CPackParameters &rPackParameters, int nMaxSquareSideSize, int nDepth );
 	static IImage* Pack( SSpritesPack *pSpritesPack, const SPackParameter &rPackParameter, int nMaxSquareSideSize, int nDepth );
 
-	//тестовые мектоды
 	static IImage* Unpack							( SSpritesPack *pSpritesPack, IImage *pPackedImage, int nSpriteIndex, CTRect<int> *pActualRect = 0 );
 	static IImage* UnpackAndMarkEdge	( SSpritesPack *pSpritesPack, IImage *pPackedImage, int nSpriteIndex, CTRect<int> *pActualRect = 0 );
 	static IImage* UnpackAndMarkBounds( SSpritesPack *pSpritesPack, IImage *pPackedImage, int nSpriteIndex, CTRect<int> *pActualRect = 0 );
@@ -140,7 +131,6 @@ class CSpritesPackBuilder
 	static IImage* UnpackAndMarkAlpha	( SSpritesPack *pSpritesPack, IImage *pPackedImage, int nSpriteIndex, DWORD dwMinAlpha, DWORD dwMaxAlpha, CTRect<int> *pActualRect = 0 );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRMImageBuilder
 {
 	CRMImageBuilder() {}
@@ -152,7 +142,6 @@ public:
 	static const SColor GRAY_DARKER_COLOR;
 	static const SColor BASE_EMBOSS_COLOR;
 
-	//статические функции
 	static bool ApplyFilter( IImage *pImage, const CArray2D<int> &rFilter, DWORD dwMinAlpha );
 	static bool Emboss( IImage *pImage, const CTPoint<int> &rShiftPoint, const CArray2D<int> &rFilter, DWORD dwMinAlpha );
 	static bool Noise( IImage *pImage, IImage *pNoise, DWORD dwMinAlpha );
@@ -162,13 +151,10 @@ public:
 	static IImage* GetEdge( IImage *pImage, SColor edgeColor, SColor nonEdgeColor, DWORD dwMinAlpha );
 	static IImage* GetShadow( IImage *pImage, const CTPoint<int> &rShiftPoint, SColor shadowColor, SColor nonShadowColor, DWORD dwMinAlpha );
 	static IImage* GetAlphaEmboss( IImage *pImage, const CTPoint<int> &rShiftPoint, int nFilterSize, DWORD dwMinAlpha );
-	//все одного размера!
 	static IImage* FastComposeImagesByAlpha( const std::vector<CPtr<IImage> > &rImages, DWORD dwMinAlpha );
 	static IImage* FastComposeImagesByColor( const std::vector<CPtr<IImage> > &rImages, SColor color );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//функционал примен€ющий данный паттерн к указанной точке картинки
 struct SRMImageApplyFilterFunctional
 {
 	friend class CRMImageBuilder;
@@ -240,8 +226,6 @@ private:
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//функционал примен€ющий данный паттерн к указанной точке картинки, с проверкой диапазонов
 struct SRMImageApplyFilterInBoundsFunctional
 {
 	friend class CRMImageBuilder;
@@ -333,8 +317,6 @@ private:
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//функционал помечающий край картинки
 struct SRMGetImageEdgeFunctional
 {
 	friend class CRMImageBuilder;
@@ -381,8 +363,6 @@ private:
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//функционал помечающий край картинки
 struct SRMGetImageEdgeInBoundsFunctional
 {
 	friend class CRMImageBuilder;
@@ -434,5 +414,4 @@ private:
 		return true;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __ImageBuilder__Types__

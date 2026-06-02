@@ -3,15 +3,6 @@
 #include "Texture.h"
 #include "..\Image\Image.h"
 #include "..\Formats\fmtTexture.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** texture
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 EGFXPixelFormat GetGFXFormat( const SDDSPixelFormat &format )
 {
 	if ( format.dwFlags & DDS_FOURCC ) 
@@ -40,7 +31,6 @@ EGFXPixelFormat GetGFXFormat( const SDDSPixelFormat &format )
 	}
 	return GFXPF_UNKNOWN;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool LoadMipLevel( const SSurfaceLockInfo &lockinfo, IDataStream *pStream, 
 									 const int nSizeX, const int nSizeY, const int nBPP, const int nCurrMipLevel, const int nLineModifier )
 {
@@ -63,43 +53,31 @@ bool LoadMipLevel( const SSurfaceLockInfo &lockinfo, IDataStream *pStream,
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTexture::Load( const bool bPreLoad )
 {
-	// check for already loaded texture
 	if ( pTexture != 0 ) 
 		return true;
-	//
 	const std::string szStreamName = GetSharedResourceFullName();
 	CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( szStreamName.c_str(), STREAM_ACCESS_READ );
-	//
 	const int nStartMipLevel = 0;
-	//
 	if ( pStream != 0 )										// load DDS image
 	{
-		// read and check signature
 		DWORD dwSignature = 0;
 		pStream->Read( &dwSignature, sizeof(dwSignature) );
 		NI_ASSERT_SLOW_T( dwSignature == SDDSHeader::SIGNATURE, NStr::Format("Texture \"%s\" is not a DDS file!", szStreamName.c_str()) );
 		if ( dwSignature != SDDSHeader::SIGNATURE ) 
 			return false;
-			// read header
 		SDDSHeader hdr;
 		pStream->Read( &hdr, sizeof(hdr) );
-		// pre-load size info
 		nSizeX = hdr.dwWidth >> nStartMipLevel;
 		nSizeY = hdr.dwHeight >> nStartMipLevel;
 		format = GetGFXFormat( hdr.ddspf );
-		// pre-load size info
 		if ( bPreLoad ) 
 			return true;
-		// create texture and load it's data
 		const int nNumMipLevels = hdr.dwHeaderFlags & DDS_HEADER_FLAGS_MIPMAP ? (hdr.dwMipMapCount == 0 ? 1 : hdr.dwMipMapCount) : 1;
 		const int nNumMips = nNumMipLevels - nStartMipLevel;
 		const int nBPP = ::GetBPP( format );
-		// create D3D texture object
 		GetSingleton<IGFX>()->CreateTexture( nSizeX, nSizeY, nNumMips, format, GFXD_STATIC, this );
-		// seek for required mip level data
 		if ( nStartMipLevel > 0 ) 
 		{
 			int nToSeek = 0;
@@ -107,7 +85,6 @@ bool CTexture::Load( const bool bPreLoad )
 				nToSeek += (hdr.dwWidth >> i) * (hdr.dwHeight >> i) * nBPP / 8;
 			pStream->Seek( nToSeek, STREAM_SEEK_CUR );
 		}
-		// load texture data
 		const int nLineModifier = (format >= GFXPF_DXT1) && (format <= GFXPF_DXT5) ? 4 : 1;
 		for ( int i = 0; i < nNumMips; ++i )
 		{
@@ -119,19 +96,16 @@ bool CTexture::Load( const bool bPreLoad )
 	}
 	else																	// create checker texture
 	{
-		// pre-load size info
 		nSizeX = 32;
 		nSizeY = 32;
 		format = GFXPF_ARGB8888;
 		if ( bPreLoad ) 
 			return true;
-		//
 		GetSingleton<IGFX>()->CreateTexture( nSizeX, nSizeY, 1, format, GFXD_STATIC, this );
 		CPtr<IImage> pImage = GetSingleton<IImageProcessor>()->GenerateImage( 32, 32, IGT_CHECKER );
 
 		SSurfaceLockInfo lockinfo;
 		this->Lock( 0, &lockinfo );
-		//
 		const SColor *pData = pImage->GetLFB();
 		if ( (nSizeX * sizeof(SColor)) == lockinfo.nPitch )
 		{
@@ -149,18 +123,15 @@ bool CTexture::Load( const bool bPreLoad )
 				lockinfo.pData = (void*)( DWORD(lockinfo.pData) + lockinfo.nPitch );
 			}
 		}
-		//
 		this->Unlock( 0 );
 	}
 
 	return true;	
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTexture::Init( IDirect3DTexture8 *_pTexture, const int _nMemUsage )
 {
 	NI_ASSERT_T( _pTexture != 0, "Can't init texture from NULL D3D object" );
 	pTexture = _pTexture;
-	//
 	if ( (nSizeX == -1) || (nSizeY == -1) ) 
 	{
 		D3DSURFACE_DESC desc;
@@ -171,14 +142,12 @@ void CTexture::Init( IDirect3DTexture8 *_pTexture, const int _nMemUsage )
 	}
 	nMemUsage = _nMemUsage;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IDirect3DTexture8* CTexture::GetInternalContainer()
 { 
 	if ( pTexture == 0 ) 
 		Load();
 	return pTexture;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTexture::Lock( int nLevel, SSurfaceLockInfo *pLockInfo )
 {
 	D3DLOCKED_RECT lr;
@@ -188,41 +157,28 @@ bool CTexture::Lock( int nLevel, SSurfaceLockInfo *pLockInfo )
 	pLockInfo->pData = lr.pBits;
   return true;
 } 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTexture::Unlock( int nLevel )
 {
   HRESULT dxrval = pTexture->UnlockRect( nLevel );
 	NI_ASSERTHR_SLOW_TF( dxrval, NStr::Format("Faild to unlock rect on the level %d of the texture", nLevel), return false );
   return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTexture::AddDirtyRect( const RECT *pRect )
 {
   HRESULT dxrval = pTexture->AddDirtyRect( pRect );
 	NI_ASSERTHR_SLOW_TF( dxrval, NStr::Format("Failed to add dirty rect (%d,%d : %d,%d) to the texture", pRect->left, pRect->top, pRect->right, pRect->bottom), return false );
   return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTexture::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 	saver.Add( 1, &nSharedResourceLastUsage.a );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** render target texture
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRenderTargetTexture::Init( IDirect3DTexture8 *_pTexture, IDirect3DSurface8 *_pDepth, int _nMemUsage )
 {
 	NI_ASSERT_T( _pTexture != 0, "Can't init texture from NULL D3D object" );
 	pTexture = _pTexture;
-	//
 	if ( (nSizeX == -1) || (nSizeY == -1) ) 
 	{
 		D3DSURFACE_DESC desc;
@@ -231,24 +187,13 @@ void CRenderTargetTexture::Init( IDirect3DTexture8 *_pTexture, IDirect3DSurface8
 		nSizeY = desc.Height;
 	}
 	nMemUsage = _nMemUsage;
-	//
 	IDirect3DSurface8 *pSurface = 0;
 	HRESULT dxrval = pTexture->GetSurfaceLevel( 0, &pSurface );
 	NI_ASSERTHR_T( dxrval, "Can't retrieve 0th surface level from render-target texture" );
 	pColor = pSurface;
 	pSurface->Release();
-	//
 	pDepth = _pDepth;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** surface
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSurface::Init( IDirect3DSurface8 *_pSurface )
 {
 	NI_ASSERT_T( _pSurface != 0, "Can't init surface from NULL D3D object" );
@@ -259,7 +204,6 @@ void CSurface::Init( IDirect3DSurface8 *_pSurface )
 	nSizeY = desc.Height;
 	format = D3DToGFXPixelFormat( desc.Format );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSurface::Lock( SSurfaceLockInfo *pLockInfo )
 {
 	D3DLOCKED_RECT lr;
@@ -269,11 +213,9 @@ bool CSurface::Lock( SSurfaceLockInfo *pLockInfo )
 	pLockInfo->pData = lr.pBits;
   return true;
 } 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSurface::Unlock()
 {
   HRESULT dxrval = pSurface->UnlockRect();
 	NI_ASSERTHR_SLOW_TF( dxrval, "Faild to unlock surface's rect", return false );
   return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

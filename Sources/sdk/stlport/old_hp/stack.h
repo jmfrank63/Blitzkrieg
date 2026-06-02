@@ -68,6 +68,3 @@ using _STLP_STD::priority_queue;
 
 #endif /* _STLP_STACK_H */
 
-// Local Variables:
-// mode:C++
-// End:

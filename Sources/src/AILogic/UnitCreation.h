@@ -1,19 +1,15 @@
 #ifndef _UNIT_CREATION_INTERNAL_
 #define _UNIT_CREATION_INTERNAL_
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EGunplaneCalledAs
 {
 	EGCA_GUNPLANE,
 	EGCA_DIVEBOMBER,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUnitCreation
 {
 	DECLARE_SERIALIZE;
 	CPtr<IObjectsDB> pIDB;
-	// для унификации создания самолетов
 	interface IPlaneCreation 
 	{
 		virtual const CVec2 &GetDestPoint() const = 0;
@@ -26,7 +22,6 @@ class CUnitCreation
 																CVec2 * pvOffset, const bool bRandom = false ) = 0;
 
 	};
-	//
 	class CPlaneCreation : public IPlaneCreation
 	{
 		CVec2 vDestPoint;
@@ -39,7 +34,6 @@ class CUnitCreation
 		virtual enum EActionCommand GetCommand() const { return eCmd; }
 		virtual int GetNParam() const { return nParam; }
 	};
-	// для создания маленьких самолетов
 	class CLightPlaneCreation : public CPlaneCreation
 	{
 	public:
@@ -51,7 +45,6 @@ class CUnitCreation
 																std::vector<CVec2> *positions,
 																CVec2 * pvOffset, const bool bRandom = false );
 	};
-	// для создания тяжелых самолетов
 	class CHeavyPlaneCreation : public CPlaneCreation
 	{
 		bool bNeedFormation;
@@ -66,7 +59,6 @@ class CUnitCreation
 	};
 
 public:
-	//для хранения информации о танковых окопах
 	struct STankPitInfo
 	{
 		int operator&( IDataTree &ss );
@@ -74,7 +66,6 @@ public:
 		std::vector<std::string> digTankPits;
 		const char * GetRandomTankPit( const class CVec2 &vSize, const bool bCanDig, float *pfResize ) const;
 	};
-	// для хранения информации, специфической для стороны( русские, немцы, ...  )
 	struct SPartyDependentInfo
 	{
 		std::string szPartyName;								// имя страны
@@ -84,7 +75,6 @@ public:
 		std::string szGunCrewSquad;							// артиллеоисты
 		std::string szHeavyMGSquad;							// пулеметчики
 		std::string szResupplyEngineerSquad;		// грузчики у грузовиков с ресурсами
-		//для использования в редакторе, сериализация здесь
 		int operator&( IDataTree &ss )
 		{
 			CTreeAccessor tree = &ss;
@@ -99,7 +89,6 @@ public:
 		}
 	};
 
-	// для хранения общей информации ( независимой от стороны )
 	struct SCommonInfo
 	{
 		std::vector<std::string> antitankObjects;	// противотанковые заграждения
@@ -109,7 +98,6 @@ public:
 		std::string szEntrenchment;							// окоп
 		int operator&( IDataTree &ss );
 	};
-	//
 	struct SFeedBack
 	{
 		int eEnable, eDisable;		
@@ -118,7 +106,6 @@ public:
 	};
 	std::vector<SFeedBack> feedbacks;
 
-	//
 	struct SLocalInGameUnitCreationInfo
 	{
 		DECLARE_SERIALIZE;
@@ -145,7 +132,6 @@ public:
 		std::string szPartyName;												// название страны
 		int nLastCalledAviaType;												// last called aviation type
 
-		// this parameter can disable all planes for player.
 		std::vector<CVec2> vAppearPoints;		// точки возможного появления (координата аэродрома)
 
 		SLocalInGameUnitCreationInfo & operator=( const struct SUnitCreation &rSUnitCreation );
@@ -157,7 +143,6 @@ public:
 private:
 	int nAviationCallNumeber;
 	bool bInit;														// for delaying initialization untill segment
-	// это для локального игрока только
 	bool bMainButtonDisabled;
 
 	std::vector<BYTE> bForceDisabled;						// авиация вообще не включается
@@ -166,13 +151,10 @@ private:
 	std::vector<BYTE> bLockedFlags;
 	std::vector<CVec2> vLockedAppearPoints;
 
-	// consts
-	// читается из xml, сохранять не нужно
 	std::vector<SPartyDependentInfo> partyDependentInfo;
 	SCommonInfo commonInfo;
 	STankPitInfo tankPitInfo;							
 
-	// положение бомбера с заданным номером ( в баундинг-боксах)
 	void CalcPositionsForHeavyPlanes( int nMax, const CVec2 & box, const CVec2 & direction, std::vector<CVec2> * positions, CVec2 * offset, bool bRandom =false )const;
 
 	void DisableMainAviationButton( NTimer::STime time );
@@ -193,9 +175,7 @@ private:
 
 public:
 	CUnitCreation();
-	// для редактора
 	void Init();
-	// для игры
 	void Init( const struct SUnitCreationInfo &info );
 	void Clear();
 	
@@ -203,18 +183,15 @@ public:
 	{
 		return inGameUnits[nPlayer].planes[nAvia];
 	}
-	// 
 	bool IsAviaEnabled( const int nPlayer, const int /*SUCAviation::AIRCRAFT_TYPE*/nAvia ) const;
 
 
-	// returns number (in new units) of this unit
 	int AddNewUnit( const std::string &name, IObjectsDB *pIDB, const float fHPFactor, const int x, const int y, const int z, const WORD dir, const BYTE player, bool bInitialization, bool IsEditor = false, bool bSendToWorld = true ) const;
 	int AddNewUnit( const SUnitBaseRPGStats *pStats, const float fHPFactor, const int x, const int y, const int z, const WORD dbID, const WORD _dir, const BYTE player, const EObjVisType eVisType, bool bInitialization = false, bool bSendToWorld = true, bool IsEditor = false ) const;
 	void GetCentersOfAllFormationUnits( const SSquadRPGStats *pStats, const CVec2 &vFormCenter, const WORD wFormDir, const int nFormation, const int nUnits, std::list<CVec2> *pCenters ) const;
 	class CCommonUnit* AddNewFormation( const SSquadRPGStats *pStats, const int nFormation, const float fHP, const float x, const float y, const float z, const WORD wDir, const int nDiplomacy, bool bInitialization = false, bool bSendToWorld = true, const int nUnits = -1 ) const;
 	class CCommonUnit* CreateSingleUnitFormation( class CSoldier *pSoldier ) const;
 	
-	//specific functions
 	void CallBombers( const struct SAIUnitCmd &unitCmd, const WORD wGroupID, int nDipl );
 	void CallFighters( const struct SAIUnitCmd &unitCmd, const WORD wGroupID, int nDipl );
 	void CallScout( const struct SAIUnitCmd &unitCmd, const WORD wGroupID, int nDipl );
@@ -226,7 +203,6 @@ public:
 	class CFormation* CreateResupplyEngineers( class CAITransportUnit *pUnit ) const;
 	CFormation * CreateCrew( class CArtillery *pUnit, IObjectsDB *_pIDB = 0, const int nUnits = -1, const CVec3 vPos = CVec3(-1,-1,-1), const int nPlayer = -1, const bool bImmidiateAttach = true ) const;
 
-	// послать Юре формацию, чтобы ее можно было селектить и вообще чтобы она на клиенте существовала
 	void SendFormationToWorld( CFormation * pUnit ) const;
 
 	IObjectsDB* GetObjectDB() { return pIDB; }
@@ -248,20 +224,15 @@ public:
 	void PlaneLandedSafely( const int nPlayer, const int /*SUCAviation::AIRCRAFT_TYPE*/ nAvia );
 	void Segment();
 
-	// для активации по скрипту
 	void EnableAviationScript( const int nPlayer, const int nAvia );
 	void DisableAviationScript( const int nPlayer, const int nAvia );
-	// for inquiery from script
 	int GetLastCalledAviation( const int nPlayer ) const;
 
-	// for weather.
 	void BadWeatherStarted();
 	
-	// вычисляет точку, в которой произойдет пересечение курса самолетов с краем карты ( при вылете )
 	const CVec2 GetFirstIntercectWithMap( const int nPlayer );
 
 	bool IsAntiTank( const SHPObjectRPGStats *pStats ) const;
 	bool IsAPFence( const SHPObjectRPGStats *pStats ) const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // _UNIT_CREATION_INTERNAL_

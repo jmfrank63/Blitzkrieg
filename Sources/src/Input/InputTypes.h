@@ -1,16 +1,6 @@
 #ifndef __INPUT_TYPES_H__
 #define __INPUT_TYPES_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** types
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EControlType
 {
 	CONTROL_TYPE_KEY		= 1,							// key on the keyboard (push/pop)
@@ -34,15 +24,6 @@ enum EDeviceType
 
 	DEVICE_TYPE_UNKNOWN	= 0x7fffffff			// device that does not fall into another category
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** controls for MOUSE emulation
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define INPUT_CONTROL_MOUSE_AXIS_X	0
 #define INPUT_CONTROL_MOUSE_AXIS_Y	4
 #define INPUT_CONTROL_MOUSE_AXIS_Z	8
@@ -56,16 +37,6 @@ enum EDeviceType
 #define INPUT_CONTROL_MOUSE_BUTTON7	19
 #define INPUT_CONTROL_MOUSE_BUTTON8	20
 #define INPUT_CONTROL_MOUSE_BUTTON9	21
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** descriptors
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// device descriptor - descripbes one input device
 struct SDeviceDesc
 {
 	GUID guid;														// GUID of this device
@@ -75,8 +46,6 @@ struct SDeviceDesc
 	std::string szName;										// computer name (ZB. MOUSE)
 	std::string szFriendlyName;						// user-friendly name of this device (ZB. Mouse)
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// control descriptor - describes one control of the device
 struct SControlDesc
 {
 	EControlType eType;										// type of this control
@@ -85,16 +54,6 @@ struct SControlDesc
 	std::string szFriendlyName;						// user-friendly name (ZB. Left Button)
 	int nGranularity;											// number of units, which determined one control state change 
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** value accumulators
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// key slider - begins and ends to accumulate in accordance with some events
 class CKeyAccumulator
 {
 	float fAccValue;											// current accumulated value
@@ -102,60 +61,47 @@ class CKeyAccumulator
 	float fActivationPower;								// activation power
 public:
 	CKeyAccumulator() : fAccValue( 0 ), dwActivationTime( -1 ), fActivationPower( 0 ) {  }
-	//
 	bool IsActive() const { return dwActivationTime != -1; }
-	//
 	void Activate( const DWORD time, const float fPower )
 	{
 		Deactivate( time );
 		dwActivationTime = time;
 		fActivationPower = fPower;
 	}
-	//
 	void Deactivate( const DWORD time )
 	{
 		fAccValue += fActivationPower * ( time - dwActivationTime );
 		fActivationPower = 0;
 		dwActivationTime = -1;
 	}
-	//
 	const float Sample( const DWORD time ) const
 	{
 		return ( !IsActive() || (time < dwActivationTime) ) ? fAccValue : fAccValue + fActivationPower*( time - dwActivationTime );
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// axis accumulator - just adding value to the currently accumulated
 class CAxisAccumulator
 {
 	float fAccValue;											// current accumulated value
 	DWORD dwActivationTime;								// activation time
 public:
 	CAxisAccumulator() : fAccValue( 0 ), dwActivationTime( -1 ) {  }
-	//
 	void Add( const float fValue ) { fAccValue += fValue; }
 	const float Sample( const DWORD time ) const { return fAccValue; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAccumulator
 {
 	CKeyAccumulator key;									// key accumulator
 	CAxisAccumulator axis;								// axis accumulator
 	CKeyAccumulator raxis;								// rotational axis accumulator
 public:
-	// key accumulator
 	void ActivateKey( const DWORD time, const float fPower ) { key.Activate( time, fPower ); }
 	void DeactivateKey( const DWORD time ) { key.Deactivate( time ); }
-	// axis accumulator
 	void ActivateAxis( const DWORD time, const float fPower ) { axis.Add( fPower ); }
 	void DeactivateAxis( const DWORD time ) {  }
-	// rotational axis accumulator
 	void ActivateRAxis( const DWORD time, const float fPower ) { raxis.Activate( time, fPower ); }
 	void DeactivateRAxis( const DWORD time ) { raxis.Deactivate( time ); }
-	//
 	const float Sample( const DWORD time ) const { return key.Sample( time ) + axis.Sample( time ) + raxis.Sample( time ); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IInputVisitor
 {
 	virtual bool STDCALL VisitControl( class CControl *pControl ) = 0;
@@ -163,5 +109,4 @@ interface IInputVisitor
 	virtual bool STDCALL VisitBind( class CBind *pBind ) = 0;
 	virtual bool STDCALL VisitCommand( struct SCommand *pCommand ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __INPUT_TYPES_H__

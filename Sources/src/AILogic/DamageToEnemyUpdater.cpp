@@ -4,11 +4,6 @@
 #include "AIUnit.h"
 #include "Guns.h"
 #include "DamageToEnemyUpdater.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												CDamageToEnemyUpdater											*
-//*******************************************************************
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDamageToEnemyUpdater::SetDamageToEnemy( CAIUnit *pOwner, CAIUnit *pEnemy, const DWORD dwGuns )
 {
 	UnsetDamageFromEnemy( pCurEnemy );
@@ -22,7 +17,6 @@ void CDamageToEnemyUpdater::SetDamageToEnemy( CAIUnit *pOwner, CAIUnit *pEnemy, 
 		NI_ASSERT_T( _finite( fTakenDamagePower ) != 0, "Wrong fTakenDamagePower" );
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDamageToEnemyUpdater::SetDamageToEnemy( CAIUnit *pOwner, CAIUnit *pEnemy, CBasicGun *pGun )
 {
 	UnsetDamageFromEnemy( pCurEnemy );
@@ -45,7 +39,6 @@ void CDamageToEnemyUpdater::SetDamageToEnemy( CAIUnit *pOwner, CAIUnit *pEnemy, 
 	else
 		nTakenDamageUpdated = 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDamageToEnemyUpdater::UnsetDamageFromEnemy( CAIUnit *pEnemy )
 {
 	if ( nTakenDamageUpdated != 0 && pEnemy && pEnemy->IsAlive() && pEnemy == pCurEnemy )

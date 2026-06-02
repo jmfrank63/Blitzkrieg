@@ -38,7 +38,6 @@
 # include _STLP_NATIVE_OLD_STREAMS_HEADER(ios.h)
 # if defined (_STLP_USE_NAMESPACES) && !defined (_STLP_BROKEN_USING_DIRECTIVE)
 _STLP_BEGIN_NAMESPACE
-//using _STLP_OLD_IO_NAMESPACE::ios;
 _STLP_END_NAMESPACE
 # endif /* _STLP_USE_OWN_NAMESPACE */
 
@@ -51,7 +50,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_IOS_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

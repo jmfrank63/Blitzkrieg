@@ -1,8 +1,6 @@
 #ifndef __SPLINE_H__
 #define __SPLINE_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAnalyticBSpline
 {
 	float a3, a2, a1, a0;
@@ -10,7 +8,6 @@ public:
 	CAnalyticBSpline() {  }
 	CAnalyticBSpline( const float p0, const float p1, const float p2, const float p3 ) { Setup(p0, p1, p2, p3); }
 	CAnalyticBSpline( const CAnalyticBSpline &bs ) { a3 = bs.a3; a2 = bs.a2; a1 = bs.a1; a0 = bs.a0; }
-	//
 	void Setup( const float p0, const float p1, const float p2, const float p3 )
 	{
 		a3 = ( -p0 + 3.0f*(p1 - p2) + p3 ) * (1.0f/6.0f);
@@ -25,7 +22,6 @@ public:
 	float GetDiff2( const float t ) const { return a3*6.0f*t + a2*2.0f; }
 	float GetDiff3( const float t ) const { return a3*6.0f; }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAnalyticBSpline2
 {
 	static const int N_PARTS_FOR_CLOSEST_POINT_SEARCHING;
@@ -36,7 +32,6 @@ public:
 	CAnalyticBSpline2( const CVec3 &p0, const CVec3 &p1, const CVec3 &p2, const CVec3 &p3 ) { Setup(p0, p1, p2, p3); }
 	CAnalyticBSpline2( const CVec2 &p0, const CVec2 &p1, const CVec2 &p2, const CVec2 &p3 ) { Setup(p0, p1, p2, p3); }
 	CAnalyticBSpline2( const CAnalyticBSpline2 &bs ) : x( bs.x ), y( bs.y ) {  }
-	//
 	void Setup( const CVec3 &p0, const CVec3 &p1, const CVec3 &p2, const CVec3 &p3 )
 	{
 		x.Setup( p0.x, p1.x, p2.x, p3.x );
@@ -53,7 +48,6 @@ public:
 	const CVec2 GetDiff1( const float t ) const { return CVec2( x.GetDiff1(t), y.GetDiff1(t) ); }
 	const CVec2 GetDiff2( const float t ) const { return CVec2( x.GetDiff2(t), y.GetDiff2(t) ); }
 	const CVec2 GetDiff3( const float t ) const { return CVec2( x.GetDiff3(t), y.GetDiff3(t) ); }
-	//
 	float GetLength( const int nNumSteps = 100 ) const
 	{
 		const float fStep = 1.0f / float( nNumSteps );
@@ -111,10 +105,6 @@ public:
 		return fLen2;
 	}
 	float GetStep( const float fStep ) const { return fStep / GetLength(); }
-	// радиус кривизны кривой, заданной параметрически:
-	//     ((x`)^2 + (y`)^2)^(3/2)
-	// R = -----------------------
-	//         |x`y`` - y`x``|
 	float GetCurvatureRadius( const float t ) const
 	{
 		const float dx = x.GetDiff1( t );
@@ -122,13 +112,6 @@ public:
 		const float denominator = fabs( dx*y.GetDiff2(t) - dy*x.GetDiff2(t) );
 		return denominator < 1e-8f ? 1e37f : pow( fabs2( dx ) + fabs2( dy ), 3.0/2.0 ) / denominator;
 	}
-	// центр кривизны кривой, заданной параметрически:
-	//          (x`)^2 + (y`)^2
-	// x0 = x - --------------- * y`
-	//           x`y`` - y`x``
-	//          (x`)^2 + (y`)^2
-	// y0 = y + --------------- * x`
-	//           x`y`` - y`x``
 	const CVec2 GetCurvatureCenter( const float t ) const
 	{
 		const float dx = x.GetDiff1( t );
@@ -140,9 +123,6 @@ public:
 		return CVec2( x(t) - fCoeff*dy, y(t) + fCoeff*dx );
 	}
 	
-	// найти ближайшую точку к vPoint; *pvClosestPoint - ближайшая точка, *pfT - её параметер, 
-	// fT0 и fT1 - параметры, задающие часть сплайна
 	void GetClosestPoint( const CVec2 &vPoint, CVec2 *pvClosestPoint, float *pfT, const float fT0 = 0.0f, const float fT1 = 1.0f );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __SPLINE_H__

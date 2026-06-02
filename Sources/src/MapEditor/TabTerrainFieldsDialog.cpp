@@ -12,12 +12,9 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CTabTerrainFieldsDialog::CTabTerrainFieldsDialog( CWnd* pParent )
 	: CResizeDialog( CTabTerrainFieldsDialog::IDD, pParent ), bCreateControls( true )
 {
-	//{{AFX_DATA_INIT(CTabTerrainFieldsDialog)
-	//}}AFX_DATA_INIT
 	
 	SetControlStyle( IDC_FIELD_FILEDS_LABEL, ANCHORE_LEFT_TOP | RESIZE_HOR );
 	SetControlStyle( IDC_FIELD_BROWSE, ANCHORE_RIGHT_TOP );
@@ -50,9 +47,7 @@ CTabTerrainFieldsDialog::CTabTerrainFieldsDialog( CWnd* pParent )
 	SetControlStyle( IDC_FIELD_UPDATE_MAP_CHECK_BOX, ANCHORE_LEFT_TOP | RESIZE_HOR );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP( CTabTerrainFieldsDialog, CResizeDialog )
-	//{{AFX_MSG_MAP(CTabTerrainFieldsDialog)
 	ON_CBN_SELCHANGE(IDC_FIELD_FIELD_COMBO, OnSelchangeFieldFieldCombo)
 	ON_CBN_EDITCHANGE(IDC_FIELD_FIELD_COMBO, OnEditchangeFieldFieldCombo)
 	ON_BN_CLICKED(IDC_FIELD_BROWSE, OnFieldBrowse)
@@ -67,14 +62,11 @@ BEGIN_MESSAGE_MAP( CTabTerrainFieldsDialog, CResizeDialog )
 	ON_BN_CLICKED(IDC_FIELD_UPDATE_MAP_CHECK_BOX, OnFieldUpdateMapCheckBox)
 	ON_BN_CLICKED(IDC_FIELD_CHECK_PASSABILITY_CHECK_BOX, OnFieldCheckPassabilityCheckBox)
 	ON_WM_DESTROY()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTerrainFieldsDialog::DoDataExchange( CDataExchange* pDX )
 {
 	CResizeDialog::DoDataExchange(pDX);
-	//{{AFX_DATA_MAP(CTabTerrainFieldsDialog)
 	DDX_Control(pDX, IDC_FIELD_FIELD_COMBO, m_Fields);
 	DDX_Control(pDX, IDC_FIELD_MIN_LENGTH_EDIT, m_MinLength);
 	DDX_Control(pDX, IDC_FIELD_WIDTH_EDIT, m_Width);
@@ -86,15 +78,12 @@ void CTabTerrainFieldsDialog::DoDataExchange( CDataExchange* pDX )
 	DDX_Control(pDX, IDC_FIELD_FILL_HEIGHTS_CHECK_BOX, m_FillHeightsButton);
 	DDX_Control(pDX, IDC_FIELD_UPDATE_MAP_CHECK_BOX, m_UpdateMapButton);
 	DDX_Control(pDX, IDC_FIELD_CHECK_PASSABILITY_CHECK_BOX, m_CheckPassabilityButton);
-	//}}AFX_DATA_MAP
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CTabTerrainFieldsDialog::OnInitDialog() 
 {
 	CResizeDialog::OnInitDialog();
 
-	//selected field
 	if ( resizeDialogOptions.szParameters.size() < 2 )
 	{
 		resizeDialogOptions.szParameters.resize( 2 );	
@@ -109,13 +98,6 @@ BOOL CTabTerrainFieldsDialog::OnInitDialog()
 		}
 	}
 
-	//randomize polygon
-	//delete objects
-	//fill terrain
-	//fill objects
-	//fill heights
-	//update map
-	//check passability
 	if ( resizeDialogOptions.nParameters.size() < 7 )
 	{
 		resizeDialogOptions.nParameters.resize( 7 );
@@ -128,9 +110,6 @@ BOOL CTabTerrainFieldsDialog::OnInitDialog()
 		resizeDialogOptions.nParameters[6] = 1;
 	}
 
-	//min length
-	//width
-	//disturbance
 	if ( resizeDialogOptions.fParameters.size() < 3 )
 	{
 		resizeDialogOptions.fParameters.resize( 3 );
@@ -143,7 +122,6 @@ BOOL CTabTerrainFieldsDialog::OnInitDialog()
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTerrainFieldsDialog::CreateControls()
 {
 	bCreateControls = true;
@@ -179,7 +157,6 @@ void CTabTerrainFieldsDialog::CreateControls()
 	bCreateControls = false;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTerrainFieldsDialog::OnFieldBrowse() 
 {
 	std::string szInitialDir;
@@ -218,7 +195,6 @@ void CTabTerrainFieldsDialog::OnFieldBrowse()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTerrainFieldsDialog::OnSelchangeFieldFieldCombo() 
 {
 	if ( !bCreateControls )
@@ -233,7 +209,6 @@ void CTabTerrainFieldsDialog::OnSelchangeFieldFieldCombo()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTerrainFieldsDialog::OnEditchangeFieldFieldCombo() 
 {
 	if ( !bCreateControls )
@@ -251,7 +226,6 @@ void CTabTerrainFieldsDialog::OnEditchangeFieldFieldCombo()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTerrainFieldsDialog::OnChangeFieldMinLengthEdit() 
 {
 	if ( !bCreateControls )
@@ -266,7 +240,6 @@ void CTabTerrainFieldsDialog::OnChangeFieldMinLengthEdit()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTerrainFieldsDialog::OnChangeFieldWidthEdit() 
 {
 	if ( !bCreateControls )
@@ -281,7 +254,6 @@ void CTabTerrainFieldsDialog::OnChangeFieldWidthEdit()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTerrainFieldsDialog::OnChangeFieldDisturbanceEdit() 
 {
 	if ( !bCreateControls )
@@ -296,7 +268,6 @@ void CTabTerrainFieldsDialog::OnChangeFieldDisturbanceEdit()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTerrainFieldsDialog::OnFieldRandomizePolygonCheckBox() 
 {
 	if ( !bCreateControls )
@@ -305,7 +276,6 @@ void CTabTerrainFieldsDialog::OnFieldRandomizePolygonCheckBox()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTerrainFieldsDialog::OnFieldRemoveObjectsCheckBox() 
 {
 	if ( !bCreateControls )
@@ -314,7 +284,6 @@ void CTabTerrainFieldsDialog::OnFieldRemoveObjectsCheckBox()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTerrainFieldsDialog::OnFieldFillTerrainCheckBox() 
 {
 	if ( !bCreateControls )
@@ -323,7 +292,6 @@ void CTabTerrainFieldsDialog::OnFieldFillTerrainCheckBox()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTerrainFieldsDialog::OnFieldFillObjectsCheckBox() 
 {
 	if ( !bCreateControls )
@@ -332,7 +300,6 @@ void CTabTerrainFieldsDialog::OnFieldFillObjectsCheckBox()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTerrainFieldsDialog::OnFieldFillHeightsCheckBox() 
 {
 	if ( !bCreateControls )
@@ -341,7 +308,6 @@ void CTabTerrainFieldsDialog::OnFieldFillHeightsCheckBox()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTerrainFieldsDialog::OnFieldUpdateMapCheckBox()
 {
 	if ( !bCreateControls )
@@ -350,7 +316,6 @@ void CTabTerrainFieldsDialog::OnFieldUpdateMapCheckBox()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTerrainFieldsDialog::OnFieldCheckPassabilityCheckBox()
 {
 	if ( !bCreateControls )
@@ -359,14 +324,12 @@ void CTabTerrainFieldsDialog::OnFieldCheckPassabilityCheckBox()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTerrainFieldsDialog::OnDestroy() 
 {
 	CResizeDialog::SaveResizeDialogOptions();
 	CResizeDialog ::OnDestroy();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTerrainFieldsDialog::SetControlsToActualValues()
 {
 	bCreateControls = true;
@@ -379,4 +342,3 @@ void CTabTerrainFieldsDialog::SetControlsToActualValues()
 	m_Disturbance.SetWindowText( NStr::Format( "%.2f", resizeDialogOptions.fParameters[2] ) );
 	bCreateControls = false;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

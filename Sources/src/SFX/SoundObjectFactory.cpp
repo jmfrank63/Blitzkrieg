@@ -6,7 +6,6 @@
 #include "SampleSounds.h"
 #include "SoundManager.h"
 #include "StreamingSound.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static CSoundObjectFactory theSoundObjectFactory;
 CSoundObjectFactory::CSoundObjectFactory()
 {
@@ -17,10 +16,8 @@ CSoundObjectFactory::CSoundObjectFactory()
 	REGISTER_CLASS( this, SFX_SOUND_3D, CSound3D );
 	REGISTER_CLASS( this, SFX_PLAY_LIST, CPlayList );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static SModuleDescriptor theModuleDescriptor( "Sound (FMOD)", SFX_SFX, 0x0100, &theSoundObjectFactory, 0 );
 const SModuleDescriptor* STDCALL GetModuleDescriptor()
 {
 	return &theModuleDescriptor;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

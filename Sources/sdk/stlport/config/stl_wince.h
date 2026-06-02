@@ -7,7 +7,6 @@
 #ifndef _STLP_WINCE_H
 #define _STLP_WINCE_H
 
-// this flag is being used by STLport
 #   define _STLP_WINCE
 
 #ifndef _MT                            // Always threaded in CE
@@ -20,10 +19,8 @@
 #define _STLP_NO_NEW_NEW_HEADER
 #define _STLP_OWN_IOSTREAMS
 
-// tell other parts no threads are there
 #   define _STLP_NO_THREADS 1
 
-// not all new-style headers are available...
 # define _STLP_HAS_NO_NEW_C_HEADERS
 
 #     undef _STLP_HAS_NO_EXCEPTIONS
@@ -31,13 +28,9 @@
 #     undef _STLP_NO_EXCEPTION_HEADER
 #     define _STLP_NO_EXCEPTION_HEADER
 
-// we have to use malloc instead of new
 # undef  _STLP_USE_NEWALLOC
 # define _STLP_USE_MALLOC
 
-//# ifdef _STLP_MSVC
-//#     pragma warning (disable: 4786)
-//# endif
 
 #ifdef _STLP_WINCE_USE_OUTPUTDEBUGSTRING
 #define _STLP_WINCE_TRACE(msg)   OutputDebugString(msg)
@@ -64,19 +57,16 @@ typedef unsigned long time_t;
 #define _TIME_T_DEFINED
 #endif
 
-//ptrdiff_t is not defined in Windows CE SDK
 #ifndef _PTRDIFF_T_DEFINED
 typedef int ptrdiff_t;
 #define _PTRDIFF_T_DEFINED
 #endif
 
-//clock_t is not defined in Windows CE SDK
 #ifndef _CLOCK_T_DEFINED
 typedef long clock_t;
 #define _CLOCK_T_DEFINED
 #endif
 
-//struct tm is not defined in Windows CE SDK
 #ifndef _TM_DEFINED
 struct tm {
         int tm_sec;     /* seconds after the minute - [0,59] */
@@ -92,7 +82,6 @@ struct tm {
 #define _TM_DEFINED
 #endif
 
-// Some useful routines that are missing in Windows CE SDK
 #ifdef __cplusplus
 extern "C"
 {
@@ -116,7 +105,6 @@ inline void *__cdecl operator new(size_t, void *_P) { return (_P); }
 #define __PLACEMENT_NEW_INLINE
 #endif
 
-// Only defined as macros in Windows CE SDK
 #include _STLP_NATIVE_C_HEADER(ctype.h)
 
 #if (_WIN32_WCE < 300)                  // Only wide chars for older versions
@@ -180,7 +168,6 @@ inline int (iswascii)(int c) { return ((unsigned)(c) < 0x80); }
 # define _ASSERT_DEFINED
 #endif
 
-// they say it's needed 
 # include <windows.h>
 
 #endif /* _STLP_WCE_H */

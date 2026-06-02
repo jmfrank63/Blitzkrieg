@@ -13,12 +13,6 @@ public:
     __alloc_type::deallocate((__alloc_value_type*)__p, __chunk(__n)); }
 };
 
-// Allocator adaptor to turn an SGI-style allocator (e.g. alloc, malloc_alloc)
-// into a standard-conforming allocator.   Note that this adaptor does
-// *not* assume that all objects of the underlying alloc class are
-// identical, nor does it assume that all of the underlying alloc's
-// member functions are static member functions.  Note, also, that 
-// __allocator<_Tp, alloc> is essentially the same thing as allocator<_Tp>.
 
 template <class _Tp, class _Alloc>
 struct __allocator : public _Alloc {
@@ -55,14 +49,12 @@ struct __allocator : public _Alloc {
   const_pointer address(const_reference __x) const { return &__x; }
 # endif
 
-  // __n is permitted to be 0.
   _Tp* allocate(size_type __n, const void* = 0) {
     return __n != 0 
         ? __STATIC_CAST(_Tp*,__underlying_alloc::allocate(__n * sizeof(_Tp))) 
         : 0;
   }
 
-  // __p is not permitted to be a null pointer.
   void deallocate(pointer __p, size_type __n)
     { if (__p) __underlying_alloc::deallocate(__p, __n * sizeof(_Tp)); }
 
@@ -108,9 +100,6 @@ inline bool  _STLP_CALL operator!=(const __allocator<_Tp, _Alloc>& __a1,
 #endif /* _STLP_FUNCTION_TMPL_PARTIAL_ORDER */
 
 
-// Comparison operators for all of the predifined SGI-style allocators.
-// This ensures that __allocator<malloc_alloc> (for example) will
-// work correctly.
 
 #ifndef _STLP_NON_TYPE_TMPL_PARAM_BUG
 template <int inst>
@@ -164,7 +153,6 @@ inline bool  _STLP_CALL operator!=(const __debug_alloc<_Alloc>&, const __debug_a
 
 #if defined (_STLP_CLASS_PARTIAL_SPECIALIZATION)
 
-// Versions for the predefined SGI-style allocators.
 template <class _Tp, int __inst>
 struct _Alloc_traits<_Tp, __malloc_alloc<__inst> > {
   typedef __allocator<_Tp, __malloc_alloc<__inst> > allocator_type;
@@ -182,8 +170,6 @@ struct _Alloc_traits<_Tp, __debug_alloc<_Alloc> > {
   typedef __allocator<_Tp, __debug_alloc<_Alloc> > allocator_type;
 };
 
-// Versions for the __allocator adaptor used with the predefined
-// SGI-style allocators.
 
 template <class _Tp, class _Tp1, class _Alloc>
 struct _Alloc_traits<_Tp, __allocator<_Tp1, _Alloc > > {
@@ -194,7 +180,6 @@ struct _Alloc_traits<_Tp, __allocator<_Tp1, _Alloc > > {
 
 #if !defined (_STLP_MEMBER_TEMPLATE_CLASSES) 
 
-// Versions for the predefined SGI-style allocators.
 
 
 #  if defined (_STLP_NON_TYPE_TMPL_PARAM_BUG)

@@ -46,35 +46,14 @@
 
 #if defined( __MWERKS__ ) && ! defined (_STLP_USE_OWN_NAMESPACE)
 
-// MSL implementation classes expect to see the definition of streampos
-// when this header is included. We expect this to be fixed in later MSL
-// implementations
 # if !defined( __MSL_CPP__ ) || __MSL_CPP__ < 0x4105
 #  include <stl/msl_string.h> 
 # endif
 
 #endif // __MWERKS__
 
-// Standard C++ string class.  This class has performance
-// characteristics very much like vector<>, meaning, for example, that
-// it does not perform reference-count or copy-on-write, and that
-// concatenation of two strings is an O(N) operation. 
 
-// There are three reasons why basic_string is not identical to
-// vector.  First, basic_string always stores a null character at the
-// end; this makes it possible for c_str to be a fast operation.
-// Second, the C++ standard requires basic_string to copy elements
-// using char_traits<>::assign, char_traits<>::copy, and
-// char_traits<>::move.  This means that all of vector<>'s low-level
-// operations must be rewritten.  Third, basic_string<> has a lot of
-// extra functions in its interface that are convenient but, strictly
-// speaking, redundant.
 
-// Additionally, the C++ standard imposes a major restriction: according
-// to the standard, the character type _CharT must be a POD type.  This
-// implementation weakens that restriction, and allows _CharT to be a
-// a user-defined non-POD type.  However, _CharT must still have a
-// default constructor.
 
 _STLP_BEGIN_NAMESPACE
 
@@ -82,7 +61,6 @@ _STLP_BEGIN_NAMESPACE
 #  define basic_string _Nondebug_string
 # endif
 
-// A helper class to use a char_traits as a function object.
 
 template <class _Traits> struct _Not_within_traits
   : public unary_function<typename _Traits::char_type, bool> {
@@ -100,16 +78,7 @@ template <class _Traits> struct _Not_within_traits
   }
 };
 
-// ------------------------------------------------------------
-// Class _String_base.  
 
-// _String_base is a helper class that makes it it easier to write an
-// exception-safe version of basic_string.  The constructor allocates,
-// but does not initialize, a block of memory.  The destructor
-// deallocates, but does not destroy elements within, a block of
-// memory.  The destructor assumes that _M_start either is null, or else
-// points to a block of memory that was allocated using _String_base's 
-// allocator and whose size is _M_end_of_storage._M_data - _M_start.
 
 template <class _Tp, class _Alloc> class _String_base {
 public:
@@ -118,7 +87,6 @@ public:
   _Tp*    _M_start;
   _Tp*    _M_finish;
   _STLP_alloc_proxy<_Tp*, _Tp, allocator_type> _M_end_of_storage;
-                                // Precondition: 0 < __n <= max_size().
   void _M_allocate_block(size_t);
   void _M_deallocate_block() 
     { _M_end_of_storage.deallocate(_M_start, _M_end_of_storage._M_data - _M_start); }
@@ -145,21 +113,8 @@ _STLP_EXPORT_TEMPLATE_CLASS _String_base<wchar_t, allocator<wchar_t> >;
 #  endif
 # endif /* _STLP_USE_TEMPLATE_EXPORT */
 
-// ------------------------------------------------------------
-// Class basic_string.  
 
-// Class invariants:
-// (1) [start, finish) is a valid range.
-// (2) Each iterator in [start, finish) points to a valid object
-//     of type value_type.
-// (3) *finish is a valid object of type value_type; in particular,
-//     it is value_type().
-// (4) [finish + 1, end_of_storage) is a valid range.
-// (5) Each iterator in [finish + 1, end_of_storage) points to 
-//     unininitialized memory.
 
-// Note one important consequence: a string of length n must manage
-// a block of memory whose size is at least n + 1.  
 
 struct _String_reserve_t {};
 
@@ -167,8 +122,6 @@ template <class _CharT, class _Traits, class _Alloc> class basic_string : protec
 private:                        // Protected members inherited from base.
   typedef _String_base<_CharT,_Alloc> _Base;
   typedef basic_string<_CharT, _Traits, _Alloc> _Self;
-  // fbp : used to optimize char/wchar_t cases, and to simplify
-  // _STLP_DEFAULT_CONSTRUCTOR_BUG problem workaround
   typedef typename _Is_integer<_CharT>::_Integral _Char_Is_Integral;
 public:
   typedef _CharT value_type;
@@ -196,11 +149,9 @@ public:
   typedef _String_reserve_t _Reserve_t;
 # if defined (_STLP_USE_NATIVE_STRING) && ! defined (_STLP_DEBUG)
 #  if (defined(__IBMCPP__) && (500 <= __IBMCPP__) && (__IBMCPP__ < 600) )
-   // this typedef is being used for conversions
    typedef typename _STLP_VENDOR_STD::basic_string<_CharT,_Traits, 
     typename _STLP_VENDOR_STD::allocator<_CharT> > __std_string;
 #  else
-   // this typedef is being used for conversions
    typedef _STLP_VENDOR_STD::basic_string<_CharT,_Traits, 
     _STLP_VENDOR_STD::allocator<_CharT> > __std_string;
 #  endif
@@ -257,8 +208,6 @@ public:                         // Constructor, destructor, assignment.
     _M_terminate_string();
   }
 
-  // Check to see if _InputIterator is an integer type.  If so, then
-  // it can't be an iterator.
 #if defined (_STLP_MEMBER_TEMPLATES) && !(defined(__MRC__)||defined(__SC__))		//*ty 04/30/2001 - mpw compilers choke on this ctor
 # ifdef _STLP_NEEDS_EXTRA_TEMPLATE_CONSTRUCTORS
   template <class _InputIterator> basic_string(_InputIterator __f, _InputIterator __l)
@@ -288,8 +237,6 @@ public:                         // Constructor, destructor, assignment.
 #endif
 
 # if defined (_STLP_USE_NATIVE_STRING) && ! defined (_STLP_DEBUG)
-  // these conversion operations still needed for
-  // strstream, etc.
   basic_string (const __std_string& __x): _String_base<_CharT,_Alloc>(allocator_type())
     {
       const _CharT* __s = __x.data();
@@ -320,8 +267,6 @@ public:                         // Constructor, destructor, assignment.
   }
 
 private:                        // Helper functions used by constructors
-                                // and elsewhere.
-  // fbp : simplify integer types (char, wchar)
   void _M_construct_null_aux(_CharT* __p, const __false_type&) {
     _Construct(__p);
   }
@@ -334,8 +279,6 @@ private:                        // Helper functions used by constructors
   }
 
 private:                        
-  // Helper functions used by constructors.  It is a severe error for
-  // any of them to be called anywhere except from within constructors.
 
   void _M_terminate_string_aux(const __false_type&) {
     _STLP_TRY {
@@ -486,8 +429,6 @@ public:                         // Append, operator+=, push_back.
 
 #ifdef _STLP_MEMBER_TEMPLATES
 
-  // Check to see if _InputIterator is an integer type.  If so, then
-  // it can't be an iterator.
   template <class _InputIter> _Self& append(_InputIter __first, _InputIter __last) {
     typedef typename _Is_integer<_InputIter>::_Integral _Integral;
     return _M_append_dispatch(__first, __last, _Integral());
@@ -622,15 +563,12 @@ private:                        // Helper functions for assign.
   }
   
 public:
-  // Check to see if _InputIterator is an integer type.  If so, then
-  // it can't be an iterator.
   template <class _InputIter> _Self& assign(_InputIter __first, _InputIter __last) {
     typedef typename _Is_integer<_InputIter>::_Integral _Integral;
     return _M_assign_dispatch(__first, __last, _Integral());
   }
 #endif  /* _STLP_MEMBER_TEMPLATES */
 
-  // if member templates are on, this works as specialization 
   _Self& assign(const _CharT* __f, const _CharT* __l)
   {
     ptrdiff_t __n = __l - __f;
@@ -712,8 +650,6 @@ public:                         // Insert
 
 #ifdef _STLP_MEMBER_TEMPLATES
 
-  // Check to see if _InputIterator is an integer type.  If so, then
-  // it can't be an iterator.
   template <class _InputIter> void insert(iterator __p, _InputIter __first, _InputIter __last) {
     typedef typename _Is_integer<_InputIter>::_Integral _Integral;
     _M_insert_dispatch(__p, __first, __last, _Integral());
@@ -826,7 +762,6 @@ public:                         // Erase.
   }  
 
   iterator erase(iterator __position) {
-                                // The move includes the terminating _CharT().
     _Traits::move(__position, __position + 1, this->_M_finish - __position);
     _Destroy(this->_M_finish);
     --this->_M_finish;
@@ -835,7 +770,6 @@ public:                         // Erase.
 
   iterator erase(iterator __first, iterator __last) {
     if (__first != __last) {
-                                // The move includes the terminating _CharT().
       traits_type::move(__first, __last, (this->_M_finish - __last) + 1);
       pointer __new_finish = this->_M_finish - (__last - __first);
       _Destroy(__new_finish + 1, this->_M_finish + 1);
@@ -845,7 +779,6 @@ public:                         // Erase.
   }
 
 public:                         // Replace.  (Conceptually equivalent
-                                // to erase followed by insert.)
   _Self& replace(size_type __pos, size_type __n, 
                         const _Self& __s) {
     if (__pos > size())
@@ -922,8 +855,6 @@ public:                         // Replace.  (Conceptually equivalent
   _Self& replace(iterator __first, iterator __last, 
                         size_type __n, _CharT __c);
 
-  // Check to see if _InputIterator is an integer type.  If so, then
-  // it can't be an iterator.
 #ifdef _STLP_MEMBER_TEMPLATES
   template <class _InputIter> _Self& replace(iterator __first, iterator __last,
                         _InputIter __f, _InputIter __l) {
@@ -1162,8 +1093,6 @@ _STLP_EXPORT_TEMPLATE_CLASS basic_string<wchar_t, char_traits<wchar_t>, allocato
 #  endif
 # endif /* _STLP_USE_TEMPLATE_EXPORT */
 
-// ------------------------------------------------------------
-// Non-member functions.
 
 template <class _CharT, class _Traits, class _Alloc> inline basic_string<_CharT,_Traits,_Alloc> _STLP_CALL
 operator+(const basic_string<_CharT,_Traits,_Alloc>& __s,
@@ -1172,7 +1101,6 @@ operator+(const basic_string<_CharT,_Traits,_Alloc>& __s,
   typedef basic_string<_CharT,_Traits,_Alloc> _Str;
   typedef typename _Str::_Reserve_t _Reserve_t;
 # ifdef __GNUC__
-  // gcc counts this as a function
   _Str __result  = _Str(_Reserve_t(),__s.size() + __y.size());
 # else
   _Str __result(_Reserve_t(), __s.size() + __y.size());
@@ -1252,7 +1180,6 @@ operator+(const basic_string<_CharT,_Traits,_Alloc>& __x,
 
 # undef _STLP_INIT_AMBIGUITY
 
-// Operator== and operator!=
 
 template <class _CharT, class _Traits, class _Alloc> inline bool _STLP_CALL
 operator==(const basic_string<_CharT,_Traits,_Alloc>& __x,
@@ -1276,7 +1203,6 @@ operator==(const basic_string<_CharT,_Traits,_Alloc>& __x,
   return __x.size() == __n && _Traits::compare(__x.data(), __s, __n) == 0;
 }
 
-// Operator< (and also >, <=, and >=).
 
 template <class _CharT, class _Traits, class _Alloc> inline bool _STLP_CALL
 operator<(const basic_string<_CharT,_Traits,_Alloc>& __x,
@@ -1386,7 +1312,6 @@ operator>=(const basic_string<_CharT,_Traits,_Alloc>& __x,
 }
 
 
-// Swap.
 
 #ifdef _STLP_FUNCTION_TMPL_PARTIAL_ORDER
 
@@ -1405,7 +1330,6 @@ template <class _CharT, class _Traits, class _Alloc> void  _STLP_CALL _S_string_
 # undef basic_string
 
 #if defined(_STLP_WINCE)
-// A couple of functions to transfer between ASCII/Unicode
 
 wstring __ASCIIToWide(const char *ascii);
 string __WideToASCII(const wchar_t *wide);
@@ -1427,6 +1351,3 @@ _STLP_END_NAMESPACE
 #endif /* _STLP_STRING */
 
 
-// Local Variables:
-// mode:C++
-// End:

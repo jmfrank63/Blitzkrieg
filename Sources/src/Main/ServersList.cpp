@@ -11,13 +11,7 @@
 
 #include "..\Net\NetDriver.h"
 #include "GameSpyPeerChat.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( IServersList );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 								   CServersList																*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServersList::Init( INetDriver *_pNetDriver )
 {
 	pNetDriver = _pNetDriver;
@@ -25,12 +19,10 @@ void CServersList::Init( INetDriver *_pNetDriver )
 	wCurUniqueId = 0;
 	lastServersCheck = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IMultiplayerMessage* CServersList::GetMessage()
 {
 	return messages.GetMessage();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServersList::AddServer( INetNodeAddress *pAddress, const float fPing, const INetDriver::SGameInfo &gameInfo, const bool bSameVersion )
 {
 	servers.push_back( SServerInfo() );
@@ -42,7 +34,6 @@ void CServersList::AddServer( INetNodeAddress *pAddress, const float fPing, cons
 	info.wUniqueServerId = wCurUniqueId++;
 	info.Unpack( gameInfo );
 
-	//
 	messages.AddMessage
 	(
 		new CServerInfoRefreshed
@@ -53,14 +44,12 @@ void CServersList::AddServer( INetNodeAddress *pAddress, const float fPing, cons
 		)
 	);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServersList::RefreshServerInfo( const SServerInfo &info, const bool bSameVersion )
 {
 	CServers::iterator iter = servers.begin();		
 	while ( iter != servers.end() && iter->wUniqueServerId != info.wUniqueServerId )
 		++iter;
 
-	//
 	messages.AddMessage
 	(
 		new CServerInfoRefreshed( iter->wUniqueServerId, iter->szGameName, iter->fPing, iter->eState,
@@ -68,12 +57,10 @@ void CServersList::RefreshServerInfo( const SServerInfo &info, const bool bSameV
 															iter->szModName, iter->szModVersion, bSameVersion, iter->eGameType, iter->gameSettings )
 	);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServersList::RemoveServer( const SServerInfo &info )
 {
 	messages.AddMessage( new CServerRemoved( info.wUniqueServerId ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServersList::RefreshServersList()
 {
 	INetDriver::SGameInfo gameInfo;
@@ -90,10 +77,8 @@ void CServersList::RefreshServersList()
 		while ( iter != servers.end() && !pAddress->IsSameIP( iter->pAddress ) )
 			++iter;
 
-		// new server
 		if ( iter == servers.end() )
 			AddServer( pAddress, fPing, gameInfo, !bWrongVersion );
-		// old server information refresh
 		else
 		{
 			iter->bUpdated = true;
@@ -105,7 +90,6 @@ void CServersList::RefreshServersList()
 
 			info.Unpack( gameInfo );
 
-			// information was refreshed
 			if ( info != *iter )
 			{
 				*iter = info;
@@ -124,7 +108,6 @@ void CServersList::RefreshServersList()
 		CServers::iterator iter = servers.begin();
 		while ( iter != servers.end() )
 		{
-			// server disconnected
 			if ( !iter->bUpdated )
 			{
 				RemoveServer( *iter );
@@ -138,18 +121,15 @@ void CServersList::RefreshServersList()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServersList::Segment()
 {
 	if ( pNetDriver )
 		RefreshServersList();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServersList::DestroyNetDriver()
 {
 	pNetDriver = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SServerInfo* CServersList::FindServerByID( const WORD wServerID ) const
 {
 	CServers::const_iterator iter = servers.begin();
@@ -161,7 +141,6 @@ const SServerInfo* CServersList::FindServerByID( const WORD wServerID ) const
 	else
 		return &(*iter);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CServersList::CanJoinToServerByID( const WORD wServerID )
 {
 	const SServerInfo *pInfo = FindServerByID( wServerID );
@@ -183,13 +162,11 @@ bool CServersList::CanJoinToServerByID( const WORD wServerID )
 	
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CServersList::IsNeedPassword( const WORD wServerID ) const
 {
 	const SServerInfo *pInfo = FindServerByID( wServerID );
 	return pInfo ? pInfo->bPasswordRequired : false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IGameCreation* CServersList::JoinToServerByID( const WORD wServerID, CPtr<IChat> *pChat, bool bPasswordRequired, const std::string &szPassword )
 {
 	const SServerInfo *pInfo = FindServerByID( wServerID );
@@ -198,7 +175,6 @@ IGameCreation* CServersList::JoinToServerByID( const WORD wServerID, CPtr<IChat>
 
 	return JoinToServerByAddress( pInfo->pAddress, pChat, pInfo->nHostPort, bPasswordRequired, szPassword );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IGameCreation* CServersList::JoinToServerByAddress( INetNodeAddress *pAddress, CPtr<IChat> *pChat, const int nPort, bool bPasswordRequired, const std::string &szPassword )
 {
 	CPtr<IDataStream> pPwd = CreateObject<IDataStream>( STREAMIO_MEMORY_STREAM );
@@ -225,16 +201,10 @@ IGameCreation* CServersList::JoinToServerByAddress( INetNodeAddress *pAddress, C
 	else
 		return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServersList::Refresh()
 {
 	pNetDriver->RefreshServersList();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 								   CLanServersList														*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CLanServersList::Init()
 {
 	INetDriver *pNetDriver = CreateObject<INetDriver>( INetDriver::tidTypeID );
@@ -242,7 +212,6 @@ void CLanServersList::Init()
 
 	CServersList::Init( pNetDriver );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 INetDriver* CLanServersList::CreateInGameNetDriver( const int nPort )
 {
 	INetDriver *pNetDriver = GetNetDriver();
@@ -258,7 +227,6 @@ INetDriver* CLanServersList::CreateInGameNetDriver( const int nPort )
 
 	return pNetDriver;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IGameCreation* CLanServersList::CreateServer( const SGameInfo &gameInfo, const SQuickLoadMapInfo &mapInfo, CPtr<IChat> *pChat )
 {
 	DestroyNetDriver();
@@ -275,18 +243,12 @@ IGameCreation* CLanServersList::CreateServer( const SGameInfo &gameInfo, const S
 
 	return pGameCreation;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CLanServersList::CreateInGameChat( CPtr<IChat> *pChat, INetDriver *pNetDriver )
 {
 	CLanChat *pCreatedChat = new CLanChat();
 	pCreatedChat->InitInGameChat( pNetDriver );
 	*pChat = pCreatedChat;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 								   CGameSpyServersList												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyServersList::Init()
 {
 	INetDriver *pNetDriver = CreateObject<INetDriver>( NET_GS_SERVERS_LIST_DIRVER );
@@ -294,7 +256,6 @@ void CGameSpyServersList::Init()
 
 	CServersList::Init( pNetDriver );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyServersList::CreateInGameChat( CPtr<IChat> *pChat, INetDriver *pInGameNetDriver )
 {
 	if ( (*pChat) == 0 )
@@ -310,7 +271,6 @@ void CGameSpyServersList::CreateInGameChat( CPtr<IChat> *pChat, INetDriver *pInG
 
 	(*pChat)->InitInGameChat( pInGameNetDriver );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IGameCreation* CGameSpyServersList::CreateServer( const struct SGameInfo &gameInfo, const struct SQuickLoadMapInfo &mapInfo, CPtr<IChat> *pChat )
 {
 	DestroyNetDriver();
@@ -328,7 +288,6 @@ IGameCreation* CGameSpyServersList::CreateServer( const struct SGameInfo &gameIn
 
 	return pGameCreation;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 INetDriver* CGameSpyServersList::CreateInGameNetDriver( const int nPort )
 {
 	INetDriver *pNetDriver = CreateObject<INetDriver>( INetDriver::tidTypeID );
@@ -339,16 +298,10 @@ INetDriver* CGameSpyServersList::CreateInGameNetDriver( const int nPort )
 
 	return pNetDriver;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 								   CInternetServersList												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInternetServersList::Init()
 {
 	CServersList::Init( 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 INetDriver* CInternetServersList::CreateInGameNetDriver( const int nPort )
 {
 	INetDriver *pNetDriver = GetNetDriver();
@@ -364,7 +317,6 @@ INetDriver* CInternetServersList::CreateInGameNetDriver( const int nPort )
 
 	return pNetDriver;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IGameCreation* CInternetServersList::CreateServer( const SGameInfo &gameInfo, const SQuickLoadMapInfo &mapInfo, CPtr<IChat> *pChat )
 {
 	DestroyNetDriver();
@@ -381,11 +333,9 @@ IGameCreation* CInternetServersList::CreateServer( const SGameInfo &gameInfo, co
 
 	return pGameCreation;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInternetServersList::CreateInGameChat( CPtr<IChat> *pChat, INetDriver *pNetDriver )
 {
 	CLanChat *pCreatedChat = new CLanChat();
 	pCreatedChat->InitInGameChat( pNetDriver );
 	*pChat = pCreatedChat;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

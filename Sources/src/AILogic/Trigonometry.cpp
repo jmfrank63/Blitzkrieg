@@ -1,7 +1,6 @@
 #include "stdafx.h"
 
 #include "Trigonometry.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NTrg
 {
 	const static int NPOWER = 18;
@@ -20,9 +19,7 @@ namespace NTrg
 	float Sin( float fAlpha )
 	{
 /*		
-		//crap{ for test
 		return sin( fAlpha );
-		//crap}
 */
 		int nSign = 1 - 2 * int(bit_cast<DWORD>(fAlpha) >> 31);
 		fAlpha = fabsf(fAlpha);
@@ -38,7 +35,6 @@ namespace NTrg
 		return nSign * values[nIndex];
 
 		/*
-		//
 		float nSign = 1;
 		if ( fAlpha < 0 )
 		{
@@ -57,7 +53,6 @@ namespace NTrg
 
 		return nSign * values[nIndex];		
 			
-		//
 		fAlpha = fmod( fAlpha, 2.0 * FP_PI );
 
 		if ( fAlpha >= FP_PI )
@@ -85,4 +80,3 @@ namespace NTrg
 		return fSign * FP_PI2 * ( (float)nDistance /(float)ACCURACY );
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

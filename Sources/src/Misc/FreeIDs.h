@@ -1,28 +1,18 @@
 #ifndef __FREEIDS_H__
 #define __FREEIDS_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include <unordered_set>
 #include <vector>
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											Free Identifiers														*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFreeIds
 {
 	enum { NUM_OF_ELEMENTS = 200 };
 
-	//CRAP{ for testing
 	std::unordered_set<int> givenIDs;
-	//CRAP}
 	
 	std::vector<int> nexts;
 	std::vector<int> preds;
 	int freePtr, front;
 
-	//
 	void AddToFree( int pos ) 
 	{ 
 		nexts[pos] = freePtr; 
@@ -52,7 +42,6 @@ public:
 		int nCnt = -1;
 		saver.Add( 6, &nCnt );
 
-		// CRAP{ for compatibility with legacy saves
 		if ( saver.IsReading() && nCnt == 0 )
 		{
 			std::vector<WORD> nextsWord;
@@ -72,7 +61,6 @@ public:
 
 			givenIDs.clear(); givenIDs.insert( givenIDsWord.begin(), givenIDsWord.end() );
 		}
-		// CRAP}
 		else
 		{
 			saver.Add( 1, &nexts );
@@ -82,11 +70,9 @@ public:
 			saver.Add( 5, &givenIDs );
 		}
 
-		// the nexd it is 7
 
 		return 0;
 	}
 
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __FREEIDS_H__

@@ -2,7 +2,6 @@
 
 #include "..\RandomMapGen\MapInfo_Types.h"
 #include "..\Misc\FileUtils.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NParams
 {
 	static std::string szMapName;
@@ -11,14 +10,12 @@ namespace NParams
 	static bool bConvertFences = false;
 	static bool bConvertBZM = true;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ProcessCommandLine( int argc, char *argv[] )
 {
 	std::vector<std::string> strings;
 	strings.reserve( argc - 1 );
 	for ( int i = 1; i < argc; ++i )
 		strings.push_back( argv[i] );
-	//
 	for ( std::vector<std::string>::const_iterator it = strings.begin(); it != strings.end(); ++it )
 	{
 		if ( (it->size() > 4) && (it->find(".xml") == it->size() - 4) )
@@ -51,7 +48,6 @@ void ProcessCommandLine( int argc, char *argv[] )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TRPGStats>
 void ConvertFrameIndex( IObjectsDB *pGDB, SMapObjectInfo *pInfo, const TRPGStats *pStats, const char *pszType )
 {
@@ -65,11 +61,9 @@ void ConvertFrameIndex( IObjectsDB *pGDB, SMapObjectInfo *pInfo, const TRPGStats
 	else
 		pInfo->nFrameIndex = nType;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ConvertFences( CMapInfo *pMapInfo )
 {
 	IObjectsDB *pGDB = GetSingleton<IObjectsDB>();
-	//
 	for ( std::vector<SMapObjectInfo>::iterator it = pMapInfo->objects.begin(); it != pMapInfo->objects.end(); ++it )
 	{
 		const SGDBObjectDesc *pDesc = pGDB->GetDesc( it->szName.c_str() );
@@ -88,7 +82,6 @@ void ConvertFences( CMapInfo *pMapInfo )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CProcessMap
 {
 	bool bConvertFences;
@@ -96,11 +89,9 @@ class CProcessMap
 public:
 	CProcessMap( bool _bConvertFences, bool _bSaveAsBZM )
 		: bConvertFences( _bConvertFences ), bSaveAsBZM( _bSaveAsBZM ) {  }
-	//
 	int Convert( const std::string &szMapName, const std::string &szResultName ) const
 	{
 		printf( "Processing map \"%s\"...\n", szMapName.c_str() );
-		//
 		CMapInfo mapinfo;
 		if ( CPtr<IDataStream> pStream = OpenFileStream(szMapName.c_str(), STREAM_ACCESS_READ) )
 		{
@@ -109,10 +100,8 @@ public:
 		}
 		else
 			return 0xDEAD;
-		//
 		if ( NParams::bConvertFences ) 
 			ConvertFences( &mapinfo );
-		// write result
 		if ( NParams::bConvertBZM ) 
 		{
 			if ( CPtr<IDataStream> pStream = CreateFileStream(szResultName.c_str(), STREAM_ACCESS_WRITE) )
@@ -137,7 +126,6 @@ public:
 		printf( "Done processing map \"%s\"...\n", szMapName.c_str() );
 		return 0;
 	}
-	//
 	int operator()( NFile::CFileIterator &file ) const
 	{
 		if ( file.IsDirectory() ) 
@@ -155,26 +143,21 @@ public:
 		return Convert( szMapName + ".xml", szDestMapName + pszResultExt );
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main( int argc, char *argv[] )
 {
 	ProcessCommandLine( argc, argv );
 	if ( NParams::szMapName.empty() && NParams::szStartDir.empty() ) 
 		return 0xDEAD;
-	// open main resource system and register as '0'
 	{
 		CPtr<IDataStorage> pStorage = OpenStorage( ".\\data\\*.pak", STREAM_ACCESS_READ, STORAGE_TYPE_COMMON );
 		RegisterSingleton( IDataStorage::tidTypeID, pStorage );
 	}
-	// CRAP{ load game database
 	{
 		CPtr<IObjectsDB> pODB = CreateObjectsDB();
 		pODB->LoadDB();
 		RegisterSingleton( IObjectsDB::tidTypeID, pODB );
-		//
 		GetSLS()->SetGDB( pODB );
 	}
-	//
 	CProcessMap processor( NParams::bConvertFences, NParams::bConvertBZM );
 	if ( NParams::szMapName.empty() ) 
 		NFile::EnumerateFiles( NParams::szStartDir.c_str(), "*.xml", processor, true );
@@ -190,7 +173,5 @@ int main( int argc, char *argv[] )
 		}
 		processor.Convert( szMapName + ".xml", szDestMapName + pszResultExt );
 	}
-	//
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

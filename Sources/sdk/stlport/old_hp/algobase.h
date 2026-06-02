@@ -35,12 +35,10 @@
 #include <pair.h>
 #endif
 
-// memmove
 #ifndef _STLP_CSTRING
 # include <cstring>
 #endif
 
-// CHAR_MAX
 #ifndef _STLP_CLIMITS
 # include <climits>
 #endif
@@ -62,7 +60,6 @@
 # ifdef _STLP_BROKEN_USING_DIRECTIVE
 using namespace STLPORT;
 # else
-// Names from stl_algobase.h
 using STLPORT::iter_swap; 
 using STLPORT::swap; 
 using STLPORT::min; 
@@ -77,7 +74,6 @@ using STLPORT::equal;
 using STLPORT::lexicographical_compare; 
 using STLPORT::lexicographical_compare_3way; 
 
-// Names from stl_uninitialized.h
 using STLPORT::uninitialized_copy;
 using STLPORT::uninitialized_copy_n;
 using STLPORT::uninitialized_fill;
@@ -92,6 +88,3 @@ using STLPORT::uninitialized_fill_n;
 
 #endif /* _STLP_ALGOBASE_H */
 
-// Local Variables:
-// mode:C++
-// End:

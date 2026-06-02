@@ -15,7 +15,6 @@ const char *POINTS_COLUMN_NAME  [POINTS_COLUMN_COUNT] = { "Index", "X", "Y" };
 const int   POINTS_COLUMN_FORMAT[POINTS_COLUMN_COUNT] = { LVCFMT_LEFT, LVCFMT_RIGHT, LVCFMT_LEFT };
 const int		POINTS_COLUMN_WIDTH [POINTS_COLUMN_COUNT] = { 60, 30, 30 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CALLBACK PointsListCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort )
 {
 	CPEPointsListDialog* pPointsListDialog = reinterpret_cast<CPEPointsListDialog*>( lParamSort );
@@ -32,7 +31,6 @@ int CALLBACK PointsListCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lPara
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CPEPointsListDialog::vID[] = 
 {
 	IDC_PL_POINTS_LIST,							//0
@@ -43,12 +41,9 @@ const int CPEPointsListDialog::vID[] =
 	IDCANCEL,												//5
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CPEPointsListDialog::CPEPointsListDialog( CWnd* pParent )
 : CResizeDialog( CPEPointsListDialog::IDD, pParent ), bCreateControls( false )
 {
-	//{{AFX_DATA_INIT(CPEPointsListDialog)
-	//}}AFX_DATA_INIT
 	SetControlStyle( vID[0], ANCHORE_LEFT_TOP | RESIZE_HOR_VER );
 	SetControlStyle( vID[1], ANCHORE_RIGHT_TOP );
 	SetControlStyle( vID[2], ANCHORE_RIGHT_TOP );
@@ -57,18 +52,13 @@ CPEPointsListDialog::CPEPointsListDialog( CWnd* pParent )
 	SetControlStyle( vID[5], ANCHORE_RIGHT_BOTTOM );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPEPointsListDialog::DoDataExchange( CDataExchange* pDX )
 {
 	CResizeDialog::DoDataExchange( pDX );
-	//{{AFX_DATA_MAP(CPEPointsListDialog)
 	DDX_Control(pDX, IDC_PL_POINTS_LIST, m_PointsList);
-	//}}AFX_DATA_MAP
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP( CPEPointsListDialog, CResizeDialog )
-	//{{AFX_MSG_MAP(CPEPointsListDialog)
 	ON_BN_CLICKED(IDC_PL_ADD_POINT_BUTTON, OnAddPointButton)
 	ON_BN_CLICKED(IDC_PL_DELETE_POINT_BUTTON, OnDeletePointButton)
 	ON_BN_CLICKED(IDC_PL_POINT_PROPERTIES_BUTTON, OnPointPropertiesButton)
@@ -80,11 +70,8 @@ BEGIN_MESSAGE_MAP( CPEPointsListDialog, CResizeDialog )
 	ON_NOTIFY(LVN_COLUMNCLICK, IDC_PL_POINTS_LIST, OnColumnclickPointsList)
 	ON_NOTIFY(LVN_ITEMCHANGED, IDC_PL_POINTS_LIST, OnItemchangedPointsList)
 	ON_NOTIFY(LVN_KEYDOWN, IDC_PL_POINTS_LIST, OnKeydownPointsList)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CPEPointsListDialog::OnInitDialog() 
 {
 	CResizeDialog::OnInitDialog();
@@ -102,7 +89,6 @@ BOOL CPEPointsListDialog::OnInitDialog()
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPEPointsListDialog::OnOK() 
 {
 	for ( int nColumnIndex = 0; nColumnIndex < POINTS_COLUMN_COUNT; ++nColumnIndex )
@@ -112,7 +98,6 @@ void CPEPointsListDialog::OnOK()
 	CResizeDialog::OnOK();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPEPointsListDialog::OnCancel() 
 {
 	for ( int nColumnIndex = 0; nColumnIndex < POINTS_COLUMN_COUNT; ++nColumnIndex )
@@ -122,7 +107,6 @@ void CPEPointsListDialog::OnCancel()
 	CResizeDialog::OnCancel();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPEPointsListDialog::OnAddPointButton() 
 {
 	CVec3 vNewPoint = VNULL3;
@@ -140,7 +124,6 @@ void CPEPointsListDialog::OnAddPointButton()
 	LoadPointsList();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPEPointsListDialog::OnDeletePointButton() 
 {
 	int nSelectedItem = m_PointsList.GetNextItem( -1, LVIS_SELECTED );
@@ -183,7 +166,6 @@ void CPEPointsListDialog::OnDeletePointButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPEPointsListDialog::OnPointPropertiesButton() 
 {
 	int nFocusedtem = m_PointsList.GetNextItem( -1, LVIS_FOCUSED );
@@ -210,7 +192,6 @@ void CPEPointsListDialog::OnPointPropertiesButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPEPointsListDialog::LoadPointsList()
 {
 	BeginWaitCursor();
@@ -230,14 +211,12 @@ bool CPEPointsListDialog::LoadPointsList()
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPEPointsListDialog::SetPointItem( int nItem, int nPointIndex )
 {
 	m_PointsList.SetItem( nItem, 1, LVIF_TEXT, NStr::Format( "%.2f", points[nPointIndex].x / 64.0f ), 0, 0, 0, 0 );
 	m_PointsList.SetItem( nItem, 2, LVIF_TEXT, NStr::Format( "%.2f", points[nPointIndex].y / 64.0f ), 0, 0, 0, 0 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPEPointsListDialog::CreateControls()
 {
 	bCreateControls = true;
@@ -256,7 +235,6 @@ void CPEPointsListDialog::CreateControls()
 	bCreateControls = false;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPEPointsListDialog::UpdateControls()
 {
 	CWnd* pWnd = 0;
@@ -270,12 +248,10 @@ void CPEPointsListDialog::UpdateControls()
 	}
 	if ( pWnd = GetDlgItem( vID[4] ) )
 	{
-		//pWnd->EnableWindow( m_PointsList.GetItemCount() > 0 );
 		pWnd->EnableWindow( true );
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPEPointsListDialog::OnAddMenu() 
 {
 	if ( CWnd* pWnd = GetDlgItem( vID[1] ) )
@@ -287,7 +263,6 @@ void CPEPointsListDialog::OnAddMenu()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPEPointsListDialog::OnDeleteMenu() 
 {
 	if ( CWnd* pWnd = GetDlgItem( vID[2] ) )
@@ -299,7 +274,6 @@ void CPEPointsListDialog::OnDeleteMenu()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPEPointsListDialog::OnPropertiesMenu() 
 {
 	if ( CWnd* pWnd = GetDlgItem( vID[3] ) )
@@ -311,7 +285,6 @@ void CPEPointsListDialog::OnPropertiesMenu()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPEPointsListDialog::OnDblclkPointsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	if ( CWnd* pWnd = GetDlgItem( vID[3] ) )
@@ -324,7 +297,6 @@ void CPEPointsListDialog::OnDblclkPointsList(NMHDR* pNMHDR, LRESULT* pResult)
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPEPointsListDialog::OnRclickPointsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	CMenu peMenu;
@@ -352,7 +324,6 @@ void CPEPointsListDialog::OnRclickPointsList(NMHDR* pNMHDR, LRESULT* pResult)
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPEPointsListDialog::OnColumnclickPointsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -373,7 +344,6 @@ void CPEPointsListDialog::OnColumnclickPointsList(NMHDR* pNMHDR, LRESULT* pResul
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPEPointsListDialog::OnItemchangedPointsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -381,7 +351,6 @@ void CPEPointsListDialog::OnItemchangedPointsList(NMHDR* pNMHDR, LRESULT* pResul
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPEPointsListDialog::OnKeydownPointsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	LV_KEYDOWN* pLVKeyDown = (LV_KEYDOWN*)pNMHDR;
@@ -417,4 +386,3 @@ void CPEPointsListDialog::OnKeydownPointsList(NMHDR* pNMHDR, LRESULT* pResult)
 	}
 	*pResult = 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

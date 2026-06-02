@@ -1,10 +1,8 @@
 #include "stdafx.h"
 
 #include "HitsStore.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern NTimer::STime curTime;
 CHitsStore theHitsStore;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CHitsStore::Init( const int nMapSizeX, const int nMapSizeY )
 {
 	hits[0].SetSizes( nMapSizeX / SConsts::HIT_CELL_COEFF, nMapSizeY / SConsts::HIT_CELL_COEFF + 1 );
@@ -16,7 +14,6 @@ void CHitsStore::Init( const int nMapSizeX, const int nMapSizeY )
 	curIndex = 0;
 	timeOfIndexBegin = curTime;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CHitsStore::Segment()
 {
 	if ( curTime - timeOfIndexBegin >= SConsts::TIME_OF_HIT_NOTIFY )
@@ -26,7 +23,6 @@ void CHitsStore::Segment()
 		hits[curIndex].SetZero();
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CHitsStore::AddHit( const CVec2 &center, const EHitTypes eHitType )
 {
 	const int nX = Clamp( int( center.x ) / SConsts::HIT_CELL_SIZE, 0, hits[curIndex].GetSizeX() - 1 );
@@ -34,7 +30,6 @@ void CHitsStore::AddHit( const CVec2 &center, const EHitTypes eHitType )
 
 	hits[curIndex][nY][nX] = eHitType;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CHitsStore::WasHit( const CVec2 &center, const float fR, const EHitTypes eHitType ) const
 {
 	const int nDownX = Max( 0, int( center.x - fR ) / SConsts::HIT_CELL_SIZE );
@@ -53,7 +48,6 @@ bool CHitsStore::WasHit( const CVec2 &center, const float fR, const EHitTypes eH
 
 	return false;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CHitsStore::Clear()
 {
 	hits[0].SetZero();
@@ -61,4 +55,3 @@ void CHitsStore::Clear()
 	
 	curIndex = 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

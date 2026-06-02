@@ -7,7 +7,6 @@
 #include "MultiplayerCommandManager.h"
 #include "..\Main\ScenarioTracker.h"
 #include "..\UI\UIMessages.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_tutorial"	,	TUTORIAL_WINDOW_ID	},
@@ -15,19 +14,14 @@ static const NInput::SRegisterCommandEntry commands[] =
 	{ "inter_cancel"		, IMC_CANCEL					},
 	{ 0									,	0										}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceInterMission::Init()
 {
 	CInterfaceScreenBase::Init();
-	// turn haze off
 	while ( pScene->ToggleShow(SCENE_SHOW_HAZE) != false );
-	//
 	intermissionMsgs.Init( pInput, commands );
 	SetBindSection( "intermission" );
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceInterMission::ProcessMessage( const SGameMessage &msg )
 {
 	switch ( msg.nEventID )
@@ -41,29 +35,21 @@ bool CInterfaceInterMission::ProcessMessage( const SGameMessage &msg )
 		return true;
 	}
 	
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceInterMission::StepLocal( bool bAppActive )
 {
 	if ( !bAppActive )
 		return false;
-	//
 	const CVec2 vPos = pCursor->GetPos();
 	CInterfaceScreenBase::OnCursorMove( vPos );
-	//
 	if ( pUIScreen )		//в некоторых экранах pUIScreen нету
 		pUIScreen->Update( pTimer->GetAbsTime() );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceInterMission::DrawAdd()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//	CInterfaceMultiplayerScreen
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMultiplayerScreen::Init()
 {
 	CInterfaceInterMission::Init();
@@ -71,10 +57,8 @@ bool CInterfaceMultiplayerScreen::Init()
 
 	pCommandManager = GetSingleton<IMPToUICommandManager>();
 
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////
 bool CInterfaceMultiplayerScreen::StepLocal( bool bAppActive )
 {
 	if ( pCommandManager )

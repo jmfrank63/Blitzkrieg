@@ -3,9 +3,7 @@
 #include "OptionEntryWrapper.h"
 #include "..\UI\UIMessages.h"
 #include "UIConsts.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS(COptionsListWrapper);
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EUIElements
 {
 	E_SUBDIALOG_SELECTIONS								=	3000,
@@ -23,11 +21,6 @@ enum EUIElements
 	E_SUBDIALOG_TEXTEDIT_GAMESPY					= 3004,
 	E_EDITBOX_GAMESPY											= 10003
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//		CUIOption
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CUIOption::CUIOption( IUIStatic *_pOptionName, IUIDialog *_pDialog, IOption *_pOption )
 	: pDialog( _pDialog ), pOption( _pOption ), pOptionName( _pOptionName )
 {
@@ -46,25 +39,21 @@ CUIOption::CUIOption( IUIStatic *_pOptionName, IUIDialog *_pDialog, IOption *_pO
 
 	pOption->Set( this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIOption::SaveOption()
 {
 	pOption->Get( this );
 	pOption->Apply();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIOption::Apply()
 {
 	SaveOption();
 	pOption->Get( this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIOption::CancelChanges()
 {
 	pOption->CancelChanges( this );
 	SaveOption();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIOption::PositionChanged()
 {
 	if ( EOT_SLIDER == pOption->GetType() && pOption->IsInstant() )
@@ -72,7 +61,6 @@ void CUIOption::PositionChanged()
 		SaveOption();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIOption::OnSelected()
 {
 	if ( EOT_GAMESPY_TEXTENTRY == pOption->GetType() )
@@ -91,7 +79,6 @@ void CUIOption::OnSelected()
 		pStatic->SetFocus( true );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIOption::ChangeSelection( const int nCurSelection )
 {
 	const std::string szKey = CUIConsts::ConstructOptionKey( pOption->GetName(), szSelections[nCurSelection].szProgName.c_str() );
@@ -125,7 +112,6 @@ void CUIOption::ChangeSelection( const int nCurSelection )
 			pStatic->SetHelpContext( 0, pHelpContext->GetString() );
 	}
 }	
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIOption::OnClicked( const bool bLeft )
 {
 	if ( EOT_SELECTION == pOption->GetType() ) //set next entry
@@ -157,7 +143,6 @@ void CUIOption::OnClicked( const bool bLeft )
 		pStatic->SetFocus( true );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIOption::SetSelectionOption( const std::vector<SOptionDropListValue> &_szSelections, const int _nDefault )
 {
 	szSelections = _szSelections;
@@ -167,16 +152,12 @@ void CUIOption::SetSelectionOption( const std::vector<SOptionDropListValue> &_sz
 	ChangeSelection( nCurSelection );
 	pSubDialog->ShowWindow( UI_SW_SHOW );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIOption::ResetSelection()
 {
-	//IUIStatic * pStatic = checked_cast<IUIStatic*>( pSubDialog->GetChildByID( E_SELECTIONS_ENTRY ) );
-	//ITextManager * pTM = GetSingleton<ITextManager>();
 	nCurSelection = nInitialSelection;
 	ChangeSelection( nCurSelection );
 	pSubDialog->ShowWindow( UI_SW_SHOW );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIOption::SetSliderOption( const int  _nMin, const int _nMax, const int _nInitial )
 {
 	pSubDialog = checked_cast<IUIDialog*>( pDialog->GetChildByID( E_SUBDIALOG_SLIDER ) );
@@ -187,7 +168,6 @@ void CUIOption::SetSliderOption( const int  _nMin, const int _nMax, const int _n
 	nInitialSliderPos = _nInitial;
 	ResetSlider();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIOption::ResetSlider()
 {
 	IUISlider * pSlider = checked_cast<IUISlider*>( pSubDialog->GetChildByID( E_SLIDER ) );
@@ -198,28 +178,24 @@ void CUIOption::ResetSlider()
 	if ( pHelpContext )
 		pSlider->SetHelpContext( 0, pHelpContext->GetString() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIOption::SetTextOption( const wchar_t *pszEntry )
 {
 	pSubDialog = checked_cast<IUIDialog*>( pDialog->GetChildByID( E_SUBDIALOG_TEXTEDIT ) );
 	szInitialText = pszEntry;
 	ResetTextEntry();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIOption::SetTextGameSpyOption( const wchar_t *pszEntry )
 {
 	pSubDialog = checked_cast<IUIDialog*>( pDialog->GetChildByID( E_SUBDIALOG_TEXTEDIT_GAMESPY ) );
 	szInitialText = pszEntry;
 	ResetTextGameSpyEntry();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIOption::SetTextNumericOption( const int nEntry )
 {
 	pSubDialog = checked_cast<IUIDialog*>( pDialog->GetChildByID( E_SUBDIALOG_TEXTEDIT_NUMERIC ) );
 	nInitialNumericEntry = nEntry;
 	ResetNumericEntry();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIOption::ResetTextEntry()
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX ) );
@@ -229,7 +205,6 @@ void CUIOption::ResetTextEntry()
 	if ( pHelpContext )
 		pStatic->SetHelpContext( 0, pHelpContext->GetString() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIOption::ResetTextGameSpyEntry()
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX_GAMESPY) );
@@ -240,7 +215,6 @@ void CUIOption::ResetTextGameSpyEntry()
 	if ( pHelpContext )
 		pStatic->SetHelpContext( 0, pHelpContext->GetString() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIOption::ResetNumericEntry()
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX_NUMERIC ) );
@@ -250,41 +224,31 @@ void CUIOption::ResetNumericEntry()
 	if ( pHelpContext )
 		pStatic->SetHelpContext( 0, pHelpContext->GetString() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIOption::GetSelectionOption() const
 {
 	return nCurSelection;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIOption::GetSliderOption() const
 {
 	IUISlider * pSlider = checked_cast<IUISlider*>( pSubDialog->GetChildByID( E_SLIDER ) );
 	return pSlider->GetPosition();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CUIOption::GetTextNumericOption() const
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX_NUMERIC ) );
 	std::string szEntry = NStr::ToAscii( std::wstring( reinterpret_cast<const wchar_t*>( pStatic->GetWindowText( 0 ) ) ) );
 	return NStr::ToInt( szEntry );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const wchar_t * CUIOption::GetTextGameSpyOption() const
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX ) );
 	return pStatic->GetWindowText( 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const wchar_t * CUIOption::GetTextOption () const
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX ) );
 	return pStatic->GetWindowText( 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//		COptionsListWrapper
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 COptionsListWrapper::COptionsListWrapper( const DWORD _dwFlags, IUIListControl * _pList, const int _nIDToStartFrom, IOptionSystem * pSystem, const bool _bDisableChange )
 	: pList( _pList ), nIDToStartFrom( _nIDToStartFrom ), dwFlags( _dwFlags ), bDisableChange( _bDisableChange ), pSetOptionSystem( pSystem )
 {
@@ -295,13 +259,11 @@ COptionsListWrapper::COptionsListWrapper( const DWORD _dwFlags, IUIListControl *
 	}
 	InitList( false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 COptionsListWrapper::COptionsListWrapper( IUIListControl * _pList, OptionDescs & _optionDescs, const int _nIDToStartFrom, IOptionSystem * pSystem, const bool _bDisableChange )
 : pList( _pList ), optionsDescs( _optionDescs ), nIDToStartFrom( _nIDToStartFrom ), bDisableChange( _bDisableChange ), pSetOptionSystem( pSystem )
 {
 	InitList( false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void COptionsListWrapper::InitList( const bool bDefault )
 {
 	std::vector< CPtr<IOption> > optionsToGive;
@@ -351,7 +313,6 @@ void COptionsListWrapper::InitList( const bool bDefault )
 		case EOET_SLIDER:
 			{
 				NI_ASSERT_T( pDesc->nDataType == VT_I4, "EOET_SLIDER is allowed only for VT_I4 type" );
-				//NI_ASSERT_T( pDesc->defaultValue >= 0 && pDesc->defaultValue <= 100, NStr::Format( "VALUES from 0 to 100 allowed for slider, option %s", pDesc->szName.c_str() )  );
 				variant_t val ;
 				if ( !bDefault && pSystem->Get( pDesc->szName, &val ) )
 					pOption = new COptionSlider( pDesc->szName.c_str(), pDesc->bInstantApply, 0, 100, long(val) );
@@ -401,7 +362,6 @@ void COptionsListWrapper::InitList( const bool bDefault )
 	}
 	pList->InitialUpdate();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void COptionsListWrapper::Apply()
 {
 	for ( int i = 0; i < options.size(); ++i )
@@ -409,7 +369,6 @@ void COptionsListWrapper::Apply()
 			options[i]->Apply();
 	pList->InitialUpdate();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void COptionsListWrapper::CancelChanges()
 {
 	for ( int i = 0; i < options.size(); ++i )
@@ -417,7 +376,6 @@ void COptionsListWrapper::CancelChanges()
 			options[i]->CancelChanges();
 	pList->InitialUpdate();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void COptionsListWrapper::ToDefault()
 {
 	while( pList->GetNumberOfItems() )
@@ -425,7 +383,6 @@ void COptionsListWrapper::ToDefault()
 	InitList( true );
 	Apply();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void COptionsListWrapper::DisableChange() 
 { 
 	bDisableChange = true; 
@@ -440,7 +397,6 @@ void COptionsListWrapper::DisableChange()
 	}
 	pList->EnableWindow( false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool COptionsListWrapper::ProcessMessage( const SGameMessage &msg )
 {
 	switch( msg.nEventID )

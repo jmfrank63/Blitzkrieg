@@ -8,7 +8,6 @@
 #include "CommonId.h"
 #include "UIConsts.h"
 #include "..\StreamIO\OptionSystem.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum ENewCommands
 {
 	IMC_NEXT_CHAPTER							= 10003,
@@ -17,18 +16,15 @@ enum ENewCommands
 	IMC_SHOW_NEXT_CHAPTER_DIALOG	= 8888,
 	IMC_NEXT_CHAPTER_CONFIRM			= 8889,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_ok"				,	IMC_OK				},
 	{ "inter_cancel"		, IMC_CANCEL		},
 	{ 0									,	0							}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceCampaign::~CInterfaceCampaign()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceCampaign::operator &( interface IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -38,7 +34,6 @@ int CInterfaceCampaign::operator &( interface IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SCampaignStats *CInterfaceCampaign::ReadCampaignStats()
 {
 	const int nCampaign = GetGlobalVar( "Campaign.Current", 0 );
@@ -46,11 +41,9 @@ const SCampaignStats *CInterfaceCampaign::ReadCampaignStats()
 	std::string szPartyName = CUIConsts::GetPartyNameByNumber( nCampaign );
 	std::string szCampaignName = "scenarios\\campaigns\\" + szPartyName + "\\" + szPartyName;
 	
-	//загружаем информацию о кампании
 	const SCampaignStats *pStats = NGDB::GetGameStats<SCampaignStats>( szCampaignName.c_str(), IObjectsDB::CAMPAIGN );
 	return pStats;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceCampaign::Init()
 {
 	CInterfaceInterMission::Init();
@@ -58,7 +51,6 @@ bool CInterfaceCampaign::Init()
 	
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceCampaign::PlayCampaignMusic()
 {
 	const SCampaignStats *pStats = ReadCampaignStats();
@@ -68,13 +60,11 @@ void CInterfaceCampaign::PlayCampaignMusic()
 	
 	if ( pStats->szInterfaceMusic.size() > 0 )
 	{
-		//запускаем звук
 		int nTimeToFade = GetGlobalVar( "Sound.TimeToFade", 5000 );
 		GetSingleton<IScene>()->SetSoundSceneMode( ESSM_INTERMISSION_INTERFACE );
 		GetSingleton<ISFX>()->PlayStream( pStats->szInterfaceMusic.c_str(), true, nTimeToFade );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceCampaign::StartInterface()
 {
 	CInterfaceInterMission::StartInterface();
@@ -82,7 +72,6 @@ void CInterfaceCampaign::StartInterface()
 	pUIScreen->Load( "ui\\common\\campaign" );
 	pUIScreen->Reposition( pGFX->GetScreenRect() );
 	
-	//загружаем информацию о кампании
 	const SCampaignStats *pStats = ReadCampaignStats();
 	NI_ASSERT_T( pStats != 0, "Invalid campaign stats" );
 	if ( pStats == 0 )
@@ -90,7 +79,6 @@ void CInterfaceCampaign::StartInterface()
 	
 	CInterfaceCampaign::PlayCampaignMusic();
 
-	//установим правильный размер для map image control
 	IUIContainer *pMap = checked_cast<IUIContainer *> ( pUIScreen->GetChildByID( 100 ) );
 	IGFXTexture *pTexture = GetSingleton<ITextureManager>()->GetTexture( pStats->szMapImage.c_str() );
 	NI_ASSERT_T( pTexture != 0, "Campaign map texture is invalid" );
@@ -102,10 +90,7 @@ void CInterfaceCampaign::StartInterface()
 	std::string szCampaignName;
 
 	{
-		//Инкрементируем глобальную переменную количества заходов в Campaign
 		std::string szVarName = "Campaign.";
-		//const int nCampaign = GetGlobalVar( "campaign", 0 );
-		//std::string szPartyName = CUIConsts::GetPartyNameByNumber( nCampaign );
 		const std::string szPartyName = GetSingleton<IScenarioTracker>()->GetUserPlayer()->GetGeneralSide();
 		szCampaignName = "scenarios\\campaigns\\" + szPartyName + "\\" + szPartyName;
 		szVarName += szCampaignName;
@@ -116,7 +101,6 @@ void CInterfaceCampaign::StartInterface()
 
 		if ( nVisitCount == 1 )
 		{
-			//Это первый заход в кампанию, надо прочитать все чаптеры и установить их состояния
 			int nActiveChapterIndex = -1;
 			for ( int i=0; i<pStats->chapters.size(); i++ )
 			{
@@ -144,7 +128,6 @@ void CInterfaceCampaign::StartInterface()
 		}
 	}
 	
-	//Загрузим чаптеры
 	CPtr<IDataStream> pFlagStream = GetSingleton<IDataStorage>()->OpenStream( "ui\\common\\chapterbutton.xml", STREAM_ACCESS_READ );
 	CPtr<IDataTree> pDT = CreateDataTreeSaver( pFlagStream, IDataTree::READ );
 	CTreeAccessor saver = pDT;
@@ -156,16 +139,12 @@ void CInterfaceCampaign::StartInterface()
 	for ( int i = 0; i < pStats->chapters.size(); ++i )
 	{
 		int nChapterStatus = 0;
-		//0 если невидимый
-		//1 если доступный для выделения
-		//2 если уже пройден, тогда он видимый, но нельзя выделить
 
 		if ( nCheatEnabledChapters != -1 )
 			nChapterStatus = 1;
 
 		if ( !nChapterStatus )
 		{
-			//возьмем global var с инфой об данном chapter
 			std::string szVarName = pStats->chapters[i].szChapter;
 			NStr::ToLower( szVarName );
 			szVarName = "Chapter." + szVarName;
@@ -191,21 +170,17 @@ void CInterfaceCampaign::StartInterface()
 				
 		if ( nChapterStatus == 2 )
 		{
-			//уже прошли данный chapter
 			pChapterButton->SetWindowID( 999 );
 			pChapterButton->EnableWindow( false );
 		}
 		else
 		{
-			//по новой концепции, видим только текущий чаптер, а новый доступный чаптер, если он есть, невидимый
 			std::string szCurrentChapterName = GetGlobalVar( "Chapter.Current.Name", "" );
 			NI_ASSERT_T( szCurrentChapterName.size() > 0, "There is no global var Chapter.Current.Name" );
-//			NI_ASSERT_T( pStats->chapters[i].szChapter == szCurrentChapterName, "Error: " )
 			pChapterButton->SetWindowID( 1000 + nChapterIndex );
 			chapterNameToButtonIndexMap[ pStats->chapters[i].szChapter ] = pChapterButton->GetWindowID();
 			nChapterIndex++;
 
-			//если читы включены, то видимые все чаптеры
 			if ( nCheatEnabledChapters == -1 &&	pStats->chapters[i].szChapter != szCurrentChapterName )
 			{
 				pChapterButton->ShowWindow( UI_SW_HIDE );
@@ -216,7 +191,6 @@ void CInterfaceCampaign::StartInterface()
 	
 	do
 	{
-		//Проверим, если доступен переход в следующий чаптер, то кнопочка Next становится доступной
 		if ( nCheatEnabledChapters != -1 )
 			break;
 
@@ -230,7 +204,6 @@ void CInterfaceCampaign::StartInterface()
 		pButton->EnableWindow( true );
 	} while ( 0 );
 
-	//установим текст заголовка
 	IUIElement *pHeader = pUIScreen->GetChildByID( 20000 );
 	NI_ASSERT_T( pHeader != 0, "Invalid campaign header control" );
 	CPtr<IText> p2 = pTM->GetDialog( pStats->szHeaderText.c_str() );
@@ -240,7 +213,6 @@ void CInterfaceCampaign::StartInterface()
 	}
 
 	{
-		//установим в активный state кнопочку активного chapter
 		std::string szChapterName = GetGlobalVar( "Chapter.Current.Name", "" );
 		NI_ASSERT_T( szChapterName.size() > 0, "There is no global var Chapter.Current.Name" );
 		CChapterNameToButtonIndex::iterator findIt = chapterNameToButtonIndexMap.find( szChapterName.c_str() );
@@ -249,21 +221,16 @@ void CInterfaceCampaign::StartInterface()
 		pChapterButton->SetState( 1 );
 		
 
-		//загружаем информацию о чаптере
 		const SChapterStats *pStats = NGDB::GetGameStats<SChapterStats>( szChapterName.c_str(), IObjectsDB::CHAPTER );
 		SetDescriptionText( pStats );
 	}
 
 	pUIScreen->Reposition( pGFX->GetScreenRect() );
-	// add UI screen to scene
 	pScene->AddUIScreen( pUIScreen );
 	
-//	GetSingleton<IScenarioTracker>()->StartCampaign( szCampaignName, CAMPAIGN_TYPE_SINGLE );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceCampaign::SetDescriptionText( const SChapterStats *pStats )
 {
-	//установим текст описания
 	IUIElement *pDesc = checked_cast<IUIElement *> ( pUIScreen->GetChildByID( 2000 ) );
 	ITextManager *pTM = GetSingleton<ITextManager>();
 	NI_ASSERT_T( pDesc != 0, "Invalid mission text description control" );
@@ -276,7 +243,6 @@ void CInterfaceCampaign::SetDescriptionText( const SChapterStats *pStats )
 	if ( pHeaderText )
 		pChapterHeader->SetWindowText( 0, pHeaderText->GetString() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceCampaign::OnGetFocus( bool bFocus )
 {
 	CInterfaceInterMission::OnGetFocus( bFocus );
@@ -295,7 +261,6 @@ void CInterfaceCampaign::OnGetFocus( bool bFocus )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceCampaign::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceInterMission::ProcessMessage( msg ) )
@@ -307,7 +272,6 @@ bool CInterfaceCampaign::ProcessMessage( const SGameMessage &msg )
 		{
 			if ( it->second == msg.nEventID )
 			{
-				//загружаем информацию о чаптере
 				const SChapterStats *pStats = NGDB::GetGameStats<SChapterStats>( it->first.c_str(), IObjectsDB::CHAPTER );
 				SetDescriptionText( pStats );
 				break;
@@ -335,10 +299,8 @@ bool CInterfaceCampaign::ProcessMessage( const SGameMessage &msg )
 			int nCheatEnabledChapters = GetGlobalVar( "Cheat.Enable.Chapters", -1 );
 			if ( nCheatEnabledChapters != -1 )
 			{
-				//считываем номер chapter'a
 				IUIContainer *pChapters = checked_cast<IUIContainer *> ( pUIScreen->GetChildByID( 100 ) );
 				NI_ASSERT_T( pChapters != 0, "Can't find element 100 - chapters!" );
-				//найдем выделенную кнопку
 				int nButton = 1000;
 				IUIElement *pButton = 0;
 				do
@@ -372,7 +334,6 @@ bool CInterfaceCampaign::ProcessMessage( const SGameMessage &msg )
 
 		case IMC_NEXT_CHAPTER:
 			
-			//GetSingleton<IInput>()->AddMessage( SGameMessage( IMC_SHOW_NEXT_CHAPTER_DIALOG ) );
 			GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_NEXT_CHAPTER, "1" );
 
 			return true;
@@ -382,12 +343,10 @@ bool CInterfaceCampaign::ProcessMessage( const SGameMessage &msg )
 			const SCampaignStats *pStats = ReadCampaignStats();
 			IUIContainer *pMap = checked_cast<IUIContainer *> ( pUIScreen->GetChildByID( 100 ) );
 			
-			//сбрасываем выделенное состояние у текущего chapter
 			{
 				std::string szChapterName = GetGlobalVar( "Chapter.Current.Name", "" );
 				NI_ASSERT_T( szChapterName.size() > 0, "There is no global var Chapter.Current.Name" );
 
-				//установим global var, что этот чаптер уже пройден
 				std::string szVarName = "Chapter." + szChapterName + ".Status";
 				SetGlobalVar( szVarName.c_str(), 2 );
 
@@ -398,7 +357,6 @@ bool CInterfaceCampaign::ProcessMessage( const SGameMessage &msg )
 				pChapterButton->EnableWindow( false );
 			}
 			
-			//переходим в следующий чаптер
 			std::string szVarName = "Chapter.New.Available";
 			std::string szNewChapter = GetGlobalVar( szVarName.c_str(), "" );
 			NI_ASSERT_T( szNewChapter.size() != 0, "Error in using Next chapter button" );
@@ -408,14 +366,12 @@ bool CInterfaceCampaign::ProcessMessage( const SGameMessage &msg )
 			RemoveGlobalVar( szVarName.c_str() );
 			SetGlobalVar( "Chapter.Current.Name", szNewChapter.c_str() );
 			
-			//установим кнопочку с новым чаптером в качестве активной
 			CChapterNameToButtonIndex::iterator findIt = chapterNameToButtonIndexMap.find( szNewChapter.c_str() );
 			NI_ASSERT_T( findIt != chapterNameToButtonIndexMap.end(), NStr::Format( "Can not find chapter button ID by name %s", szNewChapter.c_str() ) );
 			IUIElement *pChapterButton = pMap->GetChildByID( findIt->second );
 			pChapterButton->ShowWindow( UI_SW_SHOW );
 			pChapterButton->SetState( 1 );
 			
-			//disable кнопочку перехода
 			IUIElement *pButton = pUIScreen->GetChildByID( 10003 );
 			NI_ASSERT_T( pButton != 0, "There is no Next Chapter button" );
 			pButton->EnableWindow( false );
@@ -424,14 +380,11 @@ bool CInterfaceCampaign::ProcessMessage( const SGameMessage &msg )
 		}
 	}
 	
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceCampaign::OnCancel()
 {
 	CInterfaceMainMenu::PlayIntermissionSound();
-	//проверим, вдруг мы в custom campaign
 	int nCustomCampaign = GetGlobalVar( "Custom.Campaign", 0 );
 	if ( nCustomCampaign )
 	{

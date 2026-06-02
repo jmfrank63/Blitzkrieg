@@ -3,14 +3,10 @@
 #include "AIWarFog.h"
 #include "StaticObject.h"
 #include "..\Misc\2DArrayRLEWrapper.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGlobalWarFog::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 
-//	saver.Add( 1, &fogCnts );
-//	saver.Add( 2, &maxVis );
-//	saver.Add( 3, &minCoeff2 );
 	saver.Add( 4, &unitsInfo );
 	saver.Add( 5, &newUnitsInfo );
 	saver.Add( 6, &weights );
@@ -52,7 +48,6 @@ int CGlobalWarFog::operator&( IStructureSaver &ss )
 			std::vector<CArray2D4Bit> maxVisRLE( maxVis.size() );
 			std::vector< CArray2D<BYTE> > minCoeff2RLE( minCoeff2.size() );
 			
-			//
 			for ( int i = 0; i < fogCnts.size(); ++i )
 			{
 				CArray2DRLEWrapper<WORD> wrapper( fogCntsRLE[i], 0 );
@@ -68,7 +63,6 @@ int CGlobalWarFog::operator&( IStructureSaver &ss )
 				}
 			}
 
-			//
 			for ( int i = 0; i < maxVis.size(); ++i )
 			{
 				CBitArray2DRLEWrapper<CArray2D4Bit> wrapper( maxVisRLE[i], 0 );
@@ -84,7 +78,6 @@ int CGlobalWarFog::operator&( IStructureSaver &ss )
 				}
 			}
 			
-			//
 			for ( int i = 0; i < minCoeff2.size(); ++i )
 			{
 				CArray2DRLEWrapper<BYTE> wrapper( minCoeff2RLE[i], floatToByte( 1.0f ) );
@@ -134,7 +127,6 @@ int CGlobalWarFog::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SFogInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -152,7 +144,6 @@ int SFogInfo::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGlobalWarFog::SUnitInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -168,4 +159,3 @@ int CGlobalWarFog::SUnitInfo::operator&( IStructureSaver &ss )
 */
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,7 +1,6 @@
 #ifndef __SOUNDSCENE_H__
 #define __SOUNDSCENE_H__
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\SFX\SFX.h"
 #include "..\Misc\2DArray.h"
 #include "..\Formats\fmtMap.h"
@@ -9,12 +8,10 @@
 #include "..\Misc\FreeIDs.h"
 
 #include "CellsConglomerateContainer.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SSoundSceneConsts
 {
 	static int SS_SOUND_CELL_SIZE;									// ����� ������� � ������
 	static NTimer::STime SS_MIX_DELTA;							// ������������ ������� �� ������� 
-																									// ��������� ������ ��� SFX_MIX_IF_TIME_EQUALS
 	static NTimer::STime SS_UPDATE_PERIOD;					// � ������������
 	static NTimer::STime SS_SOUND_DIM_TIME;								// ����� ��������� ����� ��� ��������
 	static NTimer::STime SS_COMBAT_MUSIC_PLAY_WO_NOTIFY;	// ������� ������ ������� ��������� ����� ��������� ��������� ������
@@ -49,19 +46,16 @@ struct SSoundSceneConsts
 
 	static int MIN_SOUND_COUNT_TO_PLAY_LOOPED;
 };
-	// ��� ������, ����������� � ����� �����
 class CMapSounds
 {
 	DECLARE_SERIALIZE;
 
 	typedef CTypeConvertor<std::string, WORD> RegisteredSounds;
 
-	//
   class CMapSoundCell
 	{
 		DECLARE_SERIALIZE;
 
-		// for similar map sounds
 		struct SMapSounds
 		{
 			DECLARE_SERIALIZE;
@@ -81,7 +75,6 @@ class CMapSounds
 			WORD wSoundTypeID;								// type of sound
 			WORD wInstanceID;									// instance of sound
 			WORD wSceneID;										// if added to scene, then scene ID
-			//
 			SPlaying() { Clear(); }
 			void Clear() { wInstanceID = 0; wSceneID = 0; wSoundTypeID = 0; }
 		};
@@ -89,7 +82,6 @@ class CMapSounds
 		SPlaying playingLoopedSound;							// ������� �������� ��� ����� (�����������)
 		SPlaying playingSound;										// ������� ������������� ����
 
-		// �� ����� ����� ������
 		typedef std::unordered_map<WORD, SMapSounds> CellSounds;
 		CellSounds cellSounds;
 		CellSounds cellLoopedSounds;
@@ -108,9 +100,7 @@ class CMapSounds
 	CFreeIds instanceIDs;								// ������ ���� ����� ����� ���������� ID
 	RegisteredSounds registeredSounds;	// ������ �������� ������, ������� ���� � �����
 
-	// 2d map of sound cells
 	CArray2D< CMapSoundCell > mapCells;
-	// cell - sound instance id
 	std::unordered_map<WORD, SIntPair > cells;
 
 	CSoundScene * pSoundScene; 
@@ -126,7 +116,6 @@ public:
 	WORD AddSound( const CVec2 &vPos, const char *szName );
 	void RemoveSound( const WORD wInstanceID );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoundScene : public IRefCount
 {
 	DECLARE_SERIALIZE;
@@ -134,11 +123,9 @@ class CSoundScene : public IRefCount
 public:
 
 	static const NTimer::STime &GetCurTime();		// ����� �� ���������� �����
-	// ��� ����������� ����� �� ���� � �������� �����
 	static bool IsInBounds( int x, int y );
 	static IObjectsDB * GetObjectDB();
 	
-	// ��� �������� ������ ������ � ������ �� �� �������
 	class CPlayList : public IRefCount
 	{
 		OBJECT_COMPLETE_METHODS( CPlayList );
@@ -155,12 +142,10 @@ public:
 		const bool IsEmpty() const { return melodies.empty(); }
 	};
 
-		// ��� ������, ��������� �� Terrain � �� ����������� ��������.
 	class CTerrainSounds
 	{
 		DECLARE_SERIALIZE;
 	public:
-		// ��� �������� ����� � ��� ���������
 		class CTerrainSound 
 		{
 			DECLARE_SERIALIZE;
@@ -194,14 +179,12 @@ public:
 												bMustPlay( false ),
 												timeRestart ( 0 ), vOffset( VNULL2 ),
 												bNeedUpdate ( false ), vSoundPos( VNULL3 ), wSound( 0 ) {  }
-			//returns true if update of sounds is needed.
 			void SetSound( const char *pszName, NTimer::STime timeWhenRestart );
 			bool HasCycleSound() const { return !cycledSounds.empty(); }
 			void AddCycledSound( const char * szName, interface ISoundManager *pSoundManager );
 			void StartCycledSounds( ISFX *pSFX, bool bNonPeacefulOnly );
 
 			NTimer::STime GetRestartTime() { return timeRestart; }
-			// ���� ���������� ��������� ������ IsNeedUpdate ������ true
 			void Update(	const SSoundTerrainInfo& info, 
 										const CVec3 &vCameraAnchor, const CVec2 &vScreenSize, const float fRelativeVolume );
 			void SetMustPlay( bool _bMustPlay ) ;
@@ -217,7 +200,6 @@ public:
 		CPtr<ISoundManager> pSoundManager ;
 		CPtr<ISFX> pSFX;
 		CVec3 vCameraAncor;									//to determine weather coordinates changed
-		// for every terrain there will be separate sound
 		typedef std::map< BYTE, CTerrainSound > CSounds;
 		CSounds terrainSounds;
 		CPtr<ITerrain> pTerrain;						// to get terrain sounds
@@ -233,14 +215,10 @@ public:
 	};
 
 private:
-	// ������������� ������
 	class CStreamingSounds
 	{
-		//������ ��������� �� ��������, ��������� �� ���������.
-		// �� ��������� ���������� ��� ����� - ������.
 		DECLARE_SERIALIZE;
 
-		// for load
 		typedef std::vector<std::string> CMusicFiles;
 		struct SMusicSettings
 		{
@@ -289,15 +267,11 @@ private:
 		CStreamingSounds();
 		
 		void Clear();
-		// 
 		void Init( const std::string &szPartyName );
-		// ������ (��� �����������) ��������� ������
 		void CombatNotify();
-		// 
 		void Update();
 	};
 
-	// ��� Hash �������
 	struct SIntPairHash
 	{
 		size_t operator() ( const SIntPair &v ) const
@@ -319,9 +293,6 @@ private:
 
 public:
 
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// ����� ������������� ����� ����������� ��� ��������. ��� �����������
-	// ������ - ��� ������ ������������� ������ ����� �� ����� �� ������
 	class CSubstSound : public IRefCount
 	{
 		OBJECT_NORMAL_METHODS(CSubstSound);
@@ -342,7 +313,6 @@ public:
 		}
 	};
 
-	//����
 	class CSound : public IRefCount
 	{
 		OBJECT_NORMAL_METHODS( CSound );
@@ -379,14 +349,11 @@ public:
 															float fMaxRadius);
 		virtual ~CSound();
 	
-		// �������� ������� ��� ��������
 		unsigned int GetSamplesPassed();
 		bool IsTimeToFinish();
 		
-		//����� ��������� ����� �����
 		NTimer::STime GetPlayTime() const { return timeToPlay; }
 		
-		// ������ �����
 		bool IsSubstituted() const { return pSubstitute!=0; }
 		CSubstSound * GetSubst();
 		void Substitute( CSubstSound *_pSubstitute, NTimer::STime nStartTime );
@@ -394,16 +361,12 @@ public:
 
 		bool IsLooped() const { return bLooped; }
 
-		//������ ��������� ����� �����
 		void MarkStarted();
 		bool IsMarkedStarted() const { return bStartedMark; }
-		//����� ��������� �����
 		bool IsMarkedFinished() const { return bFinishedMark; }
 		void MarkFinished( bool bFinished =true ) { bFinishedMark=bFinished; }
-		// ��� ��������� ����� ��� ��������
 		void MarkToDim( const NTimer::STime time );
 		bool IsMarkedForDim() const { return bDimMark; }
-		// ��-�� ��������� (�� �������) ��� ��-�� ���������� ��������� ����� ���� �� ������.
 		float GetVolume( const NTimer::STime time, const float fDist  ) const;
 
 
@@ -423,13 +386,11 @@ public:
 		ESoundCombatType GetCombatType() const { return eCombatType; }
 	};
 
-	//������, ���������� ����
 	class CSoundCell : public IRefCount
 	{
 		DECLARE_SERIALIZE;
 		OBJECT_COMPLETE_METHODS( CSoundCell );
 		int nRadius;												// ������ �������� ���� ������(� �������)
-		//std::list< SIntPair > hearableCells;	// ������ ������, ����� ������� ������ �� ���� ������
 		typedef std::list< CPtr<CSound> > CSounds;
 		CSounds sounds;												// ����� ���� ������
 		void RecountForDelete();
@@ -445,25 +406,16 @@ public:
 		void RemoveSound( const WORD wID, ISFX * pSFX =0 );					// ������� ���� � ������������� ������ ��������
 		CSound * GetSound( const WORD wID );
 
-		// ������� ����� � ID == 0 , ������� �����������
-		// ��� ���������� ����� �������� ��� ����������
 		void Update( ISFX * pSFX );
 		
-		// ������ � ������ �������� ������.
-		//void AddHearCell( const SIntPair &cell);
-		//void RemoveHearCell( const SIntPair &cell);
-		// replace cell registration with new
-		//void ReplaceHearCell( const SIntPair &vFormerCell, const SIntPair &vNewCell );
 
 
 		bool HasSounds() const { return sounds.begin() != sounds.end(); }
-//		bool HearSounds() const { return hearableCells.begin() != hearableCells.end(); } 
 
 		void SetLastHearCombat( const NTimer::STime hearTime );
 		bool IsCombat() const;
 
 		
-		// ��� ���� ������, ������� ������ �� ���������� ������ nRadius � ��� �� ��������
 		template <class TEnumFunc> 
 			void EnumHearableSounds( int nRadius, TEnumFunc func )
 		{
@@ -473,7 +425,6 @@ public:
 						func( *it );
 			}
 		}
-		// ��� �������� ���� ������.
 		template <class TEnumFunc>
 				void EnumAllSounds( TEnumFunc func, int nRadius )
 		{
@@ -489,7 +440,6 @@ public:
 			}
 			else
 			{
-				// ������ �� ���� �� ������ ���� ������ �� ������
 				for ( CSounds::iterator it = sounds.begin(); it != sounds.end(); ++it )
 					func( *it, false );
 			}
@@ -501,13 +451,10 @@ public:
 	typedef std::unordered_map< std::string/*subst name*/, CSoundsList > CHearableSounds;
 	typedef std::unordered_map< std::string/*sound name*/, std::string/*subst name*/ > CSoundSubstTable;
 	
-	//typedef std::unordered_map< SIntPair, CSoundCell, SIntPairHash > CSoundCells;
 	typedef CArray2D< CPtr<CSoundCell> > CSoundCellsInBounds;
 	typedef std::unordered_map< SIntPair, CPtr<CSoundCell>, SIntPairHash > CSoundCellsOutOfBounds;
 	typedef std::unordered_map< SIntPair, CPtr<CSoundCell>, SIntPairHash > CSoundCellsWithSound;
 
-	// ��� ����� ������, ������� ������ � ������ � ���������� �� ��
-	// ������ �� ����������
 	class CSoundsCollector
 	{
 		CSoundSubstTable	&substTable;
@@ -558,12 +505,10 @@ private:
 	CCellsConglomerateContainer cellsPHS;
 	static NTimer::STime curTime;					// ����� �� ���������� �����
 
-	// helper functions
 	CSoundCell * GetSoundCell( const CSoundScene::SIntPair &vCell );
 
 	void AddSound( const SIntPair &vCell, CSound *s );
 	void To2DSoundPos( const CVec3 &vPos, CVec3 *pv2DPos );
-	// ordinary update
 	void UpdatePHSMap( const SIntPair &vCell, const int nFormerRadius, const int nNewRadius );
 
 	void UpdateCombatMap( const CSoundScene::SIntPair &vCell, CSoundScene::CSound *pSound );
@@ -584,15 +529,12 @@ private:
 					bool bDelete = true );
 
 
-	// ��� ���������� ������ �� ������� ������
 	class CSoundStartTimePredicate
 	{
 	public:
 		bool operator()( CSound* one, CSound *two ) 
 		{ return one->GetBeginTime() < two->GetBeginTime(); }
 	};
-	//��� ������ ������, ������ ������� ����� �� ������, ��� timeDelta
-	// �� timeBase
 	class CSoundsWithinDeltaPredicate
 	{
 		NTimer::STime timeToCompare;
@@ -621,7 +563,6 @@ public:
 	void InitMusic( const std::string &szPartyName );
 
 	void SetTerrain( interface ITerrain * pTerrain ) { terrainSounds.Init( pTerrain ); }
-	// ���� ������� ��� ���� ��� - �� �������� �� �������
 	void CombatNotify();
 
 	void MuteTerrain( const bool bMute );
@@ -635,9 +576,7 @@ public:
 												const int nMaxRadius,
 												const unsigned int nTimeAfterStart = 0 );
 
-	//������� ���� �� �����. ID ���������� ����������
 	void RemoveSound( const WORD wID );
-	// ������ ����� ������� �����.
 	void SetSoundPos( const WORD wID, const class CVec3 &vPos );
 
 	bool IsFinished( const WORD wID );
@@ -650,5 +589,4 @@ public:
 	WORD AddSoundToMap( const char *pszName, const CVec3 &vPos );
 	void RemoveSoundFromMap( const WORD	wInstanceID );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __SOUNDSCENE_H__

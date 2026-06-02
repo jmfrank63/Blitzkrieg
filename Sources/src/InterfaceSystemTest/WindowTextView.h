@@ -1,6 +1,3 @@
-// WindowTextView.h: interface for the CWindowTextView class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_WINDOWTEXTVIEW_H__1660DBF3_B2C3_40F5_B322_906F49DC1A41__INCLUDED_)
 #define AFX_WINDOWTEXTVIEW_H__1660DBF3_B2C3_40F5_B322_906F49DC1A41__INCLUDED_
@@ -12,10 +9,6 @@
 #include "Window.h"
 
 interface IGFXText;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// plain text window
-// user gives Font, Color, String, Alignment,
-// and Window parameters
 class CWindowTextView : public CWindow, public ITextView
 {
 	OBJECT_COMPLETE_METHODS(CWindowTextView);
@@ -37,8 +30,6 @@ public:
 	virtual void STDCALL Visit( interface ISceneVisitor *pVisitor );
 	virtual int STDCALL operator&( IDataTree &ss );
 
-	// return true if height of window is updated
 	virtual bool STDCALL SetText( const std::wstring &szText );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // !defined(AFX_WINDOWTEXTVIEW_H__1660DBF3_B2C3_40F5_B322_906F49DC1A41__INCLUDED_)

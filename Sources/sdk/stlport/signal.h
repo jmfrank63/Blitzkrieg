@@ -30,6 +30,3 @@
 #   undef  _STLP_DONT_POP_0x257
 # endif
 
-// Local Variables:
-// mode:C++
-// End:

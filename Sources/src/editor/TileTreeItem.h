@@ -23,7 +23,6 @@ public:
 	CTileSetCommonPropsItem() { nItemType = E_TILESET_COMMON_PROPS_ITEM; InitDefaultValues(); nImageIndex = 0; }
 	~CTileSetCommonPropsItem() {};
 
-	//Получение внутренних параметров
 	const char *GetTileSetName() { return values[0].value; }
 	
 	void SetTileSetName( const char *pszVal ) { values[0].value = pszVal; }
@@ -61,7 +60,6 @@ public:
 	CTileSetTerrainPropsItem() { bStaticElements = true; nItemType = E_TILESET_TERRAIN_PROPS_ITEM; InitDefaultValues(); nImageIndex = 5; }
 	~CTileSetTerrainPropsItem() {};
 
-	//Получение внутренних параметров
 	const char *GetTerrainName() { return values[0].value; }
 	int GetCrossetNumber() { return values[1].value; }
 	int GetMaskPriority() { return values[2].value; }
@@ -250,7 +248,6 @@ public:
 	CCrossetPropsItem() { bStaticElements = true; nItemType = E_CROSSET_PROPS_ITEM; InitDefaultValues(); nImageIndex = 2; }
 	~CCrossetPropsItem() {};
 	
-	//Получение внутренних параметров
 	const char *GetCrossetName() { return values[0].value; }
 	
 	void SetCrossetName( const char *pszVal ) { values[0].value = pszVal; }

@@ -12,99 +12,56 @@
 #include "..\Main\TextSystem.h"
 #include "..\GameTT\MultiplayerCommandManager.h"
 #include "..\Main\GameStats.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS(IPlayerScenarioInfo);
 BASIC_REGISTER_CLASS(IScenarioStatistics);
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** player scenario info iterator
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CPlayerScenarioInfoIterator::CPlayerScenarioInfoIterator( const CPlayersList &_players )
 	: players( _players ), itCurrPlayer( _players.begin() )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// move to next player scenario info
 void CPlayerScenarioInfoIterator::Next()
 {
 	++itCurrPlayer;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// check, if we've reached end?
 bool CPlayerScenarioInfoIterator::IsEnd() const
 {
 	return itCurrPlayer == players.end();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// get current iterator's player scenario info
 IPlayerScenarioInfo* CPlayerScenarioInfoIterator::Get() const
 {
 	return itCurrPlayer->second;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// get current iterator's player ID
 int CPlayerScenarioInfoIterator::GetID() const
 {
 	return itCurrPlayer->first;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** scenario support script functions
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NScenarioScript2
 {
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** main scenario script support functions
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SChanges
 {
 	const std::string szOldValue;					// old value (upgrade from)
 	const std::string szNewValue;					// new value (upgrade to)
-	//
 	SChanges( const std::string &_szOld, const std::string &_szNew )
 		: szOldValue( _szOld ), szNewValue( _szNew ) {  }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SUpgrades
 {
 	const std::string szName;							// name for upgrade
 	const int nUpgradeFor;								// this upgrade valid for
-	//
 	SUpgrades( const std::string &_szName, const int _nUpgradeFor )
 		: szName( _szName ), nUpgradeFor( _nUpgradeFor ) {  }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::pair<std::string, int> SMedal;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static std::list<std::string> szNewSlots;
 static std::list<SUpgrades> newUpgrades;
 static std::list<SChanges> changeCurrents;
 static std::list<SMedal> newMedals;
 static std::list<std::string> newBaseUpgrades;
 static std::list<std::string> newRemoveBaseUpgrades;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int FinishCampaign( struct lua_State *state )
 {
 	SetGlobalVar( "FinishingCampaign", 1 );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int AddNewSlot( struct lua_State *state )
 {
 	Script script( state );
@@ -115,7 +72,6 @@ int AddNewSlot( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int AddUpgrade( struct lua_State *state )
 {
 	Script script( state );
@@ -125,7 +81,6 @@ int AddUpgrade( struct lua_State *state )
 	script.Pop( nArgs );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int AddBaseUpgrade( struct lua_State *state )
 {
 	Script script( state );
@@ -134,7 +89,6 @@ int AddBaseUpgrade( struct lua_State *state )
 	script.Pop();
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int RemoveBaseUpgrade( struct lua_State *state )
 {
 	Script script( state );
@@ -143,7 +97,6 @@ int RemoveBaseUpgrade( struct lua_State *state )
 	script.Pop();
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int ChangeDefault( struct lua_State *state )
 {
 	Script script( state );
@@ -151,7 +104,6 @@ int ChangeDefault( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int ChangeCurrent( struct lua_State *state )
 {
 	Script script( state );
@@ -163,7 +115,6 @@ int ChangeCurrent( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int AddMedal( struct lua_State *state )
 {
 	Script script( state );
@@ -175,7 +126,6 @@ int AddMedal( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int EnableChapter( struct lua_State *state )
 {
 	Script script( state );
@@ -190,7 +140,6 @@ int EnableChapter( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int EnableMission( struct lua_State *state )
 {
 	Script script( state );
@@ -201,21 +150,16 @@ int EnableMission( struct lua_State *state )
 	std::string szVarName = "Mission.";
 	szVarName += szValue;
 	szVarName += ".Enabled";
-//		NStr::Format( "Mission.%s.Enabled", szValue.c_str() );
 	SetGlobalVar( szVarName.c_str(), 1 );
 	script.Pop();
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// 1 - stat type
-// 2 - total = 0, current chapter = 1, last mission = 2
 int GetStatisticsValue( struct lua_State *state )
 {
 	Script script( state );
 	NI_ASSERT_SLOW_TF( script.IsNumber( 1 ), "GetStatisticsValue: the first parameter is not a number", return 0 );
 	NI_ASSERT_SLOW_TF( script.IsNumber( 2 ), "GetStatisticsValue: the second parameter is not a number", return 0 );
-	// retrieve stat
 	const int nStatType = script.GetObject(1).GetInteger();
 	const int nStatComplexity = script.GetObject(2).GetInteger();
 	script.Pop( 2 );
@@ -234,11 +178,9 @@ int GetStatisticsValue( struct lua_State *state )
 			break;
 	}
 	const double fValue = pStatistics != 0 ? pStatistics->GetValue( nStatType ) : 0;
-	// push to LUA stack
 	script.PushNumber( fValue );
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int HasMedal( struct lua_State *state )
 {
 	Script script( state );
@@ -251,7 +193,6 @@ int HasMedal( struct lua_State *state )
 	script.PushNumber( fValue );
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline int GetNumMissionsFromChapter( IChapterStatistics *pChapter, bool bWon )
 {
 	int nNumMissions = 0;
@@ -259,9 +200,6 @@ inline int GetNumMissionsFromChapter( IChapterStatistics *pChapter, bool bWon )
 		nNumMissions += int( pChapter->GetMission(i)->GetFinishStatus() == MISSION_FINISH_WIN );
 	return nNumMissions;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// 1 - won/total
-// 2 - in chapter/total
 int GetNumMissions( struct lua_State *state )
 {
 	Script script( state );
@@ -270,7 +208,6 @@ int GetNumMissions( struct lua_State *state )
 	const bool bWon = script.GetObject(1).GetInteger() != 0;
 	const bool bInChapter = script.GetObject(2).GetInteger() != 0;
 	script.Pop( 2 );
-	//
 	double fValue = 0;
 	IPlayerScenarioInfo *pPlayer = GetSingleton<IScenarioTracker>()->GetUserPlayer();
 	if ( bInChapter ) 
@@ -287,19 +224,9 @@ int GetNumMissions( struct lua_State *state )
 				fValue += GetNumMissionsFromChapter( pCampaign->GetChapter(i), bWon );
 		}
 	}
-	//
 	script.PushNumber( fValue );
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** helper fucntions to get/set global vars
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SetIGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -311,7 +238,6 @@ int SetIGlobalVar( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SetFGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -323,7 +249,6 @@ int SetFGlobalVar( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SetSGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -335,7 +260,6 @@ int SetSGlobalVar( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int GetIGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -347,7 +271,6 @@ int GetIGlobalVar( struct lua_State *state )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int GetFGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -359,7 +282,6 @@ int GetFGlobalVar( struct lua_State *state )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int GetSGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -371,14 +293,12 @@ int GetSGlobalVar( struct lua_State *state )
 
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int RandomFloat( struct lua_State *pState )
 {
 	Script script( pState );
 	script.PushNumber( Random( 0.0f, 1.0f ) );
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int ScriptErrorOut( struct lua_State *state )
 {
 	Script script( state );
@@ -388,21 +308,18 @@ int ScriptErrorOut( struct lua_State *state )
 	NStr::DebugTrace( "%s\n", szError.c_str() );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static int Sqrt( struct lua_State *pState )
 {
 	Script script( pState );
 	script.PushNumber( sqrt( static_cast<double>( script.GetObject(1) ) ) );
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static int IsBitSet( struct lua_State *pState )
 {
 	Script script( pState );
 	script.PushNumber( script.GetObject( 1 ) & (1<<script.GetObject( 2 )) );
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static int GetUserProfileVar( struct lua_State *state )
 {
 	Script script(state);
@@ -412,7 +329,6 @@ static int GetUserProfileVar( struct lua_State *state )
 	script.PushNumber( GetSingleton<IUserProfile>()->GetVar( szStr.c_str(), nValue ) );
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static int SetUserProfileVar( struct lua_State *state )
 {
 	Script script(state);
@@ -422,7 +338,6 @@ static int SetUserProfileVar( struct lua_State *state )
 	GetSingleton<IUserProfile>()->AddVar( szStr.c_str(), nValue );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static int OutputStringValue( struct lua_State *state )
 {
 	Script script(state);
@@ -432,12 +347,10 @@ static int OutputStringValue( struct lua_State *state )
 	NStr::DebugTrace( "****Debug LUA script: %s %s\n", szStr.c_str(), nValue );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 Script::SRegFunction reglist[] =
 {
 	{ "_ERRORMESSAGE"			,	ScriptErrorOut			},
 	{ "OutputStringValue"	, OutputStringValue		},
-	//
 	{ "FinishCampaign"		, FinishCampaign			},
 	{ "AddNewSlot"				, AddNewSlot					},
 	{ "ChangeDefault"			, ChangeDefault				},
@@ -465,17 +378,7 @@ Script::SRegFunction reglist[] =
 	{ "GetUserProfileVar", GetUserProfileVar		},
 	{ 0, 0 },
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** support structures
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScenarioTracker2::SOpponentDesc::SRPGClassDesc::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -490,13 +393,11 @@ int CScenarioTracker2::SOpponentDesc::SRPGClassDesc::operator&( IDataTree &ss )
 			eRPGClass = RPG_CLASS_TANK;
 		else
 			eRPGClass = RPG_CLASS_UNKNOWN;
-		//
 		for ( std::vector<std::string>::iterator it = names.begin(); it != names.end(); ++it )
 			NStr::ToLower( *it );
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScenarioTracker2::SOpponentDesc::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -506,37 +407,21 @@ int CScenarioTracker2::SOpponentDesc::operator&( IDataTree &ss )
 		NStr::ToLower( szSide );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** chapter & player script
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScenarioTracker2::LoadChapterScript( const std::string &szScriptFileName )
 {
 	if ( pChapterScript ) 
 		delete pChapterScript;
-	//
 	pChapterScript = 0;
-	// read and execute script
 	if ( (szScriptFileName != "") && !szScriptFileName.empty() )
 	{
 		CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( (szScriptFileName + ".lua").c_str(), STREAM_ACCESS_READ );
 		if ( pStream )
 		{
-			// create new script
 			pChapterScript = new Script;
-			// register global script functions
 			pChapterScript->Register( NScenarioScript2::reglist );
-			// read script
 			const int nSize = pStream->GetSize();
-			// +10 на всякий случай
 			std::vector<char> buffer( nSize + 10 );
 			pStream->Read( &(buffer[0]), nSize );
-			// run script
 			if ( pChapterScript->DoBuffer( &(buffer[0]), nSize, "Script" ) == 0 ) 
 			{
 				szChapterScriptFileName = szScriptFileName;
@@ -557,12 +442,10 @@ bool CScenarioTracker2::LoadChapterScript( const std::string &szScriptFileName )
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScenarioTracker2::ProcessScriptChanges( const bool bPostMission )
 {
 	using namespace NScenarioScript2;
 	IObjectsDB *pGDB = GetSingleton<IObjectsDB>();
-	// add new slots with default stats
 	for ( std::list<std::string>::const_iterator it = szNewSlots.begin(); it != szNewSlots.end(); ++it )
 	{
 		if ( CheckRPGStats(*it) == false )
@@ -574,7 +457,6 @@ void CScenarioTracker2::ProcessScriptChanges( const bool bPostMission )
 	if ( bPostMission ) 
 		pUserPlayer->GetMissionStats()->SetValue( STMT_NEW_UNITS, szNewSlots.size() );
 	szNewSlots.clear();
-	// add new upgrades
 	NI_ASSERT_SLOW_T( newUpgrades.size() <= 1, "Only one upgrade supported by interface at a time. using first" );
 	if ( !newUpgrades.empty() && CheckRPGStats(newUpgrades.front().szName) ) 
 	{
@@ -587,7 +469,6 @@ void CScenarioTracker2::ProcessScriptChanges( const bool bPostMission )
 		NStr::DebugTrace( "*** ScenarioScript: No upgrades were set\n" );
 	}
 	newUpgrades.clear();
-	// add new base upgrades
 	for ( std::list<std::string>::const_iterator it = newBaseUpgrades.begin(); it != newBaseUpgrades.end(); ++it )
 	{
 		if ( CheckRPGStats(*it) == false )
@@ -596,7 +477,6 @@ void CScenarioTracker2::ProcessScriptChanges( const bool bPostMission )
 		NStr::DebugTrace( "*** ScenarioScript: New depot upgrade \"%s\" added\n", it->c_str() );
 	}
 	newBaseUpgrades.clear();
-	// remove base upgrades
 	for ( std::list<std::string>::const_iterator it = newRemoveBaseUpgrades.begin(); it != newRemoveBaseUpgrades.end(); ++it )
 	{
 		if ( CheckRPGStats(*it) == false )
@@ -605,7 +485,6 @@ void CScenarioTracker2::ProcessScriptChanges( const bool bPostMission )
 		NStr::DebugTrace( "*** ScenarioScript: Old depot upgrade \"%s\" removed\n", it->c_str() );
 	}
 	newRemoveBaseUpgrades.clear();
-	// change current RPG stats
 	for ( std::list<SChanges>::const_iterator it = changeCurrents.begin(); it != changeCurrents.end(); ++it )
 	{
 		if ( !CheckRPGStats(it->szOldValue) || !CheckRPGStats(it->szNewValue) )
@@ -621,7 +500,6 @@ void CScenarioTracker2::ProcessScriptChanges( const bool bPostMission )
 		}
 	}
 	changeCurrents.clear();
-	// add new medals and remove duplicated slots
 	for ( std::list<SMedal>::const_iterator it = newMedals.begin(); it != newMedals.end(); ++it )
 	{
 		pUserPlayer->AddMedal( it->first, it->second );
@@ -629,24 +507,19 @@ void CScenarioTracker2::ProcessScriptChanges( const bool bPostMission )
 	}
 	newMedals.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool RecalcPlayerSkills( CPlayerScenarioInfo *pPlayer )
 {
 	if ( GetGlobalVar("TutorialMode", 0) != 0 ) // don't recalc player skills in tutorial mode
 		return true;
-	//
 	CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( "scenarios\\scripts\\player_skills_recalc.lua", STREAM_ACCESS_READ );
 	NI_ASSERT_T( pStream != 0, "Can't find script file \"Scenarios\\Scripts\\player_skills_recalc.lua\"" );
 	if ( pStream == 0 ) 
 		return false;
-	//
 	Script script;
 	script.Register( NScenarioScript2::reglist );
 	const int nSize = pStream->GetSize();
-	// +10 на всякий случай
 	std::vector<char> buffer( nSize + 10 );
 	pStream->Read( &(buffer[0]), nSize );
-	// run script
 	if ( script.DoBuffer( &(buffer[0]), nSize, "Script" ) == 0 ) 
 	{
 		const int oldtop = script.GetTop();
@@ -654,9 +527,7 @@ bool RecalcPlayerSkills( CPlayerScenarioInfo *pPlayer )
 		IScenarioStatistics *pStats = pPlayer->GetCampaignStats();
 		IScenarioStatistics *pStatsMission = pPlayer->GetMissionStats();
 
-		// amazing! best part of code that I ever wrote.
 		const std::string szToRun = 
-			// especially next string
 			NStr::Format("return RecalcSkills( %f, %f, %f, %f, %f, %f,     %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d,      %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d )", 
 
 			pPlayer->GetSkill( 0 ).fValue,
@@ -719,15 +590,6 @@ bool RecalcPlayerSkills( CPlayerScenarioInfo *pPlayer )
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** players management
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CScenarioTracker2::CScenarioTracker2()
 {
 	eCampaignType = CAMPAIGN_TYPE_UNKNOWN;
@@ -735,15 +597,12 @@ CScenarioTracker2::CScenarioTracker2()
 	nUserPlayerID = -1;
 	Zero( guidMission );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScenarioTracker2::Init( ISingleton *pSingleton )
 {
 	Zero( guidMission );
 	randomBonuses.resize( 3 ); //по количеству сложностей рандомных миссий
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// add new player with 'nPlayerID'. ASSERT, if such player already exist
 IPlayerScenarioInfo* CScenarioTracker2::AddPlayer( const int nPlayerID )
 {
 	NI_ASSERT_SLOW_T( !szCurrCampaign.empty() && eCampaignType != CAMPAIGN_TYPE_UNKNOWN, "Can't add player - start campaign first!" );
@@ -751,15 +610,11 @@ IPlayerScenarioInfo* CScenarioTracker2::AddPlayer( const int nPlayerID )
 	CPlayerScenarioInfo *pPlayer = CreateObject<CPlayerScenarioInfo>( MAIN_PLAYER_SCENARIO_INFO );
 	pPlayer->Init();
 	players.push_back( CPlayerScenarioInfoPair(nPlayerID, pPlayer) );
-	// set campaign to new player
 	CCampaignStatistics *pCampaign = CreateObject<CCampaignStatistics>( MAIN_CAMPAIGN_STATISTICS );
 	pCampaign->SetName( szCurrCampaign, eCampaignType );
 	pPlayer->StartCampaign( pCampaign );
-	//
 	return pPlayer;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// remove player with 'nPlayerID'
 bool CScenarioTracker2::RemovePlayer( const int nPlayerID )
 {
 	if ( nPlayerID == -1 ) 
@@ -767,7 +622,6 @@ bool CScenarioTracker2::RemovePlayer( const int nPlayerID )
 		players.clear();
 		return true;
 	}
-	//
 	for ( CPlayersList::iterator it = players.begin(); it != players.end(); ++it )
 	{
 		if ( it->first == nPlayerID ) 
@@ -778,8 +632,6 @@ bool CScenarioTracker2::RemovePlayer( const int nPlayerID )
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// get player with 'nPlayerID'.
 IPlayerScenarioInfo* CScenarioTracker2::GetPlayer( const int nPlayerID ) const
 {
 	for ( CPlayersList::const_iterator it = players.begin(); it != players.end(); ++it )
@@ -789,8 +641,6 @@ IPlayerScenarioInfo* CScenarioTracker2::GetPlayer( const int nPlayerID ) const
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// set user player
 void CScenarioTracker2::SetUserPlayer( const int nPlayerID )
 {
 	pUserPlayer = 0;
@@ -806,34 +656,20 @@ void CScenarioTracker2::SetUserPlayer( const int nPlayerID )
 	}
 	NI_ASSERT_SLOW_T( false, NStr::Format("Can't set player %d as a user player - such player still not exist", nPlayerID) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IPlayerScenarioInfo* CScenarioTracker2::GetUserPlayer() const
 {
 	return pUserPlayer;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScenarioTracker2::GetUserPlayerID() const
 {
 	return nUserPlayerID;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// iterate through all players
 IPlayerScenarioInfoIterator* CScenarioTracker2::CreatePlayerScenarioInfoIterator() const
 {
 	return new CPlayerScenarioInfoIterator( players );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** personal names
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScenarioTracker2::LoadOpponents() const
 {
-	// read opponent descriptors (for names)
 	if ( !opponents.empty() ) 
 		return;
 	if ( CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream("textes\\personals\\personals.xml", STREAM_ACCESS_READ) )
@@ -842,11 +678,9 @@ void CScenarioTracker2::LoadOpponents() const
 		saver.Add( "Opponents", &opponents );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::string CScenarioTracker2::GetBestPersonalName( const std::string &szRPGStats, const std::string &szSide ) const
 {
 	LoadOpponents();
-	//
 	for ( std::vector<SOpponentDesc>::const_iterator opponent = opponents.begin(); opponent != opponents.end(); ++opponent )
 	{
 		if ( opponent->szSide == szSide )
@@ -872,10 +706,8 @@ std::string CScenarioTracker2::GetBestPersonalName( const std::string &szRPGStat
 			}
 		}
 	}
-	//
 	return "";
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScenarioTracker2::AssignBestPersonalName( CScenarioUnit *pUnit, const std::string &szSide )
 {
 	std::string szNewPersonalName = GetBestPersonalName( pUnit->GetRPGStats(), szSide );
@@ -889,15 +721,6 @@ void CScenarioTracker2::AssignBestPersonalName( CScenarioUnit *pUnit, const std:
 	namestats.nUsedCounter++;
 	namestats.nUsage++;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** minimum difficulty tracking
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int Difficulty2Int( const std::string &szProgName )
 {
 	if ( szProgName == "Easy" )
@@ -911,25 +734,20 @@ int Difficulty2Int( const std::string &szProgName )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const std::string &CScenarioTracker2::GetMinimumDifficulty() const
 {
 	return szMinimumDifficulty;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScenarioTracker2::InitMinimumDifficulty()
 {
 	variant_t var;
 	GetSingleton<IOptionSystem>()->Get( "GamePlay.Difficulty", &var );
 	szMinimumDifficulty = (const char *)bstr_t(var);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScenarioTracker2::UpdateMinimumDifficulty()
 {
-	//CRAP{ FOR SAVES COMPATIBILITY
 	if ( szMinimumDifficulty.empty() )
 		InitMinimumDifficulty();
-	//CRAP}
 
 	variant_t var;
 	GetSingleton<IOptionSystem>()->Get( "GamePlay.Difficulty", &var );
@@ -940,45 +758,28 @@ void CScenarioTracker2::UpdateMinimumDifficulty()
 	if ( nNewDifficulty < nDifficulty )
 		szMinimumDifficulty = szNewMinimumDifficulty;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** campaign, chapters, missions
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// start new campaign (for all players)
 void CScenarioTracker2::StartCampaign( const std::string &_szCampaignName, const ECampaignType eType )
 {
-	// remove all players
 	pUserPlayer = 0;
 	players.clear();
-	// remember new campaign
 	szCurrCampaign = _szCampaignName;
 	NStr::ToLower( szCurrCampaign );
 	eCampaignType = eType;
 	templateMissions.clear();
-	// load campaign's available templates
 	const SCampaignStats *pStats = NGDB::GetGameStats<SCampaignStats>( szCurrCampaign.c_str(), IObjectsDB::CAMPAIGN );
 	if ( pStats )
 	{
 		templateMissions = pStats->templateMissions;
-		// check this template missions
 		for ( std::vector<std::string>::const_iterator it = templateMissions.begin(); it != templateMissions.end(); ++it )
 		{
 			NI_ASSERT_T( NGDB::GetGameStats<SMissionStats>(it->c_str(), IObjectsDB::MISSION) != 0, NStr::Format("Chaeck - can't load mission stats \"%s\"", it->c_str()) );
 		}
 	}
-	//
 	szCurrChapter.clear();
 	szCurrMission.clear();
-	//
 	if ( eType != CAMPAIGN_TYPE_MULTIPLAYER ) 
 	{
 		ITextManager *pTM = GetSingleton<ITextManager>();
-		// user player (0)
 		if ( IPlayerScenarioInfo *pPlayer = AddPlayer(0) )
 		{
 			SetUserPlayer( 0 );
@@ -989,7 +790,6 @@ void CScenarioTracker2::StartCampaign( const std::string &_szCampaignName, const
 			GetSingleton<IOptionSystem>()->Get( "GamePlay.PlayerName", &varPlayerName );
 			pPlayer->SetName( (wchar_t*)bstr_t(varPlayerName) );
 		}
-		// enemy player (1)
 		if ( IPlayerScenarioInfo *pPlayer = AddPlayer(1) ) 
 		{
 			pPlayer->SetDiplomacySide( 1 );
@@ -999,7 +799,6 @@ void CScenarioTracker2::StartCampaign( const std::string &_szCampaignName, const
 				pPlayer->SetName( MakeWideStringFromWordString( pText->GetString() ) );
 			pPlayer->SetSide( "enemy" );
 		}
-		// neutral player (2)
 		if ( IPlayerScenarioInfo *pPlayer = AddPlayer(2) ) 
 		{
 			pPlayer->SetDiplomacySide( 2 );
@@ -1010,35 +809,26 @@ void CScenarioTracker2::StartCampaign( const std::string &_szCampaignName, const
 			pPlayer->SetSide( "neutral" );
 		}
 	}
-	// set minimum difficulty
 	InitMinimumDifficulty();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// start new chapter (and finish previous one)
 bool CScenarioTracker2::StartChapter( const std::string &_szChapterName )
 {
 	std::string szChapter = _szChapterName;
 	NStr::ToLower( szChapter );
-	// increment chapter visiting
 	{
 		const std::string szVarName = NStr::Format( "Chapter.%s.Visited", szChapter.c_str() );
 		const int nNumVisited = GetGlobalVar( szVarName.c_str(), 0 );
 		SetGlobalVar( szVarName.c_str(), nNumVisited + 1 );
 	}
-	// if we are in same chapter, just leave this function
 	if ( szCurrChapter == szChapter ) 
 		return false;
 	RemoveGlobalVar( "Chapter.IsFirst" );
-	// set old chapter as finished
-	// ORDER_IS_CRITICAL{ maintain the order
 	if ( !szCurrChapter.empty() ) 
 	{
 		const std::string szVarName = NStr::Format( "Chapter.%s.Status", szCurrChapter.c_str() );
 		SetGlobalVar( szVarName.c_str(), 2 );
 	}
 	szCurrChapter = szChapter;
-	// ORDER_IS_CRITICAL}
-	//
 	NI_ASSERT_SLOW_T( !players.empty(), "Can't start chapter - no players added" );
 	for ( CPlayersList::iterator it = players.begin(); it != players.end(); ++it )
 	{
@@ -1046,7 +836,6 @@ bool CScenarioTracker2::StartChapter( const std::string &_szChapterName )
 		pChapter->SetName( szCurrChapter );
 		it->second->StartChapter( pChapter );
 	}
-	// load new chapter script and execute 'enter chapter'
 	if ( const SChapterStats *pStats = NGDB::GetGameStats<SChapterStats>(szCurrChapter.c_str(), IObjectsDB::CHAPTER) )
 	{
 		if ( LoadChapterScript(pStats->szScript) != false )
@@ -1064,8 +853,6 @@ bool CScenarioTracker2::StartChapter( const std::string &_szChapterName )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// start new mission
 void CScenarioTracker2::StartMission( const std::string &szMissionName )
 {
 	NI_ASSERT_SLOW_T( !players.empty(), "Can't start mission - no players added" );
@@ -1073,14 +860,12 @@ void CScenarioTracker2::StartMission( const std::string &szMissionName )
 	if ( CoCreateGuid(&guidMission) != S_OK ) 
 		Zero( guidMission );	
 	NStr::ToLower( szCurrMission );
-	// start this mission for each player
 	for ( CPlayersList::iterator it = players.begin(); it != players.end(); ++it )
 	{
 		CMissionStatistics *pMission = CreateObject<CMissionStatistics>( MAIN_MISSION_STATISTICS );
 		pMission->SetName( szMissionName );
 		it->second->StartMission( pMission );
 	}
-	// assign colors for players on this mission
 	const int nOurSide = pUserPlayer->GetDiplomacySide();
 	int nAlliedCounter = 0;
 	int nEnemyCounter = 0;
@@ -1108,26 +893,20 @@ void CScenarioTracker2::StartMission( const std::string &szMissionName )
 		player->second->SetColor( dwColor );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// finish mission
 void CScenarioTracker2::FinishMission( const EMissionFinishStatus eStatus )
 {
-	// calc mission time
 	{
 		int nMissionTime = 0;
 		
 		IGameTimer *pTimer = GetSingleton<IGameTimer>();
-		// multiplayer game is with constant speed
 		const float fTimeCoeff = GetGlobalVar( "MultiplayerGame", 0 ) ? NTimer::GetCoeffFromSpeed( (float)pTimer->GetSpeed() ) : 1.0f;
 
 		const NTimer::STime timeStart = GetGlobalVar( "Mission.Current.StartTime", -1 );
 		const NTimer::STime timeFinish = pTimer->GetGameTime();
 		if ( (timeStart != -1) && (timeStart <= timeFinish) ) 
 			nMissionTime = int( double(timeFinish - timeStart) / (60.0 * 1000.0) / fTimeCoeff );
-		// set elapsed time for each player
 		for ( CPlayersList::iterator player = players.begin(); player != players.end(); ++player )
 		{
-			// set elapsed time for each player
 			player->second->GetMissionStats()->SetValue( STMT_TIME_ELAPSED, nMissionTime );
 		}
 	}
@@ -1135,8 +914,6 @@ void CScenarioTracker2::FinishMission( const EMissionFinishStatus eStatus )
 	{
 		if ( IMissionStatistics *pStats = pUserPlayer->GetMissionStats() )
 		{
-			// add visible objectives to RECIEVED statistics
-			// add hidden objectives to RECIEVED onnly if they are given.
 			const SMissionStats *pDesc = NGDB::GetGameStats<SMissionStats>( szCurrMission.c_str(), IObjectsDB::MISSION );
 			int nGiven = 0;
 			if ( pDesc )
@@ -1154,23 +931,18 @@ void CScenarioTracker2::FinishMission( const EMissionFinishStatus eStatus )
 			}
 
 			pStats->AddValue( STMT_OBJECTIVES_RECIEVED, nGiven );
-			// set num loads for this mission
 			const int nNumLoads = GetSingleton<IUserProfile>()->GetLoadCounter( guidMission );
 			pStats->AddValue( STMT_GAME_LOADED, nNumLoads );
 			
-			// mark all given but uncompleted AND unfailed objectives as failed
 			pStats->AddValue( STMT_OBJECTIVES_FAILED, pStats->GetValue(STMT_OBJECTIVES_RECIEVED) - pStats->GetValue(STMT_OBJECTIVES_COMPLETED) - pStats->GetValue(STMT_OBJECTIVES_FAILED));
 		}
 	}	
 
-	// this global var are used only for scenario script call and must be removed in the end of this functions
 	RemoveGlobalVar( "Mission.Current.Random" );
-	//
 	switch ( eStatus ) 
 	{
 		case MISSION_FINISH_ABORT:
 		case MISSION_FINISH_WIN:
-			// add info about successfully finished mission to global vars
 			{
 				const int nNumFinishedMissions = GetGlobalVar( "Mission.Finished.Counter", 0 );
 				SetGlobalVar( "Mission.Finished.Counter", nNumFinishedMissions + 1 );
@@ -1178,11 +950,9 @@ void CScenarioTracker2::FinishMission( const EMissionFinishStatus eStatus )
 				SetGlobalVar( szVarName.c_str(), szCurrMission.c_str() );
 				SetGlobalVar( (szVarName + ".ChapterName").c_str(), szCurrChapter.c_str() );
 				SetGlobalVar( ("Mission." + szCurrMission + ".Finished").c_str(), 1 );
-				//
 				const int nRandom = GetGlobalVar( ("Mission." + szCurrMission + ".Random").c_str(), 0 );
 				SetGlobalVar( "Mission.Current.Random", nRandom );
 			}
-			// try to extract mission bonus from global vars
 			if ( eStatus == MISSION_FINISH_WIN ) 
 			{
 				const std::string szMissionBonus = GetGlobalVar( "Mission.Current.Bonus", "" );
@@ -1198,12 +968,9 @@ void CScenarioTracker2::FinishMission( const EMissionFinishStatus eStatus )
 				RemoveGlobalVar( "Mission.Current.Bonus" );
 				pUserPlayer->SetUpgrade( "" );
 			}
-			// set current mission as 'Won'
 			SetGlobalVar( "Mission.Last.FinishStatus", MISSION_FINISH_WIN );
-			// reincarnate units 
 			{
 				std::list< CPtr<CScenarioUnit> > kiaUnits;
-				// collect KIA units
 				for ( int i = 0; i < pUserPlayer->GetNumUnits(); ++i )
 				{
 					CScenarioUnit *pUnit = checked_cast<CScenarioUnit*>( pUserPlayer->GetUnit(i) );
@@ -1211,12 +978,10 @@ void CScenarioTracker2::FinishMission( const EMissionFinishStatus eStatus )
 						continue;
 					kiaUnits.push_back( pUnit );
 				}
-				// 
 				if ( !kiaUnits.empty() ) 
 				{
 					LoadOpponents();
 					const float fReincarnateProbability = GetGlobalVar( "World.ReincarnateProbability", 0.5f );
-					// reincarnate units and select new names for them
 					for ( std::list< CPtr<CScenarioUnit> >::iterator it = kiaUnits.begin(); it != kiaUnits.end(); ++it )
 					{
 						const std::string szOldKIAName = (*it)->GetPersonalNameFileName();
@@ -1228,25 +993,18 @@ void CScenarioTracker2::FinishMission( const EMissionFinishStatus eStatus )
 					}
 				}
 			}
-			// accept mission results by each unit in each player
-			// set mission status for all players (actually this mission status are correct for user player, but it is needed for correct statistics)
 			for ( CPlayersList::iterator player = players.begin(); player != players.end(); ++player )
 				player->second->FinishMission( eStatus );
-			// recalc player skills
 			RecalcPlayerSkills( pUserPlayer );
-			// calc player's experience
 			if ( pUserPlayer ) 
 				pUserPlayer->SetExperience( pUserPlayer->GetCampaignStats()->GetValue(STMT_PLAYER_EXPERIENCE) );
 			
 			if ( MISSION_FINISH_ABORT != eStatus ) // run scripts only if win, not abort
 			{
-				// run chapter script (mission finished)
 				if ( pChapterScript ) 
 				{
-					// run script about gain level
 					if ( pUserPlayer && pUserPlayer->IsGainLevel() ) 
 						pChapterScript->DoString( NStr::Format("return PlayerGainLevel(%d)", pUserPlayer->GetRankInfo().nRankNumber) );
-					// run main script
 					pChapterScript->DoString( NStr::Format("return MissionFinished(\"%s\")", szCurrMission.c_str()) );
 					const int nNumRetArgs = pChapterScript->GetTop();
 					pChapterScript->Pop( nNumRetArgs );
@@ -1257,37 +1015,22 @@ void CScenarioTracker2::FinishMission( const EMissionFinishStatus eStatus )
 			break;
 		case MISSION_FINISH_LOSE:
 		case MISSION_FINISH_RESTART:
-			// set mission status for all players (actually this mission status are correct for user player, but it is needed for correct statistics)
 			for ( CPlayersList::iterator player = players.begin(); player != players.end(); ++player )
 				player->second->FinishMission( eStatus );
 			break;
 			
 	}
-	//
 	Zero( guidMission );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** campaign random mission templates
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// number of available random mission templates
 int CScenarioTracker2::GetNumRandomTemplates() const
 {
 	return templateMissions.size();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// get template by number
 const std::string& CScenarioTracker2::GetTemplateName( const int nIndex ) const
 {
 	CheckRange( templateMissions, nIndex );
 	return templateMissions[nIndex];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IScenarioTracker* CScenarioTracker2::Duplicate() const
 {
 	CScenarioTracker2 *pNewTracker = new CScenarioTracker2();
@@ -1309,12 +1052,10 @@ IScenarioTracker* CScenarioTracker2::Duplicate() const
 
 	return pNewTracker;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScenarioTracker2::operator&( IDataTree &ss )
 {
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScenarioTracker2::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -1342,7 +1083,6 @@ int CScenarioTracker2::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScenarioTracker2::ClearRandomBonuses( int nDifficulty )
 {
 	if ( randomBonuses.size() < 3 )
@@ -1355,7 +1095,6 @@ void CScenarioTracker2::ClearRandomBonuses( int nDifficulty )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScenarioTracker2::AddRandomBonus( int nDifficulty, const std::string &rszRandomBonus )
 {
 	if ( randomBonuses.size() < 3 )
@@ -1370,7 +1109,6 @@ bool CScenarioTracker2::AddRandomBonus( int nDifficulty, const std::string &rszR
 	return false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::string CScenarioTracker2::GetRandomBonus( int nDifficulty )
 {
 	if ( randomBonuses.size() < 3 )
@@ -1388,4 +1126,3 @@ std::string CScenarioTracker2::GetRandomBonus( int nDifficulty )
 	}
 	return szBonus;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

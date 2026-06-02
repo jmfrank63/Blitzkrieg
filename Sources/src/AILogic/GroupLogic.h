@@ -1,17 +1,13 @@
 #ifndef __AI_GROUP_LOGIC_H__
 #define __AI_GROUP_LOGIC_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "SegmentedObjects.h"
 #include "UnitsSegments.h"
 
 #include "..\Common\Actions.h"
 #include "..\Misc\FreeIDs.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCommonUnit;
 class CAIUnit;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGroupLogic : public IRefCount
 {
 	OBJECT_NORMAL_METHODS( CGroupLogic );
@@ -22,7 +18,6 @@ class CGroupLogic : public IRefCount
 	CQueuesSet< CPtr<CCommonUnit> > groupUnits;
 	std::list< CPtr<CCommonUnit> > followingUnits;
 
-	// 0 - all units, except of infantry; 1 - infantry
 	std::vector< NSegmObjs::CContainer< CPtr<CCommonUnit> > > segmUnits;
 	NSegmObjs::CContainer< CPtr<CCommonUnit> > freezeUnits;
 	NSegmObjs::CContainer< CPtr<CAIUnit> > firstPathUnits;
@@ -46,13 +41,10 @@ class CGroupLogic : public IRefCount
 	std::unordered_set<int> ambushUnits;
 	NTimer::STime lastAmbushCheck;
 
-	//
 	void DelGroup( const int nGroup );
 	void DivideBySubGroups( const SAIUnitCmd &command, const int nGroup );
 
-	// �������� ������ � follow
 	void SegmentFollowingUnits();
-	// ��������� ���������� ��-�� �������� ������
 	void StayTimeSegment();
 
 	void ProcessGridCommand( const CVec2 &vGridCenter, const CVec2 &vGridDir, const int nGroup, bool bPlaceInQueue );
@@ -62,7 +54,6 @@ class CGroupLogic : public IRefCount
 	void ProcessAmbushGroups();
 	void SetToAmbush( CAmbushGroups::iterator &iter );
 
-	//
 	static WORD GetGroupNumberByID( const WORD wID );
 	static WORD GetSpecialGroupNumberByID( const WORD wID );
 	static WORD GetIdByGroupNumber( const WORD wGroup ); 
@@ -85,7 +76,6 @@ public:
 	void InsertUnitCommand( const SAIUnitCmd &command, class CCommonUnit *pUnit );
 	void PushFrontUnitCommand( const SAIUnitCmd &command, class CCommonUnit *pUnit );
 	
-	// ������� updates �� shoot areas ��� ���� ������ � ������
 	void UpdateAllAreas( const int nGroup, const EActionNotify eAction );
 
 	void Segment();
@@ -107,7 +97,5 @@ public:
 
 	void UnitSetToAmbush( class CCommonUnit *pUnit );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 GetGoPointByCommand( const SAIUnitCmd &cmd );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif //__AI_GROUP_LOGIC_H__

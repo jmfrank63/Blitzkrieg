@@ -11,6 +11,3 @@
 
 #  include  <..\cstdlib.>
 
-// Local Variables:
-// mode:C++
-// End:

@@ -1,12 +1,7 @@
 #ifndef __ARTILLERY_PATHS_H__
 #define __ARTILLERY_PATHS_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Path.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// специфический путь для артиллеристов - напролом сквозь все.
-// этот путь включается только когда артиллеристы уже у пушки.
 class CArtilleryCrewPath : public ISmoothPath
 {
 	OBJECT_COMPLETE_METHODS( CArtilleryCrewPath );
@@ -32,7 +27,6 @@ public:
 	virtual const CVec3 GetPoint( NTimer::STime timeDiff );
 
 	virtual const CVec2& GetFinishPoint() const { return vEndPoint; }
-//ненужные функции
 	virtual bool Init( interface IBasePathUnit *pUnit, IPath *pPath, bool bSmoothTurn = true, bool bCheckTurn = true );
 	virtual bool InitByFormationPath( class CFormation *pFormation, interface IBasePathUnit *pUnit  ) { return true; }
 	virtual bool Init( interface IMemento *pMemento, interface IBasePathUnit *pUnit );
@@ -47,13 +41,10 @@ public:
 	virtual IMemento* GetMemento() const { return 0; }
 	virtual float GetCurvatureRadius() const { return 0.0f; }
 	virtual bool IsWithFormation() const { return true; }
-	//virtual void GetSpeed3( CVec3 *pSpeed ) const ;
 
 	virtual void SetOwner( interface IBasePathUnit *_pUnit ) { pUnit = _pUnit; }
 	virtual IBasePathUnit* GetOwner() const { return pUnit; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// путь для артиллерии, которую буксируют
 class CArtilleryBeingTowedPath : public ISmoothPath
 {
 	OBJECT_COMPLETE_METHODS( CArtilleryBeingTowedPath );
@@ -72,7 +63,6 @@ public:
 	virtual bool IsFinished() const { return false; }
 	virtual const CVec3 GetPoint( NTimer::STime timeDiff ) { return vCurPoint; }
 
-//ненужные функции
 	virtual bool Init( interface IBasePathUnit *pUnit, IPath *pPath, bool bSmoothTurn = true, bool bCheckTurn = true )
 	{
 		CPtr<IPath> p = pPath;
@@ -102,5 +92,4 @@ public:
 	void SetOwner( interface IBasePathUnit *pUnit ) { }
 	virtual IBasePathUnit* GetOwner() const { return 0; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __ARTILLERY_PATHS_H__

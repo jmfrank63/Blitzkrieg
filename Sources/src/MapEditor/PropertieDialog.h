@@ -8,7 +8,6 @@
 #include "resource.h"
 
 #define IDC_PC_TREE ( IDC_PIN_BUTTON + 1 )
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "PushPin.h"
 #include ".\\MTree ctrl\\FrameTree.h"
 #include "ResizeDialog.h"
@@ -33,12 +32,9 @@ public:
 
 	CPropertieDialog(CWnd* pParent = NULL);
  
-	//{{AFX_DATA(CPropertieDialog)
 	enum { IDD = IDD_PROPERTY };
 	CPushPinButton	m_checkButton;
-	//}}AFX_DATA
 
-	//{{AFX_VIRTUAL(CPropertieDialog)
 	public:
 	virtual void OnOK();
 	virtual void OnCancel();
@@ -46,17 +42,14 @@ public:
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);
 	virtual LRESULT DefWindowProc(UINT message, WPARAM wParam, LPARAM lParam);
-	//}}AFX_VIRTUAL
 
 protected:
 CFrameTree m_tree;
 
-	//{{AFX_MSG(CPropertieDialog)
 	virtual BOOL OnInitDialog();
 	afx_msg void OnDestroy();
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg void OnPinButton();
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 
 	virtual int GetMinimumXDimension() { return 200; }
@@ -64,7 +57,5 @@ CFrameTree m_tree;
 	virtual std::string GetXMLOptionsLabel() { return "CPropertiyDialog"; }
 	virtual bool GetDrawGripper() { return true; }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
 #endif // !defined(AFX_PROPERTIEDIALOG_H__FF1DD028_95A1_43DC_A550_756C736FBFE5__INCLUDED_)

@@ -1,20 +1,14 @@
 #ifndef __IM_UPGRADE_UNIT_H__
 #define __IM_UPGRADE_UNIT_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "InterMission.h"
 #include "iMission.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInterfaceUpgradeUnit : public CInterfaceInterMission
 {
 	OBJECT_NORMAL_METHODS( CInterfaceUpgradeUnit );
-	// input
 	NInput::CCommandRegistrator commandMsgs;
 	bool bToChapter;
-	//
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
-	// disable explicit destruction
 	virtual ~CInterfaceUpgradeUnit();
 	CInterfaceUpgradeUnit() : CInterfaceInterMission( "InterMission" ) {  }
 	
@@ -25,7 +19,6 @@ public:
 	virtual void STDCALL StartInterface();
 	virtual void STDCALL OnGetFocus( bool bFocus );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CICUpgradeUnit : public CInterfaceCommandBase<CInterfaceUpgradeUnit, MISSION_INTERFACE_UPGRADE_UNIT>
 {
 	OBJECT_NORMAL_METHODS( CICUpgradeUnit );
@@ -41,7 +34,6 @@ class CICUpgradeUnit : public CInterfaceCommandBase<CInterfaceUpgradeUnit, MISSI
 		pInterface->SetToChapter( bToChapter );
 		pML->PushInterface( pInterface ); 
 	}
-	//
 	CICUpgradeUnit() : bToChapter( false ) {  }
 public:
 	virtual void STDCALL Configure( const char *pszConfig )
@@ -53,5 +45,4 @@ public:
 	}
 
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif		//__IM_UPGRADE_UNIT_H__

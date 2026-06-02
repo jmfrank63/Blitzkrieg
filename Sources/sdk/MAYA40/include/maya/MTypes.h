@@ -3,83 +3,16 @@
 #endif
 #ifndef _MTypes
 #define _MTypes
-//
-// *****************************************************************************
-//
-// Copyright (C) 1997-2001 Alias|Wavefront Inc.
-//
-// These coded instructions, statements and computer programs contain
-// unpublished information proprietary to Alias|Wavefront Inc. and are 
-// protected by Canadian and US federal copyright laws. They may not be 
-// disclosed to third parties or copied or duplicated, in whole or in part, 
-// without prior written consent of Alias|Wavefront Inc.
-//
-// Unpublished-rights reserved under the Copyright Laws of the United States.
-//
-// *****************************************************************************
-//
-// FILE:    MTypes.h
-//
-// *****************************************************************************
-//
-// DESCRIPTION (MTypes)
-//
-//		This file contains the definitions for NULL, numeric array types, type 
-//		bool, and constants true and false
-//
-// *****************************************************************************
 
 #if defined __cplusplus
 
-// *****************************************************************************
 
 class MStatus;
 class MSyntax;
 
-// *****************************************************************************
 
-// DECLARATIONS
 
-// *****************************************************************************
 
-// Define a CPP variable that reflects the current Maya API version.
-// This variable is designed to be an integer so that one can do
-// CPP arithmetic and comparisons on it.  The digits in the number
-// are derived by taking the Maya version number and deleting the '.'
-// characters.  Thus, for example
-//   Maya 1.0.1  would be 101
-//   Maya 1.1    would be 110
-//   Maya 2.0    would be 200
-//   etc.
-//
-// since this variable did not exist in the Maya 1.0 API, it will
-// default to zero in that release.  Thus a construct such as
-//
-//    #if MAYA_API_VERSION > 100
-//
-// will be true in all post 1.0 versions of the API.
-// 
-// #define MAYA_API_VERSION 101
-// Define a CPP variable that reflects the current Maya API version.
-// This variable is designed to be an integer so that one can do
-// CPP arithmetic and comparisons on it.  The digits in the number
-// are derived by taking the Maya version number and deleting the '.'
-// characters.  Thus, for example
-//   Maya 1.0.1  would be 101
-//   Maya 1.5    would be 150
-//   Maya 2.0    would be 200
-//   Maya 2.5    would be 250
-//   Maya 3.0    would be 300
-//   Maya 4.0    would be 400
-//   etc.
-//
-// since this variable did not exist in the Maya 1.0 API, it will
-// default to zero in that release.  Thus a construct such as
-//
-//    #if MAYA_API_VERSION > 100
-//
-// will be true in all post 1.0 versions of the API.
-// 
 #define MAYA_API_VERSION 400
 
 #ifdef _WIN32
@@ -129,7 +62,6 @@ extern HINSTANCE MhInstPlugin;
 extern "C" {
 #endif
 
-//from /usr/include/math.h
 FND_EXPORT extern double	drand48(void);
 FND_EXPORT extern double	erand48(unsigned short [3]);
 FND_EXPORT extern long		lrand48(void);
@@ -239,7 +171,6 @@ typedef void *   (*MCreatorFunction)();
 typedef MSyntax	 (*MCreateSyntaxFunction)(); 
 typedef MStatus  (*MInitializeFunction)();
 
-/// Space transformation identifiers
 /**
  MSpace encompasses all of the types of transformation possible.  The MSpace
  identifiers are used to determine the space in which the user is applying or
@@ -350,30 +281,18 @@ typedef MStatus  (*MInitializeFunction)();
 */
 class MSpace {
 public:
-	///
 	enum Space {
-		///
 		kInvalid = 0,
-		///	Transform matrix (relative) space
 	 	kTransform = 1,
-		///	Pre-transform matrix (geometry)
  		kPreTransform = 2,
-		///	Post-transform matrix (world) space
  		kPostTransform = 3,
-		///	transform in world space
  		kWorld = 4,
-		///	Same as pre-transform space
  		kObject = kPreTransform,
-		///
 		kLast = 5
 	};
 
 };
 
-// stat does not work reliably on NT for directories.  Trailing '\'s cause an 
-// error on NT4.0 and trailing '/'s and '\'s cause an error on Windows 2000.
-// Use the following STAT macro to get consistent behavior on NT and UNIX.
-//
 #ifndef STAT
 #ifdef _WIN32
 #   define STAT statNT
@@ -387,6 +306,5 @@ __inline int statSGI (const char *path, struct stat *buffer )
 }
 #endif
 #endif
-// *****************************************************************************
 #endif /* __cplusplus */
 #endif /* _MTypes */

@@ -53,7 +53,4 @@ using _STLP_STD::make_pair;
 
 #endif /* _STLP_PAIR_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

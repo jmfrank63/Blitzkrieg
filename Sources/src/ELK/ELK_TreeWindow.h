@@ -5,7 +5,6 @@
 #include "TreeDockWindow.h"
 #include "ELK_Types.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CELKTreeWindow : public CTreeDockWindow
 {
 	friend class CELK;
@@ -45,7 +44,6 @@ protected:
 	bool bCollapseDeselected;
 	CWnd* pwndFormWindow;
 
-	//{{AFX_MSG(CELKTreeWindow)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnSelChanged(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnRClick(NMHDR* pNMHDR, LRESULT* pResult);
@@ -53,7 +51,6 @@ protected:
 	afx_msg void OnBtState1();
 	afx_msg void OnBtState2();
 	afx_msg void OnBtState3();
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 
 	bool bNextFilterChanged;
@@ -90,8 +87,6 @@ public:
 	CELKTreeWindow();
 	virtual ~CELKTreeWindow();
 
-	//{{AFX_VIRTUAL(CELKTreeWindow)
-	//}}AFX_VIRTUAL
 
 	void InitImageList();
 	void ClearTree();
@@ -115,6 +110,4 @@ public:
 	void UpdateSelectedText( CELK *pELK, int nState );
 	void UpdateSelectedFolder( CELK *pELK, int nState );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//{{AFX_INSERT_LOCATION}}
 #endif // !defined(__ELK_TREE_WINDOW__)

@@ -1,6 +1,5 @@
 #ifndef __FIXEDOBJLIST_H__
 #define __FIXEDOBJLIST_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template < int TNumObjects, class TObj, class THolder = CPtr<TObj> >
 class CFixedObjList
 {
@@ -8,20 +7,17 @@ class CFixedObjList
 public:
 	CFixedObjList() {  }
 	CFixedObjList( const CFixedObjList &lst ) { *this = lst; }
-	//
 	CFixedObjList& operator=( const CFixedObjList &lst )
 	{
 		for ( int i = 0; i < TNumObjects; ++i )
 			objects[i] = lst.objects[i];
 		return *this;
 	}
-	//
 	void Clear()
 	{
 		for ( int i = 0; i < TNumObjects; ++i )
 			objects[i] = 0;
 	}
-	//
 	static int GetSize() { return TNumObjects; }
 	bool IsEmpty() const { return objects[0] == 0; }
 	TObj* Get( const int nIndex ) const
@@ -33,14 +29,12 @@ public:
 	{
 		return Get( nIndex );
 	}
-	//
 	void Add( TObj *pObj )
 	{
 		for ( int i = TNumObjects - 2; i >= 0; --i )
 			objects[i + 1] = objects[i];
 		objects[0] = pObj;
 	}
-	//
 	int operator&( IStructureSaver &ss )
 	{
 		CSaverAccessor saver = &ss;
@@ -53,7 +47,6 @@ public:
 		}
 		else
 		{
-			// store only non-empty objects
 			for ( int i = 0; i < TNumObjects; ++i )
 			{
 				if ( objects[i] == 0 ) 
@@ -65,21 +58,17 @@ public:
 			if ( cNumObjects > 0 ) 
 				saver.Add( 1, &cNumObjects );
 		}
-		//
 		for ( char i = 0; i < cNumObjects; ++i )
 			saver.Add( 2 + i, &( objects[i] ) );
-		//
 		return 0;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template < int nNumObjects, class TObj, class THolder = CPtr<TObj>, class TCoeffType = float, int nBlockSize = 8 >
 class CFixedObjAreaMap
 {
 public:
 	typedef CFixedObjList<nNumObjects, TObj, THolder> CFixedList;
 	typedef CArray2D<CFixedList> CBase;
-	//
 	class CIterator
 	{
 		CFixedList *pLineCurr;							// current iteration position
@@ -87,7 +76,6 @@ public:
 		const int nNextLineAdd;							// value to add to 'pLineEnd' to receive next line start
 		int nNumLines;											// number of lines to iterate
 		int nElement;												// current iteration element
-		//
 		void NextStepElement()
 		{
 			++nElement;
@@ -126,16 +114,13 @@ public:
 			nNumLines = it.nNumLines;
 			nElement = it.nElement;
 		}
-		//
 		void Next()
 		{
 			NextStepElement();
 			while ( !IsEnd() && pLineCurr->IsEmpty() ) 
 				NextStepLine();
 		}
-		//
 		bool IsEnd() const { return nNumLines <= 0; }
-		//
 		operator TObj*() const { return pLineCurr->Get( nElement ); }
 		TObj* operator->() const { return pLineCurr->Get( nElement ); }
 	};
@@ -145,7 +130,6 @@ private:
 	const TCoeffType tCellSize;
 public:
 	explicit CFixedObjAreaMap( const TCoeffType &_tCellSize ) : tCellSize( _tCellSize ) {  }
-	//
 	void SetSizes( const int nSizeX, const int nSizeY )
   {
 		array.SetSizes( nSizeX, nSizeY );
@@ -156,7 +140,6 @@ public:
 	{
 		array.Clear();
 	}
-	//
 	bool Add( TObj *pObj )
 	{
 		const CVec3 vPos = pObj->GetPosition();
@@ -167,12 +150,10 @@ public:
 		array[nCellY][nCellX].Add( pObj );
 		return true;
 	}
-	//
 	iterator Iterate( const int nPatchX, const int nPatchY )
 	{
 		return iterator( nPatchX * nBlockSize, nPatchY * nBlockSize, array );
 	}
-	//
 	int operator&( IStructureSaver &ss )
 	{
 		CSaverAccessor saver = &ss;
@@ -183,7 +164,6 @@ public:
 			saver.Add( 2, &nSizeY );
 			array.Clear();
 			array.SetSizes( nSizeX, nSizeY );
-			//
 			int nCounter = 1;
 			saver->SetChunkCounter( nCounter++ );
 			int nNextCell = -1;
@@ -220,7 +200,6 @@ public:
 					saver.Add( 4, pData );
 				}
 			}
-			// add cell-terminator
 			int nCellTerminator = -1;
 			saver->SetChunkCounter( nCounter );
 			saver.Add( 3, &nCellTerminator );
@@ -228,5 +207,4 @@ public:
 		return 0;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __FIXEDOBJLIST_H__

@@ -1,8 +1,5 @@
-// STLport configuration file
-// It is internal STLport header - DO NOT include it directly
 
 
-// versions ?
 # if defined(_STLP_DESIGNATED_DLL)
 #   define _STLP_CALL __cdecl __export
 # elif defined(_RTLDLL)
@@ -12,25 +9,16 @@
 # endif
 
 # define _USE_STLP
-// # define _STLP_USE_OWN_NAMESPACE
 # define _STLP_DLLEXPORT_NEEDS_PREDECLARATION
 # define _STLP_OPERATOR_SPEC_NEEDS_TEMPLATE_ARGS
 
-// most of <exception> contents is still in global namespace
-// # define _STLP_VENDOR_UNEXPECTED_STD
 
-// <limits> problem
 # define _STLP_STATIC_CONST_INIT_BUG
 
-// <bitset> problems
 # define _STLP_MEMBER_SPECIALIZATION_BUG
 # define  _STLP_HAS_SPECIFIC_PROLOG_EPILOG 1
 
 #if ( __BORLANDC__ < 0x540 )
-// Borland C++ Builder 3 (?)
-// those are assumptions, if some of them actually work, please let me know
-// #  define _STLP_STATIC_CONST_INIT_BUG 1
-// #  define _STLP_THROW_RETURN_BUG 1
 #  define _STLP_NO_TEMPLATE_CONVERSIONS 1
 #  define _STLP_DEFAULT_CONSTRUCTOR_BUG 1
 #  define _STLP_NO_TYPENAME_ON_RETURN_TYPE
@@ -38,7 +26,6 @@
 #  define _STLP_LONG_LONG  __int64
 #endif
 
-// BCB 2 or less (Borland 5.02)
 #if ( __BORLANDC__ < 0x530 )
 
 #  define _STLP_NO_OWN_IOSTREAMS
@@ -76,7 +63,6 @@ typedef char    mbstate_t;
 
 #endif
 
-// Borland 5.0x
 #if ( __BORLANDC__ < 0x520 )
 
 #  define _STLP_BROKEN_USING_DIRECTIVE 1
@@ -91,7 +77,6 @@ typedef char    mbstate_t;
 #   define  _STLP_NO_WCHAR_T 1
 #endif
 
-// 4.x
 #if ( __BORLANDC__ < 0x500 )
 #   define _STLP_NESTED_TYPE_PARAM_BUG 1
 #   define _STLP_STATIC_ARRAY_BUG 1
@@ -103,7 +88,6 @@ typedef char    mbstate_t;
 #   define _STLP_NO_WCHAR_T 1
 #endif
 
-// auto enable thread safety and exceptions:
 #   ifndef _CPPUNWIND
 #     define _STLP_HAS_NO_EXCEPTIONS
 #   endif
@@ -160,7 +144,6 @@ typedef char    mbstate_t;
 #  define _STLP_EXPORT_TEMPLATE_KEYWORD __declspec(dllexport)
 
 # if (__BORLANDC__ >= 0x560) && ! defined (_STLP_OWN_IOSTREAMS)
-// #  define _STLP_IS_NATIVE_LIB
 #  define _STLP_NATIVE_INCLUDE_PATH ../include/oldstl
 #  define _STLP_NATIVE_CPP_C_INCLUDE_PATH ../include/oldstl
 #  define _STLP_NATIVE_C_INCLUDE_PATH ../include/oldstl

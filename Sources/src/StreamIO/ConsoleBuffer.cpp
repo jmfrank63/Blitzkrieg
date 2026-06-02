@@ -1,20 +1,14 @@
 #include "StdAfx.h"
 
 #include "ConsoleBuffer.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CConsoleBuffer::~CConsoleBuffer()
 {
 	DumpLog( -1 );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// dublicate;1;2;3;4;5;6;7;8;9
-// name;1;AI
-// logfile;filename
 bool CConsoleBuffer::Configure( const char *pszConfigure )
 {
 	std::vector<std::string> szTokens;
 	NStr::SplitString( pszConfigure, szTokens, ';' );
-	//
 	if ( szTokens.size() <= 1 )
 		return false;
 	if ( szTokens[0] == "dublicate" )
@@ -39,29 +33,23 @@ bool CConsoleBuffer::Configure( const char *pszConfigure )
 			return false;
 		szLogFileName = szTokens[1];
 	}
-	//
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CConsoleBuffer::WriteLocal( int nStreamID, const wchar_t *pszString, DWORD color, bool bBackupLog )
 {
 	streams[nStreamID].push_back( std::pair<std::wstring, DWORD>(pszString, color) );
 	if ( bBackupLog )
 		logs[nStreamID].push_back( std::pair<std::wstring, DWORD>(pszString, color) );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CConsoleBuffer::WriteASCII( int nStreamID, const char *pszString, DWORD color, bool bBackupLog )
 {
 	std::wstring szUnicode;
 	NStr::ToUnicode( &szUnicode, pszString );
 	Write( nStreamID, szUnicode.c_str(), color, bBackupLog );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CConsoleBuffer::Write( int nStreamID, const wchar_t *pszString, DWORD color, bool bBackupLog )
 {
-	// write main stream
 	WriteLocal( nStreamID, pszString, color, bBackupLog );
-	// write dublicates
 	CDublicateMap::const_iterator pos = dublicates.find( nStreamID );
 	if ( pos != dublicates.end() )
 	{
@@ -69,23 +57,17 @@ void CConsoleBuffer::Write( int nStreamID, const wchar_t *pszString, DWORD color
 			WriteLocal( *it, pszString, color, false );	// don't backup log for dublicated channels
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// read string from console's stream
 const wchar_t* CConsoleBuffer::Read( int nStreamID, DWORD *pColor )
 {
 	CStringsList &stream = streams[nStreamID];
 	if ( stream.empty() )
 		return 0;
-	// string
 	szTempString = stream.front().first;
-	// color
 	if ( pColor )
 		*pColor = stream.front().second;
-	// remove from queue
 	stream.pop_front();
 	return szTempString.c_str();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char* CConsoleBuffer::ReadASCII( int nStreamID, DWORD *pColor )
 {
 	const wchar_t *pszString = Read( nStreamID, pColor );
@@ -95,15 +77,12 @@ const char* CConsoleBuffer::ReadASCII( int nStreamID, DWORD *pColor )
 	NStr::ToAscii( &szTempStringASCII, szUnicode );
 	return szTempStringASCII.c_str();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline bool DumpLocal( const std::string &szString, FILE *file )
 {
-	///OutputDebugString( szString.c_str() );
 	if ( file != 0 )
 		fprintf( file, szString.c_str() );
 	return file != 0;
 }
-// dump console's stream log to the previously configured output devices
 bool CConsoleBuffer::DumpLog( int nStreamID )
 {
 #if !defined(_FINALRELEASE) || defined(_DEVVERSION)	
@@ -111,11 +90,9 @@ bool CConsoleBuffer::DumpLog( int nStreamID )
 	if ( nStreamID != -1 )								// dump particular stream
 	{
 		FILE *file = szLogFileName.empty() ? 0 : fopen( szLogFileName.c_str(), "at" );
-		// check for empty log
 		CStringsList &stream = logs[nStreamID];
 		if ( stream.empty() )
 			return false;
-		// name maps
 		CStreamNamesMap::const_iterator pos = names.find( nStreamID );
 		std::string szDumpString;
 /* for debug
@@ -124,21 +101,16 @@ bool CConsoleBuffer::DumpLog( int nStreamID )
 		else
 			szDumpString = NStr::Format( "\n***** Dumping console stream \"%s\" (%d) *****\n", pos->second.c_str(), nStreamID );
 
-		// dump string
 		DumpLocal( szDumpString, file );
 */
-		//
 		while ( !stream.empty() )
 		{
 			szDumpString = NStr::Format( "%s\n", NStr::ToAscii(stream.front().first).c_str() );
-			// dump string
 			DumpLocal( szDumpString, file ) || bLogFileCreated;
-			//
 			stream.pop_front();
 		}
 		if ( file != 0 )
 			fclose( file );
-		//
 		bLogFileCreated = true;
 	}
 	else																	// dump all streams
@@ -156,9 +128,7 @@ bool CConsoleBuffer::DumpLog( int nStreamID )
 			}
 		}
 	}
-	//
 	return bLogFileCreated;
 #endif // !defined(_FINALRELEASE) || defined(_DEVVERSION)
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

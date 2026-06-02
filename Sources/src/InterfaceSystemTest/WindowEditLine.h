@@ -1,6 +1,3 @@
-// WindowEditLine.h: interface for the CWindowEditLine class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_WINDOWEDITLINE_H__7531A3C4_0749_49AD_8A73_4500671399F2__INCLUDED_)
 #define AFX_WINDOWEDITLINE_H__7531A3C4_0749_49AD_8A73_4500671399F2__INCLUDED_
@@ -11,8 +8,6 @@
 
 #include "Window.h"
 interface IGFXText;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// for edit text. keep focus if being clicked upon
 class CWindowEditLine : public CWindow, public IEditLine
 {
 	OBJECT_COMPLETE_METHODS(CWindowEditLine)
@@ -39,8 +34,6 @@ class CWindowEditLine : public CWindow, public IEditLine
 	int nBeginText;		//с этой позиции начинается отображение текста szFullText
 	bool bTextScroll;	//если установлена эта переменная, то можно вводить текст шире поля edit box
 
-	//для скроллинга текста влево и вправо
-	//в pGFXText будет храниться лишь часть отображаемой строки, а в этой переменной полностью текст
 	std::wstring wszFullText;
 	std::string szFontName;	
 	DWORD dwColor;
@@ -49,15 +42,11 @@ class CWindowEditLine : public CWindow, public IEditLine
 	int nRightSpace;
 	int nYOffset;
 
-	// effects sequence names
 	std::string szOnReturn;
 	std::string szOnEscape;
 
-	//selection under mouse position
 	int GetSelection( const int nX );
-	// deletes text under selection
 	bool DeleteSelection();
-	// determines weather the sybmbol is valid according to allowable set
 	bool IsValidSymbol( const wchar_t chr ) const;
 	void NotifyTextChanged();
 	void EnsureCursorVisible();
@@ -66,7 +55,6 @@ class CWindowEditLine : public CWindow, public IEditLine
 	void FillWindowRectEditLine( CTRect<float> *pRect );
 
 	void CreateText();
-	// message sink registration
 	void RegisteMessageSinks();
 	void UnRegisteMessageSinks();
 public:
@@ -80,7 +68,6 @@ public:
 	virtual void RemoveFocus();
 	virtual void STDCALL Init();
 
-	// IWindow
 	virtual void STDCALL Visit( interface ISceneVisitor *pVisitor );
 	virtual void STDCALL Segment( const NTimer::STime timeDiff );
 
@@ -89,13 +76,11 @@ public:
 	virtual int STDCALL operator&( IDataTree &ss );
 	virtual void STDCALL OnChar( const wchar_t chr );
 
-	// IEditLine
 	virtual void STDCALL SetCursor( const int nPos );
 	virtual void STDCALL SetSelection( const int nBegin, const int nEnd );
 	virtual void STDCALL SetText( const wchar_t *pszText );
 	virtual const wchar_t * STDCALL GetText() const { return wszFullText.c_str(); }
 
-	//begin message sinks
 	void OnReturn( const struct SGameMessage &msg );
 	void OnTab( const struct SGameMessage &msg );
 	void OnBack( const struct SGameMessage &msg );
@@ -107,9 +92,7 @@ public:
 	void OnHome( const struct SGameMessage &msg );
 	void OnEnd( const struct SGameMessage &msg );
 	void OnEscape( const struct SGameMessage &msg );
-	//end message sinks
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #endif // !defined(AFX_WINDOWEDITLINE_H__7531A3C4_0749_49AD_8A73_4500671399F2__INCLUDED_)
 

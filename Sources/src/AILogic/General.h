@@ -1,9 +1,7 @@
 #ifndef __GENERAL__
 #define __GENERAL__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGeneral;
 interface IGeneralDelayedTask;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EResupplyType
 {
 	ERT_REPAIR						= 0,
@@ -14,8 +12,6 @@ enum EResupplyType
 	
 	_ERT_COUNT						= 5,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ������� ������
 class CSupremeBeing
 {
 	DECLARE_SERIALIZE;
@@ -32,13 +28,9 @@ public:
 
 	void SetUnitVisible( class CAIUnit *pUnit, const int nGeneralParty, const bool bVisible );
 	
-	// ����� ������� �������� ����� ������ ��������
 	void SetAAVisible( class CAIUnit *pUnit, const int nGeneralParty, const bool bVisible );
 	
-	// creates number of generals
-	// ������ ������� ����� � ������, ������� �������� ��������� ��������
 	void Init( const struct SAIGeneralMapInfo &mapInfo );
-	// ������� ����� ���������
 	void GiveNewUnitsToGenerals( const std::list<class CCommonUnit*> &pUnits );
 
 	bool IsMobileReinforcement( int nParty, int nGroup ) const;
@@ -48,7 +40,6 @@ public:
 	bool MustShootToObstacles( const int nPlayer );
 	void RegisterDelayedTask( interface IGeneralDelayedTask *pTask );
 	
-	// ��� ������ �������������
 	void UpdateEnemyUnitInfo( class CAIUnitInfoForGeneral *pInfo,
 		const NTimer::STime lastVisibleTimeDelta, const CVec2 &vLastVisiblePos,
 		const NTimer::STime lastAntiArtTimeDelta, const CVec2 &vLastVisibleAntiArtCenter, const float fDistToLastVisibleAntiArt );
@@ -58,7 +49,6 @@ public:
 	
 	void ReserveAviationForTimes( const int nParty, const std::vector<NTimer::STime> &times );
 	
-	// when some unit changed position.
 	void UnitChangedPosition( class CCommonUnit * pUnit, const CVec2 &vNewPos );
 	void UnitAskedForResupply( class CCommonUnit * pUnit, const EResupplyType eType, const bool bSet );
 
@@ -67,5 +57,4 @@ public:
 
 	bool IsInResistanceCircle( const CVec2 &vPoint, const int nGeneralParty );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __GENERAL__

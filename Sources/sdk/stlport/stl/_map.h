@@ -44,7 +44,6 @@ template <class _Key, class _Tp, __DFL_TMPL_PARAM(_Compare, less<_Key> ),
 class map {
 public:
 
-// typedefs:
 
   typedef _Key                  key_type;
   typedef _Tp                   data_type;
@@ -86,7 +85,6 @@ public:
   typedef typename _Rep_type::difference_type difference_type;
   typedef typename _Rep_type::allocator_type allocator_type;
 
-  // allocation/deallocation
 
   map() : _M_t(_Compare(), allocator_type()) {}
   explicit map(const _Compare& __comp,
@@ -138,7 +136,6 @@ public:
     return *this; 
   }
 
-  // accessors:
 
   key_compare key_comp() const { return _M_t.key_comp(); }
   value_compare value_comp() const { return value_compare(_M_t.key_comp()); }
@@ -157,14 +154,12 @@ public:
   size_type max_size() const { return _M_t.max_size(); }
   _Tp& operator[](const key_type& __k) {
     iterator __i = lower_bound(__k);
-    // __i->first is greater than or equivalent to __k.
     if (__i == end() || key_comp()(__k, (*__i).first))
       __i = insert(__i, value_type(__k, _STLP_DEFAULT_CONSTRUCTED(_Tp)));
     return (*__i).second;
   }
   void swap(map<_Key,_Tp,_Compare,_Alloc>& __x) { _M_t.swap(__x._M_t); }
 
-  // insert/erase
 
   pair<iterator,bool> insert(const value_type& __x) 
     { return _M_t.insert_unique(__x); }
@@ -190,7 +185,6 @@ public:
     { _M_t.erase(__first, __last); }
   void clear() { _M_t.clear(); }
 
-  // map operations:
 
   iterator find(const key_type& __x) { return _M_t.find(__x); }
   const_iterator find(const key_type& __x) const { return _M_t.find(__x); }
@@ -220,7 +214,6 @@ template <class _Key, class _Tp, __DFL_TMPL_PARAM(_Compare, less<_Key> ),
 class multimap {
 public:
 
-// typedefs:
 
   typedef _Key                  key_type;
   typedef _Tp                   data_type;
@@ -261,7 +254,6 @@ public:
   typedef typename _Rep_type::difference_type difference_type;
   typedef typename _Rep_type::allocator_type allocator_type;
 
-// allocation/deallocation
 
   multimap() : _M_t(_Compare(), allocator_type()) { }
   explicit multimap(const _Compare& __comp,
@@ -309,7 +301,6 @@ public:
     return *this; 
   }
 
-  // accessors:
 
   key_compare key_comp() const { return _M_t.key_comp(); }
   value_compare value_comp() const { return value_compare(_M_t.key_comp()); }
@@ -328,7 +319,6 @@ public:
   size_type max_size() const { return _M_t.max_size(); }
   void swap(multimap<_Key,_Tp,_Compare,_Alloc>& __x) { _M_t.swap(__x._M_t); }
 
-  // insert/erase
 
   iterator insert(const value_type& __x) { return _M_t.insert_equal(__x); }
   iterator insert(iterator __position, const value_type& __x) {
@@ -353,7 +343,6 @@ public:
     { _M_t.erase(__first, __last); }
   void clear() { _M_t.clear(); }
 
-  // multimap operations:
 
   iterator find(const key_type& __x) { return _M_t.find(__x); }
   const_iterator find(const key_type& __x) const { return _M_t.find(__x); }
@@ -378,13 +367,11 @@ public:
 
 # define _STLP_TEMPLATE_CONTAINER map<_Key,_Tp,_Compare,_Alloc>
 
-// fbp : if this template header gets protected against your will, report it !
 # include <stl/_relops_cont.h>
 
 # undef  _STLP_TEMPLATE_CONTAINER
 # define _STLP_TEMPLATE_CONTAINER multimap<_Key,_Tp,_Compare,_Alloc>
 
-// fbp : if this template header gets protected against your will, report it !
 # include <stl/_relops_cont.h>
 
 # undef  _STLP_TEMPLATE_CONTAINER
@@ -392,10 +379,8 @@ public:
 
 _STLP_END_NAMESPACE
 
-// do a cleanup
 #  undef map
 #  undef multimap
-// provide a way to access full funclionality 
 # define __map__  __FULL_NAME(map)
 # define __multimap__  __FULL_NAME(multimap)
 
@@ -405,7 +390,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_MAP_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

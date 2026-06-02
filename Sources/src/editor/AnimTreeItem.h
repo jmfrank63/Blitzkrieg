@@ -4,7 +4,6 @@
 #include "TreeItem.h"
 #include "ThumbList.h"
 
-/////////////////////////////////////// UNIT editor tree //////////////////////////////////////
 
 class CAnimationTreeRootItem : public CTreeItem
 {
@@ -25,7 +24,6 @@ public:
 	CUnitCommonPropsItem() { nItemType = E_UNIT_COMMON_PROPS_ITEM; InitDefaultValues(); }
 	~CUnitCommonPropsItem() {};
 
-	//��������� ���������� ����������
 	const char *GetUnitName() { return values[0].value; }
 	int GetUnitType();
 	const char *GetPictureFileName() { return values[2].value; }
@@ -40,7 +38,6 @@ public:
 	float GetSight() { return values[11].value; }
 	float GetSightPower() { return values[12].value; }
 	
-	//��������� ���������� ����������
 	void SetUnitName( const char *pszName ) { values[0].value = pszName; }
 	void SetUnitType( int nVal );
 	void SetPictureFileName( const char *pszName ) { values[2].value = pszName; }
@@ -95,8 +92,6 @@ public:
 	const char *GetActionValue() { return values[0].value; }
 */
 	virtual void InitDefaultValues();
-//	virtual void MyKeyDown( int nChar );
-//	virtual void UpdateItemValue( int nItemId, const CVariant &value );
 };
 
 class CUnitAIPropsItem : public CTreeItem
@@ -213,7 +208,6 @@ public:
 	~CUnitAnimationsItem() {};
 	
 	virtual void InitDefaultValues();
-//	virtual void MyKeyDown( int nChar );
 };
 
 class CUnitFramePropsItem : public CTreeItem
@@ -247,7 +241,6 @@ public:
 
 	virtual bool CopyItemTo( CTreeItem *pTo );
 
-	//��������� ���������� ����������
 	int GetFrameTime();
 	float GetAnimationSpeed();
 	bool GetCycledFlag();
@@ -273,11 +266,9 @@ public:
 	CUnitAcksItem() { bStaticElements = true; nItemType = E_UNIT_ACKS_ITEM; nImageIndex = 1; InitDefaultValues(); }
 	~CUnitAcksItem() {};
 	
-	//��������� ���������� ����������
 	const char *GetAckName() { return values[0].value; }
 	const char *GetAckName2() { return values[1].value; }
 	
-	//���������
 	void SetAckName( const char *pszVal ) { values[0].value = pszVal; }
 	void SetAckName2( const char *pszVal ) { values[1].value = pszVal; }
 	
@@ -338,11 +329,9 @@ public:
 	CUnitAckTypePropsItem() { nItemType = E_UNIT_ACK_TYPE_PROPS_ITEM; nImageIndex = 3; InitDefaultValues(); }
 	~CUnitAckTypePropsItem() {};
 	
-	//��������� ���������� ����������
 	const char* GetSoundName() { return values[0].value; }
 	float GetProbability() { return values[1].value; }
 	
-	//��������� ���������� ����������
 	void SetSoundName( const char *pszVal ) { values[0].value = pszVal; }
 	void SetProbability( float fVal ) { values[1].value = fVal; }
 	

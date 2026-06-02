@@ -63,6 +63,3 @@ using STLPORT::__deque__;
 
 #endif /* _STLP_DEQUE_H */
 
-// Local Variables:
-// mode:C++
-// End:

@@ -3,10 +3,8 @@
 #include "AnimUnitSoldier.h"
 #include "Soldier.h"
 #include "Updater.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CUpdater updater;
 extern NTimer::STime curTime;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAnimUnitSoldier::Init( CAIUnit *_pOwner )
 {
 	pOwner = checked_cast<CSoldier*>(_pOwner);
@@ -17,7 +15,6 @@ void CAnimUnitSoldier::Init( CAIUnit *_pOwner )
 	pOwnerStats = checked_cast<const SInfantryRPGStats*>(pOwner->GetStats());
 	bComplexAttack = !pOwnerStats->bCanAttackDown || !pOwnerStats->bCanAttackUp;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAnimUnitSoldier::Moved()
 {
 	if ( movingState.state == SMovingState::EMS_STOPPED || movingState.state == SMovingState::EMS_MOVING_TO_STOPPED )
@@ -26,7 +23,6 @@ void CAnimUnitSoldier::Moved()
 		movingState.timeOfIntentionStart = 0;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAnimUnitSoldier::Stopped()
 {
 	if ( movingState.state == SMovingState::EMS_MOVING || movingState.state == SMovingState::EMS_STOPPED_TO_MOVING )
@@ -35,7 +31,6 @@ void CAnimUnitSoldier::Stopped()
 		movingState.timeOfIntentionStart = curTime;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAnimUnitSoldier::AnimationSet( int nAnimation )
 {
 	nCurAnimation = nAnimation;
@@ -96,7 +91,6 @@ void CAnimUnitSoldier::AnimationSet( int nAnimation )
 			NI_ASSERT_T( false, NStr::Format( "Unknown animation for soldier (%d)", nAnimation ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAnimUnitSoldier::Segment()
 {
 	if ( movingState.state == SMovingState::EMS_STOPPED_TO_MOVING || movingState.state == SMovingState::EMS_MOVING_TO_STOPPED )
@@ -134,7 +128,6 @@ void CAnimUnitSoldier::Segment()
 		bMustFinishCurAnimation = false;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAnimUnitSoldier::StopCurAnimation()
 {
 	if ( movingState.state == SMovingState::EMS_STOPPED )
@@ -145,4 +138,3 @@ void CAnimUnitSoldier::StopCurAnimation()
 	else
 		updater.Update( pOwner->GetMovingAction(), pOwner );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

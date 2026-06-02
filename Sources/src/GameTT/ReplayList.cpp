@@ -13,18 +13,15 @@
 #include "..\StreamIO\RandomGen.h"
 #include "..\Main\ScenarioTracker.h"
 #include "..\Common\PauseGame.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CReplayList::PostCreate( IMainLoop *pML, CInterfaceReplayList *pILM )
 {
 	if ( !szFileNameToLoad.empty() )
 		pILM->SetFileName( szFileNameToLoad.c_str() );
 	pML->PushInterface( pILM );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceReplayList::~CInterfaceReplayList()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceReplayList::SetFileName( const char *pszFullFileName ) 
 { 
 	if ( pszFullFileName )
@@ -56,13 +53,11 @@ void CInterfaceReplayList::SetFileName( const char *pszFullFileName )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceReplayList::StartInterface()
 {
 	CInterfaceBaseList::StartInterface();
 	DisplayError();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceReplayList::DisplayError()
 {
 	const int nReplayError = GetGlobalVar( "ReplayError", 0 );
@@ -84,10 +79,8 @@ void CInterfaceReplayList::DisplayError()
 
 	RemoveGlobalVar( "ReplayError" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceReplayList::Init()
 {
-	//инициализируем имена
 	fileMasks.clear();
 	fileMasks.push_back( "*.rpl" );
 	szTopDir = GetSingleton<IMainLoop>()->GetBaseDir();
@@ -101,12 +94,9 @@ bool CInterfaceReplayList::Init()
 	szCurrentDir = szTopDir;
 	szInterfaceName = "ui\\Lists\\IMReplayList";
 	nSortType = E_SORT_BY_TIME;
-	//
 	CInterfaceBaseList::Init();
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceReplayList::FillListItem( IUIListRow *pRow, const std::string &szFullFileName, bool *pSelectedItem )
 {
 	IUIElement *pElement = pRow->GetElement( 1 );
@@ -118,7 +108,6 @@ bool CInterfaceReplayList::FillListItem( IUIListRow *pRow, const std::string &sz
 	pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszVal.c_str() ) );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceReplayList::OnOk( const std::string &szFullFileName )
 {
 	ICommandsHistory *pCommandsHistory = GetSingleton<ICommandsHistory>();
@@ -143,7 +132,6 @@ bool CInterfaceReplayList::OnOk( const std::string &szFullFileName )
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceReplayList::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceBaseList::ProcessMessage( msg ) )
@@ -158,7 +146,5 @@ bool CInterfaceReplayList::ProcessMessage( const SGameMessage &msg )
 		}
 	}
 
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

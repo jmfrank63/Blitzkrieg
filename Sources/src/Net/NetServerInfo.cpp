@@ -1,20 +1,16 @@
 #include "StdAfx.h"
 #include "NetServerInfo.h"
 #include "NetDriverConsts.h"
-//////////////////////////////////////////////////////////////////////////////////////
 namespace NNet
 {
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CServerInfoSupport::CServerInfoSupport( APPLICATION_ID _nApplicationID )
 	: applicationID(_nApplicationID), fTime(0), bDoReply(false), fRequestDelay(0) 
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerInfoSupport::Step( float fDeltaTime )
 {
 	fRequestDelay -= fDeltaTime;
 	fTime += fDeltaTime;
-	// remove outdated information about servers
 	for ( CServerInfoList::iterator i = servers.begin(); i != servers.end(); )
 	{
 		if ( i->fValidTimeLeft > 0 )
@@ -37,7 +33,6 @@ void CServerInfoSupport::Step( float fDeltaTime )
 			++i;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerInfoSupport::ReplyServerInfoRequest( CBitStream &bits, CBitStream *pDstBits )
 {
 	float fReqTime;
@@ -48,7 +43,6 @@ void CServerInfoSupport::ReplyServerInfoRequest( CBitStream &bits, CBitStream *p
 	(*pDstBits).Write( nSize );
 	(*pDstBits).Write( serverInfo.GetBuffer(), serverInfo.GetSize() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CServerInfoSupport::SServerInfo& CServerInfoSupport::GetInfo( const CNodeAddress &addr )
 {
 	for ( CServerInfoList::iterator i = servers.begin(); i != servers.end(); ++i )
@@ -61,15 +55,12 @@ CServerInfoSupport::SServerInfo& CServerInfoSupport::GetInfo( const CNodeAddress
 	b.addr = addr;
 	return b;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerInfoSupport::ProcessServerInfo( const CNodeAddress &addr, CBitStream &bits )
 {
 	APPLICATION_ID appID;
 	float fReqSent;
-	//
 	bits.Read( fReqSent );
 	bits.Read( appID );
-	// check that application is correct
 	if ( (appID&0xFFFFFF00) != (applicationID&0xFFFFFF00) )
 		return;
 
@@ -107,14 +98,11 @@ void CServerInfoSupport::ProcessServerInfo( const CNodeAddress &addr, CBitStream
 				return;
 		}
 	}*/
-	//
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerInfoSupport::WriteRequest( CBitStream *pBits )
 {
 	(*pBits).Write( fTime );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CServerInfoSupport::CanSendRequest( const CNodeAddress &broadcast, std::vector<CNodeAddress> *pDest )
 {
 	if ( fRequestDelay <= 0 )
@@ -126,5 +114,4 @@ bool CServerInfoSupport::CanSendRequest( const CNodeAddress &broadcast, std::vec
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }

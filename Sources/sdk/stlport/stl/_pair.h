@@ -156,6 +156,3 @@ _STLP_END_RELOPS_NAMESPACE
 
 #endif /* _STLP_INTERNAL_PAIR_H */
 
-// Local Variables:
-// mode:C++
-// End:

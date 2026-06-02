@@ -5,23 +5,19 @@
 #include "ChatMessages.h"
 
 #include "..\Main\GameTimer.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 chatGlobalCallbacks CGameSpyChat::globalCallbacks;
 chatChannelCallbacks CGameSpyChat::channelCallbacks;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CGameSpyChat::CGameSpyChat()
 : CThread( 500 ), chat( 0 ), eInitState( EIS_NONE ), szRealUserName( "" ), lastTimeToTryToReconnect( 0 ),
 	eMode( EUM_NONE )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CGameSpyChat::~CGameSpyChat()
 {
 	StopThread();
 	if ( chat /*&& eInitState != EIS_NONE && eInitState != EIS_INITIALIZING && eInitState != EIS_DISCONNECTED*/ )
 		DisconnectFromChat( true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::InitGSChat( const char *pszRealUserName, const char *pszNick )
 {
 	szRealUserName = pszRealUserName;
@@ -30,7 +26,6 @@ void CGameSpyChat::InitGSChat( const char *pszRealUserName, const char *pszNick 
 	std::string szSecretKey;
 	szSecretKey.resize( 6 );
 
-	//set the secret key, in a semi-obfuscated manner
 	szSecretKey[0] = 'f';
 	szSecretKey[1] = 'Y';
 	szSecretKey[2] = 'D';
@@ -38,7 +33,6 @@ void CGameSpyChat::InitGSChat( const char *pszRealUserName, const char *pszNick 
 	szSecretKey[4] = 'B';
 	szSecretKey[5] = 'N';
 
-	//
 	memset(&globalCallbacks, 0, sizeof(chatGlobalCallbacks));
 	globalCallbacks.raw = rawCallBack;
 	globalCallbacks.disconnected = disconnectedCallBack;
@@ -55,7 +49,6 @@ void CGameSpyChat::InitGSChat( const char *pszRealUserName, const char *pszNick 
 		this, CHATFalse
 	);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::InitGSChat( const WORD *pszUserName )
 {
 	NStr::SetCodePage( GetACP() );
@@ -69,13 +62,11 @@ void CGameSpyChat::InitGSChat( const WORD *pszUserName )
 
 	RunThread();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::InitInGameChat( INetDriver *pNetDriver )
 {
 	pInGameChat = new CLanChat();
 	static_cast_ptr<CLanChat*>(pInGameChat)->InitInGameChat( pNetDriver );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::DisconnectFromChat( bool bShutDown )
 {
 	chatDisconnect( chat );
@@ -84,7 +75,6 @@ void CGameSpyChat::DisconnectFromChat( bool bShutDown )
 	if ( !bShutDown )
 		lastTimeToTryToReconnect = GetSingleton<IGameTimer>()->GetAbsTime();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::SendMessage( const WORD *pszMessage, const SPlayerInfo &ourPlayer )
 {
 	if ( !IsInChatRoom() )
@@ -102,7 +92,6 @@ void CGameSpyChat::SendMessage( const WORD *pszMessage, const SPlayerInfo &ourPl
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::SendWhisperMessage( const WORD *pszMessage, const SPlayerInfo &toPlayer, const SPlayerInfo &ourPlayer )
 {
 	if ( !IsInChatRoom() )
@@ -111,7 +100,6 @@ void CGameSpyChat::SendWhisperMessage( const WORD *pszMessage, const SPlayerInfo
 			pInGameChat->SendWhisperMessage( pszMessage, toPlayer, ourPlayer );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::SendMessage( const WORD *pszMessage, const WORD *wszToPlayer, const bool bWhisper )
 {
 	if ( eInitState == EIS_INITIALIZED && IsInChatRoom() )
@@ -132,12 +120,10 @@ void CGameSpyChat::SendMessage( const WORD *pszMessage, const WORD *wszToPlayer,
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGameSpyChat::IsDisconnected() const
 {
 	return eInitState == EIS_NONE || eInitState == EIS_CHANGED_NICK || eInitState == EIS_DISCONNECTED;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::Segment()
 {
 	if ( pInGameChat )
@@ -161,7 +147,6 @@ void CGameSpyChat::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IMultiplayerMessage* CGameSpyChat::GetMessage()
 {
 	IMultiplayerMessage *pMessage = 0;
@@ -173,7 +158,6 @@ IMultiplayerMessage* CGameSpyChat::GetMessage()
 
 	return pMessage;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::Step()
 {
 	if ( chat /*&& eState !IsDisconnected() */)
@@ -204,11 +188,9 @@ void CGameSpyChat::Step()
 		);
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::RawCallBack( const char *pRaw )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::DisconnectedCallBack( const char *pReason )
 {
 	if ( !IsDisconnected() )
@@ -218,16 +200,13 @@ void CGameSpyChat::DisconnectedCallBack( const char *pReason )
 		eInitState = EIS_DISCONNECTED;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::PrivateMessageCallBack( const char *pUser, const char *pMessage, int nType )
 {
 	messages.AddMessage( new CChatMessage( pMessage, pUser, true ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::InvitedCallBack( const char *pChannel, const char *pUser )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::NickErrorCallback( CHAT chat, int nType, const char *pszNick )
 {
 	std::string szNamePostfix;
@@ -250,11 +229,9 @@ void CGameSpyChat::NickErrorCallback( CHAT chat, int nType, const char *pszNick 
 
 	eInitState = EIS_CHANGED_NICK;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::FillInUserCallback( unsigned int nIP, char user[128] )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::ConnectCallback( CHATBool success )
 {
 	switch ( success )
@@ -271,63 +248,50 @@ void CGameSpyChat::ConnectCallback( CHATBool success )
 			break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::ChannelMessage( const char *pChannel, const char *pUser, const char *pMessage, int nType )
 {
 	if ( IsInChatRoom() )
 		messages.AddMessage( new CChatMessage( pMessage, pUser, false ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::Kicked( const char *pUser, const char *pReason )
 {
 	if ( IsInChatRoom() )
 		messages.AddMessage( new CSimpleChatMessage( CSimpleChatMessage::EP_KICKED ) );
 	eInitState = EIS_DISCONNECTED;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::UserJoined( const char *pChannel, const char *pUser, int nMode )
 {
 	if ( IsInChatRoom() )	
 		messages.AddMessage( new CChatUserChanged( CChatUserChanged::EUS_JOINED, pUser, IChat::EUserMode( nMode ) ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::UserParted( const char *pChannel, const char *pUser, int nWhy, const char *pReason, const char *pKicker )
 {
 	if ( IsInChatRoom() )	
 		messages.AddMessage( new CChatUserChanged( CChatUserChanged::EUS_PARTED, pUser, EUM_NONE ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::UserChangedNick( const char *pChannel, const char *pOldNick, const char *pNewNick )
 {
 	if ( IsInChatRoom() )	
 		messages.AddMessage( new CChatUserChangedNick( pOldNick, pNewNick ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::TopicChanged( const char *pChannel, const char *pTopic )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::ChannelModeChanged( const char *pChannel, CHATChannelMode *pMode )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::UserModeChanged( const char *pChannel, const char *pUser, int nMode )
 {
-//	messages.AddMessage( new CChatUserChanged( CChatUserChanged::EUS_MODE, pUser, IChat::EUserMode( nMode ) ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::UserListUpdated( const char *pChannel )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::NewUserList( const char *pChannel, int nNum, const char **ppUsers, int *pModes )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::BroadcastKeyChanged( const char *pChannel, const char *pUser, const char *pKey, const char *pValue )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::EnterChannelCallBack( CHATBool success, CHATEnterResult result, const char *pChannel )
 {
 	switch ( success )
@@ -351,7 +315,6 @@ void CGameSpyChat::EnterChannelCallBack( CHATBool success, CHATEnterResult resul
 			break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::ChatEnumUsersCallback( CHATBool success, const char *pChannel, int numUsers, const char **ppUsers, int *pNModes )
 {
 	if ( IsInChatRoom() )
@@ -360,7 +323,6 @@ void CGameSpyChat::ChatEnumUsersCallback( CHATBool success, const char *pChannel
 			messages.AddMessage( new CChatUserChanged( CChatUserChanged::EUS_JOINED, ppUsers[i], IChat::EUserMode( pNModes[i] ) ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::UserModeChanged( const EUserMode _eMode )
 {
 	eMode = _eMode;
@@ -369,119 +331,91 @@ void CGameSpyChat::UserModeChanged( const EUserMode _eMode )
 
 	if ( eInitState == EIS_INITIALIZED )
 	{
-//		chatSetUserMode( chat, szChatName.c_str(), szNick.c_str(), (int)eMode );
 
 		if ( IsInChatRoom() )
 			chatEnumUsers( chat, GetGlobalVar("GameSpyChatName"), chatEnumUsersCallback, this, CHATFalse );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::DestroyInGameChat()
 {
 	pInGameChat = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// callbacks	
-//
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::rawCallBack( CHAT chat, const char *pRaw, void *pParam )
 {
 	reinterpret_cast<CGameSpyChat*>(pParam)->RawCallBack( pRaw );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::disconnectedCallBack( CHAT chat, const char *pReason, void *pParam )
 {
 	reinterpret_cast<CGameSpyChat*>(pParam)->DisconnectedCallBack( pReason );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::privateMessageCallBack( CHAT chat, const char *pUser, const char *pMessage, int nType, void *pParam )
 {
 	reinterpret_cast<CGameSpyChat*>(pParam)->PrivateMessageCallBack( pUser, pMessage, nType );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::invitedCallBack( CHAT chat, const char *pChannel, const char *pUser, void *pParam )
 {
 	reinterpret_cast<CGameSpyChat*>(pParam)->InvitedCallBack( pChannel, pUser );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::nickErrorCallback( CHAT chat, int nType, const char *pszNick, void *pParam )
 {
 	reinterpret_cast<CGameSpyChat*>(pParam)->NickErrorCallback( chat, nType, pszNick );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::fillInUserCallback( CHAT chat, unsigned int nIP, char user[128], void *pParam )
 {
 	reinterpret_cast<CGameSpyChat*>(pParam)->FillInUserCallback( nIP, user );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::connectCallback( CHAT chat, CHATBool success, void *pParam )
 {
 	reinterpret_cast<CGameSpyChat*>(pParam)->ConnectCallback( success );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::channelMessage( CHAT chat, const char *pChannel, const char *pUser, const char *pMessage, int nType, void *pParam )
 {
 	reinterpret_cast<CGameSpyChat*>(pParam)->ChannelMessage( pChannel, pUser, pMessage, nType );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::kicked( CHAT chat, const char *pChannel, const char *pUser, const char *pReason, void *pParam )
 {
 	reinterpret_cast<CGameSpyChat*>(pParam)->Kicked( pUser, pReason );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::userJoined( CHAT chat, const char *pChannel, const char *pUser, int mode, void *pParam )
 {
 	reinterpret_cast<CGameSpyChat*>(pParam)->UserJoined( pChannel, pUser, mode );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::userParted( CHAT chat, const char *pChannel, const char *pUser, int why, const char *pReason, const char *pKicker, void *pParam )
 {
 	reinterpret_cast<CGameSpyChat*>(pParam)->UserParted( pChannel, pUser, why, pReason, pKicker );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::userChangedNick( CHAT chat, const char *pChannel, const char *pOldNick, const char *pNewNick, void *pParam )
 {
 	reinterpret_cast<CGameSpyChat*>(pParam)->UserChangedNick( pChannel, pOldNick, pNewNick );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::topicChanged( CHAT chat, const char *pChannel, const char *pTopic, void *pParam )
 {
 	reinterpret_cast<CGameSpyChat*>(pParam)->TopicChanged( pChannel, pTopic );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::channelModeChanged( CHAT chat, const char *pChannel, CHATChannelMode *pMode, void *pParam )
 {
 	reinterpret_cast<CGameSpyChat*>(pParam)->ChannelModeChanged( pChannel, pMode );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::userModeChanged( CHAT chat, const char *pChannel, const char *pUser, int mode, void *pParam )
 {
-//	reinterpret_cast<CGameSpyChat*>(pParam)->UserModeChanged( pChannel, pUser, mode );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::userListUpdated( CHAT chat, const char *pChannel, void *pParam )
 {
 	reinterpret_cast<CGameSpyChat*>(pParam)->UserListUpdated( pChannel );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::newUserList( CHAT chat, const char *pChannel, int num, const char **ppUsers, int *pModes, void *pParam )
 {
 	reinterpret_cast<CGameSpyChat*>(pParam)->NewUserList( pChannel, num, ppUsers, pModes );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::broadcastKeyChanged( CHAT chat, const char *pChannel, const char *pUser, const char *pKey, const char *pValue, void *pParam )
 {
 	reinterpret_cast<CGameSpyChat*>(pParam)->BroadcastKeyChanged( pChannel, pUser, pKey, pValue );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::enterChannelCallback( CHAT chat, CHATBool success, CHATEnterResult result, const char *pChannel, void *pParam )
 {
 	reinterpret_cast<CGameSpyChat*>(pParam)->EnterChannelCallBack( success, result, pChannel );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyChat::chatEnumUsersCallback( CHAT chat, CHATBool success, const char *pChannel, int numUsers, const char **ppUsers, int *pNModes, void *pParam )
 {
 	reinterpret_cast<CGameSpyChat*>(pParam)->ChatEnumUsersCallback( success, pChannel, numUsers, ppUsers, pNModes );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

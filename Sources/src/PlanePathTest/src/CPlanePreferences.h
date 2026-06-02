@@ -22,7 +22,6 @@ public:
 		fStallSpeed = _fMaxSpeed / 5.0f;
 	}
 	
-	// maneur radius for current speed
 	float GetR( const float fSpeed ) const { return 300.0f; }
 	float GetStallSpeed() const { return fStallSpeed; }
 	float GetMaxSpeed() const { return fMaxSpeed; }

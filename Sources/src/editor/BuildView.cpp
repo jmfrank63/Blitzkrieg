@@ -1,5 +1,3 @@
-// BuildingView.cpp : implementation file
-//
 
 #include "StdAfx.h"
 #include "BuildView.h"
@@ -13,8 +11,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CBuildingView
 
 CBuildingView::CBuildingView()
 {
@@ -26,14 +22,10 @@ CBuildingView::~CBuildingView()
 
 
 BEGIN_MESSAGE_MAP(CBuildingView, CWnd)
-//{{AFX_MSG_MAP(CBuildingView)
 ON_WM_PAINT()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CBuildingView message handlers
 
 BOOL CBuildingView::PreCreateWindow(CREATESTRUCT& cs) 
 {
@@ -50,7 +42,6 @@ BOOL CBuildingView::PreCreateWindow(CREATESTRUCT& cs)
 void CBuildingView::OnPaint() 
 {
 
-//	if ( g_frameManager.GetObjectFrame()->IsRunning() )
 	{
 		RECT valRC;
 		((CWnd *) g_frameManager.GetGameWnd())->GetWindowRect( &valRC );

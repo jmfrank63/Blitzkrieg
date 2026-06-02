@@ -4,7 +4,6 @@
 #include "ZipFileSystem.h"
 #include "MemFileSystem.h"
 #include "CommonFileSystem.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IDataStorage* STDCALL OpenStorage( const char *pszName, DWORD dwAccessMode, DWORD type )
 {
 	switch ( type )
@@ -20,7 +19,6 @@ IDataStorage* STDCALL OpenStorage( const char *pszName, DWORD dwAccessMode, DWOR
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IDataStorage* STDCALL CreateStorage( const char *pszName, DWORD dwAccessMode, DWORD type )
 {
 	switch ( type )
@@ -30,4 +28,3 @@ IDataStorage* STDCALL CreateStorage( const char *pszName, DWORD dwAccessMode, DW
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -12,29 +12,17 @@
 #include "..\UI\UI.h"
 #include "..\UI\UIMessages.h"
 #include <typeinfo>
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** world base
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CComplexObjects::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 	typedef std::pair< CPtr<SMapObject>, CPtr<IRefCount> > CObjectPair;
 	std::list<CObjectPair> objects;
-	// 
 	if ( !saver.IsReading() )
 	{
 		for ( CVisAIMap::iterator it = visai.begin(); it != visai.end(); ++it )
 			objects.push_back( CObjectPair(it->first, it->second) );
 	}
-	//
 	saver.Add( 1, &objects );
-	//
 	if ( saver.IsReading() )
 	{
 		visai.clear();
@@ -44,13 +32,11 @@ int CComplexObjects::operator&( IStructureSaver &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SSpanStorage
 {
 	CPtr<SBridgeSpanObject> pSpan;
 	CPtr<IRefCount> pAIObj;
 	std::list< CPtr<IVisObj> > visobjects;
-	//
 	int operator&( IStructureSaver &ss )
 	{
 		CSaverAccessor saver = &ss;
@@ -65,7 +51,6 @@ struct SMapObjectStorage
 	CPtr<SMapObject> pMO;
 	CPtr<IRefCount> pAIObj;
 	CPtr<IVisObj> pVisObj;
-	//
 	int operator&( IStructureSaver &ss )
 	{
 		CSaverAccessor saver = &ss;
@@ -75,7 +60,6 @@ struct SMapObjectStorage
 		return 0;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void AddSpan( IRefCount *pAIObj, SBridgeSpanObject *pSpan, std::list<SSpanStorage> &spans )
 {
 	spans.push_back( SSpanStorage() );
@@ -97,13 +81,9 @@ void AddMapObj( IRefCount *pAIObj, SMapObject *pMO, std::list<SMapObjectStorage>
 	storage.pAIObj = pAIObj;
 	storage.pVisObj = pMO->pVisObj;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CWorldBase::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
-	// serialize all map objects
-	// такой геморройный путь для того, чтобы все указатели правильно восстановились ч/з автоматичекую систему
-	// Vis & AI objects must be stored separatelly, т.к. нельзя использовать внутренние данные из SMapObject в функции сериализации
 	{
 		std::list<SMapObjectStorage> mos;
 		std::list<SSpanStorage> spans;
@@ -113,10 +93,8 @@ int CWorldBase::operator&( IStructureSaver &ss )
 		{
 			bAADetectedFlag = false;
 			saver.Add( 1, &mos );
-			//saver.Add( 2, &containers );
 			saver.Add( 3, &spans );
 			saver.Add( 4, &inContainer );
-			//
 			for ( std::list<SMapObjectStorage>::iterator it = mos.begin(); it != mos.end(); ++it )
 			{
 				SMapObjectStorage &storage = *it;
@@ -125,7 +103,6 @@ int CWorldBase::operator&( IStructureSaver &ss )
 				if ( storage.pVisObj ) 
 					visobjects[storage.pVisObj] = storage.pMO;
 			}
-			//
 			for ( std::list<SSpanStorage>::iterator it = spans.begin(); it != spans.end(); ++it )
 			{
 				SSpanStorage &storage = *it;
@@ -137,7 +114,6 @@ int CWorldBase::operator&( IStructureSaver &ss )
 						visspans[*vis] = storage.pSpan;
 				}
 			}
-			//
 			/*
 			for ( std::list<CObjectsPair>::iterator it = containers.begin(); it != containers.end(); ++it )
 				inContainer[it->first] = it->second;
@@ -145,7 +121,6 @@ int CWorldBase::operator&( IStructureSaver &ss )
 		}
 		else
 		{
-			// map objects
 			for ( CMapObjectsMap::iterator it = aiobjects.begin(); it != aiobjects.end(); ++it )
 				AddMapObj( it->first, it->second, mos );
 			for ( CMapObjectsMap::iterator it = visobjects.begin(); it != visobjects.end(); ++it )
@@ -153,7 +128,6 @@ int CWorldBase::operator&( IStructureSaver &ss )
 				if ( FindByAI(it->second->pAIObj) == 0 ) 
 					AddMapObj( 0, it->second, mos );
 			}
-			// spans
 			for ( CBridgeSpanObjectsMap::iterator it = aispans.begin(); it != aispans.end(); ++it )
 				AddSpan( it->first, it->second, spans );
 			for ( CBridgeSpanObjectsMap::iterator it = visspans.begin(); it != visspans.end(); ++it )
@@ -161,14 +135,11 @@ int CWorldBase::operator&( IStructureSaver &ss )
 				if ( FindSpanByAI(it->second->pAIObj) == 0 ) 
 					AddSpan( 0, it->second, spans );
 			}
-			//
 			/*
 			for ( CLinksMap::iterator it = inContainer.begin(); it != inContainer.end(); ++it )
 				containers.push_back( CObjectsPair(it->first, it->second) );
 				*/
-			//
 			saver.Add( 1, &mos );
-			//saver.Add( 2, &containers );
 			saver.Add( 3, &spans );
 			saver.Add( 4, &inContainer );
 		}
@@ -176,7 +147,6 @@ int CWorldBase::operator&( IStructureSaver &ss )
 	saver.Add( 5, &vLastAnchor );
 	saver.Add( 6, &warFogLastTime );
 	saver.Add( 7, &bEnableAIInfo );
-	//saver.Add( 8, &showicons );
 	saver.Add( 9, &entrenchments );
 	saver.Add( 11, &nSeason );
 	saver.Add( 13, &updatable );
@@ -186,23 +156,16 @@ int CWorldBase::operator&( IStructureSaver &ss )
 		dwFlashExpColor = GetGlobalVar( (std::string("Scene.Colors.") + GetSeasonName() + ".FlashExplode.Color").c_str(), int(0xffffffff) );
 	}
 	saver.Add( 14, &objectsSounds );
-	//
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CWorldBase::CWorldBase()
 {
 	nSeason = SEASON_SUMMER;
-	//
 	vLastAnchor.Set( -1000000, -1000000, -1000000 );
-	//
-	// сначала нужно проапдейтить новые объекты, потому что они могут умереть в этом же кадре
-	// но на месте мёртвых в этом же кадре не могут создаться новые - это в Updater-е отслеживается
 	fnAIUpdates.push_back( &CWorldBase::AIUpdateNewProjectiles );	
 	fnAIUpdates.push_back( &CWorldBase::AIUpdateNewObjects );	
 	fnAIUpdates.push_back( &CWorldBase::AIUpdateNewUnits );
 
-	// update actions MUST precede update placements
 	fnAIUpdates.push_back( &CWorldBase::AIUpdateActions );
 
 	fnAIUpdates.push_back( &CWorldBase::AIUpdateEntrances );
@@ -221,36 +184,23 @@ CWorldBase::CWorldBase()
 	
 	fnAIUpdates.push_back( &CWorldBase::AIUpdateDeadProjectiles );
 	fnAIUpdates.push_back( &CWorldBase::AIUpdateDeadUnits );
-	// AIUpdateRemoveObjects идут после AIUpdateDeadUnits, так как юниты могут исчезнуть после смерти в том же сегменте
 	fnAIUpdates.push_back( &CWorldBase::AIUpdateRemoveObjects );
-	//
 	fnAIUpdates.push_back( &CWorldBase::AIUpdateBridges );
 	fnAIUpdates.push_back( &CWorldBase::AIUpdateRevealCircles );
 	fnAIUpdates.push_back( &CWorldBase::AIUpdateAreas );
-	//
 	fnAIUpdates.push_back( &CWorldBase::AIUpdateAcknowledgemets );
 	fnAIUpdates.push_back( &CWorldBase::AIUpdateCombatSituationInfo );
 	bForceRotation = false;
 	bEnableAIInfo = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CWorldBase::~CWorldBase()
 {
 	if ( pScene )
 	{
-//		for ( CMapObjectsMap::iterator it = visobjects.begin(); it != visobjects.end(); ++it )
-//		{
-//			SMapObject *pMO = it->second;
-//			if ( pMO->pVisObj )
-//				pScene->RemoveObject( pMO->pVisObj );
-//			if ( pMO->pShadow )
-//				pScene->RemoveObject( pMO->pShadow );
-//		}
 		pScene->Clear();
 		pScene->SetTerrain( 0 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::Init( ISingleton *pSingleton )
 {
 	pTimer = GetSingleton<IGameTimer>( pSingleton );
@@ -266,29 +216,21 @@ void CWorldBase::Init( ISingleton *pSingleton )
 	pSMan = GetSingleton<ISoundManager>( pSingleton );
 	pGDB = GetSingleton<IObjectsDB>( pSingleton );
 	pVOB = GetSingleton<IVisObjBuilder>( pSingleton );
-	//
 	dwFlashFireColor = GetGlobalVar( (std::string("Scene.Colors.") + GetSeasonName() + ".FlashFire.Color").c_str(), int(0xffffffff) );
 	dwFlashExpColor = GetGlobalVar( (std::string("Scene.Colors.") + GetSeasonName() + ".FlashExplode.Color").c_str(), int(0xffffffff) );
 	bAADetectedFlag = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::Clear()
 {
 	vLastAnchor = VNULL3;
 	warFogLastTime = 0;
-	//
 	entrenchments.Clear();
 	inContainer.clear();
-	//
 	aispans.clear();
 	visspans.clear();
-	//
 	aiobjects.clear();
 	visobjects.clear();
-	//
-	//showicons.clear();
 	messages.clear();
-	//
 	if ( pScene )
 	{
 		pScene->Clear();
@@ -297,20 +239,9 @@ void CWorldBase::Clear()
 	objectsSounds.clear();
 	bAADetectedFlag = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::Start()
 {
-	//AIUpdateNewObjects( GetSingleton<IGameTimer>()->GetGameTime() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** adding/removing map objects to world/scene
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SMapObject* CWorldBase::CreateMapObject( IRefCount *pAIObj, int nDBID, int nFrameIndex, const float fNewHP )
 {
 	const SGDBObjectDesc *pDesc = pGDB->GetDesc( nDBID );
@@ -333,7 +264,6 @@ SMapObject* CWorldBase::CreateMapObject( IRefCount *pAIObj, int nDBID, int nFram
 		default:
 			pMO = CreateObject<IMapObj>( MISSION_MO_OBJECT );
 	}
-	//
 	if ( pMO->Create(pAIObj, pDesc, nSeason, nFrameIndex, fNewHP, pVOB, pGDB) == true )
 		return (SMapObject*)pMO;
 	else
@@ -343,29 +273,19 @@ SMapObject* CWorldBase::CreateMapObject( IRefCount *pAIObj, int nDBID, int nFram
 		return 0;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SMapObject* CWorldBase::AddToWorld( IRefCount *pAIObj, int nDBID, int nFrameIndex, const float fNewHP )
 {
-	// check for such object already exist
 	NI_ASSERT_T( aiobjects.find( pAIObj ) == aiobjects.end(), NStr::Format("object 0x%x (%s) already exist as \"%s\"", pAIObj, typeid(*pAIObj).name(), aiobjects[pAIObj]->pDesc->szKey.c_str()) );
-	// create
 	SMapObject *pMO = CreateMapObject( pAIObj, nDBID, nFrameIndex, fNewHP );
-	// 
 	AddToWorld( pMO );
-	//
 	return pMO;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldBase::AddToWorld( SMapObject *pMO )
 {
-	// register in AI map
 	aiobjects[pMO->pAIObj] = pMO;
-	//
 	NewObjectAdded( pMO );
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AddToScene( SMapObject *pMO, bool bOutbound, EObjGameType eGameType )
 {
 	SGetVisObjesVisitor visitor;
@@ -389,24 +309,18 @@ void CWorldBase::AddToScene( SMapObject *pMO, bool bOutbound, EObjGameType eGame
 		else
 			pScene->AddObject( it->pVisObj, eGameType, pMO->pDesc );
 	}
-	// register main object
 	visobjects[pMO->pVisObj] = pMO;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::RemoveFromWorld( SMapObject *pMO )
 {
 	entrenchments.RemoveSegment( pMO );
 	aiobjects.erase( pMO->pAIObj );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::RemoveFromScene( SMapObject *pMO )
 {
-	// remove shadow
 	if ( pMO->pShadow )
 		pScene->RemoveObject( pMO->pShadow );
-	// remove main object
 	pScene->RemoveObject( pMO->pVisObj );
-	// unregister main object
 	visobjects.erase( pMO->pVisObj );
 }
 void CWorldBase::RemoveAIObj( SMapObject *pMO, bool bDelayed )	
@@ -421,20 +335,16 @@ void CWorldBase::RemoveAIObj( SMapObject *pMO, bool bDelayed )
 	}
 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::RemoveMapObj( SMapObject *pMO ) 
 { 
 	if ( SMapObject *pContainer = GetContainer(pMO) )
 		static_cast<IMOContainer*>(pContainer)->Load( static_cast<IMOUnit*>(pMO), false );
 	inContainer.erase( pMO->pAIObj );
-	// remove from selection group and from active selection
 	RemoveFromSelectionGroup( pMO );
 	ResetSelection( pMO );
-	//
 	RemoveFromScene( pMO ); 
 	RemoveFromWorld( pMO ); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::GetAllObjectsByMatch( std::list<SMapObject*> &mapobjects, const SGDBObjectDesc *pDesc, const bool bSelectableOnly )
 {
 	for ( CMapObjectsMap::iterator it = visobjects.begin(); it != visobjects.end(); ++it )
@@ -443,33 +353,18 @@ void CWorldBase::GetAllObjectsByMatch( std::list<SMapObject*> &mapobjects, const
 			mapobjects.push_back( it->second );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** adding/removing bridges to world/scene
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SBridgeSpanObject* CWorldBase::CreateSpanObject( int nDBID, int nFrameIndex, float fNewHP )
 {
-	// extract DB descriptor
 	const SGDBObjectDesc *pDesc = pGDB->GetDesc( nDBID );
 	NI_ASSERT_T( pDesc != 0, NStr::Format("can't find DB entry for object %d", nDBID) );
 	const SBridgeRPGStats *pRPG = static_cast<const SBridgeRPGStats*>( pGDB->GetRPGStats( pDesc ) );
-	// create new empty span object
 	SBridgeSpanObject *pSpan = CreateObject<SBridgeSpanObject>( MISSION_MO_BRIDGE_SPAN );
 	pSpan->Create( 0, pDesc, nSeason, nFrameIndex, fNewHP, pVOB, pGDB );
-	//
 	return pSpan;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SBridgeSpanObject* CWorldBase::AddSpanToWorld( IRefCount *pAIObj, int nDBID, int nFrameIndex, float fNewHP )
 {
-	// check for such object already exist
 	NI_ASSERT_T( aispans.find( pAIObj ) == aispans.end(), NStr::Format("object 0x%x (%s) already exist as \"%s\"", pAIObj, typeid(*pAIObj).name(), aispans[pAIObj]->GetDesc()->szKey.c_str()) );
-	// create
 	SBridgeSpanObject *pSpan = CreateSpanObject( nDBID, nFrameIndex, fNewHP );
 	pSpan->pSlab->pAIObj = pAIObj;
 	if ( pSpan->pBackGirder )
@@ -477,34 +372,27 @@ SBridgeSpanObject* CWorldBase::AddSpanToWorld( IRefCount *pAIObj, int nDBID, int
 	if ( pSpan->pFrontGirder )
 		pSpan->pFrontGirder->pAIObj = pAIObj;
 	pSpan->pAIObj = pAIObj;
-	// register in AI map
 	aispans[pSpan->GetAIObj()] = pSpan;
-	//
 	NewObjectAdded( pSpan->pSlab );
 	if ( pSpan->pBackGirder )
 		NewObjectAdded( pSpan->pBackGirder );
 	if ( pSpan->pFrontGirder )
 		NewObjectAdded( pSpan->pFrontGirder );
-	//
 	return pSpan;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AddToScene( SBridgeSpanObject *pSpan )
 {
-	// register main object
 	visspans[pSpan->pSlab->pVisObj] = pSpan;
 	if ( pSpan->pBackGirder )
 		visspans[pSpan->pBackGirder->pVisObj] = pSpan;
 	if ( pSpan->pFrontGirder )
 		visspans[pSpan->pFrontGirder->pVisObj] = pSpan;
-	// add main object
 	AddToScene( pSpan->pSlab, false, SGVOGT_BRIDGE );
 	if ( pSpan->pBackGirder )
 		AddToScene( pSpan->pBackGirder, false, SGVOGT_OBJECT );
 	if ( pSpan->pFrontGirder )
 		AddToScene( pSpan->pFrontGirder, false, SGVOGT_OBJECT );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::RemoveFromWorld( SBridgeSpanObject *pSpan )
 {
 	aispans.erase( pSpan->GetAIObj() );
@@ -516,37 +404,23 @@ void CWorldBase::RemoveFromWorld( SBridgeSpanObject *pSpan )
 	if ( pSpan->pFrontGirder ) 
 		pSpan->pFrontGirder->pAIObj = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::RemoveFromScene( SBridgeSpanObject *pSpan )
 {
-	// remove main object
 	RemoveFromScene( pSpan->pSlab );
 	if ( pSpan->pBackGirder )
 		RemoveFromScene( pSpan->pBackGirder );
 	if ( pSpan->pFrontGirder )
 		RemoveFromScene( pSpan->pFrontGirder );
-	// unregister main object
 	visspans.erase( pSpan->pSlab->pVisObj );
 	if ( pSpan->pBackGirder )
 		visspans.erase( pSpan->pBackGirder->pVisObj );
 	if ( pSpan->pFrontGirder )
 		visspans.erase( pSpan->pFrontGirder->pVisObj );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** AI update functions
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// general update
 void CWorldBase::Update( const NTimer::STime &currTime )
 {
 	pCamera->Update();
 	pGFX->SetViewTransform( pCamera->GetPlacement() );
-	// updatable units
 	for ( std::list< CPtr<IMOUnit> >::iterator it = updatable.begin(); it != updatable.end(); )
 	{
 		if ( (*it)->Update(currTime) == true )
@@ -554,9 +428,7 @@ void CWorldBase::Update( const NTimer::STime &currTime )
 		else
 			++it;
 	}
-	//
 	UpdatePick( GetSingleton<ICursor>()->GetPos(), currTime, true );
-	// special case - for LAG in multiplayer game we need additional check for game and segment timer corellation
 	ISegmentTimer *pSegmentTimer = GetSingleton<IGameTimer>()->GetGameSegmentTimer();
 	if ( (pSegmentTimer->Get() + pSegmentTimer->GetSegmentTime() >= currTime) || (GetGlobalVar("editor", 0) != 0) )
 	{
@@ -565,7 +437,6 @@ void CWorldBase::Update( const NTimer::STime &currTime )
 		pAILogic->EndUpdates();
 		UpdatePick( GetSingleton<ICursor>()->GetPos(), currTime, true );
 	}
-	// remove delayed objects from AI
 	while ( !delayedRemoveAIObjes.empty() )
 	{
 		if ( SMapObject *pMO = delayedRemoveAIObjes.front() )
@@ -576,18 +447,15 @@ void CWorldBase::Update( const NTimer::STime &currTime )
 		}
 		delayedRemoveAIObjes.pop_front();
 	}
-	// CRAP{ для принудительного вращения моделек в процессе отладки
 	if ( bForceRotation )
 	{
 		int nRotateDirection = currTime * 2;
 		for ( CMapObjectsMap::iterator it = visobjects.begin(); it != visobjects.end(); ++it )
 			it->second->pVisObj->SetDirection( nRotateDirection );
 	}
-	// CRAP}
 
 	pAckManager->Update( pScene );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::GetVisibilityRectBounds( const CTRect<float> &rcScreen, CVec2 *pvLT, CVec2 *pvRT, CVec2 *pvLB, CVec2 *pvRB )
 {
 	CVec3 vPos;
@@ -602,38 +470,31 @@ void CWorldBase::GetVisibilityRectBounds( const CTRect<float> &rcScreen, CVec2 *
 		GetPos3( &vPos, point.x, point.y );
 		pvRB->Set( int(vPos.x * fCellCoeff + 0.5f) + 3, int(vPos.y * fCellCoeff + 0.5f) );
 	}
-	// correct result
 	pvLB->x = 0.5f*( pvRB->x - pvRB->y + pvLT->x + pvLT->y );
 	pvLB->y = 0.5f*( pvLT->x + pvLT->y - pvRB->x + pvRB->y );
 	if ( (MINT(pvLB->x) != pvLB->x) || (MINT(pvLB->y) != pvLB->y) )
 		pvLT->x--;
-	// recalc
 	pvLB->x = 0.5f*( pvRB->x - pvRB->y + pvLT->x + pvLT->y );
 	pvLB->y = 0.5f*( pvLT->x + pvLT->y - pvRB->x + pvRB->y );
 
 	pvRT->x = 0.5f*( pvLT->x - pvLT->y + pvRB->x + pvRB->y );
 	pvRT->y = 0.5f*( pvRB->x + pvRB->y - pvLT->x + pvLT->y );
-	//
 	NI_ASSERT( pvLT->x - pvLT->y == pvRT->x - pvRT->y );
 	NI_ASSERT( pvRB->x - pvRB->y == pvLB->x - pvLB->y );
 	NI_ASSERT( pvLT->x + pvLT->y == pvLB->x + pvLB->y );
 	NI_ASSERT( pvRB->x + pvRB->y == pvRT->x + pvRT->y );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateWarFogLocal()
 {
 	CTRect<float> rcRect = pGFX->GetScreenRect();
 	CVec2 vLT, vLB, vRB, vRT;
 	GetVisibilityRectBounds( rcRect, &vLT, &vRT, &vLB, &vRB );
-	// war fog
 	struct SAIVisInfo *pObjects = 0;
 	int nNumObjects = 0;
 	pAILogic->GetVisibilities( vLT, vLB, vRB, vRT, &pObjects, &nNumObjects );
 	pScene->SetWarFog( pObjects, nNumObjects );
-	// AI passability info
 	AIUpdatePassability( vLT, vLB, vRB, vRT );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateWarFog( const NTimer::STime &currTime )
 {
 	if ( (currTime >= warFogLastTime + 1000) || (vLastAnchor != pCamera->GetAnchor()) )
@@ -643,7 +504,6 @@ void CWorldBase::AIUpdateWarFog( const NTimer::STime &currTime )
 		vLastAnchor = pCamera->GetAnchor();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldBase::ToggleAIInfo() 
 { 
 	bEnableAIInfo = !bEnableAIInfo; 
@@ -654,19 +514,16 @@ bool CWorldBase::ToggleAIInfo()
 	return bEnableAIInfo; 
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdatePassability( const CVec2 &vLT, const CVec2 &vLB, const CVec2 &vRB, const CVec2 &vRT )
 {
 	if ( !bEnableAIInfo )
 		return;
-	//
 	SAIPassabilityInfo *pObjects = 0;
 	int nNumObjects = 0;
 	pAILogic->GetDisplayPassability( vLT, vLB, vRB, vRT, &pObjects, &nNumObjects );
 	pScene->GetTerrain()->SetAIMarker( pObjects, nNumObjects );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateNewObjects( const NTimer::STime &currTime )
 {
 	int nNumObjects = 0;
@@ -678,7 +535,6 @@ void CWorldBase::AIUpdateNewObjects( const NTimer::STime &currTime )
 		NI_ASSERT_TF( info.dbID != 0xffff, "object with undefined type has come from AI", continue );
 		const SGDBObjectDesc *pDesc = pGDB->GetDesc( info.dbID );
 		NI_ASSERT_SLOW_TF( pDesc != 0, NStr::Format("Can't find DB description with index %d", info.dbID), continue );
-		// object's position
 		CVec3 vPos;
 		AI2Vis( &vPos, info.center.x, info.center.y, info.z );
 		if ( info.nFrameIndex == -2 )				// special case - "гавно-после-смерти"
@@ -691,7 +547,6 @@ void CWorldBase::AIUpdateNewObjects( const NTimer::STime &currTime )
 		}
 		else																// ordinary static object
 		{
-			// add to world
 			SMapObject *pMO = AddToWorld( info.pObj, info.dbID, info.nFrameIndex, info.fHitPoints );
 			pMO->SetPlacement( vPos, info.dir );
 			if ( info.eDipl != EDI_NEUTRAL ) 
@@ -699,11 +554,8 @@ void CWorldBase::AIUpdateNewObjects( const NTimer::STime &currTime )
 				NI_ASSERT_SLOW_T( dynamic_cast<IMOSelectable*>(pMO) != 0, NStr::Format("Object of %s is not a IMOSelectable - wrong diplomacy update", typeid(*pMO).name()) );
 				static_cast<IMOSelectable*>(pMO)->AIUpdateDiplomacy( SAINotifyDiplomacy(info.eDipl, pMO->GetAIObj(), info.nPlayer ) );
 			}
-			// CRAP{ set scale
 			if ( pObjects[i].fResize != 1.0f ) 
 				static_cast_ptr<IObjVisObj*>(pMO->pVisObj)->SetScale( pObjects[i].fResize, pObjects[i].fResize, pObjects[i].fResize );
-			// CRAP}
-			// add to scene
 			AddToScene( pMO );
 			if ( SGVOGT_OBJECT == pMO->pDesc->eGameType ||
 					 SGVOGT_BUILDING == pMO->pDesc->eGameType )
@@ -722,12 +574,10 @@ void CWorldBase::AIUpdateNewObjects( const NTimer::STime &currTime )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateRemoveObjects( const NTimer::STime &currTime )
 {
 	IRefCount **ppObjects = 0;
 	int nNumObjects = 0;
-	// units
 	pAILogic->GetDisappearedUnits( &ppObjects, &nNumObjects );
 	for ( int i=0; i<nNumObjects; ++i )
 	{
@@ -743,7 +593,6 @@ void CWorldBase::AIUpdateRemoveObjects( const NTimer::STime &currTime )
 			RemoveMapObj( pMO );
 		}
 	}
-	// static objects
 	pAILogic->GetDeletedStaticObjects( &ppObjects, &nNumObjects );
 	for ( int i=0; i<nNumObjects; ++i )
 	{
@@ -759,7 +608,6 @@ void CWorldBase::AIUpdateRemoveObjects( const NTimer::STime &currTime )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateNewUnits( const NTimer::STime &currTime )
 {
 	SNewUnitInfo *pObjects = 0;
@@ -769,20 +617,16 @@ void CWorldBase::AIUpdateNewUnits( const NTimer::STime &currTime )
 	{
 		const SNewUnitInfo &info = pObjects[i];
 		NI_ASSERT_TF( info.dbID != 0xffff, "object with undefined type has come from AI", continue );
-		// create unit and add to world
 		SMapObject *pMO = AddToWorld( info.pObj, info.dbID, info.nFrameIndex, info.fHitPoints );
-		// set placement for unit
 		CVec3 vPos;
 		AI2Vis( &vPos, info.center.x, info.center.y, info.z );
 		pMO->SetPlacement( vPos, info.dir );
 		pMO->AIUpdatePlacement( info, currTime, pScene );
-		//if ( info.eDipl != EDI_NEUTRAL ) 
 		{
 			NI_ASSERT_SLOW_T( dynamic_cast<IMOSelectable*>(pMO) != 0, NStr::Format("Object of type \"%s\" (AI type \"%s\") is not a IMOSelectable - wrong diplomacy update", typeid(*pMO).name(), typeid(*(pMO->pAIObj)).name()) );
 			if ( dynamic_cast<IMOSelectable*>(pMO) != 0 ) 
 				static_cast<IMOSelectable*>(pMO)->AIUpdateDiplomacy( SAINotifyDiplomacy(info.eDipl, pMO->GetAIObj(), info.nPlayer ) );
 		}
-		// and, at rest, add object to scene
 		if ( pMO->GetDesc()->eGameType == SGVOGT_UNIT )
 		{
 			const SUnitBaseRPGStats *pRPG = static_cast<const SUnitBaseRPGStats*>( pMO->pRPG.GetPtr() );
@@ -790,7 +634,6 @@ void CWorldBase::AIUpdateNewUnits( const NTimer::STime &currTime )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateNewProjectiles( const NTimer::STime &currTime )
 {
 	SAINotifyNewProjectile *pObjects = 0;
@@ -811,19 +654,16 @@ void CWorldBase::AIUpdateNewProjectiles( const NTimer::STime &currTime )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdatePlacements( const NTimer::STime &currTime )
 {
 	SAINotifyPlacement *pObjects = 0;
 	int nNumObjects = 0;
-	// unit
 	pAILogic->UpdatePlacements( &pObjects, &nNumObjects );
 	for ( int i=0; i<nNumObjects; ++i )
 	{
 		if ( IMapObj *pMO = FindByAI(pObjects[i].pObj) )
 			pMO->AIUpdatePlacement( pObjects[i], currTime, pScene );
 	}
-	// static objects
 	pAILogic->UpdateStObjPlacements( &pObjects, &nNumObjects );
 	for ( int i=0; i<nNumObjects; ++i )
 	{
@@ -831,7 +671,6 @@ void CWorldBase::AIUpdatePlacements( const NTimer::STime &currTime )
 			pMO->AIUpdatePlacement( pObjects[i], currTime, pScene );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateRPGParams( const NTimer::STime &currTime )
 {
 	SAINotifyRPGStats *pObjects = 0;
@@ -845,7 +684,6 @@ void CWorldBase::AIUpdateRPGParams( const NTimer::STime &currTime )
 			{
 				ResetSelection( pMO );
 				RemoveFromSelectionGroup( pMO );
-				// delete sounds
 				ObjectsSounds::iterator soundIter = objectsSounds.find( pMO );
 				if ( objectsSounds.end() != soundIter )
 				{
@@ -859,7 +697,6 @@ void CWorldBase::AIUpdateRPGParams( const NTimer::STime &currTime )
 			pSpan->AIUpdateRPGStats( pObjects[i], pVOB, pScene );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateDiplomacy( const NTimer::STime &currTime )
 {
 	SAINotifyDiplomacy *pObjects = 0;
@@ -878,7 +715,6 @@ void CWorldBase::AIUpdateDiplomacy( const NTimer::STime &currTime )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateActions( const NTimer::STime &currTime )
 {
 	SAINotifyAction *pObjects = 0;
@@ -889,7 +725,6 @@ void CWorldBase::AIUpdateActions( const NTimer::STime &currTime )
 		SMapObject *pMO = FindByAI( pObjects[i].pObj );
 		if ( pMO == 0 ) 
 			continue;
-		//process selection messages
 		switch ( pObjects[i].typeID ) 
 		{
 			case ACTION_NOTIFY_CHANGE_SELECTION:
@@ -974,17 +809,14 @@ void CWorldBase::AIUpdateActions( const NTimer::STime &currTime )
 			AddUpdatableUnit( static_cast<IMOUnit*>(pMO) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SUnitBaseRPGStats::SAnimDesc* GetAnimationByType( int nType, const SUnitBaseRPGStats *pStats )
 {
 	if ( (nType >= pStats->animdescs.size()) || pStats->animdescs[nType].empty() )
 		return 0;
 	return &( pStats->animdescs[nType][ rand() % pStats->animdescs[nType].size() ] );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateShots( const NTimer::STime &currTime )
 {
-	// mechanical unit shots
 	{
 		SAINotifyMechShot *pObjects = 0;
 		int nNumObjects = 0;
@@ -995,7 +827,6 @@ void CWorldBase::AIUpdateShots( const NTimer::STime &currTime )
 				static_cast<IMOContainer*>(pMO)->AIUpdateShot( pObjects[i], currTime, pVOB, pScene );
 		}
 	}
-	// infantry unit shots
 	{
 		SAINotifyInfantryShot *pObjects = 0;
 		int nNumObjects = 0;
@@ -1007,7 +838,6 @@ void CWorldBase::AIUpdateShots( const NTimer::STime &currTime )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateAiming( const NTimer::STime &currTime )
 {
 	SAINotifyTurretTurn *pObjects = 0;
@@ -1023,7 +853,6 @@ void CWorldBase::AIUpdateAiming( const NTimer::STime &currTime )
 				{
 					const float fAngle = float( pObjects[i].wAngle ) / 65536.0f * FP_2PI;
 					const NTimer::STime timeStart = currTime, timeEnd = pObjects[i].endTime;
-					// for all model parts, packed in the 'nModelPart'
 					for ( int j = 0; j != 4; ++j )
 					{
 						const int nModelPart = ( DWORD( pObjects[i].nModelPart ) >> (j*8) ) & 0x000000ff;
@@ -1035,7 +864,6 @@ void CWorldBase::AIUpdateAiming( const NTimer::STime &currTime )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateDeadUnits( const NTimer::STime &currTime )
 {
 	SAINotifyDeadAtAll *pObjects = 0;
@@ -1047,12 +875,9 @@ void CWorldBase::AIUpdateDeadUnits( const NTimer::STime &currTime )
 
 		if ( pUnit == 0 )
 			continue;
-		// remove from selection & selection group
 		RemoveFromSelectionGroup( pUnit );
 		ResetSelection( pUnit );
-		// remove from squad
 		pUnit->SetSquad( 0 );
-		// remove all effectors
 		if ( pUnit->pDesc->eVisType == SGVOT_MESH )
 			static_cast_ptr<IMeshVisObj*>(pUnit->pVisObj)->RemoveEffector( -1, -1 );
 
@@ -1084,7 +909,6 @@ void CWorldBase::AIUpdateDeadUnits( const NTimer::STime &currTime )
 			RemoveAIObj( pUnit, true );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateDeadProjectiles( const NTimer::STime &currTime )
 {
 	IRefCount **ppObjects = 0;
@@ -1096,7 +920,6 @@ void CWorldBase::AIUpdateDeadProjectiles( const NTimer::STime &currTime )
 			RemoveMapObj( pMO );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateHits( const NTimer::STime &currTime )
 {
 	SAINotifyHitInfo *pObjects = 0;
@@ -1109,7 +932,6 @@ void CWorldBase::AIUpdateHits( const NTimer::STime &currTime )
 			if ( pObjects[i].pWeapon == 0 )
 				continue;
 			const SWeaponRPGStats::SShell &shell = pObjects[i].pWeapon->shells[pObjects[i].wShell];
-			// coords
 			CVec3 vPos = VNULL3;
 			if ( pObjects[i].pVictim )			// to object
 			{
@@ -1135,7 +957,6 @@ void CWorldBase::AIUpdateHits( const NTimer::STime &currTime )
 				vPos = pObjects[i].explCoord;
 				AI2Vis( &vPos );
 				bool bNeedCrater = false;
-				// effects (sounds and particles)
 				const std::string *pEffectName = 0;
 				switch ( pObjects[i].eHitType ) 
 				{
@@ -1150,23 +971,18 @@ void CWorldBase::AIUpdateHits( const NTimer::STime &currTime )
 						pEffectName = &shell.szEffectHitAir;
 						break;
 				}
-				// effects
 				if ( pEffectName ) 
 					PlayEffect( *pEffectName, vPos, currTime, false, pScene, pVOB, 0, SFX_MIX_IF_TIME_EQUALS, SAM_ADD_N_FORGET, ESCT_COMBAT );
-				// crater picture
 				if ( bNeedCrater && shell.HasCraters() )
 					SetCraterEffect( shell.GetRandomCrater(), nSeason, vPos, 110, pScene, pVOB );
-				// flash
 				if ( bNeedCrater && shell.flashExplosion.HasFlash() ) 
 					SetFlashEffect( shell.flashExplosion, currTime, vPos, dwFlashExpColor, pScene, pVOB );
 			}
-			// add earthquake
 			if ( (vPos != VNULL3) && (shell.fDetonationPower > 0) ) 
 				pCamera->AddEarthquake( vPos, shell.fDetonationPower );
 		}			
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateAcknowledgemets( const NTimer::STime &currTime )
 {
 	{
@@ -1199,7 +1015,6 @@ void CWorldBase::AIUpdateAcknowledgemets( const NTimer::STime &currTime )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateFeedbacks( const NTimer::STime &currTime )
 {
 	SAIFeedBack *pObjects = 0;
@@ -1333,7 +1148,6 @@ void CWorldBase::AIUpdateFeedbacks( const NTimer::STime &currTime )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateEntrances( const NTimer::STime &currTime )
 {
 	SAINotifyEntranceState *pObjects = 0;
@@ -1345,21 +1159,15 @@ void CWorldBase::AIUpdateEntrances( const NTimer::STime &currTime )
 		if ( pInf == 0 ) 
 			continue;
 		SMapObject *pMO = FindByAI( pObjects[i].pTarget );
-		// pMO == 0 in the case of entrenchment!!!
-//		NI_ASSERT_SLOW_TF( pInf != 0, "Can't find unit to enter/leave", return );
 		if ( pObjects[i].bEnter )
 		{
-			// add to container
 			if ( pMO )
 				static_cast<IMOContainer*>(pMO)->Load( static_cast<IMOUnit*>(pInf), true );
-			// reset selection from this object
 			ResetSelection( pInf );
-			// add to container links
 			inContainer[pObjects[i].pInfantry] = pObjects[i].pTarget;
 		}
 		else
 		{
-			// remove from container
 			if ( pMO )
 				static_cast<IMOContainer*>(pMO)->Load( static_cast<IMOUnit*>(pInf), false );
 			else
@@ -1376,12 +1184,10 @@ void CWorldBase::AIUpdateEntrances( const NTimer::STime &currTime )
 						pIcon->Enable( false );
 				}
 			}
-			// remove from container links
 			inContainer.erase( pObjects[i].pInfantry );
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateEntrenchments( const NTimer::STime &currTime )
 {
 	SSegment2Trench *pObjects = 0;
@@ -1393,7 +1199,6 @@ void CWorldBase::AIUpdateEntrenchments( const NTimer::STime &currTime )
 		entrenchments.AddSegment( pObjects[i].pEntrenchment, pMO );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AddToSquad( IRefCount *pAISquad, IMOUnit *pUnit )
 {
 	if ( IMOSquad *pSquad = static_cast<IMOSquad*>(FindByAI(pAISquad)) )
@@ -1404,7 +1209,6 @@ void CWorldBase::AddToSquad( IRefCount *pAISquad, IMOUnit *pUnit )
 		AddUnitToSelectionGroup( pUnit, pSquad->GetSelectionGroupID() );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateSquads( const NTimer::STime &currTime )
 {
 	SSoldier2Formation *pObjects = 0;
@@ -1416,10 +1220,8 @@ void CWorldBase::AIUpdateSquads( const NTimer::STime &currTime )
 			AddToSquad( pObjects[i].pFormation, pUnit );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateBridges( const NTimer::STime &currTime )
 {
-	// update spans
 	{
 		SNewUnitInfo *pObjects = 0;
 		int nNumObjects = 0;
@@ -1428,18 +1230,13 @@ void CWorldBase::AIUpdateBridges( const NTimer::STime &currTime )
 		{
 			const SNewUnitInfo &info = pObjects[i];
 			NI_ASSERT_TF( info.dbID != 0xffff, "object with undefined type has come from AI", continue );
-			// create unit and add to world
 			SBridgeSpanObject *pSpan = AddSpanToWorld( info.pObj, info.dbID, info.nFrameIndex, info.fHitPoints );
-			// set placement for span
 			CVec3 vPos;
 			AI2Vis( &vPos, info.center.x, info.center.y, info.z );
 			pSpan->SetPlacement( vPos, info.dir );
-			//pSpan->SetDiplomacy( info.eDipl );
-			// and, at rest, add object to scene
 			AddToScene( pSpan );
 		}
 	}
-	// update bridges
 	{
 		while ( 1 )
 		{
@@ -1455,7 +1252,6 @@ void CWorldBase::AIUpdateBridges( const NTimer::STime &currTime )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateRevealCircles( const NTimer::STime &currTime )
 {
 	/*
@@ -1467,12 +1263,10 @@ void CWorldBase::AIUpdateRevealCircles( const NTimer::STime &currTime )
 		CVec3 vCenter;
 		AI2Vis( &vCenter, pObjects[i].center.x, pObjects[i].center.y, 0 );
 		const float fRadius = pObjects[i].r * fAITileXCoeff;
-		//
 		pScene->AddCircle( vCenter, fRadius, currTime, fRadius*4.5f );
 	}
 	*/
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateAreas( const NTimer::STime &currTime )
 {
 	SShootAreas *pObjects = 0;
@@ -1480,25 +1274,14 @@ void CWorldBase::AIUpdateAreas( const NTimer::STime &currTime )
 	pAILogic->UpdateShootAreas( &pObjects, &nNumObjects );
 	pScene->SetAreas( pObjects, nNumObjects );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::AIUpdateCombatSituationInfo( const NTimer::STime &currTime )
 {
 	if ( pAILogic->IsCombatSituation() )
 		pScene->CombatNotify();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** manipulations
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::MoveObject( IVisObj *pObj, const CVec3 &vPos )
 {
 	NTimer::STime currTime = pTimer->GetGameTime();
-	//
 	SGetVisObjesVisitor visitor;
 	if ( SMapObject *pMO = FindByVis(pObj) )
 	{
@@ -1510,12 +1293,10 @@ void CWorldBase::MoveObject( IVisObj *pObj, const CVec3 &vPos )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::ShowIcons( int nID, bool bShow )
 {
 	if ( nID != -1 ) 
 	{
-		//showicons[nID] = bShow;
 		for ( CMapObjectsMap::iterator it = visobjects.begin(); it != visobjects.end(); ++it )
 		{
 			if ( it->second && it->second->pDesc && it->second->pDesc->IsObj() )
@@ -1541,20 +1322,10 @@ void CWorldBase::ShowIcons( int nID, bool bShow )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** pick functions
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SBridgeSpanObject* CWorldBase::PickSpan( const CVec2 &vPos )
 {
 	if ( pScene == 0 )
 		return 0;
-	//
 	std::pair<IVisObj*, CVec2> *pObjects = 0;
 	int nNumObjects = 0;
 	pScene->Pick( vPos, &pObjects, &nNumObjects, SGVOGT_UNKNOWN );
@@ -1564,33 +1335,20 @@ SBridgeSpanObject* CWorldBase::PickSpan( const CVec2 &vPos )
 		if ( pSpan )
 			return pSpan;
 	}
-	//
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** misc
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::SetSeason( int _nSeason ) 
 { 
 	nSeason = _nSeason; 
 	GetSingleton<IScene>()->SetSeason( _nSeason );	
 	SetGlobalVar( "World.Season", GetSeasonName() );
-	//
 	dwFlashFireColor = GetGlobalVar( (std::string("Scene.Colors.") + GetSeasonName() + ".FlashFire.Color").c_str(), int(0xffffffff) );
 	dwFlashExpColor = GetGlobalVar( (std::string("Scene.Colors.") + GetSeasonName() + ".FlashExplode.Color").c_str(), int(0xffffffff) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char* CWorldBase::GetSeasonName() const
 {
 	return ::GetSeasonName( nSeason );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::ReportReinforcementArrived()
 {
 	const DWORD dwColor = GetGlobalVar( (std::string("Scene.Colors.") + GetSeasonName() + ".Text.Information.Color").c_str(), int(0xffffffff) );
@@ -1601,7 +1359,6 @@ void CWorldBase::ReportReinforcementArrived()
 			pScene->AddSound( "sounds\\reports\\information", VNULL3, SFX_INTERFACE, SAM_ADD_N_FORGET );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldBase::UpdateAllUnits()
 {
 	IVisObjBuilder *pVOB = GetSingleton<IVisObjBuilder>();
@@ -1611,4 +1368,3 @@ void CWorldBase::UpdateAllUnits()
 			pUnit->ChangeWithBlood( pVOB );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

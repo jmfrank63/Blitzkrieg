@@ -17,20 +17,17 @@
 #include "Updater.h"
 #include "Diplomacy.h"
 #include "StaticObjectsIters.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CAILogic *pAILogic;
 extern CStaticObjects theStatObjs;
 extern NTimer::STime curTime;
 extern CStaticMap theStaticMap;
 extern CUpdater updater;
 extern CDiplomacy theDipl;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIEditor::Init( const struct STerrainInfo &terrainInfo )
 {
 	pGameSegment = GetSingleton<IGameTimer>()->GetGameSegmentTimer();
 	pAILogic->InitEditor( terrainInfo );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////	
 bool CAIEditor::AddNewObject( const SMapObjectInfo &object, IRefCount **pObject )
 {
 	if ( !IsObjectInsideOfMap( object ) )
@@ -43,14 +40,11 @@ bool CAIEditor::AddNewObject( const SMapObjectInfo &object, IRefCount **pObject 
 	curTime = GetAIGetSegmTime( pGameSegment );
 	*pObject = pAILogic->AddObject( object, pIDB, 0, false, true, 0 );
 
-	// CRAP{ Мише надо, чтобы кусок окопа был сразу же добавлен к Юре
 	if ( pIDB->GetDesc( object.szName.c_str() )->eGameType == SGVOGT_ENTRENCHMENT )
 		updater.Update( ACTION_NOTIFY_NEW_ST_OBJ, static_cast<IUpdatableObj*>(*pObject) );
-	// CRAP}
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIEditor::SetPlayer( IRefCount *pObj, const int nPlayer )
 {
 	if ( CStaticObject *pStaticObj = dynamic_cast<CStaticObject*>(pObj) )
@@ -58,12 +52,10 @@ void CAIEditor::SetPlayer( IRefCount *pObj, const int nPlayer )
 	else if ( CCommonUnit *pUnit = dynamic_cast<CCommonUnit*>(pObj) )
 		pUnit->SetPlayerForEditor( nPlayer );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIEditor::SetDiplomacies( const std::vector<BYTE> &playerParty )
 {
 	theDipl.SetDiplomaciesForEditor( playerParty );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAIEditor::AddNewEntrencment( IRefCount** segments, const int nLen, IRefCount **pObject )
 {
 	CPtr<CFullEntrenchment> pFullEntrenchment = new CFullEntrenchment();
@@ -72,17 +64,14 @@ bool CAIEditor::AddNewEntrencment( IRefCount** segments, const int nLen, IRefCou
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIEditor::LoadEntrenchments( const std::vector<SEntrenchmentInfo> &entrenchments )
 {
 	pAILogic->LoadEntrenchments( entrenchments );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIEditor::RecalcPassabilityForPlayer( CArray2D<BYTE> *array, const int nPlayer )
 {
 	theStatObjs.RecalcPassabilityForPlayer( array, nPlayer );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void GetUnitRectByStats( const SUnitBaseRPGStats *pStats, const CVec2 &vCenter, const WORD wDir, SRect *pRect )
 {
 	const float length = pStats->vAABBHalfSize.y;
@@ -94,7 +83,6 @@ void GetUnitRectByStats( const SUnitBaseRPGStats *pStats, const CVec2 &vCenter, 
 
 	pRect->InitRect( vCenter + vShift, vDir, length, width );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAIEditor::IsRectInsideOfMap( const SRect &unitRect ) const
 {
 	return
@@ -103,7 +91,6 @@ bool CAIEditor::IsRectInsideOfMap( const SRect &unitRect ) const
 			theStaticMap.IsPointInside( unitRect.v3 ) &&
 			theStaticMap.IsPointInside( unitRect.v4 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAIEditor::MoveObject( IRefCount *pObject, short x, short y )
 {
 	if ( CAIUnit *pUnit = dynamic_cast<CAIUnit*>( pObject ) )
@@ -138,7 +125,6 @@ bool CAIEditor::MoveObject( IRefCount *pObject, short x, short y )
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIEditor::DeleteObject( IRefCount *pObject )
 {
 	if ( CCommonUnit *pUnit = dynamic_cast<CAIUnit*>( pObject ) )
@@ -148,7 +134,6 @@ void CAIEditor::DeleteObject( IRefCount *pObject )
 	else
 		NI_ASSERT_T( false, "Unknown object" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAIEditor::TurnObject( IRefCount *pObject, const WORD wDir )
 {
 	if ( CFormation *pFormation = dynamic_cast<CFormation*>( pObject ) )
@@ -175,7 +160,6 @@ bool CAIEditor::TurnObject( IRefCount *pObject, const WORD wDir )
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIEditor::DamageObject( IRefCount *pObject, const float fHP )
 {
 	if ( CAIUnit *pUnit = dynamic_cast<CAIUnit*>( pObject ) )
@@ -190,7 +174,6 @@ void CAIEditor::DamageObject( IRefCount *pObject, const float fHP )
 	else
 		NI_ASSERT_T( false, "Can't damage something that isn't a unit" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CAIEditor::GetObjectHP( IRefCount *pObject )
 {
 	if ( CAIUnit *pUnit = dynamic_cast<CAIUnit*>( pObject ) )
@@ -202,12 +185,10 @@ float CAIEditor::GetObjectHP( IRefCount *pObject )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int STDCALL CAIEditor::GetObjectScriptID( IRefCount *pObject )
 {
 	return pAILogic->GetScriptID( dynamic_cast<IUpdatableObj*>( pObject ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIEditor::HandOutLinks()
 {
 	CLinkObject::ClearLinks();
@@ -224,7 +205,6 @@ void CAIEditor::HandOutLinks()
 	for ( CStObjGlobalIter<false> iter; !iter.IsFinished(); iter.Iterate() )
 		(*iter)->SetLink( id++ );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IRefCount* CAIEditor::LinkToAI( const int ID )
 {
 	IRefCount *pResult = CLinkObject::GetObjectByLink( ID );
@@ -232,13 +212,11 @@ IRefCount* CAIEditor::LinkToAI( const int ID )
 
 	return pResult;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CAIEditor::AIToLink( IRefCount *pObj )
 {
 	NI_ASSERT_T( dynamic_cast<CLinkObject*>( pObj ) != 0, NStr::Format("Wrong object of type \"%s\" - CLinkObject expected", typeid(*pObj).name()) );
 	return static_cast<CLinkObject*>(pObj)->GetLink();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IRefCount* CAIEditor::GetFormationOfUnit( IRefCount *pObject )
 {
 	if ( CAIUnit* pUnit = dynamic_cast<CAIUnit*>(pObject) )
@@ -246,12 +224,10 @@ IRefCount* CAIEditor::GetFormationOfUnit( IRefCount *pObject )
 	else
 		return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAIEditor::IsFormation( IRefCount *pObject ) const
 {
 	return dynamic_cast<CFormation*>( pObject );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIEditor::GetUnitsInFormation( IRefCount *pObject, IRefCount ***pUnits, int *pnLen )
 {
 	NI_ASSERT_T( dynamic_cast<CFormation*>(pObject) != 0, "Non formation passed to GetUnitsInFormation" );
@@ -263,7 +239,6 @@ void CAIEditor::GetUnitsInFormation( IRefCount *pObject, IRefCount ***pUnits, in
 	for ( int i = 0; i < *pnLen; ++i )
 		(*pUnits)[i] = (*pFormation)[i];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2& CAIEditor::GetCenter( IRefCount *pObj ) const
 {
 	if ( CCommonUnit *pUnit = dynamic_cast<CCommonUnit*>(pObj) )
@@ -275,7 +250,6 @@ const CVec2& CAIEditor::GetCenter( IRefCount *pObj ) const
 	
 	return VNULL2;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const WORD CAIEditor::GetDir( IRefCount *pObj ) const
 {
 	if ( CCommonUnit *pUnit = dynamic_cast<CCommonUnit*>(pObj) )
@@ -287,20 +261,17 @@ const WORD CAIEditor::GetDir( IRefCount *pObj ) const
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CAIEditor::GetUnitDBID( IRefCount *pObj ) const
 {
 	NI_ASSERT_T( dynamic_cast<CCommonUnit*>(pObj) != 0, "Wrong object" );
 
 	return static_cast<CCommonUnit*>(pObj)->GetDBID();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void GetUnitRectByMapObject( const SMapObjectInfo &object, IObjectsDB *pIDB, const SGDBObjectDesc *pDesc, SRect *pRect )
 {
 	CGDBPtr<SUnitBaseRPGStats> pStats = static_cast<const SUnitBaseRPGStats*>( pIDB->GetRPGStats( pDesc ) );
 	GetUnitRectByStats( pStats, CVec2( object.vPos.x, object.vPos.y ), object.nDir, pRect );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
 bool CheckStaticObject( const SMapObjectInfo &object, IObjectsDB *pIDB, const SGDBObjectDesc *pDesc, const T &checkFunc )
 {
@@ -329,13 +300,11 @@ bool CheckStaticObject( const SMapObjectInfo &object, IObjectsDB *pIDB, const SG
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCheckInside
 {
 public:
 	bool operator()( const BYTE passYX, const SVector &tile ) const { return theStaticMap.IsTileInside( tile ); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCheckCanAdd
 {
 public:
@@ -353,7 +322,6 @@ public:
 			return true;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAIEditor::IsObjectInsideOfMap( const SMapObjectInfo &object ) const
 {
 	CPtr<IObjectsDB> pIDB = GetSingleton<IObjectsDB>();	
@@ -375,7 +343,6 @@ bool CAIEditor::IsObjectInsideOfMap( const SMapObjectInfo &object ) const
 	else
 		return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAIEditor::CanAddObject( const struct SMapObjectInfo &object ) const
 {
 	if ( !IsObjectInsideOfMap( object ) )
@@ -407,27 +374,22 @@ bool CAIEditor::CanAddObject( const struct SMapObjectInfo &object ) const
 			return true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIEditor::Clear()
 {
 	pAILogic->Clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIEditor::ApplyPattern( const struct SVAPattern &rPattern )
 {
 	theStaticMap.ApplyPattern( rPattern );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIEditor::UpdateAllHeights()
 {
 	theStaticMap.UpdateAllHeights();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAIEditor::ToggleShow( const int nShowType )
 {
 	return pAILogic->ToggleShow( nShowType );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIEditor::UpdateTerrain( const CTRect<int> &rect, const STerrainInfo &terrainInfo )
 {
 	int nMinX = 2 * rect.x1;
@@ -438,12 +400,10 @@ void CAIEditor::UpdateTerrain( const CTRect<int> &rect, const STerrainInfo &terr
 	const CVec2 vCenter( AICellsTiles::GetPointByTile( 0.5f * ( nMinX + nMaxX ), 0.5f * ( nMinY + nMaxY ) ) );
 	const CVec2 vAABBHalfSize( 0.5f * ( nMaxX - nMinX + 1 ) * SConsts::TILE_SIZE, 0.5f * ( nMaxY - nMinY + 1 ) * SConsts::TILE_SIZE );
 	
-	// разлокать юниты
  	for ( CUnitsIter<0,2> iter( 0, ANY_PARTY, vCenter, Max( vAABBHalfSize.x, vAABBHalfSize.y ) ); !iter.IsFinished(); iter.Iterate() )
 	{
 		CAIUnit *pUnit = *iter;
 		pUnit->UnlockTiles( false );
-		//
 		const SVector tile = pUnit->GetTile();
 		nMinX = Min( nMinX, (int)Max( tile.x - SConsts::MAX_UNIT_RADIUS - 1, 0 ) );
 		nMinY = Min( nMinY, (int)Max( tile.y - SConsts::MAX_UNIT_RADIUS - 1, 0 ) );
@@ -451,7 +411,6 @@ void CAIEditor::UpdateTerrain( const CTRect<int> &rect, const STerrainInfo &terr
 		nMaxY = Max( nMaxY, (int)Min( tile.y + SConsts::MAX_UNIT_RADIUS + 1, theStaticMap.GetSizeY() - 1 ) );
 	}
 
-	// разлокать статич. объекты
 	for ( CStObjCircleIter<false> iter( vCenter, Max( vAABBHalfSize.x, vAABBHalfSize.y ) ); !iter.IsFinished(); iter.Iterate() )
 	{
 		CExistingObject *pObj = *iter;
@@ -475,7 +434,6 @@ void CAIEditor::UpdateTerrain( const CTRect<int> &rect, const STerrainInfo &terr
 	for ( TVSOList::const_iterator iter = terrainInfo.rivers.begin(); iter != terrainInfo.rivers.end(); ++iter )
 		theStaticMap.UpdateRiverPassability( *iter, false, false );
 
-	// удалить старый terrain
 	for ( int x = nMinX; x <= nMaxX; ++x )
 	{
 		for ( int y = nMinY; y <= nMaxY; ++y )
@@ -496,7 +454,6 @@ void CAIEditor::UpdateTerrain( const CTRect<int> &rect, const STerrainInfo &terr
 	for ( TVSOList::const_iterator iter = terrainInfo.rivers.begin(); iter != terrainInfo.rivers.end(); ++iter )
 		theStaticMap.UpdateRiverPassability( *iter, true, false );
 
-	// вернуть статич. объекты
 	for ( CStObjCircleIter<false> iter( vCenter, Max( vAABBHalfSize.x, vAABBHalfSize.y ) ); !iter.IsFinished(); iter.Iterate() )
 	{
 		CExistingObject *pObj = *iter;		
@@ -504,7 +461,6 @@ void CAIEditor::UpdateTerrain( const CTRect<int> &rect, const STerrainInfo &terr
 			pObj->LockTiles( true );
 	}
 
-	// вернуть юниты
 	for ( CUnitsIter<0,2> iter( 0, ANY_PARTY, vCenter, Max( vAABBHalfSize.x, vAABBHalfSize.y ) ); !iter.IsFinished(); iter.Iterate() )
 	{
 		CAIUnit *pUnit = *iter;
@@ -516,14 +472,11 @@ void CAIEditor::UpdateTerrain( const CTRect<int> &rect, const STerrainInfo &terr
 
 	theStaticMap.UpdateMaxesForAddedRect( nMinX, nMinY, nMaxX, nMaxY );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIEditor::DeleteRiver( const SVectorStripeObject &river )
 {
 	theStaticMap.UpdateRiverPassability( river, false, true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIEditor::AddRiver( const SVectorStripeObject &river )
 {
 	theStaticMap.UpdateRiverPassability( river, true, true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

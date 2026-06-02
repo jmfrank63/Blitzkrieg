@@ -12,10 +12,8 @@ public:
 	C3DRiverFrame();
 	virtual ~C3DRiverFrame();
 	
-	// Attributes
 public:
 	
-	// Operations
 public:
 	void UpdateRiverView();
 	
@@ -23,12 +21,7 @@ public:
 	virtual void ShowFrameWindows( int nCommand );
 	BOOL Run();										//���������� �� EditorApp OnIdle()
 	
-	// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(C3DRiverFrame)
-	//}}AFX_VIRTUAL
 	
-	// Implementation
 private:
 	bool bMapLoaded;
 	bool bWireFrameMode;
@@ -45,14 +38,11 @@ protected:
 	
 	void LoadRiverMap();
 	
-	// Generated message map functions
 protected:
-	//{{AFX_MSG(C3DRiverFrame)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnSwitchWireframeMode();
 	afx_msg void OnUpdateSwitchWireframeMode(CCmdUI* pCmdUI);
 	afx_msg void OnSetFocus(CWnd* pOldWnd);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 

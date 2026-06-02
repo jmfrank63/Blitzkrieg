@@ -1,37 +1,25 @@
-// CustomCheck.cpp: implementation of the CCustomCheck class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include "CustomCheck.h"
 
 #include "..\LuaLib\Script.h"
 
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
-// CCheckRunScript::
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
 int CCheckRunScript::operator&( IStructureSaver &ss )
 {
-	//CRAP{ TO DO
 	NI_ASSERT_T( FALSE, "NEED IMPLEMENT" );
 	return 0;
-	//CRAP}
 }
 
 CCheckRunScript::CCheckRunScript( int TEST )
 {
 	szScriptFunction = "return ScriptCheckFunction()";
 }
-//////////////////////////////////////////////////////////////////////
 int CCheckRunScript::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
 	saver.Add( "Param", &szScriptFunction );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////
 int CCheckRunScript::Check( interface IScreen *pScreen, class Script *pScript ) const
 {
 	NI_ASSERT_T( pScript != 0, NStr::Format( "CCheckRunScript function = \"%s\" but don't have script loaded", szScriptFunction.c_str() ) );

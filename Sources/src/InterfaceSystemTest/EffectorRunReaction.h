@@ -3,8 +3,6 @@
 
 #include "IUIInternal.h"
 #include "Interface.h"
-/////////////////////////////////////////////////////////////////////////////
-// run message reaction
 class CEffectorRunReaction : public IUIEffector
 {
 	OBJECT_COMPLETE_METHODS(CEffectorRunReaction)
@@ -22,9 +20,6 @@ public:
 	}
 	virtual void STDCALL Segment( const NTimer::STime timeDiff, interface IScreen *pScreen ) 
 	{ 
-		// to do RUN COMMAND cmd.szParam
-		// in messageReaction
-		// this effect is instant
 		if ( bForward ? !cmd.szParam1.empty() : !cmd.szParam2.empty() )
 			pScreen->RunReaction( bForward ? cmd.szParam1 : cmd.szParam2 );
 		bFinished = true;
@@ -36,10 +31,8 @@ public:
 		bForward = !bForward;
 	}
 };
-/////////////////////////////////////////////////////////////////////////////
 class CEffectorRunReactionEC : public CEffectorCommandBase<CEffectorRunReaction, EUISM_RUN_REACTION>
 {
 	OBJECT_COMPLETE_METHODS(CEffectorRunReactionEC)
 };
-/////////////////////////////////////////////////////////////////////////////
 #endif //_EffectorRunReaction_h_Included_

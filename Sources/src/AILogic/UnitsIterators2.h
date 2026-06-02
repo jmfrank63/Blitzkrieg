@@ -1,15 +1,11 @@
 #ifndef __UNITS_ITERATORS_2__
 #define __UNITS_ITERATORS_2__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Units.h"
 #include "AIStaticMap.h"
 #include "Diplomacy.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CUnits units;
 extern CStaticMap theStaticMap;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<BYTE cOnlyOneTypeVisibility, int NSize>
 class CUnitsIter
 {
@@ -29,7 +25,6 @@ class CUnitsIter
 
 	CUnitsIter<1, NSize-1> iter;
 
-	//
 	void Init( BYTE _cStartDipl, BYTE cDiplomacies, BYTE cStartMech, BYTE cMechs )
 	{
 		nDownX = vDownLeft.x / ( SConsts::TILE_SIZE * SConsts::BIG_CELL_COEFF * ( 1 << NSize ) );
@@ -162,7 +157,6 @@ public:
 	class CAIUnit* operator*() const { return *iter; }
 	const bool IsFinished() const { return cCurMech >= cMechEnd; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<>
 class CUnitsIter<1, 0>
 {
@@ -180,7 +174,6 @@ class CUnitsIter<1, 0>
 	int nXCell, nYCell;
 	int nIter;
 
-	//
 	void IterateByCells()
 	{
 		++nXCell;
@@ -309,7 +302,6 @@ public:
 	class CAIUnit* operator*() const { return units[units.unitsInCells[cCurVis].GetEl( nIter )]; }
 	const bool IsFinished() const { return cCurMech >= cMechEnd; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<>
 class CUnitsIter<0, 0>
 {
@@ -327,7 +319,6 @@ class CUnitsIter<0, 0>
 	int nXCell, nYCell;
 	int nIter;
 
-	//
 	void IterateByCells()
 	{
 		++nXCell;
@@ -456,5 +447,4 @@ public:
 	class CAIUnit* operator*() const { return units[units.unitsInCells[cCurVis].GetEl( nIter )]; }
 	const bool IsFinished() const { return cCurMech >= cMechEnd; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __UNITS_ITERATORS_2__

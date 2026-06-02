@@ -14,14 +14,10 @@ C3DRiverView::~C3DRiverView()
 
 
 BEGIN_MESSAGE_MAP(C3DRiverView, CWnd)
-//{{AFX_MSG_MAP(C3DRiverView)
 ON_WM_PAINT()
-//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// C3DRiverView message handlers
 
 BOOL C3DRiverView::PreCreateWindow(CREATESTRUCT& cs) 
 {
@@ -38,7 +34,6 @@ BOOL C3DRiverView::PreCreateWindow(CREATESTRUCT& cs)
 void C3DRiverView::OnPaint() 
 {
 	C3DRiverFrame *pFrame = static_cast<C3DRiverFrame *> ( g_frameManager.GetFrame( CFrameManager::E_3DRIVER_FRAME ) );
-//	if ( pFrame->IsRunning() )
 	{
 		RECT valRC;
 		((CWnd *) g_frameManager.GetGameWnd())->GetWindowRect( &valRC );

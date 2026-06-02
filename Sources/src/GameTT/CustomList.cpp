@@ -3,11 +3,9 @@
 #include "..\Main\GameStats.h"
 #include "CommonId.h"
 #include "CustomList.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceCustomList::~CInterfaceCustomList()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceCustomList::FillListFromCurrentDir()
 {
 	IUIListControl *pList = checked_cast<IUIListControl*>( pUIScreen->GetChildByID( 1000 ) );
@@ -15,13 +13,11 @@ void CInterfaceCustomList::FillListFromCurrentDir()
 	ITextManager *pTextM = GetSingleton<ITextManager>();
 	IDataStorage *pStorage = GetSingleton<IDataStorage>();
 	
-	//������� ��� items �� ListControl
 	for ( int i=pList->GetNumberOfItems()-1; i>=0; i-- )
 	{
 		pList->RemoveItem( i );
 	}
 	
-	// enumerate all available files and dirs
 	dirsList.clear();
 	filesList.clear();
 	std::vector< std::string > dirs;		//��������� ��������� ����������
@@ -36,12 +32,10 @@ void CInterfaceCustomList::FillListFromCurrentDir()
 		if ( strncmp( tutorialFiles[i].c_str(), szCurrentDir.c_str(), szCurrentDir.size() ) )
 			continue;			//�� �����
 		
-		//��������, ��� ������ ���� ��������� ����������
 		std::string szCurrentName = tutorialFiles[i].c_str() + szCurrentDir.size();
 		int nPos = szCurrentName.rfind( '\\' );
 		if ( nPos != std::string::npos )		//������ ���� ��� ����������
 		{
-			//������� ��� ����������
 			szCurrentName = szCurrentName.substr( 0, szCurrentName.find('\\') );
 			setOfDirs.insert( szCurrentName );
 			continue;
@@ -50,7 +44,6 @@ void CInterfaceCustomList::FillListFromCurrentDir()
 	
 	for ( std::unordered_set<std::string>::iterator it = setOfDirs.begin(); it != setOfDirs.end(); ++it )
 	{
-		//������ ��� �������� ������������� ������ ������ ����������
 		std::string szCmpDir = szCurrentDir + *it;
 		szCmpDir += '\\';
 		std::unordered_set<std::string> setOfSubDirs;
@@ -61,7 +54,6 @@ void CInterfaceCustomList::FillListFromCurrentDir()
 				continue;			//�� �����
 			szCurrentName = szCurrentName.substr( szCmpDir.size() );
 			
-			//��������, ��� ��� �������������
 			int nPos = szCurrentName.rfind( '\\' );
 			if ( nPos != std::string::npos )		//������ ���� ��� ����������
 			{
@@ -70,7 +62,6 @@ void CInterfaceCustomList::FillListFromCurrentDir()
 				continue;
 			}
 			
-			//��������, ��� ��� �� ����
 			nPos = szCurrentName.rfind( '.' );
 			if ( nPos == std::string::npos )
 				continue;
@@ -80,7 +71,6 @@ void CInterfaceCustomList::FillListFromCurrentDir()
 			{
 				if ( szExtension == fileMasks[k].c_str() + 1 )
 				{
-					//��������� ����� �����, ��������� � ������ ������
 					std::string szName = szCmpDir;
 					szName += szCurrentName;
 					files.push_back( szName );
@@ -99,7 +89,6 @@ void CInterfaceCustomList::FillListFromCurrentDir()
 	if ( szCurrentDir.size() > szTopDir.size() )
 		dirs.push_back( ".." );
 	
-	// add strings to list control
 	for ( int i=0; i<dirs.size(); i++ )
 	{
 		pList->AddItem();
@@ -107,7 +96,6 @@ void CInterfaceCustomList::FillListFromCurrentDir()
 		pRow->SetUserData( nIndex );
 		nIndex++;
 		
-		//��������� ��� ����������
 		IUIContainer *pContainer = checked_cast<IUIContainer*> ( pRow->GetElement( 0 ) );
 		dirsList.push_back( dirs[i] );
 		std::wstring wszTemp;
@@ -129,7 +117,6 @@ void CInterfaceCustomList::FillListFromCurrentDir()
 	for ( int k=0; k<files.size(); k++ )
 	{
 		std::string szName = files[k];
-		// ������� ���� �� �����, ��� ����� �� �������� SBasicGameStats
 		if ( pStorage->IsStreamExist(szName.c_str()) == false )
 			continue;
 		{
@@ -146,37 +133,31 @@ void CInterfaceCustomList::FillListFromCurrentDir()
 		if ( !p )
 			continue;
 		
-		//�������� ���������� ������ ���� ������
 		filesList.push_back( szName.substr( szCurrentDir.size() ) );
 		
-		//������� �������������� ��� � ������ �� ������
 		pList->AddItem();
 		IUIListRow *pRow = pList->GetItem( nIndex );
 		pRow->SetUserData( nIndex );
 		nIndex++;
 		
-		//��������� ��� �����
 		IUIContainer *pContainer = checked_cast<IUIContainer*> ( pRow->GetElement( 0 ) );
 		pContainer->SetWindowText( 0, p->GetString() );
 		
 		IUIElement *pElement = pContainer->GetChildByID( 1 );
 		NI_ASSERT_T( pElement != 0, "Invalid list control name dialog, it should contain icon" );
 		pElement->SetState( 1 );			//����
-		//TODO ������ 1 ������� ��������������� �����
 		
 		FillListItem( pRow, szName );
 	}
 
 	pList->InitialUpdate();
 	
-	//��������� ������� ���������� �������
 	if ( pList->GetNumberOfItems() < nBeginSelItem )
 		nBeginSelItem = pList->GetNumberOfItems();
 	pList->SetSelectionItem( nBeginSelItem );
 	
 	pUIScreen->Reposition( pGFX->GetScreenRect() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceCustomList::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceBaseList::ProcessMessage( msg ) )
@@ -193,7 +174,6 @@ bool CInterfaceCustomList::ProcessMessage( const SGameMessage &msg )
 /*
 		case IMC_OK:
 			{
-				//��������� ����� ������� selection �� list control
 				IUIElement *pElement = pUIScreen->GetChildByID( 1000 );		//should be List Control
 				IUIListControl *pList = checked_cast<IUIListControl*>( pElement );
 				if ( !pList )
@@ -206,10 +186,8 @@ bool CInterfaceCustomList::ProcessMessage( const SGameMessage &msg )
 				int nSel = pSelRow->GetUserData();						//������ � �������
 				if ( nSel < dirsList.size() )
 				{
-					//������ ������� ����������
 					if ( dirsList[ nSel ] == ".." )
 					{
-						//���������� ������
 						NI_ASSERT_T( !stack.empty(), "Popup stack is empty" );
 						nBeginSelItem = stack.back();
 						stack.pop_back();
@@ -239,7 +217,5 @@ bool CInterfaceCustomList::ProcessMessage( const SGameMessage &msg )
 */
 	}
 
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

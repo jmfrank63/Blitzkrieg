@@ -37,7 +37,6 @@ const CSpellEngine::SLidInfo CSpellEngine::LID_NUM[]=
 	{ 0,			_T( "??" ), _T( "Unknown" )							}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSpellEngine::OpenUserDict( const std::string &rszPath )
 {
 	if ( rszPath.empty() )
@@ -74,7 +73,6 @@ int CSpellEngine::OpenUserDict( const std::string &rszPath )
 	return nResult;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSpellEngine::AddWord( LPCTSTR pWord )
 {
 	int nResult = ( SpellAddUdr ) ? SpellAddUdr( id, uDr, LPTSTR(pWord) ) : -1;
@@ -91,7 +89,6 @@ CSpellEngine::CSpellEngine()
 {
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSpellEngine::CSpellEngine( int _nLanguage, const std::string &rszEnginePath, const std::string &rszDictPath, const std::string &rszUserDictPath )
 	: bOpened( false ), bUseUserDict( false ), nState( SE_NOT_INITIALISED ), nLanguage( 0 ), nWordsCount( 0 ), hLib( 0 )
 { 
@@ -101,7 +98,6 @@ CSpellEngine::CSpellEngine( int _nLanguage, const std::string &rszEnginePath, co
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSpellEngine::Close()
 {
 	if( bOpened )
@@ -110,17 +106,14 @@ void CSpellEngine::Close()
 		{
 			SpellCloseUdr( id, uDr, 1 );
 		}
-		//
 		if( SpellCloseMdr )
 		{
 			SpellCloseMdr( id, &mdrs );
 		}
-		//
 		if( SpellTerminate )
 		{
 			SpellTerminate( id, true );
 		}
-		//
 		if ( hLib )
 		{
 			::FreeLibrary( hLib );
@@ -131,7 +124,6 @@ void CSpellEngine::Close()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSpellEngine::Open( int _nLanguage, const std::string &rszEnginePath, const std::string &rszDictPath, const std::string &rszUserDictPath )
 {
 	Close();
@@ -231,13 +223,11 @@ void CSpellEngine::Open( int _nLanguage, const std::string &rszEnginePath, const
 	bOpened = true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSpellEngine::~CSpellEngine()
 {
 	Close();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSpellEngine::Check( LPCTSTR pWord )
 {
 	int nResult = -1;
@@ -259,7 +249,6 @@ int CSpellEngine::Check( LPCTSTR pWord )
 	return srb.scrs;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSpellEngine::CreateList()
 {
 	int nZeroPos = 0;
@@ -290,7 +279,6 @@ int CSpellEngine::CreateList()
 	return nWordsCount;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSpellEngine::Suggest( LPCTSTR pWord )
 {
 	int nResult = -1;
@@ -299,7 +287,6 @@ int CSpellEngine::Suggest( LPCTSTR pWord )
 		return nResult;
 	}
 	nWordsCount = 0;
-	//sib.wSpellState = 0;
 	sib.lrgch = LPTSTR( pWord );
 	const size_t nWordLen = strlen( pWord );
 	sib.cch = static_cast<unsigned short>( nWordLen > 0xFFFFu ? 0xFFFFu : nWordLen );
@@ -309,7 +296,6 @@ int CSpellEngine::Suggest( LPCTSTR pWord )
 }
 
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSpellEngine::SuggestMore()
 {
 	int nResult = -1;
@@ -323,7 +309,6 @@ int CSpellEngine::SuggestMore()
 	return nResult;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSpellEngine::Ignore( LPCTSTR pWord )
 {
 	int nResult = -1;
@@ -338,13 +323,11 @@ int CSpellEngine::Ignore( LPCTSTR pWord )
 	return nResult;
 }
 
-//HKEY_LOCAL_MACHINE
 const TCHAR CSpellChecker::SPELLING_ENGINE_REGISTRY_SHORT_PATH[] = _T( "Software\\Microsoft\\Shared Tools\\Proofing Tools\\Spelling\\" );
 const TCHAR CSpellChecker::SPELLING_ENGINE_REGISTRY_PATH[] = _T( "Software\\Microsoft\\Shared Tools\\Proofing Tools\\Spelling\\%d\\Normal" );
 const TCHAR CSpellChecker::SPELLING_ENGINE_REGISTRY_KEY[] = _T( "Engine" );
 const TCHAR CSpellChecker::SPELLING_DICTIONARY_REGISTRY_KEY[] = _T( "Dictionary" );
 
-//HKEY_CURRENT_USER
 const TCHAR CSpellChecker::SPELLING_CUSTOM_DICTIONARY_REGISTRY_PATH[] = _T( "Software\\Microsoft\\Shared Tools\\Proofing Tools\\Custom Dictionaries" );
 const TCHAR CSpellChecker::SPELLING_CUSTOM_DICTIONARY_REGISTRY_KEY[] = _T( "1" );
 const TCHAR CSpellChecker::SPELLING_WORD_DELIMITERS[] = _T( " \t\n\r`~!@#$%^&*()-_=+\\|[{]};:'\",<.>/?" );
@@ -353,7 +336,6 @@ const TCHAR CSpellChecker::IGNORE_SYMBOLS[] = _T( "\n\r" );
 
 const int CSpellChecker::DEFAULT_LANGUAGE_INDEX = 0;
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSpellChecker::CSpellChecker() : nCharIndex( 0 )
 {
 	std::vector<int> languages;
@@ -379,12 +361,10 @@ CSpellChecker::CSpellChecker() : nCharIndex( 0 )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSpellChecker::~CSpellChecker()
 {
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSpellChecker::SearchForLanguages( std::vector<int> *pLanguages )
 {
 	if ( pLanguages )
@@ -428,26 +408,21 @@ int CSpellChecker::SearchForLanguages( std::vector<int> *pLanguages )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSpellChecker::IsAvailiable()
 { 
 	return spellEngine.bOpened;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSpellChecker::Check( const CString &rstrText )
 {
 	return ( spellEngine.Check( rstrText ) == 0 );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSpellChecker::Ignore( const CString &rstrText )
 {
 	spellEngine.Ignore( rstrText );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSpellChecker::GetVariants( const CString &rstrText, std::vector<CString> *pWords )
 {
 	if ( pWords )
@@ -459,7 +434,6 @@ int CSpellChecker::GetVariants( const CString &rstrText, std::vector<CString> *p
 	int nWordsCount = 0;
 	for ( int nWordIndex = 0; nWordIndex < spellEngine.nWordsCount; ++nWordIndex )
 	{
-		// Spell API works in ANSI codepage, so words must be converted before printf.
 		if ( pWords )
 		{
 			pWords->push_back( spellEngine.ppWords[nWordIndex] );
@@ -467,11 +441,9 @@ int CSpellChecker::GetVariants( const CString &rstrText, std::vector<CString> *p
 		}
 	}
 
-	//SuggestMore expand the list of suggestions
 	spellEngine.SuggestMore();
 	for ( int nWordIndex = 0; nWordIndex < spellEngine.nWordsCount; ++nWordIndex )
 	{
-		// Spell API works in ANSI codepage, so words must be converted before printf.
 		if ( pWords )
 		{
 			pWords->push_back( spellEngine.ppWords[nWordIndex] );
@@ -481,7 +453,6 @@ int CSpellChecker::GetVariants( const CString &rstrText, std::vector<CString> *p
 	return nWordsCount;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSpellChecker::RemoveFirstDelimiter( CString *pstrText )
 {
 	int nCount = 0;
@@ -497,7 +468,6 @@ int CSpellChecker::RemoveFirstDelimiter( CString *pstrText )
 	return nCount;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSpellChecker::GetWord( CString *pstrText, CString *pstrWord )
 {
 	int nCount = 0;
@@ -522,7 +492,6 @@ int CSpellChecker::GetWord( CString *pstrText, CString *pstrWord )
 	return nCount;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSpellChecker::RemoveFirstDelimiter_CashVersion( CString *pstrText )
 {
 	int nCount = 0;
@@ -538,7 +507,6 @@ int CSpellChecker::RemoveFirstDelimiter_CashVersion( CString *pstrText )
 	return nCount;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSpellChecker::GetWord_CashVersion( CString *pstrText, CString *pstrWord )
 {
 	int nCount = 0;
@@ -564,7 +532,6 @@ int CSpellChecker::GetWord_CashVersion( CString *pstrText, CString *pstrWord )
 }
 
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSpellChecker::GetTextCounts( const CString &rstrText, int *pWordsCount, int *pWordSymbolsCount, int *pSymbolsCount )
 {
 	if ( pWordsCount )
@@ -602,4 +569,3 @@ void CSpellChecker::GetTextCounts( const CString &rstrText, int *pWordsCount, in
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -12,11 +12,6 @@ class CTemplateEditorFrame;
 class CMiniMapDialog;
 class CGameWnd;
 
-//Получить время изменения для файла
-///FILETIME GetFileChangeTime( const char *pszFileName );
-//bool operator > ( FILETIME a, FILETIME b );
-//bool operator < ( FILETIME a, FILETIME b );
-//bool operator == ( FILETIME a, FILETIME b );
 
 /**
 inline DWORD COLORREF2GFXColor( COLORREF color )
@@ -25,8 +20,6 @@ inline DWORD COLORREF2GFXColor( COLORREF color )
 }
 /**/
 
-//void SetDefaultCamera();
-//void SetHorizontalCamera();
 
 struct TEFConsts
 {

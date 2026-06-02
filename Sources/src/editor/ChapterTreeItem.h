@@ -21,7 +21,6 @@ public:
 	CChapterCommonPropsItem() { nItemType = E_CHAPTER_COMMON_PROPS_ITEM; InitDefaultValues(); nImageIndex = 0; }
 	~CChapterCommonPropsItem() {};
 	
-	//Получение внутренних параметров
 	const char* GetHeaderText() { return values[0].value; }
 	const char* GetSubHeaderText() { return values[1].value; }
 	const char* GetDescText() { return values[2].value; }
@@ -33,7 +32,6 @@ public:
 	const char *GetContextName() { return values[8].value; }
 	const char *GetPlayerSideName() { return values[9].value; }
 	
-	//Установка внутренних параметров
 	void SetHeaderText( const char *pszName ) { values[0].value = pszName; }
 	void SetSubHeaderText( const char *pszName ) { values[1].value = pszName; }
 	void SetDescText( const char *pszName ) { values[2].value = pszName; }
@@ -69,12 +67,10 @@ public:
 	CChapterMusicPropsItem() { bStaticElements = true; nItemType = E_CHAPTER_MUSIC_PROPS_ITEM; InitDefaultValues(); nImageIndex = 4; }
 	~CChapterMusicPropsItem() {};
 	
-	//Получение внутренних параметров
 	const char* GetMusicFileName() { return values[0].value; }
 	bool GetMusicCombatFlag() { return values[1].value; }
 	int GetMusicProbability() { return values[2].value; }
 	
-	//Установка внутренних параметров
 	void SetMusicFileName( const char *pszVal ) { values[0].value = pszVal; }
 	void SetMusicCombatFlag( bool nVal ) { values[1].value = nVal; }
 	void SetMusicProbability( int nVal ) { values[2].value = nVal; }
@@ -105,11 +101,9 @@ public:
 	CChapterMissionPropsItem() { bStaticElements = true; nItemType = E_CHAPTER_MISSION_PROPS_ITEM; InitDefaultValues(); nImageIndex = 3; }
 	~CChapterMissionPropsItem() {};
 	
-	//Получение внутренних параметров
 	const char* GetMissionName() { return values[0].value; }
 	CVec2 GetMissionPosition() { CVec2 res(values[1].value, values[2].value); return res; }
 	
-	//Установка внутренних параметров
 	void SetMissionName( const char *pszVal ) { values[0].value = pszVal; }
 	void SetMissionPosition( CVec2 vVal ) { values[1].value = vVal.x; values[2].value = vVal.y; }
 	
@@ -140,10 +134,8 @@ public:
 	CChapterPlacePropsItem() { bStaticElements = true; nItemType = E_CHAPTER_PLACE_PROPS_ITEM; InitDefaultValues(); nImageIndex = 3; }
 	~CChapterPlacePropsItem() {};
 	
-	//Получение внутренних параметров
 	CVec2 GetPosition() { CVec2 res(values[0].value, values[1].value); return res; }
 	
-	//Установка внутренних параметров
 	void SetPosition( CVec2 vVal ) { values[0].value = vVal.x; values[1].value = vVal.y; }
 	
 	virtual void InitDefaultValues();

@@ -20,7 +20,6 @@ public:
 	CTrenchFrame();
 	virtual ~CTrenchFrame();
 
-// Operations
 public:
 	virtual void GFXDraw();
 	virtual void ShowFrameWindows( int nCommand );
@@ -28,13 +27,8 @@ public:
 	void RemoveTrenchIndex( int nIndex );
 	int GetFreeTrenchIndex();
 	
-// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CTrenchFrame)
 protected:
-	//}}AFX_VIRTUAL
 
-// Implementation
 private:
 	std::list<int> freeIndexes;			//для хранения незаполненных индексов
 
@@ -44,23 +38,16 @@ protected:
 	void SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const char *pszProjectName );
 	void LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem );
 	
-	//экспортирует один проект, если все ОК, возвращает 0, иначе код ошибки
 	virtual bool ExportFrameData( IDataTree *pDT, const char *pszProjectName, const char *pszResultFileName, CTreeItem *pRootItem );
 	
 	virtual FILETIME FindMaximalSourceTime( const char *pszProjectName, CTreeItem *pRootItem );
 	virtual FILETIME FindMinimalExportFileTime( const char *pszResultFileName, CTreeItem *pRootItem );
 
-// Generated message map functions
 protected:
-	//{{AFX_MSG(CTrenchFrame)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 
-/////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif		//__TRENCHFRM_H__

@@ -1,14 +1,10 @@
 #ifndef __SEGMENTED_OBJECTS_H__
 #define __SEGMENTED_OBJECTS_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern NTimer::STime curTime;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NSegmObjs
 {
 enum { SEGM_UNITS_SIZE = 10000 };
-//
 inline const int GetSegmUnitsIndexByTime( const NTimer::STime &time ) { return time % SEGM_UNITS_SIZE; }
 inline const int GetRegisterIndex( const bool bInitialization )
 {
@@ -16,7 +12,6 @@ inline const int GetRegisterIndex( const bool bInitialization )
 				 GetSegmUnitsIndexByTime( curTime - curTime % SConsts::AI_SEGMENT_DURATION ) :
 				 GetSegmUnitsIndexByTime( curTime + SConsts::AI_SEGMENT_DURATION - curTime % SConsts::AI_SEGMENT_DURATION );
 }
-//
 template<class TPObj>
 class CContainer
 {
@@ -33,7 +28,6 @@ public:
 	void RegisterSegments( const TPObj pObj, const bool bInitialization );
 	void UnregisterSegments( const TPObj pObj ) { registerdObjects.erase( pObj->GetUniqueId() ); }
 
-	//
 	const int begin( const int nListNum ) const { return container.begin( nListNum ); }
 	const int end() const{ return container.end(); }
 	const int GetNext( const int nIter ) { return container.GetNext( nIter ); }
@@ -42,16 +36,10 @@ public:
 	void Add( const int nIter, TPObj pObj ) { container.Add( nIter, pObj ); }
 	void DelList( const int nList, const int nLastPos ) { container.DelList( nList, nLastPos ); }
 };
-//
 template< class TContainer, class TSegments>
 void Segment( const NTimer::STime lastSegmTime, const NTimer::STime roundedCurTime, TContainer &container, TSegments* );
 template< class TContainer, class TSegments>
 void SegmentWOMove( const NTimer::STime lastSegmTime, const NTimer::STime roundedCurTime, TContainer &container, TSegments* );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-//	implementation
-//
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class TPObj>
 void CContainer<TPObj>::RegisterSegments( const TPObj pObj, const bool bInitialization )
 {
@@ -64,7 +52,6 @@ void CContainer<TPObj>::RegisterSegments( const TPObj pObj, const bool bInitiali
 		registerdObjects.insert( nUniqueId );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TPObj>
 inline int CContainer<TPObj>::operator&( IStructureSaver &ss )
 {
@@ -75,7 +62,6 @@ inline int CContainer<TPObj>::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template< class TContainer, class TSegments>
 inline void Segment<TContainer, TSegments>( const NTimer::STime lastSegmTime, const NTimer::STime roundedCurTime, TContainer &container, TSegments* )
 {
@@ -110,7 +96,6 @@ inline void Segment<TContainer, TSegments>( const NTimer::STime lastSegmTime, co
 		container.DelList( nIndex, nPredValue );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template< class TContainer, class TSegments>
 inline void SegmentWOMove<TContainer, TSegments>( const NTimer::STime lastSegmTime, const NTimer::STime roundedCurTime, TContainer &container, TSegments* )
 {
@@ -127,7 +112,5 @@ inline void SegmentWOMove<TContainer, TSegments>( const NTimer::STime lastSegmTi
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __SEGMENTED_OBJECTS_H__

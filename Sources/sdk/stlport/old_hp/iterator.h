@@ -79,7 +79,6 @@
 
 #ifdef _STLP_USE_NAMESPACES
 
-// Names from stl_iterator.h
 
 # ifdef _STLP_BROKEN_USING_DIRECTIVE
 using namespace STLPORT;
@@ -124,11 +123,9 @@ using STLPORT::reverse_bidirectional_iterator;
 using STLPORT::istream_iterator;
 using STLPORT::ostream_iterator;
 
-// Names from stl_construct.h
 using STLPORT::construct;
 using STLPORT::destroy;
 
-// Names from stl_raw_storage_iter.h
 using STLPORT::raw_storage_iterator;
 # endif
 
@@ -141,7 +138,4 @@ using STLPORT::raw_storage_iterator;
 
 #endif /* _STLP_ITERATOR_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

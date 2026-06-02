@@ -4,8 +4,6 @@
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
-// CtrlObjectInspector.h : header file
-//
 
 #include "Variant.h"
 using namespace std;
@@ -24,7 +22,6 @@ const GroupID GroupDefault = -2;
 const int N_BORDER = 2;
 const int N_TEXT_BORDER = 3;
 
-// Domen type ID
 enum
 {
 	DT_ERROR = 0,
@@ -38,7 +35,6 @@ enum
 	DT_COLOR,
 	DT_FLOAT,
 	
-	//Ссылки
 	DT_ANIMATION_REF,
 	DT_FUNC_PARTICLE_REF,
 	DT_EFFECT_REF,
@@ -83,7 +79,6 @@ struct SCOIGroup
   bool    bRadioGroup;
   PropID  iActiveProp;  // если это радио-группа, то здесь сохраняется текущий активный элемент
 	CCOIPropPtrs aPorops;
-//	GroupID idGroup;
 	string strGroupName;
 	SCOIGroup() : isExpand(true), isVisible(true), strGroupName("Unnamed") {}
 };
@@ -98,15 +93,12 @@ struct SCOIPaintElem
 
 typedef std::vector<SCOIPaintElem> CCOIPaintElemVector;
 
-/////////////////////////////////////////////////////////////////////////////
 
 struct SCOICustomListDomen
 {
 	CStlStringList aValueSet;
 };
 
-/////////////////////////////////////////////////////////////////////////////
-// CCtrlObjectInspector window
 
 class COIEdit;
 class COICombo;
@@ -118,7 +110,6 @@ class COIRelEdit;
 class CCtrlObjectInspector : public CWnd
 {
 private:
-	// Draw data
 	bool		m_haveFocus;
 	CSize		m_sizeClient;
 	int			m_nLineHeight;
@@ -133,7 +124,6 @@ private:
   CWnd    *pActiveWnd;
 	CImageList imlIcons;
 
-	// Logic data
 	CCOIPropMap		m_mapProps;
 	CCOIGpoupMap	m_mapGroups;	// все группы
 	CCOIPaintElemVector m_aPaintElems;
@@ -143,7 +133,6 @@ private:
 	int m_nCurGroup;
 	bool bDraggingSplitter;
 
-	// Private methods
 	void Init();
 	void MakePaintList();
 	void UpdateScrollers( int nFirstVirtualLine = -1 );
@@ -158,7 +147,6 @@ private:
 	void DrawPlus( CDC* pDC, int nLine, bool isPlus );
 
 	CRect	GetPlusRect( int nPaintLine ) const	{ int nSideSize = ( m_nLineHeight / 4 ); return CRect( nSideSize, nSideSize + nPaintLine * m_nLineHeight, m_nLineHeight - nSideSize, (nPaintLine+1) * m_nLineHeight - nSideSize ); }
-//	int		GetPaintLineCount() const			{ return ( m_sizeClient.cy - N_BORDER * 2 ) / m_nLineHeight + 1; }	// Количество линий которое умещается в окне
 	int		GetPaintLine( const CPoint &point ) const { return ( point.y / m_nLineHeight ); } // 0 - if then click on caption
 	int		GetCol( const CPoint &point ) const { return point.x > m_nSplitterPos; }
 	int		GetLineCount() const				{ return m_sizeClient.cy / m_nLineHeight - 1; }
@@ -166,25 +154,18 @@ private:
 	int		VirtualToPaintLine(int nVirtualLine) const { return nVirtualLine - m_nFirstElem + 1; }
 	SCOIPaintElem *GetVirtualElem( int nElem )		{ return ( nElem > -1 && nElem < m_aPaintElems.size() ) ? &m_aPaintElems[nElem] : 0; }
 
-// Construction
 public:
 	CCtrlObjectInspector();
 
-// Attributes
 public:
 
-// Operations
 public:
-	// General operations
 	void ClearAll();
 	
-	// Domen operation
-	// nNewDomenID must DT_CUSTOM + Number
 	void AddCustomDomen( PropID idNewDomen, int eBaseDomenType );
 	void AddCustomListDomen( PropID idNewDomen, int eBaseDomenType, CStlStringList );
 	bool IsValidDomen( DomenID idDomen );
 
-	// Properties operation
 	void SetGroup( GroupID idGroup, const string strName, bool bRadioGroup = false );
 	bool AddPropertiesValue( PropID idProp, DomenID idDomen, const string strName, const CVariant &var, 
                            GroupID idGroup = GroupDefault, bool bReadOnly = false );
@@ -199,26 +180,18 @@ public:
 
 	PropID GetMyActiveProp();		//RR
 	
-	// Events
 	virtual void OnPropertiesChangeOK( PropID idProp, const CVariant &var ) {}
 	virtual void OnEditCustomDomen( DomenID idDomen, CVariant &var ) {}
 
-// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CCtrlObjectInspector)
 	public:
 	virtual BOOL PreTranslateMessage(MSG* pMsg);
 	protected:
 	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
-	//}}AFX_VIRTUAL
 
-// Implementation
 public:
 	virtual ~CCtrlObjectInspector();
 
-	// Generated message map functions
 protected:
-	//{{AFX_MSG(CCtrlObjectInspector)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnPaint();
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
@@ -229,13 +202,9 @@ protected:
 	afx_msg void OnKillFocus(CWnd* pNewWnd);
 	afx_msg void OnSetFocus(CWnd* pOldWnd);
 	afx_msg void OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 
-/////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif // !defined(AFX_CTRLOBJECTINSPECTOR_H__A6751B03_5DCC_4993_8D98_89E650E73626__INCLUDED_)

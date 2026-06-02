@@ -15,9 +15,6 @@
  * modified is included with the above copyright notice.
  *
  */ 
-// WARNING: This is an internal header file, included by other C++
-// standard library headers.  You should not attempt to use this header
-// file directly.
 
 
 #ifndef _STLP_INTERNAL_NUMPUNCT_H
@@ -37,8 +34,6 @@
 
 _STLP_BEGIN_NAMESPACE
 
-//----------------------------------------------------------------------
-// numpunct facets
 
 template <class _CharT> class numpunct {};
 template <class _CharT> class numpunct_byname {};
@@ -164,7 +159,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_NUMPUNCT_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

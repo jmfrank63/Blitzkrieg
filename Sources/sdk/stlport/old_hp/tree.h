@@ -55,6 +55,3 @@ using _STLP_STD::rb_tree;
 
 #endif /* _STLP_TREE_H */
 
-// Local Variables:
-// mode:C++
-// End:

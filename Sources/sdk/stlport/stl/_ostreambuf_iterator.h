@@ -15,9 +15,6 @@
  * modified is included with the above copyright notice.
  *
  */ 
-// WARNING: This is an internal header file, included by other C++
-// standard library headers.  You should not attempt to use this header
-// file directly.
 
 
 #ifndef _STLP_INTERNAL_OSTREAMBUF_ITERATOR_H
@@ -32,7 +29,6 @@ _STLP_BEGIN_NAMESPACE
 template <class _CharT, class _Traits>
 extern basic_streambuf<_CharT, _Traits>* _STLP_CALL _M_get_ostreambuf(basic_ostream<_CharT, _Traits>& ) ;
 
-// The default template argument is declared in iosfwd
 template<class _CharT, class _Traits>
 class ostreambuf_iterator
 {
@@ -51,7 +47,6 @@ public:
 
 public:
   ostreambuf_iterator(streambuf_type* __buf) _STLP_NOTHROW : _M_buf(__buf), _M_ok(__buf!=0) {}
-  //  ostreambuf_iterator(ostream_type& __o) _STLP_NOTHROW : _M_buf(_M_get_ostreambuf(__o)), _M_ok(_M_buf != 0) {}
   inline ostreambuf_iterator(ostream_type& __o) _STLP_NOTHROW;
 
   ostreambuf_iterator<_CharT, _Traits>& operator=(char_type __c) {
@@ -91,7 +86,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_OSTREAMBUF_ITERATOR_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

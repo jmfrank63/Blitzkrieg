@@ -1,7 +1,6 @@
 #include "StdAfx.h"
 
 #include "ImageTGA.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum ETGAImageType
 {
 	TGAIT_NOIMAGEDATA				= 0,
@@ -12,7 +11,6 @@ enum ETGAImageType
 	TGAIT_RLE_TRUE_COLOR		= 10,
 	TGAIT_RLE_BLACK_WHITE		= 11
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma pack ( 1 )
 struct SColor24 
 { 
@@ -20,7 +18,6 @@ struct SColor24
 	BYTE g;
 	BYTE r; 
 };
-// describe the color map (if any) used for the image
 struct SColorMapSpecification 
 {
 	WORD wFirstEntryIndex;								// Index of the first color map entry. Index refers to the starting entry in loading the color map.
@@ -28,7 +25,6 @@ struct SColorMapSpecification
 	BYTE cColorMapEntrySize;							// Establishes the number of bits per entry. Typically 15, 16, 24 or 32-bit values are used
 
 };
-//
 struct SImageDescriptor
 {
 	BYTE cAlphaChannelBits : 4;						// the number of attribute bits per pixel
@@ -36,7 +32,6 @@ struct SImageDescriptor
 	BYTE cTopToBottomOrder : 1;						// top-to-bottom ordering 
 	BYTE cUnused           : 2;						// Must be zero to insure future compatibility
 };
-// describe the image screen location, size and pixel depth
 struct SImageSpecification
 {
 	WORD wXOrigin;												// absolute horizontal coordinate for the lower left corner of the image as it is positioned on a display device having an origin at the lower left of the screen 
@@ -63,26 +58,21 @@ struct STGAFileFooter
 	BYTE cBinaryZeroStringTerminator;			// '\0'
 };
 #pragma pack()
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool NImage::RecognizeFormatTGA( IDataStream *pStream )
 {
-	// check for the new/original TGA file format
 	pStream->Seek( -26, STREAM_SEEK_END );
 	STGAFileFooter footer;
 	pStream->Read( &footer, sizeof(footer) );
-	// check for the new
 	char pszSignature[32];
 	memcpy( pszSignature, footer.cSignature, 16 );
 	pszSignature[16] = 0;
 	bool bNewTGA = ( footer.cReservedCharacter == '.' ) && ( strcmp(pszSignature, "TRUEVISION-XFILE") == 0 );
 	if ( bNewTGA )
 		return true;
-	// check for the original
 	STGAFileHeader hdr;
 	pStream->Seek( 0, STREAM_SEEK_SET );
 	pStream->Read( &hdr, sizeof(hdr) );
 	pStream->Seek( 0, STREAM_SEEK_SET );
-	// image type <=> color map type
 	bool bCheck = false;
 	switch ( hdr.cImageType )
 	{
@@ -110,22 +100,12 @@ bool NImage::RecognizeFormatTGA( IDataStream *pStream )
 	}
 	if ( !bCheck )
 		return false;
-	// some fields valid values
 	bCheck = hdr.imagespec.descriptor.cUnused == 0;
 	if ( !bCheck )
 		return false;
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** color convertor classes
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTGAGrayConvertor
 {
 	std::vector<SColor> palette;
@@ -136,11 +116,9 @@ public:
 		for ( int i = 0; i < 256; ++i )
 			palette.push_back( SColor(255, i, i, i) );
 	}
-	//
 	const SColor& operator()( BYTE input ) const { return palette[input]; }
 	bool IsReady() const { return !palette.empty(); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TIndex>
 class CTGAPaletteConvertor
 {
@@ -167,11 +145,9 @@ public:
 				NI_ASSERT_T( 0, NStr::Format("unsupported bit depth (%d) - still not realized", hdr.colormap.cColorMapEntrySize) );
 		}
 	}
-	//
 	const SColor& operator()( const TIndex &input ) const { return palette[input]; }
 	bool IsReady() const { return !palette.empty(); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTGARawColorConvertor
 {
 public:
@@ -180,15 +156,6 @@ public:
 	const SColor operator()( const SColor24 &input ) const { return 0xff000000 | (DWORD(input.r) << 16) | (DWORD(input.g) << 8) | DWORD(input.b); }
 	bool IsReady() const { return true; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** loader classes
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TColor, class TConvertor>
 class CTGARawLoader
 {
@@ -221,20 +188,6 @@ public:
 		return LoadLocal( pImage->GetLFB(), hdr.imagespec.wImageWidth * hdr.imagespec.wImageHeight, convertor, pStream, &separator );
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** RLE encoding:
-// ** 1 byte - the Repetition Count field
-// **          Run-length packet: bit7 = 1, other bits - run-length counter (up to 127)
-// **          Raw-data packet: bit7 = 0,  other bits - number of pixel values (up to 127)
-// ** next bytes (depent on pixel format)
-// **          Run-lenght packet: single color value
-// **          Raw-data packet: 'number of pixel values' color values
-// ** NOTE: all counters must be increased to 1
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TColor, class TConvertor>
 class CTGARLELoader
 {
@@ -285,15 +238,6 @@ public:
 		return nReadedBytes == nReadSizeInBytes;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** different subformats loading functions
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool LoadTrueColorTGA( const STGAFileHeader &hdr, CImage *pImage, IDataStream *pStream )
 {
 	switch ( hdr.imagespec.cPixelDepth )
@@ -307,23 +251,17 @@ bool LoadTrueColorTGA( const STGAFileHeader &hdr, CImage *pImage, IDataStream *p
 			return false;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool LoadColorMappedTGA( const STGAFileHeader &hdr, CImage *pImage, IDataStream *pStream )
 {
 	return CTGARawLoader< BYTE, CTGAPaletteConvertor<BYTE> >::Load( hdr, pImage, pStream );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool LoadBlackAndWhiteTGA( const STGAFileHeader &hdr, CImage *pImage, IDataStream *pStream )
 {
 	NI_ASSERT_TF( hdr.imagespec.cPixelDepth == 8, "Can't read non-8 bit gray image", return false );
 	return CTGARawLoader<BYTE, CTGAGrayConvertor>::Load( hdr, pImage, pStream );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool LoadRLETrueColorTGA( const STGAFileHeader &hdr, CImage *pImage, IDataStream *pStream )
 {
-	// true color have no color map information
-	// ...
-	// image data
 	switch ( hdr.imagespec.cPixelDepth )
 	{
 		case 24:
@@ -335,34 +273,21 @@ bool LoadRLETrueColorTGA( const STGAFileHeader &hdr, CImage *pImage, IDataStream
 			return false;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool LoadRLEColorMappedTGA( const STGAFileHeader &hdr, CImage *pImage, IDataStream *pStream )
 {
 	return CTGARLELoader<BYTE, CTGAPaletteConvertor<BYTE> >::Load( hdr, pImage, pStream );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool LoadRLEBlackAndWhiteTGA( const STGAFileHeader &hdr, CImage *pImage, IDataStream *pStream )
 {
 	return CTGARLELoader<BYTE, CTGAGrayConvertor>::Load( hdr, pImage, pStream );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** main loading function
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CImage* NImage::LoadImageTGA( IDataStream *pStream )
 {
 	STGAFileHeader hdr;
 	pStream->Seek( 0, STREAM_SEEK_SET );
 	pStream->Read( &hdr, sizeof(hdr) );
-	// skip image ID
 	if ( hdr.cIDLength != 0 )
 		pStream->Seek( hdr.cIDLength, STREAM_SEEK_CUR );
-	//
 	CImage *pImage = new CImage( hdr.imagespec.wImageWidth, hdr.imagespec.wImageHeight );
 	bool bLoaded = false;
 	switch ( hdr.cImageType )
@@ -393,7 +318,6 @@ CImage* NImage::LoadImageTGA( IDataStream *pStream )
 				NI_ASSERT_TF( 0, NStr::Format("Unsupported subformat %d for image \"%s\"", hdr.cImageType, pszImageName), return false );
 			}
 	}
-	// post-loading
 	if ( bLoaded ) 
 	{
 		if ( hdr.imagespec.descriptor.cTopToBottomOrder == 0 )
@@ -407,18 +331,8 @@ CImage* NImage::LoadImageTGA( IDataStream *pStream )
 		return 0;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** main save function
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool NImage::SaveImageAsTGA( IDataStream *pStream, const IImage *pImage )
 {
-	// compose and write header
 	STGAFileHeader hdr;
 	Zero( hdr );
 	hdr.cImageType = TGAIT_TRUE_COLOR;
@@ -433,14 +347,12 @@ bool NImage::SaveImageAsTGA( IDataStream *pStream, const IImage *pImage )
 		pStream->Seek( -check, STREAM_SEEK_CUR );
 		return false;
 	}
-	// write color data
 	const int nNumElements = int(hdr.imagespec.wImageWidth) * int(hdr.imagespec.wImageHeight);
 	const int nWriteSizeBytes = nNumElements * 4; // 4 = hdr.imagespec.cPixelDepth / 8
 	NI_ASSERT_T( nWriteSizeBytes > 0, NStr::Format("image size %d : %d are too big (>2GB) - can't save it", int(hdr.imagespec.wImageWidth), int(hdr.imagespec.wImageHeight)) );
 	check = pStream->Write( pImage->GetLFB(), nWriteSizeBytes );
 	if ( check != nWriteSizeBytes )
 		return false;
-	// compose and write TGA file footer
 	STGAFileFooter footer;
 	Zero( footer );
 	memcpy( footer.cSignature, "TRUEVISION-XFILE", 16 );
@@ -448,4 +360,3 @@ bool NImage::SaveImageAsTGA( IDataStream *pStream, const IImage *pImage )
 	check = pStream->Write( &footer, sizeof(footer) );
 	return check == sizeof( footer );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

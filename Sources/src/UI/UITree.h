@@ -1,11 +1,9 @@
 #ifndef __UI_TREE_H__
 #define __UI_TREE_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "UIBasic.h"
 #include "UISlider.h"
 
 #ifdef OLD
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SUITreeItem : public IUITreeItem
 {
 	OBJECT_NORMAL_METHODS( SUITreeItem );
@@ -32,14 +30,11 @@ public:
 	virtual IUITreeIterator STDCALL GetEnd() { return treeItems.end(); }
 	virtual int STDCALL GetUserData() { return nData; }
 	
-	// serializing...
 	virtual int STDCALL operator&( IDataTree &ss );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUITree : public CMultipleWindow
 {
 	DECLARE_SERIALIZE;
-	//
 	CUIScrollBar *pScrollBar;				//инициализируется во время загрузки и используется для ускорения доступа к компонентам
 
 	int nLeftSpace;
@@ -53,7 +48,6 @@ class CUITree : public CMultipleWindow
 	CPtr<SUITreeItem> pRoot;
 	CPtr<SUITreeItem> pSelection;
 
-	//Для отрисовки Selection
 	std::vector<SWindowSubRect> selSubRects;
 	CPtr<IGFXTexture> pSelectionTexture;				// внешний вид - текстура
 
@@ -71,23 +65,17 @@ public:
 
 	virtual bool STDCALL ProcessMessage( const SUIMessage &msg );
 
-	// serializing...
 	virtual int STDCALL operator&( IDataTree &ss );
 
-	// drawing
 	virtual void STDCALL Draw( IGFX *pGFX );
 	virtual void STDCALL Visit( interface ISceneVisitor *pVisitor );
 	
 	virtual bool STDCALL OnLButtonDown( const CVec2 &vPos, EMouseState mouseState );
 	
-	//Public interface
 	virtual SUITreeItem* STDCALL GetRootTreeItem() { return pRoot; }
-//	virtual SUITreeItem* STDCALL Get
-	//selection operations
 	virtual void STDCALL SetSelectionItem( SUITreeItem *pTreeItem );
 	virtual SUITreeItem* STDCALL GetSelectionItem() { return pSelection; }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUITreeBridge : public IUITreeControl, public CUITree
 {
 	OBJECT_NORMAL_METHODS( CUITreeBridge );
@@ -95,5 +83,4 @@ class CUITreeBridge : public IUITreeControl, public CUITree
 	DEFINE_UICONTAINER_BRIDGE;
 };
 #endif	//OLD
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif //__UI_TREE_H__

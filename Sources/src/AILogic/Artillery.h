@@ -1,10 +1,7 @@
 #ifndef __ARTILLERY_H__
 #define __ARTILLERY_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "AIUnit.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUnitGuns;
 class CTurret;
 interface IPath;
@@ -12,7 +9,6 @@ class CFormation;
 class CAIUnit;
 class CArtilleryBulletStorage;
 class CMechUnitGuns;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CArtillery : public CAIUnit
 {
 	OBJECT_NORMAL_METHODS( CArtillery );
@@ -22,14 +18,11 @@ class CArtillery : public CAIUnit
 
 	int nInitialPlayer;
 
-	// орудийные стволы
 	CPtr<CMechUnitGuns> pGuns;
 
-	// вращающаяся пушка
 	std::vector< CObj<CTurret> > turrets;
 
 	EActionNotify eCurInstallAction, eNextInstallAction;
-	// в каком из install/uninstall мы сейчас находимся
 	EActionNotify eCurrentStateOfInstall;
 
 	bool bInstalled;
@@ -55,14 +48,11 @@ class CArtillery : public CAIUnit
 
 	NTimer::STime behUpdateDuration;
 
-	// создаёт ammo box для AI, но не посылает его на визуализацию
 	void CreateAmmoBox();
 
-	// видет ли ammo box игроку
 	void ShowAmmoBox();
 	void HideAmmoBox();
 
-	//
 	bool IsInstallActionFinished();
 	bool ShouldSendInstallAction( const EActionNotify &eAction ) const;
 protected:
@@ -93,7 +83,6 @@ public:
 	virtual const EActionNotify GetIdleAction() const { return ACTION_NOTIFY_IDLE; }
 	virtual const EActionNotify GetMovingAction() const { return ACTION_NOTIFY_MOVE; }
 
-	//
 	virtual int GetNGuns() const;
 	virtual class CBasicGun* GetGun( const int n ) const;
 
@@ -105,7 +94,6 @@ public:
 
 	void InstallBack( bool bAlreadyDone ); // инсталлировать артиллерию обратно, если она не деинсталлирована - то ошибка.
 	virtual void InstallAction( const EActionNotify eInstallAction, bool bAlreadyDone = false );
-	// проинсталлировать прямо сейчас
 	void ForceInstallAction();
 
 	virtual const bool NeedDeinstall() const;
@@ -123,7 +111,6 @@ public:
 	virtual float GetMaxFireRange() const;
 	virtual void GetRangeArea( struct SShootAreas *pRangeArea ) const;
 		
-	// бонусы
 	virtual const float GetDispersionBonus() const;
 	virtual const void SetDispersionBonus( const float fBonus ) { fDispersionBonus = fBonus; }
 
@@ -132,7 +119,6 @@ public:
 	virtual bool TurnToDir( const WORD &newDir, const bool bCanBackward = true, const bool bForward = true );
 	virtual bool TurnToUnit( const CVec2 &targCenter );
 
-	// обслуживание пушки артиллеристами
 	virtual void ChangePlayer( const BYTE cPlayer );
 	virtual void SetCrew( class CFormation * _pCrew, const bool bCapture = true );
 	virtual void DelCrew();
@@ -144,24 +130,19 @@ public:
 
 	virtual void Disappear();
 
-	//для буксировки
 	virtual CVec2 GetTowPoint();
 	
-	//CRAP { к майлстоуну заплатка
 	virtual void SetSlaveTransport( class CAIUnit* _pSlaveTransport ){ pSlaveTransport = _pSlaveTransport; }
 	virtual bool HasSlaveTransport();
 	virtual class CAIUnit* GetSlaveTransport() { return pSlaveTransport; }
-	//CRAP } 
 
 	const CVec2 GetAmmoBoxCoordinates();
 
 	virtual const float GetMaxSpeedHere( const CVec2 &point, bool bAdjust = true ) const;
 	virtual const float GetRotateSpeed() const;
 
-	// разрещает / запрещает  всем Gun у данной пушки стрелять
 	virtual void DoAllowShoot( bool allow );
 
-	// у всех пушек очищает флаг на ожидание перезарядки
 	virtual void ClearWaitForReload();
 	
 	virtual bool IsColliding() const;
@@ -185,17 +166,14 @@ public:
 	int GetInitialPlayer() const { return nInitialPlayer; }
 	void SetInitialPlayer( const int nPlayer ) { nInitialPlayer = nPlayer; }
 	virtual const NTimer::STime& GetBehUpdateDuration() const ;
-	//
 	bool IsBeingCaptured() const ;
 	void SetCapturingUnit( CFormation * pFormation ) ;
 	CFormation * GetCapturedUnit() { return pCapturingUnit; }
 	
-	// to allow only one transport to hook artillery
 	bool IsBeingHooked() const;
 	void SetBeingHooked( class CAIUnit *pUnit );
 	CAIUnit *GetHookingTransport();
 	
 	void UpdateAmmoBoxVisibility();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __ARTILLERY_H__

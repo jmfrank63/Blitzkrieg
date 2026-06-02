@@ -8,7 +8,6 @@
 
 #include "..\StreamIO\StreamIOHelper.h"
 #include "..\StreamIO\StreamIOTypes.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CLanChat::InitInGameChat( INetDriver *_pNetDriver )
 {
 	pNetDriver = _pNetDriver;
@@ -17,7 +16,6 @@ void CLanChat::InitInGameChat( INetDriver *_pNetDriver )
 
 	pNetDriver->AddChannel( 1, messages );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CLanChat::SendMessage( const WORD *pszMessage, const SPlayerInfo &ourPlayer )
 {
 	BYTE msgID = NGM_CHAT_MESSAGE;
@@ -31,7 +29,6 @@ void CLanChat::SendMessage( const WORD *pszMessage, const SPlayerInfo &ourPlayer
 	if ( ourPlayer.fPing != -1.0f && ourPlayer.nSide != -1 )
 		messages.AddMessage( new CChatMessage( pszMessage, ToWordString( ourPlayer.szName ), false ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CLanChat::SendWhisperMessage( const WORD *pszMessage, const SPlayerInfo &toPlayer, const SPlayerInfo &ourPlayer )
 {
 	BYTE msgID = NGM_CHAT_MESSAGE;
@@ -48,7 +45,6 @@ void CLanChat::SendWhisperMessage( const WORD *pszMessage, const SPlayerInfo &to
 	if ( ourPlayer.fPing != -1.0f && ourPlayer.nSide != -1 )	
 		messages.AddMessage( new CChatMessage( pszMessage, ToWordString( ourPlayer.szName ), true ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CLanChat::Segment()
 {
 	INetDriver::EMessage eMsgID;
@@ -79,9 +75,7 @@ void CLanChat::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IMultiplayerMessage* CLanChat::GetMessage()
 {
 	return messages.GetMessage();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

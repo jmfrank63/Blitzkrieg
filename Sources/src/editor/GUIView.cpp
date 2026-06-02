@@ -11,8 +11,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CGUIView
 
 CGUIView::CGUIView()
 {
@@ -24,14 +22,10 @@ CGUIView::~CGUIView()
 
 
 BEGIN_MESSAGE_MAP(CGUIView, CWnd)
-//{{AFX_MSG_MAP(CGUIView)
 ON_WM_PAINT()
-//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CGUIView message handlers
 
 BOOL CGUIView::PreCreateWindow(CREATESTRUCT& cs) 
 {
@@ -65,7 +59,6 @@ void CGUIView::OnPaint()
 */
 
 
-	//	if ( g_frameManager.GetObjectFrame()->IsRunning() )
 	{
 		RECT valRC;
 		((CWnd *) g_frameManager.GetGameWnd())->GetWindowRect( &valRC );

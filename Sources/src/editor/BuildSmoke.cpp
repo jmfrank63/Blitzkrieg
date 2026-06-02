@@ -28,7 +28,6 @@ void CBuildingFrame::SelectSmokePoint( CBuildingSmokePropsItem *pSmokePoint )
 {
 	if ( pActiveSmokePoint )
 	{
-		//устанавливаем предыдущий активный smoke point в неактивное состояние
 		pActiveSmokePoint->pSprite->SetOpacity( MIN_OPACITY );
 		pActiveSmokePoint->pHLine->SetOpacity( 0 );
 	}
@@ -88,13 +87,11 @@ void CBuildingFrame::ComputeSmokeLines()
 	vLine2.x = vCenter3.x - (float) (EDGE_LENGTH - 20) * sin( fA + fTemp );
 	vLine2.y = vCenter3.y + (float) (EDGE_LENGTH - 20) * cos( fA + fTemp );
 	
-	//теперь мы нашли точки v1, v2, получим 2D координаты для построения линий
 	{
 		CVerticesLock<SGFXTLVertex> vertices( pFireDirectionVertices );
 		
 		CVec2 v;
 		
-		//0xffff60e6 == (255, 96, 230) розовый цвет
 		DWORD dwColor = 0xffffff00;
 		vertices[0].Setup( vCenter2.x, vCenter2.y, 1, 1, dwColor, 0xff000000, 0, 0 );
 		vertices[1].Setup( vPos2.x, vPos2.y, 1, 1, dwColor, 0xff000000, 0, 0 );
@@ -156,7 +153,6 @@ void CBuildingFrame::SetSmokePointAngle( const POINT &point )
 	CVec3 vPos3;
 	pSG->GetPos3( &vPos3, vPos2 );
 	
-	//Пересчитаем из координат на плоскости в значения углов
 	CVec3 vCone;
 	vCone.x = vPos3.x - vCenter3.x;
 	vCone.y = vPos3.y - vCenter3.y;
@@ -207,7 +203,6 @@ void CBuildingFrame::AddOrSelectSmokePoint( const POINT &point )
 	objShift = VNULL2;
 	zeroShift = VNULL2;
 	
-	//проверяем, вдруг smoke point с такими координатами уже существует
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	CTreeItem *pRootItem = pTree->GetRootItem();
 	CTreeItem *pSmokeItems = pRootItem->GetChildItem( E_BUILDING_SMOKES_ITEM );
@@ -223,11 +218,9 @@ void CBuildingFrame::AddOrSelectSmokePoint( const POINT &point )
 		if ( point.x >= vPos2.x - SHOOT_PICTURE_SIZE && point.x <= vPos2.x + SHOOT_PICTURE_SIZE &&
 			point.y >= vPos2.y - SHOOT_PICTURE_SIZE && point.y <= vPos2.y + SHOOT_PICTURE_SIZE )
 		{
-			//выделяем этот smoke point
 			SelectSmokePoint( pProps );
 			pProps->SelectMeInTheTree();
 
-			//начинаем перетаскивать этот компонент
 			SetChangedFlag( true );
 			objShift.x = vPos2.x - point.x;
 			objShift.y = vPos2.y - point.y;
@@ -238,7 +231,6 @@ void CBuildingFrame::AddOrSelectSmokePoint( const POINT &point )
 			zeroShift.y = vPos2.y - point.y;
 
 			m_mode = E_SET_SMOKE_POINT;
-			//pTreeDockBar->SetFocus();
 			g_frameManager.GetGameWnd()->SetCapture();
 			return;
 		}
@@ -246,11 +238,9 @@ void CBuildingFrame::AddOrSelectSmokePoint( const POINT &point )
 	
 	if ( !ComputeMaxAndMinPositions( smokePos3 ) )
 	{
-		//Не нашел пересечения с залоченными тайлами, не добавляю точку
 		return;
 	}
 	
-	//добавляем спрайт 'точка дыма' с такими координатами
 	IVisObjBuilder *pVOB = GetSingleton<IVisObjBuilder>();
 	CPtr<IObjVisObj> pObject = static_cast<IObjVisObj *> ( pVOB->BuildObject( "editor\\shoot\\1", 0, SGVOT_SPRITE ) );
 	NI_ASSERT( pObject != 0 );
@@ -265,18 +255,15 @@ void CBuildingFrame::AddOrSelectSmokePoint( const POINT &point )
 	pSG->AddObject( pObject, SGVOGT_OBJECT );
 	pObject->SetOpacity( MAX_OPACITY );
 	
-	//добавляем точку дыма в дерево
 	CBuildingSmokePropsItem *pNewPoint = new CBuildingSmokePropsItem;
 	pNewPoint->SetItemName( "Smoke point" );
 	pNewPoint->pSprite = pObject;
 	
-	//Копируем в новый smoke point информацию из старого
 	if ( pActiveSmokePoint )
 		pNewPoint->SetDirection( pActiveSmokePoint->GetDirection() );
 	else
 		pNewPoint->SetDirection( 0 );
 	
-	//нашел точку пересечения
 	CVec3 vHPos3 = smokePos3;
 	if ( pActiveSmokePoint )
 	{
@@ -301,7 +288,6 @@ void CBuildingFrame::AddOrSelectSmokePoint( const POINT &point )
 		pSG->GetPos3( &vHPos3, vPos2 );
 	}
 	
-	//создаем спрайт - горизонтальную линию
 	pObject = static_cast<IObjVisObj *> ( pVOB->BuildObject( "editor\\shoot_horizontal\\1", 0, SGVOT_SPRITE ) );
 	NI_ASSERT( pObject != 0 );
 	
@@ -316,7 +302,6 @@ void CBuildingFrame::AddOrSelectSmokePoint( const POINT &point )
 	
 	SelectSmokePoint( pNewPoint );
 	pNewPoint->SelectMeInTheTree();
-//	pOIDockBar->SetItemProperty( pActiveSmokePoint->GetItemName(), pActiveSmokePoint );
 	SetChangedFlag( true );
 	GFXDraw();
 }
@@ -348,7 +333,6 @@ void CBuildingFrame::GenerateSmokePoints()
 		pActiveSmokePoint = 0;
 	}
 	
-	//Сперва найдем минимальные и максимальные координаты тайлов в lockedTiles
 	NI_ASSERT( !lockedTiles.empty() );
 	int nTileMinX = lockedTiles.front().nTileX, nTileMaxX = lockedTiles.front().nTileX;
 	int nTileMinY = lockedTiles.front().nTileY, nTileMaxY = lockedTiles.front().nTileY;
@@ -388,7 +372,6 @@ void CBuildingFrame::GenerateSmokePoints()
 	CVec3 v3;
 	pTimer->Update( timeGetTime() );
 	
-	//front left
 	for ( int i=0; i<(nTileMaxX-nTileMinX+1)/2; i++ )
 	{
 		v2.x = fLeftX + i * fCellSizeX + fCellSizeX / 4;
@@ -407,7 +390,6 @@ void CBuildingFrame::GenerateSmokePoints()
 		pSmokeItems->AddChild( pProps );
 	}
 
-	//front right
 	for ( int i=0; i<(nTileMaxY-nTileMinY+1)/2; i++ )
 	{
 		v2.x = fBottomX + i * fCellSizeX + fCellSizeX / 4;
@@ -426,7 +408,6 @@ void CBuildingFrame::GenerateSmokePoints()
 		pSmokeItems->AddChild( pProps );
 	}
 
-	//back right
 	for ( int i=0; i<(nTileMaxX-nTileMinX+1)/2; i++ )
 	{
 		v2.x = fRightX - i * fCellSizeX - fCellSizeX / 4;
@@ -445,7 +426,6 @@ void CBuildingFrame::GenerateSmokePoints()
 		pSmokeItems->AddChild( pProps );
 	}
 	
-	//back left
 	for ( int i=0; i<(nTileMaxY-nTileMinY+1)/2; i++ )
 	{
 		v2.x = fTopX - i * fCellSizeX - fCellSizeX / 4;

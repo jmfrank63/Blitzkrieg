@@ -2,18 +2,14 @@
 #define __AI_LOGIC_INTERNAL_H__
 
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "AILogic.h"
 #include "Scripts\Scripts.h"
 #include "..\zlib\zlib.h"
 #include "LinkObject.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCommonUnit;
 class CAIUnit;
 class CBridgeSpan;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::unordered_map<CLinkObject*, SMapObjectInfo::SLinkInfo, SUniqueIdHash> LinkInfo;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAILogic : public IAILogic
 {
 	OBJECT_NORMAL_METHODS( CAILogic );
@@ -22,14 +18,11 @@ class CAILogic : public IAILogic
 	bool bSuspended;
 	bool bFirstTime;
 	
-	// �����
 	typedef std::list< std::list<CPtr<CBridgeSpan> > > Bridges;
 	Bridges bridges;
 
-	//
 	std::list< CObj<CCommonUnit> > garbage;
 
-	// �������
 	CScripts scripts;
 	CPtr<ISegmentTimer> pGameSegment;
 	
@@ -46,13 +39,8 @@ class CAILogic : public IAILogic
 	
 	typedef std::unordered_set<CGDBPtr<SMechUnitRPGStats>, SDefaultPtrHash> CAvailTrucks;
 	CAvailTrucks availableTrucks;
-	// ���������, �� �������� �� object ����������, ����������� � ����������� ����������
-	// ���� ��, ���� ���������� � ���������� �������� (� pNewStats) � ���������� true, ���� ���������� �� ������� - ���������� false
-	// ���� ��� �� �������� ����� ����������, ���������� true
 	bool CheckForScenarioTruck( const SMapObjectInfo &object, IObjectsDB *pIDB, const SGDBObjectDesc *pDesc, const int nDBIndex, LinkInfo *linksInfo, const SMechUnitRPGStats **pNewStats ) const;
 
-	// Loading
-	// ����� �������������, ����� ��� ���� � ���������
 	void CommonInit( const STerrainInfo &terrainInfo );
 
 	void LoadUnits( const struct SLoadMapInfo &mapInfo, LinkInfo *linksInfo );
@@ -60,7 +48,6 @@ class CAILogic : public IAILogic
 	void InitReservePositions();
 	void InitStartCommands();
 	void LaunchStartCommand( const SAIStartCommand &startCommand, IRefCount **pUnitsBuffer, const int nSize );
-	// bSend - whether to send checksum
 	void UpdateCheckSum( bool bSend );
 
 	void LoadAvailableTrucks();
@@ -82,7 +69,6 @@ public:
 	virtual void STDCALL InitEditor( const struct STerrainInfo &terrainInfo );
 	virtual void STDCALL Clear();
 
-	// Note: These functions use the temp buffer
 	virtual void STDCALL UpdatePlacements( SAINotifyPlacement **pObjPosBuffer, int *pnLen );
 	virtual void STDCALL UpdateActions( SAINotifyAction **pActionsBuffer, int *pnLen );
 	virtual void STDCALL UpdateRPGParams( SAINotifyRPGStats **pUnitRPGBuffer, int *pnLen );
@@ -91,7 +77,6 @@ public:
 	
 	virtual void STDCALL UpdateFeedbacks( struct SAIFeedBack **pFeedBacksBuffer, int *pnLen );
 
-	// Note: These functions use the temp buffer
 	virtual void STDCALL UpdateShots( struct SAINotifyMechShot **pShots, int *pnLen );	
 	virtual void STDCALL UpdateShots( struct SAINotifyInfantryShot **pShots, int *pnLen );
 
@@ -104,25 +89,19 @@ public:
 	
 	virtual void STDCALL EndUpdates();
 
-	// Note: This function uses the temp buffer
 	virtual void STDCALL GetNewUnits( SNewUnitInfo **pNewUnitBuffer, int *pnLen );
-	// Note: This function uses the temp buffer
 	virtual void STDCALL GetNewStaticObjects( struct SNewUnitInfo **pObjects, int *pnLen );
 	virtual void STDCALL GetEntrenchments( struct SSegment2Trench **pEntrenchemnts, int *pnLen );
 	virtual void STDCALL GetFormations( struct SSoldier2Formation **pFormations, int *pnLen );
 	virtual void STDCALL GetNewBridgeSpans( struct SNewUnitInfo **pObjects, int *pnLen );
 	virtual bool STDCALL GetNewBridge( IRefCount ***pSpans, int *pnLen );
 
-	// Note: This function uses the temp buffer
 	virtual void STDCALL GetDeadUnits( SAINotifyDeadAtAll **pDeadUnitsBuffer, int *pnLen );
-	// Note: This function uses the temp buffer
 	virtual void STDCALL GetDisappearedUnits( IRefCount ***pUnitsBuffer, int *pnLen );
-	// Note: This function uses the temp buffer
 	virtual void STDCALL GetDeletedStaticObjects( IRefCount ***pObjBuffer, int *pnLen );
 	virtual void STDCALL GetRevealCircles( CCircle **pCircleBuffer, int *pnLen );
 	
 	virtual void STDCALL UnitCommand( const SAIUnitCmd *pCommand, const WORD wGroupID, const int nPlayer );
-	// Note: This function uses the temp buffer	
 	virtual void STDCALL GetVisibilities( const class CVec2 &upLeft, const class CVec2 &downLeft, 
 																				const class CVec2 &downRight, const class CVec2 &upRight,
 																				struct SAIVisInfo **pVisBuffer, int *pnLen ) const;
@@ -152,9 +131,7 @@ public:
 
 	virtual void STDCALL Segment();
 
-	//CRAP{�� ���� ��������� ������������� � ���������
 	IRefCount* AddObject( const SMapObjectInfo &object, IObjectsDB *pIDB, LinkInfo *linksInfo, bool bInitialization, bool IsEditor, const SHPObjectRPGStats *pPassedStats );
-	//CRAP}�� ���� ��������� ������������� � ���������
 	void InitLinks( LinkInfo &linksInfo );
 	void LoadEntrenchments( const std::vector<struct SEntrenchmentInfo> &entrenchments );
 	void LoadBridges( const std::vector< std::vector<int> > &bridgesInfo );
@@ -183,7 +160,6 @@ public:
 	virtual CVec2 STDCALL LockAvitaionAppearPoint();
 	virtual void STDCALL UnlockAviationAppearPoint();
 	
-		// difficuly levels
 	virtual void STDCALL SetDifficultyLevel( const int nLevel );
 	virtual void STDCALL SetCheatDifficultyLevel( const int nCheatLevel );
 	
@@ -191,7 +167,6 @@ public:
 
 	virtual void STDCALL SendAcknowlegdementForced( IRefCount *pObj, const EUnitAckType eAck );	
 
-	// for debug
 	virtual int STDCALL GetUniqueID( IRefCount *pObj ) 
 	{ 
 		if ( CLinkObject *pLinkObj = dynamic_cast<CLinkObject*>(pObj) ) 
@@ -200,7 +175,6 @@ public:
 			return 0;
 	}
 	
-	// ��� ���� � multiplayer: ��� ������ ����������� � ���� ����������
 	virtual void STDCALL NetGameStarted();
 	virtual bool STDCALL IsNetGameStarted() const;
 
@@ -216,5 +190,4 @@ public:
 	
 	virtual void STDCALL GetGridUnitsCoordinates( const int nGroup, const CVec2 &vGridCenter, CVec2 **pCoord, int *pnLen );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __AI_LOGIC_INTERNAL_H__

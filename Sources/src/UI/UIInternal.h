@@ -1,10 +1,8 @@
 #ifndef __UIINTERNAL_H__
 #define __UIINTERNAL_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Main\TextSystem.h"
 #include "..\sfx\sfx.h"
 #include "MaskSystem.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EUIWindowSubState
 {
 	E_NORMAL_STATE				= 0,
@@ -14,17 +12,11 @@ enum EUIWindowSubState
 
 	UI_ESS_FORCE_DWORD	= 0x7fffffff
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// состояние элемента состоит из 3х подсостояний: нормальный, подсвеченный, придавленный и запрещённый
-// в каждом из этих подсостояний можно изменить весь внешний вид элемента
-// пока элемент считается прямоугольным. 
-// в принципе, ничего не мешает иметь элемент произвольной геометрии, но тогда проверка на попадание в него будет погеморройнее
 struct SWindowSubRect
 {
 	CTRect<float> rc;
 	CTRect<float> mapa;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct CUIWindowSubState
 {
 private:
@@ -62,7 +54,6 @@ private:
 	void LoadTextureAndSubRects( CTreeAccessor *pFile );
 	void LoadTileRects( CTreeAccessor *pFile );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct CWindowState
 {
 private:
@@ -85,15 +76,12 @@ public:
 	CWindowState() {}
 	IManipulator *GetManipulator();
 
-	// duplicate
 	void CopyInternals( CWindowState * pS ) const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void LoadTileRectangles( CTreeAccessor *pFile, std::vector<SWindowSubRect> &subRects, DTChunkID sName, IGFXTexture *pTexture );
 void SaveTextureAndMap( CTreeAccessor *pFile, IGFXTexture *pTexture, DTChunkID tName, const CTRect<float> &maps, DTChunkID mName );
 void LoadTextureAndMap( CTreeAccessor *pFile, CPtr<IGFXTexture> *ppTexture, DTChunkID tName, CTRect<float> *pMaps, DTChunkID mName );
 void SaveSound( CTreeAccessor *pFile, ISound *pSound, DTChunkID sName );
 void LoadSound( CTreeAccessor *pFile, CPtr<ISound> *ppSound, DTChunkID sName );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #endif // __UIINTERNAL_H__

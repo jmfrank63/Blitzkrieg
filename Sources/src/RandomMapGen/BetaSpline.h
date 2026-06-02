@@ -1,7 +1,6 @@
 #ifndef __BETASPLINE_H__
 #define __BETASPLINE_H__
 
-//#include "Geometry.h"
 
 class CBetaSpline
 {

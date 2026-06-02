@@ -2,7 +2,6 @@
 #include "UIComboBox.h"
 #include "UIMessages.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIComboBox::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -15,7 +14,6 @@ int CUIComboBox::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIComboBox::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -27,7 +25,6 @@ int CUIComboBox::operator&( IDataTree &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIComboBox::AddItem( IUIElement *pElement )
 {
 	if ( items.size() == 0 )
@@ -39,13 +36,11 @@ void CUIComboBox::AddItem( IUIElement *pElement )
 	items.push_back( pElement );
 	AddChild( pElement );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIComboBox::Reposition( const CTRect<float> &rcParent )
 {
 	NI_ASSERT_T( bComboShown == 0, "Error in CUIComboBox" );
 	int nV = wndRect.Height();
 
-	//���������� items
 	CVec2 vPos, vSize;
 	vPos.x = nItemLeftSpace;
 	for ( CWindowList::const_iterator it=items.begin(); it!=items.end(); ++it )
@@ -60,18 +55,15 @@ void CUIComboBox::Reposition( const CTRect<float> &rcParent )
 
 	CMultipleWindow::Reposition( rcParent );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
 void CUIComboBox::SetFocus( bool bFocus )
 {
 	if ( !bFocus && bComboShown )
 	{
-		//������� ������ ��� ������, ������ �����
 		ShowCombo( false );
 	}
 }
 */
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIComboBox::ShowCombo( bool bShow )
 {
 	NI_ASSERT_T( bShow != bComboShown, "Error in CUIComboBox()" );
@@ -86,7 +78,6 @@ void CUIComboBox::ShowCombo( bool bShow )
 		fHeight += vSize.y;
 	}
 
-	//������� ������� ������
 	if ( bShow )
 	{
 		saveRect = wndRect;
@@ -97,12 +88,10 @@ void CUIComboBox::ShowCombo( bool bShow )
 		wndRect = saveRect;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIComboBox::Visit( interface ISceneVisitor *pVisitor )
 {
 	CMultipleWindow::Visit( pVisitor );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIComboBox::Draw( IGFX *pGFX )
 {
 	NI_ASSERT_SLOW_T( false, "Can't user Draw() directly - use visitor pattern" );
@@ -110,7 +99,6 @@ void CUIComboBox::Draw( IGFX *pGFX )
 
 	CMultipleWindow::Draw( pGFX );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIComboBox::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 {
 	bool bRet = CMultipleWindow::OnLButtonDown( vPos, mouseState );
@@ -118,7 +106,6 @@ bool CUIComboBox::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 	{
 		if ( bRet )
 		{
-			//������ � ������� ������, ���� ����������
 			ShowCombo( true );
 		}
 		return bRet;
@@ -130,16 +117,13 @@ bool CUIComboBox::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 		return bRet;
 	}
 
-	//������ ������� ���� ��� ����
 	if ( saveRect.IsInside( vPos ) )
 	{
-		//�������
 		ShowCombo( false );
 		return bRet;
 	}
 	else
 	{
-		//������ ����� ���������� items
 		int nV = saveRect.Height();
 		float fY = vPos.y - wndRect.y1;
 		if ( fY < nV )
@@ -159,12 +143,10 @@ bool CUIComboBox::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 		
 		if ( it != items.end() )
 		{
-			//����� ����� ���������
 			IUIElement *pElement = *it;
 			SetWindowText( 0, pElement->GetWindowText( 0 ) );
 			nSelItem = nTempItem;
 
-			//�������� ������ ��������� �� ��������� selection state
 			SUIMessage msg;
 			msg.nMessageCode = UI_NOTIFY_SELECTION_CHANGED;
 			msg.nFirst = GetWindowID();
@@ -176,7 +158,6 @@ bool CUIComboBox::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 
 	return bRet;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUIElement* CUIComboBox::GetItem( int nItem )
 {
 	int i = 0;
@@ -190,14 +171,12 @@ IUIElement* CUIComboBox::GetItem( int nItem )
 	NI_ASSERT( 0 );
 	return 0;		//WTF
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIComboBox::Clear()
 {
 	RemoveAllChildren();
 	nSelItem = -1;
 	SetWindowText( 0, L"" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIComboBox::SetSelectionItem( int nItem )
 {
 	NI_ASSERT_T( nItem < items.size(), "Invalid selection item index" );
@@ -211,4 +190,3 @@ void CUIComboBox::SetSelectionItem( int nItem )
 		i++;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

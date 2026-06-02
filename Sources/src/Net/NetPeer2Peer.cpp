@@ -1,6 +1,5 @@
 #include "StdAfx.h"
 #include "NetPeer2Peer.h"
-//#define LOG
 #ifdef LOG
 #include <iostream>
 #endif
@@ -12,12 +11,8 @@
 #ifdef __LOG__
 #include "..\StreamIO\globals.h"
 #endif // __LOG__n
-/////////////////////////////////////////////////////////////////////////////////////
 namespace NNet
 {
-/////////////////////////////////////////////////////////////////////////////////////
-// CP2PTracker
-/////////////////////////////////////////////////////////////////////////////////////
 enum EPacket
 {
 	PKT_ADD_CLIENT,
@@ -27,7 +22,6 @@ enum EPacket
 	PKT_ACK,
 	PKT_KICK_ADDR
 };
-/////////////////////////////////////////////////////////////////////////////////////
 void CP2PTracker::AddOutputMessage( EOutMessage msg, const UCID &_from, 
 		const CMemoryStream *pData, std::vector<UCID> *pReceived )
 {
@@ -88,7 +82,6 @@ void CP2PTracker::AddOutputMessage( EOutMessage msg, const UCID &_from,
 */
 #endif // __LOG__
 }
-/////////////////////////////////////////////////////////////////////////////////////
 bool CP2PTracker::GetMessage( SMessage *pRes )
 {
 	if ( output.empty() )
@@ -97,7 +90,6 @@ bool CP2PTracker::GetMessage( SMessage *pRes )
 	output.pop_front();
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////
 CP2PTracker::SPeer* CP2PTracker::GetClient( const UCID &addr )
 {
 	for ( std::list<SPeer>::iterator i = clients.begin(); i != clients.end(); ++i )
@@ -107,7 +99,6 @@ CP2PTracker::SPeer* CP2PTracker::GetClient( const UCID &addr )
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////
 CP2PTracker::SPeer* CP2PTracker::GetClient( PEER_ID id )
 {
 	for ( std::list<SPeer>::iterator i = clients.begin(); i != clients.end(); ++i )
@@ -117,7 +108,6 @@ CP2PTracker::SPeer* CP2PTracker::GetClient( PEER_ID id )
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////
 bool CP2PTracker::IsActive( const UCID &addr )
 {
 	SPeer *pTest = GetClient( addr );
@@ -125,7 +115,6 @@ bool CP2PTracker::IsActive( const UCID &addr )
 		return false;
 	return pTest->IsActive();
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CP2PTracker::CheckQueuedMessages( SPeer *pWho )
 {
 	while ( !pWho->messages.empty() )
@@ -147,8 +136,6 @@ void CP2PTracker::CheckQueuedMessages( SPeer *pWho )
 	}
 	CheckCorpses();
 }
-/////////////////////////////////////////////////////////////////////////////////////
-// check if it is time to remove some inactive clients
 void CP2PTracker::CheckCorpses()
 {
 	for ( std::list<SPeer>::iterator i = clients.begin(); i != clients.end(); )
@@ -162,7 +149,6 @@ void CP2PTracker::CheckCorpses()
 			++i;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CP2PTracker::AddKickApprove( const UCID &victim, const UCID &kickFrom )
 {
 	SPeer *pV = GetClient( victim );
@@ -174,18 +160,15 @@ void CP2PTracker::AddKickApprove( const UCID &victim, const UCID &kickFrom )
 	else
 		ASSERT( 0 );
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CP2PTracker::ApproveKick( SPeer *pVictim, const UCID &from )
 {
 	pVictim->requireKick.remove( from );
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CP2PTracker::ReceiveDirect( SPeer *pWho, CMemoryStream &data )
 {
 #ifdef LOG
 	cout << "RECV direct from " << pWho->addr.GetFastName() << endl;
 #endif
-	// add to pending list
 	pWho->messages.push_back( SQMessage() );
 	SQMessage &b = pWho->messages.back();
 	b.msg = data;
@@ -193,30 +176,25 @@ void CP2PTracker::ReceiveDirect( SPeer *pWho, CMemoryStream &data )
 	b.bDirect = true;
 	CheckQueuedMessages( pWho );	
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CP2PTracker::ReceiveBroadcast( SPeer *pWho, CMemoryStream &data, int nID )
 {
 #ifdef LOG
 	cout << "RECV broadcast from " << pWho->addr.GetFastName() << " msg " << nID << endl;
 #endif
-	// add to pending list
 	pWho->messages.push_back( SQMessage() );
 	SQMessage &b = pWho->messages.back();
 	b.msg = data;
 	b.nID = nID;
 	b.bDirect = false;
-	// set pending acks to intersection between active hosts from pWho view and current host view
 	for ( std::list<SPeerClient>::iterator i = pWho->clients.begin(); i != pWho->clients.end(); ++i )
 	{
 		SPeer *pTest = GetClient( i->addr );
 		if ( pTest && pTest->IsActive() )
 		{
-			// add ack request if such client exist
 			b.acks.push_back( SAck() );
 			SAck &ack = b.acks.back();
 			ack.addr = i->addr;
 			ack.bAcked = false;
-			// seek through fast acks if required ack exists
 			for ( std::list<SFastAck>::iterator k = pTest->fastacks.begin(); k != pTest->fastacks.end(); )
 			{
 				if ( k->addr == pWho->addr && k->nID == nID )
@@ -232,14 +210,12 @@ void CP2PTracker::ReceiveBroadcast( SPeer *pWho, CMemoryStream &data, int nID )
 	}
 	CheckQueuedMessages( pWho ); // can be no acks required
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CP2PTracker::ReceiveAck( SPeer *pFrom, int nID, PEER_ID id )
 {
 	const UCID &addr = pFrom->GetAddr( id );
 #ifdef LOG
 	cout << "RECV ack from " << pFrom->addr.GetFastName() << " msg " << nID << " from " << addr.GetFastName() << endl;
 #endif
-	// find message in question and remove pending ack from xx
 	SPeer *pSender = GetClient( addr );
 	if ( pSender )
 	{
@@ -266,8 +242,6 @@ void CP2PTracker::ReceiveAck( SPeer *pFrom, int nID, PEER_ID id )
 			CheckQueuedMessages( pSender );
 		else 
 		{
-			// save ack for the future
-			// if sender is inactive no messages from him will be received and ack is useless
 			if ( pSender->IsActive() ) 
 			{
 				pFrom->fastacks.push_back( SFastAck() );
@@ -280,26 +254,22 @@ void CP2PTracker::ReceiveAck( SPeer *pFrom, int nID, PEER_ID id )
 	else
 		ASSERT( !pSender ); // sender was erased too early
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CP2PTracker::ReceiveAddClient( SPeer *pWho, const UCID &who, PEER_ID id, const CMemoryStream &_addrInfo )
 {
 #ifdef LOG
 	cout << "RECV add client " << who.GetFastName() << " from " << pWho->addr.GetFastName() << endl;
 #endif
-		//if this is client being kicked then respond with kick addr and do nothing more
 	SPeer *pTest = GetClient( who );
 	if ( pTest )
 	{
 		if ( !pTest->IsActive() )
 		{
-			// pWho бредит - этого парня мы как раз кикаем
 			SendRemoveClient( *pWho, who );
 			return;
 		}
 	}
 	else
 		AddNewClient( who, _addrInfo ); // это что-то новое, нужно добавить в свой список
-	// now to remove buddy we need to receive kick messages from every client pWho talked about him
 	AddKickApprove( who, pWho->addr );
 	for ( std::list<SPeerClient>::iterator i = pWho->clients.begin(); i != pWho->clients.end(); ++i )
 	{
@@ -309,22 +279,17 @@ void CP2PTracker::ReceiveAddClient( SPeer *pWho, const UCID &who, PEER_ID id, co
 		else
 			ASSERT( pT );
 	}
-	// client is added to peer tracking record
 	pWho->clients.push_back( SPeerClient( who, id ) );
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CP2PTracker::ReceiveRemoveClient( SPeer *pWho, const UCID &corpse )
 {
 #ifdef LOG
 	cout << "RECV remove client " << corpse.GetFastName() << " from " << pWho->addr.GetFastName() << endl;
 #endif
 	bool bHadCorpse = pWho->HasClient( corpse );
-	//ASSERT( find( pWho->clients.begin(), pWho->clients.end(), corpse ) != pWho->clients.end() );
 	pWho->RemoveClient( corpse );
 	KickClient( corpse );
 
-	// every ack for broadcast message from pWho awaiting ack from client corpse 
-	// is approved via ack remove
 	for ( std::list<SQMessage>::iterator i = pWho->messages.begin(); i != pWho->messages.end(); ++i )
 	{
 		SQMessage &b = *i;
@@ -342,7 +307,6 @@ void CP2PTracker::ReceiveRemoveClient( SPeer *pWho, const UCID &corpse )
 	{
 		ApproveKick( pCorpse, pWho->addr );
 			ASSERT( !pCorpse->IsActive() );
-		// every pending message from corpse awaiting ack from pWho is removed
 		for ( std::list<SQMessage>::iterator i = pCorpse->messages.begin(); i != pCorpse->messages.end(); )
 		{
 			SQMessage &b = *i;
@@ -367,7 +331,6 @@ void CP2PTracker::ReceiveRemoveClient( SPeer *pWho, const UCID &corpse )
 	else
 		ASSERT( !bHadCorpse ); // was removed too early
 }
-/////////////////////////////////////////////////////////////////////////////////////
 static int nBroadcastID = 1;
 void CP2PTracker::SendBroadcast( CMemoryStream &pkt )
 {
@@ -378,7 +341,6 @@ void CP2PTracker::SendBroadcast( CMemoryStream &pkt )
 	}
 	++nBroadcastID;
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CP2PTracker::SendDirect( const UCID &addr, CMemoryStream &pkt )
 {
 	SPeer *pTest = GetClient( addr );
@@ -387,7 +349,6 @@ void CP2PTracker::SendDirect( const UCID &addr, CMemoryStream &pkt )
 		return;
 	SendDirect( *pTest, pkt );
 }
-/////////////////////////////////////////////////////////////////////////////////////
 CP2PTracker::PEER_ID CP2PTracker::GetUnusedID() const
 {
 	PEER_ID res = 0;
@@ -404,7 +365,6 @@ CP2PTracker::PEER_ID CP2PTracker::GetUnusedID() const
 	}
 	return res;
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CP2PTracker::AddNewClient( const UCID &addr, const CMemoryStream &_addrInfo )
 {
 #ifdef LOG
@@ -420,13 +380,11 @@ void CP2PTracker::AddNewClient( const UCID &addr, const CMemoryStream &_addrInfo
 	cout << "ADD, client " << addr.GetFastName() << " ID=" << newID << endl;
 #endif
 	AddOutputMessage( NEW_CIENT, addr, &_addrInfo );
-	// new client addr is added and for every existing channel info about that is sent
 	for ( std::list<SPeer>::iterator i1 = clients.begin(); i1 != clients.end(); ++i1 )
 	{
 		if ( i1->IsActive() )
 			SendAddClient( *i1, addr, newID, _addrInfo );
 	}
-	// to client addr info sent about every active SPeer on the moment
 	SPeer res;
 	res.addr = addr;	
 	res.bActive = true;
@@ -443,13 +401,9 @@ void CP2PTracker::AddNewClient( const UCID &addr, const CMemoryStream &_addrInfo
 	res.id = newID;
 	clients.push_back( res );
 }
-/////////////////////////////////////////////////////////////////////////////////////
-// mark client as corpse and inform everybody about it
-// no messages from this address will be received anymore
 void CP2PTracker::KickClient( const UCID &addr )
 {
 	SPeer *pVictim = GetClient( addr );
-	//cout << "KICK attempt, client " << addr.GetFastName() << endl;
 	if ( pVictim && pVictim->IsActive() )
 	{
 #ifdef LOG
@@ -462,7 +416,6 @@ void CP2PTracker::KickClient( const UCID &addr )
 			if ( i1->IsActive() )
 				SendRemoveClient( *i1, pVictim->addr );
 		}
-		// every fast ack received about messages from victim should be deleted
 		for ( std::list<SPeer>::iterator i2 = clients.begin(); i2 != clients.end(); ++i2 )
 		{
 			for ( std::list<SFastAck>::iterator k = i2->fastacks.begin(); k != i2->fastacks.end(); )
@@ -476,7 +429,6 @@ void CP2PTracker::KickClient( const UCID &addr )
 	}
 	CheckCorpses();
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CP2PTracker::SendRemoveClient( const SPeer &dest, const UCID &whom )
 {
 #ifdef LOG
@@ -487,7 +439,6 @@ void CP2PTracker::SendRemoveClient( const SPeer &dest, const UCID &whom )
 	pkt << whom;
 	packets.push_back( SPacket( dest.addr, pkt ) );
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CP2PTracker::SendAddClient( const SPeer &dest, const UCID &whom, PEER_ID id, const CMemoryStream &addrInfo )
 {
 #ifdef LOG
@@ -502,7 +453,6 @@ void CP2PTracker::SendAddClient( const SPeer &dest, const UCID &whom, PEER_ID id
 	pkt.Write( addrInfo.GetBuffer(), nSize );
 	packets.push_back( SPacket( dest.addr, pkt ) );
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CP2PTracker::SendBroadcast( const SPeer &dest, int nID, CMemoryStream &data )
 {
 #ifdef LOG
@@ -523,7 +473,6 @@ void CP2PTracker::SendBroadcast( const SPeer &dest, int nID, CMemoryStream &data
 		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CONSOLE, NStr::Format( "p2p: send broadcast, msg %d", (int)cMsgID ), 0xffffff00, true );
 #endif
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CP2PTracker::SendDirect( const SPeer &dest, CMemoryStream &data )
 {
 #ifdef LOG
@@ -545,7 +494,6 @@ void CP2PTracker::SendDirect( const SPeer &dest, CMemoryStream &data )
 */
 #endif
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CP2PTracker::SendAck( const SPeer &dest, int nID, PEER_ID from )
 {
 #ifdef LOG
@@ -559,7 +507,6 @@ void CP2PTracker::SendAck( const SPeer &dest, int nID, PEER_ID from )
 	pkt << from;
 	packets.push_back( SPacket( dest.addr, pkt ) );
 }
-/////////////////////////////////////////////////////////////////////////////////////
 static void ReadRest( CMemoryStream &src, CMemoryStream *pDst )
 {
 	src.ReadTo( *pDst, src.GetSize() - src.GetPosition() );
@@ -629,5 +576,4 @@ void CP2PTracker::ProcessPacket( const UCID &addr, CMemoryStream &pkt )
 			break;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////
 }

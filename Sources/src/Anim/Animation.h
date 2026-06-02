@@ -1,11 +1,7 @@
 #ifndef __ANIMATION_H__
 #define __ANIMATION_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Formats\fmtSprite.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// known types for factory
 enum
 {
 	ANIM_BASE_VALUE								= 0x10020000,
@@ -19,15 +15,12 @@ enum
 	ANIM_MESH_ANIMATION_DATA			= ANIM_BASE_VALUE + 8,
 	ANIM_COMPLEX_SPRITE						= ANIM_BASE_VALUE + 9,
 	ANIM_COMPLEX_SPRITE_FORMAT		= ANIM_BASE_VALUE + 10,
-	//
 	ANIM_EFFECTOR_RECOIL					= ANIM_BASE_VALUE + 50,
 	ANIM_EFFECTOR_JOGGING					= ANIM_BASE_VALUE + 51,
 	ANIM_EFFECTOR_LEVELING				= ANIM_BASE_VALUE + 52,
 
 	ANIM_FORCE_DWORD = 0x7fffffff
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// animations
 enum EAnimation
 {
 	ANIMATION_IDLE					= 0,					// idle
@@ -64,10 +57,8 @@ enum EAnimation
 
 	
 	ANIMATION_LAST_ANIMATION,							// RR мне нужно измен€ть размер векторов. »ƒ сообщени€ подсчитываетс€ автоматом
-																				// не нужно его пробивать
 	ANIMATION_FORCE_DWORD = 0x7fffffff
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma pack( 2 )
 struct SSpriteRect
 {
@@ -75,11 +66,9 @@ struct SSpriteRect
 	CTRect<short> rect;										// shift with respect to sprite's center
 	float fDepthLeft;											// left depthe
 	float fDepthRight;										// right depthe
-	//
 	SSpriteRect() : rect( 0, 0, 100, 100 ), maps( 0, 0, 1, 1 ), fDepthLeft( 0 ), fDepthRight( 0 ) {  }
 };
 #pragma pack()
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IMatrixEffector : public IRefCount
 {
 	virtual bool STDCALL Update( const NTimer::STime &time ) = 0;
@@ -97,81 +86,58 @@ interface IMatrixEffectorLeveling : public IMatrixEffector
 	virtual void STDCALL SetupData( const CVec3 &vNormale, const NTimer::STime &currTime ) = 0;
 	virtual const CVec3& STDCALL GetNormal() const = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IAnimVisitor : public IRefCount
 {
 	virtual void STDCALL VisitSprite( const SSpriteRect *pSprite ) = 0;
 	virtual void STDCALL VisitSprite( const SSpritesPack::SSprite *pSprite ) = 0;
 	virtual void STDCALL VisitMesh( const SHMatrix *matrices, int nNumMatrices ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IAnimation : public IRefCount
 {
 	virtual void STDCALL Visit( IAnimVisitor *pVisitor ) = 0;
-	// set current time
 	virtual void STDCALL SetTime( DWORD time ) = 0;
-	// set animation start time
 	virtual void STDCALL SetStartTime( DWORD time ) = 0;
-	// set animation time scale coeff
 	virtual void STDCALL SetAnimSpeedCoeff( float fCoeff ) = 0;
-	// set/get new animation
 	virtual bool STDCALL SetAnimation( const int nAnim ) = 0;
 	virtual int STDCALL GetAnimation() const = 0;
-	// get length of the animation
 	virtual int STDCALL GetLengthOf( const int nAnim ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface ISpriteAnimation : public IAnimation
 {
 	virtual void STDCALL SetDirection( int nDirection ) = 0;
 	virtual void STDCALL SetScale( float fScale ) = 0;
 	virtual const SSpriteRect& STDCALL GetRect() = 0;
-	// get translation speed, attached to this animation
 	virtual float STDCALL GetSpeed() const = 0;
-	// frame index
 	virtual void STDCALL SetFrameIndex( int nIndex ) = 0;
 	virtual int STDCALL GetFrameIndex() = 0;
-	// hit test
 	virtual const bool STDCALL IsHit( const CVec3 &relpos, const CVec2 &point, CVec2 *pShift ) const = 0;
 	virtual const bool STDCALL IsHit( const CVec3 &relpos, const CTRect<float> &rcRect ) const = 0;
-	// scale timer
 	virtual const CScaleTimer& STDCALL GetScaleTimer() const = 0;
 	virtual void STDCALL SetScaleTimer( const CScaleTimer &timer ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IMeshAnimation : public IAnimation
 {
-	// transformation access
 	virtual int STDCALL GetNumNodes() const = 0;
 	virtual const SHMatrix* STDCALL GetMatrices( const SHMatrix &matBase ) = 0;
 	virtual void STDCALL GetBaseMatrix( const SHMatrix &matBase, SHMatrix * pResult ) = 0;
 	virtual const SHMatrix* STDCALL GetCurrMatrices() const = 0;
-	// "manual" animation
 	virtual void STDCALL AddProceduralNode( int nNodeIdx, DWORD currTime, DWORD startTime, DWORD endTime, float fValue ) = 0;
 	virtual void STDCALL CutProceduralAnimation( const NTimer::STime &time, const int nModelPart = -1 ) = 0;
-	// effectors
 	virtual void STDCALL AddEffector( IMatrixEffector *pEffector, int nID, int nPart ) = 0;
 	virtual void STDCALL RemoveEffector( int nID, int nPart ) = 0;
 	virtual IMatrixEffector* STDCALL GetEffector( int nID, int nPart ) = 0;
 };
-// special interface for editor. one can acquire this interface through dynamic_cast from 'IMeshAnimation'
 interface IMeshAnimationEdit
 {
-	// all nodes access
 	virtual void STDCALL GetAllNodeNames( const char **ppBuffer, int nBufferSize ) const = 0;
-	// locators access
 	virtual int STDCALL GetNumLocators() const = 0;
 	virtual const int* STDCALL GetAllLocatorIndices() const = 0;
 	virtual void STDCALL GetAllLocatorNames( const char **ppBuffer, int nBufferSize ) const = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IAnimationManager : public ISharedManager
 {
-	// type ID
 	enum { tidTypeID = ANIM_ANIMATION_MANAGER };
-	//
 	virtual ISpriteAnimation* STDCALL GetSpriteAnimation( const char *pszName ) = 0;
 	virtual IMeshAnimation* STDCALL GetMeshAnimation( const char *pszName ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __ANIMATION_H__

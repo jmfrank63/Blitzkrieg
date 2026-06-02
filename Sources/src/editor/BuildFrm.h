@@ -20,11 +20,9 @@ public:
 	CBuildingFrame();
 	virtual ~CBuildingFrame();
 	
-	// Attributes
 public:
 	typedef vector< CPtr<IGFXVertices> > CVectorOfVertices;
 	
-	//для редактирования shoot points
 	struct SShootPoint
 	{
 		CBuildingSlotPropsItem *pSlot;
@@ -35,7 +33,6 @@ public:
 		float fAngle;				//полный угол конуса стрельбы
 	};
 	
-	//для редактирования fire points
 	struct SFirePoint
 	{
 		CBuildingFirePointPropsItem *pFirePoint;
@@ -43,7 +40,6 @@ public:
 		CPtr<IObjVisObj> pHLine;
 		
 		float fDirection;		//угол направления конуса стрельбы
-		//		float fAngle;				//полный угол конуса стрельбы
 	};
 	
 	enum EActiveMode
@@ -62,7 +58,6 @@ public:
 		E_SUB_DIR,
 	};
 
-// Operations
 public:
 	virtual void GFXDraw();
 	virtual void ShowFrameWindows( int nCommand );
@@ -73,7 +68,6 @@ public:
 	void SetTranseparenceCombo( CComboBox *pCombo ) { m_pTransparenceCombo = pCombo; }
 	
 	void SetActiveMode( EActiveMode mode );
-	//для редактирования shoot points
 	void DeleteShootPoint( CTreeItem *pShoot );
 	void SelectShootPoint( CTreeItem *pShoot );
 	void SetActiveShootPoint( SShootPoint *pShootPoint );
@@ -85,7 +79,6 @@ public:
 	void SetShootPointAngle( const POINT &point );
 	void MoveShootPoint( const POINT &point );
 	
-	//для редактирования fire point
 	void DeleteFirePoint( CTreeItem *pFire );
 	void SelectFirePoint( CTreeItem *pFire );
 	void SetActiveFirePoint( SFirePoint *pFirePoint );
@@ -96,7 +89,6 @@ public:
 	void SetFirePointAngle( const POINT &point );
 	void MoveFirePoint( const POINT &point );
 	
-	//для редактирования smoke effects
 	void AddOrSelectSmokePoint( const POINT &point );
 	void DeleteSmokePoint();
 	void SelectSmokePoint( CBuildingSmokePropsItem *pSmokePoint );
@@ -107,7 +99,6 @@ public:
 	void GenerateSmokePoints();
 	void CreateSmokeSprites( CBuildingSmokePropsItem *pSmokePoint );
 
-	//для редактирования direction explosions
 	void SelectDirExpPoint( CBuildingDirExplosionPropsItem *pDirExpPoint );
 	void ComputeDirExpDirectionLines();
 	void MoveDirExpPoint( const POINT &point );
@@ -115,15 +106,9 @@ public:
 	void SetDirExpPointAngle( const POINT &point );
 	void GenerateDirExpPoints();
 	
-// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CBuildingFrame)
 	protected:
-	//}}AFX_VIRTUAL
 
-// Implementation
 private:
-	// view for the client area of the frame.
 	int m_mode;
 	CVec2 objShift, zeroShift;
 	CVec3 m_zeroPos;
@@ -139,20 +124,16 @@ private:
 	EActiveMode eActiveMode;
 	EActiveSubMode eActiveSubMode;
 
-	//для редактирования shoot points
 	typedef list<SShootPoint> CListOfShootPoints;
 	CListOfShootPoints shootPoints;
 	SShootPoint *pActiveShootPoint;			//к этой переменной плохо ссылаться напрямую, лучше использовать SetActiveShootPoint()
 
-	//для костров
 	typedef list<SFirePoint> CListOfFirePoints;
 	CListOfFirePoints firePoints;
 	SFirePoint *pActiveFirePoint;				//к этой переменной плохо ссылаться напрямую, лучше использовать SetActiveFirePoint()
 
-	//для дымов при разрушении
 	CBuildingSmokePropsItem *pActiveSmokePoint;
 
-	//для направленных взрывов
 	CBuildingDirExplosionPropsItem *pActiveDirExpPoint;
 
 	CPtr<IGFXVertices> pConeVertices;
@@ -166,7 +147,6 @@ private:
 	CComboBox *m_pTransparenceCombo;
 	int m_transValue;
 
-	// для отображения нужного спрайта
 	CTreeItem *pActiveGraphicProps;
 	
 protected:
@@ -197,9 +177,7 @@ protected:
 
 	void DrawLockedTiles( IGFX *pGFX );
 	
-// Generated message map functions
 protected:
-	//{{AFX_MSG(CBuildingFrame)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
 	afx_msg void OnRButtonDown(UINT nFlags, CPoint point);
@@ -234,13 +212,9 @@ protected:
 	afx_msg void OnUpdateSetSmokePoint(CCmdUI* pCmdUI);
 	afx_msg void OnGeneratePoints();
 	afx_msg void OnUpdateGeneratePoints(CCmdUI* pCmdUI);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 
-/////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif		//__BUILDFRM_H__

@@ -45,7 +45,6 @@ namespace STLPORT {
 #  define __MAP_SUPER  __map< _Key, _Tp, _Compare, _STLP_DEFAULT_PAIR_ALLOCATOR(const _Key, _Tp) >
 #  define __MMAP_SUPER  __multimap< _Key, _Tp, _Compare, _STLP_DEFAULT_PAIR_ALLOCATOR(const _Key, _Tp) >
 
-// provide a "default" map adaptor
 __MAP_TEMPLATE_HEADER
 class map : public __MAP_SUPER
 {
@@ -87,7 +86,6 @@ inline bool operator<(const map< __MAP_ARGUMENTS >& __x,
 #  endif /* _STLP_BASE_MATCH_BUG */
 
 
-// provide a "default" multimap adaptor
 __MMAP_TEMPLATE_HEADER
 class multimap : public __MMAP_SUPER
 {
@@ -95,7 +93,6 @@ class multimap : public __MMAP_SUPER
 public:
     typedef __MMAP_SUPER  _Super;
     __IMPORT_WITH_REVERSE_ITERATORS(_Super)
-    // copy & assignment from super
     __IMPORT_SUPER_COPY_ASSIGNMENT(multimap, _Self, __MMAP_SUPER)
     multimap() : __MMAP_SUPER(_Compare()) {}
     explicit multimap(const _Compare& __comp) : __MMAP_SUPER(__comp) {}
@@ -145,6 +142,3 @@ inline bool operator<(const multimap< __MMAP_ARGUMENTS >& __x,
 
 #endif /* _STLP_INTERNAL_WRAP_MAP_H */
 
-// Local Variables:
-// mode:C++
-// End:

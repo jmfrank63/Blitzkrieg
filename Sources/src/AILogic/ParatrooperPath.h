@@ -1,10 +1,7 @@
 #ifndef __PARATROOPER_PATH_H__
 #define __PARATROOPER_PATH_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Path.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CParatrooperPath : public ISmoothPath
 {
 	OBJECT_COMPLETE_METHODS( CParatrooperPath );
@@ -33,7 +30,6 @@ public:
 	virtual void GetSpeed3( CVec3 *vSpeed ) const;
 
 	virtual const CVec2& GetFinishPoint() const { return vFinishPoint2D; }
-//ненужные функции
 	virtual bool Init( interface IBasePathUnit *pUnit, IPath *pPath, bool bSmoothTurn = true, bool bCheckTurn = true ) { CPtr<IPath> p = pPath; return true; }
 	virtual bool InitByFormationPath( class CFormation *pFormation, interface IBasePathUnit *pUnit ) { return true; }
 	virtual bool Init( interface IMemento *pMemento, interface IBasePathUnit *pUnit ) { CPtr<IMemento> p = pMemento; return true; }
@@ -56,5 +52,4 @@ public:
 	
 	static float CalcFallTime( const float fZ );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __PARATROOPER_PATH_H__

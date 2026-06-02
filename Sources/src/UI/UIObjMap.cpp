@@ -2,7 +2,6 @@
 
 #include "..\gfx\gfxhelper.h"
 #include "UIObjMap.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIObjMap::Init()
 {
 	const CTRect<float> screenRC = GetScreenRect();
@@ -27,7 +26,6 @@ void CUIObjMap::Init()
 		indices[5] = 2;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIObjMap::Visit( interface ISceneVisitor *pVisitor )
 {
 	if ( !IsVisible() )
@@ -35,14 +33,11 @@ void CUIObjMap::Visit( interface ISceneVisitor *pVisitor )
 
 	CSimpleWindow::Visit( pVisitor );
 	pVisitor->VisitUICustom( dynamic_cast<IUIElement*>(this) );
-	// ������ �����
 	for ( CWindowList::reverse_iterator ri=childList.rbegin(); ri!=childList.rend(); ri++ )
 		(*ri)->Visit( pVisitor );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIObjMap::Draw( IGFX *pGFX )
 {
-	// ������ �����
 	if ( pMapTexture )
 	{
 		pGFX->SetShadingEffect( 3 );
@@ -51,4 +46,3 @@ void CUIObjMap::Draw( IGFX *pGFX )
 			DrawTemp( pGFX, vertices, indices );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -3,9 +3,7 @@
 #include "RotatingFireplacesObject.h"
 #include "Soldier.h"
 #include "Guns.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern NTimer::STime curTime;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRotatingFireplacesObject::AddUnit( CSoldier *pSoldier, const int nFireplace )
 {
 	std::list<SUnitInfo>::iterator iter = units.begin();
@@ -37,19 +35,16 @@ void CRotatingFireplacesObject::AddUnit( CSoldier *pSoldier, const int nFireplac
 
 	iter->lastFireplaceChange = curTime + Random( 0, 20 * SConsts::AI_SEGMENT_DURATION );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRotatingFireplacesObject::DeleteUnit( CSoldier *pSoldier )
 {
 	std::list<SUnitInfo>::iterator iter = units.begin();
 	while ( iter != units.end() && iter->pSoldier != pSoldier )
 		++iter;
 
-//	NI_ASSERT_T( iter != units.end(), "Unit not found" );
 
 	if ( iter != units.end() )
 		units.erase( iter );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRotatingFireplacesObject::IsBetterToGoToFireplace( CSoldier *pSoldier, const int nFireplace ) const
 {
 	CSoldier *pFireplaceSoldier = GetSoldierInFireplace( nFireplace );
@@ -58,7 +53,6 @@ bool CRotatingFireplacesObject::IsBetterToGoToFireplace( CSoldier *pSoldier, con
 		return false;
 	else if ( pFireplaceSoldier == 0 )
 		return true;
-	// не вытеснять солдата из fireplace, если мы уже сидим в fireplace или он убит
 	else if ( !pFireplaceSoldier->IsAlive() || pSoldier->IsInFirePlace() )
 		return false;
 	else if ( pSoldier->GetStats()->type != RPG_TYPE_OFFICER && pFireplaceSoldier->GetStats()->type == RPG_TYPE_OFFICER )
@@ -102,7 +96,6 @@ bool CRotatingFireplacesObject::IsBetterToGoToFireplace( CSoldier *pSoldier, con
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRotatingFireplacesObject::Segment()
 {
 	if ( GetNFirePlaces() != 0 )
@@ -142,4 +135,3 @@ void CRotatingFireplacesObject::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

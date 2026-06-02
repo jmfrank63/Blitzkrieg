@@ -42,7 +42,6 @@ using _STLP_STD::setw;
 #  endif
 #  endif /* _STLP_HAS_NO_NAMESPACES */
 
-// get all the pollution we want
 # include <iostream.h>
 
 # elif !defined (_STLP_USE_NO_IOSTREAMS)
@@ -64,6 +63,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_IOMANIP_H */
 
-// Local Variables:
-// mode:C++
-// End:

@@ -4,12 +4,9 @@
 #include <mmsystem.h>
 
 #include "..\SFX\SFX.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define ALPHA_MAX 255.0f
 #define ALPHA_MIN 0.0f
 #define DURATION 500
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// update object
 bool CTransition::Update( const NTimer::STime &time, bool bForced )
 {
 	NTimer::STime currTime = timeGetTime();
@@ -18,8 +15,6 @@ bool CTransition::Update( const NTimer::STime &time, bool bForced )
 	fAlpha = Clamp( fAlphaStart + ( fAlphaEnd - fAlphaStart ) * float( currTime - timeStart ) / float( DURATION ), ALPHA_MIN, ALPHA_MAX );
 	return bInfinite || ( timeStart + DURATION > currTime );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// drawing
 bool CTransition::Draw( interface IGFX *pGFX )
 {
 	SGFXRect2 rect;
@@ -30,16 +25,11 @@ bool CTransition::Draw( interface IGFX *pGFX )
 	pGFX->SetShadingEffect( 3 );
 	pGFX->SetTexture( 0, 0 );
 	return pGFX->DrawRects( &rect, 1 );
-	//return pPlayer->Draw( pGFX );
-	//return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// visiting
 void CTransition::Visit( interface ISceneVisitor *pVisitor, int nType )
 {
 	pVisitor->VisitSceneObject( this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransition::Start( const char *pszVideoName, const DWORD dwAddFlags, const NTimer::STime &_currTime, const bool bFadeIn )
 {
 	timeStart = 0;
@@ -54,10 +44,8 @@ int CTransition::Start( const char *pszVideoName, const DWORD dwAddFlags, const 
 		fAlphaEnd = ALPHA_MIN;
 	}
 	bInfinite = ( dwAddFlags & IVideoPlayer::PLAY_INFINITE ) != 0;
-	//
 	return DURATION + 150;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransition::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -71,4 +59,3 @@ int CTransition::operator&( IStructureSaver &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

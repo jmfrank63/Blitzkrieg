@@ -1,8 +1,6 @@
 #ifndef __ICONS_H__
 #define __ICONS_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EIconType
 {
 	ICON_HP_BAR							= 0,
@@ -24,10 +22,8 @@ enum EIconType
 	ICON_STORAGE_FOE				= 16,
 	ICON_ALT_SHELL					= 17,
 	ICON_ENTRENCHED					= 18,
-	// automatic counter
 	ICON_NUM_ICONS
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline const char* GetIconName( int nIconType )
 {
 	switch ( nIconType & 0xffff )
@@ -35,7 +31,6 @@ inline const char* GetIconName( int nIconType )
 		case ICON_GROUP:							return NStr::Format( "icons\\%d", ( nIconType >> 16 ) & 0xffff );
 		case ICON_LEVEL:							return NStr::Format( "icons\\level%d", ((nIconType >> 16) & 0xffff) );
 		case ICON_UNINSTALL:					return "icons\\uninstall";
-		//case ICON_CAMOUFLAGE:					return "icons\\camouflage";
 		case ICON_AMBUSH:							return "icons\\ambush";
 		case ICON_TRACK:							return "icons\\track";
 		case ICON_LOW_AMMO:						return "icons\\lowammo";
@@ -50,7 +45,6 @@ inline const char* GetIconName( int nIconType )
 	}
 	return "";
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline const DWORD MakeHPBarColor( const float fHP )
 {
 	if ( fHP >= 0.5f )
@@ -64,5 +58,4 @@ inline const DWORD MakeHPBarColor( const float fHP )
 		return 0xffff0000 | (g << 8);
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __ICONS_H__

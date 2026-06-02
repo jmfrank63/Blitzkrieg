@@ -4,9 +4,6 @@
 #include "CPlanePreferences.h"
 #include "IPlane.h"
 #include "ComplexPathFraction.h"
-/////////////////////////////////////////////////////////////////////////////
-//	CManuverBoevoyZahod::
-/////////////////////////////////////////////////////////////////////////////
 void CManuverBoevoyZahod::Init( interface IPlane *pPos, const IPlane * pEnemy )
 {
 	pPlane = pPos;
@@ -21,21 +18,16 @@ void CManuverBoevoyZahod::Init( interface IPlane *pPos, const IPlane * pEnemy )
 	fProgress = 0;
 	fZ = GetPos().z;
 }
-/////////////////////////////////////////////////////////////////////////////
 CVec3 CManuverBoevoyZahod::GetPos() const
 {
 	return pPath->GetPoint( fProgress );
 }
-/////////////////////////////////////////////////////////////////////////////
 CVec3 CManuverBoevoyZahod::GetSpeed() const
 {
 	return pPath->GetTangent( fProgress ) * fSpeed;
 }
-/////////////////////////////////////////////////////////////////////////////
 bool CManuverBoevoyZahod::Advance()
 {
-	//CRAP{ FIND OUT COMMON MANUVER PART
-	// determine if it is circle path fraction or not.
 	fProgress += fSpeed;
 
 	const CVec3 vNewPos( GetPos() );
@@ -44,5 +36,4 @@ bool CManuverBoevoyZahod::Advance()
 
 	fSpeed += 2 * g * fDz / fSpeed;
 	return fProgress + fSpeed >= pPath->GetLength();
-	//CRAP}
 }

@@ -14,11 +14,9 @@ class CTabVOVSOImageList : public CAsyncImageList
 };
 /**/
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTabVOVSODialog : public CResizeDialog
 {
 protected:
-	//{{AFX_MSG(CTabVOVSODialog)
 	afx_msg void OnItemchangedVsoObjectsList(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnVsoSingleWidthRadio();
 	afx_msg void OnVsoMultiWidthRatio();
@@ -27,7 +25,6 @@ protected:
 	afx_msg void OnChangeVsoOpacity();
 	afx_msg void OnSize( UINT nType, int cx, int cy );
 	afx_msg void OnDestroy();
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 
 protected:
@@ -35,10 +32,8 @@ protected:
 	std::string szDialogName;
 	virtual std::string GetXMLOptionsLabel() { return szDialogName; }
 
-	//{{AFX_VIRTUAL(CTabVOVSODialog)
 protected:
 	virtual BOOL OnInitDialog();
-	//}}AFX_VIRTUAL
 
 public:
 	enum CHANGE_WIDTH
@@ -63,15 +58,10 @@ public:
 	void SetListLabel( const std::string &rszLabel );
 	bool GetDescriptionName( std::string *pVSODescName );
 	
-	//MODs support
 	void DeleteImageList();
 	void CreateImageList();
 	
-	//{{AFX_DATA(CTabVOVSODialog)
 	enum { IDD = IDD_TAB_VO_VECTOR_STRIPE_OBJECTS };
-	//}}AFX_DATA
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
 #endif // !defined(__Tabs__VO_VSO_Dialog__)

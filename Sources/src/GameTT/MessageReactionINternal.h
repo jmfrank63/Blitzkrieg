@@ -1,10 +1,8 @@
 #ifndef __MESSAGEREACTIONINTERNAL_H__
 #define __MESSAGEREACTIONINTERNAL_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
 #include "MessageReaction.h"
 #include "CustomMessageReaction.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EMessageAtomicReactionType
 {
 	EMART_PAUSE_GAME											= 1,
@@ -18,13 +16,11 @@ enum EMessageAtomicReactionType
 	EMART_NOP_DONT_PROCESSED							= 9,
 	EMART_SET_TEXT_TO_WINDOW_FROM_GLOBALVAR = 10,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum ECustomCheckType
 {
 	ECCT_BOOL_GLOBAL_VARS_ENUM							= 1, // GlobalVar1 << 0 | GlobalVar2 << 1 | ....
 	ECCT_BOOL_GLOBAL_VAR_FIRST							= 2, // the number of global var is set to true
 	
-	//ECCT_MULTIPLAYER_AND_ESC_MENU_SHOWN		= 2,
 
 };
 enum ECustomCheckReturn
@@ -34,7 +30,6 @@ enum ECustomCheckReturn
 	ECCR_DEFAULT													= 1<<8 | 1<<2,
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SPairHash
 {
 	int operator()( const std::pair<int,int> &incomingPair ) const
@@ -42,9 +37,6 @@ struct SPairHash
 		return incomingPair.first + incomingPair.second;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// STRUCTURES FOR LOAD
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SMessageAtomReactionForLoad
 {
 	std::string szType;
@@ -60,18 +52,13 @@ struct SMessageAtomReactionForLoad
 		return 0;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::vector<SMessageAtomReactionForLoad> CAtomReactionsSequenceForLoad;
-// for every return there is vector of reactions
 typedef std::unordered_map<std::string/*CustomCheckReturn*/, CAtomReactionsSequenceForLoad > CAtomReactionSequencesForLoad;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SMessageReactionForLoad
 {
-	// incoming message: message ID and message nParam
 	typedef std::pair<std::string/*messageID*/, std::string /*messageParam*/> SIncomingMessageForLoad;
 	SIncomingMessageForLoad incomingMessage;
 
-	// custom check: Custom Check Name and Custom Check Params
 	typedef std::vector<std::string> CCustomCheckParamsForLoad;
 	typedef std::pair<std::string/*custom check name*/, CCustomCheckParamsForLoad> CCustomCheckForLoad;
 	CCustomCheckForLoad customCheck;
@@ -87,11 +74,6 @@ struct SMessageReactionForLoad
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// CLoadHelper 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CLoadHelper : public ILoadHelper, public std::unordered_map<std::string,int>
 {
 	OBJECT_COMPLETE_METHODS( CLoadHelper );
@@ -104,9 +86,6 @@ public:
 		return NStr::ToInt( szLoaded );
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Atom EMART_SET_TEXT_TO_WINDOW_FROM_GLOBALVAR
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMessageAtomReactionSetWindowTextFromGlobalVar : public IMessageReaction
 {
 	OBJECT_COMPLETE_METHODS( CMessageAtomReactionSetWindowTextFromGlobalVar );
@@ -120,7 +99,6 @@ class CMessageAtomReactionSetWindowTextFromGlobalVar : public IMessageReaction
 
 public:
 	CMessageAtomReactionSetWindowTextFromGlobalVar () {  }
-	// create and transform reaction
 	CMessageAtomReactionSetWindowTextFromGlobalVar ( const SMessageAtomReactionForLoad &reaction, IMessageLinkContainer *pHelperContainer )
 	{
 		ILoadHelper * pHelper = pHelperContainer->GetLoadHelper( ELH_MESSAGE_TO_INPUT_PARAM2 );
@@ -132,9 +110,6 @@ public:
 	}
 	virtual bool STDCALL Execute() ;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Atom EMART_SET_TEXT_TO_WINDOW
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMessageAtomReactionSetWindowText : public IMessageReaction
 {
 	OBJECT_COMPLETE_METHODS( CMessageAtomReactionSetWindowText );
@@ -148,7 +123,6 @@ class CMessageAtomReactionSetWindowText : public IMessageReaction
 
 public:
 	CMessageAtomReactionSetWindowText () {  }
-	// create and transform reaction
 	CMessageAtomReactionSetWindowText ( const SMessageAtomReactionForLoad &reaction, IMessageLinkContainer *pHelperContainer )
 	{
 		ILoadHelper * pHelper = pHelperContainer->GetLoadHelper( ELH_MESSAGE_TO_INPUT_PARAM2 );
@@ -160,9 +134,6 @@ public:
 	}
 	virtual bool STDCALL Execute() ;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Atom EMART_SET_GLOBAL_VAR
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMessageAtomReactionSetGlobalVar : public IMessageReaction
 {
 	OBJECT_COMPLETE_METHODS( CMessageAtomReactionSetGlobalVar );
@@ -171,7 +142,6 @@ class CMessageAtomReactionSetGlobalVar : public IMessageReaction
 	std::string szVarValue;
 public:
 	CMessageAtomReactionSetGlobalVar () {  }
-	// create and transform reaction
 	CMessageAtomReactionSetGlobalVar( const SMessageAtomReactionForLoad &reaction )
 	{
 		szVarName = reaction.szParam1;
@@ -179,9 +149,6 @@ public:
 	}
 	virtual bool STDCALL Execute();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Atom EMART_REMOVE_GLOBAL_VAR
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMessageAtomReactionRemoveGlobalVar : public IMessageReaction
 {
 	OBJECT_COMPLETE_METHODS( CMessageAtomReactionRemoveGlobalVar );
@@ -189,7 +156,6 @@ class CMessageAtomReactionRemoveGlobalVar : public IMessageReaction
 	std::string szVarName;
 public:
 	CMessageAtomReactionRemoveGlobalVar() {  }
-	// create and transform reaction
 	CMessageAtomReactionRemoveGlobalVar( const SMessageAtomReactionForLoad &reaction )
 	{
 		szVarName = reaction.szParam1;
@@ -197,9 +163,6 @@ public:
 	virtual bool STDCALL Execute();
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Atom EMART_PAUSE_GAME
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMessageAtomReactionPause : public IMessageReaction
 {
 	OBJECT_COMPLETE_METHODS( CMessageAtomReactionPause );
@@ -211,7 +174,6 @@ class CMessageAtomReactionPause : public IMessageReaction
 #endif // #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
 public:
 	CMessageAtomReactionPause() {  }
-	// create and transform reaction
 	CMessageAtomReactionPause( const SMessageAtomReactionForLoad &reaction, IMessageLinkContainer *pHelperContainer )
 	{
 		ILoadHelper * pHelper = pHelperContainer->GetLoadHelper( ELH_PAUSE_TYPE );
@@ -223,9 +185,6 @@ public:
 	}
 	virtual bool STDCALL Execute();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Atom EMART_CUSTOM_REACTION
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMessageAtomReactionCustom : public IMessageReaction
 {
 	OBJECT_COMPLETE_METHODS( CMessageAtomReactionCustom );
@@ -233,16 +192,12 @@ class CMessageAtomReactionCustom : public IMessageReaction
 	std::string szCustomReactionName;
 public:
 	CMessageAtomReactionCustom() {  }
-	// create and transform reaction
 	CMessageAtomReactionCustom( const SMessageAtomReactionForLoad &reaction )
 	{
 		szCustomReactionName = reaction.szParam1;
 	}
 	virtual bool STDCALL Execute();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Atom EMART_NOP
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMessageAtomReactionNOP : public IMessageReaction
 {
 	OBJECT_COMPLETE_METHODS( CMessageAtomReactionNOP );
@@ -250,9 +205,6 @@ public:
 	CMessageAtomReactionNOP() {  }
 	virtual bool STDCALL Execute() { return true; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Atom EMART_MESSAGE_TO_INPUT
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMessageAtomReactionMessageToInput : public IMessageReaction
 {
 	OBJECT_COMPLETE_METHODS( CMessageAtomReactionMessageToInput );
@@ -279,9 +231,6 @@ public:
 	}
 	virtual bool STDCALL Execute();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Atom EMART_MESSAGE_TO_MAINLOOP
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMessageAtomReactionMessageToMainLoop : public IMessageReaction
 {
 	OBJECT_COMPLETE_METHODS( CMessageAtomReactionMessageToMainLoop );
@@ -306,7 +255,6 @@ public:
 	}
 	virtual bool STDCALL Execute();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMessageReaction : public IMessageReaction
 {
 	OBJECT_COMPLETE_METHODS( CMessageReaction );
@@ -329,9 +277,6 @@ public:
 	CMessageReaction( const SMessageReactionForLoad &loaded, IMessageLinkContainer *pHelpers );
 	virtual bool STDCALL Execute(); 
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// message link. contains several reactions on specific message
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMessageLink : public IMessageLink
 {
 	OBJECT_COMPLETE_METHODS( CMessageLink );
@@ -352,9 +297,6 @@ public:
 	void Load( const std::string &szFileName, IMessageLinkContainer *pHelpers );
 	virtual IMessageReaction* STDCALL Configure( const int nMessageID, const int nParam );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// contains all messages links
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMessageLinkContainer : public IMessageLinkContainer 
 {
 	OBJECT_COMPLETE_METHODS( CMessageLinkContainer );
@@ -366,7 +308,6 @@ class CMessageLinkContainer : public IMessageLinkContainer
 	CMessageLinks messageLinks;
 
 	CCustomMessageReaction customReactions;
-	// for simplyfing work ( work with ints instead of strings )
 	typedef std::unordered_map<int/*ELoadHelperID*/, CObj<ILoadHelper> > CLoadHelpers;
 	CLoadHelpers loadHelpers;
 public:
@@ -389,5 +330,4 @@ public:
 	virtual void STDCALL CustomReaction( const std::string &szCustomReactionName );
 	virtual void STDCALL SetWindowText( const int nElementID, const WORD *pszText );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __MESSAGEREACTIONINTERNAL_H__

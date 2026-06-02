@@ -9,9 +9,7 @@
 #include "..\AILogic\AILogic.h"
 #include "..\Misc\Win32Random.h"
 #include "FastSinCos.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 HINSTANCE hDLLInstance = 0;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL WINAPI DllMain(
   HINSTANCE hinstDLL,  // handle to DLL module
   DWORD fdwReason,     // reason for calling function
@@ -22,15 +20,6 @@ BOOL WINAPI DllMain(
 		hDLLInstance = hinstDLL;
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** tooltips
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SToolTip::Init()
 {
 	pText = CreateObject<IGFXText>( GFX_TEXT );
@@ -38,22 +27,12 @@ void SToolTip::Init()
 	pText->SetWidth( 200 );
 	pText->EnableRedLine( false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SToolTip::Clear()
 {
 	pText->SetFont( 0 );
 	bHasFont = false;
 	bHasText = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** scene
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CScene::CScene() 
 : areaCraters( fWorldCellSize ), areaUnits( AREA_MAP_CELL_SIZE ), meshGraveyardArea( AREA_MAP_CELL_SIZE ),
 	effectsArea( AREA_MAP_CELL_SIZE ), spriteObjectsArea( AREA_MAP_CELL_SIZE ), terraObjectsArea( AREA_MAP_CELL_SIZE ), 
@@ -80,7 +59,6 @@ CScene::CScene()
 	wAmbientID = 0;
 	nNextRandomSound = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SVisObjDesc::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -91,11 +69,9 @@ int SVisObjDesc::operator&( IStructureSaver &ss )
 	saver.Add( 4, &bOutbound );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScene::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
-	//
 	saver.Add( 3, &spriteObjectsArea );
 	saver.Add( 4, &terraObjectsArea );
 	saver.Add( 5, &shadowObjectsArea );
@@ -115,22 +91,15 @@ int CScene::operator&( IStructureSaver &ss )
 
 	saver.Add( 30, &pTerrain );
 	saver.Add( 31, &vMapSize );
-	//
 	saver.Add( 32, pFrameSelection.GetPtr() );
 	saver.Add( 33, pStatSystem.GetPtr() );
-	// vis objects desc map
-	// подобный геморрой делаетс€ по двум причинам:
-	//   1. хочетс€ автоматического восстановлени€ зависимостей при загрузке ч/з CPtr
-	//   2. не хочетс€ делать ключЄт в таблице CPtr, т.к. на каждое обращение будут ненужные AddRef/Release
 	if ( saver.IsReading() )
 	{
-		// read data
 		std::vector< CPtr<IVisObj> > objects;
 		std::vector< SVisObjDesc > descs;
 		saver.Add( 34, &objects );
 		saver.Add( 35, &descs );
 		NI_ASSERT_T( objects.size() == descs.size(), NStr::Format("Wrong data readed - number of objects (%d) are not equal to the number of descs (%d)", objects.size(), descs.size()) );
-		// re-build table
 		objdescs.clear();
 		const int nSize = objects.size();
 		for ( int i=0; i<nSize; ++i )
@@ -138,7 +107,6 @@ int CScene::operator&( IStructureSaver &ss )
 	}
 	else
 	{
-		// convert table to 2 vectors
 		std::vector< CPtr<IVisObj> > objects;
 		std::vector< SVisObjDesc > descs;
 
@@ -152,11 +120,9 @@ int CScene::operator&( IStructureSaver &ss )
 			objects.push_back( it->first );
 			descs.push_back( it->second );
 		}
-		// write data
 		saver.Add( 34, &objects );
 		saver.Add( 35, &descs );
 	}
-	//
 	saver.Add( 40, &uiScreens );
 	saver.Add( 41, &areas );
 
@@ -164,23 +130,14 @@ int CScene::operator&( IStructureSaver &ss )
 	saver.Add( 43, &dwHazeColorTop );
 	saver.Add( 44, &dwHazeColorBottom );
 	saver.Add( 45, &fHazeHeight );
-	//
 	saver.Add( 46, &tooltip );
-	//
 	saver.Add( 47, &pSoundScene );
-	//
 	saver.Add( 48, &sunlight );
-	//
 	saver.Add( 49, &alwaysObjects );
-	//
 	saver.Add( 50, &mechTracesArea );
-	//
 	saver.Add( 51, &outboundEffects );
 	saver.Add( 52, &outboundSprites );
 	saver.Add( 53, &outboundObjects2 );
-	//
-	//saver.Add( 53, &gunTracesArea );
-	//
 	saver.Add( 55, &wAmbientID );
 	saver.Add( 56, &bWeatherOn );
 	saver.Add( 57, &eWeatherCondition );
@@ -197,37 +154,29 @@ int CScene::operator&( IStructureSaver &ss )
 	saver.Add( 66, &dwMarkerColor );
 	saver.Add( 67, &pMissionScreen );
 	
-	//CRAP{ FOR SAVES COMPATIBILITY
 	if ( saver.IsReading() && !pMissionScreen )
 	{
 		pMissionScreen = uiScreens.front();
 	}
-	//CRAP}
 
 	if ( saver.IsReading() )
 	{
-		//CRAP{ for saves compartibility
 		if ( dwArrowColor == 0x00000000 )
 		{
 			dwMarkerColor = GetGlobalVar( "Scene.Colors.Summer.Markup.Circle.Color", int(0x0000ff00) );
 			dwArrowColor = GetGlobalVar( "Scene.Colors.Summer.Markup.Arrow.Color", int(0x60000080) );
 		}
-		//CRAP}
 		pSandTexture = 0;
 		bWeatherInitialized = false;
 		sandParticles.resize( nSandSize );
 		rainDrops.resize( nRainSize );
 		snowFlakes.resize( nSnowSize );
-		// resize areas for mech and gun traces 
 		if ( (mechTracesArea.GetSizeX() != spriteObjectsArea.GetSizeX()) || (mechTracesArea.GetSizeY() != spriteObjectsArea.GetSizeY()) ) 
 			mechTracesArea.SetSizes( spriteObjectsArea.GetSizeX(), spriteObjectsArea.GetSizeY() );
 		if ( (gunTracesArea.GetSizeX() != spriteObjectsArea.GetSizeX()) || (gunTracesArea.GetSizeY() != spriteObjectsArea.GetSizeY()) ) 
 			gunTracesArea.SetSizes( spriteObjectsArea.GetSizeX(), spriteObjectsArea.GetSizeY() );
-		// CRAP{ for old saves compatibility
-		// read old sprite and mech units
 		if ( (areaUnits.GetSizeX() != spriteObjectsArea.GetSizeX()) || (areaUnits.GetSizeY() != spriteObjectsArea.GetSizeY()) ) 
 			areaUnits.SetSizes( spriteObjectsArea.GetSizeX(), spriteObjectsArea.GetSizeY() );
-		// sprite units
 		CSpritesArea spriteUnitsArea( AREA_MAP_CELL_SIZE );
 		saver.Add( 1, &spriteUnitsArea );
 		if ( (spriteUnitsArea.GetSizeX() == areaUnits.GetSizeX()) && (spriteUnitsArea.GetSizeY() == areaUnits.GetSizeY()) ) 
@@ -241,7 +190,6 @@ int CScene::operator&( IStructureSaver &ss )
 				}
 			}
 		}
-		// mesh units
 		CMeshesArea meshUnitsArea( AREA_MAP_CELL_SIZE );
 		saver.Add( 2, &meshUnitsArea );
 		if ( (meshUnitsArea.GetSizeX() == areaUnits.GetSizeX()) && (meshUnitsArea.GetSizeY() == areaUnits.GetSizeY()) ) 
@@ -255,17 +203,13 @@ int CScene::operator&( IStructureSaver &ss )
 				}
 			}
 		}
-		// CRAP}
-		// resize area craters
 		if ( ( areaCraters.GetSizeX() != areaUnits.GetSizeX() * AREA_MAP_CELL_SIZE_IN_TILES ) ||
 			   ( areaCraters.GetSizeY() != areaUnits.GetSizeY() * AREA_MAP_CELL_SIZE_IN_TILES ) ) 
 			areaCraters.SetSizes( areaUnits.GetSizeX() * AREA_MAP_CELL_SIZE_IN_TILES, 
 			                      areaUnits.GetSizeY() * AREA_MAP_CELL_SIZE_IN_TILES );
 	}
-	//
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScene::ToggleShow( int nTypeID )
 {
 	switch ( nTypeID )
@@ -317,22 +261,18 @@ bool CScene::ToggleShow( int nTypeID )
 	NI_ASSERT_TF( false, NStr::Format("Can't toggle parameter %d - unknown parameter", nTypeID), return false );
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::InitTerrainSound ( interface ITerrain *pTerrain )
 {
 	pSoundScene->InitTerrain( pTerrain );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::InitMapSounds( const struct CMapSoundInfo *pSound, int nElements )
 {
 	pSoundScene->InitMap( pSound, nElements );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::InitMusic(	const std::string &szPartyName )
 {
 	pSoundScene->InitMusic( szPartyName );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScene::Init( ISingleton *pSingleton ) 
 { 
 	pGFX = GetSingleton<IGFX>( pSingleton );
@@ -341,26 +281,19 @@ bool CScene::Init( ISingleton *pSingleton )
 	pCursor = GetSingleton<ICursor>( pSingleton );
 	pFrameSelection = new CFrameSelection();
 	pStatSystem = new CStatSystem();
-	//
 	pSoundScene->Init( 0, 0 );
-	//
 	tooltip.Init();
-	//
 	sunlight.vDiffuse.Set( 0.5f, 0.5f, 0.5f, 0.5f );
 	sunlight.vAmbient.Set( 0.5f, 0.5f, 0.5f, 0.5f );
 	sunlight.vDir.Set( 1, 1, -2 );
 	Normalize( &sunlight.vDir );
 	sunlight.vSpecular.Set( 1, 1, 1, 1 );
-	// setup material
 	Zero( material );
 	material.vAmbient = CVec4( 1, 1, 1, 1 );
 	material.vDiffuse = CVec4( 1, 1, 1, 1 );
-	//
 	tTransformUpdateTime = 0;
-	// setup initial map size = 4 vis patches (8 area map patches)
 	SetAreaMapSize( 8, 8 );
 	SetMapSize( 4*16*fWorldCellSize, 4*16*fWorldCellSize );
-	// initialize haze
 	bEnableHaze = GetGlobalVar( "Scene.Haze.Enable", 1 ) == 1;
 	dwHazeColorTop = MAKE_ARGB( GetGlobalVar( "Scene.Haze.TopColor.A", 36  ),
 			                        GetGlobalVar( "Scene.Haze.TopColor.R", 0   ),
@@ -377,13 +310,11 @@ bool CScene::Init( ISingleton *pSingleton )
   fHazeHeight = GetGlobalVar( "Scene.Haze.Height", 1.0f/3.0f );
 	pTrackTexture = 0;
 
-	//weather
 	nLastWeatherUpdate = 0;
 	eWeatherCondition = SC_NONE;
 	bWeatherInitialized = false;
 	fChangeSpeed = GetGlobalVar( "AI.Weather.TimeToFadeOff", 5.0f ) * 1000.0f;
 	SetWeatherQuality( GetGlobalVar( "Options.GFX.DensityCoeff", 1.0f ) );
-	//rain
 	rainDrops.resize( 0 );
 	vRainDir.x = GetGlobalVar( "Scene.Weather.Rain.Direction.x", 0.01f );
 	vRainDir.y = GetGlobalVar( "Scene.Weather.Rain.Direction.y", 0.01f );
@@ -392,7 +323,6 @@ bool CScene::Init( ISingleton *pSingleton )
 	dwRainTopColor = GetGlobalVar( "Scene.Weather.Rain.TopColor", int(0x20404060) );
 	dwRainBottomColor = GetGlobalVar( "Scene.Weather.Rain.BottomColor", int(0x40404060) );
 
-	//snow
 	snowFlakes.resize( 0 );
 	fSnowHeight = GetGlobalVar( "Scene.Weather.Snow.Height", 500.0f );
 	dwSnowColor = GetGlobalVar( "Scene.Weather.Snow.Color", int(0xffffffff) );
@@ -400,7 +330,6 @@ bool CScene::Init( ISingleton *pSingleton )
 	fSnowAmplitude = GetGlobalVar( "Scene.Weather.Snow.Amplitude", 0.05f );
 	fSnowFrequency = GetGlobalVar( "Scene.Weather.Snow.Frequency", 0.003f );
 	
-	//sand
 	sandParticles.resize( 0 );
 	fSandHeight = GetGlobalVar( "Scene.Weather.Sand.Height", 300.0f );
 	vSandCone = CVec2( -100.0f, -100.0f );
@@ -413,7 +342,6 @@ bool CScene::Init( ISingleton *pSingleton )
 	fSandSpeed = GetGlobalVar( "Scene.Weather.Sand.Speed", 10.0f );
 	fSandConeSpeed = GetGlobalVar( "Scene.Weather.Sand.ConeSpeed", 0.1f );
 
-	//markup
 	fTraceLen = GetGlobalVar( "Scene.GunTrace.Length", 0.33f );
 	clickMarkers.clear();
 	nMarkerLifetime = 1500;
@@ -421,11 +349,9 @@ bool CScene::Init( ISingleton *pSingleton )
 	dwArrowColor = GetGlobalVar( "Scene.Colors.Summer.Markup.Arrow.Color", int(0x60000080) );
 	return true; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::SetSeason( const int nSeason )
 {
 	const std::string szSeason = nSeason == 0 ? "Summer" : (nSeason == 1 ? "Winter" : "Africa");
-	//
 	sunlight.vDiffuse.Set( GetGlobalVar( ("Scene.SunLight." + szSeason + ".Diffuse.A").c_str(), 1.0f ),
 		                     GetGlobalVar( ("Scene.SunLight." + szSeason + ".Diffuse.R").c_str(), 1.0f ),
 												 GetGlobalVar( ("Scene.SunLight." + szSeason + ".Diffuse.G").c_str(), 1.0f ),
@@ -442,11 +368,9 @@ void CScene::SetSeason( const int nSeason )
 	dwMarkerColor = GetGlobalVar( ("Scene.Colors." + szSeason + ".Markup.Circle.Color").c_str(), int(0x0000ff00) );
 	dwArrowColor = GetGlobalVar( ("Scene.Colors." + szSeason + ".Markup.Arrow.Color").c_str(), int(0x60000080) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::UpdateTransformMatrix()
 {
 	NTimer::STime time = pTimer->GetGameTime();
-	//if ( tTransformUpdateTime != time )
 	{
 		static CMatrixStack<4> mstack;
 		mstack.Push( pGFX->GetViewportMatrix() );
@@ -457,7 +381,6 @@ void CScene::UpdateTransformMatrix()
 		tTransformUpdateTime = time;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::SetAreaMapSize( int nSizeX, int nSizeY )
 {
 	objdescs.clear();
@@ -487,24 +410,13 @@ void CScene::SetMapSize( int nSizeX, int nSizeY )
 	vMapSize.x = nSizeX;
 	vMapSize.y = nSizeY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** adding/removing objects
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::SetTerrain( ITerrain *_pTerrain )
 {
 	pTerrain = _pTerrain;
 	if ( pTerrain )
 	{
-		// calc map size from terrain
 		float fSizeX = pTerrain->GetSizeX();
 		float fSizeY = pTerrain->GetSizeY();
-		// 
 		int nSizeX = int( fSizeX / AREA_MAP_CELL_SIZE_IN_TILES );
 		if ( nSizeX * AREA_MAP_CELL_SIZE_IN_TILES < fSizeX )
 			++nSizeX;
@@ -512,7 +424,6 @@ void CScene::SetTerrain( ITerrain *_pTerrain )
 		int nSizeY = int( fSizeY / AREA_MAP_CELL_SIZE_IN_TILES );
 		if ( nSizeY * AREA_MAP_CELL_SIZE_IN_TILES < fSizeY )
 			++nSizeY;
-		// setup area maps size
 		SetAreaMapSize( nSizeX, nSizeY );	
 		pSoundScene->Init( fSizeX, fSizeY );
 		SetMapSize( pTerrain->GetSizeX()*fWorldCellSize, pTerrain->GetSizeY()*fWorldCellSize );
@@ -524,10 +435,8 @@ void CScene::SetTerrain( ITerrain *_pTerrain )
 	eWeatherCondition = SC_NONE;
 	pSoundScene->SetTerrain( pTerrain );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScene::MoveObject( IVisObj *pObject, const CVec3 &vPos )
 {
-	// check, if object still exist (need for self-destructible objects (effects))
 	CVisObjDescMap::const_iterator it = objdescs.find( pObject );
 	if ( it == objdescs.end() )
 		return false;
@@ -535,9 +444,6 @@ bool CScene::MoveObject( IVisObj *pObject, const CVec3 &vPos )
 
 	if ( !desc.bOutbound && ((vPos.x < 0) || (vPos.y < 0) || (vPos.x >= vMapSize.x) || (vPos.y >= vMapSize.y)) )
 		return false;
-	//
-	//UpdateAttachedSounds( pObject, vPos );
-	//
 	if ( desc.bOutbound )
 		pObject->SetPosition( vPos );
 	else if ( desc.vistype == SGVOT_SPRITE ) 
@@ -548,7 +454,6 @@ bool CScene::MoveObject( IVisObj *pObject, const CVec3 &vPos )
 				areaUnits.MoveTo( static_cast<IObjVisObj*>(pObject), vPos );
 				break;
 			case SGVOGT_EFFECT:
-				// AI не провер€ет выход эффектов за границу
 				if ( effectsArea.IsInArea(vPos) ) 
 					effectsArea.MoveTo( pObject, vPos );
 				else
@@ -557,7 +462,6 @@ bool CScene::MoveObject( IVisObj *pObject, const CVec3 &vPos )
 			case SGVOGT_TERRAOBJ:
 			case SGVOGT_BRIDGE:
 			case SGVOGT_FORTIFICATION:
-				// AI не провер€ет выход терраобъектов за границу
 				if ( terraObjectsArea.IsInArea(vPos) ) 
 					terraObjectsArea.MoveTo( static_cast<IObjVisObj*>(pObject), vPos );
 				else
@@ -578,7 +482,6 @@ bool CScene::MoveObject( IVisObj *pObject, const CVec3 &vPos )
 				areaUnits.MoveTo( static_cast<IObjVisObj*>(pObject), vPos );
 				break;
 			case SGVOGT_TERRAOBJ:
-				// AI не провер€ет выход терраобъектов за границу
 				if ( terraObjectsArea.IsInArea(vPos) ) 
 					terraObjectsArea.MoveTo( static_cast<IObjVisObj*>(pObject), vPos );
 				else
@@ -592,10 +495,8 @@ bool CScene::MoveObject( IVisObj *pObject, const CVec3 &vPos )
 		effectsArea.MoveTo( pObject, vPos );
 	else
 		NI_ASSERT_T( false, "unknown object" );
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScene::AddMeshPair( IGFXVertices *pVertices, IGFXIndices *pIndices, IGFXTexture *pTexture, int nShadingEffect, bool bTemporary )
 {
 	const int nIndex = tempmeshes.empty() ? 0 : tempmeshes.back().nIndex + 1;
@@ -611,33 +512,27 @@ int CScene::AddMeshPair( IGFXVertices *pVertices, IGFXIndices *pIndices, IGFXTex
 
 	return nIndex;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScene::AddMeshPair2( void *vertices, int nNumVertices, int nVertexSize, DWORD dwFormat,
 		                      WORD *indices, int nNumIndices, EGFXPrimitiveType ePrimitiveType,
 													IGFXTexture *pTexture, int nShadingEffect, bool bTemporary )
 {
 	meshpairs2.push_back( SMeshPair2() );
 	SMeshPair2 &mesh = meshpairs2.back();
-	//
 	mesh.vertices.resize( nVertexSize*nNumVertices );
 	memcpy( &(mesh.vertices[0]), vertices, nVertexSize*nNumVertices );
 	mesh.nNumVertices = nNumVertices;
 	mesh.dwVertexFormat = dwFormat;
-	//
 	if ( nNumIndices > 0 ) 
 	{
 		mesh.indices.resize( nNumIndices );
 		memcpy( &(mesh.indices[0]), indices, nNumIndices*sizeof(WORD) );
 	}
-	//
 	mesh.ePrimitiveType = ePrimitiveType;
 	mesh.pTexture = pTexture;
 	mesh.nShadingEffect = nShadingEffect;
 	mesh.bTemporary = bTemporary;
-	//
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScene::RemoveMeshPair( int nID )
 {
 	for ( std::list<STemporalMesh>::iterator it = tempmeshes.begin(); it != tempmeshes.end(); ++it )
@@ -650,7 +545,6 @@ bool CScene::RemoveMeshPair( int nID )
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::SetAreas( const SShootAreas *_areas, int nNumAreas )
 {
 	areas.clear();
@@ -669,7 +563,6 @@ void CScene::SetAreas( const SShootAreas *_areas, int nNumAreas )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::GetAreas( SShootAreas **_areas, int *pnNumAreas )
 {
 	if ( areas.empty() )
@@ -684,7 +577,6 @@ void CScene::GetAreas( SShootAreas **_areas, int *pnNumAreas )
 		*_areas = &( areas[0] );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScene::AddOutboundObject( IVisObj *pObj, EObjGameType eGameType )
 {
 	NI_ASSERT_SLOW_TF( (dynamic_cast<IMeshVisObj*>(pObj) != 0) || (dynamic_cast<IEffectVisObj*>(pObj) != 0) || (dynamic_cast<ISpriteVisObj*>(pObj) != 0), "Outbound object must be a mesh, effect or sprite vis obj", return false );
@@ -692,7 +584,6 @@ bool CScene::AddOutboundObject( IVisObj *pObj, EObjGameType eGameType )
 	desc.gametype = eGameType;
 	desc.pDesc = 0;
 	desc.bOutbound = true;
-	//
 	switch ( eGameType ) 
 	{
 		case SGVOGT_EFFECT:
@@ -707,10 +598,8 @@ bool CScene::AddOutboundObject( IVisObj *pObj, EObjGameType eGameType )
 		default:
 			outboundObjects.push_back( checked_cast<IMeshVisObj*>(pObj) );
 	}
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScene::AddOutboundObject2( IVisObj *pObj, EObjGameType eGameType )
 {
 	NI_ASSERT_SLOW_TF( dynamic_cast<IMeshVisObj*>(pObj) != 0, "Outbound object must be a mesh, effect or sprite vis obj", return false );
@@ -721,36 +610,29 @@ bool CScene::AddOutboundObject2( IVisObj *pObj, EObjGameType eGameType )
 	outboundObjects2.push_back( checked_cast<IMeshVisObj*>(pObj) );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::AddMechTrace( const SMechTrace &trace )
 {
 	mechTracesArea.Add( trace );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::AddGunTrace( const SGunTrace &trace )
 {
 	if ( gunTracesArea.IsInArea( trace.GetPosition() ) )
 		gunTracesArea.Add( trace );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScene::AddObject( IVisObj *pObj, EObjGameType eGameType, const SGDBObjectDesc *pDesc )
 {
 	if ( pObj == 0 )
 		return false;
-	// add descriptor
 	SVisObjDesc &desc = objdescs[pObj];
 	desc.gametype = eGameType;
 	desc.pDesc = pDesc;
 	desc.bOutbound = false;
-	// add object
 	if ( ISpriteVisObj *pSprite = dynamic_cast<ISpriteVisObj*>( pObj ) )
 	{
 		desc.vistype = SGVOT_SPRITE;
 		checked_cast<IObjVisObj*>(pObj)->SetGameType( desc.gametype );
-		// set default animation for non-unit object
 		if ( eGameType != SGVOGT_UNIT )
 			pSprite->SetAnimation( 0 );
-		//
 		return AddSpriteObject( pSprite, eGameType );
 	}
 	else if ( IMeshVisObj *pMesh = dynamic_cast<IMeshVisObj*>( pObj ) )
@@ -772,7 +654,6 @@ bool CScene::AddObject( IVisObj *pObj, EObjGameType eGameType, const SGDBObjectD
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScene::AddCraterObject( IVisObj *_pObj, EObjGameType eGameType )
 {
 	IObjVisObj *pObj = checked_cast<IObjVisObj*>( _pObj );
@@ -780,7 +661,6 @@ bool CScene::AddCraterObject( IVisObj *_pObj, EObjGameType eGameType )
 	pObj->Update( pTimer->GetGameTime() );	
 	return areaCraters.Add( pObj );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScene::AddSpriteObject( ISpriteVisObj *pObj, EObjGameType eGameType )
 {
 	switch ( eGameType )
@@ -789,26 +669,21 @@ bool CScene::AddSpriteObject( ISpriteVisObj *pObj, EObjGameType eGameType )
 			AddObjectToArea( pObj, areaUnits );
 			break;
 		case SGVOGT_SHADOW:
-			// call Update() once for shadows
 			pObj->Update( pTimer->GetGameTime() );
 			AddObjectToArea( pObj, shadowObjectsArea );
 			break;
 		case SGVOGT_TERRAOBJ:
 		case SGVOGT_BRIDGE:
 		case SGVOGT_FORTIFICATION:
-			// call Update() once for terrain objects
 			pObj->Update( pTimer->GetGameTime() );
 			AddObjectToArea( pObj, terraObjectsArea );
 			break;
 		default:
-			// call Update() once for static objects
 			pObj->Update( pTimer->GetGameTime() );
 			AddObjectToArea( pObj, spriteObjectsArea );
 	}
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScene::AddMeshObject( IMeshVisObj *pObj, EObjGameType eGameType )
 {
 	switch ( eGameType ) 
@@ -817,7 +692,6 @@ bool CScene::AddMeshObject( IMeshVisObj *pObj, EObjGameType eGameType )
 			AddObjectToArea( pObj, areaUnits );
 			break;
 		case SGVOGT_TERRAOBJ:
-			// CRAP{ почему-то самолЄты иногда добавл€ютс€ как терраобъекты
 			{
 				const SVisObjDesc *pDesc = GetDesc( pObj );
 				if ( pDesc && pDesc->pDesc ) 
@@ -829,21 +703,16 @@ bool CScene::AddMeshObject( IMeshVisObj *pObj, EObjGameType eGameType )
 					NI_ASSERT_T( false, "Trying to add mesh object as a terraobj" );
 				}
 			}
-			// CRAP}
-			// set default animation for non-unit object
 			pObj->SetAnimation( 0 );
 			pObj->Update( pTimer->GetGameTime() );
 			AddObjectToArea( pObj, terraObjectsArea );
 			break;
 		default:
-			// set default animation for non-unit object
 			pObj->SetAnimation( 0 );
 			AddObjectToArea( pObj, meshGraveyardArea );
 	}
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScene::AddEffectObject( IVisObj *pObj, EObjGameType eGameType )
 {
 	if ( bEnableEffects )
@@ -854,17 +723,12 @@ bool CScene::AddEffectObject( IVisObj *pObj, EObjGameType eGameType )
 		return false;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::Clear()
 {
-	// store area map size
 	const int nSizeX = areaUnits.GetSizeX();
 	const int nSizeY = areaUnits.GetSizeY();
-	// clear tooltip
 	tooltip.Clear();
-	// remove all descriptors
 	objdescs.clear();
-	// clear area maps
 	areaUnits.Clear();
 	areaCraters.Clear();
 	effectsArea.Clear();
@@ -879,20 +743,14 @@ void CScene::Clear()
 	alwaysObjects.clear();
 	mechTracesArea.Clear();
 	gunTracesArea.Clear();
-	// remove all UI screens...
 	uiScreens.clear();
-	// restore are maps size
 	SetAreaMapSize( nSizeX, nSizeY );
-	//
-	//RemoveAttachedSounds( 0 );
 	pSoundScene->Clear();
 	pTrackTexture = 0;
-	//bScriptControlled = false;
 	rainDrops.resize( 0 );
 	snowFlakes.resize( 0 );
 	sandParticles.resize( 0 );
 	nLastWeatherUpdate = 0;
-	//nNextWeatherChange = 0;
 	pSandTexture = 0;
 	eWeatherCondition = SC_NONE;
 	bWeatherOn = false;
@@ -902,7 +760,6 @@ void CScene::Clear()
 	wAmbientID = 0;
 	nNextRandomSound = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScene::RemoveObject( IVisObj *pObj )
 {
 	CVisObjDescMap::iterator it = objdescs.find( pObj );
@@ -910,9 +767,6 @@ bool CScene::RemoveObject( IVisObj *pObj )
 		return false;
 	SVisObjDesc desc = it->second;
 	objdescs.erase( it );
-	//
-	//RemoveAttachedSounds( pObj );
-	//
 	if ( desc.bOutbound )
 		return RemoveOutboundObject( pObj, desc.gametype );
 	else if ( desc.vistype == SGVOT_SPRITE )
@@ -924,7 +778,6 @@ bool CScene::RemoveObject( IVisObj *pObj )
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScene::RemoveOutboundObject( IVisObj *pObj, EObjGameType eGameType )
 {
 	switch ( eGameType ) 
@@ -947,7 +800,6 @@ bool CScene::RemoveOutboundObject( IVisObj *pObj, EObjGameType eGameType )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScene::RemoveSpriteObject( ISpriteVisObj *pObj, EObjGameType eGameType )
 {
 	switch ( eGameType )
@@ -968,7 +820,6 @@ bool CScene::RemoveSpriteObject( ISpriteVisObj *pObj, EObjGameType eGameType )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScene::RemoveMeshObject( IMeshVisObj *pObj, EObjGameType eGameType )
 {
 	if ( eGameType == SGVOGT_UNIT ) 
@@ -981,13 +832,11 @@ bool CScene::RemoveMeshObject( IMeshVisObj *pObj, EObjGameType eGameType )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScene::RemoveEffectObject( IVisObj *pObj, EObjGameType eGameType )
 {
 	effectsArea.Remove( pObj );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScene::TransferToGraveyard( IVisObj *pObj )
 {
 	SVisObjDesc &desc = objdescs[pObj];
@@ -995,11 +844,8 @@ bool CScene::TransferToGraveyard( IVisObj *pObj )
 		return false;
 	if ( desc.vistype == SGVOT_SPRITE )
 	{
-		// add as terrain object
 		AddSpriteObject( static_cast<ISpriteVisObj*>( pObj ), SGVOGT_TERRAOBJ );
-		// remove as unit
 		RemoveSpriteObject( static_cast<ISpriteVisObj*>( pObj ), SGVOGT_UNIT );
-		// change game type
 		desc.gametype = SGVOGT_TERRAOBJ;
 	}
 	/*
@@ -1012,15 +858,6 @@ bool CScene::TransferToGraveyard( IVisObj *pObj )
 	*/
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** UI screens
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::SetMissionScreen( interface IUIScreen *_pMissionScreen )
 {
 	pMissionScreen = _pMissionScreen;
@@ -1046,33 +883,18 @@ IUIScreen* CScene::GetUIScreen()
 {
 	return uiScreens.empty() ? 0 : uiScreens.back();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** additional tools
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::GetPos2( CVec2 *pPos, const CVec3 &pos )
 {
-	// form transform matrix
 	UpdateTransformMatrix();
-	//
 	CVec3 pos3;
 	matTransform.RotateHVector( &pos3, pos );
 	pPos->Set( pos3.x, pos3.y );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::GetScreenCoords( const CVec3 &pos, CVec3 *vScreen )
 {
-	// form transform matrix
 	UpdateTransformMatrix();
-	//
 	matTransform.RotateHVector( vScreen, pos );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::GetPos3( CVec3 *pPos, const CVec2 &pos, bool bOnZero )
 {
 	CVec3 vNear, vFar;
@@ -1083,9 +905,7 @@ void CScene::GetPos3( CVec3 *pPos, const CVec2 &pos, bool bOnZero )
 		AI2Vis( pPos );
 	else
 	{
-		// form transform matrix
 		UpdateTransformMatrix();
-		//
 		float x =  ( matTransform._12*matTransform._24 - matTransform._12*pos.y - matTransform._14*matTransform._22 + pos.x*matTransform._22 ) / 
 							 ( matTransform._11*matTransform._22 - matTransform._12*matTransform._21 );
 		float y = -( matTransform._11*matTransform._24 - matTransform._11*pos.y - matTransform._14*matTransform._21 + pos.x*matTransform._21 ) / 
@@ -1093,7 +913,6 @@ void CScene::GetPos3( CVec3 *pPos, const CVec2 &pos, bool bOnZero )
 		pPos->Set( x, y, 0 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CScene::GetNumSceneObjects() const
 {
 	return objdescs.size();
@@ -1108,17 +927,14 @@ int CScene::GetAllSceneObjects( std::pair<const SGDBObjectDesc*, CVec3> *pBuffer
 	}
 	return objdescs.size();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::SetVisibleObjects( IVisObj **ppObjects, int nNumObjects )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::SetWarFog( struct SAIVisInfo *pObjects, int nNumObjects )
 {
 	if ( pTerrain )
 		pTerrain->SetWarFog( pObjects, nNumObjects );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::SetToolTip( interface IText *pText, const CVec2 &vPos, const CTRect<float> &rcOut, const DWORD dwColor )
 {
 	if ( pText == 0 )
@@ -1126,7 +942,6 @@ void CScene::SetToolTip( interface IText *pText, const CVec2 &vPos, const CTRect
 	else
 	{
 		tooltip.pText->SetFont( GetSingleton<IFontManager>()->GetFont("fonts\\medium") );
-		//
 		const CTRect<float> rcScreenRect = pGFX->GetScreenRect();
 		tooltip.bHasText = true;
 		tooltip.pText->SetText( pText );
@@ -1141,7 +956,6 @@ void CScene::SetToolTip( interface IText *pText, const CVec2 &vPos, const CTRect
 			const int nWidth = tooltip.pText->GetWidth() + 5;
 			tooltip.rcRect.Set( vPos.x, vPos.y, vPos.x + nWidth, vPos.y + nHeight );
 		}
-		//
 		if ( tooltip.rcRect.x1 - 5 < rcScreenRect.x1 ) 
 			tooltip.rcRect.Move( rcScreenRect.x1 - tooltip.rcRect.x1 + 5, 0 );
 		if ( tooltip.rcRect.y1 - 5 < rcScreenRect.y1 ) 
@@ -1150,11 +964,9 @@ void CScene::SetToolTip( interface IText *pText, const CVec2 &vPos, const CTRect
 			tooltip.rcRect.Move( rcScreenRect.x2 - tooltip.rcRect.x2 - 5, 0 );
 		if ( tooltip.rcRect.y2 + 5 >= rcScreenRect.y2 ) 
 			tooltip.rcRect.Move( 0, rcScreenRect.y2 - tooltip.rcRect.y2 - 5 );
-		//
 		tooltip.dwBorderColor = dwColor != 0 ? dwColor : 0xffcdcd00;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::RandomizeRainDrop( SRainDrop &drop )
 {
 	drop.vPos.x = NWin32Random::Random( viewableTerrainRect.x1, viewableTerrainRect.x2 );
@@ -1162,7 +974,6 @@ void CScene::RandomizeRainDrop( SRainDrop &drop )
 	drop.vPos.z = fRainHeight;
 	drop.fLength = NWin32Random::Random( 0.0f, -drop.vPos.z / vRainDir.z );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::RandomizeSnowFlake( SSnowFlake &flake )
 {
 	flake.vPos.x = NWin32Random::Random( viewableTerrainRect.x1, viewableTerrainRect.x2 );
@@ -1170,7 +981,6 @@ void CScene::RandomizeSnowFlake( SSnowFlake &flake )
 	flake.vPos.z = NWin32Random::Random( 0.0f, fSnowHeight );
 	flake.fPhase = NWin32Random::Random( 0.0f, float(PI) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float GetCondensedRandom( float fMin, float fMax, float fMedium, bool bDoubleDensity = true )
 {
 	float result = NWin32Random::Random( 0.0f, 1.0f );
@@ -1187,7 +997,6 @@ float GetCondensedRandom( float fMin, float fMax, float fMedium, bool bDoubleDen
 	else
 		return (1.0f - result) * ( fMedium - fMin ) + fMin;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::RandomizeSand( SSandParticle &particle )
 {
 	particle.bCone = (NWin32Random::Random( 0.0f, 1.0f ) < 0.1f);
@@ -1208,7 +1017,6 @@ void CScene::RandomizeSand( SSandParticle &particle )
 	particle.vPhase.y = NWin32Random::Random( 0.0f, 2.0f * float(PI) );
 	particle.vPhase.z = NWin32Random::Random( 0.0f, 2.0f * float(PI) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::SetDirectionalArrow( const CVec3 &vStart, const CVec3 &vEnd, bool bDraw )
 {
 	bDrawArrow = bDraw;
@@ -1219,7 +1027,6 @@ void CScene::SetDirectionalArrow( const CVec3 &vStart, const CVec3 &vEnd, bool b
 	if ( fArrowLenTemp != 0 )
 		vArrowDir /= fArrowLenTemp;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::SetClickMarker( const CVec3 &vPos )
 {
 	SClickMarker mark;
@@ -1227,18 +1034,15 @@ void CScene::SetClickMarker( const CVec3 &vPos )
 	mark.nStartTime = GetSingleton<IGameTimer>()->GetAbsTime();
 	clickMarkers.push_back( mark );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::SetPosMarker( const CVec3 &vPos )
 {
 	posMarkers.push_back( vPos );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::SetRotationStartAngle( float fAngle, bool bRotate )
 {
 	bRotateMarkers = bRotate;
 	fArrowBegin = fAngle;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::FlashPosMarkers()
 {
 	if ( !posMarkers.empty() )
@@ -1265,12 +1069,10 @@ void CScene::FlashPosMarkers()
 		posMarkers.clear();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::ResetPosMarkers()
 {
 	posMarkers.clear(); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::Reposition()
 {
 	for ( std::list< CPtr<IUIScreen> >::iterator it = uiScreens.begin(); it != uiScreens.end(); ++it )
@@ -1279,7 +1081,6 @@ void CScene::Reposition()
 	if ( pTerrain ) 
 		pTerrain->ResetPosition();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::SwitchWeather( bool bOn )
 {
 	if ( bWeatherOn )
@@ -1312,12 +1113,10 @@ void CScene::SwitchWeather( bool bOn )
 		pSoundScene->MuteTerrain( bOn );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CScene::IsRaining()
 {
 	return eCurrSetting == ST_RAIN && eWeatherCondition != SC_NONE;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::SetWeatherQuality( float fCoeff )
 {
 	nRainDensity = GetGlobalVar( "Scene.Weather.Rain.Density", 1000 ) * fCoeff;
@@ -1325,7 +1124,6 @@ void CScene::SetWeatherQuality( float fCoeff )
 	nMaxSnowDensity = GetGlobalVar( "Scene.Weather.Snow.MaxDensity", 3000 ) * fCoeff;
 	nSandDensity = GetGlobalVar( "Scene.Weather.Sand.Density", 2000 ) * fCoeff;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSinCosTable
 {
 	float sintable[32768];
@@ -1340,14 +1138,11 @@ public:
 			costable[i] = cos( fAngle );
 		}
 	}
-	//
 	int Angle2Index( float fAngle ) const { return MINT( fAngle / FP_2PI * 32768.0f ); }
 	double Index2Angle( int nIndex ) const { return ( double( nIndex ) * 2.0 * PI / 32768.0 ); }
-	//
 	float Sin( float fAngle ) const { return sintable[ Angle2Index( fAngle ) ]; }
 	float Cos( float fAngle ) const { return costable[ Angle2Index( fAngle ) ]; }
 };
 static CSinCosTable sincos;
 float Sin( float fAngle ) { return sincos.Sin( fAngle ); }
 float Cos( float fAngle ) { return sincos.Cos( fAngle ); }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

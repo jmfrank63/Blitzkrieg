@@ -1,19 +1,13 @@
 #ifndef __UICOLORTEXTSCROLL_H__
 #define __UICOLORTEXTSCROLL_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "UIScrollText.h"
 
 typedef std::pair< CPtr<ITextDialog>, CPtr<IGFXText> > CVisibleString;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIColorTextScroll : public CUIScrollTextBox
 {
 	DECLARE_SERIALIZE;
 public:
-	// one entry;
-	// displays in this way
-	// 
 	class CColorTextEntry : public IRefCount
 	{
 		DECLARE_SERIALIZE;
@@ -60,15 +54,12 @@ public:
 
 	virtual void STDCALL SetWindowText( int nState, const WORD *pszText );
 
-	// serializing...
 	virtual int STDCALL operator&( IDataTree &ss );
 	virtual void STDCALL Reposition( const CTRect<float> &rcParent );
 	
-	// drawing
 	virtual void STDCALL Draw( IGFX *pGFX );
 	virtual void STDCALL Visit( interface ISceneVisitor *pVisitor );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIColorTextScrollBridge : public IUIColorTextScroll, public CUIColorTextScroll
 {
 	OBJECT_NORMAL_METHODS( CUIColorTextScrollBridge );
@@ -79,5 +70,4 @@ class CUIColorTextScrollBridge : public IUIColorTextScroll, public CUIColorTextS
 																			const enum IUIColorTextScroll::EColorEntrys color = IUIColorTextScroll::E_COLOR_DEFAULT ) 
 	{ CSuper::AppendMessage( pszCaption, pszMessage, color ); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __UICOLORTEXTSCROLL_H__

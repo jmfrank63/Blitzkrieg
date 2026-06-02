@@ -12,25 +12,17 @@
 #include "Statistics.h"
 #include "MultiplayerInfo.h"
 #include "Trigonometry.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern NTimer::STime curTime;
 extern CDiplomacy theDipl;
 CCollisionsCollector theColCollector;
 extern CGroupLogic theGroupLogic;
 extern CStatistics theStatistics;
 extern CMultiplayerInfo theMPInfo;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( ICollision );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*														CCollision														*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CCollision::CCollision( CPathUnit *_pUnit, CAIUnit *_pPushUnit, const int _nPriority )
 : pUnit( _pUnit ), pPushUnit( _pPushUnit ), nPriority( _nPriority )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int GetTypeOfCollide( const SRect &unitRect, const SRect &unitSpeedRect, const SRect &unitFullSpeedRect, const SRect &unitSmallRect,
 														const SRect &candRect, const SRect &candSpeedRect, const SRect &candFullSpeedRect, const SRect &candSmallRect,
 														float *pfDist, const bool bIsCandInfantry )
@@ -88,7 +80,6 @@ const int GetTypeOfCollide( const SRect &unitRect, const SRect &unitSpeedRect, c
 	*pfDist = fabs( unitRect, candRect );
 	return 4;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CCollision::FindCandidates()
 { 
 	if ( pUnit->GetOwner()->IsColliding() && !pUnit->GetStats()->IsInfantry() &&
@@ -230,59 +221,43 @@ int CCollision::FindCandidates()
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CCollision::IsSolved()
 {
 	return 
 		pPushUnit != 0 &&
 		( !IsValidObj( pPushUnit ) || pPushUnit->GetPathUnit()->IsLockingTiles() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CFreeOfCollisions														*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFreeOfCollisions::CFreeOfCollisions( CPathUnit *pUnit, CAIUnit *pPushUnit )
 : CCollision( pUnit, pPushUnit, pUnit->GetID() )
 {
 	if ( pUnit->GetStats()->IsInfantry() )
 		nPriority <<= 12;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFreeOfCollisions::IsSolved()
 {
 	return 
 		!pUnit->IsTurning() &&
 		( pUnit->GetCurPath() == 0 || pUnit->GetCurPath()->IsFinished() || CCollision::IsSolved() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CGivingPlaceCollision												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CGivingPlaceCollision::CGivingPlaceCollision( CPathUnit *pUnit, CAIUnit *pPushUnit, const CVec2 &_vDir, const float fDist, const int nPriority )
 : CCollision( pUnit, pPushUnit, nPriority ), vDir( _vDir ), finishPoint( pUnit->GetCenter() + vDir * fDist ), timeToFinish( 0 )
 {
 	if ( pPushUnit->GetStats()->IsInfantry() )
 		pPushUnit->ForceLockingTiles( true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IPath* CGivingPlaceCollision::GetPath() const
 {
 	return pUnit->CreatePathByDirection( pUnit->GetCenter(), vDir, finishPoint );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGivingPlaceCollision::IsPathSolved()
 {
 	return ( pUnit->GetCurPath() == 0 || pUnit->GetCurPath()->IsWithFormation() || 
 				   pUnit->GetCurPath()->IsFinished() || CCollision::IsSolved() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGivingPlaceCollision::IsSolved()
 {
 	return IsPathSolved() && ( !pUnit->GetOwner()->GetStats()->IsInfantry() || timeToFinish != 0 && timeToFinish < curTime );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGivingPlaceCollision::Segment()
 {
 	if ( IsPathSolved() && timeToFinish == 0 )
@@ -295,16 +270,10 @@ void CGivingPlaceCollision::Segment()
 			static_cast<CWaitingCollision*>(pPushUnitCollision)->Finish();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CGivingPlaceRotateCollision										*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CGivingPlaceRotateCollision::CGivingPlaceRotateCollision( class CPathUnit *pUnit, class CAIUnit *pPushUnit, const CVec2 &vDir, const int nPriority )
 : CCollision( pUnit, pPushUnit, nPriority ), wDir( GetDirectionByVector( vDir ) ), bTurned( false )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGivingPlaceRotateCollision::Segment()
 {
 	if ( !bTurned )
@@ -317,11 +286,6 @@ void CGivingPlaceRotateCollision::Segment()
 			static_cast<CWaitingCollision*>(pPushUnitCollision)->Finish();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CWaitingCollision														*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CWaitingCollision::CWaitingCollision( CPathUnit *pUnit, CAIUnit *pPushUnit, bool _bLock )
 : CCollision( pUnit, pPushUnit, pUnit->GetID() ), finishTime( curTime + 1000 + Random( 0, 1000 ) ), bLock( _bLock )
 {
@@ -336,27 +300,19 @@ CWaitingCollision::CWaitingCollision( CPathUnit *pUnit, CAIUnit *pPushUnit, bool
 		pUnit->FixUnlocking();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CWaitingCollision::~CWaitingCollision()
 {
 	if ( pUnit && !bLock )
 		pUnit->UnfixUnlocking();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWaitingCollision::IsSolved()
 {
 	return curTime > finishTime || CCollision::IsSolved();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWaitingCollision::Finish()
 {
 	finishTime = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													CStopCollision													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStopCollision::CStopCollision( CPathUnit *pUnit )
 : CCollision( pUnit, 0, pUnit->GetID() ), finishTime( curTime + 1000 + Random( 0, 2000 ) )
 {
@@ -365,16 +321,10 @@ CStopCollision::CStopCollision( CPathUnit *pUnit )
 	
 	pUnit->ForceLockingTiles();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStopCollision::IsSolved()
 {
 	return curTime > finishTime;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CCollisionsCollector												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <int N>
 bool CanGo( const CVec2 &vNewDir, CPathUnit *pUnit1, CPathUnit *pUnit2, float *pfDist, int *pnPenalty, const SGenericNumber<N> &p )
 {
@@ -490,7 +440,6 @@ bool CanGo( const CVec2 &vNewDir, CPathUnit *pUnit1, CPathUnit *pUnit2, float *p
 	*pfDist = fAddLength;
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const NTimer::STime GetTimeToGo( const WORD wUnitDir, const WORD wPushUnitDir, const WORD &wNewDir, const float fDist, const float fUnitSpeed, const float fUnitRotateSpeed )
 {
 	const WORD wDirsDiff = DirsDifference( wNewDir, wUnitDir );
@@ -511,7 +460,6 @@ const NTimer::STime GetTimeToGo( const WORD wUnitDir, const WORD wPushUnitDir, c
 
 	return timeToGo;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define COMPARE_TIME_TO_GO( curTime, vCurDir, fCurDist, bestTime, vBestDir, fBestDist ) \
 if ( (curTime) < (bestTime ) )	\
 {																\
@@ -608,7 +556,6 @@ bool TryToPush( CPathUnit *pUnit1, CPathUnit *pUnit2, const SGenericNumber<N> &p
 }
 
 #undef COMPARE_TIME_TO_GO
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCollisionsCollector::AddCollision( CPathUnit *pUnit1, CPathUnit *pUnit2, const int nCollideType )
 {
 	if ( pUnit1->GetCollision()->GetPriority() > pUnit2->GetCollision()->GetPriority() )
@@ -616,7 +563,6 @@ void CCollisionsCollector::AddCollision( CPathUnit *pUnit1, CPathUnit *pUnit2, c
 	else
 		collisions.push( SUnitsPair( pUnit2, pUnit1, nCollideType ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCollisionsCollector::HandOutCollisions()
 {
 	while ( !collisions.empty() )
@@ -665,13 +611,7 @@ void CCollisionsCollector::HandOutCollisions()
 			collisions.pop();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													SUnitsPair															*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool operator < ( const SUnitsPair &pair1, const SUnitsPair &pair2 )
 {
 	return pair1.pUnit1->GetCollision()->GetPriority() < pair2.pUnit1->GetCollision()->GetPriority();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

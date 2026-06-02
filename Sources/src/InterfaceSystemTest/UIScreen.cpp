@@ -1,6 +1,3 @@
-// UIScreen.cpp: implementation of the CScreen class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include "UIScreen.h"
@@ -8,7 +5,6 @@
 #include "..\GFX\GFX.h"
 #include "MessageReactions.h"
 #include "WindowConsole.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IWindow * B2UITest()
 {
 	CScreen *pScreen = new CScreen;
@@ -17,11 +13,6 @@ IWindow * B2UITest()
 	pScreen->Init();
 	return (IWindow*)pScreen;
 }
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
-// CScreen::CStates::
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
 CScreen::CStates::CStates( const SUICommandSequence &seq, const std::string &_szCmdName, const bool _bReversable ) 
 	: szCmdName( _szCmdName ), nCurIndex( 0 ), bForward( true ), bReversable( _bReversable ), bEnd( true ) 
 {
@@ -30,21 +21,16 @@ CScreen::CStates::CStates( const SUICommandSequence &seq, const std::string &_sz
 		Add( *it );
 	CheckEnd();
 }
-//////////////////////////////////////////////////////////////////////
 int CScreen::CStates::operator&( IStructureSaver &ss )
 {
-	//CRAP{ TO DO
 	NI_ASSERT_T( FALSE, "NEED IMPLEMENT" );
 	return 0;
-	//CRAP}
 }
-//////////////////////////////////////////////////////////////////////
 void CScreen::CStates::NotifyParent()
 {
 	if ( pNotifySink )
 		pNotifySink->NotifyStateSequenceFinished();
 }
-//////////////////////////////////////////////////////////////////////
 void CScreen::CStates::CheckEnd()
 {
 	if ( bForward && nCurIndex >= states.size() )
@@ -60,25 +46,21 @@ void CScreen::CStates::CheckEnd()
 	else if ( !states.empty() )
 		bEnd = false;
 }
-//////////////////////////////////////////////////////////////////////
 void CScreen::CStates::Add( const SUIStateCommand &cmd )
 {
 	states.push_back( SUIState( cmd ) );
 	CheckEnd();
 }
-//////////////////////////////////////////////////////////////////////
 void CScreen::CStates::Advance() 
 { 
 	NI_ASSERT_T( states.size() != 0, "no states" );
 	bForward ? ++nCurIndex : --nCurIndex;
 	CheckEnd();
 }
-//////////////////////////////////////////////////////////////////////
 const bool CScreen::CStates::IsToBeDeleted() const 
 { 
 	return IsEnd() &&	(!bForward || !bReversable );
 }
-//////////////////////////////////////////////////////////////////////
 void CScreen::CStates::Reverse() 
 {
 	bForward = !bForward;
@@ -90,7 +72,6 @@ void CScreen::CStates::Reverse()
 				states[i].pEffect->Reverse();
 	}
 }
-//////////////////////////////////////////////////////////////////////
 void CScreen::CStates::Segment( const NTimer::STime timeDiff, class CScreen *pScreen )
 {
 	NI_ASSERT_T( !IsEnd(), "ended states, but segment called" );
@@ -114,7 +95,6 @@ void CScreen::CStates::Segment( const NTimer::STime timeDiff, class CScreen *pSc
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////
 IUIEffector *CScreen::CStates::CreateEffect( const SUIStateCommand &cmd, class CScreen *pScreen )
 {
 	CPtr<IEffectorCommand> pCmd;
@@ -137,13 +117,7 @@ IUIEffector *CScreen::CStates::CreateEffect( const SUIStateCommand &cmd, class C
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
-// CScreen
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS(CScreen)
-//////////////////////////////////////////////////////////////////////
 int CScreen::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -157,7 +131,6 @@ int CScreen::operator&( IDataTree &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////
 CScreen::CScreen( int TEST)
 : messageReactions( TEST )
 {
@@ -166,21 +139,16 @@ CScreen::CScreen( int TEST)
 	seq.cmds.push_back( 1 );
 	commandSequiences["on_enter_child1"] = seq;
 }
-//////////////////////////////////////////////////////////////////////
 int CScreen::operator&( IStructureSaver &ss )
 {
-	//CRAP{ TO DO
 	NI_ASSERT_T( FALSE, "NEED IMPLEMENT" );
 	return 0;
-	//CRAP}
 }
-//////////////////////////////////////////////////////////////////////
 void CScreen::Load( const std::string &szResourceName )
 {
 	CWindow::InitStatic();
 
 	/*
-	// file creation
 	{
 		CPtr<IDataStream> pStream = CreateFileStream( "c:\\a7\\Data\\test_screen.xml" , STREAM_ACCESS_WRITE );
 		CPtr<IDataTree> pDT = CreateDataTreeSaver( pStream, IDataTree::WRITE );
@@ -203,7 +171,6 @@ void CScreen::Load( const std::string &szResourceName )
 	
 
 	{
-		// load console from file
 		CPtr<IDataStream> pStream;
 		pStream = GetSingleton<IDataStorage>()->OpenStream( "console.xml", STREAM_ACCESS_READ );
 		NI_ASSERT_T( pStream != 0, NStr::Format( "cannot open stream \"%s\"", "console.xml" ));
@@ -220,21 +187,17 @@ void CScreen::Load( const std::string &szResourceName )
 		AddChild( pC );
 	}
 }
-//////////////////////////////////////////////////////////////////////
 void CScreen::RegisterEffect( const std::string &szEffect, const SUICommandSequence &cmds )
 {
 	commandSequiences[szEffect] = cmds;
 }
-//////////////////////////////////////////////////////////////////////
 void CScreen::RegisterReaction( const std::string &szReactionKey, interface IMessageReactionB2 *pReaction )
 {
 	messageReactions.Register( szReactionKey, pReaction );
 }
-//////////////////////////////////////////////////////////////////////
 void CScreen::Segment( const NTimer::STime timeDiff )
 {
 	ProcessStateSequiences( timeDiff );
-	//observers test
 	/*
 	{
 	SGameMessage msg;
@@ -252,7 +215,6 @@ void CScreen::Segment( const NTimer::STime timeDiff )
 	*/
 	/*
 	{
-	// message handler test
 	SBUIMessage msg;
 	msg.szMessageID = "UI_SHOW_WINDOW";
 	ProcessMessage( msg );
@@ -260,7 +222,6 @@ void CScreen::Segment( const NTimer::STime timeDiff )
 	for ( CSegmentObjs::iterator it = segmentObjs.begin(); it != segmentObjs.end(); ++it )
 		(*it)->Segment( timeDiff );
 }
-//////////////////////////////////////////////////////////////////////
 void CScreen::ProcessStateSequiences( const NTimer::STime timeDiff )
 {
 	for ( CStateSequiences::iterator ss = stateSequiences.begin(); ss != stateSequiences.end(); )
@@ -278,7 +239,6 @@ void CScreen::ProcessStateSequiences( const NTimer::STime timeDiff )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////
 void CScreen::RegisterToSegment( interface IWindow *pWnd, const bool bRegister )
 {
 	if ( bRegister )
@@ -286,7 +246,6 @@ void CScreen::RegisterToSegment( interface IWindow *pWnd, const bool bRegister )
 	else
 		segmentObjs.remove( pWnd );
 }
-//////////////////////////////////////////////////////////////////////
 void CScreen::RunStateCommandSequience( const std::string &szCmdSeq, CWindow *pNotifySink, const bool bForward )
 {
 	if ( szCmdSeq.empty() ) return;
@@ -299,8 +258,6 @@ void CScreen::RunStateCommandSequience( const std::string &szCmdSeq, CWindow *pN
 	if ( bForward )
 	{
 		bool bFound = false;
-		// find effect with the same name. maybe we need only to reverse
-		// 2 effects with same name and same direction are not allowed
 		for ( CStateSequiences::iterator it = stateSequiences.begin(); it != stateSequiences.end(); ++it )
 		{
 			if ( szCmdSeq == it->GetName() ) 
@@ -312,7 +269,6 @@ void CScreen::RunStateCommandSequience( const std::string &szCmdSeq, CWindow *pN
 				}
 			}
 		}
-		// run fresh effect
 		if ( !bFound && it != commandSequiences.end() )
 		{
 			const SUICommandSequence &seq = it->second;
@@ -323,7 +279,6 @@ void CScreen::RunStateCommandSequience( const std::string &szCmdSeq, CWindow *pN
 	}
 	else
 	{
-		// find runned effect with this name and reverse it
 		for ( CStateSequiences::iterator it = stateSequiences.begin(); it != stateSequiences.end(); ++it )
 		{
 			if ( szCmdSeq == it->GetName() ) 
@@ -331,7 +286,6 @@ void CScreen::RunStateCommandSequience( const std::string &szCmdSeq, CWindow *pN
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////
 void CScreen::SetWindowText( const std::string &szWindowName, const std::wstring &szText )
 {
 	CWindow *pChild = GetDeepChild( szWindowName );
@@ -344,7 +298,6 @@ void CScreen::SetWindowText( const std::string &szWindowName, const std::wstring
 			pText->SetText( szText );
 	}
 }
-//////////////////////////////////////////////////////////////////////
 void CScreen::RunReaction( const std::string &szReactionName )
 {
 	messageReactions.Execute( szReactionName, this );

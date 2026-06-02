@@ -10,7 +10,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const DWORD CResizeDialog::ANCHORE_LEFT					= 0x001;
 const DWORD CResizeDialog::ANCHORE_TOP					= 0x002;
 const DWORD CResizeDialog::ANCHORE_RIGHT				= 0x004;
@@ -30,7 +29,6 @@ const DWORD CResizeDialog::ANCHORE_HOR_VER_CENTER		= CResizeDialog::ANCHORE_HOR_
 const DWORD CResizeDialog::DEFAULT_STYLE = CResizeDialog::ANCHORE_LEFT_TOP;
 const std::string CResizeDialog::szOptionsFileName = std::string( "Editor\\ResizeDialogStyles\\" );
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int STDCALL CResizeDialog::SOptions::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -43,7 +41,6 @@ int STDCALL CResizeDialog::SOptions::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int STDCALL CResizeDialog::SOptions::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -56,37 +53,26 @@ int STDCALL CResizeDialog::SOptions::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CResizeDialog::CResizeDialog( UINT nIDTemplate, CWnd* pParent )
 	: CDialog( nIDTemplate, pParent ), resizeDialogOriginalSize( 0, 0 )
 {
-	//{{AFX_DATA_INIT( CResizeDialog )
-	//}}AFX_DATA_INIT
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CResizeDialog::DoDataExchange( CDataExchange* pDX )
 {
 	CDialog::DoDataExchange( pDX );
-	//{{AFX_DATA_MAP(CResizeDialog)
-	//}}AFX_DATA_MAP
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP( CResizeDialog, CDialog )
-	//{{AFX_MSG_MAP( CResizeDialog )
 	ON_WM_SIZE()
 	ON_WM_SIZING()
 	ON_WM_PAINT()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CResizeDialog::OnInitDialog() 
 {
 	CDialog ::OnInitDialog();
 
-	//�������� ������� � ������� ���������
 	UpdateControlPositions();
 
 	LoadResizeDialogOptions();
@@ -100,7 +86,6 @@ BOOL CResizeDialog::OnInitDialog()
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CResizeDialog::UpdateControlPositions()
 {
 	RECT clientRect;
@@ -124,7 +109,6 @@ void CResizeDialog::UpdateControlPositions()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CResizeDialog::OnOK() 
 {
 	CRect rect;
@@ -134,7 +118,6 @@ void CResizeDialog::OnOK()
 	CDialog::OnOK();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CResizeDialog::OnCancel() 
 {
 	CRect rect;
@@ -144,7 +127,6 @@ void CResizeDialog::OnCancel()
 	CDialog::OnCancel();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CResizeDialog::SetControlStyle( UINT nControlID, DWORD dwStyle, float fHorCenterAnchorRatio, float fVerCenterAnchorRatio, float fHorResizeRatio, float fVerResizeRatio )
 {
 	SControlStyle controlStyle;
@@ -157,11 +139,6 @@ void CResizeDialog::SetControlStyle( UINT nControlID, DWORD dwStyle, float fHorC
 	resizeDialogControlStyles[nControlID] = controlStyle;
 }
 
-//ANCHORE_LEFT				resize - ������������ ������ ���� ( ����������� ����� - 0.0f )
-//ANCHORE_RIGHT				resize - ������������ ������� ���� ( ����������� ����� - 1.0f )
-//ANCHORE_HOR_CENTER	resize - ������������ ����������� ����� ( ����������� ����� - fHorCenterAnchorRatio)
-//RESIZE_HOR					������������� ������ ������ �� fHorResizeRatio
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CResizeDialog::OnSize( UINT nType, int cx, int cy ) 
 {
 	CDialog::OnSize( nType, cx, cy );
@@ -190,7 +167,6 @@ void CResizeDialog::OnSize( UINT nType, int cx, int cy )
 				}
 				else
 				{
-					//do nothing
 					newPosition.minx = oldPosition.minx + dSize.x * 0.0f;
 					newPosition.maxx = oldPosition.maxx + dSize.x * 0.0f;
 				}
@@ -222,7 +198,6 @@ void CResizeDialog::OnSize( UINT nType, int cx, int cy )
 					newPosition.maxx = oldPosition.maxx + dSize.x * controlStyleIterator->second.fHorCenterAnchorRatio;
 				}
 			}
-			//
 			if ( ( controlStyleIterator->second.dwStyle & ANCHORE_TOP ) == ANCHORE_TOP )
 			{
 				if ( ( controlStyleIterator->second.dwStyle & RESIZE_VER ) == RESIZE_VER )
@@ -232,7 +207,6 @@ void CResizeDialog::OnSize( UINT nType, int cx, int cy )
 				}
 				else
 				{
-					//do nothing
 					newPosition.miny = oldPosition.miny + dSize.y * 0.0f;
 					newPosition.maxy = oldPosition.maxy + dSize.y * 0.0f;
 				}
@@ -265,7 +239,6 @@ void CResizeDialog::OnSize( UINT nType, int cx, int cy )
 				}
 			}
 			
-			//
 			if ( newPosition.minx > newPosition.maxx )
 			{
 				 newPosition.maxx = newPosition.minx;
@@ -274,7 +247,6 @@ void CResizeDialog::OnSize( UINT nType, int cx, int cy )
 			{
 				 newPosition.maxy = newPosition.miny;
 			}
-			//
 			pControlWnd->MoveWindow( newPosition.minx, newPosition.miny, newPosition.Width(), newPosition.Height() );
 		}
 	}
@@ -282,15 +254,10 @@ void CResizeDialog::OnSize( UINT nType, int cx, int cy )
   InvalidateRect( 0, true );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CResizeDialog::OnSizing( UINT fwSide, LPRECT pRect ) 
 {
 	CDialog::OnSizing( fwSide, pRect );
 	
-	//CRect mainWndRect;
-	//GetClientRect( &mainWndRect );
-	//CRect newWndRect;
-	//GetWindowRect( &newWndRect );
 
 	RECT clientRect;
 	GetClientRect( &clientRect );
@@ -331,7 +298,6 @@ void CResizeDialog::OnSizing( UINT fwSide, LPRECT pRect )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CResizeDialog::LoadResizeDialogOptions()
 {
 	if ( SerializeToRegistry() )
@@ -378,7 +344,6 @@ void CResizeDialog::LoadResizeDialogOptions()
 	}
 }
 	
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CResizeDialog::SaveResizeDialogOptions()
 {
 	if ( SerializeToRegistry() )
@@ -419,9 +384,6 @@ void CResizeDialog::SaveResizeDialogOptions()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// basement storage  
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void CResizeDialog::OnPaint() 
 {

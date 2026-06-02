@@ -1,15 +1,6 @@
 #include "StdAfx.h"
 
 #include "GameStats.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** basic game stats
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SBasicGameStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -26,15 +17,6 @@ int SBasicGameStats::operator&( IDataTree &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** common stats
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SCommonGameStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -45,15 +27,6 @@ int SCommonGameStats::operator&( IDataTree &ss )
 		NStr::ToLower( szMapImage );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** mission stats
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMissionStats::SObjective::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -69,7 +42,6 @@ int SMissionStats::SObjective::operator&( IDataTree &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMissionStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -89,15 +61,6 @@ int SMissionStats::operator&( IDataTree &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** chapter (set of missions) stats
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SChapterStats::SMission::RetrieveShortcuts( IObjectsDB *pGDB )
 {
 	pMission = static_cast<const SMissionStats*>( pGDB->GetGameStats( szMission.c_str(), IObjectsDB::MISSION ) );
@@ -107,7 +70,6 @@ void SChapterStats::RetrieveShortcuts( IObjectsDB *pGDB )
 	for ( std::vector<SMission>::iterator it = missions.begin(); it != missions.end(); ++it )
 		it->RetrieveShortcuts( pGDB );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SChapterStats::RemoveTemplateMissions()
 {
 	for ( std::vector<SMission>::iterator it = missions.begin(); it != missions.end(); )
@@ -126,12 +88,10 @@ void SChapterStats::RemoveTemplateMissions()
 			++it;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SChapterStats::AddMission( const SChapterStats::SMission &mission )
 {
 	missions.push_back( mission );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SChapterStats::SMission::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -144,7 +104,6 @@ int SChapterStats::SMission::operator&( IDataTree &ss )
 		NStr::ToLower( szMission );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SChapterStats::SMission::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -157,14 +116,12 @@ int SChapterStats::SMission::operator&( IStructureSaver &ss )
 		pMission = static_cast<const SMissionStats*>( GetSingleton<IObjectsDB>()->GetGameStats( szMission.c_str(), IObjectsDB::MISSION ) );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SChapterStats::SPlaceHolder::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
 	saver.Add( "Position", &vPosOnMap );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SChapterStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -187,15 +144,6 @@ int SChapterStats::operator&( IDataTree &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** campaign (set of chapters) stats
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SCampaignStats::SChapter::RetrieveShortcuts( IObjectsDB *pGDB )
 {
 	pChapter = static_cast<const SChapterStats*>( pGDB->GetGameStats( szChapter.c_str(), IObjectsDB::CHAPTER ) );
@@ -205,7 +153,6 @@ void SCampaignStats::RetrieveShortcuts( IObjectsDB *pGDB )
 	for ( std::vector<SChapter>::iterator it = chapters.begin(); it != chapters.end(); ++it )
 		it->RetrieveShortcuts( pGDB );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SCampaignStats::SChapter::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -217,7 +164,6 @@ int SCampaignStats::SChapter::operator&( IDataTree &ss )
 		NStr::ToLower( szChapter );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SCampaignStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -240,15 +186,6 @@ int SCampaignStats::operator&( IDataTree &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** medal
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMedalStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -261,4 +198,3 @@ int SMedalStats::operator&( IDataTree &ss )
 		NStr::ToLower( szTexture );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

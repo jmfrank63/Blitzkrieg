@@ -5,8 +5,6 @@
 #include "ParticleFrm.h"
 #include "frames.h"
 
-/////////////////////////////////////////////////////////////////////////////
-// CKeyFrameDockWnd
 
 CKeyFrameDockWnd::CKeyFrameDockWnd()
 {
@@ -24,17 +22,13 @@ CKeyFrameDockWnd::~CKeyFrameDockWnd()
 
 
 BEGIN_MESSAGE_MAP(CKeyFrameDockWnd, SECControlBar)
-	//{{AFX_MSG_MAP(CKeyFrameDockWnd)
 	ON_WM_CREATE()
 	ON_WM_SIZE()
 	ON_COMMAND(ID_KEYFRAME_DELETE_NODE, OnKeyframeDeleteNode)
 	ON_COMMAND(ID_KEYFRAME_RESET_ALL, OnKeyframeResetAll)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CKeyFrameDockWnd message handlers
 
 int CKeyFrameDockWnd::OnCreate(LPCREATESTRUCT lpCreateStruct) 
 {
@@ -87,7 +81,6 @@ BOOL CKeyFrameDockWnd::PreTranslateMessage(MSG* pMsg)
 	{
 	case WM_KEY_FRAME_RCLICK:
 		{
-			//���������� ����
 			CMenu menu;
 			menu.LoadMenu( IDR_KEYFRAME_ZOOM_MENU );
 			CMenu *popupMenu = menu.GetSubMenu( 0 );
@@ -98,9 +91,7 @@ BOOL CKeyFrameDockWnd::PreTranslateMessage(MSG* pMsg)
 	case WM_KEY_FRAME_UPDATE:
 		if ( pActiveKeyItem )
 		{
-			//��������� ������ ��������
 			pActiveKeyItem->SetFramesList( m_pKeyFramer->GetFramesList() );
-			//������ �������� ������ � ParticleFrame
 			g_frameManager.GetFrame( CFrameManager::E_PARTICLE_FRAME )->SetChangedFlag( true );
 		}
 		return true;

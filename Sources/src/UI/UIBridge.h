@@ -1,6 +1,5 @@
 #ifndef __USER_INTERFACE_BRIDGE_H__
 #define __USER_INTERFACE_BRIDGE_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define DEFINE_UIELEMENT_BRIDGE																																								\
 	virtual int STDCALL operator&( IDataTree &ss ) { return CSuper::operator&( ss ); }													\
 	virtual int STDCALL operator&( IStructureSaver &ss ) { return CSuper::operator&( ss ); }										\
@@ -65,5 +64,4 @@
 	virtual bool STDCALL GetMessage( SGameMessage *pMsg ) { return CSuper::GetMessage( pMsg ); }								\
 	virtual void STDCALL ClearStrings() { CSuper::ClearStrings(); }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __USER_INTERFACE_BRIDGE_H__

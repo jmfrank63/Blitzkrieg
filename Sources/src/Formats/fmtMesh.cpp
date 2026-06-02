@@ -3,7 +3,6 @@
 #include "fmtMesh.h"
 
 #include "..\Anim\Animation.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SAnimationFormat::operator&( interface IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -38,7 +37,6 @@ int SAnimationFormat::operator&( interface IStructureSaver &ss )
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMeshFormat::SVertexComponent::operator&( interface IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -47,7 +45,6 @@ int SMeshFormat::SVertexComponent::operator&( interface IStructureSaver &ss )
 	saver.Add( 3, &tex  );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMeshFormat::operator&( interface IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -60,12 +57,10 @@ int SMeshFormat::operator&( interface IStructureSaver &ss )
 	
 	saver.Add( 20, &components );
 	saver.Add( 21, &indices );
-	// bounding info
 	saver.Add( 30, &aabb );
 	saver.Add( 31, &bsphere );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SSkeletonFormat::SNodeFormat::SConstraint::operator&( interface IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -78,15 +73,11 @@ int SSkeletonFormat::SNodeFormat::SConstraint::operator&( interface IStructureSa
 int SSkeletonFormat::SNodeFormat::operator&( interface IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
-	// node name
 	saver.Add( 1, &szName );
 	saver.Add( 2, &nIndex );
-	// placement
 	saver.Add( 10, &bone );
 	saver.Add( 11, &quat );
-	// constraint info 
 	saver.Add( 12, &constraint );
-	// children
 	saver.Add( 20, &children );
 	return 0;
 }
@@ -98,4 +89,3 @@ int SSkeletonFormat::operator&( interface IStructureSaver &ss )
 	saver.Add( 3, &locators );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

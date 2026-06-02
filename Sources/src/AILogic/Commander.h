@@ -2,32 +2,23 @@
 #define __COMMANDER__
 
 class CCommonUnit;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "GeneralInternalInterfaces.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ****
-//  generic manager, tracks for more than 1 task at a time
-// ****
 class CCommander : public ICommander
 {
 	DECLARE_SERIALIZE;
-	//
 	struct STaskSortPresicate 
 	{
 		bool operator()( const IGeneralTask *pT1, const IGeneralTask *pT2 ) const 
 		{	return pT1->GetSeverity() > pT2->GetSeverity(); }
 	};
-	//
 	struct STaskBadSituationPredicate
 	{
 		bool operator()( const IGeneralTask *pT ) const { return pT->GetSeverity() < 0; }
 	};
-	//
 	struct SFinishedPredicate
 	{
 		bool operator()( const IGeneralTask *pT ) const { return pT->IsFinished(); }
 	};
-	//
 	struct SSegmentPredicate
 	{
 		void operator()( IGeneralTask *pT ) { pT->Segment(); }
@@ -45,7 +36,6 @@ class CCommander : public ICommander
 			return v1.first < v2.first;
 		}
 	};
-	//
 	struct STaskCalcSeverityPredicate
 	{
 		int nNumberPositive, nNumberNegative;
@@ -67,7 +57,6 @@ class CCommander : public ICommander
 		STaskCalcSeverityPredicate();
 		const float GetSeverity() const;
 	};
-	// 
 	struct STakeWorkersPredicate 
 	{
 		CPtr<ICommander> pManager;
@@ -87,5 +76,4 @@ public:
 	virtual void Segment();
 	
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __GENERAL_INTERNAL__

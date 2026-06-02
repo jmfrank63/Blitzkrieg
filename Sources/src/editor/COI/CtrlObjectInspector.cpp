@@ -1,5 +1,3 @@
-// CtrlObjectInspector.cpp : implementation file
-//
 
 #include "stdafx.h"
 #include "CtrlObjectInspector.h"
@@ -102,8 +100,6 @@ enum
 
 const string STR_TRUE  = "true";
 const string STR_FALSE = "false";
-/////////////////////////////////////////////////////////////////////////////
-// CCtrlObjectInspector
 
 CCtrlObjectInspector::CCtrlObjectInspector() 
   : m_pEdit( new COIEdit ), m_pCombo( new COICombo ), 
@@ -138,7 +134,6 @@ CCtrlObjectInspector::~CCtrlObjectInspector()
 
 
 BEGIN_MESSAGE_MAP(CCtrlObjectInspector, CWnd)
-	//{{AFX_MSG_MAP(CCtrlObjectInspector)
 	ON_WM_CREATE()
 	ON_WM_PAINT()
 	ON_WM_LBUTTONDOWN()
@@ -149,12 +144,9 @@ BEGIN_MESSAGE_MAP(CCtrlObjectInspector, CWnd)
 	ON_WM_KILLFOCUS()
 	ON_WM_SETFOCUS()
 	ON_WM_VSCROLL()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CCtrlObjectInspector message handlers
 
 int CCtrlObjectInspector::OnCreate(LPCREATESTRUCT lpCreateStruct) 
 {
@@ -234,7 +226,6 @@ void CCtrlObjectInspector::OnPaint()
 	CFont *pOldFont = dc.SelectObject( &m_fntDef );
 	dc.SetBkMode( TRANSPARENT );
 
-	// Draw elements
 	int nNumber = 1;
 	for( CCOIPaintElemVector::const_iterator it = m_aPaintElems.begin() + m_nFirstElem; it != m_aPaintElems.end() && nNumber <= GetLineCount(); ++it, ++nNumber )
 	{
@@ -246,7 +237,6 @@ void CCtrlObjectInspector::OnPaint()
 		if ( elem.pProp )
 		{
       const SCOIProperties &prop = *elem.pProp;
-      // first col
       rect = GetTextColPartRect( nNumber, 0, true );
 			dc.DrawText( prop.strName.c_str(), prop.strName.length(), rect, DT_LEFT );
 			POINT ptPicPos;
@@ -289,15 +279,12 @@ void CCtrlObjectInspector::OnPaint()
 			}
 			imlIcons.DrawIndirect( &dc, nIconIndex, ptPicPos, iconSize, ptIconOffset, ILD_NORMAL, SRCCOPY, RGB( 255, 255, 255 ) );
 
-			// second col
 			rect = GetTextColPartRect( nNumber, 1 );
-			//CRAP{ //for normal hex fields representation
 			if ( prop.idDomen == DT_HEX )
 			{
 				CVariant &value = const_cast<CVariant&>( prop.varValue );
 				value.SetType( CVariant::VT_INT32 );
 			}
-			//}CRAP
 			string strVal = prop.varValue;
 			if ( DT_COLOR != prop.idDomen )
 				dc.DrawText( strVal.c_str(), strVal.length(), rect, DT_RIGHT );
@@ -334,11 +321,9 @@ void CCtrlObjectInspector::OnPaint()
 	if ( m_haveFocus )
 		dc.DrawEdge( rect, BDR_SUNKENOUTER, BF_RECT );
 
-	// Draw vertical
 	rect = CRect( m_nSplitterPos - 1, 0, m_nSplitterPos + 1, m_sizeClient.cy + 2 );
 	dc.DrawEdge( rect, EDGE_ETCHED, BF_RECT );
 
-	// Draw caption
 	rect = GetPaintColPartRect( 0, 0 );
 	rect.left = 0;
 	rect.bottom += 1;
@@ -406,7 +391,6 @@ void CCtrlObjectInspector::SelectRow( int nVirtualLine, bool needHide )
 		return;
   if ( nVirtualLine < 0 )
     return;
-//	m_pBEdit->SetBrowseFilter( "" );
 
   SCOIPaintElem *pOldElem = GetVirtualElem( m_nCurVirtualLine );
   if ( pOldElem && pOldElem->pProp && !pOldElem->pProp->bReadOnly )
@@ -430,7 +414,6 @@ void CCtrlObjectInspector::SelectRow( int nVirtualLine, bool needHide )
           if ( oldVal != pOldElem->pProp->varValue )
           {
             GetParent()->PostMessage( WM_USER + 1, pOldElem->pProp->idProp );
-						//Invalidate();
 					}
 				}
 				break;
@@ -649,7 +632,6 @@ void CCtrlObjectInspector::ProcessKeyInput( UINT nChar )
 			if ( m_pEdit == pActiveWnd )
 			{
 				pActiveWnd->ShowWindow( SW_HIDE );
-//			m_pEdit->ShowWindow( SW_HIDE );
 				pActiveWnd = 0;
 			}
 */
@@ -694,8 +676,6 @@ void CCtrlObjectInspector::OnLButtonUp( UINT nFlags, CPoint point )
 
 void CCtrlObjectInspector::OnMouseMove(UINT nFlags, CPoint point) 
 {
-	//добавим возможность перетаскивать линеечку
-//	rect = CRect( m_nSplitterPos - 1, 0, m_nSplitterPos + 1, m_sizeClient.cy + 2 );
 	if ( (point.x >= m_nSplitterPos - 2 && point.x <= m_nSplitterPos + 2 &&
 		point.y >= 0 && point.y <= 15) || bDraggingSplitter )
 	{
@@ -727,10 +707,6 @@ BOOL CCtrlObjectInspector::PreTranslateMessage( MSG* pMsg )
 	}
 	else if ( pMsg->message == WM_KEYDOWN )
 	{
-		//CRAP{
-		//у меня по другому не ходят copy/paste сообщения, какие-то глюки в редкаторе, я не нашел источник
-		//возможно в будущей версии редактора это стоит пофиксить
-		//как способ фикса я вижу создание нового редактора как MDI приложение с нуля
 		if ( ( pMsg->wParam == 'C' || pMsg->wParam == 'V' || pMsg->wParam == 'X' || pMsg->wParam == VK_INSERT || pMsg->wParam == VK_DELETE ) && IsCtrlKeyDown() )
 		{
 			TranslateMessage( pMsg );
@@ -744,7 +720,6 @@ BOOL CCtrlObjectInspector::PreTranslateMessage( MSG* pMsg )
 			DispatchMessage( pMsg );
 			return TRUE;
 		}
-		//CRAP}
 
 		switch ( pMsg->wParam )
 		{
@@ -766,7 +741,6 @@ BOOL CCtrlObjectInspector::PreTranslateMessage( MSG* pMsg )
 void CCtrlObjectInspector::LooseFocus()
 {
 	SelectRow( m_nCurVirtualLine, true );			//ЭТА СТРОЧКА НУЖНА, ИНАЧЕ НЕ ОБНОВЛЯЕТСЯ СОДЕРЖИМОЕ ПРИ ПЕРЕХОДЕ НА НОВЫЙ ITEM
-//	SelectRow( m_nCurVirtualLine );
 	Invalidate( FALSE );
 }
 
@@ -781,8 +755,6 @@ void CCtrlObjectInspector::OnKillFocus(CWnd* pNewWnd)
 void CCtrlObjectInspector::OnSetFocus(CWnd* pOldWnd)
 {
 	CWnd::OnSetFocus(pOldWnd);
-//	if ( !m_haveFocus )
-//		SelectRow( m_nCurVirtualLine );
 	m_haveFocus = true;	
 }
 
@@ -799,7 +771,6 @@ void CCtrlObjectInspector::Init()
 */
 	bDraggingSplitter = false;
 	m_nLineHeight = 15;
-	// Create font
 	LOGFONT lf;
 	memset(&lf, 0, sizeof(LOGFONT));			// zero out structure
 	lf.lfHeight = 15;							// request a ?-pixel-height font
@@ -809,30 +780,22 @@ void CCtrlObjectInspector::Init()
 	m_fntDefBold.CreateFontIndirect(&lf);
 
 	CRect rect, rectClient;
-	// Create edit
 	m_pEdit->Create( WS_CHILD | ES_WANTRETURN | ES_MULTILINE | ES_LEFT | ES_AUTOHSCROLL, rect, this, SUB_CTRL_EDIT );
-//	m_pEdit->Create( WS_CHILD | ES_LEFT | ES_AUTOHSCROLL, rect, this, SUB_CTRL_EDIT );
 	m_pEdit->ModifyStyleEx( 0, WS_EX_STATICEDGE );
 	m_pEdit->SetFont( &m_fntDef );
 
-  // Create browse edit
   m_pBEdit->Create( 0, "Browse Edit", WS_CHILD, rect, this, SUB_CTRL_BEDIT );
   m_pReference->Create( 0, "Reference", WS_CHILD, rect, this, SUB_CTRL_REFERENCE );
 	m_pCEdit->Create( 0, "Color Edit", WS_CHILD, rect, this, SUB_CTRL_CEDIT );
-//  m_pBEdit->ModifyStyleEx( 0, WS_EX_STATICEDGE );
   
-	// Create combo
   rect.SetRectEmpty();
   rect.right = 70;
   rect.bottom = 120;
-//	m_pCombo->Create( WS_VISIBLE | WS_CHILD | CBS_DROPDOWNLIST | CBS_SORT | CBS_NOINTEGRALHEIGHT | WS_VSCROLL, rect, this, SUB_CTRL_COMBO );
   m_pCombo->Create( CBS_DROPDOWNLIST | WS_CHILD | CBS_SORT | WS_VSCROLL | CBS_NOINTEGRALHEIGHT, rect, this, SUB_CTRL_COMBO );
-//	m_pCombo->ModifyStyleEx( 0, WS_EX_STATICEDGE );
 	m_pCombo->SetFont( &m_fntDef );
   m_pCombo->SetItemHeight( 0, m_nLineHeight - 1 );  
 
 	GetClientRect( rectClient );
-//	m_nSplitterPos = 11 * rectClient.Width() / 20;
   m_nSplitterPos = m_nLineHeight;
   CDC *pDC = GetDC();
   if ( pDC )
@@ -847,15 +810,12 @@ void CCtrlObjectInspector::Init()
 	rect.bottom = rect.top + m_nLineHeight * GetLineCount() + rect.Height() - rectClient.Height();
 	MoveWindow( rect );
 	CBitmap bmp;
-	// normal tree images
 	imlIcons.Create( 16,	16,	TRUE, 9, 9 );
 	bmp.LoadBitmap( IDB_BITMAP1 );
 	imlIcons.Add( &bmp, RGB(255,255,255) );
 	bmp.DeleteObject();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////
-// 
 
 bool CCtrlObjectInspector::IsValidDomen( DomenID idDomen )
 {
@@ -909,7 +869,6 @@ bool CCtrlObjectInspector::AddPropertiesValue( PropID idProp, DomenID idDomen, c
 			pDC->SelectObject( &m_fntDef );
       CSize sz = pDC->GetTextExtent( strName.c_str(), strlen( strName.c_str() ) );
       m_nSplitterPos = max( m_nSplitterPos, (int)sz.cx + m_nLineHeight + 2 );
-//      m_nSplitterPos = (int)sz.cx + m_nLineHeight;
       ReleaseDC( pDC );
     }
     MakePaintList();
@@ -924,7 +883,6 @@ void CCtrlObjectInspector::ClearAll()
 	bDraggingSplitter = false;
 	if ( m_mapProps.empty() )
 		return;
-	//	SelectRow( m_nCurVirtualLine, true );
 	SelectRow( m_nCurVirtualLine );
 	SelectRow( 0 );
 	m_nSplitterPos = 0;
@@ -1002,7 +960,6 @@ BOOL CCtrlObjectInspector::PreCreateWindow(CREATESTRUCT& cs)
 {
 	CWnd::PreCreateWindow(cs);
 	cs.style |= WS_VSCROLL | WS_EX_STATICEDGE;
-//	cs.dwExStyle |= WS_EX_WINDOWEDGE; //WS_EX_CLIENTEDGE;
 	cs.lpszClass = AfxRegisterWndClass(CS_HREDRAW|CS_VREDRAW|CS_DBLCLKS, 
 		::LoadCursor(NULL, IDC_ARROW), 0, NULL);
 	
@@ -1104,7 +1061,6 @@ void CCtrlObjectInspector::SetActiveProp( PropID nID )
 	Invalidate( FALSE );
 }
 
-//RR
 PropID CCtrlObjectInspector::GetMyActiveProp()
 {
   SCOIPaintElem *pOldElem = GetVirtualElem( m_nCurVirtualLine );

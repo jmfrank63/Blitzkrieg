@@ -20,7 +20,6 @@
 #include "Artillery.h"
 
 #include "TimeCounter.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CStaticMap theStaticMap;
 extern CUpdater updater;
 extern NTimer::STime curTime;
@@ -31,28 +30,19 @@ extern CDifficultyLevel theDifficultyLevel;
 extern CDiplomacy theDipl;
 
 extern CTimeCounter timeCounter;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float GetDispByRadius( const float fDispRadius, const float fRangeMax, const float fDist )
 {
 	return fDispRadius / fRangeMax * fDist;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float GetDispByRadius( const CBasicGun *pGun, const float fDist )
 {
 	return GetDispByRadius( pGun->GetDispersion(), pGun->GetFireRangeMax(), fDist );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float GetDispByRadius( const CBasicGun *pGun, const CVec2 &attackerPos, const CVec2 &explCoord )
 {
 	return GetDispByRadius( pGun->GetDispersion(), pGun->GetFireRangeMax(), fabs( attackerPos - explCoord ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CBasicGun );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													  CGun																	*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CGun::CGun( class CAIUnit *_pOwner, const BYTE _nShellType, SCommonGunInfo *_pCommonGunInfo, const IGunsFactory::EGunTypes _eType )
 : pOwner( _pOwner ), shootState( EST_REST ), nShellType( _nShellType ), bAngleLocked( false ), bCanShoot( true ), pCommonGunInfo( _pCommonGunInfo ), eType( _eType ),
 	eRejectReason( ACK_NONE ), bWaitForReload( false ), lastCheck( 0 ), bParallelGun( false ), lastCheckTurnTime( 0 )
@@ -67,18 +57,15 @@ CGun::CGun( class CAIUnit *_pOwner, const BYTE _nShellType, SCommonGunInfo *_pCo
 
 	nOwnerParty = pOwner ? pOwner->GetParty() : 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGun::InitRandoms()
 {
 	fRandom4Aim = Random( 1.0f, SConsts::COEFF_FOR_RANDOM_DELAY );
 	fRandom4Relax = Random( 1.0f, SConsts::COEFF_FOR_RANDOM_DELAY );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::IsAlive() const 
 { 
 	return GetOwner()->IsAlive(); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGun::GetMechShotInfo( SAINotifyMechShot *pMechShotInfo, const NTimer::STime &time ) const
 {
 	pOwner->GetShotInfo( pMechShotInfo );
@@ -88,7 +75,6 @@ void CGun::GetMechShotInfo( SAINotifyMechShot *pMechShotInfo, const NTimer::STim
 	pMechShotInfo->time = time;
 	pMechShotInfo->vDestPos = vLastShotPoint;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGun::GetInfantryShotInfo( SAINotifyInfantryShot *pInfantryShotInfo, const NTimer::STime &time ) const
 {
 	NI_ASSERT_T( pOwner->GetStats()->IsInfantry(), "Wrong unit type" );
@@ -103,7 +89,6 @@ void CGun::GetInfantryShotInfo( SAINotifyInfantryShot *pInfantryShotInfo, const 
 	pInfantryShotInfo->time = time;
 	pInfantryShotInfo->vDestPos = vLastShotPoint;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const NTimer::STime CGun::GetActionPoint() const
 {
 	if ( pOwner->GetStats()->IsInfantry() && pCommonGunInfo->nGun == 1 )
@@ -111,7 +96,6 @@ const NTimer::STime CGun::GetActionPoint() const
 	else
 		return pOwner->GetStats()->GetAnimActionTime( GetAnimationFromAction( pOwner->GetShootAction() ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::CanBreakArmor( CAIUnit *pTarget ) const
 {
 	int nSide ;
@@ -125,26 +109,22 @@ bool CGun::CanBreakArmor( CAIUnit *pTarget ) const
 	}
 	return CanBreach( pTarget, nSide );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::CanShootByHeight( const float fZ ) const
 {
 	const bool bCeilingOK = fabs( GetOwner()->GetZ() - fZ ) <= GetWeapon()->nCeiling ||
 												  !pOwner->GetStats()->IsAviation() && fZ <= 0.0f;
 	return bCeilingOK;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::CanShootByHeight( CAIUnit *pTarget ) const
 {
 	const float fTargetZ = pTarget->GetZ();
 	return CanShootByHeight( fTargetZ );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CGun::GetFireRangeMax() const
 {
 	const float fExpCoeff = pOwner ? pOwner->GetExpLevel().fBonusFireRange : 1.0f;
 	return GetWeapon()->fRangeMax * ( 1 + (SConsts::BAD_WEATHER_FIRE_RANGE_COEFFICIENT - 1) * (int)theWeather.IsActive() ) * fExpCoeff;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CGun::GetFireRange( float fZ ) const
 {
 	if (	GetShell().trajectory == SWeaponRPGStats::SShell::TRAJECTORY_LINE &&
@@ -156,7 +136,6 @@ float CGun::GetFireRange( float fZ ) const
 	else
 		return GetFireRangeMax();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::InFireRange( const CVec3 &vPoint ) const
 {
 	const float fDist = fabs2( (pOwner->GetTile() - AICellsTiles::GetTile( vPoint.x, vPoint.y )).ToCVec2() );
@@ -168,7 +147,6 @@ bool CGun::InFireRange( const CVec3 &vPoint ) const
 		fDist <= sqr( fMaxRange ) &&
 		( pOwner->GetZ() <= 0.0f && vPoint.z > 0.0f || fDist >= sqr( GetWeapon()->fRangeMin / SConsts::TILE_SIZE ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::InFireRange( CAIUnit *pTarget ) const
 {
 	const CVec2 vPoint = pTarget->GetCenter();
@@ -181,9 +159,6 @@ bool CGun::InFireRange( CAIUnit *pTarget ) const
 	{
 		if ( GetShell().trajectory == SWeaponRPGStats::SShell::TRAJECTORY_LINE )
 			fMaxRange = Min( GetFireRange( pTarget->GetZ() ), SConsts::MAX_FIRE_RANGE_TO_SHOOT_BY_LINE );
-		// CRAP{ for gamedesing testing
-//			fMaxRange = Min( GetFireRange( pTarget->GetZ() ), GetOwner()->GetSightRadius() );
-		// CRAP}
 		else
 			fMaxRange = GetFireRange( pTarget->GetZ() );
 
@@ -206,13 +181,11 @@ bool CGun::InFireRange( CAIUnit *pTarget ) const
 		fDist4MaxRange <= sqr( fMaxRange ) && 
 		( pOwner->GetZ() <= 0.0f && pTarget->GetZ() > 0.0f || fDist >= sqr( GetWeapon()->fRangeMin / SConsts::TILE_SIZE ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::InGoToSideRange( const CAIUnit *pTarget ) const
 {
 	const float fDist = fabs2( pOwner->GetCenter() - pTarget->GetCenter() );
 	return ( fDist <= sqr( 2 * GetFireRange(pTarget->GetZ()) ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::TooCloseToFire( const CAIUnit *pTarget ) const
 {
 	if ( pOwner->GetZ() <= 0.0f && pTarget->GetZ() > 0.0f )
@@ -223,7 +196,6 @@ bool CGun::TooCloseToFire( const CAIUnit *pTarget ) const
 		return ( fDist < fabs2( GetWeapon()->fRangeMin / SConsts::TILE_SIZE ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::TooCloseToFire( const CVec3 &vPoint ) const
 {
 	if ( pOwner->GetZ() <= 0.0f && vPoint.z > 0.0f )
@@ -234,7 +206,6 @@ bool CGun::TooCloseToFire( const CVec3 &vPoint ) const
 		return ( fDist < fabs2( GetWeapon()->fRangeMin / SConsts::TILE_SIZE ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGun::ToRestState()
 {
 	shootState = EST_REST;
@@ -258,7 +229,6 @@ void CGun::ToRestState()
 */
 	pEnemy = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGun::Turning()
 {
 	bool bRightDir = false;
@@ -280,27 +250,21 @@ void CGun::Turning()
 		lastEnemyPos = VNULL2;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::IsFiring() const 
 { 
 	return shootState != EST_REST; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGun::Aiming()
 {
-	// враг убежал из радиуса обстрела
 	if ( pEnemy != 0 && !InFireRange( pEnemy ) )
 		StopFire();
-	// враг убежал из прицела
 	else if ( !CanShootWOGunTurn( 1, z ) )
 	{
 		bAim = true;
 		shootState = EST_TURNING;
 	}
-	// прицелились и перезарядились
 	else 
 	{
-		// чтобы не сразу стрелять, а перезаряжаться после подвоза патронов
 		if ( GetNAmmo() == 0 )
 		{
 			if ( pOwner->GetStats()->IsAviation() )			// but fuckin PLANES mustn't wait
@@ -329,7 +293,6 @@ void CGun::Aiming()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGun::WaitForActionPoint()
 {
 	if ( curTime - lastCheck >= GetActionPoint() )
@@ -343,15 +306,12 @@ void CGun::WaitForActionPoint()
 
 		if ( pOwner->GetStats()->IsInfantry() )
 			updater.Update( ACTION_NOTIFY_INFANTRY_SHOOT, this );
-		// для зениток выстрел нужно присылать на каждый снаряд, action point отсутствует
 		else if ( pOwner->GetStats()->type != RPG_TYPE_ART_AAGUN && pOwner->GetStats()->type != RPG_TYPE_ART_ROCKET )
 			updater.Update( ACTION_NOTIFY_MECH_SHOOT, this );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGun::Shooting()
 {
-	// время для выстрела и ещё есть патроны в очереди
 	while ( curTime - pCommonGunInfo->lastShoot >= GetFireRate() && nShotsLast > 0 )
 	{
 		if ( pOwner->GetStats()->type == RPG_TYPE_ART_AAGUN || pOwner->GetStats()->type == RPG_TYPE_ART_ROCKET )
@@ -386,12 +346,10 @@ void CGun::Shooting()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CGun::GetShootingPoint() const
 {
 	return ( pEnemy == 0 ) ? target : pEnemy->GetCenter();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 WORD CGun::GetVisAngleOfAim() const
 {
 	if ( pEnemy == 0 )
@@ -399,14 +357,12 @@ WORD CGun::GetVisAngleOfAim() const
 	else
 		return GetVisibleAngle( pOwner->GetCenter(), pEnemy->GetUnitRect() ) / 2;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::CanShootWOGunTurn( const BYTE cDeltaAngle, const float fZ )
 {
 	return 
 		pEnemy == 0 && IsGoodAngle( target, 0, fZ, cDeltaAngle ) && CanShootToPointWOMove( target, fZ ) ||
 		pEnemy != 0 && CanShootWOGunTurn( pEnemy, cDeltaAngle );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::CanShootToTargetWOMove()
 {
 	return	
@@ -414,21 +370,17 @@ bool CGun::CanShootToTargetWOMove()
 		||
 		( pEnemy == 0 && CanShootToPointWOMove( target, z ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGun::SetOwner( CAIUnit *_pOwner )
 {
 	pOwner = _pOwner;
 	nOwnerParty = pOwner ? pOwner->GetParty() : 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGun::Segment()
 {
 	NI_ASSERT_T( !pOwner || nOwnerParty == pOwner->GetParty(), "Wrong owner party" );
 
-	// врага убили
 	if ( shootState != EST_REST && pEnemy != 0 && !IsValidObj( pEnemy ) )
 	{
-		// момент выпускания очереди - стрельбу не прерывать 
 		if ( shootState == EST_SHOOTING || shootState == WAIT_FOR_ACTION_POINT )
 			pEnemy == 0;
 		else
@@ -492,18 +444,15 @@ void CGun::Segment()
 			Shooting();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGun::OnWaitForActionPointState()
 {
 	WaitForActionPoint();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGun::OnTurningState()
 {
 	if ( AnalyzeTurning() )
 		shootState = EST_AIMING;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGun::OnAimState()
 {
 	if ( !CanShootToTargetWOMove() )
@@ -511,7 +460,6 @@ void CGun::OnAimState()
 	else
 		Aiming();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGun::StartPlaneBurst( CAIUnit *_pEnemy, bool bReAim )
 {
 	if ( _pEnemy && _pEnemy->IsValid() && _pEnemy->IsAlive() )
@@ -536,7 +484,6 @@ void CGun::StartPlaneBurst( CAIUnit *_pEnemy, bool bReAim )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGun::StartPointBurst( const CVec3 &_target, bool bReAim )
 {
 	if ( !(pCommonGunInfo->bFiring) && ( shootState == EST_REST || pEnemy != 0 || CVec3( target, z ) != _target ) )
@@ -570,7 +517,6 @@ void CGun::StartPointBurst( const CVec3 &_target, bool bReAim )
 			(*iter)->StartPointBurst( _target, bReAim );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGun::StartPointBurst( const CVec2 &_target, bool bReAim )
 {
 	if ( !(pCommonGunInfo->bFiring) && ( shootState == EST_REST || pEnemy != 0 || target != _target ) )
@@ -603,7 +549,6 @@ void CGun::StartPointBurst( const CVec2 &_target, bool bReAim )
 			(*iter)->StartPointBurst( _target, bReAim );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGun::StartEnemyBurst( CAIUnit *_pEnemy, bool bReAim )
 {
 	if ( IsValidObj( _pEnemy ) && !(pCommonGunInfo->bFiring) && ( shootState == EST_REST || pEnemy.GetPtr() != _pEnemy ) )
@@ -635,43 +580,36 @@ void CGun::StartEnemyBurst( CAIUnit *_pEnemy, bool bReAim )
 			(*iter)->StartEnemyBurst( _pEnemy, bReAim );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SBaseGunRPGStats& CGun::GetGun() const
 {
 	NI_ASSERT_T( pOwner->IsValid(), "Wrong owner. Can't get gun info" );
 	return pOwner->GetStats()->GetGun( pCommonGunInfo->nGun );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SWeaponRPGStats* CGun::GetWeapon() const 
 { 
 	NI_ASSERT_T( pOwner->IsValid(), "Wrong owner. Can't get RPG stats" );
 	return pOwner->GetStats()->GetGun( pCommonGunInfo->nGun ).pWeapon;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SWeaponRPGStats::SShell& CGun::GetShell() const 
 { 
 	NI_ASSERT_T( pOwner->IsValid(), "Wrong owner. Can't get shell info" );	
 	return GetWeapon()->shells[nShellType];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::IsRelaxing() const
 {
 	return curTime - pCommonGunInfo->lastShoot < GetRelaxTime();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::CanShootWOGunTurn( CAIUnit *pEnemy, const BYTE cDeltaAngle )
 {
 	return
 		CanShootToUnitWOMove( pEnemy ) && 
 		IsGoodAngle( pEnemy->GetCenter(), GetVisibleAngle( pOwner->GetCenter(), pEnemy->GetUnitRect() ) / 2, pEnemy->GetZ() - pOwner->GetZ(), cDeltaAngle );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const NTimer::STime CGun::GetRestTimeOfRelax() const
 {
 	return 
 		Max( GetRelaxTime() - ( curTime - pCommonGunInfo->lastShoot ), 0.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::AnalyzeLimitedAngle( class CCommonUnit *pUnit, const CVec2 &point ) const
 {
 	NI_ASSERT_T( dynamic_cast<CSoldier*>(pUnit) != 0, "Wrong unit to analyze limited angle" );
@@ -682,7 +620,6 @@ bool CGun::AnalyzeLimitedAngle( class CCommonUnit *pUnit, const CVec2 &point ) c
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::CanShootToUnitWOMove( CAIUnit *pEnemy )
 {
 	if ( !pEnemy || !pEnemy->IsAlive() || pEnemy == GetOwner() ||  pEnemy->GetState()->GetName() == EUSN_PARTROOP )
@@ -714,7 +651,6 @@ bool CGun::CanShootToUnitWOMove( CAIUnit *pEnemy )
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::CanShootToUnit( CAIUnit *pEnemy )
 {
 	if ( !pEnemy || !pEnemy->IsAlive() || pEnemy == GetOwner() )
@@ -746,7 +682,6 @@ bool CGun::CanShootToUnit( CAIUnit *pEnemy )
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::CanShootToObjectWOMove( CStaticObject *pObj )
 {
 	if ( !pObj->IsValid() || !pObj->IsAlive() )
@@ -759,7 +694,6 @@ bool CGun::CanShootToObjectWOMove( CStaticObject *pObj )
 	if ( !CanShootToPointWOMove( pObj->GetAttackCenter( vOwnerCenter ), 0.0f ) )
 		return false;
 
-	// проверка на возможность пробивания брони
 	{
 		SRect boundRect;
 		pObj->GetBoundRect( &boundRect );
@@ -768,8 +702,6 @@ bool CGun::CanShootToObjectWOMove( CStaticObject *pObj )
 		const int nSide = IsBallisticTrajectory() ? RPG_TOP : boundRect.GetSide( wDir2Obj );
 		if ( GetMaxPossiblePiercing() < pObj->GetStats()->GetMinPossibleArmor( nSide ) )
 		{
-			//SetRejectReason( ACK_CANNOT_PIERCE );
-			// don't want to hear this ack on buildings
 			SetRejectReason( ACK_NEGATIVE );
 			return false;
 		}
@@ -777,7 +709,6 @@ bool CGun::CanShootToObjectWOMove( CStaticObject *pObj )
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::CanShootToObject( CStaticObject *pObj )
 {
 	if ( !pObj->IsValid() || !pObj->IsAlive() )
@@ -798,8 +729,6 @@ bool CGun::CanShootToObject( CStaticObject *pObj )
 	if ( GetShell().trajectory != SWeaponRPGStats::SShell::TRAJECTORY_LINE && GetMaxPossiblePiercing() < pObj->GetStats()->defences[RPG_TOP].nArmorMin ||
 			 GetShell().trajectory == SWeaponRPGStats::SShell::TRAJECTORY_LINE && GetMaxPossiblePiercing() < pObj->GetStats()->GetMinPossibleArmor( RPG_FRONT ) )
 	{
-		//SetRejectReason( ACK_CANNOT_PIERCE );
-		// don't want to hear this ack on buildings
 		SetRejectReason( ACK_NEGATIVE );
 		return false;
 	}
@@ -807,7 +736,6 @@ bool CGun::CanShootToObject( CStaticObject *pObj )
 	SetRejectReason( ACK_NONE );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::CanShootToPointWOMove( const CVec2 &point, const float fZ, const WORD wHorAddAngle, const WORD wVertAddAngle, CAIUnit *pEnemy )
 {
 	const CVec3 v3DTarget( point, fZ );
@@ -827,7 +755,6 @@ bool CGun::CanShootToPointWOMove( const CVec2 &point, const float fZ, const WORD
 		return false;
 	}
 
-	// нельзя вращать базу
 	if ( !pOwner->CanRotate() && !pOwner->CanMove() || pOwner->NeedDeinstall() || pOwner->IsLocked( this ) )
 	{
 		if ( !IsOnTurret() || IsOnTurret() && GetTurret()->IsLocked( this ) ) // нельзя вращать turret, или gun на базе
@@ -860,7 +787,6 @@ bool CGun::CanShootToPointWOMove( const CVec2 &point, const float fZ, const WORD
 	SetRejectReason( ACK_NONE );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::CanShootToPoint( const CVec2 &point, const float fZ, const WORD wHorAddAngle, const WORD wVertAddAngle )
 {
 	if ( !pOwner->CanMove() || pOwner->NeedDeinstall() || pOwner->IsLocked( this ) )
@@ -875,7 +801,6 @@ bool CGun::CanShootToPoint( const CVec2 &point, const float fZ, const WORD wHorA
 	SetRejectReason( ACK_NONE );	
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::IsInShootCone( const CVec2 &point, const WORD wAddAngle ) const
 {
 	if ( !pOwner->InVisCone( point ) )
@@ -890,7 +815,6 @@ bool CGun::IsInShootCone( const CVec2 &point, const WORD wAddAngle ) const
 			return DirsDifference( dirToPoint, pOwner->GetFrontDir() - GetGun().wDirection ) <= (int)wAddAngle + (int)GetWeapon()->wDeltaAngle;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CGun::GetDispRatio( byte nShellType, const float fDist ) const
 {
 	int eTraj = GetWeapon()->shells[nShellType].trajectory;
@@ -904,12 +828,10 @@ const float CGun::GetDispRatio( byte nShellType, const float fDist ) const
 
 	return 4;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CalculateMoraleCoeff( const float fMorale, const float fCoeff )
 {
 	return ( fMorale + fCoeff * ( 1.0f - fMorale ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CGun::GetDispersion() const
 {
 	const float fDispWithoutMorale =
@@ -921,7 +843,6 @@ const float CGun::GetDispersion() const
 	else
 		return fDispWithoutMorale / CalculateMoraleCoeff( pOwner->GetMorale(), SConsts::MORALE_DISPERSION_COEFF );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CGun::GetAimTime( bool bRandomize ) const 
 {
 	float fAimTime = float( GetWeapon()->nAimingTime ) * pOwner->GetAimTimeBonus();
@@ -932,7 +853,6 @@ const float CGun::GetAimTime( bool bRandomize ) const
 
 	return fAimTime;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CGun::GetRelaxTime( bool bRandomize ) const
 {
 	float fRelaxTime = 
@@ -945,12 +865,10 @@ const float CGun::GetRelaxTime( bool bRandomize ) const
 
 	return fRelaxTime;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CGun::GetFireRate() const
 {
 	return GetShell().nFireRate * pOwner->GetFireRateBonus();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::CanBreach( const CCommonUnit *pTarget ) const
 {
 	if ( pOwner->GetZ() > pTarget->GetZ() ) // сирельба из самолета по крышам 
@@ -962,7 +880,6 @@ bool CGun::CanBreach( const CCommonUnit *pTarget ) const
 	else
 		return GetMaxPossiblePiercing() >= pTarget->GetArmor( RPG_TOP );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::CanBreach( const SHPObjectRPGStats *pStats, const int nSide ) const
 {
 	if ( GetShell().trajectory == SWeaponRPGStats::SShell::TRAJECTORY_LINE )
@@ -970,7 +887,6 @@ bool CGun::CanBreach( const SHPObjectRPGStats *pStats, const int nSide ) const
 	else
 		return GetMaxPossiblePiercing() >= pStats->GetMinPossibleArmor( RPG_TOP );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::CanBreach( const CCommonUnit *pTarget, const int nSide ) const
 {
 	if ( GetShell().trajectory == SWeaponRPGStats::SShell::TRAJECTORY_LINE )
@@ -978,12 +894,10 @@ bool CGun::CanBreach( const CCommonUnit *pTarget, const int nSide ) const
 	else
 		return GetMaxPossiblePiercing() >= pTarget->GetMinPossibleArmor( RPG_TOP );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::IsCommonEqual( const CBasicGun *pGun ) const
 {
 	return pGun != 0 && pOwner == pGun->GetOwner() && GetCommonGunNumber() == pGun->GetCommonGunNumber();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IBallisticTraj* CGun::CreateTraj( const CVec2 &vTarget ) const
 {
 	switch ( eType )
@@ -1003,7 +917,6 @@ IBallisticTraj* CGun::CreateTraj( const CVec2 &vTarget ) const
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGun::Fire( const CVec2 &target, const float z )
 {
 	const CVec2 vOwnerCenter = pOwner->GetCenter();
@@ -1085,7 +998,6 @@ void CGun::Fire( const CVec2 &target, const float z )
 
 	InitRandoms();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 WORD CGun::GetTrajectoryZAngle( const CVec2 &vToAim, const float z ) const
 {
 	if ( eType == IGunsFactory::VIS_CML_BALLIST_GUN || eType == IGunsFactory::VIS_BURST_BALLIST_GUN )
@@ -1093,52 +1005,42 @@ WORD CGun::GetTrajectoryZAngle( const CVec2 &vToAim, const float z ) const
 	else
 		return 16384 * 3;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGun::SetRejectReason( const EUnitAckType &eReason ) 
 { 
 	eRejectReason = eReason;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CGun::GetPiercing() const
 {
 	return GetShell().nPiercing * theDifficultyLevel.GetPiercingCoeff( nOwnerParty );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CGun::GetPiercingRandom() const
 {
 	return GetShell().nPiercingRandom * theDifficultyLevel.GetPiercingCoeff( nOwnerParty );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CGun::GetMaxPossiblePiercing() const
 {
 	return GetShell().GetMaxPossiblePiercing() * theDifficultyLevel.GetPiercingCoeff( nOwnerParty );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CGun::GetMinPossiblePiercing() const
 {
 	return GetShell().GetMinPossiblePiercing() * theDifficultyLevel.GetPiercingCoeff( nOwnerParty );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CGun::GetRandomPiercing() const
 {
 	return GetShell().GetRandomPiercing() * theDifficultyLevel.GetPiercingCoeff( nOwnerParty );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CGun::GetDamage() const
 {
 	return GetShell().fDamagePower * theDifficultyLevel.GetDamageCoeff( nOwnerParty );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CGun::GetDamageRandom() const
 {
 	return GetShell().nDamageRandom * theDifficultyLevel.GetDamageCoeff( nOwnerParty );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CGun::GetRandomDamage() const
 {
 	return GetShell().GetRandomDamage() * theDifficultyLevel.GetDamageCoeff( nOwnerParty );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGun::IsBallisticTrajectory() const
 {
 	const SWeaponRPGStats::SShell::ETrajectoryType eTraj = GetShell().trajectory;
@@ -1146,17 +1048,11 @@ bool CGun::IsBallisticTrajectory() const
 				 eTraj == SWeaponRPGStats::SShell::TRAJECTORY_ROCKET || 
 				 eTraj == SWeaponRPGStats::SShell::TRAJECTORY_CANNON;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													 CTurretGun															*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CTurretGun::CTurretGun( CAIUnit *pOwner, const BYTE nShellType, SCommonGunInfo *pCommonGunInfo, const IGunsFactory::EGunTypes eType, const int nTurret )
 : CGun( pOwner, nShellType, pCommonGunInfo, eType ), bCircularAttack( false ), bTurnByBestWay( false )
 { 
 	pTurret = pOwner->GetTurret( nTurret );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTurretGun::TraceAim( CAIUnit *pUnit )
 {
 	GetTurret()->TraceAim( pUnit, this );
@@ -1164,7 +1060,6 @@ void CTurretGun::TraceAim( CAIUnit *pUnit )
 	for ( CParallelGuns::iterator iter = parallelGuns.begin(); iter != parallelGuns.end(); ++iter )
 		(*iter)->TraceAim( pUnit );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTurretGun::StopTracing()
 {
 	GetTurret()->StopTracing();
@@ -1173,7 +1068,6 @@ void CTurretGun::StopTracing()
 		(*iter)->StopTracing();
 */
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTurretGun::CanShootByHeight( CAIUnit *pTarget ) const
 {
 	if ( GetTurret()->DoesRotateVert() )
@@ -1184,7 +1078,6 @@ bool CTurretGun::CanShootByHeight( CAIUnit *pTarget ) const
 
 	return CGun::CanShootByHeight( pTarget );
 }	
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 WORD CTurretGun::CalcVerticalAngle( const class CVec2 &pt, const float z ) const
 {
 	const WORD wZDesiredAngle = GetZAngle( pt, z ) + GetTrajectoryZAngle( pt, z );
@@ -1192,7 +1085,6 @@ WORD CTurretGun::CalcVerticalAngle( const class CVec2 &pt, const float z ) const
 	const WORD wConstraint = GetVerTurnConstraint() + 65535/4 * 3;
 	return Min( wConstraint, wZDesiredAngle );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTurretGun::TurnByVer( const CVec2 &vEnemyCenter, const float zDiff )
 {
 	WORD wZAngle = CalcVerticalAngle( vEnemyCenter-pOwner->GetCenter(), zDiff );
@@ -1213,7 +1105,6 @@ bool CTurretGun::TurnByVer( const CVec2 &vEnemyCenter, const float zDiff )
 
 	return bTurned;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTurretGun::TurnArtilleryToEnemy( const CVec2 &vEnemyCenter )
 {
 	const WORD wToEnemy = GetDirectionByVector( vEnemyCenter - pOwner->GetCenter() ) - GetGun().wDirection;
@@ -1222,7 +1113,6 @@ bool CTurretGun::TurnArtilleryToEnemy( const CVec2 &vEnemyCenter )
 
 	bool bTurned = false;
 	const WORD wHorConstraint = GetHorTurnConstraint();
-	// желаемый угол вне contraints на поворот
 	if ( wHorConstraint == 0 && wDesirableAngle != 0 ||
 			 wDesirableAngle > wHorConstraint && wDesirableAngle < -wHorConstraint )
 	{
@@ -1246,7 +1136,6 @@ bool CTurretGun::TurnArtilleryToEnemy( const CVec2 &vEnemyCenter )
 
 	return bTurned;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTurretGun::TurnByBestWay( const WORD wDirToEnemy )
 {
 	bTurnByBestWay = true;	
@@ -1300,13 +1189,11 @@ bool CTurretGun::TurnByBestWay( const WORD wDirToEnemy )
 		const WORD wTurretTurn = DirsDifference( wTurretGlobalAngle, wDirToEnemy );
 		const float fTurretOnlyTime = (float)wTurretTurn / fTurretSpeed;
 
-		// поворачиваем вместе
 		if ( fTogetherTime <= fTurretOnlyTime && DirsDifference( 0, -GetGun().wDirection ) <= GetHorTurnConstraint() )
 		{
 			wBestWayDir = wDirToEnemy;
 			wFinalTurretDir = -GetGun().wDirection;
 		}
-		// только пушку
 		else if ( DirsDifference( wDirToEnemy - wFrontDir - GetGun().wDirection, 0 ) <= GetHorTurnConstraint() )
 		{
 			wBestWayDir = wFrontDir;
@@ -1340,10 +1227,8 @@ bool CTurretGun::TurnByBestWay( const WORD wDirToEnemy )
 		
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTurretGun::TurnGunToEnemy( const CVec2 &vEnemyCenter, const float zDiff )
 {
-	// пушка
 	if ( pOwner->NeedDeinstall() || pOwner->IsLocked( this ) || !pOwner->CanRotate() )
 	{
 		StopTracing();
@@ -1366,7 +1251,6 @@ bool CTurretGun::TurnGunToEnemy( const CVec2 &vEnemyCenter, const float zDiff )
 	else
 		return pOwner->TurnToDir( wBestWayDir, false ) && GetTurret()->IsFinished();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTurretGun::IsGoodAngle( const CVec2 &point, const WORD addAngle, const float z, const BYTE cDeltaAngle ) const
 {
 	const WORD wDesirableAngle = WORD( GetDirectionByVector( point - pOwner->GetCenter() ) - GetGun().wDirection - pOwner->GetFrontDir() );
@@ -1380,7 +1264,6 @@ bool CTurretGun::IsGoodAngle( const CVec2 &point, const WORD addAngle, const flo
 		DirsDifference( wVerAngle, pTurret->GetVerCurAngle() ) <= 
 				GetWeapon()->wDeltaAngle * cDeltaAngle + SConsts::AI_SEGMENT_DURATION * pTurret->GetVerRotateSpeed();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTurretGun::Rest()
 {
 	if ( !bAngleLocked && lastCheck != 0 &&
@@ -1391,7 +1274,6 @@ void CTurretGun::Rest()
 		lastCheck = 0;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const NTimer::STime CTurretGun::GetTimeToShoot( const CVec3 &vPoint ) const 
 { 
 	const NTimer::STime nAimingTime = CGun::GetAimTime( false );
@@ -1401,12 +1283,10 @@ const NTimer::STime CTurretGun::GetTimeToShoot( const CVec3 &vPoint ) const
 	const float xDiff = vPoint.x - vUnitCenter.x;
 	const float yDiff = vPoint.y - vUnitCenter.y;
 
-	// time is rounded to segment duration
 	return (nAimingTime +
 					GetActionPoint() + 
 	  			fabs( xDiff, yDiff ) / shell.fSpeed ) / SConsts::AI_SEGMENT_DURATION * SConsts::AI_SEGMENT_DURATION;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const NTimer::STime CTurretGun::GetTimeToShootToPoint( const CVec3 &vPoint ) const
 {
 	const float fVertRotSpeed = pTurret->GetVerRotateSpeed();
@@ -1430,10 +1310,8 @@ const NTimer::STime CTurretGun::GetTimeToShootToPoint( const CVec3 &vPoint ) con
 	const float fTime = 
 					timeToTurn + GetTimeToShoot( vPoint );
 
-	// time is rounded to segment duration
 	return Max( fTime, GetRelaxTime( false ) + CGun::GetAimTime( false ) ) / SConsts::AI_SEGMENT_DURATION * SConsts::AI_SEGMENT_DURATION;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTurretGun::AnalyzeTurning()
 {
 	if ( !CanShootToTargetWOMove() )
@@ -1455,29 +1333,24 @@ bool CTurretGun::AnalyzeTurning()
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTurretGun::StopFire()
 {
 	pOwner->Unlock( this );
 	GetTurret()->Unlock( this );
 	ToRestState();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const WORD CTurretGun::GetGlobalDir() const
 {
 	return pOwner->GetDir() + GetTurret()->GetHorCurAngle() + GetGun().wDirection;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTurretGun::TurnToRelativeDir( const WORD wAngle )
 {
 	GetTurret()->TurnHor( wAngle );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CTurretGun::GetRotateSpeed() const
 {
 	return GetTurret()->GetHorRotateSpeed();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 WORD CTurretGun::GetHorTurnConstraint() const
 {
 	if ( !bCircularAttack )
@@ -1485,44 +1358,33 @@ WORD CTurretGun::GetHorTurnConstraint() const
 	else
 		return 32768;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 WORD CTurretGun::GetVerTurnConstraint() const
 {
 	return GetTurret()->GetVerTurnConstraint();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTurretGun::SetCircularAttack( const bool bCanAttack )
 {
 	bCircularAttack = bCanAttack;	
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTurretGun::StartPointBurst( const CVec3 &target, bool bReAim )
 {
 	bTurnByBestWay = false;
 	CGun::StartPointBurst( target, bReAim );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTurretGun::StartPointBurst( const CVec2 &target, bool bReAim )
 {
 	bTurnByBestWay = false;
 	CGun::StartPointBurst( target, bReAim );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTurretGun::StartEnemyBurst( class CAIUnit *pEnemy, bool bReAim )
 {
 	bTurnByBestWay = false;
 	CGun::StartEnemyBurst( pEnemy, bReAim );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													CBaseGun																*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBaseGun::TurnGunToEnemy( const CVec2 &vEnemyCenter, const float zDiff )
 {
 	return pOwner->TurnToDir( GetDirectionByVector( vEnemyCenter - pOwner->GetCenter() ) - GetGun().wDirection, false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBaseGun::IsGoodAngle( const CVec2 &point, const WORD addAngle, const float z, const BYTE cDeltaAngle  ) const
 {
 	const SUnitBaseRPGStats *pStats = pOwner->GetStats();
@@ -1536,7 +1398,6 @@ bool CBaseGun::IsGoodAngle( const CVec2 &point, const WORD addAngle, const float
 	if ( pStats->IsAviation() )
 	{
 		const CAviation * pPlane = static_cast<const CAviation*>( pOwner );
-		// check vertical angle
 		const WORD wDesiredVAngle = GetDirectionByVector( fabs(point - vOwnerCenter), -pOwner->GetZ() );
 		const WORD wCurrentVAngle = GetDirectionByVector ( pPlane->GetSpeedHorVer() );
 		if ( DirsDifference( wCurrentVAngle, wDesiredVAngle ) > 2 * ( wWeaponDeltaAngle + (int)addAngle ) * cDeltaAngle )
@@ -1547,7 +1408,6 @@ bool CBaseGun::IsGoodAngle( const CVec2 &point, const WORD addAngle, const float
 	return DirsDifference( wDesirableAngle, pOwner->GetFrontDir() ) <= 
 				( wWeaponDeltaAngle + (int)addAngle ) * cDeltaAngle;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBaseGun::AnalyzeTurning()
 {
 	if ( !CanShootToTargetWOMove() )
@@ -1562,26 +1422,21 @@ bool CBaseGun::AnalyzeTurning()
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBaseGun::StopFire()
 {
 	pOwner->Unlock( this );
 	ToRestState();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const WORD CBaseGun::GetGlobalDir() const
 {
 	return pOwner->GetDir() + GetGun().wDirection;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CBaseGun::GetRotateSpeed() const
 {
 	return pOwner->GetRotateSpeed();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float GetFireRangeMax( const SWeaponRPGStats *pStats, CAIUnit *pOwner )
 {
 	const float fExpCoeff = pOwner ? pOwner->GetExpLevel().fBonusFireRange : 1.0f;
 	return pStats->fRangeMax * ( 1 + (SConsts::BAD_WEATHER_FIRE_RANGE_COEFFICIENT - 1) * (int)theWeather.IsActive() ) * fExpCoeff;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

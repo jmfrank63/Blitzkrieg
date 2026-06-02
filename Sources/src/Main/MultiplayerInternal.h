@@ -1,17 +1,13 @@
 #ifndef __MULTIPLAYER_INTERNAL_H__
 #define __MULTIPLAYER_INTERNAL_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Multiplayer.h"
 
 #include "..\Net\NetDriver.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IServersList;
 interface IGameCreation;
 interface IChat;
 interface IGamePlaying;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMultiplayer : public IMultiplayer
 {
 private:
@@ -26,7 +22,6 @@ private:
 	
 	NTimer::STime finishGameTime;
 
-	//
 	void ServersListSegment();
 	void GameCreationSegment();
 	void PlayingSegment();
@@ -54,10 +49,8 @@ public:
 	virtual void STDCALL SendClientCommands( IDataStream *pPacket );
 	virtual void STDCALL SendInGameChatMessage( const WORD *pszType, const WORD *pszMessage );
 	
-	// valid onlye during of the game
 	virtual int STDCALL GetNumberOfPlayers() const;
 	
-	// client commands
 	virtual void STDCALL TogglePause();
 	virtual void STDCALL GameSpeed( const int nChange );
 	virtual void STDCALL DropPlayer( const int nLogicID );
@@ -69,7 +62,6 @@ public:
 	
 	virtual interface INetDriver* STDCALL GetInGameNetDriver() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CLanMultiplayer : public CMultiplayer
 {
 	OBJECT_COMPLETE_METHODS( CLanMultiplayer );
@@ -79,7 +71,6 @@ public:
 	virtual void STDCALL Init() { }
 	virtual bool STDCALL InitJoinToServer( const char *pszIPAddress, const int nPort, bool bPasswordRequired, const char* pszPassword ) { return true; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGameSpyMultiplayer : public CMultiplayer
 {
 	OBJECT_COMPLETE_METHODS( CGameSpyMultiplayer );
@@ -92,7 +83,6 @@ public:
 	virtual void STDCALL InitServersList();
 	virtual bool STDCALL InitJoinToServer( const char *pszIPAddress, const int nPort, bool bPasswordRequired, const char* pszPassword );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInternetMultiplayer : public CMultiplayer
 {
 	OBJECT_COMPLETE_METHODS( CInternetMultiplayer );
@@ -103,5 +93,4 @@ public:
 	virtual void STDCALL Init() { }
 	virtual bool STDCALL InitJoinToServer( const char *pszIPAddress, const int nPort, bool bPasswordRequired, const char* pszPassword ) { return true; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif //__MULTIPLAYER_INTERNAL_H__

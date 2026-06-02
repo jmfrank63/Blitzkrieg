@@ -26,7 +26,6 @@
 #include "MaskManager.h"
 #include "UIColorTextScroll.h"
 #include "UIComplexScroll.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static CUIObjectFactory theUIObjectFactory;
 CUIObjectFactory::CUIObjectFactory()
 {
@@ -57,20 +56,16 @@ CUIObjectFactory::CUIObjectFactory()
 	REGISTER_CLASS( this, UI_COLOR_TEXT_SCROLL, CUIColorTextScrollBridge );
 	REGISTER_CLASS( this, UI_COMPLEX_TEXT_SCROLL, CUIComplexScrollBridge );
 	
-	//��� �������������� sort functors
 	REGISTER_CLASS( this, UI_TEXT_SORTER,		CUIListTextSorter );
 	REGISTER_CLASS( this, UI_NUMBER_SORTER, CUIListNumberSorter );
 	REGISTER_CLASS( this, UI_USER_DATA_SORTER, CUIListUserDataSorter );
 
-	//����������� ��������������� ��������
 	REGISTER_CLASS( this, UI_LIST_ROW, SUIListRow );
 	REGISTER_CLASS( this, UI_LIST_HEADER, SUIListHeader );
 	REGISTER_CLASS( this, UI_COLOR_TEXT_ENTRY, CUIColorTextScroll::CColorTextEntry );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static SModuleDescriptor theModuleDescriptor( "UI", UI_BASE_VALUE, 0x0100, &theUIObjectFactory, 0 );
 const SModuleDescriptor* STDCALL GetModuleDescriptor()
 {
 	return &theModuleDescriptor;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

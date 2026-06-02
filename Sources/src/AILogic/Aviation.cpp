@@ -18,11 +18,9 @@
 #include "AIWarFog.h"
 #include "Graveyard.h"
 
-// for profiling
 #include "TimeCounter.h"
 #include "MPLog.h"
 #include "AAFeedBacks.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CAAFeedBacks theAAFeedBacks;
 extern CDiplomacy theDipl;
 extern CStatistics theStatistics;
@@ -35,14 +33,8 @@ extern NTimer::STime curTime;
 extern CGlobalWarFog theWarFog;
 
 extern CTimeCounter timeCounter;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CAviation );
 BASIC_REGISTER_CLASS( CPlanesFormation );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*														CPlanesFormation*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 & CPlanesFormation::GetSpeedByFormationOffset( const CVec2 &vFormationOffset )
 {
 	CPlaneSmoothPath::SMemberInfo &cachValue = memberCache[vFormationOffset];
@@ -50,7 +42,6 @@ const CVec2 & CPlanesFormation::GetSpeedByFormationOffset( const CVec2 &vFormati
 		pPath->CalculateMemberInfo( vFormationOffset, &cachValue );
 	return cachValue.vSpeed;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CVec2 CPlanesFormation::GetPointByFormationOffset( const CVec2 &vFormationOffset )
 {
 	CPlaneSmoothPath::SMemberInfo &cachValue = memberCache[vFormationOffset];
@@ -58,7 +49,6 @@ CVec2 CPlanesFormation::GetPointByFormationOffset( const CVec2 &vFormationOffset
 		pPath->CalculateMemberInfo( vFormationOffset, &cachValue );
 	return cachValue.vWorldPosition;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CPlanesFormation::GetCurvatureRadius( const CVec2 &vFormationOffset )
 {
 	CPlaneSmoothPath::SMemberInfo &cachValue = memberCache[vFormationOffset];
@@ -66,7 +56,6 @@ float CPlanesFormation::GetCurvatureRadius( const CVec2 &vFormationOffset )
 		pPath->CalculateMemberInfo( vFormationOffset, &cachValue );
 	return cachValue.fCurvatureRadius;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 WORD CPlanesFormation::GetDirByFormationOffset( const CVec2 &vFormationOffset )
 {
 	CPlaneSmoothPath::SMemberInfo &cachValue = memberCache[vFormationOffset];
@@ -74,7 +63,6 @@ WORD CPlanesFormation::GetDirByFormationOffset( const CVec2 &vFormationOffset )
 		pPath->CalculateMemberInfo( vFormationOffset, &cachValue );
 	return cachValue.wDirection;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPlanesFormation::UpdateDirection( const CVec2 &newDir ) 
 { 
 	if ( newDir != vNewDirection )
@@ -84,7 +72,6 @@ void CPlanesFormation::UpdateDirection( const CVec2 &newDir )
 		wNewDirection = GetDirectionByVector( vNewDirection ); 
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPlanesFormation::UpdateDirection( const WORD newDir ) 
 { 
 	if ( newDir != wNewDirection )
@@ -93,27 +80,22 @@ void CPlanesFormation::UpdateDirection( const WORD newDir )
 		vNewDirection = GetVectorByDirection( wNewDirection ); 
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPlanesFormation::AddProcessed() 
 { 
 	++nProcessed; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPlanesFormation::SetNewPos( const CVec3 &vCenter ) 
 { 
 	vNewPos = vCenter;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPlanesFormation::AddAlive() 
 { 
 	++nAlive; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPlanesFormation::IsAllProcessed() const 
 { 
 	return nProcessed >= nAlive; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPlanesFormation::SecondSegment()
 {
 	nAlive = nProcessed = 0;
@@ -124,17 +106,14 @@ void CPlanesFormation::SecondSegment()
 	vDirection = vNewDirection;
 	pPath->ClearUnisedHistory();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface ISmoothPath* CPlanesFormation::GetCurPath() const 
 { 
 	return pPath; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPlanesFormation::SendAlongPath( interface IPath *_pPath )
 {
 	return pPath->Init( this, this, _pPath, false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPlanesFormation::Init( const CVec2 &vCenter, const float _fZ, const float fTurnRadiusMin, const float fTurnRadiusMax, const WORD _wDirection, const float _fMaxSpeed, const float _fBombPointOffset )
 {
 	nAlive = nProcessed = 0;
@@ -149,16 +128,10 @@ void CPlanesFormation::Init( const CVec2 &vCenter, const float _fZ, const float 
 	vSpeedHorVer = CVec2( fMaxSpeed, 0 );
 	pPath = new CPlaneSmoothPath( fTurnRadiusMin, fTurnRadiusMax, fMaxSpeed, 0, true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*														CAviation															*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAviation::~CAviation()
 {
 	int a = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SRect CAviation::GetUnitRect() const
 {
 	const float length = GetStats()->vAABBHalfSize.y * SConsts::BOUND_RECT_FACTOR;
@@ -173,7 +146,6 @@ const SRect CAviation::GetUnitRect() const
 	unitRect.InitRect( GetCenter() + vCenterShift, GetDirVector(), length, width );
 	return unitRect;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAviation::Init( const CVec2 &center, const int z, const SUnitBaseRPGStats *_pStats, const float fHP, const WORD dir, const BYTE player, const WORD id, EObjVisType eVisType, const int dbID )
 {
 	wLastDir = dir;
@@ -198,12 +170,10 @@ void CAviation::Init( const CVec2 &center, const int z, const SUnitBaseRPGStats 
 	
 	vFormerDir = GetDirVector();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IStatesFactory* CAviation::GetStatesFactory() const 
 { 
 	return CPlaneStatesFactory::Instance(); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAviation::InitGuns()
 {
 	if ( pStats->platforms.size() > 1 )
@@ -227,21 +197,18 @@ void CAviation::InitGuns()
 
 	SetShootEstimator( new CTankShootEstimator( this ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const WORD CAviation::GetDir() const
 {
 	if ( pFormation )
 		return pFormation->GetDirByFormationOffset( vPlanesShift );
 	return CAIUnit::GetDir();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CAviation::GetPathCurvatureRadius() const
 {
 	if ( pFormation )
 		return pFormation->GetCurvatureRadius( vPlanesShift );
 	return GetCurPath()->GetCurvatureRadius();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2& CAviation::GetDirVector() const
 {
 	static CVec2 dirvec;
@@ -249,21 +216,18 @@ const CVec2& CAviation::GetDirVector() const
 		return (dirvec = GetVectorByDirection( pFormation->GetDirByFormationOffset( vPlanesShift ) ));
 	return CAIUnit::GetDirVector();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const WORD CAviation::GetFrontDir() const
 {
 	if ( pFormation )
 		return pFormation->GetDirByFormationOffset( vPlanesShift );
 	return CAIUnit::GetFrontDir();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CAviation::GetZ() const
 {
 	if ( pFormation )
 		return pFormation->GetZ();
 	return CAIUnit::GetZ();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2& CAviation::GetSpeed() const
 {
 	static CVec2 vSpeed;
@@ -271,7 +235,6 @@ const CVec2& CAviation::GetSpeed() const
 		return ( vSpeed = pFormation->GetSpeedByFormationOffset( vPlanesShift ) );
 	return CAIUnit::GetSpeed();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAviation::SetPlanesFormation( class CPlanesFormation *_pFormation, const CVec2 &_vShift )
 {
 	if ( pFormation && !_pFormation )
@@ -279,12 +242,10 @@ void CAviation::SetPlanesFormation( class CPlanesFormation *_pFormation, const C
 	pFormation = _pFormation;
 	vPlanesShift = _vShift;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CPlanesFormation * CAviation::GetPlanesFormation()
 {
 	return pFormation;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAviation::SecondSegment( const bool bUpdate )
 {
 	CAIUnit::SecondSegment( bUpdate );
@@ -296,7 +257,6 @@ void CAviation::SecondSegment( const bool bUpdate )
 			pFormation->SecondSegment();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAviation::Segment()
 {
 	CAIUnit::Segment();
@@ -307,7 +267,6 @@ void CAviation::Segment()
 	/*bool bDiveBomberTilt = false;
 	if ( pStats->type == RPG_TYPE_AVIA_BOMBER ) // бомбер может быть пикирующим
 	{
-		// пикирование усиливается, нужно упасть на крыло
 		if ( vFormerHorVerSpeed.y < 0 && vSpeedHorVer.y < vFormerHorVerSpeed.y )
 		{
 			bDiveBomberTilt = true;
@@ -315,7 +274,6 @@ void CAviation::Segment()
 	}*/
 
 
-	// calculate new tilt angle
 
 	const float R = GetPathCurvatureRadius();
 	const float fD = SConsts::PLANE_TILT_PER_SECOND * ( curTime - timeLastTilt ) / 1000.0f;
@@ -352,7 +310,6 @@ void CAviation::Segment()
 			fTiltAnge = 0.0f;
 	}
 
-	//normal to projection of speed to plane of simmetry of airplane
 	CVec3 vPerp;
 	CVec2 vSpeepHor = GetSpeed();
 	float fSpLengh = fabs( vSpeepHor );
@@ -370,7 +327,6 @@ void CAviation::Segment()
 	}
 	Normalize( &vPerp ); // это нормаль к скорости, расположенная в плоскости симметрии самолета
 	float mult = 1.0f;
-	// определить наклон плоскости симметрии
 	CVec3 dirToCenter( VNULL3 );
 	float fCurvatureRadiusSign = /*bDiveBomberTilt ? 1 : */Sign( GetCurPath()->GetCurvatureRadius() );
 	if ( fTiltAnge != 0.0f )
@@ -399,7 +355,6 @@ void CAviation::Segment()
 	vFormerHorVerSpeed = vSpeedHorVer;
 	vFormerDir = GetDirVector();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAviation::GetSpeed3( CVec3 *pSpeed ) const 
 {
 	CVec3 vSpd3( 0, 0 , vSpeedHorVer.y );
@@ -412,7 +367,6 @@ void CAviation::GetSpeed3( CVec3 *pSpeed ) const
 	}
 	*pSpeed = vSpd3;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAviation::GetPlacement( SAINotifyPlacement *pPlacement, const NTimer::STime timeDiff )
 {
 	pPlacement->pObj = this;
@@ -432,7 +386,6 @@ void CAviation::GetPlacement( SAINotifyPlacement *pPlacement, const NTimer::STim
 	
 	if ( vFormerNormal != VNULL3 )
 	{
-		// аппроксимировать нормаль
 		const CVec3 vNormalDiff( vFormerNormal - vNormal );
 		const CVec3 vCurNormal( vNormal + vNormalDiff * (float)timeDiff / (float)SConsts::AI_SEGMENT_DURATION );
 		pPlacement->dwNormal =  Vec3ToDWORD( vCurNormal );
@@ -440,34 +393,27 @@ void CAviation::GetPlacement( SAINotifyPlacement *pPlacement, const NTimer::STim
 	else
 		pPlacement->dwNormal =  Vec3ToDWORD( V3_AXIS_Z );	
 
-	// скорость не передаётся
 	pPlacement->fSpeed = 1.0f;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CAviation::GetMaxFireRange() const
 {
 	return pGuns->GetMaxFireRange( this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const NTimer::STime CAviation::GetNextSecondPathSegmTime() const
 {
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CAviation::CanShootToPlanes() const 
 { 
 	return pGuns->CanShootToPlanes(); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAviation::Die( const bool fromExplosion, const float fDamage )
 {
 	theStatistics.UnitDead( this );
 
 	pUnitInfoForGeneral->Die();
 
-	// FEEDBACK ABOUT KILLING AVIATION
 	
-	//EFeedBack eFeed = 0;
 	int nParam = 0;
 	if ( GetPlayer() == theDipl.GetMyNumber() )
 		nParam = 1;
@@ -488,17 +434,14 @@ void CAviation::Die( const bool fromExplosion, const float fDamage )
 	theAckManager.UnitDead( this );
 	theAAFeedBacks.PlaneDeleted( this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CAviation::GetNGuns() const 
 { 
 	return pGuns->GetNTotalGuns(); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CBasicGun* CAviation::GetGun( const int n ) const 
 { 
 	return pGuns->GetGun( n ); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAviation::Disappear()
 {
 	PrepareToDelete();
@@ -512,22 +455,18 @@ void CAviation::Disappear()
 	RestoreDefaultPath();
 	theAAFeedBacks.PlaneDeleted( this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const WORD CAviation::GetDivingAngle() const 
 { 
 	return pStats->wDivingAngle == 0 ? 65535 / 16 : pStats->wDivingAngle;  
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const WORD CAviation::GetClimbingAngle() const 
 { 
 	return pStats->wClimbingAngle == 0 ? 65535 / 16 : pStats->wClimbingAngle; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CBasicGun* CAviation::ChooseGunForStatObj( class CStaticObject *pObj, NTimer::STime *pTime ) 
 { 
 	return pGuns->ChooseGunForStatObj( this, pObj, pTime ); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CAviation::GetMovingType() const
 {
 	if ( GetState() && EUSN_DIVE_BOMBING == GetState()->GetName() )
@@ -539,9 +478,7 @@ int CAviation::GetMovingType() const
 
 	return MOVE_TYPE_MOVE;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CAviation::GetSightRadius() const
 {
 	return GetStats()->fSight * SConsts::TILE_SIZE;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

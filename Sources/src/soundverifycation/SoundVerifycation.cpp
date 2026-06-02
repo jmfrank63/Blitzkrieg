@@ -1,5 +1,3 @@
-// SoundVerifycation.cpp : Defines the entry point for the console application.
-//
 
 #include "stdafx.h"
 #include "..\Misc\FileUtils.h"
@@ -9,15 +7,10 @@
 #include <stdio.h>
  #include <conio.h>
 
-// filename to store bad sounds
-//
 std::string szCurrentBeingReading = "current_sound.txt";
 std::string szBadSounds = "bad_sounds.txt";
 
 typedef std::unordered_set<std::string> CBadFiles;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CEnumFiles
 {
 	CBadFiles *pBadFiles;
@@ -27,20 +20,14 @@ public:
 
 	void operator()( const class NFile::CFileIterator &fileIt ) const
 	{
-		//std::cout<<"+";
 		if ( fileIt.IsDirectory() ) 
 			return;
 
 		const std::string szFileName = fileIt.GetFilePath();
-	//	std::cout<<szFileName<<"\n";
 		
 		CBadFiles::const_iterator it = pBadFiles->find( szFileName );
 		if ( it == pBadFiles->end() )
 		{
-			// write the file name to recently read,
-			// try to open soud with FMOD,
-			// if it fails then we gon another bad sound.
-			// if all OK  - iterate furter.
 			NFile::CFile currentSound;
 			if ( !currentSound.Open( szCurrentBeingReading.c_str(), NFile::CFile::modeReadWrite|NFile::CFile::modeCreate ) )
 			{
@@ -58,14 +45,10 @@ public:
 				std::cout<<"Error loading sample\n";
 				exit(1);
 			}*/
-		//	const int nChannel = FSOUND_PlaySound( FSOUND_FREE, samp1 );
 			FSOUND_Sample_Free( samp1 );
 		}
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool InitFMOD()
 {
 	if (FSOUND_GetVersion() < FMOD_VERSION)
@@ -88,9 +71,6 @@ bool InitFMOD()
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main( int argc, char* argv[] )
 {
 	if ( argc < 2 ) 
@@ -104,14 +84,11 @@ int main( int argc, char* argv[] )
 
 	if ( InitFMOD() ) return 1;
 
-	// store last being read file
 	NFile::CFile currentSound;
 	if ( currentSound.Open( szCurrentBeingReading.c_str(), NFile::CFile::modeReadWrite ) )
 	{
-		// last being read - is bad
 		if ( currentSound.GetLength() )
 		{
-			// bad sounds list file
 			NFile::CFile badSounds;
 			if ( !badSounds.Open( szBadSounds.c_str(), NFile::CFile::modeReadWrite) &&
 						!badSounds.Open( szBadSounds.c_str(), NFile::CFile::modeReadWrite|NFile::CFile::modeCreate  ))
@@ -119,7 +96,6 @@ int main( int argc, char* argv[] )
 				std::cout<<"cannot open file to store bad sounds \""<<szBadSounds<<"\"\n";
 				return 1;
 			}
-			// read last bad sound filename
 			std::vector<char> buffer;
 			buffer.resize( currentSound.GetLength() );
 			if ( buffer.size() != currentSound.Read( &buffer[0], buffer.size() ) )
@@ -127,7 +103,6 @@ int main( int argc, char* argv[] )
 				std::cout<<"error reading file";
 				return 1;
 			}
-			// write it 
 			
 			badSounds.Seek( 0, NFile::CFile::end );
 
@@ -146,7 +121,6 @@ int main( int argc, char* argv[] )
 	}	
 	
 
-	// prepear bad sounds hash
 	CBadFiles badSoundFileNames;
 	NFile::CFile badSounds;
 	if ( badSounds.Open( szBadSounds.c_str(), NFile::CFile::modeRead) )

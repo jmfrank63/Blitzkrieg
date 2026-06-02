@@ -20,17 +20,14 @@
 #include "Aviation.h"
 #include "Scripts\scripts.h"
 
-//CRAP{ FOR TEST
 #include "..\Input\Input.h"
 #include "..\GameTT\iMission.h"
 #include "..\Scene\Scene.h"
 #include "..\Common\World.h"
-//CRAP}
 
 #include "..\Formats\fmtMap.h"
 #include "..\RandomMapGen\Polygons_Types.h"
 #include "..\Misc\Checker.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CWeather theWeather;
 extern CScripts *pScripts;
 extern CStaticObjects theStatObjs;
@@ -41,7 +38,6 @@ extern CUpdater updater;
 CUnitCreation theUnitCreation;
 extern NTimer::STime curTime;
 extern CDiplomacy theDipl;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::CLightPlaneCreation::CalcPositions( const int nMax, const CVec2 & box, const CVec2 & direction, std::vector<CVec2> * positions, CVec2 * offset, const bool bRandom )
 {
 	/* таким образом
@@ -78,7 +74,6 @@ void CUnitCreation::CLightPlaneCreation::CalcPositions( const int nMax, const CV
 
 	*offset = ( CVec2( resize * box.y, 0 ) * nMax / 2 )/*^direction*/;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::CHeavyPlaneCreation::CalcPositions( const int nMax, const CVec2 &box, const CVec2 &direction, std::vector<CVec2> *positions, CVec2 *offset, bool bRandom )
 {
 	/*
@@ -105,7 +100,6 @@ void CUnitCreation::CHeavyPlaneCreation::CalcPositions( const int nMax, const CV
 
 	while ( iLimit > 0 )
 	{
-		// последовательно заполняем диагонали
 		for ( int i = 0; i < iLimit; ++i )
 		{
 			CVec2 res ( CVec2( vStartOffset.x, vStartOffset.y)+ CVec2( -resize * i * box.y, 0 ) );
@@ -115,7 +109,6 @@ void CUnitCreation::CHeavyPlaneCreation::CalcPositions( const int nMax, const CV
 			positions->push_back( res/*^direction*/ );
 			if ( positions->size() == nMax )
 				return ;
-			// не центровые - по 2 раза
 			if ( iLimit != nSize )
 			{
 				CVec2 res ( CVec2( vStartOffset.x, -vStartOffset.y )+ CVec2( -resize * i * box.y, 0 ) );
@@ -130,7 +123,6 @@ void CUnitCreation::CHeavyPlaneCreation::CalcPositions( const int nMax, const CV
 		--iLimit;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char * CUnitCreation::STankPitInfo::GetRandomTankPit( const class CVec2 &vSize, const bool bCanDig, float *pfResize ) const
 {
 	const std::vector<std::string> * pPits = bCanDig ? &digTankPits : &sandBagTankPits;
@@ -156,7 +148,6 @@ const char * CUnitCreation::STankPitInfo::GetRandomTankPit( const class CVec2 &v
 	NI_ASSERT_T( nBestIndex != -1, "cannot find any tankpit in tankpits.xml" );
 	return (*pPits)[nBestIndex].c_str();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CUnitCreation::CUnitCreation()
 {
 	bInit = false;
@@ -167,13 +158,11 @@ CUnitCreation::CUnitCreation()
 	feedbacks.push_back( SFeedBack(EFB_BOMBERS_ENABLED,			EFB_BOMBERS_DISABLED) );
 	feedbacks.push_back( SFeedBack(EFB_SHTURMOVIKS_ENABLED,	EFB_SHTURMOVIKS_DISABLED) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::DisableMainAviationButton( NTimer::STime time )
 {
 	updater.AddFeedBack( SAIFeedBack(EFB_AVIA_DISABLED, time ) );
 	bMainButtonDisabled = true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::EnableAviationButtons( const bool bInit )
 {
 	const int nPlayer = theDipl.GetMyNumber();
@@ -210,10 +199,8 @@ void CUnitCreation::EnableAviationButtons( const bool bInit )
 		updater.AddFeedBack( SAIFeedBack(EFB_AVIA_DISABLED) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::BadWeatherStarted()
 {
-	// disable local aviation button
 	const int nPlayer = theDipl.GetMyNumber();
 	bool bEnabled = false;
 	for ( int nAvia = 0; nAvia < SUCAviation::AT_COUNT; ++nAvia )
@@ -227,9 +214,6 @@ void CUnitCreation::BadWeatherStarted()
 	if ( bEnabled ) 
 		DisableMainAviationButton( 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// для скрипта
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::EnableAviationScript( const int nPlayer, const int nAvia )
 {
 	if ( inGameUnits.size() < nPlayer ) return;
@@ -250,16 +234,12 @@ void CUnitCreation::EnableAviationScript( const int nPlayer, const int nAvia )
 		return;
 	}
 
-	// enable aviation if allosed according to map parameters.
 	if ( IsAviaEnabledMapParameters( nPlayer, nAvia ) )
 		inGameUnits[nPlayer].planes[nAvia].bEnabledScript = true;
 
-	//enable main button if was disabled
 	if ( theDipl.GetMyNumber() == nPlayer )
 		updater.AddFeedBack( static_cast<EFeedBack>(feedbacks[nAvia].eEnable) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// для скрипта
 void CUnitCreation::DisableAviationScript( const int nPlayer, const int nAvia )
 {
 	CheckRange( inGameUnits, nPlayer );
@@ -278,14 +258,12 @@ void CUnitCreation::DisableAviationScript( const int nPlayer, const int nAvia )
 
 	CheckRange( inGameUnits[nPlayer].planes,  nAvia );
 
-	// если этот самолет был разрешенн - то запретить 
 	SLocalInGameUnitCreationInfo &unitsInfo = inGameUnits[nPlayer];
 	SLocalInGameUnitCreationInfo::SPlaneInfo &planeInfo = unitsInfo.planes[nAvia];
 	if ( IsAviaEnabledMapParameters( nPlayer, nAvia ) && IsAviaEnabledScript( nPlayer, nAvia ) )
 		planeInfo.bEnabledScript = false;
 
 
-	// disable main button if needed
 	if ( theDipl.GetMyNumber() == nPlayer )
 	{
 		updater.AddFeedBack( static_cast<EFeedBack>(feedbacks[nAvia].eDisable) );
@@ -304,7 +282,6 @@ void CUnitCreation::DisableAviationScript( const int nPlayer, const int nAvia )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::Segment()
 {
 	const int nDipl = theDipl.GetMyNumber();
@@ -336,7 +313,6 @@ void CUnitCreation::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::SLocalInGameUnitCreationInfo::Copy( const SUnitCreation  &rSUnitCreation )
 {
 	timeLastCall = 0;
@@ -368,18 +344,15 @@ void CUnitCreation::SLocalInGameUnitCreationInfo::Copy( const SUnitCreation  &rS
 		vAppearPoints.push_back( CVec2( appearPointIterator->x, appearPointIterator->y ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CUnitCreation::SLocalInGameUnitCreationInfo::SLocalInGameUnitCreationInfo( const SUnitCreation &rSUnitCreation )
 {
 	Copy( rSUnitCreation  );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CUnitCreation::SLocalInGameUnitCreationInfo & CUnitCreation::SLocalInGameUnitCreationInfo::operator=( const SUnitCreation &rSUnitCreation  )
 {
 	Copy( rSUnitCreation );
 	return *this;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::InitConsts()
 {
 	{
@@ -398,14 +371,12 @@ void CUnitCreation::InitConsts()
 		tree.Add( "Objects", &commonInfo );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::Init()
 {
 	pIDB = GetSingleton<IObjectsDB>();
 	InitConsts();
 	bInit = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::Init( const struct SUnitCreationInfo &rUnitCreationInfo )
 {
 
@@ -431,37 +402,31 @@ void CUnitCreation::Init( const struct SUnitCreationInfo &rUnitCreationInfo )
 	vLockedAppearPoints.resize( rUnitCreationInfo.units.size() );
 	nAviationCallNumeber = Random( 0, 100 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::Clear()
 {
 	pIDB = 0;
 	inGameUnits.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::InitPlanePath( class CCommonUnit * pUnit, const CVec3 &vAppearPoint, const CVec3 &vGoToPoint )
 {
 	CVec2 vDir( vGoToPoint.x- vAppearPoint.x, vGoToPoint.y- vAppearPoint.y );
 	pUnit->UpdateDirection( vDir );
 	pUnit->GetCurPath()->Init( pUnit, new CPlanePath( vAppearPoint,vGoToPoint), true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SMechUnitRPGStats * CUnitCreation::GetPlaneStats( const int nPlayer, const int /*SUCAviation::AIRCRAFT_TYPE*/ nAvia ) const
 {
 	const std::string &name = inGameUnits[nPlayer].planes[nAvia].szName;
 	CGDBPtr<SGDBObjectDesc> pDesc = pIDB->GetDesc( name.c_str() );
 	return static_cast<const SMechUnitRPGStats*>( pIDB->GetRPGStats( pDesc ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const NTimer::STime CUnitCreation::GetPlaneRegenerateTime( const int nPlayer ) const
 {
 	return inGameUnits[nPlayer].timeRelax;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CUnitCreation::GetPlaneFlyHeight( const int nPlayer, const int nAvia )
 {
 	return GetPlaneStats( nPlayer, nAvia )->fMaxHeight;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::RegisterAviationCall( const int nPlayer, const int nAviaType )
 {
 	CheckRange( inGameUnits, nPlayer );
@@ -481,7 +446,6 @@ void CUnitCreation::RegisterAviationCall( const int nPlayer, const int nAviaType
 	inGameUnits[nPlayer].timeLastCall = curTime + 1;	// to dissalow aviation call with timeLastCall == 0
 	inGameUnits[nPlayer].nLastCalledAviaType = nAviaType;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::CallPlane( const int nPlayer,
 															 const int /*SUCAviation::AIRCRAFT_TYPE*/ nAviaType,
 															 const WORD wGroupID,
@@ -531,10 +495,8 @@ void CUnitCreation::CallPlane( const int nPlayer,
 	Normalize( &vDirection );
 	const WORD wDirection( GetDirectionByVector( vDirection ) );
 	
-	// calculate appear height
 	const float fAppearHeight = pStats->fMaxHeight ;
 
-	// create formation if needed
 	CPtr<CPlanesFormation> pFormation;
 	const bool bNeedFormation = (nAviaType == SUCAviation::AT_BOMBER && pStats->wDivingAngle <= SConsts::ANGLE_DIVEBOMBER_MIN_DIVE) ||
 															 nAviaType == SUCAviation::AT_PARADROPER;
@@ -586,34 +548,28 @@ void CUnitCreation::CallPlane( const int nPlayer,
 	LockAppearPoint( nPlayer, false );
 	++nAviationCallNumeber;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::CallScout( const SAIUnitCmd &unitCmd, const WORD wGroupID, int nDipl )
 {
 	CLightPlaneCreation cr( unitCmd.vPos, ACTION_MOVE_PLANE_SCOUT_POINT );
 	CallPlane( nDipl, SUCAviation::AT_SCOUT, wGroupID, &cr );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::CallFighters( const SAIUnitCmd &unitCmd, const WORD wGroupID, int nDipl )
 {
 	CLightPlaneCreation cr( unitCmd.vPos, ACTION_MOVE_FIGHTER_PATROL );
 	CallPlane( nDipl, SUCAviation::AT_FIGHTER, wGroupID, &cr );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::CallShturmoviks( const SAIUnitCmd &unitCmd, const WORD wGroupID, int nDipl )
 {
 	CLightPlaneCreation cr( unitCmd.vPos, ACTION_MOVE_SHTURMOVIK_PATROL, EGCA_GUNPLANE );
 	CallPlane( nDipl, SUCAviation::AT_BATTLEPLANE, wGroupID, &cr );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::CallParadroppers( const SAIUnitCmd &unitCmd, const WORD wGroupID, int nDipl )
 {
 	CHeavyPlaneCreation cr( unitCmd.vPos, ACTION_MOVE_DROP_PARATROOPERS );
 	CallPlane( nDipl, SUCAviation::AT_PARADROPER, wGroupID, &cr );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::CallBombers( const SAIUnitCmd &unitCmd, const WORD wGroupID, int nDipl )
 {
-	// DIVEBOMBERS must work as gunplanes
 	const std::string &szPlaneName = inGameUnits[nDipl].planes[SUCAviation::AT_BOMBER].szName;
 	CGDBPtr<SGDBObjectDesc> pDesc = pIDB->GetDesc( szPlaneName.c_str() );
 	const SMechUnitRPGStats *pStats = static_cast<const SMechUnitRPGStats*>( pIDB->GetRPGStats( pDesc ) );
@@ -629,15 +585,11 @@ void CUnitCreation::CallBombers( const SAIUnitCmd &unitCmd, const WORD wGroupID,
 		CallPlane( nDipl, SUCAviation::AT_BOMBER, wGroupID, &cr );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CUnitCreation::SPartyDependentInfo & CUnitCreation::GetPartyDependentInfo( const int nDipl ) const 
 {
-	//CRAP{ пока на всех картах не пропишут
-	//const std::string & szPartyName = inGameUnits[nDipl].szPartyName;
 	std::string szPartyName = inGameUnits[nDipl].szPartyName;
 	if ( szPartyName == "" )
 		szPartyName = "USSR";
-	//CRAP}
 	int i = 0;
 	for( ; i < partyDependentInfo.size() && szPartyName != partyDependentInfo[i].szPartyName; ++i )
 	{
@@ -645,14 +597,12 @@ const CUnitCreation::SPartyDependentInfo & CUnitCreation::GetPartyDependentInfo(
 	NI_ASSERT_T( i < partyDependentInfo.size(), NStr::Format("wrong party name %s for party Number %i",szPartyName, nDipl ) );
 	return partyDependentInfo[i];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::CreateMine( const enum SMineRPGStats::EType nType, const class CVec2 &vPoint, const int nDipl )
 {
 	NI_ASSERT_T( nDipl < inGameUnits.size(), NStr::Format( "no mines for player %d", nDipl ) );
 	
 	const SPartyDependentInfo & info = GetPartyDependentInfo( nDipl );
 
-	//статы мин брать из структуры, задаваемой в карте
 	const std::string *pszName=0;
 	switch ( nType )
 	{
@@ -672,7 +622,6 @@ void CUnitCreation::CreateMine( const enum SMineRPGStats::EType nType, const cla
 	const int nDBIndex = pIDB->GetIndex( pszName->c_str() );
 	theStatObjs.AddNewMine( pStats, 1, nDBIndex, vPoint, -1, nDipl );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::SendFormationToWorld( CFormation * pUnit ) const
 {
 	updater.Update( ACTION_NOTIFY_NEW_UNIT, pUnit );
@@ -680,7 +629,6 @@ void CUnitCreation::SendFormationToWorld( CFormation * pUnit ) const
 		updater.Update( ACTION_NOTIFY_NEW_FORMATION, (*pUnit)[j] );
 	pUnit->SetSelectable( true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormation* CUnitCreation::CreateParatroopers( const CVec3 &where, CAIUnit *pPlane, const int nScriptID )const
 {
 	const int nDipl = pPlane->GetPlayer();
@@ -710,7 +658,6 @@ CFormation* CUnitCreation::CreateParatroopers( const CVec3 &where, CAIUnit *pPla
 
 	return formation;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormation* CUnitCreation::CreateResupplyEngineers( CAITransportUnit *pWithUnit )const
 {
 	NI_ASSERT_T( pWithUnit->GetPlayer() < inGameUnits.size(), NStr::Format( "wrong player %d",pWithUnit->GetPlayer()) );
@@ -747,7 +694,6 @@ CFormation* CUnitCreation::CreateResupplyEngineers( CAITransportUnit *pWithUnit 
 	theGroupLogic.UnitCommand( SAIUnitCmd( ACTION_COMMAND_IDLE_TRANSPORT, pWithUnit ), pFormation, false );
 	return pFormation ;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFormation * CUnitCreation::CreateCrew( CArtillery *pUnit, IObjectsDB *_pIDB, const int nUnits, const CVec3 vPos, const int _nPlayer, const bool bImmidiateAttach )const
 {
 	if ( 0 == _pIDB )
@@ -759,10 +705,8 @@ CFormation * CUnitCreation::CreateCrew( CArtillery *pUnit, IObjectsDB *_pIDB, co
 	if ( -1 == vPos.x )
 		vCreatePos = CVec3( pUnit->GetCenter(), pUnit->GetZ() );
 
-	// если не задан игрок ручками, то используем того-же, что и у юнита
 	const int nPlayer = ( _nPlayer == -1 ) ? pUnit->GetPlayer() : _nPlayer;
 
-	// для пулеметов - свой взвод - пулеметчики
 	const char * pszName = RPG_TYPE_ART_HEAVY_MG == pUnit->GetStats()->type ? 
 													GetPartyDependentInfo(nPlayer).szHeavyMGSquad.c_str():
 													GetPartyDependentInfo(nPlayer).szGunCrewSquad.c_str();
@@ -785,7 +729,6 @@ CFormation * CUnitCreation::CreateCrew( CArtillery *pUnit, IObjectsDB *_pIDB, co
 	pForm->SetSelectable( false );
 	return pForm;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitCreation::AddNewUnit( const std::string &name, IObjectsDB *_pIDB, const float fHPFactor, const int x, const int y, const int z, const WORD dir, const BYTE player, bool bInitialization, bool IsEditor, bool bSendToWorld ) const
 {
 	CGDBPtr<SGDBObjectDesc> pDesc = _pIDB->GetDesc( name.c_str() );
@@ -795,7 +738,6 @@ int CUnitCreation::AddNewUnit( const std::string &name, IObjectsDB *_pIDB, const
 
 	return AddNewUnit( pStats, fHPFactor, x, y, z, nDBIndex, dir, player, pDesc->eVisType, bInitialization, bSendToWorld, IsEditor );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitCreation::AddNewUnit( const SUnitBaseRPGStats *pStats, const float fHPFactor, const int x, const int y, const int z, const WORD dbID, const WORD dir, const BYTE player, const EObjVisType eVisType, bool bInitialization, bool bSendToWorld, bool IsEditor ) const
 {
 	CPtr<CAIUnit> pUnit;
@@ -832,7 +774,6 @@ int CUnitCreation::AddNewUnit( const SUnitBaseRPGStats *pStats, const float fHPF
 	pUnit->GetFogInfo( &fogInfo );
 	theWarFog.AddUnit( newId, pUnit->GetParty(), fogInfo );
 	
-	// по умолчанию все наши юниты - селектятся
 	pUnit->SetSelectable( player == theDipl.GetMyNumber() );
 	
 	if ( pStats->IsArtillery() && theDipl.GetNeutralPlayer() != player )
@@ -846,14 +787,12 @@ int CUnitCreation::AddNewUnit( const SUnitBaseRPGStats *pStats, const float fHPF
 
 	return newId;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUnitCreation::IsAviaEnabledScript( const int nPlayer, const int /*SUCAviation::AIRCRAFT_TYPE*/nAvia ) const
 {
 	const SLocalInGameUnitCreationInfo &unitsInfo = inGameUnits[nPlayer];
 	const SLocalInGameUnitCreationInfo::SPlaneInfo &planeInfo = unitsInfo.planes[nAvia];
 	return planeInfo.bEnabledScript;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUnitCreation::IsAviaEnabledMapParameters( const int nPlayer, const int /*SUCAviation::AIRCRAFT_TYPE*/nAvia ) const
 {
 	const SLocalInGameUnitCreationInfo &unitsInfo = inGameUnits[nPlayer];
@@ -862,7 +801,6 @@ bool CUnitCreation::IsAviaEnabledMapParameters( const int nPlayer, const int /*S
 	return !planeInfo.szName.empty() && 0 < planeInfo.nFormation &&
 			0 < planeInfo.nPlanes && !unitsInfo.vAppearPoints.empty();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUnitCreation::IsAviaEnabled( const int nPlayer, const int /*SUCAviation::AIRCRAFT_TYPE*/nAvia ) const
 {
 	return 	!theWeather.IsActive() &&
@@ -871,17 +809,14 @@ bool CUnitCreation::IsAviaEnabled( const int nPlayer, const int /*SUCAviation::A
 				 ) &&
 				 ( IsAviaEnabledMapParameters( nPlayer, nAvia ) && IsAviaEnabledScript( nPlayer, nAvia ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::LockAppearPoint( const int nPlayer, const bool bLocked )
 {
 	if ( !bLockedFlags[nPlayer] && bLocked )
 		vLockedAppearPoints[nPlayer] = GetRandomAppearPoint( nPlayer );
 	bLockedFlags[nPlayer] += bLocked ? 1 : -1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::PlaneLandedSafely( const int nPlayer, const int /*SUCAviation::AIRCRAFT_TYPE*/ nAvia )
 {
-	// neutral plane landed (in multiplayer it is player that left the game)
 	if ( nPlayer >= inGameUnits.size() ) 
 		return;
 
@@ -893,7 +828,6 @@ void CUnitCreation::PlaneLandedSafely( const int nPlayer, const int /*SUCAviatio
 		EnableAviationButtons();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CVec2 CUnitCreation::GetRandomAppearPoint( const int _nPlayer, const bool bLeave ) const
 {
 	int nPlayer = _nPlayer;												// neutral planes leave to player  any player's appear point.
@@ -912,37 +846,30 @@ CVec2 CUnitCreation::GetRandomAppearPoint( const int _nPlayer, const bool bLeave
 		return vLockedAppearPoints[nPlayer];
 	return inGameUnits[nPlayer].vAppearPoints[nCurrentRandom];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char *CUnitCreation::GetRandomAntitankObjectName() const 
 {
 	return commonInfo.antitankObjects[Random(commonInfo.antitankObjects.size())].c_str();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char * CUnitCreation::GetEntrenchmentName() const 
 {
 	return commonInfo.szEntrenchment.c_str();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char *CUnitCreation::GetWireFenceName() const 
 {
 	return commonInfo.szAPFence.c_str();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitCreation::GetNParadropers( const int nPlayer ) const
 {
 	return inGameUnits[nPlayer].nParadropSquadCount;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitCreation::GetParadropperDBID( const int nPlayer ) const
 {
 	return pIDB->GetIndex( GetPartyDependentInfo(nPlayer).szParatroopSoldierName.c_str() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char * CUnitCreation::GetRandomTankPit( const class CVec2 &vSize, const bool bCanDig, float *pfResize ) const
 {
 	return tankPitInfo.GetRandomTankPit( vSize, bCanDig, pfResize  );	
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitCreation::GetCentersOfAllFormationUnits( const SSquadRPGStats *pStats, const CVec2 &vFormCenter, const WORD wFormDir, const int nFormation, const int nUnits, std::list<CVec2> *pCenters ) const
 {
 	const SSquadRPGStats::SFormation &formation = pStats->formations[nFormation];
@@ -961,7 +888,6 @@ void CUnitCreation::GetCentersOfAllFormationUnits( const SSquadRPGStats *pStats,
 		pCenters->push_back( vUnitCenter );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitCreation::GetLastCalledAviation( const int nPlayer ) const
 {
 	if ( nPlayer >= inGameUnits.size() )
@@ -969,7 +895,6 @@ int CUnitCreation::GetLastCalledAviation( const int nPlayer ) const
 	else
 		return inGameUnits[nPlayer].nLastCalledAviaType;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CUnitCreation::GetFirstIntercectWithMap( const int nPlayer )
 {
 	const CVec2 vAppearPoint = theUnitCreation.GetRandomAppearPoint( nPlayer, false );
@@ -984,7 +909,6 @@ const CVec2 CUnitCreation::GetFirstIntercectWithMap( const int nPlayer )
 		
 		
 		float fIntercect = 0;
-		// найти точку пересечнения курса к центру карты и края карты.
 		for ( int i = 0; i < 4; ++i )
 		{
 			const CVec2 vBegin = rect.v[i];
@@ -997,7 +921,6 @@ const CVec2 CUnitCreation::GetFirstIntercectWithMap( const int nPlayer )
 	}
 	return vAppearPoint;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CCommonUnit* CUnitCreation::AddNewFormation( const SSquadRPGStats *pStats, const int nFormation, const float fHP, const float x, const float y, const float z, const WORD wDir, const int nDiplomacy, bool bInitialization, bool bSendToWorld, const int nUnits ) const
 {
 	const SSquadRPGStats::SFormation &formation = pStats->formations[nFormation];
@@ -1011,7 +934,6 @@ CCommonUnit* CUnitCreation::AddNewFormation( const SSquadRPGStats *pStats, const
 	std::list<CVec2> centers;
 	GetCentersOfAllFormationUnits( pStats, vFormCenter, wDir, nFormation, nUnits, &centers );
 
-	// по слотам конфигурации
 	const int nSizeOfFormation = Min( formation.order.size(), (nUnits == -1) ? formation.order.size() : nUnits );
 	std::list<CVec2>::iterator iter = centers.begin();
 	for ( int j = 0; j < nSizeOfFormation; ++j, ++iter )
@@ -1037,7 +959,6 @@ CCommonUnit* CUnitCreation::AddNewFormation( const SSquadRPGStats *pStats, const
 
 	pFormation->AddAvailCmd( ACTION_COMMAND_FOLLOW );
 
-	// т.к. центр масс сдвинулся, координаты солдат поменялись
 	for ( int i = 0; i < pFormation->Size(); ++i )
 	{
 		CVec3 vNewCoord = CVec3( (*pFormation)[i]->GetUnitPointInFormation(), 0.0f );
@@ -1047,12 +968,10 @@ CCommonUnit* CUnitCreation::AddNewFormation( const SSquadRPGStats *pStats, const
 		(*pFormation)[i]->SetNewCoordinates( vNewCoord );
 	}
 	
-	// по умолчанию все наши юниты - селектятся
 	pFormation->SetSelectable( nDiplomacy == theDipl.GetMyNumber() );
 
 	return pFormation;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CCommonUnit* CUnitCreation::CreateSingleUnitFormation( CSoldier *pSoldier ) const
 {
 	CGDBPtr<SGDBObjectDesc> pDesc = pIDB->GetDesc( "AISingleUnitFormation" );
@@ -1074,7 +993,6 @@ CCommonUnit* CUnitCreation::CreateSingleUnitFormation( CSoldier *pSoldier ) cons
 
 	return pFormation;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUnitCreation::IsAntiTank( const SHPObjectRPGStats *pStats ) const
 {
 	for ( int i = 0; i < commonInfo.antitankObjects.size(); ++i )
@@ -1085,9 +1003,7 @@ bool CUnitCreation::IsAntiTank( const SHPObjectRPGStats *pStats ) const
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUnitCreation::IsAPFence( const SHPObjectRPGStats *pStats ) const
 {
 	return pStats->szParentName == commonInfo.szAPFence;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

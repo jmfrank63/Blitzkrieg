@@ -11,7 +11,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SELKTextProperty::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -22,7 +21,6 @@ int SELKTextProperty::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SELKTextProperty::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -33,7 +31,6 @@ int SELKTextProperty::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SELKDescription::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -46,7 +43,6 @@ int SELKDescription::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SELKDescription::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -59,7 +55,6 @@ int SELKDescription::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SELKElement::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -72,7 +67,6 @@ int SELKElement::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SELKElement::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -85,7 +79,6 @@ int SELKElement::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SELKElementStatistic::SState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -98,7 +91,6 @@ int SELKElementStatistic::SState::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SELKElementStatistic::SState::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -111,7 +103,6 @@ int SELKElementStatistic::SState::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SELKElementStatistic::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -121,7 +112,6 @@ int SELKElementStatistic::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SELKElementStatistic::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -131,7 +121,6 @@ int SELKElementStatistic::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SELKStatistic::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -143,7 +132,6 @@ int SELKStatistic::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SELKStatistic::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -155,7 +143,6 @@ int SELKStatistic::operator&( IDataTree &ss )
 	return 0;
 }
 
-	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CELK::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -167,7 +154,6 @@ int CELK::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CELK::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -180,19 +166,16 @@ int CELK::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SELKElement::GetDataBaseFolder( std::string *pszDataBaseFolder ) const
 {
 	GetDataBaseFolder( szPath, pszDataBaseFolder );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SELKElement::GetDataBaseReserveFolder( std::string *pszDataBaseReserveFolder ) const
 {
 	GetDataBaseReserveFolder( szPath, pszDataBaseReserveFolder );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CELK::Open( const std::string &rszELKPath, bool bEnumFiles )
 {
 	Close();
@@ -232,7 +215,6 @@ bool CELK::Open( const std::string &rszELKPath, bool bEnumFiles )
 	return IsOpened();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CELK::Save()
 {
 	if ( IsOpened() )
@@ -249,7 +231,6 @@ bool CELK::Save()
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CELK::Close()
 {
 	if ( IsOpened() )
@@ -270,7 +251,6 @@ void CELK::Close()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SSimpleFilter::Check( const std::string &rszFolder, bool _bTranslated, int nState ) const
 {
 	bool bChecked = false;
@@ -314,7 +294,6 @@ bool SSimpleFilter::Check( const std::string &rszFolder, bool _bTranslated, int 
 	return bChecked;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SSimpleFilter::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -326,7 +305,6 @@ int SSimpleFilter::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SSimpleFilter::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -338,10 +316,8 @@ int SSimpleFilter::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMainFrameParams::INVALID_FILTER_NUMBER = -1;
 	
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMainFrameParams::SSearchParam::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -356,7 +332,6 @@ int SMainFrameParams::SSearchParam::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMainFrameParams::SSearchParam::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -371,7 +346,6 @@ int SMainFrameParams::SSearchParam::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMainFrameParams::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -397,7 +371,6 @@ int SMainFrameParams::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMainFrameParams::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -423,7 +396,6 @@ int SMainFrameParams::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SMainFrameParams::ValidatePath( std::string *pszPath, bool bFolder )
 {
 	if ( ( pszPath->size() < 2 ) || ( ( *pszPath )[1] != ':' ) )
@@ -454,7 +426,6 @@ void SMainFrameParams::ValidatePath( std::string *pszPath, bool bFolder )
 	NStr::ToLower( ( *pszPath ) );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SMainFrameParams::LoadFromRegistry( const std::string &rszRegistryKey, bool bShortApperence )
 {
 	CString strKey;
@@ -468,9 +439,6 @@ void SMainFrameParams::LoadFromRegistry( const std::string &rszRegistryKey, bool
 		szCurrentFolder = std::string( pBuffer ) + std::string( "\\" );
 	}
 
-	//strKey.LoadString( IDS_REGISTRY_KEY_ZIP_TOOL_PATH );
-	//registrySection.LoadString( strKey, &szZIPToolPath, "" );
-	//if ( szZIPToolPath.empty() )
 	szZIPToolPath = szCurrentFolder + std::string( "\\" ) + std::string( CELK::ZIP_EXE );
 	szHelpFilePath = szCurrentFolder + std::string( "\\" ) + std::string( CELK::ELK_CHM );
 
@@ -536,7 +504,6 @@ void SMainFrameParams::LoadFromRegistry( const std::string &rszRegistryKey, bool
 		}
 	}
 
-	//if ( !bShortApperence )
 	{
 		int nFilterCount = 0;
 		strKey.LoadString( IDS_REGISTRY_FILTER );
@@ -607,7 +574,6 @@ void SMainFrameParams::LoadFromRegistry( const std::string &rszRegistryKey, bool
 		filters.clear();
 	}
 	/**/
-	//if ( bShortApperence || filters.empty() )
 	if ( filters.empty() )
 	{
 		filters.clear();
@@ -650,7 +616,6 @@ void SMainFrameParams::LoadFromRegistry( const std::string &rszRegistryKey, bool
 		szCurrentFilterName = _T( "All" );
 	}
 
-	//
 	nValue = 1;
 	strKey.LoadString( IDS_REGISTRY_KEY_FIND_DOWN );
 	registrySection.LoadNumber( strKey, _T( "%d" ), &nValue, 1 );
@@ -672,7 +637,6 @@ void SMainFrameParams::LoadFromRegistry( const std::string &rszRegistryKey, bool
 	strKey.LoadString( IDS_REGISTRY_KEY_FIND_POSITION );
 	registrySection.LoadNumber( strKey, _T( "%d" ), &( searchParam.nPosition ), 0 );
 	
-	//
 	std::string szBufferFontName;
 	strKey.LoadString( IDS_REGISTRY_FONT_NAME );
 	registrySection.LoadString( strKey, &szBufferFontName, CFontGen::FONT_NAME );
@@ -680,7 +644,6 @@ void SMainFrameParams::LoadFromRegistry( const std::string &rszRegistryKey, bool
 	{
 		strFontName = CString( szBufferFontName.c_str() );
 	}
-	//
 	{
 		std::set<CString> fonts;
 		CFontGen::GetFonts( nCodePage, &fonts );
@@ -700,7 +663,6 @@ void SMainFrameParams::LoadFromRegistry( const std::string &rszRegistryKey, bool
 	registrySection.LoadNumber( strKey, _T( "%d" ), &( dwLargeFontSize ), CFontGen::FONTS_SIZE[3] );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SMainFrameParams::SaveToRegistry( const std::string &rszRegistryKey, bool bShortApperence )
 {
 	CString strKey;
@@ -708,8 +670,6 @@ void SMainFrameParams::SaveToRegistry( const std::string &rszRegistryKey, bool b
 	::RegDeleteKey( HKEY_CURRENT_USER, rszRegistryKey.c_str() );
 	CRegistrySection registrySection( HKEY_CURRENT_USER, KEY_WRITE, rszRegistryKey.c_str() );
 
-	//strKey.LoadString( IDS_REGISTRY_KEY_ZIP_TOOL_PATH );
-	//registrySection.SaveString( strKey, szZIPToolPath );
 
 	strKey.LoadString( IDS_REGISTRY_KEY_LAST_OPENED_ELK_NAME );
 	registrySection.SaveString( strKey, szLastOpenedELKName );
@@ -750,7 +710,6 @@ void SMainFrameParams::SaveToRegistry( const std::string &rszRegistryKey, bool b
 		++nRecentIndex;
 	}
 
-	//if ( !bShortApperence )
 	{
 		strKey.LoadString( IDS_REGISTRY_CURRENT_FILTER_NAME );
 		registrySection.SaveString( strKey, szCurrentFilterName );
@@ -797,7 +756,6 @@ void SMainFrameParams::SaveToRegistry( const std::string &rszRegistryKey, bool b
 		}
 	}
 
-	//
 	strKey.LoadString( IDS_REGISTRY_KEY_FIND_DOWN );
 	registrySection.SaveNumber( strKey, _T( "%d" ), searchParam.bFindDown );
 
@@ -813,7 +771,6 @@ void SMainFrameParams::SaveToRegistry( const std::string &rszRegistryKey, bool b
 	strKey.LoadString( IDS_REGISTRY_KEY_FIND_POSITION );
 	registrySection.SaveNumber( strKey, _T( "%d" ), searchParam.nPosition );
 
-	//
 	std::string szBufferFontName( strFontName );
 	strKey.LoadString( IDS_REGISTRY_FONT_NAME );
 	registrySection.SaveString( strKey, szBufferFontName );
@@ -825,7 +782,6 @@ void SMainFrameParams::SaveToRegistry( const std::string &rszRegistryKey, bool b
 	registrySection.SaveNumber( strKey, _T( "%d" ), dwLargeFontSize );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SSimpleFilter* SMainFrameParams::GetCurrentFilter() const
 {
 	if ( !szCurrentFilterName.empty() )
@@ -838,4 +794,3 @@ const SSimpleFilter* SMainFrameParams::GetCurrentFilter() const
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -9,9 +9,7 @@
 #include "PlayEffect.h"
 #include "..\Main\ScenarioTracker.h"
 #include "..\UI\UI.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMOObject::nLastMarkerID = 0;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMOObject::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDescLocal, int nSeason, int nFrameIndex, 
 											  float fNewHP, interface IVisObjBuilder *pVOB, IObjectsDB *pGDB )
 {
@@ -21,7 +19,6 @@ bool CMOObject::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDescLocal
 	NI_ASSERT_TF( pRPG != 0, NStr::Format("Can't find RPG stats for object \"%s\"", pDesc->szKey.c_str()), return 0 );
 	if ( pRPG == 0 )
 		return false;
-	//
 	if ( pDesc->eGameType == SGVOGT_FLAG )
 	{
 		szFlagSide = pDesc->szKey.substr( 5 );
@@ -89,37 +86,28 @@ bool CMOObject::Create( IRefCount *pAIObjLocal, const SGDBObjectDesc *pDescLocal
 			pVisObj = pVOB->BuildObject( (pDesc->szPath + "\\1").c_str(), 0, pDesc->eVisType );
 	}
 	NI_ASSERT_T( pVisObj != 0, NStr::Format("Can't create object \"%s\" from path \"%s\"", pDesc->szKey.c_str(), pDesc->szPath.c_str()) );
-	//
 	if ( pDesc->eVisType == SGVOT_SPRITE )
 	{
-		// main sprite
 		ISpriteAnimation *pAnim = static_cast<ISpriteAnimation*>( static_cast_ptr<IObjVisObj*>(pVisObj)->GetAnimation() );
 		pAnim->SetFrameIndex( nFrameIndex );
-		// shadow
 		if ( pShadow )
 		{
 			pAnim = static_cast<ISpriteAnimation*>( static_cast_ptr<IObjVisObj*>(pShadow)->GetAnimation() );
 			pAnim->SetFrameIndex( nFrameIndex );
 		}
 	}	
-	//
 	pAIObj = pAIObjLocal;
 	UpdateModelWithHP( fNewHP / pRPG->fMaxHP, pVOB );
 	fHP = fNewHP / pRPG->fMaxHP;
-	//
 	FillActions();
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// visiting
 void CMOObject::Visit( IMapObjVisitor *pVisitor )
 {
 	pVisitor->VisitSprite( pVisObj, pDesc->eGameType, pDesc->eVisType );
 	if ( pShadow ) 
 		pVisitor->VisitSprite( pShadow, SGVOGT_SHADOW, SGVOT_SPRITE );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMOObject::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -132,7 +120,6 @@ int CMOObject::operator&( IStructureSaver &ss )
 		FillActions();
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMOObject::AddAction( int nAction )
 {
 	if ( nAction > 63 ) 
@@ -141,12 +128,10 @@ bool CMOObject::AddAction( int nAction )
 	actions[nIndex] |= 1UL << ( nAction - nIndex*32 );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOObject::FillActions()
 {
 	actions[0] = actions[1] = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOObject::SetPlacement( const CVec3 &vPos, const WORD &wDir )
 {
 	pVisObj->SetPlacement( vPos, wDir );
@@ -169,18 +154,15 @@ void CMOObject::GetPlacement( CVec3 *pvPos, WORD *pwDir )
 	*pvPos = pVisObj->GetPosition();
 	*pwDir = pVisObj->GetDirection();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOObject::GetStatus( struct SMissionStatusObject *pStatus ) const
 {
 	pStatus->nScenarioIndex = -1;
 	pStatus->dwIconsStatus = 0;
 	pStatus->dwPlayer = -1;
-	//
 	pStatus->params[0] = PackParams( MINT(fHP * pRPG->fMaxHP), MINT(pRPG->fMaxHP) );
 	pStatus->params[1] = 0;
 	pStatus->params[2] = 0;
 	pStatus->params[3] = 0;
-	// name (unicode)
 	if ( IText *pName = GetLocalName() ) 
 		memcpy( pStatus->pszName, pName->GetString(), (pName->GetLength() + 1) * 2 );
 	else
@@ -189,12 +171,9 @@ void CMOObject::GetStatus( struct SMissionStatusObject *pStatus ) const
 		NStr::ToUnicode( &szName, pDesc->szKey );
 		memcpy( pStatus->pszName, szName.c_str(), (szName.size() + 1) * sizeof(szName[0]) );
 	}
-	//
 	Zero( pStatus->weaponstats );
 	Zero( pStatus->armors );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// get actions, which this object can perform or actions, thi object can be acted with
 void CMOObject::GetActions( CUserActions *pActions, EActionsType eActions ) const
 {
 	if ( const CUserActions *pUserActions = pRPG->GetUserActions(eActions == IMapObj::ACTIONS_BY) ) 
@@ -213,23 +192,19 @@ void CMOObject::GetActions( CUserActions *pActions, EActionsType eActions ) cons
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOObject::AIUpdatePlacement( const SAINotifyPlacement &placement, const NTimer::STime &currTime, IScene *pScene )
 {
 	CVec3 vPos;
 	AI2Vis( &vPos, placement.center.x, placement.center.y, placement.z );
-	// move main object
 	pVisObj->SetDirection( placement.dir );
 	pScene->MoveObject( pVisObj, vPos );
 	pVisObj->Update( currTime, true );
-	// move shadow
 	if ( pShadow )
 	{
 		pScene->MoveObject( pShadow, vPos );
 		pShadow->Update( currTime, true );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline int GetObjectDamageState( float fHP )
 {
 	if ( fHP > 0.5f )
@@ -243,12 +218,10 @@ void CMOObject::UpdateModelWithHP( const float fNewHP, IVisObjBuilder *pVOB )
 {
 	if ( (fHP == -1) && (fNewHP == 1) )		// bridge segment was built
 		pVisObj->SetOpacity( 0xff );
-	// CRAP{ переделать в общей схеме разрушений
 	const int nOldState = GetObjectDamageState( fHP );
 	const int nNewState = GetObjectDamageState( fNewHP );
 	if ( nNewState != nOldState )
 	{
-		// change state for appropriate
 		if ( (pDesc->eVisType == SGVOT_SPRITE) && (pDesc->eGameType == SGVOGT_BUILDING) )
 		{
 			pVOB->ChangeObject( pVisObj, NStr::Format( "%s\\%d", pDesc->szPath.c_str(), nNewState + 1 ), 0, SGVOT_SPRITE );
@@ -256,14 +229,11 @@ void CMOObject::UpdateModelWithHP( const float fNewHP, IVisObjBuilder *pVOB )
 				pVOB->ChangeObject( pShadow, NStr::Format( "%s\\%ds", pDesc->szPath.c_str(), nNewState + 1 ), 0, SGVOT_SPRITE );
 		}
 	}
-	// CRAP}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMOObject::AIUpdateRPGStats( const SAINotifyRPGStats &stats, IVisObjBuilder *pVOB, IScene * pScene )
 {
 	const float fNewHP = stats.fHitPoints / pRPG->fMaxHP;
 	UpdateModelWithHP( fNewHP, pVOB );
-	// change HP bar
 	if ( fHP != fNewHP ) 
 	{
 		ISceneIconBar *pBar = static_cast<ISceneIconBar*>( static_cast_ptr<IObjVisObj*>(pVisObj)->GetIcon( ICON_HP_BAR ) );
@@ -282,23 +252,17 @@ bool CMOObject::AIUpdateRPGStats( const SAINotifyRPGStats &stats, IVisObjBuilder
 			}
 		}
 	}
-	//
 	fHP = fNewHP;
-	//
 	return fNewHP > 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMOObject::AIUpdateHit( const struct SAINotifyHitInfo &hit, const NTimer::STime &currTime, IScene *pScene, IVisObjBuilder *pVOB )
 {
-	// CRAP{
 	if ( hit.wShell >= hit.pWeapon->shells.size() )
 		return;
 	const SWeaponRPGStats::SShell &shell = hit.pWeapon->shells[hit.wShell];
 	const CVec3 &vPos = pVisObj->GetPosition();
 	PlayEffect( *GetHitEffect(hit, shell), vPos, currTime, false, pScene, pVOB, 0, SFX_MIX_IF_TIME_EQUALS, SAM_ADD_N_FORGET, ESCT_COMBAT );
-	// CRAP}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMOObject::AIUpdateActions( const struct SAINotifyAction &action, const NTimer::STime &currTime, IVisObjBuilder *pVOB, IScene *pScene, interface IClientAckManager *pAckManager )
 {
 	switch ( action.typeID ) 
@@ -355,7 +319,6 @@ int CMOObject::AIUpdateActions( const struct SAINotifyAction &action, const NTim
 						std::string szSoundName;
 						if ( action.nParam == pUserPlayer->GetDiplomacySide() )
 						{
-							// we got the flag
 							wCircleColor = 0xF0F0;
 							szSoundName = "Int_completed";
 						}
@@ -366,7 +329,6 @@ int CMOObject::AIUpdateActions( const struct SAINotifyAction &action, const NTim
 						}
 						else
 						{
-							// enemy got the flag
 							wCircleColor = 0xFF00;
 							szSoundName = IsNeutral() ? "Int_failed" : "Int_flag_captured";
 						}
@@ -406,16 +368,11 @@ int CMOObject::AIUpdateActions( const struct SAINotifyAction &action, const NTim
 			}
 			break;
 	}
-	//
 	if ( (pDesc->eGameType == SGVOGT_FENCE) && ((action.typeID == ACTION_NOTIFY_SILENT_DEATH) || (action.typeID == ACTION_NOTIFY_DIE)) ) 
 	{
-		// remove from old storage
 		pScene->RemoveObject( pVisObj );
-		// add as terraobj
 		pScene->AddObject( pVisObj, SGVOGT_TERRAOBJ, pDesc );
 	}
 
-	//
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

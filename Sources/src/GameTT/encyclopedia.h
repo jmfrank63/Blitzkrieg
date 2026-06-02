@@ -1,23 +1,16 @@
 #ifndef __IM_ENCYCLOPEDIA_H__
 #define __IM_ENCYCLOPEDIA_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "InterMission.h"
 #include "iMission.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SMedalStats;
 struct SUnitBaseRPGStats;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInterfaceEncyclopedia : public CInterfaceInterMission
 {
 	OBJECT_NORMAL_METHODS( CInterfaceEncyclopedia );
-	// input
 	NInput::CCommandRegistrator commandMsgs;
 	bool bFinished;
-	//
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
-	// disable explicit destruction
 	virtual ~CInterfaceEncyclopedia();
 	CInterfaceEncyclopedia() : CInterfaceInterMission( "InterMission" ), bFinished( false ) {}
 
@@ -28,7 +21,6 @@ public:
 	virtual void STDCALL Done();
 	void Create( int nType, const char *pszName );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CICEncyclopedia : public CInterfaceCommandBase<CInterfaceEncyclopedia, MISSION_INTERFACE_ENCYCLOPEDIA>
 {
 	OBJECT_NORMAL_METHODS( CICEncyclopedia );
@@ -38,10 +30,8 @@ class CICEncyclopedia : public CInterfaceCommandBase<CInterfaceEncyclopedia, MIS
 
 	virtual void PreCreate( IMainLoop *pML ) {}
 	virtual void PostCreate( IMainLoop *pML, CInterfaceEncyclopedia *pEI );
-	//
 	CICEncyclopedia() {  }
 public:
 	virtual void STDCALL Configure( const char *pszConfig );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif		//__IM_ENCYCLOPEDIA_H__

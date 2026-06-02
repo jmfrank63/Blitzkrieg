@@ -2,7 +2,6 @@
 
 #include "ShootEstimatorInternal.h"
 #include "SerializeOwner.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTankShootEstimator::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -23,7 +22,6 @@ int CTankShootEstimator::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierShootEstimator::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -45,7 +43,6 @@ int CSoldierShootEstimator::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlaneDeffensiveFireShootEstimator::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -58,7 +55,6 @@ int CPlaneDeffensiveFireShootEstimator::operator&( IStructureSaver &ss )
 	saver.Add( 6, &fBestRating );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlaneShturmovikShootEstimator::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -72,7 +68,6 @@ int CPlaneShturmovikShootEstimator::operator&( IStructureSaver &ss )
 	saver.Add( 7, &pBestBuilding );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlaneShturmovikShootEstimator::STargetInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;

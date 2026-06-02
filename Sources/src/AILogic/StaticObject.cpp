@@ -9,7 +9,6 @@
 #include "Shell.h"
 #include "Cheats.h"
 #include "AIWarFog.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CGlobalWarFog theWarFog;
 extern CUpdater updater;
 extern CStaticMap theStaticMap;
@@ -17,13 +16,7 @@ extern CStaticObjects theStatObjs;
 extern CDiplomacy theDipl;
 extern SCheats theCheats;
 extern NTimer::STime curTime;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												  CStaticObject														*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CStaticObject );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStaticObject::CheckStaticObject( const SObjectBaseRPGStats *pStats, const CVec2 &vPos, const int nFrameIndex )
 {
 	const CVec2 vOrigin( pStats->GetOrigin( nFrameIndex ) );
@@ -45,12 +38,10 @@ bool CStaticObject::CheckStaticObject( const SObjectBaseRPGStats *pStats, const 
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const BYTE CStaticObject::GetPlayer() const 
 { 
 	return theDipl.GetNeutralPlayer();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CStaticObject::IsVisible( const BYTE cParty ) const
 {
 	CTilesSet tiles;
@@ -64,14 +55,12 @@ const bool CStaticObject::IsVisible( const BYTE cParty ) const
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObject::GetTilesForVisibility( CTilesSet *pTiles ) const
 {
 	SRect rect;
 	GetBoundRect( &rect );
 	GetTilesCoveredByRectSides( rect, pTiles );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStaticObject::ShouldSuspendAction( const EActionNotify &eAction ) const
 {
 	return
@@ -81,15 +70,8 @@ bool CStaticObject::ShouldSuspendAction( const EActionNotify &eAction ) const
 			eAction == ACTION_NOTIFY_CHANGE_FRAME_INDEX ||
 			eAction == ACTION_NOTIFY_SILENT_DEATH );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												  CExistingObject													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CExistingObject );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 unsigned long CExistingObject::globalMark = 0;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExistingObject::GetPlacement( SAINotifyPlacement *pPlacement, const NTimer::STime timeDiff )
 {
 	pPlacement->pObj = this;
@@ -98,7 +80,6 @@ void CExistingObject::GetPlacement( SAINotifyPlacement *pPlacement, const NTimer
 	pPlacement->z = 0;
 	pPlacement->fSpeed = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExistingObject::GetNewUnitInfo( SNewUnitInfo *pNewUnitInfo )
 {
 	GetPlacement( pNewUnitInfo, 0 );
@@ -111,7 +92,6 @@ void CExistingObject::GetNewUnitInfo( SNewUnitInfo *pNewUnitInfo )
 	pNewUnitInfo->fResize = 1.0f;
 	pNewUnitInfo->nPlayer = GetPlayer();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExistingObject::SetNewPlacement( const CVec2& center, const WORD dir )	
 { 
 	UnlockTiles();	
@@ -121,10 +101,8 @@ void CExistingObject::SetNewPlacement( const CVec2& center, const WORD dir )
 
 	LockTiles();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExistingObject::TakeEditorDamage( const float fDamage )
 {
-	// есть смысл наносить данный damage
 	if ( fDamage > 0 && fHP > 0 || fDamage < 0 && fHP < GetStats()->fMaxHP )
 	{
 		fHP -= fDamage;
@@ -136,20 +114,17 @@ void CExistingObject::TakeEditorDamage( const float fDamage )
 		updater.Update( ACTION_NOTIFY_RPG_CHANGED, this );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExistingObject::Delete()
 {
 	updater.Update( ACTION_NOTIFY_RPG_CHANGED, this );
 	theStatObjs.DeleteInternalObjectInfo( this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExistingObject::DeleteForEditor()
 {
 	updater.Update( ACTION_NOTIFY_DELETED_ST_OBJ, this );
 	this->UnlockTiles();
 	theStatObjs.DeleteInternalObjectInfoForEditor( this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CExistingObject::GetRandArmorByDir( const int nArmorDir, const WORD wAttackDir )
 {
 	switch ( nArmorDir )
@@ -167,7 +142,6 @@ const int CExistingObject::GetRandArmorByDir( const int nArmorDir, const WORD wA
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CExistingObject::ProcessCumulativeExpl( CExplosion *pExpl, const int nArmorDir, const bool bFromExpl )
 {
 	if ( pExpl->GetExplZ() <= 0 && IsPointInside( pExpl->GetExplCoordinates() ) )
@@ -188,7 +162,6 @@ bool CExistingObject::ProcessCumulativeExpl( CExplosion *pExpl, const int nArmor
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CExistingObject::ProcessBurstExpl( CExplosion *pExpl, const int nArmorDir, const float fRadius, const float fSmallRadius )
 {
 	if ( !ProcessCumulativeExpl( pExpl, nArmorDir, true ) )
@@ -199,7 +172,6 @@ bool CExistingObject::ProcessBurstExpl( CExplosion *pExpl, const int nArmorDir, 
 	else
 		return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExistingObject::BurnSegment()
 {
 	const float fDamage = GetStats()->fMaxHP * SConsts::BURNING_SPEED * 0.01f * SConsts::AI_SEGMENT_DURATION;
@@ -212,7 +184,6 @@ void CExistingObject::BurnSegment()
 	if ( curTime >= burningEnd )
 		theStatObjs.EndBurning( this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExistingObject::WasHit()
 {
 	if ( static_cast<const SStaticObjectRPGStats*>(GetStats())->bBurn && fHP <= GetStats()->fMaxHP / 2.0f )
@@ -221,16 +192,10 @@ void CExistingObject::WasHit()
 		theStatObjs.StartBurning( this );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												 CGivenPassabilityStObject								*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CGivenPassabilityStObject::CGivenPassabilityStObject( const CVec2 &_center, const int dbID, const float _fHP, const int nFrameIndex )
 : CExistingObject( nFrameIndex, dbID, _fHP ), center( _center ), bTransparencySet( false )
 { 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGivenPassabilityStObject::Init()
 {
 	const CVec2 rectCenter( 0.5f * ( GetUpX() + GetDownX() ), 0.5f * ( GetUpY() + GetDownY() ) );
@@ -241,7 +206,6 @@ void CGivenPassabilityStObject::Init()
 
 	InitTransparenciesPossibility();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGivenPassabilityStObject::InitTransparenciesPossibility()
 {
 	const SObjectBaseRPGStats* pStats = static_cast<const SObjectBaseRPGStats*>( GetStats() );
@@ -250,62 +214,52 @@ void CGivenPassabilityStObject::InitTransparenciesPossibility()
 	canSetTransparency.SetSizes( visibility.GetSizeX(), visibility.GetSizeY() );
 	canSetTransparency.Set( 0xff );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGivenPassabilityStObject::GetRPGStats( SAINotifyRPGStats *pStats ) 
 { 
 	pStats->pObj = this;
 	pStats->fHitPoints = fHP;
 	pStats->time = curTime;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CGivenPassabilityStObject::GetVisDownX() const
 {
 	const SObjectBaseRPGStats* pStats = static_cast<const SObjectBaseRPGStats*>( GetStats() );
 	return Max( 0, int(center.x - pStats->GetVisOrigin( nFrameIndex ).x + SConsts::TILE_SIZE / 2 ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CGivenPassabilityStObject::GetVisUpX() const
 {
 	const SObjectBaseRPGStats* pStats = static_cast<const SObjectBaseRPGStats*>( GetStats() );	
 	return Min( theStaticMap.GetSizeX() * SConsts::TILE_SIZE, int( center.x - pStats->GetVisOrigin( nFrameIndex ).x + SConsts::TILE_SIZE * pStats->GetPassability( nFrameIndex ).GetSizeX() + SConsts::TILE_SIZE / 2 ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CGivenPassabilityStObject::GetVisDownY() const
 {
 	const SObjectBaseRPGStats* pStats = static_cast<const SObjectBaseRPGStats*>( GetStats() );
 	return Max( 0, int(center.y - pStats->GetVisOrigin( nFrameIndex ).y + SConsts::TILE_SIZE / 2 ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CGivenPassabilityStObject::GetVisUpY() const
 {
 	const SObjectBaseRPGStats* pStats = static_cast<const SObjectBaseRPGStats*>( GetStats() );
 	return Min( theStaticMap.GetSizeY() * SConsts::TILE_SIZE, int(center.y - pStats->GetVisOrigin( nFrameIndex ).y + SConsts::TILE_SIZE * pStats->GetPassability( nFrameIndex ).GetSizeY() + SConsts::TILE_SIZE / 2 ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CGivenPassabilityStObject::GetDownX() const
 {
 	const SObjectBaseRPGStats* pStats = static_cast<const SObjectBaseRPGStats*>( GetStats() );
 	return Max( 0, int(center.x - pStats->GetOrigin( nFrameIndex ).x + SConsts::TILE_SIZE / 2 ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CGivenPassabilityStObject::GetUpX() const
 {
 	const SObjectBaseRPGStats* pStats = static_cast<const SObjectBaseRPGStats*>( GetStats() );	
 	return Min( theStaticMap.GetSizeX() * SConsts::TILE_SIZE, int( center.x - pStats->GetOrigin( nFrameIndex ).x + SConsts::TILE_SIZE * pStats->GetPassability( nFrameIndex ).GetSizeX() + SConsts::TILE_SIZE / 2 ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CGivenPassabilityStObject::GetDownY() const
 {
 	const SObjectBaseRPGStats* pStats = static_cast<const SObjectBaseRPGStats*>( GetStats() );
 	return Max( 0, int(center.y - pStats->GetOrigin( nFrameIndex ).y + SConsts::TILE_SIZE / 2 ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CGivenPassabilityStObject::GetUpY() const
 {
 	const SObjectBaseRPGStats* pStats = static_cast<const SObjectBaseRPGStats*>( GetStats() );
 	return Min( theStaticMap.GetSizeY() * SConsts::TILE_SIZE, int(center.y - pStats->GetOrigin( nFrameIndex ).y + SConsts::TILE_SIZE * pStats->GetPassability( nFrameIndex ).GetSizeY() + SConsts::TILE_SIZE / 2 ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGivenPassabilityStObject::CanBeMovedTo( const CVec2 &newCenter ) const
 {
 	const SObjectBaseRPGStats* pStats = static_cast<const SObjectBaseRPGStats*>( GetStats() );
@@ -324,7 +278,6 @@ bool CGivenPassabilityStObject::CanBeMovedTo( const CVec2 &newCenter ) const
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGivenPassabilityStObject::LockTiles( bool bInitialization )
 {
 	const SObjectBaseRPGStats* pStats = static_cast<const SObjectBaseRPGStats*>( GetStats() );	
@@ -383,7 +336,6 @@ void CGivenPassabilityStObject::LockTiles( bool bInitialization )
 		);
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGivenPassabilityStObject::UnlockTiles(  bool bInitialization ) 
 {
 	const SObjectBaseRPGStats* pStats = static_cast<const SObjectBaseRPGStats*>( GetStats() );
@@ -433,10 +385,8 @@ void CGivenPassabilityStObject::UnlockTiles(  bool bInitialization )
 			lockTypes
 		);
 
-		//theStatObjs.UpdateAllPartiesStorages( false, true );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGivenPassabilityStObject::SetTransparencies()
 {
 	const SObjectBaseRPGStats* pStats = static_cast<const SObjectBaseRPGStats*>( GetStats() );
@@ -447,7 +397,6 @@ void CGivenPassabilityStObject::SetTransparencies()
 		const int visDownY = GetVisDownY();
 
 		const CArray2D<BYTE> &visibility = pStats->GetVisibility( nFrameIndex );
-		// for compatibility with old saves
 		if ( canSetTransparency.IsEmpty() )
 			canSetTransparency.SetSizes( visibility.GetSizeX(), visibility.GetSizeY() );
 		for ( int y = 0; y < visibility.GetSizeY(); ++y )
@@ -456,15 +405,12 @@ void CGivenPassabilityStObject::SetTransparencies()
 			{
 				const SVector tile( AICellsTiles::GetTile( visDownX + SConsts::TILE_SIZE*x, visDownY + SConsts::TILE_SIZE*y ) );
 
-				// initialization or "our" transparencies
 				if ( canSetTransparency[y][x] == 0xff || canSetTransparency[y][x] == 1 )
 				{
 					if ( theStaticMap.IsTileInside( tile ) )
 					{
-						// if initialization
 						if ( canSetTransparency[y][x] == 0xff )
 						{
-							// transparency already exists
 							canSetTransparency[y][x] =
 								( theStaticMap.GetDissipation( tile ) != 0 || theStaticMap.IsOneWayTransp( tile ) ) ?
 								0 : 1;
@@ -477,7 +423,6 @@ void CGivenPassabilityStObject::SetTransparencies()
 							if ( visibility[y][x] & 8 )
 								theStaticMap.SetOneWayTransp( tile.x, tile.y, visibility[y][x] >> 4 );
 							
-							// если мы не поставили сюда прозрачность, то запретить её ставить/снимать
 							canSetTransparency[y][x] =
 								( theStaticMap.GetDissipation( tile ) != 0 || theStaticMap.IsOneWayTransp( tile ) ) ?
 								1 : 0;
@@ -490,7 +435,6 @@ void CGivenPassabilityStObject::SetTransparencies()
 		bTransparencySet = true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGivenPassabilityStObject::RemoveTransparencies()
 {
 	const SObjectBaseRPGStats* pStats = static_cast<const SObjectBaseRPGStats*>( GetStats() );	
@@ -498,7 +442,6 @@ void CGivenPassabilityStObject::RemoveTransparencies()
 	const int visDownY = GetVisDownY();
 
 	const CArray2D<BYTE> &visibility = pStats->GetVisibility( nFrameIndex );
-	// for compatibility with old saves
 	if ( canSetTransparency.IsEmpty() )
 		canSetTransparency.SetSizes( visibility.GetSizeX(), visibility.GetSizeY() );
 	for ( int y = 0; y < visibility.GetSizeY(); ++y )
@@ -521,13 +464,11 @@ void CGivenPassabilityStObject::RemoveTransparencies()
 
 	bTransparencySet = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGivenPassabilityStObject::RestoreTransparencies()
 {
 	if ( bTransparencySet )
 		SetTransparencies();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGivenPassabilityStObject::IsPointInside( const CVec2 &point ) const
 {
 	if ( boundRect.IsPointInside( point ) )
@@ -549,7 +490,6 @@ bool CGivenPassabilityStObject::IsPointInside( const CVec2 &point ) const
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGivenPassabilityStObject::GetCoveredTiles( CTilesSet *pTiles ) const
 {
 	const int downX = GetDownX();
@@ -571,7 +511,6 @@ void CGivenPassabilityStObject::GetCoveredTiles( CTilesSet *pTiles ) const
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CGivenPassabilityStObject::GetAttackCenter( const CVec2 &vPoint ) const
 {
 	CTilesSet tiles;
@@ -597,19 +536,12 @@ const CVec2 CGivenPassabilityStObject::GetAttackCenter( const CVec2 &vPoint ) co
 
 	return vBestPoint;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												 CCommonStaticObject											*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CCommonStaticObject );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommonStaticObject::Die( const float fDamage )
 {
 	fHP = 0;
 	Delete();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommonStaticObject::TakeDamage( const float fDamage, const bool bFromExplosion, const int nPlayerOfShoot, CAIUnit *pShotUnit )
 {
 	if ( bFromExplosion && IsAlive() && fHP > 0 )
@@ -627,7 +559,6 @@ void CCommonStaticObject::TakeDamage( const float fDamage, const bool bFromExplo
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CCommonStaticObject::ProcessAreaDamage( const class CExplosion *pExpl, const int nArmorDir, const float fRadius, const float fSmallRadius )
 {
 	SRect boundRect;
@@ -643,16 +574,10 @@ bool CCommonStaticObject::ProcessAreaDamage( const class CExplosion *pExpl, cons
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CSimpleStaticObject													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSimpleStaticObject::CanUnitGoThrough( const EAIClass &eClass ) const
 {
 	return ( pStats->dwAIClasses & eClass ) == 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSimpleStaticObject::ShouldSuspendAction( const EActionNotify &eAction ) const
 {
 	return 
@@ -660,25 +585,17 @@ bool CSimpleStaticObject::ShouldSuspendAction( const EActionNotify &eAction ) co
 		(	CCommonStaticObject::ShouldSuspendAction( eAction ) ||
 			eAction == ACTION_NOTIFY_NEW_ST_OBJ && bDelayedUpdate );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CTerraMeshStaticObject											*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTerraMeshStaticObject::CanUnitGoThrough( const EAIClass &eClass ) const
 {
 	return ( pStats->dwAIClasses & eClass ) == 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTerraMeshStaticObject::SetNewPlacement( const CVec2 &center, const WORD dir )
 {
 	CCommonStaticObject::SetNewPlacement( center, dir );
 	wDir = dir;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTerraMeshStaticObject::GetPlacement( SAINotifyPlacement *pPlacement, const NTimer::STime timeDiff )
 {
 	CCommonStaticObject::GetPlacement( pPlacement, timeDiff );
 	pPlacement->dir = GetDir();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

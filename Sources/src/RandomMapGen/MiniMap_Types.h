@@ -1,13 +1,8 @@
 #if !defined(__MiniMap__Types__)
 #define __MiniMap__Types__
 
-//#include "..\Formats\FmtMap.h"
-//#include "..\GFX\GFXTypes.h"
 #include "..\Image\Image.h"
-//#include "..\Formats\fmtTerrain.h"
-//#include "..\Common\World.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SRMImageCreateParameter
 {
 	static const float INTERMISSION_IMAGE_BRIGHTNESS;
@@ -60,15 +55,11 @@ struct SRMImageCreateParameter
 		return *this;
 	}	
 
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::vector<SRMImageCreateParameter> CRMImageCreateParameterList;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SRMMiniMapCreateParameter
 {
 	enum MINI_MAP_LAYERS
@@ -104,7 +95,6 @@ struct SRMMiniMapCreateParameter
 		bool bScaleNoise;
 		EImageScaleMethod scaleMethod;
 
-		// serializing...
 		virtual int STDCALL operator&( IStructureSaver &ss );
 		virtual int STDCALL operator&( IDataTree &ss );
 	};
@@ -117,9 +107,7 @@ struct SRMMiniMapCreateParameter
 	DWORD dwMinAlpha;
 	DWORD dwBridgeWidth;
 
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // #if !defined(__MiniMap__Types__)

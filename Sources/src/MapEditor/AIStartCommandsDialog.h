@@ -11,18 +11,13 @@ class CAIStartCommandsDialog : public CResizeDialog
 public:
 	CAIStartCommandsDialog(CWnd* pParent = NULL);
 
-	//{{AFX_DATA(CAIStartCommandsDialog)
 	enum { IDD = IDD_AI_START_COMMAND_PROPERTIES };
-	//}}AFX_DATA
 
 
-	//{{AFX_VIRTUAL(CAIStartCommandsDialog)
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);
-	//}}AFX_VIRTUAL
 
 protected:
-	//{{AFX_MSG(CAIStartCommandsDialog)
 	virtual BOOL OnInitDialog();
 	virtual void OnOK();
 	afx_msg void OnScpDeleteButton();
@@ -36,11 +31,8 @@ protected:
 	afx_msg void OnKeydownScpCommandsList(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnAddButton();
 	afx_msg void OnAddMenu();
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 
-///////////////////////////////////
-//специфика
 protected:
 	const static int vID[];
 
@@ -60,5 +52,4 @@ public:
 	TMutableAIStartCommandList m_startCommandsUndo;
 };
 
-//{{AFX_INSERT_LOCATION}}
 #endif // !defined(AFX_AISTARTCOMMANDS_H__F22377EE_48E0_4C11_8CA2_9403DAEEB59E__INCLUDED_)

@@ -30,6 +30,3 @@
 #  undef  _STLP_DONT_POP_0x265
 # endif
 
-// Local Variables:
-// mode:C++
-// End:

@@ -2,7 +2,6 @@
 
 #include "UIMessages.h"
 #include "UITimeCounter.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUITimeCounter::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -20,7 +19,6 @@ int CUITimeCounter::operator&( IDataTree &ss )
 		fCurrent = fEnd;
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUITimeCounter::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -37,7 +35,6 @@ int CUITimeCounter::operator&( IStructureSaver &ss )
 	saver.Add( 11, &dwDisabledCounterColor );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUITimeCounter::ProcessMessage( const SUIMessage &msg )
 {
 	bool bRes = CSimpleWindow::ProcessMessage( msg );
@@ -52,7 +49,6 @@ bool CUITimeCounter::ProcessMessage( const SUIMessage &msg )
 				EnableWindow( false );				//��������� �� ����� �� ����� ��������������
 				if ( msg.nFirst == -1 )
 				{
-					//button is disabled
 					bNeedAnimate = false;
 					fCurrent = fBegin;
 					return true;
@@ -67,10 +63,8 @@ bool CUITimeCounter::ProcessMessage( const SUIMessage &msg )
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUITimeCounter::Visit( interface ISceneVisitor *pVisitor )
 {
-	// ������ ��������
 	CTRect<float> screenRC = GetScreenRect();
 	SGFXRect2 rc;
 	rc.rect = screenRC;
@@ -78,7 +72,6 @@ void CUITimeCounter::Visit( interface ISceneVisitor *pVisitor )
 	rc.fZ = 0;
 	pVisitor->VisitUIRects( 0, 3, &rc, 1 );
 
-	//������ �������
 	if ( !bVertical )
 	{
 		rc.rect.left = screenRC.left + fBegin;
@@ -95,17 +88,14 @@ void CUITimeCounter::Visit( interface ISceneVisitor *pVisitor )
 	
 	CSimpleWindow::Visit( pVisitor );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const DWORD CUITimeCounter::GetCounterColor()
 {
 	return IsWindowEnabled() ? dwCounterColor : dwDisabledCounterColor;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUITimeCounter::Draw( IGFX *pGFX )
 {
 	NI_ASSERT_SLOW_T( false, "Can't user Draw() directly - use visitor pattern" );
 	return;
-	//������ ��������
 	pGFX->SetShadingEffect( 3 );
 	pGFX->SetTexture( 0, 0 );
 	CTRect<float> screenRC = GetScreenRect();
@@ -115,7 +105,6 @@ void CUITimeCounter::Draw( IGFX *pGFX )
 	rc.fZ = 0;
 	pGFX->DrawRects( &rc, 1 );
 
-	//������ �������
 	if ( !bVertical )
 	{
 		rc.rect.left = screenRC.left + fBegin;
@@ -132,7 +121,6 @@ void CUITimeCounter::Draw( IGFX *pGFX )
 	
 	CSimpleWindow::Draw( pGFX );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUITimeCounter::Update( const NTimer::STime &currTime )
 {
 	if ( !bNeedAnimate )
@@ -143,7 +131,6 @@ bool CUITimeCounter::Update( const NTimer::STime &currTime )
 	{
 		fCurrent = fEnd;
 		bNeedAnimate = false;
-//		EnableWindow( true );			//������ ���������� �������� ������ �� ������� ��������� �����
 		return true;
 	}
 
@@ -154,4 +141,3 @@ bool CUITimeCounter::Update( const NTimer::STime &currTime )
 	fCurrent = fBegin + k * ( fEnd - fBegin );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

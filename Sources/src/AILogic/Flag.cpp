@@ -9,14 +9,12 @@
 #include "Scripts\scripts.h"
 #include "Updater.h"
 #include "MPLog.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CStaticObjects theStatObjs;
 extern NTimer::STime curTime;
 extern CScripts* pScripts;
 extern CMultiplayerInfo theMPInfo;
 extern CDiplomacy theDipl;
 extern CUpdater updater;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFlag::CFlag( const SStaticObjectRPGStats *_pStats, const CVec2 &center, const int dbID, const float fHP, const int nFrameIndex, const int _nPlayer, const EStaticObjType eType )
 : CCommonStaticObject( center, dbID, fHP, nFrameIndex, eType ), 
 	pStats( _pStats ), nParty( theDipl.GetNParty( _nPlayer ) ),
@@ -26,7 +24,6 @@ CFlag::CFlag( const SStaticObjectRPGStats *_pStats, const CVec2 &center, const i
 {
 	theMPInfo.AddFlagAtTheMap();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFlag::Init()
 {
 	CCommonStaticObject::Init();
@@ -35,7 +32,6 @@ void CFlag::Init()
 	nextSegmentTime = 0;
 	theStatObjs.RegisterSegment( this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFlag::Segment()
 {
 	if ( lastSegmentTime != 0 )
@@ -68,7 +64,6 @@ void CFlag::Segment()
 					nEnemyParty = nUnitParty;
 					nEnemyPlayer = pUnit->GetPlayer();
 				}
-				// два различных врага - никто не может захватить
 				else if ( nEnemyParty != nUnitParty )
 				{
 					bOnlyEnemyUnitsOfOneTypeInZone = false;
@@ -99,7 +94,6 @@ void CFlag::Segment()
 		}
 	}
 
-	// только враги в зоне и кто-то новый хочет взять флаг
 	if ( bOnlyEnemyUnitsOfOneTypeInZone && bGoingToCapture && nPartyToCapture != nEnemyParty )
 		bGoingToCapture = false;
 
@@ -130,7 +124,6 @@ void CFlag::Segment()
 	else
 		bGoingToCapture = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const BYTE CFlag::GetPlayer() const
 {
 	if ( nParty == theDipl.GetNeutralParty() )
@@ -147,4 +140,3 @@ const BYTE CFlag::GetPlayer() const
 			return i;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

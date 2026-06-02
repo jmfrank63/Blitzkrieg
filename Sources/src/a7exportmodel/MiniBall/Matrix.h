@@ -10,7 +10,6 @@ namespace MiniBall
 	class Matrix
 	{
 	private:
-		// Row major order
 		float m[4][4];
 
 	public:

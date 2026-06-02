@@ -1,16 +1,8 @@
 #ifndef __UNIT_GUNS_H__
 #define __UNIT_GUNS_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Guns.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IStaticPath;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*								  Все оружия юнита																*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUnitGuns : public IRefCount
 {
 	DECLARE_SERIALIZE;
@@ -29,10 +21,8 @@ class CUnitGuns : public IRefCount
 	std::vector< CObj<CBasicGun> > guns;
 	std::vector<int> gunsBegins;
 	int nCommonGuns;
-	// с priority 0
 	int nMainGun;
 
-	//
 	void FindTimeToTurn( class CAIUnit *pOwner, const WORD wWillPower, class CTurret *pTurret, class CAIUnit *pEnemy, const SVector &finishTile, const bool bIsEnemyInFireRange, NTimer::STime *pTimeToTurn ) const;
 	bool FindTimeToGo( class CAIUnit *pUnit, class CAIUnit *pEnemy, std::list< SWeaponPathInfo > *pPathInfo, const SWeaponRPGStats *pStats, CUnitGuns::SWeaponPathInfo *pInfo ) const;
 
@@ -47,10 +37,8 @@ public:
 	const BYTE GetNTotalGuns() const { return static_cast<BYTE>( guns.size() ); }
 	void Segment();
 
-	//
 	virtual int GetNGuns() const { return guns.size(); }
 	virtual class CBasicGun* GetGun( const int n ) const { return guns[n]; }
-	// если есть пушки, которыми можно пристреливаться, то выдаёт первую из них, иначе 0
 	virtual class CBasicGun* GetFirstArtilleryGun() const = 0;
 
 	class CBasicGun* ChooseGunForStatObj( class CAIUnit *pOwner, class CStaticObject *pObj, NTimer::STime *pTime );
@@ -61,21 +49,17 @@ public:
 	const int GetNCommonGuns() const { return nCommonGuns; }
 	const SBaseGunRPGStats& GetCommonGunStats( const int nCommonGun ) const;
 	int GetNAmmo( const int nCommonGun ) const;
-	// nAmmo со знаком
 	void ChangeAmmo( const int nCommonGun, const int nAmmo );
 	bool IsCommonGunFiring( const int nCommonGun ) const { return commonGunsInfo[nCommonGun]->bFiring; }
 
-	// даёт reject reason самого приоритетного gun из тех, кто отказался стрелять
 	const EUnitAckType GetRejectReason() const;
 	bool DoesExistRejectReason( const EUnitAckType &ackType ) const;
 	
-	// gun с priority 0
 	class CBasicGun* GetMainGun() const;
 
 	virtual const int GetActiveShellType() const = 0;
 	virtual bool SetActiveShellType( const enum SWeaponRPGStats::SShell::EDamageType eShellType ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMechUnitGuns : public CUnitGuns
 {
 	OBJECT_COMPLETE_METHODS( CMechUnitGuns );	
@@ -91,7 +75,6 @@ public:
 
 	virtual class CBasicGun* GetFirstArtilleryGun() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInfantryGuns : public CUnitGuns
 {
 	OBJECT_COMPLETE_METHODS( CInfantryGuns );	
@@ -104,5 +87,4 @@ public:
 	virtual bool SetActiveShellType( const enum SWeaponRPGStats::SShell::EDamageType eShellType ) { return false; }
 	virtual const int GetActiveShellType() const { return SWeaponRPGStats::SShell::DAMAGE_HEALTH; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __UNIT_GUNS_H__

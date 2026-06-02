@@ -1,7 +1,4 @@
-// STLport configuration file
-// It is internal STLport header - DO NOT include it directly
 
-// AS/400 C++ config
 
 # ifdef _REENTRANT
 #  define _PTHREADS
@@ -34,7 +31,6 @@
 #  define _STLP_NO_METHOD_SPECIALIZATION
 #  define _STLP_NO_EXPLICIT_FUNCTION_TMPL_ARGS
 
-// #  define _STLP_NO_EXCEPTION_HEADER
 
 #  define _STLP_HAS_NO_NEW_IOSTREAMS
 #  define _STLP_HAS_NO_NEW_C_HEADERS 
@@ -52,9 +48,7 @@
 #  if defined(_LONG_LONG)
 #    define _STLP_LONG_LONG long long
 #  endif
-// #  define _STLP_LONG_DOUBLE 1
 #  if defined(_PTHREADS)
 #    define _MULTI_THREADED
 #  endif
-// fbp : to fix __partition() problem
 # define _STLP_NONTEMPL_BASE_MATCH_BUG 1

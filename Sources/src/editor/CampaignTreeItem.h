@@ -21,7 +21,6 @@ public:
 	CCampaignCommonPropsItem() { nItemType = E_CAMPAIGN_COMMON_PROPS_ITEM; InitDefaultValues(); nImageIndex = 0; }
 	~CCampaignCommonPropsItem() {};
 	
-	//Получение внутренних параметров
 	const char* GetHeaderText() { return values[0].value; }
 	const char* GetSubHeaderText() { return values[1].value; }
 	const char* GetMapImage() { return values[2].value; }
@@ -30,7 +29,6 @@ public:
 	const char* GetInterfaceMusic() { return values[5].value; }
 	const char *GetPlayerSideName() { return values[6].value; }
 	
-	//Установка внутренних параметров
 	void SetHeaderText( const char *pszName ) { values[0].value = pszName; }
 	void SetSubHeaderText( const char *pszName ) { values[1].value = pszName; }
 	void SetMapImage( const char *pszName ) { values[2].value = pszName; }
@@ -64,13 +62,11 @@ public:
 	CCampaignChapterPropsItem() { bStaticElements = true; nItemType = E_CAMPAIGN_CHAPTER_PROPS_ITEM; InitDefaultValues(); nImageIndex = 0; }
 	~CCampaignChapterPropsItem() {};
 	
-	//Получение внутренних параметров
 	const char* GetChapterName() { return values[0].value; }
 	CVec2 GetChapterPosition() { CVec2 res(values[1].value, values[2].value); return res; }
 	bool GetChapterVisibleFlag() { return values[3].value; }
 	bool GetChapterSecretFlag() { return values[4].value; }
 	
-	//Установка внутренних параметров
 	void SetChapterName( const char *pszVal ) { values[0].value = pszVal; }
 	void SetChapterPosition( const CVec2 &vVal ) { values[1].value = vVal.x; values[2].value = vVal.y; }
 	void SetChapterVisibleFlag( bool nVal ) { values[3].value = nVal; }
@@ -104,10 +100,8 @@ public:
 	CCampaignTemplatePropsItem() { bStaticElements = true; nItemType = E_CAMPAIGN_TEMPLATE_PROPS_ITEM; InitDefaultValues(); nImageIndex = 3; }
 	~CCampaignTemplatePropsItem() {};
 	
-	//Получение внутренних параметров
 	const char* GetTemplateName() { return values[0].value; }
 
-	//Установка внутренних параметров
 	void SetTemplateName( const char *pszVal ) { values[0].value = pszVal; }
 	
 	virtual void InitDefaultValues();

@@ -4,11 +4,6 @@
 
 #include "..\GameTT\MultiplayerCommandManager.h"
 #include "..\GameTT\MuliplayerToUIConsts.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 								  CServerInfoRefreshed												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerInfoRefreshed::SendToUI()
 {
 	IMPToUICommandManager *pCommandManager = GetSingleton<IMPToUICommandManager>();
@@ -30,11 +25,6 @@ void CServerInfoRefreshed::SendToUI()
 	pBuffer->WriteASCII( CONSOLE_STREAM_CHAT, szString.c_str(), 0xff00ff00 );
 */
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 								   CServerRemoved															*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerRemoved::SendToUI()
 {
 	IMPToUICommandManager *pCommandManager = GetSingleton<IMPToUICommandManager>();
@@ -52,4 +42,3 @@ void CServerRemoved::SendToUI()
 	pBuffer->WriteASCII( CONSOLE_STREAM_CHAT, szString.c_str(), 0xff00ff00 );
 */
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

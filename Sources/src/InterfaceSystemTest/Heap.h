@@ -2,16 +2,11 @@
 #define __HEAP_H__
 
 #pragma ONCE
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// на вершине куче находится наибольший элемент
-// bool Cmp::operator()(const T &a, const T &b) должен возвращать true в случае a < b
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
 struct SVoidSwap
 {
 	void operator()( const T &a, const T &b, const int aIndex, const int bIndex ) { }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T, class TCmp, class TWillSwap = SVoidSwap<T> >
 class CHeap
 {
@@ -20,11 +15,9 @@ class CHeap
 	TCmp cmp;
 	TWillSwap WillSwap;
 	
-	// нумерация элементов от 1!
 	std::vector<T> heap;
 	int nEl;
 
-	// перебалансирует, начиная с эл. k и вверх
 	int Balance( int k );
 public:
 	CHeap() : nEl( 0 ), heap( 1 ) { }
@@ -40,11 +33,9 @@ public:
 	void Erase( const int n );
 	void Clear() { heap.clear(); nEl = 0; heap.resize( 1 ); }
 
-	// возвращает индекс, куда элемент попал
 	int Push( const T& el );
 	const T Pop();
 
-	// перебалансировать при увеличении элемента на позиции k
 	int Increased( const int k );
 
 	const T& GetMaxEl() const { return heap[1]; }
@@ -55,7 +46,6 @@ public:
 
 	void Remove( const T& el );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T, class TCmp, class TWillSwap>
 void CHeap<T, TCmp, TWillSwap>::Remove( const T& el )
 {
@@ -68,7 +58,6 @@ void CHeap<T, TCmp, TWillSwap>::Remove( const T& el )
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T, class TCmp, class TWillSwap>
 int CHeap<T, TCmp, TWillSwap>::Balance( int k )
 {
@@ -81,7 +70,6 @@ int CHeap<T, TCmp, TWillSwap>::Balance( int k )
 
 	return k-1;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T, class TCmp, class TWillSwap>
 int CHeap<T, TCmp, TWillSwap>::Push( const T& el )
 {
@@ -89,13 +77,11 @@ int CHeap<T, TCmp, TWillSwap>::Push( const T& el )
 
 	return Balance( nEl );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T, class TCmp, class TWillSwap>
 int CHeap<T, TCmp, TWillSwap>::Increased( const int k )
 {
 	return Balance( k + 1 );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T, class TCmp, class TWillSwap>
 void CHeap<T, TCmp, TWillSwap>::Erase( const int n )
 {
@@ -128,7 +114,6 @@ void CHeap<T, TCmp, TWillSwap>::Erase( const int n )
 		std::swap( heap[k], heap[2*k] );
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T, class TCmp, class TWillSwap>
 const T CHeap<T, TCmp, TWillSwap>::Pop()
 {
@@ -136,7 +121,6 @@ const T CHeap<T, TCmp, TWillSwap>::Pop()
 	Erase( 0 );
 	return result;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T, class TCmp, class TWillSwap>
 int CHeap<T, TCmp, TWillSwap>::operator&( IStructureSaver &ss )
 {
@@ -147,5 +131,4 @@ int CHeap<T, TCmp, TWillSwap>::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __HEAP_H__

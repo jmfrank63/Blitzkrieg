@@ -1,16 +1,6 @@
 #ifndef __FMTSPRITEANIMATION_H__
 #define __FMTSPRITEANIMATION_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** sprite animation format and serialization
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SSpriteAnimationFormat : public ISharedResource
 {
 private:
@@ -23,18 +13,14 @@ public:
 		struct SDir
 		{
 			std::vector<short> frames;				// direction frame indices from the 'rects' array
-			//
 			int operator&( interface IStructureSaver &ss );
 		};
-		//
 		std::vector<SSpriteRect> rects;			// each sprite (frame) descriptions
 		std::vector<SDir> dirs;							// directions
 		int nFrameTime;											// one frame show time
 		float fSpeed;												// <translation speed>
 		bool bCycled;												// cycled or one-shot animation
-		//
 		int operator&( interface IStructureSaver &ss );
-		//
 		const SSpriteRect& GetRect( const int nDirection, const int nTime ) const
 		{
 			const int nNumDirs = dirs.size();
@@ -58,7 +44,6 @@ public:
 	};
 	typedef std::vector<SSpriteAnimation> CAnimations;
 	CAnimations animations;
-	//
 	const SSpriteAnimation* GetAnimation( int nAnim ) const
 	{
 		NI_ASSERT_SLOW_TF( nAnim < animations.size(), NStr::Format("Can't find animation %d for \"%s\"", nAnim, GetSharedResourceName()), return 0 );
@@ -72,9 +57,7 @@ public:
 		animations = pRes->animations;
 		pRes->animations = temp;
 	}
-	// internal container clearing
 	virtual void STDCALL ClearInternalContainer() {  }
 	virtual bool STDCALL Load( const bool bPreLoad = false );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __FMTSPRITEANIMATION_H__

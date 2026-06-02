@@ -18,19 +18,12 @@ public:
 
 	void SetActiveChapter( CCampaignChapterPropsItem *pChapter );
 
-	// Attributes
 public:
 	
-	// Operations
 public:
 	
-	// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CCampaignFrame)
 protected:
-	//}}AFX_VIRTUAL
 	
-	// Implementation
 private:
 	std::string szPrefix;		//эта переменная используется для передачи параметра в функцию FillRpgStats, чтобы не было необходимости изменять интерфейс
 	CCampaignChapterPropsItem *pActiveChapter;
@@ -46,20 +39,14 @@ protected:
 	virtual void SpecificInit();
 	virtual void SpecificClearBeforeBatchMode();
 	
-	// Generated message map functions
 protected:
-	//{{AFX_MSG(CCampaignFrame)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
 	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
 	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 
-/////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif		//__CAMPAIGNFRM_H__

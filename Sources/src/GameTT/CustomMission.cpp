@@ -7,17 +7,13 @@
 #include "CommonId.h"
 #include "CustomMission.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceCustomMission::~CInterfaceCustomMission()
 {
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceCustomMission::Init()
 {
-	//инициализируем имена
 	fileMasks.clear();
 	fileMasks.push_back( "*.xml" );
-	//	szTopDir = std::string( GetSingleton<IDataStorage>()->GetName() );
 	szTopDir = "";
 	szTopDir += "scenarios\\custom\\missions\\";
 	szCurrentDir = szTopDir;
@@ -25,12 +21,9 @@ bool CInterfaceCustomMission::Init()
 	nSortType = E_SORT_BY_NAME;
 	bStorageFiles = true;
 	szCollectorName = "custom_missions";
-	//
 	CInterfaceCustomList::Init();
-	//
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceCustomMission::FillListItem( IUIListRow *pRow, const std::string &szFullFileName, bool *pSelectedItem )
 {
 	std::string szMissionName = szFullFileName.substr( 0, szFullFileName.rfind('.') );
@@ -58,7 +51,6 @@ bool CInterfaceCustomMission::FillListItem( IUIListRow *pRow, const std::string 
 
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceCustomMission::OnOk( const std::string &szFullFileName )
 {
 	std::string szBase = GetSingleton<IDataStorage>()->GetName();
@@ -84,7 +76,5 @@ bool CInterfaceCustomMission::OnOk( const std::string &szFullFileName )
 												MISSION_COMMAND_MISSION,
 												(pStats->szFinalMap + ".xml").c_str() ) );
 
-	//FinishInterface( MISSION_COMMAND_MISSION, (pStats->szFinalMap + ".xml").c_str() );
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

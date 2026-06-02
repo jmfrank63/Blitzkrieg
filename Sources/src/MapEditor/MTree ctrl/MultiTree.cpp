@@ -1,5 +1,3 @@
-// MultiTree.cpp : implementation file
-//
 
 #include "stdafx.h"
 #include "MultiTree.h"
@@ -15,8 +13,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CMultiTree
 
 CMultiTree::CMultiTree() : m_editedItem(0)
 {
@@ -28,17 +24,13 @@ CMultiTree::~CMultiTree()
 
 
 BEGIN_MESSAGE_MAP(CMultiTree, CTreeCtrl)
-//{{AFX_MSG_MAP(CMultiTree)
 	ON_WM_PAINT()
 	ON_WM_LBUTTONDOWN()
 	ON_WM_LBUTTONDBLCLK()
 	ON_WM_CREATE()
 	ON_WM_SIZE()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////
-// CMultiTree message handlers
 
 
 BOOL CMultiTree::SetItemData(HTREEITEM hItem, DWORD dwData)
@@ -57,7 +49,6 @@ DWORD CMultiTree::GetItemData(HTREEITEM hItem) const
 	return pItem->GetData();
 }
 
-//																		пока простые типы
 HTREEITEM CMultiTree::InsertItem(LPCTSTR lpszItem, HTREEITEM hParent, HTREEITEM hInsertAfter)
 {
 	ITreeItem *pItem = new CSTreeItem;
@@ -153,7 +144,6 @@ void CMultiTree::SafeDeleteAllItems()
 
 void CMultiTree::OnPaint() 
 {
-	//CPaintDC dc(this); // device context for painting
 
 	CPaintDC paintDC(this);
 
@@ -168,11 +158,9 @@ void CMultiTree::OnPaint()
 	CBitmap *pOldBitmap = dc.SelectObject( &bmp );
 
 	
-	// TODO: Add your message handler code here
 	CRect rcClip, rcClient;
 	dc.GetClipBox( &rcClip );
 	GetClientRect(&rcClient);
-	// Set clip region to be same as that in paint DC
 	CRgn rgn;
 	rgn.CreateRectRgnIndirect( &rcClip );
 	dc.SelectClipRgn(&rgn);
@@ -181,11 +169,9 @@ void CMultiTree::OnPaint()
 	dc.SetTextColor(m_wndColor);
 
 	CWnd::DefWindowProc( WM_PAINT, (WPARAM)dc.m_hDC, 0 );
-	// Do not call CTreeCtrl::OnPaint() for painting messages
 
 	HTREEITEM hItem = GetFirstVisibleItem();
 	int n = GetVisibleCount();
-	// мочим все что после первой колонки
 	dc.FillSolidRect(GetColumnWidth(0),0,rcClient.Width(),rcClient.Height(),m_wndColor);
 	
 	CFont *pFontDC;
@@ -221,7 +207,6 @@ void CMultiTree::OnPaint()
 			ITreeItem* pItem = (ITreeItem*)CTreeCtrl::GetItemData(hItem);
 			if ( pItem )
 			{
-				//	std::string ssss = pItem->GetNormalProperty();
 				sItem = pItem->GetItemName() != "" ? pItem->GetItemName() .c_str() : "";
 
 				if( pItem->ifBold() )
@@ -239,10 +224,8 @@ void CMultiTree::OnPaint()
 				rect.left = m_labelRect.left;
 			rect.right = GetFullWidth();
 			
-			// печатаем обычный текст  слева
 			DrawItemText(&dc, sItem, CRect(rect.left+2, rect.top, GetColumnWidth(0), rect.bottom), GetColumnWidth(0)-rect.left-2, LVCFMT_LEFT );
 
-			// печатаем обычный текст  для propertie
 			if ( pItem )
 			{
 				sItem = pItem->GetNormalProperty() != "" ? pItem->GetNormalProperty() .c_str() : "";
@@ -250,7 +233,6 @@ void CMultiTree::OnPaint()
 			DrawItemText(&dc, sItem, CRect(GetColumnWidth(0) + 2, rect.top, GetColumnWidth(1) + GetColumnWidth(0), rect.bottom), GetColumnWidth(1) - 2, LVCFMT_LEFT );
 			
 			itemHeight = rect.Height();
-			// восстановим шрифт
 			if ( pItem )
 			{
 				if( pItem->ifBold() )
@@ -266,15 +248,12 @@ void CMultiTree::OnPaint()
 			rect.right = GetFullWidth();
 
 
-			// If the item is selected, paint the rectangle with the system color
-			// COLOR_HIGHLIGHT
 
 			COLORREF m_highlightColor = ::GetSysColor (COLOR_HIGHLIGHT);
 
 			CBrush brush(m_highlightColor);
 			dc.FillRect (rect, &brush);
 
-			// draw a dotted focus rectangle
 			dc.DrawFocusRect (rect);
 		
 			ITreeItem* pItem = (ITreeItem*)CTreeCtrl::GetItemData(hItem);
@@ -301,7 +280,6 @@ void CMultiTree::OnPaint()
 			rect.right = GetFullWidth();
 
 			DrawItemText(&dc, sItem, CRect(rect.left+2, rect.top, GetColumnWidth(0), rect.bottom), GetColumnWidth(0)-rect.left-2, LVCFMT_LEFT );
-			// печатаем обычный текст  для propertie
 			if ( pItem )
 			{
 				sItem = pItem->GetNormalProperty() != "" ? pItem->GetNormalProperty() .c_str() : "";
@@ -310,7 +288,6 @@ void CMultiTree::OnPaint()
 
 			itemHeight = rect.Height();
 
-			// восстановим шрифт
 			if ( pItem )
 			{
 				if(pItem->ifBold())
@@ -366,11 +343,9 @@ int CMultiTree::GetFullWidth()
 
 void CMultiTree::DrawItemText (CDC* pDC, CString &text, CRect &rect, int nWidth, int nFormat)
 {
-    //
     bool  bNeedDots = false;
     int nMaxWidth = nWidth - 4;
 
-		//если не можем показать полностью веточку то ее обрубаем 
     while ((text.GetLength()>0) && (pDC->GetTextExtent((LPCTSTR) text).cx > (nMaxWidth - 4))) 
 		{
         text = text.Left (text.GetLength () - 1);
@@ -398,7 +373,6 @@ void CMultiTree::DrawItemText (CDC* pDC, CString &text, CRect &rect, int nWidth,
 
 void CMultiTree::OnLButtonDown(UINT nFlags, CPoint point) 
 {
-	// TODO: Add your message handler code here and/or call default
 	SendMessage( WM_USER + 1);
 	UINT flags;
 	HTREEITEM m_selectedItem = HitTest(point, &flags);
@@ -419,7 +393,6 @@ void CMultiTree::OnLButtonDown(UINT nFlags, CPoint point)
 	}
 
 	SetFocus();
-//	CTreeCtrl::OnLButtonDown(nFlags, point);
 }
 ITreeItem* CMultiTree::GetTreeItemPtr(HTREEITEM hItem)
 {
@@ -428,11 +401,8 @@ ITreeItem* CMultiTree::GetTreeItemPtr(HTREEITEM hItem)
 
 void CMultiTree::OnLButtonDblClk(UINT nFlags, CPoint point) 
 {
-	// TODO: Add your message handler code here and/or call default
 	UINT flags;
 	HTREEITEM m_selectedItem = HitTest(point, &flags);
-//	CRect rect;
-//	GetItemRect( m_selectedItem , &rect, FALSE );
 	if( (flags & TVHT_ONITEMRIGHT ) && m_selectedItem  != NULL )
 	{
 		ITreeItem *pItem = (ITreeItem *)CTreeCtrl::GetItemData(m_selectedItem);
@@ -441,13 +411,11 @@ void CMultiTree::OnLButtonDblClk(UINT nFlags, CPoint point)
 		else
 			RedrawWindow();
 	}	
-//	CTreeCtrl::OnLButtonDblClk(nFlags, point);
 }
 
 
 BOOL CMultiTree::PreTranslateMessage(MSG* pMsg) 
 {
-	// TODO: Add your specialized code here and/or call the base class
 	if ( pMsg->message == WM_KEYDOWN )
 	{	 
 		if ( pMsg->wParam == VK_RETURN )
@@ -471,7 +439,6 @@ BOOL CMultiTree::PreTranslateMessage(MSG* pMsg)
 
 LRESULT CMultiTree::DefWindowProc(UINT message, WPARAM wParam, LPARAM lParam) 
 {
-	// TODO: Add your specialized code here and/or call the base class
 	if( message == (WM_USER + 1) && m_editedItem != 0)
 	{
 			bool bResult = false;
@@ -508,7 +475,6 @@ int CMultiTree::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	if (CTreeCtrl::OnCreate(lpCreateStruct) == -1)
 		return -1;
 	
-	// TODO: Add your specialized creation code here
 	SetFont( GetParent()->GetParent()->GetFont(), false );
 	m_wndHeader.SetFont( GetParent()->GetParent()->GetFont(), false );
 	return 0;
@@ -518,6 +484,4 @@ void CMultiTree::OnSize(UINT nType, int cx, int cy)
 {
 	CWnd::OnSize(nType, cx, cy);
 
-	// TODO: Add your message handler code here
-	//m_wndHeader.MoveWindow( 0,0,cx,SCROLL_BAR_SIZE);
 }

@@ -2,11 +2,9 @@
 #define __VSO__Types__
 
 #include "VA_Types.h"
-//#include "..\Formats\FmtVSO.h"
 #include "Polygons_Types.h"
 #include "..\RandomMapGen\Resource_Types.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CVSOBuilder
 {
 public:
@@ -15,11 +13,9 @@ public:
 	static const float DEFAULT_STEP;
 	static const float DEFAULT_OPACITY;
 
-	//----------------------------------------------------------------------------------------------------
 private:
 	CVSOBuilder() {}
 
-	//----------------------------------------------------------------------------------------------------
 	struct SVSOCircle : public CCircle
 	{
 		EClassifyRotation classifyRotation;
@@ -30,7 +26,6 @@ private:
 		bool GetPointsSequence( const CVec2 &v, int nSegmentsCount, std::list<CVec2> *pPointsSequence ) const;
 	};
 	
-	//----------------------------------------------------------------------------------------------------
 public:
 	struct SBackupKeyPoints
 	{
@@ -48,7 +43,6 @@ public:
 		void AddKeyPoint( int nKeyPointIndex, float fWidth = DEFAULT_WIDTH, float fOpacity = DEFAULT_OPACITY );
 		void RemoveKeyPoint( int nKeyPointIndex );
 		
-		//very special methods for RMG
 		void InsertToBegin( float fWidth, float fOpacity );
 		void InsertToRBegin( float fWidth, float fOpacity );
 		void SetBeginOpacity( float fOpacity );
@@ -56,7 +50,6 @@ public:
 		void Clear();
 	};
 
-	//----------------------------------------------------------------------------------------------------
 private:
 	static int SliceSpline( const class CAnalyticBSpline2 &spline,
 													std::list<SVectorStripeObjectPoint> *pPoints,
@@ -74,7 +67,6 @@ private:
 																 const CVec2 &vBegin1, const CVec2 &vEnd1, float fRadius1, int nSegmentsCount1, bool bBegin1,
 																 std::list<CVec2> *pPointsSequence );
 	
-	//----------------------------------------------------------------------------------------------------
 public:
 	static bool UpdateZ( const STerrainInfo::TVertexAltitudeArray2D &rAltitude, CVec3 *pPos );
 	static bool UpdateZ( const STerrainInfo::TVertexAltitudeArray2D &rAltitude, SVectorStripeObject *pVectorStripeObject );
@@ -85,19 +77,14 @@ public:
 												float fRadius, int nSegmentsCount, float fMinEdgeLength, float fDistance, float fDisturbance, 
 												std::list<CVec2> *pPointsSequence, const std::vector<std::vector<CVec2> > &rLockedPolygons, std::list<CVec2> *pUsedPoints,
 												int nDepth = 0 );
-	//не симметричный метод, первый VSO продолжается на две точки по отношению ко второму с соблюдением ширины
-	//на обоих концах проставляется нулевая opacity
 	static bool MergeVSO( SVectorStripeObject *pVSO0, bool bVSO0Begin,
 												SVectorStripeObject *pVSO1, bool bVSO1Begin );
 
-	//вернуть первую не нулевую высоту
 	static float GetVSOEdgeHeght( const STerrainInfo::TVertexAltitudeArray2D &rAltitude, const SVectorStripeObject &rVectorStripeObject, bool bBegin, bool bFirst );
 
-	//----------------------------------------------------------------------------------------------------
 	template<class Type>
 	static bool CreateVSO( SVectorStripeObject *pVSO, const std::string &rVSODescName, const Type &rVSOControlPoints )
 	{
-		//Загрузка паттерна VSO
 		SVectorStripeObjectDesc vsoDesc;
 		if ( LoadDataResource( rVSODescName, "", false, 0, "VSODescription", vsoDesc ) )
 		{
@@ -121,5 +108,4 @@ public:
 		return rszBeginVSODesc;
 	}
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // #if !defined(__VSO__Types__)

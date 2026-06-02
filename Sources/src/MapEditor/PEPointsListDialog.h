@@ -6,9 +6,7 @@
 #endif // _MSC_VER > 1000
 #include "ResizeDialog.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CALLBACK PointsListCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CPEPointsListDialog : public CResizeDialog
 {
 friend int CALLBACK PointsListCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
@@ -20,18 +18,13 @@ public:
 public:
 	CPEPointsListDialog( CWnd* pParent = NULL );
 
-	//{{AFX_DATA(CPEPointsListDialog)
 	enum { IDD = IDD_PE_POINTS_LIST };
 	CListCtrl	m_PointsList;
-	//}}AFX_DATA
 
-	//{{AFX_VIRTUAL(CPESelectStringsDialog)
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);
 	virtual BOOL OnInitDialog();
-	//}}AFX_VIRTUAL
 protected:
-	//{{AFX_MSG(CPEPointsListDialog)
 	virtual void OnOK();
 	virtual void OnCancel();
 	afx_msg void OnAddPointButton();
@@ -45,7 +38,6 @@ protected:
 	afx_msg void OnColumnclickPointsList(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnItemchangedPointsList(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnKeydownPointsList(NMHDR* pNMHDR, LRESULT* pResult);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 
 	const static int vID[];
@@ -53,7 +45,6 @@ protected:
 	int nSortColumn;
 	std::vector<bool> bPointsSortParam;
 
-	//минимальные размеры клиентской части диалога
 	virtual int GetMinimumXDimension() { return 200; }
 	virtual int GetMinimumYDimension() { return 200; }
 	virtual std::string GetXMLOptionsLabel() { return "CPEPointsListDialog"; }
@@ -65,6 +56,4 @@ protected:
 	void CreateControls();
 	void UpdateControls();
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//{{AFX_INSERT_LOCATION}}
 #endif // !defined(#define __Property_Editor_PointsListDialog__)

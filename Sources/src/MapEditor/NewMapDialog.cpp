@@ -11,7 +11,6 @@ static char THIS_FILE[] = __FILE__;
 
 #include "..\misc\FileUtils.h"
 #include "..\RandomMapGen\MapInfo_Types.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CNewMapDialog::vID[] = 
 {
 	IDC_NEW_MAP_SIZE_X_LABEL,				//0
@@ -28,12 +27,9 @@ const int CNewMapDialog::vID[] =
 	IDCANCEL,												//11
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CNewMapDialog::CNewMapDialog( CWnd* pParent )
 	: CResizeDialog( CNewMapDialog::IDD, pParent )
 {
-	//{{AFX_DATA_INIT(CNewMapDialog)
-	//}}AFX_DATA_INIT
 
 	SetControlStyle( IDC_NEW_MAP_SIZE_X_LABEL, ANCHORE_LEFT_TOP );
 	SetControlStyle( IDC_NEW_MAP_SIZE_Y_LABEL, ANCHORE_TOP | ANCHORE_HOR_CENTER );
@@ -56,30 +52,23 @@ CNewMapDialog::CNewMapDialog( CWnd* pParent )
 
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNewMapDialog::DoDataExchange(CDataExchange* pDX)
 {
 	CResizeDialog::DoDataExchange( pDX );
-	//{{AFX_DATA_MAP(CNewMapDialog)
 	DDX_Control(pDX, IDC_NEW_MAP_SIZE_X_COMBO_BOX, wndSizeXComboBox);
 	DDX_Control(pDX, IDC_NEW_MAP_SIZE_Y_COMBO_BOX, wndSizeYComboBox);
 	DDX_Control(pDX, IDC_NEW_MAP_NAME_EDIT, wndFileName);
 	DDX_Control(pDX, IDC_NEW_MAP_SEASON_COMBO_BOX, wndSeasonComboBox);
 	DDX_Control(pDX, IDC_NEW_MAP_MOD_COMBO_BOX, wndMODComboBox);
-	//}}AFX_DATA_MAP
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CNewMapDialog, CResizeDialog)
-	//{{AFX_MSG_MAP(CNewMapDialog)
 	ON_EN_CHANGE(IDC_NEW_MAP_NAME_EDIT, OnChangeNewMapNameEdit)
 	ON_BN_CLICKED(IDC_NEW_MAP_NAME_BROWSE_BUTTON, OnNewMapNameBrowseButton)
 	ON_BN_CLICKED(IDC_NEW_MAP_SQUARE_CHECK_BOX, OnNewMapSquareCheckBox)
 	ON_CBN_SELCHANGE(IDC_NEW_MAP_SIZE_X_COMBO_BOX, OnSelchangeNewMapSizeXComboBox)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNewMapDialog::GetAllMODs( std::vector<std::string> *pMODsList )
 {
 	if ( pMODsList )
@@ -94,7 +83,6 @@ void CNewMapDialog::GetAllMODs( std::vector<std::string> *pMODsList )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::string CNewMapDialog::GetMODKey()
 { 
 	if ( ( resizeDialogOptions.szParameters[2].empty() ) || ( resizeDialogOptions.szParameters[2] == RMGC_NO_MOD_FOLDER ) )
@@ -104,7 +92,6 @@ std::string CNewMapDialog::GetMODKey()
 	return resizeDialogOptions.szParameters[2];
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNewMapDialog::LoadControls()
 {
 	for ( int nSize = 1; nSize <= 32; ++nSize )
@@ -154,7 +141,6 @@ void CNewMapDialog::LoadControls()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNewMapDialog::SaveControls()
 {
 	int nStringNumber = wndSizeXComboBox.GetCurSel();
@@ -186,7 +172,6 @@ void CNewMapDialog::SaveControls()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CNewMapDialog::OnInitDialog() 
 {
 	CResizeDialog::OnInitDialog();
@@ -212,21 +197,18 @@ BOOL CNewMapDialog::OnInitDialog()
 	return TRUE;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNewMapDialog::OnOK() 
 {
 	SaveControls();
 	CResizeDialog::OnOK();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNewMapDialog::OnCancel() 
 {
 	SaveControls();
 	CResizeDialog::OnCancel();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNewMapDialog::UpdateControls()
 {
 	CString strText;
@@ -242,13 +224,11 @@ void CNewMapDialog::UpdateControls()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNewMapDialog::OnChangeNewMapNameEdit() 
 {
 	UpdateControls();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNewMapDialog::OnNewMapNameBrowseButton() 
 {
 	std::string szInitialDir;
@@ -273,7 +253,6 @@ void CNewMapDialog::OnNewMapNameBrowseButton()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNewMapDialog::OnSelchangeNewMapSizeXComboBox() 
 {
 	int nStringNumber = wndSizeXComboBox.GetCurSel();
@@ -288,7 +267,6 @@ void CNewMapDialog::OnSelchangeNewMapSizeXComboBox()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNewMapDialog::OnNewMapSquareCheckBox() 
 {
 	if ( IsDlgButtonChecked( IDC_NEW_MAP_SQUARE_CHECK_BOX ) )
@@ -298,4 +276,3 @@ void CNewMapDialog::OnNewMapSquareCheckBox()
 	}
 	UpdateControls();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

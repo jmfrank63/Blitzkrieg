@@ -1,6 +1,3 @@
-// ObjectPlacerState.cpp: implementation of the CObjectPlacerState class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include "editor.h"
@@ -30,8 +27,6 @@
 static char THIS_FILE[]=__FILE__;
 #define new DEBUG_NEW
 #endif
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///extern int GetAnimationFrameIndex( IVisObj *pVisObj );
 CObjectPlacerState::CObjectPlacerState()
 {
 }
@@ -41,7 +36,6 @@ inline int GetFrameIndexForObj( SMapObject *obj,  CTemplateEditorFrame *frame  )
 		return frame->GetAnimationFrameIndex( obj->pVisObj );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CObjectPlacerState::OnMouseMove(UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame *frame )
 {
 	if ( !stateParameter.Update( CInputStateParameter::ISE_MOUSEMOVE, rMousePoint, frame ) )
@@ -59,8 +53,6 @@ void CObjectPlacerState::OnMouseMove(UINT nFlags, const CTPoint<int> &rMousePoin
 
 	if ( frame->dlg && frame->isStartCommandPropertyActive )
 	{
-		//frame->DrawAIStartCommandRedLines();
-		//frame->DrawUnitsSelection();
 		frame->RedrawWindow();
 		return;
 	}
@@ -97,7 +89,6 @@ void CObjectPlacerState::OnMouseMove(UINT nFlags, const CTPoint<int> &rMousePoin
 		}
 	}
 	
-	//����� �� ����� ������
 	if ( frame->m_currentMovingObjectPtrAI && ( nFlags & MK_LBUTTON ) )
 	{
 		p += frame->m_currentObjectShift;
@@ -109,7 +100,6 @@ void CObjectPlacerState::OnMouseMove(UINT nFlags, const CTPoint<int> &rMousePoin
 		{
 			CPtr<IObjectsDB> pODB = GetSingleton<IObjectsDB>();
 			const SObjectBaseRPGStats *pObjDesc = static_cast< const SObjectBaseRPGStats*>( pODB->GetRPGStats( frame->m_currentMovingObjectPtrAI->pDesc ) );
-			//
 			
 			FitVisOrigin2AIGrid( &v, pObjDesc->GetOrigin( GetFrameIndexForObj( frame->m_currentMovingObjectPtrAI, frame  )) );
 		}
@@ -117,16 +107,13 @@ void CObjectPlacerState::OnMouseMove(UINT nFlags, const CTPoint<int> &rMousePoin
 		Vis2AI( &vAI, v );
 		if( frame->m_currentMovingObjectPtrAI->pAIObj )
 		{
-			//	GetSingleton<IAIEditor>()->MoveObject(frame-> m_currentMovingObjectPtrAI->pAIObj, int( vAI.x ) , int ( vAI.y ) );
 				frame->MoveObject(frame->m_currentMovingObjectPtrAI->pAIObj, int( vAI.x ) , int ( vAI.y ) );
 		}
 
-		//����� �� ����� ������ �������� �� ���� ��������� ��� ��� �� ��������( �.� ���� �� �������� ���� ��������� ) 
 		std::pair<IVisObj*, CVec2> *pObjects;
 		int num;
 		frame->Pick( p, &pObjects, &num, SGVOGT_UNKNOWN, true, true );
 		
-		// � pick'����� ������ ���� ���������� �� �������� �� ��� �������� ������� ����� ���� �������� ����� ��������� 
 		for ( int i = 0; i != num; ++i )
 		{
 			if( pObjects[i].first != frame->m_currentMovingObjectPtrAI->pVisObj )
@@ -146,7 +133,6 @@ void CObjectPlacerState::OnMouseMove(UINT nFlags, const CTPoint<int> &rMousePoin
 		frame->SetMapModified();
 	} 
 
-	//���� ����� ������ ��������
 	if ( frame->m_ifCanMovingMultiGroup && ( nFlags & MK_LBUTTON ) )
 	{
 		GetSingleton<IScene>()->GetPos3( &v, p );
@@ -182,7 +168,6 @@ void CObjectPlacerState::OnMouseMove(UINT nFlags, const CTPoint<int> &rMousePoin
 					{
 						CPtr<IObjectsDB> pODB = GetSingleton<IObjectsDB>();
 						const SObjectBaseRPGStats *pObjDesc = static_cast< const SObjectBaseRPGStats*>( pODB->GetRPGStats( (*it)->pDesc ) );
-						//
 						FitVisOrigin2AIGrid( &vAI, pObjDesc->GetOrigin( GetFrameIndexForObj( (*it), frame ) )/*vOrigin */);
 					}
 					Vis2AI( &vAI );
@@ -195,14 +180,12 @@ void CObjectPlacerState::OnMouseMove(UINT nFlags, const CTPoint<int> &rMousePoin
 			frame->SetMapModified();
 		}
 		movedSquads.clear();
-		//����� �� ����� ������ �������� �� ���� ��������� ��� ��� �� ��������( �.� ���� �� �������� ���� ��������� ) 
 		std::pair<IVisObj*, CVec2> *pObjects;
 		int num;
 		frame->Pick( p, &pObjects, &num, SGVOGT_UNKNOWN, true, true );
 		
 		if ( num )
 		{
-			// ���� �  ����������������� ������ ���� pick'����� ��-� �� ���� �������� ����� "�������������� ������"	
 			for ( int i = 0; i != num; ++i )
 			{
 				bool ifInGroup = false;
@@ -213,7 +196,6 @@ void CObjectPlacerState::OnMouseMove(UINT nFlags, const CTPoint<int> &rMousePoin
 				}
 				if( !ifInGroup )
 				{
-					//pObjects[i].first  - �� �� ����������� ����������������� ������
 					if(	CheckForInserting( frame->m_currentMovingObjectsAI, frame->FindByVis(pObjects[i].first ) ) )
 					{
 						frame->m_cursorName = IDC_UPARROW;
@@ -224,8 +206,6 @@ void CObjectPlacerState::OnMouseMove(UINT nFlags, const CTPoint<int> &rMousePoin
 		}
 	}	
 	
-	// ������ ������ �� ������( == !m_currentMovingObjectForPlacementPtr ) 
-	// � ������ ���� -> ������ ������ �������� ������
 	if ( ( frame->m_currentMovingObjectForPlacementPtr == 0 ) && ( nFlags & MK_LBUTTON ) && frame->m_ifCanMultiSelect )
 	{
 		frame->GetTileIndexBy2DPoint( point.x, point.y, frame->m_lastSelectPoint.x, frame->m_lastSelectPoint.y );
@@ -247,7 +227,6 @@ void CObjectPlacerState::OnMouseMove(UINT nFlags, const CTPoint<int> &rMousePoin
 		CVec3 selectedVec3;
  		GetSingleton<IScene>()->GetPos3( &selectedVec3, selectedPoint );
 		
-		// �������� ����������� ��� ��������
 		if(  ( GetAsyncKeyState( VK_CONTROL  ) & 32768 ) )
 		{
 			if ( pointsForUpdate.size() )
@@ -269,7 +248,6 @@ void CObjectPlacerState::OnMouseMove(UINT nFlags, const CTPoint<int> &rMousePoin
 		const STerrainInfo	&info = dynamic_cast<ITerrainEditor *>(terra)->GetTerrainInfo();
 		terrainRect = GRect( 0, 0 , info.tiles.GetSizeX() * fWorldCellSize - 1, info.tiles.GetSizeY() * fWorldCellSize - 1 );
 	}		
-	//�� �������� ������ �������������� ��������
 	if ( frame->m_currentMovingObjectForPlacementPtr == 0 )
 	{
 		const int picNum = frame->m_mapEditorBarPtr->GetObjectWnd()->GetObjectIndex();
@@ -282,7 +260,6 @@ void CObjectPlacerState::OnMouseMove(UINT nFlags, const CTPoint<int> &rMousePoin
 			const SGDBObjectDesc *descPtr = pODB->GetAllDescs(); 				
 			if ( terrainRect.contains( v.x, v.y ) )//�� ��������� ������ ��������
 			{
-				//IVisObj *pVisObj = pVOB->BuildObject( descPtr[picNum].szPath.c_str(), descPtr[picNum].eVisType );
 				IVisObj *pVisObj = frame->AddObject( descPtr[picNum], 0, true );
 				if ( pVisObj )
 				{
@@ -318,11 +295,9 @@ void CObjectPlacerState::OnMouseMove(UINT nFlags, const CTPoint<int> &rMousePoin
 			frame->m_currentMovingObjectForPlacementPtr = 0;
 		}
 	}
-	//frame->DrawUnitsSelection();
 	frame->RedrawWindow();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CObjectPlacerState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame *frame )
 {
 	if ( !stateParameter.Update( CInputStateParameter::ISE_LBUTTONDOWN, rMousePoint, frame ) )
@@ -341,7 +316,6 @@ void CObjectPlacerState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMouseP
 	IVisObjBuilder *pVOB = GetSingleton<IVisObjBuilder>();
 	int nImageCount = pODB->GetNumDescs();
 	const SGDBObjectDesc *descPtr = pODB->GetAllDescs(); 
-	//
 	RECT r;
 	g_frameManager.GetGameWnd()->GetClientRect( &r );
 	point.x -= r.left;
@@ -368,7 +342,6 @@ void CObjectPlacerState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMouseP
 			return;	
 		}
 
-		// ������ ������
 		if ( frame->m_currentMovingObjectPtrAI ) 
 			frame->m_currentMovingObjectPtrAI->pVisObj->Select( SGVOSS_UNSELECTED );
 
@@ -380,7 +353,6 @@ void CObjectPlacerState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMouseP
 		info.nPlayer = frame->m_mapEditorBarPtr->GetObjectWnd()->GetPlayer();
 		info.nScriptID = -1;
 		info.fHP = 1.0f;
-		//info.szLogic = "";
 		const SGDBObjectDesc *pDesc = pODB->GetDesc( info.szName.c_str() );
 		const SObjectBaseRPGStats *pObjDesc = static_cast< const SObjectBaseRPGStats*>( pODB->GetRPGStats( pDesc ) );
 		
@@ -420,7 +392,6 @@ void CObjectPlacerState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMouseP
 	}
 	else 
 	{
-		//�������� ������
 		frame->GetTileIndexBy2DPoint( point.x, point.y, frame->m_firstSelectPoint.x, frame->m_firstSelectPoint.y );
 		ITerrain *terra = GetSingleton<IScene>()->GetTerrain();
 		const STerrainInfo	&info = dynamic_cast<ITerrainEditor *>(terra)->GetTerrainInfo();
@@ -457,7 +428,6 @@ void CObjectPlacerState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMouseP
 		num = pObjects.size();
 		if ( !pObjects.empty() )
 		{
-			// ���� �  ����������������� ������ ���� pick'����� ��-� �� ���� �������� ����� "�������������� ������"	
 			for ( int i = 0; i != num; ++i )
 			{
 				for ( std::vector<SMapObject*>::iterator it2 = frame->m_currentMovingObjectsAI.begin(); it2 != frame->m_currentMovingObjectsAI.end(); ++it2 )
@@ -473,14 +443,12 @@ void CObjectPlacerState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMouseP
 				} 
 			
 			}
-			//���� ������ �� ���� ������ �������� ��������� � ������ 			
 			if(  ( GetAsyncKeyState( VK_CONTROL  ) & 32768 ) )
 			{
 				CalculateObjectSelection( GetObjectsSelection( frame->FindByVis( pObjects[ 0 ].first ), frame ), frame );				
 			}
 			else
 			{
-				//���� ���-�� ���� ���������������� �� ���� ��������
 				ClearAllSelection( frame );
 				bool bSquad = false;
 				std::vector<SMapObject*>	vSelObjects = GetObjectsSelection( frame->FindByVis( pObjects[ 0 ].first ), frame, &bSquad );
@@ -491,29 +459,24 @@ void CObjectPlacerState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMouseP
 				}
 				else
 				{
-					// ������ �� ����� �� ���������� ����������
 					frame->m_ifCanMovingMultiGroup = true;	
 					CalculateObjectSelection( vSelObjects, frame, VNULL3, bSquad );
 					CalculateShiftsForMultiSelect( frame, v );
 				}
 				
-				//info for undo ( moving )
 				if( frame->m_currentMovingObjectPtrAI )
 					frame->m_oldMovingPosition = CPoint( frame->m_currentMovingObjectPtrAI->pVisObj->GetPosition().x,frame-> m_currentMovingObjectPtrAI->pVisObj->GetPosition().y);
 			}
-			//��������� ������ �� ���������� ��� ����� �����
 			if ( !frame->isStartCommandPropertyActive )
 			{
 				if ( frame->m_currentMovingObjectPtrAI )
 				{
 					UpdatePropertie( frame->GetEditorObjectItem( frame->m_currentMovingObjectPtrAI ), frame  );
-					//frame->DrawUnitsSelection();
 					frame->RedrawWindow();		
 				}
 				else
 				{
 					UpdatePropertie( 0, frame  );
-					//frame->DrawUnitsSelection();
 					frame->RedrawWindow();		
 				}
 			}
@@ -544,7 +507,6 @@ void CObjectPlacerState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMouseP
 				}
 			}
 
-			//������������ �������� ������ ����� ������ �� �������� ( �.� ������ ������ �� ������ )  
 			ClearAllSelection( frame );
 			frame->m_ifCanMultiSelect = true;
 			CVec2 selectedPoint( point.x , point.y );
@@ -564,7 +526,6 @@ void CObjectPlacerState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMouseP
 	{
 		if ( frame->m_currentMovingObjectPtrAI )
 		{
-			//��������� �������
 			bool isNotExists = true;
 			TMutableReservePositionList::iterator it = frame->m_reservePositions.begin();
 			for ( ; it != frame->m_reservePositions.end(); ++it )
@@ -663,7 +624,6 @@ void CObjectPlacerState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMouseP
 	frame->RedrawWindow();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CObjectPlacerState::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags, CTemplateEditorFrame *frame)
 {
 	if ( !stateParameter.Update( CInputStateParameter::ISE_KEYDOWN, CTPoint<int>( 0, 0 ), frame ) )
@@ -686,9 +646,7 @@ void CObjectPlacerState::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags, CTempl
 				{
 					frame->dlg = new CPropertieDialog;
 					frame->dlg->Create( CPropertieDialog::IDD, frame );
-					//��������� ������ �� ���������� ��� ����� �����
 					UpdatePropertie( 0, frame  );
-					//frame->DrawUnitsSelection();
 					frame->RedrawWindow();
 					frame->SetMapModified();
 					return;
@@ -705,13 +663,10 @@ void CObjectPlacerState::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags, CTempl
 			frame->m_CurentReservePosition.pTruckObject = 0;
 			frame->m_CurentReservePosition.pArtilleryObject = 0;
 			frame->m_ReservePositionSequence.clear();
-			//frame->DrawReservePositionRedLines();
-			//frame->DrawUnitsSelection();
 			frame->RedrawWindow();
 			return;
 		}
 
-		//	ClearAllSelection( frame );
 		bool bNeedUpdateStorages = frame->NeedUpdateStorages();
 		if ( frame->m_currentMovingObjectPtrAI )
 		{
@@ -732,10 +687,8 @@ void CObjectPlacerState::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags, CTempl
 			frame->m_undoStack.push( tmpPtr );
 			/**/
 			
-			//	static_cast<IScene*>( GetSingleton()->Get( SCNGRPH_SCENE_GRAPH ) )->RemoveObject( m_currentMovingObjectPtr );
 			frame->RemoveObject( frame->m_currentMovingObjectPtrAI );
 			frame->m_currentMovingObjectPtrAI = 0;
-			//frame->m_currentObjectForPastePtrAI = frame->m_currentMovingObjectPtrAI;
 			
 			frame->SetMapModified();
 			if ( bNeedUpdateStorages )
@@ -747,7 +700,6 @@ void CObjectPlacerState::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags, CTempl
 				g_frameManager.GetMiniMapWindow()->UpdateMinimap( true );
 			}
 		}
-		//���� ������������ 
 		if ( !frame->m_currentMovingObjectsAI.empty() )
 		{
 			if ( frame->dlg ) 
@@ -758,17 +710,13 @@ void CObjectPlacerState::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags, CTempl
 				frame->isStartCommandPropertyActive = false;
 			}
 			
-			//std::vector<SObjectDellDisciption> dellObjects;
 			for ( std::vector<SMapObject*>::iterator it = frame->m_currentMovingObjectsAI.begin(); it != frame->m_currentMovingObjectsAI.end(); ++it )
 			{
-			  //CVec3 v = ( *it )->pVisObj->GetPosition();
-				//dellObjects.push_back( SObjectDellDisciption( frame->GetEditorObjectItem(*it)->sDesc,frame->GetEditorObjectItem(*it)->nPlayer, v, (*it)->pVisObj->GetDirection(), frame->GetEditorObjectItem(*it)->nScriptID, frame->GetEditorObjectItem(*it)->bScenarioUnit, frame->GetEditorObjectItem(*it)->frameIndex ) );
 				if ( frame->m_objectsAI.find( *it ) != frame->m_objectsAI.end() )
 				{
 					frame->RemoveObject( *it );
 				}
 			}
-			//���  Undo
 			/**
 			CDellMultiObjRedoCmd* tmpPtr = new CDellMultiObjRedoCmd();
 			tmpPtr->Init( frame, dellObjects );
@@ -794,7 +742,6 @@ void CObjectPlacerState::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags, CTempl
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CObjectPlacerState::OnLButtonUp(UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame *frame )
 {
 	if ( !stateParameter.Update( CInputStateParameter::ISE_LBUTTONUP, rMousePoint, frame ) )
@@ -820,8 +767,6 @@ void CObjectPlacerState::OnLButtonUp(UINT nFlags, const CTPoint<int> &rMousePoin
 			frame->dlg->UpdateObjectProp();
 			
 			frame->RecalculateStartCommandRedLines( v );
-			//frame->DrawAIStartCommandRedLines();
-			//frame->DrawUnitsSelection();
 		}
 		frame->RedrawWindow();
 		return;
@@ -848,10 +793,6 @@ void CObjectPlacerState::OnLButtonUp(UINT nFlags, const CTPoint<int> &rMousePoin
 		}
 	} 
 	
-	//=========================
-	// ���� ������ ������ � ���������   ��� ������� -> ���� �������� ���� ����������
-	//=========================
-	//bool bClearSelection = false;
 	if ( frame->m_ifCanMovingMultiGroup )
 	{
 		std::pair<IVisObj*, CVec2> *pObjects;
@@ -860,7 +801,6 @@ void CObjectPlacerState::OnLButtonUp(UINT nFlags, const CTPoint<int> &rMousePoin
 		CVec2 p ( point.x , point.y );
 		GetSingleton<IScene>()->GetPos3( &v, p );
 		frame->Pick( p, &pObjects, &num, SGVOGT_UNKNOWN, true, true );
-		// � pick'����� ������ ���� ���������� �� �������� �� ��� �������� ������� ����� ���� �������� ��� ������ 
 		
 		for ( int i = 0; i != num; ++i )
 		{
@@ -873,24 +813,18 @@ void CObjectPlacerState::OnLButtonUp(UINT nFlags, const CTPoint<int> &rMousePoin
 			}
 			if( !ifInGroup )
 			{
-				//pObjects[i].first  - �� �� ����������� ����������������� ������
 				int nType = 0;
 				if(	CheckForInserting( frame->m_currentMovingObjectsAI, frame->FindByVis(pObjects[i].first ), &nType ) )
 				{
-					// �.� ����� �������� m_current MovingObjecsAi � pObjects[i].first 
 					for ( std::vector<SMapObject*>::iterator it = frame->m_currentMovingObjectsAI.begin(); it != frame->m_currentMovingObjectsAI.end(); ++it )
 					{
 						if ( nType == 0 )
 						{
-							// ����� ���������� �� ���� ��������� � ����� building'a
 							CVec2 vPos = GetSingleton<IAIEditor>()->GetCenter(  frame->FindByVis(pObjects[i].first )->pAIObj );
-							//GetSingleton<IAIEditor>()->MoveObject( (*it)->pAIObj, vPos.x - 30, vPos.y + 30);
 							frame->MoveObject( (*it)->pAIObj, vPos.x - 30, vPos.y + 30);
 						}
 
 						frame->GetEditorObjectItem( *it )->pLink = frame->FindByVis( pObjects[i].first );
-						//frame->m_currentMovingObjectPtrAI = frame->GetEditorObjectItem( *it )->pLink;
-						//bClearSelection = true;
 					}
 					frame->SetMapModified();
 					break;
@@ -913,9 +847,6 @@ void CObjectPlacerState::OnLButtonUp(UINT nFlags, const CTPoint<int> &rMousePoin
 		}
 	}
 
-	//================================================
-	// ������ ��������� ���� ���� ����� ������ � ����� 
-	//================================================
 	if ( frame->m_currentMovingObjectPtrAI ) //&& !bClearSelection ) 
 	{
 		std::pair<IVisObj*, CVec2> *pObjects;
@@ -924,7 +855,6 @@ void CObjectPlacerState::OnLButtonUp(UINT nFlags, const CTPoint<int> &rMousePoin
 		CVec2 p ( point.x , point.y );
 		GetSingleton<IScene>()->GetPos3( &v, p );
 		frame->Pick( p, &pObjects, &num, SGVOGT_UNKNOWN, true, true );
-		// � pick'����� ������ ���� ���������� �� �������� �� ��� �������� ������� ����� ���� �������� ����� ��������� 
 		for ( int i = 0; i != num; ++i )
 		{
 			if( pObjects[i].first != frame->m_currentMovingObjectPtrAI->pVisObj )
@@ -933,25 +863,19 @@ void CObjectPlacerState::OnLButtonUp(UINT nFlags, const CTPoint<int> &rMousePoin
 				int nType = 0;
 				if(	CheckForInserting( v, frame->FindByVis(pObjects[i].first ), &nType ) )
 				{
-					//GetSingleton<IAIEditor>()->MoveObject( (*it)->pAIObj, vPos.x - 30, vPos.y + 30);
 					if ( nType == 0 )
 					{
 						CVec2 vPos = GetSingleton<IAIEditor>()->GetCenter(  frame->FindByVis(pObjects[i].first )->pAIObj );
 						frame->MoveObject( frame->m_currentMovingObjectPtrAI->pAIObj, vPos.x - 30, vPos.y + 30);
 					}
 					frame->GetEditorObjectItem( frame->m_currentMovingObjectPtrAI )->pLink = frame->FindByVis( pObjects[i].first );
-					//frame->m_currentMovingObjectPtrAI = frame->GetEditorObjectItem( frame->m_currentMovingObjectPtrAI )->pLink;
 					frame->SetMapModified();
 					break;
 				}
 			}
 		}
 	}
-	//=========================
-	// ���� �� �������� �������
-	//=========================
 
-	//������� ��������� 
 	ITerrain *terra = GetSingleton<IScene>()->GetTerrain();
 	int worldHeight = 0;
 	if ( terra )
@@ -959,16 +883,13 @@ void CObjectPlacerState::OnLButtonUp(UINT nFlags, const CTPoint<int> &rMousePoin
 		dynamic_cast<ITerrainEditor*>(terra)->SetMarker( NULL, 0 );
 		worldHeight = terra->GetSizeY();
 	}
-	// ���� ����� �� �������
 	if ( ( frame->m_currentMovingObjectForPlacementPtr == 0 ) && frame->m_ifCanMultiSelect ) 
 	{
 
-		//������� ��������� �����
 		frame->GetTileIndexBy2DPoint( point.x, point.y, frame->m_lastSelectPoint.x, frame->m_lastSelectPoint.y );
 		const STerrainInfo	&info = dynamic_cast<ITerrainEditor *>(terra)->GetTerrainInfo();
 		ValidatePoint( CTRect<int>( 0, 0, info.tiles.GetSizeX(), info.tiles.GetSizeY() ), &( frame->m_lastSelectPoint ) ); 		
 		
-		//������� ������ ���������
 		ClearAllSelection( frame );
 		GRect rect( 
 			Min(frame-> m_lastSelectPoint.x, frame->m_firstSelectPoint.x ) * fWorldCellSize,
@@ -977,7 +898,6 @@ void CObjectPlacerState::OnLButtonUp(UINT nFlags, const CTPoint<int> &rMousePoin
 			( Max( worldHeight - frame->m_lastSelectPoint.y - 1, worldHeight - frame->m_firstSelectPoint.y - 1 ) + 1 )  * fWorldCellSize
 			);
 
-		// �������� ����� ������ �� �����������  � ������� ���������� ������
 		CVec3 vEnd = GetSingleton<IScene>()->GetFrameSelection()->GetEndPoint();
 		CVec3 vBegin = GetSingleton<IScene>()->GetFrameSelection()->GetBeginPoint();
 		CVec2 pEnd,pBegin;
@@ -1045,7 +965,6 @@ void CObjectPlacerState::OnLButtonUp(UINT nFlags, const CTPoint<int> &rMousePoin
 	frame->RedrawWindow();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CObjectPlacerState::OnRButtonUp(UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame *frame)
 {
 	if ( !stateParameter.Update( CInputStateParameter::ISE_RBUTTONUP, rMousePoint, frame ) )
@@ -1063,9 +982,6 @@ void CObjectPlacerState::OnRButtonUp(UINT nFlags, const CTPoint<int> &rMousePoin
 	{
 		if ( !frame->m_ReservePositionSequence.empty() )
 		{
-			//0 - pos
-			//1 - artillery
-			//2 - truck
 			switch( ( *( frame->m_ReservePositionSequence.begin() ) ) )
 			{
 				case 0:
@@ -1086,17 +1002,14 @@ void CObjectPlacerState::OnRButtonUp(UINT nFlags, const CTPoint<int> &rMousePoin
 			}
 			frame->m_ReservePositionSequence.pop_front();
 		}
-		//frame->DrawReservePositionRedLines();
 	}
 
 	int iItem = -1;
   while ( (iItem = frame->m_mapEditorBarPtr->GetObjectWnd()->m_imageList.GetNextItem(iItem, LVNI_ALL)) > -1 )
     frame->m_mapEditorBarPtr->GetObjectWnd()->m_imageList.SetItemState( iItem, 0, LVIS_SELECTED );          
 
-	// ����� �������� ��� advanced clipboard
 	if ( frame->m_currentMovingPasteGroupName != "" )
 	{
-		// ������� ������� ���������� ��������
 		for( std:: vector<CPtr<IVisObj> >::iterator it = frame->m_currentMovingObjectsForPlacementPtr.begin();
 		it != frame->m_currentMovingObjectsForPlacementPtr.end(); ++it )
 		{
@@ -1116,11 +1029,9 @@ void CObjectPlacerState::OnRButtonUp(UINT nFlags, const CTPoint<int> &rMousePoin
 		}*/
 		if ( frame-> m_currentMovingObjectForPlacementPtr ) //������� �������������� ��������
 		{
-			//static_cast<IScene*>( GetSingleton()->Get( SCNGRPH_SCENE_GRAPH ) )->RemoveObject( m_currentMovingObjectForPlacementPtr );
 			frame->RemoveObject( frame->m_currentMovingObjectForPlacementPtr );
 			frame->m_currentMovingObjectForPlacementPtr = 0;
 		}
-		// ������� ������
 		ClearAllSelection( frame );
 		/* for delete 
 		if ( frame->m_currentMovingObjectsAI.size() )
@@ -1159,9 +1070,6 @@ void CObjectPlacerState::OnRButtonUp(UINT nFlags, const CTPoint<int> &rMousePoin
 					CalculateObjectSelection( GetObjectsSelection( tmpPtr, frame ), frame );
 					frame->m_currentObjectShift = frame->m_pickedObjects[frame->m_curPickNum].second;
 				}
-				//frame->m_currentMovingObjectPtrAI->pVisObj->Select( SGVOSS_SELECTED );
-				// !!!�������� 
-				//UpdatePropertie( frame->GetEditorObjectItem(frame->m_currentMovingObjectPtrAI), frame );
 			}
 			if ( CMainFrame* pMainFrame = theApp.GetMainFrame() )
 			{
@@ -1181,7 +1089,6 @@ void CObjectPlacerState::OnRButtonUp(UINT nFlags, const CTPoint<int> &rMousePoin
 	frame->RedrawWindow();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CObjectPlacerState::OnObjectPaste(CTemplateEditorFrame *frame	)
 {
 	/**
@@ -1216,17 +1123,12 @@ void CObjectPlacerState::OnObjectPaste(CTemplateEditorFrame *frame	)
 			info.nFrameIndex = frame->GetEditorObjectItem( frame->m_currentObjectForPastePtrAI )->frameIndex;
 			info.nScriptID = frame->GetEditorObjectItem( frame->m_currentObjectForPastePtrAI )->nScriptID;
 			info.fHP = frame->m_currentObjectForPastePtrAI->fHP;
-			//info.szLogic =  frame->GetEditorObjectItem( frame->m_currentObjectForPastePtrAI )->szBehavior;
 
 			frame->AddObjectByAI( info );
 			frame->SetMapModified();
 		}
 	}
 	/**/
-	//if ( frame->m_currentForPasteObjectsAI.size() )
-	//{
-		//������� ������� ��������� 
-		//ClearAllSelection( frame );
 		/* for delete
 		for ( std::vector<SMapObject*>::iterator it = frame->m_currentMovingObjectsAI.begin(); it != frame->m_currentMovingObjectsAI.end(); ++it )
 		{
@@ -1237,7 +1139,6 @@ void CObjectPlacerState::OnObjectPaste(CTemplateEditorFrame *frame	)
 		}	
 		frame->m_currentMovingObjectsAI.clear();
 		*/
-		//������ ����� �������� ����� ������
 		/**
 		for ( std::vector<SMapObject*>::iterator it = frame->m_currentForPasteObjectsAI.begin(); it != frame->m_currentForPasteObjectsAI.end(); ++it )
 		{
@@ -1268,21 +1169,17 @@ void CObjectPlacerState::OnObjectPaste(CTemplateEditorFrame *frame	)
 				info.nDir = frame->m_mapEditorBarPtr->GetObjectWnd()->GetDefaultDirAngel() * 182.04f ;
 				info.nPlayer = frame->GetEditorObjectItem( (*it) )->nPlayer;//(*it)->diplomacy;
 				info.nScriptID = frame->GetEditorObjectItem( (*it) )->nScriptID;
-				//info.szLogic = frame->GetEditorObjectItem( (*it) )->szBehavior;
 
 				info.fHP = (*it)->fHP;
 				info.nFrameIndex = frame->GetEditorObjectItem( (*it) )->frameIndex;
 				obj = frame->AddObjectByAI( info );
 			}
-			//������� ������������ ������	
 			obj->pVisObj->Select( SGVOSS_SELECTED );	
 			frame->m_currentMovingObjectsAI.push_back( obj );
 			frame->SetMapModified();
 		}
 		/**/
-	//}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CObjectPlacerState::OnLButtonDblClk(UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame *frame )
 {
 	if ( !stateParameter.Update( CInputStateParameter::ISE_LBUTTONDBLCLK, rMousePoint, frame ) )
@@ -1324,8 +1221,6 @@ void CObjectPlacerState::OnLButtonDblClk(UINT nFlags, const CTPoint<int> &rMouse
 		frame->m_CurentReservePosition.pArtilleryObject = 0;
 		frame->m_ReservePositionSequence.clear();
 
-		//frame->DrawReservePositionRedLines();
-		//frame->DrawUnitsSelection();
 		frame->RedrawWindow();		
 		return;
 	}
@@ -1367,7 +1262,6 @@ void CObjectPlacerState::OnLButtonDblClk(UINT nFlags, const CTPoint<int> &rMouse
 		{	
 			frame->dlg = new CPropertieDialog;
 			frame->dlg->Create( CPropertieDialog::IDD, frame );
-			//��������� ������ �� ���������� ��� ����� �����
 			if ( num )
 			{
 				UpdatePropertie( frame->GetEditorObjectItem(frame->FindByVis( pObjects[ 0 ].first )), frame  );
@@ -1380,7 +1274,6 @@ void CObjectPlacerState::OnLButtonDblClk(UINT nFlags, const CTPoint<int> &rMouse
 		}
 		else
 		{
-			// � ����� ��������� ��� ������� ��� ������
 			GetSingleton<IScene>()->Pick( p, &pObjectsTmp, &num, SGVOGT_UNKNOWN );
 			std::vector< std::pair<IVisObj*, CVec2> > pObjects2( pObjectsTmp, pObjectsTmp + num );
 			for ( std::vector< std::pair<IVisObj*, CVec2> >::iterator it = pObjects2.begin(); it != pObjects2.end(); )
@@ -1429,17 +1322,12 @@ void CObjectPlacerState::OnLButtonDblClk(UINT nFlags, const CTPoint<int> &rMouse
 	}
 	frame->RedrawWindow();		
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//������� ����� �� ������ (v), �������� � ������ p 
 bool CObjectPlacerState::CheckForInserting( std::vector< SMapObject* > &v, SMapObject *p, int *pType )
 {
-	//1 - train
-	//2 - artillery
 	if ( pType )
 	{
 		( *pType ) = 0;
 	}
-	// ������� �������� ��� �� � ���� ������ ����� ������  � �������  SUnitBaseRPGStats
 	bool bCan = true; 
 	CPtr<IObjectsDB> pODB = GetSingleton<IObjectsDB>();
 
@@ -1545,7 +1433,6 @@ bool CObjectPlacerState::CheckForInserting( std::vector< SMapObject* > &v, SMapO
 
 
 	/**
-	// CRAP{ �������� � ���� ���� �������� � ������� �� ����
 	CGDBPtr<SBuildingRPGStats> pStats = dynamic_cast<const SBuildingRPGStats*>( pODB->GetRPGStats( p->pDesc ) );
 	
 	if( !pStats ) 
@@ -1557,15 +1444,12 @@ bool CObjectPlacerState::CheckForInserting( std::vector< SMapObject* > &v, SMapO
 	{	
 		bCan = false;
 	}
-	//	}
 	return bCan;
 	
-	// CRAP}
 	return bCan;
 /**/
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CObjectPlacerState::UpdatePropertie( SEditorObjectItem *ptr, CTemplateEditorFrame *frame )
 {
 	if ( frame->dlg )
@@ -1609,11 +1493,9 @@ void CObjectPlacerState::UpdatePropertie( SEditorObjectItem *ptr, CTemplateEdito
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
  
 void CObjectPlacerState::ClearAllSelection( CTemplateEditorFrame *frame  )
 {
-	// ������� �������  �������� ( �� ����� multi ��� single ) � ����� ������ �� frame  
 	for ( std::vector<SMapObject*>::iterator it = frame->m_currentMovingObjectsAI.begin(); it != frame->m_currentMovingObjectsAI.end(); ++it )
 	{
 		if ( frame->m_objectsAI.find( *it ) != frame->m_objectsAI.end() )
@@ -1632,14 +1514,12 @@ void CObjectPlacerState::ClearAllSelection( CTemplateEditorFrame *frame  )
 		}
 		frame->m_currentMovingObjectsForPlacementPtr.clear();
 
-	// ����� 
 	frame->m_currentMovingObjectPtrAI = 0;
 	frame->m_currentMovingObjectsAI.clear();
 	frame->m_shiftsForMovingObjectsAI.clear();
 	frame->m_squadsShiftsForMovingObjectsAI.clear();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 std::vector<SMapObject*> CObjectPlacerState::GetObjectsSelection(  std::vector<SMapObject*> &objects, CTemplateEditorFrame *frame, bool *pbSquad )
 {
@@ -1666,7 +1546,6 @@ std::vector<SMapObject*> CObjectPlacerState::GetObjectsSelection(  std::vector<S
 	return retObjects;
 } 
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::vector<SMapObject*> CObjectPlacerState::GetObjectsSelection(  SMapObject* object, CTemplateEditorFrame *frame, bool *pbSquad )
 {
 	if ( pbSquad )
@@ -1696,7 +1575,6 @@ std::vector<SMapObject*> CObjectPlacerState::GetObjectsSelection(  SMapObject* o
 	return retObjects;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void fSetObjectSelect( SMapObject* obj )
 {
@@ -1708,10 +1586,8 @@ void fSetObjectUnSelect( SMapObject* obj )
 	obj->pVisObj->Select( SGVOSS_UNSELECTED );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CObjectPlacerState::CalculateObjectSelection(  std::vector<SMapObject*> &objects, CTemplateEditorFrame *frame, const CVec3 &center, bool bSquad )
 {
-	// ��� ������� ���� ������ �� ����� �������� ��� -> multi select    
 	if( frame->m_currentMovingObjectPtrAI &&  !frame->m_currentMovingObjectsAI.size() )
 	{
 		frame->m_currentMovingObjectsAI.push_back( frame->m_currentMovingObjectPtrAI );
@@ -1721,7 +1597,6 @@ void CObjectPlacerState::CalculateObjectSelection(  std::vector<SMapObject*> &ob
 		return;
 	}
 
-	// ������ ���� ������ ( �.� ������ �� ���� � ������ ��� ���� �������� ���� ������ )   
 	if( !frame->m_currentMovingObjectPtrAI &&  !frame->m_currentMovingObjectsAI.size() && objects.size() == 1 && !bSquad )
 	{
 		frame->m_currentMovingObjectPtrAI = objects[0];
@@ -1744,7 +1619,6 @@ void CObjectPlacerState::CalculateObjectSelection(  std::vector<SMapObject*> &ob
 		return;
 	}
 
-	// multi select  ( �.� ������ ��� ���� �������� ��������� �������� -> �� ������ ��� ����� ������ select  )  
 	if( !frame->m_currentMovingObjectPtrAI &&  !objects.empty() && !frame->m_currentMovingObjectsAI.empty() )
 	{
 		frame->m_currentMovingObjectsAI.insert( frame->m_currentMovingObjectsAI.begin(), objects.begin(), objects.end() );
@@ -1753,10 +1627,8 @@ void CObjectPlacerState::CalculateObjectSelection(  std::vector<SMapObject*> &ob
 	}
 }
 
-// ������� �������� 
 void CObjectPlacerState::CalculateShiftsForMultiSelect( CTemplateEditorFrame *frame, const CVec3 &center, const CVec3 &rShift )
 {
-	//��� ������� ����������������� ����� ��� ���� ������� �������� �� ����� ��� ������ ��� �������� 
 	frame->m_shiftsForMovingObjectsAI.clear();							
 	frame->m_squadsShiftsForMovingObjectsAI.clear();
 	for ( std::vector<SMapObject*>::iterator it = frame->m_currentMovingObjectsAI.begin(); it != frame->m_currentMovingObjectsAI.end(); ++it )
@@ -1798,14 +1670,12 @@ void	CObjectPlacerState::PlacePasteGroup( const std::string &name, CTemplateEdit
 	if ( name != "")
 	{	
 		{
-			//������� ������� ��������� 
 			ClearAllSelection( frame );
 			frame->m_currentMovingPasteGroupName = name;
 		}
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CObjectPlacerState::Enter()
 {
 	if ( CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame() )
@@ -1813,31 +1683,23 @@ void CObjectPlacerState::Enter()
 		pFrame->m_mapEditorBarPtr->GetObjectWnd()->FillPlayers();
 		pFrame->m_mapEditorBarPtr->GetObjectWnd()->UpdateControls();
 
-		//Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CObjectPlacerState::Leave()
 {
 	if ( CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame() )
 	{
-		//pFrame->m_mapEditorBarPtr->GetObjectWnd()->UpdateControls();
-		//Draw( pFrame );
 		GetSingleton<IScene>()->GetFrameSelection()->End();
 		pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CObjectPlacerState::Update()
 {
 	if ( CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame() )
 	{
-		//pFrame->m_mapEditorBarPtr->GetObjectWnd()->UpdateControls();
-		//Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -7,40 +7,27 @@
 #include "..\Formats\fmtTerrain.h"
 #include "..\Common\Actions.h"
 #include "..\Misc\CheckSums.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// преобразовать из человеческих единиц в AI
 bool SWeaponRPGStats::SShell::ToAIUnits()
 {
-	// метры <=> AI точки
 	fArea *= float( SAIConsts::TILE_SIZE );
 	fArea2 *= float( SAIConsts::TILE_SIZE );
-	// метры/секунду <=> AI точки/тик
 	fSpeed *= float( SAIConsts::TILE_SIZE ) / 1000.0f;
-	// пули/минуту <=> ticks между вылетами пуль в очереди
 	nFireRate = int( 60000.0f / fFireRate );
-	// секунды <=> ticks
 	nRelaxTime = int( fRelaxTime * 1000.0f );
-	// [0..100] <=> [0..1]
 	fBrokeTrackProbability *= 0.01f;
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SWeaponRPGStats::ToAIUnits() 
 { 
 	SCommonRPGStats::ToAIUnits();
-	// секунды <=> ticks
 	nAimingTime = int( fAimingTime * 1000.0f );
-	// метры <=> AI точки
 	fDispersion *= float( SAIConsts::TILE_SIZE );
 	fRangeMax *= float( SAIConsts::TILE_SIZE );
 	fRangeMin *= float( SAIConsts::TILE_SIZE );
 	fRevealRadius *= float( SAIConsts::TILE_SIZE );
-	// градусы <=> градусы65535
 	wDeltaAngle = ( DWORD( float( wDeltaAngle / 2 ) * (65536.0f / 360.0f) ) ) % 65536;
-	// shell types
 	std::for_each( shells.begin(), shells.end(), [](SShell& shell){ shell.ToAIUnits(); } );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SWeaponRPGStats::SShell::SShell()
 : specials( 32 )
 {
@@ -60,7 +47,6 @@ SWeaponRPGStats::SShell::SShell()
 	fTraceProbability = 0.0f;
 	fBrokeTrackProbability = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SWeaponRPGStats::SWeaponRPGStats() 
 : SCommonRPGStats( "Weapon" ), shells( 1 ), fRevealRadius( 0.0f )
 {
@@ -68,30 +54,23 @@ SWeaponRPGStats::SWeaponRPGStats()
 	nAmmoPerBurst = 1;
 	fRangeMax = 30;
 	fRangeMin = 1;
-	//
 	nCeiling = 100;
-	//
 	wDeltaAngle = 0;
 
-	//
 	fAimingTime = 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CRPGStatsAutomagic::CRPGStatsAutomagic()
 {
-	// infantry
 	i2s[RPG_TYPE_SOLDIER] = "soldier";
 	i2s[RPG_TYPE_ENGINEER] = "engineer";
 	i2s[RPG_TYPE_SNIPER] = "sniper";
 	i2s[RPG_TYPE_OFFICER] = "officer";
-	// transport
 	i2s[RPG_TYPE_TRN_CARRIER] = "trn_carrier";
 	i2s[RPG_TYPE_TRN_SUPPORT] = "trn_support";
 	i2s[RPG_TYPE_TRN_MEDICINE] = "trn_medicine";
 	i2s[RPG_TYPE_TRN_TRACTOR] = "trn_tractor";
 	i2s[RPG_TYPE_TRN_MILITARY_AUTO] = "trn_military_auto";
 	i2s[RPG_TYPE_TRN_CIVILIAN_AUTO] = "trn_civilian_auto";
-	// artillery
 	i2s[RPG_TYPE_ART_GUN] = "art_gun";
 	i2s[RPG_TYPE_ART_HOWITZER] = "art_howitzer";
 	i2s[RPG_TYPE_ART_HEAVY_GUN] = "art_heavy_gun";
@@ -100,63 +79,50 @@ CRPGStatsAutomagic::CRPGStatsAutomagic()
 	i2s[RPG_TYPE_ART_SUPER] = "art_super";
 	i2s[RPG_TYPE_ART_MORTAR] = "art_mortar";
 	i2s[RPG_TYPE_ART_HEAVY_MG] = "art_heavy_mg";
-	// SPG
 	i2s[RPG_TYPE_SPG_ASSAULT] = "spg_assault";
 	i2s[RPG_TYPE_SPG_ANTITANK] = "spg_antitank";
 	i2s[RPG_TYPE_SPG_SUPER] = "spg_super";
 	i2s[RPG_TYPE_SPG_AAGUN] = "spg_aagun";
-	// armor
 	i2s[RPG_TYPE_ARM_LIGHT] = "arm_light";
 	i2s[RPG_TYPE_ARM_MEDIUM] = "arm_medium";
 	i2s[RPG_TYPE_ARM_SUPER] = "arm_super";
 	i2s[RPG_TYPE_ARM_HEAVY] = "arm_heavy";
-	// aviation
 	i2s[RPG_TYPE_AVIA_SCOUT] = "avia_scout";
 	i2s[RPG_TYPE_AVIA_BOMBER] = "avia_bomber";
 	i2s[RPG_TYPE_AVIA_ATTACK] = "avia_attack";
 	i2s[RPG_TYPE_AVIA_FIGHTER] = "avia_fighter";
 	i2s[RPG_TYPE_AVIA_SUPER] = "avia_super";
 	i2s[RPG_TYPE_AVIA_LANDER] = "avia_lander";
-	// train
 	i2s[RPG_TYPE_TRAIN_LOCOMOTIVE] = "train_locomotive";
 	i2s[RPG_TYPE_TRAIN_CARGO] = "train_cargo";
 	i2s[RPG_TYPE_TRAIN_CARRIER] = "train_carrier";
 	i2s[RPG_TYPE_TRAIN_SUPER] = "train_super";
 	i2s[RPG_TYPE_TRAIN_ARMOR] = "train_armor";
-	//
-	// AI classes
 	i2s[AI_CLASS_WHEEL] = "wheel";
 	i2s[AI_CLASS_HALFTRACK] = "half-track";
 	i2s[AI_CLASS_TRACK] = "track";
 	i2s[AI_CLASS_HUMAN] = "human";
-	//
-	//
 	for ( CI2SMap::const_iterator it = i2s.begin(); it != i2s.end(); ++it ) 
 		s2i[it->second] = it->first;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char* CRPGStatsAutomagic::GetFirstStr() const
 {
 	return s2i.begin()->first.c_str();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CRPGStatsAutomagic::GetFirstInt() const
 {
 	return i2s.begin()->first;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRPGStatsAutomagic::IsLastStr( const char* pszVal ) const
 {
 	CS2IMap::const_iterator iter = s2i.find( pszVal );
 	return iter == s2i.end() || ++iter == s2i.end();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRPGStatsAutomagic::IsLastInt( const int nVal ) const
 {
 	CI2SMap::const_iterator iter = i2s.find( nVal );
 	return iter == i2s.end() || ++iter == i2s.end();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char* CRPGStatsAutomagic::GetNextStr( const char* pszVal )
 {
 	if ( IsLastStr( pszVal ) )
@@ -167,7 +133,6 @@ const char* CRPGStatsAutomagic::GetNextStr( const char* pszVal )
 		return (++iter)->first.c_str();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CRPGStatsAutomagic::GetNextInt( const int nVal )
 {
 	if ( IsLastInt( nVal ) )
@@ -178,19 +143,8 @@ const int CRPGStatsAutomagic::GetNextInt( const int nVal )
 		return (++iter)->first;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static CPtr<IRPGStatsAutomagic> pAutomagic = new CRPGStatsAutomagic();
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 using namespace NCheckSums;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** stats...
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SCommonRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -203,7 +157,6 @@ int SCommonRPGStats::operator&( IDataTree &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SDefenseRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -212,7 +165,6 @@ int SDefenseRPGStats::operator&( IDataTree &ss )
 	saver.Add( "Silhouette", &fSilhouette );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong SHPObjectRPGStats::CalculateCheckSum() const
 {
 	SCheckSumBufferStorage buf;
@@ -231,7 +183,6 @@ const uLong SHPObjectRPGStats::CalculateCheckSum() const
 
 	return result;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SHPObjectRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -249,34 +200,22 @@ int SHPObjectRPGStats::operator&( IDataTree &ss )
 		fMaxHP = 100;
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SHPObjectRPGStats::ToAIUnits()
 {
 	SCommonRPGStats::ToAIUnits();
 
 	fRepairCost *= GetGlobalVar( "RepairCostAdjust", 1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** base static object
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SStaticObjectRPGStats::SStaticObjectRPGStats( const char *pszType ) 
 : SHPObjectRPGStats( pszType ), dwAIClasses( 0 ) 
 {
   bBurn = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SStaticObjectRPGStats::ToAIUnits()
 {
 	SHPObjectRPGStats::ToAIUnits();
 	dwAIClasses ^= AI_CLASS_ANY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SStaticObjectRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -289,7 +228,6 @@ int SStaticObjectRPGStats::operator&( IDataTree &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong SStaticObjectRPGStats::CalculateCheckSum() const
 {
 	SCheckSumBufferStorage buf;
@@ -301,16 +239,6 @@ const uLong SStaticObjectRPGStats::CalculateCheckSum() const
 
 	return result;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** base gun stats
-// **
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong SWeaponRPGStats::SShell::CalculateCheckSum() const
 {
 	SCheckSumBufferStorage buf;
@@ -334,7 +262,6 @@ const uLong SWeaponRPGStats::SShell::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong SWeaponRPGStats::CalculateCheckSum() const
 {
 	SCheckSumBufferStorage buf;
@@ -355,7 +282,6 @@ const uLong SWeaponRPGStats::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SBaseGunRPGStats::SBaseGunRPGStats()
 : szWeapon( "generic" )
 {
@@ -366,13 +292,11 @@ SBaseGunRPGStats::SBaseGunRPGStats()
 	nPriority = 1;
 	bPrimary = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SBaseGunRPGStats::RetrieveShortcuts( IObjectsDB *pGDB )
 {
 	pWeapon = static_cast<const SWeaponRPGStats*>( pGDB->GetAddStats( szWeapon.c_str(), IObjectsDB::WEAPON ) );
 	return pWeapon != 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SBaseGunRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -383,7 +307,6 @@ int SBaseGunRPGStats::operator&( IDataTree &ss )
 	saver.Add( "ReloadCost", &fReloadCost );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong SBaseGunRPGStats::CalculateCheckSum() const
 {
 	SCheckSumBufferStorage buf;
@@ -401,22 +324,12 @@ const uLong SBaseGunRPGStats::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** terrain objects set (mesh)
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool STerraObjSetRPGStats::SSegment::ToAIUnits()
 {
 	Vis2AI( &vOrigin );
 	Vis2AI( &vVisOrigin );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong STerraObjSetRPGStats::SSegment::CalculateCheckSum() const
 {
 	SCheckSumBufferStorage buf;
@@ -439,7 +352,6 @@ const uLong STerraObjSetRPGStats::SSegment::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int STerraObjSetRPGStats::SSegment::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -449,13 +361,11 @@ int STerraObjSetRPGStats::SSegment::operator&( IDataTree &ss )
 	saver.Add( "VisOrigin", &vVisOrigin );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void STerraObjSetRPGStats::ToAIUnits()
 {
 	SStaticObjectRPGStats::ToAIUnits();
 	std::for_each( segments.begin(), segments.end(), [](SSegment& seg){ seg.ToAIUnits(); } );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int STerraObjSetRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -464,7 +374,6 @@ int STerraObjSetRPGStats::operator&( IDataTree &ss )
 	saver.Add( "Backs", &backs );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong STerraObjSetRPGStats::CalculateCheckSum() const
 {
 	SCheckSumBufferStorage buf;
@@ -483,22 +392,12 @@ const uLong STerraObjSetRPGStats::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** объекты (не-юниты)
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SObjectBaseRPGStats::SObjectBaseRPGStats( const char *pszType ) 
 : SStaticObjectRPGStats( pszType ) 
 {
 	vOrigin = VNULL2;
 	vVisOrigin = VNULL2;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SObjectBaseRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -509,7 +408,6 @@ int SObjectBaseRPGStats::operator&( IDataTree &ss )
 	saver.Add( "visibility", &visibility );
 	saver.Add( "CycledSound", &szCycledSound );
 	saver.Add( "AmbientSound", &szAmbientSound );
-	// don't load wrong origin - reset it to 0
 	if ( saver.IsReading() )
 	{
 		if ( fabs2(vOrigin.x) > 1e8 )
@@ -529,14 +427,12 @@ void SObjectBaseRPGStats::ToAIUnits()
 	Vis2AI( &vOrigin );
 	Vis2AI( &vVisOrigin );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SObjectRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
 	saver.AddTypedSuper( static_cast<SObjectBaseRPGStats*>(this) );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong SObjectBaseRPGStats::CalculateCheckSum() const
 {
 	SCheckSumBufferStorage buf;
@@ -561,15 +457,6 @@ const uLong SObjectBaseRPGStats::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** building
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong SBuildingRPGStats::SEntrance::CalculateCheckSum() const
 {
 	SCheckSumBufferStorage buf;
@@ -581,7 +468,6 @@ const uLong SBuildingRPGStats::SEntrance::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong SBuildingRPGStats::SSlot::CalculateCheckSum() const
 {
 	SCheckSumBufferStorage buf;
@@ -599,7 +485,6 @@ const uLong SBuildingRPGStats::SSlot::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong SBuildingRPGStats::SFirePoint::CalculateCheckSum() const
 {
 	SCheckSumBufferStorage buf;
@@ -612,28 +497,22 @@ const uLong SBuildingRPGStats::SFirePoint::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SBuildingRPGStats::SBuildingRPGStats() 
 : SObjectBaseRPGStats( "Building" ), dirExplosions( 5 )
 {  
 	nRestSlots = 0;
 	nMedicalSlots = 0;
 	pPrimaryGun = 0;
-	//
 	eType = TYPE_BULDING;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SBuildingRPGStats::Validate()
 {
 	NI_ASSERT_SLOW_TF( nRestSlots <= 100, NStr::Format("Wrong number of rest slots (%d) in \"%s\"", nRestSlots, szKeyName.c_str()), return false );
 	NI_ASSERT_SLOW_TF( nMedicalSlots <= 100, NStr::Format("Wrong number of medical slots (%d) in \"%s\"", nMedicalSlots, szKeyName.c_str()), return false );
 	NI_ASSERT_SLOW_TF( slots.size() <= 100, NStr::Format("Wrong number of fireplaces (%d) in \"%s\"", slots.size(), szKeyName.c_str()), return false );
-	//
 	std::for_each( slots.begin(), slots.end(), [](SSlot& slot){ slot.Validate(); } );
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong SBuildingRPGStats::CalculateCheckSum() const
 {
 	SCheckSumBufferStorage buf;
@@ -657,11 +536,6 @@ const uLong SBuildingRPGStats::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*									Entrance of a building													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SBuildingRPGStats::SEntrance::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -675,11 +549,6 @@ bool SBuildingRPGStats::SEntrance::ToAIUnits()
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												Slot of a builing													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SBuildingRPGStats::SSlot::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -692,19 +561,14 @@ int SBuildingRPGStats::SSlot::operator&( IDataTree &ss )
 	saver.Add( "Ammo", &gun.nAmmo );
 	saver.Add( "GunPriority", &gun.nPriority );
 	saver.Add( "RotationSpeed", &fRotationSpeed );
-	// vis info
 	saver.Add( "BeforeSprite", &bBeforeSprite );
 	saver.Add( "ShowFlashes", &bShowFlashes );
 	saver.Add( "PicturePosition", &vPicturePosition );
 	saver.Add( "WorldPosition", &vWorldPosition );
-	// CRAP{ disable "generic" weapon - тяжёлое наследие "автоматических" статсов
 	if ( saver.IsReading() && (gun.szWeapon == "generic") ) 
 		gun.szWeapon.clear();
-	// CRAP}
-	// CRAP{ выпрямляем кривые статсы
 	if ( (fSightMultiplier < 0) || (fSightMultiplier > 3) )
 		fSightMultiplier = 1;
-	// CRAP}
 	return 0;
 }
 SBuildingRPGStats::SSlot::SSlot()
@@ -727,11 +591,9 @@ SBuildingRPGStats::SSlot::SSlot()
 bool SBuildingRPGStats::SSlot::ToAIUnits()
 {
 	Vis2AI( &vPos );
-	//
 	CQuat quat = CQuat( -FP_PI2, V3_AXIS_X );
 	quat *= CQuat( ToRadian(fDirection), V3_AXIS_Z );
 	matDirection.Set( quat );
-	//	
 	wDirection = WORD( fDirection * 65536.0f / 360.0f );
 	wAngle = WORD( fAngle * 32768.0f / 360.0f );
 	fRotationSpeed = 1.0f / fRotationSpeed * 65535.0f / 1000.0f;
@@ -754,7 +616,6 @@ bool SBuildingRPGStats::SSlot::RetrieveShortcuts( IObjectsDB *pGDB )
 }
 void SBuildingRPGStats::RetrieveShortcuts( IObjectsDB *pGDB )
 {
-	// retrieve weapon shortcut and find min and max gun priority
 	int nMin = 1000000000, nMax = -1000000000;
 	for ( std::vector<SSlot>::iterator it = slots.begin(); it != slots.end(); ++it )
 	{
@@ -762,7 +623,6 @@ void SBuildingRPGStats::RetrieveShortcuts( IObjectsDB *pGDB )
 		nMin = Min( nMin, it->gun.nPriority );
 		nMax = Max( nMax, it->gun.nPriority );
 	}
-	// find first primary gun
 	for ( std::vector<SSlot>::const_iterator it = slots.begin(); it != slots.end(); ++it )
 	{
 		if ( (it->gun.nPriority == nMin) && (it->gun.pWeapon != 0) )
@@ -772,11 +632,6 @@ void SBuildingRPGStats::RetrieveShortcuts( IObjectsDB *pGDB )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													Fire point															*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SBuildingRPGStats::SFirePoint::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -784,7 +639,6 @@ int SBuildingRPGStats::SFirePoint::operator&( IDataTree &ss )
 	saver.Add( "Direction", &fDirection );
 	saver.Add( "VerticalAngle", &fVerticalAngle );
 	saver.Add( "FireEffect", &szFireEffect );
-	// vis info
 	saver.Add( "PicturePosition", &vPicturePosition );
 	saver.Add( "WorldPosition", &vWorldPosition );
 	return 0;
@@ -803,18 +657,12 @@ bool SBuildingRPGStats::SFirePoint::ToAIUnits()
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													Direction explosion											*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SBuildingRPGStats::SDirectionExplosion::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
 	saver.Add( "Position", &vPos );
 	saver.Add( "Direction", &fDirection );
 	saver.Add( "VerticalAngle", &fVerticalAngle );
-	// vis info
 	saver.Add( "PicturePosition", &vPicturePosition );
 	saver.Add( "WorldPosition", &vWorldPosition );
 	return 0;
@@ -833,11 +681,6 @@ bool SBuildingRPGStats::SDirectionExplosion::ToAIUnits()
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												  Building																*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SBuildingRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -845,7 +688,6 @@ int SBuildingRPGStats::operator&( IDataTree &ss )
 	saver.Add( "BuildingType", &eType );
 	saver.Add( "RestSlots", &nRestSlots );
 	saver.Add( "MedicalSlots", &nMedicalSlots );
-	//
 	saver.Add( "FireSlots", &slots );
 	saver.Add( "Entrances", &entrances );
 	saver.Add( "FirePoints", &firePoints );
@@ -853,36 +695,22 @@ int SBuildingRPGStats::operator&( IDataTree &ss )
 	saver.Add( "SmokeEffect", &szSmokeEffect );
 	saver.Add( "DirExplosions", &dirExplosions );
 	saver.Add( "DirExplosionEffect", &szDirExplosionEffect );
-	//ambient sounds
 	saver.Add( "AmbientSound", &szAmbientSound );
-	//
-	// CRAP{ выправим кривые данные
 	if ( nRestSlots > 100 )
 		nRestSlots = 0;
 	if ( nMedicalSlots > 100 )
 		nMedicalSlots = 0;
-	// CRAP}
 	return 0;
 }
 void SBuildingRPGStats::ToAIUnits()
 {
 	SObjectBaseRPGStats::ToAIUnits();
-	//
 	std::for_each( entrances.begin(), entrances.end(), [](SEntrance& ent){ ent.ToAIUnits(); } );
 	std::for_each( slots.begin(), slots.end(), [](SSlot& slot){ slot.ToAIUnits(); } );
 	std::for_each( firePoints.begin(), firePoints.end(), [](SFirePoint& fp){ fp.ToAIUnits(); } );
 	std::for_each( smokePoints.begin(), smokePoints.end(), [](SFirePoint& fp){ fp.ToAIUnits(); } );
 	std::for_each( dirExplosions.begin(), dirExplosions.end(), [](SDirectionExplosion& de){ de.ToAIUnits(); } );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** описание оружия
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SWeaponRPGStats::SShell::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -890,7 +718,6 @@ int SWeaponRPGStats::SShell::operator&( IDataTree &ss )
 	saver.Add( "TrajectoryType", &nTrajectoryType );
 	if ( saver.IsReading() )
 		trajectory = SWeaponRPGStats::SShell::ETrajectoryType( nTrajectoryType );
-	//
 	saver.Add( "Piercing", &nPiercing );
 	saver.Add( "PiercingRandom", &nPiercingRandom );
 	saver.Add( "DamagePower", &fDamagePower );
@@ -901,7 +728,6 @@ int SWeaponRPGStats::SShell::operator&( IDataTree &ss )
 	saver.Add( "DetonationPower", &fDetonationPower );
 	saver.Add( "Specials", &specials );
 	saver.Add( "BrokeTrackProbability", &fBrokeTrackProbability );
-	// параметры для визуализации и озвучивания эффектов
 	saver.Add( "InfantryFireSound", &szFireSound );
 	saver.Add( "EffectGunFire", &szEffectGunFire );
 	saver.Add( "EffectTrajectory", &szEffectTrajectory );
@@ -922,10 +748,8 @@ int SWeaponRPGStats::SShell::operator&( IDataTree &ss )
 	saver.Add( "TraceSpeedCoeff", &fTraceSpeedCoeff );
 	if ( saver.IsReading() )
 		eDamageType = static_cast<SWeaponRPGStats::SShell::EDamageType>( nDamageType );
-	//
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SWeaponRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -943,15 +767,6 @@ int SWeaponRPGStats::operator&( IDataTree &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** Acks stats
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SAckRPGStats::SAckRPGStats()
 : SCommonRPGStats( "Ack" )
 {
@@ -959,23 +774,18 @@ SAckRPGStats::SAckRPGStats()
 SAckRPGStats::~SAckRPGStats()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SAckRPGStats::ToAIUnits()
 {
 	SCommonRPGStats::ToAIUnits();
-	// find max type index
 	int nMaxType = 0;
 	for ( std::vector<SType>::const_iterator it = types.begin(); it != types.end(); ++it )
 		nMaxType = Max( nMaxType, int(it->eType) );
 	NI_ASSERT_T( nMaxType + 1 >= types.size(), NStr::Format("Wrong acks in \"%s\" set", szParentName.c_str()) );
-	// copy acks to the new positions in accordance with it's type
 	std::vector<SType> types2( nMaxType + 1 );
 	for ( std::vector<SType>::const_iterator it = types.begin(); it != types.end(); ++it )
 		types2[it->eType] = *it;
-	// swap old and new vectors
 	std::swap( types2, types );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SAckRPGStats::SType::SAck::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -983,27 +793,21 @@ int SAckRPGStats::SType::SAck::operator&( IDataTree &ss )
 	saver.Add( "Sound", &szSound );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SAckRPGStats::SType::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
-	//
 	int nType = eType;
 	saver.Add( "Type", &nType );
 	eType = EUnitAckType( nType );
-	//
 	saver.Add( "Acks", &acks );
-	//
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SAckRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
 	saver.Add( "Types", &types );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SAckRPGStats::ChooseAcknowledgement( const float fRandom, const EUnitAckType type, std::string *pResult ) const
 {
 	if ( type >= types.size() ) 
@@ -1023,15 +827,6 @@ bool SAckRPGStats::ChooseAcknowledgement( const float fRandom, const EUnitAckTyp
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** base unit
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const int commandsmap[][2] = 
 {
 	{ ACTION_COMMAND_MOVE_TO					, USER_ACTION_MOVE },
@@ -1067,7 +862,6 @@ static const int commandsmap[][2] =
 	{ ACTION_COMMAND_PLACE_ANTITANK		, USER_ACTION_ENGINEER_BUILD_ANTITANK			},
 	{ ACTION_COMMAND_REPEAR_OBJECT		, USER_ACTION_ENGINEER_REPAIR_BUILDING		},
 	{ ACTION_COMMAND_BUILD_BRIDGE			, USER_ACTION_ENGINEER_BUILD_BRIDGE				},
-	//{ ACTION_COMMAND_CATCH_ARTILLERY	, USER_ACTION_GUNNER_ASSIGN_TO_GUN				},
 	{ ACTION_COMMAND_USE_SPYGLASS			, USER_ACTION_OFFICER_BINOCULARS					},
 	{ ACTION_COMMAND_TAKE_ARTILLERY		, USER_ACTION_HOOK_ARTILLERY							},
 	{ ACTION_COMMAND_DEPLOY_ARTILLERY	, USER_ACTION_DEPLOY_ARTILLERY						},
@@ -1087,7 +881,6 @@ inline int GetUserAction( int nCommand )
 	std::unordered_map<int, int>::const_iterator pos = commandsremap.find( nCommand );
 	return pos != commandsremap.end() ? pos->second : -1;
 }
-// re-map AI commands to USER actions
 class CAICommands2UserActionsAutomagic
 {
 public:
@@ -1098,7 +891,6 @@ public:
 	}
 };
 static CAICommands2UserActionsAutomagic theAICommands2UserActionsAutomagic;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SUnitBaseRPGStats::SUnitBaseRPGStats( const char *pszType ) 
 : SHPObjectRPGStats( pszType ), nBoundTileRadius( 0 ), fPassability( 1 ),
   vAABBCenter( VNULL2 ), vAABBHalfSize( 12, 12 ), fSmallAABBCoeff( 1 ), fRotateSpeed( 0 ),
@@ -1108,20 +900,13 @@ SUnitBaseRPGStats::SUnitBaseRPGStats( const char *pszType )
 		availCommands.SetData( i );
 	for ( int i = 0; i < availExposures.GetSize(); ++i )
 		availExposures.RemoveData( i );
-	//
 	pPrimaryGun = 0;
-	//pAcks = 0;
-	//
 	fSightPower = 1.0f;
-	//
-	//acknowledgements.resize( _ACK_END );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SUnitBaseRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
 	saver.AddTypedSuper( static_cast<SHPObjectRPGStats*>(this) );
-	// type
 	if ( saver.IsReading() )
 	{
 		std::string szData;
@@ -1133,7 +918,6 @@ int SUnitBaseRPGStats::operator&( IDataTree &ss )
 		std::string szData = pAutomagic->ToStr( type );
 		saver.Add( "Type", &szData );
 	}
-	// ai class
 	if ( saver.IsReading() )
 	{
 		std::string szData;
@@ -1146,7 +930,6 @@ int SUnitBaseRPGStats::operator&( IDataTree &ss )
 		std::string szData = pAutomagic->ToStr( aiClass );
 		saver.Add( "AIClass", &szData );
 	}
-	//
 	saver.Add( "Sight", &fSight );
 	saver.Add( "SightPower", &fSightPower );
 	saver.Add( "Speed", &fSpeed );
@@ -1155,39 +938,30 @@ int SUnitBaseRPGStats::operator&( IDataTree &ss )
 	saver.Add( "Camouflage", &fCamouflage );
 	saver.Add( "Weight", &fWeight );
 	saver.Add( "Price", &fPrice );
-	// install/uninstall
 	saver.Add( "UninstallRotate", &fUninstallRotate );
 	saver.Add( "UninstallTransport", &fUninstallTransport );
-	// available commands
 	saver.Add( "Commands", &availCommands );
 	saver.Add( "Exposures", &availExposures );
-	// animation descriptions
 	saver.Add( "AnimDescs", &animdescs );
 	saver.Add( "AABB_As", &aabb_as );
 	saver.Add( "AABB_Ds", &aabb_ds );
-	//acks
-	//saver.Add( "Acks", &acknowledgements );
 
 	saver.Add( "AcksRefs", &szAcksNames );
 
-	//CRAP{ FOR OLD ACKS TO WORK
 	std::string szTmp;
 	saver.Add( "AcksRef", &szTmp );
 	if ( saver.IsReading() && !szTmp.empty() )
 	{
 		szAcksNames.push_back( szTmp );
 	}
-	//CRAP}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline void AddValue( CArray1Bit &array, int nBit )
 {
 	if ( array.GetSize() <= nBit )
 		array.SetSize( nBit + 1 );
 	array.SetData( nBit );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SUnitBaseRPGStats::SAABBDesc::ToAIUnits()
 {
 	Vis2AI( &vCenter );
@@ -1195,7 +969,6 @@ int SUnitBaseRPGStats::SAABBDesc::ToAIUnits()
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ReMapCommands( CArray1Bit &ai, CUserActions &user )
 {
 	user.Clear();
@@ -1211,29 +984,20 @@ void ReMapCommands( CArray1Bit &ai, CUserActions &user )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SUnitBaseRPGStats::ToAIUnits()
 {
 	SHPObjectRPGStats::ToAIUnits();
 	fSight *= 1.0f;
-	// киломерты/час <=> точки/тик
 	fSpeed *= float( ( 1000.0 * double( SAIConsts::TILE_SIZE ) ) / ( 3600.0 * 1000.0 ) );
-	// сек. <=> тик
 	nUninstallRotate = fUninstallRotate * 1000.0f;
 	nUninstallTransport = fUninstallTransport * 1000.0f;
 	fCamouflage /= 100.0f;
-	//fPassability /= 100.0f;
-	// AABBs
-	// Vis points <=> AI points
 	vAABBVisCenter = vAABBCenter;
 	vAABBVisHalfSize = vAABBHalfSize;
 	Vis2AI( &vAABBCenter );
 	Vis2AI( &vAABBHalfSize );
 	std::for_each( aabb_as.begin(), aabb_as.end(), [](SAABBDesc& aabb){ aabb.ToAIUnits(); } );
 	std::for_each( aabb_ds.begin(), aabb_ds.end(), [](SAABBDesc& aabb){ aabb.ToAIUnits(); } );
-	//
-	// re-map AI actions to user commands
-	// every unit can perform STOP, GUARD and FOLLOW and can be followed by
 	if ( IsAviation() ) 
 	{
 		AddValue( availCommands, ACTION_COMMAND_PLANE_ADD_POINT );
@@ -1244,32 +1008,23 @@ void SUnitBaseRPGStats::ToAIUnits()
 	AddValue( availCommands, USER_ACTION_MOVE_TO_GRID );
 	if ( szStatsType != "TankPit" ) 
 		AddValue( availExposures, ACTION_COMMAND_FOLLOW );	
-	//AddValue( availCommands, ACTION_COMMAND_FOLLOW );
-	//AddValue( availExposures, ACTION_COMMAND_FOLLOW );
-	//
 	ReMapCommands( availCommands, availUserActions );
 	ReMapCommands( availExposures, availUserExposures );
-	// every object can be attacked 
 	availUserExposures.SetAction( USER_ACTION_ATTACK );
 	availUserExposures.SetAction( USER_ACTION_UNKNOWN );
-	//
 	availUserActions.SetAction( USER_ACTION_UNKNOWN );
 	availUserActions.SetAction( USER_ACTION_MOVE_TO_GRID );
-	// for repair and resupply trucks set automatically FILL_RU action
 	if ( availUserActions.HasAction(USER_ACTION_ENGINEER_REPAIR) || availUserActions.HasAction(USER_ACTION_SUPPORT_RESUPPLY) ) 
 	{
 		availUserActions.SetAction( USER_ACTION_FILL_RU );
 		AddValue( availCommands, ACTION_COMMAND_FILL_RU );	
 	}
-	//
 	nBoundTileRadius = IsInfantry() ? 0 : int(ceil( (2 * vAABBHalfSize.x) / float(SAIConsts::TILE_SIZE) )) / 2;
-	// convert AI price
 	{
 		const std::string szVarName = NStr::Format( "AIPrice.%x", int(type) );
 		fPrice *= GetGlobalVar( szVarName.c_str(), 1.0f );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SUnitBaseRPGStats::RetrieveShortcuts( IObjectsDB *pGDB )
 {
 	const int nSize = szAcksNames.size();
@@ -1279,14 +1034,12 @@ void SUnitBaseRPGStats::RetrieveShortcuts( IObjectsDB *pGDB )
 			pAcksSets.push_back( static_cast<const SAckRPGStats*>( pGDB->GetAddStats( szAcksNames[i].c_str(), IObjectsDB::ACKS ) ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SUnitBaseRPGStats::ChooseAcknowledgement( const float fRandom, const EUnitAckType type, std::string *str, const int nSet ) const
 {
 	if ( pAcksSets.size() > nSet && pAcksSets[nSet]->ChooseAcknowledgement( fRandom, type, str ) )
 		return true;
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong SUnitBaseRPGStats::CalculateCheckSum() const
 {
 	SCheckSumBufferStorage buf;	
@@ -1323,20 +1076,10 @@ const uLong SUnitBaseRPGStats::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** mech unit (пушки, танки, и т.д. - вся техника)RPG stats
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong SMechUnitRPGStats::SGun::CalculateCheckSum() const
 {
 	return SBaseGunRPGStats::CalculateCheckSum();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong SMechUnitRPGStats::SPlatform::CalculateCheckSum() const
 {
 	SCheckSumBufferStorage buf;
@@ -1352,7 +1095,6 @@ const uLong SMechUnitRPGStats::SPlatform::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMechUnitRPGStats::SConstraint::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -1360,7 +1102,6 @@ int SMechUnitRPGStats::SConstraint::operator&( IDataTree &ss )
 	saver.Add( "Max", &fMax );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMechUnitRPGStats::SGun::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -1374,7 +1115,6 @@ int SMechUnitRPGStats::SGun::operator&( IDataTree &ss )
 	saver.Add( "RecoilShakeAngle", &fRecoilShakeAngle );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMechUnitRPGStats::SPlatform::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -1388,7 +1128,6 @@ int SMechUnitRPGStats::SPlatform::operator&( IDataTree &ss )
 	saver.Add( "NumGuns", &nNumGuns );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMechUnitRPGStats::SArmor::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -1398,7 +1137,6 @@ int SMechUnitRPGStats::SArmor::operator&( IDataTree &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMechUnitRPGStats::SJoggingParams::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -1410,7 +1148,6 @@ int SMechUnitRPGStats::SJoggingParams::operator&( IDataTree &ss )
 	saver.Add( "Phase2", &fPhase2 );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SMechUnitRPGStats::SArmor::ToAIUnits()
 {
 	int nArmorMin = fMin;
@@ -1420,7 +1157,6 @@ bool SMechUnitRPGStats::SArmor::ToAIUnits()
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SMechUnitRPGStats::SConstraint::ToAIUnits()
 {
 	wMin = fMin >= FP_2PI ? 65535 : WORD( fMin / FP_2PI * 65535.0f );
@@ -1428,12 +1164,10 @@ bool SMechUnitRPGStats::SConstraint::ToAIUnits()
 	
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SMechUnitRPGStats::SPlatform::ToAIUnits()
 {
 	constraint.ToAIUnits();
 	constraintVertical.ToAIUnits();
-	// (секунды на полный оборот <=> градусы65535/тик)
 	fHorizontalRotationSpeed = 1.0f / fHorizontalRotationSpeed * 65535.0f / 1000.0f;
 	if ( fHorizontalRotationSpeed != 0 )
 		fHorizontalRotationSpeed = Max( 1.0f, fHorizontalRotationSpeed );
@@ -1444,15 +1178,11 @@ bool SMechUnitRPGStats::SPlatform::ToAIUnits()
 	wVerticalRotationSpeed = fVerticalRotationSpeed <= 65535.0f ? WORD( fVerticalRotationSpeed ) : 65535;
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SMechUnitRPGStats::ToAIUnits()
 {
 	SUnitBaseRPGStats::ToAIUnits();
-	// градусы/сек <=> угол 65536/тик
 	fRotateSpeed *= float( (65536.0 / 360.0) / 1000.0 );
-	// метры <=> AI точки
 	fTurnRadius *= float( SAIConsts::TILE_SIZE );
-	// Vis points <=> AI points
 	Vis2AI( &vTowPoint );
 	Vis2AI( &vHookPoint );
 	Vis2AI( &vFrontWheel );
@@ -1465,12 +1195,8 @@ void SMechUnitRPGStats::ToAIUnits()
 	{
 		for ( std::vector<CVec2>::iterator place = gunners->begin(); place != gunners->end(); ++place )
 			Vis2AI( &(*place) );
-		//if ( gunners->size() >= 3 ) // исправления кривостей, котрые сделали художники.
-			//std::swap( (*gunners)[1], (*gunners)[2] );
 	}
-	// armor
 	std::for_each( &(armors[0]), &(armors[6]), [](SArmor& armor){ armor.ToAIUnits(); } );
-	// проинициализировать min/max Armor
 	{
 		nMinArmor = armors[0].nMin;
 		nMaxArmor = armors[0].nMax;
@@ -1480,37 +1206,24 @@ void SMechUnitRPGStats::ToAIUnits()
 			nMaxArmor = Max( nMaxArmor, armors[i].nMax );
 		}
 	}
-	//
 	std::for_each( platforms.begin(), platforms.end(), [](SPlatform& plat){ plat.ToAIUnits(); } );
-	//
 	if ( nPriority == 0 )
 		nPriority = 1;
-	//
 	CountPrimaryGuns( guns );
-	//
 	wDivingAngle = fDivingAngle * 65535.0f / 360.0f;
 	wClimbingAngle = fClimbAngle * 65535.0f / 360.0f;
 	wTiltAngle = fTiltAngle * 65535.0f / 360.0f;
-	// make action flags, based on available shells
 	CountShellTypes( guns );
-	// disable track for non-track units
 	if ( !(aiClass & (AI_CLASS_HALFTRACK | AI_CLASS_TRACK)) )
 		bLeavesTracks = false;
 
-	// exchange 0 and 2 gunners if exists
-	//if ( vGunners.size() >= 3 )
-	//{
-		//std::swap( vGunners[0], vGunners[2] );
-	//}
 	
 	if ( HasCommand( ACTION_COMMAND_MOVE_TO ) )
 		AddCommand( ACTION_COMMAND_MOVE_TO_GRID );
-	// artillery can be captured
 	if ( IsArtillery() && !vGunners.empty() && !vGunners[0].empty() ) 
 	{
 		if ( availExposures.GetSize() <= ACTION_COMMAND_CATCH_ARTILLERY )
 			availExposures.SetSize( ACTION_COMMAND_CATCH_ARTILLERY + 1 );
-		//
 		availExposures.SetData( ACTION_COMMAND_CATCH_ARTILLERY );
 		availUserExposures.SetAction( USER_ACTION_CAPTURE_ARTILLERY );
 	}
@@ -1520,19 +1233,16 @@ void SMechUnitRPGStats::ToAIUnits()
 		availUserActions.SetAction( USER_ACTION_CAPTURE_ARTILLERY );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SMechUnitRPGStats::SGun::SGun()
 : nShootPoint( -1 ), bRecoil( false ), fRecoilLength( 0 ), recoilTime( 50 ), nModelPart( -1 )
 {  
 	nRecoilShakeTime = 400;
 	fRecoilShakeAngle = ToRadian( 3.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SMechUnitRPGStats::SPlatform::SPlatform()
 : fVerticalRotationSpeed( 10 ), fHorizontalRotationSpeed( 60 ), nModelPart( 0 ), dwGunCarriageParts( -1 ), nFirstGun( 0 ), nNumGuns( 1 )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SMechUnitRPGStats::SJoggingParams::SJoggingParams()
 {
 	fPeriod1 = 1;
@@ -1542,7 +1252,6 @@ SMechUnitRPGStats::SJoggingParams::SJoggingParams()
 	fPhase1 = 0;
 	fPhase2 = 2.1f;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SMechUnitRPGStats::SMechUnitRPGStats() 
 : SUnitBaseRPGStats( "Mech" ), platforms( 2 ), guns( 1 )
 {
@@ -1550,10 +1259,8 @@ SMechUnitRPGStats::SMechUnitRPGStats()
 	platforms[0].nNumGuns = 1;
 	platforms[1].nFirstGun = 1;
 	platforms[1].nNumGuns = 0;
-	//
 	type = RPG_TYPE_ARM_LIGHT;
 	aiClass = AI_CLASS_TRACK;
-	//
 	fMaxHP = 10;
 	fSight = 20;
 	fSpeed = 0.075f * ( 3600.0f * 1000.0f ) / ( 1000.0f * float( SAIConsts::TILE_SIZE ) );
@@ -1565,34 +1272,27 @@ SMechUnitRPGStats::SMechUnitRPGStats()
 	nPriority = 1;
 
 	fCamouflage = 0.2f;
-	//
 	nUninstallRotate = 1;
 	nUninstallTransport = 1;
-	//
 	nBoundTileRadius = 1;
 	fTurnRadius = 5;
-	//
 	nTowPoint = -1;
 	nEntrancePoint = -1;
 	nFatalitySmokePoint = -1;
 	nShootDustPoint = -1;
-	//
 	vTowPoint = VNULL2;
 	vHookPoint = VNULL2;
 	vFrontWheel = VNULL2;
 	vBackWheel = VNULL2;
 	vEntrancePoint = VNULL2;
 	vAmmoPoint = VNULL2;
-	//
 	vAABBCenter = VNULL2;
 	vAABBHalfSize.x = 12;
 	vAABBHalfSize.y = 12;
 	vAABBVisCenter = vAABBCenter;
 	vAABBVisHalfSize = vAABBHalfSize;
-	//
 	szEffectDiesel = "diselsmoke";
 	szEffectSmoke = "";
-	//
 	jx.fPeriod1 = 1;
 	jx.fPeriod2 = 0.3f;
 	jx.fAmp1 = 1;
@@ -1606,7 +1306,6 @@ SMechUnitRPGStats::SMechUnitRPGStats()
 	jy.fAmp2 = 0.4f;
 	jy.fPhase1 = 1.9f;
 	jy.fPhase2 = 0;
-	//
 	bLeavesTracks = true;
 	fTrackWidth = 0.15f;
 	fTrackOffset = 0.15f;
@@ -1614,14 +1313,12 @@ SMechUnitRPGStats::SMechUnitRPGStats()
 	fTrackEnd = 0.2f;
 	fTrackIntensity = 0.7f;
 	nTrackLifetime = 10000;
-	//
 	fMaxHeight = 500.0f;
 	fDivingAngle = 20.0f;
 	fClimbAngle = 20.0f;
 	fTiltAngle = 30.0f;
 	fTiltRatio = 2.0f;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SMechUnitRPGStats::Validate()
 {
 	if ( IsAviation() )
@@ -1632,7 +1329,6 @@ bool SMechUnitRPGStats::Validate()
 	NI_ASSERT_SLOW_TF( nPriority > 0, NStr::Format("Priority for non-infantry must be > 0! (%s)", szParentName.c_str()), return false );
 
 	NI_ASSERT_SLOW_TF( nBoundTileRadius <= 5, NStr::Format("Bound tile radius must be <= 5 in order to survive :) (%s)", szParentName.c_str()), return false );
-	// validate gun indices
 	for ( int i=0; i<platforms.size(); ++i )
 	{
 		if ( !guns.empty() )
@@ -1655,23 +1351,18 @@ bool SMechUnitRPGStats::Validate()
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMechUnitRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
 	saver.AddTypedSuper( static_cast<SUnitBaseRPGStats*>(this) );
-	// platforms & guns
 	saver.Add( "Platforms", &platforms );
 	saver.Add( "Guns", &guns );
-	//
-	// armor
 	saver.Add( "ArmorLeft", &armors[RPG_LEFT] );
 	saver.Add( "ArmorRight", &armors[RPG_RIGHT] );
 	saver.Add( "ArmorTop", &armors[RPG_TOP] );
 	saver.Add( "ArmorBottom", &armors[RPG_BOTTOM] );
 	saver.Add( "ArmorFront", &armors[RPG_FRONT] );
 	saver.Add( "ArmorBack", &armors[RPG_BACK] );
-	//
 	saver.Add( "RotateSpeed", &fRotateSpeed );
 	saver.Add( "TurnRadius",  &fTurnRadius );
 	saver.Add( "TowingForce", &fTowingForce );
@@ -1701,7 +1392,6 @@ int SMechUnitRPGStats::operator&( IDataTree &ss )
 	saver.Add( "PeoplePoints2D", &vPeoplePoints );
 	saver.Add( "AmmoPoint2D", &vAmmoPoint );
 	saver.Add( "Gunners", &vGunners );
-	//
 	saver.Add( "EffectDiesel", &szEffectDiesel );
 	saver.Add( "EffectSmoke", &szEffectSmoke );
 	saver.Add( "EffectWheelDust", &szEffectWheelDust );
@@ -1709,11 +1399,9 @@ int SMechUnitRPGStats::operator&( IDataTree &ss )
 	saver.Add( "EffectFatality", &szEffectFatality );
 	saver.Add( "EffectEntrenching", &szEffectEntrenching );
 	saver.Add( "EffectDisappear", &szEffectDisappear );
-	//
 	saver.Add( "JoggingX", &jx );
 	saver.Add( "JoggingY", &jy );
 	saver.Add( "JoggingZ", &jz );
-	//
 	saver.Add( "LeavesTracks", &bLeavesTracks );
 	saver.Add( "TrackOffset", &fTrackOffset );
 	saver.Add( "TrackWidth", &fTrackWidth );
@@ -1721,36 +1409,28 @@ int SMechUnitRPGStats::operator&( IDataTree &ss )
 	saver.Add( "TrackEnd", &fTrackEnd );
 	saver.Add( "TrackIntensity", &fTrackIntensity );
 	saver.Add( "TrackLifetime", &nTrackLifetime );
-	//
 	saver.Add( "SoundMoveStart", &szSoundMoveStart );
 	saver.Add( "SoundMove", &szSoundMoveCycle );
 	saver.Add( "SoundMoveStop", &szSoundMoveStop );
-	//
 	saver.Add( "MaxHeight", &fMaxHeight );
 	saver.Add( "DivingAngle", &fDivingAngle );
 	saver.Add( "ClimbAngle", &fClimbAngle );
 	saver.Add( "TiltAngle", &fTiltAngle );
 	saver.Add( "TiltRatio", &fTiltRatio );
-	//
 	saver.Add( "DeathCraters", &deathCraters );
-	//
 	if ( saver.IsReading() ) 
 	{
-		// reset tracks for aviation
 		if ( IsAviation() ) 
 			bLeavesTracks = false;
 	}
-	//
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SMechUnitRPGStats::RetrieveShortcuts( IObjectsDB *pGDB )
 {
 	SUnitBaseRPGStats::RetrieveShortcuts( pGDB );
 	for ( std::vector<SGun>::iterator gun = guns.begin(); gun != guns.end(); ++gun )
 		gun->RetrieveShortcuts( pGDB );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong SMechUnitRPGStats::CalculateCheckSum() const
 {
 	SCheckSumBufferStorage buf;
@@ -1796,21 +1476,11 @@ const uLong SMechUnitRPGStats::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** пехотинец
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SInfantryRPGStats::SInfantryRPGStats()
 : SUnitBaseRPGStats( "Infa" ), guns( 1 )
 {
 	type = RPG_TYPE_SOLDIER;
 	aiClass = AI_CLASS_HUMAN;
-	//
 	fMaxHP = 10;
 	fSight = 20;
 	nMinArmor = nMaxArmor = 0;
@@ -1818,34 +1488,26 @@ SInfantryRPGStats::SInfantryRPGStats()
 	fPassability = 1;
 	fCamouflage = 0.2f;
 	nPriority = 0;
-	//
 	bCanAttackUp = bCanAttackDown = true;
-	//
 	nUninstallRotate = 1;
 	nUninstallTransport = 1;
-	//
 	fRunSpeed = 1;
 	fCrawlSpeed = 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SInfantryRPGStats::RetrieveShortcuts( IObjectsDB *pGDB )
 {
 	SUnitBaseRPGStats::RetrieveShortcuts( pGDB );
 	for ( std::vector<SGun>::iterator gun = guns.begin(); gun != guns.end(); ++gun )
 		gun->RetrieveShortcuts( pGDB );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SInfantryRPGStats::ToAIUnits()
 {
 	SUnitBaseRPGStats::ToAIUnits();
 	availUserActions.RemoveAction( USER_ACTION_LEAVE );
 	availUserActions.RemoveAction( USER_ACTION_FORM_SQUAD );
 	availUserActions.RemoveAction( USER_ACTION_DISBAND_SQUAD );
-	//
 	nPriority = 0;
-	//
 	CountPrimaryGuns( guns );
-	// make action flags, based on available shells
 	CountShellTypes( guns );
 
 	if ( HasCommand( ACTION_COMMAND_MOVE_TO ) )
@@ -1857,22 +1519,18 @@ void SInfantryRPGStats::ToAIUnits()
 		AddCommand( ACTION_COMMAND_CATCH_ARTILLERY );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SInfantryRPGStats::SGun::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
 	saver.AddTypedSuper( static_cast<SBaseGunRPGStats*>(this) );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SInfantryRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
 	saver.AddTypedSuper( static_cast<SUnitBaseRPGStats*>(this) );
-	// armor
 	saver.Add( "Armor", &nMaxArmor );
 	nMinArmor = nMaxArmor;
-	//
 	saver.Add( "Guns", &guns );
 	saver.Add( "CanAttackUp", &bCanAttackUp );
 	saver.Add( "CanAttackDown", &bCanAttackDown );
@@ -1881,7 +1539,6 @@ int SInfantryRPGStats::operator&( IDataTree &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong SInfantryRPGStats::CalculateCheckSum() const
 {
 	SCheckSumBufferStorage buf;
@@ -1902,15 +1559,6 @@ const uLong SInfantryRPGStats::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** entrenchment
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong SEntrenchmentRPGStats::SSegmentRPGStats::CalculateCheckSum() const
 {
 	SCheckSumBufferStorage buf;
@@ -1927,7 +1575,6 @@ const uLong SEntrenchmentRPGStats::SSegmentRPGStats::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SEntrenchmentRPGStats::SEntrenchmentRPGStats() 
 : SHPObjectRPGStats( "Entrenchment" ) 
 { 
@@ -1946,7 +1593,6 @@ SEntrenchmentRPGStats::SEntrenchmentRPGStats()
 	defences[RPG_BOTTOM].nArmorMin  = 300;
 	defences[RPG_BOTTOM].nArmorMax	= 300;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SEntrenchmentRPGStats::SSegmentRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -1968,7 +1614,6 @@ int SEntrenchmentRPGStats::operator&( IDataTree &ss )
 	saver.Add( "FirePlaces", &fireplaces );
 	saver.Add( "Terminators", &terminators );
 	saver.Add( "Arcs", &arcs );
-	// CRAP{ need to write entrenchment segment type
 	for ( int i=0; i<lines.size(); ++i )
 		segments[lines[i]].eType = SEntrenchmentRPGStats::EST_LINE;
 	for ( int i=0; i<fireplaces.size(); ++i )
@@ -1977,10 +1622,8 @@ int SEntrenchmentRPGStats::operator&( IDataTree &ss )
 		segments[terminators[i]].eType = SEntrenchmentRPGStats::EST_TERMINATOR;
 	for ( int i=0; i<arcs.size(); ++i )
 		segments[arcs[i]].eType = SEntrenchmentRPGStats::EST_ARC;
-	// CRAP}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SEntrenchmentRPGStats::SSegmentRPGStats::ToAIUnits()
 {
 	Vis2AI( &vFirePlace );
@@ -1995,7 +1638,6 @@ void SEntrenchmentRPGStats::ToAIUnits()
 	SHPObjectRPGStats::ToAIUnits();
 	std::for_each( segments.begin(), segments.end(), std::mem_fn( &SSegmentRPGStats::ToAIUnits ) ); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float SEntrenchmentRPGStats::SSegmentRPGStats::GetLength() const 
 { 
 	return vAABBHalfSize.x*2.0f*fAITileXCoeff;
@@ -2022,7 +1664,6 @@ const CVec3 SEntrenchmentRPGStats::SSegmentRPGStats::GetVisAABBHalfSize() const
 	AI2Vis( &vTemp, vAABBHalfSize );
 	return vTemp;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int SEntrenchmentRPGStats::GetTypeFromIndex( const int nIndex ) const
 {
 	if ( std::find(lines.begin(), lines.end(), nIndex) != lines.end() )
@@ -2036,7 +1677,6 @@ const int SEntrenchmentRPGStats::GetTypeFromIndex( const int nIndex ) const
 	NI_ASSERT_T( false, NStr::Format("Wrong index %d in entrenchment \"%s\"", nIndex, szParentName.c_str()) );
 	return -1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int SEntrenchmentRPGStats::GetIndexFromType( const int nType, int *pCurRandomSeed ) const
 {
 	switch ( nType ) 
@@ -2053,7 +1693,6 @@ const int SEntrenchmentRPGStats::GetIndexFromType( const int nType, int *pCurRan
 	NI_ASSERT_T( false, NStr::Format("Wrong type %d in entrenchment \"%s\"", nType, szParentName.c_str()) );
 	return -1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong SEntrenchmentRPGStats::CalculateCheckSum() const
 {
 	SCheckSumBufferStorage buf;
@@ -2076,15 +1715,6 @@ const uLong SEntrenchmentRPGStats::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** fence set RPG stats
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SFenceRPGStats::SSegmentRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -2144,7 +1774,6 @@ const uLong SFenceRPGStats::SDir::CalculateCheckSum() const
 	return checkSum;
 }
 
-// local functor for stats sorting
 struct SFenceSegmentStatsLess
 {
 	bool operator()( const SFenceRPGStats::SSegmentRPGStats &s1, const SFenceRPGStats::SSegmentRPGStats &s2 ) const
@@ -2152,19 +1781,16 @@ struct SFenceSegmentStatsLess
 		return s1.nIndex < s2.nIndex;
 	}
 };
-//
 int SFenceRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
 	saver.AddTypedSuper( static_cast<SStaticObjectRPGStats*>(this) );
-	// for by index and validate before writing
 	if ( !saver.IsReading() )
 		std::sort( stats.begin(), stats.end(), SFenceSegmentStatsLess() );
 	saver.Add( "Stats", &stats );
 	saver.Add( "Dirs", &dirs );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SFenceRPGStats::SSegmentRPGStats::ToAIUnits()
 {
 	Vis2AI( &vOrigin );
@@ -2172,13 +1798,11 @@ bool SFenceRPGStats::SSegmentRPGStats::ToAIUnits()
 	
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SFenceRPGStats::ToAIUnits()
 {
 	SStaticObjectRPGStats::ToAIUnits();
 	std::for_each( stats.begin(), stats.end(), [](SSegmentRPGStats& stat){ stat.ToAIUnits(); } );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int SFenceRPGStats::GetTypeFromIndex( const int nIndex ) const
 {
 	for ( int i = 0; i < dirs.size(); ++i )
@@ -2212,7 +1836,6 @@ const int SFenceRPGStats::GetIndexFromType( const int nType, int *pCurRandomSeed
 	NI_ASSERT_T( false, NStr::Format("Unknown type (0x%x) in fence \"%s\"", nType, szParentName.c_str()) );
 	return -1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong SFenceRPGStats::CalculateCheckSum() const
 {
 	uLong checkSum = 0;
@@ -2226,15 +1849,6 @@ const uLong SFenceRPGStats::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** Squad RPG stats
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SSquadRPGStats::SFormation::SFormation() 
 : cLieFlag( 0 ), fSpeedBonus( 1 ), fDispersionBonus( 1 ), fFireRateBonus( 1 ), fRelaxTimeBonus( 1 ), fCoverBonus( 1 ), 
   fVisibleBonus( 1 ), changesByEvent( 1 )
@@ -2242,13 +1856,11 @@ SSquadRPGStats::SFormation::SFormation()
 	type = DEFAULT;
 	changesByEvent[HIT_NEAR] = -1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SSquadRPGStats::SFormation::SEntry::RetrieveShortcuts( IObjectsDB *pGDB )
 {
 	const SGDBObjectDesc *pDesc = pGDB->GetDesc( szSoldier.c_str() );
 	pSoldier = static_cast<const SInfantryRPGStats*>( pGDB->GetRPGStats( pDesc ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SSquadRPGStats::SFormation::RetrieveShortcuts( IObjectsDB *pGDB )
 {
 	for ( std::vector<SEntry>::iterator it = order.begin(); it != order.end(); ++it )
@@ -2262,11 +1874,9 @@ void SSquadRPGStats::RetrieveShortcuts( IObjectsDB *pGDB )
 		const SGDBObjectDesc *pDesc = pGDB->GetDesc( it->c_str() );
 		members.push_back( static_cast<const SInfantryRPGStats*>( pGDB->GetRPGStats( pDesc ) ) );
 	}
-	//
 	for ( std::vector<SFormation>::iterator it = formations.begin(); it != formations.end(); ++it )
 		it->RetrieveShortcuts( pGDB );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SSquadRPGStats::SFormation::SEntry::ToAIUnits()
 {
 	Vis2AI( &vPos, vPos );
@@ -2282,13 +1892,10 @@ void SSquadRPGStats::ToAIUnits()
 {
 	SHPObjectRPGStats::ToAIUnits();
 	std::for_each( formations.begin(), formations.end(), [](SFormation& form){ form.ToAIUnits(); } );
-	// set available user actions
 	for ( std::vector<SFormation>::const_iterator it = formations.begin(); it != formations.end(); ++it )
 		availActions.SetAction( USER_ACTION_FORMATION_0 + it->type );
-	// each squad can follow and can be followed by
 	availActions.SetAction( USER_ACTION_FOLLOW );
 	availExposures.SetAction( USER_ACTION_FOLLOW );
-	//
 	if ( memberNames.size() == 1 ) 
 	{
 		availActions.RemoveAction( USER_ACTION_DISBAND_SQUAD );
@@ -2302,14 +1909,10 @@ void SSquadRPGStats::ToAIUnits()
 	else if ( memberNames.empty() ) 
 		availActions.Clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SSquadRPGStats::Validate()
 {
-	// проверить, что в каждой формации присутствуют все юниты из взвода
-	// 
 	std::vector<std::string> squad = memberNames;
 	std::sort( squad.begin(), squad.end() );
-	//
 	for ( std::vector<SFormation>::const_iterator it = formations.begin(); it != formations.end(); ++it )
 	{
 		NI_ASSERT_TF( it->order.size() == memberNames.size(), "size mismatch in formation order => wrong formation order", return false );
@@ -2317,9 +1920,7 @@ bool SSquadRPGStats::Validate()
 		formation.reserve( it->order.size() );
 		for ( std::vector<SFormation::SEntry>::const_iterator entry = it->order.begin(); entry != it->order.end(); ++entry )
 			formation.push_back( entry->szSoldier );
-		//
 		std::sort( formation.begin(), formation.end() );
-		//
 		NI_ASSERT_TF( squad == formation, "formation doen't contain all squad members!", return false );
 
 		NI_ASSERT_TF( it->fSpeedBonus >= 0, NStr::Format( "Wrong formation (squad %s) speed bonus (%g)", szKeyName, it->fSpeedBonus ), return false );
@@ -2329,10 +1930,8 @@ bool SSquadRPGStats::Validate()
 		NI_ASSERT_TF( it->fCoverBonus >= 0, NStr::Format( "Wrong formation (squad %s) fCoverBonus bonus (%g)", szKeyName, it->fCoverBonus ), return false );
 		NI_ASSERT_TF( it->fVisibleBonus >= 0, NStr::Format( "Wrong formation (squad %s) fVisibleBonus bonus (%g)", szKeyName, it->fVisibleBonus ), return false );
 	}
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SSquadRPGStats::SFormation::SEntry::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -2355,7 +1954,6 @@ const uLong SSquadRPGStats::SFormation::SEntry::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SSquadRPGStats::SFormation::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -2396,7 +1994,6 @@ const uLong SSquadRPGStats::SFormation::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SSquadRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -2406,7 +2003,6 @@ int SSquadRPGStats::operator&( IDataTree &ss )
 	saver.Add( "Formations", &formations );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong SSquadRPGStats::CalculateCheckSum() const
 {
 	SCheckSumBufferStorage buf;
@@ -2429,27 +2025,16 @@ const uLong SSquadRPGStats::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** mine RPG stats
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SMineRPGStats::SMineRPGStats()
 : SObjectBaseRPGStats( "Mine" ), szWeapon( "generic" ), szFlagModel( "1" )
 {
 	fWeight = 0;
 	type = INFANTRY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SMineRPGStats::RetrieveShortcuts( IObjectsDB *pGDB )
 {
 	pWeapon = static_cast<const SWeaponRPGStats*>( pGDB->GetAddStats( szWeapon.c_str(), IObjectsDB::WEAPON ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMineRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -2462,7 +2047,6 @@ int SMineRPGStats::operator&( IDataTree &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const uLong SMineRPGStats::CalculateCheckSum() const
 {
 	SCheckSumBufferStorage buf;
@@ -2477,15 +2061,6 @@ const uLong SMineRPGStats::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** bridge RPG stats
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SBridgeRPGStats::SSegmentRPGStats::SSegmentRPGStats()
 {
 	vOrigin = VNULL2;
@@ -2499,15 +2074,12 @@ SBridgeRPGStats::SBridgeRPGStats()
 	direction = VERTICAL;
 	dwAIClasses = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SBridgeRPGStats::SSegmentRPGStats::ToAIUnits()
 {
 	Vis2AI( &vOrigin );
 	Vis2AI( &vVisOrigin );
-	// tiles to world points
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SBridgeRPGStats::ToAIUnits()
 {
 	SStaticObjectRPGStats::ToAIUnits();
@@ -2515,11 +2087,8 @@ void SBridgeRPGStats::ToAIUnits()
 	std::for_each( firePoints.begin(), firePoints.end(), std::mem_fn( &SFirePoint::ToAIUnits ) ); 
 	std::for_each( smokePoints.begin(), smokePoints.end(), std::mem_fn( &SFirePoint::ToAIUnits ) ); 
 	std::for_each( dirExplosions.begin(), dirExplosions.end(), std::mem_fn( &SDirectionExplosion::ToAIUnits ) ); 
-	// CRAP{ сейчас не проставляется AIclasses для мостов
 	dwAIClasses = 0;
-	// CRAP}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SBridgeRPGStats::SSegmentRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -2595,11 +2164,6 @@ const uLong SBridgeRPGStats::CalculateCheckSum() const
 
 	return checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													Fire point															*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SBridgeRPGStats::SFirePoint::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -2607,7 +2171,6 @@ int SBridgeRPGStats::SFirePoint::operator&( IDataTree &ss )
 	saver.Add( "Direction", &fDirection );
 	saver.Add( "VerticalAngle", &fVerticalAngle );
 	saver.Add( "FireEffect", &szFireEffect );
-	// vis info
 	saver.Add( "PicturePosition", &vPicturePosition );
 	saver.Add( "WorldPosition", &vWorldPosition );
 	return 0;
@@ -2626,18 +2189,12 @@ bool SBridgeRPGStats::SFirePoint::ToAIUnits()
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													Direction explosion											*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SBridgeRPGStats::SDirectionExplosion::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
 	saver.Add( "Position", &vPos );
 	saver.Add( "Direction", &fDirection );
 	saver.Add( "VerticalAngle", &fVerticalAngle );
-	// vis info
 	saver.Add( "PicturePosition", &vPicturePosition );
 	saver.Add( "WorldPosition", &vWorldPosition );
 	return 0;
@@ -2663,7 +2220,6 @@ int SBridgeRPGStats::operator&( IDataTree &ss )
 	saver.AddTypedSuper( static_cast<SStaticObjectRPGStats*>(this) );
 	saver.Add( "Direction", &direction );
 	saver.Add( "Segments", &segments );
-	// main stats (for backward compatibility)
 	saver.AddTypedSuper( &states[0] );
 	saver.Add( "Damaged", &states[1] );
 	saver.Add( "Destroyed", &states[2] );
@@ -2674,7 +2230,6 @@ int SBridgeRPGStats::operator&( IDataTree &ss )
 	saver.Add( "DirExplosions", &dirExplosions );
 	saver.Add( "DirExplosionEffect", &szDirExplosionEffect );
 	
-	// set segment types
 	if ( saver.IsReading() )
 	{
 		for ( int i = 0; i < 3; ++i )
@@ -2691,7 +2246,6 @@ int SBridgeRPGStats::operator&( IDataTree &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int SBridgeRPGStats::GetTypeFromIndex( const int nIndex, const int nDamageState ) const
 {
 	if ( std::find(states[nDamageState].begins.begin(), states[nDamageState].begins.end(), nIndex) != states[nDamageState].begins.end() ) 
@@ -2700,11 +2254,9 @@ const int SBridgeRPGStats::GetTypeFromIndex( const int nIndex, const int nDamage
 		return BRIDGE_SPAN_TYPE_CENTER;
 	if ( std::find(states[nDamageState].ends.begin(), states[nDamageState].ends.end(), nIndex) != states[nDamageState].ends.end() ) 
 		return BRIDGE_SPAN_TYPE_END;
-	//
 	NI_ASSERT_T( false, NStr::Format("Unknown span index %d in bridge \"%s\"", nIndex, szParentName.c_str()) );
 	return -1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int SBridgeRPGStats::GetIndexFromTypeLocal( const int nType, const int nDamageState, int *pCurRandomSeed ) const
 {
 	switch ( nType ) 
@@ -2719,16 +2271,6 @@ const int SBridgeRPGStats::GetIndexFromTypeLocal( const int nType, const int nDa
 	NI_ASSERT_T( false, NStr::Format("Unknown span type %d of damage state %d for the bridge \"%s\"", nType, nDamageState, szParentName.c_str()) );
 	return -1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** sound
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SSoundRPGStats::SSound::SSound()
 {  
 	fMinDist = 1;
@@ -2736,7 +2278,6 @@ SSoundRPGStats::SSound::SSound()
 	fProbability = 1;
 	bPeacefull = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SSoundRPGStats::SSound::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -2748,16 +2289,13 @@ int SSoundRPGStats::SSound::operator&( IDataTree &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SSoundRPGStats::SSoundRPGStats()
 : SCommonRPGStats( "Sound" ), bLooped( false )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SSoundRPGStats::~SSoundRPGStats()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SSoundRPGStats::ToAIUnits()
 {
 	SCommonRPGStats::ToAIUnits();
@@ -2769,7 +2307,6 @@ void SSoundRPGStats::ToAIUnits()
 	for ( std::vector<SSound>::iterator it = sounds.begin(); it != sounds.end(); ++it )
 		it->fProbability *= fDenominator;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SSoundRPGStats::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -2777,7 +2314,6 @@ int SSoundRPGStats::operator&( IDataTree &ss )
 	saver.Add( "Looped", &bLooped );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SSoundRPGStats::GetRandomSoundIndex() const
 {
 	const float fRand = 1.0f * rand() / RAND_MAX;
@@ -2789,15 +2325,6 @@ int SSoundRPGStats::GetRandomSoundIndex() const
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** exp levels
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SAIExpLevel::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -2808,4 +2335,3 @@ int SAIExpLevel::operator&( IDataTree &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

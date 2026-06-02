@@ -1,11 +1,8 @@
 #ifndef __SAVE_COMMANDS_HISTORY_COMMAND_H__
 #define __SAVE_COMMANDS_HISTORY_COMMAND_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Transceiver.h"
 #include "CommandsHistoryInterface.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSaveCommandsHistoryCommand : public IBaseCommand
 {
 	OBJECT_MINIMAL_METHODS( CSaveCommandsHistoryCommand );
@@ -13,12 +10,8 @@ class CSaveCommandsHistoryCommand : public IBaseCommand
 	CPtr<ICommandsHistory> pHistory;
 public:
 	CSaveCommandsHistoryCommand( ICommandsHistory *_pHistory ) : pHistory( _pHistory ) { }
-	// execute command
 	virtual void STDCALL Do() { pHistory->Save(); }
-	// un-execute command
 	virtual void STDCALL UnDo() {  }
-	// can this command be un-executed
 	virtual bool STDCALL CanUnDo() { return false; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif //__SAVE_COMMANDS_HISTORY_COMMAND_H__

@@ -9,8 +9,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CWeaponView
 
 CWeaponView::CWeaponView()
 {
@@ -22,14 +20,10 @@ CWeaponView::~CWeaponView()
 
 
 BEGIN_MESSAGE_MAP(CWeaponView, CWnd)
-//{{AFX_MSG_MAP(CWeaponView)
 ON_WM_PAINT()
-//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CWeaponView message handlers
 
 BOOL CWeaponView::PreCreateWindow(CREATESTRUCT& cs) 
 {

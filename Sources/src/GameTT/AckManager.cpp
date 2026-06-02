@@ -7,16 +7,9 @@
 #include "..\Main\TextSystem.h"
 #include "MultiplayerCommandManager.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS(CClientAckManager);
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CClientAckManager::MIN_UNITS_TO_RUSH_ACK;
 int CClientAckManager::MIN_UNITS_TO_TRAVEL_ACK;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 								   CBoredUnitsContainer																		*
-//*******************************************************************
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CClientAckManager::CBoredUnitsContainer::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -25,25 +18,21 @@ int CClientAckManager::CBoredUnitsContainer::operator&( IStructureSaver &ss )
 	saver.Add( 3, &timeLastBored );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientAckManager::CBoredUnitsContainer::Clear()
 {
 	boredUnits.clear();
 	nCounter = 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CClientAckManager::CBoredUnitsContainer::CBoredUnitsContainer() 
 : nCounter( 0 ), timeLastBored ( 0 )
 {  
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientAckManager::CBoredUnitsContainer::Copy( const CClientAckManager::CBoredUnitsContainer &cp )
 {
 	nCounter = cp.nCounter;
 	boredUnits = cp.boredUnits;
 	timeLastBored = cp.timeLastBored;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientAckManager::CBoredUnitsContainer::AddUnit( interface IMOUnit *pUnit )
 {
 	CBoredUnits::iterator it = boredUnits.find( pUnit );
@@ -53,7 +42,6 @@ void CClientAckManager::CBoredUnitsContainer::AddUnit( interface IMOUnit *pUnit 
 		++nCounter;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientAckManager::CBoredUnitsContainer::DelUnit( interface IMOUnit *pUnit )
 {
 	CBoredUnits::iterator it = boredUnits.find( pUnit );
@@ -63,7 +51,6 @@ void CClientAckManager::CBoredUnitsContainer::DelUnit( interface IMOUnit *pUnit 
 		--nCounter;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CClientAckManager::CBoredUnitsContainer::SendAck( const NTimer::STime curTime, 
 																											 const EUnitAckType eBored, 
 																											 IClientAckManager *pAckManager,
@@ -109,11 +96,6 @@ bool CClientAckManager::CBoredUnitsContainer::SendAck( const NTimer::STime curTi
 		return bSayAck;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// ** particular actions
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CClientAckManager::operator& (IStructureSaver &ss) 
 {
 	CSaverAccessor saver = &ss;
@@ -125,13 +107,11 @@ int CClientAckManager::operator& (IStructureSaver &ss)
 	saver.Add( 3, &pLastSelected );
 	saver.Add( 4, &nSelectionCounter );
 	saver.Add( 5, &boredUnits );	
-	//saver.Add( 6, &timeNextBored );
 	saver.Add( 7, &deathAcks );
 	saver.Add( 8, &timeLastDeath );	
 	saver.Add( 9, &acksPresence );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CClientAckManager::SDeathAck::operator& (IStructureSaver &ss) 
 {
 	CSaverAccessor saver = &ss;
@@ -139,7 +119,6 @@ int CClientAckManager::SDeathAck::operator& (IStructureSaver &ss)
 	saver.Add( 2, &vPos );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CClientAckManager::SUnitAck::operator& (IStructureSaver &ss) 
 {
 	CSaverAccessor saver = &ss;
@@ -149,7 +128,6 @@ int CClientAckManager::SUnitAck::operator& (IStructureSaver &ss)
 	saver.Add( 4, &eCurrentAck );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CClientAckManager::SAck::operator& (IStructureSaver &ss) 
 {
 	CSaverAccessor saver = &ss;
@@ -157,12 +135,10 @@ int CClientAckManager::SAck::operator& (IStructureSaver &ss)
 	saver.Add( 2, &sound );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CClientAckManager::IsNegative( const enum EUnitAckType eAck )
 {
 	return acksInfo[eAck].eType == ACKT_NEGATIVE;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientAckManager::Clear()
 {
 	unitAcks.clear();
@@ -179,7 +155,6 @@ CClientAckManager::CClientAckManager()
 
 #define STRING_ENUM_ADD(TypeConverter,eEnum) TypeConverter[#eEnum] = eEnum;
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientAckManager::InitConsts()
 {
 	CTableAccessor constsTbl = NDB::OpenDataTable( "consts.xml" );
@@ -260,7 +235,6 @@ void CClientAckManager::InitConsts()
 		acksInfo[eType] = SUnitAckInfo( load.eType, load.szTextKey.c_str(), load.eColor, load.eSound, load.ePosition, load.nTimeAfterPrevious );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientAckManager::Init()
 {
 	InitConsts();
@@ -269,15 +243,12 @@ void CClientAckManager::Init()
 	pGameTimer = GetSingleton<IGameTimer>();
 
 	NTimer::STime curTime = pGameTimer->GetAbsTime();
-	//timeNextBored = curTime + ACK_BORED_INTERVAL + rand() * ACK_BORED_INTERVAL_RANDOM / RAND_MAX;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientAckManager::AddDeathAcknowledgement( const CVec3 &vPos, const std::string &sound, const unsigned int timeSinceStart )
 {
 	if ( pGameTimer->GetGameTimer()->IsPaused() ) 
 		return;
 	
-	//NI_ASSERT_T( timeSinceStart < pGameTimer->GetAbsTime(), NStr::Format( "somebody dead before times with sound %s, timeSinceStart = %d, absTime =%d", sound.c_str(), timeSinceStart, pGameTimer->GetGameTimer() ) );
 	
 	if ( deathAcks.empty() || ( timeSinceStart < pGameTimer->GetAbsTime() &&timeLastDeath < pGameTimer->GetAbsTime() - timeSinceStart) )
 	{
@@ -285,7 +256,6 @@ void CClientAckManager::AddDeathAcknowledgement( const CVec3 &vPos, const std::s
 		deathAcks.push_back( SDeathAck( vPos, sound, timeSinceStart ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientAckManager::AddAcknowledgement( interface IMOUnit *pUnit, const enum EUnitAckType eAck, const std::string &sound, const int nSet, const unsigned int nTimeSinceStart )
 {
 	EAcknowledgementType eType = acksInfo[eAck].eType;
@@ -302,7 +272,6 @@ void CClientAckManager::AddAcknowledgement( interface IMOUnit *pUnit, const enum
 			return;
 	}
 
-	//�������� ����� ��� � ����� ����
 	NI_ASSERT_T( acksInfo.find( eAck ) != acksInfo.end(), NStr::Format( "unredistered Ack %d", eAck ) );
 	NI_ASSERT_T( pUnit->IsValid(), "added ack from invalid unit" );
 
@@ -323,17 +292,14 @@ void CClientAckManager::AddAcknowledgement( interface IMOUnit *pUnit, const enum
 		break;
 	case ACKT_NEGATIVE:
 		{
-			// ����� ��� �������� � ������� � ������.
 			CAckPredicate  pr( acksInfo, ACKT_POSITIVE );
 			CAcks::iterator positives = std::remove_if( unitAcks[pUnit].acks.begin(), unitAcks[pUnit].acks.end(), pr );
 			if ( positives == unitAcks[pUnit].acks.end() ) 
 			{
-				// �� ������ Positive, Negative ������������
 			}
 			else
 			{
 				unitAcks[pUnit].acks.erase( positives, unitAcks[pUnit].acks.end() );
-				// �������� ���� ��� � �������
 				unitAcks[pUnit].acks.push_back( ack );
 			}
 		}
@@ -359,7 +325,6 @@ void CClientAckManager::AddAcknowledgement( interface IMOUnit *pUnit, const enum
 
 		break;
 	case ACKT_NOTIFY:
-		// check if the same ack exists in the list
 		{
 			if ( unitAcks[pUnit].eCurrentAck != ack.eAck &&
 					unitAcks[pUnit].acks.end() == std::find( unitAcks[pUnit].acks.begin(), unitAcks[pUnit].acks.end(), ack ) )
@@ -367,7 +332,6 @@ void CClientAckManager::AddAcknowledgement( interface IMOUnit *pUnit, const enum
 				unitAcks[pUnit].acks.push_back( ack );
 			}
 		}
-		// 
 		
 		break;
 	case ACKT_BORED:
@@ -379,10 +343,8 @@ void CClientAckManager::AddAcknowledgement( interface IMOUnit *pUnit, const enum
 		break;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 DWORD CClientAckManager::GetMessageColor( enum CClientAckManager::EAcknowledgementColor eColor )
 {
-	//CRAP{ ����� ���������� ��� ��������
 	switch ( eColor) 
 	{
 	case ACOL_INFORMATION:
@@ -390,9 +352,7 @@ DWORD CClientAckManager::GetMessageColor( enum CClientAckManager::EAcknowledgeme
 	default:
 		return 0xffff0000;
 	}
-	//CRAP}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char * CClientAckManager::GetAdditionalSound( enum CClientAckManager::EAcknowledgementAdditionalSound eSound )
 {
 
@@ -402,26 +362,19 @@ const char * CClientAckManager::GetAdditionalSound( enum CClientAckManager::EAck
 		return 0;
 	case AAS_INFORMATION:
 	case AAS_TAKING_OFF:
-		//CRAP{
-		//static std::string a = "sounds\\reports\\information";
-		//CRAP}
-		//return a.c_str();
 		break;
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientAckManager::RegisterAck( SUnitAck *ack, const NTimer::STime curTime )
 {
 	ack->eCurrentAck = (*ack->acks.begin()).eAck;
 	acksPresence[ack->eCurrentAck] = curTime;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientAckManager::UnregisterAck( SUnitAck *ack )
 {
 	ack->eCurrentAck = -1;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientAckManager::Update( interface IScene * pScene )
 {
 	NTimer::STime curTime = pGameTimer->GetAbsTime();
@@ -436,7 +389,6 @@ void CClientAckManager::Update( interface IScene * pScene )
 		}
 	}
 
-	//death acks
 	for ( CDeathAcks::iterator it = deathAcks.begin(); it != deathAcks.end(); )
 	{
 		pScene->AddSound( it->szSoundName.c_str(), it->vPos, 
@@ -462,22 +414,17 @@ void CClientAckManager::Update( interface IScene * pScene )
 
 		if ( 0 == ack.wSoundID )
 		{
-			// run next acknowledgement
 			if ( ack.acks.begin() != ack.acks.end() )
 			{
 				SAck &addedAck = *ack.acks.begin();
 				const SUnitAckInfo & currentAskInfo = acksInfo[addedAck.eAck];
 				
-				// ���� ����� ��� ����������� �� ������
 				if ( currentAskInfo.eType == ACKT_POSITIVE && ack.timeRun > curTime )
 					continue;
 				
-				//��������� �� ������� �� ��� Ack ������� ����.
-				// ���� ��������, �� ���� �� ���������.
 				if ( acksPresence.find(addedAck.eAck) == acksPresence.end() ||
 						 curTime - acksPresence[int(addedAck.eAck)] >= currentAskInfo.nTimeAfterPrevious )
 				{
-					//run acknowledgement sound
 					std::string &sound = addedAck.sound;
 					if ( 0 != sound.size() )
 					{
@@ -486,17 +433,14 @@ void CClientAckManager::Update( interface IScene * pScene )
 						pUnit->GetPlacement( &vPos, &wDir );
 						ack.wSoundID = pScene->AddSound(	sound.c_str(), 
 																							vPos, 
-																							//CRAP{ IF 1 MORE OF THIS KIND WILL BE ADDED, THEN MOVE TO CONFIGURATION FILE 
 																							addedAck.eAck == ACK_BORED_IDLE ? SFX_MIX_IF_TIME_EQUALS : static_cast<ESoundMixType>(addedAck.eMixType), 
 																							SAM_NEED_ID,
 																							addedAck.eAck == ACK_BORED_IDLE ? ESCT_MUTE_DURING_COMBAT : ESCT_GENERIC,
-																							//CRAP}
 																							MIN_ACK_RADIUS, 
 																							MAX_ACK_RADIUS );
 						RegisterAck( &ack, curTime );
 					}
 				}
-				//display string info
 				{
 					const std::string & szKey = acksInfo[addedAck.eAck].szTextKey;
 					IText * pText = pTextManager->GetString( szKey.c_str() );
@@ -513,7 +457,6 @@ void CClientAckManager::Update( interface IScene * pScene )
 																	GetMessageColor( acksInfo[addedAck.eAck].eColor ) );
 					}					
 				}
-				//run additional interface sound
 				{
 					const char *pAdditionalSound = GetAdditionalSound( acksInfo[addedAck.eAck].eSound );
 					if ( pAdditionalSound )
@@ -524,7 +467,6 @@ void CClientAckManager::Update( interface IScene * pScene )
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientAckManager::UnitDead( struct SMapObject *pUnit, interface IScene * pScene )
 {
 	IMOUnit * pTipaUnit = static_cast<IMOUnit*>( pUnit );
@@ -546,7 +488,6 @@ void CClientAckManager::UnitDead( struct SMapObject *pUnit, interface IScene * p
 		it->second.DelUnit( pTipaUnit );
 
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientAckManager::RegisterAsBored( EUnitAckType eBored, interface IMOUnit *pObject )
 {
 	NI_ASSERT_T( eBored <= _ACK_BORED_END && eBored >= _ACK_BORED_BEGIN, "not bored ack passed" );
@@ -555,7 +496,6 @@ void CClientAckManager::RegisterAsBored( EUnitAckType eBored, interface IMOUnit 
 
 	boredUnits[eBored].AddUnit( pObject );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientAckManager::UnRegisterAsBored( EUnitAckType eBored, interface IMOUnit *pObject )
 {
 	NI_ASSERT_T( eBored <= _ACK_BORED_END && eBored >= _ACK_BORED_BEGIN, "not bored ack passed" );

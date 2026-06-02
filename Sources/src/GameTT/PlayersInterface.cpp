@@ -1,6 +1,3 @@
-// PlayersInterface.cpp: implementation of the PlayersInterface class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
 
@@ -17,14 +14,12 @@
 #include "Campaign.h"
 #include "MainMenu.h"
 #include "MultiplayerCommandManager.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_cancel"		, IMC_CANCEL		},
 	{ "inter_ok"				, IMC_CANCEL		},
 	{ 0									,	0							}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum 
 {
 	MC_PLAYER_CHAPTER_STATS			= 10005,
@@ -47,7 +42,6 @@ enum
 
 	E_DARK											= 1003,
 };
-//////////////////////////////////////////////////////////////////////
 int CPlayersInterface::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -57,7 +51,6 @@ int CPlayersInterface::operator&( IStructureSaver &ss )
 	saver.Add( 4, &bDisableGetFocus );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////
 void CPlayersInterface::OnGetFocus( bool bFocus )
 {
 	CInterfaceInterMission::OnGetFocus( bFocus );
@@ -76,7 +69,6 @@ void CPlayersInterface::OnGetFocus( bool bFocus )
 		
 		if ( pPopups->IsNeedFinish() )
 		{
-			//FinishInterface( pPopups->GetFinishCommandID(), pPopups->GetFinishCommandParams() );
 			GetSingleton<IMainLoop>()->Command( pPopups->GetFinishCommandID(), pPopups->GetFinishCommandParams() );
 			IUIElement *pEl = pUIScreen->GetChildByID( E_DARK );
 			if ( pEl )
@@ -84,7 +76,6 @@ void CPlayersInterface::OnGetFocus( bool bFocus )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////
 bool CPlayersInterface::Init()
 {
 	CInterfaceInterMission::Init();
@@ -92,13 +83,11 @@ bool CPlayersInterface::Init()
 	bDisableGetFocus = false;
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPlayersInterface::Create( const bool _bAfterMission )
 {
 	bAfterMission = _bAfterMission;
 	CInterfaceInterMission::StartInterface();
 	
-	// finish mission part: begin
 	const std::string szChapterName = GetGlobalVar( "Chapter.Current.Name", "" );
 	IMainLoop * pML = GetSingleton<IMainLoop>();
 	
@@ -124,8 +113,6 @@ void CPlayersInterface::Create( const bool _bAfterMission )
 
 	if ( 0 != GetGlobalVar( "History.Playing", 0 ) )
 	{
-		//перейдем в экран просмотра replays
-		// чтобы второй раз не было открытия и закрытия шторок
 		SetGlobalVar( "CurtainsClosed", 1 );
 
 		pML->RestoreScenarioTracker();
@@ -139,7 +126,6 @@ void CPlayersInterface::Create( const bool _bAfterMission )
 	}
 	if ( bAfterMission )
 		pPopups = new CAfterMissionPopups;
-	// finish mission part: end
 
 
 	pUIScreen = CreateObject<IUIScreen>( UI_SCREEN );
@@ -153,7 +139,6 @@ void CPlayersInterface::Create( const bool _bAfterMission )
 	IUIDialog *pDialog = checked_cast<IUIDialog *> ( pUIScreen->GetChildByID( 100 ) );
 	IScenarioTracker * pScenarioTracker = GetSingleton<IScenarioTracker>();
 
-	//const int nTotalMedals = pScenarioTracker->GetNumTotalMedals();
 	IPlayerScenarioInfo *pPlayerInfo = pScenarioTracker->GetUserPlayer();
 	
 	for (  int nMedalSlot = 0; nMedalSlot < NUM_MEDAL_SLOTS; ++nMedalSlot )
@@ -187,17 +172,13 @@ void CPlayersInterface::Create( const bool _bAfterMission )
 		}
 	}
 	pDialog->ShowWindow( UI_SW_SHOW );
-	//
 	
-	//set rank
-		// rank value
 	const SPlayerRank &rRank = pPlayerInfo->GetRankInfo();
 	IUIStatic * pRankValue = checked_cast<IUIStatic*>( pUIScreen->GetChildByID( E_RANK_VALUE ) );
 	IText * pTextCurrentRank = pTextM->GetString( rRank.szCurrentRank.c_str() );
 	NI_ASSERT_T( pTextCurrentRank!= 0, NStr::Format( "cannot find localized string by key \"%s\"", rRank.szCurrentRank.c_str() ) );
 	if ( pTextCurrentRank )
 		pRankValue->SetWindowText( 0, pTextCurrentRank->GetString() );
-		// next rank;
 	IUIListControl * pRankList = checked_cast<IUIListControl*>( pUIScreen->GetChildByID( E_RANK_LIST ) );
 	IText *pToolTip = pTextM->GetDialog( "Textes\\UI\\Intermission\\PlayerStats\\tt_next_rank" );
 	pRankList->AddItem();
@@ -211,9 +192,7 @@ void CPlayersInterface::Create( const bool _bAfterMission )
 	if ( pTextNextRank )
 		pElementName->SetWindowText( 0, pTextNextRank->GetString() );
 	pRankList->InitialUpdate();
-	//
 
-	// set caption:
 	IUIStatic *pCaption = checked_cast<IUIStatic *> ( pUIScreen->GetChildByID( 20000 ) );
 	if ( pTextCurrentRank && pPlayerInfo )
 	{
@@ -222,9 +201,7 @@ void CPlayersInterface::Create( const bool _bAfterMission )
 		wszCaption += pPlayerInfo->GetName();
 		pCaption->SetWindowText( 0, reinterpret_cast<const WORD*>( wszCaption.c_str() ) );
 	}
-	//
 	
-	// set stats
 	IUIListControl * pListControl = checked_cast<IUIListControl *>( pUIScreen->GetChildByID( 1000 ) );
 	for ( int nStat = 0; nStat < _EPST_COUNT; ++nStat )
 	{
@@ -232,7 +209,6 @@ void CPlayersInterface::Create( const bool _bAfterMission )
 		IUIListRow * pRow = pListControl->GetItem( nStat );
 		const SPlayerSkill & rSkill = pPlayerInfo->GetSkill( nStat );
 		SetValues( pRow, rSkill.fValue, rSkill.fFormerValue, 100 );
-		//set name
 		IUIStatic * pElementName = checked_cast<IUIStatic*>( pRow->GetElement( 0 ) );
 		IText * pText = pTextM->GetString( rSkill.szSkillName.c_str() );
 		NI_ASSERT_T( pText!= 0, NStr::Format( "cannot find localized string by key %s", rSkill.szSkillName.c_str() ) );
@@ -244,9 +220,7 @@ void CPlayersInterface::Create( const bool _bAfterMission )
 			pElementName->SetHelpContext( 0, pText->GetString() );
 	}
 	pListControl->InitialUpdate();
-	//
 	
-	// set difficulty
 	IUIElement *pDifficulty = pUIScreen->GetChildByID( E_DIFFICULTY );
 	IText *pDifficutlyName = pTextM->GetDialog( "Textes\\Options\\GamePlay.Difficulty.name" );
 	if ( pDifficulty && pDifficutlyName )
@@ -282,30 +256,24 @@ void CPlayersInterface::Create( const bool _bAfterMission )
 		}
 		
 		szSaveName += " - End Campaign.sav";
-		//
 		GetSingleton<IMainLoop>()->Command( MAIN_COMMAND_SAVE, NStr::Format( "%s;1", szSaveName.c_str() ) );
 	}
 
 	if ( bAfterMission )
 	{
-		//запустим музыку
 		const int nCampaign = GetGlobalVar( "Campaign.Current", -1 );
 		if ( nCampaign >= 0 )
 		{
-			//мы играем в кампанию, запускаем соответствующую музыку
 			CInterfaceCampaign::PlayCampaignMusic();
 		}
 		else
 		{
-			//запустим межмиссионную музыку
 			CInterfaceMainMenu::PlayIntermissionSound();
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////
 void CPlayersInterface::SetValues( IUIListRow * pRow, const float fCurrentVal, const float fFormerVal, const int nMultiply )
 {
-	// set value
 	IUIDialog * pElementDialog = checked_cast<IUIDialog*>( pRow->GetElement( 1 ) );
 
 	IUINumberIndicator *pCurrent = 0, *pFormer = 0;
@@ -337,7 +305,6 @@ void CPlayersInterface::SetValues( IUIListRow * pRow, const float fCurrentVal, c
 	pText->SetWindowText( 0, reinterpret_cast<const WORD*>( wszSkill.c_str() ) );
 	pText->ShowWindow( UI_SW_SHOW );
 }		
-//////////////////////////////////////////////////////////////////////
 bool CPlayersInterface::ProcessMessage( const SGameMessage &msg )
 { 
 	if ( msg.nEventID == TUTORIAL_WINDOW_ID || msg.nEventID == 	TUTORIAL_BUTTON_ID )

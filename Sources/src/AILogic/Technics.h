@@ -1,10 +1,7 @@
 #ifndef __TECHNICS_H__
 #define __TECHNICS_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "AIUnit.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CExistingObject;
 class CTurret;
 class CUnitGuns;
@@ -12,21 +9,16 @@ class CSoldier;
 class CFormation;
 class CArtillery;
 class CEntrenchmentTankPit;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// просто военная машинка, базовый класс
 class CMilitaryCar : public CAIUnit
 {
 	DECLARE_SERIALIZE;
 
 	CGDBPtr<SMechUnitRPGStats> pStats;
 
-	// орудийные стволы
 	CPtr<CUnitGuns> pGuns;
 
-	// вращающаяся пушка
 	std::vector< CObj<CTurret> > turrets;
 	
-	// пассажиры
 	std::list<CPtr<CSoldier> > pass;
 	
 	CPtr<CFormation> pLockingUnit;
@@ -34,8 +26,6 @@ class CMilitaryCar : public CAIUnit
 	NTimer::STime timeLastHeal;						// последнее время лечения
 	NTimer::STime lastResupplyMorale;			// last morale addition time
 	
-	//
-	// координаты пассажира n
 	const CVec2 GetPassengerCoordinates( const int n );
 protected:
 	virtual void InitGuns();
@@ -43,7 +33,6 @@ protected:
 	virtual class CUnitGuns* GetGuns() { return pGuns; }
 	virtual void PrepareToDelete();
 public:
-	// эту функцию переопределяем в подклассах
 	virtual void Init( const CVec2 &center, const int z, const SUnitBaseRPGStats *pStats, const float fHP, const WORD dir, const BYTE player, const WORD id, EObjVisType eVisType, const int dbID );
 
 	void Lock( class CFormation *_pLockingUnit );
@@ -53,7 +42,6 @@ public:
 	virtual const SUnitBaseRPGStats* GetStats() const { return pStats; }	
 	virtual IStatesFactory* GetStatesFactory() const =0;
 
-	// расстояние от центра до точки, откуда можно напрямую бежать к entrance point
 	virtual float GetDistanceToLandPoint() const;
 
 	virtual BYTE GetNAvailableSeats() const { return static_cast<BYTE>( pStats->nPassangers - pass.size() ); }
@@ -63,7 +51,6 @@ public:
 
 	const CVec2 GetEntrancePoint() const;
 
-	// удалить всех пассажиров
 	virtual void ClearAllPassengers();
 	virtual void DelPassenger( const int n );
 	virtual void DelPassenger( class CSoldier *pSoldier );
@@ -82,7 +69,6 @@ public:
 
 	virtual const bool CanShootToPlanes() const;
 
-	//
 	virtual int GetNGuns() const;
 	virtual class CBasicGun* GetGun( const int n ) const;
 
@@ -93,7 +79,6 @@ public:
 
 	virtual bool IsMech() const { return true; }
 
-	// бонусы
 	virtual const float GetDispersionBonus() const;
 	virtual const void SetDispersionBonus( const float fBonus ) { fDispersionBonus = fBonus; }
 
@@ -105,7 +90,6 @@ public:
 	const CVec2 GetHookPoint() const;
 	const CVec3 GetHookPoint3D() const;
 	
-	// killed: this unit + all units inside
 	virtual void SendNTotalKilledUnits( const int nPlayerOfShoot );
 	virtual void LookForTarget( CAIUnit *pCurTarget, const bool bDamageUpdated, CAIUnit **pBestTarget, class CBasicGun **pGun );
 
@@ -113,9 +97,6 @@ public:
 	virtual void SetTowedArtilleryCrew( class CFormation *pFormation ) {  }
 	virtual CFormation * GetTowedArtilleryCrew()  { return 0; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// может сидеть в TankPit. при любой команде, которая может привести к движению этого юнита
-// нужно сначала выполнить команду выхода из TankPit.
 class CTank : public CMilitaryCar
 {
 	OBJECT_COMPLETE_METHODS( CTank );
@@ -132,7 +113,6 @@ class CTank : public CMilitaryCar
 	WORD wDangerousDirUnderFire;
 	float fDangerousDamageUnderFire;
 
-	//
 	void ScanForDangerousDir();
 public:
 	virtual void Init( const CVec2 &center, const int z, const SUnitBaseRPGStats *pStats, const float fHP, const WORD dir, const BYTE player, const WORD id, EObjVisType eVisType, const int dbID );
@@ -166,9 +146,6 @@ public:
 
 	virtual bool CanMoveAfterUserCommand() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// транспорт, перевозит марериальные ресурсы, 
-// может цеплять пушки
 class CAITransportUnit : public CMilitaryCar
 {
 	OBJECT_COMPLETE_METHODS( CAITransportUnit );
@@ -182,18 +159,14 @@ class CAITransportUnit : public CMilitaryCar
 	CExternLoaders externLoaders; // дошоняющие гранспорт грузчики
 	CPtr<CFormation> pTowedArtilleryCrew;	// when artillery is attached the crew.
 
-	// для группового подцепления артиллерии, 
-	// выбирает юнит из нашей группы, ближайший к артиллерии и возвращает его nUniqueId
 	const int GetNUnitToTakeArtillery( bool bPlaceInQueue, CAIUnit *pUnitToTake );
 public:
 	void Init( const CVec2 &center, const int z, const SUnitBaseRPGStats *pStats, const float fHP, const WORD dir, const BYTE player, const WORD id, EObjVisType eVisType, const int dbID );
 
-	// для процесса ремонта. грузчики расходуют RU в процессе починки и перезарядки
 	float GetResursUnitsLeft() const { return fResursUnits; }
 	void SetResursUnitsLeft( float _fResursUnits );
 	void DecResursUnitsLeft( float dRU );
 
-	// буксировка
 	virtual bool IsTowing() const;
 	virtual class CArtillery* GetTowedArtillery() const { return pTowedArtillery; }
 	void SetTowedArtillery( class CArtillery *pTowedArtillery);
@@ -211,12 +184,10 @@ public:
 	void AddExternLoaders( CFormation *pLoaders );
 	void Die( const bool fromExplosion, const float fDamage );
 
-	// towed artillery crew management
 	virtual bool HasTowedArtilleryCrew() const ;
 	virtual void SetTowedArtilleryCrew( class CFormation *pFormation ) ;
 	virtual CFormation * GetTowedArtilleryCrew() ;
 	
-	// 
 	void SetMustTow( class CAIUnit *_pUnit );
 	bool IsMustTow() const;
 	
@@ -224,5 +195,4 @@ public:
 
 	virtual bool CanHookUnit( class CAIUnit *pUnitToHook ) const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif //__TECHNICS_H__

@@ -8,7 +8,6 @@
 #include "..\RandomMapGen\MapInfo_Types.h"
 #include "..\RandomMapGen\Resource_Types.h"
 #include "..\Misc\FileUtils.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void STDCALL StoreRandomMap( const std::string &szMissionName, NSaveLoad::SRandomHeader *pRndHdr, CPtr<IRandomGenSeed> *ppSeed )
 {
 	const SMissionStats *pMission = NGDB::GetGameStats<SMissionStats>( szMissionName.c_str(), IObjectsDB::MISSION );
@@ -18,29 +17,24 @@ void STDCALL StoreRandomMap( const std::string &szMissionName, NSaveLoad::SRando
 		return;
 	SStorageElementStats stats;
 	pRGStream->GetStats( &stats );
-	// make 'random' header
 	pRndHdr->dwRandomDateTime = stats.mtime;
 	pRndHdr->szChapterUnitsTableFileName = GetGlobalVar( "Chapter.Units.Table.FileName", "" );
 	pRndHdr->nLevel = GetGlobalVar( "Chapter.Units.Table.Level", 0 );
 	pRndHdr->szGraphName = GetGlobalVar( "Chapter.Units.Table.GraphName", "" );
 	pRndHdr->nAngle = GetGlobalVar( "Chapter.Units.Table.Angle", 0 );
 
-	// store random seed for the map generator
 	*ppSeed = CreateObject<IRandomGenSeed>( STREAMIO_RANDOM_GEN_SEED );
 	(*ppSeed)->Restore( pRGStream );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void STDCALL RestoreRandomMap( const std::string &szMissionName, const NSaveLoad::SRandomHeader &rndhdr, IRandomGenSeed *pSeed )
 {
 	if ( const SMissionStats *pMission = NGDB::GetGameStats<SMissionStats>(szMissionName.c_str(), IObjectsDB::MISSION) ) 
 	{
-		// check date of the corresponding random seed file with the data in 'random' header
 		SStorageElementStats stats;
 		GetSingleton<IDataStorage>()->GetStreamStats( ("maps\\" + pMission->szFinalMap + ".seed").c_str(), &stats );
 		if ( stats.mtime != rndhdr.dwRandomDateTime ) 
 		{
 			GetSingleton<IRandomGen>()->SetSeed( pSeed );
-			//
 			CPtr<IMovieProgressHook> pProgress = CreateObject<IMovieProgressHook>( MAIN_PROGRESS_INDICATOR );
 			pProgress->Init( IMovieProgressHook::PT_MAPGEN );
 			pProgress->SetNumSteps( RMGC_CREATE_RANDOM_MAP_STEP_COUNT );
@@ -77,7 +71,6 @@ void STDCALL RestoreRandomMap( const std::string &szMissionName, const NSaveLoad
 			CPtr<IDataStream> pStream = CreateFileStream( szFullMissionName.c_str(), STREAM_ACCESS_WRITE );
 			CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::WRITE );
 			saver.Add( "RPG", const_cast<SMissionStats*>(pMission) );
-			// set file times as saved one
 			const std::string szFullFileName = GetSingleton<IDataStorage>()->GetName() + std::string("maps\\") + pMission->szFinalMap + ".seed";
 			{
 				SWin32Time w32time = rndhdr.dwRandomDateTime;
@@ -93,4 +86,3 @@ void STDCALL RestoreRandomMap( const std::string &szMissionName, const NSaveLoad
 		NI_ASSERT_T( false, NStr::Format("Can't find mission stats (\"%s\") for random mission to re-create map", szMissionName.c_str()) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

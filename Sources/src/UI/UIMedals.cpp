@@ -8,21 +8,17 @@ const int LEFT_SPACE = 3;				//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï
 const int TOP_SPACE = 2;				//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 const int MULT = 20;						//ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ScrollBar ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 const int MEDAL = 10;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMedals::UpdatePositions()
 {
 	int nY = -pScrollBar->GetPosition();
 
-	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	for ( int i=0; i<nMedalsCount; i++ )
 	{
-		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		CUIStaticBridge *pStatic = checked_cast<CUIStaticBridge *> ( GetChildByID( MEDAL + i * 2 ) );
 		NI_ASSERT( pStatic != 0 );
 		
 		if ( nY + pStatic->vPos.y + pStatic->vSize.y <= nSpace || nY + pStatic->vPos.y >= wndRect.Height() - nSpace )
 		{
-			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 			pStatic->ShowWindow( UI_SW_HIDE );
 		}
 		else
@@ -36,16 +32,13 @@ void CUIMedals::UpdatePositions()
 			rect.x2 = rect.x1 + pStatic->vSize.x;
 			rect.y2 = rect.y1 + pStatic->vSize.y;
 			
-			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 			if ( rect.y1 < wndRect.y1 + nSpace )
 			{
-				//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 				mapa.y1 += ( wndRect.y1 + nSpace - rect.y1 ) / fTextureSizeY;
 				rect.y1 = wndRect.y1 + nSpace;
 			}
 			else if ( rect.y2 > wndRect.y2 - nSpace )
 			{
-				//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 				mapa.y2 -= ( rect.y2 - wndRect.y2 + nSpace ) / fTextureSizeY;
 				rect.y2 = wndRect.y2 - nSpace;
 			}
@@ -53,18 +46,15 @@ void CUIMedals::UpdatePositions()
 			for ( int k=0; k<3; k++ )
 			{
 				pStatic->states[0].subStates[k].subRects[0].mapa = mapa;
-//				pStatic->states[0].subStates[k].subRects[0].rc = rect;
 			}
 			pStatic->wndRect = rect;
 			pStatic->UpdateSubRects();
 		}
 
-		//ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		pStatic = checked_cast<CUIStaticBridge *> ( GetChildByID( MEDAL + i * 2 + 1 ) );
 		NI_ASSERT( pStatic != 0 );
 		if ( nY + pStatic->vPos.y + pStatic->vSize.y <= nSpace || nY + pStatic->vPos.y >= wndRect.Height() - nSpace )
 		{
-			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 			pStatic->ShowWindow( UI_SW_HIDE );
 		}
 		else
@@ -77,16 +67,13 @@ void CUIMedals::UpdatePositions()
 			rect.y2 = rect.y1 + pStatic->vSize.y;
 			
 			/*
-			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 			if ( rect.y1 < wndRect.y1 + nSpace )
 			{
-				//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 				mapa.y1 += ( wndRect.y1 + nSpace - rect.y1 ) / fTextureSizeY;
 				rect.y1 = wndRect.y1 + nSpace;
 			}
 			else if ( rect.y2 > wndRect.y2 - nSpace )
 			{
-				//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 				mapa.y2 -= ( rect.y2 - wndRect.y2 ) / fTextureSizeY;
 				rect.y2 = wndRect.y2 - nSpace;
 			}
@@ -94,15 +81,12 @@ void CUIMedals::UpdatePositions()
 			for ( int k=0; k<3; k++ )
 			{
 				pStatic->states[0].subStates[k].subRects[0].mapa = mapa;
-				//				pStatic->states[0].subStates[k].subRects[0].rc = rect;
 			}
 			*/
 			pStatic->wndRect = rect;
-			//pStatic->UpdateSubRects();
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMedals::ComputeHPositions()
 {
 	int nX = nHSubSpace + nSpace;
@@ -111,11 +95,9 @@ void CUIMedals::ComputeHPositions()
 	rect.top = wndRect.top;
 	rect.bottom = rect.top + 10;	//10 - temp
 
-	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	int nMaxY = 0;
 	for ( int i=0; i<nMedalsCount; i++ )
 	{
-		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		CUIStaticBridge *pStatic = checked_cast<CUIStaticBridge *> ( GetChildByID( MEDAL + i * 2 ) );
 		NI_ASSERT( pStatic != 0 );
 		if ( nX + pStatic->vSize.x + nHSubSpace + nSpace + wndRect.x1 > wndRect.x2 )
@@ -133,7 +115,6 @@ void CUIMedals::ComputeHPositions()
 		pStatic->wndRect = rect;
 		nX = rect.x2 + nHSubSpace;
 		
-		//ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		pStatic = checked_cast<CUIStaticBridge *> ( GetChildByID( MEDAL + i * 2 + 1 ) );
 		NI_ASSERT( pStatic != 0 );
 		float fTemp = ( rect.x2 - rect.x1 - pStatic->vSize.x ) / 2;
@@ -158,11 +139,8 @@ void CUIMedals::ComputeHPositions()
 	pScrollBar->SetStep( 1 );
 	pScrollBar->SetButtonStep( MULT );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMedals::UpdateScrollbar()
 {
-	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ScrollBar
-	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 #ifdef OLD
 	int nSum = 0;
@@ -174,7 +152,6 @@ void CUIMedals::UpdateScrollbar()
 		
 		int nHeight = it->pGfxText->GetNumLines();				//ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		nHeight *= it->pGfxText->GetLineSpace();					//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ nHeight ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		nSum += nHeight;
 		i++;
 		if (!( i & 0x01 ))
@@ -188,14 +165,11 @@ void CUIMedals::UpdateScrollbar()
 		pScrollBar->ShowWindow( UI_SW_HIDE );
 		return;
 		*/
-		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		pScrollBar->SetMinValue( 0 );
 		pScrollBar->SetMaxValue( 0 );
 	}
 
 
-	//ScrollBar ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	nSum = 0;
 	i = 0;
 	for ( CTextList::iterator it=textes.begin(); it!=textes.end(); ++it )
@@ -206,7 +180,6 @@ void CUIMedals::UpdateScrollbar()
 		
 		int nHeight = it->pGfxText->GetNumLines();				//ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		nHeight *= it->pGfxText->GetLineSpace();					//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ nHeight ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		nSum += nHeight;
 		i++;
 		if (!( i & 0x01 ))
@@ -224,14 +197,12 @@ void CUIMedals::UpdateScrollbar()
 	pScrollBar->SetButtonStep( MULT );
 #endif		//OLD
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMedals::Visit( interface ISceneVisitor *pVisitor )
 {
 	if ( !nCmdShow )
 		return;
 	CSimpleWindow::Visit( pVisitor );
 
-	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½
 	for ( CWindowList::reverse_iterator ri = childList.rbegin(); ri != childList.rend(); ++ri )
 	{
 		CSimpleWindow *pWindow = dynamic_cast<CSimpleWindow *> ( ri->GetPtr() );
@@ -243,7 +214,6 @@ void CUIMedals::Visit( interface ISceneVisitor *pVisitor )
 			(*ri)->Visit( pVisitor );
 		else
 		{
-			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½
 			if ( !pWindow->states[pWindow->nCurrentState].pGfxText )
 				continue;
 
@@ -258,7 +228,6 @@ void CUIMedals::Visit( interface ISceneVisitor *pVisitor )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMedals::Draw( IGFX *pGFX )
 {
 	NI_ASSERT_SLOW_T( false, "Can't user Draw() directly - use visitor pattern" );
@@ -268,7 +237,6 @@ void CUIMedals::Draw( IGFX *pGFX )
 		return;
 	CSimpleWindow::Draw( pGFX );
 
-	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½
 	pGFX->SetShadingEffect( 3 );
 	for ( CWindowList::reverse_iterator ri=childList.rbegin(); ri!=childList.rend(); ri++ )
 	{
@@ -281,7 +249,6 @@ void CUIMedals::Draw( IGFX *pGFX )
 			(*ri)->Draw( pGFX );
 		else
 		{
-			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½
 			if ( !pWindow->states[pWindow->nCurrentState].pGfxText )
 				continue;
 
@@ -296,7 +263,6 @@ void CUIMedals::Draw( IGFX *pGFX )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIMedals::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -308,13 +274,11 @@ int CUIMedals::operator&( IDataTree &ss )
 	
 	if ( saver.IsReading() )
 	{
-		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ pScrollBar
 		pScrollBar = dynamic_cast<CUIScrollBar *>( GetChildByID(1) );
 		NI_ASSERT_T( pScrollBar != 0, "Can't find scroll bar" );
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIMedals::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -344,40 +308,32 @@ int CUIMedals::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMedals::InitMaps()
 {
 	medalMaps.clear();
 	for ( int i=0; i<nMedalsCount; i++ )
 	{
-		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		CUIStaticBridge *pStatic = checked_cast<CUIStaticBridge *> ( GetChildByID( MEDAL + i * 2 ) );
 		NI_ASSERT( pStatic != 0 );
 		medalMaps.push_back( pStatic->states[0].subStates[0].subRects[0].mapa );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMedals::Reposition( const CTRect<float> &rcParent )
 {
-	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	CVec2 size = pScrollBar->GetSize();
 	pScrollBar->SetPos( CVec2(size.x, 0) );
 	pScrollBar->SetSize( CVec2(size.x, GetSize().y ) );
 	CMultipleWindow::Reposition( rcParent );
 	/*
-	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½
 	IText *pText = states[0].pGfxText->GetText();
 	SetWindowText( 0, pText->GetString() );
 	*/
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIMedals::ProcessMessage( const SUIMessage &msg )
 {
-	//Scroll Text ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ NOTIFY ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ScrollBar
 	switch( msg.nMessageCode )
 	{
 	case UI_NOTIFY_POSITION_CHANGED:
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½
 		UpdatePositions();
 		return true;
 	case UI_NOTIFY_WINDOW_CLICKED:
@@ -393,7 +349,6 @@ bool CUIMedals::ProcessMessage( const SUIMessage &msg )
 	
 	return CMultipleWindow::ProcessMessage( msg );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMedals::ClearMedals()
 {
 	CObj<IUIElement> pSave = GetChildByID( 1 );		//ï¿½ï¿½ï¿½ Scroll Bar
@@ -404,7 +359,6 @@ void CUIMedals::ClearMedals()
 	nNextPosY = nVSubSpace;
 	pScrollBar->SetPosition( 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMedals::AddMedal( IGFXTexture *pTexture, const CTRect<float> &mapImageRect, const WORD *pszMedalsName )
 {
 	IObjectFactory *pFactory = GetCommonFactory();
@@ -440,7 +394,6 @@ void CUIMedals::AddMedal( IGFXTexture *pTexture, const CTRect<float> &mapImageRe
 	
 	nMedalsCount++;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMedals::UpdateMedals()
 {
 	InitMaps();
@@ -448,14 +401,12 @@ void CUIMedals::UpdateMedals()
 	ComputeHPositions();
 	UpdatePositions();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMedals::ShowWindow( int _nCmdShow )
 {
 	CSimpleWindow::ShowWindow( _nCmdShow );
 	if ( !_nCmdShow )
 		return;
 
-	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	ClearMedals();
 	const SMedalStats *pStats = NGDB::GetGameStats<SMedalStats>( "medals\\1\\1", IObjectsDB::MEDAL );
 /*	SMedalStats stats;
@@ -474,8 +425,6 @@ void CUIMedals::ShowWindow( int _nCmdShow )
 
 	for ( int i=0; i<10; i++ )
 	{
-//		std::string szTemp = pStats->szHeaderText;
-//		szTemp += ".txt";
 		CPtr<IText> p1 = pTextM->GetDialog( pStats->szHeaderText.c_str() );
 		IGFXTexture *pTexture = pTM->GetTexture( pStats->szTexture.c_str() );
 		AddMedal( pTexture, pStats->mapImageRect, p1->GetString() );
@@ -483,4 +432,3 @@ void CUIMedals::ShowWindow( int _nCmdShow )
 
 	UpdateMedals();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

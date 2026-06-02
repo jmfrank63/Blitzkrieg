@@ -3,7 +3,6 @@
 #include "UIInternal.h"
 #include "UIInternalM.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IManipulator *CUIWindowSubState::GetManipulator()
 {
 	if ( !pManipulator )
@@ -15,7 +14,6 @@ IManipulator *CUIWindowSubState::GetManipulator()
 	
 	return pManipulator;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIWindowSubState::CopyInternals( CUIWindowSubState *pSS ) const
 {
 	pSS->subRects = subRects;
@@ -26,7 +24,6 @@ void CUIWindowSubState::CopyInternals( CUIWindowSubState *pSS ) const
 	pSS->pTexture = pTexture;						// ������� ��� - ��������
 	pSS->pMask = pMask;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIWindowSubState::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -64,7 +61,6 @@ int CUIWindowSubState::operator&( IDataTree &ss )
 	
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SWindowTempTileRect
 {
 	CTRect<float> rc;
@@ -72,7 +68,6 @@ struct SWindowTempTileRect
 	CTRect<int> mapa;
 	int operator&( IDataTree &ss );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SWindowTempTileRect::operator &( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -81,7 +76,6 @@ int SWindowTempTileRect::operator &( IDataTree &ss )
 	saver.Add( "map", &mapa );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void LoadTileRectangles( CTreeAccessor *pFile, std::vector<SWindowSubRect> &subRects, DTChunkID sName, IGFXTexture *pTexture )
 {
 	NI_ASSERT_T( pFile->IsReading(), "Invalid call of LoadTileRectangles()" );
@@ -92,10 +86,8 @@ void LoadTileRectangles( CTreeAccessor *pFile, std::vector<SWindowSubRect> &subR
 	if ( temp.empty() )
 		return;
 
-	//����������� �������� �������������� � subRects
 	if ( pTexture )
 	{
-		//����������� �� int ��������� � �������� �� ���������� ���������� float
 		float fSizeX = pTexture->GetSizeX( 0 );
 		float fSizeY = pTexture->GetSizeY( 0 );
 		
@@ -143,7 +135,6 @@ void LoadTileRectangles( CTreeAccessor *pFile, std::vector<SWindowSubRect> &subR
 	}
 	else
 	{
-		//���� ��������, �� ���� �������
 		SWindowSubRect sub;
 		for ( int i=0; i<temp.size(); i++ )
 		{
@@ -157,7 +148,6 @@ void LoadTileRectangles( CTreeAccessor *pFile, std::vector<SWindowSubRect> &subR
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIWindowSubState::LoadTileRects( CTreeAccessor *pFile )
 {
 	NI_ASSERT_T( pFile->IsReading(), "Invalid call of LoadTileRects()" );
@@ -168,10 +158,8 @@ void CUIWindowSubState::LoadTileRects( CTreeAccessor *pFile )
 	if ( temp.empty() )
 		return;
 
-	//����������� �������� �������������� � subRects
 	if ( pTexture )
 	{
-		//����������� �� int ��������� � �������� �� ���������� ���������� float
 		float fSizeX = pTexture->GetSizeX( 0 );
 		float fSizeY = pTexture->GetSizeY( 0 );
 		
@@ -219,7 +207,6 @@ void CUIWindowSubState::LoadTileRects( CTreeAccessor *pFile )
 	}
 	else
 	{
-		//���� ��������, �� ���� �������
 		SWindowSubRect sub;
 		for ( int i=0; i<temp.size(); i++ )
 		{
@@ -233,14 +220,12 @@ void CUIWindowSubState::LoadTileRects( CTreeAccessor *pFile )
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SWindowTempSubRect
 {
 	CTRect<float> rc;
 	CTRect<int> mapa;
 	int operator&( IDataTree &ss );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SWindowTempSubRect::operator &( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -248,7 +233,6 @@ int SWindowTempSubRect::operator &( IDataTree &ss )
 	saver.Add( "map", &mapa );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIWindowSubState::SaveTextureAndSubRects( CTreeAccessor *pFile )
 {
 	NI_ASSERT_T( !pFile->IsReading(), "Invalid call of SaveTextureAndSubRects()" );
@@ -279,7 +263,6 @@ void CUIWindowSubState::SaveTextureAndSubRects( CTreeAccessor *pFile )
 	float fSizeY = pTexture->GetSizeY( 0 );
 	std::vector<SWindowTempSubRect> temp;
 	SWindowTempSubRect sub;
-	//��������� ������ ��������������� � int ������������
 	for ( int i=0; i<subRects.size(); i++ )
 	{
 		sub.rc = subRects[i].rc;
@@ -291,7 +274,6 @@ void CUIWindowSubState::SaveTextureAndSubRects( CTreeAccessor *pFile )
 	}
 	pFile->Add( "SubRects", &temp );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIWindowSubState::LoadTextureAndSubRects( CTreeAccessor *pFile )
 {
 	NI_ASSERT_T( pFile->IsReading(), "Invalid call of LoadTextureAndSubRects()" );
@@ -306,13 +288,10 @@ void CUIWindowSubState::LoadTextureAndSubRects( CTreeAccessor *pFile )
 	std::vector<SWindowTempSubRect> temp;
 	pFile->Add( "SubRects", &temp );
 
-	//CRAP
 	if ( temp.empty() )
 	{
-		//�������� ���� �� ������� ������ � �������� �� � ������ subRects
 		if ( pTexture )
 		{
-			//����������� �� int ��������� � �������� �� ���������� ���������� float
 			CTRect<int> rc( -1, -1, -1, -1 );
 			pFile->Add( "Maps", &rc );
 
@@ -354,11 +333,9 @@ void CUIWindowSubState::LoadTextureAndSubRects( CTreeAccessor *pFile )
 
 		return;
 	}
-	//end of CRAP
 	
 	if ( pTexture )
 	{
-		//����������� �� int ��������� � �������� �� ���������� ���������� float
 		float fSizeX = pTexture->GetSizeX( 0 );
 		float fSizeY = pTexture->GetSizeY( 0 );
 		
@@ -389,7 +366,6 @@ void CUIWindowSubState::LoadTextureAndSubRects( CTreeAccessor *pFile )
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIWindowSubState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -401,7 +377,6 @@ int CUIWindowSubState::operator&( IStructureSaver &ss )
 	saver.Add( 6, &pMask );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IManipulator *CWindowState::GetManipulator()
 {
 	if ( !pManipulator )
@@ -413,7 +388,6 @@ IManipulator *CWindowState::GetManipulator()
 	
 	return pManipulator;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWindowState::CopyInternals( CWindowState * pS ) const
 {
 	pS->szPushSound = szPushSound;
@@ -426,7 +400,6 @@ void CWindowState::CopyInternals( CWindowState * pS ) const
 
 	pS->InitDependentInfo();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CWindowState::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -437,9 +410,7 @@ int CWindowState::operator&( IDataTree &ss )
 	saver.Add( "PushSound", &szPushSound );
 	saver.Add( "ClickSound", &szClickSound );
 	saver.Add( "ToolTip", &szToolKey );
-	//������ ���������� � CSimpleWindow::operator &()
 	
-	//�����
 	saver.Add( "TextKey", &szKey );
 	
 	if ( saver.IsReading() )
@@ -448,7 +419,6 @@ int CWindowState::operator&( IDataTree &ss )
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWindowState::InitDependentInfo()
 {
 	pGfxText = CreateObject<IGFXText>( GFX_TEXT );
@@ -465,7 +435,6 @@ void CWindowState::InitDependentInfo()
 
 	pGfxText->SetText( pText );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CWindowState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -474,21 +443,17 @@ int CWindowState::operator&( IStructureSaver &ss )
 	saver.Add( 3, &subStates[2] );
 	saver.Add( 4, &subStates[3] );
 
-	//�����
 	saver.Add( 5, &szPushSound );
 	saver.Add( 6, &szClickSound );
 
-	//�����
 	saver.Add( 7, &pGfxText );
 	saver.Add( 8, &szKey );
 
-	//tooltip
 	saver.Add( 9, &szToolKey );
 	saver.Add( 10, &pToolText );
 	
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SaveTextureAndMap( CTreeAccessor *pFile, IGFXTexture *pTexture, DTChunkID tName, const CTRect<float> &maps, DTChunkID mName )
 {
 	NI_ASSERT_T( !pFile->IsReading(), "Invalid call of SaveTextureAndMap()" );
@@ -511,7 +476,6 @@ void SaveTextureAndMap( CTreeAccessor *pFile, IGFXTexture *pTexture, DTChunkID t
 	
 	if ( pTexture )
 	{
-		//����������� �� float ��������� � int ���������� ��������
 		float fSizeX = pTexture->GetSizeX( 0 );
 		float fSizeY = pTexture->GetSizeY( 0 );
 		
@@ -523,7 +487,6 @@ void SaveTextureAndMap( CTreeAccessor *pFile, IGFXTexture *pTexture, DTChunkID t
 		pFile->Add( mName, &rc );
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void LoadTextureAndMap( CTreeAccessor *pFile, CPtr<IGFXTexture> *ppTexture, DTChunkID tName, CTRect<float> *pMaps, DTChunkID mName )
 {
 	NI_ASSERT_T( pFile->IsReading(), "Invalid call of LoadTextureAndMap()" );
@@ -537,7 +500,6 @@ void LoadTextureAndMap( CTreeAccessor *pFile, CPtr<IGFXTexture> *ppTexture, DTCh
 	
 	if ( *ppTexture )
 	{
-		//����������� �� int ��������� � �������� �� ���������� ���������� float
 		CTRect<int> rc;
 		pFile->Add( mName, &rc );
 		float fSizeX = (*ppTexture)->GetSizeX( 0 );
@@ -556,7 +518,6 @@ void LoadTextureAndMap( CTreeAccessor *pFile, CPtr<IGFXTexture> *ppTexture, DTCh
 		pMaps->y2 = 1.0f;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SaveSound( CTreeAccessor *pFile, ISound *pSound, DTChunkID sName )
 {
 	NI_ASSERT_T( !pFile->IsReading(), "Invalid call of SaveSound()" );
@@ -571,7 +532,6 @@ void SaveSound( CTreeAccessor *pFile, ISound *pSound, DTChunkID sName )
 	szName.erase( szName.rfind( '.' ), -1 );
 	pFile->Add( sName, &szName );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void LoadSound( CTreeAccessor *pFile, CPtr<ISound> *ppSound, DTChunkID sName )
 {
 	NI_ASSERT_T( pFile->IsReading(), "Invalid call of LoadSound()" );
@@ -583,4 +543,3 @@ void LoadSound( CTreeAccessor *pFile, CPtr<ISound> *ppSound, DTChunkID sName )
 	else
 		*ppSound = GetSingleton<ISoundManager>()->GetSound2D( szName.c_str() );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

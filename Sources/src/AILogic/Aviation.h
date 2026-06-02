@@ -2,14 +2,10 @@
 #define __AVIATION_H__
 
 #pragma ONCE
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "AIUnit.h"
 #include "PlanePath.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUnitGuns;
 class CTurret;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// class to extend if unit to go by CPlaneSmoothPath
 interface IAviationUnit
 {
 	virtual const CVec2 &GetSpeedHorVer() const = 0;
@@ -18,7 +14,6 @@ interface IAviationUnit
 	virtual const WORD GetClimbingAngle() const = 0;
 	virtual const CVec3 & GetNewPoint() const = 0;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CPlanesFormation : public IRefCount, public IAviationUnit, public IBasePathUnit
 {
 	OBJECT_COMPLETE_METHODS( CPlanesFormation );
@@ -33,7 +28,6 @@ class CPlanesFormation : public IRefCount, public IAviationUnit, public IBasePat
 	CVec2 vDirection;
 	CVec2 vSpeedHorVer;
 
-	// for member counting
 	int nProcessed;
 	int nAlive;
 
@@ -84,7 +78,6 @@ public:
 	}
 	virtual interface ISmoothPath* GetCurPath() const;
 
-	// �� � ��������
 	virtual const WORD GetID() const { NI_ASSERT_T( false, "WRONG CALL"); return 0; }
 	virtual const float GetRotateSpeed() const { NI_ASSERT_T( false, "WRONG CALL"); return 0; }
 	virtual const float GetMaxSpeedHere( const CVec2 &point, bool bAdjust = true ) const { NI_ASSERT_T( false, "WRONG CALL"); return 0; }
@@ -135,7 +128,6 @@ public:
 	virtual bool IsDangerousDirExist() const { return false; }
 	virtual const WORD GetDangerousDir() const { return 0; }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAviation : public CAIUnit, public IAviationUnit
 {
 	OBJECT_NORMAL_METHODS( CAviation );
@@ -143,13 +135,10 @@ class CAviation : public CAIUnit, public IAviationUnit
 	
 	CGDBPtr<SMechUnitRPGStats> pStats;
 
-	// ��������� ������
 	CPtr<CUnitGuns> pGuns;
 
-	// ����������� �����
 	std::vector< CObj<CTurret> > turrets;
 
-	// ��� �������� ���������
 	CPtr<CPlanesFormation> pFormation;
 	CVec2 vPlanesShift;										// shift in formation
 
@@ -176,15 +165,12 @@ public:
 	virtual int GetMovingType() const ;
 	virtual void Init( const CVec2 &center, const int z, const SUnitBaseRPGStats *pStats, const float fHP, const WORD dir, const BYTE player, const WORD id, EObjVisType eVisType, const int dbID );
 
-	// IAviationUnit implementation
-	// ��� ������������ ��������
 	virtual const CVec3 &GetNewPoint() const { NI_ASSERT_T(false, "wrong call"); return lastPos; }
 	virtual const CVec2 &GetSpeedHorVer() const { return vSpeedHorVer; }
 	void SetSpeedHorVer( const class CVec2 &_vSpeedHorVer){vSpeedHorVer=_vSpeedHorVer;}
 	virtual const WORD GetDivingAngle() const ;
 	virtual const WORD GetClimbingAngle() const ;
 
-	// end IAviationUnit implementation
 
 	virtual void GetSpeed3( CVec3 *pSpeed ) const ;
 
@@ -197,7 +183,6 @@ public:
 	virtual class CTurret* GetTurret( const int nTurret ) const { return turrets[nTurret]; }
 	virtual const int GetNTurrets() const { return turrets.size(); }
 	
-	// ��� ��������
 	virtual void GetShotInfo( struct SAINotifyMechShot *pShotInfo ) const { pShotInfo->typeID = GetShootAction(); pShotInfo->pObj = const_cast<CAviation*>(this); }
 	virtual const EActionNotify GetShootAction() const { return ACTION_NOTIFY_MECH_SHOOT; }
 	virtual const EActionNotify GetAimAction() const { return ACTION_NOTIFY_AIM; }
@@ -207,7 +192,6 @@ public:
 
 	virtual const bool CanShootToPlanes() const;
 
-	//
 	virtual int GetNGuns() const;
 	virtual class CBasicGun* GetGun( const int n ) const;
 
@@ -218,7 +202,6 @@ public:
 	
 	virtual NTimer::STime GetDisappearInterval() const { return 0; }
 
-	// ��� ��������� ������� � ������������.
 	virtual float GetTerrainHeight( const float x, const float y, const NTimer::STime timeDiff ) const { return 0; }
 
 	virtual void GetPlacement( struct SAINotifyPlacement *pPlacement, const NTimer::STime timeDiff );
@@ -234,14 +217,10 @@ public:
 	virtual void StopUnit() { }
 	virtual void Disappear();
 	
-	// �������� unit ( ���� ��� ��� ��������, �� ������ lock �������� )
 	virtual void Lock( const CBasicGun *pGun ) { }
-	// unlock unit ( ���� ������� ������ gun-��, �� ������ �� �������� )
 	virtual void Unlock( const CBasicGun *pGun ) { }
-	// ������� �� �����-���� gun-��, �� ������ pGun
 	virtual bool IsLocked( const CBasicGun *pGun ) const { return true; }
 	
-	// plane's formation, to force planes keep parade during flight.
 	void SetPlanesFormation( class CPlanesFormation *pFormation, const CVec2 &vShift );
 	CPlanesFormation * GetPlanesFormation();
 	const CVec2 GetPlaneShift() const { return vPlanesShift; }
@@ -259,5 +238,4 @@ public:
 
 	const NTimer::STime GetNextSecondPathSegmTime() const;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __AVIATION_H__

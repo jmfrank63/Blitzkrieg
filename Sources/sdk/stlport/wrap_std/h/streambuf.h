@@ -1,4 +1,3 @@
-//*TY 02/11/2000 - added missing header file
 
 # include _STLP_NATIVE_OLD_STREAMS_HEADER(iostream.h)
 

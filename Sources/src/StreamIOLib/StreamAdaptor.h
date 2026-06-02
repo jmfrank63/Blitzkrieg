@@ -1,20 +1,15 @@
 #ifndef __STREAM_ADAPTOR_H__
 #define __STREAM_ADAPTOR_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CStreamRangeAdaptor : public IDataStream
 {
 	OBJECT_NORMAL_METHODS( CStreamRangeAdaptor );
-	//
 	CPtr<IDataStream> pStream;						// stream to adapt range
 	std::string szName;										// stream name
 	SStorageElementStats stats;						// own stats for sub-stream
 	bool bHasOwnStats;										// is the 'stats' valid
-	// range begin/end
 	int nBeginPos;
 	int nEndPos;
-	//
 	int nSeekPos;													// current seek position
 public:
 	CStreamRangeAdaptor() : nBeginPos( 0 ), nEndPos( 0 ), nSeekPos( 0 ), bHasOwnStats( false ) {  }
@@ -28,7 +23,6 @@ public:
 		}
 		bHasOwnStats = pStats != 0;
 	}
-	// чтение/запись данных
 	virtual int STDCALL Read( void *pBuffer, int nLength )
 	{
 		const int nLastPos = pStream->GetPos();
@@ -48,16 +42,12 @@ public:
 		pStream->Seek( nLastPos, STREAM_SEEK_SET );
 		return nWrittenLength;
 	}
-	// объявить текущую позицию в потоке за начало потока
 	virtual int STDCALL LockBegin() { return -1; }
-	// вернуть начало потока в нулевую позицию
 	virtual int STDCALL UnlockBegin() { return -1; }
-	// текущая позиция в потоке
 	virtual int STDCALL GetPos() const
 	{
 		return pStream->GetPos() - nBeginPos;
 	}
-	// выставить текущую позицию в потоке
 	virtual int STDCALL Seek( int offset, STREAM_SEEK from )
 	{
 		switch ( from )
@@ -74,26 +64,20 @@ public:
 		}
 		return nSeekPos;
 	}
-	// получить размер потока
 	virtual int STDCALL GetSize() const
 	{
 		return nEndPos - nBeginPos;
 	}
-	// изменить размер потока
 	virtual bool STDCALL SetSize( int nSize ) { return false; }
-	// скопировать 'nLength' байт из текущей позиции потока в текущю позицию 'pDstStream' потока
 	virtual int STDCALL CopyTo( IDataStream *pDstStream, int nLength )
 	{
 		if ( nLength == 0 )
 			return 0;
-		//
 		std::vector<BYTE> buffer( nLength );
 		nLength = Read( &(buffer[0]), nLength );
 		return pDstStream->Write( &(buffer[0]), nLength );
 	}
-	// сбросить все закешированные данные
 	virtual void STDCALL Flush() {  }
-	// получить информацию о потоке
 	virtual void STDCALL GetStats( SStorageElementStats *pStats )
 	{
 		if ( bHasOwnStats ) 
@@ -106,14 +90,12 @@ public:
 		}
 	}
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CStreamCOMAdaptor : public IStream
 {
 	int nRefCount;
 	CPtr<IDataStream> pStream;
 public:
 	CStreamCOMAdaptor( IDataStream *_pStream ) : nRefCount( 1 ), pStream( _pStream ) {  }
-	// IUnknown
 	virtual HRESULT STDCALL QueryInterface( REFIID iid, void ** ppvObject )
 	{
 		if ( iid == IID_IUnknown )
@@ -130,7 +112,6 @@ public:
 	}
 	virtual ULONG STDCALL AddRef() { return ++nRefCount; }
 	virtual ULONG STDCALL Release() { int nRef = --nRefCount; if ( nRefCount == 0 ) delete this; return nRef; }
-	// ISequentialStream
 	virtual HRESULT STDCALL Read( void *pv, ULONG cb, ULONG *pcbRead )
 	{
 		int nLength = pStream->Read( pv, cb );
@@ -145,7 +126,6 @@ public:
 			*pcbWritten = nLength;
 		return S_OK;
 	}
-	// IStream itself
 	virtual HRESULT STDCALL Seek( LARGE_INTEGER dlibMove, DWORD dwOrigin, ULARGE_INTEGER *plibNewPosition  )
 	{
 		int nPos = pStream->Seek( int(dlibMove.QuadPart), STREAM_SEEK(dwOrigin) );
@@ -196,5 +176,4 @@ public:
 		return S_OK;
 	}
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __STREAM_ADAPTOR_H__

@@ -1,17 +1,11 @@
 #ifndef __SERVER_INFO_H__
 #define __SERVER_INFO_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\RandomMapGen\MapInfo_Types.h"
 #include "..\GameTT\MultiplayerCommandManager.h"
 #include "..\Net\NetDriver.h"
 #include "..\zlib\zlib.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface INetNodeAddress;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// вся информация, необходимая для servers list
 struct SServerInfo
 {
 	enum EServerState { ESS_OPEN, ESS_IN_GAME };
@@ -26,9 +20,7 @@ struct SServerInfo
 	int nHostPort;
 	bool bPasswordRequired;
 
-	// for interface screen
 	WORD wUniqueServerId;
-	// for servers list refreshing
 	bool bUpdated;
 
 	CMapInfo::GAME_TYPE eGameType;
@@ -40,7 +32,6 @@ struct SServerInfo
 	SServerInfo() : wUniqueServerId( 0 ), bPasswordRequired( false ) { }
 	SServerInfo( const struct SGameInfo &gameInfo );
 
-	// записывает всё то, что нужно пересылать по сети
 	void Pack( struct INetDriver::SGameInfo *pGameInfo );
 	void Unpack( const struct INetDriver::SGameInfo &gameInfo );
 
@@ -59,9 +50,6 @@ struct SPlayerInfo
 
 	std::wstring szName;
 
-	// EPS_INVALID - такого player нет
-	// EPS_CONNECTED - подсоединился, но о нём ничего неизвестно
-	// EPS_VALID - подсоединился и получена вся необходимая информация
 	enum EPlayerStates { EPS_INVALID, EPS_CONNECTED, EPS_VALID };
 	EPlayerStates eState;
 
@@ -75,10 +63,7 @@ struct SPlayerInfo
 	void Pack( IDataStream *pDataSteam );
 	void Unpack( IDataStream *pDataStream );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::vector<SPlayerInfo> CPlayers;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// вся информация, необходимая для gamecreation и gameplaying
 struct SGameInfo
 {
 	std::wstring szGameName;
@@ -101,7 +86,6 @@ struct SGameInfo
 	
 	bool bMapLoaded;
 
-	//
 	SGameInfo() : checkSumMap( 0L ), checkSumRes( 0L ), bPasswordRequired( false ), szPassword( "" ), bMapLoaded( true ) { }
 
 	void Init( const WORD *pszGameName, const char *pszMapName, const int _nMaxPlayers, const int _nCurPlayers,
@@ -130,5 +114,4 @@ struct SGameInfo
 	void Pack( IDataStream *pDataStream );
 	void Unpack( IDataStream *pDataStream );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __SERVER_INFO_H__

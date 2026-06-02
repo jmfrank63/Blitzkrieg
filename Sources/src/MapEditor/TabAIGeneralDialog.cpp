@@ -57,7 +57,6 @@ int CALLBACK PositionsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParam
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CTabAIGeneralDialog::vID[] = 
 {
 	IDC_AIG_SIDE_0_RADIO_BUTTON,														//0
@@ -75,13 +74,10 @@ const int CTabAIGeneralDialog::vID[] =
 	IDC_AIG_MESSAGE_LABEL,																	//12
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CTabAIGeneralDialog::CTabAIGeneralDialog( CWnd* pParent )
 	: CResizeDialog( CTabAIGeneralDialog::IDD, pParent ), bCreateControls( false )
 {
-	//{{AFX_DATA_INIT(CTabAIGeneralDialog)
 	m_nSide = 0;
-	//}}AFX_DATA_INIT
 
 	SetControlStyle( IDC_AIG_SIDE_0_RADIO_BUTTON, ANCHORE_LEFT_TOP | RESIZE_HOR );
 	SetControlStyle( IDC_AIG_SIDE_1_RADIO_BUTTON, ANCHORE_LEFT_TOP | RESIZE_HOR );
@@ -104,9 +100,7 @@ CTabAIGeneralDialog::CTabAIGeneralDialog( CWnd* pParent )
 	SetControlStyle( IDC_AIG_MESSAGE_LABEL, ANCHORE_RIGHT_BOTTOM | RESIZE_HOR );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP( CTabAIGeneralDialog, CResizeDialog )
-	//{{AFX_MSG_MAP(CTabAIGeneralDialog)
 	ON_NOTIFY(LVN_COLUMNCLICK, IDC_AIG_POSITIONS_LIST, OnColumnclickPositionsList)
 	ON_NOTIFY(LVN_COLUMNCLICK, IDC_AIG_MOBILE_REINFORCEMENT_SCRIPT_ID_LIST, OnColumnclickReinforcementsList)
 	ON_BN_CLICKED(IDC_AIG_DELETE_MOBILE_REINFORCEMENT_SCRIPT_ID_BUTTON, OnAigDeleteMobileReinforcementScriptIdButton)
@@ -131,21 +125,17 @@ BEGIN_MESSAGE_MAP( CTabAIGeneralDialog, CResizeDialog )
 	ON_WM_RBUTTONDOWN()
 	ON_WM_LBUTTONDOWN()
 	ON_WM_DESTROY()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 void CTabAIGeneralDialog::DoDataExchange(CDataExchange* pDX)
 { 
 	CResizeDialog::DoDataExchange(pDX);
-	//{{AFX_DATA_MAP(CTabAIGeneralDialog)
 	DDX_Control(pDX, IDC_AIG_POSITIONS_LIST, m_PositionsList);
 	DDX_Control(pDX, IDC_AIG_MOBILE_REINFORCEMENT_SCRIPT_ID_LIST, m_ReinforcementsList);
 	DDX_Control(pDX, IDC_AIG_MESSAGE_LABEL, m_MessageStatic);
 	DDX_Radio(pDX, IDC_AIG_SIDE_0_RADIO_BUTTON, m_nSide);
-	//}}AFX_DATA_MAP
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::string CTabAIGeneralDialog::AngleToText( WORD angle )
 {
 	int nAngle = angle;
@@ -153,7 +143,6 @@ std::string CTabAIGeneralDialog::AngleToText( WORD angle )
 	return NStr::Format( "%d", nAngle );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CTabAIGeneralDialog::OnInitDialog() 
 {
 	CResizeDialog::OnInitDialog();
@@ -172,7 +161,6 @@ BOOL CTabAIGeneralDialog::OnInitDialog()
 	return TRUE;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::CreateControls()
 {
 	bCreateControls = true;
@@ -206,7 +194,6 @@ void CTabAIGeneralDialog::CreateControls()
 }
 
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::UpdateControls()
 {
 	CWnd* pWnd = 0;
@@ -219,7 +206,6 @@ void CTabAIGeneralDialog::UpdateControls()
 
 	bool bFrameExists = ( pFrame && pAIEditor && pIDB && pTerrain );
 
-	//Reinforcements buttons
 	if ( pWnd = GetDlgItem( IDC_AIG_ADD_MOBILE_REINFORCEMENT_SCRIPT_ID_BUTTON ) )
 	{
 		pWnd->EnableWindow( bFrameExists );
@@ -229,7 +215,6 @@ void CTabAIGeneralDialog::UpdateControls()
 		pWnd->EnableWindow( bFrameExists && ( m_ReinforcementsList.GetSelectedCount() > 0 ) );
 	}
 	
-	//Positions buttons
 	if ( pWnd = GetDlgItem( IDC_AIG_POSITION_TYPE_BUTTON ) )
 	{
 		pWnd->EnableWindow( bFrameExists && ( m_PositionsList.GetSelectedCount() > 0 ) );
@@ -240,7 +225,6 @@ void CTabAIGeneralDialog::UpdateControls()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnColumnclickReinforcementsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -261,7 +245,6 @@ void CTabAIGeneralDialog::OnColumnclickReinforcementsList(NMHDR* pNMHDR, LRESULT
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnColumnclickPositionsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -282,7 +265,6 @@ void CTabAIGeneralDialog::OnColumnclickPositionsList(NMHDR* pNMHDR, LRESULT* pRe
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTabAIGeneralDialog::LoadAIGReinforcementsInfo()
 {
 	CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame();
@@ -312,7 +294,6 @@ bool CTabAIGeneralDialog::LoadAIGReinforcementsInfo()
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTabAIGeneralDialog::LoadAIGPositionsInfo()
 {
 	CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame();
@@ -344,7 +325,6 @@ bool CTabAIGeneralDialog::LoadAIGPositionsInfo()
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::SetReinforcementItem( int nNewItem, int nScriptID )
 {
 	CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame();
@@ -362,7 +342,6 @@ void CTabAIGeneralDialog::SetReinforcementItem( int nNewItem, int nScriptID )
 	m_ReinforcementsList.SetItem( nNewItem, 4, LVIF_TEXT, NStr::Format( "%d", nSquads ), 0, 0, 0, 0 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::SetPositionItem( int nNewItem, const SAIGeneralParcelInfo &rAIGeneralParcelInfo )
 {
 	std::string szType;
@@ -392,7 +371,6 @@ void CTabAIGeneralDialog::SetPositionItem( int nNewItem, const SAIGeneralParcelI
 	m_PositionsList.SetItem( nNewItem, 5, LVIF_TEXT, NStr::Format( "%d", rAIGeneralParcelInfo.reinforcePoints.size() ), 0, 0, 0, 0 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::UpdatePosition( int nPositionIndex )
 {
 	CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame();
@@ -435,13 +413,11 @@ void CTabAIGeneralDialog::UpdatePosition( int nPositionIndex )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::DeletePosition( int nPositionIndex )
 {
 	LoadAIGPositionsInfo();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::AddPosition( int nPositionIndex )
 {
 	LoadAIGPositionsInfo();
@@ -483,7 +459,6 @@ void CTabAIGeneralDialog::AddPosition( int nPositionIndex )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::GetUnitsCountByScriptID( int nScriptID, int nSide, CTemplateEditorFrame *pFrame, int *pUnits, int *pInvalidUnits, int *pSquads )
 {
 	( *pUnits ) = 0;
@@ -493,7 +468,6 @@ void CTabAIGeneralDialog::GetUnitsCountByScriptID( int nScriptID, int nSide, CTe
 	IAIEditor* pAIEditor = GetSingleton<IAIEditor>();
 	std::set<IRefCount*> squads;
 	
-	//�� ������
 	for ( std::unordered_map<SMapObject*, SEditorObjectItem*, SDefaultPtrHash>::const_iterator objectsIterator = pFrame->m_objectsAI.begin(); objectsIterator != pFrame->m_objectsAI.end(); ++objectsIterator )
 	{
 		IRefCount *pSquad = GetSingleton<IAIEditor>()->GetFormationOfUnit( objectsIterator->first->pAIObj );
@@ -519,7 +493,6 @@ void CTabAIGeneralDialog::GetUnitsCountByScriptID( int nScriptID, int nSide, CTe
 		}
 	}
 	
-	//������� ������������ ������, ������ ���������� �� ���
 	for( std::set< IRefCount* >::iterator squadIterator = squads.begin(); squadIterator != squads.end(); ++squadIterator )
 	{
 		IRefCount **pUnits;
@@ -533,7 +506,6 @@ void CTabAIGeneralDialog::GetUnitsCountByScriptID( int nScriptID, int nSide, CTe
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnAigDeleteMobileReinforcementScriptIdButton() 
 {
 	CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame();
@@ -582,7 +554,6 @@ void CTabAIGeneralDialog::OnAigDeleteMobileReinforcementScriptIdButton()
 	UpdateControls();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnAigAddMobileReinforcementScriptIdButton() 
 {
 	CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame();
@@ -614,7 +585,6 @@ void CTabAIGeneralDialog::OnAigAddMobileReinforcementScriptIdButton()
 	UpdateControls();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnItemchangedAigMobileReinforcementScriptIdList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -622,7 +592,6 @@ void CTabAIGeneralDialog::OnItemchangedAigMobileReinforcementScriptIdList(NMHDR*
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnItemchangedPositionsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -669,7 +638,6 @@ void CTabAIGeneralDialog::OnItemchangedPositionsList(NMHDR* pNMHDR, LRESULT* pRe
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnSide0RadioButton() 
 {
 	m_nSide = 0;
@@ -683,7 +651,6 @@ void CTabAIGeneralDialog::OnSide0RadioButton()
 	resizeDialogOptions.nParameters.back() = m_nSide;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnSide1RadioButton() 
 {
 	m_nSide = 1;
@@ -697,7 +664,6 @@ void CTabAIGeneralDialog::OnSide1RadioButton()
 	resizeDialogOptions.nParameters.back() = m_nSide;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnRclickReinforcementsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	CMenu tabsMenu;
@@ -722,7 +688,6 @@ void CTabAIGeneralDialog::OnRclickReinforcementsList(NMHDR* pNMHDR, LRESULT* pRe
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnKeydownReinforcementsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	LV_KEYDOWN* pLVKeyDown = (LV_KEYDOWN*)pNMHDR;
@@ -749,31 +714,26 @@ void CTabAIGeneralDialog::OnKeydownReinforcementsList(NMHDR* pNMHDR, LRESULT* pR
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnAddReinforcementMenu() 
 {
 	OnAigAddMobileReinforcementScriptIdButton();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnDeleteReinforcementMenu() 
 {
 	OnAigDeleteMobileReinforcementScriptIdButton();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnDeletePositionMenu() 
 {
 	OnDeletePositionButton();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnPositionTypeMenu() 
 {
 	OnPositionTypeButton();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnPositionTypeButton() 
 {
 	CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame();
@@ -859,7 +819,6 @@ void CTabAIGeneralDialog::OnPositionTypeButton()
 	UpdateControls();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnDeletePositionButton()
 {
 	CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame();
@@ -909,7 +868,6 @@ void CTabAIGeneralDialog::OnDeletePositionButton()
 	UpdateControls();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnRclickPositionsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	CMenu tabsMenu;
@@ -934,7 +892,6 @@ void CTabAIGeneralDialog::OnRclickPositionsList(NMHDR* pNMHDR, LRESULT* pResult)
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnDblclkPositionsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	if ( CWnd* pWnd = GetDlgItem( IDC_AIG_POSITION_TYPE_BUTTON ) )
@@ -946,7 +903,6 @@ void CTabAIGeneralDialog::OnDblclkPositionsList(NMHDR* pNMHDR, LRESULT* pResult)
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnKeydownPositionsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	LV_KEYDOWN* pLVKeyDown = (LV_KEYDOWN*)pNMHDR;
@@ -972,7 +928,6 @@ void CTabAIGeneralDialog::OnKeydownPositionsList(NMHDR* pNMHDR, LRESULT* pResult
 	}
 	*pResult = 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnLButtonUp(UINT nFlags, CPoint point) 
 {
 	CResizeDialog ::OnLButtonUp(nFlags, point);
@@ -983,7 +938,6 @@ void CTabAIGeneralDialog::OnLButtonUp(UINT nFlags, CPoint point)
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnRButtonUp(UINT nFlags, CPoint point) 
 {
 	CResizeDialog ::OnRButtonUp(nFlags, point);
@@ -994,7 +948,6 @@ void CTabAIGeneralDialog::OnRButtonUp(UINT nFlags, CPoint point)
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnRButtonDown(UINT nFlags, CPoint point) 
 {
 	CResizeDialog ::OnRButtonDown(nFlags, point);
@@ -1005,7 +958,6 @@ void CTabAIGeneralDialog::OnRButtonDown(UINT nFlags, CPoint point)
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnLButtonDown(UINT nFlags, CPoint point) 
 {
 	CResizeDialog ::OnLButtonDown(nFlags, point);
@@ -1016,7 +968,6 @@ void CTabAIGeneralDialog::OnLButtonDown(UINT nFlags, CPoint point)
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabAIGeneralDialog::OnDestroy() 
 {
 	for ( int nColumnIndex = 0; nColumnIndex < REINFORCEMENTS_COLUMN_COUNT; ++nColumnIndex )
@@ -1031,4 +982,3 @@ void CTabAIGeneralDialog::OnDestroy()
 	CResizeDialog::SaveResizeDialogOptions();
 	CResizeDialog ::OnDestroy();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

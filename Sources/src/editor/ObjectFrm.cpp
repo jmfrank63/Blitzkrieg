@@ -1,5 +1,3 @@
-// CObjectFrm.cpp : implementation of the CObjectFrame class
-//
 #include "stdafx.h"
 #include <io.h>
 #include "..\Common\StingrayCompat.h"
@@ -128,13 +126,10 @@ void MyFillBrezenham( int x1, int y1, int x2, int y2, std::list<CVec2> &tiles )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// CObjectFrame
 
 IMPLEMENT_DYNCREATE(CObjectFrame, CGridFrame)
 
 BEGIN_MESSAGE_MAP(CObjectFrame, CGridFrame)
-	//{{AFX_MSG_MAP(CObjectFrame)
 	ON_WM_CREATE()
 	ON_WM_LBUTTONDOWN()
 	ON_WM_RBUTTONDOWN()
@@ -151,11 +146,8 @@ BEGIN_MESSAGE_MAP(CObjectFrame, CGridFrame)
 	ON_CBN_SELCHANGE( IDC_OBJECT_TRANSPARENCE, OnChangeTranseparence )
 	ON_COMMAND(ID_DRAW_ONE_WAY_TRANSEPARENCE, OnDrawOneWayTranseparence)
 	ON_UPDATE_COMMAND_UI(ID_DRAW_ONE_WAY_TRANSEPARENCE, OnUpdateDrawOneWayTranseparence)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////
-// CObjectFrame construction/destruction
 
 CObjectFrame::CObjectFrame()
 {
@@ -202,7 +194,6 @@ int CObjectFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		return -1;
 	g_frameManager.AddFrame( this );
 
-	// create a view to occupy the client area of the frame
 	if (!pWndView->Create(NULL, NULL,  WS_CHILD | WS_VISIBLE, 
 		CRect(0, 0, 0, 0), this, AFX_IDW_PANE_FIRST, NULL))
 	{
@@ -210,7 +201,6 @@ int CObjectFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		return -1;
 	}
 	
-	//инициализируем уникальное имя для проекта
 	GenerateProjectName();
 	
 	SECToolBarManager* pToolBarMgr = theApp.GetMainFrame()->GetControlBarManager();
@@ -219,8 +209,6 @@ int CObjectFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// CObjectFrame message handlers
 
 void CObjectFrame::ShowFrameWindows( int nCommand )
 {
@@ -293,7 +281,6 @@ void CObjectFrame::GFXDraw()
 	SGFXRect2 rc;
 	CVec2 zeroPos2;
 	pGFX->SetTexture( 0, pKrestTexture );
-	//	pGFX->SetShadingEffect( 3 );
 	pSG->GetPos2( &zeroPos2, m_zeroPos );
 	rc.rect = CTRect<float> ( zeroPos2.x, zeroPos2.y, zeroPos2.x+zeroSizeX, zeroPos2.y+zeroSizeY );
 	rc.maps = CTRect<float> ( 0.0f, 0.0f, 1.0f, 1.0f );
@@ -311,7 +298,6 @@ void CObjectFrame::SpecificInit()
 
 	m_mode = -1;
 	CreateKrest();
-	//Загружаем спрайт
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	CTreeItem *pRootItem = pTree->GetRootItem();
 	CTreeItem *pGraphicsItem = pRootItem->GetChildItem( E_OBJECT_GRAPHICS_ITEM );
@@ -333,7 +319,6 @@ void CObjectFrame::SpecificClearBeforeBatchMode()
 	pSprite = 0;
 	m_SpriteLoadPos = CVec3(16*fWorldCellSize, 16*fWorldCellSize, 0);
 	pActiveGraphicProps = 0;
-//	pKrestTexture = 0;
 	m_zeroPos = CVec3(16*fWorldCellSize, 16*fWorldCellSize, 0);
 
 	GetSingleton<IScene>()->Clear();
@@ -356,7 +341,6 @@ BOOL CObjectFrame::SpecificTranslateMessage( MSG *pMsg )
 				{
 					if ( i == m_nSelected )
 					{
-						//удаляем закрашенные тайлы, соответствующие этой линии
 						STransLine &line = *it;
 						std::list<CVec2> coords;
 						float ftx1, fty1, ftx2, fty2;
@@ -371,11 +355,9 @@ BOOL CObjectFrame::SpecificTranslateMessage( MSG *pMsg )
 						MyFillBrezenham( ftx1, fty1, ftx2, fty2, coords );
 						for ( std::list<CVec2>::iterator it=coords.begin(); it!=coords.end(); ++it )
 						{
-							//найдем индекс тайла в массиве тайлов
 							DeleteTileInListOfNormalTiles( dirTiles, it->x, it->y );
 						}
 						
-						//удаляем выделенную линию
 						transLines.erase( it );
 						break;
 					}
@@ -383,11 +365,9 @@ BOOL CObjectFrame::SpecificTranslateMessage( MSG *pMsg )
 				}
 				m_nSelected = -1;
 				bDrawRect = false;
-				//NI_ASSERT( it != transLines.end() );
 				SetChangedFlag( true );
 				
 				bDragging = true;
-				//прохожу по всем линиям и обновляю прозрачности, чтобы избежать удаления общих тайлов
 				for ( it=transLines.begin(); it!=transLines.end(); ++it )
 				{
 					currentLine = *it;
@@ -405,7 +385,6 @@ BOOL CObjectFrame::SpecificTranslateMessage( MSG *pMsg )
 					MyFillBrezenham( ftx1, fty1, ftx2, fty2, coords );
 					for ( std::list<CVec2>::iterator ext=coords.begin(); ext!=coords.end(); ++ext )
 					{
-						//обновим значение тайла в массиве тайлов
 						SetTileInListOfNormalTiles( dirTiles, ext->x, ext->y, nRes );
 					}
 				}
@@ -428,7 +407,6 @@ void CObjectFrame::SetActiveGraphicPropsItem( CTreeItem *pGraphicProps )
 	CObjectGraphicPropsItem *pGraphicPropsItem = static_cast<CObjectGraphicPropsItem *> ( pActiveGraphicProps );
 	NI_ASSERT( pGraphicPropsItem != 0 );
 	
-	//так как имя файла относительное, здесь я должен собрать полный путь
 	string szDir = GetDirectory( szProjectFileName.c_str() );
 	string szObjName;
 	const char *pszFileName = pGraphicPropsItem->GetFileName();
@@ -445,7 +423,6 @@ void CObjectFrame::UpdateActiveSprite()
 	CObjectGraphicPropsItem *pGraphicPropsItem = static_cast<CObjectGraphicPropsItem *> ( pActiveGraphicProps );
 	NI_ASSERT( pGraphicPropsItem != 0 );
 	
-	//так как имя файла относительное, здесь я должен собрать полный путь
 	string szDir = GetDirectory( szProjectFileName.c_str() );
 	string szObjName;
 	const char *pszFileName = pGraphicPropsItem->GetFileName();
@@ -472,7 +449,6 @@ bool CObjectFrame::ExportFrameData( IDataTree *pDT, const char *pszProjectName, 
 	CVec3 realZeroPos3;
 	pSG->GetPos3( &realZeroPos3, krestPos2 );
 	
-	// Сохраняем данные о тайловой проходимости
 	CVec3 mostLeft3 = realZeroPos3;
 	if ( lockedTiles.empty() )
 	{
@@ -482,7 +458,6 @@ bool CObjectFrame::ExportFrameData( IDataTree *pDT, const char *pszProjectName, 
 	}
 	else
 	{
-		//Сперва найдем минимальные и максимальные координаты тайлов в lockedTiles
 		int nTileMinX = lockedTiles.front().nTileX;
 		int nTileMaxX = lockedTiles.front().nTileX;
 		int nTileMinY = lockedTiles.front().nTileY;
@@ -529,19 +504,15 @@ bool CObjectFrame::ExportFrameData( IDataTree *pDT, const char *pszProjectName, 
 		objectRPGStats.vOrigin.x = realZeroPos3.x - mostLeft3.x;
 		objectRPGStats.vOrigin.y = realZeroPos3.y - mostLeft3.y;
 		
-		//		pSG->MoveObject( pSprite, realPos3 );
 		GFXDraw();
 	}
 	
-	//Compose animation
 	CVec2 zeroPos2 = ::ComputeSpriteNewZeroPos( pSprite, m_zeroPos, CVec2(zeroShiftX, zeroShiftY) );
 	pObjectRoot->ComposeAnimations( pszProjectName, GetDirectory(pszResultFileName).c_str(), zeroPos2, objectRPGStats.passability, objectRPGStats.vOrigin );
 	
-	//Сохраняем RPG stats
 	SaveRPGStats( pDT, pRootItem, pszProjectName );
 	
 	
-	//создадим файл icon.tga с изображением объекта
 	CTreeItem *pGraphicsItem = pRootItem->GetChildItem( E_OBJECT_GRAPHICS_ITEM );
 	NI_ASSERT( pGraphicsItem != 0 );
 	CObjectGraphicPropsItem *pGraphicPropsItem = (CObjectGraphicPropsItem *) pGraphicsItem->GetChildItem( E_OBJECT_GRAPHIC1_PROPS_ITEM );
@@ -599,7 +570,6 @@ void CObjectFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const cha
 	CVec3 realZeroPos3;
 	pSG->GetPos3( &realZeroPos3, krestPos2 );
 
-	// Сохраняем данные о тайловой проходимости
 	CVec3 mostLeft3 = realZeroPos3;
 	if ( lockedTiles.empty() )
 	{
@@ -609,7 +579,6 @@ void CObjectFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const cha
 	}
 	else
 	{
-		//Сперва найдем минимальные и максимальные координаты тайлов в lockedTiles
 		int nTileMinX = lockedTiles.front().nTileX;
 		int nTileMaxX = lockedTiles.front().nTileX;
 		int nTileMinY = lockedTiles.front().nTileY;
@@ -656,12 +625,10 @@ void CObjectFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const cha
 		objectRPGStats.vOrigin.x = realZeroPos3.x - mostLeft3.x;
 		objectRPGStats.vOrigin.y = realZeroPos3.y - mostLeft3.y;
 
-//		pSG->MoveObject( pSprite, realPos3 );
 		GFXDraw();
 	}
 
 
-	// Сохраняем данные о прозрачности объекта
 	{
 		if ( transeparences.empty() && dirTiles.empty() )
 		{
@@ -671,7 +638,6 @@ void CObjectFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const cha
 		}
 		else
 		{
-			//Сперва найдем минимальные и максимальные координаты тайлов в transeparences и dirTiles
 			int nTileMinX, nTileMaxX, nTileMinY, nTileMaxY;
 			if ( !transeparences.empty() )
 			{
@@ -688,7 +654,6 @@ void CObjectFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const cha
 				nTileMaxY = dirTiles.front().nTileY;
 			}
 			
-			//transeparences
 			{
 				for ( CListOfTiles::iterator it=transeparences.begin(); it!=transeparences.end(); ++it )
 				{
@@ -707,7 +672,6 @@ void CObjectFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const cha
 				}
 			}
 			
-			//direction tiles
 			{
 				for ( CListOfNormalTiles::iterator it=dirTiles.begin(); it!=dirTiles.end(); ++it )
 				{
@@ -729,7 +693,6 @@ void CObjectFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const cha
 			{
 				for ( int x=0; x<nTileMaxX-nTileMinX+1; x++ )
 				{
-					//transeparences
 					{
 						CListOfTiles::iterator it = transeparences.begin();
 						for ( ; it!=transeparences.end(); ++it )
@@ -744,7 +707,6 @@ void CObjectFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const cha
 							pBuf[ x + y*(nTileMaxX - nTileMinX + 1) ] = 0;
 					}
 
-					//direction tiles
 					{
 						CListOfNormalTiles::iterator it = dirTiles.begin();
 						for ( ; it!=dirTiles.end(); ++it )
@@ -795,7 +757,6 @@ void CObjectFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 	pEffects->SetEffectExplosion( objectRPGStats.szEffectExplosion.c_str() );
 	pEffects->SetEffectDeath( objectRPGStats.szEffectDeath.c_str() );
 
-	//Загружаем инфу о проходимости AI тайлов
 	CVec3 beginPos3;						//координаты самого левого тайла, который связан с vOrigin
 	beginPos3.x = 16*fWorldCellSize;
 	beginPos3.y = 16*fWorldCellSize;
@@ -819,7 +780,6 @@ void CObjectFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 	
 	{
 		pSG->GetPos2( &pos2, beginPos3 );
-		//сдвинемся на центр тайла
 		pt.x = pos2.x + fCellSizeX/2;
 		pt.y = pos2.y;
 		CGridFrame::ComputeGameTileCoordinates( pt, ftX, ftY );
@@ -840,13 +800,11 @@ void CObjectFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 	}
 	
 	{
-		//Загружаем инфу о видимости AI тайлов
 		CVec3 beginVis3;						//координаты самого левого тайла, который связан с vVisOrigin
 		beginVis3.x = realZeroPos3.x - objectRPGStats.vVisOrigin.x;
 		beginVis3.y = realZeroPos3.y - objectRPGStats.vVisOrigin.y;
 		beginVis3.z = 0;
 		pSG->GetPos2( &pos2, beginVis3 );
-		//сдвинемся на центр тайла
 		pt.x = pos2.x + fCellSizeX/2;
 		pt.y = pos2.y;
 		CGridFrame::ComputeGameTileCoordinates( pt, ftX, ftY );
@@ -864,7 +822,6 @@ void CObjectFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 				}
 				else if ( nTemp & 0x08 )
 				{
-					//направленная прозрачность
 					SetTileInListOfNormalTiles( dirTiles, nVisTileX + x, nVisTileY + y, nTemp >> 4 );
 				}
 			}
@@ -887,23 +844,16 @@ void CObjectFrame::SaveFrameOwnData( IDataTree *pDT )
 /*
 	if ( pSprite )
 	{
-		//Сохраняем позицию спрайта
 		CVec3 pos3 = pSprite->GetPosition();
 		tree.Add( "sprite_pos", &pos3 );
 	}
 */
 	tree.Add( "sprite_pos", &m_SpriteLoadPos );
 	
-	//Сохраняем позицию креста
 	tree.Add( "krest_pos", &m_zeroPos );
 	
-	//Сохраняем export file name
 	tree.Add( "export_file_name", &szPrevExportFileName );
 	
-	//сохраним тайлы
-	//	tree.Add( "LockedTiles", &lockedTiles );
-	//	tree.Add( "DirectionTiles", &dirTiles );
-	//	tree.Add( "Transeparences", &transeparences );
 	tree.Add( "TransLines", &transLines );
 	
 	pDT->FinishChunk();
@@ -914,7 +864,6 @@ void CObjectFrame::LoadFrameOwnData( IDataTree *pDT )
 	pDT->StartChunk( "own_data" );
 	CTreeAccessor tree = pDT;
 	
-	//Загружаем позицию спрайта
 	tree.Add( "sprite_pos", &m_SpriteLoadPos );
 	if ( pSprite )
 	{
@@ -922,10 +871,8 @@ void CObjectFrame::LoadFrameOwnData( IDataTree *pDT )
 		pSprite->SetPosition( m_SpriteLoadPos );
 	}
 
-	//Загружаем позицию креста
 	tree.Add( "krest_pos", &m_zeroPos );
 	
-	//Загружаем export file name
 	string szPrevExportDir;
 	tree.Add( "export_dir", &szPrevExportDir );
 	if ( szPrevExportDir.size() > 0 )
@@ -936,10 +883,6 @@ void CObjectFrame::LoadFrameOwnData( IDataTree *pDT )
 	else
 		tree.Add( "export_file_name", &szPrevExportFileName );
 	
-	//загрузим тайлы
-//	tree.Add( "LockedTiles", &lockedTiles );
-//	tree.Add( "DirectionTiles", &dirTiles );
-//	tree.Add( "Transeparences", &transeparences );
 	tree.Add( "TransLines", &transLines );
 	bDragging = true;
 	for ( CTransLineList::iterator it=transLines.begin(); it!=transLines.end(); ++it )
@@ -973,7 +916,6 @@ int CObjectFrame::UpdateNormalForSelectedLine()
 	pSG->GetPos3( &v1, currentLine.p1 );
 	pSG->GetPos3( &v2, currentLine.p2 );
 	
-	//нормаль
 	CVerticesLock<SGFXTLVertex> vertices( currentLine.pNormalVertices );
 	float fcx = (v1.x + v2.x) / 2;
 	float fcy = (v1.y + v2.y) / 2;
@@ -1063,7 +1005,6 @@ void CObjectFrame::OnLButtonDown(UINT nFlags, CPoint point)
 	{
 		if ( bDragging )
 		{
-			//помещаем линию в массив уже созданных
 			currentLine.p2.x = point.x;
 			currentLine.p2.y = point.y;
 			{
@@ -1072,7 +1013,6 @@ void CObjectFrame::OnLButtonDown(UINT nFlags, CPoint point)
 			}
 			int nRes = UpdateNormalForSelectedLine();		//обновляем нормаль
 
-			//обновляем список залоканных тайлов
 			float ftx1, fty1, ftx2, fty2;
 			POINT pt;
 			pt.x = currentLine.p1.x;
@@ -1094,7 +1034,6 @@ void CObjectFrame::OnLButtonDown(UINT nFlags, CPoint point)
 		}
 		else
 		{
-			//проверим, вдруг точка внутри центрального прямоугольника
 			CTransLineList::iterator it = transLines.begin();
 			int i = 0;
 			for ( ; it!=transLines.end(); ++it )
@@ -1103,9 +1042,7 @@ void CObjectFrame::OnLButtonDown(UINT nFlags, CPoint point)
 				float fcy = (it->p1.y + it->p2.y) / 2;
 				if ( point.x >= fcx - DELTA_X && point.x <= fcx + DELTA_X && point.y >= fcy - DELTA_Y && point.y <= fcy + DELTA_Y )
 				{
-					//нашли прямоугольник, выделяем эту линию
 					{
-						//сперва развыделяем старую
 						if ( m_nSelected == i )
 							break;		//выделена опять та же самая линия
 						
@@ -1137,7 +1074,6 @@ void CObjectFrame::OnLButtonDown(UINT nFlags, CPoint point)
 			{
 				if ( m_nSelected >= 0 )
 				{
-					//развыделяем старую линию
 					int i = 0;
 					for ( it=transLines.begin(); it!=transLines.end(); ++it )
 					{
@@ -1155,7 +1091,6 @@ void CObjectFrame::OnLButtonDown(UINT nFlags, CPoint point)
 					NI_ASSERT( it != transLines.end() );
 				}
 				
-				//создаем новую линию
 				currentLine.p1.x = point.x;
 				currentLine.p1.y = point.y;
 				currentLine.p2.x = point.x;
@@ -1297,7 +1232,6 @@ void CObjectFrame::OnMouseMove(UINT nFlags, CPoint point)
 		}
 		else
 		{
-			//проверим, если мышка вблизи центра линии, то рисую прямоугольник выделения
 			bDrawRect = false;
 			for ( CTransLineList::iterator it=transLines.begin(); it!=transLines.end(); ++it )
 			{
@@ -1347,7 +1281,6 @@ void CObjectFrame::LoadSprite( const char *pszSpriteFullName )
 	if ( pSprite )
 		pSG->RemoveObject( pSprite );
 	
-	//Скомпонуем спрайт в editor temp dir
 	string szTempDir = theApp.GetEditorTempDir();
 	if ( !ComposeSingleSprite( pszSpriteFullName, szTempDir.c_str(), "Object" ) )
 	{
@@ -1378,7 +1311,6 @@ bool CObjectFrame::LoadFramePreExportData( const char *pszProjectFile, CTreeItem
 	const char *pszFileName = pGraphicPropsItem->GetFileName();
 	NI_ASSERT( pszFileName != 0 );
 	
-	//так как имя файла относительное, здесь я должен собрать полный путь
 	string szDir = GetDirectory( pszProjectFile );
 	string szObjName;
 	bool bRes = MakeFullPath( szDir.c_str(), pszFileName, szObjName );
@@ -1388,7 +1320,6 @@ bool CObjectFrame::LoadFramePreExportData( const char *pszProjectFile, CTreeItem
 	LoadSprite( szObjName.c_str() );
 	pSprite->Update( timeGetTime() );
 	
-	//временно сохраним, чтобы не испортилась координата
 	CVec3 vSave = m_zeroPos;
 	CreateKrest();
 	m_zeroPos = vSave;
@@ -1502,7 +1433,6 @@ void CObjectFrame::OnUpdateMoveObject(CCmdUI* pCmdUI)
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	if ( pTree != 0 )
 	{
-		//Если уже был создан проект
 		pCmdUI->Enable( true );
 	}
 	else
@@ -1514,7 +1444,6 @@ void CObjectFrame::OnUpdateDrawGrid(CCmdUI* pCmdUI)
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	if ( pTree != 0 )
 	{
-		//Если уже был создан проект
 		pCmdUI->Enable( true );
 	}
 	else
@@ -1526,7 +1455,6 @@ void CObjectFrame::OnUpdateSetZeroButton(CCmdUI* pCmdUI)
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	if ( pTree != 0 )
 	{
-		//Если уже был создан проект
 		pCmdUI->Enable( true );
 	}
 	else
@@ -1591,7 +1519,6 @@ FILETIME CObjectFrame::FindMinimalExportFileTime( const char *pszResultFileName,
 	NI_ASSERT( pWinterGraphProps != 0 );
 	if ( strlen( pWinterGraphProps->GetFileName() ) )
 	{
-		//Если есть зимний спрайт
 		string szTempFileName = szDestDir;
 		szTempFileName += "1w.san";
 		current = GetFileChangeTime( szTempFileName.c_str() );

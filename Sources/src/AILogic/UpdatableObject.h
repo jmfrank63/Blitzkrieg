@@ -2,10 +2,8 @@
 #define __UPDATABLE_OBJECT_H__
 
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Common\Actions.h"
 #include "RectTiles.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IUpdatableObj;
 interface IUpdatableObj : public IRefCount
 {
@@ -43,9 +41,7 @@ public:
 
 	virtual const int GetUnitState() const { return 0; }
 
-	// обязательно должна быть константной, чтобы не было расхождений в multiplayerb
 	virtual const bool IsVisible( const BYTE cParty ) const = 0;
-	// виден ли игроком
 	virtual const bool IsVisibleByPlayer();
 	virtual void GetTilesForVisibility( CTilesSet *pTiles ) const = 0;
 	virtual const bool IsVisibleForDiplomacyUpdate() { return true; }
@@ -53,7 +49,6 @@ public:
 	virtual IUpdatableObj* GetDieObject() const { NI_ASSERT_T( false, "Wrong call of GetDieObject" ); return 0; }
 
 	virtual bool ShouldSuspendAction( const EActionNotify &eAction ) const = 0;
-	// 
 	virtual const int GetUniqueId() const = 0;
 	
 	virtual void SetScriptID( const int nScriptID ) { }
@@ -63,5 +58,4 @@ public:
 	virtual void AnimationSet( int nAnimation ) { }
 	virtual bool IsFree() const { return true; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __UPDATABLE_OBJECT_H__

@@ -16,19 +16,11 @@
  *
  */
 
-// WARNING: This is an internal header file, included by other C++
-// standard library headers.  You should not attempt to use this header
-// file directly.
-// Stl_config.h should be included before this file.
 
 
 #ifndef _STLP_INTERNAL_THREADS_H
 #define _STLP_INTERNAL_THREADS_H
 
-// Supported threading models are native SGI, pthreads, uithreads
-// (similar to pthreads, but based on an earlier draft of the Posix
-// threads standard), and Win32 threads.  Uithread support by Jochen
-// Schlick, 1999, and Solaris threads generalized to them.
 
 #ifndef _STLP_CONFIG_H
 #include <stl/_config.h>
@@ -42,7 +34,6 @@
 #  include <cstdlib>
 # endif
 
-// On SUN and Mac OS X gcc, zero-initialization works just fine...
 # if defined (__sun) || ( defined(__GNUC__) && defined(__APPLE__) )
 # define _STLP_MUTEX_INITIALIZER
 # endif
@@ -58,7 +49,6 @@ using _STLP_VENDOR_CSTD::size_t;
 
 # if defined(_STLP_SGI_THREADS)
 #  include <mutex.h>
-// Hack for SGI o32 compilers.
 #if !defined(__add_and_fetch) && \
     (__mips < 3 || !(defined (_ABIN32) || defined(_ABI64)))
 #  define __add_and_fetch(__l,__v) add_then_test((unsigned long*)__l,__v)  
@@ -79,7 +69,6 @@ using _STLP_VENDOR_CSTD::size_t;
 #   define _STLP_MUTEX_INITIALIZER = { PTHREAD_MUTEX_INITIALIZER }
 #  endif
 
-//HPUX variants have (on some platforms optional) non-standard "DCE" pthreads impl
 #  if defined(_DECTHREADS_) && ( defined (_PTHREAD_USE_D4) || defined (__hpux)) \
    && ! defined (_CMA_SUPPRESS_EXTERNALS_)
 #   define _STLP_PTHREAD_ATTR_DEFAULT pthread_mutexattr_default
@@ -96,7 +85,6 @@ using _STLP_VENDOR_CSTD::size_t;
 #     include <windows.h>
 #    endif
 #   else 
-// This section serves as a replacement for windows.h header for Visual C++
 extern "C" {
 #   if (defined(_M_MRX000) || defined(_M_ALPHA) \
        || (defined(_M_PPC) && (_MSC_VER >= 1000))) && !defined(RC_INVOKED)
@@ -117,8 +105,6 @@ _STLP_IMPORT_DECLSPEC long _STLP_STDCALL InterlockedIncrement(long volatile *);
 _STLP_IMPORT_DECLSPEC long _STLP_STDCALL InterlockedDecrement(long volatile *);
 _STLP_IMPORT_DECLSPEC long _STLP_STDCALL InterlockedExchange(long volatile *, long);
 #else
-  // boris : for the latest SDK, you may actually need the other version of the declaration (above)
-  // even for earlier VC++ versions. There is no way to tell SDK versions apart, sorry ...
 _STLP_IMPORT_DECLSPEC long _STLP_STDCALL InterlockedIncrement(long*);
 _STLP_IMPORT_DECLSPEC long _STLP_STDCALL InterlockedDecrement(long*);
 _STLP_IMPORT_DECLSPEC long _STLP_STDCALL InterlockedExchange(long*, long);
@@ -153,9 +139,6 @@ _STLP_IMPORT_DECLSPEC void _STLP_STDCALL OutputDebugStringA( const char* lpOutpu
 # elif defined(_STLP_SPARC_SOLARIS_THREADS)
 #  include <stl/_sparc_atomic.h>
 # elif defined (_STLP_UITHREADS)
-// this inclusion is potential hazard to bring up all sorts
-// of old-style headers. Let's assume vendor already know how
-// to deal with that.
 #  include <ctime>
 # if defined (_STLP_USE_NAMESPACES) && ! defined (_STLP_VENDOR_GLOBAL_CSTD)
 using _STLP_VENDOR_CSTD::time_t;
@@ -169,7 +152,6 @@ using _STLP_VENDOR_CSTD::time_t;
 #include <stdio.h>
 #  define _STLP_MUTEX_INITIALIZER = { 0 }
 #elif defined(_STLP_OS2THREADS)
-  // This section serves to replace os2.h for VisualAge C++
   typedef unsigned long ULONG;
   #ifndef __HEV__  /* INCL_SEMAPHORE may also define HEV */
     #define __HEV__
@@ -201,12 +183,9 @@ flAttr, BOOL32 fState);
 # endif
 
 _STLP_BEGIN_NAMESPACE
-// Helper struct.  This is a workaround for various compilers that don't
-// handle static variables in inline functions properly.
 template <int __inst>
 struct _STLP_mutex_spin {
   enum { __low_max = 30, __high_max = 1000 };
-  // Low if we suspect uniprocessor, high for multiprocessor.
   static unsigned __max;
   static unsigned __last;
   static void _STLP_CALL _M_do_lock(volatile __stl_atomic_t* __lock);
@@ -214,24 +193,12 @@ struct _STLP_mutex_spin {
 };
 
 
-// Locking class.  Note that this class *does not have a constructor*.
-// It must be initialized either statically, with _STLP_MUTEX_INITIALIZER,
-// or dynamically, by explicitly calling the _M_initialize member function.
-// (This is similar to the ways that a pthreads mutex can be initialized.)
-// There are explicit member functions for acquiring and releasing the lock.
 
-// There is no constructor because static initialization is essential for
-// some uses, and only a class aggregate (see section 8.5.1 of the C++
-// standard) can be initialized that way.  That means we must have no
-// constructors, no base classes, no virtual functions, and no private or
-// protected members.
 
-// For non-static cases, clients should use  _STLP_mutex.
 
 struct _STLP_CLASS_DECLSPEC _STLP_mutex_base
 {
 #if defined(_STLP_ATOMIC_EXCHANGE) || defined(_STLP_SGI_THREADS)
-  // It should be relatively easy to get this to work on any modern Unix.
   volatile __stl_atomic_t _M_lock;
 #endif
 
@@ -263,8 +230,6 @@ struct _STLP_CLASS_DECLSPEC _STLP_mutex_base
         *__lock = 0;	
 #   else
         *__lock = 0;
-        // This is not sufficient on many multiprocessors, since
-        // writes to protected variables and the lock may be reordered.
 #   endif
   }
 #elif defined(_STLP_PTHREADS)
@@ -334,8 +299,6 @@ false); }
 #endif
 };
 
-// This class could be just a smart pointer, but we do want to keep 
-// WIN32 optimized at a maximum
 #if  defined(_STLP_ATOMIC_EXCHANGE) || defined(_STLP_BETHREADS)
 struct _STLP_CLASS_DECLSPEC _STLP_mutex_indirect : _STLP_mutex_base {};
 #else
@@ -392,8 +355,6 @@ struct _STLP_CLASS_DECLSPEC _STLP_mutex_indirect
 };
 #endif
 
-// Locking class.  The constructor initializes the lock, the destructor destroys it.
-// Well - behaving class, does not need static initializer
 
 struct _STLP_CLASS_DECLSPEC _STLP_mutex : public _STLP_mutex_indirect {
   inline _STLP_mutex () {
@@ -407,23 +368,16 @@ private:
   void operator=(const _STLP_mutex&);
 };
 
-// Class _Refcount_Base provides a type, __stl_atomic_t, a data member,
-// _M_ref_count, and member functions _M_incr and _M_decr, which perform
-// atomic preincrement/predecrement.  The constructor initializes 
-// _M_ref_count.
 struct _STLP_CLASS_DECLSPEC _Refcount_Base
 {
-  // The data member _M_ref_count
   volatile __stl_atomic_t _M_ref_count;
 
 # if !defined (_STLP_ATOMIC_EXCHANGE)
   _STLP_mutex _M_mutex;
 # endif
 
-  // Constructor
   _Refcount_Base(__stl_atomic_t __n) : _M_ref_count(__n) {}
 
-  // _M_incr and _M_decr
 # if defined (_STLP_THREADS) && defined ( _STLP_ATOMIC_EXCHANGE )
    void _M_incr() { _STLP_ATOMIC_INCREMENT((__stl_atomic_t*)&_M_ref_count); }
    void _M_decr() { _STLP_ATOMIC_DECREMENT((__stl_atomic_t*)&_M_ref_count); }
@@ -444,25 +398,17 @@ struct _STLP_CLASS_DECLSPEC _Refcount_Base
 # endif
 };
 
-// Atomic swap on unsigned long
-// This is guaranteed to behave as though it were atomic only if all
-// possibly concurrent updates use _Atomic_swap.
-// In some cases the operation is emulated with a lock.
 # if defined (_STLP_THREADS) && defined ( _STLP_ATOMIC_EXCHANGE )
 inline __stl_atomic_t _Atomic_swap(volatile __stl_atomic_t * __p, __stl_atomic_t __q) {
   return (__stl_atomic_t) _STLP_ATOMIC_EXCHANGE(__p,__q);
 }
 # elif defined(_STLP_PTHREADS) || defined (_STLP_UITHREADS)  || defined (_STLP_OS2THREADS)
-// We use a template here only to get a unique initialized instance.
 template<int __dummy>
 struct _Swap_lock_struct {
   static _STLP_STATIC_MUTEX _S_swap_lock;
 };
 
 
-// This should be portable, but performance is expected
-// to be quite awful.  This really needs platform specific
-// code.
 inline __stl_atomic_t _Atomic_swap(volatile __stl_atomic_t * __p, __stl_atomic_t __q) {
   _Swap_lock_struct<0>::_S_swap_lock._M_acquire_lock();
   __stl_atomic_t __result = *__p;
@@ -480,11 +426,6 @@ _Atomic_swap(volatile __stl_atomic_t * __p, __stl_atomic_t __q) {
 }
 # endif
 
-// A locking class that uses _STLP_STATIC_MUTEX.  The constructor takes
-// a reference to an _STLP_STATIC_MUTEX, and acquires a lock.  The destructor
-// releases the lock.
-// It's not clear that this is exactly the right functionality.
-// It will probably change in the future.
 
 struct _STLP_CLASS_DECLSPEC _STLP_auto_lock
 {
@@ -542,9 +483,6 @@ inline void _STLP_mutex_base::_M_acquire_lock()
 {
 	if(sem == 0)
 	{
-		// we need to initialise on demand here
-		// to prevent race conditions use our global
-		// mutex if it's available:
 		if(_STLP_beos_static_lock_data<0>::is_init)
 		{
 			_STLP_auto_lock al(_STLP_beos_static_lock_data<0>::mut);
@@ -552,9 +490,6 @@ inline void _STLP_mutex_base::_M_acquire_lock()
 		}
 		else
 		{
-			// no lock available, we must still be
-			// in startup code, THERE MUST BE ONE THREAD
-			// ONLY active at this point.
 			_M_initialize();
 		}
     }
@@ -573,6 +508,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_THREADS_H */
 
-// Local Variables:
-// mode:C++
-// End:

@@ -5,7 +5,6 @@
 #include "..\Main\gamestats.h"
 #include "..\Main\ScenarioTracker.h"
 #include "..\Main\Transceiver.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EInterMissionCommand
 {
 	MC_RESTART_MISSION	= 10001,
@@ -13,7 +12,6 @@ enum EInterMissionCommand
 	MC_EXIT_PROGRAM			= 10003,
 	MC_CANCEL_QUIT			= 10004,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry quitmissionCommands[] = 
 {
 	{ "restart_mission", MC_RESTART_MISSION	},
@@ -22,11 +20,9 @@ static const NInput::SRegisterCommandEntry quitmissionCommands[] =
 	{ "cancel_quit"	,	MC_CANCEL_QUIT			},
 	{ 0							,	0										}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceQuitMission::~CInterfaceQuitMission()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceQuitMission::Init()
 {
 	CInterfaceScreenBase::Init();
@@ -35,32 +31,27 @@ bool CInterfaceQuitMission::Init()
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceQuitMission::StartInterface()
 {
 	CInterfaceScreenBase::StartInterface();
 	pUIScreen = CreateObject<IUIScreen>( UI_SCREEN );
 	pUIScreen->Load( "ui\\quitmission" );
 	pUIScreen->Reposition( pGFX->GetScreenRect() );
-	//инициализируем disabled кнопочки
 	int nMG = GetGlobalVar( "MultiplayerGame", -1 );
 	if ( nMG > 0 )
 	{
-		//disable restart mission button
 		IUIElement *pButton = pUIScreen->GetChildByID( 10001 );
 		pButton->EnableWindow( false );
 	}
 	
 	if ( GetGlobalVar("History.Playing", 0) != 0 )
 	{
-		//disable restart mission button
 		IUIElement *pButton = pUIScreen->GetChildByID( 10001 );
 		pButton->EnableWindow( false );
 	}
 
 	pScene->AddUIScreen( pUIScreen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceQuitMission::ProcessMessage( const SGameMessage &msg )
 {
 	switch ( msg.nEventID )
@@ -101,7 +92,6 @@ bool CInterfaceQuitMission::ProcessMessage( const SGameMessage &msg )
 			
 			GetSingleton<IGlobalVars>()->RemoveVarsByMatch( "temp." );
 			GetSingleton<IScenarioTracker>()->FinishMission( MISSION_FINISH_RESTART );
-//			GetSingleton<IMainLoop>()->Command( MAIN_COMMAND_CHANGE_TRANSCEIVER, NStr::Format("%d 0", MAIN_SP_TRANSCEIVER) );
 			GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_MISSION, szMapName.c_str() );
 			return true;
 		}
@@ -111,10 +101,8 @@ bool CInterfaceQuitMission::ProcessMessage( const SGameMessage &msg )
 			GetSingleton<IMainLoop>()->Command( MAIN_COMMAND_EXIT_GAME, 0 );
 			return true;
 	}
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceQuitMission::StepLocal( bool bAppActive )
 {
 	const CVec2 vPos = pCursor->GetPos();
@@ -122,8 +110,6 @@ bool CInterfaceQuitMission::StepLocal( bool bAppActive )
 	pUIScreen->Update( pTimer->GetAbsTime() );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceQuitMission::DrawAdd()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

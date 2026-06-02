@@ -1,7 +1,6 @@
 #include "StdAfx.h"
 
 #include "BasicObjectFactory.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IRefCount* CBasicObjectFactory::CreateObject( int nTypeID )
 {
 	CNewFuncsMap::iterator pos = newfuncs.find( nTypeID );
@@ -13,7 +12,6 @@ IRefCount* CBasicObjectFactory::CreateObject( int nTypeID )
 	ObjectFactoryNewFunc newFunc = pos->second;
 	return (*newFunc)();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBasicObjectFactory::RegisterType( int nObjectTypeID, const type_info *pObjectTypeInfo, ObjectFactoryNewFunc newFunc )
 {
 	NI_ASSERT_SLOW_T( (pObjectTypeInfo != 0) && (newFunc != 0), "Can't register type with empty type info or new-function" );
@@ -22,17 +20,13 @@ void CBasicObjectFactory::RegisterType( int nObjectTypeID, const type_info *pObj
 	newfuncs[nObjectTypeID] = newFunc;
 	rttis[pObjectTypeInfo] = nObjectTypeID;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// зарегистрировать тип
 void CBasicObjectFactory::RegisterType( int nObjectTypeID, ObjectFactoryNewFunc newFunc )
 {
 	NI_ASSERT_T( newFunc != 0, "can't register type with empty new-function" );
 	CPtr<IRefCount> pObj = (*newFunc)();
 	NI_ASSERT_T( pObj != 0, "new-function can't create object for RTTI extraction" );
-	// зарегистрируем объект с type_info для save/load
 	RegisterType( nObjectTypeID, &( typeid(*pObj) ), newFunc );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBasicObjectFactory::Aggregate( IObjectFactory *pFactory )
 {
 	std::vector<SObjectFactoryTypeInfo> types( pFactory->GetNumKnownTypes() );
@@ -40,7 +34,6 @@ void CBasicObjectFactory::Aggregate( IObjectFactory *pFactory )
 	for ( std::vector<SObjectFactoryTypeInfo>::const_iterator pos = types.begin(); pos != types.end(); ++pos )
 		RegisterType( pos->nTypeID, reinterpret_cast<const type_info*>(pos->pTypeInfo), pos->newFunc );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTypeInfoFindFunctional
 {
 	int nTypeID;
@@ -52,7 +45,6 @@ void CBasicObjectFactory::GetKnownTypes( SObjectFactoryTypeInfo *pInfoBuffer, in
 {
 	NI_ASSERT_T( GetNumKnownTypes() <= nBufferSize, "buffer for types are too small" );
 	nBufferSize = GetNumKnownTypes();
-	// all types
 	int i = 0;
 	for ( CNewFuncsMap::const_iterator pos = newfuncs.begin(); pos != newfuncs.end(); ++pos, ++i )
 	{
@@ -60,7 +52,6 @@ void CBasicObjectFactory::GetKnownTypes( SObjectFactoryTypeInfo *pInfoBuffer, in
 		pInfoBuffer[i].newFunc = pos->second;
 		pInfoBuffer[i].pTypeInfo = 0;
 	}
-	// save-load types RTTI info
 	for ( CRTTIMap::const_iterator pos = rttis.begin(); pos != rttis.end(); ++pos )
 	{
 		SObjectFactoryTypeInfo *pInfo = std::find_if( pInfoBuffer, pInfoBuffer + nBufferSize, CTypeInfoFindFunctional(pos->second) );
@@ -68,4 +59,3 @@ void CBasicObjectFactory::GetKnownTypes( SObjectFactoryTypeInfo *pInfoBuffer, in
 			pInfo->pTypeInfo = pos->first;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

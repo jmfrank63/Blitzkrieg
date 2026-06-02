@@ -3,9 +3,7 @@
 #include "Commander.h"
 #include "GeneralHelper.h"
 #include "TimeCounter.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CTimeCounter timeCounter;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CCommander::STaskCalcSeverityPredicate::STaskCalcSeverityPredicate()
 : nNumberNegative( 0 ), 
 	fSeverityNegative( 0 ),
@@ -13,7 +11,6 @@ CCommander::STaskCalcSeverityPredicate::STaskCalcSeverityPredicate()
 	fSeverityPositive( 0 )
 {  
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CCommander::STaskCalcSeverityPredicate::GetSeverity() const
 {
 	if ( nNumberPositive + nNumberNegative )
@@ -22,50 +19,36 @@ const float CCommander::STaskCalcSeverityPredicate::GetSeverity() const
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CCommander*
-//*******************************************************************
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CCommander::CCommander()
 : fMeanSeverity( 0 )
 {
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CCommander::GetMeanSeverity() const 
 { 
 	return fMeanSeverity; 
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommander::Segment()
 {
 
-	// проделать раблту всеми тасками
 	SSegmentPredicate segmentPred;
 	std::for_each( tasks.begin(), tasks.end(), segmentPred );
 
-	// выбрать завершенные задачи
 	SFinishedPredicate finishedPred;
 	Tasks::iterator finishedFirst = std::remove_if( tasks.begin(), tasks.end(), finishedPred );
 
-	// забрать всех работников у завершенных задач
 	STakeWorkersPredicate takeWorkers( this );
 	std::for_each( finishedFirst, tasks.end(), takeWorkers );
 	
-	// удалить завершенные задачи
 	tasks.erase( finishedFirst, tasks.end() );
 
-	// отсортировать задачи по приоритетам
 	STaskSortPresicate pr;
 	std::sort( tasks.begin(), tasks.end(), pr );
 
-	// посчитать среднюю сложность всех тасков
 	STaskCalcSeverityPredicate calcSeverity;
 	calcSeverity = std::for_each( tasks.begin(), tasks.end(), calcSeverity );
 	fMeanSeverity = calcSeverity.GetSeverity();
 
 	
-	// у тасков, которых все хорошо попытаться забрать лишние юниты
 	for ( Tasks::iterator i = tasks.begin(); i != tasks.end(); ++i )
 		(*i)->ReleaseWorker( this, fMeanSeverity );
 	
@@ -73,10 +56,8 @@ void CCommander::Segment()
 		(*i)->AskForWorker( this, fMeanSeverity );
 
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommander::EnumWorkersInternal( const enum EForceType eType, IWorkerEnumerator *pEn, CommonUnits *pUnits )
 {
-	// the simple optimisation
 	if ( pEn->NeedNBest( eType ) > 1 )
 	{
 		std::vector< std::pair<float, CPtr<CCommonUnit> > > units;
@@ -123,4 +104,3 @@ void CCommander::EnumWorkersInternal( const enum EForceType eType, IWorkerEnumer
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

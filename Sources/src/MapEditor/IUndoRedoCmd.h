@@ -1,6 +1,3 @@
-// IUndoRedoCmd.h: interface for the IUndoRedoCmd class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_IUNDOREDOCMD_H__ABC35A7B_CD4D_48AC_A1E7_000DE1228BEA__INCLUDED_)
 #define AFX_IUNDOREDOCMD_H__ABC35A7B_CD4D_48AC_A1E7_000DE1228BEA__INCLUDED_
@@ -11,13 +8,11 @@
 #include "..\Formats\fmtMap.h"
 class CTemplateEditorFrame;
 struct SMapObject;
-//==================================================================================================
 class IUndoRedoCmd  
 {
 public:
 	virtual void Undo() = 0;
 };
-//==================================================================================================
 struct STileRedoCmdInfo
 {
 	BYTE oldTile;
@@ -34,7 +29,6 @@ struct STileRedoCmdInfo
 		posY = y;
 	}
 };
-//==================================================================================================
 class CTileRedoCmd : public IUndoRedoCmd  
 {
 	CTemplateEditorFrame *m_ptr;
@@ -48,7 +42,6 @@ public:
 	}
 
 };
-//==================================================================================================
 class CDellObjRedoCmd : public IUndoRedoCmd  
 {
 	CTemplateEditorFrame *m_ptr;
@@ -59,7 +52,6 @@ class CDellObjRedoCmd : public IUndoRedoCmd
 	int frameIndex;
 	CPoint position;
 	int m_dir;
-	//std::string szBehavior;
 public:
 	virtual void Undo();
 	void		Init( CTemplateEditorFrame *ptr, SGDBObjectDesc &d, int p, CPoint &pos, int dir, int Id, bool _bScenarioUnit, int Index )
@@ -72,12 +64,9 @@ public:
 		scriptId = Id ;
 		bScenarioUnit = _bScenarioUnit;
 		frameIndex = Index;
-		//szBehavior =str;
 	}
 };
-//==================================================================================================
 interface IVisObj;
-//==================================================================================================
 class CAddObjRedoCmd : public IUndoRedoCmd  
 {
 	CTemplateEditorFrame *m_ptr;
@@ -90,7 +79,6 @@ public:
 		m_obj = obj;
 	}
 };
-//==================================================================================================
 class CAddMultiObjRedoCmd : public IUndoRedoCmd  
 {
 	CTemplateEditorFrame *m_ptr;
@@ -103,7 +91,6 @@ public:
 		m_objs = obj;
 	}
 };
-//==================================================================================================
 class CMoveObjRedoCmd : public IUndoRedoCmd  
 {
 	CTemplateEditorFrame *m_ptr;
@@ -120,7 +107,6 @@ public:
 		m_newPos = newPos;
 	}
 };
-//==================================================================================================
 class CPutRoadRedoCmd : public IUndoRedoCmd  
 {
 	CTemplateEditorFrame *m_ptr;
@@ -133,7 +119,6 @@ public:
 		m_item = item;
 	}
 };
-//==================================================================================================
 class CDellRoadRedoCmd : public IUndoRedoCmd  
 {
 	CTemplateEditorFrame *m_ptr;
@@ -146,7 +131,6 @@ public:
 		m_item = item;
 	}
 };
-//==================================================================================================
 struct SObjectDellDisciption
 {
 	SObjectDellDisciption(){}
@@ -159,7 +143,6 @@ struct SObjectDellDisciption
 		m_scriptID = scriptId;
 		m_bScenarioUnit = bScenarioUnit;
 		m_frameIndex = frameIndex;
-		//szBehavior = str;
 	}
 	SGDBObjectDesc m_desc;
 	int m_player; 

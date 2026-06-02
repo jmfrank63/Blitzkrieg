@@ -223,12 +223,10 @@ public:
 	
 	inline void DrawToScene( bool bClear = true )
 	{
-		//рисовать здесь
 		if ( IScene *pScene = GetSingleton<IScene>() )
 		{
 			if ( ITerrain *pTerrain = pScene->GetTerrain() )
 			{
-					//линии
 				if( !vertices.empty() )
 				{
 					NI_ASSERT_T( ( vertices.size() & 0x1 ) == 0,
@@ -262,7 +260,6 @@ public:
 					}
 				}
 
-				//красный маркер
 				if ( bMarkerTilesValid )
 				{
 					if ( ITerrainEditor *pTerrainEditor = dynamic_cast<ITerrainEditor*>( pTerrain ) )
@@ -286,7 +283,6 @@ public:
 		}
 	}
 
-	//в terrain тайлах ( ось Y инвертирована )
 	inline void AddAIMarkerTiles( const CTRect<int> &rRect, DWORD dwGreenPass, bool isBounds = false )
 	{
 		bAIMarkerTilesValid = true;
@@ -318,7 +314,6 @@ public:
 		}
 	}
 	
-	//в ai тайлах
 	inline void AddAIMarkerAITiles( const CTRect<int> &rRect, DWORD dwGreenPass, bool isBounds = false )
 	{
 		bAIMarkerTilesValid = true;
@@ -344,29 +339,11 @@ public:
 		}
 	}
 
-	//в ai тайлах
-	//
-	//           Y / \
-	//           /     \
-	//         /         \
-	//       /             \
-	//     /    LT     RT    \
-	//0  /       -------       \
-	// /         |     |         \
-	// \         |     |         /
-	//   \       -------       /
-	//     \    LB     RB    /
-	//       \             /
-	//         \         /
-	//           \     /
-	//           X \ /
-	//
 
 	inline void AddAIMarkerAITiles( const CArray2D<BYTE> &rArray, DWORD dwGreenPass, const CVec2 &vLT, const CVec2 &vRT, const CVec2 &vLB, const CVec2 &vRB )
 	{
 		bAIMarkerTilesValid = true;
 
-		//рисовать здесь
 		for ( int nYIndex = vLB.y; nYIndex <= vRT.y; ++nYIndex )
 		{
 			for ( int nXIndex = vLT.x; nXIndex <= vRB.x; ++nXIndex )
@@ -383,7 +360,6 @@ public:
 		}
 	}
 
-	//в terrain тайлах
 	inline void AddMarkerTiles( const CTRect<int> &rRect, bool isBounds = false )
 	{
 		bMarkerTilesValid = true;
@@ -430,5 +406,4 @@ public:
 		vAIMarkerTiles.clear();
 	}
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // !defined(__DrawingTools__)

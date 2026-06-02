@@ -5,18 +5,8 @@
 #error This header file requires the -LANG:std option
 #endif
 
-// This file provides forward declarations of the most important I/O
-// classes.  Note that almost all of those classes are class templates,
-// with default template arguments.  According to the C++ standard, 
-// if a class template is declared more than once in the same scope
-// then only one of those declarations may have default arguments.  
 
-// <iosfwd> contains the same declarations as other headers, and including
-// both <iosfwd> and (say) <iostream> is permitted.  This means that only
-// one header may contain those default template arguments.
 
-// In this implementation, the declarations in <iosfwd> contain default
-// template arguments.  All of the other I/O headers include <iosfwd>.
 
 #ifndef _STLP_CHAR_TRAITS_H
 # include <stl/char_traits.h>
@@ -81,7 +71,6 @@ typedef basic_ios<char, char_traits<char> >    ios;
 typedef basic_ios<wchar_t, char_traits<wchar_t> > wios;
 # endif
 
-// Forward declaration of class locale, and of the most important facets.
 class locale;
 # ifdef _STLP_NO_EXPLICIT_FUNCTION_TMPL_ARGS
 template <class _Facet>
@@ -113,7 +102,6 @@ _STLP_TEMPLATE_NULL class _STLP_CLASS_DECLSPEC collate_byname<wchar_t>;
 #  endif
 
 # if !(defined (__SUNPRO_CC) && __SUNPRO_CC < 0x500 ) && !defined(_STLP_WINCE)
-// Typedefs for ordinary (narrow-character) streams.
 _STLP_TEMPLATE_NULL class _STLP_CLASS_DECLSPEC basic_streambuf<char, char_traits<char> >;
 # endif
 
@@ -133,7 +121,6 @@ typedef basic_ofstream<char, char_traits<char> > ofstream;
 typedef basic_fstream<char, char_traits<char> >  fstream;
 
 # ifndef _STLP_NO_WCHAR_T
-// Typedefs for wide-character streams.
 typedef basic_streambuf<wchar_t, char_traits<wchar_t> > wstreambuf;
 typedef basic_istream<wchar_t, char_traits<wchar_t> >   wistream;
 typedef basic_ostream<wchar_t, char_traits<wchar_t> >   wostream;
@@ -154,6 +141,3 @@ _STLP_END_NAMESPACE
 
 #endif
 
-// Local Variables:
-// mode:C++
-// End:

@@ -6,13 +6,10 @@
 #include "..\Scene\Scene.h"
 #include "..\Formats\fmtTerrain.h"
 #include "..\Misc\Win32Helper.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static NWin32Helper::CCriticalSection critSection;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CPlayVisitor : public ISFXVisitor
 {
 	CSoundEngine *pSFX;
-	//
 	int RegisterSound( CBaseSound *pSound, const int nChannel )
 	{
 		if ( nChannel != -1 )
@@ -31,9 +28,7 @@ class CPlayVisitor : public ISFXVisitor
 		return nChannel;
 	}
 public:
-	//
 	void Init( class CSoundEngine *_pSFX ) { pSFX = _pSFX; }
-	//
 	virtual int STDCALL VisitSound2D( CSound2D *pSound )
 	{
 		FSOUND_SAMPLE *sample = pSound->GetSample()->GetInternalContainer();
@@ -53,7 +48,6 @@ public:
 	}
 };
 static CPlayVisitor thePlayVisitor;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoundEngine::CSoundEngine() 
 : bInited( false ), pStreamingSound( 0 ), bPaused( false ), bStreamingPaused( false ),
 	cSFXMasterVolume( 255 ), cStreamMasterVolume( 255 ), bEnableSFX( true ), bEnableStreaming( true ),
@@ -61,7 +55,6 @@ CSoundEngine::CSoundEngine()
 	bStreamPlaying( false ), nStreamingChannel( -1 )
 {  
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoundEngine::SearchDevices()
 {
 	if ( FSOUND_GetVersion() < FMOD_VERSION )
@@ -86,19 +79,16 @@ bool CSoundEngine::SearchDevices()
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoundEngine::IsInitialized()
 {
 	return bInited;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IRefCount* CSoundEngine::QI( int nInterfaceTypeID )
 {
 	if ( nInterfaceTypeID == 0 ) 
 		return reinterpret_cast<IRefCount*>( FSOUND_GetOutputHandle() );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoundEngine::Init( HWND hWnd, int nDriver, ESFXOutputType output, int nMixRate, int nMaxChannels )
 {
 	if ( !SearchDevices() )
@@ -147,11 +137,8 @@ bool CSoundEngine::Init( HWND hWnd, int nDriver, ESFXOutputType output, int nMix
 	if ( !FSOUND_Init( nMixRate, nMaxChannels, FSOUND_INIT_USEDEFAULTMIDISYNTH ) )
 	{
 		OutputDebugString( "NFMSound::Start():error!\n" );
-		//NI_ASSERT_T( 0, NStr::Format("Failed to init FMOD: %d", FSOUND_GetError()) );
-		//soft reaction on error: sound card not found.
 		bSoundCardPresent = false;
 		return true;
-		//return false;
 	}
 
 #ifdef _DEBUG
@@ -193,22 +180,16 @@ bool CSoundEngine::Init( HWND hWnd, int nDriver, ESFXOutputType output, int nMix
 	};
 #endif
 
-//	GetSingleton<IGameTimer>()->GetTime( &timeUpdate );
-//	vLastListenerPos = CVec3(0,0,0);
 	fListenerDistance = GetGlobalVar( "Sound.Listener.Distance", 0.0f ) * fWorldCellSize/2.0f;
 	
-	//cSFXMasterVolume = GetGlobalVar( "Options.Sound.SFXVolume", 100.0f ) / 100.0f * 255;
-	//cStreamMasterVolume = GetGlobalVar( "Options.Sound.MusicVolume", 100.0f ) / 100.0f * 255;
 
 	cSFXMasterVolume = GetGlobalVar( "Sound.SFXVolume", 100.0f ) / 100.0f * 255;
 	cStreamMasterVolume = GetGlobalVar( "Sound.MusicVolume", 100.0f ) / 100.0f * 255;
 
 	streamFadeOff.Init();
-	//
 	bInited = true;
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundEngine::Done()
 {
 	nextMelody.Clear();
@@ -222,23 +203,18 @@ void CSoundEngine::Done()
 	soundsMap.clear();
 	FSOUND_Close();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundEngine::SetDistanceFactor( float fFactor )
 {
 	FSOUND_3D_SetDistanceFactor( fFactor );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundEngine::SetRolloffFactor( float fFactor )
 {
 	NI_ASSERT_TF( (fFactor >= 0) && (fFactor <= 10), NStr::Format("Rolloff factor (%g) must be in range [0..10]", fFactor), return );
 	FSOUND_3D_SetRolloffFactor( fFactor );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundEngine::Update( interface ICamera *pCamera )
 {
-	// ÝÒÎ ÍÅ ÍÓÆÍÎ, È ÏÐÈÂÎÄÈÒ Ê ÃËÞÊÀÌ Â 2D ÇÂÓÊÀÕ
 	/*
-	// FMOD treats +X as right, +Y as up, and +Z as forwards
 	CVec3 vPos = pCamera->GetAnchor();
 
 	vPos.Set( vPos.x, fListenerDistance, vPos.y );
@@ -249,36 +225,28 @@ void CSoundEngine::Update( interface ICamera *pCamera )
 	FSOUND_3D_Update();
 	*/
 
-	//
 	timeLastUpdate = GetSingleton<IGameTimer>()->GetAbsTime();
-	//
 	if ( (timeStreamFinished != -1) && (timeStreamFinished < timeLastUpdate) && (timeLastUpdate - timeStreamFinished > 15000) )
 		PlayNextMelody();
-	//
 	
 	const int nNumChannels = FSOUND_GetChannelsPlaying();
 	
-	//CRAP{ for testing
 	{
 		IScene * pScene = GetSingleton<IScene>();
 		IStatSystem *pStat = pScene->GetStatSystem();
 		pStat->UpdateEntry( "SFX: num channels:", NStr::Format("%d", nNumChannels )  );
 	}
-	//CRAP}
 
 
 	if ( nNumChannels > 0 )
 		ClearChannels();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundEngine::CloseStreaming()
 {
 	if ( pStreamingSound )
 	{
-		// reset callbacks
 		FSOUND_Stream_SetEndCallback( pStreamingSound, 0, 0 );
 		FSOUND_Stream_SetSyncCallback( pStreamingSound, 0, 0 );
-		//
 		FSOUND_StopSound( nStreamingChannel );
 		FSOUND_Stream_Close( pStreamingSound );
 
@@ -287,14 +255,12 @@ void CSoundEngine::CloseStreaming()
 		curMelody.Clear();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 signed char F_CALLBACKAPI NextMelodyCallback( FSOUND_STREAM *stream, void *buff, int len, void *userdata )
 {
 	CSoundEngine *pSFX = reinterpret_cast<CSoundEngine*>( userdata );
 	pSFX->NotifyMelodyFinished();
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoundEngine::PlayNextMelody()
 {
 	if ( !bEnableStreaming || nextMelody.szName.empty() )
@@ -303,7 +269,6 @@ bool CSoundEngine::PlayNextMelody()
 	nextMelody.Clear();
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundEngine::StopStream( const unsigned int nTimeToFade )
 {
 	if ( nTimeToFade > 0 && bStreamPlaying )
@@ -314,7 +279,6 @@ void CSoundEngine::StopStream( const unsigned int nTimeToFade )
 		NotifyMelodyFinished();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundEngine::SetStreamVolume( const float fVolume )
 {
 	fStreamCurrentVolume = Clamp( fVolume, 0.0f, 1.0f );
@@ -323,18 +287,15 @@ void CSoundEngine::SetStreamVolume( const float fVolume )
 		FSOUND_SetVolume( nStreamingChannel, fStreamCurrentVolume *cStreamMasterVolume );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundEngine::MapSound( ISound *pSound, int nChannel )
 {
 	channelsMap.insert( std::pair<ISound*, int>( pSound, nChannel ) );
 	soundsMap.insert( std::pair<int, CPtr<ISound> >( nChannel, pSound ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CSoundEngine::GetStreamVolume() const
 {
 	return fStreamCurrentVolume;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundEngine::SetStreamMasterVolume( float fVolume )
 {
 	Clamp( fVolume, 0.0f, 1.0f );
@@ -345,7 +306,6 @@ void CSoundEngine::SetStreamMasterVolume( float fVolume )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundEngine::PlayStream( const char *pszFileName, bool bLooped, const unsigned int nTimeToFadePrevious )
 {
 	if ( !bEnableStreaming ) return;
@@ -381,7 +341,6 @@ void CSoundEngine::PlayStream( const char *pszFileName, bool bLooped, const unsi
 			FSOUND_Stream_SetEndCallback( pStreamingSound, NextMelodyCallback, this );
 			if ( bStreamingPaused ) 
 				FSOUND_SetPaused( nStreamingChannel, bStreamingPaused );
-			//
 			NWin32Helper::CCriticalSectionLock lock( critSection );
 			timeStreamFinished = -1;
 			bStreamPlaying = true;
@@ -393,12 +352,10 @@ void CSoundEngine::PlayStream( const char *pszFileName, bool bLooped, const unsi
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoundEngine::IsPaused()
 {
 	return bPaused;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoundEngine::PauseStreaming( bool bPause )
 {
 	if ( bStreamingPaused != bPause ) 
@@ -409,7 +366,6 @@ bool CSoundEngine::PauseStreaming( bool bPause )
 	}
 	return bPause;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoundEngine::Pause( bool bPause )
 {
 	if ( bPaused != bPause ) 
@@ -425,14 +381,11 @@ bool CSoundEngine::Pause( bool bPause )
 	}
 	return bPause;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundEngine::ClearChannels()
 {
 	if ( bPaused )
 		return;
-	//
 	std::list<int> channels;
-	// collect finished and invalid channels
 	for ( CChannelSoundMap::iterator it = soundsMap.begin(); it != soundsMap.end(); ++it )
 	{
 		if ( !it->second->IsValid() )
@@ -445,7 +398,6 @@ void CSoundEngine::ClearChannels()
 			FSOUND_StopSound( it->first );
 		}
 	}
-	// clear it
 	for ( std::list<int>::iterator it = channels.begin(); it != channels.end(); ++it )
 	{
 		const int nChannel = *it;
@@ -454,12 +406,10 @@ void CSoundEngine::ClearChannels()
 		channelsMap.erase( pSound );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoundEngine::PlaySample( ISound *pSound, bool bLooped, unsigned int nStartPos )
 {
 	if ( pSound == 0 || !bEnableSFX )
 		return -1;
-	//
 	thePlayVisitor.Init( this );
 	if ( static_cast<CBaseSound*>( pSound )->GetSample() == 0 )
 		return -1;
@@ -472,7 +422,6 @@ int CSoundEngine::PlaySample( ISound *pSound, bool bLooped, unsigned int nStartP
 	FSOUND_SetPaused( nChannel, false );
 	return nChannel;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundEngine::UpdateSample( ISound *pSound )
 {
 	CSoundChannelMap::iterator pos = channelsMap.find( pSound );
@@ -485,7 +434,6 @@ void CSoundEngine::UpdateSample( ISound *pSound )
 		FSOUND_SetVolume( nChannel, nVolume );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundEngine::StopSample( ISound *pSound )
 {
 	CSoundChannelMap::iterator pos = channelsMap.find( pSound );
@@ -494,21 +442,17 @@ void CSoundEngine::StopSample( ISound *pSound )
 		StopChannel( pos->second );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoundEngine::IsPlaying( ISound *pSound )
 {
 	if ( !pSound )
 		return false;
-	//
 	CSoundChannelMap::iterator pos = channelsMap.find( pSound );
 	return pos != channelsMap.end();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundEngine::StopChannel( int nChannel )
 {
  	if ( nChannel == -1 )
 		return;
-	//
 	FSOUND_StopSound( nChannel );
 	CChannelSoundMap::iterator pos = soundsMap.find( nChannel );
 	if ( pos != soundsMap.end() )
@@ -518,7 +462,6 @@ void CSoundEngine::StopChannel( int nChannel )
 		soundsMap.erase( pos );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 unsigned int CSoundEngine::GetCurrentPosition( ISound * pSound )
 {
 	CSoundChannelMap::iterator pos = channelsMap.find( pSound );
@@ -529,7 +472,6 @@ unsigned int CSoundEngine::GetCurrentPosition( ISound * pSound )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundEngine::SetCurrentPosition( ISound * pSound, unsigned int pos )
 {
 	CSoundChannelMap::iterator it = channelsMap.find( pSound );
@@ -539,10 +481,8 @@ void CSoundEngine::SetCurrentPosition( ISound * pSound, unsigned int pos )
 		FSOUND_SetCurrentPosition( nChannel, pos );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundEngine::ReEnableSounds()
 {
-	// turn all SFXes off
 	if ( !bEnableSFX )
 	{
 		for ( CChannelSoundMap::iterator it = soundsMap.begin(); it != soundsMap.end(); ++it )
@@ -553,11 +493,9 @@ void CSoundEngine::ReEnableSounds()
 		soundsMap.clear();
 		channelsMap.clear();
 	}
-	// turn stream off
 	if ( !bEnableStreaming )
 		CloseStreaming();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoundEngine::NotifyMelodyFinished()
 {
 	NWin32Helper::CCriticalSectionLock lock( critSection );
@@ -581,12 +519,10 @@ void CSoundEngine::NotifyMelodyFinished()
 		bStreamPlaying = false;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoundEngine::IsStreamPlaying()const
 {
 	return bStreamPlaying;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoundEngine::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -620,7 +556,6 @@ int CSoundEngine::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoundEngine::SMelodyInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -628,4 +563,3 @@ int CSoundEngine::SMelodyInfo::operator&( IStructureSaver &ss )
 	saver.Add( 2, &szName );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

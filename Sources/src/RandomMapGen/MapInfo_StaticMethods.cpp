@@ -1,7 +1,3 @@
-//��� ������ ���
-//REMOVE_OBJECTS_FROM_RECT
-//��� ���������� ������ linkID
-//UPDATE_LINK_ID
 
 #include "stdafx.h"
 
@@ -19,11 +15,6 @@
 #include "..\AILogic\AIConsts.h"
 #include "TerrainBuilder.h"
 
-//#include "RMG_Polygons.h"
-//#include "RMG_Image.h"
-//#include "VSO_Types.h"
-//#include "RMG_Types.h"
-//#include "MiniMap_Types.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -31,11 +22,8 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ������ �����-�� ������� �����
 const int CMapInfo::RANDOM_SEED = 17;
 int CMapInfo::nCurRandomSeed = 0;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::PointInMap( const SLoadMapInfo &rLoadMapInfo, float x, float y, bool bAIPoint )
 {
 	if ( bAIPoint )
@@ -53,7 +41,6 @@ bool CMapInfo::PointInMap( const SLoadMapInfo &rLoadMapInfo, float x, float y, b
 						 ( y <= rLoadMapInfo.terrain.tiles.GetSizeY() * fWorldCellSize ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::GetTileIndicesInternal( const CVec3 &rPoint, int *pnXPosition, int *pnYPosition, const CTPoint<int> &rTerrainSize, float fCellSize, bool isYReverse )
 {
 	if ( rPoint.x >= 0 )
@@ -84,7 +71,6 @@ bool CMapInfo::GetTileIndicesInternal( const CVec3 &rPoint, int *pnXPosition, in
 					 ( *pnYPosition < rTerrainSize.y ) );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::PackFrameIndex( IObjectsDB *pGDB, SMapObjectInfo *pInfo )
 {
 	const SGDBObjectDesc *pDesc = pGDB->GetDesc( pInfo->szName.c_str() );
@@ -109,7 +95,6 @@ void CMapInfo::PackFrameIndex( IObjectsDB *pGDB, SMapObjectInfo *pInfo )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::UnpackFrameIndex( IObjectsDB *pGDB, SMapObjectInfo *pInfo, int *pRandomSeed )
 {
 	const SGDBObjectDesc *pDesc = pGDB->GetDesc( pInfo->szName.c_str() );
@@ -133,7 +118,6 @@ void CMapInfo::UnpackFrameIndex( IObjectsDB *pGDB, SMapObjectInfo *pInfo, int *p
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::GetTerrainTileIndices( const STerrainInfo &rTerrainInfo, const CVec3 &rPoint, CTPoint<int> *pPoint )
 {
 	NI_ASSERT_T( pPoint != 0,
@@ -141,7 +125,6 @@ bool CMapInfo::GetTerrainTileIndices( const STerrainInfo &rTerrainInfo, const CV
 	return GetTileIndicesInternal( rPoint, &( pPoint->x ), &( pPoint->y ), CTPoint<int>( rTerrainInfo.tiles.GetSizeX(), rTerrainInfo.tiles.GetSizeY() ), fWorldCellSize,	true );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::GetTileIndices( const STerrainInfo &rTerrainInfo, const CVec3 &rPoint, CTPoint<int> *pPoint )
 {
 	NI_ASSERT_T( pPoint != 0,
@@ -149,7 +132,6 @@ bool CMapInfo::GetTileIndices( const STerrainInfo &rTerrainInfo, const CVec3 &rP
 	return GetTileIndicesInternal( rPoint, &( pPoint->x ), &( pPoint->y ), CTPoint<int>( rTerrainInfo.tiles.GetSizeX(), rTerrainInfo.tiles.GetSizeY() ), fWorldCellSize,	false );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::GetAITileIndices( const STerrainInfo &rTerrainInfo, const CVec3 &rPoint, CTPoint<int> *pPoint )
 {
 	NI_ASSERT_T( pPoint != 0,
@@ -157,7 +139,6 @@ bool CMapInfo::GetAITileIndices( const STerrainInfo &rTerrainInfo, const CVec3 &
 	return GetTileIndicesInternal( rPoint, &( pPoint->x ), &( pPoint->y ), CTPoint<int>( rTerrainInfo.tiles.GetSizeX(), rTerrainInfo.tiles.GetSizeY() ), fWorldCellSize / 2.0f,	false );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::InvertYTile( const STerrainInfo &rTerrainInfo, CTPoint<int> *pPoint )
 {
 	NI_ASSERT_T( pPoint != 0,
@@ -165,7 +146,6 @@ void CMapInfo::InvertYTile( const STerrainInfo &rTerrainInfo, CTPoint<int> *pPoi
 	pPoint->y = rTerrainInfo.tiles.GetSizeY() - pPoint->y - 1;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::InvertYPosition( const STerrainInfo &rTerrainInfo, CTPoint<float> *pPoint )
 {
 	NI_ASSERT_T( pPoint != 0,
@@ -173,7 +153,6 @@ void CMapInfo::InvertYPosition( const STerrainInfo &rTerrainInfo, CTPoint<float>
 	pPoint->y = ( rTerrainInfo.tiles.GetSizeY() * fWorldCellSize ) - pPoint->y;
 }
 	
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::FillDefaultDiplomacies( SLoadMapInfo *pLoadMapInfo )
 {
 	if ( pLoadMapInfo->diplomacies.empty() )
@@ -200,7 +179,6 @@ void CMapInfo::FillDefaultDiplomacies( SLoadMapInfo *pLoadMapInfo )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::Clear( SLoadMapInfo *pLoadMapInfo )
 {
 	NI_ASSERT_T( pLoadMapInfo != 0,
@@ -212,7 +190,6 @@ void CMapInfo::Clear( SLoadMapInfo *pLoadMapInfo )
 
 	pLoadMapInfo->terrain.szTilesetDesc.clear();
 	pLoadMapInfo->terrain.szCrossetDesc.clear();
-	//pLoadMapInfo->terrain.szRoadsetDesc.clear();
 	pLoadMapInfo->terrain.szNoise.clear();
 
 	pLoadMapInfo->terrain.patches.Clear();
@@ -223,39 +200,29 @@ void CMapInfo::Clear( SLoadMapInfo *pLoadMapInfo )
 	pLoadMapInfo->terrain.roads3.clear();
 	pLoadMapInfo->terrain.rivers.clear();
 
-	//�������������� objects ( std::vector<SMapObjectInfo>  )
 	pLoadMapInfo->objects.clear();
 
-	//�������������� entrenchments ( std::vector<SEntrenchmentInfo>  )
 	pLoadMapInfo->entrenchments.clear();
 
-	//�������������� bridges ( std::vector< std::vector<int> > )
 	pLoadMapInfo->bridges.clear();
 
-	//�������������� reinforcements ( SReinforcementGroupInfo )
 	pLoadMapInfo->reinforcements.groups.clear();
 
-	//�������������� szScriptFile ( std::string )
 	pLoadMapInfo->szScriptFile.clear();
-	//�������������� scriptAreas ( std::vector<SScriptArea> )
 	pLoadMapInfo->scriptAreas.clear();
 
-	//�������������� vCameraAnchor ( CVec3 )
 	pLoadMapInfo->vCameraAnchor = VNULL3;
 
 	pLoadMapInfo->nSeason = REAL_SEASONS[SEASON_SUMMER];
 
-	//�������������� startCommandsList ( TStartCommandsList )
 	pLoadMapInfo->startCommandsList.clear();
 
-	//�������������� reservePositionsList ( TReservePositionsList )
 	pLoadMapInfo->reservePositionsList.clear();
 
 	pLoadMapInfo->soundsList.clear();
 	pLoadMapInfo->szForestCircleSounds.clear();
 	pLoadMapInfo->szForestAmbientSounds.clear();
 
-	//�������������� unitCreation ( SUnitCreationInfo )
 	pLoadMapInfo->unitCreation.units.clear();
 
 	pLoadMapInfo->diplomacies.clear();
@@ -267,7 +234,6 @@ void CMapInfo::Clear( SLoadMapInfo *pLoadMapInfo )
 	FillDefaultDiplomacies( pLoadMapInfo );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::Create( SLoadMapInfo *pLoadMapInfo, const CTPoint<int> &rSize, int _nSeason, const std::string &rszSeasonFolder, int nPlayersCount, int _nType )
 {
 	NI_ASSERT_TF( pLoadMapInfo != 0,
@@ -282,16 +248,13 @@ bool CMapInfo::Create( SLoadMapInfo *pLoadMapInfo, const CTPoint<int> &rSize, in
 
 	Clear( pLoadMapInfo );
 
-	//�������������� nSeason ( int )
 	pLoadMapInfo->nSeason = _nSeason;
 	pLoadMapInfo->szSeasonFolder = rszSeasonFolder;
 
 	pLoadMapInfo->nType = _nType;
 
-	//�������������� terrain ( STerrainInfo )
 	pLoadMapInfo->terrain.szTilesetDesc = pLoadMapInfo->szSeasonFolder + RMGC_TILESET_FILE_NAME;
 	pLoadMapInfo->terrain.szCrossetDesc = pLoadMapInfo->szSeasonFolder + RMGC_CROSSSET_FILE_NAME;
-	//pLoadMapInfo->terrain.szRoadsetDesc = pLoadMapInfo->szSeasonFolder + RMGC_ROADSET_FILE_NAME;
 	pLoadMapInfo->terrain.szNoise = pLoadMapInfo->szSeasonFolder + RMGC_NOISE_FILE_NAME;
 
 	pLoadMapInfo->terrain.patches.SetSizes( rSize.x, rSize.y );
@@ -318,7 +281,6 @@ bool CMapInfo::Create( SLoadMapInfo *pLoadMapInfo, const CTPoint<int> &rSize, in
 		}
 	}
 
-	//�� 1 ������ ��� ������!
 	pLoadMapInfo->terrain.altitudes.SetSizes( rSize.x * STerrainPatchInfo::nSizeX + 1, rSize.y * STerrainPatchInfo::nSizeY + 1 );
 	pLoadMapInfo->terrain.altitudes.SetZero();
 
@@ -333,7 +295,6 @@ bool CMapInfo::Create( SLoadMapInfo *pLoadMapInfo, const CTPoint<int> &rSize, in
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::IsValid( const SLoadMapInfo rLoadMapInfo )
 {
 	if ( ( rLoadMapInfo.terrain.patches.GetSizeX() <= 0 ) || ( rLoadMapInfo.terrain.patches.GetSizeY() <= 0 ) )
@@ -367,7 +328,6 @@ bool CMapInfo::IsValid( const SLoadMapInfo rLoadMapInfo )
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMapInfo::GetSelectedSeason( int nSeason, const std::string &rszSeasonFolder )
 {
 	std::string szSeasonFolder = rszSeasonFolder;
@@ -383,7 +343,6 @@ int CMapInfo::GetSelectedSeason( int nSeason, const std::string &rszSeasonFolder
 	return nSelectedSeason;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::RemoveObject( SLoadMapInfo *pLoadMapInfo, int nObjectIndex )
 {
 	NI_ASSERT_TF( pLoadMapInfo != 0,
@@ -393,29 +352,24 @@ bool CMapInfo::RemoveObject( SLoadMapInfo *pLoadMapInfo, int nObjectIndex )
 							NStr::Format( "Wrong object index: %d\n", nObjectIndex ),
 							return false );
 	
-	//������� ������
 	pLoadMapInfo->objects.erase( pLoadMapInfo->objects.begin() + nObjectIndex );
 	return true;	
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::RemoveObjects( SLoadMapInfo *pLoadMapInfo, const std::list<CVec2> &rClearPolygon )
 {
 	NI_ASSERT_TF( pLoadMapInfo != 0,
 							NStr::Format( "Wrong parameter: %x\n", pLoadMapInfo ),
 							return false );
 	
-	//����� ��� �������� ������ �������� � �������
 	CArray2D<BYTE> tileMap( pLoadMapInfo->terrain.tiles.GetSizeX() * 2, pLoadMapInfo->terrain.tiles.GetSizeY() * 2 );
 	tileMap.Set( RMGC_UNLOCKED );
 	ModifyTilesFunctional<CArray2D<BYTE>, BYTE> tileMapModifyTiles( RMGC_LOCKED, &tileMap );
 	CheckTilesFunctional<CArray2D<BYTE>, BYTE> tileMapCheckTiles( RMGC_LOCKED, &tileMap );
 	CTRect<int>						tileMapRect( 0, 0, tileMap.GetSizeX(), tileMap.GetSizeY() );
 	
-	//����� �����, ������� �������� � ������
 	ApplyTilesInPolygon<ModifyTilesFunctional<CArray2D<BYTE>, BYTE>, std::list<CVec2>, CVec2>( tileMapRect, rClearPolygon, fWorldCellSize / 2.0f, tileMapModifyTiles );
 
-	//������� �������, ������� ����� passability �������� �� ���������� �����
 	for ( int nObjectIndex = 0; nObjectIndex < pLoadMapInfo->objects.size(); )
 	{
 		tileMapCheckTiles.isPresent = false;
@@ -423,17 +377,14 @@ bool CMapInfo::RemoveObjects( SLoadMapInfo *pLoadMapInfo, const std::list<CVec2>
 		{
 			if ( RemoveObject( pLoadMapInfo, nObjectIndex ) )
 			{
-				//������ ��������� ��� �� ������ ������, ����������� �� ����
 				continue;
 			}
 		}
-		//������ ��������� �� ��� �� �������� ����������� ���
 		++nObjectIndex;
 	}
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::UpdateTerrain( struct STerrainInfo *pTerrainInfo, const CTRect<int> &rUpdateRect, const struct STilesetDesc &rTilesetDesc, const struct SCrossetDesc &rCrossetDesc, /*const struct SRoadsetDesc &rRoadsetDesc,*/ const struct SGFXLightDirectional &rSunlight )
 {
 	NI_ASSERT_TF( pTerrainInfo != 0,
@@ -467,7 +418,6 @@ bool CMapInfo::UpdateTerrain( struct STerrainInfo *pTerrainInfo, const CTRect<in
 	return result;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::UpdateTerrainCrosses( STerrainInfo *pTerrainInfo, const CTRect<int> &rUpdateRect, const STilesetDesc &rTilesetDesc, const SCrossetDesc &rCrossetDesc/*, const SRoadsetDesc &rRoadsetDesc*/ )
 {
 	NI_ASSERT_TF( pTerrainInfo != 0,
@@ -513,13 +463,11 @@ bool CMapInfo::UpdateTerrainCrosses( STerrainInfo *pTerrainInfo, const CTRect<in
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::UpdateTerrainRivers( STerrainInfo *pTerrainInfo, const CTRect<int> &rUpdateRect )
 {
 	NI_ASSERT_TF( pTerrainInfo != 0,
 							  NStr::Format( "Wrong parameter: %x\n", pTerrainInfo ),
 							  return false );
-	//������������ ID'����� ���
 	for ( int nRiverIndex = 0; nRiverIndex < pTerrainInfo->rivers.size(); ++nRiverIndex )
 	{
 		pTerrainInfo->rivers[nRiverIndex].nID = nRiverIndex;
@@ -528,13 +476,11 @@ bool CMapInfo::UpdateTerrainRivers( STerrainInfo *pTerrainInfo, const CTRect<int
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::UpdateTerrainRoads3D( STerrainInfo *pTerrainInfo, const CTRect<int> &rUpdateRect )
 {
 	NI_ASSERT_TF( pTerrainInfo != 0,
 							  NStr::Format( "Wrong parameter: %x\n", pTerrainInfo ),
 							  return false );
-	//������������ ID'����� �����
 	for ( int nRoad3DIndex = 0; nRoad3DIndex < pTerrainInfo->roads3.size(); ++nRoad3DIndex )
 	{
 		pTerrainInfo->roads3[nRoad3DIndex].nID = nRoad3DIndex;
@@ -543,7 +489,6 @@ bool CMapInfo::UpdateTerrainRoads3D( STerrainInfo *pTerrainInfo, const CTRect<in
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::UpdateTerrainShades( STerrainInfo *pTerrainInfo, const CTRect<int> &rUpdateRect, const SGFXLightDirectional &rSunlight )
 {
 	NI_ASSERT_TF( pTerrainInfo != 0,
@@ -553,20 +498,16 @@ bool CMapInfo::UpdateTerrainShades( STerrainInfo *pTerrainInfo, const CTRect<int
 	return CVertexAltitudeInfo::UpdateShades( &( pTerrainInfo->altitudes ), rUpdateRect, rSunlight );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMapInfo::UpdateObjects( SLoadMapInfo *pLoadMapInfo, const CTRect<int> &rUpdateRect )
 {
 	NI_ASSERT_TF( pLoadMapInfo != 0,
 							  NStr::Format( "Wrong parameter: %x\n", pLoadMapInfo ),
 							  return false );
 
-	//UPDATE_LINK_ID
-	//usedIDs[old nLinkID] = new nLinkID;
 	std::unordered_map<int, int> usedIDs;
 
 	int nCurrentLinkID = RMGC_INVALID_LINK_ID_VALUE + 1;
 	
-	//������� ����� nLinkID
 	for ( int nObjectIndex = 0; nObjectIndex < pLoadMapInfo->objects.size(); ++nObjectIndex )
 	{	
 		if ( pLoadMapInfo->objects[nObjectIndex].link.nLinkID != RMGC_INVALID_LINK_ID_VALUE )
@@ -587,7 +528,6 @@ int CMapInfo::UpdateObjects( SLoadMapInfo *pLoadMapInfo, const CTRect<int> &rUpd
 	}
 
 	
-	//���������� ����� nLinkID � SMapObjectInfo.link.nLinkWith
 	for ( int nObjectIndex = 0; nObjectIndex < pLoadMapInfo->objects.size(); ++nObjectIndex )
 	{
 		if ( ( pLoadMapInfo->objects[nObjectIndex].link.nLinkWith != RMGC_INVALID_LINK_ID_VALUE ) &&
@@ -615,7 +555,6 @@ int CMapInfo::UpdateObjects( SLoadMapInfo *pLoadMapInfo, const CTRect<int> &rUpd
 		}
 	}
 	
-	//���������� ����� nLinkID � entrenchments
 	for ( int nEntrenchmentIndex = 0; nEntrenchmentIndex < pLoadMapInfo->entrenchments.size(); ++nEntrenchmentIndex )
 	{
 		for ( int nSectionIndex = 0; nSectionIndex < pLoadMapInfo->entrenchments[nEntrenchmentIndex].sections.size(); ++nSectionIndex )
@@ -627,7 +566,6 @@ int CMapInfo::UpdateObjects( SLoadMapInfo *pLoadMapInfo, const CTRect<int> &rUpd
 		}
 	}
 
-	//���������� ����� nLinkID � bridges
 	for ( int nBrigeIndex = 0; nBrigeIndex < pLoadMapInfo->bridges.size(); ++nBrigeIndex )
 	{
 		for ( int nBrigeElementIndex = 0; nBrigeElementIndex < pLoadMapInfo->bridges[nBrigeIndex].size(); ++nBrigeElementIndex )
@@ -636,7 +574,6 @@ int CMapInfo::UpdateObjects( SLoadMapInfo *pLoadMapInfo, const CTRect<int> &rUpd
 		}
 	}
 
-	//���������� ����� linkID � startCommandsList
 	for ( SLoadMapInfo::TStartCommandsList::iterator it = pLoadMapInfo->startCommandsList.begin();
 			it != pLoadMapInfo->startCommandsList.end();
 			++it )
@@ -651,7 +588,6 @@ int CMapInfo::UpdateObjects( SLoadMapInfo *pLoadMapInfo, const CTRect<int> &rUpd
 		}
 	}
 
-	//���������� ����� linkID � reservePositionsList
 	for ( SLoadMapInfo::TReservePositionsList::iterator it = pLoadMapInfo->reservePositionsList.begin();
 	      it != pLoadMapInfo->reservePositionsList.end();
 				++it )
@@ -669,7 +605,6 @@ int CMapInfo::UpdateObjects( SLoadMapInfo *pLoadMapInfo, const CTRect<int> &rUpd
 	return nCurrentLinkID;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::PackFrameIndices( struct SLoadMapInfo *pLoadMapInfo )
 {
 	CPtr<IObjectsDB> pODB = GetSingleton<IObjectsDB>();
@@ -687,7 +622,6 @@ void CMapInfo::PackFrameIndices( struct SLoadMapInfo *pLoadMapInfo )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::UnpackFrameIndices( struct SLoadMapInfo *pLoadMapInfo )
 {
 	CPtr<IObjectsDB> pODB = GetSingleton<IObjectsDB>();
@@ -708,19 +642,15 @@ void CMapInfo::UnpackFrameIndices( struct SLoadMapInfo *pLoadMapInfo )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRemoveNonExistingVSOFunctor
 {
 private:
 	IDataStorage *pDataStorage;
 	std::string *pszOutputString;
-	//
 	std::set<std::string> existingTextures;
 	std::set<std::string> existingDescriptions;
-	//
 	std::set<std::string> notExistingTextures;
 	std::set<std::string> notExistingDescriptions;
-	//
 	bool CheckTexture( const std::string &rszTexture )
 	{
 		if ( existingTextures.find( rszTexture ) != existingTextures.end() )
@@ -743,7 +673,6 @@ private:
 			return false;
 		}
 	}
-	//
 	bool CheckDescription( const std::string &rszDescription )
 	{
 		if ( existingDescriptions.find( rszDescription ) != existingDescriptions.end() )
@@ -769,9 +698,7 @@ private:
 
 public:
 	std::list<SVectorStripeObject> removedVSOs;
-	//
 	CRemoveNonExistingVSOFunctor( IDataStorage *_pDataStorage, std::string *_pszOutputString ) : pDataStorage( _pDataStorage ), pszOutputString( _pszOutputString )	{	}
-	//
 	bool operator()( const SVectorStripeObject &rVectorStripeObject )
 	{
 		bool bExists = true;
@@ -824,7 +751,6 @@ public:
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRemoveNonExistingVSOFunctorProxy
 {
 	CRemoveNonExistingVSOFunctor *pFunctor;
@@ -839,7 +765,6 @@ public:
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRemoveNonExistingObjectsFunctor
 {
 private:
@@ -849,10 +774,8 @@ private:
 
 	std::set<std::string> existingObjects;
 	std::set<std::string> existingObjectFolders;
-	//
 	std::set<std::string> notExistingObjects;
 	std::set<std::string> notExistingObjectFolders;
-	//
 	bool CheckObjectFolder( const std::string &rszObjectFolder )
 	{
 		if ( existingObjectFolders.find( rszObjectFolder ) != existingObjectFolders.end() )
@@ -875,7 +798,6 @@ private:
 			return false;
 		}
 	}
-	//
 	bool CheckObject( const std::string &rszObject )
 	{
 		if ( existingObjects.find( rszObject ) != existingObjects.end() )
@@ -902,7 +824,6 @@ private:
 public:
 	std::list<SMapObjectInfo> removedObjects;
 	std::set<int> removedLinkIDs;
-	//
 	CRemoveNonExistingObjectsFunctor( IDataStorage *_pDataStorage, IObjectsDB *_pObjectsDB, std::string *_pszOutputString ) : pDataStorage( _pDataStorage ), pObjectsDB( _pObjectsDB ), pszOutputString( _pszOutputString )	{	}
 	bool operator()( const SMapObjectInfo &rMapObjectInfo )
 	{
@@ -926,7 +847,6 @@ public:
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRemoveNonExistingObjectsFunctorProxy
 {
 	CRemoveNonExistingObjectsFunctor *pFunctor;
@@ -940,7 +860,6 @@ public:
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRemoveNonExistingEntrenchmentsFunctor
 {
 private:
@@ -948,7 +867,6 @@ private:
 
 public:
 	CRemoveNonExistingEntrenchmentsFunctor( std::set<int> *_pRemovedLinkIDs ) : pRemovedLinkIDs( _pRemovedLinkIDs )	{	}
-	//
 	bool operator()( const SEntrenchmentInfo &rEntrenchmentInfo )
 	{
 		for ( int nSectionIndex = 0; nSectionIndex < rEntrenchmentInfo.sections.size(); ++nSectionIndex )
@@ -965,7 +883,6 @@ public:
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRemoveNonExistingBridgesFunctor
 {
 private:
@@ -973,7 +890,6 @@ private:
 
 public:
 	CRemoveNonExistingBridgesFunctor( std::set<int> *_pRemovedLinkIDs ) : pRemovedLinkIDs( _pRemovedLinkIDs )	{	}
-	//
 	bool operator()( const std::vector<int> &rBridgeInfo )
 	{
 		for ( int nBrigeElementIndex = 0; nBrigeElementIndex < rBridgeInfo.size(); ++nBrigeElementIndex )
@@ -987,7 +903,6 @@ public:
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRemoveNonExistingStartCommandFunctor
 {
 private:
@@ -995,7 +910,6 @@ private:
 
 public:
 	CRemoveNonExistingStartCommandFunctor( std::set<int> *_pRemovedLinkIDs ) : pRemovedLinkIDs( _pRemovedLinkIDs )	{	}
-	//
 	bool operator()( const SAIStartCommand &rAIStartCommand )
 	{
 		for( int nLinkIDIndex = 0; nLinkIDIndex < rAIStartCommand.unitLinkIDs.size(); ++nLinkIDIndex )
@@ -1016,7 +930,6 @@ public:
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRemoveNonExistingReservePositionFunctor
 {
 private:
@@ -1024,7 +937,6 @@ private:
 
 public:
 	CRemoveNonExistingReservePositionFunctor( std::set<int> *_pRemovedLinkIDs ) : pRemovedLinkIDs( _pRemovedLinkIDs )	{	}
-	//
 	bool operator()( const SBattlePosition &rBattlePosition )
 	{
 		if ( rBattlePosition.nArtilleryLinkID != RMGC_INVALID_LINK_ID_VALUE )
@@ -1045,7 +957,6 @@ public:
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::RemoveNonExistingObjects( struct SLoadMapInfo *pLoadMapInfo, IDataStorage *pDataStorage, IObjectsDB *pObjectsDB, std::string *pszOutputString )
 {
 	NI_ASSERT_TF( ( pDataStorage != 0 ) && ( pObjectsDB != 0 ),
@@ -1060,7 +971,6 @@ bool CMapInfo::RemoveNonExistingObjects( struct SLoadMapInfo *pLoadMapInfo, IDat
 		{
 			( *pszOutputString ) += std::string( "Roads deleted:\r\n" );
 		}
-		//roads
 		{
 			TVSOList::iterator vsoIterator = std::remove_if( pLoadMapInfo->terrain.roads3.begin(), pLoadMapInfo->terrain.roads3.end(), CRemoveNonExistingVSOFunctorProxy( &vsoFunctor ) );
 			if ( vsoIterator != pLoadMapInfo->terrain.roads3.end() )
@@ -1074,7 +984,6 @@ bool CMapInfo::RemoveNonExistingObjects( struct SLoadMapInfo *pLoadMapInfo, IDat
 			( *pszOutputString ) += std::string( "\r\n" );
 			( *pszOutputString ) += std::string( "Rivers deleted:\r\n" );
 		}
-		//rivers
 		{
 			TVSOList::iterator vsoIterator = std::remove_if( pLoadMapInfo->terrain.rivers.begin(), pLoadMapInfo->terrain.rivers.end(), CRemoveNonExistingVSOFunctorProxy( &vsoFunctor ) );
 			if ( vsoIterator != pLoadMapInfo->terrain.rivers.end() )
@@ -1089,7 +998,6 @@ bool CMapInfo::RemoveNonExistingObjects( struct SLoadMapInfo *pLoadMapInfo, IDat
 		}
 	}
 
-	//objects & scenarioObjects
 	{
 		if ( pszOutputString )
 		{
@@ -1116,7 +1024,6 @@ bool CMapInfo::RemoveNonExistingObjects( struct SLoadMapInfo *pLoadMapInfo, IDat
 		if ( !objectsFunctor.removedLinkIDs.empty() )
 		{
 			bSomeRemoved = true;
-			//������� nLinkID � SMapObjectInfo.link.nLinkWith
 			for ( int nObjectIndex = 0; nObjectIndex < pLoadMapInfo->objects.size(); ++nObjectIndex )
 			{
 				if ( ( pLoadMapInfo->objects[nObjectIndex].link.nLinkWith != RMGC_INVALID_LINK_ID_VALUE ) &&
@@ -1134,7 +1041,6 @@ bool CMapInfo::RemoveNonExistingObjects( struct SLoadMapInfo *pLoadMapInfo, IDat
 				}
 			}
 	
-			//������� entrenchments
 			{
 				CRemoveNonExistingEntrenchmentsFunctor entrenchmentsFunctor( &( objectsFunctor.removedLinkIDs ) );
 				std::vector<SEntrenchmentInfo>::iterator entrenchmentIterator = std::remove_if( pLoadMapInfo->entrenchments.begin(), pLoadMapInfo->entrenchments.end(), entrenchmentsFunctor );
@@ -1144,7 +1050,6 @@ bool CMapInfo::RemoveNonExistingObjects( struct SLoadMapInfo *pLoadMapInfo, IDat
 				}
 			}
 
-			//������� bridges
 			{
 				CRemoveNonExistingBridgesFunctor bridgeFunctor( &( objectsFunctor.removedLinkIDs ) );
 				std::vector<std::vector<int> >::iterator bridgeIterator = std::remove_if( pLoadMapInfo->bridges.begin(), pLoadMapInfo->bridges.end(), bridgeFunctor );
@@ -1154,7 +1059,6 @@ bool CMapInfo::RemoveNonExistingObjects( struct SLoadMapInfo *pLoadMapInfo, IDat
 				}
 			}
 
-			//������� startCommandsList
 			{
 				CRemoveNonExistingStartCommandFunctor startCommandFunctor( &( objectsFunctor.removedLinkIDs ) );
 				SLoadMapInfo::TStartCommandsList::iterator startCommandIterator = std::remove_if( pLoadMapInfo->startCommandsList.begin(), pLoadMapInfo->startCommandsList.end(), startCommandFunctor );
@@ -1164,7 +1068,6 @@ bool CMapInfo::RemoveNonExistingObjects( struct SLoadMapInfo *pLoadMapInfo, IDat
 				}
 			}
 
-			//������� reservePositionsList
 			{
 				CRemoveNonExistingReservePositionFunctor reservePositionFunctor( &( objectsFunctor.removedLinkIDs ) );
 				SLoadMapInfo::TReservePositionsList::iterator reservePositionIterator = std::remove_if( pLoadMapInfo->reservePositionsList.begin(), pLoadMapInfo->reservePositionsList.end(), reservePositionFunctor );
@@ -1178,7 +1081,6 @@ bool CMapInfo::RemoveNonExistingObjects( struct SLoadMapInfo *pLoadMapInfo, IDat
 	return bSomeRemoved;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::TerrainHitTest( const STerrainInfo &rTerrainInfo, const CVec3 &rPoint, TERRAIN_HIT_TEST_TYPE type, std::vector<int> *pTerrainObjects )
 {
 	NI_ASSERT_TF( pTerrainObjects != 0,
@@ -1246,7 +1148,6 @@ const SVectorStripeObject* CMapInfo::GetRoad3D( const STerrainInfo &rTerrainInfo
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::GetScenarioObjects( const std::string &rszMapInfoFileName, std::vector<SMapObjectInfo> *pMapObjects )
 {
 	CPtr<IDataStorage> pDataStorage = GetSingleton<IDataStorage>();
@@ -1259,18 +1160,15 @@ bool CMapInfo::GetScenarioObjects( const std::string &rszMapInfoFileName, std::v
 							  return false );
 
 	const std::string szMapInfoFileName = rszMapInfoFileName.substr( 0, rszMapInfoFileName.rfind( '.' ) );
-	// load map info
 	CMapInfo mapinfo;
 	SStorageElementStats statsXML, statsBZM;
 	{
-		// get stats from XML and BZM files
 		Zero( statsXML );
 		const bool bHasXML = pDataStorage->GetStreamStats( ( szMapInfoFileName + ".xml" ).c_str(), &statsXML );
 		Zero( statsBZM );
 		const bool bHasBZM = pDataStorage->GetStreamStats( ( szMapInfoFileName + ".bzm" ).c_str(), &statsBZM );
 		NI_ASSERT_TF( bHasXML || bHasBZM, NStr::Format("Can't load neither XML nor BZM map \"%s\" to get scenario objects - check mission stats resources", szMapInfoFileName.c_str()), return false );
 	}		
-	// load newest one
 	if ( statsXML.mtime > statsBZM.mtime ) 
 	{
 		LoadDataResource( szMapInfoFileName, ".bzm", false, 1, "ScenarioObjects", ( *pMapObjects ) );
@@ -1287,7 +1185,6 @@ bool CMapInfo::GetScenarioObjects( const std::string &rszMapInfoFileName, std::v
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::GetUsedLinkIDs( const SLoadMapInfo &rLoadMapInfo, CUsedLinkIDs *pUsedLinkIDs )
 {
 	NI_ASSERT_TF( pUsedLinkIDs != 0,
@@ -1368,7 +1265,6 @@ bool CMapInfo::GetUsedLinkIDs( const SLoadMapInfo &rLoadMapInfo, CUsedLinkIDs *p
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::GetUsedScriptIDs( const SLoadMapInfo &rLoadMapInfo, CUsedScriptIDs *pUsedScriptIDs )
 {
 	NI_ASSERT_TF( pUsedScriptIDs != 0,
@@ -1392,7 +1288,6 @@ bool CMapInfo::GetUsedScriptIDs( const SLoadMapInfo &rLoadMapInfo, CUsedScriptID
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::GetUsedScriptAreas( const SLoadMapInfo &rLoadMapInfo, CUsedScriptAreas *pUsedScriptAreas )
 {
 	NI_ASSERT_TF( pUsedScriptAreas != 0,
@@ -1406,17 +1301,12 @@ bool CMapInfo::GetUsedScriptAreas( const SLoadMapInfo &rLoadMapInfo, CUsedScript
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// obsolete storage  
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
 bool CMapInfo::UpdateTerrainRoads( STerrainInfo *pTerrainInfo, const CTRect<int> &rUpdateRect, const SRoadsetDesc &rRoadsetDesc )
 {
 	NI_ASSERT_TF( pTerrainInfo != 0,
 							  NStr::Format( "Wrong parameter: %x\n", pTerrainInfo ),
 							  return false );
-	// ������ ��� ������ �� ���� ������
 	for ( int nPatchXIndex = 0; nPatchXIndex < pTerrainInfo->patches.GetSizeX(); ++nPatchXIndex )
 	{
 		for ( int nPatchYIndex = 0; nPatchYIndex < pTerrainInfo->patches.GetSizeY() ; ++nPatchYIndex )
@@ -1429,13 +1319,11 @@ bool CMapInfo::UpdateTerrainRoads( STerrainInfo *pTerrainInfo, const CTRect<int>
 	}
 
 	if ( pTerrainInfo->roads.size() < 1 ) return true;
-	//��������� ���������� ��������� �����
 	for ( int index = 0; index < pTerrainInfo->roads.size(); ++index )
 	{	
 		pTerrainInfo->roads[index].rect.Normalize();
 	}
 	
-	//���������� �����
 	bool isChanged = true;
 	while( isChanged )
 	{
@@ -1446,11 +1334,8 @@ bool CMapInfo::UpdateTerrainRoads( STerrainInfo *pTerrainInfo, const CTRect<int>
 			{	
 				if ( //����������� ���������
 						 ( pTerrainInfo->roads[index].nDir == pTerrainInfo->roads[innerIndex].nDir ) &&
-						 //���� ���������
 						 ( pTerrainInfo->roads[index].nType == pTerrainInfo->roads[innerIndex].nType ) &&
-						 //������������
 						 pTerrainInfo->roads[index].rect.IsIntersectEdges( pTerrainInfo->roads[innerIndex].rect ) &&
-					   //���� ������ ������� ����� �� ������ � ��� ���� �� ����� ������ ������������ ����� ����
 						 ( ( ( pTerrainInfo->roads[index].rect.Width() == pTerrainInfo->roads[innerIndex].rect.Width() ) &&
 						 		 ( pTerrainInfo->roads[index].rect.minx == pTerrainInfo->roads[innerIndex].rect.minx ) ) ||
 							 ( ( pTerrainInfo->roads[index].rect.Height() == pTerrainInfo->roads[innerIndex].rect.Height() ) &&
@@ -1459,9 +1344,6 @@ bool CMapInfo::UpdateTerrainRoads( STerrainInfo *pTerrainInfo, const CTRect<int>
 				{
 					pTerrainInfo->roads[index].rect.Union( pTerrainInfo->roads[innerIndex].rect );
 					pTerrainInfo->roads.erase( pTerrainInfo->roads.begin() + innerIndex );
-					//std::vector<SRoadItem>::iterator pos = pTerrainInfo->roads.begin();
-					//std::advance( pos, innerIndex );
-					//pTerrainInfo->roads.erase( pos );
 					isChanged = true;
 				}
 				else
@@ -1472,7 +1354,6 @@ bool CMapInfo::UpdateTerrainRoads( STerrainInfo *pTerrainInfo, const CTRect<int>
 		}
 	}
 
-	//�������� ������� ����� �����
 	CArray2D<DWORD> roadBitsArray[nNumRoadTypes];
 	for ( int index = 0; index < nNumRoadTypes; ++index )
 	{
@@ -1554,8 +1435,6 @@ bool CMapInfo::UpdateTerrainRoads( STerrainInfo *pTerrainInfo, const CTRect<int>
 			}
 		}
 	}
-	//���������� ���������� �� ������� ����� ������ �� ��� ���������
-	//���� ������ ����� ����� �����, ������ - �������
 	for ( int nRoadIndex = 0; nRoadIndex < nNumRoadTypes; ++nRoadIndex )
 	{
 		for ( int nPatchXIndex = 0; nPatchXIndex < pTerrainInfo->patches.GetSizeX(); ++nPatchXIndex )
@@ -1587,7 +1466,6 @@ bool CMapInfo::UpdateTerrainRoads( STerrainInfo *pTerrainInfo, const CTRect<int>
 							}
 							if ( nValidBitMask >= 0 )
 							{
-								//���� ��� ���� ���������� ������ �� ���� �����, �� ��������� ���������� ����:
 								int index = -1;
 								if ( ( nXIndex == 0 ) || 
 										 ( nXIndex == ( pTerrainInfo->tiles.GetSizeX() - 1 ) ) ||
@@ -1612,7 +1490,6 @@ bool CMapInfo::UpdateTerrainRoads( STerrainInfo *pTerrainInfo, const CTRect<int>
 }
 /**/
 /**
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::AddRoad( SLoadMapInfo *pLoadMapInfo, const CTRect<int> &rRoadRect, int nRoadType, int nRoadDirection, std::vector<SRoadItem> *pRoad )
 {
 	NI_ASSERT_TF( pLoadMapInfo != 0,
@@ -1620,13 +1497,11 @@ bool CMapInfo::AddRoad( SLoadMapInfo *pLoadMapInfo, const CTRect<int> &rRoadRect
 							  return false );
 
 	SRoadItem roadItem;
-	//����������� � ����������� � ������� �������� ����� ��������
 	roadItem.rect = CTRect<int>( rRoadRect.minx,
 															 pLoadMapInfo->terrain.tiles.GetSizeY() - rRoadRect.miny - 1,
 															 rRoadRect.maxx,
 															 pLoadMapInfo->terrain.tiles.GetSizeY() - rRoadRect.maxy - 1 );
 	roadItem.rect.Normalize();
-	//���������� ������ ���� ��� ������� ����� �� ������
 	if ( ( roadItem.rect.minx >= pLoadMapInfo->terrain.tiles.GetSizeX() ) ||
 			 ( roadItem.rect.maxx < 0 ) ||
 			 ( roadItem.rect.miny >= pLoadMapInfo->terrain.tiles.GetSizeY() ) ||
@@ -1634,7 +1509,6 @@ bool CMapInfo::AddRoad( SLoadMapInfo *pLoadMapInfo, const CTRect<int> &rRoadRect
 	{
 		return false;
 	}
-	//��������� ������ �� ���� �����
 	if ( roadItem.rect.minx < 0 )
 	{
 		roadItem.rect.minx = 0;
@@ -1652,9 +1526,7 @@ bool CMapInfo::AddRoad( SLoadMapInfo *pLoadMapInfo, const CTRect<int> &rRoadRect
 		roadItem.rect.maxy = pLoadMapInfo->terrain.tiles.GetSizeY() - 1;
 	}
 
-	//������� ����������� ������� � ����� ��� �������
 
-	//REMOVE_OBJECTS_FROM_RECT
 /**/
 	/**
 	CTRect<int> roadRect( roadItem.rect.minx,
@@ -1684,7 +1556,6 @@ bool CMapInfo::AddRoad( SLoadMapInfo *pLoadMapInfo, const CTRect<int> &rRoadRect
 }
 /**/
 /**
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, const SRoadPoint &rTo, int nRoadType, const SRoadMakeParameter &rRoadMakeParamerer, std::vector<SRoadItem> *pRoad )
 {
 	NI_ASSERT_TF( pLoadMapInfo != 0,
@@ -1700,7 +1571,6 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 							 ( rFrom.nWidth == rTo.nWidth ),
 							 NStr::Format( "Invalid Road width!" ) );
 
-	//�������������� ��� ����������� ������
 	std::vector<CTRect<int> > rectsToLock;
 	for ( int nRectIndex = 0; nRectIndex < rRoadMakeParamerer.lockedRects.size(); ++nRectIndex )
 	{
@@ -1709,13 +1579,11 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 	rectsToLock.push_back( CTRect<int>( rFrom, rFrom ) );
 	rectsToLock.push_back( CTRect<int>( rTo, rTo ) );
 	
-	//������ ������ ��� ������ ����
 	CArray2D<BYTE> tileMap( pLoadMapInfo->terrain.tiles.GetSizeX(), pLoadMapInfo->terrain.tiles.GetSizeY() );
 	tileMap.Set( RMGC_UNLOCKED );
 	ModifyTilesFunctional<CArray2D<BYTE>, BYTE> tileMapModifyTiles( RMGC_LOCKED, &tileMap );
 	CTRect<int>						tileMapRect( 0, 0, tileMap.GetSizeX(), tileMap.GetSizeY() );
 
-	//������ �����
 	for ( int nRectIndex = 0; nRectIndex < rectsToLock.size(); ++nRectIndex )
 	{
 		rectsToLock[nRectIndex].Normalize();
@@ -1764,9 +1632,6 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 	return true;
 }
 /**/
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// basement storage  
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 				/**
 				if ( isVertical )
 				{
@@ -1855,10 +1720,6 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 																			SColor( 0xFF, 0x00, 0x00, 0x00 ) };
 		int nWoodRadius = 4; 
 /**/  
-//DWORD dwTimer = GetTickCount();
-	//dwTimer = GetTickCount() - dwTimer;
-	//NStr::DebugTrace("CMapInfo::CreateMiniMapImage: create image: %d\n", dwTimer );
-	//dwTimer = GetTickCount();
 	/**
 	SColor blackColor( 0xFF, 0, 0, 0 );
 	SColor whilteColor( 0xFF, 0xFF, 0xFF, 0xFF );
@@ -1870,10 +1731,8 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 
 
 /**
-	//int nErasedLinkID = pLoadMapInfo->objects[nObjectIndex].link.nLinkID;
 	if ( nErasedLinkID != RMGC_INVALID_LINK_ID_VALUE )
 	{
-		//�������� ������� (link.nLinkWith)
 		for ( int nInnerObjectIndex = 0; nInnerObjectIndex < pLoadMapInfo->objects.size(); ++nInnerObjectIndex )
 		{
 			if ( pLoadMapInfo->objects[nInnerObjectIndex].link.nLinkWith == nErasedLinkID )
@@ -1883,7 +1742,6 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 			}
 		}
 
-		//���������� ����� nLinkID � entrenchments
 		for ( int nEntrenchmentIndex = 0; nEntrenchmentIndex < pLoadMapInfo->entrenchments.size(); )
 		{
 			for ( int nSectionIndex = 0; nSectionIndex < pLoadMapInfo->entrenchments[nEntrenchmentIndex].sections.size(); )
@@ -1918,7 +1776,6 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 			}
 		}
 
-		//���������� ����� nLinkID � bridges
 		for ( int nBrigeIndex = 0; nBrigeIndex < pLoadMapInfo->bridges.size(); )
 		{
 			for ( int nBrigeElementIndex = 0; nBrigeElementIndex < pLoadMapInfo->bridges[nBrigeIndex].size(); )
@@ -1942,7 +1799,6 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 			}
 		}
 
-		//���������� ����� nLinkID � logics
 		bool isElementErased = true;
 		while ( isElementErased )
 		{
@@ -1993,7 +1849,6 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 /**/
 
 	/**
-	// CRAP{ ����� ��� ������� diplomacies
 	if ( saver.IsReading() )
 	{
 		if ( (  diplomacies.GetSizeX() == 0 ) || 
@@ -2020,11 +1875,9 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 			}
 		}
 	}
-	// CRAP}
 	/**/
 
 	/**
-	// CRAP{ ����� ��� ������� diplomacies
 	if ( saver.IsReading() )
 	{
 		if ( (  diplomacies.GetSizeX() == 0 ) || 
@@ -2051,12 +1904,10 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 			}
 		}
 	}
-	// CRAP}
 	/**/
 /**
 
 	/**
-	//���������� ������ ���������� ���������������
 	std::vector<CTRect<int> > rectsToLock;
 	for ( int nPatchIndex = 0; nPatchIndex < placedPatches.size(); ++nPatchIndex )
 	{
@@ -2094,7 +1945,6 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 																				start.y + size.y ) );
 	}
 
-	//������ ��� ����������� ��������������
 	CArray2D<BYTE> tileMap( mapInfo.terrain.tiles.GetSizeX() * 2, mapInfo.terrain.tiles.GetSizeY() * 2 );
 	tileMap.Set( RMGC_UNLOCKED );
 	ModifyTilesFunctional tileMapModifyTiles( RMGC_LOCKED, &tileMap );
@@ -2106,14 +1956,12 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 
 		
 		/**
-		//�������� ������� �����
 		std::vector<CVec3>	mapPolygon;
 		mapPolygon.push_back( CVec3( ( rectsToLock[nRectIndex].minx + 0 ) * fWorldCellSize, ( rectsToLock[nRectIndex].miny + 0 ) * fWorldCellSize, 0.0f ) );
 		mapPolygon.push_back( CVec3( ( rectsToLock[nRectIndex].minx + 0 ) * fWorldCellSize, ( rectsToLock[nRectIndex].maxy + 1 ) * fWorldCellSize, 0.0f ) );
 		mapPolygon.push_back( CVec3( ( rectsToLock[nRectIndex].maxx + 1 ) * fWorldCellSize, ( rectsToLock[nRectIndex].maxy + 1 ) * fWorldCellSize, 0.0f ) );
 		mapPolygon.push_back( CVec3( ( rectsToLock[nRectIndex].maxx + 1 ) * fWorldCellSize, ( rectsToLock[nRectIndex].miny + 0 ) * fWorldCellSize, 0.0f ) );
 
-		//�������� ������� ������
 		mapInfo.FillTerrainTiles( mapPolygon, rParameter.nPlainTerrainIndex, false );
 		/**
 		CTRect<int> rectToLock( rectsToLock[nRectIndex].minx * 2,
@@ -2123,11 +1971,7 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 		ApplyTilesInRange( tileMapRect, rectToLock, tileMapModifyTiles );
 	}
 	
-	//dwTimer = GetTickCount() - dwTimer;
-	//NStr::DebugTrace("CMapInfo::CreateRandomMap: lock rects: %d\n", dwTimer );
-	//dwTimer = GetTickCount();
 
-	//������ ����
 	TForestHashMap forests;
 	forests.clear();
 	{
@@ -2141,7 +1985,6 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 		tree.Add( "forests", &forests );
 	}
 
-	//�������� ����� ����, ������� ���������� �����
 	int nForestRandomIndex = ( rand() * forests.size() ) / ( RAND_MAX + 1 );
 	TForestHashMap::iterator forestRandomIteratorPosition = forests.begin();
 	for ( int nIndex = 0; nIndex < nForestRandomIndex; ++nIndex )
@@ -2149,29 +1992,16 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 		++forestRandomIteratorPosition;
 	}
 
-	//dwTimer = GetTickCount() - dwTimer;
-	//NStr::DebugTrace("CMapInfo::CreateRandomMap: load forests: %d\n", dwTimer );
-	//dwTimer = GetTickCount();
 	
-	//���������� ��� ��������� �����
 	int nEdgesAdded = 0;
 	int nHeartsAdded = 0;
-	//mapInfo.FillObjectSet( mapPolygon, forestRandomIteratorPosition->second, rParameter.nRatio, rParameter.nEdge, rParameter.nRadius, &tileMap, &nEdgesAdded, &nHeartsAdded );
 	
-	//dwTimer = GetTickCount() - dwTimer;
-	//NStr::DebugTrace("CMapInfo::CreateRandomMap: place forest: %d ( heart: %d, edge: %d )\n", dwTimer, nHeartsAdded, nEdgesAdded );
-	//dwTimer = GetTickCount();
 
-	//�������� �����
 	mapInfo.UpdateTerrain();
 
-	//dwTimer = GetTickCount() - dwTimer;
-	//NStr::DebugTrace("CMapInfo::CreateRandomMap: update terrain: %d\n", dwTimer );
-	//dwTimer = GetTickCount();
 
 	mapInfo.szScriptFile = rszRandomMapName.substr( 0, rszRandomMapName.rfind( '.' ) );
 
-	//��������� �����
 	{
 		std::string szFileName = pDataStorage->GetName() + rszRandomMapName;
 		CPtr<IDataStream> pStream = CreateFileStream( szFileName .c_str(), STREAM_ACCESS_WRITE );
@@ -2179,22 +2009,17 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 		saver.AddTypedSuper( &mapInfo );
 	}
 
-	//dwTimer = GetTickCount() - dwTimer;
-	//NStr::DebugTrace("CMapInfo::CreateRandomMap: save map: %d\n", dwTimer );
 
 /**/
-			//�������� ��� ������ ����� �� �����
 			/**
 			std::vector<SRoadPoint> roadPoints;
 			for ( int nPatchRoadIndex = 0; nPatchRoadIndex < patchInfo.terrain.roads.size(); ++nPatchRoadIndex )
 			{
-				//������ ��� ���������� ������ � ���������� SRoadPoint'��
 				CTRect<int> roadRect( patchInfo.terrain.roads[nPatchRoadIndex].rect.minx,
 					                    patchInfo.terrain.tiles.GetSizeY() - patchInfo.terrain.roads[nPatchRoadIndex].rect.miny - 1,
 															patchInfo.terrain.roads[nPatchRoadIndex].rect.maxx,
 					                    patchInfo.terrain.tiles.GetSizeY() - patchInfo.terrain.roads[nPatchRoadIndex].rect.maxy - 1 );
 				roadRect.Normalize();
-				//��������������� SRoadPoint'� ����������� �� ����� ������
 				if ( patchInfo.terrain.roads[nPatchRoadIndex].nDir == SRoadItem::HORIZONTAL )
 				{
 					if ( roadRect.minx == 0 )
@@ -2236,14 +2061,12 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 				}
 			}
 			patchRoadPoints.push_back( roadPoints );
-			//��������� ������������� ����� � �������� ���������������
 			roadMakeParameter.lockedRects.push_back( CTRect<int>( placedPatches[nPlacedPatchIndex].minXYCorner.x,
 																														placedPatches[nPlacedPatchIndex].minXYCorner.y,
 																														placedPatches[nPlacedPatchIndex].minXYCorner.x + patchInfo.terrain.tiles.GetSizeX() - 1,
 																														placedPatches[nPlacedPatchIndex].minXYCorner.y + patchInfo.terrain.tiles.GetSizeY() - 1 ) );
 /**/
 		/**
-		// CRAP{ ��� ��������� placeholder'��
 		for (int nPlaceHolderIndex = 0; nPlaceHolderIndex < placeHolders.size(); ++nPlaceHolderIndex )
 		{
 			std::vector<CVec3> polygon;
@@ -2261,17 +2084,10 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 																0.0f ) );
 			CMapInfo::FillTerrainTiles( &( pLoadMapInfo->terrain ), polygon, tilesetDesc, 2 );
 		}
-		// CRAP}
 		/**/
-		//�������� ��� ���������� �����, ���� ������������ �������������� ������
-		//SRoadMakeParameter roadMakeParameter;
-		//roadMakeParameter.nMinMiddleDistance = 1;
 
-		//����� ������ ����� �� ������ (������ �� ������)
-		//std::vector<std::vector<SRoadPoint> > patchRoadPoints;
 
 /**
-		//�������� ������
 		for ( int nLinkIndex = 0; nLinkIndex < rRMTemplate.graphs[nGraphIndex].links.size(); ++nLinkIndex )
 		{
 			std::vector<SRoadItem> addedRoad;
@@ -2284,7 +2100,6 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 					 ( !patchRoadPoints[nPatchToIndex].empty() ) &&
 					 ( nPatchFromIndex != nPatchToIndex) ) 
 			{
-				//������� ���������� ������
 				int nRoadPointFromIndex = -1;
 				float fMinDistance = sqr( pLoadMapInfo->terrain.tiles.GetSizeX() ) + 
 					                   sqr( pLoadMapInfo->terrain.tiles.GetSizeY() );
@@ -2326,14 +2141,12 @@ bool CMapInfo::MakeRoad( SLoadMapInfo *pLoadMapInfo, const SRoadPoint &rFrom, co
 					}
 				}
 
-				//��������� ����� ������ from � to ���� ��� ����������
 				if ( ( nRoadPointFromIndex >= 0 ) &&
 					   ( nRoadPointToIndex >= 0 ) )
 				{
 					SRoadPoint from = patchRoadPoints[nPatchFromIndex][nRoadPointFromIndex];
 					SRoadPoint to = patchRoadPoints[nPatchToIndex][nRoadPointToIndex];
 
-					//������ ������
 					int nWidth = (from.nWidth >= to.nWidth ) ? from.nWidth : to.nWidth;
 					
 					**

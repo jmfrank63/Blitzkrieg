@@ -1,7 +1,3 @@
-//��� ������ ���
-//REMOVE_OBJECTS_FROM_RECT
-//��� ���������� ������ linkID
-//UPDATE_LINK_ID
 
 #include "stdafx.h"
 
@@ -25,12 +21,7 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-//FOR_DEBUG_ONLY
-//int _DEBUG_RECT_COUNT;
-//int _DEBUG_OUTSIDE_COUNT;
-//int _DEBUG_INSIDE_COUNT;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct STraceTimeKeeper
 {
 	DWORD dwTime;
@@ -53,7 +44,6 @@ struct STraceTimeKeeper
 	}
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::AddMapInfo( SLoadMapInfo *pDestLoadMapInfo, const CTPoint<int> &rDestPoint, const SLoadMapInfo &rSourceLoadMapInfo )
 {
 	NI_ASSERT_TF( pDestLoadMapInfo != 0,
@@ -82,8 +72,6 @@ bool CMapInfo::AddMapInfo( SLoadMapInfo *pDestLoadMapInfo, const CTPoint<int> &r
 								return false );
 
 	/**
-	//������� ����������� ������� � ����� ��� ������ 
-	//REMOVE_OBJECTS_FROM_RECT
 	std::vector<CVec3>	mapPolygon;
 	mapPolygon.push_back( CVec3( ( destPoint.x )																							 * fWorldCellSize, ( destPoint.y )																							 * fWorldCellSize, 0.0f ) );
 	mapPolygon.push_back( CVec3( ( destPoint.x )																							 * fWorldCellSize, ( rSourceLoadMapInfo.terrain.tiles.GetSizeY() + destPoint.y ) * fWorldCellSize, 0.0f ) );
@@ -94,11 +82,8 @@ bool CMapInfo::AddMapInfo( SLoadMapInfo *pDestLoadMapInfo, const CTPoint<int> &r
 		return false;
 	}
 	/**/
-	// ����� � ��������������� ���� Y ��� ������� ������� ����� � �����
 	const CTPoint<int> terrainDestPoint( rDestPoint.x, pDestLoadMapInfo->terrain.tiles.GetSizeY() - rDestPoint.y - rSourceLoadMapInfo.terrain.tiles.GetSizeY() );
 
-	//��������  terrain ( STerrainInfo )
-	//��������� tiles
 	for ( int nXIndex = 0; nXIndex < rSourceLoadMapInfo.terrain.tiles.GetSizeX(); ++nXIndex )
 	{
 		for ( int nYIndex = 0; nYIndex < rSourceLoadMapInfo.terrain.tiles.GetSizeY(); ++nYIndex )
@@ -107,7 +92,6 @@ bool CMapInfo::AddMapInfo( SLoadMapInfo *pDestLoadMapInfo, const CTPoint<int> &r
 		}
 	}
 	
-	//��������� altitude
 	if ( ( rSourceLoadMapInfo.terrain.altitudes.GetSizeX() > 0 ) && ( rSourceLoadMapInfo.terrain.altitudes.GetSizeY() > 0 ) )
 	{
 		for ( int nXIndex = 0; nXIndex < rSourceLoadMapInfo.terrain.altitudes.GetSizeX(); ++nXIndex )
@@ -119,7 +103,6 @@ bool CMapInfo::AddMapInfo( SLoadMapInfo *pDestLoadMapInfo, const CTPoint<int> &r
 		}
 	}
 	
-	//��������� ������
 	/**
 	for ( int nRoadIndex = 0; nRoadIndex < rSourceLoadMapInfo.terrain.roads.size(); ++nRoadIndex )
 	{
@@ -132,7 +115,6 @@ bool CMapInfo::AddMapInfo( SLoadMapInfo *pDestLoadMapInfo, const CTPoint<int> &r
 	}
 	/**/
 
-	//��������� ����
 	for ( int nRiverIndex = 0; nRiverIndex < rSourceLoadMapInfo.terrain.rivers.size(); ++nRiverIndex )
 	{
 		const SVectorStripeObject &rSourceRiverInfo = rSourceLoadMapInfo.terrain.rivers[nRiverIndex];
@@ -152,7 +134,6 @@ bool CMapInfo::AddMapInfo( SLoadMapInfo *pDestLoadMapInfo, const CTPoint<int> &r
 		rDestRiverInfo.nID = pDestLoadMapInfo->terrain.rivers.size();
 	}
 
-	//��������� 3D ������
 	for ( int nRoad3dIndex = 0; nRoad3dIndex < rSourceLoadMapInfo.terrain.roads3.size(); ++nRoad3dIndex )
 	{
 		const SVectorStripeObject &rSourceRoad3DInfo = rSourceLoadMapInfo.terrain.roads3[nRoad3dIndex];
@@ -172,15 +153,10 @@ bool CMapInfo::AddMapInfo( SLoadMapInfo *pDestLoadMapInfo, const CTPoint<int> &r
 		rDestRoad3DInfo.nID = pDestLoadMapInfo->terrain.roads3.size();
 	}
 
-	//��������� �������
-	//����������� ��������� ��������
 	const int nMaxLinkID = UpdateObjects( pDestLoadMapInfo, CTRect<int>( 0, 0, pDestLoadMapInfo->terrain.tiles.GetSizeX(), pDestLoadMapInfo->terrain.tiles.GetSizeY() ) );
 
-	//UPDATE_LINK_ID
-	//usedIDs[old nLinkID] = new nLinkID;
 	std::unordered_map<int, int> usedIDs;
 
-	//��������� usedID
 	int nCurrentLinkID = nMaxLinkID;
 	for ( int nObjectIndex = 0; nObjectIndex < rSourceLoadMapInfo.objects.size(); ++nObjectIndex )
 	{	
@@ -199,7 +175,6 @@ bool CMapInfo::AddMapInfo( SLoadMapInfo *pDestLoadMapInfo, const CTPoint<int> &r
 		nCurrentLinkID++;
 	}
 
-	//��������� SMapObjectInfo � objects � ������� ����� nLinkID
 	nCurrentLinkID = nMaxLinkID;
 	for ( int nObjectIndex = 0; nObjectIndex < rSourceLoadMapInfo.objects.size(); ++nObjectIndex )
 	{	
@@ -236,7 +211,6 @@ bool CMapInfo::AddMapInfo( SLoadMapInfo *pDestLoadMapInfo, const CTPoint<int> &r
 		nCurrentLinkID++;
 	}
 
-	//���������� ����� nLinkID � entrenchments
 	for ( int nEntrenchmentIndex = 0; nEntrenchmentIndex < rSourceLoadMapInfo.entrenchments.size(); ++nEntrenchmentIndex )
 	{
 		const SEntrenchmentInfo &rSourceEntrenchmentInfo = rSourceLoadMapInfo.entrenchments[nEntrenchmentIndex];
@@ -252,7 +226,6 @@ bool CMapInfo::AddMapInfo( SLoadMapInfo *pDestLoadMapInfo, const CTPoint<int> &r
 		}
 	}
 
-	//��������� std::vector<int> � bridges
 	for ( int nBridgeIndex = 0; nBridgeIndex < rSourceLoadMapInfo.bridges.size(); ++nBridgeIndex )
 	{
 		const std::vector<int> &rSourceBridge = rSourceLoadMapInfo.bridges[nBridgeIndex];
@@ -265,10 +238,8 @@ bool CMapInfo::AddMapInfo( SLoadMapInfo *pDestLoadMapInfo, const CTPoint<int> &r
 		}
 	}
 
-	//��������� reinforcements
 	pDestLoadMapInfo->reinforcements.groups.insert( rSourceLoadMapInfo.reinforcements.groups.begin(), rSourceLoadMapInfo.reinforcements.groups.end() );
 
-	//��������� scripAreas
 	for ( int nScriptAreaIndex = 0; nScriptAreaIndex < rSourceLoadMapInfo.scriptAreas.size(); ++nScriptAreaIndex )
 	{
 		const SScriptArea &rSourceScriptArea = rSourceLoadMapInfo.scriptAreas[nScriptAreaIndex];
@@ -279,7 +250,6 @@ bool CMapInfo::AddMapInfo( SLoadMapInfo *pDestLoadMapInfo, const CTPoint<int> &r
 		rDestScriptArea.center.y += rDestPoint.y * SAIConsts::TILE_SIZE * 2;
 	}
 
-	//��������� TStartCommandsList � startCommandsList
 	for ( SLoadMapInfo::TStartCommandsList::const_iterator it = rSourceLoadMapInfo.startCommandsList.begin();
 	      it != rSourceLoadMapInfo.startCommandsList.end();
 				++it )
@@ -299,7 +269,6 @@ bool CMapInfo::AddMapInfo( SLoadMapInfo *pDestLoadMapInfo, const CTPoint<int> &r
 		rDestStartCommand.vPos.y += rDestPoint.y * SAIConsts::TILE_SIZE * 2;
 	}
 
-	//��������� TReservePositionsList � reservePositionsList
 	for ( SLoadMapInfo::TReservePositionsList::const_iterator it = rSourceLoadMapInfo.reservePositionsList.begin();
 	      it != rSourceLoadMapInfo.reservePositionsList.end();
 				++it )
@@ -319,7 +288,6 @@ bool CMapInfo::AddMapInfo( SLoadMapInfo *pDestLoadMapInfo, const CTPoint<int> &r
 		rDestReservePosition.vPos.y += rDestPoint.y * SAIConsts::TILE_SIZE * 2;
 	}
 
-	//��������� �����
 	for ( TMapSoundInfoList::const_iterator soundIterator = rSourceLoadMapInfo.soundsList.begin(); soundIterator != rSourceLoadMapInfo.soundsList.end(); ++soundIterator )
 	{
 		pDestLoadMapInfo->soundsList.push_back( *soundIterator );
@@ -329,20 +297,16 @@ bool CMapInfo::AddMapInfo( SLoadMapInfo *pDestLoadMapInfo, const CTPoint<int> &r
 		rDestSoundInfo.vPos.y += rDestPoint.y * fWorldCellSize;
 	}
 	
-	//��������� AIGeneral
 	for ( int nSourceSideIndex = 0; nSourceSideIndex < rSourceLoadMapInfo.aiGeneralMapInfo.sidesInfo.size(); ++nSourceSideIndex )
 	{
 		const SAIGeneralSideInfo &rSourceAIGeneralSideInfo = rSourceLoadMapInfo.aiGeneralMapInfo.sidesInfo[nSourceSideIndex];
 		
-		//���� ������� ��� �������� ����������� - ���������
 		if ( nSourceSideIndex == pDestLoadMapInfo->aiGeneralMapInfo.sidesInfo.size() )
 		{
 			pDestLoadMapInfo->aiGeneralMapInfo.sidesInfo.push_back( SAIGeneralSideInfo() );
 		}
 		SAIGeneralSideInfo &rDestAIGeneralSideInfo = pDestLoadMapInfo->aiGeneralMapInfo.sidesInfo[nSourceSideIndex];
 
-		//��������� ������������ ScriptID
-		//�������� �����������
 		for ( int nSourceScriptIDIndex = 0; nSourceScriptIDIndex < rSourceAIGeneralSideInfo.mobileScriptIDs.size(); ++nSourceScriptIDIndex )
 		{
 			const int &rSourceScriptID = rSourceAIGeneralSideInfo.mobileScriptIDs[nSourceScriptIDIndex];
@@ -361,7 +325,6 @@ bool CMapInfo::AddMapInfo( SLoadMapInfo *pDestLoadMapInfo, const CTPoint<int> &r
 			}
 		}
 
-		//��������� �������
 		for ( int nSourceParcelIndex = 0; nSourceParcelIndex < rSourceAIGeneralSideInfo.parcels.size(); ++nSourceParcelIndex )
 		{
 			const SAIGeneralParcelInfo &rSourceAIGeneralParcelInfo = rSourceAIGeneralSideInfo.parcels[nSourceParcelIndex];
@@ -376,12 +339,6 @@ bool CMapInfo::AddMapInfo( SLoadMapInfo *pDestLoadMapInfo, const CTPoint<int> &r
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//��������� �������, ���������� ���������� �� ��������, � ������ �����,
-// fDistanse > 0 ����� ������ ��������
-// fDistanse == 0 ����� �� ������� ��������
-// fDistanse < 0 ����� ������� �������� ( ���������� �� ���������� )
-//����� ��������� ����� ������� ����� ��������� ����������� ���������
 float GetInclusivePolygonSetDistance( const CVec2 &rPoint, const std::list<CVec2> &rInclusivePolygon, const std::list<std::list<CVec2> > &rExclusivePolygons )
 {
 	float fInclusiveDistance = -1;
@@ -393,7 +350,6 @@ float GetInclusivePolygonSetDistance( const CVec2 &rPoint, const std::list<CVec2
 			for ( std::list<std::list<CVec2> >::const_iterator exclusivePolygonIterator = rExclusivePolygons.begin(); exclusivePolygonIterator != rExclusivePolygons.end(); ++exclusivePolygonIterator )
 			{
 				float fDistance = PolygonDistance( ( *exclusivePolygonIterator ), rPoint );
-				//������ 
 				if ( fDistance > 0 )
 				{
 					fInclusiveDistance = -fDistance;
@@ -401,7 +357,6 @@ float GetInclusivePolygonSetDistance( const CVec2 &rPoint, const std::list<CVec2
 				}
 				else
 				{
-					//�������
 					fDistance = -fDistance;
 					if ( fDistance < fInclusiveDistance )
 					{
@@ -414,11 +369,6 @@ float GetInclusivePolygonSetDistance( const CVec2 &rPoint, const std::list<CVec2
 	return fInclusiveDistance;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//��������� �������, ���������� ����� ��������� � ������� ��� ���� �����
-//���������� ���������� ��������� � pXPos
-//���� ������������� �� ���� ����� ���, - ������ � ����� �������� �������� � �������
-//����� �������� ���������� � �������, ��� ��������� �����
 int GetPolygonLine( int nYPos, float fSide, const std::list<CVec2> &rPolygon, std::vector<int> *pXPos )
 {
 	NI_ASSERT_TF( pXPos != 0,
@@ -475,7 +425,6 @@ int GetPolygonLine( int nYPos, float fSide, const std::list<CVec2> &rPolygon, st
 	return pXPos->size();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::FillTerrain( STerrainInfo *pTerrainInfo, const struct STilesetDesc &rTilesetDesc, int nTileIndex )
 {
 	NI_ASSERT_TF( pTerrainInfo != 0,
@@ -494,7 +443,6 @@ bool CMapInfo::FillTerrain( STerrainInfo *pTerrainInfo, const struct STilesetDes
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::FillTileSet( STerrainInfo *pTerrainInfo,
 														const STilesetDesc &rTilesetDesc,
 														const std::list<CVec2> &rInclusivePolygon,
@@ -522,18 +470,11 @@ bool CMapInfo::FillTileSet( STerrainInfo *pTerrainInfo,
 											 ( boundingBox.miny + ( fWorldCellSize / 2.0f ) ) / fWorldCellSize,
 											 ( boundingBox.maxx + ( fWorldCellSize / 2.0f ) ) / fWorldCellSize,
 											 ( boundingBox.maxy + ( fWorldCellSize / 2.0f ) ) / fWorldCellSize );
-	//���������
 	if ( ValidateIndices( boundingRect, &indices ) < 0 )
 	{
 		return false;
 	}
 
-	//��������� �� ������
-	//
-	//FOR_DEBUG_ONLY
-	//_DEBUG_RECT_COUNT = indices.GetSizeX() * indices.GetSizeY();
-	//_DEBUG_OUTSIDE_COUNT = 0;
-	//_DEBUG_INSIDE_COUNT = 0;
 	
 	for ( int nYIndex = indices.miny; nYIndex < indices.maxy; ++nYIndex )
 	{
@@ -548,9 +489,6 @@ bool CMapInfo::FillTileSet( STerrainInfo *pTerrainInfo,
 			{
 				for ( int nXIndex = ( *startXPosIterator ); nXIndex <= ( *finishXPosIterator ); ++nXIndex )
 				{
-					//FOR_DEBUG_ONLY
-					//++_DEBUG_OUTSIDE_COUNT;
-					//
 					float fInclusiveDistance = 0.0f;
 					if ( pDistances )
 					{
@@ -577,11 +515,8 @@ bool CMapInfo::FillTileSet( STerrainInfo *pTerrainInfo,
 					
 					if ( fInclusiveDistance >= 0 )
 					{
-						//FOR_DEBUG_ONLY
-						//++_DEBUG_INSIDE_COUNT;
 
 						fInclusiveDistance /= fWorldCellSize;
-						//��������� ����
 						float fWidth = 0.0f;
 						for ( CRMTileSet::const_iterator tileSetShellIterator = rTileSet.begin(); tileSetShellIterator != rTileSet.end(); ++tileSetShellIterator )
 						{
@@ -597,14 +532,12 @@ bool CMapInfo::FillTileSet( STerrainInfo *pTerrainInfo,
 						}
 					}
 				}
-				//
 				startXPosIterator += 2;
 				if ( startXPosIterator == xpos.end() )
 				{
 					break;
 				}
 				finishXPosIterator += 2;
-				//
 			}
 		}
 		else
@@ -613,12 +546,9 @@ bool CMapInfo::FillTileSet( STerrainInfo *pTerrainInfo,
 									 NStr::Format( "CMapInfo::FillTileSet(): Invalid GetPolygonLine() = %d\n", nCount ) );
 		}
 	}
-	//FOR_DEBUG_ONLY
-	//NStr::DebugTrace( "CMapInfo::FillTileSet()\n_DEBUG_RECT_COUNT = %d\n_DEBUG_ESTIMATE_INSIDE_COUNT = %d\n_DEBUG_INSIDE_COUNT = %d\n", _DEBUG_RECT_COUNT, _DEBUG_OUTSIDE_COUNT, _DEBUG_INSIDE_COUNT );
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::FillObjectSet( SLoadMapInfo *pLoadMapInfo,
 															const std::list<CVec2> &rInclusivePolygon,
 															const std::list<std::list<CVec2> > &rExclusivePolygons,
@@ -652,24 +582,18 @@ bool CMapInfo::FillObjectSet( SLoadMapInfo *pLoadMapInfo,
 	CheckTilesFunctional<CArray2D<BYTE>, BYTE> tileMapCheckTiles( RMGC_LOCKED, pTileMap );
 	CTRect<int> tileMapRect( 0, 0, pLoadMapInfo->terrain.tiles.GetSizeX() * 2, pLoadMapInfo->terrain.tiles.GetSizeY() * 2 );
 	
-	//��� ������� � ���������� � ��� ������
-	//��-�� ����, ��� ������� ���������� ����� � ��� ������
 	float fTileSide = fWorldCellSize / 2.0f;
 
 	CTRect<float> boundingBox = GetPolygonBoundingBox( rInclusivePolygon );
-	//���������� ��������� � �������� AI ���� � VIS �����������
 	CTRect<int> indices( ( boundingBox.minx + ( fTileSide / 2.0f ) ) / fTileSide,
 											 ( boundingBox.miny + ( fTileSide / 2.0f ) ) / fTileSide,
 											 ( boundingBox.maxx + ( fTileSide / 2.0f ) ) / fTileSide,
 											 ( boundingBox.maxy + ( fTileSide / 2.0f ) ) / fTileSide );
-	//���������
 	if ( ValidateIndices( tileMapRect, &indices ) < 0 )
 	{
 		return false;
 	}
 
-	//��������� �� ������
-	//
 	for ( int nYIndex = indices.miny; nYIndex < indices.maxy; ++nYIndex )
 	{
 		std::vector<int> xpos;
@@ -683,7 +607,6 @@ bool CMapInfo::FillObjectSet( SLoadMapInfo *pLoadMapInfo,
 			{
 				for ( int nXIndex = ( *startXPosIterator ); nXIndex <= ( *finishXPosIterator ); ++nXIndex )
 				{
-					//
 					CVec2	vObjectCenter( ( nXIndex * fTileSide ) + ( fTileSide / 2.0f ),
 															 ( nYIndex * fTileSide ) + ( fTileSide / 2.0f ) );
 					
@@ -691,7 +614,6 @@ bool CMapInfo::FillObjectSet( SLoadMapInfo *pLoadMapInfo,
 					if ( fInclusiveDistance >= 0 )
 					{
 						fInclusiveDistance /= fWorldCellSize;
-						//��������� ����
 						float fWidth = 0.0f;
 						for ( CRMObjectSet::const_iterator objectSetShellIterator = rObjectSet.begin(); objectSetShellIterator != rObjectSet.end(); ++objectSetShellIterator )
 						{
@@ -731,7 +653,6 @@ bool CMapInfo::FillObjectSet( SLoadMapInfo *pLoadMapInfo,
 														 ( mapObjectInfo.vPos.x <  ( tileMapRect.maxx * SAIConsts::TILE_SIZE ) ) &&
 														 ( mapObjectInfo.vPos.y <  ( tileMapRect.maxy * SAIConsts::TILE_SIZE ) ) )
 												{
-													//������ ����� �������
 													ApplyTilesInObjectsPassability( tileMapRect, mapObjectInfo, tileMapModifyTiles );
 													pLoadMapInfo->objects.push_back( mapObjectInfo );
 												}
@@ -748,21 +669,18 @@ bool CMapInfo::FillObjectSet( SLoadMapInfo *pLoadMapInfo,
 						}
 					}
 				}
-				//
 				startXPosIterator += 2;
 				if ( startXPosIterator == xpos.end() )
 				{
 					break;
 				}
 				finishXPosIterator += 2;
-				//
 			}
 		}
 	}
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::FillProfilePattern( STerrainInfo *pTerrainInfo,
 																	 const std::list<CVec2> &rInclusivePolygon,
 																	 const std::list<std::list<CVec2> > &rExclusivePolygons,
@@ -781,7 +699,6 @@ bool CMapInfo::FillProfilePattern( STerrainInfo *pTerrainInfo,
 											 ( boundingBox.miny + ( fWorldCellSize / 2.0f ) ) / fWorldCellSize,
 											 ( boundingBox.maxx + ( fWorldCellSize / 2.0f ) ) / fWorldCellSize,
 											 ( boundingBox.maxy + ( fWorldCellSize / 2.0f ) ) / fWorldCellSize );
-	//���������
 	if ( ValidateIndices( boundingRect, &indices ) < 0 )
 	{
 		return false;
@@ -798,8 +715,6 @@ bool CMapInfo::FillProfilePattern( STerrainInfo *pTerrainInfo,
 	SVAAddPatternFunctional addPatternFunctional( &( pTerrainInfo->altitudes ) );
 	SVASubstractPatternFunctional substractPatternFunctional( &( pTerrainInfo->altitudes ) );
 	
-	//��������� �� ������
-	//
 	for ( int nYIndex = indices.miny; nYIndex < indices.maxy; ++nYIndex )
 	{
 		std::vector<int> xpos;
@@ -836,7 +751,6 @@ bool CMapInfo::FillProfilePattern( STerrainInfo *pTerrainInfo,
 																		 ( nYIndex * fWorldCellSize ) + ( fWorldCellSize / 2.0f ) );
 						fInclusiveDistance = GetInclusivePolygonSetDistance( vTileCenter, rInclusivePolygon, rExclusivePolygons );
 					}
-					//
 					if ( fInclusiveDistance >= 0 )
 					{
 						fInclusiveDistance /= fWorldCellSize;
@@ -860,24 +774,20 @@ bool CMapInfo::FillProfilePattern( STerrainInfo *pTerrainInfo,
 						}
 					}
 				}
-				//
 				startXPosIterator += 2;
 				if ( startXPosIterator == xpos.end() )
 				{
 					break;
 				}
 				finishXPosIterator += 2;
-				//
 			}
 		}
 	}
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string &rszContextFileName, int nLevel,  int nGraph, int nAngle, bool bSaveAsBZM, bool bSaveAsDDS, SRMUsedTemplateInfo *pRMUsedTemplateInfo, IProgressHook *pProgressHook )
 {
-	//TIME KEEPER
 	STraceTimeKeeper timeKeeper;
 	
 	NI_ASSERT_TF( pMissionStats != 0,
@@ -915,20 +825,17 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 								NStr::Format( "CreateRandomMap, GetSingleton<IObjectsDB>(); = %x, GetSingleton<IDataStorage>() = %x, GetSingletone<IRandomGen>() = %x, etImageProcessor() = %x", pIDB, pDataStorage, pRandomGen, pImageProcessor ), 
 								return false );
 	
-	//PROGRESS_HOOK
 	if ( pProgressHook )
 	{
 		pProgressHook->Step();
 	}
 
-	//������ template
 	SRMTemplate randomMapTemplate;
 	bool bResult = LoadDataResource( pMissionStats->szTemplateMap, "", false, 0, RMGC_TEMPLATE_XML_NAME, randomMapTemplate );
 	NI_ASSERT_TF( bResult,
 								NStr::Format( "CreateRandomMap, Can't load SRMTemplate from %s", pMissionStats->szTemplateMap.c_str() ), 
 								return false );
 	
-	//������ �������
 	SRMSetting missionSetting;
 	if ( LoadDataResource( pMissionStats->szSettingName, "", false, 0, RMGC_SETTING_NAME, missionSetting ) )
 	{
@@ -966,13 +873,10 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 		szRandomMapName = pMissionStats->szFinalMap;
 	}
 	
-	//��������� ������������ ���������� �������� �����!
-	//����� � ������ ����������� � CMapInfo::Create()
 	NI_ASSERT_TF( ( randomMapTemplate.nDefaultFieldIndex >= 0 ) && ( randomMapTemplate.nDefaultFieldIndex < randomMapTemplate.fields.size() ),
 								NStr::Format( "CreateRandomMap,  invalid nDefaultFieldIndex %d [%d...%d]", randomMapTemplate.nDefaultFieldIndex, 0, randomMapTemplate.fields.size() ), 
 								return false );
 
-	//��������� random seed
 	{
 		CPtr<IRandomGenSeed> pRandomGenSeed = pRandomGen->GetSeed();
 		NI_ASSERT_TF( pRandomGenSeed != 0,
@@ -985,11 +889,8 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 		pRandomGenSeed->Store( pRandomSeedStream );
 	}	
 
-	//������� �����
 	CMapInfo mapInfo;
-	//CRAP{����������� �������
 	bResult = mapInfo.Create( randomMapTemplate.size, randomMapTemplate.nSeason, randomMapTemplate.szSeasonFolder, 0, randomMapTemplate.nType );
-	//CRAP}����������� �������
 	NI_ASSERT_TF( bResult != 0,
 								NStr::Format( "CreateRandomMap, Can't get Random Seed by pRandomGen->GetSeed()" ), 
 								return false );
@@ -998,16 +899,13 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 		return false;	
 	}
 
-	//TIME KEEPER
 	timeKeeper.Trace("CreateRandomMap. Create.");
 	
-	//PROGRESS_HOOK
 	if ( pProgressHook )
 	{
 		pProgressHook->Step();
 	}
 
-	//�������� ����������� ����������� ��� ���������� terrain
 	STilesetDesc tilesetDesc;
 	bResult = LoadDataResource( mapInfo.terrain.szTilesetDesc, "", false, 1, "tileset", tilesetDesc );
 	NI_ASSERT_TF( bResult,
@@ -1027,7 +925,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 								return false );
 	/**/
 
-	//���������� ��������� �� ���������
 	mapInfo.szScriptFile = szRandomMapName;
 	mapInfo.diplomacies = randomMapTemplate.diplomacies;
 	mapInfo.playersCameraAnchors.clear();
@@ -1073,7 +970,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 		}
 	}
 
-	//�������� fieldSet'�
 	std::unordered_map<std::string, SRMFieldSet> fieldSetsHashMap;
 	{
 		SRMFieldSet fieldSet;
@@ -1085,23 +981,19 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 		fieldSetsHashMap[ randomMapTemplate.fields[randomMapTemplate.nDefaultFieldIndex] ] = fieldSet;
 	}
 
-	//��������� ����� �������������� ��������
 	{
 		std::list<std::list<CVec2> > exclusivePolygons;
 		const SRMFieldSet &rDefualtFieldSet = fieldSetsHashMap[ randomMapTemplate.fields[randomMapTemplate.nDefaultFieldIndex] ];
 		CMapInfo::FillTileSet( &( mapInfo.terrain ), tilesetDesc, mapVisPointsPolygon, exclusivePolygons, rDefualtFieldSet.tilesShells, 0 );
 	}	
 	
-	//TIME KEEPER
 	timeKeeper.Trace( "CreateRandomMap. Fill default field." );
 
-	//PROGRESS_HOOK
 	if ( pProgressHook )
 	{
 		pProgressHook->Step();
 	}
 
-	//�������� ����
 	std::string szSelectedGraphFileName;
 	SRMGraph selectedGraph;
 	if ( nGraph >= 0 )
@@ -1131,7 +1023,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 								NStr::Format( "CreateRandomMap, can't create file stream: %s", ( szSelectedGraphFileName + ".xml" ).c_str() ), 
 									return false );
 
-	//�������� ����
 	const int nCosAngles[] = { 1, 0, -1, 0 };
 	const int nSinAngles[] = { 0, -1, 0, 1 };
 	int nSelectedAngle = 0;
@@ -1162,7 +1053,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 	const int fCosSelecteAngle = nCosAngles[nSelectedAngle];
 	const int fSinSelecteAngle = nSinAngles[nSelectedAngle];
 
-	//������������ ���������� � vAppearPoints
 	{
 		CVec3 vAICenter( ( ( mapInfo.terrain.tiles.GetSizeX() * SAIConsts::TILE_SIZE * 2.0f ) - 1.0f ) / 2.0f,
 										 ( ( mapInfo.terrain.tiles.GetSizeY() * SAIConsts::TILE_SIZE * 2.0f ) - 1.0f ) / 2.0f,
@@ -1180,16 +1070,12 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 		}
 	}	
 	
-	//��������� �����
 	std::unordered_map<std::string, SRMContainer> containersHashMap;
-	//��� �������� �����
 	std::vector<SRMPlacedPatch> placedPatches;
-	//��� ����������� �����
 	CRMFieldGraph fieldGraph;
 	for ( int nNodeIndex = 0; nNodeIndex < selectedGraph.nodes.size(); ++nNodeIndex )
 	{
 		const SRMGraphNode &rGraphNode = selectedGraph.nodes[nNodeIndex];
-		//������ ���������
 		if ( containersHashMap.find( rGraphNode.szContainerFileName ) == containersHashMap.end() )
 		{
 			SRMContainer container;
@@ -1201,7 +1087,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 		}
 		const SRMContainer &rContainer = containersHashMap[rGraphNode.szContainerFileName];
 
-		//�������� ����:
 		std::vector<int> availiableIndices;
 		rContainer.GetIndices( nSelectedAngle, pMissionStats->szSettingName, &availiableIndices );
 		NI_ASSERT_TF( !availiableIndices.empty(),
@@ -1251,20 +1136,17 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 																			rPlacedPatch.minXYCorner.x + rPlacedPatch.size.x * STerrainPatchInfo::nSizeX,
 																			rPlacedPatch.minXYCorner.y + rPlacedPatch.size.y * STerrainPatchInfo::nSizeY ) );
 		
-		//��������� ���������� � �����
 		CMapInfo patchMapInfo;
 		bResult = LoadTypedSuperLatestDataResource( rPlacedPatch.szFileName, ".bzm", 1, patchMapInfo );
 		NI_ASSERT_TF( bResult,
 									NStr::Format( "CreateRandomMap, can't create file stream: %s", ( rPlacedPatch.szFileName + ".xml" ).c_str() ), 
 									return false );
-		//��������� ����
 		patchMapInfo.UnpackFrameIndices();
 		bResult = mapInfo.AddMapInfo( rPlacedPatch.minXYCorner, patchMapInfo );
 		NI_ASSERT_TF( bResult,
 									NStr::Format( "CreateRandomMap, can't add MapInfo: %s", ( rPlacedPatch.szFileName + ".xml" ).c_str() ), 
 									return false );
 		
-		//����������� vCamera Anchor
 		for ( int nPlayerIndex = 0; nPlayerIndex < mapInfo.playersCameraAnchors.size(); ++nPlayerIndex )
 		{
 			CVec3 &rPlayerCameraAnchore = mapInfo.playersCameraAnchors[nPlayerIndex];
@@ -1285,9 +1167,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			}
 		}
 
-		//�������������� ������ �������� � ������ connectionPoints
-		//��� ������ ������� � ������� ������� �� �� ������ ������� � ���������
-		//����� ��������� ������������ ����� ��������� �� ���� �����
 		std::list<CVec2> patchVisPointsPolygon;
 		patchVisPointsPolygon.push_back( CVec2( 0, 0 ) + fieldGraph.GetPatchMinXYVertex( nNodeIndex ) );
 		patchVisPointsPolygon.push_back( CVec2( 0, patchMapInfo.terrain.tiles.GetSizeY() * fWorldCellSize ) + fieldGraph.GetPatchMinXYVertex( nNodeIndex ) );
@@ -1296,13 +1175,10 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 		std::list<CVec2> smallPatchVisPointsPolygon;
 		EnlargePolygonCore<std::list<CVec2>, CVec2>( mapVisPointsPolygon, patchVisPointsPolygon, ( ( -1.0f ) * fWorldCellSize / 2.0f ), &smallPatchVisPointsPolygon );
 
-		//����� ������� �� ������� �������� �������� VIS ����� 
-		//����
 		for ( int nRiverIndex = 0; nRiverIndex < patchMapInfo.terrain.rivers.size(); ++nRiverIndex )
 		{
 			NI_ASSERT_T( !patchMapInfo.terrain.rivers[nRiverIndex].controlpoints.empty(),
 									 NStr::Format( "CreateRandomMap, invalid river: %d", nRiverIndex ) );
-			//begin
 			{
 				const CVec2 vPos = CVec2( patchMapInfo.terrain.rivers[nRiverIndex].controlpoints[0].x, patchMapInfo.terrain.rivers[nRiverIndex].controlpoints[0].y ) + fieldGraph.GetPatchMinXYVertex( nNodeIndex );
 				const EClassifyPolygon classifyMapPolygon = ClassifyPolygon( smallMapVisPointsPolygon, vPos );
@@ -1318,7 +1194,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 					rPlacedPatch.riversPoints.push_back( vsoPoint );
 				}
 			}
-			//end
 			{
 				const CVec2 vPos = CVec2( patchMapInfo.terrain.rivers[nRiverIndex].controlpoints[patchMapInfo.terrain.rivers[nRiverIndex].controlpoints.size() - 1].x, patchMapInfo.terrain.rivers[nRiverIndex].controlpoints[patchMapInfo.terrain.rivers[nRiverIndex].controlpoints.size() - 1].y ) + fieldGraph.GetPatchMinXYVertex( nNodeIndex );
 				const EClassifyPolygon classifyMapPolygon = ClassifyPolygon( smallMapVisPointsPolygon, vPos );
@@ -1335,12 +1210,10 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 				}
 			}
 		}
-		//������
 		for ( int nRoad3DIndex = 0; nRoad3DIndex < patchMapInfo.terrain.roads3.size(); ++nRoad3DIndex )
 		{
 			NI_ASSERT_T( !patchMapInfo.terrain.roads3[nRoad3DIndex].controlpoints.empty(),
 									 NStr::Format( "CreateRandomMap, invalid road3D: %d", nRoad3DIndex ) );
-			//begin
 			{
 				const CVec2 vPos = CVec2( patchMapInfo.terrain.roads3[nRoad3DIndex].controlpoints[0].x, patchMapInfo.terrain.roads3[nRoad3DIndex].controlpoints[0].y ) + fieldGraph.GetPatchMinXYVertex( nNodeIndex );
 				const EClassifyPolygon classifyMapPolygon = ClassifyPolygon( smallMapVisPointsPolygon, vPos );
@@ -1356,7 +1229,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 					rPlacedPatch.roadsPoints.push_back( vsoPoint );
 				}
 			}
-			//end
 			{
 				const CVec2 vPos = CVec2( patchMapInfo.terrain.roads3[nRoad3DIndex].controlpoints[patchMapInfo.terrain.roads3[nRoad3DIndex].controlpoints.size() - 1].x, patchMapInfo.terrain.roads3[nRoad3DIndex].controlpoints[patchMapInfo.terrain.roads3[nRoad3DIndex].controlpoints.size() - 1].y ) + fieldGraph.GetPatchMinXYVertex( nNodeIndex );
 				const EClassifyPolygon classifyMapPolygon = ClassifyPolygon( smallMapVisPointsPolygon, vPos );
@@ -1380,10 +1252,8 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 		mapInfo.playersCameraAnchors[0] = mapInfo.vCameraAnchor;	
 	}
 
-	//TIME KEEPER
 	timeKeeper.Trace( "CreateRandomMap. Add patches." );
 
-	//PROGRESS_HOOK
 	if ( pProgressHook )
 	{
 		pProgressHook->Step();
@@ -1397,10 +1267,8 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 																rszContextFileName.c_str() ),
 									return false );
 		
-		//����� ������� ��� ��������������� ���������
 		const SRMTemplateUnitsTable &rTemplateUnitsTable = context.levels[nLevel];
 		
-		//�������� UnitCreationInfo;
 		for ( int nUnitCreationPlayerIndex = 0; nUnitCreationPlayerIndex < rTemplateUnitsTable.unitCreationInfo.units.size(); ++nUnitCreationPlayerIndex )
 		{
 			const SUnitCreation &rUnitCreation = rTemplateUnitsTable.unitCreationInfo.units[nUnitCreationPlayerIndex];
@@ -1421,13 +1289,11 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 																rTemplateUnitsTable.unitPlaceHolders.size() ),
 									return false );
 		/**/
-		//����������� �� ��������
 		CUsedLinkIDs usedlinkIDs;
 		mapInfo.GetUsedLinkIDs( &usedlinkIDs );
 
 		for ( std::vector<SMapObjectInfo>::iterator mapObjectIterator = mapInfo.objects.begin(); mapObjectIterator != mapInfo.objects.end(); )
 		{
-			//����� ���� ������
 			int nUnitRPGType = SRMTemplateUnitsTable::INVALID_UNIT_RPG_TYPE;
 			{
 				CGDBPtr<SGDBObjectDesc> pDesc = pIDB->GetDesc( mapObjectIterator->szName.c_str() );
@@ -1459,7 +1325,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			
 			if ( nUnitRPGType != SRMTemplateUnitsTable::INVALID_UNIT_RPG_TYPE )
 			{
-				//����� �����������
 				NI_ASSERT_TF( mapObjectIterator->nPlayer < rTemplateUnitsTable.unitPlaceHolders.size(),
 											NStr::Format( "CreateRandomMap, Place Chapter Units <%s>, invalid player number: %d [0...%d), unit: %s",
 																		rszContextFileName.c_str(),
@@ -1468,7 +1333,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 																		mapObjectIterator->szName.c_str() ),
 											return false );
 				
-				//����� ������ ����� �� ������� ������������� � �����
 				CRMUnitsPlaceHoldersHashMap::const_iterator unitsIterator = rTemplateUnitsTable.unitPlaceHolders[mapObjectIterator->nPlayer].find( nUnitRPGType );
 				if ( unitsIterator != rTemplateUnitsTable.unitPlaceHolders[mapObjectIterator->nPlayer].end() )
 				{
@@ -1535,16 +1399,13 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 		}
 	}
 	
-	//TIME KEEPER
 	timeKeeper.Trace( "CreateRandomMap. Place units." );
 	
-	//PROGRESS_HOOK
 	if ( pProgressHook )
 	{
 		pProgressHook->Step();
 	}
 	
-	//����������� ����� ��� � ����� �� ������� ���������� 
 	for ( int nRiverIndex = 0; nRiverIndex < mapInfo.terrain.rivers.size(); ++nRiverIndex )
 	{
 		mapInfo.terrain.rivers[nRiverIndex].nID = nRiverIndex;
@@ -1554,28 +1415,18 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 		mapInfo.terrain.roads3[nRoad3DIndex].nID = nRoad3DIndex;
 	}
 	
-	//������������ ����� �� ������ ��������� ����������
-	//������ ��� ��������� ��� ������, ������� ��� ����������� ( ����� �������� � ��������� �������� )
-	//������� ������ �� ������� ����� �� ������, ��� ��� ����������
 	std::vector<bool> bLinkPlaced;
 	bLinkPlaced.resize( selectedGraph.links.size() );
 	for ( int nLinkIndex = 0; nLinkIndex < selectedGraph.links.size(); ++nLinkIndex )
 	{
-		//CRAP{for validate invalid resources
 		SRMGraphLink &rGraphLink = selectedGraph.links[nLinkIndex];
 		if ( rGraphLink.nParts < 8 )
 		{
 			rGraphLink.nParts = 8;
 		}
-		//CRAP}for validate invalid resources
 		bLinkPlaced[nLinkIndex] = false;
 	}
 	
-	//����������� �����
-	//������� ������ ������������ ����� ������
-	//����� ����������� � ����� �������
-	//����� �����
-	//����� ������
 	std::unordered_map<std::string, SVectorStripeObjectDesc> vsodescHashMap;
 	for ( int nPSType = SRMPlacedPatch::PST_TWO; nPSType <= SRMPlacedPatch::PST_EMPTY; ++nPSType )
 	{
@@ -1595,13 +1446,11 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 				SRMPlacedPatch &rBeginPatch = placedPatches[rGraphLink.link.a];
 				SRMPlacedPatch &rEndPatch = placedPatches[rGraphLink.link.b];
 
-				//������ ��� ��������� �����
 				SRMPlacedPatch::SVSOPoint beginVSOPoint;
 				SRMPlacedPatch::SVSOPoint endVSOPoint;
 				NStr::ToLower( rGraphLink.szDescFileName );
 				if ( SRMPlacedPatch::GetAndRemoveClosestVSOPoints( rGraphLink.nType, rBeginPatch, rEndPatch, rGraphLink.szDescFileName, nPSType, &beginVSOPoint, &endVSOPoint ) )
 				{
-					//������� �������
 					SVectorStripeObject* pBeginVSO = const_cast<SVectorStripeObject*>( ( rGraphLink.nType != SRMGraphLink::TYPE_ROAD ) ? mapInfo.GetRiver( beginVSOPoint.nID ) : mapInfo.GetRoad3D( beginVSOPoint.nID ) );
 					SVectorStripeObject* pEndVSO = const_cast<SVectorStripeObject*>( ( rGraphLink.nType != SRMGraphLink::TYPE_ROAD ) ? mapInfo.GetRiver( endVSOPoint.nID ) : mapInfo.GetRoad3D( endVSOPoint.nID ) );
 
@@ -1616,14 +1465,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 					{
 						rGraphLink.szDescFileName = CVSOBuilder::GetDescriptionName( pBeginVSO->szDescName, pEndVSO->szDescName );
 					}
-					//������ ����
-					//
-					// end       begin                      begin          end
-					// <---------]                          [-------------->
-					// *=========*----------///-------------*==============*
-					// begin()   begin() + 1                rbegin() + 1   rBegin()
-					//
-					//
 					CVec3 vBegin0 = VNULL3;
 					CVec3 vEnd0 = VNULL3;
 					CVec3 vBegin1 = VNULL3;
@@ -1634,7 +1475,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 					float fBeginHeight = CVSOBuilder::DEFAULT_HEIGHT;
 					float fEndHeight = CVSOBuilder::DEFAULT_HEIGHT;
 					
-					//��������� ������ VSO � ������ � � �����:
 					const float fBeginVSOHeight = CVSOBuilder::GetVSOEdgeHeght( mapInfo.terrain.altitudes, ( *pBeginVSO ), beginVSOPoint.bBegin, false );
 					const float fEndVSOHeight = CVSOBuilder::GetVSOEdgeHeght( mapInfo.terrain.altitudes, ( *pEndVSO ), endVSOPoint.bBegin, false );
 
@@ -1694,7 +1534,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 											 NStr::Format( "CreateRandomMap, Can't find path: link: %d", nLinkIndex ) );
 					if ( bResult )
 					{
-						//�������� VSO
 						if ( vsodescHashMap.find( rGraphLink.szDescFileName ) == vsodescHashMap.end() )
 						{
 							SVectorStripeObjectDesc vsoDesc;
@@ -1719,7 +1558,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 						}
 						CVSOBuilder::Update( &newVSO, false, CVSOBuilder::DEFAULT_STEP, CVSOBuilder::DEFAULT_WIDTH, CVSOBuilder::DEFAULT_OPACITY );
 
-						//��������� ������, ����������� VSO
 						const float fAdditionalWidth = fEndWidth - fBeginWidth;
 						for ( int nPointIndex = 0; nPointIndex < newVSO.points.size(); ++nPointIndex )
 						{
@@ -1727,12 +1565,9 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 						}
 						CVSOBuilder::Update( &newVSO, true, CVSOBuilder::DEFAULT_STEP, CVSOBuilder::DEFAULT_WIDTH, CVSOBuilder::DEFAULT_OPACITY );
 							
-						//�������� VSO ��� ����
 						CVSOBuilder::MergeVSO( pBeginVSO, beginVSOPoint.bBegin, &newVSO, !( beginVSOPoint.bBegin ) );
 						CVSOBuilder::MergeVSO( pEndVSO, endVSOPoint.bBegin, &newVSO, beginVSOPoint.bBegin );
 						
-						//� ������ ����� VSO ������������� ������ ������ �����������
-						//�������������
 						{
 							const float fAdditionalHeight = fEndHeight - fBeginHeight;
 
@@ -1745,11 +1580,9 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 								{
 									nVAPatternWidth = 3;
 								}
-								//const int nVAPatternWidth = ( ( rGraphLink.nType != SRMGraphLink::TYPE_ROAD ) ? ( 0.0f ) : ( 1.0f ) ) + ( ( newVSO.points[nPointIndex].fWidth * rVSODesc.bottom.fRelWidth / fWorldCellSize ) );
 								CTPoint<int> terrainTile;
 								mapInfo.GetTerrainTileIndices( newVSO.points[nPointIndex].vPos, &terrainTile );
 
-								//������� ������� �� ������� ����� �����
 								SVAPattern vaPattern;
 								vaPattern.CreateFromGradient( vsoGradient, nVAPatternWidth * 2, 1.0f );
 								vaPattern.pos.x = terrainTile.x - ( nVAPatternWidth - 1 );
@@ -1759,7 +1592,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 							}
 						}
 
-						//������� � �����
 						if ( rGraphLink.nType != SRMGraphLink::TYPE_ROAD )
 						{
 							newVSO.nID = mapInfo.terrain.rivers.size();
@@ -1771,7 +1603,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 							mapInfo.terrain.roads3.push_back( newVSO );
 						}
 						
-						//������� � fieldGraph ��� ������� ������
 						std::list<CVec2> pointsLeft;
 						std::list<CVec2> pointsRight;
 
@@ -1792,7 +1623,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 						int nLineIndexLeft = fieldGraph.GetLinesCount() - 2;
 						int nLineIndexRight = fieldGraph.GetLinesCount() - 1;
 
-						//����������� ������ ������ ������ ��������� �� � ������ ������� � � ������ �����
 						bResult = fieldGraph.ConnectLineToPatch( rGraphLink.link.a, nLineIndexLeft, !( beginVSOPoint.bBegin ) ) &&
 											fieldGraph.ConnectLineToPatch( rGraphLink.link.a, nLineIndexRight, !( beginVSOPoint.bBegin ) ) &&
 											fieldGraph.ConnectLineToPatch( rGraphLink.link.b, nLineIndexLeft, beginVSOPoint.bBegin ) &&
@@ -1805,7 +1635,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 							return false;
 						}
 						
-						//���� ���������
 						bLinkPlaced[nLinkIndex] = true;
 					}
 				}
@@ -1813,7 +1642,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 		}	
 	}	
 	
-	//TIME KEEPER
 	timeKeeper.Trace( "CreateRandomMap. Add links." );
 
 	bResult = fieldGraph.FindPolygons( terrainTilesRect );
@@ -1825,27 +1653,22 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 		return false;
 	}
 
-	//TIME KEEPER
 	timeKeeper.Trace( "CreateRandomMap. Find Polygons." );
 
-	//PROGRESS_HOOK
 	if ( pProgressHook )
 	{
 		pProgressHook->Step();
 	}
 
-	//��������� ������ ������������
 	std::unordered_map<std::string, SVAGradient> gradientsHashMap;
 
 	if ( !fieldGraph.inclusivePolygons.empty() )
 	{
-		//������ � ����������� �������
 		CArray2D<BYTE> tileMap( mapInfo.terrain.tiles.GetSizeX() * 2, mapInfo.terrain.tiles.GetSizeY() * 2 );
 		tileMap.Set( RMGC_UNLOCKED );
 		CTRect<int> tileMapRect( 0, 0, tileMap.GetSizeX(), tileMap.GetSizeY() );
 		ModifyTilesFunctional<CArray2D<BYTE>, BYTE> tileMapModifyTiles( RMGC_LOCKED, &tileMap );
 		
-		// ��������� ������ �o������ ������ (���� ������ ������ ������ ��� ���������� ���������)
 		if ( !mapInfo.objects.empty() )
 		{
 			ApplyTilesInObjectsPassability( tileMapRect, &( mapInfo.objects[0] ), mapInfo.objects.size(), tileMapModifyTiles, true );
@@ -1861,7 +1684,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 					std::list<CVec2> exclusivePolygon;
 					RandomizeEdges<std::list<CVec2>, CVec2>( ( *exclusivePolygonIterator ), 100, 0.3f, CTPoint<float>( 0.2f, 0.4f ), &exclusivePolygon, 4.0f * fWorldCellSize, 12.0f * fWorldCellSize, true );
 					CutByPolygonCore<std::list<CVec2>, CVec2>( exclusivePolygon, mapVisPointsPolygon, &exclusivePolygon );
-					//exclusivePolygon = ( *exclusivePolygonIterator );
 					exclusivePolygons.push_back( exclusivePolygon );
 				}
 			}
@@ -1869,7 +1691,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			std::list<CVec2> inclusivePolygon;
 			RandomizeEdges<std::list<CVec2>, CVec2>( ( *inclusivePolygonIterator ), 100, 0.3f, CTPoint<float>( 0.2f, 0.4f ), &inclusivePolygon, 4.0f * fWorldCellSize, 12.0f * fWorldCellSize, true );
 			CutByPolygonCore<std::list<CVec2>, CVec2>( inclusivePolygon, mapVisPointsPolygon, &inclusivePolygon );
-			//inclusivePolygon = ( *inclusivePolygonIterator );
 			if ( !inclusivePolygon.empty() )
 			{
 				const std::string szKey = randomMapTemplate.fields.GetRandom();
@@ -1915,29 +1736,23 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			}
 		}
 	}
-	//TIME KEEPER
 	timeKeeper.Trace( "CreateRandomMap. Fill polygons." );
 
-	//PROGRESS_HOOK
 	if ( pProgressHook )
 	{
 		pProgressHook->Step();
 	}
 	
-	//�������� �����
 	mapInfo.UpdateTerrain( terrainPatchesRect );
 	mapInfo.UpdateObjects( terrainTilesRect );
 	
-	//TIME KEEPER
 	timeKeeper.Trace( "CreateRandomMap. Update terrain." );
 
-	//PROGRESS_HOOK
 	if ( pProgressHook )
 	{
 		pProgressHook->Step();
 	}
 
-	//����������� ���������� objectives
 	bool bOnlyOneObject = false;
 	for ( std::vector<SMissionStats::SObjective>::iterator objectiveIterator = pMissionStats->objectives.begin(); objectiveIterator != pMissionStats->objectives.end(); ++objectiveIterator )
 	{
@@ -1983,10 +1798,8 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 		}
 	}
 	
-	//TIME KEEPER
 	timeKeeper.Trace( "CreateRandomMap. Place objectives." );
 
-	//��������� minimap images
 	CRMImageCreateParameterList imageCreateParameterList;
 	imageCreateParameterList.push_back( SRMImageCreateParameter( pMissionStats->szMapImage, CTPoint<int>( 0x200, 0x200 ), bSaveAsDDS, false, SRMImageCreateParameter::INTERMISSION_IMAGE_BRIGHTNESS, SRMImageCreateParameter::INTERMISSION_IMAGE_CONSTRAST, SRMImageCreateParameter::INTERMISSION_IMAGE_GAMMA ) ); 
 	imageCreateParameterList.push_back( SRMImageCreateParameter( szRandomMapName, CTPoint<int>( 0x100, 0x100 ), bSaveAsDDS ) ); 
@@ -1994,10 +1807,8 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 	NI_ASSERT_TF( bResult,
 								NStr::Format( "CreateRandomMap, Can't create minimap image" ), 
 								return false );
-	//TIME KEEPER
 	timeKeeper.Trace( "CreateRandomMap. Create minimap image." );
 
-	//��������� �����
 	mapInfo.PackFrameIndices();
 	SQuickLoadMapInfo quickLoadMapInfo;
 	quickLoadMapInfo.FillFromMapInfo( mapInfo );
@@ -2040,13 +1851,11 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 		return false;
 	}
 
-	//PROGRESS_HOOK
 	if ( pProgressHook )
 	{
 		pProgressHook->Step();
 	}
 
-	//��������� script
 	{
 		CPtr<IDataStream> pSourceStream = pDataStorage->OpenStream( ( randomMapTemplate.szScriptFile  + ".lua" ).c_str(), STREAM_ACCESS_READ );
 		CPtr<IDataStream> pDestinationStream = CreateFileStream( ( szRandomMapName + ".lua" ).c_str(), STREAM_ACCESS_WRITE );
@@ -2070,16 +1879,11 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 		}
 	}
 
-	//TIME KEEPER
 	timeKeeper.Trace( "CreateRandomMap. Save map." );
 
 	return bResult;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// basement storage  
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
-	//������ ����� ���� ���� ��� �������
 	SRMContext context;
 	{
 		context.levels.push_back( SRMTemplateUnitsTable() );
@@ -2087,7 +1891,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			context.levels.back().unitPlaceHolders.push_back( CRMUnitsPlaceHoldersHashMap() );
 			CRMUnitsPlaceHoldersHashMap &rUnitsPlaceHolders = context.levels.back().unitPlaceHolders.back();
 
-			//squads
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[0]].push_back( "ussr_rifle_39", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[0]].push_back( "USSR_rifle_41", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[1]].push_back( "ussr_rifle_43", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[1]].push_back( "USSR_rifle_42", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[2]].push_back( "ussr_rpd_43", 1 );
@@ -2100,7 +1903,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[8]].push_back( "Voroshilovets", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[8]].push_back( "Komintern", 1 ); 
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[9]].push_back( "Willys_MB_Lend_Lease", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[10]].push_back( "GAZ_61", 1 );
-			// artillery
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[11]].push_back( "57-mm ZIS-2", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[11]].push_back( "76-mm ZIS-3", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[12]].push_back( "122-mm_M-30", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[12]].push_back( "152_mm_D1", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[13]].push_back( "122-mm_A-19", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[13]].push_back( "152-mm_ML-20", 1 );
@@ -2109,12 +1911,10 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[16]].push_back( "BM_31_12", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[17]].push_back( "82-mm '37", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[17]].push_back( "120_mm_38", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[18]].push_back( "12_7_mm_DShK", 1 );
-			// SPG
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[19]].push_back( "SU_152", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[19]].push_back( "SU_122", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[20]].push_back( "SU_100", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[20]].push_back( "SU_85", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[21]].push_back( "JSU_152", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[22]].push_back( "85-mm_52-K", 1 );
-			// armor
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[23]].push_back( "T-70", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[23]].push_back( "T-26", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[24]].push_back( "T_34_76", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[24]].push_back( "BT-7", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[25]].push_back( "JS_3", 1 );
@@ -2124,7 +1924,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			context.levels.back().unitPlaceHolders.push_back( CRMUnitsPlaceHoldersHashMap() );
 			CRMUnitsPlaceHoldersHashMap &rUnitsPlaceHolders = context.levels.back().unitPlaceHolders.back();
 
-			//squads
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[0]].push_back( "ussr_rifle_39", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[0]].push_back( "USSR_rifle_41", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[1]].push_back( "ussr_rifle_43", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[1]].push_back( "USSR_rifle_42", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[2]].push_back( "ussr_rpd_43", 1 );
@@ -2137,7 +1936,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[8]].push_back( "Voroshilovets", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[8]].push_back( "Komintern", 1 ); 
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[9]].push_back( "Willys_MB_Lend_Lease", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[10]].push_back( "GAZ_61", 1 );
-			// artillery
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[11]].push_back( "57-mm ZIS-2", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[11]].push_back( "76-mm ZIS-3", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[12]].push_back( "122-mm_M-30", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[12]].push_back( "152_mm_D1", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[13]].push_back( "122-mm_A-19", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[13]].push_back( "152-mm_ML-20", 1 );
@@ -2146,12 +1944,10 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[16]].push_back( "BM_31_12", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[17]].push_back( "82-mm '37", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[17]].push_back( "120_mm_38", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[18]].push_back( "12_7_mm_DShK", 1 );
-			// SPG
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[19]].push_back( "SU_152", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[19]].push_back( "SU_122", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[20]].push_back( "SU_100", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[20]].push_back( "SU_85", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[21]].push_back( "JSU_152", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[22]].push_back( "85-mm_52-K", 1 );
-			// armor
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[23]].push_back( "T-70", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[23]].push_back( "T-26", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[24]].push_back( "T_34_76", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[24]].push_back( "BT-7", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[25]].push_back( "JS_3", 1 );
@@ -2162,7 +1958,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			context.levels.back().unitPlaceHolders.push_back( CRMUnitsPlaceHoldersHashMap() );
 			CRMUnitsPlaceHoldersHashMap &rUnitsPlaceHolders = context.levels.back().unitPlaceHolders.back();
 
-			//squads
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[0]].push_back( "ussr_rifle_39", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[0]].push_back( "USSR_rifle_41", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[1]].push_back( "ussr_rifle_43", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[1]].push_back( "USSR_rifle_42", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[2]].push_back( "ussr_rpd_43", 1 );
@@ -2175,7 +1970,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[8]].push_back( "Voroshilovets", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[8]].push_back( "Komintern", 1 ); 
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[9]].push_back( "Willys_MB_Lend_Lease", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[10]].push_back( "GAZ_61", 1 );
-			// artillery
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[11]].push_back( "57-mm ZIS-2", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[11]].push_back( "76-mm ZIS-3", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[12]].push_back( "122-mm_M-30", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[12]].push_back( "152_mm_D1", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[13]].push_back( "122-mm_A-19", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[13]].push_back( "152-mm_ML-20", 1 );
@@ -2184,12 +1978,10 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[16]].push_back( "BM_31_12", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[17]].push_back( "82-mm '37", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[17]].push_back( "120_mm_38", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[18]].push_back( "12_7_mm_DShK", 1 );
-			// SPG
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[19]].push_back( "SU_152", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[19]].push_back( "SU_122", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[20]].push_back( "SU_100", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[20]].push_back( "SU_85", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[21]].push_back( "JSU_152", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[22]].push_back( "85-mm_52-K", 1 );
-			// armor
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[23]].push_back( "T-70", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[23]].push_back( "T-26", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[24]].push_back( "T_34_76", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[24]].push_back( "BT-7", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[25]].push_back( "JS_3", 1 );
@@ -2199,7 +1991,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			context.levels.back().unitPlaceHolders.push_back( CRMUnitsPlaceHoldersHashMap() );
 			CRMUnitsPlaceHoldersHashMap &rUnitsPlaceHolders = context.levels.back().unitPlaceHolders.back();
 
-			//squads
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[0]].push_back( "ussr_rifle_39", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[0]].push_back( "USSR_rifle_41", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[1]].push_back( "ussr_rifle_43", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[1]].push_back( "USSR_rifle_42", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[2]].push_back( "ussr_rpd_43", 1 );
@@ -2212,7 +2003,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[8]].push_back( "Voroshilovets", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[8]].push_back( "Komintern", 1 ); 
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[9]].push_back( "Willys_MB_Lend_Lease", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[10]].push_back( "GAZ_61", 1 );
-			// artillery
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[11]].push_back( "57-mm ZIS-2", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[11]].push_back( "76-mm ZIS-3", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[12]].push_back( "122-mm_M-30", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[12]].push_back( "152_mm_D1", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[13]].push_back( "122-mm_A-19", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[13]].push_back( "152-mm_ML-20", 1 );
@@ -2221,12 +2011,10 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[16]].push_back( "BM_31_12", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[17]].push_back( "82-mm '37", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[17]].push_back( "120_mm_38", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[18]].push_back( "12_7_mm_DShK", 1 );
-			// SPG
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[19]].push_back( "SU_152", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[19]].push_back( "SU_122", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[20]].push_back( "SU_100", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[20]].push_back( "SU_85", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[21]].push_back( "JSU_152", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[22]].push_back( "85-mm_52-K", 1 );
-			// armor
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[23]].push_back( "T-70", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[23]].push_back( "T-26", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[24]].push_back( "T_34_76", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[24]].push_back( "BT-7", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[25]].push_back( "JS_3", 1 );
@@ -2239,7 +2027,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			context.levels.back().unitPlaceHolders.push_back( CRMUnitsPlaceHoldersHashMap() );
 			CRMUnitsPlaceHoldersHashMap &rUnitsPlaceHolders = context.levels.back().unitPlaceHolders.back();
 
-			//squads
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[0]].push_back( "ussr_rifle_39", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[0]].push_back( "USSR_rifle_41", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[1]].push_back( "ussr_rifle_43", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[1]].push_back( "USSR_rifle_42", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[2]].push_back( "ussr_rpd_43", 1 );
@@ -2252,7 +2039,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[8]].push_back( "Voroshilovets", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[8]].push_back( "Komintern", 1 ); 
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[9]].push_back( "Willys_MB_Lend_Lease", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[10]].push_back( "GAZ_61", 1 );
-			// artillery
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[11]].push_back( "57-mm ZIS-2", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[11]].push_back( "76-mm ZIS-3", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[12]].push_back( "122-mm_M-30", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[12]].push_back( "152_mm_D1", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[13]].push_back( "122-mm_A-19", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[13]].push_back( "152-mm_ML-20", 1 );
@@ -2261,12 +2047,10 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[16]].push_back( "BM_31_12", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[17]].push_back( "82-mm '37", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[17]].push_back( "120_mm_38", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[18]].push_back( "12_7_mm_DShK", 1 );
-			// SPG
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[19]].push_back( "SU_152", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[19]].push_back( "SU_122", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[20]].push_back( "SU_100", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[20]].push_back( "SU_85", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[21]].push_back( "JSU_152", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[22]].push_back( "85-mm_52-K", 1 );
-			// armor
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[23]].push_back( "T-70", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[23]].push_back( "T-26", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[24]].push_back( "T_34_76", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[24]].push_back( "BT-7", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[25]].push_back( "JS_3", 1 );
@@ -2276,7 +2060,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			context.levels.back().unitPlaceHolders.push_back( CRMUnitsPlaceHoldersHashMap() );
 			CRMUnitsPlaceHoldersHashMap &rUnitsPlaceHolders = context.levels.back().unitPlaceHolders.back();
 
-			//squads
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[0]].push_back( "ussr_rifle_39", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[0]].push_back( "USSR_rifle_41", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[1]].push_back( "ussr_rifle_43", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[1]].push_back( "USSR_rifle_42", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[2]].push_back( "ussr_rpd_43", 1 );
@@ -2289,7 +2072,6 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[8]].push_back( "Voroshilovets", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[8]].push_back( "Komintern", 1 ); 
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[9]].push_back( "Willys_MB_Lend_Lease", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[10]].push_back( "GAZ_61", 1 );
-			// artillery
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[11]].push_back( "57-mm ZIS-2", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[11]].push_back( "76-mm ZIS-3", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[12]].push_back( "122-mm_M-30", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[12]].push_back( "152_mm_D1", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[13]].push_back( "122-mm_A-19", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[13]].push_back( "152-mm_ML-20", 1 );
@@ -2298,12 +2080,10 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[16]].push_back( "BM_31_12", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[17]].push_back( "82-mm '37", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[17]].push_back( "120_mm_38", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[18]].push_back( "12_7_mm_DShK", 1 );
-			// SPG
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[19]].push_back( "SU_152", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[19]].push_back( "SU_122", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[20]].push_back( "SU_100", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[20]].push_back( "SU_85", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[21]].push_back( "JSU_152", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[22]].push_back( "85-mm_52-K", 1 );
-			// armor
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[23]].push_back( "T-70", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[23]].push_back( "T-26", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[24]].push_back( "T_34_76", 1 ); rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[24]].push_back( "BT-7", 1 );
 			rUnitsPlaceHolders[SRMTemplateUnitsTable::UNIT_RPG_TYPES[25]].push_back( "JS_3", 1 );

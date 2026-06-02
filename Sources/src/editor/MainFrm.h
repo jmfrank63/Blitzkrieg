@@ -1,6 +1,3 @@
-// MainFrm.h : interface of the CMainFrame class
-//
-/////////////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_MAINFRM_H__24238F56_2C9E_4211_B736_2B74E0980EF1__INCLUDED_)
 #define AFX_MAINFRM_H__24238F56_2C9E_4211_B736_2B74E0980EF1__INCLUDED_
@@ -31,23 +28,16 @@ public:
 	CMainFrame();
 	~CMainFrame();
 
-// Attributes
 public:
 /*
 	CChildView *m_pUIView;		//User interface editor window
 	CAnimationView *m_pAnimView;
 */
 
-// Operations
 public:
 
-// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CMainFrame)
 	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
-	//}}AFX_VIRTUAL
 
-// Implementation
 public:
 	void UpdateStatusBarIndicators();
 	void UpdateStatusBarCoordsIndicator(const POINT &pt);
@@ -96,7 +86,6 @@ public:
 	bool m_fireRangePressed;
 
 protected:  // control bar embedded members
-	//�����
 	CGameWnd m_gameWnd;						//������� ������, ����� ���� ������ ����
 	
 	UINT*	m_pDefButtonGroup;			// toolbar default button group
@@ -110,124 +99,97 @@ protected:  // control bar embedded members
 	CComboBox *m_pBridgeCombo;
 	SECCustomToolBar *pCommonToolBar;
 	
-	//GUI editor frame
 	CTreeDockWnd *pGUITreeDockWnd;
 	CPropView *pGUIPropView;
 	CPropertyDockBar *pGUIPropertyDockBar;
 
-	//���� ��� Animations Frame
 	CTreeDockWnd *pAnimTreeDockWnd;
 	CPropView *pAnimPropView;
 	SECCustomToolBar *pInfantryToolBar;
 	
-	//��� Sprite Composer Frame
 	CTreeDockWnd *pSpriteTreeDockWnd;
 	CPropView *pSpritePropView;
 
-	//��� Effect Composer Frame
 	CTreeDockWnd *pEffectTreeDockWnd;
 	CPropView *pEffectPropView;
 	CDirectionButtonDockBar *pEffectDirectionButtonDockBar;
 	SECCustomToolBar *pEffectToolBar;
 	
-	//��� Object Composer Frame
 	CTreeDockWnd *pObjectTreeDockWnd;
 	CPropView *pObjectPropView;
 	SECCustomToolBar *pObjectToolBar;
 	
-	//��� Mesh Composer Frame
 	CTreeDockWnd *pMeshTreeDockWnd;
 	CPropView *pMeshPropView;
 	CDirectionButtonDockBar *pMeshDirectionButtonDockBar;
 	SECCustomToolBar *pMeshToolBar;
 	
-	//��� Weapon Composer Frame
 	CTreeDockWnd *pWeaponTreeDockWnd;
 	CPropView *pWeaponPropView;
 
-	//��� Building Composer Frame
 	CTreeDockWnd *pBuildingTreeDockWnd;
 	CPropView *pBuildingPropView;
 	SECCustomToolBar *pBuildingToolBar;
 	
-	//��� TileSet Composer Frame
 	CTreeDockWnd *pTileTreeDockWnd;
 	CPropView *pTilePropView;
 	SECCustomToolBar *pTileToolBar;
 
-	//��� Fence Composer Frame
 	CTreeDockWnd *pFenceTreeDockWnd;
 	CPropView *pFencePropView;
 	SECCustomToolBar *pFenceToolBar;
 	
-	//��� Particle Frame
 	CTreeDockWnd *pParticleTreeDockWnd;
 	CPropView *pParticlePropView;
 	CKeyFrameDockWnd *pParticleKeyFrameDockWnd;
 	SECCustomToolBar *pParticleToolBar;
 	
-	//��� Trench Frame
 	CTreeDockWnd *pTrenchTreeDockWnd;
 	CPropView *pTrenchPropView;
 
-	//��� Squad Frame
 	CTreeDockWnd *pSquadTreeDockWnd;
 	CPropView *pSquadPropView;
 	CDirectionButtonDockBar *pSquadDirectionButtonDockBar;
 	SECCustomToolBar *pSquadToolBar;
 
-	//��� Mine Composer Frame
 	CTreeDockWnd *pMineTreeDockWnd;
 	CPropView *pMinePropView;
 
-	//��� Bridge Composer Frame
 	CTreeDockWnd *pBridgeTreeDockWnd;
 	CPropView *pBridgePropView;
 	SECCustomToolBar *pBridgeToolBar;
 	
-	//��� Mission Composer Frame
 	CTreeDockWnd *pMissionTreeDockWnd;
 	CPropView *pMissionPropView;
 	SECCustomToolBar *pMissionToolBar;
 
-	//��� Chapter Composer Frame
 	CTreeDockWnd *pChapterTreeDockWnd;
 	CPropView *pChapterPropView;
 	SECCustomToolBar *pChapterToolBar;
 	
-	//��� Campaign Composer Frame
 	CTreeDockWnd *pCampaignTreeDockWnd;
 	CPropView *pCampaignPropView;
 
-	//��� 3DRoad Frame
 	CTreeDockWnd *p3DRoadTreeDockWnd;
 	CPropView *p3DRoadPropView;
 	SECCustomToolBar *p3DRoadToolBar;
 	
-	//��� 3DRiver Frame
 	CTreeDockWnd *p3DRiverTreeDockWnd;
 	CPropView *p3DRiverPropView;
 	
-	//��� Medal Frame
 	CTreeDockWnd *pMedalTreeDockWnd;
 	CPropView *pMedalPropView;
 
 	CComboBox m_brushSizeCombo;
 
-// Generated message map functions
 protected:
-	//{{AFX_MSG(CMainFrame)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg LRESULT OnCreateCombo( WPARAM wParam, LPARAM lParam );
 	afx_msg void OnClose();
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 
-/////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif // !defined(AFX_MAINFRM_H__24238F56_2C9E_4211_B736_2B74E0980EF1__INCLUDED_)
 

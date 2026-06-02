@@ -6,7 +6,6 @@
 #include "CommandsHistoryInterface.h"
 
 #include "..\Input\Input.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSinglePlayerTransceiver::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -16,48 +15,37 @@ int CSinglePlayerTransceiver::operator&( IStructureSaver &ss )
 		pCmdsHistory = GetSingleton<ICommandsHistory>();
 	}
 
-	// чтобы не пересекалась с multiplayer history
 	saver.Add( 101, &nCommonSegment );
 	saver.Add( 102, &bHistoryPlaying );
 
-	//
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSinglePlayerTransceiver::Init( ISingleton *pSingleton, const int nMultiplayerType )
 {
 	pAILogic = GetSingleton<IAILogic>( pSingleton );
 	pCmdsHistory = GetSingleton<ICommandsHistory>( pSingleton );
 	
-	//
 	RemoveGlobalVar( "MultiplayerGame" );
-	// reset timer
 	GetSingleton<IGameTimer>()->GetGameTimer()->Reset();
 	GetSingleton<IGameTimer>()->GetGameSegmentTimer()->Set( 0xffffffff );
 	bHistoryPlaying = false;
 
 	nCommonSegment = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSinglePlayerTransceiver::PreMissionInit()
 {
 	RemoveGlobalVar( "MultiplayerGame" );	
-	// reset timer
 	GetSingleton<IGameTimer>()->GetGameTimer()->Reset();
 	GetSingleton<IGameTimer>()->GetGameSegmentTimer()->Set( 0xffffffff );
 
 	nCommonSegment = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSinglePlayerTransceiver::LoadAllGameParameters()
 { 
 	bHistoryPlaying = GetGlobalVar( "History.Playing", 0 ) != 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// perform segments for AI
 void CSinglePlayerTransceiver::DoSegments()
 {
-	// just skip all net chat in single-player mode
 	IConsoleBuffer *pBuffer = GetSingleton<IConsoleBuffer>();
 	while ( const wchar_t *pszString = pBuffer->Read(CONSOLE_STREAM_NET_CHAT) )
 	{
@@ -65,7 +53,6 @@ void CSinglePlayerTransceiver::DoSegments()
 		pszString = pBuffer->Read(CONSOLE_STREAM_NET_CHAT);
 		NStr::DebugTrace("Got msg: %S\n", pszString);
 	}
-	// segment calling through segment timer
 	IGameTimer *pGameTimer = GetSingleton<IGameTimer>();
 	ISegmentTimer *pGameSegment = pGameTimer->GetGameSegmentTimer();
 	pGameSegment->BeginSegments( pGameTimer->GetGameTime() );
@@ -79,8 +66,6 @@ void CSinglePlayerTransceiver::DoSegments()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// register group of units to AI
 int CSinglePlayerTransceiver::CommandRegisterGroup( IRefCount **pUnitsBuffer, const int nLen )
 {
 	if ( !bHistoryPlaying )
@@ -96,8 +81,6 @@ int CSinglePlayerTransceiver::CommandRegisterGroup( IRefCount **pUnitsBuffer, co
 	else
 		return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// unregister group 
 void CSinglePlayerTransceiver::CommandUnregisterGroup( const WORD wGroup )
 {
 	if ( !bHistoryPlaying )
@@ -106,8 +89,6 @@ void CSinglePlayerTransceiver::CommandUnregisterGroup( const WORD wGroup )
 		pCmdsHistory->AddCommand( nCommonSegment, new CUnregisterGroupCommand( wGroup ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// send command to group of units
 void CSinglePlayerTransceiver::CommandGroupCommand( const SAIUnitCmd *pCommand, const WORD wGroup, bool bPlaceInQueue )
 {
 	if ( !bHistoryPlaying )
@@ -119,8 +100,6 @@ void CSinglePlayerTransceiver::CommandGroupCommand( const SAIUnitCmd *pCommand, 
 		pCmdsHistory->AddCommand( nCommonSegment, new CGroupCommand( pCommand, wGroup, bPlaceInQueue, pAILogic ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// set single command to call planes, reinforcements, etc. returns group number, which was created
 int CSinglePlayerTransceiver::CommandUnitCommand( const struct SAIUnitCmd *pCommand )
 {
 	if ( !bHistoryPlaying )
@@ -137,7 +116,6 @@ int CSinglePlayerTransceiver::CommandUnitCommand( const struct SAIUnitCmd *pComm
 	else
 		return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSinglePlayerTransceiver::CommandShowAreas( int nGroupID, int nAreaType, bool bShow )
 {
 	if ( !bHistoryPlaying )
@@ -146,19 +124,15 @@ void CSinglePlayerTransceiver::CommandShowAreas( int nGroupID, int nAreaType, bo
 		pCmdsHistory->AddCommand( nCommonSegment, new CShowAreasCommand( nGroupID, nAreaType, bShow ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSinglePlayerTransceiver::AddCommandToSend( IAILogicCommand *pCommand )
 {
 	pCommand->Execute( pAILogic );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSinglePlayerTransceiver::CommandClientTogglePause() 
 { 
 	GetSingleton<IInput>()->AddMessage( SGameMessage(CMD_GAME_PAUSE) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSinglePlayerTransceiver::CommandClientSpeed( const int nChange ) 
 { 
 	GetSingleton<IInput>()->AddMessage( SGameMessage(nChange == 1 ? CMD_GAME_SPEED_INC : CMD_GAME_SPEED_DEC) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

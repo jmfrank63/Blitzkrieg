@@ -1,8 +1,6 @@
 #ifndef __2DArrayRLEWrapper_H__
 #define __2DArrayRLEWrapper_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
 class CArray2DRLEWrapper
 {
@@ -13,14 +11,12 @@ class CArray2DRLEWrapper
 	CArray2D<T> &a;
 	T packingData;
 
-	//
 	CArray2DRLEWrapper();
 	void SaveCode( T *pRes, int *pNResCnt, const int nCode );
 	const int ReadCode( T *pRes, int *pNResCnt );
 public:
 	CArray2DRLEWrapper( CArray2D<T> &_a, const T _packingData ) : a( _a ), packingData( _packingData ) { }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
 class CBitArray2DRLEWrapper
 {
@@ -42,7 +38,6 @@ public:
 		return 0;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
 inline void CArray2DRLEWrapper<T>::SaveCode( T *pRes, int *pNResCnt, const int nCode )
 {
@@ -64,7 +59,6 @@ inline void CArray2DRLEWrapper<T>::SaveCode( T *pRes, int *pNResCnt, const int n
 			pRes[(*pNResCnt)++] = nCode;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
 const int CArray2DRLEWrapper<T>::ReadCode( T *pRes, int *pNResCnt )
 {
@@ -88,7 +82,6 @@ const int CArray2DRLEWrapper<T>::ReadCode( T *pRes, int *pNResCnt )
 
 	return nCode;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
 inline int CArray2DRLEWrapper<T>::operator&( IStructureSaver &ss )
 {
@@ -114,20 +107,15 @@ inline int CArray2DRLEWrapper<T>::operator&( IStructureSaver &ss )
 				int nType = -1;
 				int nZeros = 0;
 				int i = cnt;
-				// ищем последовтельность
 				while ( i < a.GetSizeX() * a.GetSizeY() )
 				{
 					if ( pData[i] == packingData )
 					{
 						++nZeros;
-						// последние считанные данные - последовательность нулей
 						if ( nZeros > NZEROS )
 						{
-							// тип неопределён, поставить в тип "последовательность нулей"
 							if ( nType == -1 )
 								nType = 0;
-							//тип "уникальная последовательность", последовательность закончилась, 
-							//сдвинуть указатель назад и выйти из цикла
 							else if ( nType == 1 )
 							{
 								i -= NZEROS;
@@ -138,10 +126,8 @@ inline int CArray2DRLEWrapper<T>::operator&( IStructureSaver &ss )
 					else
 					{
 						nZeros = 0;
-						// тип неопределён, поставить в тип "уникальная последовательность"
 						if ( nType == -1 )
 							nType = 1;
-						// "последовательность нулей" закончилась, выйти из цикла
 						else if ( nType == 0 )
 							break;
 					}
@@ -197,7 +183,6 @@ inline int CArray2DRLEWrapper<T>::operator&( IStructureSaver &ss )
 			while ( i < nRLELength )
 			{
 				const int nCode = ReadCode( pRLE, &i );
-				// unique sequence
 				if ( nCode & 0x80000000 )
 				{
 					const int nLength = nCode & ~0x80000000;
@@ -206,7 +191,6 @@ inline int CArray2DRLEWrapper<T>::operator&( IStructureSaver &ss )
 					cnt += nLength;
 					i += nLength;
 				}
-				// sequence of zeros
 				else
 					cnt += nCode;
 			}
@@ -219,6 +203,4 @@ inline int CArray2DRLEWrapper<T>::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif //__2DArrayRLEWrapper_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

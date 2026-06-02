@@ -56,7 +56,6 @@ public:
     explicit vector(size_type __n) : _VEC_SUPER(__n) { }
     vector(const_iterator __first, const_iterator __last) : _VEC_SUPER(__first,__last) { }
 # ifdef _STLP_DEBUG
-  // certainly, no member templates here !
     vector(const _Tp* __first, const _Tp* __last) : _VEC_SUPER(__first,__last) { }    
 # endif
     ~vector() {}
@@ -77,13 +76,9 @@ inline bool operator<(const vector<_Tp>& __x, const vector<_Tp>& __y) {
 #  endif /* _STLP_BASE_MATCH_BUG */
 #  undef _VEC_SUPER
 
-// close std namespace
 # ifdef _STLP_USE_NAMESPACES
 }
 # endif
 
 #endif /* _STLP_WRAP_VECTOR_H */
 
-// Local Variables:
-// mode:C++
-// End:

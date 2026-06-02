@@ -1,11 +1,8 @@
 #include "StdAfx.h"
 
 #include "SceneInternal.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::pair<IVisObj*, CVec2> CPickedObject;
 typedef std::list<CPickedObject> CPickedObjectsList;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// true if type not equal to 'type'
 class CCheckObjectTypeFunctional
 {
 	const CVisObjDescMap &objdescs;				// all object descriptors
@@ -13,7 +10,6 @@ class CCheckObjectTypeFunctional
 public:
 	CCheckObjectTypeFunctional( const CVisObjDescMap &_objdescs, const EObjGameType _type )
 		: objdescs( _objdescs ), type( _type ) {  }
-	//
 	bool operator()( const CPickedObject &obj ) const
 	{
 		CVisObjDescMap::const_iterator it = objdescs.find( obj.first );
@@ -34,8 +30,6 @@ public:
 		return pDesc->gametype == SGVOGT_UNIT ? !pScene->IsVisible( static_cast<IObjVisObj*>(obj.first) ) : false;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// point picking
 template <class TAreaMap>
 void Pick( const CVec2 &pos2, int nCellX, int nCellY, const SHMatrix &matrix, 
 					 CPickedObjectsList *pPickedObjects, const TAreaMap &area )
@@ -54,7 +48,6 @@ void Pick( const CVec2 &pos2, const CVec3 &pos3, const SHMatrix &matrix,
 {
 	int nCellX = pos3.x / AREA_MAP_CELL_SIZE;
 	int nCellY = pos3.y / AREA_MAP_CELL_SIZE;
-	//
 	for ( int i = -1; i != 2; ++i )
 	{
 		if ( (nCellY + i < 0) || (nCellY + i >= area.GetSizeY()) )
@@ -63,13 +56,10 @@ void Pick( const CVec2 &pos2, const CVec3 &pos3, const SHMatrix &matrix,
 		{
 			if ( (nCellX + j < 0) || (nCellX + j >= area.GetSizeX()) )
 				continue;
-			//
 			Pick( pos2, nCellX + j, nCellY + i, matrix, pPickedObjects, area );
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// rect picking
 template <class TAreaMap>
 void Pick( const CTRect<float> &rect2, int nCellX, int nCellY, const SHMatrix &matrix, 
 					 CPickedObjectsList *pPickedObjects, const TAreaMap &area )
@@ -93,7 +83,6 @@ void PickUpdated( const CTRect<float> &rect2, int nCellX, int nCellY, DWORD time
 			pPickedObjects->push_back( std::pair<IVisObj*, CVec2>( *it, VNULL2 ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void Pick( const CVec2 &pos2, const SHMatrix &matrix, 
 					 CPickedObjectsList *pPickedObjects, CMeshObjList &objects )
 {
@@ -114,13 +103,11 @@ void PickUpdated( const CTRect<float> &rect2, DWORD time, const SHMatrix &matrix
 			pPickedObjects->push_back( std::pair<IVisObj*, CVec2>( *it, VNULL2 ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::Pick( const CVec2 &point, std::pair<IVisObj*, CVec2> **ppObjects, int *pnNumObjects, EObjGameType type, bool bVisible )
 {
 	UpdateTransformMatrix();
 	CVec3 pos3;
 	GetPos3( &pos3, point );
-	// pick objects...
 	CPickedObjectsList picked;
 	switch ( type )
 	{
@@ -152,31 +139,25 @@ void CScene::Pick( const CVec2 &point, std::pair<IVisObj*, CVec2> **ppObjects, i
 			::Pick( point, matTransform, &picked, outboundObjects2 );
 			break;
 	}
-	// check types
 	if ( (type == SGVOGT_BUILDING) || (type == SGVOGT_OBJECT) || (type == SGVOGT_ENTRENCHMENT) || (type == SGVOGT_MINE) )
 		picked.remove_if( CCheckObjectTypeFunctional(objdescs, type) );
-	// check visibility
 	if ( (type == SGVOGT_UNKNOWN) && bVisible )
 		picked.remove_if( CCheckObjectVisibleFunctional(this) );
-	// check for empty
 	if ( picked.empty() )
 	{
 		*pnNumObjects = 0;
 		*ppObjects = 0;
 		return;
 	}
-	//
 	*pnNumObjects = picked.size();
 	*ppObjects = GetTempBuffer< std::pair<IVisObj*, CVec2> >( *pnNumObjects );
 	int i = 0;
 	for ( CPickedObjectsList::const_iterator it = picked.begin(); it != picked.end(); ++it )
 		(*ppObjects)[i++] = *it;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::Pick( const CTRect<float> &rcRect, std::pair<IVisObj*, CVec2> **ppObjects, int *pnNumObjects, EObjGameType type, bool bVisible )
 {
 	UpdateTransformMatrix();
-	//
 	CVec3 vTL, vBR;
 	{
 		CTPoint<float> ptTL = rcRect.GetLeftTop();
@@ -184,15 +165,12 @@ void CScene::Pick( const CTRect<float> &rcRect, std::pair<IVisObj*, CVec2> **ppO
 		CTPoint<float> ptBR = rcRect.GetRightBottom();
 		GetPos3( &vBR, CVec2(ptBR.x, ptBR.y) );
 	}
-	// оси и центр selection'а в мировой системе координат:
 	CVec3 vCamera = ( vTL + vBR ) / 2.0f;
 	const float fWidth = rcRect.Width();
 	const float fHeight = rcRect.Height() * 2;
 	CVec2 vCameraX( fWidth / FP_SQRT_2, fWidth / FP_SQRT_2 ), vCameraY( -fHeight / FP_SQRT_2, fHeight / FP_SQRT_2 );
-	// select patches
 	CPatchesList vispatches;
 	SelectPatches2( vCamera, vCameraX, vCameraY, areaUnits.GetSizeX(), areaUnits.GetSizeY(), AREA_MAP_CELL_SIZE, &vispatches );
-	// do selection
 	DWORD time = pTimer->GetGameTime();
 	CPickedObjectsList picked;
 	for ( CPatchesList::const_iterator it = vispatches.begin(); it != vispatches.end(); ++it )
@@ -226,83 +204,58 @@ void CScene::Pick( const CTRect<float> &rcRect, std::pair<IVisObj*, CVec2> **ppO
 				break;
 		}
 	}
-	//
 	if ( type == SGVOGT_UNIT ) 
 		::PickUpdated( rcRect, time, matTransform, &picked, outboundObjects2 );
-	// check types
 	if ( (type == SGVOGT_BUILDING) || (type == SGVOGT_OBJECT) || (type == SGVOGT_ENTRENCHMENT) || (type == SGVOGT_MINE) )
 		picked.remove_if( CCheckObjectTypeFunctional(objdescs, type) );
-	// check visibility
 	if ( (type == SGVOGT_UNIT) && bVisible )
 		picked.remove_if( CCheckObjectVisibleFunctional(this) );
-	// check for empty
 	if ( picked.empty() )
 	{
 		*pnNumObjects = 0;
 		*ppObjects = 0;
 		return;
 	}
-	//
 	*pnNumObjects = picked.size();
 	*ppObjects = GetTempBuffer< std::pair<IVisObj*, CVec2> >( *pnNumObjects );
 	int i = 0;
 	for ( CPickedObjectsList::const_iterator it = picked.begin(); it != picked.end(); ++it )
 		(*ppObjects)[i++] = *it;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScene::SelectPatches2( const CVec3 &vCamera, const CVec2 &vCameraX, const CVec2 &vCameraY, 
 																  float fPatchesX, float fPatchesY, float fPatchSize, CPatchesList *pPatches )
 {
 	const float fPatchHalfAxis = fPatchSize * FP_SQRT_2 / 2.0f; //fCellSizeX * STerrainPatchInfo::nSizeX;
-	// выделить патчи, которые попадают в обзор
-	// это базисные линии (X, Y) системы координат ландшафта
 	CVec3 vAxisX, vAxisY;
 	GetLineEq( 0, 0, 1, 0, &vAxisX.x, &vAxisX.y, &vAxisX.z );
 	GetLineEq( 0, 1, 0, 0, &vAxisY.x, &vAxisY.y, &vAxisY.z );
-	//
-	// оси камеры в мировой системе координат:
-//	CVec2 vCameraX( fWidth / FP_SQRT_2, fWidth / FP_SQRT_2 ), vCameraY( -fHeight / FP_SQRT_2, fHeight / FP_SQRT_2 );
-	//
-	//
-	// определим грубый прямоугольник (в мировой системе координат, в целых патчах), в который вписывается экран
-	// определение производим на основании расстояния от углов экрана до координатных осей мировой системы 
-	// NOTE: границы по принципу [min, max)
 	const CVec2 vCameraO( vCamera.x, vCamera.y );
 	CTRect<int> rcL0Rect;								// level 0 of roughness rect
 	{
-		// LT
 		const CVec2 point = vCameraO + vCameraY - vCameraX;
 		const float fDist = vAxisY.x*point.x + vAxisY.y*point.y + vAxisY.z;
 		rcL0Rect.minx = int( Clamp( fDist / fPatchSize, 0.0f, fPatchesX ) );
 	}
 	{
-		// RT
 		const CVec2 point = vCameraO + vCameraY + vCameraX;
 		const float fDist = vAxisX.x*point.x + vAxisX.y*point.y + vAxisX.z;
 		rcL0Rect.miny = int( Clamp( fDist / fPatchSize, 0.0f, fPatchesY ) );
 	}
 	{
-		// RB
 		const CVec2 point = vCameraO + vCameraX - vCameraY;
 		const float fDist = vAxisY.x*point.x + vAxisY.y*point.y + vAxisY.z;
 		rcL0Rect.maxx = int( Clamp( fDist / fPatchSize, 0.0f, fPatchesX ) );
 	}
 	{
-		// LB
 		const CVec2 point = vCameraO - vCameraY - vCameraX;
 		const float fDist = vAxisX.x*point.x + vAxisX.y*point.y + vAxisX.z;
 		rcL0Rect.maxy = int( Clamp( fDist / fPatchSize, 0.0f, fPatchesY ) );
 	}
 	rcL0Rect.Normalize();
-	//
-	//
-	// найдём расстояние (в патчах) от нуля мира до горизонтальных границ экрана (по Y) и до вертикальных (по X)
 	CTRect<int> rcL1Rect;								// level 1 of roughness rect
 	const CVec3 vTerraOX( 0, 0, 0 );
 	const CVec3 vTerraOY( 0, fPatchesY * fPatchSize, 0 );
-	//
 	{
-		// miny
 		const CVec2 vO = vCameraO + vCameraY;
 		CVec3 vLine;
 		GetLineEq( vO.x, vO.y, vO.x + 1000, vO.y + 1000, &vLine.x, &vLine.y, &vLine.z );
@@ -310,7 +263,6 @@ void CScene::SelectPatches2( const CVec3 &vCamera, const CVec2 &vCameraX, const 
 		rcL1Rect.miny = nDist;
 	}
 	{
-		// maxy
 		const CVec2 vO = vCameraO - vCameraY;
 		CVec3 vLine;
 		GetLineEq( vO.x, vO.y, vO.x + 1000, vO.y + 1000, &vLine.x, &vLine.y, &vLine.z );
@@ -318,7 +270,6 @@ void CScene::SelectPatches2( const CVec3 &vCamera, const CVec2 &vCameraX, const 
 		rcL1Rect.maxy = nDist;
 	}
 	{
-		// minx
 		const CVec2 vO = vCameraO - vCameraX;
 		CVec3 vLine;
 		GetLineEq( vO.x, vO.y, vO.x - 1000, vO.y + 1000, &vLine.x, &vLine.y, &vLine.z );
@@ -326,7 +277,6 @@ void CScene::SelectPatches2( const CVec3 &vCamera, const CVec2 &vCameraX, const 
 		rcL1Rect.minx = nDist;
 	}
 	{
-		// maxx
 		const CVec2 vO = vCameraO + vCameraX;
 		CVec3 vLine;
 		GetLineEq( vO.x, vO.y, vO.x - 1000, vO.y + 1000, &vLine.x, &vLine.y, &vLine.z );
@@ -334,10 +284,6 @@ void CScene::SelectPatches2( const CVec3 &vCamera, const CVec2 &vCameraX, const 
 		rcL1Rect.maxx = nDist;
 	}
 	rcL1Rect.Normalize();
-	//
-	// теперь из полученного прямоугольника (rcL0Rect) проверим все патчи на предмет следующих условий:
-	// сумма индексов патча (x, y) должна быть >= rcL1Rect.miny, <= rcL1Rect.maxy
-	// сумма индексов патча (x, y - num patches Y) должна быть >= rcL1Rect.minx, <= rcL1Rect.maxx
 	rcL0Rect.x1 = Clamp( rcL0Rect.x1, 0, int(fPatchesX) );
 	rcL0Rect.y1 = Clamp( rcL0Rect.y1, 0, int(fPatchesY) );
 	rcL0Rect.x2 = Clamp( rcL0Rect.x2 + 3, 0, int(fPatchesX) );
@@ -357,4 +303,3 @@ void CScene::SelectPatches2( const CVec3 &vCamera, const CVec2 &vCameraX, const 
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

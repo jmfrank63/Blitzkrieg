@@ -71,8 +71,6 @@ piConnection * connection;  // This is to fool Visual Assist.
 **********/
 typedef struct piConnection
 {
-	// Chat.
-	////////
 	CHAT chat;  // The chat connection.
 	char nick[PI_NICK_MAX_LEN];  // The local nick.
 	PEERBool connecting;
@@ -80,15 +78,11 @@ typedef struct piConnection
 	peerNickErrorCallback nickErrorCallback;
 	unsigned long lastChatPing;
 
-	// Game.
-	////////
 	unsigned int IP;
 	int profileID;
 	char title[PI_TITLE_MAX_LEN];
 	char gamename[PI_TITLE_MAX_LEN];
 
-	// Rooms.
-	/////////
 	char rooms[NumRooms][PI_ROOM_MAX_LEN];
 	PEERBool enteringRoom[NumRooms];
 	PEERBool inRoom[NumRooms];
@@ -100,13 +94,9 @@ typedef struct piConnection
 	char titleRoomChannel[PI_ROOM_MAX_LEN];
 	PEERBool stayInTitleRoom;
 
-	// Players.
-	///////////
 	HashTable players;
 	int numPlayers[NumRooms];
 
-	// Ping.
-	////////
 	PEERBool doPings;
 	int lastPingTimeMod;
 	PEERBool pingRoom[NumRooms];
@@ -114,8 +104,6 @@ typedef struct piConnection
 	HashTable xpings;
 	unsigned int lastXpingSend;
 
-	// Hosting.
-	///////////
 	qr_t queryReporting;
 	char qrSecretKey[128]; // i ripped the length from gqueryreporting.c
 	PEERBool hosting;
@@ -126,13 +114,9 @@ typedef struct piConnection
 	char password[PEER_PASSWORD_LEN];
 	int reportingGroupID;  // might be diff. than groupID if left group room after started reporting
 
-	// Game states.
-	///////////////
 	unsigned int serverIP;
 	PEERBool ready;
 
-	// CEngine.
-	///////////
 	char engineName[PI_ENGINE_LEN];
 	char engineSecretKey[PI_ENGINE_LEN];
 	int engineMaxUpdates;
@@ -147,38 +131,26 @@ typedef struct piConnection
 	struct piOperation * listingGroupsOperation;
 	PEERBool listingGroups;
 
-	// ID.
-	//////
 	int nextID;
 
-	// Operations.
-	//////////////
 	DArray operationList;
 	int operationsStarted;
 	int operationsFinished;
 
-	// Callbacks.
-	/////////////
 	PEERCallbacks callbacks;
 	DArray callbackList;
 	int callbacksQueued;
 	int callbacksCalled;
 	int callbackDepth;
 
-	// Away.
-	////////
 	CHATBool away;
 	char awayReason[PI_AWAY_MAX_LEN];
 
-	// Keys.
-	////////
 	HashTable globalWatchKeys[NumRooms];
 	HashTable roomWatchKeys[NumRooms];
 	HashTable globalWatchCache;
 	HashTable roomWatchCache[NumRooms];
 
-	// Misc.
-	////////
 	PEERBool disconnect;
 	PEERBool shutdown;
 } piConnection;

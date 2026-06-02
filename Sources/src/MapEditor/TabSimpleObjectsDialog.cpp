@@ -20,7 +20,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SFilterItem::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -31,7 +30,6 @@ int SFilterItem::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SFilterItem::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -42,7 +40,6 @@ int SFilterItem::operator&( IDataTree &ss )
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CTabSimpleObjectsDialog::vID[] = 
 {
 	IDC_SO_FILTER_LABEL,					//0
@@ -72,12 +69,9 @@ const int CTabSimpleObjectsDialog::vID[] =
 	
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CTabSimpleObjectsDialog::CTabSimpleObjectsDialog( CWnd* pParent )
 	: CResizeDialog( CTabSimpleObjectsDialog::IDD, pParent )// , pIML ( 0 )
 {
-	//{{AFX_DATA_INIT(CTabSimpleObjectsDialog)
-	//}}AFX_DATA_INIT
 		
 	SetControlStyle( IDC_SO_FILTER_LABEL, ANCHORE_LEFT_TOP | RESIZE_HOR );
 	SetControlStyle( IDC_SO_FILTER_SHORTCUT_00, ANCHORE_LEFT_TOP | RESIZE_HOR, 0.5f, 0.5f, 1.0f / 3.0f, 1.0f );
@@ -100,7 +94,6 @@ CTabSimpleObjectsDialog::CTabSimpleObjectsDialog( CWnd* pParent )
 	SetControlStyle( IDC_SO_DIRECTION_PLACE, ANCHORE_RIGHT_TOP );
 	SetControlStyle( IDC_SO_OBJECTS_LIST, ANCHORE_LEFT_BOTTOM | RESIZE_HOR_VER );
 	SetControlStyle( IDC_SO_DIRECTION_LABEL, ANCHORE_RIGHT_TOP );
-	//SetControlStyle( IDC_SO_DIPLOMACY_BUTTON, ANCHORE_RIGHT_TOP );
 	SetControlStyle( IDC_SO_LIST_LIST, ANCHORE_LEFT_TOP | RESIZE_HOR );
 	SetControlStyle( IDC_SO_LIST_ICONS, ANCHORE_LEFT_TOP | RESIZE_HOR );
 
@@ -108,11 +101,9 @@ CTabSimpleObjectsDialog::CTabSimpleObjectsDialog( CWnd* pParent )
 }
 
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::DoDataExchange(CDataExchange* pDX)
 { 
 	CResizeDialog::DoDataExchange(pDX);
-	//{{AFX_DATA_MAP(CTabSimpleObjectsDialog)
 	DDX_Control(pDX, IDC_SO_PLAYER_COMBO, m_players);
 	DDX_Control(pDX, IDC_SO_FILTER_SHORTCUT_09, m_listCheck);
 	DDX_Control(pDX, IDC_SO_FILTER_SHORTCUT_08, m_check9);
@@ -126,12 +117,9 @@ void CTabSimpleObjectsDialog::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_SO_FILTER_SHORTCUT_00, m_check1);
 	DDX_Control(pDX, IDC_SO_FILTER_COMBO, m_filtersCtrl);
 	DDX_Control(pDX, IDC_SO_OBJECTS_LIST, m_imageList);
-	//}}AFX_DATA_MAP
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CTabSimpleObjectsDialog, CResizeDialog)
-	//{{AFX_MSG_MAP(CTabSimpleObjectsDialog)
 	ON_WM_CREATE()
 	ON_NOTIFY(LVN_ITEMCHANGED, IDC_SO_OBJECTS_LIST, OnItemchangedList1)
 	ON_CBN_SELCHANGE(IDC_SO_FILTER_COMBO, OnSelchangeCombo1)
@@ -156,10 +144,8 @@ BEGIN_MESSAGE_MAP(CTabSimpleObjectsDialog, CResizeDialog)
 	ON_BN_CLICKED(IDC_SO_ADD_FILTER_BUTTON, OnButtonNewFilter)
 	ON_BN_CLICKED(IDC_SO_DIPLOMACY_BUTTON, OnDiplomacyButton)
 	ON_COMMAND(IDC_SO_OBJECT_PROPERTIES_MENU, OnObjectPropertiesMenu)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTabSimpleObjectsDialog::OnCreate( LPCREATESTRUCT lpCreateStruct ) 
 {
 	if ( CResizeDialog::OnCreate(lpCreateStruct) == -1 )
@@ -169,7 +155,6 @@ int CTabSimpleObjectsDialog::OnCreate( LPCREATESTRUCT lpCreateStruct )
 	return 0;
 }	
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTabSimpleObjectsDialog::CommonFilterName( const std::string &rszName )
 {
 	if ( ( ( rszName.find( "buildings" ) != 0 ) &&
@@ -187,7 +172,6 @@ bool CTabSimpleObjectsDialog::CommonFilterName( const std::string &rszName )
 	}
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTabSimpleObjectsDialog::FilterName( const std::string &rszName )
 {
 	std::string szName = rszName;
@@ -196,7 +180,6 @@ bool CTabSimpleObjectsDialog::FilterName( const std::string &rszName )
 	{
 		return false;
 	}
-	//вначале только из comboBox'a
 	CString curFilter;
 	if ( m_filtersCtrl.GetCurSel() != -1 && m_listCheck.GetCheck() == 1 )
 	{
@@ -210,7 +193,6 @@ bool CTabSimpleObjectsDialog::FilterName( const std::string &rszName )
 			}
 		}
 	}
-	//теперь из  из check box'ов
 	for( int i = 0; i != m_filters.size(); ++i )
 	{
 		if ( m_checkButtons[i]->GetCheck() == 1 )
@@ -225,7 +207,6 @@ bool CTabSimpleObjectsDialog::FilterName( const std::string &rszName )
 	return false;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CTabSimpleObjectsDialog::OnInitDialog() 
 {
 	CResizeDialog::OnInitDialog();
@@ -265,7 +246,6 @@ BOOL CTabSimpleObjectsDialog::OnInitDialog()
 	m_checkButtons.push_back( &m_check7 );
 	m_checkButtons.push_back( &m_check8 );
 	m_checkButtons.push_back( &m_check9 );
-	//
 	for( int i = 0; i != m_checkButtons.size(); ++i )
 	{
 		m_checkButtons[i]->SetWindowText( m_filters[i].szName.c_str() );
@@ -276,7 +256,6 @@ BOOL CTabSimpleObjectsDialog::OnInitDialog()
 	return TRUE;
 } 
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnItemchangedList1(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -287,7 +266,6 @@ void CTabSimpleObjectsDialog::OnItemchangedList1(NMHDR* pNMHDR, LRESULT* pResult
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTabSimpleObjectsDialog::GetDefaultDirAngel() // returns dir angel 0..360 
 {
 	float angle  = m_angelButton.GetAngle();
@@ -296,7 +274,6 @@ int CTabSimpleObjectsDialog::GetDefaultDirAngel() // returns dir angel 0..360
 	return  ( angle * 180 ) / PI;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CALLBACK ObjectsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort )
 {
 	CTabSimpleObjectsDialog* pDialog = reinterpret_cast<CTabSimpleObjectsDialog*>( lParamSort );
@@ -308,7 +285,6 @@ int CALLBACK ObjectsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSo
 	return szItem1.compare( szItem2 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::SetObjectsListStyle( bool bPictures )
 {
 	if ( ::IsWindow( m_imageList.m_hWnd ) )
@@ -327,11 +303,9 @@ void CTabSimpleObjectsDialog::SetObjectsListStyle( bool bPictures )
 																TEFConsts::THUMBNAILTILE_HEIGHT +
 																TEFConsts::THUMBNAILTILEWITHTEXT_SPACE_Y );
 		m_imageList.Arrange( LVA_DEFAULT );
-		//m_imageList.SortItems( ObjectsCompareFunc, reinterpret_cast<DWORD>( this ) );
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTabSimpleObjectsDialog::IsPictures()
 {
 	if( !resizeDialogOptions.nParameters.empty() )
@@ -341,7 +315,6 @@ bool CTabSimpleObjectsDialog::IsPictures()
 	return false;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::UpdateObjectsListStyle()
 {
 	if ( !resizeDialogOptions.nParameters.empty() )
@@ -351,7 +324,6 @@ void CTabSimpleObjectsDialog::UpdateObjectsListStyle()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTabSimpleObjectsDialog::GetObjectIndex()
 {
 	const int nIndex = m_imageList.GetNextItem( -1, LVNI_SELECTED );
@@ -364,7 +336,6 @@ int CTabSimpleObjectsDialog::GetObjectIndex()
 }
 
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 LRESULT CTabSimpleObjectsDialog::WindowProc(UINT message, WPARAM wParam, LPARAM lParam) 
 {
 	if ( message == WM_ANGLE_CHANGED )
@@ -377,7 +348,6 @@ LRESULT CTabSimpleObjectsDialog::WindowProc(UINT message, WPARAM wParam, LPARAM 
 	return CResizeDialog::WindowProc(message, wParam, lParam);
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnSize(UINT nType, int cx, int cy) 
 {
 	CResizeDialog::OnSize( nType, cx, cy );
@@ -399,7 +369,6 @@ void CTabSimpleObjectsDialog::OnSize(UINT nType, int cx, int cy)
 }
 
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnButtonNewFilter() 
 {
 	g_frameManager.GetTemplateEditorFrame()->GetFilesInDataStorage();
@@ -427,7 +396,6 @@ void CTabSimpleObjectsDialog::OnButtonNewFilter()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnSelchangeCombo1() 
 {
 	int nPos = m_filtersCtrl.GetCurSel();
@@ -453,7 +421,6 @@ void CTabSimpleObjectsDialog::OnSelchangeCombo1()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::UpdateCheck( int n )
 {
 	CSetupFilterDialog dlg;
@@ -466,7 +433,6 @@ void CTabSimpleObjectsDialog::UpdateCheck( int n )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnCheck0() 
 {
 	if ( ( GetAsyncKeyState( VK_CONTROL ) & 32768 ) )
@@ -477,7 +443,6 @@ void CTabSimpleObjectsDialog::OnCheck0()
 
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnCheck1() 
 {
 	if ( ( GetAsyncKeyState( VK_CONTROL ) & 32768 ) )
@@ -488,7 +453,6 @@ void CTabSimpleObjectsDialog::OnCheck1()
 
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnCheck2() 
 {
 	if ( ( GetAsyncKeyState( VK_CONTROL ) & 32768 ) )
@@ -498,7 +462,6 @@ void CTabSimpleObjectsDialog::OnCheck2()
 	reinterpret_cast<CWnd *>(g_frameManager.GetTemplateEditorFrame())->SendMessage( WM_USER + 2 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnCheck3() 
 {
 	if ( ( GetAsyncKeyState( VK_CONTROL ) & 32768 ) )
@@ -508,7 +471,6 @@ void CTabSimpleObjectsDialog::OnCheck3()
 	reinterpret_cast<CWnd *>(g_frameManager.GetTemplateEditorFrame())->SendMessage( WM_USER + 2 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnCheck4() 
 {
 	if ( ( GetAsyncKeyState( VK_CONTROL ) & 32768 ) )
@@ -518,7 +480,6 @@ void CTabSimpleObjectsDialog::OnCheck4()
 	reinterpret_cast<CWnd *>(g_frameManager.GetTemplateEditorFrame())->SendMessage( WM_USER + 2 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnCheck5() 
 {
 	if ( ( GetAsyncKeyState( VK_CONTROL ) & 32768 ) )
@@ -528,7 +489,6 @@ void CTabSimpleObjectsDialog::OnCheck5()
 	reinterpret_cast<CWnd *>(g_frameManager.GetTemplateEditorFrame())->SendMessage( WM_USER + 2 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnCheck6() 
 {
 	if ( ( GetAsyncKeyState( VK_CONTROL ) & 32768 ) )
@@ -538,7 +498,6 @@ void CTabSimpleObjectsDialog::OnCheck6()
 	reinterpret_cast<CWnd *>(g_frameManager.GetTemplateEditorFrame())->SendMessage( WM_USER + 2 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnCheck7() 
 {
 	if ( ( GetAsyncKeyState( VK_CONTROL ) & 32768 ) )
@@ -547,7 +506,6 @@ void CTabSimpleObjectsDialog::OnCheck7()
 	}
 	reinterpret_cast<CWnd *>(g_frameManager.GetTemplateEditorFrame())->SendMessage( WM_USER + 2 );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnCheck8() 
 {
 	if ( ( GetAsyncKeyState( VK_CONTROL ) & 32768 ) )
@@ -557,13 +515,11 @@ void CTabSimpleObjectsDialog::OnCheck8()
 	reinterpret_cast<CWnd *>(g_frameManager.GetTemplateEditorFrame())->SendMessage( WM_USER + 2 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnCheck9() 
 {
 	reinterpret_cast<CWnd *>(g_frameManager.GetTemplateEditorFrame())->SendMessage( WM_USER + 2 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnButtonDeleteFilter() 
 {
 	if( m_filtersCtrl.GetCurSel() != -1 )
@@ -598,7 +554,6 @@ void CTabSimpleObjectsDialog::OnButtonDeleteFilter()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::FillPlayers()
 {
 	CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame();
@@ -642,7 +597,6 @@ void CTabSimpleObjectsDialog::FillPlayers()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnDiplomacyButton() 
 {
 	CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame();
@@ -680,7 +634,6 @@ void CTabSimpleObjectsDialog::OnDiplomacyButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::UpdateControls()
 {
 	CWnd* pWnd = 0;
@@ -701,7 +654,6 @@ void CTabSimpleObjectsDialog::UpdateControls()
 	/**/
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTabSimpleObjectsDialog::GetPlayer()
 {
 	int nPlayer = m_players.GetCurSel();
@@ -715,7 +667,6 @@ int CTabSimpleObjectsDialog::GetPlayer()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnSelchangeSoPlayerCombo() 
 {
 	if ( CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame() )
@@ -728,7 +679,6 @@ void CTabSimpleObjectsDialog::OnSelchangeSoPlayerCombo()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::CreateObjectsImageList()
 {
 	DWORD dwTime = GetTickCount();
@@ -752,10 +702,8 @@ void CTabSimpleObjectsDialog::CreateObjectsImageList()
 				CBitmap objectBitmap;
 
 				int nImageCount = pODB->GetNumDescs();
-				//NStr::DebugTrace( "CTabSimpleObjectsDialog::CreateObjectsImageList(): Objects: %d\n", nImageCount );
 
 				objectsImageList.Create( TEFConsts::THUMBNAILTILE_WIDTH, TEFConsts::THUMBNAILTILE_HEIGHT, ILC_COLOR24, 0, 10 );
-				//для отсутствующих объектов
 				int nImageAdded = 0;
 				{
 					const int nImageAddedIndex = objectsImageList.Add( &defaultObjectBitmap, zeroColor );
@@ -767,7 +715,6 @@ void CTabSimpleObjectsDialog::CreateObjectsImageList()
 				const SGDBObjectDesc *pDescriptions = pODB->GetAllDescs(); 
 				for ( int nObjectIndex = 0; nObjectIndex < nImageCount; ++nObjectIndex ) 
 				{
-					//NStr::DebugTrace( "CTabSimpleObjectsDialog::CreateObjectsImageList(): %d\n", nObjectIndex );
 					std::string szName = pDescriptions[nObjectIndex].szPath;
 					NStr::ToLower( szName );
 					if ( CTabSimpleObjectsDialog::CommonFilterName( szName ) )
@@ -776,10 +723,8 @@ void CTabSimpleObjectsDialog::CreateObjectsImageList()
 						int nImageAddedIndex = 0;
 						if ( CPtr<IDataStream> pDataStream = pDataStorage->OpenStream( ( pDescriptions[nObjectIndex].szPath + "\\icon.tga" ).c_str(), STREAM_ACCESS_READ ) )
 						{
-							//NStr::DebugTrace( "CTabSimpleObjectsDialog::CreateObjectsImageList(): Open\n" );
 							if ( CPtr<IImage> pImage = pImageProseccor->LoadImage( pDataStream ) ) 
 							{
-								//NStr::DebugTrace( "CTabSimpleObjectsDialog::CreateObjectsImageList(): Load\n" );
 								if ( ( TEFConsts::THUMBNAILTILE_WIDTH != pImage->GetSizeX() ) ||
 										 ( TEFConsts::THUMBNAILTILE_HEIGHT != pImage->GetSizeY() ) )
 								{
@@ -803,7 +748,6 @@ void CTabSimpleObjectsDialog::CreateObjectsImageList()
 								::SetDIBits( pDC->m_hDC, hbm, 0, pImage->GetSizeY(), pImage->GetLFB(), &bmi, DIB_RGB_COLORS );
 								ReleaseDC( pDC );
 								objectBitmap.Attach( hbm );
-								//NStr::DebugTrace( "CTabSimpleObjectsDialog::CreateObjectsImageList(): Attach\n" );
 								nImageAddedIndex = objectsImageList.Add( &objectBitmap, zeroColor );
 								if ( nImageAddedIndex >= 0 )
 								{
@@ -819,11 +763,9 @@ void CTabSimpleObjectsDialog::CreateObjectsImageList()
 						}
 						objectsImageIndices[pDescriptions[nObjectIndex].szKey] = nImageAddedIndex;
 						++nImageAdded;
-						//NStr::DebugTrace( "CTabSimpleObjectsDialog::CreateObjectsImageList(): Image: %d, %d, %s\n", nImageAdded, nImageAddedIndex, pDescriptions[nObjectIndex].szKey.c_str() );
 					}
 				}
 				objectsImageList.SetImageCount( nImageAdded );
-				//NStr::DebugTrace( "CTabSimpleObjectsDialog::CreateObjectsImageList(): Images: %d\n", nImageAdded );
 			}
 		}
 	}
@@ -831,21 +773,18 @@ void CTabSimpleObjectsDialog::CreateObjectsImageList()
 	NStr::DebugTrace( "CTabSimpleObjectsDialog::CreateObjectsImageList(): %d ms\n", dwTime );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnSoListList() 
 {
 	resizeDialogOptions.nParameters[0] = 0;
 	UpdateObjectsListStyle();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnSoListIcons() 
 {
 	resizeDialogOptions.nParameters[0] = 1;
 	UpdateObjectsListStyle();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnDestroy() 
 {
 	SaveDataResource( "editor\\filter", "", false, 0, "filters", m_allFilters );
@@ -856,10 +795,7 @@ void CTabSimpleObjectsDialog::OnDestroy()
 	objectsImageList.DeleteImageList();
 	objectsImageIndices.clear();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	//MODs support
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::DeleteImageList()
 {
 	objectsImageList.DeleteImageList();
@@ -867,21 +803,18 @@ void CTabSimpleObjectsDialog::DeleteImageList()
 	m_imageList.DeleteAllItems();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::CreateImageList()
 {
 	CreateObjectsImageList();
 	reinterpret_cast<CWnd *>( g_frameManager.GetTemplateEditorFrame() )->SendMessage( WM_USER + 2 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnDblclkObjectsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	ShowObjectProperties();
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::OnRclickObjectsList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	CMenu tabsMenu;
@@ -903,7 +836,6 @@ void CTabSimpleObjectsDialog::OnObjectPropertiesMenu()
 	ShowObjectProperties();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabSimpleObjectsDialog::ShowObjectProperties()
 {
 	if ( m_imageList.GetSelectedCount() > 0 )
@@ -952,4 +884,3 @@ void CTabSimpleObjectsDialog::ShowObjectProperties()
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

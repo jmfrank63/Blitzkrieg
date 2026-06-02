@@ -6,13 +6,11 @@
 #include <cstring>
 
 #include "..\StreamIO\StreamAdaptor.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CDataTableXML::CDataTableXML()
 : xmlDocument( "Microsoft.XMLDOM" ), bModified( false )
 {
 	xmlDocument->async = false; 
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CDataTableXML::~CDataTableXML()
 {
 	try
@@ -27,7 +25,6 @@ CDataTableXML::~CDataTableXML()
 	{
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CDataTableXML::Open( IDataStream *_pStream, const char *pszBaseNode )
 {
 	try
@@ -54,15 +51,6 @@ bool CDataTableXML::Open( IDataStream *_pStream, const char *pszBaseNode )
 	}
 	return false;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** 
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MSXML2::IXMLDOMNodePtr CDataTableXML::GetNode( const std::string &szName )
 {
 	const int nPos = szName.rfind( '/' );
@@ -76,7 +64,6 @@ MSXML2::IXMLDOMNodePtr CDataTableXML::GetNode( const std::string &szName )
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline int AddToBuffer( const std::string &szName, char* &pszBuffer, const int nBufferSize, const int nTotalSize )
 {
 	NI_ASSERT_TF( nTotalSize + szName.size() + 2 < nBufferSize, "Buffer too small to add name", return 0 );
@@ -85,7 +72,6 @@ inline int AddToBuffer( const std::string &szName, char* &pszBuffer, const int n
 	*pszBuffer++ = '\0';
 	return szName.size() + 1;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CDataTableXML::GetRowNames( char *pszBuffer, int nBufferSize )
 {
 	try
@@ -98,7 +84,6 @@ int CDataTableXML::GetRowNames( char *pszBuffer, int nBufferSize )
 			nTotalSize += AddToBuffer( szName, pszBuffer, nBufferSize, nTotalSize );
 		}
 		*pszBuffer++ = '\0';
-		//
 		return nTotalSize + 1;
 	}
 	catch ( ... ) 
@@ -106,20 +91,17 @@ int CDataTableXML::GetRowNames( char *pszBuffer, int nBufferSize )
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CDataTableXML::GetEntryNames( const char *pszRow, char *pszBuffer, int nBufferSize )
 {
 	try
 	{
 		int nTotalSize = 0;
 		MSXML2::IXMLDOMNodePtr pNode = xmlRootNode->selectSingleNode( pszRow );
-		// attributes
 		for ( int i=0; i<pNode->attributes->length; ++i )
 		{
 			const std::string szName = pNode->attributes->item[i]->nodeName;
 			nTotalSize += AddToBuffer( szName, pszBuffer, nBufferSize, nTotalSize );
 		}
-		// named nodes
 		MSXML2::IXMLDOMNodeListPtr pNodes = pNode->childNodes;
 		for ( int i=0; i<pNodes->length; ++i )
 		{
@@ -132,7 +114,6 @@ int CDataTableXML::GetEntryNames( const char *pszRow, char *pszBuffer, int nBuff
 				for ( std::string::iterator it = szRowName.begin(); it != szRowName.end(); ++it )
 					if ( *it == '.' )
 						*it = '/';
-				//
 				std::vector<char> buffer( 65536 );
 				const int nSize = GetEntryNames( szRowName.c_str(), &buffer[0], buffer.size() );
 				if ( nSize > 1 )
@@ -155,7 +136,6 @@ int CDataTableXML::GetEntryNames( const char *pszRow, char *pszBuffer, int nBuff
 			}
 		}
 		*pszBuffer++ = '\0';
-		//
 		return nTotalSize + 1;
 	}
 	catch ( ... ) 
@@ -163,8 +143,6 @@ int CDataTableXML::GetEntryNames( const char *pszRow, char *pszBuffer, int nBuff
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// get
 int CDataTableXML::GetInt( const char *pszRow, const char *pszEntry, int defval )
 {
 	const std::string szName = MakeName( pszRow, pszEntry );
@@ -208,8 +186,6 @@ int CDataTableXML::GetRawData( const char *pszRow, const char *pszEntry, void *p
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// set
 void CDataTableXML::SetInt( const char *pszRow, const char *pszEntry, int val )
 {
 	NI_ASSERT_T( false, "Still not implemented" );
@@ -248,4 +224,3 @@ void CDataTableXML::SetRawData( const char *pszRow, const char *pszEntry, const 
 	SetString( pszRow, pszEntry, szString.c_str() );
 	SetModified();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

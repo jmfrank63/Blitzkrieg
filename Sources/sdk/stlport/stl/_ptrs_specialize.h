@@ -1,13 +1,10 @@
 #ifndef _STLP_PTRS_SPECIALIZE_H
 # define _STLP_PTRS_SPECIALIZE_H
 
-// the following is a workaround for arrow operator problems
 #  if defined  ( _STLP_NO_ARROW_OPERATOR ) 
-// User wants to disable proxy -> operators
 #    define _STLP_DEFINE_ARROW_OPERATOR
 #    define _STLP_ARROW_SPECIALIZE_WITH_PTRS(_Tp)
 # else
-// Compiler can handle generic -> operator.
 #  define _STLP_ARROW_SPECIALIZE_WITH_PTRS(_Tp)
 #  ifdef __BORLANDC__
 #   define _STLP_DEFINE_ARROW_OPERATOR  pointer operator->() const { return &(*(*this)); }
@@ -18,7 +15,6 @@
 #  endif
 # endif /* _STLP_NO_ARROW_OPERATOR */
 
-// Important pointers specializations
 
 # ifdef _STLP_SIMULATE_PARTIAL_SPEC_FOR_TYPE_TRAITS
 #  define _STLP_TYPE_TRAITS_POD_SPECIALIZE_V(_Type)

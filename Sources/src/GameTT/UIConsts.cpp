@@ -1,29 +1,22 @@
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "stdafx.h"
 #include "UIConsts.h"
 #include "..\Main\TextSystem.h"
 #include "MultiplayerCommandManager.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::string CUIConsts::GetPartyNameByNumber( const int nCampaign )
 {
 	switch ( nCampaign )
 	{
 		case 0:
-			//german campaign
 			return "german";
 		case 1:
-			//russian campaign
 			return "ussr";
 		case 2:
-			//allies campaign
 			return "allies";
 		default:
 			NI_ASSERT_T( 0, "Invalid campaign" );
 			return "";
 	}
 }	
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const WORD * CUIConsts::GetLocalPartyName( const char * pszPartyKey )
 {
 	ITextManager *pTextM = GetSingleton<ITextManager>();
@@ -34,7 +27,6 @@ const WORD * CUIConsts::GetLocalPartyName( const char * pszPartyKey )
 	NI_ASSERT_T( pText != 0, NStr::Format( "unknown party %s", szPath.c_str()) );
 	return pText->GetString();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const WORD * CUIConsts::GetGamesListTitle( const enum EMultiplayerConnectionType eType )
 {
 	ITextManager * pTM = GetSingleton<ITextManager>();
@@ -58,7 +50,6 @@ const WORD * CUIConsts::GetGamesListTitle( const enum EMultiplayerConnectionType
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::string CUIConsts::ConstructOptionKey( const char *pszOptionName, const char *pszSelectionName )
 {
 	std::string szPath = "Textes\\Options\\";
@@ -67,14 +58,12 @@ std::string CUIConsts::ConstructOptionKey( const char *pszOptionName, const char
 	szPath += pszSelectionName;
 	return szPath;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::string CUIConsts::CreateTexturePathFromMapPath( const char * pszMapPath )
 {
 	std::string szTexture = "Maps\\";
 	szTexture += pszMapPath;
 	return szTexture;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIConsts::CreateDescription( const struct SChapterStats::SMission *pStats, std::wstring *pDescription, const bool bNeedBonuses )
 {
 	pDescription->clear();
@@ -88,9 +77,6 @@ void CUIConsts::CreateDescription( const struct SChapterStats::SMission *pStats,
 		return;
 	ITextManager *pTM = GetSingleton<ITextManager>();
 	
-	//установим тултип на тему что внутри миссии
-	//общее
-	//Mission: Mission Name
 	IText *pText = pTM->GetString( "missiontext" );
 	*pDescription += MakeWideStringFromWordString( pText->GetString() );
 	*pDescription += L" ";
@@ -98,26 +84,22 @@ void CUIConsts::CreateDescription( const struct SChapterStats::SMission *pStats,
 	*pDescription += MakeWideStringFromWordString( pText->GetString() );
 	*pDescription += L"\n";
 
-	//Type:
 	pText = pTM->GetString( "missiontypetext" );
 	*pDescription += MakeWideStringFromWordString( pText->GetString() );
 	*pDescription += L" ";
 		
 	if ( !pMissionStats->IsTemplate() )
 	{
-		//Historical
 		pText = pTM->GetString( "scenariomission" );
 		*pDescription += MakeWideStringFromWordString( pText->GetString() );
 		*pDescription += L"\n";
 	}
 	else
 	{
-		//Random
 		pText = pTM->GetString( "templatemission" );
 		*pDescription += MakeWideStringFromWordString( pText->GetString() );
 		*pDescription += L"\n";
 
-		//Difficulty: ****
 		pText = pTM->GetString( "missiondifficulty" );
 		*pDescription += MakeWideStringFromWordString( pText->GetString() );
 		*pDescription += L" ";
@@ -125,10 +107,8 @@ void CUIConsts::CreateDescription( const struct SChapterStats::SMission *pStats,
 		pText = pTM->GetDialog( szKey.c_str() );
 		if ( pText )
 			*pDescription += MakeWideStringFromWordString( pText->GetString() );
-		//		tt += NStr::ToUnicode( NStr::Format( " %d", pStats->missions[i].nMissionDifficulty ) );
 		*pDescription += L"\n";
 
-		//Bonus: ****
 		pText = pTM->GetString( "missionbonus" );
 		*pDescription += MakeWideStringFromWordString( pText->GetString() );
 		*pDescription += L" ";
@@ -148,8 +128,6 @@ void CUIConsts::CreateDescription( const struct SChapterStats::SMission *pStats,
 		*pDescription += L"\n";
 	}
 
-	//общее
-	//Mission Description:
 	*pDescription += L"\n";
 	pText = pTM->GetString( "missiondescriptiontext" );
 	*pDescription += MakeWideStringFromWordString( pText->GetString() );
@@ -157,16 +135,13 @@ void CUIConsts::CreateDescription( const struct SChapterStats::SMission *pStats,
 	pText = pTM->GetString( pMissionStats->szDescriptionText.c_str() );
 	*pDescription += MakeWideStringFromWordString( pText->GetString() );
 
-	//только для random missions
 	if ( pMissionStats->IsTemplate() && bNeedBonuses )
 	{
-		//all available bonuses
 		*pDescription += L"\n";
 		*pDescription += L"\n";
 		pText = pTM->GetString( "allbonuses" );
 		if ( pText )
 			*pDescription += MakeWideStringFromWordString( pText->GetString() );
-		//*pDescription += L"\n";
 		/*for ( int i=0; i<pStats->szAllBonuses.size(); i++ )
 		{
 			if ( !pStats->szAllBonuses.empty() )
@@ -187,7 +162,6 @@ void CUIConsts::CreateDescription( const struct SChapterStats::SMission *pStats,
 		}*/
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const WORD * CUIConsts::GetMapTypeString( const int nGameType )
 {
 	ITextManager * pT = GetSingleton<ITextManager>();
@@ -208,7 +182,6 @@ const WORD * CUIConsts::GetMapTypeString( const int nGameType )
 		return pText->GetString();
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::string CUIConsts::GetCampaignNameAddition()
 {
 	std::string szCampaignName = GetGlobalVar( "Campaign.Current.Name", "" );

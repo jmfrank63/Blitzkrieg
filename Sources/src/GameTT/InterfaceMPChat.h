@@ -1,20 +1,16 @@
 #ifndef __INTERFACEMPCHAT_H__
 #define __INTERFACEMPCHAT_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "InterMission.h"
 #include "iMission.h"
 #include "MultiplayerCommandManager.h"
 #include "ListControlWrapper.h"
 #include "ChatWrapper.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInterfaceMPChat : public CInterfaceMultiplayerScreen, public IWhisper
 {
 	OBJECT_NORMAL_METHODS( CInterfaceMPChat );
 
 	NInput::CCommandRegistrator commandMsgs;
-	// player list management
 	CListControlWrapper<SUIChatPlayerInfo,std::wstring> playerList;
 
 	CChatWrapper chat;
@@ -38,10 +34,8 @@ public:
 	virtual bool STDCALL Init();
 	virtual void STDCALL StartInterface();
 
-	//IWhisper
 	const WORD * GetDestinationName();
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CICMultyplayerChat : public CInterfaceCommandBase<CInterfaceMPChat, MISSION_INTERFACE_MULTYPLAYER_CHAT>
 {
 	OBJECT_NORMAL_METHODS( CICMultyplayerChat );
@@ -57,5 +51,4 @@ class CICMultyplayerChat : public CInterfaceCommandBase<CInterfaceMPChat, MISSIO
 	}
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __INTERFACEMPCHAT_H__

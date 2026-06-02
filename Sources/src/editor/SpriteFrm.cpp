@@ -1,5 +1,3 @@
-// CSpriteFrm.cpp : implementation of the CSpriteFrame class
-//
 #include "stdafx.h"
 
 #include "..\GFX\GFX.h"
@@ -27,13 +25,10 @@ static char THIS_FILE[] = __FILE__;
 
 static const int THUMB_LIST_WIDTH = 145;
 
-/////////////////////////////////////////////////////////////////////////////
-// CSpriteFrame
 
 IMPLEMENT_DYNCREATE(CSpriteFrame, CParentFrame)
 
 BEGIN_MESSAGE_MAP(CSpriteFrame, CParentFrame)
-	//{{AFX_MSG_MAP(CSpriteFrame)
 	ON_COMMAND(ID_FILE_CLOSE, OnFileClose)
 	ON_WM_SETFOCUS()
 	ON_WM_CREATE()
@@ -51,11 +46,8 @@ BEGIN_MESSAGE_MAP(CSpriteFrame, CParentFrame)
 	ON_COMMAND(ID_FILE_SETDIRECTORIES, OnFileSetdirectories)
 	ON_COMMAND(ID_FILE_BATCH_MODE, OnFileBatchMode)
 	ON_COMMAND(ID_EDIT_SETBACKGROUNDCOLOR, OnEditSetbackgroundcolor)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////
-// CSpriteFrame construction/destruction
 
 CSpriteFrame::CSpriteFrame() : m_wndSelectedThumbItems( true )
 {
@@ -86,7 +78,6 @@ int CSpriteFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		return -1;
 	g_frameManager.AddFrame( this );
 
-	// create a view to occupy the client area of the frame
 	if (!pWndView->Create(NULL, NULL,  WS_CHILD | WS_VISIBLE, 
 		CRect(0, 0, 0, 0), this, AFX_IDW_PANE_FIRST, NULL))
 	{
@@ -109,12 +100,9 @@ int CSpriteFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	}
 
 
-//	m_wndSelectedThumbItems.TestInsertSomeItems();
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// CSpriteFrame message handlers
 void CSpriteFrame::ShowFrameWindows( int nCommand )
 {
 	if ( bRunning )
@@ -126,7 +114,6 @@ void CSpriteFrame::ShowFrameWindows( int nCommand )
 
 BOOL CSpriteFrame::Run()
 {
-	//	OutputDebugString( NStr::Format("%s\n", IsActive() ? "active" : "inactive") );
 	if ( !bRunning )
 		return FALSE;
 
@@ -166,7 +153,6 @@ void CSpriteFrame::ViewSizeChanged()
 	if ( m_wndSelectedThumbItems.GetSafeHwnd() )
 	{
 		m_wndSelectedThumbItems.MoveWindow( &rc );
-//		m_wndSelectedThumbItems.SetWindowPos( &wndTopMost, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, SWP_NOZORDER|SWP_NOACTIVATE );
 	}
 
 	rc.bottom = rc.top;
@@ -174,7 +160,6 @@ void CSpriteFrame::ViewSizeChanged()
 	if ( m_wndAllDirThumbItems.GetSafeHwnd() )
 	{
 		m_wndAllDirThumbItems.MoveWindow( &rc );
-//		m_wndAllDirThumbItems.SetWindowPos( &wndTopMost, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, SWP_NOZORDER|SWP_NOACTIVATE );
 	}
 }
 
@@ -182,13 +167,11 @@ void CSpriteFrame::ClickOnThumbList( int nID )
 {
 	if ( nID == ID_ALL_DIR_THUMB_ITEMS )
 	{
-		//Выделяем в дереве текущую директорию с анимациями
 		if ( m_pActiveSpritesItem )
 			m_pActiveSpritesItem->SelectMeInTheTree();
 	}
 	else if ( nID == ID_SELECTED_THUMB_ITEMS )
 	{
-		//Выделяем в дереве item с user data в selected thumb list
 		int nSel = m_wndSelectedThumbItems.GetSelectedItemIndex();
 		if ( nSel == -1 )
 			return;
@@ -202,7 +185,6 @@ void CSpriteFrame::DoubleClickOnThumbList( int nID )
 {
 	if ( nID == ID_ALL_DIR_THUMB_ITEMS )
 	{
-		//Добавляем новый элемент в текущую Animations диру дерева и в список накиданных frame
 		if ( !m_pActiveSpritesItem )
 			return;
 		SetChangedFlag( true );
@@ -215,10 +197,8 @@ void CSpriteFrame::DoubleClickOnThumbList( int nID )
 		int nImage = m_wndAllDirThumbItems.GetItemImageIndex( nAllIndex );
 
 		int nNewItemIndex = m_wndSelectedThumbItems.InsertItemToEnd( szItemName.c_str(), nImage );
-//		int nNewItemIndex = m_wndSelectedThumbItems.InsertItemAfterSelection( szFileName, m_pActiveSpritesItem->GetDirName() );
 		NI_ASSERT( nNewItemIndex != -1 );
 		
-		//Добавляем sprite в дерево в m_pActiveSpritesItem
 		CSpritePropsItem *pSprite = new CSpritePropsItem();
 		pSprite->SetItemName( szItemName.c_str() );
 		m_pActiveSpritesItem->AddChild( pSprite );
@@ -250,22 +230,18 @@ void CSpriteFrame::DeleteFrameInTree( int nID )
 	SetChangedFlag( true );
 	bComposed = false;
 	
-	//Находим выделенный элемент
 	int nSel = m_wndSelectedThumbItems.GetSelectedItemIndex();
 	if ( nSel == -1 )
 		return;
 	DWORD dwData = m_wndSelectedThumbItems.GetUserDataForItem( nSel );
 	ASSERT( dwData != 0 );
 	
-	//Удаляем frame из дерева
 	CTreeItem *pFrame = (CTreeItem *) dwData;
 	NI_ASSERT( pFrame->GetItemType() == E_SPRITE_PROPS_ITEM );
 	pFrame->DeleteMeInParentTreeItem();
 	
-	//Выделяем следующий элемент в списке
 	m_wndSelectedThumbItems.SelectItem( nSel + 1 );
 	
-	//Удаляем элемент в списке
 	m_wndSelectedThumbItems.DeleteItem( nSel );
 }
 
@@ -273,7 +249,6 @@ void CSpriteFrame::SpecificInit()
 {
 	SpecificClearBeforeBatchMode();
 
-	//Устанавливаем первый child в качестве m_pActiveSpritesItem
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	CTreeItem *pRoot = pTree->GetRootItem();
 	CSpritesItem *pSpritesItem = static_cast<CSpritesItem *> ( pRoot->GetBegin()->GetPtr() );
@@ -305,13 +280,11 @@ void CSpriteFrame::OnRunButton()
 		return;
 	bRunning = !bRunning;
 
-	//Скрываем Thumb окошки и показываем Game окно
 	g_frameManager.GetGameWnd()->ShowWindow( SW_SHOW );
 	m_wndAllDirThumbItems.ShowWindow( SW_HIDE );
 	m_wndSelectedThumbItems.ShowWindow( SW_HIDE );
 
 
-	//Получаем имена для всех анимаций
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	NI_ASSERT( pTree != 0 );
 	CTreeItem *pRootItem = pTree->GetRootItem();
@@ -323,7 +296,6 @@ void CSpriteFrame::OnRunButton()
 	if ( pSpritesItem->GetChildsCount() == 0 )
 		return;				//нечего отображать
 
-	// create vis obj
 	IVisObjBuilder *pVOB = GetSingleton<IVisObjBuilder>();
 	IScene *pSG = GetSingleton<IScene>();
 	GetSingleton<ICamera>()->Update();
@@ -332,7 +304,6 @@ void CSpriteFrame::OnRunButton()
 	string szObjName = theApp.GetEditorTempResourceDir();
 	CPtr<IObjVisObj> pObj = static_cast<IObjVisObj*>( pVOB->BuildObject( (szObjName + "\\1").c_str(), 0, SGVOT_SPRITE ) );
 	pObj->SetPosition( CVec3(vCameraAnchor.x, vCameraAnchor.y, 0) );
-//	pObj->SetPosition( CVec3(6*fWorldCellSize, 6*fWorldCellSize, 0) );
 	pObj->SetDirection( 0 );
 	pObj->GetAnimation()->SetAnimation( 0 );
 	pSG->AddObject( pObj, SGVOGT_UNIT );
@@ -345,12 +316,10 @@ void CSpriteFrame::OnStopButton()
 
 	bRunning = !bRunning;
 
-	//Скрываем Game окно и показываем Thumb окошки
 	g_frameManager.GetGameWnd()->ShowWindow( SW_HIDE );
 	m_wndAllDirThumbItems.ShowWindow( SW_SHOW );
 	m_wndSelectedThumbItems.ShowWindow( SW_SHOW );
 
-	// Удаляем объекты созданные в OnRunButton() из SceneGraph
 	IScene *pSG = GetSingleton<IScene>();
 	pSG->Clear();
 }
@@ -384,7 +353,6 @@ void CSpriteFrame::ComposeAnimations()
 	
 	BeginWaitCursor();
 	
-	//Составляем один большой .tga, пользуясь данными всех анимаций
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	NI_ASSERT( pTree != 0 );
 	
@@ -406,7 +374,6 @@ void CSpriteFrame::ActiveDirNameChanged()
 
 	if ( m_pActiveSpritesItem )
 	{
-		//так как директория задается относительно, здесь я должен собрать полный путь
 		string szDir = GetDirectory( szProjectFileName.c_str() );
 		string szFull;
 		bool bRes = MakeFullPath( szDir.c_str(), m_pActiveSpritesItem->GetDirName(), szFull );
@@ -434,7 +401,6 @@ void CSpriteFrame::SetActiveSpritesItem( CSpritesItem *pSpritesItem )
 
 		if ( !m_pActiveSpritesItem->GetLoadedFlag() )
 		{
-			//Сперва загружаем невалидную иконку, она всегда будет под индексом 0
 			string szEditorDataDir = theApp.GetEditorDataDir();
 			szEditorDataDir += "editor\\";
 
@@ -447,7 +413,6 @@ void CSpriteFrame::SetActiveSpritesItem( CSpritesItem *pSpritesItem )
 			m_wndSelectedThumbItems.LoadImageIndexFromThumbs( m_pActiveSpritesItem->GetAllThumbItems(), m_pActiveSpritesItem->GetImageList() );
 
 
-			//Привязываем items в списке к items в дереве
 			NI_ASSERT( m_wndSelectedThumbItems.GetThumbsCount() == m_pActiveSpritesItem->GetChildsCount() );
 			CTreeItem::CTreeItemList::const_iterator it;
 			int i = 0;
@@ -502,7 +467,6 @@ FILETIME CSpriteFrame::FindMinimalExportFileTime( const char *pszResultFileName,
 	FILETIME minTime, current;
 	string szDestDir = GetDirectory( pszResultFileName );
 	
-	//Найдем время создания 1.san файла
 	string szTempFileName = szDestDir;
 	szTempFileName += "1.san";
 	current = GetFileChangeTime( szTempFileName.c_str() );

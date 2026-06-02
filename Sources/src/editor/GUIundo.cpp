@@ -3,7 +3,6 @@
 
 CSaveAllUndo::CSaveAllUndo( IUIElement *pElement )
 {
-	//сохраняем объект в памяти
 	pStorage = OpenStorage( "memory", STREAM_ACCESS_READ | STREAM_ACCESS_WRITE, STORAGE_TYPE_MEM );
 	NI_ASSERT( pStorage != 0 );
 	

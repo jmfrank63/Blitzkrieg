@@ -8,9 +8,7 @@
 
 #include "MatrixEffectorJogging.h"
 #include "MatrixEffectorLeveling.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static CAnimObjectFactory theAnimObjectFactory;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAnimObjectFactory::CAnimObjectFactory()
 {
 	REGISTER_CLASS( this, ANIM_ANIMATION_MANAGER, CAnimationManager );
@@ -22,14 +20,11 @@ CAnimObjectFactory::CAnimObjectFactory()
 	REGISTER_CLASS( this, ANIM_MESH_SKELETON, CMeshSkeleton );
 	REGISTER_CLASS( this, ANIM_MESH_SKELETON_DATA, SMeshSkeletonData );
 	REGISTER_CLASS( this, ANIM_MESH_ANIMATION_DATA, SMeshAnimationData );
-	//
 	REGISTER_CLASS( this, ANIM_EFFECTOR_JOGGING, CMatrixEffectorJogging );
 	REGISTER_CLASS( this, ANIM_EFFECTOR_LEVELING, CMatrixEffectorLeveling );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static SModuleDescriptor theModuleDescriptor( "Animation", ANIM_ANIM, 0x0100, &theAnimObjectFactory, 0 );
 const SModuleDescriptor* STDCALL GetModuleDescriptor()
 {
 	return &theModuleDescriptor;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

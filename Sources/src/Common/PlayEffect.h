@@ -1,10 +1,7 @@
 #ifndef __PLAY_EFFECT_H__
 #define __PLAY_EFFECT_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Season.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline const std::string* GetHitEffect( const SAINotifyHitInfo &hit, const SWeaponRPGStats::SShell &shell )
 {
 	switch ( hit.eHitType ) 
@@ -18,7 +15,6 @@ inline const std::string* GetHitEffect( const SAINotifyHitInfo &hit, const SWeap
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline IEffectVisObj* PlayEffect( const std::string &szEffect, const CVec3 &vPos, 
 																  const NTimer::STime &currTime, bool bOutbound, IScene *pScene, IVisObjBuilder *pVOB,
 																	const NTimer::STime &timeAfterStart = 0, ESoundMixType eMixType = SFX_MIX_IF_TIME_EQUALS, 
@@ -30,11 +26,9 @@ inline IEffectVisObj* PlayEffect( const std::string &szEffect, const CVec3 &vPos
 	{
 		static_cast<IEffectVisObj*>(pObj)->SetStartTime( currTime );
 		pObj->SetPlacement( vPos, 0 );
-		// add sound
 		const std::string &szSoundEffect = static_cast<IEffectVisObj*>(pObj)->GetSoundEffect();
 		if ( !szSoundEffect.empty() ) 
 			pScene->AddSound( szSoundEffect.c_str(), vPos, eMixType, eAddType, eCombatType, 1, 100, timeAfterStart );
-		// add object to scene
 		if ( bOutbound ) 
 		{
 			if ( pScene->AddOutboundObject(pObj, SGVOGT_EFFECT) == false )
@@ -42,12 +36,10 @@ inline IEffectVisObj* PlayEffect( const std::string &szEffect, const CVec3 &vPos
 		}
 		else if ( pScene->AddObject(pObj, SGVOGT_EFFECT, 0) == false )
 			return 0;
-		//
 		return static_cast<IEffectVisObj*>( pObj );
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline void SetCraterEffect( const std::string &szCreater, int nSeason, const CVec3 &vPos, int nPriority, IScene *pScene, IVisObjBuilder *pVOB )
 {
 	const std::string szName = szCreater + GetSeasonApp2( nSeason );
@@ -59,7 +51,6 @@ inline void SetCraterEffect( const std::string &szCreater, int nSeason, const CV
 	checked_cast<IObjVisObj*>(pObj)->SetPriority( nPriority );
 	pScene->AddCraterObject( pObj, SGVOGT_TERRAOBJ );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline void SetFlashEffect( const SFlashEffect &flash, const NTimer::STime &currTime, const CVec3 &vPos, 
 													  const DWORD dwColor, IScene *pScene, IVisObjBuilder *pVOB )
 {
@@ -71,12 +62,10 @@ inline void SetFlashEffect( const SFlashEffect &flash, const NTimer::STime &curr
 	static_cast<IFlashVisObj*>(pObj)->Setup( currTime, flash.nDuration, flash.nPower, dwColor );
 	pScene->AddObject( pObj, SGVOGT_FLASH, 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline void MakeMatrixFromDirection( SHMatrix *pMatrix, const float fHDirection, const float fVDirection = 0 )
 {
 	CQuat quat = CQuat( -(FP_PI2 - fVDirection), V3_AXIS_X );
 	quat *= CQuat( fHDirection, V3_AXIS_Z );
 	pMatrix->Set( quat );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __PLAY_EFFECT_H__

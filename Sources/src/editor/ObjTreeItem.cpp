@@ -253,7 +253,6 @@ void CObjectGraphicPropsItem::UpdateItemValue( int nItemId, const CVariant &valu
 	if ( nItemId == 1 || nItemId == 2 )
 	{
 		CObjectFrame *pFrame = static_cast<CObjectFrame *> ( g_frameManager.GetFrame( CFrameManager::E_OBJECT_FRAME ) );
-		//Изменилось имя файла, конвертируем его к относительному виду
 		if ( !IsRelatedPath( value ) )
 		{
 			string szProjectName = g_frameManager.GetFrame( CFrameManager::E_OBJECT_FRAME )->GetProjectFileName();
@@ -278,7 +277,6 @@ void CObjectGraphicPropsItem::UpdateItemValue( int nItemId, const CVariant &valu
 
 void CObjectGraphicPropsItem::MyLButtonClick()
 {
-	//этот item становится текущим спрайтом в Object composer
 	CObjectFrame *pFrame = static_cast<CObjectFrame *> ( g_frameManager.GetFrame( CFrameManager::E_OBJECT_FRAME ) );
 	pFrame->SetActiveGraphicPropsItem( this );
 }

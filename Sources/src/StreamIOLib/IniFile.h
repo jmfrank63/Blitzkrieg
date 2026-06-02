@@ -1,18 +1,14 @@
 #ifndef __INIFILE_H__
 #define __INIFILE_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SEntry
 {
 	typedef std::string TKey;
 	typedef std::string TVal;
 	TKey key;
 	TVal val;
-	//
 	SEntry() {  }
 	SEntry( TKey &_key, TVal &_val ) : key( _key ), val( _val ) {  }
-	//
 	SEntry& operator=( const SEntry &entry ) { key = entry.key; val = entry.val; return *this; }
 	SEntry& operator=( const TVal &_val ) { val = _val; return *this; }
 };
@@ -25,7 +21,6 @@ struct SRow
 	TKey key;
 	CValList elist;
 	CValMap emap;
-	//
 	TVal& operator[]( const TVal::TKey &key )
 	{
 		CValMap::iterator pos = emap.find( key );
@@ -39,7 +34,6 @@ struct SRow
 			return elist.back();
 		}
 	}
-	//
 	CValMap::iterator find( const TVal::TKey &key ) { return emap.find( key ); }
 	CValMap::const_iterator find( const TVal::TKey &key ) const { return emap.find( key ); }
 };
@@ -52,7 +46,6 @@ struct STable
 	TKey key;
 	CValList elist;
 	CValMap emap;
-	//
 	TVal& operator[]( const TVal::TKey &key )
 	{
 		CValMap::iterator pos = emap.find( key );
@@ -66,11 +59,9 @@ struct STable
 			return elist.back();
 		}
 	}
-	//
 	CValMap::iterator find( const TVal::TKey &key ) { return emap.find( key ); }
 	CValMap::const_iterator find( const TVal::TKey &key ) const { return emap.find( key ); }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SIniFileEntry
 {
 	int nOrder;
@@ -79,13 +70,10 @@ struct SIniFileEntry
 class CIniFile : public IDataTable
 {
 	OBJECT_MINIMAL_METHODS( CIniFile );
-	//
 	std::string szIniFileName;            // name of ini-file to read from
 	DWORD dwAccessMode;
-	//
 	STable table;
 	bool bChanged;
-	//
 	bool CanWrite() const { return dwAccessMode & TABLE_ACCESS_WRITE; }
 	bool CanRead() const { return dwAccessMode & TABLE_ACCESS_READ; }
 	const SRow* GetRow( const char *pszName ) const
@@ -114,19 +102,15 @@ class CIniFile : public IDataTable
 		SRow::CValMap::const_iterator pos = pRow->find( pszName );
 		return pos == pRow->emap.end() ? 0 : pos->second;
 	}
-	//
 	void LoadTables( const std::string &szString );
 public:
 	CIniFile()
 		: bChanged( false ) {  }
 	virtual ~CIniFile();
-	//
 	bool Open( const char *pszFileName, DWORD dwAccessMode );
 	bool Load( IDataStream *pStream );
-	//
 	virtual int STDCALL GetRowNames( char *pszBuffer, int nBufferSize );
 	virtual int STDCALL GetEntryNames( const char *pszRow, char *pszBuffer, int nBufferSize );
-	// ������� ������
 	virtual void STDCALL ClearRow( const char *pszRowName )
 	{
 		if ( SRow *pRow = GetRow( pszRowName ) )
@@ -135,16 +119,13 @@ public:
 			pRow->elist.clear();
 		}
 	}
-	// get
 	virtual int STDCALL GetInt( const char *pszRow, const char *pszEntry, int defval );
 	virtual double STDCALL GetDouble( const char *pszRow, const char *pszEntry, double defval );
 	virtual const char* STDCALL GetString( const char *pszRow, const char *pszEntry, const char *defval, char *pszBuffer, int nBufferSize );
 	virtual int STDCALL GetRawData( const char *pszRow, const char *pszEntry, void *pBuffer, int nBufferSize );
-	// set
 	virtual void STDCALL SetInt( const char *pszRow, const char *pszEntry, int val );
 	virtual void STDCALL SetDouble( const char *pszRow, const char *pszEntry, double val );
 	virtual void STDCALL SetString( const char *pszRow, const char *pszEntry, const char *val );
 	virtual void STDCALL SetRawData( const char *pszRow, const char *pszEntry, const void *pBuffer, int nBufferSize );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __INIFILE_H__

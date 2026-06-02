@@ -1,14 +1,11 @@
 #ifndef __GAME_SPY_CHAT_H__
 #define __GAME_SPY_CHAT_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "GameCreationInterfaces.h"
 #include "MessagesStore.h"
 
 #include "..\Misc\Thread.h"
 #include "..\GameSpy\Chat\Chat.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGameSpyChat : public IChat, public CThread
 {
 	OBJECT_NORMAL_METHODS( CGameSpyChat );
@@ -31,15 +28,12 @@ class CGameSpyChat : public IChat, public CThread
 
 	CMessagesStore messages;
 
-	// без изменений для обеспечения уникальность имён
 	std::string szRealUserName;	
-	// с изменениями для обеспечения уникальность имён
 	std::string szNick;
 	int nNamePostfix;
 
 	CPtr<IChat> pInGameChat;
 
-	// global chat callbacks
 	static chatGlobalCallbacks globalCallbacks;
 	static void rawCallBack( CHAT chat, const char *pRaw, void *pParam );
 	static void disconnectedCallBack( CHAT chat, const char *pReason, void *pParam );
@@ -51,7 +45,6 @@ class CGameSpyChat : public IChat, public CThread
 	void PrivateMessageCallBack( const char *pUser, const char *pMessage, int nType );
 	void InvitedCallBack( const char *pChannel, const char *pUser );
 
-	// chat callbacks
 	static chatChannelCallbacks channelCallbacks;
 	static void channelMessage( CHAT chat, const char *pChannel, const char *pUser, const char *pMessage, int nType, void *pParam );
 	static void kicked( CHAT chat, const char *pChannel, const char *pUser, const char *pReason, void *pParam );
@@ -77,15 +70,12 @@ class CGameSpyChat : public IChat, public CThread
 	void NewUserList( const char *pChannel, int nNum, const char **ppUsers, int *pModes );
 	void BroadcastKeyChanged( const char *pChannel, const char *pUser, const char *pKey, const char *pValue );
 
-	//
 	static void enterChannelCallback( CHAT chat, CHATBool success, CHATEnterResult result, const char *pChannel, void *pParam );
 	void EnterChannelCallBack( CHATBool success, CHATEnterResult result, const char *pChannel );
 
-	//
 	static void chatEnumUsersCallback( CHAT chat, CHATBool success, const char *pChannel, int numUsers, const char **ppUsers, int *pNModes, void *pParam );
 	void ChatEnumUsersCallback( CHATBool success, const char *pChannel, int numUsers, const char **ppUsers, int *pNModes );
 
-	// other callbacks
 	static void nickErrorCallback( CHAT chat, int nType, const char *pszNick, void *pParam );
 	static void fillInUserCallback( CHAT chat, unsigned int nIP, char user[128], void *pParam );
 	static void connectCallback( CHAT chat, CHATBool success, void *pParam );
@@ -94,7 +84,6 @@ class CGameSpyChat : public IChat, public CThread
 	void FillInUserCallback( unsigned int nIP, char user[128] );
 	void ConnectCallback( CHATBool success );
 	
-	//
 	void InitGSChat( const char *pszRealUserName, const char *pszNick );
 	void DisconnectFromChat( bool bShutDown );
 	bool IsDisconnected() const;
@@ -119,5 +108,4 @@ public:
 
 	virtual void STDCALL UserModeChanged( const EUserMode eMode );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __GAME_SPY_CHAT_H__

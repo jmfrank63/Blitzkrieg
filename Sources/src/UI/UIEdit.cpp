@@ -15,7 +15,6 @@ namespace
 
 const int CURSOR_ANIMATION_TIME = 400;
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIEditBox::OnMouseMove( const CVec2 &vPos, EMouseState mouseState )
 {
 	bool bRes = CSimpleWindow::OnMouseMove( vPos, mouseState );
@@ -23,8 +22,6 @@ bool CUIEditBox::OnMouseMove( const CVec2 &vPos, EMouseState mouseState )
 	if ( mouseState == E_MOUSE_FREE )
 		return bRes;
 
-	//��� ������, ��� bRes true ����� �������� ����� ���� ����������, � ������ ����� ��� ������ ������, ��� ������ ����������� ����
-	//���� ����� ������ ����� ������
 	if ( mouseState & E_LBUTTONDOWN )
 	{
 		nCursorPos = GetSelection( vPos.x );
@@ -43,15 +40,12 @@ bool CUIEditBox::OnMouseMove( const CVec2 &vPos, EMouseState mouseState )
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIEditBox::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 {
 	bool bRes = CSimpleWindow::OnLButtonDown( vPos, mouseState );
 	if ( !bRes )
 		return bRes;
 	
-	//��� ������, ��� bRes true ����� �������� ����� ���� ����������, � ������ ����� ��� ������ ������, ��� ������ ����������� ����
-	//���� ����� ������ ����� ������
 	if ( mouseState & E_LBUTTONDOWN )
 	{
 		NI_ASSERT( IsInside( vPos ) );
@@ -60,15 +54,12 @@ bool CUIEditBox::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIEditBox::OnRButtonDown( const CVec2 &vPos, EMouseState mouseState )
 {
 	bool bRes = CSimpleWindow::OnRButtonDown( vPos, mouseState );
 	if ( !bRes )
 		return bRes;
 	
-	//��� ������, ��� bRes true ����� �������� ����� ���� ����������, � ������ ����� ��� ������ ������, ��� ������ ����������� ����
-	//���� ������ ������ ����� ������
 	if ( mouseState & E_LBUTTONDOWN )
 	{
 		NI_ASSERT( IsInside( vPos ) );
@@ -77,7 +68,6 @@ bool CUIEditBox::OnRButtonDown( const CVec2 &vPos, EMouseState mouseState )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIEditBox::GetSelection( int nX )
 {
 	NI_ASSERT_T( (nTextAlign & 0xf) == UIPLACE_LEFT, "Error: EditBox supports only UIPLACE_LEFT (0x01) alignment, mouse selection may be bug" );
@@ -102,7 +92,6 @@ int CUIEditBox::GetSelection( int nX )
 	NI_ASSERT_T( i >= 0 && i <= wszFullText.size(), "Error in CUIEditBox::GetSelection()" );
 	return i;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIEditBox::SetCursor( int nPos )
 {
 	if ( nPos < 0 )
@@ -110,10 +99,8 @@ void CUIEditBox::SetCursor( int nPos )
 	else
 		nCursorPos = nPos; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIEditBox::SetFocus( bool bFocus )
 {
-	//����������� � ����� ������
 	CSimpleWindow::SetFocus( bFocus );
 /*
 	if ( bFocus )
@@ -127,28 +114,23 @@ void CUIEditBox::SetFocus( bool bFocus )
 	}
 */
 
-	//�������� ������ ��������� ����� ������������ TEXT_MODE
 	SUIMessage msg;
 	if ( bFocus )
 	{
 		bFocused = true;
-		//������������ text mode
 		msg.nMessageCode = MC_SET_TEXT_MODE | PROCESSED_FLAG;
 		msg.nFirst = GetWindowID();
 	}
 	else
 	{
 		bFocused = false;
-		//������ text mode
 		msg.nMessageCode = MC_CANCEL_TEXT_MODE | PROCESSED_FLAG;
 		msg.nFirst = GetWindowID();
 		
-		//��������� selection
 		m_nBeginSel = m_nEndSel = -1;
 	}
 	GetParent()->ProcessMessage( msg );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIEditBox::DeleteSelection()
 {
 	if ( m_nEndSel == m_nBeginSel )
@@ -168,13 +150,11 @@ bool CUIEditBox::DeleteSelection()
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIEditBox::IsValidSymbol( int nAsciiCode )
 {
 	
 	if ( bGameSpySymbols )
 	{
-		//��������, ��� ������ ������������� ����������� GameSpy NickName
 		static const char szValidSymbols[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789[]\\`_^{|}-";
 		static const int nLen = strlen( szValidSymbols );
 		for ( int i=0; i<nLen; i++ )
@@ -187,7 +167,6 @@ bool CUIEditBox::IsValidSymbol( int nAsciiCode )
 	
 	if ( bFileNameSymbols )
 	{
-		//��������, ��� ������ ������������� ����������� FileName symbols
 		static const char szValidSymbols[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789[]`_^{}-!@#$%^&()+=~";
 		static const int nLen = strlen( szValidSymbols );
 		for ( int i=0; i<nLen; i++ )
@@ -218,14 +197,12 @@ bool CUIEditBox::IsValidSymbol( int nAsciiCode )
 	
 	return nAsciiCode >= 32;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIEditBox::ProcessMessage( const SUIMessage &msg ) 
 { 
 	if ( CMD_NUMPAD_ENTER == msg.nMessageCode )
 		return OnChar( 0, VK_RETURN, true, E_KEYBOARD_FREE );
 	return CSimpleWindow::ProcessMessage( msg );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIEditBox::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD keyState )
 {
 	if ( !IsVisible() )
@@ -235,8 +212,6 @@ bool CUIEditBox::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD k
 		return false;
 	NotifyTextChanged();
 
-	//���� �������� ������, �� ������ ������� ���
-	//	if ( isprint( nAsciiCode ) )
 	std::wstring wszOldText = wszFullText;
 	int nOldCursorPos = nCursorPos;
 	if ( ( keyState == E_KEYBOARD_FREE || keyState == E_SHIFT_KEY_DOWN ) && IsValidSymbol(nAsciiCode) )
@@ -268,7 +243,6 @@ bool CUIEditBox::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD k
 	}
 	
 	SUIMessage msg;
-	//���� �� �������� ������, �� ������������ �������������� ����������
 	switch( nVirtualKey )
 	{
 	case VK_RETURN:
@@ -305,13 +279,11 @@ bool CUIEditBox::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD k
 			break;
 		if ( keyState == E_KEYBOARD_FREE )
 		{
-			//�� ���� ������� �����
 			nCursorPos--;
 			EnsureCursorVisible();
 		}
 		if ( keyState & E_CTRL_KEY_DOWN )
 		{
-			//���� ������ crtl � ������� �����, �� ���������� ����� �� ���� �����
 			while( nBeginText+nCursorPos > 0 && isspace(wszFullText[nBeginText+nCursorPos-1]) )
 				nCursorPos--;
 			if ( nBeginText+nCursorPos > 0 )
@@ -333,12 +305,10 @@ bool CUIEditBox::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD k
 			break;
 		if ( keyState == E_KEYBOARD_FREE )
 		{
-			//�� ���� ������� ������
 			nCursorPos++;
 		}
 		else if ( keyState & E_CTRL_KEY_DOWN )
 		{
-			//���� ������ crtl � ������� ������, �� ���������� ������ �� ���� �����
 			if ( nBeginText+nCursorPos < wszFullText.size() )
 			{
 				if ( isalpha(wszFullText[nBeginText+nCursorPos]) )
@@ -359,7 +329,6 @@ bool CUIEditBox::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD k
 		m_nBeginSel = m_nEndSel = -1;
 		if ( keyState == E_KEYBOARD_FREE )
 		{
-			//�� ������ ������
 			nBeginText = 0;
 			nCursorPos = 0;
 			EnsureCursorVisible();
@@ -370,7 +339,6 @@ bool CUIEditBox::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD k
 		m_nBeginSel = m_nEndSel = -1;
 		if ( keyState == E_KEYBOARD_FREE )
 		{
-			//�� ����� ������
 			nCursorPos = wszFullText.size() - nBeginText;
 			EnsureCursorVisible();
 		}
@@ -398,7 +366,6 @@ bool CUIEditBox::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD k
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIEditBox::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -416,7 +383,6 @@ int CUIEditBox::operator&( IDataTree &ss )
 	
 	if ( saver.IsReading() )
 	{
-		//������� IText � ���������� ��� � pGfxText
 		for ( int i=0; i<states.size(); i++ )
 		{
 			IText *pText = CreateObject<IText>( TEXT_STRING );
@@ -425,7 +391,6 @@ int CUIEditBox::operator&( IDataTree &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIEditBox::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -449,7 +414,6 @@ int CUIEditBox::operator&( IStructureSaver &ss )
 	
 	if ( saver.IsReading() )
 	{
-		//������� IText � ���������� ��� � pGfxText
 		for ( int i=0; i<states.size(); i++ )
 		{
 			IText *pText = CreateObject<IText>( TEXT_STRING );
@@ -458,7 +422,6 @@ int CUIEditBox::operator&( IStructureSaver &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIEditBox::Visit( interface ISceneVisitor *pVisitor )
 {
 	if ( !nCmdShow )
@@ -466,7 +429,6 @@ void CUIEditBox::Visit( interface ISceneVisitor *pVisitor )
 
 	VisitBackground( pVisitor );
 	
-	// ������ ���������
 	if ( m_nBeginSel != -1 && m_nBeginSel != m_nEndSel )
 	{
 		int nBegin = 0;
@@ -498,7 +460,6 @@ void CUIEditBox::Visit( interface ISceneVisitor *pVisitor )
 		
 		if ( bBounded )
 		{
-			//��������, ����� ����� ������ ����� ���������
 			float fTemp;
 			fTemp = rcBound.y1 - rc.rect.y1;
 			if ( fTemp > 0 )
@@ -518,10 +479,8 @@ void CUIEditBox::Visit( interface ISceneVisitor *pVisitor )
 		pVisitor->VisitUIRects( 0, 3, &rc, 1 );
 	}
 	
-	// ������ �����
 	VisitText( pVisitor );
 
-	// ������ ������
 	if ( bFocused && bShowCursor )
 	{
 		int nWidth = states[nCurrentState].pGfxText->GetWidth( nCursorPos );
@@ -530,7 +489,6 @@ void CUIEditBox::Visit( interface ISceneVisitor *pVisitor )
 		rc.rect.right = rc.rect.left + 2;
 		if ( rc.rect.left < wndRect.right - 1 )
 		{
-			//������ �� ������� �� ���� ������
 			int nH = states[nCurrentState].pGfxText->GetLineSpace();
 			switch ( nTextAlign & 0xf0 )
 			{
@@ -550,7 +508,6 @@ void CUIEditBox::Visit( interface ISceneVisitor *pVisitor )
 			
 			if ( bBounded )
 			{
-				// ��������, ����� ����� ������ ����� �������
 				float fTemp = rcBound.y1 - rc.rect.y1;
 				if ( fTemp > 0 )
 				{
@@ -570,7 +527,6 @@ void CUIEditBox::Visit( interface ISceneVisitor *pVisitor )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIEditBox::Draw( IGFX *pGFX )
 {
 	NI_ASSERT_SLOW_T( false, "Can't user Draw() directly - use visitor pattern" );
@@ -582,7 +538,6 @@ void CUIEditBox::Draw( IGFX *pGFX )
 	pGFX->SetShadingEffect( 3 );
 	DrawBackground( pGFX );
 	
-	//������ ���������
 	if ( m_nBeginSel != -1 && m_nBeginSel != m_nEndSel )
 	{
 		int nBegin = 0;
@@ -614,7 +569,6 @@ void CUIEditBox::Draw( IGFX *pGFX )
 		
 		if ( bBounded )
 		{
-			//��������, ����� ����� ������ ����� ���������
 			float fTemp;
 			fTemp = rcBound.y1 - rc.rect.y1;
 			if ( fTemp > 0 )
@@ -635,10 +589,8 @@ void CUIEditBox::Draw( IGFX *pGFX )
 		pGFX->DrawRects( &rc, 1 );
 	}
 	
-	//������ �����
 	DrawText( pGFX );
 
-	//������ ������
 	if ( bFocused && bShowCursor )
 	{
 		int nWidth = states[nCurrentState].pGfxText->GetWidth( nCursorPos );
@@ -647,7 +599,6 @@ void CUIEditBox::Draw( IGFX *pGFX )
 		rc.rect.right = rc.rect.left + 2;
 		if ( rc.rect.left < wndRect.right - 1 )
 		{
-			//������ �� ������� �� ���� ������
 			int nH = states[nCurrentState].pGfxText->GetLineSpace();
 			switch ( nTextAlign & 0xf0 )
 			{
@@ -667,7 +618,6 @@ void CUIEditBox::Draw( IGFX *pGFX )
 			
 			if ( bBounded )
 			{
-				//��������, ����� ����� ������ ����� �������
 				float fTemp;
 				fTemp = rcBound.y1 - rc.rect.y1;
 				if ( fTemp > 0 )
@@ -689,7 +639,6 @@ void CUIEditBox::Draw( IGFX *pGFX )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIEditBox::Update( const NTimer::STime &currTime )
 {
 	if ( currTime - dwLastCursorAnimatedTime > CURSOR_ANIMATION_TIME )
@@ -699,7 +648,6 @@ bool CUIEditBox::Update( const NTimer::STime &currTime )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIEditBox::NotifyTextChanged()
 {
 	SUIMessage msg;
@@ -708,7 +656,6 @@ void CUIEditBox::NotifyTextChanged()
 	msg.nSecond = 0;
 	GetParent()->ProcessMessage( msg );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIEditBox::SetWindowText( int nState, const WORD *pszText )
 {
 	static_assert( sizeof(wchar_t) == sizeof(WORD), "wchar_t and WORD size mismatch" );
@@ -718,7 +665,6 @@ void CUIEditBox::SetWindowText( int nState, const WORD *pszText )
 	m_nBeginDragSel = m_nBeginSel = m_nEndSel = -1;
 	CSimpleWindow::SetWindowText( nState, pszText );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIEditBox::EnsureCursorVisible()
 {
 	IGFXText *pGFXText = states[nCurrentState].pGfxText;
@@ -730,7 +676,6 @@ void CUIEditBox::EnsureCursorVisible()
 	if ( nCursorPos <= 0 && nBeginText > 0 )
 	{
 		NI_ASSERT_T( bTextScroll, "Edit box error: nCursorPos < 0 and bTextScroll == true" );
-		//������ ����� ������ ���� edit box, �������� ����� ������, ����� ������ ���� �������
 		nBeginText += nCursorPos;
 		nCursorPos = 0;
 		if ( nBeginText < 0 )
@@ -751,7 +696,6 @@ void CUIEditBox::EnsureCursorVisible()
 	}
 	else if ( pGFXText->GetWidth( nCursorPos ) > wndRect.Width() - vTextPos.x - 2 )
 	{
-		//������ ������ ������� ���� edit box, �������� ����� �����, ����� ������ ���� �������
 		while ( pGFXText->GetWidth( nCursorPos ) > wndRect.Width() - vTextPos.x - 2 )		//2 is the width of cursor
 		{
 			if ( bTextScroll )
@@ -769,16 +713,13 @@ void CUIEditBox::EnsureCursorVisible()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIEditBox::IsTextInsideEditBox()
 {
-	//������ �������� ����������� �� ������������ ����� ������
 	if ( nMaxLength != -1 && wszFullText.size() > nMaxLength )
 		return false;
 
 	if ( bTextScroll )
 		return true;
-//	NI_ASSERT_T( bTextScroll == false, "Error calling IsTextInsideEditBox()" );
 	IGFXText *pGFXText = states[nCurrentState].pGfxText;
 	IText *pText = pGFXText->GetText();
 	const WORD *pszVisibleText = ToWordText( wszFullText.c_str() + nBeginText );
@@ -786,4 +727,3 @@ bool CUIEditBox::IsTextInsideEditBox()
 	pGFXText->SetText( pText );
 	return pGFXText->GetWidth( -1 ) <= wndRect.Width() - vTextPos.x - 2;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

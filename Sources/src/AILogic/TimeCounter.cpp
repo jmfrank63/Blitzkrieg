@@ -1,10 +1,8 @@
 #include "stdafx.h"
 
 #include "TimeCounter.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CTimeCounter timeCounter;
 extern NTimer::STime curTime;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CTimeCounter::CTimeCounter()
  : printTime( 0 ), counters( 100, 0 ), startTimes( 100, 0 ), names( 100 ), variables( 100 ), 
 	 nMaxIndex( -1 ), nMaxVar( -1 )
@@ -87,12 +85,10 @@ CTimeCounter::CTimeCounter()
 	RegisterCounter( 67, "general_artillery" );
 	RegisterCounter( 68, "general_intendant" );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTimeCounter::RegisterCounter( const int nName, const std::string &szName )
 {
 	names[nName] = szName;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTimeCounter::Count( const int nName, const bool bStart )
 {
 	nMaxIndex = Max( nName, nMaxIndex );
@@ -113,7 +109,6 @@ void CTimeCounter::Count( const int nName, const bool bStart )
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTimeCounter::Count( const std::string &szName, const bool bStart )
 {
 	if ( bStart )
@@ -134,7 +129,6 @@ void CTimeCounter::Count( const std::string &szName, const bool bStart )
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTimeCounter::PrintCounters()
 {
 	IConsoleBuffer *pConsoleBuffer = GetSingleton<IConsoleBuffer>();
@@ -165,7 +159,6 @@ void CTimeCounter::PrintCounters()
 
 	pConsoleBuffer->WriteASCII( 11, "=================================================", 0, true );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTimeCounter::ChangeVar( const int nIndex, const float fChange )
 {
 	if ( nIndex >= variables.size() )
@@ -174,7 +167,6 @@ void CTimeCounter::ChangeVar( const int nIndex, const float fChange )
 	nMaxVar = Max( nIndex, nMaxVar );
 	variables[nIndex] += fChange;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTimeCounter::SetVar( const int nIndex, const float fValue )
 {
 	if ( nIndex >= variables.size() )
@@ -183,4 +175,3 @@ void CTimeCounter::SetVar( const int nIndex, const float fValue )
 	nMaxVar = Max( nIndex, nMaxVar );
 	variables[nIndex] = fValue;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

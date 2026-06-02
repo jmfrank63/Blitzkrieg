@@ -1,25 +1,14 @@
 #include "StdAfx.h"
 
 #include "MemFileSystem.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** memory stream
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMemFileStream::Read( void *pBuffer, int nLength )
 {
-	// select minimal length of the rest of the file and required length
 	nLength = Min( nLength, int(data.size() - nCurrPos) );
 	if ( nLength > 0 )
 		memcpy( pBuffer, &(data[nCurrPos]), nLength );
 	nCurrPos += nLength;
 	return nLength;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMemFileStream::Write( const void *pBuffer, int nLength )
 {
 	ResizeToFit( nCurrPos + nLength );
@@ -28,29 +17,21 @@ int CMemFileStream::Write( const void *pBuffer, int nLength )
 	nCurrPos += nLength;
 	return nLength;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// объявить текущую позицию в потоке за начало потока
 int CMemFileStream::LockBegin()
 {
 	nBeginPos = nCurrPos;
 	return nBeginPos;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// вернуть начало потока в нулевую позицию
 int CMemFileStream::UnlockBegin()
 {
 	int nOldBeginPos = nBeginPos;
 	nBeginPos = 0;
 	return nOldBeginPos;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// текущая позиция в потоке
 int CMemFileStream::GetPos() const
 {
 	return nCurrPos - nBeginPos;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// выставить текущую позицию в потоке
 int CMemFileStream::Seek( int offset, STREAM_SEEK from )
 {
 	switch ( from )
@@ -70,14 +51,10 @@ int CMemFileStream::Seek( int offset, STREAM_SEEK from )
 	NI_ASSERT_T( (nCurrPos >= nBeginPos) && (nCurrPos <= data.size()), "Stream position out of range" );
 	return nCurrPos;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// получить размер потока
 int CMemFileStream::GetSize() const
 {
 	return data.size() - nBeginPos;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// изменить размер потока
 bool CMemFileStream::SetSize( int nSize )
 {
 	data.resize( nBeginPos + nSize );
@@ -85,8 +62,6 @@ bool CMemFileStream::SetSize( int nSize )
 		nCurrPos = nBeginPos + nSize;
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// скопировать 'nLength' байт из текущей позиции потока в текущю позицию 'pDstStream' потока
 int CMemFileStream::CopyTo( IDataStream *pDstStream, int nLength )
 {
 	nLength = Min( nLength, int(data.size() - nCurrPos) );
@@ -94,19 +69,14 @@ int CMemFileStream::CopyTo( IDataStream *pDstStream, int nLength )
 	nCurrPos += nLength;
 	return nLength > 0 ? pDstStream->Write( &(data[nLastPos]), nLength ) : 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// сбросить все закешированные данные
 void CMemFileStream::Flush()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// получить информацию о потоке
 void CMemFileStream::GetStats( SStorageElementStats *pStats )
 {
 	memcpy( pStats, &stats, sizeof(stats) );
 	pStats->nSize = GetSize();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMemFileStream::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -120,22 +90,11 @@ int CMemFileStream::operator&( IStructureSaver &ss )
 		stats.pszName = szName.c_str();
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** memory file system
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMemFileSystem::CMemFileSystem( DWORD dwAccessMode )
 : dwStorageAccessMode( dwAccessMode )
 {
 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// создать и открыть поток с указанным именем и правами доступа
 IDataStream* CMemFileSystem::CreateStream( const char *pszName, DWORD dwAccessMode )
 {
 	NI_ASSERT_TF( (dwAccessMode & dwStorageAccessMode) == dwAccessMode, "Can't create stream - invalid access mode", return 0 );
@@ -143,8 +102,6 @@ IDataStream* CMemFileSystem::CreateStream( const char *pszName, DWORD dwAccessMo
 	streams[pszName] = pStream;
 	return pStream;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// открыть существующий поток с указанным именем и правами доступа
 IDataStream* CMemFileSystem::OpenStream( const char *pszName, DWORD dwAccessMode )
 {
 	NI_ASSERT_TF( (dwAccessMode & dwStorageAccessMode) == dwAccessMode, "Can't open stream - invalid access mode", return 0 );
@@ -157,7 +114,6 @@ IDataStream* CMemFileSystem::OpenStream( const char *pszName, DWORD dwAccessMode
 	else
 		return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMemFileSystem::GetStreamStats( const char *pszName, SStorageElementStats *pStats )
 {
 	CStreamsMap::iterator pos = streams.find( pszName );
@@ -171,15 +127,11 @@ bool CMemFileSystem::GetStreamStats( const char *pszName, SStorageElementStats *
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// убить элемент хранилища
 bool CMemFileSystem::DestroyElement( const char *pszName )
 {
 	streams.erase( pszName );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// переименовать элемент
 bool CMemFileSystem::RenameElement( const char *pszOldName, const char *pszNewName )
 {
 	CPtr<IDataStream> pStream = streams[pszOldName];
@@ -191,29 +143,21 @@ bool CMemFileSystem::RenameElement( const char *pszOldName, const char *pszNewNa
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// перечисление элементов
 IStorageEnumerator* CMemFileSystem::CreateEnumerator()
 {
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// добавить новый MOD
 bool CMemFileSystem::AddStorage( IDataStorage *pStorage, const char *pszName )
 {
 	NI_ASSERT_T( 0, "Can't add new storage to the mem file system" );
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// убрать MOD
 bool CMemFileSystem::RemoveStorage( const char *pszName )
 {
 	NI_ASSERT_T( 0, "Can't remove storage from mem file system" );
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CMemFileSystem::IsStreamExist( const char *pszName )
 {
 	return streams.find( pszName ) != streams.end();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

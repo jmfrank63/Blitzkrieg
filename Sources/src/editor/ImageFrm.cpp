@@ -16,9 +16,7 @@ static const float zeroShiftY = 15.4f;
 IMPLEMENT_DYNCREATE(CImageFrame, CParentFrame)
 
 BEGIN_MESSAGE_MAP(CImageFrame, CParentFrame)
-	//{{AFX_MSG_MAP(CImageFrame)
 	ON_WM_CREATE()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 CImageFrame::CImageFrame()
@@ -38,7 +36,6 @@ int CImageFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	if (CParentFrame::OnCreate(lpCreateStruct) == -1)
 		return -1;
 	
-	// create a view to occupy the client area of the frame
 	if (!pWndView->Create(NULL, NULL,  WS_CHILD | WS_VISIBLE, 
 		CRect(0, 0, 0, 0), this, AFX_IDW_PANE_FIRST, NULL))
 	{
@@ -109,8 +106,6 @@ void CImageFrame::LoadImageTexture( const char *pszFileName )
 	pImageTexture = 0;
 	string szTempFile = theApp.GetEditorTempDir();
 	szTempFile += szComposerName;
-//	szTempFile += ".tga";
-	//Надо скомпоновать картинку, чтобы она загружалась из текстуры
 	if ( !ComposeImageToTexture( pszFileName, szTempFile.c_str(), false ) )
 	{
 		if ( (pImageTexture = pTM->GetTexture( pszFileName )) == 0 )
@@ -136,7 +131,6 @@ void CImageFrame::LoadImageTexture( const char *pszFileName )
 		szTempFile = theApp.GetEditorTempResourceDir();
 		szTempFile += "\\";
 		szTempFile += szComposerName;
-	  //szTempFile += ".tga";
 		pImageTexture = pTM->GetTexture( szTempFile.c_str() );
 	}
 	

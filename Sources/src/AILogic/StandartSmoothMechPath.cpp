@@ -4,32 +4,22 @@
 #include "StandartPath.h"
 #include "StandartSmoothMechPath.h"
 #include "AIStaticMap.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CStaticMap theStaticMap;
 extern NTimer::STime curTime;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CStandartSmoothMechPath											*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CStandartSmoothMechPath );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStandartSmoothMechPath::CStandartSmoothMechPath()
 : speed( 0 ),	bNotified( false ), pPath( 0 ), nPoints( 0 ), bStopped( false ), bMinSlowed( false ), bMaxSlowed( false ), 
 	bSmoothTurn( false ), bCanGoForward( true ), bCanGoBackward( true ), pUnit( 0 ), vLastValidatedPoint( VNULL2 )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartSmoothMechPath::SetOwner( IBasePathUnit *_pUnit )
 {
 	pUnit = _pUnit;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IBasePathUnit* CStandartSmoothMechPath::GetOwner() const
 {
 	return pUnit;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartSmoothMechPath::AddSmoothTurn()
 {
 	CVec2 vDir = spline.GetDX();
@@ -78,14 +68,12 @@ void CStandartSmoothMechPath::AddSmoothTurn()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStandartSmoothMechPath::CheckTurn( const WORD wNewDir )
 {
 	bool bCanBackward = pPath->CanGoBackward( pUnit );
 	const WORD wUnitDir = pUnit->GetDir();
 	const WORD wRightDirsDiff = DirsDifference( wUnitDir, wNewDir );
 	const WORD wBackDirsDiff = DirsDifference( wUnitDir + 32768, wNewDir );
-	// поворот небольшой
 	if ( wRightDirsDiff < SConsts::DIR_DIFF_TO_SMOOTH_TURNING || bCanBackward && wBackDirsDiff < SConsts::DIR_DIFF_TO_SMOOTH_TURNING )
 		return true;
 	else
@@ -136,7 +124,6 @@ bool CStandartSmoothMechPath::CheckTurn( const WORD wNewDir )
 		return ( nResult == 1 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStandartSmoothMechPath::Init( IBasePathUnit *_pUnit, IPath *_pPath, bool _bSmoothTurn, bool bCheckTurn )
 {
 	NI_ASSERT_T( _pPath != 0, "Smooth path is trying to be initialized by NULL static path" );
@@ -164,11 +151,8 @@ bool CStandartSmoothMechPath::Init( IBasePathUnit *_pUnit, IPath *_pPath, bool _
 
 		const int nInitSplineResult = InitSpline();
 
-		// проверить, можно ли повернуться
 		if ( bCheckTurn && pPath->ShouldCheckTurn() )
 		{
-//			if ( !CheckTurn( GetDirectionByVector( spline.GetDX() ) ) )
-//				return false;
 
 			CheckTurn( GetDirectionByVector( spline.GetDX() ) );
 		}
@@ -196,7 +180,6 @@ bool CStandartSmoothMechPath::Init( IBasePathUnit *_pUnit, IPath *_pPath, bool _
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartSmoothMechPath::GetNextTiles( std::list<SVector> *pTiles )
 {
 	CBSpline::SForwardIter iter;
@@ -211,13 +194,11 @@ void CStandartSmoothMechPath::GetNextTiles( std::list<SVector> *pTiles )
 		spline.IterateForward( &iter );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CVec2 CStandartSmoothMechPath::GetShift( const int nToShift ) const
 {
 	NI_ASSERT_T( pPath != 0, "Wrong call of GetShift" );
 	return pPath->PeekPoint( nToShift );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStandartSmoothMechPath::ValidateCurPath( const CVec2 &center, const CVec2 &newPoint )
 {
 	if ( fabs2( center - vLastValidatedPoint ) >= sqr( (float)SAIConsts::TILE_SIZE / 2.0f ) )
@@ -269,19 +250,16 @@ bool CStandartSmoothMechPath::ValidateCurPath( const CVec2 &center, const CVec2 
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStandartSmoothMechPath::IsFinished() const
 { 
 	return bFinished || !pPath;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartSmoothMechPath::Stop()
 {
 	bStopped = true;
 	speed = 0;
 	pUnit->StopTurning();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CStandartSmoothMechPath::InitSpline()
 {
 	p0 = p1; p1 = p2; p2 = p3;
@@ -333,7 +311,6 @@ int CStandartSmoothMechPath::InitSpline()
 	
 	return inc;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CStandartSmoothMechPath::GetPointWithoutFormation( NTimer::STime timeDiff )
 {
 	if ( !pPath || bStopped || bFinished || p0 == p1 && p1 == p2 && p2 == p3 )
@@ -349,7 +326,6 @@ const CVec2 CStandartSmoothMechPath::GetPointWithoutFormation( NTimer::STime tim
 		return pUnit->GetCenter();
 	}
 
-	// если едем задом, проверить - нельзя ли развернуться, чтобы поехать передом
 	if ( !bCanGoForward && curTime - lastCheckToRightTurn >= 3000 + Random( 0, 1000 ) )
 	{
 		lastCheckToRightTurn = curTime;
@@ -377,7 +353,6 @@ const CVec2 CStandartSmoothMechPath::GetPointWithoutFormation( NTimer::STime tim
 	
 	if ( spline.GetDX() != VNULL2 )
 	{
-		// слишком велика разница между старым и новым направлениями, нужно повернуться
 		const WORD wDirsDiff = DirsDifference( pUnit->GetDir(), GetDirectionByVector( spline.GetDX() ) );
 		if ( wDirsDiff != 0 && pUnit->IsTurning() || wDirsDiff > SConsts::DIR_DIFF_TO_SMOOTH_TURNING )
 		{
@@ -440,7 +415,6 @@ const CVec2 CStandartSmoothMechPath::GetPointWithoutFormation( NTimer::STime tim
 
 	if ( spline.GetDX() != VNULL2 )
 	{
-		// слишком велика разница между старым и новым направлениями, нужно повернуться
 		const WORD wDirsDiff = DirsDifference( pUnit->GetDir(), GetDirectionByVector( spline.GetDX() ) );
 		if ( wDirsDiff != 0 && pUnit->IsTurning() || wDirsDiff	> SConsts::DIR_DIFF_TO_SMOOTH_TURNING )
 		{
@@ -458,16 +432,11 @@ const CVec2 CStandartSmoothMechPath::GetPointWithoutFormation( NTimer::STime tim
 	
 	CVec2 result;
 	if ( fabs( spline.GetPoint() - pUnit->GetCenter() ) < fRemain )
-		// так и не прошли по сплайну, сколько надо
 		result = spline.GetPoint();
 	else
-		// прошли чуть дальше, нужно точно отсчитать fRemain
 		result = pUnit->GetCenter() + Norm( spline.GetPoint() - pUnit->GetCenter() ) * fRemain;
 
-	// для юнитов с ненулевой скоростью поворота
-	// до конца пути осталось совсем немного
 	float fDist = fabs2( result - pPath->GetFinishPoint() );
-	// нет гомосекам!!!
 	if ( fDist <= sqr( 4.0f * pUnit->GetAABBHalfSize().y ) )
 	{
 		SRect rect = pUnit->GetUnitRectForLock();
@@ -493,7 +462,6 @@ const CVec2 CStandartSmoothMechPath::GetPointWithoutFormation( NTimer::STime tim
 		
 	return result;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec3 CStandartSmoothMechPath::GetPoint( NTimer::STime timeDiff )
 {
 	const bool bFirstCall = ( speed == 0.0f );
@@ -525,7 +493,6 @@ const CVec3 CStandartSmoothMechPath::GetPoint( NTimer::STime timeDiff )
 	bNotified = bMinSlowed = bMaxSlowed = false;
 	return CVec3( vResult, pUnit->GetZ() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartSmoothMechPath::NotifyAboutClosestThreat( IBasePathUnit *pUnit, const float fDist )
 {
 	if ( pUnit->CanMovePathfinding() )
@@ -541,7 +508,6 @@ void CStandartSmoothMechPath::NotifyAboutClosestThreat( IBasePathUnit *pUnit, co
 			}
 			else
 			{
-				// повышать скорость, только если это можно делать
 				if ( !bMinSlowed && !bMaxSlowed )
 					speed = speed + maxPossibleSpeed / 40;
 			}
@@ -572,7 +538,6 @@ void CStandartSmoothMechPath::NotifyAboutClosestThreat( IBasePathUnit *pUnit, co
 
 	bNotified = true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartSmoothMechPath::SlowDown()
 {
 	if ( !bMinSlowed && !bMaxSlowed )
@@ -581,7 +546,6 @@ void CStandartSmoothMechPath::SlowDown()
 		speed = Max( pUnit->GetMaxSpeedHere( pUnit->GetCenter() ) / 3.0f, speed - pUnit->GetMaxPossibleSpeed() / 60 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStandartSmoothMechPath::Init( IMemento *pMemento, IBasePathUnit *_pUnit )
 {
 	NI_ASSERT_T( dynamic_cast<CStandartSmoothPathMemento*>(pMemento) != 0, "Wrong memento passed" );
@@ -600,7 +564,6 @@ bool CStandartSmoothMechPath::Init( IMemento *pMemento, IBasePathUnit *_pUnit )
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IMemento* CStandartSmoothMechPath::GetMemento() const
 {
 	CStandartSmoothPathMemento *pMemento = new CStandartSmoothPathMemento();
@@ -609,7 +572,6 @@ IMemento* CStandartSmoothMechPath::GetMemento() const
 
 	return pMemento;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStandartSmoothMechPath::CanGoBackward() const
 {
 	if ( pPath != 0 )
@@ -622,4 +584,3 @@ bool CStandartSmoothMechPath::CanGoBackward() const
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

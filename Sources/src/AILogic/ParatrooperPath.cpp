@@ -2,23 +2,15 @@
 
 #include "ParatrooperPath.h"
 #include "AIStaticMap.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CStaticMap theStaticMap;
 extern NTimer::STime curTime;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												CParatrooperPath													*
-//*******************************************************************
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CParatrooperPath::CParatrooperPath( const CVec3 &startPoint )
 : vStartPoint ( startPoint ), vCurPoint(startPoint)
 {
 	Init();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParatrooperPath::FindFreeTile()
 {
-	//finishPoint = CVec3()
 	CVec2 landPoint(vStartPoint.x, vStartPoint.y);
 	SVector centerTile( AICellsTiles::GetTile( landPoint ) );
 
@@ -45,20 +37,16 @@ void CParatrooperPath::FindFreeTile()
 		}
 	}
 	
-	//fall to locked tile ( death will occur ) (last)
 	vFinishPoint = CVec3( landPoint, theStaticMap.GetZ( AICellsTiles::GetTile(landPoint) ) );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CParatrooperPath::IsFinished() const
 {
 	return vCurPoint.z <= theStaticMap.GetZ( AICellsTiles::GetTile( CVec2( vCurPoint.x, vCurPoint.y ) ) );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParatrooperPath::Init()
 {
 	lastPathUpdateTime = curTime;
 	FindFreeTile();
-	//calcuate horisontal speed.
 	const CVec3 curP( vCurPoint.x, vCurPoint.y, 0 );
 	const CVec3 finishP ( vFinishPoint.x, vFinishPoint.y, 0 );
 	const int height = vStartPoint.z - theStaticMap.GetZ( AICellsTiles::GetTile( CVec2(finishP.x,finishP.y) ) );
@@ -69,19 +57,16 @@ void CParatrooperPath::Init()
 	vFinishPoint2D.x = vFinishPoint.x;
 	vFinishPoint2D.y = vFinishPoint.y;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CParatrooperPath::GetSpeed3( CVec3 *vSpeed ) const
 {
 	vSpeed->x = vHorSpeed.x;
 	vSpeed->y = vHorSpeed.y;
 	vSpeed->z = - SConsts::PARATROOPER_FALL_SPEED;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CParatrooperPath::CalcFallTime( const float fZ )
 {
 	return fZ / SConsts::PARATROOPER_FALL_SPEED;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec3 CParatrooperPath::GetPoint( NTimer::STime timeDiff )
 {
 	if ( curTime - lastPathUpdateTime > SConsts::PARATROOPER_GROUND_SCAN_PERIOD &&
@@ -92,7 +77,6 @@ const CVec3 CParatrooperPath::GetPoint( NTimer::STime timeDiff )
 
 	if ( !IsFinished() )
 	{
-		//horSpeed;
 		vCurPoint += vHorSpeed * timeDiff;
 		vCurPoint.z -= timeDiff * SConsts::PARATROOPER_FALL_SPEED;
 	}			
@@ -101,4 +85,3 @@ const CVec3 CParatrooperPath::GetPoint( NTimer::STime timeDiff )
 
 	return vCurPoint;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

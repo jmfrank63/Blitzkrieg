@@ -1,6 +1,3 @@
-// Reaction.h: interface for the CReaction class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_REACTION_H__C9D8977B_A116_4A9B_93A3_8EBE426CA74D__INCLUDED_)
 #define AFX_REACTION_H__C9D8977B_A116_4A9B_93A3_8EBE426CA74D__INCLUDED_
@@ -15,8 +12,6 @@ interface ICustomCheck;
 #include "IMessageReaction.h"
 #include "..\LuaLib\Script.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// 1 check (branches) and sequience of atim reactions for each branch
 class CMessageReactionB2 : public IMessageReactionB2
 {
 	OBJECT_COMPLETE_METHODS( CMessageReactionB2 );
@@ -46,9 +41,6 @@ public:
 	}
 	void AddCommonBefore( IMessageReactionB2 *pReaction ) { commonBefore.push_back( pReaction ); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Atom EMART_SET_GLOBAL_VAR
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CARSetGlobalVar : public IMessageReactionB2
 {
 	OBJECT_COMPLETE_METHODS( CARSetGlobalVar );
@@ -66,9 +58,6 @@ public:
 	}
 	virtual bool STDCALL Execute( interface IScreen *pScreen, class Script *pScript ) const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Atom EMART_REMOVE_GLOBAL_VAR
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CARRemoveGlobalVar : public IMessageReactionB2
 {
 	OBJECT_COMPLETE_METHODS( CARRemoveGlobalVar );
@@ -88,7 +77,6 @@ public:
 	}
 	virtual bool STDCALL Execute( interface IScreen *pScreen, class Script *pScript ) const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CARSendMessage : public IMessageReactionB2 
 {
 	OBJECT_COMPLETE_METHODS( CARSendMessage );

@@ -5,22 +5,6 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-//ОПИСАНИЕ: данный массив представляет собой специальную спруктуру данных, используемую
-//в классе SImageEdge для хранения границ картинок. Массив представляет собой набор
-//последовательностей T переменной длинны (длинна имеет тип TCounter). Доступ к
-//элементам массива осуществляется след. образом:
-//CVarArray2D[ lineIndex ][ inLineIndex ]
-//создание массива производится след. образом:
-//вызывается метод: SetSizes( int nSize, int nLineCount ) или
-//конструктор: CVarArray2D( int nSize, int nLineCount )
-//после, для каждой строки ( попорядку: 0..nLineCount ), вызывается метод:
-//SetLineLength( int lineIndex, TCounter nLineLength )
-//после этого массив готов к работе.
-//ЗАМЕЧАНИЕ: сумма полей nLineLength в вызовах SetLineLength должна в точности
-//соответствовать длинне массива nSize указанной в конструкторе или в методе SetSizes
-//СОВЕТ: не используйте этот массив если не знаете специфики его работиы и создания
-//T - тип элемента массива
-//TCounter - тип каунтера по линии элементов
 template <class T, class TCounter = BYTE>
 class CVarArray2D
 {
@@ -179,7 +163,6 @@ public:
   
   bool IsEmpty() const { return pData == 0; }
 
-  //very special function!
   void SetLineLength( int lineIndex, TCounter nLineLength )
   {
 #ifdef _DEBUG
@@ -207,7 +190,6 @@ public:
     pLineDataSize[lineIndex] = nLineLength;
   }
 
-	//very special function!
   void SetZero() { memset( pData, 0, sizeof( T ) * nSize ); }
 
   int operator&( IStructureSaver &ss )

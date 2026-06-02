@@ -8,7 +8,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CRMGTemplateVSOPropertiesDialog::vID[] = 
 {
 	IDC_RMG_TVP_STATS_LABEL_LEFT,		//0
@@ -26,17 +25,14 @@ const int CRMGTemplateVSOPropertiesDialog::vID[] =
 	IDCANCEL,												//12
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CRMGTemplateVSOPropertiesDialog::CRMGTemplateVSOPropertiesDialog( CWnd* pParent )
 	: CResizeDialog( CRMGTemplateVSOPropertiesDialog::IDD, pParent )
 {
-	//{{AFX_DATA_INIT(CRMGTemplateVSOPropertiesDialog)
 	m_strWidth = _T("");
 	m_strWeight = _T("");
 	m_strStats = _T("");
 	m_strPath = _T("");
 	m_strOpacity = _T("");
-	//}}AFX_DATA_INIT
 
 	SetControlStyle( vID[0], ANCHORE_LEFT_TOP );
 	SetControlStyle( vID[1], ANCHORE_LEFT_TOP | RESIZE_HOR );
@@ -59,24 +55,15 @@ CRMGTemplateVSOPropertiesDialog::CRMGTemplateVSOPropertiesDialog( CWnd* pParent 
 	SetControlStyle( vID[12], ANCHORE_BOTTOM | ANCHORE_HOR_CENTER );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGTemplateVSOPropertiesDialog::DoDataExchange(CDataExchange* pDX)
 {
 	CResizeDialog::DoDataExchange( pDX );
-	//{{AFX_DATA_MAP( CRMGTemplateVSOPropertiesDialog )
 	DDX_Text(pDX, IDC_RMG_TVP_WIDTH_EDIT, m_strWidth);
 	DDX_Text(pDX, IDC_RMG_TVP_WEIGHT_EDIT, m_strWeight);
 	DDX_Text(pDX, IDC_RMG_TVP_STATS_LABEL_RIGHT, m_strStats);
 	DDX_Text(pDX, IDC_RMG_TVP_PATH_LABEL_RIGHT, m_strPath);
 	DDX_Text(pDX, IDC_RMG_TVP_OPACITY_EDIT, m_strOpacity);
-	//}}AFX_DATA_MAP
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CRMGTemplateVSOPropertiesDialog, CResizeDialog)
-	//{{AFX_MSG_MAP(CRMGTemplateVSOPropertiesDialog)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// basement storage  
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

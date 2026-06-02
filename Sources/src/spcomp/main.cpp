@@ -1,13 +1,9 @@
 #include "StdAfx.h"
 
 #include "..\Common\fmtAnimation.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline long Width( const RECT &rc ) { return rc.right - rc.left; }
 inline long Height( const RECT &rc ) { return rc.bottom - rc.top; }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//��������������� ����������
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SDirDesc
 {
 	std::vector<short> frames;						// frame indices for this direction sequence
@@ -58,7 +54,6 @@ RECT AnalyzeSubrect( const CImageAccessor &image, const RECT &rect )
 	RECT ret = { minx, miny, maxx, maxy };
 	return ret;
 }*/
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void Serialize( CTreeAccessor *pFile, SDirDesc *pData )
 {
 	pFile->AddDataContainer( "seq", &pData->frames );
@@ -74,8 +69,6 @@ void Serialize( CTreeAccessor *pFile, SAnimationDesc *pData )
 	pFile->AddData( "speed", &pData->fSpeed );
 	pFile->AddData( "cycled", &pData->bCycled );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// spcomp.exe <sprite sequence dir> <output name>
 int main( int argc, char *argv[] )
 {
 	if ( argc != 3 )
@@ -86,21 +79,14 @@ int main( int argc, char *argv[] )
 		printf( "\tUsage:  spcomp.exe <sprite sequence desc dir> <output name>\n" );
 		return 0xDEAD;
 	}
-	//
 	char buff[2048];
 	std::string szSpriteDir = argv[1];
 	if ( szSpriteDir[szSpriteDir.size() - 1] != '\\' )
 		szSpriteDir += '\\';
 	CPtr<IDataStorage> pStorage = OpenStorage( szSpriteDir.c_str(), STREAM_ACCESS_READ | STREAM_ACCESS_WRITE );
-	//
-	//
-	//
-	//
-	//
 	std::vector<IImage*> images;
 	images.reserve( 1000 );
 	IImageProcessor *pIP = GetImageProcessor();
-	// read .ini file with animation description info
 	CPtr<IDataBase> pDB = OpenDataBase( szSpriteDir.c_str(), TABLE_ACCESS_READ );
 	CTableAccessor reg = pDB->OpenTable( "anims.txt", TABLE_ACCESS_READ );
 	std::vector<std::string> szSections;
@@ -110,7 +96,6 @@ int main( int argc, char *argv[] )
 	std::vector<short> nvals;
 	for ( int i=0; i<szSections.size(); ++i )
 	{
-		// read animation general info
 		SAnimationDesc &anim = animdescs[i];
 		anim.szName = szSections[i];
 		anim.nFrameTime = reg.GetInt( szSections[i].c_str(), "frametime", 125 );
@@ -119,13 +104,11 @@ int main( int argc, char *argv[] )
 		int nNumDirs = reg.GetInt( szSections[i].c_str(), "dirs", 0 );
 		NI_ASSERT_TF( nNumDirs > 0, NStr::Format("number of dirs must be >0 (in animation \"%s\")", szSections[i].c_str()), return 0xDEAD );
 		anim.dirs.resize( nNumDirs );
-		//
 		reg.GetArray( szSections[i].c_str(), "shift", fvals );
 		if ( fvals.size() == 2 )
 			anim.ptFrameShift.Set( fvals[0], fvals[1] );
 		else
 			NI_ASSERT_TF( fvals.size() == 0, NStr::Format("wrong number of components in the general frame shift for animation \"%s\"", szSections[i].c_str()), return 0xDEAD );
-		// read dirs info
 		for ( int j=0; j<anim.dirs.size(); ++j )
 		{
 			SDirDesc &dir = anim.dirs[j];
@@ -136,7 +119,6 @@ int main( int argc, char *argv[] )
 				dir.ptFrameShift.Set( fvals[0], fvals[1] );
 			else
 				dir.ptFrameShift = anim.ptFrameShift;
-			// read frames info
 			for ( int k=0; k<dir.frames.size(); ++k )
 			{
 				reg.GetArray( szSections[i].c_str(), NStr::Format("frame%d shift", dir.frames[k]), fvals );
@@ -147,7 +129,6 @@ int main( int argc, char *argv[] )
 			}
 		}
 	}
-	//
 	int nFirstFrame = 0, nLastFrame = 0;
 	SSpriteAnimationFormat animations;
 	for ( int i=0; i<animdescs.size(); ++i )
@@ -160,9 +141,7 @@ int main( int argc, char *argv[] )
 		pAnimation->nFrameTime = animdesc.nFrameTime;
 		for ( int j=0; j<pAnimation->dirs.size(); ++j )
 			pAnimation->dirs[j].frames = animdesc.dirs[j].frames;
-		// CRAP{ ������ ������������ ��� � �������� ������������� ��� ����� 
 		pAnimation->rects.resize( animdesc.frames.size() );
-		// CRAP}
 		for ( int j=0; j<pAnimation->rects.size(); ++j )
 		{
 			if ( animdesc.szName == "default" )
@@ -181,23 +160,16 @@ int main( int argc, char *argv[] )
 		animdesc.nLastSprite = nLastFrame;
 		nFirstFrame = nLastFrame;
 	}
-	//
 	std::vector<RECT> rects		 ( images.size() );
 	std::vector<RECT> rectsMain( images.size() );
 	CPtr<IImage> pImage = pIP->ComposeImages( &(images[0]), &(rects[0]), &(rectsMain[0]), images.size() );
 
-	// write tga image
 	std::string szFileName = argv[2];
 	szFileName += ".tga";
 	CPtr<IDataStream> pStream = pStorage->CreateStream( szFileName.c_str(), STREAM_ACCESS_WRITE );
 	pIP->SaveImageAsTGA( pStream, pImage );
 	pStream = 0;
-	//
 	CImageAccessor image = pImage;
-	//
-	// 
-	//
-	// compose prite animation data and write it
 	for ( int i=0; i<animdescs.size(); ++i )
 	{
 		SAnimationDesc &animdesc = animdescs[i];
@@ -217,7 +189,6 @@ int main( int argc, char *argv[] )
 																		 rcSubRect.bottom - rcBase.top - animdesc.frames[j].y );
 		}
 	}
-	// sprite animation data
 	szFileName = argv[2];
 	szFileName += ".san";
 	pStream = pStorage->CreateStream( szFileName.c_str(), STREAM_ACCESS_WRITE );
@@ -228,10 +199,7 @@ int main( int argc, char *argv[] )
 		saver.AddObject( 1, &animations );
 	}
 	pStream = 0;
-	//
 	for ( int i=0; i<images.size(); ++i )
 		images[i]->Release();
-	//
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

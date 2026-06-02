@@ -12,51 +12,41 @@
 #include "..\UI\UIMessages.h"
 #include "..\StreamIO\ProgressHook.h"
 #include "..\Main\ScenarioTracker.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const int ADD_SELECTED_CONST = 100;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum ECommands
 {
 	MC_UNITS						= 10003,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_ok"				,	IMC_OK				},
 	{ "inter_cancel"		, IMC_CANCEL		},
 	{ 0									,	0							}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceAboutMission::~CInterfaceAboutMission()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SMissionStats *CInterfaceAboutMission::ReadMissionStats()
 {
 	std::string szMissionName = GetGlobalVar( "Mission.Current.Name" );
 	const SMissionStats *pStats = NGDB::GetGameStats<SMissionStats>( szMissionName.c_str(), IObjectsDB::MISSION );
 	return pStats;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceAboutMission::Init()
 {
 	CInterfaceInterMission::Init();
 	commandMsgs.Init( pInput, commands );
-	//	SetBindSection( "intermission" );
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceAboutMission::StartInterface()
 {
 	CInterfaceInterMission::StartInterface();
-	//загружаем информацию о миссии
 	const SMissionStats *pStats = ReadMissionStats();
 
 	NI_ASSERT_T( pStats != 0, "Invalid mission stats" );
 	if ( pStats == 0 )
 		return;
-	// generate map for random mission
 	const std::string szVarName = "Mission." + pStats->szParentName + ".Random.Generated";
 
 	const SChapterStats *pChapterStats = CInterfaceChapter::ReadChapterStats();
@@ -71,11 +61,9 @@ void CInterfaceAboutMission::StartInterface()
 	if ( pStats->IsTemplate() && ( GetGlobalVar( szVarName.c_str(), 0 ) != 1 ) )
 	{
 		const std::string szMissionName = pStats->szParentName;
-		// mark, that this is a random mission
 		SetGlobalVar( ("Mission." + szMissionName + ".Random").c_str(), 1 );
 		SetGlobalVar( szVarName.c_str(), 1 );
 		NStr::DebugTrace( "CInterfaceAboutMission::StartInterface(), add Template Mission: %s\n", pStats->szParentName.c_str() );
-		//
 
 		CPtr<IMovieProgressHook> pProgress = CreateObject<IMovieProgressHook>( MAIN_PROGRESS_INDICATOR );
 		pProgress->Init( IMovieProgressHook::PT_MAPGEN );
@@ -89,7 +77,6 @@ void CInterfaceAboutMission::StartInterface()
 		
 		if ( IUserProfile *pUserProfile = GetSingleton<IUserProfile>() )
 		{
-			//граф
 			SRMTemplate randomMapTemplate;
 			bool bResult = LoadDataResource( pStats->szTemplateMap, "", false, 0, RMGC_TEMPLATE_XML_NAME, randomMapTemplate );
 			NI_ASSERT_T( bResult,
@@ -129,7 +116,6 @@ void CInterfaceAboutMission::StartInterface()
 				}
 			}
 			
-			//угол
 			int nMinimumUsedAngle = pUserProfile->GetUsedAngles( 0 );
 			for ( int nAngleIndex = 1; nAngleIndex < 4; ++nAngleIndex )
 			{
@@ -170,7 +156,6 @@ void CInterfaceAboutMission::StartInterface()
 		if ( !bRes )
 			return;
 
-		//для сейвов
 		SetGlobalVar( "Chapter.Units.Table.FileName", szChapterUnitsTableFileName.c_str() );
 		SetGlobalVar( "Chapter.Units.Table.Level", nLevel );
 		SetGlobalVar( "Chapter.Units.Table.GraphName", usedTemplateInfo.szGraphName.c_str() );
@@ -197,7 +182,6 @@ void CInterfaceAboutMission::StartInterface()
 	
 	ITextManager *pTM = GetSingleton<ITextManager>();
 	
-	//установим правильный размер для map image control
 	IUIObjMap *pMap = checked_cast<IUIObjMap *> ( pUIScreen->GetChildByID( 100 ) );
 	IGFXTexture *pTexture = GetSingleton<ITextureManager>()->GetTexture( pStats->szMapImage.c_str() );
 	NI_ASSERT_T( pTexture != 0, "Mission map texture is invalid" );
@@ -214,7 +198,6 @@ void CInterfaceAboutMission::StartInterface()
 		vMapControlSize.y -= DELTAY*2;
 	}
 
-	//установим текст заголовка
 	IUIElement *pHeader = pUIScreen->GetChildByID( 20000 );
 	NI_ASSERT_T( pHeader != 0, "Invalid mission header control" );
 	CPtr<IText> p2 = pTM->GetDialog( pStats->szHeaderText.c_str() );
@@ -222,21 +205,15 @@ void CInterfaceAboutMission::StartInterface()
 	if ( p2 != 0 )
 		pHeader->SetWindowText( 0, p2->GetString() );
 	
-	//установим текст описания
 	IUIElement *pDesc = checked_cast<IUIElement *> ( pUIScreen->GetChildByID( 2000 ) );
 	NI_ASSERT_T( pDesc != 0, "Invalid mission text description control" );
 	std::wstring szDescription;
 	CUIConsts::CreateDescription( &pChapterStats->missions[nMissionIndex], &szDescription, false );
 	pDesc->SetWindowText( 0, reinterpret_cast<const WORD*>( szDescription.c_str() ) );
-	//CPtr<IText> pText = pTM->GetDialog( pStats->szDescriptionText.c_str() );
-	//NI_ASSERT_T( pText != 0, NStr::Format("Can't find description text \"%s\"", pStats->szDescriptionText.c_str()) );
-	//if ( pText != 0 )
-		//pDesc->SetWindowText( 0, pText->GetString() );
 	
 	IUIElement *pObjectivesScreen = pUIScreen->GetChildByID( 4000 );
 	pObjectivesScreen->ShowWindow( UI_SW_SHOW );		//здесь произойдет авто загрузка objectives
 
-	//загрузим флажки Objectives для отображения на минимапе
 	CPtr<IDataStorage> pStorage = GetSingleton<IDataStorage>();
 	CPtr<IDataStream> pStream = pStorage->OpenStream( "ui\\common\\objective_flag.xml", STREAM_ACCESS_READ );
 	NI_ASSERT_T( pStream != 0, "CInterfaceAboutMission error: Can not open stream ui\\common\\objective_flag.xml" );
@@ -266,7 +243,6 @@ void CInterfaceAboutMission::StartInterface()
 		if ( nObjectiveState == -1 )
 			continue;		//objective не виден
 		
-		//рассчитаем координаты objective в статическом минимап контроле
 		const CVec2 &v = pStats->objectives[i].vPosOnMap;
 
 		CVec2 vPos;
@@ -281,7 +257,6 @@ void CInterfaceAboutMission::StartInterface()
 			vPos.y = (v.x/pTexture->GetSizeX(0))*(vMapControlSize.x/4) + (v.y/pTexture->GetSizeY(0))*(vMapControlSize.y/2);
 		}
 
-		//Add flag
 		CPtr<IUIElement> pFlag;
 		objectiveFlagSaver.Add( "Element", &pFlag );
 
@@ -295,7 +270,6 @@ void CInterfaceAboutMission::StartInterface()
 		pFlag->SetWindowID( nObjectiveIndex );
 		pMap->AddChild( pFlag );
 
-		//Add selected flag
 		CPtr<IUIElement> pSelectedFlag;
 		objectiveSelectedFlagSaver.Add( "Element", &pSelectedFlag );
 		pSelectedFlag->SetWindowPlacement( &vPos, 0 );
@@ -306,14 +280,9 @@ void CInterfaceAboutMission::StartInterface()
 	}
 	
 	pUIScreen->Reposition( pGFX->GetScreenRect() );
-	// add UI screen to scene
 	pScene->AddUIScreen( pUIScreen );
 
-	//инициализируем свободные слоты в миссии дефалтовыми юнитами
-//	bool bRes = CInterfaceAddUnitToMission::AddDefaultSlotsToST();
-	//NI_ASSERT_T( bRes != 0, "CInterfaceAddUnitToMission::AddDefaultSlotsToST() FAILED" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceAboutMission::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceInterMission::ProcessMessage( msg ) )
@@ -346,10 +315,8 @@ bool CInterfaceAboutMission::ProcessMessage( const SGameMessage &msg )
 		break;
 	}
 
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceAboutMission::UpdateActiveObjectiveFlag( bool bShow )
 {
 	IUIContainer *pObjectivesScreen = checked_cast<IUIContainer *> ( pUIScreen->GetChildByID( 4000 ) );
@@ -358,17 +325,14 @@ void CInterfaceAboutMission::UpdateActiveObjectiveFlag( bool bShow )
 	int nSelBar = 0, nSelItem = 0;
 	pBar->GetSelectionItem( &nSelBar, &nSelItem );
 
-	//скрываем предыдущий активный objective flag
 	ShowActiveObjective( false );
 
-	//показываем новый активный objective flag
 	if ( bShow || ( nSelBar != -1 && nSelItem != -1 ) )
 	{
 		m_nActiveObjective = nSelBar;
 		ShowActiveObjective( true );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceAboutMission::ShowActiveObjective( bool bShow )
 {
 	IUIObjMap *pMap = checked_cast<IUIObjMap *> ( pUIScreen->GetChildByID( 100 ) );
@@ -392,4 +356,3 @@ void CInterfaceAboutMission::ShowActiveObjective( bool bShow )
 			pElement->ShowWindow( UI_SW_HIDE );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

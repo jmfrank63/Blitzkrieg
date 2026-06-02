@@ -1,18 +1,13 @@
 #ifndef __TOOLS_H__
 #define __TOOLS_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include <math.h>
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// square root of the 2 and 3
 #define SQRT_2		1.41421356237309504880
 #define SQRT_3		1.73205080756887729353
 #define FP_SQRT_2	1.41421356f
 #define FP_SQRT_3	1.73205081f
-// different constants with 'pi'
 #define PI					3.14159265358979323846
 #define FP_PI				3.14159265f
 #define FP_2PI			6.28318531f
@@ -24,31 +19,15 @@
 #define FP_INV_PI		0.31830989f
 #define FP_EPSILON	1e-12f
 #define FP_EPSILON2	1e-24f
-// size of the static array
 #define ARRAY_SIZE( a ) ( sizeof( a ) / sizeof( (a)[0] ) )
-// access float as DWORD
 #define FP_BITS( fp ) ( *reinterpret_cast<DWORD*>( &(fp) ) )
 #define FP_BITS_CONST( fp ) ( *reinterpret_cast<const DWORD*>( &(fp) ) )
-// clear MSb
 #define FP_ABS_BITS( fp ) ( FP_BITS( fp ) & 0x7FFFFFFF )
 #define FP_ABS_BITS_CONST( fp ) ( FP_BITS_CONST( fp ) & 0x7FFFFFFF )
-// get MSb
 #define FP_SIGN_BIT( fp ) ( FP_BITS( fp ) & 0x80000000 )
 #define FP_SIGN_BIT_CONST( fp ) ( FP_BITS_CONST( fp ) & 0x80000000 )
-// floating pt 1.0
 #define FP_ONE_BITS 0x3F800000
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// standard is long long but msvc does not support this name
 typedef __int64 int64;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** the same as static_cast, but with run-time type checking
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef _DO_CHECKED_CAST
 template <class TOut, class TIn>
 inline TOut checked_cast( TIn obj )
@@ -59,15 +38,6 @@ inline TOut checked_cast( TIn obj )
 #else
 #define checked_cast static_cast
 #endif // _DO_CHECKED_CAST
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** pack/unpack
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline DWORD PackDWORD( const WORD high, const WORD low ) 
 { 
 	return ( DWORD(high) << 16 ) | DWORD(low); 
@@ -82,14 +52,6 @@ inline BYTE UnpackBYTE0( const DWORD value ) { return value & 0xff; }
 inline BYTE UnpackBYTE1( const DWORD value ) { return (value >> 8) & 0xff; }
 inline BYTE UnpackBYTE2( const DWORD value ) { return (value >> 16) & 0xff; }
 inline BYTE UnpackBYTE3( const DWORD value ) { return (value >> 24) & 0xff; }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// трюки с битами
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Return the next power of 2 higher than the input
-// If the input is already a power of 2, the output will be the same as the input.
-// Got this from Brian Sharp's sweng mailing list.
 inline int GetNextPow2( DWORD n )
 {
 	n -= 1;
@@ -104,7 +66,6 @@ inline int GetNextPow2( DWORD n )
 }
 inline int GetNextPow2( int n ) { return GetNextPow2( DWORD(n) ); }
 
-// получить старший включенный бит
 inline int GetMSB( DWORD n )
 {
   int k = 0;
@@ -135,8 +96,6 @@ inline int GetMSB( BYTE n )
 	return k;
 }
 inline int GetMSB( char n ) { return GetMSB( BYTE(n) ); }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// получить младший включенный бит
 inline int GetLSB( DWORD n )
 {
   int k = 0;
@@ -167,10 +126,6 @@ inline int GetLSB( BYTE n )
 	return k;
 }
 inline int GetLSB( char n ) { return GetLSB( BYTE(n) ); }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// подсчёт колличества ненулевых бит в числе
-// 0x49249249ul // = 0100_1001_0010_0100_1001_0010_0100_1001
-// 0x381c0e07ul // = 0011_1000_0001_1100_0000_1110_0000_0111
 inline int GetNumBits( DWORD v )
 {
   v = (v & 0x49249249ul) + ((v >> 1) & 0x49249249ul) + ((v >> 2) & 0x49249249ul);
@@ -185,26 +140,16 @@ inline int GetNumBits( BYTE v )
   return int( (v & 0x0f) + ((v >> 4) & 0x0f) );
 }
 inline int GetNumBits( char v ) { return GetNumBits( BYTE(v) ); }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// обнуление памяти по типу переменной
-// ************************************************************************************************************************ //
 template <class TYPE>
 inline void Zero( TYPE &val )
 {
 	memset( &val, 0, sizeof(val) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// побитовое приведение одного типа к другому
-// ************************************************************************************************************************ //
 template <class TYPE_OUT, class TYPE_IN>
 inline TYPE_OUT bit_cast( const TYPE_IN &val )
 {
 	return *reinterpret_cast<const TYPE_OUT*>( &val );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// square and triple functions
 template <class TYPE>
 inline TYPE square( const TYPE x )
 {
@@ -220,11 +165,6 @@ inline TYPE triple( const TYPE x )
 {
 	return x*x*x;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// работа со знаком числа
-// ************************************************************************************************************************ //
-// signum function
 template <class TYPE>
 inline TYPE Sign( const TYPE x )
 {
@@ -235,8 +175,6 @@ inline TYPE Sign( const TYPE x )
 	else
 		return 0;
 }
-// calculates sign for integer variable, returns -1, 0, 1. template specialization
-//#pragma warning( disable: 4035 ) // compiler can and does produce wrong code in this case with optimisations turned on
 template <>
 inline int Sign<int>( const int nVal )
 {
@@ -269,10 +207,6 @@ inline short int Sign<short int>( const short int nVal )
 	}
 	return nRes;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// radian <=> degree conversion functions
-// ************************************************************************************************************************ //
 template <class TYPE>
 inline TYPE ToRadian( const TYPE angle )
 {
@@ -303,10 +237,6 @@ inline float SignumNormalizeAngleInRadian( const float angle )
 {
 	return fmodf( angle + FP_PI, FP_2PI ) + ( angle < -FP_PI ? FP_PI : -FP_PI );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// обнуление участка памяти, состоящего из DWORD'ов
-// ************************************************************************************************************************ //
 inline void MemSetDWord( DWORD* lpData, const DWORD value, const int nCount )
 {
 	_asm
@@ -329,11 +259,6 @@ inline void MemSetInt( int* lpData, const int value, const int nCount )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// ** float-to-int преобразование с текущим состоянием процессора
-// ************************************************************************************************************************ //
-// very fast float-to-int conversion. uses current FPU rounding state
 int __forceinline Float2Int( const float fpVar )
 {
 	int nRet;
@@ -345,31 +270,20 @@ int __forceinline Float2Int( const float fpVar )
 	return nRet;
 }
 inline int MINT( const float f ) { return Float2Int(f); }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// ** всевозможные бастрые функции типа 'x' @ 'y' ? 'val1' : 'val2'
-// ************************************************************************************************************************ //
-// very fast comparison: 'x' < 'y' ? val1 : val2
 inline float select_lt( const float x, const float y, const float val1, const float val2 )
 {
 	float z;
 	_asm
 	{
-		// loading 'x' and compare with 'y'
 		xor					eax, eax
 		fld         dword ptr [x]
 		fcomp       dword ptr [y]
-		// store compare flags
 		fnstsw      ax
-		// test comparison result and set '1' or '0'
-		// load 'val1' and 'val2'
 		mov					ebx, [val1]
 		mov					ecx, [val2]
-		// create mask for merging
 		and					eax, 0100h
 		shl					eax, 23
 		sar					eax, 31
-		// merging: (val1 & mask) | (val2 & ~mask)
 		and					ebx, eax
 		not					eax
 		and					ecx, eax
@@ -379,29 +293,21 @@ inline float select_lt( const float x, const float y, const float val1, const fl
 	}
 	return z;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// very fast comparison: 'x' > 'y' ? val1 : val2
 inline float select_gt( const float x, const float y, const float val1, const float val2 )
 {
 	float z;
 	_asm
 	{
-		// loading 'x' and compare with 'y'
 		xor					eax, eax
 		fld         dword ptr [x]
 		fcomp       dword ptr [y]
-		// store compare flags
 		fnstsw      ax
-		// test comparison result and set '1' or '0'
-		// load 'val1' and 'val2'
 		mov					ebx, [val1]
 		mov					ecx, [val2]
-		// create mask for merging
 		test        ah, 41h
 		sete				al
 		shl					eax, 31
 		sar					eax, 31
-		// merging: (val1 & mask) | (val2 & ~mask)
 		and					ebx, eax
 		not					eax
 		and					ecx, eax
@@ -411,29 +317,21 @@ inline float select_gt( const float x, const float y, const float val1, const fl
 	}
 	return z;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// very fast comparison: 'x' <= 'y' ? val1 : val2
 inline float select_le( const float x, const float y, const float val1, const float val2 )
 {
 	float z;
 	_asm
 	{
-		// loading 'x' and compare with 'y'
 		xor					eax, eax
 		fld         dword ptr [x]
 		fcomp       dword ptr [y]
-		// store compare flags
 		fnstsw      ax
-		// test comparison result and set '1' or '0'
-		// load 'val1' and 'val2'
 		mov					ebx, [val1]
 		mov					ecx, [val2]
-		// create mask for merging
 		test        ah, 41h
 		setne				al
 		shl					eax, 31
 		sar					eax, 31
-		// merging: (val1 & mask) | (val2 & ~mask)
 		and					ebx, eax
 		not					eax
 		and					ecx, eax
@@ -443,29 +341,21 @@ inline float select_le( const float x, const float y, const float val1, const fl
 	}
 	return z;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// very fast comparison: 'x' >= 'y' ? val1 : val2
 inline float select_ge( const float x, const float y, const float val1, const float val2 )
 {
 	float z;
 	_asm
 	{
-		// loading 'x' and compare with 'y'
 		xor					eax, eax
 		fld         dword ptr [x]
 		fcomp       dword ptr [y]
-		// store compare flags
 		fnstsw      ax
-		// test comparison result and set '1' or '0'
-		// load 'val1' and 'val2'
 		mov					ebx, [val1]
 		mov					ecx, [val2]
-		// create mask for merging
 		and					eax, 0100h
 		xor					eax, 0100h
 		shl					eax, 23
 		sar					eax, 31
-		// merging: (val1 & mask) | (val2 & ~mask)
 		and					ebx, eax
 		not					eax
 		and					ecx, eax
@@ -475,26 +365,19 @@ inline float select_ge( const float x, const float y, const float val1, const fl
 	}
 	return z;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// very fast comparison: 'x' == 'y' ? val1 : val2
 inline float select_eq( const float x, const float y, const float val1, const float val2 )
 {
 	float z;
 	_asm
 	{
-		// loading 'x' and compare with 'y'
 		xor					eax, eax
 		mov ebx, [x]
 		cmp ebx, [y]
-		// test comparison result and set '1' or '0'
-		// load 'val1' and 'val2'
-		// create mask for merging
 		sete				al
 		mov					ebx, [val1]
 		shl					eax, 31
 		mov					ecx, [val2]
 		sar					eax, 31
-		// merging: (val1 & mask) | (val2 & ~mask)
 		and					ebx, eax
 		not					eax
 		and					ecx, eax
@@ -504,26 +387,19 @@ inline float select_eq( const float x, const float y, const float val1, const fl
 	}
 	return z;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// very fast comparison: 'x' != 'y' ? val1 : val2
 inline float select_ne( const float x, const float y, const float val1, const float val2 )
 {
 	float z;
 	_asm
 	{
-		// loading 'x' and compare with 'y'
 		xor					eax, eax
 		mov ebx, [x]
 		cmp ebx, [y]
-		// test comparison result and set '1' or '0'
-		// load 'val1' and 'val2'
-		// create mask for merging
 		setne				al
 		mov					ebx, [val1]
 		shl					eax, 31
 		mov					ecx, [val2]
 		sar					eax, 31
-		// merging: (val1 & mask) | (val2 & ~mask)
 		and					ebx, eax
 		not					eax
 		and					ecx, eax
@@ -533,14 +409,6 @@ inline float select_ne( const float x, const float y, const float val1, const fl
 	}
 	return z;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// performs the next check:
-//			( (xp <= -wp)      ) |
-//			( (xp >   wp) << 1 ) |
-//			( (yp <= -wp) << 2 ) |
-//			( (yp >   wp) << 3 ) |
-//			( (zp <=  0 ) << 4 ) |
-//			( (zp >   wp) << 5 );
 inline const BYTE CheckForViewingFrustum( float xp, float yp, const float zp, const float wp )
 {
 	float wp2 = wp + wp;
@@ -551,7 +419,6 @@ inline const BYTE CheckForViewingFrustum( float xp, float yp, const float zp, co
 
 	_asm
 	{
- 		// xp <= 0, yp <= 0, zp <= 0
  		mov 	edx, xp
  		mov 	eax, yp
  		shr 	edx, 31
@@ -561,7 +428,6 @@ inline const BYTE CheckForViewingFrustum( float xp, float yp, const float zp, co
  		shl 	eax, 2
  		shl 	ecx, 4
  		or 		edx, eax
- 		// xp > wp2, yp > wp2, zp > wp
  		fld 	[wp2]
  		fcomp [xp]
  		or 		edx, ecx
@@ -580,15 +446,12 @@ inline const BYTE CheckForViewingFrustum( float xp, float yp, const float zp, co
  		fnstsw ax
  		and 	eax, 0100h
  		shr 	eax, 3
-		// form return value in eax and move it to 'value'
 		or 		eax, edx
 		mov [value], al
 	};
 
 	return value;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// min/max functions
 template <class TYPE>
 inline const TYPE Min( const TYPE val1, const TYPE val2 )
 {
@@ -599,22 +462,18 @@ inline const TYPE Max( const TYPE val1, const TYPE val2 )
 {
 	return (val1 > val2 ? val1 : val2);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// returns minimum of two float values
 template<>
 inline const float Min<float>( const float a, const float b )
 {
 	float fpRet;
 	_asm
 	{
-		// comparing
 		fld     dword ptr [b]
 		fcomp		dword ptr [a]
 		fnstsw  ax
 		mov			ecx, dword ptr [b]
 		shl			eax, 23
 		sar			eax, 31
-		// merging: (val1 & mask) | (val2 & ~mask)
 		and			ecx, eax
 		not			eax
 		and			eax, dword ptr [a]
@@ -623,21 +482,18 @@ inline const float Min<float>( const float a, const float b )
 	}
 	return fpRet;
 }
-// returns minimum of two float values
 template<>
 inline const float Max<float>( const float a, const float b )
 {
 	float fpRet;
 	_asm
 	{
-		// comparing
 		fld     dword ptr [a]
 		fcomp		dword ptr [b]
 		fnstsw  ax
 		mov			ecx, dword ptr [b]
 		shl			eax, 23
 		sar			eax, 31
-		// merging: (val1 & mask) | (val2 & ~mask)
 		and			ecx, eax
 		not			eax
 		and			eax, dword ptr [a]
@@ -646,16 +502,11 @@ inline const float Max<float>( const float a, const float b )
 	}
 	return fpRet;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TYPE>
 const TYPE Clamp( const TYPE &tVal, const TYPE &tMin, const TYPE &tMax )
 {
   return Max( tMin, Min(tVal, tMax) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// получение модуля от разных величин
-// ************************************************************************************************************************ //
 inline float fabs2( const float x, const float y, const float z, const float w )
 {
 	return ( x*x + y*y + z*z + w*w );
@@ -684,7 +535,6 @@ inline float fabs2( const float x )
 {
 	return x*x;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TYPE> 
 inline bool Normalize( TYPE &x, TYPE &y )
 {
@@ -727,8 +577,6 @@ inline bool Normalize( TYPE &x, TYPE &y, TYPE &z, TYPE &w )
   w *= u;
   return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Calc normalized canonical line equation 'ax + by + c = 0'
 inline void GetLineEq( const float x1, const float y1, const float x2, const float y2, float *pA, float *pB, float *pC )
 {
 	const float ta = y1 - y2;
@@ -747,8 +595,6 @@ inline void GetLineEq( const float x1, const float y1, const float x2, const flo
 	*pB = tb * rcsq;
 	*pC = tc * rcsq;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define MINIMIZE_INT( nToMin, nHow )  \
 	_asm mov ecx, nToMin                \
 	_asm cmp ecx, nHow                  \
@@ -772,7 +618,6 @@ inline void GetLineEq( const float x1, const float y1, const float x2, const flo
 	_asm and eax, nHow                  \
 	_asm or ecx, eax                    \
 	_asm mov nToMin, ecx
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline void Copy8Bytes( void* fpDst, const void* fpSrc )
 {
 	_asm
@@ -813,7 +658,6 @@ inline void Copy32Bytes( void* fpDst, const void* fpSrc )
 		fistp qword ptr [ EDX + 24 ]
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const DWORD CPUID_MMX_FEATURE_PRESENT = 0x00800000;
 const DWORD CPUID_SSE_FEATURE_PRESENT = 0x02000000;
 #define GET_CPUID __asm _emit 0x0f __asm _emit 0xa2
@@ -843,5 +687,4 @@ inline DWORD GetCPUID()
 	return dwRes;
 }
 #undef GET_CPUID
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __TOOLS_H__

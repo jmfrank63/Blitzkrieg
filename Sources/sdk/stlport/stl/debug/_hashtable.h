@@ -30,8 +30,6 @@
 #ifndef _STLP_INTERNAL_DBG_HASHTABLE_H
 #define _STLP_INTERNAL_DBG_HASHTABLE_H
 
-// Hashtable class, used to implement the hashed associative containers
-// hash_set, hash_map, hash_multiset, and hash_multimap.
 
 # include <stl/debug/_iterator.h>
 
@@ -249,8 +247,5 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_HASHTABLE_H */
 
-// Local Variables:
-// mode:C++
-// End:
 
 

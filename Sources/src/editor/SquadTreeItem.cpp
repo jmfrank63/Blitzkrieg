@@ -93,7 +93,6 @@ int CSquadCommonPropsItem::GetSquadType()
 {
 	string szName = values[2].value;
 	
-	//transports
 	if ( szName == "riflemans" || szName == "Riflemans" )
 		return SSquadRPGStats::RIFLEMANS;
 	if ( szName == "infantry" || szName == "Infantry" )
@@ -133,7 +132,6 @@ void CSquadMembersItem::MyKeyDown( int nChar )
 			AddChild( pItem );
 			g_frameManager.GetFrame( CFrameManager::E_SQUAD_FRAME )->SetChangedFlag( true );
 
-			//прохожу по всем формаци€м и дл€ них добавл€ю нового юнита
 			CTreeItem *pFormations = GetSiblingItem( E_SQUAD_FORMATIONS_ITEM );
 			NI_ASSERT( pFormations != 0 );
 			for ( CTreeItemList::const_iterator it=pFormations->GetBegin(); it!=pFormations->GetEnd(); ++it )
@@ -155,7 +153,6 @@ void CSquadMembersItem::MyRButtonClick()
 		AddChild( pItem );
 		g_frameManager.GetFrame( CFrameManager::E_SQUAD_FRAME )->SetChangedFlag( true );
 
-		//прохожу по всем формаци€м и дл€ них добавл€ю нового юнита
 		CTreeItem *pFormations = GetSiblingItem( E_SQUAD_FORMATIONS_ITEM );
 		NI_ASSERT( pFormations != 0 );
 		for ( CTreeItemList::const_iterator it=pFormations->GetBegin(); it!=pFormations->GetEnd(); ++it )
@@ -187,7 +184,6 @@ void CSquadMemberPropsItem::UpdateItemValue( int nItemId, const CVariant &value 
 
 	if ( nItemId == 1 )
 	{
-		//ќбновим им€ у этого Tree Item
 		ChangeItemName( value );
 		CSquadFrame *pFrame = static_cast<CSquadFrame *> ( g_frameManager.GetFrame( CFrameManager::E_SQUAD_FRAME ) );
 		pFrame->UpdateActiveFormation();
@@ -199,7 +195,6 @@ void CSquadMemberPropsItem::MyKeyDown( int nChar )
 	switch ( nChar )
 	{
 		case VK_DELETE:
-			//прохожу по всем формаци€м и дл€ них убиваю этого юнита
 			CTreeItem *pParent = GetParentTreeItem();
 			CTreeItem *pFormations = pParent->GetSiblingItem( E_SQUAD_FORMATIONS_ITEM );
 			NI_ASSERT( pFormations != 0 );
@@ -222,7 +217,6 @@ void CSquadMemberPropsItem::MyRButtonClick()
 	int nRes = g_frameManager.GetFrame( CFrameManager::E_SQUAD_FRAME )->DisplayDeleteMenu();
 	if ( nRes == ID_MENU_DELETE_TREE_ITEM )
 	{
-		//прохожу по всем формаци€м и дл€ них убиваю этого юнита
 		CTreeItem *pParent = GetParentTreeItem();
 		CTreeItem *pFormations = pParent->GetSiblingItem( E_SQUAD_FORMATIONS_ITEM );
 		NI_ASSERT( pFormations != 0 );
@@ -239,7 +233,6 @@ void CSquadMemberPropsItem::MyRButtonClick()
 
 void CSquadMemberPropsItem::MyLButtonClick()
 {
-	//выделим спрайт, относ€щийс€ к данному юниту в сцене
 	CSquadFrame *pFrame = static_cast<CSquadFrame *> ( g_frameManager.GetFrame( CFrameManager::E_SQUAD_FRAME ) );
 	pFrame->SelectActiveUnit( this );
 }
@@ -260,7 +253,6 @@ void CSquadFormationsItem::MyKeyDown( int nChar )
 			AddChild( pItem );
 			g_frameManager.GetFrame( CFrameManager::E_SQUAD_FRAME )->SetChangedFlag( true );
 			
-			//прохожу по всем созданным members и добавл€ю их в новую формацию
 			CTreeItem *pMembers = GetSiblingItem( E_SQUAD_MEMBERS_ITEM );
 			NI_ASSERT( pMembers != 0 );
 
@@ -283,7 +275,6 @@ void CSquadFormationsItem::MyRButtonClick()
 		AddChild( pItem );
 		g_frameManager.GetFrame( CFrameManager::E_SQUAD_FRAME )->SetChangedFlag( true );
 		
-		//прохожу по всем созданным members и добавл€ю их в новую формацию
 		CTreeItem *pMembers = GetSiblingItem( E_SQUAD_MEMBERS_ITEM );
 		NI_ASSERT( pMembers != 0 );
 
@@ -411,7 +402,6 @@ void CSquadFormationPropsItem::UpdateItemValue( int nItemId, const CVariant &val
 	
 	if ( nItemId == 1 )
 	{
-		//ќбновим направление формации в редакторе
 		CSquadFrame *pFrame = static_cast<CSquadFrame *> ( g_frameManager.GetFrame( CFrameManager::E_SQUAD_FRAME ) );
 		pFrame->SetChangedFlag( true );
 		pFrame->UpdateActiveFormation();
@@ -448,7 +438,6 @@ void CSquadFormationPropsItem::AddUnit( CTreeItem *pUnit )
 	SUnit newUnit;
 	newUnit.pMemberProps = pUnit;
 	
-	//подсчитаем позицию дл€ нового юнита так, чтобы никакой старый на него не налезал
 	int nx, ny;
 	nx = units.size() % 8;
 	ny = units.size() / 8;
@@ -459,7 +448,6 @@ void CSquadFormationPropsItem::AddUnit( CTreeItem *pUnit )
 	newUnit.fDir = 0;
 	
 /*
-	//скомпонуем спрайт
 	IVisObjBuilder *pVOB = GetSingleton<IVisObjBuilder>();
 	IScene *pSG = GetSingleton<IScene>();
 	string szName = "units\\humans\\";
@@ -481,7 +469,6 @@ void CSquadFormationPropsItem::AddUnit( CTreeItem *pUnit )
 
 void CSquadFormationPropsItem::DeleteUnit( CTreeItem *pUnit )
 {
-	//”дал€ю юнит из сцены
 	CSquadFrame *pFrame = static_cast<CSquadFrame *> ( g_frameManager.GetFrame( CFrameManager::E_SQUAD_FRAME ) );
 	pFrame->DeleteUnitFromScene( pUnit, this );
 

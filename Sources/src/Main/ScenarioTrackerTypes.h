@@ -1,8 +1,6 @@
 #ifndef __SCENARIOTRACKERTYPES_H__
 #define __SCENARIOTRACKERTYPES_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EScenarioTrackerMissionTypes
 {
 
@@ -33,15 +31,12 @@ enum EScenarioTrackerMissionTypes
 
 	_STMT_END_STATS													= 12,
 
-	// OLD STATISTICS
 	STMT_UNITS_LOST_UNRECOVERABLY							= _STMT_END_STATS,
 	STMT_UNITS_RETURN_AFTER_DAMAGE					= 13	,
 	STMT_REINFORCEMENT_USED									= 14,
 	STMT_UNITS_GAIN_STARS										= 15,
 	STMT_NEW_UNITS													= 16,
-	//END OLD STATISTICS
 
-	//common statistics
 	STMT_TIME_ELAPSED												= 17,
 	STMT_OBJECTIVES_COMPLETED								= 18,
 	STMT_OBJECTIVES_FAILED									= 19,
@@ -50,16 +45,12 @@ enum EScenarioTrackerMissionTypes
 	STMT_OBJECTIVES_RECIEVED								= 22,
 
 
-	// player's experience
 	STMT_PLAYER_EXPERIENCE									= 23,									
 
 	
 
-	//
-	//
 	STMT_NUM_ELEMENTS												= 24
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EScenarioTrackerUnitTypes
 {
 	STUT_EXP = 0,
@@ -68,9 +59,6 @@ enum EScenarioTrackerUnitTypes
 	STUT_STARS,
 	STUT_EXP_NEXT_LEVEL,
 	STUT_EXP_CURR_LEVEL,
-	//
-	//
 	STUT_NUM_ELEMENTS
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __SCENARIOTRACKERTYPES_H__

@@ -1,8 +1,6 @@
 #ifndef __WORLD_H__
 #define __WORLD_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum
 {
 	WCB_YOU_WIN		= 0x00300001,
@@ -11,47 +9,34 @@ enum
 
 	WCB_FORCE_DWORD = 0x7fffffff
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum ESeason
 {
 	SEASON_SUMMER = 0,
 	SEASON_WINTER = 1,
 	SEASON_AFRIKA = 2
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IWorld : public IRefCount
 {
-	// set climato-geographical zone settings
 	virtual void STDCALL SetSeason( int nSeason ) = 0;
-	// startup initialization (mission begin)
 	virtual void STDCALL Init( interface ISingleton *pSingleton ) = 0;
-	// remove all from all !!!
 	virtual void STDCALL Clear() = 0;
-	// general world update from AI
 	virtual void STDCALL Update( const NTimer::STime &currTime ) = 0;
-	// message processing
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg ) = 0;
 	virtual bool STDCALL GetMessage( SGameMessage *pMsg ) = 0;
 	
 	virtual void STDCALL GetAviationCircles( interface IUIMiniMap * pMinimap, const NTimer::STime curTime ) = 0;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IWorldClient : public IWorld
 {
-	// mission start
 	virtual void STDCALL Start() = 0;
-	// selection
 	virtual void STDCALL Select( const CVec2 &vPos ) = 0;
 	virtual int STDCALL Select( interface IVisObj **objects, int nNumObjects ) = 0;
 	virtual void STDCALL ResetSelection( interface IVisObj *pObj = 0 ) = 0;
 	virtual void STDCALL PreSelect( interface IVisObj **objects, int nNumObjects ) = 0;
 	virtual void STDCALL ResetPreSelection( interface IVisObj *pObj = 0 ) = 0;
-	// manipulation
 	virtual void STDCALL MoveObject( interface IVisObj *pObj, const CVec3 &vPos ) = 0;
-	// action...
 	virtual void STDCALL OnMouseMove( const CVec2 &vPos, interface IUIElement *pElement ) = 0;
 	virtual void STDCALL BeginAction( const SGameMessage &msg ) {  }
 	virtual void STDCALL DoAction( const SGameMessage &msg ) = 0;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __WORLD_H__

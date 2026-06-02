@@ -2,10 +2,8 @@
 #define __STATIC_OBJECT_H__
 
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "LinkObject.h"
 #include "RectTiles.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EStaticObjType { ESOT_COMMON, 
 											ESOT_BUILDING, 
 											ESOT_MINE, 
@@ -19,18 +17,12 @@ enum EStaticObjType { ESOT_COMMON,
 											ESOT_FLAG,
 											ESOT_ARTILLERY_BULLET_STORAGE,
 										};
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												  CStaticObject														*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CStaticObject : public CLinkObject
 {
 	DECLARE_SERIALIZE;
 public:
 	virtual const SHPObjectRPGStats* GetStats() const = 0;
 	
-	// расположение объекта
 	virtual const CVec2& GetCenter() const = 0;
 	virtual const CVec2 GetAttackCenter( const CVec2 &vPoint ) const = 0;
 	virtual void GetBoundRect( SRect *pRect ) const = 0;
@@ -38,14 +30,12 @@ public:
 	virtual bool IsPointInside( const CVec2 &point ) const = 0;
 	virtual const WORD GetDir() const = 0;
 
-	// hit points и damage
 	virtual const float GetHitPoints() const = 0;
 	virtual void SetHitPoints( const float fNewHP ) { NI_ASSERT_T(false, "wrong call,CStaticObject::SetHitPoints"); }
 	virtual bool IsAlive() const { return GetHitPoints() > 0.0f; }
 	virtual void TakeDamage( const float fDamage, const bool bFromExplosion, const int nPlayerOfShoot, CAIUnit *pShotUnit ) = 0;
 	virtual void TakeEditorDamage( const float fDamage ) = 0;
 
-	// сегмент для обработки некоторой внутренней логики объекта
 	virtual void Segment() = 0;
 	virtual const NTimer::STime GetNextSegmentTime() const { return 0; }
 
@@ -57,33 +47,21 @@ public:
 	virtual const int GetNDefenders() const = 0;
 	virtual class CSoldier* GetUnit( const int n ) const = 0;
 	
-	// для suspended updates
 	virtual const bool IsVisible( const BYTE cParty ) const;
 	virtual void GetTilesForVisibility( CTilesSet *pTiles ) const;
 	virtual bool ShouldSuspendAction( const EActionNotify &eAction ) const;
 
-	// true если объект можно добавить в данную точку
   static bool CheckStaticObject( const SObjectBaseRPGStats * pStats, const CVec2 & vPos, const int nFrameIndex );
 
-	// может ли юнит класса eClass проехать сквозь объект
 	virtual bool CanUnitGoThrough( const EAIClass &eClass ) const = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													ILoadableObject													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// объект, внутри которого могут быть юниты
 interface ILoadableObject
 {
-	// итерирование по fire slots
 	virtual void StartIterate() = 0;
 	virtual void Iterate() = 0;
 	virtual bool IsIterateFinished() = 0;
 	virtual class CAIUnit* GetIteratedUnit() = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// объект, реально находящийся на карте
 class CExistingObject : public CStaticObject
 {
 	DECLARE_SERIALIZE;
@@ -98,7 +76,6 @@ protected:
 	int nFrameIndex;
 	float fHP;
 
-	//
 	virtual void SetNewPlaceWithoutMapUpdate( const CVec2 &center, const WORD dir = 0 ) = 0;
 	const int GetRandArmorByDir( const int nArmorDir, const WORD wAttackDir );
 public:
@@ -106,29 +83,23 @@ public:
 	CExistingObject( const int _nFrameIndex, const int _dbID, const float _fHP ) 
 		: dbID( _dbID ), nFrameIndex( _nFrameIndex ), fHP( _fHP ), mark( 0 ) { SetUniqueId(); }
 
-	// информация об объекте
 	virtual const int GetDBID() const { return dbID; }
 	const int GetFrameIndex() const { return nFrameIndex; }
 
-	// hit points и damage
 	virtual void TakeEditorDamage( const float fDamage );
 	const float GetHitPoints() const { return fHP; }
-	// выполнение необходимых действий при обращении HitPoints в ноль
 	virtual void Die( const float fDamage ) = 0;
 
-	// расположение объекта
 	virtual void SetNewPlacement( const CVec2 &center, const WORD dir );
 
 	virtual void LockTiles( bool bInitialization = false ) = 0;
 	virtual void UnlockTiles( bool bInitialization = false ) = 0;
 	virtual void SetTransparencies() = 0;
 	virtual void RemoveTransparencies() = 0;
-	// поставить прозрачность ещё раз, если она сейчас поставлена
 	virtual void RestoreTransparencies() = 0;
 	
 	virtual bool CanBeMovedTo( const CVec2 &newCenter ) const = 0;
 
-	// для updater-а
 	virtual void GetPlacement( struct SAINotifyPlacement *pPlacement, const NTimer::STime timeDiff );
 	virtual void GetNewUnitInfo( struct SNewUnitInfo *pNewUnitInfo );
 	virtual void GetRPGStats( struct SAINotifyRPGStats *pStats ) = 0;
@@ -136,29 +107,19 @@ public:
 	virtual void Delete();
 	void DeleteForEditor();
 
-	// для iterator-а
 	virtual bool IsGlobalUpdated() const { return mark == globalMark; }
 	virtual void SetGlobalUpdated() { mark = globalMark; }
 	static void UpdateGlobalMark() { ++globalMark; }
 	
-	// true при попадании
 	virtual bool ProcessCumulativeExpl( class CExplosion *pExpl, const int nArmorDir, const bool bFromExpl );
 	virtual bool ProcessBurstExpl( class CExplosion *pExpl, const int nArmorDir, const float fRadius, const float fSmallRadius );
 	virtual bool ProcessAreaDamage( const class CExplosion *pExpl, const int nArmorDir, const float fRadius, const float fSmallRadius ) { return false; }
 
-	// сегмент для горения объекта
 	virtual void BurnSegment();
-	// попадание по объекту с damage (вызывать только после списывания damage)
 	virtual void WasHit();
 
 	friend class CStaticMembers;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CGivenPassabilityStObject										*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// объект с заданной проходимостью
 class CGivenPassabilityStObject : public CExistingObject
 {
 	DECLARE_SERIALIZE;
@@ -171,7 +132,6 @@ class CGivenPassabilityStObject : public CExistingObject
 	
 	CArray2D<BYTE> canSetTransparency;
 	
-	//
 	const int GetVisDownX() const;
 	const int GetVisUpX() const;
 	const int GetVisDownY() const;
@@ -207,11 +167,6 @@ public:
 	virtual void RestoreTransparencies();
 	virtual bool CanBeMovedTo( const CVec2 &newCenter ) const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												 CCommonStaticObject											*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCommonStaticObject : public CGivenPassabilityStObject
 {
 	DECLARE_SERIALIZE;
@@ -235,7 +190,6 @@ public:
 
 	virtual bool ProcessAreaDamage( const class CExplosion *pExpl, const int nArmorDir, const float fRadius, const float fSmallRadius );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSimpleStaticObject : public CCommonStaticObject
 {
 	OBJECT_COMPLETE_METHODS( CSimpleStaticObject );
@@ -260,7 +214,6 @@ public:
 	virtual bool CanUnitGoThrough( const EAIClass &eClass ) const;
 	virtual bool ShouldSuspendAction( const EActionNotify &eAction ) const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTerraMeshStaticObject : public CCommonStaticObject
 {
 	OBJECT_COMPLETE_METHODS( CTerraMeshStaticObject );
@@ -281,5 +234,4 @@ public:
 	virtual void SetNewPlacement( const CVec2 &center, const WORD dir );
 	virtual void GetPlacement( struct SAINotifyPlacement *pPlacement, const NTimer::STime timeDiff );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __STATIC_OBJECT_H__

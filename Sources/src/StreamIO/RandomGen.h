@@ -1,36 +1,25 @@
 #ifndef __RANDOM_GEN_H__
 #define __RANDOM_GEN_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IRandomGenSeed : public IRefCount
 {
-	// re-initialize random seed
 	virtual void STDCALL Init() = 0;
 	virtual void STDCALL InitByZeroSeed() = 0;
-	// serialize to text
 	virtual int STDCALL operator&( IDataTree &ss ) = 0;
-	// store and restore binary data in the stream form (for non-structure-saver usage)
 	virtual void STDCALL Store( IDataStream *pStream ) = 0;
 	virtual void STDCALL Restore( IDataStream *pStream ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IRandomGen : public IRefCount
 {
 	enum { tidTypeID = -3 };
-	// initialization and random seed
 	virtual void STDCALL Init() = 0;
 	virtual void STDCALL SetSeed( IRandomGenSeed *pSeed ) = 0;
 	virtual IRandomGenSeed* STDCALL GetSeed() = 0;
-	//
 	virtual unsigned int STDCALL Get() = 0;
-	// запись и считывание из потока - для пересылки по сети (для синхронизации)
 	virtual void STDCALL Store( IDataStream *pStream ) = 0;
 	virtual void STDCALL Restore( IDataStream *pStream ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern IRandomGen *g_pGlobalRandomGen;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline unsigned int Random() 
 { 
 #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
@@ -103,8 +92,6 @@ inline int Dice( int nNum, int nDice )
 		uRes += Random( nDice )  + 1;
 	return uRes;
 }
-// random with checks
 inline unsigned int RandomCheck( unsigned int uMax ) { return uMax == 0 ? 0 : Random( uMax ); }
 inline int RandomCheck( int nMin, int nMax ) { return nMax < nMin ? nMin : Random( nMin, nMax ); }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __RANDOM_GEN_H__

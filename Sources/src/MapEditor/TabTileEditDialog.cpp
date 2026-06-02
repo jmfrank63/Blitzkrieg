@@ -12,7 +12,6 @@
 #include "..\RandomMapGen\MapInfo_Types.h"
 #include "..\RandomMapGen\IB_Types.h"
 #include "RMG_FieldTilePropertiesDialog.h"
-//#include "..\RandomMapGen\Resource_Types.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -20,45 +19,34 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CTabTileEditDialog::vID[] = 
 {
 	IDC_TE_TILES_LABEL,				//0		
 	IDC_TE_TILES_LIST,				//1
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CTabTileEditDialog::CTabTileEditDialog( CWnd* pParent )
 	: CResizeDialog( CTabTileEditDialog::IDD, pParent )
 {
-	//{{AFX_DATA_INIT(CTabTileEditDialog)
-	//}}AFX_DATA_INIT
 
 	SetControlStyle( IDC_TE_TILES_LABEL, ANCHORE_LEFT_TOP | RESIZE_HOR );
 	SetControlStyle( IDC_TE_TILES_LIST, ANCHORE_LEFT_TOP | RESIZE_HOR_VER );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTileEditDialog::DoDataExchange(CDataExchange* pDX)
 {
 	CResizeDialog::DoDataExchange(pDX);
-	//{{AFX_DATA_MAP(CTabTileEditDialog)
 	DDX_Control(pDX, IDC_TE_TILES_LIST, m_TilesList);
-	//}}AFX_DATA_MAP
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CTabTileEditDialog, CResizeDialog)
-	//{{AFX_MSG_MAP(CTabTileEditDialog)
 	ON_WM_SIZE()
 	ON_WM_DESTROY()
 	ON_NOTIFY(NM_RCLICK, IDC_TE_TILES_LIST, OnRclickilesList)
 	ON_NOTIFY(NM_DBLCLK, IDC_TE_TILES_LIST, OnDblclkTilesList)
 	ON_COMMAND(IDC_TE_TILE_PROPERTIES_MENU, OnTilePropertiesMenu)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CTabTileEditDialog::OnInitDialog() 
 {
 	CResizeDialog::OnInitDialog();
@@ -67,7 +55,6 @@ BOOL CTabTileEditDialog::OnInitDialog()
 	return TRUE;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTileEditDialog::OnDestroy() 
 {
 	CResizeDialog::OnDestroy();
@@ -75,7 +62,6 @@ void CTabTileEditDialog::OnDestroy()
 	seasonTilesIndices.clear();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTileEditDialog::OnSize(UINT nType, int cx, int cy) 
 {
 	CResizeDialog::OnSize( nType, cx, cy );
@@ -86,7 +72,6 @@ void CTabTileEditDialog::OnSize(UINT nType, int cx, int cy)
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTileEditDialog::DeleteImageList()
 {
 	m_TilesList.DeleteAllItems();
@@ -94,7 +79,6 @@ void CTabTileEditDialog::DeleteImageList()
 	seasonTilesIndices.clear();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTileEditDialog::CreateImageList()
 {
 	DWORD dwTime = GetTickCount();
@@ -126,7 +110,6 @@ void CTabTileEditDialog::CreateImageList()
 		tilesImageList.Create( TEFConsts::THUMBNAILTILE_WIDTH, TEFConsts::THUMBNAILTILE_HEIGHT, ILC_COLOR24, 0, 10 );
 		m_TilesList.SetImageList( &tilesImageList, LVSIL_NORMAL );
 		
-		//для отсутствующих тайлов
 		int nImageAdded = 0;
 		{
 			const int nImageAddedIndex = tilesImageList.Add( &defaultObjectBitmap, zeroColor );
@@ -139,26 +122,22 @@ void CTabTileEditDialog::CreateImageList()
 			CPtr<IDataStream> pDescStream = pDataStorage->OpenStream( NStr::Format( "%stileset.xml", CMapInfo::SEASON_FOLDERS[nSeason] ), STREAM_ACCESS_READ );
 			if ( pImageStream && pDescStream )
 			{
-				//картинка
 				CPtr<IImage> pImage;
 				{
 					CPtr<IDDSImage> pDDSImage = pImageProcessor->LoadDDSImage( pImageStream );
 					pImage = pImageProcessor->Decompress( pDDSImage );
 				}
-				//описатель
 				STilesetDesc tilesetDesc;
 				{
 					CTreeAccessor tree = CreateDataTreeSaver( pDescStream, IDataTree::READ );
 					tree.Add( "tileset", &tilesetDesc );		
 				}			
 				
-				//создаем картинки и помещаем их в ImageList
 				for ( int nTileIndex = 0; nTileIndex < tilesetDesc.terrtypes.size(); ++nTileIndex )
 				{
 					const int nMapIndex = tilesetDesc.terrtypes[nTileIndex].tiles[0].nIndex;
 					const STileMapsDesc &rTileMapsDesc = tilesetDesc.tilemaps[nMapIndex];
 
-					//первый тайл
 					CPtr<IImage> pTempImage;
 					if ( rTileMapsDesc.maps[3].y > rTileMapsDesc.maps[0].y )
 					{
@@ -191,7 +170,6 @@ void CTabTileEditDialog::CreateImageList()
 					const int nSizeX = pScaleImage->GetSizeX();
 					const int nSizeY = pScaleImage->GetSizeY();
 
-					//маска
 					if ( pMaskImage )
 					{
 						CPtr<IImage> pScaleMaskImage = pImageProcessor->CreateScale( pMaskImage, fRate, ISM_LANCZOS3 );
@@ -205,7 +183,6 @@ void CTabTileEditDialog::CreateImageList()
 						pScaleImage->ModulateColorFrom(	pScaleMaskImage, &modulateRect, 0, 0 );
 					}
 					
-					//центровка
 					if ( nSizeY < TEFConsts::THUMBNAILTILE_HEIGHT )
 					{
 						int nUp = ( TEFConsts::THUMBNAILTILE_HEIGHT - nSizeY ) / 2;
@@ -231,7 +208,6 @@ void CTabTileEditDialog::CreateImageList()
 
 					objectBitmap.DeleteObject();
 					
-					//создаем картинку 
 					BITMAPINFO bmi;
 					bmi.bmiHeader.biSize  = sizeof( bmi.bmiHeader );
 					bmi.bmiHeader.biWidth  = TEFConsts::THUMBNAILTILE_WIDTH;
@@ -265,7 +241,6 @@ void CTabTileEditDialog::CreateImageList()
 	NStr::DebugTrace( "CTabTileEditDialog::CreateTilesImageList: %d ms\n", dwTime );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTileEditDialog::CreateTilesList( const std::string &rszSeasonFolder, int nSelectedTileIndex )
 {
 	m_TilesList.DeleteAllItems();
@@ -286,7 +261,6 @@ void CTabTileEditDialog::CreateTilesList( const std::string &rszSeasonFolder, in
 				STilesetDesc tilesetDesc;
 				if ( LoadDataResource( NStr::Format( "%stileset", CMapInfo::SEASON_FOLDERS[nSeason] ), "", false, 0, "tileset", tilesetDesc ) )
 				{
-					//по тайлам пробегаем
 					for ( int nTileIndex = 0; nTileIndex < tilesetDesc.terrtypes.size(); ++nTileIndex )
 					{
 						const int nImageIndex = seasonTilesIndices[MAKELPARAM( nSeason, nTileIndex )];
@@ -307,7 +281,6 @@ void CTabTileEditDialog::CreateTilesList( const std::string &rszSeasonFolder, in
 	m_TilesList.Arrange( LVA_DEFAULT );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTileEditDialog::OnRclickilesList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	CMenu tabsMenu;
@@ -324,14 +297,12 @@ void CTabTileEditDialog::OnRclickilesList(NMHDR* pNMHDR, LRESULT* pResult)
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTileEditDialog::OnDblclkTilesList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	ShowTileProperties();
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTileEditDialog::ShowTileProperties()
 {
 	if ( m_TilesList.GetSelectedCount() > 0 )
@@ -363,9 +334,7 @@ void CTabTileEditDialog::ShowTileProperties()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTabTileEditDialog::OnTilePropertiesMenu() 
 {
 	ShowTileProperties();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

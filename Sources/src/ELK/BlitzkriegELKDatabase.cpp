@@ -16,14 +16,12 @@ IMPLEMENT_DYNAMIC(CBlitzkriegELKRecordset, CRecordset)
 CBlitzkriegELKRecordset::CBlitzkriegELKRecordset(CDatabase* pdb)
 	: CRecordset(pdb)
 {
-	//{{AFX_FIELD_INIT(CBlitzkriegELKRecordset)
 	m_Path = _T("");
 	m_Original = _T("");
 	m_Translation = _T("");
 	m_State = _T("");
 	m_Description = _T("");
 	m_nFields = 5;
-	//}}AFX_FIELD_INIT
 	m_nDefaultType = snapshot;
 }
 
@@ -40,14 +38,12 @@ CString CBlitzkriegELKRecordset::GetDefaultSQL()
 
 void CBlitzkriegELKRecordset::DoFieldExchange(CFieldExchange* pFX)
 {
-	//{{AFX_FIELD_MAP(CBlitzkriegELKRecordset)
 	pFX->SetFieldType(CFieldExchange::outputColumn);
 	RFX_Text(pFX, _T("[Path]"), m_Path );
 	RFX_Text(pFX, _T("[Original]"), m_Original, 0xFFFF, SQL_VARCHAR );
 	RFX_Text(pFX, _T("[Translation]"), m_Translation, 0xFFFF, SQL_VARCHAR );
 	RFX_Text(pFX, _T("[State]"), m_State );
 	RFX_Text(pFX, _T("[Description]"), m_Description, 0xFFFF, SQL_VARCHAR );
-	//}}AFX_FIELD_MAP
 }
 
 #ifdef _DEBUG

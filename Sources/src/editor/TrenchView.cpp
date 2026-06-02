@@ -10,8 +10,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CTrenchView
 
 CTrenchView::CTrenchView()
 {
@@ -23,14 +21,10 @@ CTrenchView::~CTrenchView()
 
 
 BEGIN_MESSAGE_MAP(CTrenchView, CWnd)
-//{{AFX_MSG_MAP(CTrenchView)
 ON_WM_PAINT()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CTrenchView message handlers
 
 BOOL CTrenchView::PreCreateWindow(CREATESTRUCT& cs) 
 {
@@ -47,7 +41,6 @@ BOOL CTrenchView::PreCreateWindow(CREATESTRUCT& cs)
 void CTrenchView::OnPaint() 
 {
 /*
-//	if ( g_frameManager.GetObjectFrame()->IsRunning() )
 	{
 		RECT valRC;
 		((CWnd *) g_frameManager.GetGameWnd())->GetWindowRect( &valRC );

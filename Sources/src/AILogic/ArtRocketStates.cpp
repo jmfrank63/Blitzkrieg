@@ -12,16 +12,9 @@
 #include "StaticObject.h"
 #include "Turret.h"
 #include "ArtilleryBulletStorage.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern NTimer::STime curTime;
 extern CGroupLogic theGroupLogic;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										 CArtRocketStatesFactory											*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CPtr<CArtRocketStatesFactory> CArtRocketStatesFactory::pFactory = 0;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IStatesFactory* CArtRocketStatesFactory::Instance()
 {
 	if ( pFactory == 0 )
@@ -29,7 +22,6 @@ IStatesFactory* CArtRocketStatesFactory::Instance()
 
 	return pFactory;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CArtRocketStatesFactory::CanCommandBeExecuted( CAICommand *pCommand )
 {
 	const EActionCommand &cmdType = pCommand->ToUnitCmd().cmdType;
@@ -54,7 +46,6 @@ bool CArtRocketStatesFactory::CanCommandBeExecuted( CAICommand *pCommand )
 			cmdType == ACTION_COMMAND_SWARM_TO
 		);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CArtRocketStatesFactory::ProduceState( class CQueueUnit *pObj, CAICommand *pCommand )
 {
 	NI_ASSERT_T( dynamic_cast<CArtillery*>( pObj ) != 0, "Wrong unit type" );
@@ -133,7 +124,6 @@ IUnitState* CArtRocketStatesFactory::ProduceState( class CQueueUnit *pObj, CAICo
 		case ACTION_COMMAND_ATTACK_OBJECT:
 			{
 				CONVERT_OBJECT_PTR( CStaticObject, pStaticObj, cmd.pObject, "Wrong static object to attack" );
-				// attack the artillery
 				if ( pStaticObj->GetObjectType() == ESOT_ARTILLERY_BULLET_STORAGE )
 				{
 					pResult = CArtRocketAttackGroundState::Instance( pArtillery, static_cast<CArtilleryBulletStorage*>(pStaticObj)->GetOwner()->GetCenter() );
@@ -158,7 +148,6 @@ IUnitState* CArtRocketStatesFactory::ProduceState( class CQueueUnit *pObj, CAICo
 
 			break;
 		case ACTION_COMMAND_SWARM_TO:
-			// сначала выйти из TankPit, потом поехать куда послали			
 			if ( pArtillery->IsInTankPit() && !pCommand->IsFromAI() )
 			{
 				theGroupLogic.InsertUnitCommand( pCommand->ToUnitCmd(), pArtillery );
@@ -176,22 +165,15 @@ IUnitState* CArtRocketStatesFactory::ProduceState( class CQueueUnit *pObj, CAICo
 
 	return pResult;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CArtRocketStatesFactory::ProduceRestState( class CQueueUnit *pUnit )
 {
 	NI_ASSERT_T( dynamic_cast<CArtillery*>( pUnit ) != 0, "Wrong unit type" );	
 	return CArtilleryRestState::Instance( static_cast<CArtillery*>( pUnit ), static_cast<CArtillery*>( pUnit )->GetCenter(), 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										 CArtRocketAttackGroundState									*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CArtRocketAttackGroundState::Instance( CArtillery *pArtillery, const CVec2 &point )
 {
 	return new CArtRocketAttackGroundState( pArtillery, point );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CArtRocketAttackGroundState::CArtRocketAttackGroundState( CArtillery *_pArtillery, const CVec2 &_point )
 : pArtillery( _pArtillery ), point( _point ), bFired( false ), eState( EAGS_FIRING ), wDirToRotate( 0 ), bFinished( false )
 {
@@ -224,7 +206,6 @@ CArtRocketAttackGroundState::CArtRocketAttackGroundState( CArtillery *_pArtiller
 	else
 		eState = EAGS_FIRING;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CArtRocketAttackGroundState::Segment()
 {
 	NI_ASSERT_T( pArtillery->GetFirstArtilleryGun() != 0, "Rocket unit doesn't have any ballistic guns" );
@@ -280,7 +261,6 @@ void CArtRocketAttackGroundState::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CArtRocketAttackGroundState::TryInterruptState(class CAICommand *pCommand)
 {
 	if ( pCommand == 0 || !pArtillery->GetFirstArtilleryGun()->IsBursting() )
@@ -291,4 +271,3 @@ ETryStateInterruptResult CArtRocketAttackGroundState::TryInterruptState(class CA
 	}
 	return TSIR_YES_WAIT;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

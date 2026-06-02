@@ -6,10 +6,8 @@
 #include "PathFinder.h"
 #include "AIStaticMap.h"
 #include "Path.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CStaticMap theStaticMap;
 extern NTimer::STime curTime;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IStaticPath* IBasePathUnit::GetPathToBuilding( CBuilding *pBuilding, int *pnEntrance )
 {
 	float fMinLen = 1e10;
@@ -22,9 +20,7 @@ IStaticPath* IBasePathUnit::GetPathToBuilding( CBuilding *pBuilding, int *pnEntr
 
 		if ( !theStaticMap.IsLocked( AICellsTiles::GetTile( vEntr ), AI_CLASS_HUMAN ) )
 		{
-			// здесь - не CPtr!!! Нужно, чтобы при выходе из функции он не удалялся
 			IStaticPath *pPath = CreateStaticPathToPoint( vEntr, VNULL2, this );
-			// чтобы удалять путь
 			CPtr<IStaticPath> pGarbage;
 
 			if ( pPath && pBuilding->IsGoodPointForRunIn( pPath->GetFinishPoint(), i ) )
@@ -47,7 +43,6 @@ IStaticPath* IBasePathUnit::GetPathToBuilding( CBuilding *pBuilding, int *pnEntr
 
 	return pBestPath;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IStaticPath* IBasePathUnit::GetPathToEntrenchment( CEntrenchment *pEntrenchment )
 {
 	SRect rect;
@@ -59,27 +54,22 @@ IStaticPath* IBasePathUnit::GetPathToEntrenchment( CEntrenchment *pEntrenchment 
 
 	CVec2 toRectCenter( rect.center - finishPoint );
 	Normalize( &toRectCenter );
-	// немного сдвинуть к центру окопа
 	finishPoint += toRectCenter * SConsts::TILE_SIZE;
 
 	return CreateStaticPathToPoint( finishPoint, VNULL2, this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool IBasePathUnit::TurnToUnit( const CVec2 &targCenter )
 {
 	return TurnToDir( GetDirectionByVector( targCenter - GetCenter() ), false ) != 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void IBasePathUnit::TurnAgainstUnit( const CVec2 &targCenter )
 {
 	UpdateDirection( GetCenter() - targCenter );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float IBasePathUnit::GetSpeedForFollowing()
 {
 	return GetMaxSpeedHere( GetCenter() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool IBasePathUnit::IsOnLockedTiles( const struct SRect &rect )
 {
 	CTemporaryUnitRectUnlocker unlocker( GetID() );
@@ -95,12 +85,10 @@ bool IBasePathUnit::IsOnLockedTiles( const struct SRect &rect )
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void IBasePathUnit::CantFindPathToFormation()
 {
 	nextTimeToSearchPathToFormation = curTime + SConsts::PERIOD_OF_PATH_TO_FORMATION_SEARCH + Random( 0, 1000 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int IBasePathUnit::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -109,4 +97,3 @@ int IBasePathUnit::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

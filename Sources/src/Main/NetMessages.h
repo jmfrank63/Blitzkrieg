@@ -1,11 +1,8 @@
 #ifndef __NET_MESSAGES_H__
 #define __NET_MESSAGES_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum ENetGameMessages
 {
-	// game creation phase
 	NGM_LOGIC_ID,
 	NGM_BROADCAST_PLAYER_INFO,
 	NGM_DIRECT_PLAYER_INFO,
@@ -19,7 +16,6 @@ enum ENetGameMessages
 	NGM_GAME_IS_ALREADY_STARTED, // if new client tries to connect to already started game
 	NGM_GAME_SETTINGS_CHANGED,
 
-	// game playing phase
 	NGM_ID_SEGMENT,
 	NGM_ID_PLAYER_INFO,
 	NGM_ID_LOGIC_ID,
@@ -33,7 +29,6 @@ enum ENetGameMessages
 	NGM_ID_COMMAND_CHECK_SUM,
 	NGM_ID_COMMAND_DROP_PLAYER,
 
-	// client commands
 	NGM_PAUSE,
 	NGM_GAME_SPEED,
 	NGM_DROP_PLAYER,
@@ -42,10 +37,8 @@ enum ENetGameMessages
 	NGM_IAM_ALIVE,
 	NGM_LEFT_GAME,
 
-	// chat messages
 	NGM_CHAT_MESSAGE,
 	
-	// load map messages
 	NGM_SEND_ME_MAP,
 	NGM_TOTAL_PACKED_SIZE,
 	NGM_PACKED_FILE_INFO,
@@ -54,5 +47,4 @@ enum ENetGameMessages
 	NGM_FINISHED,
 	NGM_STREAM_FINISHED,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __NET_MESSAGES_H__

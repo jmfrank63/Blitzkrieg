@@ -4,12 +4,10 @@
 #include "UIMessages.h"
 #include "UISlider.h"
 #include "UIDialog.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum
 {
 	E_ELEMENT_CONTAINER				= 5,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIComplexScroll::UpdateScrollBar( const int nMaxValue, const int nCurValue )
 {
 	pScrollBar->SetMinValue( 0 );
@@ -21,12 +19,10 @@ void CUIComplexScroll::UpdateScrollBar( const int nMaxValue, const int nCurValue
 	
 	UpdatePosition();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CUIComplexScroll::CUIComplexScroll()
 : nCurrentPosToAdd( 0 ), m_nY( 0 )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIComplexScroll::GetBorderRect( CTRect<float> *pBorderRect ) const
 {
 	GetWindowRect( pBorderRect );
@@ -37,27 +33,22 @@ void CUIComplexScroll::GetBorderRect( CTRect<float> *pBorderRect ) const
 	if ( pScrollBar->IsVisible() )
 		pBorderRect->right -= pScrollBar->GetWidth();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIComplexScroll::Draw( IGFX *pGFX )
 {
 	NI_ASSERT_T( false, "wrong call" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIComplexScroll::Visit( interface ISceneVisitor *pVisitor )
 {
 	if ( !GetCmdShow() )
 		return;
 
-	// ��� ������� ���������� �������������� ��� ��������� ���������, ������� ��� �� ��������� ���� �������� ��, �������� CUIComplexScroll
 	VisitBackground( pVisitor );
 	
 	CWindowList & children = GetChildList();
-	// ������ �����
 	for ( CWindowList::reverse_iterator ri = children.rbegin(); ri != children.rend(); ++ri )
 		(*ri)->Visit( pVisitor );
 	
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIComplexScroll::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -72,7 +63,6 @@ int CUIComplexScroll::operator&( IDataTree &ss )
 
 	if ( saver.IsReading() )
 	{
-		//�������������� pScrollBar
 		pScrollBar = dynamic_cast<CUIScrollBar *>( GetChildByID(1) );
 		NI_ASSERT_T( pScrollBar != 0, "can't find scroll bar" );
 		
@@ -80,7 +70,6 @@ int CUIComplexScroll::operator&( IDataTree &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIComplexScroll::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -114,24 +103,20 @@ int CUIComplexScroll::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIComplexScroll::RepositionScrollbar()
 {
 	CVec2 size = pScrollBar->GetSize();
 	pScrollBar->SetPos( CVec2(0, 0) );
 	pScrollBar->SetSize( CVec2( size.x, GetSize().y ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIComplexScroll::Reposition( const CTRect<float> &rcParent )
 {
 	RepositionScrollbar();
 	CMultipleWindow::Reposition( rcParent );
 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIComplexScroll::ProcessMessage( const SUIMessage &msg )
 {
-	//Scroll Text ������������ NOTIFY ��������� �� ScrollBar
 	switch( msg.nMessageCode )
 	{
 	case UI_NOTIFY_POSITION_CHANGED:
@@ -142,7 +127,6 @@ bool CUIComplexScroll::ProcessMessage( const SUIMessage &msg )
 	
 	return CMultipleWindow::ProcessMessage( msg );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIComplexScroll::UpdatePosition()
 {
 	CVec2 vPos;
@@ -155,7 +139,6 @@ void CUIComplexScroll::UpdatePosition()
 	GetParent()->GetWindowPlacement( 0, 0, &rc );
 	Reposition( rc );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIComplexScroll::OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, float fDelta )
 {
 	if ( !IsInside( vPos ) )
@@ -167,10 +150,8 @@ bool CUIComplexScroll::OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, 
 	pScrollBar->SetPosition( pScrollBar->GetPosition() + fDelta*GetMouseWheelMultiplyer() );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIComplexScroll::AddItem( IUIElement *pElement, const bool bResizeToFitText )
 {
-	// bound rect for container
 	CTRect<float> rect;
 	GetBorderRect( &rect );
 	
@@ -179,14 +160,12 @@ void CUIComplexScroll::AddItem( IUIElement *pElement, const bool bResizeToFitTex
 		CVec2 vSize( rect.Width(), rect.Height() );
 		pElement->SetWindowPlacement( 0, &vSize );
 
-		// resize element by X and see the size of 
 		int nNewX = rect.Width(), nNewY = rect.Height();
 		pElement->GetTextSize( pElement->GetState(), &nNewX, &nNewY );
 		const CVec2 vNewSize( nNewX, nNewY );
 		pElement->SetWindowPlacement( 0, &vNewSize );
 	}
 
-	// add window to current position in container
 	const CVec2 vPos( 0, nCurrentPosToAdd );
 	pElement->SetWindowPlacement( &vPos, 0 );
 	pItemContainer->AddChild( pElement );
@@ -195,7 +174,6 @@ void CUIComplexScroll::AddItem( IUIElement *pElement, const bool bResizeToFitTex
 	pElement->GetWindowPlacement( 0, &vElementSize, 0 );
 
 	
-	// resize container to fit new element
 	CVec2 vContainerSize;
 	pItemContainer->GetWindowPlacement( 0, &vContainerSize, 0 );
 	vContainerSize.y = nCurrentPosToAdd + vElementSize.y;
@@ -209,10 +187,8 @@ void CUIComplexScroll::AddItem( IUIElement *pElement, const bool bResizeToFitTex
 
 	nCurrentPosToAdd = vContainerSize.y + nVSubSpace;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIComplexScroll::Clear()
 {
 	pItemContainer->RemoveAllChildren();
 	nCurrentPosToAdd = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

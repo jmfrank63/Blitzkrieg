@@ -8,20 +8,16 @@
 #include "AntiArtilleryManager.h"
 #include "AIUnit.h"
 #include "Cheats.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern NTimer::STime curTime;
 extern CDiplomacy theDipl;
 extern CUpdater updater;
 extern CAntiArtilleryManager theAAManager;
 extern SCheats theCheats;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CAntiArtillery );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAntiArtillery::CAntiArtillery( CAIUnit *pOwner )
 {
 	SetUniqueId();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAntiArtillery::Init( const float _fMaxRadius, const int _nParty )
 {
 	Mem2UniqueIdObjs();
@@ -31,7 +27,6 @@ void CAntiArtillery::Init( const float _fMaxRadius, const int _nParty )
 
 	lastScan = 0;
 
-	// 3 - всего три стороны
 	closestEnemyDist2.resize( 3 );
 	lastHeardPos.resize( 3 );
 	nHeardShots.resize( 3 );
@@ -40,7 +35,6 @@ void CAntiArtillery::Init( const float _fMaxRadius, const int _nParty )
 	lastShotTime.resize( 3 );
 	lastRevealCircleTime.resize( 3 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAntiArtillery::Scan( const CVec2 &center )
 {
 	memset( &(closestEnemyDist2[0]), 0, closestEnemyDist2.size() );
@@ -57,7 +51,6 @@ void CAntiArtillery::Scan( const CVec2 &center )
 
 	lastScan = curTime;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float GetRadius( const float nShots, const float fRevealRadius )
 {
 	float fMax = SConsts::MAX_ANTI_ARTILLERY_RADIUS *
@@ -68,7 +61,6 @@ float GetRadius( const float nShots, const float fRevealRadius )
 	/*return SConsts::ARTILLERY_REVEAL_COEEFICIENT/fRevealRadius * 
 	(SConsts::MAX_ANTI_ARTILLERY_RADIUS - ( SConsts::MAX_ANTI_ARTILLERY_RADIUS - SConsts::MIN_ANTI_ARTILLERY_RADIUS ) / SConsts::SHOTS_TO_MINIMIZE_LOCATION_RADIUS * nShots); */
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAntiArtillery::Fired( const float fGunRadius, const CVec2 &center )
 {
 	if ( curTime - lastScan >= SConsts::ANTI_ARTILLERY_SCAN_TIME )
@@ -131,11 +123,8 @@ void CAntiArtillery::Fired( const float fGunRadius, const CVec2 &center )
 						RandQuadrInCircle( fCurRadius, &newCenter );
 						newCenter += center;
 					}
-					// CRAP{ нет времени поискать баг
-					// NI_ASSERT_T( minX <= maxX, "Wrong box" );
 					else if ( minX > maxX )
 						newCenter = center;
-					// CRAP}
 					else
 					{
 						int cnt = 0;
@@ -170,24 +159,20 @@ void CAntiArtillery::Fired( const float fGunRadius, const CVec2 &center )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CCircle CAntiArtillery::GetRevealCircle( const int nParty ) const
 {
 	return CCircle( lastRevealCenter[nParty], 
 									GetRadius( Min( (float)nHeardShots[nParty], (float)SConsts::SHOTS_TO_MINIMIZE_LOCATION_RADIUS ), fMaxRadius ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const NTimer::STime CAntiArtillery::GetLastHeardTime( const int nParty ) const
 {
 	return lastShotTime[nParty];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAntiArtillery::Segment( bool bOwnerVisible )
 {
 	const int nMyParty = theDipl.GetMyParty();	
 	for ( int nIterParty = 0; nIterParty < 2; ++nIterParty )
 	{
-		// если player - враг, слышал выстрел, не слишком давно, и пора рисовать круг
 		const bool bEnemy = theDipl.GetDiplStatusForParties( nParty, nIterParty ) == EDI_ENEMY;
 		const bool bHaveToSendCircle =
 			lastShotTime[nIterParty] != 0 && curTime - lastShotTime[nIterParty] <= SConsts::AUDIBILITY_TIME && 
@@ -197,10 +182,8 @@ void CAntiArtillery::Segment( bool bOwnerVisible )
 		{
 			lastRevealCircleTime[nIterParty] = curTime;
 
-			// обязательно нужно создать, чтобы общая нумерация объектов не зависела от клиента
 			CPtr<CRevealCircle> pCircle = new CRevealCircle( GetRevealCircle( 1 - nParty ) );
 			
-			// этон наша сторона и мы для него не видны, 
 			if ( nMyParty == nIterParty && !bOwnerVisible )
 			{
 				if ( !theCheats.IsHistoryPlaying() )
@@ -209,4 +192,3 @@ void CAntiArtillery::Segment( bool bOwnerVisible )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

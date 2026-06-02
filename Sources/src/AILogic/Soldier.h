@@ -2,14 +2,11 @@
 #define __SOLDIER_H__
 
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "AIUnit.h"
 #include "AIWarFog.h"
 #include "StaticObjectSlotInfo.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUnitGuns;
 class CFormation;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldier : public CAIUnit
 {
 	DECLARE_SERIALIZE;
@@ -18,7 +15,6 @@ class CSoldier : public CAIUnit
 	EObjectInsideOf eInsideType;
 
 	CGDBPtr<SInfantryRPGStats> pStats;
-		// орудийные стволы
 	CPtr<CUnitGuns> pGuns;
 	
 	IRefCount *pObjInside;
@@ -47,14 +43,11 @@ class CSoldier : public CAIUnit
 	NTimer::STime nextPathSegmTime;
 	NTimer::STime nextLogicSegmTime;
 
-	//
 	void UpdateLyingPosition();
 protected:
 	virtual void PrepareToDelete();
 	
 	virtual void InitGuns();
-	// показывает все мины, которые попали в радиус обнаружения этого инженера
-	// 
 	virtual void RevealNearestMines( const bool bIncludingAP );
 
 	virtual bool CalculateUnitVisibility4Party( const BYTE cParty ) const;
@@ -105,9 +98,7 @@ public:
 	bool IsInEntrenchment() const { return eInsideType == EOIO_ENTRENCHMENT; }
 	bool IsInTransport() const { return eInsideType == EOIO_TRANSPORT; }
 
-	// для стрельбы  - заполняются поля typeID, pUnit и номер слота, если нужно
 	virtual void  GetShotInfo( struct SAINotifyInfantryShot *pShotInfo ) const;
-	// для бросания гранат - заполняются поля typeID, pUnit и номер слота, если нужно
 	void GetThrowInfo( struct SAINotifyInfantryShot *pThrowInfo ) const;
 	void GetEntranceStateInfo( struct SAINotifyEntranceState *pInfo ) const;
 
@@ -118,7 +109,6 @@ public:
 	virtual const EActionNotify GetIdleAction() const;
 	virtual const EActionNotify GetMovingAction() const;
 
-	//
 	virtual bool CanMove() const { return IsFree() && GetBehaviour().moving != SBehaviour::EMHoldPos; }
 	virtual bool CanMovePathfinding() const { return IsFree(); }
 
@@ -126,7 +116,6 @@ public:
 	virtual const float GetSightRadius() const;
 	void SetOwnSightRadius( const float _fOwnSightRadius ) { fOwnSightRadius = _fOwnSightRadius; }
 	void RemoveOwnSightRadius() { fOwnSightRadius = -1; }
-	// вероятность, с которой нанесётся damage при попадании
 	virtual const float GetCover() const;
 	bool IsLying() const { return bLying; }
 	void LieDown();
@@ -136,7 +125,6 @@ public:
 	virtual void Segment();
 	virtual void FreezeSegment();
 	
-	// формация
 	void SetFormation( class CFormation* pFormation, const BYTE cFormSlot );
 	virtual bool IsInFormation() const { return pFormation != 0; }
 	virtual class CFormation* GetFormation() const { return pFormation; }
@@ -144,14 +132,12 @@ public:
 	virtual const int GetFormationSlot() const { return cFormSlot; }
 	virtual const bool CanShootToPlanes() const;
 
-	//
 	virtual int GetNGuns() const;
 	virtual class CBasicGun* GetGun( const int n ) const;
 	virtual class CTurret* GetTurret( const int nTurret ) const;
 	virtual const int GetNTurrets() const;
 	virtual int GetNAmmo( const int nCommonGun ) const;
 	virtual void Fired( const float fGunRadius, const int nGun );
-	// nAmmo со знаком
 	virtual void ChangeAmmo( const int nCommonGun, const int nAmmo );
 	virtual bool IsCommonGunFiring( const int nCommonGun ) const;
 
@@ -198,7 +184,6 @@ public:
 	virtual bool ShouldSuspendAction( const EActionNotify &eAction ) const;
 	virtual bool CanJoinToFormation() const;
 
-	// поискать цель, текущая цель для атаки - pCurTarget
 	virtual void LookForTarget( CAIUnit *pCurTarget, const bool bDamageUpdated, CAIUnit **pBestTarget, class CBasicGun **pGun );
 	virtual void TakeDamage( const float fDamage, const SWeaponRPGStats::SShell *pShell, const int nPlayerOfShoot, CAIUnit *pShotUnit );
 	
@@ -208,7 +193,6 @@ public:
 	virtual void FirstSegment();
 	virtual const NTimer::STime GetNextPathSegmTime() const { return nextPathSegmTime; }
 
-	// количество сегментнов, прошедшее с прошлого вызова SecondSegment
 	virtual const float GetPathSegmentsPeriod() const;
 	
 	virtual const NTimer::STime& GetBehUpdateDuration() const { return SConsts::SOLDIER_BEH_UPDATE_DURATION; }
@@ -220,7 +204,6 @@ public:
 
 	virtual void FreezeByState( const bool bFreeze );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInfantry : public CSoldier
 {
 	OBJECT_COMPLETE_METHODS( CInfantry );
@@ -228,18 +211,14 @@ class CInfantry : public CSoldier
 public:
 	CInfantry() { }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSniper : public CSoldier
 {
 	OBJECT_COMPLETE_METHODS( CSniper );
 	DECLARE_SERIALIZE;
 
 	NTimer::STime lastVisibilityCheck;
-	// виден ли для противоположной party
 	bool bVisible;
-	// находится ли в sneak mode
 	bool bSneak;
-	// вероятность снять камуфляж при выстреле, если находимся в sneak mode
 	float fCamouflageRemoveWhenShootProbability;
 
 protected:
@@ -268,7 +247,6 @@ struct SSniperTrace
 	const int nParty;
 	CSniper *pSniper;
 
-	//
 	SSniperTrace( CSniper *_pSniper ) 
 		: centerTile( _pSniper->GetTile().x, _pSniper->GetTile().y ), 
 			bCamouflated( _pSniper->IsCamoulflated() ), fCamouflage( _pSniper->GetCamouflage() ),
@@ -300,5 +278,4 @@ struct SSniperTrace
 		return true;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __SOLDIER_H__

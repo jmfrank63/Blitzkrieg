@@ -8,13 +8,11 @@
 #include "UIConsts.h"
 #include "MinimapCreation.h"
 #include "SaveLoadCommon.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum
 {
 	E_OPTIONS_LIST												= 1005,
 	E_STATIC_GAME_TYPE										= 20002,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_cancel"		, IMC_CANCEL		},
@@ -24,12 +22,10 @@ static const NInput::SRegisterCommandEntry commands[] =
 #endif // !defined(_FINALRELEASE) || defined(_DEVVERSION)
 	{ 0									,	0							}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMPCreateGame::SComparePredicate::operator()( const struct SLoadFileDesc & f1, const struct SLoadFileDesc & f2 ) const
 {
 	return f1.szFileName == f2.szFileName;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EControlIDs
 {
 	E_MAPS_LIST					= 1000,
@@ -38,7 +34,6 @@ enum EControlIDs
 	E_BUTTON_CREATE			= 10004,
 	E_BUTTON_SETTINGS		= 10005,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMPCreateGame::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceMultiplayerScreen::ProcessMessage( msg ) )
@@ -56,7 +51,6 @@ bool CInterfaceMPCreateGame::ProcessMessage( const SGameMessage &msg )
 
 	if ( pMapSettingsWrapper && pMapSettingsWrapper->ProcessMessage( msg ) ) return true;
 	
-	//process buttons pressings
 	switch( msg.nEventID )
 	{
 	case MC_SET_TEXT_MODE:
@@ -97,7 +91,6 @@ bool CInterfaceMPCreateGame::ProcessMessage( const SGameMessage &msg )
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPCreateGame::CreateGame()
 {
 	SUIMapInfo * pInfo = mapsList.GetCurInfo();
@@ -118,21 +111,17 @@ void CInterfaceMPCreateGame::CreateGame()
 		GetSingleton<IOptionSystem>()->Get( "Multiplayer.ServerPassword", &varPassword );
 
 		const std::string szPassword = NStr::ToAscii( std::wstring( _bstr_t( varPassword ) ) );
-		//send info to Vitalik about selected map;
 		CPtr<SNewMapInfo> pMapInfo = new SNewMapInfo( pInfo->szPath.c_str(), pInfo->mapInfo, pMapSettingsWrapper->GetSettings(), szPassword );
 		SFromUINotification notify( EUTMN_CREATE, pMapInfo );
 		pCommandManager->DelayedNotification( notify );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMPCreateGame::Init()
 {
 	CInterfaceMultiplayerScreen::Init();
-	//SetBindSection( "loadmission" );
 	commandMsgs.Init( pInput, commands );
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPCreateGame::Create( const /*ECreateGameMode*/ int eMode )
 {
 	CInterfaceMultiplayerScreen::StartInterface();
@@ -162,7 +151,6 @@ void CInterfaceMPCreateGame::Create( const /*ECreateGameMode*/ int eMode )
 	if ( eMode == E_DELAYED_UPDATE )
 		pCommandManager->SendDelayedNotification();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPCreateGame::PrepareMapsList()
 {
 	std::unordered_set<std::string> szFileNames;
@@ -195,7 +183,6 @@ void CInterfaceMPCreateGame::PrepareMapsList()
 		if ( pInfo->LoadMapInfo( szFileName.c_str() ) )
 		{
 			IUIListRow * pRow = mapsList.Add( pInfo );
-			//init row with data
 			IUIStatic * pMapName = checked_cast<IUIStatic*>( pRow->GetElement( 0 ) );
 			pMapName->SetWindowText( 0, reinterpret_cast<const WORD*>( pInfo->GetVisualName() ) );
 			
@@ -216,14 +203,12 @@ void CInterfaceMPCreateGame::PrepareMapsList()
 		pProgress->Step();
 	}
 	
-	//	SELECT FIRST MAP
 	if ( !szFileNames.empty() )
 		mapsList.SelectFirst();
 
 	OnSelectionChanged();
 	pProgress->Stop();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMPCreateGame::ProcessMPCommand( const SToUICommand &cmd )
 {
 	switch( cmd.eCommandID )
@@ -236,10 +221,8 @@ bool CInterfaceMPCreateGame::ProcessMPCommand( const SToUICommand &cmd )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPCreateGame::OnSelectionChanged()
 {
-	// apply parametres about newly selected map
 	SUIMapInfo * pInfo = mapsList.GetCurInfo();
 
 	IUIElement * pCreateButton = pUIScreen->GetChildByID( E_BUTTON_CREATE );
@@ -249,7 +232,6 @@ void CInterfaceMPCreateGame::OnSelectionChanged()
 		const std::string szMapName = "maps\\" + pInfo->szPath;
 		CMinimapCreation::Create1Minimap( szMapName, szMapName );
 		
-		//��������� ���������� ������ ��� map image control
 		IUIObjMap *pMap = checked_cast<IUIObjMap *> ( pUIScreen->GetChildByID( E_MINIMAP ) );
 		IGFXTexture *pTexture = GetSingleton<ITextureManager>()->GetTexture(  CUIConsts::CreateTexturePathFromMapPath( pInfo->szPath.c_str() ).c_str() );
 		if ( pTexture )
@@ -259,9 +241,6 @@ void CInterfaceMPCreateGame::OnSelectionChanged()
 			pMap->Init();
 		}	
 
-		// map type
-		// map size
-		// map name
 		
 	}
 	pCreateButton->EnableWindow
@@ -270,4 +249,3 @@ void CInterfaceMPCreateGame::OnSelectionChanged()
 		( ( pInfo->mapInfo.nType == CMapInfo::TYPE_FLAGCONTROL ) || ( pInfo->mapInfo.nType == CMapInfo::TYPE_SABOTAGE ) )
 	);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

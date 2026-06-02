@@ -1,15 +1,11 @@
 #ifndef __PATH_UNIT_H__
 #define __PATH_UNIT_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Common\Actions.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IStaticPathFinder;
 interface ISmoothPath;
 interface ICollision;
 interface IMemento;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CPathUnit : public IRefCount
 {
 	DECLARE_SERIALIZE;
@@ -22,18 +18,13 @@ class CPathUnit : public IRefCount
 	CObj<ICollision> pCollMemento;
 	CPtr<CPathUnit> pLastPushByHardCollUnit;
 
-	// "верное направление", т.е. куда "смотрит" перёд
 	SAINotifyPlacement placement;
 	SVector curTile;
-	// вектор вдоль направления движения
 	CVec2 dirVec;
-	// правильное направление или движемся задом
 	bool bRightDir;
 
 	bool bLocking;
-	// поворачивается ли в данный момент
 	bool bTurning;
-	// если поворачивается, то к какому направлению движения
 	WORD desDir;
 	bool bFoolStop;
 	bool bFixUnlock;
@@ -52,11 +43,8 @@ class CPathUnit : public IRefCount
 	bool bIdle;
 	NTimer::STime nextSecondPathSegmTime;
 
-	//
 	const CVec2 GetCenterShift() const;
-	// выбрать, как поворачиваться - чтобы оказаться задом по направлению к движению или передом
 	void ChooseDirToTurn( const WORD &newDir );
-	// повернуться, когда уже известно, в какую сторону
 	bool MakeTurnToDir( const WORD newDir );
 
 	bool CanMake180DegreesTurn( SRect rect );
@@ -70,17 +58,14 @@ public:
 	CPathUnit() : pOwner( 0 ) { }
 	virtual void Init( class CAIUnit *pOwner, const CVec2 &center, const int z, const WORD dir, const WORD id );
 
-	// ставит направление движения. false - ехать задом
 	virtual void SetRightDir( bool bRightDir );
 	virtual bool GetRightDir() const { return bRightDir; }
-	//
 	virtual void GetPlacement(  struct SAINotifyPlacement *pPlacement, const NTimer::STime timeDiff ) const;
 	virtual void GetSpeed3( CVec3 *pSpeed ) const ;
 	virtual const float GetZ() const { return placement.z; }
 
 	virtual void FirstSegment();
 	virtual void SecondSegment( const bool bUpdate = true );
-	// возвращает - поехал или нет
 	virtual bool SendAlongPath( interface IStaticPath *pStaticPath, const CVec2 &vShift, bool bSmoothTurn = true );
 	virtual bool SendAlongPath( interface IPath *pPath );
 
@@ -101,17 +86,12 @@ public:
 	interface ICollision* GetCollision() const { return pCurCollision; }
 	void SetCollision( ICollision *pCollision );
 
-	// выдаются направления движения
 	virtual const CVec2& GetDirVector() const ;
 	virtual const WORD GetDir() const;
-	// направление переда
 	virtual const WORD GetFrontDir() const { return placement.dir; }
 
-	// направление, куда смотрит перед
 	const CVec2 GetFrontDirVec() const { if ( bRightDir ) return dirVec; else return -dirVec; }
 	
-	//bCanBackward - может повернуться либо задом либо передом, на свой выбор
-	//bForward - поворачиваться передом
 	virtual bool TurnToDir( const WORD &newDir, const bool bCanBackward = true, const bool bForward = true );
 	
 	virtual interface IStaticPathFinder* GetPathFinder() const { return pPathFinder; }
@@ -128,9 +108,7 @@ public:
 	virtual void LockTiles( bool bUpdate = true );
 	void ForceLockingTiles( bool bUpdate = true );
 
-	// локает в любом случае, если это в принципе возможно
 	void LockTilesForEditor();
-	// bUpdate - делать ли update maxes при unlock
 	virtual void UnlockTiles( const bool bUpdate );
 	void FixUnlocking() { bFixUnlock = true; }
 	void UnfixUnlocking() { bFixUnlock = false; }
@@ -143,7 +121,6 @@ public:
 	const SRect GetSpeedRect( bool bForInfantry ) const;
 	const SRect GetSmallRect() const;
 
-	//
 	bool CanShootUnit( const CPathUnit *pTarget ) const;
 	bool TooClose( const CPathUnit *pTarget ) const;
 
@@ -153,19 +130,16 @@ public:
 	virtual void SetFrontDirWOUpdate( const WORD newDir );
 	bool CanSetNewCoord( const CVec3 &newCenter );
 
-	// проапдейдить направление по новому направлению движения
 	void UpdateDirection( const WORD newDir );
 	void UpdateDirection( const CVec2 &dirVec );
 	virtual void UpdateDirectionForEditor( const CVec2 &dirVec );
 	bool CanSetNewDir( const CVec2 &newDir );
 
-	//
 	bool CanLockTiles( bool bForceLocking = false ) const;
 	bool CanUnlockTiles() const;
 	
 	virtual bool CanTurnToFrontDir( const WORD wDir );
 
-	//
 	const SUnitBaseRPGStats* GetStats() const;
 	class CAIUnit* GetOwner() const { return pOwner; }
 	virtual BYTE GetAIClass() const;
@@ -183,15 +157,11 @@ public:
 	void UpdateCollStayTime( const NTimer::STime candStayTime );
 	const NTimer::STime GetCollStayTime() const { return collStayTime; }
 	
-	// можно ли повернуть к направлению vNewDir, если за bounding box берётся smallRect
 	bool CanRotateTo( SRect smallRect, const CVec2 &vNewDir, bool bWithUnits, bool bCanGoBackward = true );
 	void SetSuspendedPoint( const CVec2 &vPoint ) { vSuspendedPoint = vPoint; }
 	bool HasSuspendedPoint() const { return vSuspendedPoint.x != -1.0f; }
-	// проверяет, можно ли повернуться к wNewDir, 
-	// если нельзя - возвращает false и посылает вдоль пути до точки, где можно сделать полный поворот, если такай точка найдена
 	virtual bool CheckToTurn( const WORD wNewDir );
 
-	// разрушение объектов, на которые наехали
 	void CheckForDestroyedObjects( const CVec2 &center ) const;
 	virtual IStaticPath* CreateBigStaticPath( const CVec2 &vStartPoint, const CVec2 &vFinishPoint, interface IPointChecking *pPointChecking );
 
@@ -205,14 +175,12 @@ public:
 	
 	virtual const SVector GetLastKnownGoodTile() const;
 
-	// for restore default aviation path
 	virtual void InitAviationPath( const SMechUnitRPGStats* pStats ) { NI_ASSERT_T(false, "wrong call"); }
 	
 	virtual void TrackDamagedState( const bool bTrackDamaged ) { }
 
 	const NTimer::STime GetNextSecondPathSegmTime() const { return nextSecondPathSegmTime; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSimplePathUnit : public CPathUnit
 {
 	OBJECT_COMPLETE_METHODS( CSimplePathUnit );
@@ -231,5 +199,4 @@ public:
 	virtual void SetCurPath( interface ISmoothPath *pNewPath );
 	virtual void RestoreDefaultPath();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __PATH_UNIT_H__

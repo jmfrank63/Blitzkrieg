@@ -17,7 +17,6 @@
 extern "C" {
 #endif  // __cplusplus
 
-// Commands to pass to HtmlHelp()
 
 #define HH_DISPLAY_TOPIC        0x0000
 #define HH_HELP_FINDER          0x0000  // WinHelp equivalent
@@ -123,7 +122,6 @@ extern "C" {
              HHWIN_BUTTON_OPTIONS | \
              HHWIN_BUTTON_PRINT)
 
-// Button IDs
 
 #define IDTB_EXPAND             200
 #define IDTB_CONTRACT           201
@@ -150,7 +148,6 @@ extern "C" {
 #define IDTB_TOC_NEXT           223
 #define IDTB_TOC_PREV           224
 
-// Notification codes
 
 #define HHN_FIRST       (0U-860U)
 #define HHN_LAST        (0U-879U)
@@ -254,7 +251,6 @@ enum {
 
 #define HH_MAX_TABS_CUSTOM (HH_TAB_CUSTOM_LAST - HH_TAB_CUSTOM_FIRST + 1) 
 
-// HH_DISPLAY_SEARCH Command Related Structures and Constants
 
 #define HH_FTS_DEFAULT_PROXIMITY (-1)
 
@@ -270,7 +266,6 @@ typedef struct tagHH_FTS_QUERY
     LPCTSTR pszWindow;       // Window to display in
 } HH_FTS_QUERY;
 
-// HH_WINTYPE Structure
 
 typedef struct tagHH_WINTYPE {
     int     cbStruct;        // IN: size of this structure including all Information Types
@@ -290,7 +285,6 @@ typedef struct tagHH_WINTYPE {
 
     HH_INFOTYPE* paInfoTypes;  // IN: Pointer to an array of Information Types
 
-    // The following members are only valid if HHWIN_PROP_TRI_PANE is set
 
     HWND  hwndToolBar;      // OUT: toolbar window in tri-pane window
     HWND  hwndNavigation;   // OUT: navigation window in tri-pane window
@@ -378,7 +372,6 @@ HtmlHelpW(
 #define HtmlHelp  HtmlHelpA
 #endif // !UNICODE
 
-// Use the following for GetProcAddress to load from hhctrl.ocx
 
 #define ATOM_HTMLHELP_API_ANSI    (LPTSTR)((DWORD)((WORD)(14)))
 #define ATOM_HTMLHELP_API_UNICODE (LPTSTR)((DWORD)((WORD)(15)))

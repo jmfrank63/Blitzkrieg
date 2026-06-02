@@ -1,21 +1,13 @@
 #ifndef __STANDART_SMOOTH_MECH_PATH__
 #define __STANDART_SMOOTH_MECH_PATH__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Path.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CStandartSmoothMechPath												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CStandartSmoothMechPath : public ISmoothPath
 {
 	OBJECT_COMPLETE_METHODS( CStandartSmoothMechPath );
 	DECLARE_SERIALIZE;
 	
 	CPtr<IPath> pPath;
-	// владелец пути
 	interface IBasePathUnit *pUnit;
 
 	CBSpline spline;
@@ -34,11 +26,8 @@ class CStandartSmoothMechPath : public ISmoothPath
 	bool bCanGoForward, bCanGoBackward;
 	NTimer::STime lastCheckToRightTurn;
 
-	//
 	void AddSmoothTurn();
 	int InitSpline();
-	// проверить на наличие впереди залоканных тайлов. ≈сли есть, то пересчитать путь
-	// true - if Ok, false - if path had to be recalculated
 	bool ValidateCurPath( const CVec2 &center, const CVec2 &newPoint );
 
 	const CVec2 GetPointWithoutFormation( NTimer::STime timeDiff );
@@ -79,5 +68,4 @@ public:
 	
 	virtual bool IsWithFormation() const { return false; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif //__STANDART_SMOOTH_MECH_PATH__

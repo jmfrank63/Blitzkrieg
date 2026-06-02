@@ -34,13 +34,10 @@ static const int EDGE_LENGTH = 200;			//длина ребра конуса
 
 static const int SHOOT_PICTURE_SIZE = 8;
 
-/////////////////////////////////////////////////////////////////////////////
-// CBuildingFrame
 
 IMPLEMENT_DYNCREATE(CBuildingFrame, CGridFrame)
 
 BEGIN_MESSAGE_MAP(CBuildingFrame, CGridFrame)
-	//{{AFX_MSG_MAP(CBuildingFrame)
 	ON_WM_CREATE()
 	ON_WM_LBUTTONDOWN()
 	ON_WM_RBUTTONDOWN()
@@ -73,11 +70,8 @@ BEGIN_MESSAGE_MAP(CBuildingFrame, CGridFrame)
 	ON_UPDATE_COMMAND_UI(ID_SET_SMOKE_POINT, OnUpdateSetSmokePoint)
 	ON_COMMAND(ID_GENERATE_POINTS, OnGeneratePoints)
 	ON_UPDATE_COMMAND_UI(ID_GENERATE_POINTS, OnUpdateGeneratePoints)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////
-// CBuildingFrame construction/destruction
 
 CBuildingFrame::CBuildingFrame()
 {
@@ -155,7 +149,6 @@ int CBuildingFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		return -1;
 	g_frameManager.AddFrame( this );
 	
-	// create a view to occupy the client area of the frame
 	if (!pWndView->Create(NULL, NULL,  WS_CHILD | WS_VISIBLE, 
 		CRect(0, 0, 0, 0), this, AFX_IDW_PANE_FIRST, NULL))
 	{
@@ -163,7 +156,6 @@ int CBuildingFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		return -1;
 	}
 	
-	//инициализируем уникальное имя для проекта
 	GenerateProjectName();
 	
 	SECToolBarManager* pToolBarMgr = theApp.GetMainFrame()->GetControlBarManager();
@@ -173,8 +165,6 @@ int CBuildingFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// CBuildingFrame message handlers
 
 void CBuildingFrame::ShowFrameWindows( int nCommand )
 {
@@ -310,7 +300,6 @@ void CBuildingFrame::SpecificInit()
 
 	m_mode = -1;
 	CreateKrest();
-	//Загружаем спрайт
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	CTreeItem *pRootItem = pTree->GetRootItem();
 	CTreeItem *pGraphicsItem = pRootItem->GetChildItem( E_BUILDING_GRAPHICS_ITEM );
@@ -320,7 +309,6 @@ void CBuildingFrame::SpecificInit()
 	CBuildingGraphicPropsItem *pGraphicPropsItem = (CBuildingGraphicPropsItem *) pSeason->GetChildItem( E_BUILDING_GRAPHIC1_PROPS_ITEM );
 	SetActiveGraphicPropsItem( pGraphicPropsItem );
 	
-	//Создаем спрайты для всех direction explosion points
 	IVisObjBuilder *pVOB = GetSingleton<IVisObjBuilder>();
 	IScene *pSG = GetSingleton<IScene>();
 	CBuildingDirExplosionsItem *pDirExpItem = (CBuildingDirExplosionsItem *) pRootItem->GetChildItem( E_BUILDING_DIR_EXPLOSIONS_ITEM );
@@ -342,7 +330,6 @@ void CBuildingFrame::SpecificInit()
 		}
 		
 		{
-			//создаем спрайт - горизонтальную линию
 			pObject = static_cast<IObjVisObj *> ( pVOB->BuildObject( "editor\\shoot_horizontal\\1", 0, SGVOT_SPRITE ) );
 			NI_ASSERT( pObject != 0 );
 			pObject->SetPosition( CVec3(16*fWorldCellSize, 16*fWorldCellSize, 0) );
@@ -372,7 +359,6 @@ void CBuildingFrame::SpecificClearBeforeBatchMode()
 	m_fMinY = m_fMaxY = m_fX = 0;
 	m_SpriteLoadPos = CVec3(16*fWorldCellSize, 16*fWorldCellSize, 0);
 	pActiveGraphicProps = 0;
-//	pKrestTexture = 0;
 	m_zeroPos = CVec3(16*fWorldCellSize, 16*fWorldCellSize, 0);
 
 	GetSingleton<IScene>()->Clear();
@@ -387,7 +373,6 @@ BOOL CBuildingFrame::SpecificTranslateMessage( MSG *pMsg )
 
 		if ( eActiveMode == E_SHOOT_SLOT && pActiveShootPoint )
 		{
-			//удаляем текущий shoot point
 			pActiveShootPoint->pSlot->DeleteMeInParentTreeItem();
 			DeleteShootPoint( pActiveShootPoint->pSlot );
 			GFXDraw();
@@ -396,7 +381,6 @@ BOOL CBuildingFrame::SpecificTranslateMessage( MSG *pMsg )
 
 		if ( eActiveMode == E_FIRE_POINT && pActiveFirePoint )
 		{
-			//удаляем текущий fire point
 			pActiveFirePoint->pFirePoint->DeleteMeInParentTreeItem();
 			DeleteFirePoint( pActiveFirePoint->pFirePoint );
 			GFXDraw();
@@ -405,7 +389,6 @@ BOOL CBuildingFrame::SpecificTranslateMessage( MSG *pMsg )
 
 		if ( eActiveMode == E_SMOKE_POINT && pActiveSmokePoint )
 		{
-			//удаляем текущий smoke point
 			CTreeItem *pTemp = pActiveSmokePoint;
 			DeleteSmokePoint();
 			pTemp->DeleteMeInParentTreeItem();
@@ -442,7 +425,6 @@ void CBuildingFrame::SetActiveGraphicPropsItem( CTreeItem *pGraphicProps )
 	CBuildingGraphicPropsItem *pGraphicPropsItem = static_cast<CBuildingGraphicPropsItem *> ( pActiveGraphicProps );
 	NI_ASSERT( pGraphicPropsItem != 0 );
 	
-	//так как имя файла относительное, здесь я должен собрать полный путь
 	string szDir = GetDirectory( szProjectFileName.c_str() );
 	string szObjName;
 	const char *pszFileName = pGraphicPropsItem->GetFileName();
@@ -459,7 +441,6 @@ void CBuildingFrame::UpdateActiveSprite()
 	CBuildingGraphicPropsItem *pGraphicPropsItem = static_cast<CBuildingGraphicPropsItem *> ( pActiveGraphicProps );
 	NI_ASSERT( pGraphicPropsItem != 0 );
 	
-	//так как имя файла относительное, здесь я должен собрать полный путь
 	string szDir = GetDirectory( szProjectFileName.c_str() );
 	string szObjName;
 	const char *pszFileName = pGraphicPropsItem->GetFileName();
@@ -474,11 +455,9 @@ bool CBuildingFrame::ExportFrameData( IDataTree *pDT, const char *pszProjectName
 {
 	NI_ASSERT( pRootItem->GetItemType() == E_BUILDING_ROOT_ITEM );
 	
-	//Compose animation
 	CBuildingTreeRootItem *pBuildingRoot = static_cast<CBuildingTreeRootItem *> ( pRootItem );
 	CVec2 zeroPos2 = ::ComputeSpriteNewZeroPos( pSprite, m_zeroPos, CVec2(zeroShiftX, zeroShiftY) );
 
-	//Тут понадобился массив залоченных тайлов
 	SBuildingRPGStats buildingRPGStats;
 	IScene *pSG = GetSingleton<IScene>();
 	CVec2 krestPos2;
@@ -498,7 +477,6 @@ bool CBuildingFrame::ExportFrameData( IDataTree *pDT, const char *pszProjectName
 	}
 	else
 	{
-		//Сперва найдем минимальные и максимальные координаты тайлов в lockedTiles
 		int nTileMinX = lockedTiles.front().nTileX, nTileMaxX = lockedTiles.front().nTileX;
 		int nTileMinY = lockedTiles.front().nTileY, nTileMaxY = lockedTiles.front().nTileY;
 		CListOfTiles::iterator it=lockedTiles.begin();
@@ -542,23 +520,19 @@ bool CBuildingFrame::ExportFrameData( IDataTree *pDT, const char *pszProjectName
 		buildingRPGStats.vOrigin.x = realZeroPos3.x - mostLeft3.x;
 		buildingRPGStats.vOrigin.y = realZeroPos3.y - mostLeft3.y;
 		
-		//		pSG->MoveObject( pSprite, realPos3 );
 		GFXDraw();
 	}
 	pBuildingRoot->ComposeAnimations( pszProjectName, GetDirectory(pszResultFileName).c_str(), zeroPos2, buildingRPGStats.passability, buildingRPGStats.vOrigin );
 	
-	//загрузим дефалтовый спрайт
 	CTreeItem *pGraphicsItem = pRootItem->GetChildItem( E_BUILDING_GRAPHICS_ITEM );
 	NI_ASSERT( pGraphicsItem != 0 );
 	CTreeItem *pSeason = pGraphicsItem->GetChildItem( E_BUILDING_SUMMER_PROPS_ITEM );
 	NI_ASSERT( pSeason != 0 );
 	CBuildingGraphicPropsItem *pGraphicPropsItem = (CBuildingGraphicPropsItem *) pSeason->GetChildItem( E_BUILDING_GRAPHIC1_PROPS_ITEM );
 
-	//так как имя файла относительное, здесь я должен собрать полный путь
 	string szObjName;
 	MakeFullPath( GetDirectory(pszProjectName).c_str(), pGraphicPropsItem->GetFileName(), szObjName );
 	LoadSprite( szObjName.c_str() );
-//	SetActiveGraphicPropsItem( pGraphicPropsItem );		//загружаем спрайт
 	if ( pSprite == 0 )
 	{
 		std::string szErr = "Error: Can not load default sprite\n";
@@ -569,10 +543,8 @@ bool CBuildingFrame::ExportFrameData( IDataTree *pDT, const char *pszProjectName
 		return false;
 	}
 
-	//Сохраняем RPG stats
 	SaveRPGStats( pDT, pRootItem, pszProjectName );
 	
-	//создадим файл icon.tga с изображением домика
 
 	std::string szFullName;
 	MakeFullPath( GetDirectory(pszProjectName).c_str(), pGraphicPropsItem->GetFileName(), szFullName );
@@ -641,7 +613,6 @@ void CBuildingFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const c
 		buildingRPGStats.defences[ nIndex ].fSilhouette = pDefProps->GetSilhouette();
 	}
 
-	// Сохраняем данные о тайловой проходимости
 	CVec3 mostLeft3 = realZeroPos3;
 	if ( lockedTiles.empty() )
 	{
@@ -651,7 +622,6 @@ void CBuildingFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const c
 	}
 	else
 	{
-		//Сперва найдем минимальные и максимальные координаты тайлов в lockedTiles
 		int nTileMinX = lockedTiles.front().nTileX, nTileMaxX = lockedTiles.front().nTileX;
 		int nTileMinY = lockedTiles.front().nTileY, nTileMaxY = lockedTiles.front().nTileY;
 		CListOfTiles::iterator it=lockedTiles.begin();
@@ -695,12 +665,10 @@ void CBuildingFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const c
 		buildingRPGStats.vOrigin.x = realZeroPos3.x - mostLeft3.x;
 		buildingRPGStats.vOrigin.y = realZeroPos3.y - mostLeft3.y;
 
-//		pSG->MoveObject( pSprite, realPos3 );
 		GFXDraw();
 	}
 
 
-	// Сохраняем данные о прозрачности объекта
 	{
 		if ( transeparences.empty() )
 		{
@@ -710,7 +678,6 @@ void CBuildingFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const c
 		}
 		else
 		{
-			//Сперва найдем минимальные и максимальные координаты тайлов в transeparences
 			int nTileMinX = transeparences.front().nTileX, nTileMaxX = transeparences.front().nTileX;
 			int nTileMinY = transeparences.front().nTileY, nTileMaxY = transeparences.front().nTileY;
 			
@@ -772,14 +739,11 @@ void CBuildingFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const c
 		CVec3 vCenter3;
 		pSG->GetPos3( &vCenter3, vCenter2 );
 		
-		//Запишем координаты входа в здание
 		entrancePoint.vPos.x = vCenter3.x - realZeroPos3.x;
 		entrancePoint.vPos.y = vCenter3.y - realZeroPos3.y;
 		entrancePoint.vPos.z = 0;
 
-		//TODO добавить проверку на вшивость, чтобы точки входа в здание всегда были снаружи залоканных тайлов и отстояли от них максимум на один AI tile
 /*
-		//Запишем направление выхода из здания, имеем nTileX, nTileY это тайловые координаты входа, tileVector это массив всех залоченных тайлов
 		if  ( !IsTileAlreadySet( nTileX - 1, nTileY ) &&
 					!IsTileAlreadySet( nTileX + 1, nTileY ) &&
 					!IsTileAlreadySet( nTileX, nTileY - 1 ) &&
@@ -796,7 +760,6 @@ void CBuildingFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const c
 	NI_ASSERT( pSeason != 0 );
 	CBuildingGraphicPropsItem *pGraphicPropsItem = (CBuildingGraphicPropsItem *) pSeason->GetChildItem( E_BUILDING_GRAPHIC1_PROPS_ITEM );
 
-	//так как имя файла относительное, здесь я должен собрать полный путь
 	string szDir = GetDirectory( pszProjectName );
 	string szObjName;
 	const char *pszFileName = pGraphicPropsItem->GetFileName();
@@ -815,7 +778,6 @@ void CBuildingFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const c
 		zeroPos2 = ::ComputeSpriteNewZeroPos( pSprite, m_zeroPos, CVec2(zeroShiftX, zeroShiftY) );
 
 	
-	//Сохраняем позиции для всех shoot points
 #ifdef _DEBUG
 	CTreeItem *pSlotsItem = pRootItem->GetChildItem( E_BUILDING_SLOTS_ITEM );
 	NI_ASSERT( pSlotsItem != 0 );
@@ -831,19 +793,16 @@ void CBuildingFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const c
 			continue;
 
 		slot.vPos = it->pHLine->GetPosition();
-		//теперь вычислим относительную координату
 		slot.vPos.x -= realZeroPos3.x;
 		slot.vPos.y -= realZeroPos3.y;
 		slot.vPos.z = 0;
 		
 		CVec2 vPos2;
 		pSG->GetPos2( &vPos2, it->pSprite->GetPosition() );
-		//теперь вычислим относительную координату
 		vPos2.x -= krestPos2.x;
 		vPos2.y -= krestPos2.y;
 		slot.vPicturePosition = vPos2;
 
-		//TODO заполнить RPG параметры
 		slot.bShowFlashes = false;
 
 		slot.fAngle = pSlotProps->GetConeAngle();
@@ -856,14 +815,12 @@ void CBuildingFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const c
 		slot.gun.nAmmo = pSlotProps->GetAmmo();
 		slot.fRotationSpeed = pSlotProps->GetRotationSpeed();
 		slot.gun.nPriority = pSlotProps->GetPriority();
-		//end of TODO
 
 		slot.vWorldPosition = Get3DPosition( pSprite->GetPosition(), vPos2, zeroPos2, imageAccessor, 1, pGFX ); 
 		buildingRPGStats.slots.push_back( slot );
 	}
 
 	
-	//Сохраняем позиции для всех fire points
 #ifdef _DEBUG
 	CTreeItem *pFirePointsItem = pRootItem->GetChildItem( E_BUILDING_FIRE_POINTS_ITEM );
 	NI_ASSERT( pFirePointsItem != 0 );
@@ -879,14 +836,12 @@ void CBuildingFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const c
 			continue;
 		
 		fire.vPos = it->pHLine->GetPosition();
-		//теперь вычислим относительную координату
 		fire.vPos.x -= realZeroPos3.x;
 		fire.vPos.y -= realZeroPos3.y;
 		fire.vPos.z = 0;
 		
 		CVec2 vPos2;
 		pSG->GetPos2( &vPos2, it->pSprite->GetPosition() );
-		//теперь вычислим относительную координату
 		vPos2.x -= krestPos2.x;
 		vPos2.y -= krestPos2.y;
 		fire.vPicturePosition = vPos2;
@@ -899,7 +854,6 @@ void CBuildingFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const c
 		buildingRPGStats.firePoints.push_back( fire );
 	}
 	
-	//Сохраняем позиции для всех direction explosions
 	CBuildingDirExplosionsItem *pDirExpItem = (CBuildingDirExplosionsItem *) pRootItem->GetChildItem( E_BUILDING_DIR_EXPLOSIONS_ITEM );
 	NI_ASSERT( pDirExpItem != 0 );
 	NI_ASSERT( buildingRPGStats.dirExplosions.size() == pDirExpItem->GetChildsCount() );
@@ -915,14 +869,12 @@ void CBuildingFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const c
 			continue;
 		
 		dirProps.vPos = pProps->pHLine->GetPosition();
-		//теперь вычислим относительную координату
 		dirProps.vPos.x -= realZeroPos3.x;
 		dirProps.vPos.y -= realZeroPos3.y;
 		dirProps.vPos.z = 0;
 		
 		CVec2 vPos2;
 		pSG->GetPos2( &vPos2, pProps->pSprite->GetPosition() );
-		//теперь вычислим относительную координату
 		vPos2.x -= krestPos2.x;
 		vPos2.y -= krestPos2.y;
 		dirProps.vPicturePosition = vPos2;
@@ -934,7 +886,6 @@ void CBuildingFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const c
 	}
 
 
-	//Сохраняем позиции для всех smoke points
 	CBuildingSmokesItem *pSmokesItem = (CBuildingSmokesItem *) pRootItem->GetChildItem( E_BUILDING_SMOKES_ITEM );
 	NI_ASSERT( pSmokesItem != 0 );
 	
@@ -948,14 +899,12 @@ void CBuildingFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const c
 			continue;
 		
 		smokeProps.vPos = pProps->pHLine->GetPosition();
-		//теперь вычислим относительную координату
 		smokeProps.vPos.x -= realZeroPos3.x;
 		smokeProps.vPos.y -= realZeroPos3.y;
 		smokeProps.vPos.z = 0;
 		
 		CVec2 vPos2;
 		pSG->GetPos2( &vPos2, pProps->pSprite->GetPosition() );
-		//теперь вычислим относительную координату
 		vPos2.x -= krestPos2.x;
 		vPos2.y -= krestPos2.y;
 		smokeProps.vPicturePosition = vPos2;
@@ -1012,15 +961,12 @@ void CBuildingFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 		pDefProps->SetMinArmor( buildingRPGStats.defences[nIndex].nArmorMin );
 		pDefProps->SetMaxArmor( buildingRPGStats.defences[nIndex].nArmorMax );
 
-		//CRAP коррекция результата
 		if ( buildingRPGStats.defences[nIndex].fSilhouette < 0 || buildingRPGStats.defences[nIndex].fSilhouette > 1 )
 			buildingRPGStats.defences[nIndex].fSilhouette = 1.0f;
 		pDefProps->SetSilhouette( buildingRPGStats.defences[nIndex].fSilhouette );
-		//End of CRAP
 	}
 	
 
-	//Загружаем инфу о проходимости AI тайлов
 	CVec3 beginPos3;						//координаты самого левого тайла, который связан с vOrigin
 	beginPos3.x = 16*fWorldCellSize;
 	beginPos3.y = 16*fWorldCellSize;
@@ -1037,7 +983,6 @@ void CBuildingFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 		beginPos3.x = realZeroPos3.x - buildingRPGStats.vOrigin.x;
 		beginPos3.y = realZeroPos3.y - buildingRPGStats.vOrigin.y;
 	}
-//	AfxMessageBox( NStr::Format( "beginPos3 %lf, %lf, %lf", beginPos3.x, beginPos3.y, beginPos3.z ) );
 
 	POINT pt;
 	CVec2 pos2;
@@ -1045,12 +990,10 @@ void CBuildingFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 
 	{
 		pSG->GetPos2( &pos2, beginPos3 );
-		//сдвинемся на центр тайла
 		pt.x = pos2.x + fCellSizeX/2;
 		pt.y = pos2.y;
 		CGridFrame::ComputeGameTileCoordinates( pt, ftX, ftY );
 		int nBeginTileX = ftX, nBeginTileY = ftY;
-//		AfxMessageBox( NStr::Format( "nBeginTileX = %d, nBeginTileY = %d", nBeginTileX, nBeginTileY ) );
 		
 		BYTE *pBuf = buildingRPGStats.passability.GetBuffer();
 		for ( int y=0; y<buildingRPGStats.passability.GetSizeY(); y++ )
@@ -1066,18 +1009,15 @@ void CBuildingFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 	}
 
 	{
-		//Загружаем инфу о видимости AI тайлов
 		CVec3 beginVis3;						//координаты самого левого тайла, который связан с vVisOrigin
 		beginVis3.x = realZeroPos3.x - buildingRPGStats.vVisOrigin.x;
 		beginVis3.y = realZeroPos3.y - buildingRPGStats.vVisOrigin.y;
 		beginVis3.z = 0;
 		pSG->GetPos2( &pos2, beginVis3 );
-		//сдвинемся на центр тайла
 		pt.x = pos2.x + fCellSizeX/2;
 		pt.y = pos2.y;
 		CGridFrame::ComputeGameTileCoordinates( pt, ftX, ftY );
 		int nVisTileX = ftX, nVisTileY = ftY;
-//		AfxMessageBox( NStr::Format( "nVisTileX = %d, nVisTileY = %d", nVisTileX, nVisTileY ) );
 		
 		BYTE *pBuf = buildingRPGStats.visibility.GetBuffer();
 		for ( int y=0; y<buildingRPGStats.visibility.GetSizeY(); y++ )
@@ -1094,7 +1034,6 @@ void CBuildingFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 	
 	for ( int i=0; i<buildingRPGStats.entrances.size(); ++i )
 	{
-		//Загружаем инфу о входах в здание
 		float fSaveX = buildingRPGStats.entrances[i].vPos.x;
 		float fSaveY = buildingRPGStats.entrances[i].vPos.y;
 		CVec3 vPos3;
@@ -1110,7 +1049,6 @@ void CBuildingFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 		SetTileInListOfTiles( entrances, ftX, ftY, 1, E_ENTRANCE_TILE );
 	}
 
-	//Загружаем позиции для всех shoot points
 	int nCurrentSlot = 0;
 	CTreeItem *pSlotsItem = pRootItem->GetChildItem( E_BUILDING_SLOTS_ITEM );
 	NI_ASSERT( pSlotsItem != 0 );
@@ -1127,7 +1065,6 @@ void CBuildingFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 		CPtr<IObjVisObj> pObject;
 		{
 			pObject = static_cast<IObjVisObj *> ( pVOB->BuildObject( "editor\\shoot\\1", 0, SGVOT_SPRITE ) );
-			//добавляем спрайт 'точка стрельбы' с такими координатами
 			CVec2 vPos2 = slot.vPicturePosition;
 			vPos2.x += realZeroPos2.x;
 			vPos2.y += realZeroPos2.y;
@@ -1143,7 +1080,6 @@ void CBuildingFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 		}
 		
 		{
-			//создаем спрайт - горизонтальную линию
 			pObject = static_cast<IObjVisObj *> ( pVOB->BuildObject( "editor\\shoot_horizontal\\1", 0, SGVOT_SPRITE ) );
 			NI_ASSERT( pObject != 0 );
 
@@ -1177,7 +1113,6 @@ void CBuildingFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 		nCurrentSlot++;
 	}
 
-	//Загружаем позиции для всех fire points
 	int nCurrentFire = 0;
 	CTreeItem *pFiresItem = pRootItem->GetChildItem( E_BUILDING_FIRE_POINTS_ITEM );
 	NI_ASSERT( pFiresItem != 0 );
@@ -1194,7 +1129,6 @@ void CBuildingFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 		CPtr<IObjVisObj> pObject;
 		{
 			pObject = static_cast<IObjVisObj *> ( pVOB->BuildObject( "editor\\shoot\\1", 0, SGVOT_SPRITE ) );
-			//добавляем спрайт 'точка огня' с такими координатами
 			CVec2 vPos2 = fire.vPicturePosition;
 			vPos2.x += realZeroPos2.x;
 			vPos2.y += realZeroPos2.y;
@@ -1210,7 +1144,6 @@ void CBuildingFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 		}
 		
 		{
-			//создаем спрайт - горизонтальную линию
 			pObject = static_cast<IObjVisObj *> ( pVOB->BuildObject( "editor\\shoot_horizontal\\1", 0, SGVOT_SPRITE ) );
 			NI_ASSERT( pObject != 0 );
 			
@@ -1238,7 +1171,6 @@ void CBuildingFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 	}
 
 	
-	//Загружаем позиции для всех direction explosion points
 	IGameTimer *pTimer = GetSingleton<IGameTimer>();
 	pTimer->Update( timeGetTime() );
 	int nCurrentDirExp = 0;
@@ -1253,9 +1185,7 @@ void CBuildingFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 		
 		CPtr<IObjVisObj> pObject;
 		{
-			//добавляем спрайт 'точка направленного дыма' с такими координатами
 			pObject = static_cast<IObjVisObj *> ( pVOB->BuildObject( "editor\\shoot\\1", 0, SGVOT_SPRITE ) );
-			//добавляем спрайт 'точка огня' с такими координатами
 			CVec2 vPos2 = dirExp.vPicturePosition;
 			vPos2.x += realZeroPos2.x;
 			vPos2.y += realZeroPos2.y;
@@ -1271,7 +1201,6 @@ void CBuildingFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 		}
 		
 		{
-			//создаем спрайт - горизонтальную линию
 			pObject = static_cast<IObjVisObj *> ( pVOB->BuildObject( "editor\\shoot_horizontal\\1", 0, SGVOT_SPRITE ) );
 			NI_ASSERT( pObject != 0 );
 			
@@ -1295,7 +1224,6 @@ void CBuildingFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 
 
 	
-	//Загружаем позиции для всех smoke points
 	int nCurrentSmoke = 0;
 	CBuildingSmokesItem *pSmokesItem = (CBuildingSmokesItem *) pRootItem->GetChildItem( E_BUILDING_SMOKES_ITEM );
 	NI_ASSERT( pSmokesItem != 0 );
@@ -1308,7 +1236,6 @@ void CBuildingFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 		CPtr<IObjVisObj> pObject;
 		{
 			pObject = static_cast<IObjVisObj *> ( pVOB->BuildObject( "editor\\shoot\\1", 0, SGVOT_SPRITE ) );
-			//добавляем спрайт 'точка огня' с такими координатами
 			CVec2 vPos2 = smoke.vPicturePosition;
 			vPos2.x += realZeroPos2.x;
 			vPos2.y += realZeroPos2.y;
@@ -1324,7 +1251,6 @@ void CBuildingFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 		}
 		
 		{
-			//создаем спрайт - горизонтальную линию
 			pObject = static_cast<IObjVisObj *> ( pVOB->BuildObject( "editor\\shoot_horizontal\\1", 0, SGVOT_SPRITE ) );
 			NI_ASSERT( pObject != 0 );
 			
@@ -1354,17 +1280,14 @@ void CBuildingFrame::SaveFrameOwnData( IDataTree *pDT )
 /*
 	if ( pSprite )
 	{
-		//Сохраняем позицию спрайта
 		CVec3 pos3 = pSprite->GetPosition();
 		tree.Add( "sprite_pos", &pos3 );
 	}
 */
 	tree.Add( "sprite_pos", &m_SpriteLoadPos );
 	
-	//Сохраняем позицию креста
 	tree.Add( "krest_pos", &m_zeroPos );
 	
-	//Сохраняем export file name
 	string szPrevExportDir;
 	tree.Add( "export_dir", &szPrevExportDir );
 	if ( szPrevExportDir.size() > 0 )
@@ -1383,7 +1306,6 @@ void CBuildingFrame::LoadFrameOwnData( IDataTree *pDT )
 	pDT->StartChunk( "own_data" );
 	CTreeAccessor tree = pDT;
 	
-	//Загружаем позицию спрайта
 	tree.Add( "sprite_pos", &m_SpriteLoadPos );
 	if ( pSprite )
 	{
@@ -1391,10 +1313,8 @@ void CBuildingFrame::LoadFrameOwnData( IDataTree *pDT )
 		pSprite->SetPosition( m_SpriteLoadPos );
 	}
 	
-	//Загружаем позицию креста
 	tree.Add( "krest_pos", &m_zeroPos );
 	
-	//Загружаем export file name
 	string szPrevExportDir;
 	tree.Add( "export_dir", &szPrevExportDir );
 	if ( szPrevExportDir.size() > 0 )
@@ -1414,7 +1334,6 @@ void CBuildingFrame::OnLButtonDown(UINT nFlags, CPoint point)
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	if ( pTree == 0 || pSprite == 0 )
 	{
-		//Если проект не был создан
 		CGridFrame::OnLButtonDown(nFlags, point);
 		return;
 	}
@@ -1542,7 +1461,6 @@ void CBuildingFrame::OnRButtonDown(UINT nFlags, CPoint point)
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	if ( pTree == 0 || pSprite == 0 )
 	{
-		//Если проект не был создан
 		CGridFrame::OnRButtonDown(nFlags, point);
 		return;
 	}
@@ -1583,7 +1501,6 @@ void CBuildingFrame::OnMouseMove(UINT nFlags, CPoint point)
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	if ( pTree == 0 || pSprite == 0 )
 	{
-		//Если проект не был создан
 		CGridFrame::OnMouseMove(nFlags, point);
 		return;
 	}
@@ -1802,7 +1719,6 @@ void CBuildingFrame::OnLButtonUp(UINT nFlags, CPoint point)
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	if ( pTree == 0 || pSprite == 0 )
 	{
-		//Если проект не был создан
 		CGridFrame::OnLButtonUp(nFlags, point);
 		return;
 	}
@@ -1829,7 +1745,6 @@ void CBuildingFrame::LoadSprite( const char *pszSpriteFullName )
 	if ( pSprite )
 		pSG->RemoveObject( pSprite );
 
-	//Скомпонуем спрайт в editor temp dir
 	string szTempDir = theApp.GetEditorTempDir();
 	if ( !ComposeSingleSprite( pszSpriteFullName, szTempDir.c_str(), "Building" ) )
 	{
@@ -1862,7 +1777,6 @@ bool CBuildingFrame::LoadFramePreExportData( const char *pszProjectFile, CTreeIt
 	const char *pszFileName = pGraphicPropsItem->GetFileName();
 	NI_ASSERT( pszFileName != 0 );
 	
-	//так как имя файла относительное, здесь я должен собрать полный путь
 	string szDir = GetDirectory( pszProjectFile );
 	string szObjName;
 	bool bRes = MakeFullPath( szDir.c_str(), pszFileName, szObjName );
@@ -1872,7 +1786,6 @@ bool CBuildingFrame::LoadFramePreExportData( const char *pszProjectFile, CTreeIt
 	LoadSprite( szObjName.c_str() );
 	pSprite->Update( timeGetTime() );
 	
-	//временно сохраним, чтобы не испортилась координата
 	CVec3 vSave = m_zeroPos;
 	CreateKrest();
 	m_zeroPos = vSave;
@@ -1885,7 +1798,6 @@ void CBuildingFrame::SetActiveMode( EActiveMode mode )
 	if ( eActiveMode == mode )
 		return;
 
-	//скрываем старый режим
 	if ( eActiveMode == E_SHOOT_SLOT )
 	{
 		for ( CListOfShootPoints::iterator it=shootPoints.begin(); it!=shootPoints.end(); ++it )
@@ -1939,8 +1851,6 @@ void CBuildingFrame::SetActiveMode( EActiveMode mode )
 		for ( CListOfShootPoints::iterator it=shootPoints.begin(); it!=shootPoints.end(); ++it )
 		{
 			it->pSprite->SetOpacity( MIN_OPACITY );
-//			if ( it->pHLine )
-//				it->pHLine->SetOpacity( MIN_OPACITY );
 		}
 		SetActiveShootPoint( pActiveShootPoint );
 	}
@@ -1949,8 +1859,6 @@ void CBuildingFrame::SetActiveMode( EActiveMode mode )
 		for ( CListOfFirePoints::iterator it=firePoints.begin(); it!=firePoints.end(); ++it )
 		{
 			it->pSprite->SetOpacity( MIN_OPACITY );
-//			if ( it->pHLine )
-//				it->pHLine->SetOpacity( MIN_OPACITY );
 		}
 		SetActiveFirePoint( pActiveFirePoint );
 	}
@@ -2431,7 +2339,6 @@ void CBuildingFrame::OnUpdateMoveObject(CCmdUI* pCmdUI)
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	if ( pTree != 0 )
 	{
-		//Если уже был создан проект
 		pCmdUI->Enable( true );
 	}
 	else
@@ -2443,7 +2350,6 @@ void CBuildingFrame::OnUpdateDrawGrid(CCmdUI* pCmdUI)
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	if ( pTree != 0 )
 	{
-		//Если уже был создан проект
 		pCmdUI->Enable( true );
 	}
 	else
@@ -2455,7 +2361,6 @@ void CBuildingFrame::OnUpdateSetZeroButton(CCmdUI* pCmdUI)
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	if ( pTree != 0 )
 	{
-		//Если уже был создан проект
 		pCmdUI->Enable( true );
 	}
 	else
@@ -2467,7 +2372,6 @@ void CBuildingFrame::OnUpdateSetEntranceButton(CCmdUI* pCmdUI)
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	if ( pTree != 0 )
 	{
-		//Если уже был создан проект
 		pCmdUI->Enable( true );
 	}
 	else
@@ -2479,7 +2383,6 @@ void CBuildingFrame::OnUpdateSetShootPoint(CCmdUI* pCmdUI)
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	if ( pTree != 0 )
 	{
-		//Если уже был создан проект
 		pCmdUI->Enable( true );
 	}
 	else
@@ -2491,7 +2394,6 @@ void CBuildingFrame::OnUpdateSetDirectionExplosion(CCmdUI* pCmdUI)
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	if ( pTree != 0 )
 	{
-		//Если уже был создан проект
 		if ( !lockedTiles.empty() )
 			pCmdUI->Enable( true );
 		else
@@ -2506,7 +2408,6 @@ void CBuildingFrame::OnUpdateSetSmokePoint(CCmdUI* pCmdUI)
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	if ( pTree != 0 )
 	{
-		//Если уже был создан проект
 		if ( !lockedTiles.empty() )
 			pCmdUI->Enable( true );
 		else
@@ -2521,7 +2422,6 @@ void CBuildingFrame::OnUpdateMovePoint(CCmdUI* pCmdUI)
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	if ( pTree != 0 && eActiveMode == E_SHOOT_SLOT || eActiveMode == E_FIRE_POINT || eActiveMode == E_DIR_EXPLOSION || eActiveMode == E_SMOKE_POINT )
 	{
-		//Если уже был создан проект
 		pCmdUI->Enable( true );
 	}
 	else
@@ -2529,13 +2429,11 @@ void CBuildingFrame::OnUpdateMovePoint(CCmdUI* pCmdUI)
 /*
 	if ( eActiveMode == E_SHOOT_SLOT )
 	{
-		//Если есть shoot points
 		pCmdUI->Enable( true );
 		return;
 	}
 	else if ( eActiveMode == E_FIRE_POINT )
 	{
-		//Если есть fire points
 		pCmdUI->Enable( true );
 		return;
 	}
@@ -2551,7 +2449,6 @@ void CBuildingFrame::OnUpdateSetHorizontalShoot(CCmdUI* pCmdUI)
 	{
 		if ( pActiveShootPoint != 0 )
 		{
-			//Если есть shoot points
 			pCmdUI->Enable( true );
 		}
 		else
@@ -2562,7 +2459,6 @@ void CBuildingFrame::OnUpdateSetHorizontalShoot(CCmdUI* pCmdUI)
 	{
 		if ( pActiveFirePoint != 0 )
 		{
-			//Если есть fire points
 			pCmdUI->Enable( true );
 		}
 		else
@@ -2573,7 +2469,6 @@ void CBuildingFrame::OnUpdateSetHorizontalShoot(CCmdUI* pCmdUI)
 	{
 		if ( pActiveDirExpPoint != 0 )
 		{
-			//Если есть fire points
 			pCmdUI->Enable( true );
 		}
 		else
@@ -2584,7 +2479,6 @@ void CBuildingFrame::OnUpdateSetHorizontalShoot(CCmdUI* pCmdUI)
 	{
 		if ( pActiveSmokePoint != 0 )
 		{
-			//Если есть smoke points
 			pCmdUI->Enable( true );
 		}
 		else
@@ -2602,7 +2496,6 @@ void CBuildingFrame::OnUpdateSetShootAngle(CCmdUI* pCmdUI)
 	{
 		if ( pActiveShootPoint != 0 )
 		{
-			//Если есть shoot points
 			pCmdUI->Enable( true );
 		}
 		else
@@ -2613,7 +2506,6 @@ void CBuildingFrame::OnUpdateSetShootAngle(CCmdUI* pCmdUI)
 	{
 		if ( pActiveFirePoint != 0 )
 		{
-			//Если есть fire points
 			pCmdUI->Enable( true );
 		}
 		else
@@ -2624,7 +2516,6 @@ void CBuildingFrame::OnUpdateSetShootAngle(CCmdUI* pCmdUI)
 	{
 		if ( pActiveDirExpPoint != 0 )
 		{
-			//Если есть fire points
 			pCmdUI->Enable( true );
 		}
 		else
@@ -2635,7 +2526,6 @@ void CBuildingFrame::OnUpdateSetShootAngle(CCmdUI* pCmdUI)
 	{
 		if ( pActiveSmokePoint != 0 )
 		{
-			//Если есть smoke points
 			pCmdUI->Enable( true );
 		}
 		else
@@ -2661,7 +2551,6 @@ void CBuildingFrame::OnUpdateSetFirePoint(CCmdUI* pCmdUI)
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	if ( pTree != 0 )
 	{
-		//Если уже был создан проект
 		pCmdUI->Enable( true );
 	}
 	else
@@ -2673,7 +2562,6 @@ void CBuildingFrame::OnUpdateGeneratePoints(CCmdUI* pCmdUI)
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	if ( pTree != 0 )
 	{
-		//Если уже был создан проект
 		if ( ( eActiveMode == E_DIR_EXPLOSION || eActiveMode == E_SMOKE_POINT ) && !lockedTiles.empty() )
 			pCmdUI->Enable( true );
 		else
@@ -2693,7 +2581,6 @@ FILETIME CBuildingFrame::FindMinimalExportFileTime( const char *pszResultFileNam
 	
 	for ( int i=1; i<=3; i++ )
 	{
-		//Найдем время создания 1.san файла
 		szTempFileName = szDestDir;
 		szTempFileName += NStr::Format( "%d", i );
 		szTempFileName += ".san";

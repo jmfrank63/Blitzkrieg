@@ -27,7 +27,6 @@
 
 _STLP_BEGIN_NAMESPACE
 
-//============================================================
 
 template <class _Iterator>
 void _Decrement(_Iterator& __it, const bidirectional_iterator_tag &) {
@@ -130,7 +129,6 @@ public:
   typedef typename _Container::reference  reference;
   typedef typename _Container::pointer    pointer;
   typedef ptrdiff_t difference_type;
-  //private:
   typedef typename _Container::iterator        _Nonconst_iterator;
   typedef typename _Container::const_iterator  _Const_iterator;
   typedef _Container                     _Container_type;
@@ -168,7 +166,6 @@ public:
     _Advance(_M_iterator,__n, _Iterator_category());
   }
 
-// protected:
   _Nonconst_iterator _M_iterator;
 };
 
@@ -221,20 +218,15 @@ public:
     
 public:
   _DBG_iter() {}
-    // boris : real type of iter would be nice
   _DBG_iter(const __owned_list* __c, const _Const_iterator& __it) :
     _DBG_iter_mid<_Container, _Traits>(__c, __it) {}
 
-  // This allows conversions from iterator to const_iterator without being
-  // redundant with the copy constructor below.
   _DBG_iter(const _Nonconst_mid& __rhs) :
     _DBG_iter_mid<_Container, _Traits>(__rhs) {}
 
   _DBG_iter(const  _Self& __rhs) :
     _DBG_iter_mid<_Container, _Traits>(__rhs) {}
   
-  // This allows conversions from iterator to const_iterator without being
-  // redundant with the copy assignment operator below.
   _Self& operator=(const _Nonconst_mid& __rhs)  
   {
     (_Base&)*this = __rhs;
@@ -342,7 +334,6 @@ operator!=(const _DBG_iter_base<_Container>& __x,
   return __x._M_iterator != __y._M_iterator;
 }
 
-//------------------------------------------
 
 template <class _Container, class _Traits>
 inline _DBG_iter<_Container, _Traits> 
@@ -388,7 +379,4 @@ _STLP_END_NAMESPACE
 
 #endif /* INTERNAL_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

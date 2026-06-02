@@ -2,10 +2,8 @@
 #define __ANTI_ARTILLERY_H__
 
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "UpdatableObject.h"
 #include "LinkObject.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRevealCircle : public CLinkObject
 {
 	OBJECT_COMPLETE_METHODS( CRevealCircle );
@@ -23,7 +21,6 @@ public:
 	virtual void GetTilesForVisibility( CTilesSet *pTiles ) const { pTiles->clear(); }
 	virtual bool ShouldSuspendAction( const EActionNotify &eAction ) const { return false; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAntiArtillery : public CLinkObject
 {
 	OBJECT_COMPLETE_METHODS( CAntiArtillery );
@@ -33,17 +30,14 @@ class CAntiArtillery : public CLinkObject
 	int nParty;
 
 	NTimer::STime lastScan;
-	// время последнего услышанного выстрела и последнего посланного круга из этой артиллерии для каждой из сторон
 	std::vector<NTimer::STime> lastShotTime;
 	std::vector<NTimer::STime> lastRevealCircleTime;
 
-	// расстояние до ближайшего врага ( считается только для врагов )
 	std::vector<float> closestEnemyDist2;
 	std::vector<CVec2> lastHeardPos;
 	std::vector<BYTE> nHeardShots;
 	std::vector<CVec2> lastRevealCenter;
 
-	//
 	void Scan( const CVec2 &center );
 public:
 	CAntiArtillery() { }
@@ -54,20 +48,16 @@ public:
 	void Init( const float fMaxRadius, const int nParty );
 	void Fired( const float fGunRadius, const CVec2 &center );
 
-	// bOwnerVisible - видет ли owner игроком
 	void Segment( bool bOwnerVisible );
 
 	const CCircle GetRevealCircle( const int nParty ) const;
 	const NTimer::STime GetLastHeardTime( const int nParty ) const;
 
-	//
 	virtual const bool IsVisible( const BYTE party ) const { return true; }
 	virtual void GetTilesForVisibility( CTilesSet *pTiles ) const { pTiles->clear(); }
 	virtual bool ShouldSuspendAction( const EActionNotify &eAction ) const { return false; }
 	
-	//
 	friend struct SAntiArtillerySort;
 	friend class CAntiArtilleryManager;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __ANTI_ARTILLERY_H__

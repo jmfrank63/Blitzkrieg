@@ -1,6 +1,3 @@
-// This is an implementation file which
-// is intended to be included multiple times with different _STLP_ASSOCIATIVE_CONTAINER
-// setting
 
 _STLP_TEMPLATE_HEADER
 inline bool  _STLP_CALL operator==(const _STLP_TEMPLATE_CONTAINER& __x, 

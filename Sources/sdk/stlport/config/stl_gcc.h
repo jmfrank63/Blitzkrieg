@@ -15,8 +15,6 @@
 
 # if defined (__sun)
 
-// gcc does not support ELF64 yet ; however; it supports ultrasparc + v8plus.
-// limits.h contains invalid values for this combination
 # if (defined  (__sparc_v9__) || defined (__sparcv9)) && ! defined ( __WORD64 )
 #  define __LONG_MAX__ 2147483647L
 # endif
@@ -24,19 +22,14 @@
 #  include <config/stl_solaris.h>
 # endif
 
-// no thread support on AmigaOS
 #if defined (__amigaos__)
 # define _NOTHREADS
 # define _STLP_NO_THREADS
 #endif
 
-// azov: gcc on lynx have a bug that causes internal
-// compiler errors when compiling STLport with namespaces turned on. 
-// When the compiler gets better - comment out _STLP_HAS_NO_NAMESPACES
 # if defined (__Lynx__) && (__GNUC__ < 3)
 #   define _STLP_HAS_NO_NAMESPACES 1
 #   define _STLP_NO_STATIC_TEMPLATE_DATA 1
-//  turn off useless warning about including system headers
 #   define __NO_INCLUDE_WARN__ 1
 # endif
 
@@ -70,7 +63,6 @@
 
 #  if defined (_STLP_USE_DYNAMIC_LIB)
 #   define _STLP_USE_DECLSPEC 1
-// #   define _STLP_USE_TEMPLATE_EXPORT 1
 /* Using dynamic library in MinGW requires _STLP_NO_CUSTOM_IO */
 # define _STLP_NO_CUSTOM_IO
 #  endif
@@ -132,7 +124,6 @@ typedef unsigned int wint_t;
 #  define _STLP_NATIVE_CPP_RUNTIME_HEADER(header) <../stlport/beos/##header##>
 #  define _STLP_NO_NATIVE_WIDE_FUNCTIONS 1
 #  define _STLP_NO_NATIVE_WIDE_STREAMS   1
-//#  define _NOTHREADS 1
 #  ifdef _PTHREADS
 #    undef  _PTHREADS
 #  endif
@@ -234,14 +225,8 @@ typedef unsigned int wint_t;
 /* strict ANSI prohibits "long long" ( gcc) */
 #  if defined ( __STRICT_ANSI__ )
 #    undef _STLP_LONG_LONG
-// #    define _STLP_STRICT_ANSI 1
 #  endif
 
-//# if !defined (__STRICT_ANSI__) || defined (__BUILDING_STLPORT)
-//#    define _STLP_USE_TEMPLATE_EXPORT
-//#    define _STLP_EXPORT_TEMPLATE_KEYWORD extern
-//#    define _STLP_IMPORT_TEMPLATE_KEYWORD extern
-//# endif
 
 #   ifndef __EXCEPTIONS
 #     undef  _STLP_HAS_NO_EXCEPTIONS
@@ -276,11 +261,6 @@ typedef unsigned int wint_t;
 
 # else
 
-// gcc-2.95.0 used to use "g++-3" directory which has been changed to "g++" in
-// system-dependent "include" for 2.95.2 except for Cygwin and Mingw packages.
-// I expect "g++-3" not being used in later releases.
-// If your installation use "g++-3" include directory for any reason (pre-2.95.2 or Win binary kit),
-// please change the macro below to point to your directory. 
 
 # if defined(__DJGPP)
 #   define _STLP_NATIVE_INCLUDE_PATH ../lang/cxx
@@ -289,8 +269,6 @@ typedef unsigned int wint_t;
 # elif ((__GNUC_MINOR__ >= 95 && __GNUC_MINOR__ < 97) && !( defined (__FreeBSD__) || defined (__NetBSD__) || defined(__sgi) ) )
 #   define _STLP_NATIVE_INCLUDE_PATH ../g++-3
 # elif (__GNUC_MINOR__ > 8) && (__GNUC_MINOR__ < 95) && (__GNUC__ < 3) && !defined( __Lynx__ )
-// this really sucks, as GNUpro does not really identifies itself, so we have to guess 
-// depending on a platform
 #   ifdef __hpux
 #    define _STLP_NATIVE_INCLUDE_PATH ../g++-3
 #   else
@@ -300,18 +278,15 @@ typedef unsigned int wint_t;
 #   define _STLP_NATIVE_INCLUDE_PATH g++
 # endif
 
-// <exception> et al
 # ifdef __FreeBSD__
 #   if (__GNUC__ > 2) || (__GNUC__ == 2 && __GNUC_MINOR__ > 95)
 #     define _STLP_NATIVE_CPP_RUNTIME_INCLUDE_PATH ../include
 #   endif
 # else
-// azov
 #   ifdef __Lynx__ 
 #     define _STLP_NATIVE_CPP_RUNTIME_INCLUDE_PATH _STLP_NATIVE_INCLUDE_PATH
 #   else
 #    if (__GNUC__ > 2) || (__GNUC__ == 2 && __GNUC_MINOR__ >= 97)
-// #     define _STLP_NATIVE_CPP_RUNTIME_INCLUDE_PATH ../g++-v3
 #   else
 #     define _STLP_NATIVE_CPP_RUNTIME_INCLUDE_PATH ../include
 #   endif
@@ -332,8 +307,6 @@ typedef unsigned int wint_t;
 #     endif /* _REENTRANT */
 #endif
 
-// Tune settings for the case where static template data members are not 
-// instaniated by default
 # if defined ( _STLP_NO_STATIC_TEMPLATE_DATA )
 #   define _STLP_STATIC_TEMPLATE_DATA 0
 #   if !defined ( _STLP_WEAK_ATTRIBUTE )

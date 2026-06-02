@@ -30,8 +30,6 @@
 #include "Data.h"
 #include "A7ExportModel.h"
 #include "..\Misc\StrProc.h"
-//#include "BasicChunk1.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void* CA7ExportModel::creator()
 {
 	return new CA7ExportModel();
@@ -46,17 +44,14 @@ MPxFileTranslator::MFileKind CA7ExportModel::identifyFile( const MFileObject& fi
 {
 	return kNotMyFileType;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MStatus CA7ExportModel::writer( const MFileObject& file, const MString& options, FileAccessMode mode )
 {
 	fprintf( stderr, "file = \"%s\"\n", file.fullName().asChar() );
 	MStatus status = MS::kFailure;
-	//
 	try
 	{
 		NConverter::ClearAll();
 		this->ClearAll();
-		// collect and process data
 		status = CollectHierarchy();
 		if ( status == MS::kFailure ) throw 1;
 		status = CollectMeshes();
@@ -70,7 +65,6 @@ MStatus CA7ExportModel::writer( const MFileObject& file, const MString& options,
 		status = ProcessAnimations();
 		if ( status == MS::kFailure ) throw 1;
 
-		// write result
 		std::string szFileName = file.fullName().asChar();
 		if ( NConverter::SaveModel( szFileName ) == false )
 			throw 1;
@@ -90,11 +84,9 @@ MStatus CA7ExportModel::writer( const MFileObject& file, const MString& options,
 
 	return MS::kSuccess;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CA7ExportModel::ClearAll()
 {
 	NConverter::ClearAll();
-	//
 	oHierarchy.clear();
 	oMeshes.clear();
 	oLocators.clear();
@@ -104,7 +96,6 @@ void CA7ExportModel::ClearAll()
 	oAABB_As.clear();
 	oAABB_Ds.clear();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CA7ExportModel::FindIndexInHierarchy( MString &szName )
 {
 	for ( int i = 0; i != oHierarchy.length(); ++i )
@@ -148,10 +139,8 @@ MObject CA7ExportModel::FindObjectInLocators( MString &szName )
 	}
 	return MObject();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MStatus CA7ExportModel::CollectHierarchy()
 {
-	// setup DAG iterator for entire DAG (transform nodes only)
 	MStatus status;
 	MItDag itDAG( MItDag::kBreadthFirst, MFn::kTransform, &status );	
   if ( status != MS::kSuccess ) 
@@ -159,20 +148,16 @@ MStatus CA7ExportModel::CollectHierarchy()
     fprintf( stderr, "Failure in DAG iterator setup.\n" );
     return MS::kFailure;
   }
-	// iterate transform hierarchy
 	for ( ; !itDAG.isDone(); itDAG.next() )
 	{
 		MDagPath path;
 		itDAG.getPath( path );
-		// skip out intermediate objects
 		MFnDagNode node( path );
 		if ( node.isIntermediateObject() )
 			continue;
-		// We want only the shape, not the transform-extended-to-shape.
 		if ( !( path.hasFn( MFn::kTransform ) && path.hasFn( MFn::kMesh ) ) &&
 				 !( path.hasFn( MFn::kTransform ) && path.hasFn( MFn::kLocator ) ) )
 			continue;
-		//
 		for ( int i=0; i<path.childCount(); ++i )
 		{
 			if ( path.child(i).apiType() == MFn::kMesh )
@@ -204,7 +189,6 @@ MStatus CA7ExportModel::CollectHierarchy()
 					MFnDagNode parent( node.parent(0) );
 					if ( parent.name() == MString("Animations") )
 					{
-						// anim name node
 						oAnimations.append( itDAG.item() );
 						break;
 					}
@@ -217,36 +201,29 @@ MStatus CA7ExportModel::CollectHierarchy()
 
 	return MS::kSuccess;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MStatus CA7ExportModel::CollectMeshes()
 {
-	// iterate through all previously exported transform nodes
 	for ( int i = 0; i != oHierarchy.length(); ++i )
 	{
 		MFnTransform trans( oHierarchy[i] );
 		MDagPath path;
 		trans.getPath( path );
-		// for each transform node extract mesh
 		for ( int j=0; j != path.childCount(); ++j )
 		{
 			MFnDagNode node( path.child(j) );
-			// skip out intermediate objects
 			if ( node.isIntermediateObject() )
 			{
 				fprintf( stderr, "skipping intermediate object \"%s\"\n", node.name().asChar() );
 				continue;
 			}
-			//
 			if ( path.child(j).apiType() == MFn::kMesh )
 				oMeshes.append( path.child(j) );
 			else if ( path.child(j).apiType() == MFn::kLocator )
 				oLocators.append( path.child(j) );
 		}
 	}
-	//
 	return MS::kSuccess;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TYPE>
 TYPE GetValue( const char *pszName, MFnDagNode &node, TYPE defval )
 {
@@ -265,31 +242,24 @@ double GetLimit( const char *pszNameEnable, const char *pszNameLimit, MFnDagNode
 		return GetValue( pszNameLimit, node, fDefault );
 	return fDefault;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CA7ExportModel::ProcessJoint( MObjectArray &hierarchy, std::list<SJoint> &joints, std::list<std::string> &szTopNodes, bool bLocators )
 {
 	for ( int i = 0; i != hierarchy.length(); ++i )
 	{
 		SJoint joint;
-		// for transform node extract transforms in parent's space and parent name
 		MFnTransform trans( hierarchy[i] );
-		// parent
 		MFnDagNode parent( trans.parent(0) );
-		// 
 		MString szParentName = parent.name();
 		joint.szParentName = szParentName.asChar();
 		joint.nParent = FindIndexInHierarchy( szParentName );
 		if ( joint.nParent == -1 )
 			joint.nParent = FindIndexInLocators( szParentName );
-		// this node
 		joint.szName = trans.name().asChar();
 		joint.nIndex = FindIndexInHierarchy( trans.name() );
 		if ( joint.nIndex == -1 )
 			joint.nIndex = FindIndexInLocators( trans.name() );
-		// 
 		if ( joint.nParent == -1 )
 			szTopNodes.push_back( joint.szName );
-		// rotation as a quaternion
 		{
 			double quat[4];
 			trans.getRotationQuaternion( quat[0], quat[1], quat[2], quat[3], MSpace::kObject );
@@ -298,7 +268,6 @@ void CA7ExportModel::ProcessJoint( MObjectArray &hierarchy, std::list<SJoint> &j
 			joint.rot.z = quat[2];
 			joint.rot.w = quat[3];
 		}
-		// translation (= pivot)
 		{
 			MVector bone = trans.translation( MSpace::kTransform );
 			joint.bone.x = bone.x;
@@ -306,7 +275,6 @@ void CA7ExportModel::ProcessJoint( MObjectArray &hierarchy, std::list<SJoint> &j
 			joint.bone.z = bone.z;
 			joint.bone *= fGeomScaleCoeff;
 		}
-		// scale
 		{
 			double scale[3];
 			trans.getScale( scale );
@@ -314,18 +282,14 @@ void CA7ExportModel::ProcessJoint( MObjectArray &hierarchy, std::list<SJoint> &j
 			joint.scale.y = scale[1];
 			joint.scale.z = scale[2];
 		}
-		// locator?
 		joint.bLocator = bLocators;
-		// constraints
 		{
-			// rotation
 			joint.fMinAngleX = GetLimit( "minRotXLimitEnable", "minRotXLimit", trans, 1e38 );
 			joint.fMaxAngleX = GetLimit( "maxRotXLimitEnable", "maxRotXLimit", trans, 1e38 );
 			joint.fMinAngleY = GetLimit( "minRotYLimitEnable", "minRotYLimit", trans, 1e38 );
 			joint.fMaxAngleY = GetLimit( "maxRotYLimitEnable", "maxRotYLimit", trans, 1e38 );
 			joint.fMinAngleZ = GetLimit( "minRotZLimitEnable", "minRotZLimit", trans, 1e38 );
 			joint.fMaxAngleZ = GetLimit( "maxRotZLimitEnable", "maxRotZLimit", trans, 1e38 );
-			// translation
 			joint.fMinTransX = GetLimit( "minTransXLimitEnable", "minTransXLimit", trans, 1e38 / fGeomScaleCoeff ) * fGeomScaleCoeff;
 			joint.fMaxTransX = GetLimit( "maxTransXLimitEnable", "maxTransXLimit", trans, 1e38 / fGeomScaleCoeff ) * fGeomScaleCoeff;
 			joint.fMinTransY = GetLimit( "minTransYLimitEnable", "minTransYLimit", trans, 1e38 / fGeomScaleCoeff ) * fGeomScaleCoeff;
@@ -333,11 +297,9 @@ void CA7ExportModel::ProcessJoint( MObjectArray &hierarchy, std::list<SJoint> &j
 			joint.fMinTransZ = GetLimit( "minTransZLimitEnable", "minTransZLimit", trans, 1e38 / fGeomScaleCoeff ) * fGeomScaleCoeff;
 			joint.fMaxTransZ = GetLimit( "maxTransZLimitEnable", "maxTransZLimit", trans, 1e38 / fGeomScaleCoeff ) * fGeomScaleCoeff;
 		}
-		//
 		joints.push_back( joint );
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void FillConstraint( SSkeletonFormat::SNodeFormat::SConstraint *pConstraint, float fMin, float fMax, const CVec3 &axis, int type )
 {
 	if ( (fabs(fMin) < 1e30f) && (fabs(fMax) < 1e30f) )
@@ -356,11 +318,9 @@ void FillNode( SSkeletonFormat::SNodeFormat *pNode, const SJoint &joint )
 	pNode->quat.Set( joint.rot.x, joint.rot.y, joint.rot.z, joint.rot.w );
 	pNode->nIndex = joint.nIndex;
 
-	// reset constraint
 	pNode->constraint.fMin = pNode->constraint.fMax = 0;
 	pNode->constraint.type = 0;
 	pNode->constraint.axis = VNULL3;
-	// fill one variant
 	FillConstraint( &pNode->constraint, joint.fMinAngleX, joint.fMaxAngleX, V3_AXIS_X, SSkeletonFormat::SNodeFormat::SConstraint::ROT );
 	FillConstraint( &pNode->constraint, joint.fMinAngleY, joint.fMaxAngleY, V3_AXIS_Y, SSkeletonFormat::SNodeFormat::SConstraint::ROT );
 	FillConstraint( &pNode->constraint, joint.fMinAngleZ, joint.fMaxAngleZ, V3_AXIS_Z, SSkeletonFormat::SNodeFormat::SConstraint::ROT );
@@ -369,7 +329,6 @@ void FillNode( SSkeletonFormat::SNodeFormat *pNode, const SJoint &joint )
 	FillConstraint( &pNode->constraint, joint.fMinTransY, joint.fMaxTransY, V3_AXIS_Y, SSkeletonFormat::SNodeFormat::SConstraint::TRANS );
 	FillConstraint( &pNode->constraint, joint.fMinTransZ, joint.fMaxTransZ, V3_AXIS_Z, SSkeletonFormat::SNodeFormat::SConstraint::TRANS );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CNodeNameAccumulate
 {
 	const std::string &szName;
@@ -377,7 +336,6 @@ class CNodeNameAccumulate
 public:
 	explicit CNodeNameAccumulate( const std::string &_szName ) : szName( _szName ), nCounter( 0 ) {  }
 	CNodeNameAccumulate( const CNodeNameAccumulate &acc ) : szName( acc.szName ), nCounter( acc.nCounter ) {  }
-	//
 	int operator()( const SSkeletonFormat::SNodeFormat &node )
 	{
 		nCounter += ( node.szName == szName );
@@ -385,18 +343,14 @@ public:
 	}
 	int GetCounter() const { return nCounter; }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MStatus CA7ExportModel::ProcessHierarchy()
 {
-	// set time to 0 - start frame
 	MTime time( 0, MTime::kMilliseconds );
 	MGlobal::viewFrame( time );
-	// iterate through all previously collected transform nodes and extract joints information
 	std::list<SJoint> joints;
 	std::list<std::string> szTopNodes;
 	ProcessJoint( oHierarchy, joints, szTopNodes, false );
 	ProcessJoint( oLocatorsHierarchy, joints, szTopNodes, true );
-	//
 	if ( szTopNodes.size() > 1 )
 	{
 		fprintf( stderr, "exported model have more then one top-level node:\n" );
@@ -405,25 +359,19 @@ MStatus CA7ExportModel::ProcessHierarchy()
 		return MS::kFailure;
 	}
 	const std::string szTopNode = szTopNodes.front();
-	// fill nodes with information
 	NConverter::skeleton.locators.clear();
 	NConverter::skeleton.nodes.clear();
 	NConverter::skeleton.nodes.resize( joints.size() );
 	for ( std::list<SJoint>::const_iterator joint = joints.begin(); joint != joints.end(); ++joint )
 	{
-		// node
 		FillNode( &(NConverter::skeleton.nodes[joint->nIndex]), *joint );
-		// parent <=> child
 		if ( joint->nParent != -1 )
 			NConverter::skeleton.nodes[joint->nParent].children.push_back( joint->nIndex );
-		// locator
 		if ( joint->bLocator )
 			NConverter::skeleton.locators.push_back( joint->nIndex );
-		// top node
 		if ( joint->szName == szTopNode )
 			NConverter::skeleton.nTopNode = joint->nIndex;
 	}
-	// check for unique names in nodes list
 	for ( SSkeletonFormat::CNodesList::iterator node = NConverter::skeleton.nodes.begin(); node != NConverter::skeleton.nodes.end(); ++node )
 	{
 		CNodeNameAccumulate acc = std::for_each( NConverter::skeleton.nodes.begin(), NConverter::skeleton.nodes.end(), CNodeNameAccumulate(node->szName) );
@@ -434,34 +382,26 @@ MStatus CA7ExportModel::ProcessHierarchy()
 		}
 	}
 
-	// sort locators
 	std::sort( NConverter::skeleton.locators.begin(), NConverter::skeleton.locators.end() );
-	// erase non-unique entries in locators
 	NConverter::skeleton.locators.erase( std::unique( NConverter::skeleton.locators.begin(), NConverter::skeleton.locators.end() ),
 		                                   NConverter::skeleton.locators.end() );
-	// erase non-unique entries in children list in each node
 	for ( SSkeletonFormat::CNodesList::iterator node = NConverter::skeleton.nodes.begin(); node != NConverter::skeleton.nodes.end(); ++node )
 	{
 		std::sort( node->children.begin(), node->children.end() );
 		node->children.erase( std::unique(node->children.begin(), node->children.end()), node->children.end() );
 	}
-	//
 	return MS::kSuccess;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MStatus GetAABBInfo( SAABBFormat *pAABB, MObject &oAABB )
 {
 	if ( oAABB.apiType() != MFn::kMesh )
 		return MStatus::kFailure;
-	//
 	MFnMesh mesh( oAABB );
-	// 
 	if ( mesh.numVertices() != 8 )
 	{
 		fprintf( stderr, "Wrong AABB \"%s\" with %d points (instead of 8)\n", mesh.name().asChar(), mesh.numVertices() );
 		return MStatus::kFailure;
 	}
-	// points
 	CVec3 vMin( 1e8f, 1e8f, 1e8f ), vMax( -1e8f, -1e8f, -1e8f );
 	for ( int j = 0; j != mesh.numVertices(); ++j )
 	{
@@ -478,32 +418,25 @@ MStatus GetAABBInfo( SAABBFormat *pAABB, MObject &oAABB )
 
 	return MStatus::kSuccess;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int ToIntLocal( const std::string &szInt )
 {
-	// check for digits
 	for ( int i = 0; i != szInt.size(); ++i )
 	{
 		if ( NStr::IsDecDigit(szInt[i]) == false )
 			return -1;
 	}
-	//
 	if ( szInt[0] == '0' )
 		return NStr::ToInt( szInt.c_str() + 1 );
 	else
 		return NStr::ToInt( szInt.c_str() );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MStatus CA7ExportModel::ProcessAABB()
 {
-	// process main AABB
 	if ( GetAABBInfo(&NConverter::aabb, oAABB) != MStatus::kSuccess ) 
 	{
 		fprintf( stderr, "Object doesn't contain AABB\n" );
 		return MStatus::kFailure;
 	}
-	// process additional AABBs
-	// AABB_A
 	for ( int i=0; i != oAABB_As.length(); ++i )
 	{
 		MFnDagNode node( oAABB_As[i] );
@@ -519,7 +452,6 @@ MStatus CA7ExportModel::ProcessAABB()
 			return MStatus::kFailure;
 		}
 	}
-	// AABB_D
 	for ( int i=0; i != oAABB_Ds.length(); ++i )
 	{
 		MFnDagNode node( oAABB_Ds[i] );
@@ -535,31 +467,25 @@ MStatus CA7ExportModel::ProcessAABB()
 			return MStatus::kFailure;
 		}
 	}
-	//
 	return MStatus::kSuccess;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MStatus CA7ExportModel::ProcessMeshes()
 {
 	for ( int i=0; i != oMeshes.length(); ++i )
 	{
 		MFnMesh mesh( oMeshes[i] );
-		//
 		NConverter::SetActiveMesh( mesh.name().asChar() );
 		NConverter::SetMeshIndex( FindIndexInHierarchy(mesh.name()) );
-		// points
 		for ( int j = 0; j != mesh.numVertices(); ++j )
 		{
 			MPoint point;
 			mesh.getPoint( j, point, MSpace::kObject );
 			NConverter::AddPoint( CVec3(point.x, point.y, point.z) );
 		}
-		// normales
 		MFloatVectorArray normales;
 		mesh.getNormals( normales, MSpace::kObject );
 		for ( int j = 0; j != normales.length(); ++j )
 			NConverter::AddNormale( CVec3(normales[j].x, normales[j].y, normales[j].z) );
-		// uvs
 		for ( int j = 0; j != mesh.numUVs(); ++j )
 		{
 			CVec2 uv;
@@ -567,7 +493,6 @@ MStatus CA7ExportModel::ProcessMeshes()
 			uv.v = 1.0f - uv.v;								// Maya считает за 0 левый нижний угол, а все нормальные пакеты - левый верхний
 			NConverter::AddUV( uv );
 		}
-		//
 		MDagPath meshPath;
 		MDagPath::getAPathTo( oMeshes[i], meshPath );
 		MItMeshPolygon itPoly( meshPath.node() );
@@ -598,10 +523,8 @@ MStatus CA7ExportModel::ProcessMeshes()
 			NConverter::AddFace( nIndices );
 		}
 	}
-	//
 	return MS::kSuccess;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SAnimDesc
 {
 	std::string szName;										// animation name
@@ -614,7 +537,6 @@ struct SAnimDesc
 MStatus CA7ExportModel::ProcessAnimations()
 {
 	const float fTimeStep = 62.5f;				// 16 fps
-	// form animdescs list...
 	std::list<SAnimDesc> animdescs;
 	for ( int i=0; i<oAnimations.length(); ++i )
 	{
@@ -629,11 +551,9 @@ MStatus CA7ExportModel::ProcessAnimations()
 		int nEnd = GetValue( "EndTime", node, 0.0 );
 		int nActionTime = GetValue( "ActionTime", node, 0.0 );
 		const int nAABBIndex = GetValue( "AABBIndex", node, -1.0 );
-		// calc num keys
 		desc.nNumKeys = nEnd - desc.nStart + 1;
 		desc.nAction = Max( 0, nActionTime - desc.nStart );
 		desc.nAABBIndex = nAABBIndex;
-		//
 		if ( desc.nStart >= nEnd )
 		{
 			fprintf( stderr, "wrong animation \"%s\" (%d >= %d). skipping\n", desc.szName.c_str(), desc.nStart, nEnd );
@@ -641,7 +561,6 @@ MStatus CA7ExportModel::ProcessAnimations()
 			continue;
 		}
 	}
-	// process animations
 	for ( std::list<SAnimDesc>::const_iterator anim = animdescs.begin(); anim != animdescs.end(); ++anim )
 	{
 		NConverter::animations.push_back( SAnimationFormat() );
@@ -651,19 +570,14 @@ MStatus CA7ExportModel::ProcessAnimations()
 		animation.nAction = anim->nAction;
 		animation.nAABB_AIndex = NConverter::GetAABB_AIndex( anim->nAABBIndex );
 		animation.nAABB_DIndex = NConverter::GetAABB_DIndex( anim->nAABBIndex );
-		//
 		for ( int i=0; i<anim->nNumKeys; ++i )
 		{
 			double fFrame = anim->nStart + i;
-			// set global time (в единицах слайдера в Maya, т.е. в кадрах)
 			MGlobal::viewFrame( fFrame );
-			// extract placement data
-			// iterate through all previously collected transform nodes and extract joints information
 			std::list<SJoint> joints;
 			std::list<std::string> szTopNodes;
 			ProcessJoint( oHierarchy, joints, szTopNodes, false );
 			ProcessJoint( oLocatorsHierarchy, joints, szTopNodes, true );
-			// write data from joints to animation nodes
 			for ( std::list<SJoint>::const_iterator joint = joints.begin(); joint != joints.end(); ++joint )
 			{
 				animation.nodes[joint->nIndex][i].vPos = joint->bone;
@@ -674,7 +588,6 @@ MStatus CA7ExportModel::ProcessAnimations()
 
 	return MStatus::kSuccess;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CA7ExportModel::OutputMatrix( const char *pszText, MMatrix &mx )
 {
 	fprintf( stderr, pszText );
@@ -705,4 +618,3 @@ void CA7ExportModel::OutputPoint( const char *pszText, MPoint &p )
 		fprintf( stderr, " %.3f", p[i] );
 	fprintf( stderr, "\n" );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

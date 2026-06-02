@@ -4,13 +4,10 @@
 #include "CommonId.h"
 #include "TutorialList.h"
 #include "..\Main\ScenarioTracker.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceTutorialList::Init()
 {
-	//инициализируем имена
 	fileMasks.clear();
 	fileMasks.push_back( "*.xml" );
-//	szTopDir = std::string( GetSingleton<IDataStorage>()->GetName() );
 	szTopDir = "";
 	szTopDir += "scenarios\\tutorials\\";
 	szCurrentDir = szTopDir;
@@ -18,12 +15,9 @@ bool CInterfaceTutorialList::Init()
 	nSortType = E_SORT_BY_NAME;
 	bStorageFiles = true;
 	szCollectorName = "tutorial";
-	//
 	CInterfaceCustomList::Init();
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceTutorialList::FillListItem( IUIListRow *pRow, const std::string &szFullFileName, bool *pSelectedItem )
 {
 /*
@@ -36,7 +30,6 @@ return false;
 	*/
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceTutorialList::OnOk( const std::string &szFullFileName )
 {
 	std::string szDir = GetSingleton<IDataStorage>()->GetName();
@@ -59,4 +52,3 @@ bool CInterfaceTutorialList::OnOk( const std::string &szFullFileName )
 	FinishInterface( MISSION_COMMAND_MISSION, pStats->szFinalMap.c_str() );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

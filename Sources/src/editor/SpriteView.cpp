@@ -1,5 +1,3 @@
-// SpriteView.cpp : implementation file
-//
 
 #include "StdAfx.h"
 #include "SpriteView.h"
@@ -13,8 +11,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CSpriteView
 
 CSpriteView::CSpriteView()
 {
@@ -26,15 +22,11 @@ CSpriteView::~CSpriteView()
 
 
 BEGIN_MESSAGE_MAP(CSpriteView, CWnd)
-	//{{AFX_MSG_MAP(CSpriteView)
 	ON_WM_PAINT()
 	ON_WM_SIZE()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CSpriteView message handlers
 
 BOOL CSpriteView::PreCreateWindow(CREATESTRUCT& cs) 
 {

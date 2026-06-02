@@ -9,8 +9,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CMineView
 
 CMineView::CMineView()
 {
@@ -22,14 +20,10 @@ CMineView::~CMineView()
 
 
 BEGIN_MESSAGE_MAP(CMineView, CWnd)
-//{{AFX_MSG_MAP(CMineView)
 ON_WM_PAINT()
-//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CMineView message handlers
 
 BOOL CMineView::PreCreateWindow(CREATESTRUCT& cs) 
 {

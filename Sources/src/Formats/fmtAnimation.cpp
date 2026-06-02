@@ -2,15 +2,6 @@
 
 #include "..\Anim\Animation.h"
 #include "fmtAnimation.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** sprite animation format and serialization
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SSpriteAnimationFormat::Load( const bool bPreLoad )
 {
 	const std::string szStreamName = GetSharedResourceFullName();
@@ -26,14 +17,12 @@ bool SSpriteAnimationFormat::Load( const bool bPreLoad )
 	saver.Add( 1, this );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SSpriteAnimationFormat::SSpriteAnimation::SDir::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 	saver.Add( 1, &frames );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SSpriteAnimationFormat::SSpriteAnimation::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -44,11 +33,9 @@ int SSpriteAnimationFormat::SSpriteAnimation::operator&( IStructureSaver &ss )
 	saver.Add( 5, &bCycled );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SSpriteAnimationFormat::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 	saver.Add( 1, &animations );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

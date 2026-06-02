@@ -20,7 +20,6 @@
 #include "..\zlib\zlib.h"
 #include "..\zlib\zconf.h"
 
-// for debug
 #if !defined(_FINALRELEASE) || defined(_DEVVERSION)
 #define DEBUG_NET_MESSAGES
 #endif // !defined(_FINALRELEASE) || defined(_DEVVERSION)
@@ -28,23 +27,14 @@
 #ifdef DEBUG_NET_MESSAGES
 #include "..\StreamIO\Globals.h"
 #endif
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( IGameCreation );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const NTimer::STime TIME_TO_SEND_PING_MESSAGE = 200;
-//const NTimer::STime PERIOD_OF_TIME_TO_SEND_PING_MESSAGES = 15000;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void WriteDebugMessage( const char *pszMessage )
 {
 #ifdef DEBUG_NET_MESSAGES
 	GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CONSOLE, pszMessage, 0xffffff00, true );
 #endif
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 								   CCommonGameCreationInfo										*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommonGameCreationInfo::Init()
 {
 	lastPingMessageTime = 0;
@@ -64,7 +54,6 @@ void CCommonGameCreationInfo::Init()
 	pInGameNetDriver->AddChannel( 2, channelMessages );
 	packedInfo.bPacked = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CCommonGameCreationInfo::GetPlayerInfo( const WORD *pszPlayerName, SPlayerInfo *pInfo ) const
 {
 	std::wstring szPlayerName = MakeWideStringFromWordString( pszPlayerName );
@@ -81,7 +70,6 @@ const bool CCommonGameCreationInfo::GetPlayerInfo( const WORD *pszPlayerName, SP
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CCommonGameCreationInfo::GetOurPlayerInfo( SPlayerInfo *pInfo, const int nOurLogicID ) const
 {
 	if ( nOurLogicID == -1 )
@@ -92,7 +80,6 @@ const bool CCommonGameCreationInfo::GetOurPlayerInfo( SPlayerInfo *pInfo, const 
 		return true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CCommonGameCreationInfo::CanStartGame() const
 {
 	std::vector<int> playersInSide( sides.size(), 0 );
@@ -120,7 +107,6 @@ bool CCommonGameCreationInfo::CanStartGame() const
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CCommonGameCreationInfo::IsAllPlayersInOneParty() const
 {
 	int nParty = -1;
@@ -145,7 +131,6 @@ bool CCommonGameCreationInfo::IsAllPlayersInOneParty() const
 
 	return nPlayers <= 1 || !bIsRandomPlayers;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommonGameCreationInfo::LoadSidesInformation()
 {
 	sides.clear();
@@ -168,7 +153,6 @@ void CCommonGameCreationInfo::LoadSidesInformation()
 
 	gameInfo.nMaxPlayers = Min( (int)gameInfo.nMaxPlayers, (int)mapInfo.diplomacies.size() - 1 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CCommonGameCreationInfo::LoadMapInfo( const bool bServer, const bool bNeedCheckSums )
 {
 	if ( !bServer )
@@ -220,7 +204,6 @@ bool CCommonGameCreationInfo::LoadMapInfo( const bool bServer, const bool bNeedC
 
 	return bMapLoaded;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommonGameCreationInfo::DistributePlayersNumbers()
 {
 	std::vector<int> playersInSide( sides.size(), 0 );
@@ -230,18 +213,15 @@ void CCommonGameCreationInfo::DistributePlayersNumbers()
 			++playersInSide[players[i].nSide];
 	}
 
-	// distribution by sides
 	int nPlayer = 0;
 	while ( true )
 	{
-		// look for first random-side player
 		while ( nPlayer < 16 && ( players[nPlayer].eState != SPlayerInfo::EPS_VALID || players[nPlayer].nSide < sides.size() - 1 ) )
 			++nPlayer;
 
 		if ( nPlayer >= 16 )
 			break;
 
-		// find weakest sides
 		std::list<int> weakestSides;
 		int nPlayersInWeakestSide = 16 * 2;
 		for ( int i = 0; i < playersInSide.size(); ++i )
@@ -260,7 +240,6 @@ void CCommonGameCreationInfo::DistributePlayersNumbers()
 		}
 		NI_ASSERT_T( !weakestSides.empty(), "Cant find side to push the player" );
 
-		// choose a random weakest side
 		int n = ( float(rand()) / float(RAND_MAX) ) * float(weakestSides.size());
 		if ( n >= weakestSides.size() )
 			n = weakestSides.size() - 1;
@@ -269,15 +248,12 @@ void CCommonGameCreationInfo::DistributePlayersNumbers()
 		std::advance( iter, n );
 		const int nSide = *iter;
 
-		// set player to the chosen side
 		players[nPlayer].nSide = nSide;
 		++playersInSide[nSide];
 	}
 
-	// distribution by players
 	for ( int i = 0; i < sides.size() - 1; ++i )
 	{
-		// players of side i
 		std::vector<int> allPlayers;
 		for ( int j = 0; j < 16; ++j )
 		{
@@ -285,7 +261,6 @@ void CCommonGameCreationInfo::DistributePlayersNumbers()
 				allPlayers.push_back( j );
 		}
 
-		// dump players
 		while ( allPlayers.size() < sides[i].nMaxPlayers )
 			allPlayers.push_back( -1 );
 
@@ -304,10 +279,8 @@ void CCommonGameCreationInfo::DistributePlayersNumbers()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommonGameCreationInfo::SetGlobalVars( const int nOurLogicID )
 {
-	// write all players info to global vars
 	int i = 0;
 	std::string szValueName;
 	int nPlayers = 0;
@@ -349,7 +322,6 @@ void CCommonGameCreationInfo::SetGlobalVars( const int nOurLogicID )
 	SetGlobalVar( "Multiplayer.CheckSumMap", gameInfo.checkSumMap );
 	SetGlobalVar( "Multiplayer.CheckSumRes", gameInfo.checkSumRes );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommonGameCreationInfo::UpdatePlayersInfo()
 {
 	const NTimer::STime time = GetSingleton<IGameTimer>()->GetAbsTime();
@@ -368,14 +340,12 @@ void CCommonGameCreationInfo::UpdatePlayersInfo()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommonGameCreationInfo::SendPingMessage()
 {
 	const NTimer::STime time = GetSingleton<IGameTimer>()->GetAbsTime();
 	if ( startSendMessagesTime == 0 )
 		startSendMessagesTime = time;
 
-	// ������, ����� �� ���������� ping � ���� ����� ping message
 	if ( /*time < startSendMessagesTime + PERIOD_OF_TIME_TO_SEND_PING_MESSAGES &&*/
 			 time > lastPingMessageTime + TIME_TO_SEND_PING_MESSAGE )
 	{
@@ -387,11 +357,6 @@ void CCommonGameCreationInfo::SendPingMessage()
 		pInGameNetDriver->SendBroadcast( pkt );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 					CCommonGameCreationInfo::SPackedInfo								*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommonGameCreationInfo::SPackedInfo::PackFile( const std::string szFileName, std::vector<BYTE> &packedFile, int &nRealSize )
 {
 	packedFile.clear();
@@ -407,7 +372,6 @@ void CCommonGameCreationInfo::SPackedInfo::PackFile( const std::string szFileNam
 
 		packedFile.resize( realFile.size() + 100000 );
 		
-		// inflate map
 		z_stream stream;
 		stream.next_in = (Bytef*)(&(realFile[0]));
 		stream.avail_in = realFile.size();
@@ -417,16 +381,13 @@ void CCommonGameCreationInfo::SPackedInfo::PackFile( const std::string szFileNam
 		stream.zalloc = (alloc_func)0;
 		stream.zfree = (free_func)0;
 
-		// Perform inflation. wbits < 0 indicates no zlib header inside the data.
 		int err = deflateInit2( &stream, 9, Z_DEFLATED, -MAX_WBITS, 8, Z_DEFAULT_STRATEGY );
 		if ( err == Z_OK )
 		{
 			err = deflate( &stream, Z_FINISH );
 			deflateEnd( &stream );
-			// CRAP{ ������-�� ������ ��� ���������� ������������ "buffer error" ������ "stream end"...
 			if ( (err == Z_STREAM_END) || (err == Z_BUF_ERROR) )
 				err = Z_OK;
-			// CRAP}
 			deflateEnd( &stream );
 
 			packedFile.resize( stream.next_out - &(packedFile[0]) );
@@ -435,7 +396,6 @@ void CCommonGameCreationInfo::SPackedInfo::PackFile( const std::string szFileNam
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommonGameCreationInfo::SPackedInfo::LoadAllFiles()
 {
 	PackFile( szMapFileName, packedMap, nRealMapSize );
@@ -452,11 +412,6 @@ void CCommonGameCreationInfo::SPackedInfo::LoadAllFiles()
 
 	bPacked = true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 								   CServerGameCreation												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerGameCreation::Init( INetDriver *_pInGameNetDriver, INetDriver *_pOutGameNetDriver,
 																const SGameInfo &_gameInfo, const SQuickLoadMapInfo &_mapInfo )
 {
@@ -478,7 +433,6 @@ void CServerGameCreation::Init( INetDriver *_pInGameNetDriver, INetDriver *_pOut
 	pInGameNetDriver->StartGame();
 	pInGameNetDriver->StartNewPlayerAccept();
 
-	//
 	players.clear();
 	players.resize( 17 );
 	players[0].nClientID = -1;
@@ -498,7 +452,6 @@ void CServerGameCreation::Init( INetDriver *_pInGameNetDriver, INetDriver *_pOut
 
 	bCanStartGame = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerGameCreation::SendGameInfoOutside()
 {
 	SServerInfo info( gameInfo );
@@ -507,7 +460,6 @@ void CServerGameCreation::SendGameInfoOutside()
 	info.Pack( &driverGameInfo );
 	pOutGameNetDriver->StartGameInfoSend( driverGameInfo );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerGameCreation::LeftGame()
 {
 	if ( pOutGameNetDriver )
@@ -517,7 +469,6 @@ void CServerGameCreation::LeftGame()
 	pInGameNetDriver = 0;
 	pOutGameNetDriver = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerGameCreation::SendConnectionFailed()
 {
 	INetDriver::EReject eReason;
@@ -532,7 +483,6 @@ void CServerGameCreation::SendConnectionFailed()
 
  	messages.AddMessage( new CConnectionFailed( eReason ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CServerGameCreation::CheckConnection()
 {
 	if ( pInGameNetDriver )
@@ -553,7 +503,6 @@ bool CServerGameCreation::CheckConnection()
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CServerGameCreation::CreateNewLogicID()
 {
 	int i = 0;
@@ -562,7 +511,6 @@ int CServerGameCreation::CreateNewLogicID()
 
 	return ( i < 16 ) ? i : -1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerGameCreation::ReadPlayerInfo( int nClientID, CStreamAccessor &pkt )
 {
 	SPlayerInfo info;
@@ -577,7 +525,6 @@ void CServerGameCreation::ReadPlayerInfo( int nClientID, CStreamAccessor &pkt )
 	std::string szSideName = info.nSide >= 0 ? sides[info.nSide].szName.c_str() : "Random";
 	messages.AddMessage( new CPlayerInfoRefreshed( info, szSideName.c_str() ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerGameCreation::ConstructGameInfoPacket( CStreamAccessor &pkt )
 {
 	const BYTE msgID = NGM_GAME_INFO;
@@ -585,10 +532,8 @@ void CServerGameCreation::ConstructGameInfoPacket( CStreamAccessor &pkt )
 	pkt << msgID;
 	gameInfo.Pack( pkt );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerGameCreation::ProcessNewClient( int nClientID, CStreamAccessor &pkt )
 {
-	// ������������ ������ ������� � ����� ��� logicID
 	const int nLogicID = CreateNewLogicID();
 	if ( nLogicID < 0 || nLogicID >= 16 )
 	{
@@ -606,13 +551,11 @@ void CServerGameCreation::ProcessNewClient( int nClientID, CStreamAccessor &pkt 
 		players[nLogicID].nSide = sides.size() - 1;
 		players[nLogicID].eState = SPlayerInfo::EPS_CONNECTED;
 
-		// �������� game info
 		++gameInfo.nCurPlayers;
 
 		ConstructGameInfoPacket( pkt );
 		pInGameNetDriver->SendDirect( nClientID, pkt );
 
-		// �������� ����� ������� ��� ����� logic ID ��� 'DIRECT'
 		const BYTE msgID = NGM_LOGIC_ID;
 		pkt->SetSize( 0 );
 		pkt << msgID << nLogicID;
@@ -622,7 +565,6 @@ void CServerGameCreation::ProcessNewClient( int nClientID, CStreamAccessor &pkt 
 		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CONSOLE, NStr::Format( "NGM_GAME_INFO to client %d sent", nClientID ), 0xffffff00, true );
 #endif
 
-		// ������� ������, ��� ���������� ������� ����������
 		SendGameInfoOutside();
 
 #ifdef DEBUG_NET_MESSAGES
@@ -630,7 +572,6 @@ void CServerGameCreation::ProcessNewClient( int nClientID, CStreamAccessor &pkt 
 #endif
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerGameCreation::ChoosePlayerName( int nClientID, CStreamAccessor &pkt )
 {
 	int nLogicID;
@@ -699,7 +640,6 @@ void CServerGameCreation::ChoosePlayerName( int nClientID, CStreamAccessor &pkt 
 		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CONSOLE, NStr::Format( "NGM_ANSWER_PLAYER_NAME sent to client %d", nClientID, szSentName.c_str() ), 0xffffff00, true );
 #endif
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerGameCreation::ProcessDirectMessage( int nClientID, CStreamAccessor &pkt )
 {
 	BYTE msgID = -1;
@@ -718,7 +658,6 @@ void CServerGameCreation::ProcessDirectMessage( int nClientID, CStreamAccessor &
 			break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerGameCreation::ProcessBroadcastMessage( int nClientID, CStreamAccessor &pkt )
 {
 	BYTE msgID = -1;
@@ -729,7 +668,6 @@ void CServerGameCreation::ProcessBroadcastMessage( int nClientID, CStreamAccesso
 		case NGM_BROADCAST_PLAYER_INFO:
 			{
 				ReadPlayerInfo( nClientID, pkt );
-				// ����� �� 'nClientID' ��� ���� � ���� ��� 'DIRECT'
 				pkt->SetSize( 0 );
 				BYTE msgID = NGM_DIRECT_PLAYER_INFO;
 				pkt << msgID;
@@ -753,7 +691,6 @@ void CServerGameCreation::ProcessBroadcastMessage( int nClientID, CStreamAccesso
 			NI_ASSERT_T( false, NStr::Format( "Unknown message (%d) received by the server", msgID ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerGameCreation::ProcessRemoveClient( int nClientID, CStreamAccessor &pkt )
 {
 	int i = 0;
@@ -768,16 +705,13 @@ void CServerGameCreation::ProcessRemoveClient( int nClientID, CStreamAccessor &p
 		players[i].eState = SPlayerInfo::EPS_INVALID;
 		players[i].nClientID = -1;
 
-		// ������� ����, ��� player �����
 		pkt->SetSize( 0 );
 		BYTE msgID = NGM_PLAYER_LEFT;
 		pkt << msgID << players[i].nLogicID;
 		pInGameNetDriver->SendBroadcast( pkt );
 
-		// �������� gameInfo
 		--gameInfo.nCurPlayers;
 		NI_ASSERT_T( gameInfo.nCurPlayers > 0, "Wrong number of players in the game" );
-		// ������� ������, ��� ���������� ������� ����������
 		SendGameInfoOutside();
 
 #ifdef DEBUG_NET_MESSAGES
@@ -785,14 +719,12 @@ void CServerGameCreation::ProcessRemoveClient( int nClientID, CStreamAccessor &p
 #endif
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerGameCreation::ProcessMessages()
 {
 	INetDriver::EMessage eMsgID;
 	int nClientID;
 	int received[128];
 	CStreamAccessor pkt = CreateObject<IDataStream>( STREAMIO_MEMORY_STREAM );
-	//
 	while ( pInGameNetDriver && pInGameNetDriver->GetMessage(&eMsgID, &nClientID, received, pkt) )
 	{
 		switch ( eMsgID ) 
@@ -821,7 +753,6 @@ void CServerGameCreation::ProcessMessages()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerGameCreation::SendPacketStream( const int nClientID, const std::vector<BYTE> &stream )
 {
 	CStreamAccessor pkt = CreateObject<IDataStream>( STREAMIO_MEMORY_STREAM );
@@ -844,7 +775,6 @@ void CServerGameCreation::SendPacketStream( const int nClientID, const std::vect
 	pkt << cMsg;
 	pInGameNetDriver->SendDirect( nClientID, pkt );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerGameCreation::UpdateLoadMap()
 {
 	INetDriver::EMessage eMsgID;
@@ -918,7 +848,6 @@ void CServerGameCreation::UpdateLoadMap()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerGameCreation::Segment()
 {
 	if ( CheckConnection() )
@@ -939,7 +868,6 @@ void CServerGameCreation::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerGameCreation::KickPlayer( const int nLogicID )
 {
 	if ( players[nLogicID].eState != SPlayerInfo::EPS_INVALID )
@@ -952,7 +880,6 @@ void CServerGameCreation::KickPlayer( const int nLogicID )
 		players[nLogicID].eState = SPlayerInfo::EPS_INVALID;
 		players[nLogicID].nClientID = -1;
 
-		// ������� ����, ��� player �����
 		CStreamAccessor pkt = CreateObject<IDataStream>( STREAMIO_MEMORY_STREAM );
 		BYTE msgID = NGM_PLAYER_KICKED;
 		pkt << msgID << nLogicID;
@@ -962,16 +889,13 @@ void CServerGameCreation::KickPlayer( const int nLogicID )
 		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CONSOLE, NStr::Format( "NGM_PLAYER_KICKED, client %d", nLogicID ), 0xffffff00, true );
 #endif
 
-		// �������� gameInfo
 		--gameInfo.nCurPlayers;
 		NI_ASSERT_T( gameInfo.nCurPlayers > 0, "Wrong number of players in the game" );
-		// ������� ������, ��� ���������� ������� ����������
 		SendGameInfoOutside();
 
 		pInGameNetDriver->Kick( nClientID );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerGameCreation::ChangePlayerSettings( const SPlayerInfo &info, const EPlayerSettings &eSettingsType )
 {
 	switch ( eSettingsType )
@@ -1000,11 +924,9 @@ void CServerGameCreation::ChangePlayerSettings( const SPlayerInfo &info, const E
 		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CONSOLE, NStr::Format( "NGM_BROADCAST_PLAYER_INFO sent, settings" ), 0xffffff00, true );
 #endif
 	
-	//
 	const std::string szSide = sides.size() > 0 ? sides[players[0].nSide].szName : "Random";
 	messages.AddMessage( new CPlayerInfoRefreshed( players[0], szSide.c_str() ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IGamePlaying* CServerGameCreation::CreateGamePlaying()
 {
 	pInGameNetDriver->StopNewPlayerAccept();
@@ -1036,18 +958,13 @@ IGamePlaying* CServerGameCreation::CreateGamePlaying()
 		}
 	}
 	pkt << -1;
-	// distribute player numbers to players
 	DistributePlayersNumbers();
 
-	// load randomseed and commands history
-	// ���� history ���������, �� ���������� ������������� �������, ��� �������� � history
 	ICommandsHistory *pHistory = GetSingleton<ICommandsHistory>();
 	if ( pHistory->LoadCommandLineHistory() )
 	{
-		// for compatibility with legacy histories
 		if ( pHistory->GetNumPlayersInMPGame() > 0 )
 		{
-//			NI_ASSERT_T( nPlayers == pHistory->GetNumPlayersInMPGame(), NStr::Format("Wrong number of players %d, %d expected", nPlayers, pHistory->GetNumPlayersInMPGame() ) );
 
 			int cnt = 0;
 			for ( int i = 0; i < 16; ++i )
@@ -1083,12 +1000,10 @@ IGamePlaying* CServerGameCreation::CreateGamePlaying()
 	IGamePlaying *pGamePlaying = new CGamePlaying();
 	pGamePlaying->Init( pInGameNetDriver, pOutGameNetDriver, players, true, players[0].nLogicID, mapInfo.diplomacies );
 
-	//
 	pGamePlaying->GameSpeed( nGameSpeed );
 
 	return pGamePlaying;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CServerGameCreation::SetNewGameSettings( const SMultiplayerGameSettings &settings )
 {
 	gameInfo.gameSettings = settings;
@@ -1100,11 +1015,6 @@ void CServerGameCreation::SetNewGameSettings( const SMultiplayerGameSettings &se
 	settings.Pack( pkt );
 	pInGameNetDriver->SendBroadcast( pkt );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 								   CClientGameCreation												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::Init( INetDriver *_pInGameNetDriver, bool bPasswordRequired, const std::string &szPassword )
 {
 	gameInfo.bPasswordRequired = bPasswordRequired;
@@ -1124,7 +1034,6 @@ void CClientGameCreation::Init( INetDriver *_pInGameNetDriver, bool bPasswordReq
 	sides.resize( 3 );
 	sides[0].szName = sides[1].szName = sides[2].szName = "Random";
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::SendConnectionFailed()
 {
 	INetDriver::EReject eReason;
@@ -1137,7 +1046,6 @@ void CClientGameCreation::SendConnectionFailed()
 		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CONSOLE, NStr::Format( "connection failed" ), 0xffffff00, true );
 #endif
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CClientGameCreation::CheckConnection()
 {
 	if ( pInGameNetDriver )
@@ -1155,7 +1063,6 @@ bool CClientGameCreation::CheckConnection()
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::ProcessLogicIDSet( int nClientID, CStreamAccessor &pkt )
 {
 	int nLogicID;
@@ -1186,7 +1093,6 @@ void CClientGameCreation::ProcessLogicIDSet( int nClientID, CStreamAccessor &pkt
 
 	players[nLogicID].bReady = false;
 	
-	// ������ ��� ���
 	pkt->SetSize( 0 );
 	BYTE msgID = NGM_ASK_FOR_NAME;
 	pkt << msgID << nOurLogicID << players[nOurLogicID].szName;
@@ -1203,7 +1109,6 @@ void CClientGameCreation::ProcessLogicIDSet( int nClientID, CStreamAccessor &pkt
 
 	loadMap.SetServer( nClientID );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::ProcessReceivedOwnName( const int nClientID, CStreamAccessor &pkt )
 {
 	std::wstring wszOwnName;
@@ -1213,7 +1118,6 @@ void CClientGameCreation::ProcessReceivedOwnName( const int nClientID, CStreamAc
 	players[nOurLogicID].szName = wszOwnName;
 	players[nOurLogicID].eState = SPlayerInfo::EPS_VALID;
 
-	// ������� ���� ���������� � ����
 	pkt->SetSize( 0 );
 	BYTE msgID = NGM_BROADCAST_PLAYER_INFO;
 	pkt << msgID;
@@ -1224,11 +1128,9 @@ void CClientGameCreation::ProcessReceivedOwnName( const int nClientID, CStreamAc
 		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CONSOLE, NStr::Format( "NGM_BROADCAST_PLAYER_INFO sent, name" ), 0xffffff00, true );
 #endif
 
-	//
 	messages.AddMessage( new CGameInfoReceived( gameInfo, false, nOurLogicID ) );
 	messages.AddMessage( new CPlayerInfoRefreshed( players[nOurLogicID], sides[players[nOurLogicID].nSide].szName.c_str() ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::ProcessNewPlayerInfo( int nClientID, CStreamAccessor &pkt )
 {
 	SPlayerInfo info;
@@ -1241,12 +1143,10 @@ void CClientGameCreation::ProcessNewPlayerInfo( int nClientID, CStreamAccessor &
 	
 	messages.AddMessage( new CPlayerInfoRefreshed( info, sides[info.nSide].szName.c_str() ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::ProcessNewPlayerJoinedInfo( int nClientID, CStreamAccessor &pkt )
 {
 	ProcessNewPlayerInfo( nClientID, pkt );
 
-	// ������� ���������� � ����
 	pkt->SetSize( 0 );
 	BYTE msgID = NGM_DIRECT_PLAYER_INFO;
 	pkt << msgID;
@@ -1257,7 +1157,6 @@ void CClientGameCreation::ProcessNewPlayerJoinedInfo( int nClientID, CStreamAcce
 		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CONSOLE, NStr::Format( "NGM_DIRECT_PLAYER_INFO sent to %d", nClientID ), 0xffffff00, true );
 #endif
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::ProcessGameInfo( int nClientID, CStreamAccessor &pkt )
 {
 	bool bOurPasswordRequired = gameInfo.bPasswordRequired;
@@ -1298,28 +1197,23 @@ void CClientGameCreation::ProcessGameInfo( int nClientID, CStreamAccessor &pkt )
 		}
 	}		
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::ContinueLoadMapInfo()
 {
 	NStr::Format( NStr::Format( "Map info loaded" ) );
 
-//	messages.AddMessage( new CCreateStagingRoom() );
 	messages.AddMessage( new CGameInfoReceived( gameInfo, false, nOurLogicID ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::MapLoaded()
 {
 	gameInfo.bMapLoaded = true;
 	LoadMapInfo( false, false );
 	messages.AddMessage( new CGameInfoReceived( gameInfo, false, nOurLogicID ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::ProcessGameIsAlreadyStarted()
 {
 	messages.AddMessage( new CGameIsAlreadyStarted() );
 	pInGameNetDriver = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::ProcessDirectMessage( int nClientID, CStreamAccessor &pkt )
 {
 	BYTE msgID = -1;
@@ -1362,7 +1256,6 @@ void CClientGameCreation::ProcessDirectMessage( int nClientID, CStreamAccessor &
 			NI_ASSERT_T( false, NStr::Format( "Unknown message (%d) received by client", msgID ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::ProcessPlayerLeft( int nClientID, CStreamAccessor &pkt )
 {
 	int nLogicID;
@@ -1387,7 +1280,6 @@ void CClientGameCreation::ProcessPlayerLeft( int nClientID, CStreamAccessor &pkt
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::ProcessKickedPlayer( int nClientID, CStreamAccessor &pkt )
 {
 	int nLogicID;
@@ -1407,7 +1299,6 @@ void CClientGameCreation::ProcessKickedPlayer( int nClientID, CStreamAccessor &p
 		players[nLogicID].nClientID = -1;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::ProcessGameStarted( CStreamAccessor &pkt )
 {
 	if ( nOurLogicID == -1 )
@@ -1439,7 +1330,6 @@ void CClientGameCreation::ProcessGameStarted( CStreamAccessor &pkt )
 		while ( i < 16 && curPlayersIDs[i] != *iter )
 			++i;
 
-		// �� �������� ���������� ��� ���� �������
 		if ( i >= 16 )
 		{
 			messages.AddMessage( new CConnectionFailed( INetDriver::MAXPLAYERS_REACHED ) );
@@ -1462,13 +1352,11 @@ void CClientGameCreation::ProcessGameStarted( CStreamAccessor &pkt )
 	messages.AddMessage( new CGameStarted() );
 	bGameStarted = true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::ProcessGameSettingsChanged( CStreamAccessor &pkt )
 {
 	gameInfo.gameSettings.Unpack( pkt );
 	messages.AddMessage( new CGameSettingsChanged( gameInfo.gameSettings ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::ProcessBroadcastMessage( int nClientID, CStreamAccessor &pkt )
 {
 	BYTE msgID = -1;
@@ -1517,18 +1405,15 @@ void CClientGameCreation::ProcessBroadcastMessage( int nClientID, CStreamAccesso
 			NI_ASSERT_T( false, NStr::Format( "Unknown message (%d) received by client", msgID ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::ProcessRemoveClient( int nClientID, CStreamAccessor &pkt )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::ProcessMessages()
 {
 	INetDriver::EMessage eMsgID;
 	int nClientID;
 	int received[128];
 	CStreamAccessor pkt = CreateObject<IDataStream>( STREAMIO_MEMORY_STREAM );
-	//
 	while ( !bGameStarted && pInGameNetDriver && pInGameNetDriver->GetMessage(&eMsgID, &nClientID, received, pkt) )
 	{
 		switch ( eMsgID ) 
@@ -1560,7 +1445,6 @@ void CClientGameCreation::ProcessMessages()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::Segment()
 {
 	if ( bModChanged )
@@ -1581,12 +1465,10 @@ void CClientGameCreation::Segment()
 		}
 	}	
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::KickPlayer( const int nLogicID )
 {
 	NI_ASSERT_T( false, "Client can't kick a player" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::ChangePlayerSettings( const SPlayerInfo &info, const EPlayerSettings &eSettingsType )
 {
 	const int nID = nOurLogicID == -1 ? 16 : nOurLogicID;
@@ -1623,11 +1505,9 @@ void CClientGameCreation::ChangePlayerSettings( const SPlayerInfo &info, const E
 #endif
 	}
 
-	//
 	const std::string szSide = sides.size() > 0 ? sides[players[nID].nSide].szName : "Random";
 	messages.AddMessage( new CPlayerInfoRefreshed( players[nID], szSide.c_str() ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IGamePlaying* CClientGameCreation::CreateGamePlaying()
 {
 	const int nGameSpeed = NOptionsConvert::GetSpeed( gameInfo.gameSettings.szGameSpeed );
@@ -1636,19 +1516,12 @@ IGamePlaying* CClientGameCreation::CreateGamePlaying()
 	
 	SetGlobalVars( players[nOurLogicID].nLogicID );
 
-	//{CRAP ��������� ���� ����
 	IGamePlaying *pGamePlaying = new CGamePlaying();
-	//CRAP}
 
 	pGamePlaying->Init( pInGameNetDriver, 0, players, false, players[nOurLogicID].nLogicID, mapInfo.diplomacies );
 
 	return pGamePlaying;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 							CClientGameCreation::CLoadMap										*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::CLoadMap::Init( INetDriver *_pNetDriver, CClientGameCreation *_pClientGameCreation )
 {
 	eState = ELS_WAIT_FOR_SERVER_ID;
@@ -1658,7 +1531,6 @@ void CClientGameCreation::CLoadMap::Init( INetDriver *_pNetDriver, CClientGameCr
 
 	WriteDebugMessage( NStr::Format( "Need to load map" ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::CLoadMap::ProcessWaitForServerID()
 {
 	if ( nServer != -1 )
@@ -1678,7 +1550,6 @@ void CClientGameCreation::CLoadMap::ProcessWaitForServerID()
 		eState = ELS_LOADING;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::CLoadMap::ProcessMapPacket( CStreamAccessor &pkt )
 {
 	const int nPacketSize = pkt->GetSize() - pkt->GetPos();
@@ -1698,7 +1569,6 @@ void CClientGameCreation::CLoadMap::ProcessMapPacket( CStreamAccessor &pkt )
 
 	WriteDebugMessage( NStr::Format( "Packed receive: size %d, total received %d, sizeToReceive %d", nPacketSize, nReceived, nCompressedSize ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::CLoadMap::ProcessMapLoadFinished()
 {
 	NI_ASSERT_T( nReceived == nCompressedSize, NStr::Format( "Received size (%d) isn't equal to map size (%d)", nReceived, nCompressedSize ) );
@@ -1707,8 +1577,6 @@ void CClientGameCreation::CLoadMap::ProcessMapLoadFinished()
 
 	if ( nRealSize >= 0 )
 	{
-		// compressed file
-		// inflate map
 		z_stream zstream;
 		zstream.next_in = (Bytef*)(&(stream[0]));
 		zstream.avail_in = nReceived;
@@ -1719,16 +1587,13 @@ void CClientGameCreation::CLoadMap::ProcessMapLoadFinished()
 		zstream.zalloc = (alloc_func)0;
 		zstream.zfree = (free_func)0;
 
-		// Perform inflation. wbits < 0 indicates no zlib header inside the data.
 		int err = inflateInit2( &zstream, -MAX_WBITS );
 		if ( err == Z_OK )
 		{
 			err = inflate( &zstream, Z_FINISH );
 			inflateEnd( &zstream );
-			// CRAP{ ������-�� ������ ��� ���������� ������������ "buffer error" ������ "stream end"...
 			if ( (err == Z_STREAM_END) || (err == Z_BUF_ERROR) )
 				err = Z_OK;
-			// CRAP}
 			inflateEnd( &zstream );
 		}
 
@@ -1743,7 +1608,6 @@ void CClientGameCreation::CLoadMap::ProcessMapLoadFinished()
 			WriteDebugMessage( NStr::Format( "Inflating OK" ) );
 		}
 	}
-	// not deflated file
 	else if ( nRealSize == -1 && nCompressedSize > 0 )
 	{
 		const std::string szPathName = GetSingleton<IDataStorage>()->GetName() + szFileName;
@@ -1753,7 +1617,6 @@ void CClientGameCreation::CLoadMap::ProcessMapLoadFinished()
 		WriteDebugMessage( NStr::Format( "Loading OK" ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::CLoadMap::AllLoadFinished()
 {
 	pClientGameCreation->MapLoaded();
@@ -1767,7 +1630,6 @@ void CClientGameCreation::CLoadMap::AllLoadFinished()
 
 	WriteDebugMessage( NStr::Format( "Finished" ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::CLoadMap::ProcessReceivePackedFileInfo( CStreamAccessor &pkt )
 {
 	pkt >> szFileName >> nCompressedSize >> nRealSize;
@@ -1777,7 +1639,6 @@ void CClientGameCreation::CLoadMap::ProcessReceivePackedFileInfo( CStreamAccesso
 
 	WriteDebugMessage( NStr::Format( "Packed file info received: file %s, realSize %d, compressedSize %d", szFileName.c_str(), nRealSize, nCompressedSize ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::CLoadMap::ProcessReceiveFileInfo( CStreamAccessor &pkt )
 {
 	pkt >> szFileName >> nCompressedSize;
@@ -1788,7 +1649,6 @@ void CClientGameCreation::CLoadMap::ProcessReceiveFileInfo( CStreamAccessor &pkt
 
 	WriteDebugMessage( NStr::Format( "File info received: file %s, realSize %d, compressedSize %d", szFileName.c_str(), nRealSize, nCompressedSize ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::CLoadMap::ProcessLoading()
 {
 	INetDriver::EMessage eMsgID;
@@ -1833,7 +1693,6 @@ void CClientGameCreation::CLoadMap::ProcessLoading()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CClientGameCreation::CLoadMap::Segment()
 {
 	if ( pNetDriver && eState != ELS_NONE )
@@ -1852,4 +1711,3 @@ void CClientGameCreation::CLoadMap::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

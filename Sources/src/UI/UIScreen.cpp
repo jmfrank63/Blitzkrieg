@@ -15,14 +15,11 @@ static const int TEXT_TWO = 20;											// ������ >> �� ��
 static const int TEXT_LEFT_SPACE = 0;								// ������ �� ������ ���� ������ �� ������ � acknowledgement
 static const int CHAT_MESSAGE_LEFT = 0;							// ������ �� ������ ���� ������ �� ������ � chat message
 static const int CHAT_MESSAGE_TOP = 0;							// ������ �� �������� ���� ������ �� ������ � chat message
-// ���������, ������������ �� �����
 static int TEXT_ANIMATION_TIME = 5000;							// ����� ��� ����������� ���������� ���������, ����� ��� ���������
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIScreen::operator&( interface IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 	
-	//CRAP{ FOR SAVES COMPATIBILITY
 	CMultipleWindow::operator&( ss );
 	
 	saver.Add( 102, &szResourceName );
@@ -40,7 +37,6 @@ int CUIScreen::operator&( interface IStructureSaver &ss )
 	saver.Add( 104, &nCursorPos );
 	saver.Add( 105, &pMessageBox );
 
-	//CRAP}
 
 	if ( saver.IsReading() )
 	{
@@ -48,14 +44,12 @@ int CUIScreen::operator&( interface IStructureSaver &ss )
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIScreen::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
 	saver.AddTypedSuper( static_cast<CMultipleWindow*>( this ) );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIScreen::SAcknowledgment::operator&( interface IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -64,18 +58,15 @@ int CUIScreen::SAcknowledgment::operator&( interface IStructureSaver &ss )
 	saver.Add( 3, &time );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CUIScreen::CUIScreen() : m_mouseState( E_MOUSE_FREE ), m_keyboardState( E_KEYBOARD_FREE ), bChatMode( false ), nCursorPos( 0 )
 {
 	SetShowBackgroundFlag( false );
 	szLastChatMessage = L"";
 	nNumChatDublicates = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIScreen::Load( const char *pszResourceName, bool bRelative )
 {
 	TEXT_ANIMATION_TIME = GetGlobalVar( "UI.TextAnimTime", 5000 );
-	//
 	CPtr<IDataStream> pStream;
 	if ( bRelative )
 	{
@@ -86,7 +77,6 @@ int CUIScreen::Load( const char *pszResourceName, bool bRelative )
 		pStream = OpenFileStream( pszResourceName, STREAM_ACCESS_READ );
 	if ( pStream )
 	{
-		//mouse wheel slider
 		pMouseWheelSlider = GetSingleton<IInput>()->CreateSlider( "mouse_wheel" );
 		NI_ASSERT_T( pMouseWheelSlider != 0, "Can not create mouse_wheel slider" );
 
@@ -103,27 +93,21 @@ int CUIScreen::Load( const char *pszResourceName, bool bRelative )
 		return 0;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIScreen::Reposition( const CTRect<float> &rcParent )
 {
 	SetScreenRect( rcParent );
 	SetPos( CVec2(0, 0) );
 	SetSize( CVec2(rcParent.Width(), rcParent.Height()) );
 	CMultipleWindow::Reposition( rcParent );
-//	UpdateSubRects();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIScreen::OnLButtonDblClk( const CVec2 &vPos )
 {
-	//���� ������� �������� � Input
 	return CMultipleWindow::OnLButtonDblClk( vPos );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIScreen::OnMouseMove( const CVec2 &vPos, EMouseState mouseState )
 {
 	return CMultipleWindow::OnMouseMove( vPos, (EMouseState) m_mouseState );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIScreen::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 {
 	m_prevPrevLButtonPos.x = m_prevLButtonPos.x;
@@ -131,32 +115,24 @@ bool CUIScreen::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 	m_prevLButtonPos.x = vPos.x;
 	m_prevLButtonPos.y = vPos.y;
 
-	//��� ���� ��������� state
 	m_mouseState |= E_LBUTTONDOWN;
 	return CMultipleWindow::OnLButtonDown( vPos, (EMouseState) m_mouseState );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIScreen::OnLButtonUp( const CVec2 &vPos, EMouseState mouseState )
 {
-	//��� ���� ��������� state
 	m_mouseState &= ~E_LBUTTONDOWN;
 	return CMultipleWindow::OnLButtonUp( vPos, (EMouseState) m_mouseState );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIScreen::OnRButtonDown( const CVec2 &vPos, EMouseState mouseState )
 {
-	//��� ���� ��������� state
 	m_mouseState |= E_RBUTTONDOWN;
 	return CMultipleWindow::OnRButtonDown( vPos, (EMouseState) m_mouseState );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIScreen::OnRButtonUp( const CVec2 &vPos, EMouseState mouseState )
 {
-	//��� ���� ��������� state
 	m_mouseState &= ~E_RBUTTONDOWN;
 	return CMultipleWindow::OnRButtonUp( vPos, (EMouseState) m_mouseState );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIScreen::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD keyState )
 {
 	if ( nVirtualKey == VK_SHIFT )
@@ -183,15 +159,12 @@ bool CUIScreen::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD ke
 
 
 
-	//���� ������ ~ ��� ������ �� ������� ���������
-	//192 ��� ����������� ��� ~
 	if ( /* !GetModalFlag() && */ nVirtualKey == 192 && bChatMode == false && bPressed == true && m_keyboardState == E_KEYBOARD_FREE )
 	{
 		/*
 		IUIElement *pConsole = GetChildByID( GLOBAL_CONSOLE_ID );
 		if ( pConsole )
 		{
-			// DISABLE CONSOLE IN MULTIPLAYER (BUG 6309)
 			pConsole->ShowWindow( UI_SW_HIDE );
 		}
 		*/
@@ -203,7 +176,6 @@ bool CUIScreen::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD ke
 	
 	return CMultipleWindow::OnChar( nAsciiCode, nVirtualKey, bPressed, m_keyboardState );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIScreen::ProcessMessage( const SUIMessage &msg )
 {
 	if ( msg.nMessageCode == UI_CLEAR_KEYBOARD_STATE )
@@ -228,7 +200,6 @@ bool CUIScreen::ProcessMessage( const SUIMessage &msg )
 			else
 				pConsole->ShowWindow( UI_SW_HIDE );
 		}
-//		pConsole->ShowWindow( !pConsole->IsVisible() );
 		return true;
 	}
 
@@ -238,7 +209,6 @@ bool CUIScreen::ProcessMessage( const SUIMessage &msg )
 		if ( CMultipleWindow::ProcessMessage( msg ) )
 			return true;
 
-		//������ � ����� ������ ������
 		bChatMode = true;
 		SUIMessage msg;
 		msg.nMessageCode = MC_SET_TEXT_MODE;
@@ -260,7 +230,6 @@ bool CUIScreen::ProcessMessage( const SUIMessage &msg )
 	{
 		if ( msg.nMessageCode == (MC_ENTER_CHAT_MODE | PROCESSED_FLAG) )
 		{
-			//������ � ����� ������ ������
 			bChatMode = true;
 			bMessagesToEveryone = true;
 			SetGlobalVar( "bMessagesToEveryone", 1 );
@@ -268,12 +237,10 @@ bool CUIScreen::ProcessMessage( const SUIMessage &msg )
 			msg.nMessageCode = MC_SET_TEXT_MODE;
 			msg.nFirst = GetWindowID();
 			uiMessageList.push_back( msg );
-//			NStr::DebugTrace("All\n");
 			return true;
 		}
 		if ( msg.nMessageCode == (MC_ENTER_CHAT_MODE_FRIENDS | PROCESSED_FLAG) )
 		{
-			//������ � ����� ������ ������
 			bChatMode = true;
 			bMessagesToEveryone = false;
 			SetGlobalVar( "bMessagesToEveryone", 0 );
@@ -281,7 +248,6 @@ bool CUIScreen::ProcessMessage( const SUIMessage &msg )
 			msg.nMessageCode = MC_SET_TEXT_MODE;
 			msg.nFirst = GetWindowID();
 			uiMessageList.push_back( msg );
-//			NStr::DebugTrace("Allies\n");
 			return true;
 		}
 		else
@@ -301,7 +267,6 @@ bool CUIScreen::ProcessMessage( const SUIMessage &msg )
 		return true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIScreen::ProcessGameMessage( const SGameMessage &msg )
 {
 /*
@@ -318,7 +283,6 @@ void CUIScreen::ProcessGameMessage( const SGameMessage &msg )
 	uiMsg.nSecond = 0;
 	ProcessMessage( uiMsg );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIScreen::GetMessage( SGameMessage *pMsg )
 {
 	if ( !uiMessageList.empty() )
@@ -332,23 +296,19 @@ bool CUIScreen::GetMessage( SGameMessage *pMsg )
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIScreen::Visit( interface ISceneVisitor *pVisitor )
 {
 	CMultipleWindow::Visit( pVisitor );
-	// 
 	IUIConsole *pConsole = checked_cast<IUIConsole*>( GetChildByID(GLOBAL_CONSOLE_ID) );
 	if ( !pConsole || ( !pConsole->IsVisible() && !pConsole->IsAnimationStage() ) )
 		pVisitor->VisitUICustom( dynamic_cast<IUIElement*>(this) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIScreen::Draw( interface IGFX *pGFX )
 {
 	IUIConsole *pConsole = checked_cast<IUIConsole*>( GetChildByID(GLOBAL_CONSOLE_ID) );
 	if ( !pConsole || ( !pConsole->IsVisible() && !pConsole->IsAnimationStage() ) )
 	{
 		pGFX->SetShadingEffect( 3 );	
-		//���� ���� ���������, ��� ���� �������, �� ��� ���������
 		const CTRect<float> &rc = GetScreenRect();
 		int nCurrentY = rc.y1 + ACKS_VERTICAL_POSITION;
 		for ( CListOfAcks::iterator it = listOfAcks.begin(); it != listOfAcks.end(); ++it )
@@ -366,15 +326,12 @@ void CUIScreen::Draw( interface IGFX *pGFX )
 				szResult = reinterpret_cast<const wchar_t*>(pToWho->GetString());
 
 			szResult += szChatMessage;
-			//pGFX->DrawString( L">>", CHAT_MESSAGE_LEFT, rc.y1 + CHAT_MESSAGE_TOP );
 			pGFX->DrawString( szResult.c_str(), CHAT_MESSAGE_LEFT, rc.y1 + CHAT_MESSAGE_TOP );
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIScreen::Update( const NTimer::STime &currTime )
 {
-	// pump chat strings
 	IConsoleBuffer *pConsoleBuffer = GetSingleton<IConsoleBuffer>();
 	DWORD color = GetGlobalVar( "Scene.Colors.Summer.Text.Chat.Color", int(0xffd8bd3e) );
 	while ( const wchar_t *pszString = pConsoleBuffer->Read(CONSOLE_STREAM_CHAT, &color) ) 
@@ -383,11 +340,8 @@ bool CUIScreen::Update( const NTimer::STime &currTime )
 		ack.szString = pszString;
 		ack.dwColor = color;
 		ack.time = currTime;
-		// bug   #6815 
- 		//listOfAcks.push_front( ack );
 		listOfAcks.push_back( ack );
 	}
-	//
 	for ( CListOfAcks::iterator it = listOfAcks.begin(); it != listOfAcks.end(); )
 	{
 		if ( it->time + TEXT_ANIMATION_TIME < currTime )
@@ -396,7 +350,6 @@ bool CUIScreen::Update( const NTimer::STime &currTime )
 			++it;
 	}
 
-	//mouse wheel support
 	IScene *pScene = GetSingleton<IScene>();
 	if ( pMouseWheelSlider && pScene->GetUIScreen() == static_cast<CUIScreenBridge*>(this) )
 	{
@@ -409,11 +362,8 @@ bool CUIScreen::Update( const NTimer::STime &currTime )
 
 	return CMultipleWindow::Update( currTime );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIScreen::UpdateChatString( int nAsciiCode, int nVirtualKey, bool bPressed )
 {
-	//���� �������� ������, �� ������ ������� ���
-//	if ( isprint( nAsciiCode ) )
 	if ( nAsciiCode >= 32 )
 	{
 		szChatMessage.insert( nCursorPos, 1, nAsciiCode );
@@ -430,7 +380,6 @@ void CUIScreen::UpdateChatString( int nAsciiCode, int nVirtualKey, bool bPressed
 	}
 	
 
-	//���� �� �������� ������, �� ������������ �������������� ����������
 	switch( nVirtualKey )
 	{
 	case VK_RETURN:
@@ -447,14 +396,12 @@ void CUIScreen::UpdateChatString( int nAsciiCode, int nVirtualKey, bool bPressed
 				if ( bMessagesToEveryone )
 				{
 					const DWORD dwChatColor = GetGlobalVar( "Scene.Colors.Summer.Text.Chat.Color", int(0xffd8bd3e) );
-//					GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_CHAT, szChatMessage.c_str(), dwChatColor );
 					GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_NET_CHAT, L"All", dwChatColor );
 					GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_NET_CHAT, szChatMessage.c_str(), dwChatColor );
 				}
 				else
 				{
 					const DWORD dwChatColor = GetGlobalVar( "Scene.Colors.Summer.Text.ChatAllies.Color", int(0xff00ff00) );
-//					GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_CHAT, szChatMessage.c_str(), dwChatColor );
 					GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_NET_CHAT, L"Allies", dwChatColor );
 					GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_NET_CHAT, szChatMessage.c_str(), dwChatColor );
 				}
@@ -472,7 +419,6 @@ void CUIScreen::UpdateChatString( int nAsciiCode, int nVirtualKey, bool bPressed
 			bChatMode = false;
 			bMessagesToEveryone = true;
 
-			//������� text enter mode
 			SUIMessage msg;
 			msg.nMessageCode = MC_CANCEL_TEXT_MODE;
 			msg.nFirst = GetWindowID();
@@ -498,12 +444,10 @@ void CUIScreen::UpdateChatString( int nAsciiCode, int nVirtualKey, bool bPressed
 			break;
 		if ( m_keyboardState == E_KEYBOARD_FREE )
 		{
-			//�� ���� ������� �����
 			nCursorPos--;
 		}
 		if ( m_keyboardState & E_CTRL_KEY_DOWN )
 		{
-			//���� ������ crtl � ������� �����, �� ���������� ����� �� ���� �����
 			while( nCursorPos > 0 && isspace(szChatMessage[nCursorPos-1]) )
 				nCursorPos--;
 			if ( nCursorPos > 0 )
@@ -523,12 +467,10 @@ void CUIScreen::UpdateChatString( int nAsciiCode, int nVirtualKey, bool bPressed
 			break;
 		if ( m_keyboardState == E_KEYBOARD_FREE )
 		{
-			//�� ���� ������� ������
 			nCursorPos++;
 		}
 		else if ( m_keyboardState & E_CTRL_KEY_DOWN )
 		{
-			//���� ������ crtl � ������� ������, �� ���������� ������ �� ���� �����
 			if ( nCursorPos < szChatMessage.size() )
 			{
 				if ( isalpha(szChatMessage[nCursorPos]) )
@@ -547,7 +489,6 @@ void CUIScreen::UpdateChatString( int nAsciiCode, int nVirtualKey, bool bPressed
 	case VK_HOME:
 		if ( m_keyboardState == E_KEYBOARD_FREE )
 		{
-			//�� ������ ������
 			nCursorPos = 0;
 		}
 		break;
@@ -555,7 +496,6 @@ void CUIScreen::UpdateChatString( int nAsciiCode, int nVirtualKey, bool bPressed
 	case VK_END:
 		if ( m_keyboardState == E_KEYBOARD_FREE )
 		{
-			//�� ����� ������
 			nCursorPos = szChatMessage.size();
 		}
 		break;
@@ -565,7 +505,6 @@ void CUIScreen::UpdateChatString( int nAsciiCode, int nVirtualKey, bool bPressed
 		nCursorPos = 0;
 		bChatMode = false;
 		
-		//������� text enter mode
 		SUIMessage msg;
 		msg.nMessageCode = MC_CANCEL_TEXT_MODE;
 		msg.nFirst = GetWindowID();
@@ -573,7 +512,6 @@ void CUIScreen::UpdateChatString( int nAsciiCode, int nVirtualKey, bool bPressed
 		break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIScreen::MessageBox( const WORD *pszText, int nType )
 {
 	IObjectFactory *pFactory = GetCommonFactory();
@@ -601,7 +539,5 @@ int CUIScreen::MessageBox( const WORD *pszText, int nType )
 	IUIElement *pElement = dynamic_cast_ptr<IUIElement *>( pMessageBox );
 	AddChild( pElement );
 	SetModalFlag( true );
-	//
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

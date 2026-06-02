@@ -29,7 +29,6 @@
 # include <iostream>
 #endif
 
-// Those should be included all separately, as they do contain using declarations
 # include <streambuf.h>
 # include <ostream.h>
 # include <istream.h>
@@ -56,7 +55,6 @@ using _STLP_STD::wcerr;
 
 # endif /* _STLP_HAS_NO_NAMESPACES */
 
-// Obsolete classes for old-style backwards compatibility
 
 
 class istream_withassign : public istream {
@@ -114,6 +112,3 @@ class iostream_withassign : public iostream {
 
 #endif /* _STLP_IOSTREAM_H */
 
-// Local Variables:
-// mode:C++
-// End:

@@ -17,16 +17,10 @@
 #include "TransportStates.h"
 #include "Formation.h"
 #include "ArtilleryBulletStorage.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CGroupLogic theGroupLogic;
 extern NTimer::STime curTime;
 extern CUpdater updater;
 extern CStaticMap theStaticMap;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										  CTankStatesFactory													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CPtr<CTankStatesFactory> CTankStatesFactory::pFactory = 0;
 
 IStatesFactory* CTankStatesFactory::Instance()
@@ -36,7 +30,6 @@ IStatesFactory* CTankStatesFactory::Instance()
 
 	return pFactory;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTankStatesFactory::CanCommandBeExecuted( CAICommand *pCommand )
 {
 	const EActionCommand &cmdType = pCommand->ToUnitCmd().cmdType;
@@ -69,7 +62,6 @@ bool CTankStatesFactory::CanCommandBeExecuted( CAICommand *pCommand )
 			cmdType == ACTION_COMMAND_MOVE_TO_GRID
 		);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CTankStatesFactory::ProduceState( class CQueueUnit *pObj, CAICommand *pCommand )
 {
 	NI_ASSERT_T( dynamic_cast<CTank*>( pObj ) != 0, "Wrong unit type" );
@@ -147,7 +139,6 @@ IUnitState* CTankStatesFactory::ProduceState( class CQueueUnit *pObj, CAICommand
 		case ACTION_COMMAND_ATTACK_OBJECT:
 			{
 				CONVERT_OBJECT_PTR( CStaticObject, pStaticObj, cmd.pObject, "Wrong object to attack" );
-				// attack the artillery
 				if ( pStaticObj->GetObjectType() == ESOT_ARTILLERY_BULLET_STORAGE )
 				{
 					pCommand->ToUnitCmd().cmdType = bSwarmAttack ? ACTION_COMMAND_SWARM_ATTACK_UNIT : ACTION_COMMAND_ATTACK_UNIT;
@@ -287,9 +278,7 @@ IUnitState* CTankStatesFactory::ProduceState( class CQueueUnit *pObj, CAICommand
 
 	return pResult;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CTankStatesFactory::ProduceRestState( class CQueueUnit *pUnit )
 {
 	return CMechUnitRestState::Instance( checked_cast<CTank*>( pUnit ), CVec2( -1, -1 ), 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

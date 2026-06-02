@@ -23,7 +23,6 @@ public:
 	CMeshCommonPropsItem() { bStaticElements = true; nItemType = E_MESH_COMMON_PROPS_ITEM; nImageIndex = 5; InitDefaultValues(); }
 	~CMeshCommonPropsItem() {};
 
-	//Получение внутренних параметров
 	const char *GetMeshName() { return values[0].value; }
 	EUnitRPGType GetMeshType();
 	int GetAIClass();
@@ -59,7 +58,6 @@ public:
 	const char* GetStopSound() { return values[30].value; }
 */
 	
-	//Установка внутренних параметров
 	void SetMeshName( const char *pszName ) { values[0].value = pszName; }
 	void SetMeshType( int nType );
 	void SetAIClass( int nVal );
@@ -215,11 +213,9 @@ public:
 	CMeshDefencePropsItem() { nItemType = E_MESH_DEFENCE_PROPS_ITEM; nImageIndex = 3; InitDefaultValues(); }
 	~CMeshDefencePropsItem() {};
 	
-	//Получение внутренних параметров
 	int GetMinArmor() { return values[0].value; }
 	int GetMaxArmor() { return values[1].value; }
 	
-	//Установка внутренних параметров
 	void SetMinArmor( int nVal ) { values[0].value = nVal; }
 	void SetMaxArmor( int nVal ) { values[1].value = nVal; }
 	
@@ -243,7 +239,6 @@ public:
 	CMeshJoggingPropsItem() { nItemType = E_MESH_JOGGING_PROPS_ITEM; nImageIndex = 0; InitDefaultValues(); }
 	~CMeshJoggingPropsItem() {};
 	
-	//Получение внутренних параметров
 	float GetPeriod1() { return values[0].value; }
 	float GetPeriod2() { return values[1].value; }
 	float GetAmplitude1() { return values[2].value; }
@@ -251,7 +246,6 @@ public:
 	float GetPhase1() { return values[4].value; }
 	float GetPhase2() { return values[5].value; }
 	
-	//Установка внутренних параметров
 	void SetPeriod1( float fVal ) { values[0].value = fVal; }
 	void SetPeriod2( float fVal ) { values[1].value = fVal; }
 	void SetAmplitude1( float fVal ) { values[2].value = fVal; }
@@ -281,7 +275,6 @@ public:
 	CMeshPlatformPropsItem() { bStaticElements = true; nItemType = E_MESH_PLATFORM_PROPS_ITEM; nImageIndex = 5; InitDefaultValues(); }
 	~CMeshPlatformPropsItem() {};
 	
-	//Получение внутренних параметров
 	const char *GetPlatformPartName() { return values[0].value; }
 	const char *GetGunCarriageName1() { return values[1].value; }
 	const char *GetGunCarriageName2() { return values[2].value; }
@@ -289,7 +282,6 @@ public:
 	float GetHorizontalRotationSpeed() { return values[4].value; }
 	const char *GetRotationSound() { return values[5].value; }
 	
-	//Установка внутренних параметров
 	void SetVerticalRotationSpeed( float val ) { values[3].value = val; }
 	void SetHorizontalRotationSpeed( float val ) { values[4].value = val; }
 	void SetRotationSound( const char *pszVal ) { values[5].value = pszVal; }
@@ -320,7 +312,6 @@ public:
 	CMeshGunPropsItem() { nItemType = E_MESH_GUN_PROPS_ITEM; nImageIndex = 0; InitDefaultValues(); }
 	~CMeshGunPropsItem() {};
 	
-	//Получение внутренних параметров
 	const char *GetShootPointName() { return values[0].value; }
 	const char *GetShootPartName() { return values[1].value; }
 	const char *GetWeaponName() { return values[2].value; }
@@ -332,7 +323,6 @@ public:
 	int GetAmmoCount() { return values[8].value; }
 	float GetReloadCost() { return values[9].value; }
 	
-	//Установка внутренних параметров
 	void SetWeaponName( const char *pszName ) { values[2].value = pszName; }
 	void SetPriority( int nVal ) { values[3].value = nVal; }
 	void SetRecoilFlag( bool bFlag ) { values[4].value = bFlag; }
@@ -355,7 +345,6 @@ public:
 	CMeshGraphicsItem() { bStaticElements = true; nItemType = E_MESH_GRAPHICS_ITEM; nImageIndex = 5; InitDefaultValues(); }
 	~CMeshGraphicsItem() {};
 
-	//Получение внутренних параметров
 	const char *GetCombatMeshName() { return values[0].value; }
 	const char *GetInstallMeshName() { return values[1].value; }
 	const char *GetTransMeshName() { return values[2].value; }
@@ -400,10 +389,8 @@ public:
 	CMeshDeathCraterPropsItem() { nItemType = E_MESH_DEATH_CRATER_PROPS_ITEM; nImageIndex = 3; InitDefaultValues(); }
 	~CMeshDeathCraterPropsItem() {};
 	
-	//Получение внутренних параметров
 	const char *GetCraterFileName() { return values[0].value; }
 	
-	//Установка внутренних параметров
 	void SetCraterFileName( const char *pszName ) { values[0].value = pszName; }
 	
 	virtual void InitDefaultValues();

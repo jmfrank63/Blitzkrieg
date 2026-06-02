@@ -4,7 +4,6 @@
 #include "SerializeOwner.h"
 #include "Path.h"
 #include "SaveDBID.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormation::SUnitInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -15,7 +14,6 @@ int CFormation::SUnitInfo::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormation::SVirtualUnit::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -25,7 +23,6 @@ int CFormation::SVirtualUnit::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormation::CCarryedMortar::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -37,7 +34,6 @@ int CFormation::CCarryedMortar::operator&( IStructureSaver &ss )
 	{
 		LoadDBID( &saver, 5, &nDBID );
 
-		// legacy save
 		if ( nDBID == -1 )
 			saver.Add( 4, &nDBID );
 	}
@@ -46,7 +42,6 @@ int CFormation::CCarryedMortar::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormation::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -78,7 +73,6 @@ int CFormation::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationCenter::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -102,4 +96,3 @@ int CFormationCenter::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

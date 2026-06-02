@@ -3,9 +3,7 @@
 #include "SpriteVisObj.h"
 #include "AnimVisitor.h"
 #include "..\Misc\Win32Random.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 DWORD CSpriteVisObj::dwIdleData = 0;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSpriteVisObj::CSpriteVisObj() 
 { 
 	bComplexSprite = false;
@@ -15,7 +13,6 @@ CSpriteVisObj::CSpriteVisObj()
 	info2.specular = 0xff000000; 
 	nNextIdle = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSpriteVisObj::Init( IGFXTexture *_pTexture, ISpriteAnimation *_pAnimation ) 
 { 
 	pTexture = _pTexture; 
@@ -25,9 +22,7 @@ bool CSpriteVisObj::Init( IGFXTexture *_pTexture, ISpriteAnimation *_pAnimation 
 	RetrieveSpriteInfo();
 	return true; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static CExtractAnimVisitor animVisitor;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSpriteVisObj::RetrieveSpriteInfo()
 {
 	pAnim->Visit( &animVisitor );
@@ -49,7 +44,6 @@ void CSpriteVisObj::RetrieveSpriteInfo()
 		info2.pTexture = pTexture;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSpriteVisObj::Update( const NTimer::STime &time, bool bForced )
 {
 	if ( dwLastUpdateTime != time || bForced )
@@ -67,27 +61,22 @@ bool CSpriteVisObj::Update( const NTimer::STime &time, bool bForced )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSpriteVisObj::IsHit( const SHMatrix &matTransform, const CVec2 &point, CVec2 *pShift )
 {
 	CVec3 relpos;
 	matTransform.RotateHVector( &relpos, GetPos() );
 	return pAnim->IsHit( relpos, point, pShift );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSpriteVisObj::IsHit( const SHMatrix &matTransform, const RECT &rect )
 {
 	CVec3 relpos;
 	matTransform.RotateHVector( &relpos, GetPos() );
 	return pAnim->IsHit( relpos, rect );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSpriteVisObj::Draw( IGFX *pGFX )
 {
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// visiting
 void CSpriteVisObj::Visit( ISceneVisitor *pVisitor, int nType )
 {
 	if ( bComplexSprite ) 
@@ -98,13 +87,10 @@ void CSpriteVisObj::Visit( ISceneVisitor *pVisitor, int nType )
 	}
 	else
 		pVisitor->VisitSprite( &info, GetGameType(nType), GetPriority() );
-	//
 	VisitIcons( pVisitor );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSpriteVisObj::RepositionIcons()
 {
-	// horizontal
 	RepositionIconsLocal( ICON_ALIGNMENT_LEFT | ICON_ALIGNMENT_TOP | ICON_PLACEMENT_HORIZONTAL );
 	RepositionIconsLocal( ICON_ALIGNMENT_LEFT | ICON_ALIGNMENT_VCENTER | ICON_PLACEMENT_HORIZONTAL );
 	RepositionIconsLocal( ICON_ALIGNMENT_LEFT | ICON_ALIGNMENT_BOTTOM | ICON_PLACEMENT_HORIZONTAL );
@@ -116,7 +102,6 @@ void CSpriteVisObj::RepositionIcons()
 	RepositionIconsLocal( ICON_ALIGNMENT_RIGHT | ICON_ALIGNMENT_TOP | ICON_PLACEMENT_HORIZONTAL );
 	RepositionIconsLocal( ICON_ALIGNMENT_RIGHT | ICON_ALIGNMENT_VCENTER | ICON_PLACEMENT_HORIZONTAL );
 	RepositionIconsLocal( ICON_ALIGNMENT_RIGHT | ICON_ALIGNMENT_BOTTOM | ICON_PLACEMENT_HORIZONTAL );
-	// vertical
 	RepositionIconsLocal( ICON_ALIGNMENT_LEFT | ICON_ALIGNMENT_TOP | ICON_PLACEMENT_VERTICAL );
 	RepositionIconsLocal( ICON_ALIGNMENT_LEFT | ICON_ALIGNMENT_VCENTER | ICON_PLACEMENT_VERTICAL );
 	RepositionIconsLocal( ICON_ALIGNMENT_LEFT | ICON_ALIGNMENT_BOTTOM | ICON_PLACEMENT_VERTICAL );
@@ -129,7 +114,6 @@ void CSpriteVisObj::RepositionIcons()
 	RepositionIconsLocal( ICON_ALIGNMENT_RIGHT | ICON_ALIGNMENT_VCENTER | ICON_PLACEMENT_VERTICAL );
 	RepositionIconsLocal( ICON_ALIGNMENT_RIGHT | ICON_ALIGNMENT_BOTTOM | ICON_PLACEMENT_VERTICAL );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSpriteVisObj::RepositionIconsLocal( DWORD placement )
 {
 	CTRect<float> rcRect;
@@ -148,7 +132,6 @@ void CSpriteVisObj::RepositionIconsLocal( DWORD placement )
 	}
 	CObjVisObj::RepositionIconsLocal( placement, rcRect, 10 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSpriteVisObj::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -174,7 +157,6 @@ int CSpriteVisObj::operator&( IStructureSaver &ss )
 		saver.Add( 15, &info.fDepthRight );
 	}
 	saver.Add( 22, &nNextIdle );
-	//
 	if ( saver.IsReading() )
 	{
 		info.pos = GetPos();
@@ -184,7 +166,5 @@ int CSpriteVisObj::operator&( IStructureSaver &ss )
 		if ( dwIdleData == 0 ) 
 			dwIdleData = PackDWORD( GetGlobalVar("Scene.InfantryIdle.Interval", 10000), GetGlobalVar("Scene.InfantryIdle.Random", 5000) );
 	}
-	//
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -52,7 +52,6 @@ enum float_denorm_style {
   denorm_present       =  1
 };
 
-// Base class for all specializations of numeric_limits.
 
 template <class __number>
 class _Numeric_limits_base {
@@ -115,7 +114,6 @@ public:
 
 };
 
-// Base class for integers.
 
 # ifdef _STLP_LIMITED_DEFAULT_TEMPLATES
 #  ifdef _STLP_LONG_LONG
@@ -169,7 +167,6 @@ public:
   ;
 };
 
-// Base class for floating-point numbers.
 template <class __number,
          int __Digits, int __Digits10,
          int __MinExp, int __MaxExp,
@@ -224,14 +221,11 @@ public:
 
 };
 
-// Class numeric_limits
 
-// The unspecialized class.
 
 template<class _Tp> 
 class numeric_limits : public _Numeric_limits_base<_Tp> {};
 
-// Specializations for all built-in integral types.
 
 #ifndef _STLP_NO_BOOL
 
@@ -420,7 +414,6 @@ public:
 
 #endif /* _STLP_LONG_LONG */
 
-// Specializations for all built-in floating-point types.
 
 union _F_rep
 {
@@ -534,8 +527,6 @@ public:
 
 # endif
 
-// We write special values (Inf and NaN) as bit patterns and 
-// cast the the appropriate floating-point types. 
 _STLP_END_NAMESPACE
 
 # if !defined (_STLP_LINK_TIME_INSTANTIATION)
@@ -544,6 +535,3 @@ _STLP_END_NAMESPACE
 
 #endif
 
-// Local Variables:
-// mode:C++
-// End:

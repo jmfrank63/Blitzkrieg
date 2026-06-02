@@ -1,14 +1,10 @@
 #ifndef __PLAYERLISTMANAGER_H__
 #define __PLAYERLISTMANAGER_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "MultiplayerCommandManager.h"
 #include "InterMission.h"
 #include "iMission.h"
 #include "..\Misc\FreeIDs.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// for convinient management of list constrol
 template< class TInfo, class TID >
 class CListControlWrapper
 {
@@ -23,7 +19,6 @@ private:
 	
 	IDToPosMap playerIDToPos;
 	PosToIDMap posToPlayerID;
-	//
 
 	typedef std::unordered_map<TID, CPtr<TInfo> > PlayersInfo;
 	typedef typename std::unordered_map<TID, CPtr<TInfo> >::iterator PlayersInfoIterator;
@@ -96,7 +91,6 @@ public:
 		PlayersInfo::iterator playerIter = playersInfo.find( nID );
 		if ( playerIter == playersInfo.end() )
 		{
-			//insert player
 			const int nPos = items.GetFreeId();
 			pPlayersList->AddItem( nPos );
 			posToPlayerID[nPos] = nID;
@@ -141,7 +135,6 @@ public:
 	
 	void Delete( const TInfo * pInfo )
 	{
-		//remove item from list
 		const TID nID = pInfo->GetID();
 		Delete( nID );
 	}
@@ -149,5 +142,4 @@ public:
 	bool IsEmpty() const { return playersInfo.empty(); }
 
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __PLAYERLISTMANAGER_H__

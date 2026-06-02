@@ -25,6 +25,3 @@
 #  include  <..\locale.>
 # endif
 
-// Local Variables:
-// mode:C++
-// End:

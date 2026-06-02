@@ -19,7 +19,6 @@
 #ifndef _STLP_CHAR_TRAITS_H
 #define _STLP_CHAR_TRAITS_H
 
-// Define char_traits
 
 # if defined (_STLP_OWN_IOSTREAMS) || ! defined (_STLP_USE_NEW_IOSTREAMS)
 
@@ -60,18 +59,12 @@ template <class _Tp> class allocator;
 
 #if defined (__sgi) && defined (_STLP_HAS_NO_NEW_C_HEADERS) /* IRIX */
 typedef off64_t   streamoff;
-// #elif defined (__unix) && defined (_STLP_HAS_NO_NEW_C_HEADERS) /* Other version of UNIX */
-// typedef off_t     streamoff;
 #else /* __unix */
-// boris : here, it's not ptrdiff_t as some Solaris systems have confusing definitions of these.
 typedef long streamoff;
 #endif /* _STLP_HAS_NO_NEW_C_HEADERS */
 
 typedef ptrdiff_t streamsize;
 
-// Class fpos, which represents a position within a file.  (The C++
-// standard calls for it to be defined in <ios>.  This implementation
-// moves it to <iosfwd>, which is included by <ios>.)
 template <class _StateT> class fpos
 {
 public:                         // From table 88 of the C++ standard.
@@ -117,7 +110,6 @@ typedef fpos<mbstate_t> streampos;
 typedef fpos<mbstate_t> wstreampos;
 # endif
 
-// Class __char_traits_base.
 
 template <class _CharT, class _IntT> class __char_traits_base {
 public:
@@ -195,20 +187,14 @@ public:
 
   static int_type _STLP_CALL eof() {
     return (int_type)-1;
-    //    return __STATIC_CAST(int_type,-1);
   }
 };
 
-// Generic char_traits class.  Note that this class is provided only
-//  as a base for explicit specialization; it is unlikely to be useful
-//  as is for any particular user-defined type.  In particular, it 
-//  *will not work* for a non-POD type.
 
 template <class _CharT> class char_traits
   : public __char_traits_base<_CharT, _CharT>
 {};
 
-// Specialization for char.
 
 _STLP_TEMPLATE_NULL class _STLP_CLASS_DECLSPEC char_traits<char> 
   : public __char_traits_base<char, int>
@@ -244,7 +230,6 @@ public:
 };
 
 # if defined (_STLP_HAS_WCHAR_T)
-// Specialization for wchar_t.
 _STLP_TEMPLATE_NULL class _STLP_CLASS_DECLSPEC char_traits<wchar_t>
   : public __char_traits_base<wchar_t, wint_t>
 {};
@@ -260,7 +245,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_CHAR_TRAITS_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

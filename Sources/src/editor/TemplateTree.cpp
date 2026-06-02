@@ -31,7 +31,6 @@ CTemplateTreeProperty* CTemplateTreeCtrl::GetTemplateTreeProperty( HTREEITEM hti
 }
 
 BEGIN_MESSAGE_MAP(CTemplateTreeCtrl, CWnd)
-	//{{AFX_MSG_MAP(CTemplateTreeCtrl)
 	ON_WM_CREATE()
   ON_NOTIFY(TVN_BEGINDRAG, IDC_TEMPLATE_TREE_CONTROL, OnBegindrag)
 	ON_WM_MOUSEMOVE()
@@ -42,22 +41,16 @@ BEGIN_MESSAGE_MAP(CTemplateTreeCtrl, CWnd)
 	ON_NOTIFY(TVN_SELCHANGED, IDC_TEMPLATE_TREE_CONTROL, OnSelect)
 	ON_NOTIFY(NM_RCLICK, IDC_TEMPLATE_TREE_CONTROL, OnRButtonClick)
 	ON_NOTIFY(TVN_KEYDOWN, IDC_TEMPLATE_TREE_CONTROL, OnKeyDown)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////
-// CTemplateTreeCtrl message handlers
 
 int CTemplateTreeCtrl::OnCreate(LPCREATESTRUCT lpCreateStruct) 
 {
-	// create a tree control
 	DWORD dwStyle = TVS_SHOWSELALWAYS |
 		TVS_HASBUTTONS |
 		TVS_LINESATROOT |
 		TVS_HASLINES |
-//		TVS_EDITLABELS |
 		TVS_SHOWSELALWAYS |
-//		TVS_DISABLEDRAGDROP |
 		WS_CHILD | WS_VISIBLE;
 	
 	DWORD dwStyleEx = /*TVXS_MULTISEL | */ TVXS_FLYBYTOOLTIPS | LVXS_HILIGHTSUBITEMS;
@@ -78,7 +71,6 @@ int CTemplateTreeCtrl::OnCreate(LPCREATESTRUCT lpCreateStruct)
 void CTemplateTreeCtrl::LoadImageList( UINT nID )
 {
 	CBitmap bmp;
-	// normal tree images
 	m_imlNormal.Create(16,
 		16,
 		TRUE,
@@ -95,7 +87,6 @@ void CTemplateTreeCtrl::LoadImageList( UINT nID )
 
 void CTemplateTreeCtrl::OnBegindrag(NMHDR* pNMHDR, LRESULT* pResult)
 {
-//	TRACE(_T("Begin Drag\n"));
 	NI_ASSERT(m_bDragging == FALSE);
 	NI_ASSERT(m_pDragImageList == NULL);
 	
@@ -128,7 +119,6 @@ void CTemplateTreeCtrl::OnBegindrag(NMHDR* pNMHDR, LRESULT* pResult)
 
 	m_pDragImageList->DragMove(ptAction);
 	m_pDragImageList->DragEnter(theApp.GetMainWnd(), ptAction);
-//	m_pDragImageList->DragEnter(this, ptAction);
 	SetCapture();
 	
   *pResult = 0;
@@ -157,11 +147,9 @@ void CTemplateTreeCtrl::OnMouseMove(UINT nFlags, CPoint point)
 		if ( hitem && (TVHT_ONITEM & flags) )
 		{
 /*
-			//Проверяем типы item drag & item drop
 			CTreeItem *pDrag = GetTreeItem( m_hitemDrag );
 			CTreeItem *pDrop = GetTreeItem( hitem );
 
-//			if ( pDrag->GetItemType() == pDrop->GetItemType() )
 			if ( pDrag->IsCompatibleWith(pDrop) )
 			{
 				m_pDragImageList->DragLeave( theApp.GetMainWnd() );
@@ -186,7 +174,6 @@ void CTemplateTreeCtrl::OnMouseMove(UINT nFlags, CPoint point)
 /*
 		else if ( m_hitemDrop && !(TVHT_ONITEM & flags) )
 		{
-			//m_treeCtrl.SelectDropTarget(0);
 			m_treeCtrl.SelectItem(0);
 			m_hitemDrop = 0;
 		}
@@ -200,7 +187,6 @@ void CTemplateTreeCtrl::OnLButtonUp(UINT nFlags, CPoint point)
 {
   if(m_bDragging == TRUE)
   {
-//		TRACE(_T("End Drag\n"));
 		ReleaseCapture();
 		NI_ASSERT(m_pDragImageList != NULL);
 		m_pDragImageList->DragLeave(this);
@@ -216,13 +202,10 @@ void CTemplateTreeCtrl::OnLButtonUp(UINT nFlags, CPoint point)
 		m_treeCtrl.GetItem(&tvidrag);
 */
 
-//		m_treeCtrl.SelectDropTarget( 0 );
 /*
 		CRect rect;
 		GetClientRect( &rect );
-		// если объект кинули мимо нашего окна, посылаем сообщение родительскому окну и выходим
 		if ( !rect.PtInRect( point )
-			//&& !IsFolder( tvidrag.lParam )
 			)
 		{
 			m_treeCtrl.SelectDropTarget( 0 );
@@ -237,7 +220,6 @@ void CTemplateTreeCtrl::OnLButtonUp(UINT nFlags, CPoint point)
 		if ( hItemDrop == NULL || hItemDrop == m_hitemDrag )
 			return;
 
-		//Проверяем типы item drag & item drop
 /*
 		CTreeItem *pDrag = GetTreeItem( m_hitemDrag );
 		CTreeItem *pDrop = GetTreeItem( hItemDrop );
@@ -269,14 +251,10 @@ void CTemplateTreeCtrl::OnShowWindow(BOOL bShow, UINT nStatus)
 {
 	CWnd::OnShowWindow(bShow, nStatus);
 	
-	// для правильной работы QuickView окна, 
-	// которое показывает текущий поселекченный объект
 	if ( !bShow )
 		m_treeCtrl.DeselectAllItems();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////
-// Без этой функции триконтрола мы не увидим
 void CTemplateTreeCtrl::OnSize(UINT nType, int cx, int cy) 
 {
 	CWnd::OnSize(nType, cx, cy);
@@ -368,11 +346,9 @@ void CTemplateTreeCtrl::SaveTemplateTree( IDataTree *pDT )
 void CTemplateTreeCtrl::LoadTemplateTree( IDataTree *pDT )
 {
 /*
-	//Сперва убиваем все childs в дереве
 	pRootItem->RemoveAllChilds();
 	
 	pRootItem->Serialize( pDT );
-	//тут надо пройти по всем childs и удалить нулевые элементы
 	pRootItem->DeleteNullChilds();
 	pRootItem->CreateDefaultChilds();
 	pRootItem->InsertChildItems();

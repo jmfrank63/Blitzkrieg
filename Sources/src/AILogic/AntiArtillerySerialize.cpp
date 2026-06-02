@@ -2,7 +2,6 @@
 
 #include "AntiArtillery.h"
 #include "AntiArtilleryManager.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CRevealCircle::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -12,7 +11,6 @@ int CRevealCircle::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CAntiArtillery::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -26,12 +24,10 @@ int CAntiArtillery::operator&( IStructureSaver &ss )
 	saver.Add( 7, &lastRevealCenter );
 	saver.Add( 8, &lastShotTime );
 	saver.Add( 9, &lastRevealCircleTime );
-//	saver.Add( 10, &nUniqueID );
 	saver.AddTypedSuper( 11, static_cast<CLinkObject*>(this) );
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CAntiArtilleryManager::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -40,4 +36,3 @@ int CAntiArtilleryManager::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

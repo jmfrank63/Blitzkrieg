@@ -430,8 +430,6 @@ swap(hash_multimap<_Key,_Tp,_HashFcn,_EqlKey,_Alloc>& __hm1,
 #endif /* _STLP_USE_SEPARATE_RELOPS_NAMESPACE */
 
 
-// Specialization of insert_iterator so that it will work for hash_map
-// and hash_multimap.
 
 #ifdef _STLP_CLASS_PARTIAL_SPECIALIZATION
 
@@ -490,7 +488,6 @@ public:
 
 #endif /* _STLP_CLASS_PARTIAL_SPECIALIZATION */
 
-// do a cleanup
 # undef hash_map
 # undef hash_multimap
 
@@ -506,7 +503,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_HASH_MAP_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

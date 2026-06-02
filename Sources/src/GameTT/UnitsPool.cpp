@@ -7,39 +7,31 @@
 #include "CommonId.h"
 #include "UnitTypes.h"
 #include "etypes.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum ECommands
 {
 	IMC_UNIT_INFO			=	10006,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICUnitsPool::Configure( const char *pszConfig )
 {
-	//получаем параметры из командной строки
 	if ( pszConfig != 0 && strlen(pszConfig) > 0 )
 		nNewUnits = NStr::ToInt( pszConfig );
 	else
 		nNewUnits = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICUnitsPool::PostCreate( IMainLoop *pML, CInterfaceUnitsPool *pIUP )
 {
 	pIUP->Create( nNewUnits );
 	pML->PushInterface( pIUP );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceUnitsPool::~CInterfaceUnitsPool()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceUnitsPool::Init()
 {
 	CInterfaceInterMission::Init();
-	//	SetBindSection( "intermission" );
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceUnitsPool::Create( int nNewUnits )
 {
 	pUIScreen = CreateObject<IUIScreen>( UI_SCREEN );
@@ -51,7 +43,6 @@ void CInterfaceUnitsPool::Create( int nNewUnits )
 
 	if ( nNewUnits )
 	{
-		//установим текст заголовка
 		IUIElement *pHeader = pUIScreen->GetChildByID( 20000 );
 		NI_ASSERT_T( pHeader != 0, "Invalid UnitsPool interface header control" );
 		CPtr<IText> p2 = pTextM->GetString( "newunits" );
@@ -71,16 +62,13 @@ void CInterfaceUnitsPool::Create( int nNewUnits )
 	
 	IScenarioTracker *pST = GetSingleton<IScenarioTracker>();
 	IPlayerScenarioInfo *pUserPlayer = pST->GetUserPlayer();
-	// init Shortcut Bar
 	IUIShortcutBar *pSB = checked_cast<IUIShortcutBar *> ( pUIScreen->GetChildByID( 100 ) );
 	NI_ASSERT_T( pSB != 0, "ShortcutBar is not initialized" );
 	pSB->Clear();
 
-	// инициализируем вспомогательную структуру
 	std::vector< std::vector<int> > units( nUnitClassesSize );
 	if ( nNewUnits )
 	{
-		// Отображаем только новые поступления
 		for ( int i = 0; i < pUserPlayer->GetNumNewUnits(); ++i )
 		{
 			IScenarioUnit *pUnit = pUserPlayer->GetNewUnit( i );
@@ -90,7 +78,6 @@ void CInterfaceUnitsPool::Create( int nNewUnits )
 	}
 	else
 	{
-		// Отображаем всех доступных юнитов
 		const int nNumUnits = pUserPlayer->GetNumUnits();
 		for ( int i = 0; i < nNumUnits; ++i )
 		{
@@ -100,18 +87,15 @@ void CInterfaceUnitsPool::Create( int nNewUnits )
 		}
 	}
 
-	// отображаем данные из этой структурки на экране
 	int nBarIndex = 0;
 	for ( int i=0; i<nUnitClassesSize; i++ )
 	{
 		if ( units[i].empty() )
 			continue;
 		
-		//Add bar
 		IUIElement *pBar = pSB->AddBar();
 		std::string szKey = NStr::Format( "textes\\RPGClasses\\class%d", i );
 		CPtr<IText> pText = pTextM->GetDialog( szKey.c_str() );
-//		CPtr<IText> pText = pTextM->GetString( unitClasses[i].pszName );
 		NI_ASSERT_T( pText != 0, NStr::Format( "Can not get text by key: %s", szKey.c_str() ) );
 		pBar->SetWindowText( 0, pText->GetString() );
 		pBar->SetWindowText( 1, pText->GetString() );
@@ -119,14 +103,12 @@ void CInterfaceUnitsPool::Create( int nNewUnits )
 		
 		if ( nNewUnits )
 		{
-			//раскрываю барчик
 			pSB->SetBarExpandState( nBarIndex, true );
 		}
 		nBarIndex++;
 		
 		for ( int k=0; k<units[i].size(); k++ )
 		{
-			//добавим item с такими RPG stats
 			IUIDialog *pItem = checked_cast<IUIDialog *>( pSB->AddItem() );
 			IScenarioUnit *pUnit = pUserPlayer->GetUnit( units[i][k] );
 			const SUnitBaseRPGStats *pRPG = NGDB::GetRPGStats<SUnitBaseRPGStats>( pUnit->GetRPGStats().c_str() );
@@ -140,7 +122,6 @@ void CInterfaceUnitsPool::Create( int nNewUnits )
 	StoreScreen();
 	pScene->AddUIScreen( pUIScreen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceUnitsPool::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceInterMission::ProcessMessage( msg ) )
@@ -178,13 +159,10 @@ bool CInterfaceUnitsPool::ProcessMessage( const SGameMessage &msg )
 
 	if ( msg.nEventID >= 20000 && msg.nEventID < 21000 )
 	{
-		//вызовем энциклопедию
 		IScenarioUnit *pUnit = GetSingleton<IScenarioTracker>()->GetUserPlayer()->GetUnit( msg.nEventID - 20000 );
 		const std::string szTemp = NStr::Format( "%d;%s", E_UNIT, pUnit->GetRPGStats().c_str() );
 		FinishInterface( MISSION_COMMAND_ENCYCLOPEDIA, szTemp.c_str() );
 	}
 
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

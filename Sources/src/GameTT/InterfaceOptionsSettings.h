@@ -1,11 +1,8 @@
 #ifndef __INTERFACEOPTIONSSETTINGS_H__
 #define __INTERFACEOPTIONSSETTINGS_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "InterMission.h"
 #include "iMission.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class COptionsListWrapper;
 class CInterfaceOptionsSettings : public CInterfaceInterMission
 {
@@ -17,9 +14,7 @@ class CInterfaceOptionsSettings : public CInterfaceInterMission
 	int nMaxDivision;											// total number of divisions.
 	int nMinDifficulty;
 
-	// input
 	NInput::CCommandRegistrator commandMsgs;
-	//
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
 
 	virtual ~CInterfaceOptionsSettings() {  }
@@ -35,7 +30,6 @@ public:
 	void Create();
 
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CICOptionsSettings: public CInterfaceCommandBase<CInterfaceOptionsSettings, MISSION_INTERFACE_OPTIONSSETTINGS>
 {
 	OBJECT_NORMAL_METHODS( CICOptionsSettings );
@@ -46,12 +40,10 @@ class CICOptionsSettings: public CInterfaceCommandBase<CInterfaceOptionsSettings
 		pEI->Create();
 		pML->PushInterface( pEI );
 	}
-	//
 	CICOptionsSettings() {  }
 public:
 	virtual void STDCALL Configure( const char *pszConfig ) 
 	{  
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __INTERFACEOPTIONSSETTINGS_H__

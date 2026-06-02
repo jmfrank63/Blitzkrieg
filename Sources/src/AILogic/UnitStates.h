@@ -1,13 +1,9 @@
 #ifndef __UNIT_STATES_H__
 #define __UNIT_STATES_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Common\Actions.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EUnitStateNames
 {
-	// нумерацию не менять! используется в скриптах
 	EUSN_ERROR											= 0,
 	EUSN_REST												= 1,						// отдыхает
 	EUSN_WAIT_FOR_PASSENGER					= 2,						// ждёт загрузки пассажира
@@ -55,14 +51,12 @@ enum EUnitStateNames
 	EUSN_MOVE_TO_GRID								= 46,
 	EUSN_HOOK_ARTILLERY							= 47,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline bool IsRestState( const EUnitStateNames eStateName )
 {
 	return 
 		eStateName == EUSN_REST || eStateName == EUSN_REST_ON_BOARD || 
 		eStateName == EUSN_REST_ENTRENCHMENT || eStateName == EUSN_REST_IN_BUILDING;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////	
 inline bool IsRestCommand( const EActionCommand command )
 {
 	return 
@@ -71,7 +65,6 @@ inline bool IsRestCommand( const EActionCommand command )
 		command == ACTION_COMMAND_IDLE_TRANSPORT ||
 		command == ACTION_COMMAND_GUARD ;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum ETryStateInterruptResult
 {
 	TSIR_YES_IMMIDIATELY,
@@ -79,7 +72,6 @@ enum ETryStateInterruptResult
 	TSIR_YES_MANAGED_ALREADY,
 	TSIR_NO_COMMAND_INCOMPATIBLE,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IUnitState : public IRefCount
 {
 public:
@@ -87,18 +79,14 @@ public:
 	virtual EUnitStateNames GetName() { return EUSN_ERROR; }
 	virtual ETryStateInterruptResult TryInterruptState( class CAICommand *pCommand ) = 0;
 
-	// state, в котором мы целенаправленно бежим кого-то убивать
 	virtual bool IsAttackingState() const = 0;
-	// точка назначения для state
 	virtual const CVec2 GetPurposePoint() const = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IUnitAttackingState : public IUnitState
 {
 	virtual bool IsAttacksUnit() const = 0;
 	virtual class CAIUnit* GetTargetUnit() const = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define CONVERT_OBJECT( CType, pObjTo, pObjFrom, msg )	\
 	if ( pObjFrom == 0 ) break;														\
 	CType *pObjTo = dynamic_cast<CType*>(pObjFrom);				\
@@ -110,5 +98,4 @@ interface IUnitAttackingState : public IUnitState
 	CType *pObjTo = dynamic_cast_ptr<CType*>(pObjFrom);					\
 	NI_ASSERT_T( pObjTo != 0, msg );														\
 	if ( pObjTo == 0 ) break;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __UNIT_STATES_H__

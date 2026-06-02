@@ -2,14 +2,11 @@
 #define __PLANE_STATES_H__
 
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "StatesFactory.h"
 #include "UnitStates.h"
 #include "DamageToEnemyUpdater.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAviation;
 class CFormation;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CPlaneStatesFactory : public IStatesFactory
 {
 	OBJECT_COMPLETE_METHODS( CPlaneStatesFactory );
@@ -23,10 +20,8 @@ public:
 	virtual interface IUnitState* ProduceState( class CQueueUnit *pUnit, class CAICommand *pCommand );
 	virtual interface IUnitState* ProduceRestState( class CQueueUnit *pUnit );
 	
-	// for Saving/Loading of static members
 	friend class CStaticMembers;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CPlaneRestState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CPlaneRestState );
@@ -54,8 +49,6 @@ public:
 	virtual const CVec2 GetPurposePoint() const;
 };
 class CPlaneDeffensiveFireShootEstimator;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// стрельба из бортовых стрелковых установок
 class CPlaneDeffensiveFire
 {
 	DECLARE_SERIALIZE;
@@ -66,13 +59,10 @@ class CPlaneDeffensiveFire
 	CPtr<CPlaneDeffensiveFireShootEstimator> pShootEstimator;
 	CDamageToEnemyUpdater damageUpdater;
 protected:
-		// проверить врагов и начать отстреливаться
 	void AnalyzeBSU();
 	CPlaneDeffensiveFire() : pOwner( 0 ), timeLastBSUUpdate( 0 ) {}
 	CPlaneDeffensiveFire( class CAviation *pPlane );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// переход из точти в точку
 class CPlanePatrolState : public IUnitAttackingState
 {
 	DECLARE_SERIALIZE;
@@ -95,7 +85,6 @@ public:
 	CPlanePatrolState() : nCurPointIndex( 0 ), pPlane( 0 ) {  }
 	CPlanePatrolState( CAviation *pPlane, const CVec2 &point );
 	int GetNPoints() const { return vPatrolPoints.size(); }
-	// для добавления точек патрулирования
 	void AddPoint( const CVec2 &vAddPoint );
 	void TakeOff() { ToTakeOffState(); } 
 	void Escape( const int /*SUCAviation::AIRCRAFT_TYPE*/ nAviaType );
@@ -105,7 +94,6 @@ public:
 	void RegisterPoints( const int /*SUCAviation::AIRCRAFT_TYPE*/ nPlaneType );
 	void UnRegisterPoints();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CPlaneBombState : public CPlanePatrolState, public CPlaneDeffensiveFire
 {
 	OBJECT_COMPLETE_METHODS( CPlaneBombState );
@@ -154,8 +142,6 @@ public:
 	virtual bool IsDiving() const { return bDiveInProgress; }
 	virtual EUnitStateNames GetName() { return EUSN_DIVE_BOMBING; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// for drop paratroopers in specific point
 class CPlaneParaDropState : public CPlanePatrolState, public CPlaneDeffensiveFire
 {
 	OBJECT_COMPLETE_METHODS( CPlaneParaDropState );
@@ -176,7 +162,6 @@ class CPlaneParaDropState : public CPlanePatrolState, public CPlaneDeffensiveFir
 	int nDroppingSoldier;									// current soldier to drop
 
 	CVec2 vLastDrop;// точка, в которой выброшен последний парашютист
-	//true if some tiles around drop site are unlocked.
 	bool CanDrop( const CVec2 & point );
 protected:
 	virtual void ToTakeOffState();
@@ -193,12 +178,8 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 
-	// for Saving/Loading of static members
 	friend class CStaticMembers;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// state for fighters. Duties:
-// 1) fight incoming enemie bombers
 class CPlaneFighterPatrolState : public CPlanePatrolState, public CPlaneDeffensiveFire
 {
 	OBJECT_COMPLETE_METHODS( CPlaneFighterPatrolState );
@@ -244,10 +225,8 @@ public:
 	virtual bool IsAttacksUnit() const ;
 	virtual class CAIUnit* GetTargetUnit() const ;
 
-	// for Saving/Loading of static members
 	friend class CStaticMembers;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAIUnit;
 class CBuilding;
 class CPlaneShturmovikShootEstimator;
@@ -256,7 +235,6 @@ class CPlaneShturmovikPatrolState : public CPlanePatrolState, public CPlaneDeffe
 	OBJECT_COMPLETE_METHODS( CPlaneShturmovikPatrolState );
 	DECLARE_SERIALIZE;	
 
-	// для определения нужно ли кидать бомбы
 	class CBombEstimator
 	{
 		bool bFire;
@@ -347,7 +325,6 @@ class CPlaneShturmovikPatrolState : public CPlanePatrolState, public CPlaneDeffe
 	void TryInitPathToPoint( const CVec3 & v, bool isNewPoint = false );
 	bool FindNewEnemie();
 
-	// выбери лучшее
 	CAIUnit* FindEnemyInPossibleDiveSector();
 	CAIUnit* FindEnemyInFiringSector();
 
@@ -369,7 +346,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const { return GetPoint(); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CPlaneScoutState : public CPlanePatrolState, public CPlaneDeffensiveFire
 {
 	OBJECT_COMPLETE_METHODS( CPlaneScoutState );
@@ -403,9 +379,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const { return GetPoint(); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//ACTION_MOVE_PLANE_LEAVE
-//plane must leave the map trough the some point
 class CPlaneLeaveState : public IUnitState, public CPlaneDeffensiveFire
 {
 	
@@ -435,11 +408,8 @@ public:
 	virtual const CVec2 GetPurposePoint() const;
 	virtual EUnitStateNames GetName() { return EUSN_REST; }
 
-	// for Saving/Loading of static members
 	friend class CStaticMembers;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// смерть самолета.
 class CPlaneFlyDeadState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CPlaneFlyDeadState );
@@ -486,5 +456,4 @@ public:
 	virtual const CVec2 GetPurposePoint() const ;
 	virtual EUnitStateNames GetName() { return EUSN_FLY_DEAD; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __PLANE_STATES_H__

@@ -17,15 +17,6 @@
 #include "iMainClassIDs.h"
 #include "iMainCommands.h"
 #include "RandomMapHelper.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** save and load
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ReportSaveLoad( const char *pszKey, const std::string &szFileName )
 {
 	if ( CPtr<IText> pText = GetSingleton<ITextManager>()->GetString(pszKey) )
@@ -38,18 +29,14 @@ void ReportSaveLoad( const char *pszKey, const std::string &szFileName )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICSave::Exec( IMainLoop *pML )
 {
-	// save history
 	if ( GetGlobalVar("SaveHistoryFileName", (const char*)0) != 0 )
 		GetSingleton<ICommandsHistory>()->Save();
-	// mission saves in multiplayer & impossible difficulty are disabled
 
 	if ( GetGlobalVar("MultiplayerGame", 0) != 0 ) // saves in multiplayer are not allowed
 		return;
 
-	// all exept autosaves in-mission are not allowed 
 	if ( !bAutoSave && GetGlobalVar( "AreWeInMission", 0 ) && GetGlobalVar("Options.MissionSave.Disabled", 0) != 0 )
 		return;
 
@@ -63,7 +50,6 @@ void CICSave::Exec( IMainLoop *pML )
 	if ( pStream )
 	{
 		pML->ClearResources( false );
-		// create and store file header (/w signature)
 		{
 			NSaveLoad::SFileHeader hdr;
 			hdr.szTitleName = L"UNKNOWN Title";
@@ -71,7 +57,6 @@ void CICSave::Exec( IMainLoop *pML )
 			hdr.szMissionName = GetGlobalVar( "Mission.Current.Name", "UNKNOWN Mission" );
 			hdr.bRandomMission = ( GetGlobalVar( "AreWeInMission", (const char*)0 ) != 0 ) && 
 				                   ( GetGlobalVar( ("Mission." + hdr.szMissionName + ".Random").c_str(), 0 ) != 0 );
-			//
 			const DWORD dwSignature = NSaveLoad::SFileHeader::SIGNATURE;
 			CStreamAccessor stream = pStream;
 			stream << dwSignature;
@@ -85,20 +70,16 @@ void CICSave::Exec( IMainLoop *pML )
 				pSeed->Store( stream );
 			}
 		}
-		// store structurized game context
 		CPtr<IStructureSaver> pSS = CreateStructureSaver( pStream, IStructureSaver::WRITE );
 		pML->Serialize( pSS );
 	}
-	// report about save
 	if ( pStream != 0 ) 
 		ReportSaveLoad( "game_saved", szFileName );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICLoad::Exec( IMainLoop *pML )
 {
 	if ( GetGlobalVar("MultiplayerGame", 0) != 0  )
 		return;
-	// check for such file exist
 	std::string szModname = GetSingleton<IUserProfile>()->GetMOD();
 	if ( !szModname.empty() )
 	{
@@ -111,7 +92,6 @@ void CICLoad::Exec( IMainLoop *pML )
 		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format("Can't find file \"%s\" to load - skipping...", szFileName.c_str()), 0xffff0000 );
 		return;
 	}
-	// load and check header
 	{
 		CStreamAccessor stream = pStream;
 		DWORD dwSignature = 0;
@@ -125,28 +105,21 @@ void CICLoad::Exec( IMainLoop *pML )
 				GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format("Invalid save file \"%s\" of version %d (current version = %d)", szFullFileName.c_str(), hdr.nVersion, NSaveLoad::SFileHeader::VERSION), 0xffff0000 );
 				return;
 			}
-			// remove all interfaces!
 			while ( pML->GetInterface() ) 
 				pML->PopInterface();
-			//
 			if ( hdr.bRandomMission ) 
 			{
-				// read random header
 				NSaveLoad::SRandomHeader rndhdr;
 				stream >> rndhdr;
-				// read random seed for the map generator
 				CPtr<IRandomGenSeed> pSeed = CreateObject<IRandomGenSeed>( STREAMIO_RANDOM_GEN_SEED );
 				pSeed->Restore( stream );
-				//
 				RestoreRandomMap( hdr.szMissionName, rndhdr, pSeed );
 			}
-			// 'trunk' stream to the new range
 			pStream = new CStreamRangeAdaptor( pStream, pStream->GetPos(), pStream->GetSize() );
 		}
 		else
 			pStream->Seek( -sizeof(dwSignature), STREAM_SEEK_CUR );
 	}
-	// load structurized game context
 	{
 		CPtr<IMovieProgressHook> pProgress = CreateObject<IMovieProgressHook>( MAIN_PROGRESS_INDICATOR );
 		pProgress->Init( IMovieProgressHook::PT_LOAD );
@@ -155,26 +128,13 @@ void CICLoad::Exec( IMainLoop *pML )
 		pProgress->Stop();
 		GetSingleton<IUserProfile>()->RegisterLoad( GetSingleton<IScenarioTracker>()->GetCurrMissionGUID() );
 	}
-	// report about load
-	//pML->FinishWaitLoadingMovie();
 	ReportSaveLoad( "game_loaded", szFileName );
-	//
 	pML->EnableMessageProcessing( true );
 	pML->Command( MAIN_COMMAND_CMD, NStr::Format("%d", CMD_LOAD_FINISHED) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** send command
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICSendCommand::Configure( const char *pszConfig )
 {
 	if ( !pszConfig ) return;
-	// config = "commandID : param";
 	std::vector<std::string> szStrings;
 	NStr::SplitString( pszConfig, szStrings, ':' );
 	if ( !szStrings.empty() )
@@ -182,37 +142,18 @@ void CICSendCommand::Configure( const char *pszConfig )
 	if ( szStrings.size() > 1 )
 		nParam = NStr::ToInt( szStrings[1] );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICSendCommand::Exec( IMainLoop *pML )
 {
 	IInput *pInput = GetSingleton<IInput>();
 	NI_ASSERT_T( pInput != 0, "ERROR - Can't send command - input is not registered in the singleton" );
 	pInput->AddMessage( SGameMessage(nCommand, nParam) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** exit from game command
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICExitGame::Exec( IMainLoop *pML )
 {
 	GetSingleton<ISFX>()->StopStream();
 	pML->ResetStack();
 	pML->Command( MISSION_COMMAND_VIDEO, "demo\\exit;-1" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** change MOD command
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ClearMOD()
 {
 	GetSingleton<IDataStorage>()->RemoveStorage( "MOD" );
@@ -221,7 +162,6 @@ void ClearMOD()
 	RemoveGlobalVar( "MOD.Version" );
 	GetSingleton<IUserProfile>()->SetMOD( "" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICChangeMOD::Configure( const char *pszConfig ) 
 { 
 	szMOD.clear();
@@ -233,7 +173,6 @@ void CICChangeMOD::Configure( const char *pszConfig )
 			szMOD += '\\';
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICChangeMOD::Exec( IMainLoop *pML )
 {
 	const std::string szMODPath = std::string( pML->GetBaseDir() ) + "mods\\" + szMOD + "data\\";
@@ -245,14 +184,12 @@ void CICChangeMOD::Exec( IMainLoop *pML )
 		{
 			GetSingleton<IDataStorage>()->RemoveStorage( "MOD" );
 			GetSingleton<IDataStorage>()->AddStorage( pMOD, "MOD" );
-			//
 			std::string szMODName = "MyMOD", szMODVersion = "1.0";
 			{
 				CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::READ );
 				saver.Add( "MODName", &szMODName );
 				saver.Add( "MODVersion", &szMODVersion );
 			}
-			//
 			SetGlobalVar( "MOD.Active", 1 );
 			SetGlobalVar( "MOD.Name", szMODName.c_str() );
 			SetGlobalVar( "MOD.Version", szMODVersion.c_str() );			
@@ -263,26 +200,14 @@ void CICChangeMOD::Exec( IMainLoop *pML )
 	}
 	else
 		ClearMOD();
-	//
 	pML->ClearResources( true );
 	GetSingleton<ITextManager>()->Clear( ISharedManager::CLEAR_ALL );
 	pML->ResetStack();
-	//
 	GetSingleton<IFilesInspector>()->Clear();
 	GetSingleton<IFilesInspector>()->InspectStorage( GetSingleton<IDataStorage>() );
-	//
 	GetSingleton<IObjectsDB>()->LoadDB();
 	GetSingleton<IGFX>()->SetFont( GetSingleton<IFontManager>()->GetFont( "fonts\\medium" ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** pause/unpause game
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICPauseGame::Configure( const char *pszConfig )
 {
 	if ( !pszConfig ) return;
@@ -300,9 +225,7 @@ void CICPauseGame::Configure( const char *pszConfig )
 		nPauseReason = -1;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICPauseGame::Exec( IMainLoop *pML )
 {
 	pML->Pause( bSetPause, nPauseReason );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

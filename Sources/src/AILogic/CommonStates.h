@@ -2,17 +2,14 @@
 #define __COMMON_STATES_H__
 
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "UnitStates.h"
 #include "Behaviour.h"
 #include "FreeFireManager.h"
 #include "RndRunUpToEnemy.h"
 #include "DamageToEnemyUpdater.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAIUnit;
 class CSoldier;
 class CStaticObject;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMechAttackUnitState : public IUnitAttackingState, public CFreeFireManager, public CStandartBehaviour
 {
 	OBJECT_COMPLETE_METHODS( CMechAttackUnitState );
@@ -44,7 +41,6 @@ class CMechAttackUnitState : public IUnitAttackingState, public CFreeFireManager
 	CVec2 vEnemyCenter;
 	WORD wEnemyDir;
 
-	//
 	bool IsBruteMoving();
 	interface IStaticPath* BestSidePath();
 	void CalculateProbabilitites();
@@ -54,13 +50,9 @@ class CMechAttackUnitState : public IUnitAttackingState, public CFreeFireManager
 	void AnalyzeMovingToSidePosition();
 	
 	void TraceAim();
-	// пытается развернуться лбом к противнику за время перезарядки, если вернула false, то сейчас не время для поворота
 	bool TurnToBestPos();
-	// выстрелить и произвести все необходимы updates в state
 	void FireToEnemy();
-	// можно ли прямо сейчас стрельнуть в enemy без вращений
 	bool CanShootToEnemyNow() const;
-	// проинициализировать, всё что нужно, если для стрельбы выбран pGun
 	void StartStateWithGun( CBasicGun *pGun );
 	void FinishState();
 protected:
@@ -70,7 +62,6 @@ protected:
 	bool bAim;
 	bool bFinish;
 
-	//
 	virtual void FireNow();
 	virtual void StopFire();
 	virtual void StartAgain();
@@ -93,7 +84,6 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_ATTACK_UNIT; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCommonAttackUnitInBuildingState : public IUnitAttackingState, public CFreeFireManager
 {
 	DECLARE_SERIALIZE;
@@ -106,7 +96,6 @@ class CCommonAttackUnitInBuildingState : public IUnitAttackingState, public CFre
 	
 	int nSlot;
 
-	//
 	bool FindPathToUnit();
 	bool FindPathToSector();
 	void StartState( class CAIUnit *pOwner );
@@ -117,7 +106,6 @@ protected:
 	bool bAim;
 	bool bSwarmAttack;
 
-	//
 	virtual class CAIUnit* GetUnit() const = 0;
 	virtual void FireNow() = 0;
 	virtual bool IsInTargetSector() const;
@@ -136,12 +124,10 @@ public:
 	virtual bool IsAttacksUnit() const { return true; }
 	CAIUnit* GetTargetUnit() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCommonAttackCommonStatObjState : public IUnitAttackingState, public CFreeFireManager
 {
 	DECLARE_SERIALIZE;
 
-	//
 	bool AttackUnits( class CStaticObject *pObj );
 	void AnalyzePosition();
 	void AnalyzeShootingObj();
@@ -155,7 +141,6 @@ protected:
 	bool bFinish;
 	bool bSwarmAttack;
 
-	//
 	virtual class CAIUnit* GetUnit() const = 0;
 	virtual void FireNow() = 0;
 	virtual void StartAgain();
@@ -175,7 +160,6 @@ public:
 	virtual bool IsAttacksUnit() const { return true; }
 	virtual class CAIUnit* GetTargetUnit() const { return 0; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCommonRestState : public IUnitState, public CStandartBehaviour
 {
 	DECLARE_SERIALIZE;
@@ -204,10 +188,8 @@ public:
 	const CVec2& GetGuardPoint() const { return guardPoint; }
 	const WORD GetGuardDir() const { return wDir; }
 
-	// в 1 - некоторое малое время, чтобы произошло обновление, не 0 - т.к. это говорит о первом запуске сегмента
 	void SetNullLastMoveTime() { nextMove = 1; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMechUnitRestState : public CCommonRestState
 {
 	OBJECT_COMPLETE_METHODS( CMechUnitRestState );
@@ -227,7 +209,6 @@ public:
 	virtual EUnitStateNames GetName() { return EUSN_REST; }
 	virtual bool IsAttackingState() const { return false; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCommonAmbushState : public IUnitState, public CStandartBehaviour
 {
 	OBJECT_COMPLETE_METHODS( CCommonAmbushState );
@@ -244,7 +225,6 @@ class CCommonAmbushState : public IUnitState, public CStandartBehaviour
 	CPtr<CBasicGun> pGun;
 	CPtr<CAIUnit> pTarget;
 
-	//
 	void CommonState();
 	void FiringState();
 
@@ -265,7 +245,6 @@ public:
 
 	CAIUnit* GetTarget() const { return pTarget; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFollowState : public IUnitState, public CStandartBehaviour
 {
 	OBJECT_COMPLETE_METHODS( CFollowState );
@@ -289,7 +268,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCommonSwarmState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CCommonSwarmState );
@@ -323,7 +301,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const { return point; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCommonMoveToGridState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CCommonMoveToGridState );
@@ -355,5 +332,4 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const { return vPoint; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif __COMMON_STATES_H__

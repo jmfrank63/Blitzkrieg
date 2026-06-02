@@ -1,37 +1,23 @@
 #include "StdAfx.h"
 
 #include "GammaEffect.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** gamme effect
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CGammaEffect::~CGammaEffect()
 {
 	if ( timeDuration != 0 ) 
 		SetGammaCorrectionBounded( vOriginal.x, vOriginal.y, vOriginal.z, GetSingleton<IGFX>(), true, false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGammaEffect::Init( const float fGammaR, const float fGammaG, const float fGammaB,
  									       const NTimer::STime &_timeStart, const NTimer::STime &_timeDuration )
 {
-	// get base values (we start from it and we finish on it!)
 	float fBrightness, fContrast, fGamma;
 	GetSingleton<IGFX>()->GetGammaCorrectionValues( &fBrightness, &fContrast, &fGamma );
 	vOriginal.Set( fBrightness, fContrast, fGamma );
-	//
 	vGamma[0].Set( fGamma, fGamma, fGamma );
 	vGamma[1].Set( fGammaR, fGammaG, fGammaB );
 	vGamma[2].Set( fGamma, fGamma, fGamma );
-	//
 	timeStart = _timeStart;
 	timeDuration = _timeDuration;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGammaEffect::Update( const NTimer::STime &time, bool bForced )
 {
 	if ( time > timeStart + timeDuration ) 
@@ -39,7 +25,6 @@ bool CGammaEffect::Update( const NTimer::STime &time, bool bForced )
 		SetGammaCorrectionBounded( vOriginal.x, vOriginal.y, vOriginal.z, GetSingleton<IGFX>(), true, false );
 		return false;
 	}
-	//
 	if ( time > timeStart + timeDuration/2 ) 
 	{
 		const float fCoeff = float( time - (timeStart + timeDuration/2) ) / float( timeDuration / 2 );
@@ -52,17 +37,14 @@ bool CGammaEffect::Update( const NTimer::STime &time, bool bForced )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGammaEffect::Draw( IGFX *pGFX )
 {
 	return SetGammaCorrectionBounded( vCurrGamma.r, vOriginal.y, vOriginal.z, pGFX, false, false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGammaEffect::Visit( interface ISceneVisitor *pVisitor, int nType )
 {
 	pVisitor->VisitSceneObject( this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGammaEffect::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -73,21 +55,11 @@ int CGammaEffect::operator&( IStructureSaver &ss )
 	saver.Add( 5, &timeDuration );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** gamma fader
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CGammaFader::~CGammaFader()
 {
 	if ( timeDuration != 0 ) 
 		SetGammaCorrectionBounded( vOriginal.x, vOriginal.y, vOriginal.z, GetSingleton<IGFX>(), true, false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGammaFader::Update( const NTimer::STime &time, bool bForced )
 {
 	if ( timeStart == 0 )
@@ -95,7 +67,6 @@ bool CGammaFader::Update( const NTimer::STime &time, bool bForced )
 		float fBrightness, fContrast, fGamma;
 		GetSingleton<IGFX>()->GetGammaCorrectionValues( &fBrightness, &fContrast, &fGamma );
 		vOriginal.Set( fBrightness, fContrast, fGamma );
-		//
 		timeStart = time;
 		timeDuration = GetGlobalVar( "Scene.FadeOut.Time", 1000 );
 		fCurrValue = -1;
@@ -107,24 +78,19 @@ bool CGammaFader::Update( const NTimer::STime &time, bool bForced )
 	}
 	else
 	{
-		// 1 => 0
 		const float fCoeff = Clamp( float( timeStart + timeDuration - time ) / float( timeDuration ), 0.0f, 1.0f );
 		fCurrValue = vOriginal.x + fCoeff * ( -1.0f - vOriginal.x );
 	}
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGammaFader::Draw( interface IGFX *pGFX )
 {
 	return SetGammaCorrectionBounded( fCurrValue, vOriginal.y, vOriginal.z, pGFX, false, false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGammaFader::Visit( interface ISceneVisitor *pVisitor, int nType )
 {
 	pVisitor->VisitSceneObject( this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGammaFader::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -138,4 +104,3 @@ int CGammaFader::operator&( IStructureSaver &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

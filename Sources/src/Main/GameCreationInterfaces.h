@@ -1,13 +1,9 @@
 #ifndef __GAME_CREATION_INTERFACES_H__
 #define __GAME_CREATION_INTERFACES_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "ServerInfo.h"
 #include "Multiplayer.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IChat;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IServersList : public IRefCount
 {
 	virtual interface IGameCreation* STDCALL CreateServer( const struct SGameInfo &gameInfo, const struct SQuickLoadMapInfo &mapInfo, CPtr<IChat> *pChat ) = 0;
@@ -22,7 +18,6 @@ interface IServersList : public IRefCount
 	
 	virtual interface INetDriver* STDCALL GetInGameNetDriver() const = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IGameCreation : public IRefCount
 {
 	enum EPlayerSettings { EPS_READY, EPS_SIDE, EPS_NAME, EPS_MAP_LOAD_PROGRESS };
@@ -48,7 +43,6 @@ interface IGameCreation : public IRefCount
 
 	virtual interface INetDriver* STDCALL GetInGameNetDriver() const = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IAILogicCommand;
 interface IGamePlaying : public IRefCount
 {
@@ -70,7 +64,6 @@ interface IGamePlaying : public IRefCount
 	
 	virtual int STDCALL GetNumberOfPlayers() const = 0;
 	
-	// client commands
 	virtual void STDCALL TogglePause() = 0;
 	virtual void STDCALL GameSpeed( const int nChange ) = 0;
 	virtual void STDCALL DropPlayer( const int nLogicID ) = 0;
@@ -82,7 +75,6 @@ interface IGamePlaying : public IRefCount
 
 	virtual interface INetDriver* STDCALL GetInGameNetDriver() const = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IChat : public IRefCount
 {
 	enum EUserMode
@@ -102,7 +94,6 @@ interface IChat : public IRefCount
 	
 	virtual void STDCALL SendMessage( const WORD *pszMessage, const SPlayerInfo &ourPlayer ) = 0;
 	virtual void STDCALL SendWhisperMessage( const WORD *pszMessage, const SPlayerInfo &toPlayer, const SPlayerInfo &ourPlayer ) = 0;
-	// for gamespy messages
 	virtual void STDCALL SendMessage( const WORD *pszMessage, const WORD *wszToPlayer, const bool bWhisper ) = 0;
 
 	virtual void STDCALL Segment() = 0;
@@ -111,5 +102,4 @@ interface IChat : public IRefCount
 
 	virtual void STDCALL UserModeChanged( const EUserMode eMode ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __GAME_CREATION_INTERFACES_H__

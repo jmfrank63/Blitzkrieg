@@ -8,7 +8,6 @@
 #include "CutScenesHelper.h"
 #include "CutsceneList.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commonCommands[] = 
 {
 	{ "cancel_load"	,	IMC_CANCEL					},
@@ -19,16 +18,13 @@ static const NInput::SRegisterCommandEntry commonCommands[] =
 	{ "key_right",		MESSAGE_KEY_RIGHT		},
 	{ 0							,	0										}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCutsceneList::PostCreate( IMainLoop *pML, CInterfaceCutsceneList *pILM )
 {
 	pML->PushInterface( pILM );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceCutsceneList::~CInterfaceCutsceneList()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceCutsceneList::Init()
 {
 	NStr::SetCodePage( GetACP() );
@@ -38,7 +34,6 @@ bool CInterfaceCutsceneList::Init()
 	
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceCutsceneList::StartInterface()
 {
 	CInterfaceInterMission::StartInterface();
@@ -46,7 +41,6 @@ void CInterfaceCutsceneList::StartInterface()
 	pUIScreen->Load( "ui\\lists\\IMCutsceneList" );
 	pUIScreen->Reposition( pGFX->GetScreenRect() );
 	
-	//загрузим все items
 	IUIListControl *pList = checked_cast<IUIListControl*>( pUIScreen->GetChildByID( 1000 ) );
 	NI_ASSERT( pList != 0 );
 	
@@ -60,7 +54,6 @@ void CInterfaceCutsceneList::StartInterface()
 		IUIListRow *pRow = pList->GetItem( nSceneIndex );
 		pRow->SetUserData( nSceneIndex );
 		
-		// установим имя для видео
 		IUIContainer *pContainer = checked_cast<IUIContainer*> ( pRow->GetElement( 0 ) );
 		std::string szVideoName = *it;
 		cutscenesList.push_back( szVideoName );
@@ -90,7 +83,6 @@ void CInterfaceCutsceneList::StartInterface()
 	pUIScreen->Reposition( pGFX->GetScreenRect() );
 	pScene->AddUIScreen( pUIScreen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceCutsceneList::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceInterMission::ProcessMessage( msg ) )
@@ -106,8 +98,6 @@ bool CInterfaceCutsceneList::ProcessMessage( const SGameMessage &msg )
 		case IMC_OK:
 			if ( IUIElement *pElement = pUIScreen->GetChildByID( 1000 ) ) 
 			{
-				// should be List Control
-				// попробуем взять текущий selection из list control
 				IUIListControl *pList = checked_cast<IUIListControl*>( pElement );
 				if ( !pList )
 					return true;			// не нашелся list control
@@ -129,7 +119,5 @@ bool CInterfaceCutsceneList::ProcessMessage( const SGameMessage &msg )
 			return true;
 	}
 
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

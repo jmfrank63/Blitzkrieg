@@ -37,19 +37,12 @@
 _STLP_BEGIN_NAMESPACE
 
 # ifndef _STLP_NO_EXTENSIONS
-// identity_element (not part of the C++ standard).
 template <class _Tp> inline _Tp identity_element(plus<_Tp>) {  return _Tp(0); }
 template <class _Tp> inline _Tp identity_element(multiplies<_Tp>) { return _Tp(1); }
 # endif
 
 #  if defined (_STLP_BASE_TYPEDEF_BUG)
-// this workaround is needed for SunPro 4.0.1
-// suggested by "Martin Abernethy" <gma@paston.co.uk>:
 
-// We have to introduce the XXary_predicate_aux structures in order to
-// access the argument and return types of predicate functions supplied
-// as type parameters. SUN C++ 4.0.1 compiler gives errors for template type parameters
-// of the form 'name1::name2', where name1 is itself a type parameter.
 template <class _Pair>
 struct __pair_aux : private _Pair
 {
@@ -174,7 +167,6 @@ bind2nd(const _Operation& __fn, const _Tp& __x)
 }
 
 # ifndef _STLP_NO_EXTENSIONS
-// unary_compose and binary_compose (extensions, not part of the standard).
 
 template <class _Operation1, class _Operation2>
 class unary_compose : 
@@ -266,9 +258,7 @@ ptr_fun(_Result (*__x)(_Arg1, _Arg2)) {
 
 # ifndef _STLP_NO_EXTENSIONS
 
-// identity is an extension: it is not part of the standard.
 template <class _Tp> struct identity : public _Identity<_Tp> {};
-// select1st and select2nd are extensions: they are not part of the standard.
 template <class _Pair> struct select1st : public _Select1st<_Pair> {};
 template <class _Pair> struct select2nd : public _Select2nd<_Pair> {};
 
@@ -279,9 +269,6 @@ template <class _Arg1, class _Arg2>
 struct project2nd : public _Project2nd<_Arg1, _Arg2> {};
 
 
-// constant_void_fun, constant_unary_fun, and constant_binary_fun are
-// extensions: they are not part of the standard.  (The same, of course,
-// is true of the helper functions constant0, constant1, and constant2.)
 
 template <class _Result>
 struct _Constant_void_fun {
@@ -332,8 +319,6 @@ constant2(const _Result& __val)
   return constant_binary_fun<_Result,_Result,_Result>(__val);
 }
 
-// subtractive_rng is an extension: it is not part of the standard.
-// Note: this code assumes that int is 32 bits.
 class subtractive_rng : public unary_function<_STLP_UINT32_T, _STLP_UINT32_T> {
 private:
   _STLP_UINT32_T _M_table[55];
@@ -373,25 +358,9 @@ public:
 # endif /* _STLP_NO_EXTENSIONS */
 
 
-// Adaptor function objects: pointers to member functions.
 
-// There are a total of 16 = 2^4 function objects in this family.
-//  (1) Member functions taking no arguments vs member functions taking
-//       one argument.
-//  (2) Call through pointer vs call through reference.
-//  (3) Member function with void return type vs member function with
-//      non-void return type.
-//  (4) Const vs non-const member function.
 
-// Note that choice (3) is nothing more than a workaround: according
-//  to the draft, compilers should handle void and non-void the same way.
-//  This feature is not yet widely implemented, though.  You can only use
-//  member functions returning void if your compiler supports partial
-//  specialization.
 
-// All of this complexity is in the function objects themselves.  You can
-//  ignore it by using the helper function mem_fun and mem_fun_ref,
-//  which create whichever type of adaptor is appropriate.
 
 template <class _Ret, class _Tp>
 class mem_fun_t : public unary_function<_Tp*,_Ret> {
@@ -565,10 +534,6 @@ private:
 
 # if !defined (_STLP_MEMBER_POINTER_PARAM_BUG)
 
-// Mem_fun adaptor helper functions.  There are only two:
-//  mem_fun and mem_fun_ref.  (mem_fun1 and mem_fun1_ref 
-//  are provided for backward compatibility, but they are no longer
-//  part of the C++ standard.)
 
 template <class _Ret, class _Tp>
 inline mem_fun_t<_Ret,_Tp> mem_fun(_Ret (_Tp::*__f)()) { return mem_fun_t<_Ret,_Tp>(__f); }
@@ -600,8 +565,6 @@ inline const_mem_fun1_ref_t<_Ret,_Tp,_Arg>
 mem_fun_ref(_Ret (_Tp::*__f)(_Arg) const) { return const_mem_fun1_ref_t<_Ret,_Tp,_Arg>(__f); }
 
 # if !(defined (_STLP_NO_EXTENSIONS) || defined (_STLP_NO_ANACHRONISMS))
-//  mem_fun1 and mem_fun1_ref are no longer part of the C++ standard,
-//  but they are provided for backward compatibility.
 template <class _Ret, class _Tp, class _Arg>
 inline mem_fun1_t<_Ret,_Tp,_Arg> 
 mem_fun1(_Ret (_Tp::*__f)(_Arg)) { return mem_fun1_t<_Ret,_Tp,_Arg>(__f); }
@@ -626,6 +589,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_FUNCTION_H */
 
-// Local Variables:
-// mode:C++
-// End:

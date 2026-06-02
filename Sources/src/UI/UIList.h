@@ -1,9 +1,7 @@
 #ifndef __UI_LIST_H__
 #define __UI_LIST_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "UIBasic.h"
 #include "UISlider.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SColumnProperties
 {
 	DECLARE_SERIALIZE;
@@ -13,11 +11,9 @@ public:
 	int nSorterType;
 	SColumnProperties() : nWidth( 0 ), nSorterType( 0 ) {}
 	
-	// serializing...
 	virtual int STDCALL operator&( IDataTree &ss );
 };
 typedef std::vector<SColumnProperties> CVectorOfColumnProperties;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SUIListRow : public IUIListRow
 {
 	OBJECT_NORMAL_METHODS( SUIListRow );
@@ -33,11 +29,8 @@ public:
 	virtual void STDCALL SetUserData( int nData ) { nUserData = nData; }
 	virtual int  STDCALL GetUserData() const { return nUserData; }
 	
-	// serializing...
-	//	virtual int STDCALL operator&( IDataTree &ss );
 };
 typedef std::vector< CPtr<SUIListRow> > CUIListItems;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SUIListHeader : public IUIListRow
 {
 	OBJECT_NORMAL_METHODS( SUIListHeader );
@@ -65,13 +58,9 @@ public:
 	virtual void STDCALL SetUserData( int nData ) { nUserData = nData; }
 	virtual int  STDCALL GetUserData() const { return nUserData; }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//Окошко ведет себя как MultipleWindow в плане обработки сообщений (просто передает их childs)
-//Но по другому Serialize, не сохраняет список childs, левая, правая кнопки и элеватор хранятся отдельно
 class CUIList : public CMultipleWindow
 {
 	DECLARE_SERIALIZE;
-	//
 	CObj<IUIScrollBar> pScrollBar;				//инициализируется во время загрузки и используется для ускорения доступа к компонентам
 
 	int nLeftSpace;												//отступ item слева и справа от края контрола
@@ -92,7 +81,6 @@ class CUIList : public CMultipleWindow
 	CUIListItems listItems;
 	CVectorOfColumnProperties columnProperties;
 
-	//Для отрисовки Selection
 	std::vector<SWindowSubRect> selSubRects;
 	CPtr<IGFXTexture> pSelectionTexture;				// внешний вид - текстура
 
@@ -104,19 +92,16 @@ class CUIList : public CMultipleWindow
 	CVec2 GetComponentSize( const char *pszFileName );		//возвращает размер элемента
 	void InitItemHeight();								//Вызывается из сериализации, чтобы рассчитать высоту строчки
 
-	//посылка сообщения наверх об изменении текущей позиции
 	void NotifySelectionChanged();
 	void NotifyDoubleClick( int nItem );
 	void RemoveFocusFromItem( int nIndex );
 	void MoveSelectionItemUp();
 
-	//инициализация функторов сортировки
 	void InitSortFunctors();
 public:
 	CUIList();
 	virtual ~CUIList();
 
-	//mouse wheel
 	virtual bool STDCALL OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, float fDelta ) = 0;
 
 	virtual void STDCALL Reposition( const CTRect<float> &rcParent );
@@ -124,28 +109,19 @@ public:
 	virtual bool STDCALL OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD keyState );
 	virtual bool STDCALL ProcessMessage( const SUIMessage &msg );
 
-	// serializing...
 	virtual int STDCALL operator&( IDataTree &ss );
 
-	// drawing
 	virtual void STDCALL Draw( IGFX *pGFX );
 	virtual void STDCALL Visit( interface ISceneVisitor *pVisitor );
 
 	virtual bool STDCALL OnLButtonDblClk( const CVec2 &vPos );
 	virtual bool STDCALL OnLButtonDown( const CVec2 &vPos, EMouseState mouseState );
 	
-	//Public interface
-	//Get number of items
 	virtual int STDCALL GetNumberOfItems() { return listItems.size(); }
-	//Add new line of items
 	virtual void STDCALL AddItem( int nData = 0 );			//добавляет новую строчку VectorElements в конец списка
-	//Remove last line of items
 	virtual void STDCALL RemoveItem( int nIndex );			//удаляет строчку из конца списка
-	//Get line
 	virtual IUIListRow* STDCALL GetItem( int nIndex );
-	//Get index of item by user data, if no such nID then returns -1
 	virtual int STDCALL GetItemByID( int nID );
-	//selection operations
 	virtual void STDCALL SetSelectionItem( int nSel );
 	virtual int STDCALL GetSelectionItem() { return nSelection; }
 	virtual void STDCALL InitialUpdate();
@@ -158,23 +134,16 @@ public:
 	void SetNumberOfItems( int n );
 	*/
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIListBridge : public IUIListControl, public CUIList
 {
 	OBJECT_NORMAL_METHODS( CUIListBridge );
 	DECLARE_SUPER( CUIList );
 	DEFINE_UICONTAINER_BRIDGE;
-	//Get number of items
 	virtual int STDCALL GetNumberOfItems() { return CSuper::GetNumberOfItems(); }
-	//Add new line of items
 	virtual void STDCALL AddItem( int nData = 0 ) { CSuper::AddItem( nData ); }
-	//Remove last line of items
 	virtual void STDCALL RemoveItem( int nIndex ) { CSuper::RemoveItem( nIndex ); }
-	//Get line
 	virtual IUIListRow* STDCALL GetItem( int nIndex ) { return CSuper::GetItem( nIndex ); }
-	//Get index of item by user data, if no such nID then returns -1
 	virtual int STDCALL GetItemByID( int nID ) { return CSuper::GetItemByID( nID ); }
-	//selection operations
 	virtual void STDCALL SetSelectionItem( int nSel ) { CSuper::SetSelectionItem( nSel ); }
 	virtual int STDCALL GetSelectionItem() { return CSuper::GetSelectionItem(); }
 	virtual void STDCALL InitialUpdate() { CSuper::InitialUpdate(); }
@@ -182,5 +151,4 @@ class CUIListBridge : public IUIListControl, public CUIList
 	virtual bool STDCALL Sort( int nColumn, const int nSortType ) { return CSuper::Sort( nColumn, nSortType ); }
 	virtual bool STDCALL ReSort() { return CSuper::ReSort(); }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif //__UI_LIST_H__

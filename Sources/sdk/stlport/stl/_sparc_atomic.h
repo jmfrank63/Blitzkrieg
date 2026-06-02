@@ -1,5 +1,4 @@
 
-// Currently, SUN CC requires object file
 
 #if defined (__GNUC__)
 

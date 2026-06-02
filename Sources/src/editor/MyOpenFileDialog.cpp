@@ -3,15 +3,11 @@
 #include "MyOpenFileDialog.h"
 #include "frames.h"
 
-/////////////////////////////////////////////////////////////////////////////
-// CMyOpenFileDialog
 
 IMPLEMENT_DYNAMIC(CMyOpenFileDialog, CFileDialog)
 
 BEGIN_MESSAGE_MAP(CMyOpenFileDialog, CFileDialog)
-//{{AFX_MSG_MAP(CMyOpenFileDialog)
 ON_WM_LBUTTONDBLCLK()
-//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
@@ -31,12 +27,10 @@ BOOL CMyOpenFileDialog::PreTranslateMessage( MSG* pMsg )
 
 void CMyOpenFileDialog::OnLButtonDblClk(UINT nFlags, CPoint point) 
 {
-	// CFileDialog::OnLButtonDblClk(nFlags, point);
 	AfxMessageBox( "Fuck off" );
 	int i = 0;
 }
 
-//�������� ���������� ������ ��� FileDialog
 typedef std::unordered_map<std::string, std::string> CExtensionToFile;
 CExtensionToFile extensionToFileMap;
 
@@ -90,14 +84,12 @@ BOOL ShowFileDialog( std::string &szResult, LPCTSTR lpszInitDir, LPCTSTR lpszTit
 										LPCTSTR lpszFileName, LPCTSTR lpszFilter )
 {
 	CMyOpenFileDialog dlg( bOpen, lpszDefExt, lpszFileName, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, lpszFilter );
-	//	CFileDialog dlg( bOpen, lpszDefExt, lpszFileName, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, lpszFilter );
 	
 	std::string szExtension;
 	if ( lpszDefExt )
 		szExtension = lpszDefExt;
 	else if ( lpszFilter )
 	{
-		//������� extension �� �������
 		szExtension = lpszFilter;
 		int nPos = szExtension.find( "(" );
 		if ( nPos != std::string::npos )
@@ -116,7 +108,6 @@ BOOL ShowFileDialog( std::string &szResult, LPCTSTR lpszInitDir, LPCTSTR lpszTit
 	std::string szInitDir;
 	if ( szExtension.size() > 0 && GetDirectoryFromExtensionTable( szInitDir, szExtension.c_str() ) )
 	{
-		//��������, ����� szInitDir ��� ����� �������� lpszInitDir
 		int nPos = szInitDir.find( lpszInitDir );
 		if ( nPos == std::string::npos )
 			szInitDir = lpszInitDir;
@@ -131,7 +122,6 @@ BOOL ShowFileDialog( std::string &szResult, LPCTSTR lpszInitDir, LPCTSTR lpszTit
 		szResult = dlg.GetPathName();
 		NStr::ToLower( szResult );
 
-		//������� ��������
 		extensionToFileMap[szExtension] = GetDirectory( szResult.c_str() );
 		return TRUE;
 	}

@@ -2,10 +2,8 @@
 #define __IN_TRANSPORT_STATES_H__
 
 #pragma ONCE
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "UnitStates.h"
 #include "StatesFactory.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInTransportStatesFactory : public IStatesFactory
 {
 	OBJECT_COMPLETE_METHODS( CInTransportStatesFactory );
@@ -17,10 +15,8 @@ public:
 	virtual interface IUnitState* ProduceRestState( class CQueueUnit *pUnit );
 	virtual bool CanCommandBeExecuted( class CAICommand *pCommand );
 
-	// for Saving/Loading of static members
 	friend class CStaticMembers;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSoldierRestOnBoardState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CSoldierRestOnBoardState );
@@ -41,8 +37,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 
-	// for Saving/Loading of static members
 	friend class CStaticMembers;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __IN_TRANSPORT_STATES_H__

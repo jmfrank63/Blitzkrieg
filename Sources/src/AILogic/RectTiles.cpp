@@ -5,16 +5,13 @@
 #include "UnitsIterators2.h"
 #include "AIUnit.h"
 #include "AIInternalConsts.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CStaticMap theStaticMap;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <int N>
 bool ProcessQuadrangleTiles( const CVec2 &v1, const CVec2 &v2, const CVec2 &v3, const CVec2 &v4, CTilesSet *pTiles, const BYTE aiClass, const SGenericNumber<N> &p )
 {
 	if ( N )
 		pTiles->clear();
 
-	// ����� �� ������� �����
 	if ( !N )
 	{
 		const int nSizeX = theStaticMap.GetSizeX() * SConsts::TILE_SIZE;
@@ -145,22 +142,18 @@ bool ProcessQuadrangleTiles( const CVec2 &v1, const CVec2 &v2, const CVec2 &v3, 
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void GetTilesCoveredByQuadrangle( const CVec2 &v1, const CVec2 &v2, const CVec2 &v3, const CVec2 &v4, CTilesSet *pTiles )
 {
 	ProcessQuadrangleTiles( v1, v2, v3, v4, pTiles, 0, SGenericNumber<1>() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void GetTilesCoveredByRect( const SRect &rect, CTilesSet *pTiles )
 {
 	ProcessQuadrangleTiles( rect.v1, rect.v2, rect.v3, rect.v4, pTiles, 0, SGenericNumber<1>() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool IsRectOnLockedTiles( const SRect &rect, const BYTE aiClass )
 {
 	return ProcessQuadrangleTiles( rect.v1, rect.v2, rect.v3, rect.v4, 0, aiClass, SGenericNumber<0>() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void GetTilesCoveredByRectSides( const SRect & rect, CTilesSet * pTiles )
 {
 	CTilesCollector a(pTiles);
@@ -181,10 +174,8 @@ struct SVectorHash
 };
 typedef std::unordered_map<SVector, bool, SVectorHash> CSVectorHash;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void GetTilesNextToRect( const SRect &rect, CTilesSet *pTiles )
 {
-	// �����! ���-�� ����� �������� � �������� �������
 	CTilesSet tilesUnderRect;
 	GetTilesCoveredByRect( rect, &tilesUnderRect );
 	CSVectorHash tilesUnderRect1;
@@ -226,13 +217,11 @@ void GetTilesNextToRect( const SRect &rect, CTilesSet *pTiles, const WORD wDirEx
 			++it;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class T> 
 void GetTilesUnderRectSide( const SRect &rect, CTilesSet *pTiles, const WORD wDir, T need )
 {
 	CTilesCollector a(pTiles);
 
-	//������� � DWORD ����� �� �������������
 	DWORD arDir[4];
 	DWORD dwDir = wDir;
 	arDir[0] = GetDirectionByVector( (rect.v1 +rect.v2)/2 - rect.center );
@@ -282,19 +271,16 @@ struct SOnlyDirNeed
 	bool operator()( const int nTest, const int nDesire) const
 	{ return nTest == nDesire; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void GetTilesCoveredBySide( const SRect &rect, CTilesSet *pTiles, WORD wDir )
 {
 	SOnlyDirNeed a;
 	GetTilesUnderRectSide( rect, pTiles, wDir, a );	
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void GetTilesCoveredByRectSides( const SRect &rect, CTilesSet *pTiles, WORD wDir )
 {
 	SExceptDirNeed a;
 	GetTilesUnderRectSide( rect, pTiles, wDir, a );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool IsMapFullyFree( const SRect &rect, interface IBasePathUnit *pUnit )
 {
 	if ( IsRectOnLockedTiles( rect, AI_CLASS_ANY )				||
@@ -324,7 +310,6 @@ bool IsMapFullyFree( const SRect &rect, interface IBasePathUnit *pUnit )
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTilesCollector::operator() ( float x, float y ) 
 { 
 	if ( theStaticMap.IsTileInside( x, y ) )
@@ -332,4 +317,3 @@ bool CTilesCollector::operator() ( float x, float y )
 
 	return true; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

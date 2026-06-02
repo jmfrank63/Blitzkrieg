@@ -105,7 +105,6 @@ struct iterator_traits {
 
 # ifdef _STLP_CLASS_PARTIAL_SPECIALIZATION
 
-// fbp : this order keeps gcc happy
 template <class _Tp>
 struct iterator_traits<const _Tp*> {
   typedef random_access_iterator_tag iterator_category;
@@ -147,11 +146,6 @@ struct iterator_traits<_Tp* const> {
 # endif
 
 # ifndef _STLP_USE_OLD_HP_ITERATOR_QUERIES
-// The overloaded functions iterator_category, distance_type, and
-// value_type are not part of the C++ standard.  (They have been
-// replaced by struct iterator_traits.)  They are included for
-// backward compatibility with the HP STL.
-// We introduce internal names for these functions.
 
 #  ifdef  _STLP_CLASS_PARTIAL_SPECIALIZATION
 
@@ -223,10 +217,6 @@ inline ptrdiff_t* _STLP_CALL distance_type(const _Tp*) { return (ptrdiff_t*)(0);
 #endif /* _STLP_USE_OLD_HP_ITERATOR_QUERIES */
 
 # if ! defined (_STLP_NO_ANACHRONISMS)
-// The base classes input_iterator, output_iterator, forward_iterator,
-// bidirectional_iterator, and random_access_iterator are not part of
-// the C++ standard.  (They have been replaced by struct iterator.)
-// They are included for backward compatibility with the HP STL.
 template <class _Tp, class _Distance> struct input_iterator : 
   public iterator <input_iterator_tag, _Tp, _Distance, _Tp*, _Tp&> {};
 struct output_iterator : public iterator <output_iterator_tag, void, void, void, void> {};
@@ -364,7 +354,6 @@ distance(const _InputIterator& __first, const _InputIterator& __last) {
 }
 
 
-// fbp: those are being used for iterator/const_iterator definitions everywhere
 template <class _Tp>
 struct _Nonconst_traits;
 
@@ -385,7 +374,6 @@ struct _Nonconst_traits {
 };
 
 #  if defined (_STLP_BASE_TYPEDEF_BUG)
-// this workaround is needed for SunPro 4.0.1
 template <class _Traits>
 struct __cnst_traits_aux : private _Traits
 {
@@ -397,7 +385,6 @@ struct __cnst_traits_aux : private _Traits
 #  endif
 
 # if defined (_STLP_MSVC)
-// MSVC specific
 template <class _InputIterator, class _Dist>
 inline void  _STLP_CALL _Distance(_InputIterator __first, 
 		      _InputIterator __last, _Dist& __n) {
@@ -410,7 +397,6 @@ _STLP_INLINE_LOOP void  _STLP_CALL __advance(_InputIter& __i, _Distance __n, con
   while (__n--) ++__i;
 }
 
-// fbp : added output iterator tag variant
 template <class _InputIter, class _Distance>
 _STLP_INLINE_LOOP void  _STLP_CALL __advance(_InputIter& __i, _Distance __n, const output_iterator_tag &) {
   while (__n--) ++__i;
@@ -452,6 +438,3 @@ _STLP_END_NAMESPACE
 #endif /* _STLP_INTERNAL_ITERATOR_BASE_H */
 
 
-// Local Variables:
-// mode:C++
-// End:

@@ -1,7 +1,6 @@
 #include "StdAfx.h"
 
 #include "GeometryBuffer.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 D3DPRIMITIVETYPE GFXPrimitiveToD3D( EGFXPrimitiveType type )
 {
 	switch ( type )
@@ -15,7 +14,6 @@ D3DPRIMITIVETYPE GFXPrimitiveToD3D( EGFXPrimitiveType type )
 	NI_ASSERT_T( 0, NStr::Format("Unknown primitive type %d", type) );
 	return D3DPT_TRIANGLELIST;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int GetNumPrimitives( D3DPRIMITIVETYPE type, int nNumElements )
 {
   switch ( type )
@@ -28,7 +26,6 @@ int GetNumPrimitives( D3DPRIMITIVETYPE type, int nNumElements )
   }
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int GetVertexSize( DWORD dwFormat )
 {
 	/*
@@ -47,16 +44,12 @@ int GetVertexSize( DWORD dwFormat )
 			alloc.Free( ranges.front() );
 			ranges.pop_front();
 		}
-		//
 		int nAllocated = 0;
 		for ( std::list<SRangeLimits>::const_iterator it = ranges.begin(); it != ranges.end(); ++it )
 			nAllocated += it->second;
-		//
 		float fEffect = float( nAllocated ) / float( 65536 - alloc.GetFree() );
 
-		//NStr::DebugTrace( "allocated %d, effectiveness %g\n", nAllocated, fEffect );
 	}
-	//
 	NStr::DebugTrace( "num blocks = %d. Allocated %d\n", alloc.GetNumBlocks(), 65536 - alloc.GetFree() );
 	alloc.TestRanges();
 	while ( !ranges.empty() ) 
@@ -65,14 +58,12 @@ int GetVertexSize( DWORD dwFormat )
 		ranges.pop_back();
 		alloc.TestRanges();
 	}
-	//
 	NStr::DebugTrace( "num blocks = %d. Allocated %d\n", alloc.GetNumBlocks(), 65536 - alloc.GetFree() );
 
 	alloc.TestRanges();
 	*/
 
 	DWORD dwSize = 0;
-	// position, transformed position, position with beta weights
 	if ( dwFormat & D3DFVF_XYZ )
 		dwSize += 3 * sizeof( float );
 	else if ( dwFormat & D3DFVF_XYZRHW )
@@ -87,16 +78,12 @@ int GetVertexSize( DWORD dwFormat )
 		dwSize += 7 * sizeof( float );
 	else if ( dwFormat & D3DFVF_XYZB5 )
 		dwSize += 8 * sizeof( float );
-	// normals
 	if ( dwFormat & D3DFVF_NORMAL )
 		dwSize += 3 * sizeof( float );
-	// diffuse color component
 	if ( dwFormat & D3DFVF_DIFFUSE  )
 		dwSize += sizeof( DWORD );
-	// specular color component
 	if ( dwFormat & D3DFVF_SPECULAR )
 		dwSize += sizeof( DWORD );
-	// texture coords
 	DWORD dwTexture = dwFormat & D3DFVF_TEXCOUNT_MASK;
 	if ( dwTexture == D3DFVF_TEX0 )
 		dwSize += 0;
@@ -116,7 +103,6 @@ int GetVertexSize( DWORD dwFormat )
 		dwSize += 7 * sizeof( float ) * 2;
 	else if ( dwTexture == D3DFVF_TEX8 )
 		dwSize += 8 * sizeof( float ) * 2;
-	//
 	return dwSize;
 }
 int GetIndexSize( DWORD dwFormat )
@@ -128,4 +114,3 @@ int GetIndexSize( DWORD dwFormat )
 	NI_ASSERT_T( 0, NStr::Format("Unknown index format %d", dwFormat) );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

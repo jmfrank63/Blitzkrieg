@@ -1,7 +1,6 @@
 #include "stdafx.h"
 
 #include "AIStaticMap.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CStaticMap::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -57,7 +56,6 @@ int CStaticMap::operator&( IStructureSaver &ss )
 	saver.Add( 82, &entrenchPossibility );
 	
 	saver.Add( 83, &bridgeTiles );
-	// for compatability with old saves
 	if ( saver.IsReading() )
 	{
 		if ( bridgeTiles.GetSizeX() < GetSizeX() || bridgeTiles.GetSizeY() < GetSizeY() )
@@ -68,7 +66,6 @@ int CStaticMap::operator&( IStructureSaver &ss )
 	}
 	
 	saver.Add( 84, &soil );
-	// for compatability with old saves
 	if ( saver.IsReading() )
 	{
 		if ( soil.GetSizeX() < GetSizeX() || soil.GetSizeY() < GetSizeY() )
@@ -80,4 +77,3 @@ int CStaticMap::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

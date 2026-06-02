@@ -1,14 +1,11 @@
 #ifndef __UI_SHORTCUT_BAR_H__
 #define __UI_SHORTCUT_BAR_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "UIBasic.h"
 #include "UISlider.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIShortcutBar : public CMultipleWindow
 {
 	DECLARE_SERIALIZE;
-	//
 	CObj<IUIScrollBar> pScrollBar;				//инициализируется во время загрузки и используется для ускорения доступа к компонентам
 
 	int nLeftSpace;
@@ -34,13 +31,11 @@ class CUIShortcutBar : public CMultipleWindow
 	typedef std::vector<SBar> CBarsVector;
 	CBarsVector bars;
 
-	//Для отрисовки Selection
 	int nSelBar;										//выделенный bar
 	int nSelItem;										//выделенный item
 	std::vector<SWindowSubRect> selSubRects;
 	CPtr<IGFXTexture> pSelectionTexture;				// внешний вид - текстура
 
-	//Для создания Bar, Item, Text
 	std::string szBarFileName, szItemFileName, szTextFileName;
 
 	void InitSBWidth();
@@ -50,30 +45,23 @@ class CUIShortcutBar : public CMultipleWindow
 public:
 	CUIShortcutBar();
 	
-	//mouse wheel
 	virtual bool STDCALL OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, float fDelta ) = 0;
 
 	virtual bool STDCALL ProcessMessage( const SUIMessage &msg );
 	virtual void STDCALL Reposition( const CTRect<float> &rcParent );
 	
-	// serializing...
 	virtual int STDCALL operator&( IDataTree &ss );
 	
-	// drawing
 	virtual void STDCALL Draw( IGFX *pGFX );
 	virtual void STDCALL Visit( interface ISceneVisitor *pVisitor );
 	
 	virtual bool STDCALL OnLButtonDown( const CVec2 &vPos, EMouseState mouseState );
 	virtual bool STDCALL OnLButtonUp( const CVec2 &vPos, EMouseState mouseState );
 	
-	//Public interface
-	//add bar
 	virtual IUIElement* STDCALL AddBar();
-	//add item to the current bar (last added bar). If no bars are added then an error will occured.
 	virtual IUIElement* STDCALL AddItem();
 	virtual void STDCALL AddMultyItems( int nNum );
 	virtual IUIElement* STDCALL AddTextItem( const WORD *pszText );
-	//initial update, call this function after all bars and items are added
 	virtual void STDCALL InitialUpdate();
 	virtual void STDCALL GetSelectionItem( int *pBar, int *pItem );
 	virtual void STDCALL SetSelectionItem( int nBar, int nItem );
@@ -85,7 +73,6 @@ public:
 	virtual IUIElement* STDCALL GetItem( int nBar, int nItem );
 	virtual void STDCALL Clear();
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIShortcutBarBridge : public IUIShortcutBar, public CUIShortcutBar
 {
 	OBJECT_NORMAL_METHODS( CUIShortcutBarBridge );
@@ -107,5 +94,4 @@ class CUIShortcutBarBridge : public IUIShortcutBar, public CUIShortcutBar
 	virtual IUIElement* STDCALL GetItem( int nBar, int nItem ) { return CSuper::GetItem( nBar, nItem ); }
 	virtual void STDCALL Clear() { CSuper::Clear(); }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif //__UI_SHORTCUT_BAR_H__

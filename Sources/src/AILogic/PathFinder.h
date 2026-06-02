@@ -1,20 +1,15 @@
 #ifndef __PATH_FINDER_H__
 #define __PATH_FINDER_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IPointChecking : public IRefCount
 {
 	virtual bool IsGoodTile( const SVector &curTile ) const = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IStaticPathFinder : public IRefCount
 {
 	virtual void SetPathParameters( const int nBoundTileRadius, const BYTE aiClass, interface IPointChecking *pChecking, const CVec2 &startPoint, const CVec2 &finishPoint, const int upperLimit, const bool longPath, const SVector &lastKnownGoodTile ) = 0;
 
-	// поиск пути без каких-либо улучшений
 	virtual bool CalculatePath() = 0;	
-	// поиск пути в точку без циклов
 	virtual void CalculatePathWOCycles() = 0;
 	virtual void SmoothPath() = 0;
 	
@@ -27,7 +22,6 @@ interface IStaticPathFinder : public IRefCount
 	
 	virtual interface IPath* CreatePathByDirection( const CVec2 &startPoint, const CVec2 &dir, const CVec2 &finishPoint, const int nBoundTileRadius ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IStaticPath* CreateStaticPathToPoint( const CVec2 &finishPoint, const CVec2 &vShift, interface IBasePathUnit *pUnit, const bool bCanGoOutOfRadius = false );
 interface IStaticPath* CreateStaticPathToPoint( const CVec2 &startPoint, const CVec2 &finishPoint, const CVec2 &vShift, interface IBasePathUnit *pUnit, const bool bCanGoOutOfRadius = false );
 interface IStaticPath* CreateStaticPathForAttack( interface IBasePathUnit *pUnit, class CAIUnit *pTarget, const float fRangeMin, const float fRangeMax, const float fRandomCant = 0.0f );
@@ -39,8 +33,6 @@ bool CanUnitApproachToPointByPath( const class CAIUnit *Moving,const IStaticPath
 bool CanUnitApproachToObjectByPath( const class CAIUnit *Moving,const IStaticPath * Path,const class CStaticObject* point );
 bool IsUnitNearObject( const class CAIUnit * pUnit, const class CStaticObject * pObj );
 bool IsUnitNearUnit( const class CAIUnit * pUnit1, const class CAIUnit * pUnit2 );
-//bool IsUnitNearPoint( const class CAIUnit * pUnit1, const class CVec2 & point, const float factor=1.2f );
 bool IsUnitNearPoint( const class CAIUnit * pUnit1, const class CVec2 & point, const int add = 0 );
 bool IsPointNearPoint( const class CVec2 & point1, const class CVec2 & point2 );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __PATH_FINDER_H__

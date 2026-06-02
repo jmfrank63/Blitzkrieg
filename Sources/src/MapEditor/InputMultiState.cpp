@@ -1,6 +1,3 @@
-// DrawShadeState.cpp: implementation of the CDrawShadeState class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include "editor.h"
@@ -20,10 +17,8 @@ static char THIS_FILE[]=__FILE__;
 #define new DEBUG_NEW
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CInputMultiState::INVALID_INPUT_STATE = -1;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputMultiState::Enter()
 {
 	NI_ASSERT_T( ( nActiveInputState >= 0 ) && ( nActiveInputState < inputStates.size() ),
@@ -31,7 +26,6 @@ void CInputMultiState::Enter()
 	inputStates[nActiveInputState]->Enter();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputMultiState::Leave()
 {
 	NI_ASSERT_T( ( nActiveInputState >= 0 ) && ( nActiveInputState < inputStates.size() ),
@@ -54,7 +48,6 @@ void CInputMultiState::Draw( CTemplateEditorFrame* pFrame )
 }
 
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputMultiState::OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	NI_ASSERT_T( ( nActiveInputState >= 0 ) && ( nActiveInputState < inputStates.size() ),
@@ -62,7 +55,6 @@ void CInputMultiState::OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint
 	inputStates[nActiveInputState]->OnMouseMove( nFlags, rMousePoint, pFrame );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputMultiState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	NI_ASSERT_T( ( nActiveInputState >= 0 ) && ( nActiveInputState < inputStates.size() ),
@@ -70,7 +62,6 @@ void CInputMultiState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMousePoi
 	inputStates[nActiveInputState]->OnLButtonDown( nFlags, rMousePoint, pFrame );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputMultiState::OnLButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	NI_ASSERT_T( ( nActiveInputState >= 0 ) && ( nActiveInputState < inputStates.size() ),
@@ -78,7 +69,6 @@ void CInputMultiState::OnLButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint
 	inputStates[nActiveInputState]->OnLButtonUp( nFlags, rMousePoint, pFrame );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputMultiState::OnLButtonDblClk( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	NI_ASSERT_T( ( nActiveInputState >= 0 ) && ( nActiveInputState < inputStates.size() ),
@@ -86,7 +76,6 @@ void CInputMultiState::OnLButtonDblClk( UINT nFlags, const CTPoint<int> &rMouseP
 	inputStates[nActiveInputState]->OnLButtonDblClk( nFlags, rMousePoint, pFrame );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputMultiState::OnRButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	NI_ASSERT_T( ( nActiveInputState >= 0 ) && ( nActiveInputState < inputStates.size() ),
@@ -94,7 +83,6 @@ void CInputMultiState::OnRButtonDown( UINT nFlags, const CTPoint<int> &rMousePoi
 	inputStates[nActiveInputState]->OnRButtonDown( nFlags, rMousePoint, pFrame );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputMultiState::OnRButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	NI_ASSERT_T( ( nActiveInputState >= 0 ) && ( nActiveInputState < inputStates.size() ),
@@ -102,7 +90,6 @@ void CInputMultiState::OnRButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint
 	inputStates[nActiveInputState]->OnRButtonUp( nFlags, rMousePoint, pFrame );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputMultiState::OnRButtonDblClk( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	NI_ASSERT_T( ( nActiveInputState >= 0 ) && ( nActiveInputState < inputStates.size() ),
@@ -110,7 +97,6 @@ void CInputMultiState::OnRButtonDblClk( UINT nFlags, const CTPoint<int> &rMouseP
 	inputStates[nActiveInputState]->OnRButtonDblClk( nFlags, rMousePoint, pFrame );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputMultiState::OnMButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	NI_ASSERT_T( ( nActiveInputState >= 0 ) && ( nActiveInputState < inputStates.size() ),
@@ -118,7 +104,6 @@ void CInputMultiState::OnMButtonDown( UINT nFlags, const CTPoint<int> &rMousePoi
 	inputStates[nActiveInputState]->OnMButtonDown( nFlags, rMousePoint, pFrame );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputMultiState::OnMButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	NI_ASSERT_T( ( nActiveInputState >= 0 ) && ( nActiveInputState < inputStates.size() ),
@@ -126,7 +111,6 @@ void CInputMultiState::OnMButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint
 	inputStates[nActiveInputState]->OnMButtonUp( nFlags, rMousePoint, pFrame );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputMultiState::OnMButtonDblClk( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	NI_ASSERT_T( ( nActiveInputState >= 0 ) && ( nActiveInputState < inputStates.size() ),
@@ -134,7 +118,6 @@ void CInputMultiState::OnMButtonDblClk( UINT nFlags, const CTPoint<int> &rMouseP
 	inputStates[nActiveInputState]->OnMButtonDblClk( nFlags, rMousePoint, pFrame );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputMultiState::OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags, CTemplateEditorFrame* pFrame )
 {
 	NI_ASSERT_T( ( nActiveInputState >= 0 ) && ( nActiveInputState < inputStates.size() ),
@@ -142,13 +125,11 @@ void CInputMultiState::OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags, CTempla
 	inputStates[nActiveInputState]->OnKeyDown( nChar, nRepCnt, nFlags, pFrame );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInputMultiState::OnObjectPaste( CTemplateEditorFrame* pFrame )
 {
 	NI_ASSERT_T( ( nActiveInputState >= 0 ) && ( nActiveInputState < inputStates.size() ),
 							 NStr::Format( "Invalid input state number: %d\n", nActiveInputState ) );
 	inputStates[nActiveInputState]->OnObjectPaste( pFrame );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 

@@ -1,8 +1,6 @@
 #ifndef __DBIO_H__
 #define __DBIO_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include <windows.h>
 #include <cstdlib>
 #include <string>
@@ -10,7 +8,6 @@
 #include <algorithm>
 #include "Basic.h"
 #include "StrProc.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum ETableAccessMode
 {
 	TABLE_ACCESS_READ  = 0x00000001,
@@ -18,7 +15,6 @@ enum ETableAccessMode
 	TABLE_ACCESS_SHARE = 0x00000004,
 	TABLE_ACCESS_FORCE_DWORD = 0x7fffffff
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EDataBaseType
 {
 	DB_TYPE_INI = 1,
@@ -26,55 +22,32 @@ enum EDataBaseType
 	DB_TYPE_MDB = 3,
 	DB_TYPE_FORCE_DWORD = 0x7fffffff
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IDataTable : public IRefCount
 {
-	// �������� ����� ����� �������. ������ ��� ������������� �� '\0', � ������ � ����� �� '\0\0'
 	virtual int STDCALL GetRowNames( char *pszBuffer, int nBufferSize ) = 0;
-	// �������� ����� ������� ������� � ������ ������. ������ ��� ������������� �� '\0', � ������ � ����� �� '\0\0'
 	virtual int STDCALL GetEntryNames( const char *pszRow, char *pszBuffer, int nBufferSize ) = 0;
-	// ������� ������
 	virtual void STDCALL ClearRow( const char *pszRowName ) = 0;
-	// complete element access
-	// get
 	virtual int STDCALL GetInt( const char *pszRow, const char *pszEntry, int defval ) = 0;
 	virtual double STDCALL GetDouble( const char *pszRow, const char *pszEntry, double defval ) = 0;
 	virtual const char* STDCALL GetString( const char *pszRow, const char *pszEntry, const char *defval, char *pszBuffer, int nBufferSize ) = 0;
 	virtual int STDCALL GetRawData( const char *pszRow, const char *pszEntry, void *pBuffer, int nBufferSize ) = 0;
-	// set
 	virtual void STDCALL SetInt( const char *pszRow, const char *pszEntry, int val ) = 0;
 	virtual void STDCALL SetDouble( const char *pszRow, const char *pszEntry, double val ) = 0;
 	virtual void STDCALL SetString( const char *pszRow, const char *pszEntry, const char *val ) = 0;
 	virtual void STDCALL SetRawData( const char *pszRow, const char *pszEntry, const void *pBuffer, int nBufferSize ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IDataBase : public IRefCount
 {
-	// ������� � ������� ������� � ��������� ������ � ������� �������
 	virtual IDataTable* STDCALL CreateTable( const char *pszName, DWORD dwAccessMode ) = 0;
-	// ������� ������������ ������� � ��������� ������ � ������� �������
 	virtual IDataTable* STDCALL OpenTable( const char *pszName, DWORD dwAccessMode ) = 0;
-	// ����� ������� ���������
 	virtual bool STDCALL DestroyElement( const char *pszName ) = 0;
-	// ������������� �������
 	virtual bool STDCALL RenameElement( const char *pszOldName, const char *pszNewName ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** table accessor helper class for easy and intuitive use of the data tables
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define DEFAULT_SEPARATOR ','
 class CTableAccessor
 {
 	CPtr<IDataTable> pTable;
-	//
 	template <class TFunc, class TYPE>
 		TYPE GetVal( TFunc func, const char *pszRow, const char *pszEntry, TYPE defval )
 	{
@@ -119,18 +92,14 @@ public:
 	CTableAccessor( IDataTable *_pTable ) : pTable( _pTable ) {  }
 	CTableAccessor( IDataBase *pDB, const char *pszName, DWORD dwAccessMode = TABLE_ACCESS_READ )
 		: pTable( pDB->OpenTable( pszName, dwAccessMode ) ) {  }
-	// assigning and extracting
 	const CTableAccessor& operator=( IDataTable *_pTable ) { pTable = _pTable; return *this; }
 	const CTableAccessor& operator=( const CTableAccessor &accessor ) { pTable = accessor.pTable; return *this; }
 	operator IDataTable*() const { return pTable; }
 	IDataTable* operator->() const { return pTable; }
-	// comparison operators
 	bool operator==( const CTableAccessor &ptr ) const { return ( pTable == ptr.pTable ); }
 	bool operator==( const IDataTable *pNewObject ) const { return ( pTable == pNewObject ); }
 	bool operator!=( const CTableAccessor &ptr ) const { return ( pTable != ptr.pTable ); }
 	bool operator!=( const IDataTable *pNewObject ) const { return ( pTable != pNewObject ); }
-	//
-	//
 	bool GetRowNames( std::vector<std::string> &szNames )
 	{
 		char buffer[65536];
@@ -151,8 +120,6 @@ public:
 		ParseNames( buffer, nSize, szNames );
 		return true;
 	}
-	//
-	// read simply data
 	char GetChar( const char *pszRow, const char *pszEntry, char defval );
 	unsigned char GetUChar( const char *pszRow, const char *pszEntry, unsigned char defval );
 	short GetShort( const char *pszRow, const char *pszEntry, short defval );
@@ -165,8 +132,6 @@ public:
 	double GetDouble( const char *pszRow, const char *pszEntry, double defval );
 	std::string GetString( const char *pszRow, const char *pszEntry, const char *defval );
 	void GetString( const char *pszRow, const char *pszEntry, const char *defval, std::string &szString );
-	//
-	// read array data
 	bool GetArray( const char *pszRow, const char *pszEntry, std::vector<std::string> &array, const char cSeparator = DEFAULT_SEPARATOR );
 	bool GetArray( const char *pszRow, const char *pszEntry, std::vector<char> &array, const char cSeparator = DEFAULT_SEPARATOR );
 	bool GetArray( const char *pszRow, const char *pszEntry, std::vector<unsigned char> &array, const char cSeparator = DEFAULT_SEPARATOR );
@@ -178,8 +143,6 @@ public:
 	bool GetArray( const char *pszRow, const char *pszEntry, std::vector<unsigned int> &array, const char cSeparator = DEFAULT_SEPARATOR );
 	bool GetArray( const char *pszRow, const char *pszEntry, std::vector<float> &array, const char cSeparator = DEFAULT_SEPARATOR );
 	bool GetArray( const char *pszRow, const char *pszEntry, std::vector<double> &array, const char cSeparator = DEFAULT_SEPARATOR );
-	//
-	// write simply data
 	void SetChar( const char *pszRow, const char *pszEntry, char val );
 	void SetUChar( const char *pszRow, const char *pszEntry, unsigned char val );
 	void SetShort( const char *pszRow, const char *pszEntry, short val );
@@ -192,8 +155,6 @@ public:
 	void SetDouble( const char *pszRow, const char *pszEntry, double val );
 	void SetString( const char *pszRow, const char *pszEntry, const char *val );
 	void SetString( const char *pszRow, const char *pszEntry, const std::string &val );
-	//
-	// write array data
 	void SetArray( const char *pszRow, const char *pszEntry, std::vector<std::string> &array, const char cSeparator = DEFAULT_SEPARATOR  );
 	void SetArray( const char *pszRow, const char *pszEntry, std::vector<char> &array, const char cSeparator = DEFAULT_SEPARATOR );
 	void SetArray( const char *pszRow, const char *pszEntry, std::vector<unsigned char> &array, const char cSeparator = DEFAULT_SEPARATOR );
@@ -206,7 +167,6 @@ public:
 	void SetArray( const char *pszRow, const char *pszEntry, std::vector<float> &array, const char cSeparator = DEFAULT_SEPARATOR );
 	void SetArray( const char *pszRow, const char *pszEntry, std::vector<double> &array, const char cSeparator = DEFAULT_SEPARATOR );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline char CTableAccessor::GetChar( const char *pszRow, const char *pszEntry, char defval )
 {
 	return GetVal( &IDataTable::GetInt, pszRow, pszEntry, defval );
@@ -259,7 +219,6 @@ inline void CTableAccessor::GetString( const char *pszRow, const char *pszEntry,
 	pTable->GetString( pszRow, pszEntry, defval, buff, 1024 );
 	szString = buff;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline bool CTableAccessor::GetArray( const char *pszRow, const char *pszEntry, std::vector<std::string> &array, const char cSeparator )
 {
 	std::string szString;
@@ -310,7 +269,6 @@ inline bool CTableAccessor::GetArray( const char *pszRow, const char *pszEntry, 
 {
 	return GetValArray( atof, pszRow, pszEntry, array, cSeparator );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline void CTableAccessor::SetChar( const char *pszRow, const char *pszEntry, char val )
 {
 	SetVal( &IDataTable::SetInt, pszRow, pszEntry, val );
@@ -359,7 +317,6 @@ inline void CTableAccessor::SetString( const char *pszRow, const char *pszEntry,
 {
 	pTable->SetString( pszRow, pszEntry, val.c_str() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline void CTableAccessor::SetArray( const char *pszRow, const char *pszEntry, std::vector<std::string> &array, const char cSeparator )
 {
 	if ( array.empty() )
@@ -370,7 +327,6 @@ inline void CTableAccessor::SetArray( const char *pszRow, const char *pszEntry, 
 	szString += array[array.size() - 1];
 	SetString( pszRow, pszEntry, szString );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline void CTableAccessor::SetArray( const char *pszRow, const char *pszEntry, std::vector<char> &array, const char cSeparator )
 {
 	SetValArray( "%d", pszRow, pszEntry, array, cSeparator );
@@ -411,5 +367,4 @@ inline void CTableAccessor::SetArray( const char *pszRow, const char *pszEntry, 
 {
 	SetValArray( "%g", pszRow, pszEntry, array, cSeparator );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __DBIO_H__

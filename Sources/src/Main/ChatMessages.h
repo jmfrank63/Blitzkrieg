@@ -1,11 +1,8 @@
 #ifndef __CHAT_MESSAGES_H__
 #define __CHAT_MESSAGES_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Messages.h"
 #include "GameCreationInterfaces.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CChatMessage : public IMultiplayerMessage
 {
 	OBJECT_COMPLETE_METHODS( CChatMessage );
@@ -14,7 +11,6 @@ public:
 	std::wstring szMessage;
 	bool bWhisper;
 
-	//
 	CChatMessage() { }
 	CChatMessage( const WORD *pszMessage, const WORD *pszPlayerName, bool _bWhisper )
 		: szPlayerName( MakeWideStringFromWordString( pszPlayerName ) ), szMessage( MakeWideStringFromWordString( pszMessage ) ), bWhisper( _bWhisper ) { }
@@ -25,7 +21,6 @@ public:
 
 	const WORD* GetPlayerNick() const { return reinterpret_cast<const WORD*>( szPlayerName.c_str() ); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSimpleChatMessage : public IMultiplayerMessage
 {
 	OBJECT_COMPLETE_METHODS( CSimpleChatMessage );
@@ -40,7 +35,6 @@ public:
 	virtual const EMultiplayerMessages GetMessageID() const { return SIMPLE_CHAT_MESSAGE; }
 	virtual void SendToUI();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CChatUserChanged : public IMultiplayerMessage
 {
 	OBJECT_COMPLETE_METHODS( CChatUserChanged );
@@ -53,14 +47,11 @@ private:
 	IChat::EUserMode eMode;
 public:
 	CChatUserChanged() : wszUserNick( L"" ), eState( EUS_NONE ) { }
-//	CChatUserChanged( const EUserState &_eState, const std::wstring &_wszUserNick, enum IChat::EUserMode &_eMode ) 
-//		: eState( _eState ), wszUserNick( _wszUserNick ), eMode( _eMode ) { }
 	CChatUserChanged( const EUserState &_eState, const char *pszUserNick, const IChat::EUserMode &_eMode );
 
 	virtual const EMultiplayerMessages GetMessageID() const { return CHAT_USER_CHANGED; }
 	virtual void SendToUI();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CChatUserChangedNick : public IMultiplayerMessage
 {
 	OBJECT_COMPLETE_METHODS( CChatUserChangedNick );
@@ -75,5 +66,4 @@ public:
 	virtual const EMultiplayerMessages GetMessageID() const { return CHAT_USER_CHANGED_NICK; }
 	virtual void SendToUI();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __CHAT_MESSAGES__

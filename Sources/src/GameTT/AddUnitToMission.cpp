@@ -12,7 +12,6 @@
 #include "MultiplayerCommandManager.h"
 #include "UnitTypes.h"
 #include "etypes.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SUnitClass unitClasses[] =
 {
 	RPG_CLASS_UNKNOWN, "_unknown",
@@ -28,7 +27,6 @@ SUnitClass unitClasses[] =
 	*/
 };
 int nUnitClassesSize = ARRAY_SIZE( unitClasses );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SUnitClass unitTypes[] =
 {
 	RPG_TYPE_INFANTRY, "infantry_type",
@@ -40,11 +38,8 @@ SUnitClass unitTypes[] =
 	RPG_TYPE_TRAIN, "train_type",
 };
 int nUnitTypesSize = ARRAY_SIZE( unitTypes );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CTRect<float> rcTechnicsInfoPanelMap( 0, 0, 90.5f/128.0f, 90.5f/128.0f );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::vector< std::vector<int> > CInterfaceAddUnitToMission::m_missionSlots;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char *GetUnitClassName( int nUnitClass )
 {
 	for ( int i=0; i<nUnitClassesSize; i++ )
@@ -55,7 +50,6 @@ const char *GetUnitClassName( int nUnitClass )
 	NI_ASSERT( 0 );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void FillUnitInfoItem( const SUnitBaseRPGStats *pRPG, IUIDialog *pItem, int nIndex, bool bFillCommanderName, const char *pszCommanderName )
 {
 	IUIElement *pHelpButton = pItem->GetChildByID( 10000 );
@@ -64,10 +58,8 @@ void FillUnitInfoItem( const SUnitBaseRPGStats *pRPG, IUIDialog *pItem, int nInd
 	pItem->SetWindowID( nIndex );
 	FillUnitInfoItemNoIDs( pRPG, pItem, nIndex, bFillCommanderName, pszCommanderName );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void FillUnitInfoItemNoIDs( const SUnitBaseRPGStats *pRPG, IUIDialog *pItem, int nIndex, bool bFillCommanderName, const char *pszCommanderName )
 {
-	//nIndex is a Scenario Tracker index for unit, else -1
 	ITextManager *pTextM = GetSingleton<ITextManager>();
 	ITextureManager *pTM = GetSingleton<ITextureManager>();
 	IScenarioTracker *pST = GetSingleton<IScenarioTracker>();
@@ -75,7 +67,6 @@ void FillUnitInfoItemNoIDs( const SUnitBaseRPGStats *pRPG, IUIDialog *pItem, int
 	const SGDBObjectDesc *pObjectDesc = GetSingleton<IObjectsDB>()->GetDesc( pRPG->szParentName.c_str() );
 	CPtr<IText> p1 = pTextM->GetDialog( (pObjectDesc->szPath + "\\name").c_str() );
 	
-	//��������� ��� �����
 	IUIElement *pElement = pItem->GetChildByID( 20 );
 	pElement->SetWindowText( 0, p1->GetString() );
 
@@ -83,7 +74,6 @@ void FillUnitInfoItemNoIDs( const SUnitBaseRPGStats *pRPG, IUIDialog *pItem, int
 	
 	IText * pCommanderName = 0;
 
-	//��� ���������
 	if ( bFillCommanderName )
 	{
 		IScenarioUnit *pUnit = pPlayerInfo->GetUnit( nIndex );
@@ -101,16 +91,13 @@ void FillUnitInfoItemNoIDs( const SUnitBaseRPGStats *pRPG, IUIDialog *pItem, int
 	if ( bFillCommanderName )
 	{
 		IScenarioUnit *pUnit = pPlayerInfo->GetUnit( nIndex );
-		//������ ������� �����
 		const int nLevel = pUnit->GetValue( STUT_LEVEL );
 		NI_ASSERT_T( nLevel >= 0 && nLevel < 4, "Unit's level is out of bounds" );
 		IUIElement *pElement = pItem->GetChildByID( 30 + nLevel );
 		if ( pElement )
 		{
-			//������ ������� � ��������� ������� ����� �����
 			const int nExp = pUnit->GetValue( STUT_EXP );
 			const int nExpNextLevel = pUnit->GetValue( STUT_EXP_NEXT_LEVEL );
-			//
 			IText *pText = GetSingleton<ITextManager>()->GetDialog( NStr::Format("textes\\ui\\mission\\status\\tt_unit_level%d", nLevel) );
 			std::wstring wToolTip = pText != 0 ? MakeWideStringFromWordString( pText->GetString() ) : L"";
 			wToolTip += NStr::ToUnicode( NStr::Format("(%d / %d)", nExp, nExpNextLevel) );
@@ -121,7 +108,6 @@ void FillUnitInfoItemNoIDs( const SUnitBaseRPGStats *pRPG, IUIDialog *pItem, int
 	}
 
 
-	//������� ������ �����
 	{
 		static std::wstring szText;
 		IUIElement *pElement = 0;
@@ -148,39 +134,29 @@ void FillUnitInfoItemNoIDs( const SUnitBaseRPGStats *pRPG, IUIDialog *pItem, int
 		}
 	}
 
-	//
-	//��������� �������� �����
 	IUIElement *pPicture = pItem->GetChildByID( 11 );
-	//��������� map ��� ��������
 	pPicture->SetWindowMap( rcTechnicsInfoPanelMap );
-	//�������� � ��������� ��������
 	IGFXTexture *pTexture = pTM->GetTexture( (pObjectDesc->szPath + "\\icon").c_str() );
 	pPicture->SetWindowTexture( pTexture );
 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum ECommands
 {
 	IMC_DEFAULT_UNITS				= 10003,
 	IMC_UNIT_INFO						=	10006,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceAddUnitToMission::CInterfaceAddUnitToMission() : CInterfaceInterMission( "InterMission" )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceAddUnitToMission::~CInterfaceAddUnitToMission()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceAddUnitToMission::Init()
 {
 	CInterfaceInterMission::Init();
-	//	SetBindSection( "intermission" );
 	
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceAddUnitToMission::StartInterface()
 {
 	CInterfaceInterMission::StartInterface();
@@ -194,11 +170,9 @@ void CInterfaceAddUnitToMission::StartInterface()
 	StoreScreen();
 	pScene->AddUIScreen( pUIScreen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceAddUnitToMission::AddDefaultSlotsToST()
 {
 	NI_ASSERT_T( FALSE, "OLD INTERFACE" );
-	//��������� ���� �� ���������� ��������� ���� �� ������ �����
 	/*std::string szMissionName = GetGlobalVar( "Mission.Current.Name", "" );
 	NI_ASSERT_T( szMissionName.size() != 0, "Can not read mission name" );
 	if ( szMissionName.size() == 0 )
@@ -234,7 +208,6 @@ bool CInterfaceAddUnitToMission::AddDefaultSlotsToST()
 
 	IScenarioTracker *pST = GetSingleton<IScenarioTracker>();
 	int nNumUnits = pST->GetNumUnits();
-	//remove all units from mission
 	for ( int z=0; z<nNumUnits; z++ )
 	{
 		pST->RemoveUnitFromMission( z );
@@ -252,7 +225,6 @@ bool CInterfaceAddUnitToMission::AddDefaultSlotsToST()
 			const SUnitBaseRPGStats *pRPG = pST->GetUnitRPGStats( z );
 			if ( pRPG->GetRPGClass() == unitClasses[i].nClass && !pST->IsUnitKilled( z ) )
 			{
-				//������� item � ������ RPG stats
 				m_missionSlots[i].push_back( z );
 				
 				nActiveType++;
@@ -264,12 +236,10 @@ bool CInterfaceAddUnitToMission::AddDefaultSlotsToST()
 		nNumTypes = min( nActiveType, nNumTypes );
 		for ( int k=nActiveType; k<nNumTypes; k++ )
 		{
-			//������� ������ item
 			m_missionSlots[i].push_back( -1 );
 		}
 	}
 
-	//�������� �� ��������������� ������� � ��������� ����� � ������
 	for ( int i=0; i<m_missionSlots.size(); i++ )
 	{
 		for ( int k=0; k<m_missionSlots[i].size(); k++ )
@@ -281,7 +251,6 @@ bool CInterfaceAddUnitToMission::AddDefaultSlotsToST()
 	*/
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceAddUnitToMission::DisplaySlotsFromST()
 {
 	NI_ASSERT_T( FALSE, "OLD INTERFACE" );
@@ -289,22 +258,18 @@ void CInterfaceAddUnitToMission::DisplaySlotsFromST()
 	ITextManager *pTextM = GetSingleton<ITextManager>();
 	IScenarioTracker *pST = GetSingleton<IScenarioTracker>();
 
-	//init Shortcut Bar
 	IUIShortcutBar *pSB = checked_cast<IUIShortcutBar *> ( pUIScreen->GetChildByID( 100 ) );
 	NI_ASSERT_T( pSB != 0, "ShortcutBar is not initialized" );
 	pSB->Clear();
 	
-	//���������� ������ �� m_missionSlots �� ������
 	for ( int i=0; i<m_missionSlots.size(); i++ )
 	{
 		if ( m_missionSlots[i].empty() )
 			continue;
 		
-		//Add bar
 		IUIElement *pBar = pSB->AddBar();
 		std::string szKey = NStr::Format( "textes\\RPGClasses\\class%d", i );
 		CPtr<IText> pText = pTextM->GetDialog( szKey.c_str() );
-		//		CPtr<IText> pText = pTextM->GetString( unitClasses[i].pszName );
 		NI_ASSERT_T( pText != 0, NStr::Format( "Can not get text by key: %s", szKey.c_str() ) );
 		pBar->SetWindowText( 0, pText->GetString() );
 		pBar->SetWindowText( 1, pText->GetString() );
@@ -312,12 +277,10 @@ void CInterfaceAddUnitToMission::DisplaySlotsFromST()
 		
 		for ( int k=0; k<m_missionSlots[i].size(); k++ )
 		{
-			//������� item � ������ RPG stats
 			IUIDialog *pItem = checked_cast<IUIDialog *>( pSB->AddItem() );
 
 			if ( m_missionSlots[i][k] == -1 )
 			{
-				//empty slot
 				pItem->GetChildByID( 10000 )->SetWindowID( 20000 + m_missionSlots[i][k] );
 				pItem->SetWindowID( m_missionSlots[i][k] );		//-1
 
@@ -325,7 +288,6 @@ void CInterfaceAddUnitToMission::DisplaySlotsFromST()
 				NI_ASSERT_T( p1 != 0, NStr::Format( "Can not get text by key: emptyslot" ) );
 				pItem->SetWindowText( 0, p1->GetString() );
 
-				//������ ��������
 				IUIElement *pPicture = pItem->GetChildByID( 11 );
 				pPicture->ShowWindow( UI_SW_HIDE );
 			}
@@ -339,13 +301,11 @@ void CInterfaceAddUnitToMission::DisplaySlotsFromST()
 	
 	pSB->InitialUpdate();
 	
-	//init choose units Shortcut Bar
 	IUIShortcutBar *pCSB = checked_cast<IUIShortcutBar *> ( pUIScreen->GetChildByID( 101 ) );
 	NI_ASSERT_T( pCSB != 0, "ShortcutBar is not initialized" );
 	pCSB->Clear();
 	pCSB->InitialUpdate();*/
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceAddUnitToMission::UpdateUnitsList()
 {
 	NI_ASSERT_T( FALSE, "OLD INTERFACE" );
@@ -355,9 +315,7 @@ void CInterfaceAddUnitToMission::UpdateUnitsList()
 	if ( nBar == -1 )
 		return;
 	
-	//choose ShortcutBar
 	IUIShortcutBar *pCSB = checked_cast<IUIShortcutBar *> ( pUIScreen->GetChildByID( 101 ) );
-	//Clear choose ShortcutBar
 	pCSB->Clear();
 	if ( nItem == -1 || !pSB->GetBarExpandState( nBar ) )
 	{
@@ -372,23 +330,16 @@ void CInterfaceAddUnitToMission::UpdateUnitsList()
 	NI_ASSERT( pSelBar != 0 );
 	IUIElement *pSelElement = pSB->GetItem( nBar, nItem );
 	NI_ASSERT( pSelElement != 0 );
-	//� ��������� ���� �������� ��� ������
-	//� ��������� ����� �������� ������ ���������� �����
 	
-	//��������� choose ShortcutBar
-	//������� ��� � ����� ������
 	{
 		IUIElement *pBar = pCSB->AddBar();
 		std::string szKey = NStr::Format( "textes\\RPGClasses\\class%d", pSelBar->GetWindowID() );
 		CPtr<IText> pText = pTextM->GetDialog( szKey.c_str() );
-//		const char *pTemp = GetUnitClassName( pSelBar->GetWindowID() );
-//		CPtr<IText> pText = pTextM->GetString( pTemp );
 		NI_ASSERT_T( pText != 0, NStr::Format( "Can not get text for key: %s", szKey.c_str() ) );
 		pBar->SetWindowText( 0, pText->GetString() );
 		pBar->SetWindowText( 1, pText->GetString() );
 	}
 
-	//������ ����� ����� ������ ���� ��� ��������� � ������
 	std::list<int> addedUnits;
 	for ( int i=0; i<pSB->GetNumberOfItems(nBar); i++ )
 	{
@@ -398,25 +349,20 @@ void CInterfaceAddUnitToMission::UpdateUnitsList()
 			addedUnits.push_back( nIndex );
 	}
 	
-	//������� ����� ������ ����
 	int nNumUnits = pST->GetNumUnits();
 	{
-		//������� item ��� ������ ������
 		IUIDialog *pItem = checked_cast<IUIDialog *>( pCSB->AddItem() );
 		pItem->GetChildByID( 10000 )->SetWindowID( 20000 + (-1) );
 		CPtr<IText> pText = pTextM->GetString( "clearunit" );
 		pItem->SetWindowID( -1 );
 
-		//��������� ��� �����
 		pItem->SetWindowText( 0, pText->GetString() );
 
-		//������ ��������
 		IUIElement *pPicture = pItem->GetChildByID( 11 );
 		pPicture->ShowWindow( UI_SW_HIDE );
 
 		if ( pSelElement->GetWindowID() == -1 )
 		{
-			//�������� ���� item
 			pCSB->SetSelectionItem( 0, 0 );
 		}
 	}
@@ -425,15 +371,12 @@ void CInterfaceAddUnitToMission::UpdateUnitsList()
 		const SUnitBaseRPGStats *pRPG = pST->GetUnitRPGStats( z );
 		if ( pRPG->GetRPGClass() == pSelBar->GetWindowID() && !pST->IsUnitKilled( z ) )
 		{
-			//������� item � ������ RPG stats
 			IUIDialog *pItem = checked_cast<IUIDialog *>( pCSB->AddItem() );
 			FillUnitInfoItem( pRPG, pItem, z, false );
 			
-			//���������, �������� �� ���� ���� � ������
 			if ( z == pSelElement->GetWindowID() )
 			{
 				EnableItem( pItem, true );
-//				pItem->EnableWindow( true );
 				pCSB->SetSelectionItem( 0, pCSB->GetNumberOfItems( 0 ) - 1 );
 			}
 			else
@@ -442,12 +385,10 @@ void CInterfaceAddUnitToMission::UpdateUnitsList()
 				if ( findIt != addedUnits.end() )
 				{
 					EnableItem( pItem, false );
-//				pItem->EnableWindow( false );
 				}
 				else
 				{
 					EnableItem( pItem, true );
-//				pItem->EnableWindow( true );
 				}
 			}
 		}
@@ -456,7 +397,6 @@ void CInterfaceAddUnitToMission::UpdateUnitsList()
 	pCSB->SetBarExpandState( 0, true );
 	pCSB->InitialUpdate();*/
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceAddUnitToMission::EnableItem( IUIContainer *pItem, bool bEnable )
 {
 	pItem->EnableWindow( bEnable );
@@ -465,12 +405,10 @@ void CInterfaceAddUnitToMission::EnableItem( IUIContainer *pItem, bool bEnable )
 	pE = pItem->GetChildByID( 21 );
 	pE->EnableWindow( bEnable );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceAddUnitToMission::SelectItem()
 {
 	NI_ASSERT_T( FALSE, "OLD INTERFACE" );
 	/*
-	//choose units ShortcutBar
 	IUIShortcutBar *pCSB = checked_cast<IUIShortcutBar *> ( pUIScreen->GetChildByID( 101 ) );
 	int nCBar = -1, nCItem = -1;
 	pCSB->GetSelectionItem( &nCBar, &nCItem );
@@ -488,7 +426,6 @@ void CInterfaceAddUnitToMission::SelectItem()
 	NI_ASSERT( pItem != 0 );
 	
 	ITextManager *pTextM = GetSingleton<ITextManager>();
-	//����������� �� ������
 	if ( pItem->GetWindowID() != -1 )
 	{
 		pST->RemoveUnitFromMission( pItem->GetWindowID() );
@@ -497,20 +434,16 @@ void CInterfaceAddUnitToMission::SelectItem()
 	pItem->SetWindowID( pCEl->GetWindowID() );
 	if ( pCEl->GetWindowID() == -1 )
 	{
-		//������ ������ �����
 		CPtr<IText> pText = pTextM->GetString( "emptyslot" );
 		NI_ASSERT_T( pText != 0, NStr::Format( "Can not get text by key: emptyslot" ) );
 		pItem->SetWindowText( 0, pText->GetString() );
 		
-		//��������� ��� �����
 		IUIElement *pElement = pItem->GetChildByID( 20 );
 		pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
 		
-		//��� ���������
 		pElement = pItem->GetChildByID( 21 );
 		pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
 		
-		//������ ��������
 		IUIElement *pPicture = pItem->GetChildByID( 11 );
 		pPicture->ShowWindow( UI_SW_HIDE );
 		
@@ -518,19 +451,16 @@ void CInterfaceAddUnitToMission::SelectItem()
 	}
 	else
 	{
-		//��������� ��� �����
 		pItem->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
 
 		IUIElement *pElement = pItem->GetChildByID( 20 );
 		IUIElement *pCElement = pCEl->GetChildByID( 20 );
 		pElement->SetWindowText( 0, pCElement->GetWindowText( 0 ) );
 		
-		//��� ���������
 		pElement = pItem->GetChildByID( 21 );
 		pCElement = pCEl->GetChildByID( 21 );
 		pElement->SetWindowText( 0, pCElement->GetWindowText( 0 ) );
 		
-		//��������� �������� �����
 		IUIElement *pPicture = pItem->GetChildByID( 11 );
 		pPicture->ShowWindow( UI_SW_SHOW );
 		IUIElement *pCPicure = pCEl->GetChildByID( 11 );
@@ -540,7 +470,6 @@ void CInterfaceAddUnitToMission::SelectItem()
 	}
 	*/
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceAddUnitToMission::ProcessMessage( const SGameMessage &msg )
 {
 	NI_ASSERT_T( FALSE, "OLD INTERFACE" );
@@ -552,8 +481,6 @@ bool CInterfaceAddUnitToMission::ProcessMessage( const SGameMessage &msg )
 	{
 		case IMC_CANCEL:
 		{
-			//���������� ����������
-			//choose shortcut bar
 			IScenarioTracker *pST = GetSingleton<IScenarioTracker>();
 			IUIShortcutBar *pSB = checked_cast<IUIShortcutBar *> ( pUIScreen->GetChildByID( 100 ) );
 			int i = 0;
@@ -605,7 +532,6 @@ bool CInterfaceAddUnitToMission::ProcessMessage( const SGameMessage &msg )
 	
 	if ( msg.nEventID >= 20000 && msg.nEventID < 21000 )
 	{
-		//������� ������������
 		std::string szTemp = NStr::Format( "%d;", E_UNIT );
 		
 		const SUnitBaseRPGStats *pRPG = GetSingleton<IScenarioTracker>()->GetUnitRPGStats( msg.nEventID - 20000 );
@@ -615,7 +541,5 @@ bool CInterfaceAddUnitToMission::ProcessMessage( const SGameMessage &msg )
 	*/
 	
 	
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

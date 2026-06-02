@@ -1,6 +1,3 @@
-// This is an implementation file which
-// is intended to be included multiple times with different _STLP_ASSOCIATIVE_CONTAINER
-// setting
 
 template <class _Key, class _Compare, class _Alloc>
 inline bool _STLP_CALL operator==(const _STLP_SET_FLAVOR<_Key,_Compare,_Alloc>& __x, 

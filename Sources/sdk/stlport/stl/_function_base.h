@@ -162,7 +162,6 @@ struct _Select2nd : public unary_function<_Pair, typename _Pair::second_type>
   }
 };
 
-// project1st and project2nd are extensions: they are not part of the standard
 template <class _Arg1, class _Arg2>
 struct _Project1st : public binary_function<_Arg1, _Arg2, _Arg1> {
   _Arg1 operator()(const _Arg1& __x, const _Arg2&) const { return __x; }
@@ -174,9 +173,7 @@ struct _Project2nd : public binary_function<_Arg1, _Arg2, _Arg2> {
 };
 
 #ifdef _STLP_MULTI_CONST_TEMPLATE_ARG_BUG
-// fbp : sort of select1st just for maps
 template <class _Pair, class _Whatever>		
-// JDJ (CW Pro1 doesn't like const when first_type is also const)
 struct __Select1st_hint : public unary_function<_Pair, _Whatever> {
     const _Whatever& operator () (const _Pair& __x) const { return __x.first; }
 };
@@ -213,7 +210,6 @@ struct _Constant_binary_fun {
   }
 };
 
-// identity_element (not part of the C++ standard).
 template <class _Tp> inline _Tp __identity_element(plus<_Tp>) {  return _Tp(0); }
 template <class _Tp> inline _Tp __identity_element(multiplies<_Tp>) { return _Tp(1); }
 
@@ -221,6 +217,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_FUNCTION_BASE_H */
 
-// Local Variables:
-// mode:C++
-// End:

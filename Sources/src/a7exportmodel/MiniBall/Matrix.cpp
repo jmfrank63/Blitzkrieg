@@ -61,7 +61,6 @@ namespace MiniBall
 		float M1224 = M(1, 2) * M(2, 4) - M(2, 2) * M(1, 4);
 		float M1223 = M(1, 2) * M(2, 3) - M(2, 2) * M(1, 3);
 
-		// Adjoint Matrix
 		I(1, 1) =  M(2, 2) * M3344 - M(3, 2) * M2344 + M(4, 2) * M2334;
 		I(2, 1) = -M(2, 1) * M3344 + M(3, 1) * M2344 - M(4, 1) * M2334;
 		I(3, 1) =  M(2, 1) * M3244 - M(3, 1) * M2244 + M(4, 1) * M2234;
@@ -82,7 +81,6 @@ namespace MiniBall
 		I(3, 4) = -M(1, 1) * M2234 + M(2, 1) * M1234 - M(3, 1) * M1224;
 		I(4, 4) =  M(1, 1) * M2233 - M(2, 1) * M1233 + M(3, 1) * M1223;
 
-		// Division by determinant
 		I /= M(1, 1) * I(1, 1) +
 		     M(2, 1) * I(1, 2) +
 		     M(3, 1) * I(1, 3) +
@@ -348,7 +346,6 @@ namespace MiniBall
 
 	Matrix &Matrix::orthogonalise()
 	{
-		// NOTE: Numerically instable, won't return exact the same result when already orhtogonal
 
 		Matrix &M = *this;
 

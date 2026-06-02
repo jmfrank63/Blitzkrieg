@@ -30,7 +30,6 @@ int GAME_SIZE_Y = 768;
 
 #define IDC_TOOLBAR_LARGEBTNS           43103
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static UINT BASED_CODE EDIT_BUTTONS[] =
 {
 	ID_FILE_CREATENEWPROJECT,
@@ -41,7 +40,6 @@ static UINT BASED_CODE EDIT_BUTTONS[] =
 	ID_FILE_SAVE_BZM,
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static UINT BASED_CODE COMBO_BUTTONS[] =
 {
 	ID_BUTTONFILLAREA,
@@ -51,7 +49,6 @@ static UINT BASED_CODE COMBO_BUTTONS[] =
 	ID_SHOW_FIRE_RANGE_FILTER,
 	ID_SEPARATOR,
 	ID_BUTTONSETCAMERA,
-	//ID_SHOW_STORAGE_COVERAGE,
 	ID_PLAYER_NUMBER,
 };
 
@@ -103,7 +100,6 @@ static UINT BASED_CODE TOOLS_BUTTONS[] =
 	ID_RESERVE_POSITIONS,
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_BUTTON_MAP(COMMON_BUTTON_MAP)
 	COMBO_BUTTON(ID_BRUSH, IDC_BRUSHSIZE, SEC_TBBS_VCENTER, CBS_AUTOHSCROLL | CBS_DROPDOWNLIST | WS_VSCROLL, 75, 40, 120 )
 	STD_BUTTON( ID_SHOW_FIRE_RANGE, TBBS_CHECKBOX )
@@ -124,20 +120,15 @@ BEGIN_BUTTON_MAP(COMMON_BUTTON_MAP)
 	STD_BUTTON( ID_SHOW_SCENE_0, TBBS_CHECKBOX )
 	STD_BUTTON( ID_SHOW_SCENE_9, TBBS_CHECKBOX )
 	STD_BUTTON( ID_BUTTONAI, TBBS_CHECKBOX )
-	//STD_BUTTON( ID_SHOW_STORAGE_COVERAGE, TBBS_CHECKBOX )
 	STD_BUTTON( ID_SHOW_SCENE_12, TBBS_CHECKBOX )
 	STD_BUTTON( ID_RESERVE_POSITIONS, TBBS_CHECKBOX )
 END_BUTTON_MAP()
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int wmAppToolBarWndNotify = RegisterWindowMessage( _T( "WM_SECTOOLBARWNDNOTIFY" ) );
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IMPLEMENT_DYNAMIC(CMainFrame, SECWorkbook)
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CMainFrame, SECWorkbook)
-	//{{AFX_MSG_MAP(CMainFrame)
 	ON_COMMAND(ID_TOOLS_CUSTOMIZE, OnToolsCustomize)
 	ON_WM_CREATE()
 	ON_REGISTERED_MESSAGE(wmAppToolBarWndNotify, OnCreateCombo)
@@ -168,13 +159,11 @@ BEGIN_MESSAGE_MAP(CMainFrame, SECWorkbook)
 	ON_COMMAND(ID_HELP, OnHelp)
 	ON_CBN_SELCHANGE( IDC_SHOW_FIRE_RANGE_FILTER, OnChangeFireRangeFilter )
 	ON_WM_COPYDATA()
-	//}}AFX_MSG_MAP
 	ON_COMMAND_RANGE(ID_RECENT_MAP_0, ID_RECENT_MAP_9, OnRecentMap)
 	ON_UPDATE_COMMAND_UI(ID_RECENT_MAP_0, OnUpdateRecentMap)
 	ON_UPDATE_COMMAND_UI_RANGE(ID_RECENT_MAP_0, ID_RECENT_MAP_9, OnUpdateRecentMapRange)
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static UINT indicators[] =
 {
 	ID_SEPARATOR,
@@ -182,7 +171,6 @@ static UINT indicators[] =
 	ID_INDICATOR_OBJECTTYPE,
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMainFrame::CMainFrame()
  : pwndBrushSizeComboBox  ( 0 ), pwndFireRangeFilterComboBox ( 0 ), pwndPlayerNumberComboBox( 0 ), nFireRangeRegisterGroup( -1 ), bFixedDimensions( false )
 {
@@ -205,7 +193,6 @@ CMainFrame::~CMainFrame()
 	NMain::Finalize();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMainFrame::OnCreate( LPCREATESTRUCT lpCreateStruct )
 {
 	if ( SECWorkbook::OnCreate( lpCreateStruct ) == -1 )
@@ -361,7 +348,6 @@ int CMainFrame::OnCreate( LPCREATESTRUCT lpCreateStruct )
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMainFrame::CreateTemplateEditorFrame()
 {
   CMDIChildWnd *pChildWnd = 0;
@@ -395,7 +381,6 @@ int CMainFrame::CreateTemplateEditorFrame()
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnToolsCustomize() 
 {
 	SECToolBarsPage toolbarPage;
@@ -427,7 +412,6 @@ void CMainFrame::OnToolsCustomize()
 	toolbarSheet.DoModal();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMainFrame::InitGameWindow()
 {
 	int nSizeX = GAME_SIZE_X;
@@ -435,27 +419,20 @@ int CMainFrame::InitGameWindow()
 
 	CPtr<IDataStorage> pStorage = OpenStorage( ".\\data\\*.pak", STREAM_ACCESS_READ, STORAGE_TYPE_MOD );
 	RegisterSingleton( IDataStorage::tidTypeID, pStorage );
-	// CRAP{ load game database
 	{
 		CPtr<IObjectsDB> pODB = CreateObjectsDB();
 		pODB->LoadDB();
 		RegisterSingleton( IObjectsDB::tidTypeID, pODB );
 		GetSLS()->SetGDB( pODB );
 	}
-	// CRAP} 
-	//
-	// load constants and set global vars from it
 	{
 		CTableAccessor table = NDB::OpenDataTable( "consts.xml" );
 		NMain::SetupGlobalVarConsts( table );
 	}
-	// set global var to enable overdraw to fix shadows
 	SetGlobalVar( "overdraw", 1 );
-	// initialize all game system
 	NMain::Initialize( wndGameWnd.GetSafeHwnd(), AfxGetMainWnd()->GetSafeHwnd(), AfxGetMainWnd()->GetSafeHwnd(), false );
 
 	{
-		// load key bindings
 		if ( CPtr<IDataStream> pStream = OpenFileStream(".\\config.cfg", STREAM_ACCESS_READ) )
 		{
 			CPtr<IDataTree> pDT = CreateDataTreeSaver( pStream, IDataTree::READ );
@@ -468,24 +445,20 @@ int CMainFrame::InitGameWindow()
 		}
 	}
 	
-	// open resources
 	bool bUseDXT = false;
 
 	{
 		CPtr<IGFX> pGFX = GetSingleton<IGFX>();
 		
 		pGFX->SetMode( nSizeX, nSizeY, 16, 0, GFXFS_WINDOWED, 0 );
-		// some GFX setup
 		pGFX->SetCullMode( GFXC_CW );	// setup right-handed coordinate system
 		SHMatrix matrix;
 		CreateOrthographicProjectionMatrixRH( &matrix, nSizeX, nSizeY, -nSizeY, nSizeY*3 );
 		pGFX->SetProjectionTransform( matrix );
 		pGFX->EnableLighting( false );
-		//
 		GetSingleton<ITextureManager>()->SetQuality( ITextureManager::TEXTURE_QUALITY_HIGH );
 	}
 
-	// create and set font - for test purposes
 	{
 		CPtr<IGFXFont> pFont = GetSingleton<IFontManager>()->GetFont( "fonts\\medium" );
 		GetSingleton<IGFX>()->SetFont( pFont );
@@ -495,13 +468,10 @@ int CMainFrame::InitGameWindow()
 	pCursor->SetBounds( 0, 0, 800, 600 );
 	pCursor->SetMode( 0 );
 	pCursor->Show( false );
-	//
 	SetGlobalVar( "editor", 1 );
-	//
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::ShowSECControlBar( SECControlBar *pControlBar, int nCommand )
 {
 	if ( nCommand == SW_SHOW )
@@ -514,7 +484,6 @@ void CMainFrame::ShowSECControlBar( SECControlBar *pControlBar, int nCommand )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::FillBrushSize()
 {
 	if ( pwndBrushSizeComboBox )
@@ -533,7 +502,6 @@ void CMainFrame::FillBrushSize()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::FillRangeFilterComboBox( const std::string &rszCurrentFilter, const TFilterHashMap &rAllFilters, bool bUpdate )
 {
 	if ( pwndFireRangeFilterComboBox )
@@ -576,7 +544,6 @@ void CMainFrame::FillRangeFilterComboBox( const std::string &rszCurrentFilter, c
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::FillPlayerNumbers( const std::string &rszPlayerNumber )
 {
 	if ( pwndPlayerNumberComboBox )
@@ -594,7 +561,6 @@ void CMainFrame::FillPlayerNumbers( const std::string &rszPlayerNumber )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 LRESULT CMainFrame::OnCreateCombo( WPARAM wParam, LPARAM lParam )
 {
 	HWND hWnd		 = HWND(lParam);
@@ -653,7 +619,6 @@ LRESULT CMainFrame::OnCreateCombo( WPARAM wParam, LPARAM lParam )
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnChangeFireRangeFilter()
 {
 	if ( !pwndFireRangeFilterComboBox  )
@@ -690,7 +655,6 @@ void CMainFrame::OnChangeFireRangeFilter()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnChangeBrushSize()
 {
 	if ( !pwndBrushSizeComboBox  )
@@ -708,7 +672,6 @@ void CMainFrame::OnChangeBrushSize()
 	};
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnChangePlayerNumber()
 {
 	if ( !pwndPlayerNumberComboBox  )
@@ -727,7 +690,6 @@ void CMainFrame::OnChangePlayerNumber()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnClose() 
 {
 	editorWindowSingletonApp.RemoveMapFile();
@@ -743,7 +705,6 @@ void CMainFrame::OnClose()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnHelp() 
 {
 	if ( NFile::IsFileExist( szHelpFilePath.c_str() ) )
@@ -763,26 +724,22 @@ void CMainFrame::OnHelp()
   }
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnUpdateHelp(CCmdUI* pCmdUI) 
 {
 	pCmdUI->Enable( NFile::IsFileExist( szHelpFilePath.c_str() ) );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnViewLeftBar() 
 {
 	ShowControlBar( &wndInputControlBar, !wndInputControlBar.IsVisible(), true );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnUpdateViewLeftBar(CCmdUI* pCmdUI) 
 {
 	pCmdUI->Enable( true );
 	pCmdUI->SetCheck( wndInputControlBar.IsVisible() );	
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnViewToolbar0() 
 {
 	if ( CControlBar *pBar = GetControlBar( AFX_IDW_TOOLBAR + 5 ) )
@@ -791,7 +748,6 @@ void CMainFrame::OnViewToolbar0()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnViewToolbar1() 
 {
 	if ( CControlBar *pBar = GetControlBar( AFX_IDW_TOOLBAR + 6 ) )
@@ -800,7 +756,6 @@ void CMainFrame::OnViewToolbar1()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnViewToolbar2() 
 {
 	if ( CControlBar *pBar = GetControlBar( AFX_IDW_TOOLBAR + 7 ) )
@@ -809,7 +764,6 @@ void CMainFrame::OnViewToolbar2()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnViewToolbar3() 
 {
 	if ( CControlBar *pBar = GetControlBar( AFX_IDW_TOOLBAR + 8 ) )
@@ -818,7 +772,6 @@ void CMainFrame::OnViewToolbar3()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnViewToolbar4() 
 {
 	if ( CControlBar *pBar = GetControlBar( AFX_IDW_TOOLBAR + 9 ) )
@@ -827,7 +780,6 @@ void CMainFrame::OnViewToolbar4()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnUpdateViewToolbar0(CCmdUI* pCmdUI) 
 {
 	if ( CControlBar *pBar = GetControlBar( AFX_IDW_TOOLBAR + 5 ) )
@@ -837,7 +789,6 @@ void CMainFrame::OnUpdateViewToolbar0(CCmdUI* pCmdUI)
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnUpdateViewToolbar1(CCmdUI* pCmdUI) 
 {
 	if ( CControlBar *pBar = GetControlBar( AFX_IDW_TOOLBAR + 6 ) )
@@ -847,7 +798,6 @@ void CMainFrame::OnUpdateViewToolbar1(CCmdUI* pCmdUI)
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnUpdateViewToolbar2(CCmdUI* pCmdUI) 
 {
 	if ( CControlBar *pBar = GetControlBar( AFX_IDW_TOOLBAR + 7 ) )
@@ -857,7 +807,6 @@ void CMainFrame::OnUpdateViewToolbar2(CCmdUI* pCmdUI)
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnUpdateViewToolbar3(CCmdUI* pCmdUI) 
 {
 	if ( CControlBar *pBar = GetControlBar( AFX_IDW_TOOLBAR + 8 ) )
@@ -867,7 +816,6 @@ void CMainFrame::OnUpdateViewToolbar3(CCmdUI* pCmdUI)
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnUpdateViewToolbar4(CCmdUI* pCmdUI) 
 {
 	if ( CControlBar *pBar = GetControlBar( AFX_IDW_TOOLBAR + 9 ) )
@@ -877,20 +825,17 @@ void CMainFrame::OnUpdateViewToolbar4(CCmdUI* pCmdUI)
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnUpdateShowminimap(CCmdUI* pCmdUI) 
 {
 	pCmdUI->Enable( true );
 	pCmdUI->SetCheck( wndMiniMapBar.IsVisible() );	
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnShowminimap() 
 {
 	ShowControlBar( &wndMiniMapBar, !wndMiniMapBar.IsVisible(), true );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::AddToRecentList( const std::string &rszMapFileName )
 {
 	std::string szMapFileName = rszMapFileName;
@@ -919,7 +864,6 @@ void CMainFrame::AddToRecentList( const std::string &rszMapFileName )
 	UpdateRecentList();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::RemoveFromRecentList( const std::string &rszMapFileName )
 {
 	std::string szMapFileName = rszMapFileName;
@@ -942,7 +886,6 @@ void CMainFrame::RemoveFromRecentList( const std::string &rszMapFileName )
 	UpdateRecentList();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnRecentMap( UINT nID ) 
 {
 	int nRecentCount = 0;
@@ -957,12 +900,10 @@ void CMainFrame::OnRecentMap( UINT nID )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::UpdateRecentList()
 {
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnUpdateRecentMap( CCmdUI* pCmdUI ) 
 {
 	pCmdUI->Enable( !recentList.empty() );
@@ -978,7 +919,6 @@ void CMainFrame::OnUpdateRecentMap( CCmdUI* pCmdUI )
 			for ( std::list<std::string>::const_iterator recentIterator = recentList.begin(); recentIterator != recentList.end(); ++recentIterator )
 			{
 				pRecentMenu->InsertMenu( -1, MF_BYPOSITION, ID_RECENT_MAP_0 + nRecentCount, recentIterator->c_str() );
-				//pRecentMenu->EnableMenuItem( ID_RECENT_MAP_0 + nRecentCount, MF_ENABLED | MF_BYCOMMAND );
 				++nRecentCount;
 			}
 			if ( pRecentMenu->GetMenuItemCount() == 0 )
@@ -986,19 +926,16 @@ void CMainFrame::OnUpdateRecentMap( CCmdUI* pCmdUI )
 				CString strMenuLabel;
 				strMenuLabel.LoadString( IDS_RECENT_MAP );
 				pRecentMenu->InsertMenu( -1, MF_BYPOSITION, ID_RECENT_MAP_0, strMenuLabel );
-				//pRecentMenu->EnableMenuItem( ID_RECENT_MAP_0, MF_GRAYED | MF_BYCOMMAND );
 			}
 		}
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnUpdateRecentMapRange( CCmdUI* pCmdUI )
 {
 	pCmdUI->Enable( true );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnTool0() 
 {
 	if ( IDataStorage *pStorage = GetSingleton<IDataStorage>() )
@@ -1050,7 +987,6 @@ void CMainFrame::OnTool0()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnTool1()
 {
 	if ( IDataStorage *pStorage = GetSingleton<IDataStorage>() )
@@ -1092,7 +1028,6 @@ void CMainFrame::OnTool1()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnTool2()
 {
 	if ( IDataStorage *pStorage = GetSingleton<IDataStorage>() )
@@ -1134,7 +1069,6 @@ void CMainFrame::OnTool2()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnTool3()
 {
 	if ( IDataStorage *pStorage = GetSingleton<IDataStorage>() )
@@ -1183,7 +1117,6 @@ void CMainFrame::OnTool3()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainFrame::OnDropFiles( HDROP hDropInfo ) 
 {
 	int nFileCount = ::DragQueryFile( hDropInfo, 0xFFFFFFFF, 0, 0 );
@@ -1201,7 +1134,6 @@ void CMainFrame::OnDropFiles( HDROP hDropInfo )
 	}
 	::DragFinish( hDropInfo );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void CMainFrame::OnTool4()
 {
@@ -1265,7 +1197,6 @@ void CMainFrame::OnTool4()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CMainFrame::OnCopyData( CWnd* pWnd, COPYDATASTRUCT* pCopyDataStruct ) 
 {
 	if ( ( pWnd == 0 ) && ( pCopyDataStruct->dwData == CEditorWindowSingletonBase::OPEN_FILE ) )
@@ -1279,4 +1210,3 @@ BOOL CMainFrame::OnCopyData( CWnd* pWnd, COPYDATASTRUCT* pCopyDataStruct )
 		return SECWorkbook::OnCopyData(pWnd, pCopyDataStruct);
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

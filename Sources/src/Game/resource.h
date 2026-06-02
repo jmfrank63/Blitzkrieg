@@ -1,13 +1,7 @@
-//{{NO_DEPENDENCIES}}
-// Microsoft Developer Studio generated include file.
-// Used by Game.rc
-//
 #define IDI_MAIN                        102
 #define IDB_SPLASH                      103
 #define IDC_PICTURE                     1001
 
-// Next default values for new objects
-// 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        106

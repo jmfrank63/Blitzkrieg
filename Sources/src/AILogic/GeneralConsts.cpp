@@ -1,7 +1,6 @@
 #include "stdafx.h"
 
 #include "GeneralConsts.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SGeneralConsts::TIME_DONT_SEE_ENEMY_BEFORE_FORGET = 5000;
 int SGeneralConsts::SCOUT_FREE_POINT = 300;						// скаут шлетс€ в точку, если в этом радиусе от нее нет наших
 int SGeneralConsts::SCOUT_POINTS = 4;
@@ -36,9 +35,7 @@ float SGeneralConsts::INTENDANT_DANGEROUS_CELL_RADIUS = 1000;
 int SGeneralConsts::SWARM_ADDITIONAL_ITERATIONS = 3;
 float SGeneralConsts::MIN_WEIGHT_TO_SEND_SWARM = 30.0f;
 
-// минимальный вес €чейки, чтобы начать обстрел артиллерией
 float SGeneralConsts::MIN_WEIGHT_TO_ARTILLERY_FIRE = 50.0f;
-// минимальный вес €чейки, чтобы послать бомберы
 float SGeneralConsts::MIN_WEIGHT_TO_SEND_BOMBERS = 100.0f;
 float SGeneralConsts::SWARM_WEIGHT_COEFFICIENT = 1.0f;
 
@@ -48,7 +45,6 @@ int SGeneralConsts::TIME_TO_WAIT_SWARM_READY_RANDOM = 10;
 int SGeneralConsts::TIME_SWARM_DURATION;
 int SGeneralConsts::TIME_SWARM_DURATION_RANDOM;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SGeneralConsts::Init()
 {
 	CTableAccessor constsTbl = NDB::OpenDataTable( "consts.xml" );
@@ -102,4 +98,3 @@ void SGeneralConsts::Init()
 	TIME_SWARM_DURATION = constsTbl.GetInt( "AI", "General.Swarm.IterationDuration", 20 );
 	TIME_SWARM_DURATION_RANDOM = constsTbl.GetInt( "AI", "General.Swarm.IterationDurationRandom", 20 );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

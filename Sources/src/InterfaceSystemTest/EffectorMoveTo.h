@@ -1,6 +1,3 @@
-// EffectorMoveTo.h: interface for the CEffectorMoveTo class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_EFFECTORMOVETO_H__61F18B52_A5E3_4375_B24C_A297C73DFF29__INCLUDED_)
 #define AFX_EFFECTORMOVETO_H__61F18B52_A5E3_4375_B24C_A297C73DFF29__INCLUDED_
@@ -53,14 +50,11 @@ public:
 		
 		fElapsedTime = fabs(vCur - vMoveFrom) / fabs( vSpeed );
 
-		//fMoveTime = fElapsedTime;
-		//fElapsedTime = 0;
 		vSpeed.Negate();
 		bFinished = false;
 	}
 
 };
-/////////////////////////////////////////////////////////////////////////////
 class CEffectorMoveToEC : public CEffectorCommandBase<CEffectorMoveTo, EUISM_PS_MOVETO>
 {
 	OBJECT_COMPLETE_METHODS(CEffectorMoveToEC)

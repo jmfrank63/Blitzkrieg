@@ -13,7 +13,6 @@ class CInputMultiState : public IInputState
 public:
 	static const int INVALID_INPUT_STATE;
 	
-	//IState interface
 	virtual void STDCALL	Enter();
 	virtual void STDCALL	Leave();
 	virtual void STDCALL	Update();

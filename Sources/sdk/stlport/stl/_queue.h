@@ -207,6 +207,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_QUEUE_H */
 
-// Local Variables:
-// mode:C++
-// End:

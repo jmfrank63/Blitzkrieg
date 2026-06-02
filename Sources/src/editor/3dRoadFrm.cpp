@@ -23,22 +23,16 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// C3DRoadFrame
 
 IMPLEMENT_DYNCREATE(C3DRoadFrame, CParentFrame)
 
 BEGIN_MESSAGE_MAP(C3DRoadFrame, CParentFrame)
-//{{AFX_MSG_MAP(C3DRoadFrame)
 ON_WM_CREATE()
 ON_COMMAND(ID_SWITCH_WIREFRAME, OnSwitchWireframeMode)
 ON_UPDATE_COMMAND_UI(ID_SWITCH_WIREFRAME, OnUpdateSwitchWireframeMode)
 	ON_WM_SETFOCUS()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////
-// C3DRoadFrame construction/destruction
 
 C3DRoadFrame::C3DRoadFrame()
 {
@@ -67,7 +61,6 @@ int C3DRoadFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		return -1;
 	g_frameManager.AddFrame( this );
 
-	// create a view to occupy the client area of the frame
 	if (!pWndView->Create(NULL, NULL,  WS_CHILD | WS_VISIBLE, 
 		CRect(0, 0, 0, 0), this, AFX_IDW_PANE_FIRST, NULL))
 	{
@@ -78,8 +71,6 @@ int C3DRoadFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// C3DRoadFrame message handlers
 
 void C3DRoadFrame::GFXDraw()
 {
@@ -148,7 +139,6 @@ void C3DRoadFrame::FillRPGStats( SVectorStripeObjectDesc &desc, CTreeItem *pRoot
 	desc.nPriority = pCommonPropsItem->GetPriority();
 	desc.fPassability = pCommonPropsItem->GetPassability();
 
-	//��������� AI ������ ������������
 	desc.dwAIClasses = 0;
 	if ( pCommonPropsItem->GetPassForInfantry() )
 		desc.dwAIClasses |= AI_CLASS_HUMAN;
@@ -162,10 +152,8 @@ void C3DRoadFrame::FillRPGStats( SVectorStripeObjectDesc &desc, CTreeItem *pRoot
 
 	desc.eType = pCommonPropsItem->GetRoadType();
 
-	//{CRAP
 	desc.miniMapCenterColor = 0xffffffff;
 	desc.miniMapBorderColor = 0x00000000;
-	//}CRAP
 	
 
 	desc.miniMapCenterColor = pCommonPropsItem->GetMinimapCenterColor();
@@ -215,7 +203,6 @@ void C3DRoadFrame::GetRPGStats( const SVectorStripeObjectDesc &desc, CTreeItem *
 	C3DRoadCommonPropsItem *pCommonPropsItem = static_cast<C3DRoadCommonPropsItem *> ( pRootItem->GetChildItem( E_3DROAD_COMMON_PROPS_ITEM ) );
 	pCommonPropsItem->SetBorderRelativeWidth( 1.0f - desc.bottom.fRelWidth );
 
-	//C3DRoadLayerPropsItem *pLayerPropsItem = static_cast<C3DRoadLayerPropsItem *> ( pRootItem->GetChildItem( E_3DROAD_LAYER_PROPS_ITEM ) );
 
 	pCommonPropsItem->SetPriority( desc.nPriority );
 	pCommonPropsItem->SetPassability( desc.fPassability );
@@ -231,7 +218,6 @@ void C3DRoadFrame::GetRPGStats( const SVectorStripeObjectDesc &desc, CTreeItem *
 
 	if ( desc.bottomBorders.size() > 0 )
 	{
-		//������� �������
 		C3DRoadLayerPropsItem *pLayerProps = new C3DRoadLayerPropsItem;
 
 		pLayerProps->SetItemName( "Border layer" );
@@ -285,7 +271,6 @@ void C3DRoadFrame::LoadRoadMap()
 		return;
 	
 	std::string szTerrainName = "maps\\road3d";
-	// load map info
 	CMapInfo mapinfo;
 	{
 		CPtr<IDataStream> pStreamXML = GetSingleton<IDataStorage>()->OpenStream( (szTerrainName + ".xml").c_str(), STREAM_ACCESS_READ );
@@ -295,12 +280,10 @@ void C3DRoadFrame::LoadRoadMap()
 			AfxMessageBox( szErr.c_str() );
 			return;
 		}
-		// load map
 		CTreeAccessor saver = CreateDataTreeSaver( pStreamXML, IDataTree::READ );
 		saver.AddTypedSuper( &mapinfo );
 	}
 	
-	// create and init terrain
 	ITerrain *pTerrain = CreateTerrain();
 	pTerrain->Load( szTerrainName.c_str(), mapinfo.terrain );
 	GetSingleton<IScene>()->SetTerrain( pTerrain );

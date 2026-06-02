@@ -49,12 +49,7 @@ template <class _Tp> class gslice_array;
 template <class _Tp> class mask_array;
 template <class _Tp> class indirect_array;
 
-//----------------------------------------------------------------------
-// class valarray
 
-// Base class to handle memory allocation and deallocation.  We can't just
-// use vector<>, because vector<bool> would be unsuitable as an internal 
-// representation for valarray<bool>.
 
 template <class _Tp> 
 struct _Valarray_base
@@ -98,7 +93,6 @@ class valarray : private _Valarray_base<_Tp>
 public:
   typedef _Tp value_type;
 
-  // Basic constructors
   valarray() : _Valarray_base<_Tp>() {}
   valarray(size_t __n) : _Valarray_base<_Tp>(__n)
     { uninitialized_fill_n(this->_M_first, this->_M_size, value_type()); }
@@ -111,17 +105,13 @@ public:
                        this->_M_first);
   }
 
-  // Constructors from auxiliary array types
   valarray(const slice_array<_Tp>&);
   valarray(const gslice_array<_Tp>&);
   valarray(const mask_array<_Tp>&);
   valarray(const indirect_array<_Tp>&);
 
-  // Destructor
   ~valarray() { _Destroy(this->_M_first, this->_M_first + this->_M_size); }
 
-  // Extension: constructor that doesn't initialize valarray elements to a
-  // specific value.  This is faster for types such as int and double.
 private:
   void _M_initialize(const __true_type&) {}
   void _M_initialize(const __false_type&)
@@ -135,7 +125,6 @@ public:
   }
 
 public:                         // Assignment
-  // Basic assignment.  Note that 'x = y' is undefined if x.size() != y.size()
   valarray<_Tp>& operator=(const valarray<_Tp>& __x) {
     _STLP_ASSERT(__x.size() == this->size())
     if (this != &__x)
@@ -143,13 +132,11 @@ public:                         // Assignment
     return *this;
   }
 
-  // Scalar assignment
   valarray<_Tp>& operator=(const value_type& __x) {
     fill_n(this->_M_first, this->_M_size, __x);
     return *this;
   }
 
-  // Assignment of auxiliary array types
   valarray<_Tp>& operator=(const slice_array<_Tp>&);
   valarray<_Tp>& operator=(const gslice_array<_Tp>&);
   valarray<_Tp>& operator=(const mask_array<_Tp>&);
@@ -313,13 +300,11 @@ public:                         // Array computed assignment.
 
 public:                         // Other member functions.
 
-  // The result is undefined for zero-length arrays
   value_type sum() const {
     return accumulate(this->_M_first + 1, this->_M_first + this->_M_size,
                       (*this)[0]);
   }
 
-  // The result is undefined for zero-length arrays
   value_type (min) () const {
     return *min_element(this->_M_first + 0, this->_M_first + this->_M_size);
   }
@@ -352,11 +337,7 @@ public:                         // Other member functions.
   }
 };
 
-//----------------------------------------------------------------------
-// valarray non-member functions.
 
-// Binary arithmetic operations between two arrays.  Behavior is
-// undefined if the two arrays do not have the same length.
 
 template <class _Tp> 
 inline valarray<_Tp>  _STLP_CALL operator*(const valarray<_Tp>& __x,
@@ -458,7 +439,6 @@ inline valarray<_Tp> _STLP_CALL operator>>(const valarray<_Tp>& __x,
   return __tmp;
 }
 
-// Binary arithmetic operations between an array and a scalar.
 
 template <class _Tp> 
 inline valarray<_Tp> _STLP_CALL operator*(const valarray<_Tp>& __x, const _Tp& __c) {
@@ -640,9 +620,6 @@ inline valarray<_Tp> _STLP_CALL operator>>(const _Tp& __c, const valarray<_Tp>& 
   return __tmp;
 }
 
-// Binary logical operations between two arrays.  Behavior is undefined
-// if the two arrays have different lengths.  Note that operator== does
-// not do what you might at first expect.
 
 template <class _Tp> 
 inline _Valarray_bool _STLP_CALL operator==(const valarray<_Tp>& __x,
@@ -707,7 +684,6 @@ inline _Valarray_bool _STLP_CALL operator>=(const valarray<_Tp>& __x,
 }
 
 #endif /* _STLP_USE_SEPARATE_RELOPS_NAMESPACE */
-// fbp : swap ?
 
 template <class _Tp> 
 inline _Valarray_bool _STLP_CALL operator&&(const valarray<_Tp>& __x,
@@ -729,7 +705,6 @@ inline _Valarray_bool _STLP_CALL operator||(const valarray<_Tp>& __x,
   return __tmp;  
 }
 
-// Logical operations between an array and a scalar.
 
 template <class _Tp>
 inline _Valarray_bool _STLP_CALL operator==(const valarray<_Tp>& __x, const _Tp& __c)
@@ -875,8 +850,6 @@ inline _Valarray_bool _STLP_CALL operator||(const _Tp& __c, const valarray<_Tp>&
   return __tmp;  
 }
 
-// valarray "transcendentals" (the list includes abs and sqrt, which,
-// of course, are not transcendental).
 
 template <class _Tp>
 inline valarray<_Tp> abs(const valarray<_Tp>& __x) {
@@ -1060,8 +1033,6 @@ inline valarray<_Tp> tanh(const valarray<_Tp>& __x) {
   return __tmp;
 }
 
-//----------------------------------------------------------------------
-// slice and slice_array
 
 class slice {
 public:
@@ -1198,7 +1169,6 @@ private:                        // Disable assignment and default constructor
   slice_array();
 };
 
-// valarray member functions dealing with slice and slice_array
 
 template <class _Tp>
 inline valarray<_Tp>::valarray(const slice_array<_Tp>& __x)
@@ -1216,8 +1186,6 @@ inline slice_array<_Tp> valarray<_Tp>::operator[](slice __slice) {
   return slice_array<_Tp>(__slice, *this);
 }
 
-//----------------------------------------------------------------------
-// gslice and gslice_array
 
 template <class _Size>
 struct _Gslice_Iter_tmpl;
@@ -1236,11 +1204,8 @@ public:
   _Valarray_size_t size()   const { return _M_lengths; }
   _Valarray_size_t stride() const { return _M_strides; }
 
-  // Extension: check for an empty gslice.
   bool _M_empty() const { return _M_lengths.size() == 0; }
 
-  // Extension: number of indices this gslice represents.  (For a degenerate
-  // gslice, they're not necessarily all distinct.)
   size_t _M_size() const {
     return !this->_M_empty()
       ? accumulate(_M_lengths._M_first + 1,
@@ -1259,11 +1224,6 @@ private:
   _Valarray_size_t _M_strides;
 };
 
-// This is not an STL iterator.  It is constructed from a gslice, and it
-// steps through the gslice indices in sequence.  See 23.3.6 of the C++
-// standard, paragraphs 2-3, for an explanation of the sequence.  At
-// each step we get two things: the ordinal (i.e. number of steps taken),
-// and the one-dimensional index.
 
 template <class _Size>
 struct _Gslice_Iter_tmpl {
@@ -1390,9 +1350,6 @@ private:                        // Disable assignment
   void operator=(const gslice_array<_Tp>&);
 };
 
-// valarray member functions dealing with gslice and gslice_array.  Note
-// that it is illegal (behavior is undefined) to construct a gslice_array
-// from a degenerate gslice.
 
 template <class _Tp>
 inline valarray<_Tp>::valarray(const gslice_array<_Tp>& __x)
@@ -1410,8 +1367,6 @@ inline gslice_array<_Tp> valarray<_Tp>::operator[](gslice __slice) {
 }
 
 
-//----------------------------------------------------------------------
-// mask_array
 
 template <class _Tp>
 class mask_array {
@@ -1492,7 +1447,6 @@ public:
 
   ~mask_array() {}
 
-  // Extension: number of true values in the mask
   size_t _M_num_true() const {
     size_t __result = 0;
     for (size_t __i = 0; __i < _M_mask.size(); ++__i)
@@ -1512,7 +1466,6 @@ private:                        // Disable assignment
   void operator=(const mask_array<_Tp>&);
 };
 
-// valarray member functions dealing with mask_array
 
 template <class _Tp>
 inline valarray<_Tp>::valarray(const mask_array<_Tp>& __x)
@@ -1524,7 +1477,6 @@ inline valarray<_Tp>::valarray(const mask_array<_Tp>& __x)
   *this = __x;
 }
 
-// Behavior is undefined if __x._M_num_true() != this->size()
 template <class _Tp>
 inline valarray<_Tp>& valarray<_Tp>::operator=(const mask_array<_Tp>& __x) {
   size_t __idx = 0;
@@ -1540,8 +1492,6 @@ inline mask_array<_Tp> valarray<_Tp>::operator[](const _Valarray_bool& __mask)
 }
 
 
-//----------------------------------------------------------------------
-// indirect_array
 
 template <class _Tp>
 class indirect_array {
@@ -1623,7 +1573,6 @@ private:                        // Disable assignment
   void operator=(const indirect_array<_Tp>&);
 };
 
-// valarray member functions dealing with indirect_array
 
 template <class _Tp>
 inline valarray<_Tp>::valarray(const indirect_array<_Tp>& __x)
@@ -1652,6 +1601,3 @@ _STLP_END_NAMESPACE
 #endif /* _STLP_VALARRAY */
 
 
-// Local Variables:
-// mode:C++
-// End:

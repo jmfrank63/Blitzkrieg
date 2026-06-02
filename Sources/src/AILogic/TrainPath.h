@@ -1,13 +1,9 @@
 #ifndef __TRAIN_PATH_H__
 #define __TRAIN_PATH_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Path.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CEdgePoint;
 interface IEdge;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SPathEdge
 {
 	DECLARE_SERIALIZE;
@@ -18,7 +14,6 @@ public:
 	SPathEdge() { }
 	SPathEdge( CEdgePoint *_pFirstPoint, CEdgePoint *_pLastPoint ) : pFirstPoint( _pFirstPoint ), pLastPoint( _pLastPoint ) { }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTrainPath : public IStaticPath
 {
 	OBJECT_COMPLETE_METHODS( CTrainPath );
@@ -29,7 +24,6 @@ class CTrainPath : public IStaticPath
 	CVec2 vStartPoint;
 	CVec2 vFinishPoint;
 
-	// 
 public:
 	CTrainPath() { }
 	CTrainPath( interface IStaticPathFinder *pPathFinder, class CTrainPathUnit *pTrain );
@@ -47,10 +41,8 @@ public:
 	CEdgePoint* GetLastPoint( std::list< SPathEdge >::iterator iter );
 
 	const CVec2 GetStartPoint() const { return vStartPoint; }
-	// направление начала движения
 	const CVec2 GetDirToGo();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTrainSmoothPath : public ISmoothPath
 {
 	OBJECT_COMPLETE_METHODS( CTrainSmoothPath );
@@ -84,13 +76,10 @@ class CTrainSmoothPath : public ISmoothPath
 	bool bRecalculatedPath;
 	CVec2 vRealFinishPoint;
 
-	// для saver/load
 	int iteratorShift;
 	bool bJustLoaded;
 
-	//
 	void InitTrain();
-	// передвинуть переднее колесо вагона n на расстояние fDist
 	void MoveFrontWheel( const int n, float const fDist );
 
 	void CheckPath();
@@ -121,11 +110,9 @@ public:
 	virtual bool CanGoBackward() const { return false; }
 	virtual bool CanGoForward() const { return true; }
 	virtual void GetNextTiles( std::list<SVector> *pTiles ) { pTiles->clear(); }
-	// погрешность до SAIConsts::SPLINE_STEP, используется в основном для формации
 	virtual CVec2 GetShift( const int nToShift ) const { return VNULL2; }
 	
 	virtual IMemento* GetMemento() const;
-	//radius of curvance. positive if rotation in positive direction, negative otherwise
 	virtual float GetCurvatureRadius() const { return 0.0f; }
 	virtual CVec2 GetCurvatureCenter() const { return CVec2( float(1e15), float(1e15) ); }
 	
@@ -133,9 +120,7 @@ public:
 
 	virtual void GetSpeed3( CVec3 *vSpeed ) const
 	{
-	//CRAP{ пока Виталик в своих путях не станет вычислать скорость
 	*vSpeed = VNULL3;
-	//CRAP}
 	}
 
 	CEdgePoint* GetBackWheelPoint( const int n ) const;
@@ -144,11 +129,9 @@ public:
 	void SetNewFrontWheel( const int n, CEdgePoint *pNewPoint );
 	void SetNewBackWheel( const int n, CEdgePoint *pNewPoint );
 
-	// для save/load
 	virtual void SetOwner( interface IBasePathUnit *pUnit );
 	virtual IBasePathUnit* GetOwner() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTrainSmoothPathMemento : public IMemento
 {
 	OBJECT_COMPLETE_METHODS( CTrainSmoothPathMemento );
@@ -159,5 +142,4 @@ public:
 	CTrainSmoothPathMemento() { }
 	CTrainSmoothPathMemento( CTrainPath *pPath );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __TRAIN_PATH_H__

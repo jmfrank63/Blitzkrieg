@@ -4,14 +4,11 @@
 #include "IniFile.h"
 
 #include <io.h>
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int nIniFileBufferSize = 65535;
 using namespace NStr;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CIniFile::Open( const std::vector<BYTE> &rData, DWORD _dwAccessMode )
 {
 	dwAccessMode = _dwAccessMode;
-	//
 	std::string szString;
 	szString.resize( rData.size() );
 	memcpy( &( szString[0] ), &( rData[0] ), rData.size() );
@@ -24,7 +21,6 @@ bool CIniFile::Open( const std::vector<BYTE> &rData, DWORD _dwAccessMode )
 		TrimBoth( *line );
 		if ( line->empty() )
 			continue;
-		// check for new row '[row name]'
 		if ( ( (*line)[0] == '[' ) && ((*line)[line->size() - 1] == ']') )
 		{
 			TrimLeft( *line, '[' );
@@ -46,10 +42,8 @@ bool CIniFile::Open( const std::vector<BYTE> &rData, DWORD _dwAccessMode )
 				table[szRow][szEntry] = szData;
 		}
 	}
-	//
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CIniFile::GetRowNames( char *pszBuffer, int nBufferSize )
 {
 	ASSERT( CanRead() );
@@ -79,7 +73,6 @@ int CIniFile::GetEntryNames( const char *pszRow, char *pszBuffer, int nBufferSiz
 	*( pszBuffer + nCurrPos ) = '\0';
 	return nCurrPos + 1;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CIniFile::GetInt( const char *pszRow, const char *pszEntry, int defval )
 {
 	ASSERT( CanRead() );
@@ -112,7 +105,6 @@ const char* CIniFile::GetString( const char *pszRow, const char *pszEntry, const
 	return pszBuffer;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CIniFile::SetInt( const char *pszRow, const char *pszEntry, int val )
 {
 	ASSERT( CanWrite() );
@@ -133,4 +125,3 @@ void CIniFile::SetString( const char *pszRow, const char *pszEntry, const char *
 	bChanged = true;
 	table[pszRow][pszEntry].val = val;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

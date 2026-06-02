@@ -87,8 +87,6 @@ public:
   
 #ifdef _STLP_MEMBER_TEMPLATES
 
-  // We don't need any dispatching tricks here, because insert does all of
-  // that anyway.  
 #  ifdef _STLP_NEEDS_EXTRA_TEMPLATE_CONSTRUCTORS
   template <class _InputIterator>
   _DBG_list(_InputIterator __first, _InputIterator __last)
@@ -132,7 +130,6 @@ public:
   const_reverse_iterator rbegin() const { return const_reverse_iterator(end()); }
   const_reverse_iterator rend() const { return const_reverse_iterator(begin()); }
 
-  // those are here to enforce checking
   reference front() { return *begin(); }
   const_reference front() const { return *begin(); }
   reference back() { return *(--end()); }
@@ -196,7 +193,6 @@ public:
     _STLP_DEBUG_CHECK(__check_if_owner(&_M_iter_list,__position))
     _STLP_VERBOSE_ASSERT(__position._M_iterator._M_node!=this->_M_node._M_data, 
 			 _StlMsg_ERASE_PAST_THE_END)
-    // fbp : CHECK !!!
     __invalidate_iterator(&_M_iter_list, __position);
     return iterator(&_M_iter_list,_Base::erase(__position._M_iterator));
   }
@@ -247,8 +243,6 @@ public:
       _STLP_DEBUG_CHECK(__check_if_owner(&_M_iter_list,__position) &&
                         __check_if_owner(&__x._M_iter_list ,__i))
     _STLP_DEBUG_CHECK(_Dereferenceable(__i))
-    // fbp : CHECK !!!
-	// __invalidate_iterator(&__x._M_iter_list, __i);
     _Base::splice(__position._M_iterator, __x, __i._M_iterator);
   }
 
@@ -329,6 +323,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_LIST_H */
 
-// Local Variables:
-// mode:C++
-// End:

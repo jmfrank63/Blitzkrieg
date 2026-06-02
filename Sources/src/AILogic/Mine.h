@@ -1,14 +1,7 @@
 #ifndef __MINE_H__
 #define __MINE_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "StaticObject.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												 CMineStaticObject								  			*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMineStaticObject : public CGivenPassabilityStObject
 {
 	OBJECT_COMPLETE_METHODS( CMineStaticObject );
@@ -25,10 +18,8 @@ class CMineStaticObject : public CGivenPassabilityStObject
 
 	bool bAlive;
 
-	//
 	void Detonate();
 
-	// зависит от клиента
 	bool IsRegisteredInWorld() const;
 public: 
 	CMineStaticObject();
@@ -40,10 +31,8 @@ public:
 	virtual void Segment();
 	virtual const NTimer::STime GetNextSegmentTime() const { return nextSegmTime; }
 
-	// if explodes under the given unit
 	bool WillExplodeUnder( CAIUnit *pUnit );
 
-	// сдетонировать, если при наезде данного юнита мина взрывается; true - если сдетонировала
 	bool CheckToDetonate( class CAIUnit *pUnit );
 	virtual void TakeDamage( const float fDamage, const bool bFromExplosion, const int nPlayerOfShoot, CAIUnit *pShotUnit );
 	virtual void Die( const float fDamage );
@@ -52,11 +41,9 @@ public:
 	virtual const bool IsVisible( const BYTE nParty ) const;
 	void SetVisible( int nParty, bool bVis = true );
 
-	// для удаления инженерами
 	bool IsBeingDisarmed() const {return bIfWillBeDeleted; }
 	void SetBeingDisarmed( bool bStartDisarm );
 
-	// зависит от клиента
 	void RegisterInWorld();
 
 	void ClearVisibleStatus();
@@ -69,5 +56,4 @@ public:
 	
 	virtual bool IsAlive() const { return bAlive; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __MINE_H__

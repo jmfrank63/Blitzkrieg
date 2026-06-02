@@ -3,18 +3,8 @@
 #include "ImageMMP.h"
 
 #include "..\Formats\fmtTexture.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** MMP image save/load/recognize
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NImage
 {
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool RecognizeFormatDDS( IDataStream *pStream )
 {
 	DWORD dwSignature = 0;
@@ -24,7 +14,6 @@ bool RecognizeFormatDDS( IDataStream *pStream )
 		return false;
 	return dwSignature == SDDSHeader::SIGNATURE;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CImageDDS* LoadImageDDS( IDataStream *pStream )
 {
 	DWORD dwSignature = 0;
@@ -45,14 +34,11 @@ CImageDDS* LoadImageDDS( IDataStream *pStream )
 		const int nCheck = pStream->Read( &(level[0]), level.size() );
 		NI_ASSERT_T( nCheck == level.size(), NStr::Format("Can't read all data for mip level %d (read %d bytes instead of %d)", i, nCheck, level.size()) );
 	}
-	//
 	return pImage;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SaveImageAsDDS( IDataStream *pStream, const IDDSImage *pImg )
 {
 	const CImageDDS *pImage = static_cast<const CImageDDS*>( pImg );
-	// form header
 	SDDSHeader header;
 	header.ddspf = *( pImage->GetDDSFormat() );
 	header.dwWidth = pImage->GetSizeX( 0 );
@@ -70,15 +56,12 @@ bool SaveImageAsDDS( IDataStream *pStream, const IDDSImage *pImg )
 		header.dwHeaderFlags |= DDS_HEADER_FLAGS_PITCH;
 		header.dwPitchOrLinearSize = header.dwWidth * pImage->GetBPP() / 8;
 	}
-	// write signature
 	const DWORD dwSignature = SDDSHeader::SIGNATURE;
 	pStream->Write( &dwSignature, sizeof(dwSignature) );
-	// write header
 	const int nCheck = pStream->Write( &header, sizeof(header) );
 	NI_ASSERT_T( nCheck == sizeof(header), "Can't write header" );
 	if ( nCheck != sizeof(header) ) 
 		return false;
-	// write data
 	for ( int i = 0; i < int(header.dwMipMapCount); ++i )
 	{
 		const std::vector<BYTE> &level = pImage->GetMipLevel( i );
@@ -87,20 +70,9 @@ bool SaveImageAsDDS( IDataStream *pStream, const IDDSImage *pImg )
 		if ( nCheck != level.size() ) 
 			return false;
 	}
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** MMP image itself
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CImageDDS::CImageDDS( int _nSizeX, int _nSizeY, const SDDSPixelFormat &_format )
 : nSizeX( _nSizeX ), nSizeY( _nSizeY ), format( _format )
 {
@@ -108,7 +80,6 @@ CImageDDS::CImageDDS( int _nSizeX, int _nSizeY, const SDDSPixelFormat &_format )
 	int nPow2 = GetMSB( nSize );
 	mips.reserve( nPow2 + 1 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 EGFXPixelFormat CImageDDS::GetGFXFormat() const
 {
 	if ( format.dwFlags & DDS_FOURCC ) 
@@ -137,7 +108,6 @@ EGFXPixelFormat CImageDDS::GetGFXFormat() const
 	}
 	return GFXPF_UNKNOWN;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CImageDDS::AddMipLevel( const void *pData, int nLength )
 {
 	mips.resize( mips.size() + 1 );
@@ -145,7 +115,6 @@ bool CImageDDS::AddMipLevel( const void *pData, int nLength )
 	memcpy( &( mips.back()[0] ), pData, nLength );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CImageDDS::AddMipLevels( const IDDSImage *pImage )
 {
 	if ( ( pImage->GetSizeX(0) != GetSizeX(mips.size()) ) || ( pImage->GetSizeY(0) != GetSizeY(mips.size()) ) )
@@ -154,14 +123,12 @@ bool CImageDDS::AddMipLevels( const IDDSImage *pImage )
 	int nMaxMips = GetMSB( nSize );
 	if ( format.dwFlags == DDS_FOURCC  )
 		nMaxMips -= 2;
-	//
 	int nNumMipLevels = Min( int(nMaxMips - mips.size()), pImage->GetNumMipLevels() );
 	for ( int i=0; i<nNumMipLevels; ++i )
 		AddMipLevel( pImage->GetLFB( i ), GetSizeX(mips.size() + 1) * GetSizeY(mips.size() + 1) * GetBPP() / 8 );
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool GetDDSPixelFormat( EGFXPixelFormat format, SDDSPixelFormat *pFormat )
 {
 	switch ( format ) 
@@ -198,4 +165,3 @@ const bool GetDDSPixelFormat( EGFXPixelFormat format, SDDSPixelFormat *pFormat )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

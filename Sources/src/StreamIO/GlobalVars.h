@@ -1,14 +1,10 @@
 #ifndef __GLOBAL_VARS_H__
 #define __GLOBAL_VARS_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Misc\FileUtils.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGlobalVars : public IGlobalVars
 {
 	OBJECT_NORMAL_METHODS( CGlobalVars );
-	//
 	typedef std::unordered_map<std::string, std::string> CValuesMap;
 	CValuesMap values;
 	
@@ -31,7 +27,6 @@ public:
 	virtual void STDCALL RemoveVarsByMatch( const char *pszValueMatch )
 	{
 		const int nMatchLen = strlen( pszValueMatch );
-		// search in values
 		for ( CValuesMap::iterator it = values.begin(); it != values.end(); )
 		{
 			if ( it->first.compare(0, nMatchLen, pszValueMatch) == 0 )
@@ -39,7 +34,6 @@ public:
 			else
 				++it;
 		}
-		// search in wValues
 		for ( CWValuesMap::iterator it = wValues.begin(); it != wValues.end(); )
 		{
 			if ( it->first.compare(0, nMatchLen, pszValueMatch) == 0 )
@@ -90,7 +84,6 @@ public:
 		}
 	}
 
-	//
 	virtual void STDCALL SetVar( const char *pszValueName, const WORD *pszValue )
 	{
 		wValues[pszValueName] = reinterpret_cast<const wchar_t*>(pszValue);
@@ -124,11 +117,9 @@ public:
 		}
 		return false;
 	}
-	//
 	virtual int STDCALL operator&( IStructureSaver &ss )
 	{
 		CSaverAccessor saver = &ss;
-		// CRAP{ �� ��������� video mode � ����� � options
 		if ( saver.IsReading() ) 
 		{
 			std::list< std::pair<std::string, std::string> > vals2restore;
@@ -137,9 +128,7 @@ public:
 				if ( (it->first.compare(0, 4, "GFX.") == 0) || (it->first.compare(0, 8, "Options.") == 0) ) 
 					vals2restore.push_back( std::pair<std::string, std::string>(it->first, it->second) );
 			}
-			//
 			saver.Add( 1, &values );
-			//
 			for ( std::list< std::pair<std::string, std::string> >::const_iterator it = vals2restore.begin(); it != vals2restore.end(); ++it )
 				values[it->first] = it->second;
 		}
@@ -156,11 +145,9 @@ public:
 				values1.erase( *it );
 			saver.Add( 1, &values1 );
 		}
-		// CRAP}
 		saver.Add( 2, &wValues );
 
 		return 0;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __GLOBAL_VARS_H__

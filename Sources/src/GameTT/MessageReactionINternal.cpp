@@ -1,6 +1,5 @@
 #include "StdAfx.h"
 #include "MessageReactionINternal.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Main\IMain.h"
 #include "..\Input\Input.h"
 #include "..\Misc\TypeConvertor.h"
@@ -14,9 +13,6 @@
 #include "..\Common\InterfaceScreenBase.h"
 #include "WorldClient.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//		CMessageAtomReactionSetGlobalVar
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMessageAtomReactionRemoveGlobalVar::Execute() 
 {  
 #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
@@ -26,9 +22,6 @@ bool CMessageAtomReactionRemoveGlobalVar::Execute()
 	RemoveGlobalVar( szVarName.c_str() ); 
 	return true;
 }	
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//		CMessageAtomReactionSetGlobalVar
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMessageAtomReactionSetGlobalVar::Execute() 
 {  
 #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
@@ -39,9 +32,6 @@ bool CMessageAtomReactionSetGlobalVar::Execute()
 	SetGlobalVar( szVarName.c_str(), szVarValue.c_str() ); 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//		CMessageAtomReactionSetWindowText
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMessageAtomReactionSetWindowTextFromGlobalVar::Execute() 
 { 
 #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
@@ -54,9 +44,6 @@ bool CMessageAtomReactionSetWindowTextFromGlobalVar::Execute()
 	GetSingleton<IMessageLinkContainer>()->SetWindowText( nWindowID, GetGlobalWVar(szTextKey.c_str(), L"") );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//		CMessageAtomReactionSetWindowText
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMessageAtomReactionSetWindowText::Execute() 
 { 
 #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
@@ -73,9 +60,6 @@ bool CMessageAtomReactionSetWindowText::Execute()
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//		CMessageAtomReactionCustom
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMessageAtomReactionCustom::Execute()
 {
 #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
@@ -85,9 +69,6 @@ bool CMessageAtomReactionCustom::Execute()
 	GetSingleton<IMessageLinkContainer>()->CustomReaction( szCustomReactionName );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//		CMessageAtomReactionMessageToInput
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMessageAtomReactionMessageToMainLoop::Execute() 
 { 
 	#if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
@@ -99,10 +80,6 @@ bool CMessageAtomReactionMessageToMainLoop::Execute()
 	GetSingleton<IMainLoop>()->Command( nCommandID, szParam.empty() ? 0 : szParam.c_str() ); 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//		CMessageAtomReactionMessageToInput
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMessageAtomReactionMessageToInput::Execute()
 {
 #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
@@ -115,11 +92,6 @@ bool CMessageAtomReactionMessageToInput::Execute()
 	GetSingleton<IInput>()->AddMessage( SGameMessage( nEventID, nParam ) ); 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//		CMessageAtomReactionPause
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMessageAtomReactionPause::Execute() 
 { 
 	if ( GetGlobalVar( "MultiplayerGame", 0 ) == 0 )
@@ -134,14 +106,8 @@ bool CMessageAtomReactionPause::Execute()
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//		CMessageReaction
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMessageReaction::Execute()
 {
-	// find what reaction to perform
 	int nCustomCheckReturn = 0;
 	
 	if ( nCustomCheckType )
@@ -154,7 +120,6 @@ bool CMessageReaction::Execute()
 	NI_ASSERT_T( chosen != atomReactions.end(), NStr::Format( "unlnown custom check return %d", nCustomCheckReturn ) );
 
 	bool bRes = true;
-	// execute common section
 	CMessageSequences::iterator common = atomReactions.find(ECCR_COMMON);
 	CMessageSequences::iterator commonAfter = atomReactions.find(ECCR_COMMON_AFTER);
 	if ( common != atomReactions.end() )
@@ -174,12 +139,10 @@ bool CMessageReaction::Execute()
 	}
 	return bRes;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMessageReaction::Execute( CMessageSequence *pToExecute )
 {
 	if ( pToExecute->empty() ) 
 		return false;
-	//execute other sections
 	for ( CMessageSequence::iterator reaction = pToExecute->begin(); reaction != pToExecute->end(); ++reaction )
 	{
 		if ( !(*reaction)->Execute() )
@@ -187,34 +150,28 @@ bool CMessageReaction::Execute( CMessageSequence *pToExecute )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMessageReaction::CMessageReaction( const SMessageReactionForLoad &loaded, IMessageLinkContainer *pHelpers )
 {
 	ILoadHelper * pAtomReactionsLH =  pHelpers->GetLoadHelper( ELH_ATOM_REACTION_TYPE );
 	ILoadHelper * pCustomCheckLH = pHelpers->GetLoadHelper( ELH_ATOM_CUSTOM_CHECK_KEY );
 	ILoadHelper * pCustomCheckReturnLH = pHelpers->GetLoadHelper( ELH_ATOM_CUSTOM_CHECK_RETURN );
 
-	// remember custom check ID (to furter reference)
 #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
 	szCustomCheckType = loaded.customCheck.first ;
 #endif // #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
 	nCustomCheckType = pCustomCheckLH->Get( loaded.customCheck.first );
-	// custom check params
 	customCheckParams = loaded.customCheck.second;
 	NI_ASSERT_T( customCheckParams.size() < 8, NStr::Format( "to many global vars to check %d eg. ECCR_COMMON will not work", customCheckParams.size() ) );
 
 	for ( CAtomReactionSequencesForLoad::const_iterator it = loaded.atomReactions.begin(); it != loaded.atomReactions.end(); ++it )
 	{
-		// choise of reactions
 		const CAtomReactionsSequenceForLoad &loadedAtomSequence = it->second;
 		const int nCustomCheckReturn = pCustomCheckReturnLH->Get( it->first );
 
 		NI_ASSERT_T( !loadedAtomSequence.empty(), NStr::Format( "no atom reactions to perform for action \"%s\"", it->first.c_str() ) );
 		
-		// create element
 		atomReactions[nCustomCheckReturn].clear();
 
-		// inspect vector of atom reactions and create reactions
 		for ( int nAtomReaction = 0; nAtomReaction < loadedAtomSequence.size(); ++nAtomReaction )
 		{
 			const SMessageAtomReactionForLoad &loadedAtom = loadedAtomSequence[nAtomReaction];
@@ -260,11 +217,6 @@ CMessageReaction::CMessageReaction( const SMessageReactionForLoad &loaded, IMess
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//		CMessageLink
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IMessageReaction* CMessageLink::Configure( const int nMessageID, const int nParam )
 {
 	CMessageReactions::iterator it = messageReactions.find( CIncomingMessage(nMessageID,nParam) );
@@ -282,7 +234,6 @@ IMessageReaction* CMessageLink::Configure( const int nMessageID, const int nPara
 	}
 	return 0;
 }	
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMessageLink::Load( const std::string &szFileName, IMessageLinkContainer *pHelpers )
 {
 	ILoadHelper * pIncomingMessageIdLH = pHelpers->GetLoadHelper( ELH_INCOMING_MESSAGE_ID );
@@ -298,7 +249,6 @@ void CMessageLink::Load( const std::string &szFileName, IMessageLinkContainer *p
 	{
 		CMessageReaction *pReaction = new CMessageReaction( forLoad[i], pHelpers  );
 		
-		// determine message ID 
 		const int nMessageID = pIncomingMessageIdLH->Get( forLoad[i].incomingMessage.first );
 		const int nMessageNParam = pIncomingMessageNParam->Get( forLoad[i].incomingMessage.second );
 
@@ -310,7 +260,6 @@ void CMessageLink::Load( const std::string &szFileName, IMessageLinkContainer *p
 	}
 
 	/*
-	//FOR creating file don't delete this
 	std::vector<SMessageReactionForLoad> forLoad;
 	CPtr<IDataStream> pStream = CreateFileStream( "c:\\a7\\Data\\test.xml" , STREAM_ACCESS_WRITE );
 	CTreeAccessor tree = CreateDataTreeSaver( pStream, IDataTree::WRITE );
@@ -334,50 +283,37 @@ void CMessageLink::Load( const std::string &szFileName, IMessageLinkContainer *p
 	tree.Add( "Commands", &forLoad );
 	*/
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//		CMessageLinkContainer
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMessageLinkContainer::Clear()
 {
 	messageLinks.clear();
 	loadHelpers.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ILoadHelper * CMessageLinkContainer::GetLoadHelper( const int /*ELoadHelperID*/nLoadHelperID )
 {
 	CLoadHelpers::iterator it = loadHelpers.find( nLoadHelperID );
 	NI_ASSERT_T( it != loadHelpers.end(), NStr::Format( "cannot find load helper %d", nLoadHelperID ) );
 	return it->second;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IMessageLink * CMessageLinkContainer::GetMessageLink( const enum EMessageLink eLinkID )
 {
 	CMessageLinks::iterator it = messageLinks.find( eLinkID );
 	NI_ASSERT_T( it != messageLinks.end(), NStr::Format( "unregistered messages link id = %d", eLinkID ) );
 	return it->second;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMessageLinkContainer::RegisterMessageLink ( IMessageLink *pMessageLink, const enum EMessageLink eLinkID )
 {
 	NI_ASSERT_T( messageLinks.find( eLinkID ) == messageLinks.end(), NStr::Format( "warning, overrite link with id =%d", eLinkID ));
 	messageLinks[ eLinkID ] = pMessageLink;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMessageLinkContainer::LoadMessageLink( const std::string &szFile, const enum EMessageLink eLinkID  )
 {
 	CMessageLink * pLink = new CMessageLink;
 	pLink->Load( szFile, this );
 	RegisterMessageLink( pLink, eLinkID );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMessageLinkContainer::Init()
 {
 	{
-	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// incoming messages convertion
-	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	CPtr<CLoadHelper> pMessageLH = new CLoadHelper;
 	STRING_ENUM_ADD_PTR( pMessageLH, WCB_YOU_WIN )
 	STRING_ENUM_ADD_PTR( pMessageLH, WCB_YOU_LOOSE )
@@ -518,7 +454,6 @@ void CMessageLinkContainer::Init()
 	}
 
 	{
-	// atom reaction types
 	CPtr<CLoadHelper> pReactionTypesLH = new CLoadHelper;
 	STRING_ENUM_ADD_PTR( pReactionTypesLH, EMART_PAUSE_GAME )
 	STRING_ENUM_ADD_PTR( pReactionTypesLH, EMART_MESSAGE_TO_INPUT )
@@ -534,7 +469,6 @@ void CMessageLinkContainer::Init()
 	}
 
 	{
-	// custom check keys
 	CPtr<CLoadHelper> pCustomCheckKeyLH = new CLoadHelper;
 	(*pCustomCheckKeyLH)[""] =  0;			// specific action (default)
 	STRING_ENUM_ADD_PTR( pCustomCheckKeyLH, ECCT_BOOL_GLOBAL_VARS_ENUM )
@@ -543,7 +477,6 @@ void CMessageLinkContainer::Init()
 	}
 
 	{
-	// custom check Return
 	CPtr<CLoadHelper> pCustomCheckReturnLH = new CLoadHelper;
 	STRING_ENUM_ADD_PTR( pCustomCheckReturnLH, ECCR_COMMON )
 	STRING_ENUM_ADD_PTR( pCustomCheckReturnLH, ECCR_COMMON_AFTER )
@@ -551,7 +484,6 @@ void CMessageLinkContainer::Init()
 	loadHelpers[ELH_ATOM_CUSTOM_CHECK_RETURN] = pCustomCheckReturnLH;
 	}
 
-	// PAUSE ID
 	{
 		CPtr<CLoadHelper> pPauseLH = new CLoadHelper;
 		STRING_ENUM_ADD_PTR( pPauseLH, PAUSE_TYPE_NO_PAUSE )
@@ -570,12 +502,10 @@ void CMessageLinkContainer::Init()
 	LoadMessageLink( "UI\\escapemenu\\EscapeMenuReactions.xml", EML_ESCAPE_MENU );
 	customReactions.Init();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMessageLinkContainer::SetInterface( class CInterfaceScreenBase *_pInterface )
 {
 	pInterface = _pInterface;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMessageLinkContainer::ProcessMessage( const SGameMessage &msg )
 {
 	IMessageReaction * pReaction = 0;
@@ -589,8 +519,6 @@ bool CMessageLinkContainer::ProcessMessage( const SGameMessage &msg )
 		SetGlobalWVar( "Multiplayer.Side1.Name", L"USSR" );
 		SetGlobalVar( "temp.Multiplayer.Win.Partyname", 0 );*/
 
-		//SetGlobalVar( "MultiplayerGame", 1 );
-		//GetSingleton<IInput>()->AddMessage( SGameMessage(MC_LOCAL_PLAYER_OUT_OF_SYNC ) );
 	}
 #endif // #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
 	for ( CMessageLinks::iterator it = messageLinks.begin(); !pReaction && it != messageLinks.end(); ++it )
@@ -609,17 +537,14 @@ bool CMessageLinkContainer::ProcessMessage( const SGameMessage &msg )
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMessageLinkContainer::SetWindowText( const int nElementID, const WORD *pszText)
 {
 	pInterface->SetWindowText( nElementID, pszText );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMessageLinkContainer::CustomReaction( const std::string &szCustomReactionName )
 {
 	customReactions.LaunchReaction( szCustomReactionName, pInterface );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMessageLinkContainer::CustomCheck( const int nCustomCheckKey, const CCustomCheckParams &checkParams  )
 {
 	switch( nCustomCheckKey )
@@ -649,4 +574,3 @@ int CMessageLinkContainer::CustomCheck( const int nCustomCheckKey, const CCustom
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

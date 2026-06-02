@@ -1,8 +1,6 @@
 #ifndef __UI_CONSOLE_H__
 #define __UI_CONSOLE_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "UIBasic.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIConsole : public CSimpleWindow
 {
 	DECLARE_SERIALIZE;
@@ -30,19 +28,16 @@ private:
 	bool bAnimation;						//���� ����, ��� ���������� ��������, ������� ��� ��������
 	int nCursorPos;							//������� ������� � ������� ������������� ������
 	int nBeginString;						//��������� ������������ ������ �� ������ �����
-															//0 ��������� ����� ������ ��������
 	int nBeginCommand;					//������� ������� �� ���� ������
 	DWORD m_dwColor;
 	bool bShowCursor;						//������� �� ������ � ������� ������
 	DWORD dwLastCursorAnimatedTime;	//��� �������� �������
 	
 	std::wstring szEditString;	//������� ������������� ������
-	//��� ��������� ������
 	typedef std::list< CPtr<IConsoleCommandHandler> > CCommandsList;
 	CCommandsList commandsChain;
 	Script consoleScript;				// console script
 
-	//��� ���� ���������� ����� ���������� ����� �������� �� ������
 	void ParseCommand( const std::wstring &szCommand );
 	void InitConsoleScript();
 	bool RunScriptFile( const std::string &szScriptFileName );
@@ -53,18 +48,14 @@ public:
 	CUIConsole();
 	~CUIConsole() {}
 
-	// serializing...
 	virtual int STDCALL operator&( IDataTree &ss );
 
 	virtual bool STDCALL IsVisible();
 	virtual void STDCALL ShowWindow( int _nCmdShow );
 	virtual bool STDCALL IsAnimationStage() { return bAnimation; }
 	
-	//������� ������ �������� ��� ������ ������
 	virtual void STDCALL Reposition( const CTRect<float> &rcParent );
-	//��� ����� ��� �������� �������, ����������� � �������������
 	virtual bool STDCALL Update( const NTimer::STime &currTime );
-	//����� ��������� ������, ����� ������ ������������ �������
 	virtual void STDCALL Draw( interface IGFX *pGFX );
 	virtual void STDCALL Visit( interface ISceneVisitor *pVisitor );
 
@@ -72,7 +63,6 @@ public:
 	
 	virtual void STDCALL RegisterCommand( IConsoleCommandHandler *pHandler );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIConsoleBridge : public IUIConsole, public CUIConsole
 {
 	OBJECT_NORMAL_METHODS( CUIConsoleBridge );
@@ -82,5 +72,4 @@ class CUIConsoleBridge : public IUIConsole, public CUIConsole
 	virtual void STDCALL RegisterCommand( IConsoleCommandHandler *pHandler ) { CSuper::RegisterCommand( pHandler ); }
 	virtual bool STDCALL IsAnimationStage() { return CSuper::IsAnimationStage(); }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif		//__UI_CONSOLE_H__

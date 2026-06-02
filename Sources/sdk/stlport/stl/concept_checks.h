@@ -46,8 +46,6 @@
 
 #ifndef _STLP_USE_CONCEPT_CHECKS
 
-// Some compilers lack the features that are necessary for concept checks.
-// On those compilers we define the concept check macros to do nothing.
 #define _STLP_REQUIRES(__type_var, __concept) do {} while(0)
 #define _STLP_CLASS_REQUIRES(__type_var, __concept) \
   static int  __##__type_var##_##__concept
@@ -72,38 +70,18 @@
 
 #else /* _STLP_USE_CONCEPT_CHECKS */
 
-// This macro tests whether the template argument "__type_var"
-// satisfies the requirements of "__concept".  Here is a list of concepts
-// that we know how to check:
-//       _Allocator
-//       _Assignable
-//       _DefaultConstructible
-//       _EqualityComparable
-//       _LessThanComparable
-//       _TrivialIterator
-//       _InputIterator
-//       _OutputIterator
-//       _ForwardIterator
-//       _BidirectionalIterator
-//       _RandomAccessIterator
-//       _Mutable_TrivialIterator
-//       _Mutable_ForwardIterator
-//       _Mutable_BidirectionalIterator
-//       _Mutable_RandomAccessIterator
 
 #define _STLP_REQUIRES(__type_var, __concept) \
 do { \
   void (*__x)( __type_var ) = __concept##_concept_specification< __type_var >\
     ::##__concept##_requirement_violation; __x = __x; } while (0)
 
-// Use this to check whether type X is convertible to type Y
 #define _STLP_CONVERTIBLE(__type_x, __type_y) \
 do { \
   void (*__x)( __type_x , __type_y ) = _STL_CONVERT_ERROR< __type_x , \
   __type_y >::__type_X_is_not_convertible_to_type_Y; \
   __x = __x; } while (0)
 
-// Use this to test whether two template arguments are the same type
 #define _STLP_REQUIRES_SAME_TYPE(__type_x, __type_y) \
 do { \
   void (*__x)( __type_x , __type_y ) = _STL_SAME_TYPE_ERROR< __type_x, \
@@ -111,7 +89,6 @@ do { \
   __x = __x; } while (0)
 
 
-// function object checks
 #define _STLP_GENERATOR_CHECK(__func, __ret) \
 do { \
   __ret (*__x)( __func&) = \
@@ -157,11 +134,6 @@ do { \
 
 #else
 
-// Use this macro inside of template classes, where you would
-// like to place requirements on the template arguments to the class
-// Warning: do not pass pointers and such (e.g. T*) in as the __type_var,
-// since the type_var is used to construct identifiers. Instead typedef
-// the pointer type, then use the typedef name for the __type_var.
 #define _STLP_CLASS_REQUIRES(__type_var, __concept) \
   typedef void (* __func##__type_var##__concept)( __type_var ); \
   template <__func##__type_var##__concept _Tp1> \
@@ -264,7 +236,6 @@ struct _STL_SAME_TYPE_ERROR {
 };
 
 
-// Some Functon Object Checks
 
 template <class _Func, class _Ret>
 struct _STL_GENERATOR_ERROR {
@@ -346,9 +317,7 @@ _STLP_DEFINE_BINARY_OP_CHECK(*, _OP_TIMES);
 _STLP_DEFINE_BINARY_OP_CHECK(/, _OP_DIVIDE);
 _STLP_DEFINE_BINARY_OP_CHECK(-, _OP_SUBTRACT);
 _STLP_DEFINE_BINARY_OP_CHECK(%, _OP_MOD);
-// ...
 
-// TODO, add unary operators (prefix and postfix)
 
 /*
   The presence of this class is just to trick EDG into displaying
@@ -570,16 +539,12 @@ _TrivialIterator_requirement_violation(_TrivialIterator __i) {
   typedef typename
     __value_type_type_definition_requirement_violation<_TrivialIterator>::
     value_type __T;
-  // Refinement of Assignable
   _Assignable_concept_specification<_TrivialIterator>::
     _Assignable_requirement_violation(__i);
-  // Refinement of DefaultConstructible
   _DefaultConstructible_concept_specification<_TrivialIterator>::
     _DefaultConstructible_requirement_violation(__i);
-  // Refinement of EqualityComparable
   _EqualityComparable_concept_specification<_TrivialIterator>::
     _EqualityComparable_requirement_violation(__i);
-  // Valid Expressions
   _STL_ERROR::__dereference_operator_requirement_violation(__i);
 }
 };
@@ -590,7 +555,6 @@ static void
 _Mutable_TrivialIterator_requirement_violation(_TrivialIterator __i) {
   _TrivialIterator_concept_specification<_TrivialIterator>::
     _TrivialIterator_requirement_violation(__i);
-  // Valid Expressions
   _STL_ERROR::__dereference_operator_and_assignment_requirement_violation(__i);
 }
 };
@@ -601,15 +565,12 @@ template <class _InputIterator>
 struct _InputIterator_concept_specification {
 static void
 _InputIterator_requirement_violation(_InputIterator __i) {
-  // Refinement of TrivialIterator
   _TrivialIterator_concept_specification<_InputIterator>::
     _TrivialIterator_requirement_violation(__i);
-  // Associated Types
   __difference_type_type_definition_requirement_violation<_InputIterator>();
   __reference_type_definition_requirement_violation<_InputIterator>();
   __pointer_type_definition_requirement_violation<_InputIterator>();
   __iterator_category_type_definition_requirement_violation<_InputIterator>();
-  // Valid Expressions
   _STL_ERROR::__preincrement_operator_requirement_violation(__i);
   _STL_ERROR::__postincrement_operator_requirement_violation(__i);
 }
@@ -621,12 +582,9 @@ template <class _OutputIterator>
 struct _OutputIterator_concept_specification {
 static void
 _OutputIterator_requirement_violation(_OutputIterator __i) {
-  // Refinement of Assignable
   _Assignable_concept_specification<_OutputIterator>::
     _Assignable_requirement_violation(__i);
-  // Associated Types
   __iterator_category_type_definition_requirement_violation<_OutputIterator>();
-  // Valid Expressions
   _STL_ERROR::__dereference_operator_requirement_violation(__i);
   _STL_ERROR::__preincrement_operator_requirement_violation(__i);
   _STL_ERROR::__postincrement_operator_requirement_violation(__i);
@@ -641,7 +599,6 @@ template <class _ForwardIterator>
 struct _ForwardIterator_concept_specification {
 static void
 _ForwardIterator_requirement_violation(_ForwardIterator __i) {
-  // Refinement of InputIterator
   _InputIterator_concept_specification<_ForwardIterator>::
     _InputIterator_requirement_violation(__i);
 }
@@ -653,7 +610,6 @@ static void
 _Mutable_ForwardIterator_requirement_violation(_ForwardIterator __i) {
   _ForwardIterator_concept_specification<_ForwardIterator>::
     _ForwardIterator_requirement_violation(__i);
-  // Refinement of OutputIterator
   _OutputIterator_concept_specification<_ForwardIterator>::
     _OutputIterator_requirement_violation(__i);
 }
@@ -665,10 +621,8 @@ template <class _BidirectionalIterator>
 struct _BidirectionalIterator_concept_specification {
 static void
 _BidirectionalIterator_requirement_violation(_BidirectionalIterator __i) {
-  // Refinement of ForwardIterator
   _ForwardIterator_concept_specification<_BidirectionalIterator>::
     _ForwardIterator_requirement_violation(__i);
-  // Valid Expressions
   _STL_ERROR::__predecrement_operator_requirement_violation(__i);
   _STL_ERROR::__postdecrement_operator_requirement_violation(__i);
 }
@@ -682,14 +636,12 @@ _Mutable_BidirectionalIterator_requirement_violation(
 {
   _BidirectionalIterator_concept_specification<_BidirectionalIterator>::
     _BidirectionalIterator_requirement_violation(__i);
-  // Refinement of mutable_ForwardIterator
   _Mutable_ForwardIterator_concept_specification<_BidirectionalIterator>::
     _Mutable_ForwardIterator_requirement_violation(__i);
   typedef typename
     __value_type_type_definition_requirement_violation<
     _BidirectionalIterator>::value_type __T;
   typename _Mutable_trait<__T>::_Type* __tmp_ptr = 0;
-  // Valid Expressions
   _STL_ERROR::
     __postincrement_operator_and_assignment_requirement_violation(__i,
                                                                   *__tmp_ptr);
@@ -702,10 +654,8 @@ template <class _RandAccIter>
 struct _RandomAccessIterator_concept_specification {
 static void
 _RandomAccessIterator_requirement_violation(_RandAccIter __i) {
-  // Refinement of BidirectionalIterator
   _BidirectionalIterator_concept_specification<_RandAccIter>::
     _BidirectionalIterator_requirement_violation(__i);
-  // Refinement of LessThanComparable
   _LessThanComparable_concept_specification<_RandAccIter>::
     _LessThanComparable_requirement_violation(__i);
   typedef typename 
@@ -718,7 +668,6 @@ _RandomAccessIterator_requirement_violation(_RandAccIter __i) {
     _Dist;
   typedef typename _Mutable_trait<_Dist>::_Type _MutDist;
 
-  // Valid Expressions
   _STL_ERROR::__iterator_addition_assignment_requirement_violation(__i,
                                                                    _MutDist());
   _STL_ERROR::__iterator_addition_requirement_violation(__i,
@@ -744,7 +693,6 @@ _Mutable_RandomAccessIterator_requirement_violation(_RandAccIter __i)
 {
   _RandomAccessIterator_concept_specification<_RandAccIter>::
     _RandomAccessIterator_requirement_violation(__i);
-  // Refinement of mutable_BidirectionalIterator
   _Mutable_BidirectionalIterator_concept_specification<_RandAccIter>::
     _Mutable_BidirectionalIterator_requirement_violation(__i);
   typedef typename
@@ -757,7 +705,6 @@ _Mutable_RandomAccessIterator_requirement_violation(_RandAccIter __i)
     _Dist;
 
   typename _Mutable_trait<value_type>::_Type* __tmp_ptr = 0;
-  // Valid Expressions
   _STL_ERROR::__element_assignment_operator_requirement_violation(__i,
                   __tmp_ptr, _Dist());
 }
@@ -782,13 +729,10 @@ template <class _Alloc>
 struct _Allocator_concept_specification {
 static void
 _Allocator_requirement_violation(_Alloc __a) {
-  // Refinement of DefaultConstructible
   _DefaultConstructible_concept_specification<_Alloc>::
     _DefaultConstructible_requirement_violation(__a);
-  // Refinement of EqualityComparable
   _EqualityComparable_concept_specification<_Alloc>::
     _EqualityComparable_requirement_violation(__a);
-  // Associated Types
   __value_type__typedef_requirement_violation<_Alloc>();
   __difference_type__typedef_requirement_violation<_Alloc>();
   __size_type__typedef_requirement_violation<_Alloc>();
@@ -805,6 +749,3 @@ _Allocator_requirement_violation(_Alloc __a) {
 
 #endif /* __CONCEPT_CHECKS_H */
 
-// Local Variables:
-// mode:C++
-// End:

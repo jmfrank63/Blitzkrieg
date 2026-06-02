@@ -27,7 +27,6 @@ void CBuildingFrame::SetActiveFirePoint( SFirePoint *pFirePoint )
 {
 	if ( pActiveFirePoint )
 	{
-		//устанавливаем предыдущий активный fire point в неактивное состо€ние
 		pActiveFirePoint->pSprite->SetOpacity( MIN_OPACITY );
 		if ( pActiveFirePoint->pHLine )
 			pActiveFirePoint->pHLine->SetOpacity( 0 );
@@ -79,8 +78,6 @@ void CBuildingFrame::SelectFirePoint( CTreeItem *pFire )
 	{
 		if ( it->pFirePoint == pFire )
 		{
-//			static_cast
-//			it->fDirection = pFire->GetDirection();
 			SetActiveFirePoint( &(*it) );
 			GFXDraw();
 			break;
@@ -117,13 +114,11 @@ void CBuildingFrame::ComputeFireDirectionLines()
 	vLine2.x = vCenter3.x - (float) (EDGE_LENGTH - 20) * sin( fA + fTemp );
 	vLine2.y = vCenter3.y + (float) (EDGE_LENGTH - 20) * cos( fA + fTemp );
 	
-	//теперь мы нашли точки v1, v2, получим 2D координаты дл€ построени€ линий
 	{
 		CVerticesLock<SGFXTLVertex> vertices( pFireDirectionVertices );
 		
 		CVec2 v;
 		
-		//0xffff60e6 == (255, 96, 230) розовый цвет
 		DWORD dwColor = 0xffffff00;
 		vertices[0].Setup( vCenter2.x, vCenter2.y, 1, 1, dwColor, 0xff000000, 0, 0 );
 		vertices[1].Setup( vPos2.x, vPos2.y, 1, 1, dwColor, 0xff000000, 0, 0 );
@@ -155,7 +150,6 @@ void CBuildingFrame::AddOrSelectFirePoint( const POINT &point )
 	objShift = VNULL2;
 	zeroShift = VNULL2;
 
-	//провер€ем, вдруг fire point с такими координатами уже существует
 	CListOfFirePoints::iterator it=firePoints.begin();
 	for ( ; it!=firePoints.end(); ++it )
 	{
@@ -166,11 +160,9 @@ void CBuildingFrame::AddOrSelectFirePoint( const POINT &point )
 		if ( point.x >= vPos2.x - SHOOT_PICTURE_SIZE && point.x <= vPos2.x + SHOOT_PICTURE_SIZE &&
 			point.y >= vPos2.y - SHOOT_PICTURE_SIZE && point.y <= vPos2.y + SHOOT_PICTURE_SIZE )
 		{
-			//выдел€ем этот shoot point
 			SetActiveFirePoint( &(*it) );
 			it->pFirePoint->SelectMeInTheTree();
 
-			//начинаем перетаскивать этот компонент
 			SetChangedFlag( true );
 			objShift.x = vPos2.x - point.x;
 			objShift.y = vPos2.y - point.y;
@@ -181,7 +173,6 @@ void CBuildingFrame::AddOrSelectFirePoint( const POINT &point )
 			zeroShift.y = vPos2.y - point.y;
 
 			m_mode = E_SET_FIRE_POINT;
-			//pTreeDockBar->SetFocus();
 			g_frameManager.GetGameWnd()->SetCapture();
 			return;
 		}
@@ -189,11 +180,9 @@ void CBuildingFrame::AddOrSelectFirePoint( const POINT &point )
 	
 	if ( !ComputeMaxAndMinPositions( firePos3 ) )
 	{
-		//Ќе нашел пересечени€ с залоченными тайлами, не добавл€ю точку
 		return;
 	}
 	
-	//добавл€ем спрайт 'точка огн€' с такими координатами
 	IVisObjBuilder *pVOB = GetSingleton<IVisObjBuilder>();
 	CPtr<IObjVisObj> pObject = static_cast<IObjVisObj *> ( pVOB->BuildObject( "editor\\shoot\\1", 0, SGVOT_SPRITE ) );
 	NI_ASSERT( pObject != 0 );
@@ -208,7 +197,6 @@ void CBuildingFrame::AddOrSelectFirePoint( const POINT &point )
 	pSG->AddObject( pObject, SGVOGT_OBJECT );
 	pObject->SetOpacity( MAX_OPACITY );
 	
-	//добавл€ем точку огн€ в дерево
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	CTreeItem *pRoot = pTree->GetRootItem();
 	CTreeItem *pFiresItem = pRoot->GetChildItem( E_BUILDING_FIRE_POINTS_ITEM );
@@ -221,22 +209,18 @@ void CBuildingFrame::AddOrSelectFirePoint( const POINT &point )
 	fire.pFirePoint = pNewPoint;
 	fire.pSprite = pObject;
 	
-	// опируем в новый fire point информацию из старого
 	if ( pActiveFirePoint )
 	{
-		//скопируем конус стрельбы из предыдущего shoot point
 		fire.fDirection = pActiveFirePoint->fDirection;
 		fire.pFirePoint->SetDirection( fire.fDirection );
 		fire.pFirePoint->SetEffectName( pActiveFirePoint->pFirePoint->GetEffectName() );
 	}
 	else
 	{
-		//создадим конус стрельбы по умолчанию
 		fire.fDirection = 0;
 		fire.pFirePoint->SetDirection( fire.fDirection );
 	}
 	
-	//нашел точку пересечени€
 	CVec3 vHPos3 = firePos3;
 	if ( pActiveFirePoint )
 	{
@@ -261,7 +245,6 @@ void CBuildingFrame::AddOrSelectFirePoint( const POINT &point )
 		pSG->GetPos3( &vHPos3, vPos2 );
 	}
 
-	//создаем спрайт - горизонтальную линию
 	pObject = static_cast<IObjVisObj *> ( pVOB->BuildObject( "editor\\shoot_horizontal\\1", 0, SGVOT_SPRITE ) );
 	NI_ASSERT( pObject != 0 );
 	
@@ -327,7 +310,6 @@ void CBuildingFrame::SetFirePointAngle( const POINT &point )
 	CVec3 vPos3;
 	pSG->GetPos3( &vPos3, vPos2 );
 	
-	//ѕересчитаем из координат на плоскости в значени€ углов
 	CVec3 vCone;
 	vCone.x = vPos3.x - vCenter3.x;
 	vCone.y = vPos3.y - vCenter3.y;

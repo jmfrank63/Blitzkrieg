@@ -4,9 +4,6 @@
 using namespace std;
 namespace NNet
 {
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// CNodeAddress
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CNodeAddress::SetInetName( const char *pszHost, int nDefaultPort )
 {
 	int nIdx, nPort = nDefaultPort;
@@ -15,7 +12,6 @@ bool CNodeAddress::SetInetName( const char *pszHost, int nDefaultPort )
   sockaddr_in &nameRemote = *(sockaddr_in*)&addr;
 	
 	nameRemote.sin_family = AF_INET;
-	// extract port number from address
 	string szAddr = pszHost;
 	nIdx = szAddr.find( ':' );
 	if ( nIdx != -1 )
@@ -23,7 +19,6 @@ bool CNodeAddress::SetInetName( const char *pszHost, int nDefaultPort )
 		nPort = atoi( string( szAddr, nIdx + 1 ).c_str() );
 		szAddr = string( szAddr, 0, nIdx );
 	}
-	// determine host
 	nameRemote.sin_addr.S_un.S_addr = inet_addr( szAddr.c_str() ); 
 	if( nameRemote.sin_addr.S_un.S_addr == INADDR_NONE )  // not resolved?
 	{
@@ -36,7 +31,6 @@ bool CNodeAddress::SetInetName( const char *pszHost, int nDefaultPort )
 	nameRemote.sin_port = htons( nPort );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 string CNodeAddress::GetName( bool bResolve ) const
 {
   sockaddr_in &nameRemote = *(sockaddr_in*)&addr;
@@ -63,7 +57,6 @@ string CNodeAddress::GetName( bool bResolve ) const
 	}
 	return szBuf;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CNodeAddressSet::GetAddress( int n, CNodeAddress *pRes ) const
 {
 	pRes->Clear();
@@ -75,9 +68,6 @@ bool CNodeAddressSet::GetAddress( int n, CNodeAddress *pRes ) const
 	p->sin_addr.S_un.S_addr = ips[n];
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// CLinksManager
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CLinksManager::CLinksManager()
 {
 	WORD wVersionRequested = MAKEWORD( 1, 1 );
@@ -87,7 +77,6 @@ CLinksManager::CLinksManager()
 	ASSERT( bRv );
 
 	s = INVALID_SOCKET;
-	// get host for broadcast addresses formation
 	char szHost[1024];
 	if ( gethostname( szHost, 1000 ) )
 	{
@@ -101,13 +90,10 @@ CLinksManager::CLinksManager()
 		ASSERT(0);
 		return;
 	}
-	// form addresses
 	CNodeAddress addr;
   sockaddr_in &name = *(sockaddr_in*)&addr;
 	name.sin_family = AF_INET;
-	// hostent are broken for some unknown reason, only one address is valid
 	unsigned long *pAddr = (unsigned long*)( he->h_addr_list[0] );
-	//for ( ; *pAddr; pAddr++ )
 	{
 		name.sin_addr.S_un.S_addr = pAddr[0];
 		unsigned char bClass = name.sin_addr.S_un.S_un_b.s_b1;
@@ -127,13 +113,11 @@ CLinksManager::CLinksManager()
 		broadcastAddr = addr;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CLinksManager::~CLinksManager()
 {
 	Finish();
 	WSACleanup();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CLinksManager::Start( int nPort )
 {
 	Finish();
@@ -159,14 +143,12 @@ bool CLinksManager::Start( int nPort )
 	setsockopt( s, SOL_SOCKET, SO_BROADCAST, (const char*)&dwOpt, 4 );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CLinksManager::Finish()
 {
 	if ( s != INVALID_SOCKET )
 		closesocket( s );
 	s = INVALID_SOCKET;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CLinksManager::MakeBroadcastAddr( CNodeAddress *pRes, int nPort ) const
 {
 	*pRes = broadcastAddr;
@@ -174,13 +156,11 @@ bool CLinksManager::MakeBroadcastAddr( CNodeAddress *pRes, int nPort ) const
 	name.sin_port = htons( nPort );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CLinksManager::IsLocalAddr( const CNodeAddress &test ) const
 {
 	const sockaddr_in &nt = *(sockaddr_in*)&test.addr;
 	if ( nt.sin_addr.S_un.S_addr == 0x0100007f )
 		return true;
-	//for ( int i = 0; i < broadcastAddr.size(); ++i )
 	{
 		const CNodeAddress &broad = broadcastAddr;//[ i ];
 	  const sockaddr_in &nb = *(sockaddr_in*)&broad.addr;
@@ -202,12 +182,8 @@ bool CLinksManager::IsLocalAddr( const CNodeAddress &test ) const
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// CRAP{
 extern int nTrafficPackets;
 extern int nTrafficTotalSize;
-// CRAP}
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef NET_TEST_APPLICATION
 bool bEmulateWeakNetwork = false;
 float fLostRate = 0.7f;
@@ -242,18 +218,14 @@ bool CLinksManager::Send( const CNodeAddress &dst, CMemoryStream &pkt ) const
 	int nSize = pkt.GetSize();
 	int nRv = sendto( s, (const char*)pkt.GetBuffer(), nSize, 0, &dst.addr, sizeof( dst.addr ) );
 
-	// CRAP{
 	if ( nRv >= 0 )
 	{
 		++nTrafficPackets;
 		nTrafficTotalSize += nRv;
 	}
-	// CRAP}
-//	printf( "send to %s\n", dst.GetFastName().c_str() );
 
 	return nRv == nSize;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CLinksManager::Recv( CNodeAddress *pSrc, CMemoryStream *pPkt ) const
 {
 	ASSERT( pSrc );
@@ -269,19 +241,14 @@ bool CLinksManager::Recv( CNodeAddress *pSrc, CMemoryStream *pPkt ) const
 		pPkt->SetSize( nRes );
 	}
 
-	// CRAP{
 	if ( nRes >=0 )
 	{
 		++nTrafficPackets;
 		nTrafficTotalSize += nRes;
 	}
-	// CRAP}
-//	if ( nRes >= 0 )
-//		printf( "rect from %s\n", pSrc->GetFastName().c_str() );
 
 	return nRes >= 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CLinksManager::GetSelfAddress( CNodeAddressSet *pRes ) const
 {
 	pRes->Clear();
@@ -303,11 +270,9 @@ bool CLinksManager::GetSelfAddress( CNodeAddressSet *pRes ) const
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SOCKET CLinksManager::GetSocket() const
 {	
 	return s;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }

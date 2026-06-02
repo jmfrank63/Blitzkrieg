@@ -22,7 +22,6 @@ public:
 
 	CRMGFieldObjectPropertiesDialog( CWnd* pParent = NULL );
 	
-	//{{AFX_DATA(CRMGFieldObjectPropertiesDialog)
 	enum { IDD = IDD_RMG_CF_OS_OBJECT_PROPERTIES };
 	CStatic	m_Icon;
 	CString	m_szName;
@@ -31,21 +30,16 @@ public:
 	CString	m_szVisType;
 	CString	m_szGameType;
 	CString	m_szWeight;
-	//}}AFX_DATA
 
 	bool bDisableEditWeight;
 	HICON hIcon;
 
-	//{{AFX_VIRTUAL(CRMGFieldObjectPropertiesDialog)
 	protected:
 	virtual void DoDataExchange( CDataExchange* pDX );
-	//}}AFX_VIRTUAL
 
 protected:
-	//{{AFX_MSG(CRMGFieldObjectPropertiesDialog)
 	virtual BOOL OnInitDialog();
 	afx_msg void OnDestroy();
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 
 protected:
@@ -54,5 +48,4 @@ public:
 	static std::string GetObjectStats( IObjectsDB *pODB, const SGDBObjectDesc *pObjectDesc );
 };
 
-//{{AFX_INSERT_LOCATION}}
 #endif // !defined(__RMG_Field_Object_Properties_Dialog__)

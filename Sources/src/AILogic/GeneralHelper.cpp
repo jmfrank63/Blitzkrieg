@@ -9,23 +9,11 @@
 #include "Formation.h"
 #include "Soldier.h"
 #include "AIUnit.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern NTimer::STime curTime;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											SSeverityCountPredicate*
-//*******************************************************************
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SGeneralHelper::SSeverityCountPredicate::operator()( const CCommonUnit *pUnit )
 {
-	//NI_ASSERT_T( CalcUnitSeverity( pUnit ) != 0.0f, NStr::Format( "useless unit, pUnit" ) );
 	fCount += CalcUnitSeverity( pUnit );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											SFindBestByEnumeratorPredicate*
-//*******************************************************************
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SGeneralHelper::SFindBestByEnumeratorPredicate::operator()( class CCommonUnit *pU1 )
 {
 	if ( pEn->EvaluateWorker( pU1, eType ) )
@@ -39,50 +27,32 @@ void SGeneralHelper::SFindBestByEnumeratorPredicate::operator()( class CCommonUn
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											SDeadPredicate															*
-//*******************************************************************
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SGeneralHelper::SDeadPredicate::operator() ( CCommonUnit * pUnit )
 {
 	return !pUnit || !pUnit->IsValid() || !pUnit->IsAlive();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											SGeneralHelper*
-//*******************************************************************
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SGeneralHelper::SFindByEnumeratorPredicate::operator()( class CCommonUnit *pU1 )
 { 
 	return pEn->EvaluateWorker( pU1, eType ); 
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											SGeneralHelper*
-//*******************************************************************
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SGeneralHelper::IsUnitNearParcel( const CCommonUnit *pUnit, const struct SAIGeneralParcelInfo &parcel ) 
 {
 	if ( !pUnit->IsValid() || !pUnit->IsAlive() ) return false;
 	const CVec2 vDiff1( ( pUnit->GetCenter() - parcel.vCenter ) );
 	return  fabs( vDiff1 ) <=  parcel.fRadius + SConsts::SPY_GLASS_RADIUS / 2;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SGeneralHelper::IsUnitInParcel( const CCommonUnit *pUnit, const struct SAIGeneralParcelInfo &parcel ) 
 {
 	if ( !pUnit->IsValid() || !pUnit->IsAlive() ) return false;
 	const CVec2 vDiff( pUnit->GetCenter() - parcel.vCenter );
 	return fabs( vDiff ) <= parcel.fRadius;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float SGeneralHelper::CalcUnitSeverity( const CCommonUnit *pUnit )
 {
 	if ( !pUnit->IsValid() || !pUnit->IsAlive() ) return 0;
 	return pUnit->GetPriceMax();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SGeneralHelper::RemoveDead( CommonUnits *pUnits )
 {
 	SGeneralHelper::SDeadPredicate deadPred;

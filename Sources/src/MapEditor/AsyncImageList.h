@@ -5,8 +5,6 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//CRAP{��������� �� ����� �������� � ������� ������ ��������������
 class CIndicesHolder
 {
 	CTPoint<int> bounds;
@@ -96,20 +94,14 @@ public:
 		return nCurrentIndex;
 	}
 };
-//CRAP}
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//pvParam - ��������� �� ������ ������ CAsyncImageList, ��������������� � PVOID
 DWORD WINAPI AsyncImageListThreadFunc( PVOID pvParam );
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IAsyncImageListCallback
 {
-	//����������� � ����������� ������
 	virtual DWORD Callback( int nImageIndex, DWORD dwResult ) = 0;
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAsyncImageList
 {
 	static const int DEFAULT_ICON_NUMBER;
@@ -127,10 +119,7 @@ class CAsyncImageList
 	CIndicesHolder indicesHolder;
 
 	void Clear();
-	//��������� ������� ���������� �� AsyncFill
 	DWORD Fill();
-	//�� ��������������, ��������� �������� �� ���������� ������
-	//� HIMAGELIST ���������� ����� ����������� ������, ������� ���������� � ������ ������
 	virtual DWORD Fill( int nImageIndex ) = 0;
 	
 	friend DWORD WINAPI AsyncImageListThreadFunc( PVOID pvParam );
@@ -138,28 +127,18 @@ public:
 	CAsyncImageList();
 	~CAsyncImageList();
 
-	//���������� ����� ����������� ������
 	HIMAGELIST GetImageList() { return hImageList; }
 	HIMAGELIST GetSmallImageList() { return hSmallImageList; }
-	//����������� ������
 	CRITICAL_SECTION* GetCriticalSection() { return &criticalSection; }
 
-	//������� imageList �������� ������, ��������� �������
 	bool Create( int nImageCount, const CTPoint<int> &rImageSize );
-	//����� ������������ ���������� imageList
 	bool AsyncFill();
-	//�������� �� ������������� �������� ����������
 	bool IsFilling();
-	//�������������� ���������� �������� ����������
 	bool StopFilling();
 
-	//���������� callback �������
 	int AddCallback( IAsyncImageListCallback *pCallback );
-	//�������� callback ������� �� �����
 	void RemoveCallback( int nKey );
 
-	//���������� ���������� � ���������� ��������
 	bool ForceFillFrom( int nImageIndex );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // !defined(__AsyncImageList__)

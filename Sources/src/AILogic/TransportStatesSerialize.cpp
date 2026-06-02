@@ -2,7 +2,6 @@
 
 #include "TransportStates.h"
 #include "SerializeOwner.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransportWaitPassengerState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -12,7 +11,6 @@ int CTransportWaitPassengerState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransportLoadRuState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -23,7 +21,6 @@ int CTransportLoadRuState::operator&( IStructureSaver &ss )
 	saver.Add( 5, &bSubState );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransportLandState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -34,7 +31,6 @@ int CTransportLandState::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransportServeState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -51,7 +47,6 @@ int CTransportServeState::operator&( IStructureSaver &ss )
 	saver.Add( 11, &bWaitForPath );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransportResupplyState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -59,7 +54,6 @@ int CTransportResupplyState::operator&( IStructureSaver &ss )
 	saver.AddTypedSuper( 2, static_cast<CTransportServeState*>(this) );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransportRepairState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -67,7 +61,6 @@ int CTransportRepairState::operator&( IStructureSaver &ss )
 	saver.AddTypedSuper( 2, static_cast<CTransportServeState*>(this) );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransportResupplyHumanResourcesState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -82,7 +75,6 @@ int CTransportResupplyHumanResourcesState::operator&( IStructureSaver &ss )
 	saver.Add( 8, &bWaitForPath );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransportHookArtilleryState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -95,7 +87,6 @@ int CTransportHookArtilleryState::operator&( IStructureSaver &ss )
 	saver.Add( 8, &vArtilleryPoint );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransportUnhookArtilleryState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -107,7 +98,6 @@ int CTransportUnhookArtilleryState::operator&( IStructureSaver &ss )
 	saver.Add( 6, &bNow ); 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransportBuildState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -120,7 +110,6 @@ int CTransportBuildState::operator&( IStructureSaver &ss )
 	saver.Add( 6, &pEngineers );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransportBuildLongObjectState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -128,21 +117,18 @@ int CTransportBuildLongObjectState::operator&( IStructureSaver &ss )
 	saver.Add( 2, &pCreation );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransportBuildFenceState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 	saver.AddTypedSuper( 1, static_cast<CTransportBuildLongObjectState*>(this) );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransportBuildEntrenchmentState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 	saver.AddTypedSuper( 1, static_cast<CTransportBuildLongObjectState*>(this) );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransportClearMineState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -152,7 +138,6 @@ int CTransportClearMineState::operator&( IStructureSaver &ss )
 	saver.Add( 4, &bWorkDone );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransportPlaceMineState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -161,7 +146,6 @@ int CTransportPlaceMineState::operator&( IStructureSaver &ss )
 	saver.Add( 3, &bWorkDone );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransportPlaceAntitankState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -170,7 +154,6 @@ int CTransportPlaceAntitankState::operator&( IStructureSaver &ss )
 	saver.Add( 3, &bSent );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransportRepairBridgeState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -180,7 +163,6 @@ int CTransportRepairBridgeState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransportBuildBridgeState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -190,7 +172,6 @@ int CTransportBuildBridgeState::operator&( IStructureSaver &ss )
 	saver.Add( 4, &bTransportSent );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTransportRepairBuildingState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -199,7 +180,6 @@ int CTransportRepairBuildingState::operator&( IStructureSaver &ss )
 	saver.Add( 3, &bSentToBuildPoint );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMoveToPointNotPresize::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;

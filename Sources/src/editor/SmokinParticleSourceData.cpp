@@ -2,7 +2,6 @@
 
 #include "..\Scene\SmokinParticleSourceData.h"
 #include "..\Scene\PFX.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SSmokinParticleSourceData::Load( const bool bPreLoad )
 {
 	const std::string szStreamName = GetSharedResourceFullName();
@@ -14,17 +13,14 @@ bool SSmokinParticleSourceData::Load( const bool bPreLoad )
 	saver.Add( "KeyData", this );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SSmokinParticleSourceData::SSmokinParticleSourceData() 
 : bComplexParticleSource( true )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SSmokinParticleSourceData::operator&( IStructureSaver &ss )
 {
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SSmokinParticleSourceData::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -52,12 +48,10 @@ int SSmokinParticleSourceData::operator&( IDataTree &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SSmokinParticleSourceData::SwapData( ISharedResource *pResource )
 {
 	SSmokinParticleSourceData *pRes = dynamic_cast<SSmokinParticleSourceData*>( pResource );
 	NI_ASSERT_TF( pRes != 0, "shared resource is not a SSmokinParticleSourceData", return );
-	//
 	std::swap( trackDensity, pRes->trackDensity );
 	std::swap( trackWeight, pRes->trackWeight );
 	std::swap( trackGenerateArea, pRes->trackGenerateArea );
@@ -78,7 +72,6 @@ void SSmokinParticleSourceData::SwapData( ISharedResource *pResource )
 	std::swap( trackIntegralMass, pRes->trackIntegralMass );
 	std::swap( nUpdateStep, pRes->nUpdateStep );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SSmokinParticleSourceData::InitIntegrals()
 {
 	CTrack trackIndIntegral;
@@ -125,7 +118,6 @@ void SSmokinParticleSourceData::InitIntegrals()
 	CPtr<IParticleSource> pSource = GetSingleton<IParticleManager>()->GetKeyBasedSource( (szParticleEffectName + ".xml").c_str() );
 	nUpdateStep = pSource->GetOptimalUpdateTime();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 

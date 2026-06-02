@@ -1,4 +1,3 @@
-//==========================================
 
 # define __SGI_STL_PORT  _STLPORT_VERSION
 

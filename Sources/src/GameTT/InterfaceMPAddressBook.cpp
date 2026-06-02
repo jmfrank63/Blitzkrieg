@@ -1,16 +1,13 @@
 #include "StdAfx.h"
 
 #include "InterfaceMPAddressBook.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "InterfaceStartDialog.h"
 #include "CommonId.h"
 #include "..\UI\UIMessages.h"
 #include "MainMenu.h"
 #include "WorldClient.h"
 #include "MPConnectionError.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const std::string szFileName = "Data\\AddressBook.xml";
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_cancel"		, IMC_CANCEL		},
@@ -20,7 +17,6 @@ static const NInput::SRegisterCommandEntry commands[] =
 #endif // !defined(_FINALRELEASE) || defined(_DEVVERSION)
 	{ 0									,	0							}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum 
 {
 	E_BUTTON_OK														= 10002,
@@ -34,7 +30,6 @@ enum
 	E_ADDRESS_EDIT_BOX										= 3011,
 	E_DIALOG_WAIT_CONNECTION							= 3013,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPAddressBook::InitServersList()
 {
 	bChanged = false;
@@ -44,7 +39,6 @@ void CInterfaceMPAddressBook::InitServersList()
 		AddServerInternal( *it );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPAddressBook::Serialize( const bool bRead )
 {
 	CPtr<IDataStream> pStream = OpenFileStream(szFileName.c_str(), bRead ? STREAM_ACCESS_READ : STREAM_ACCESS_WRITE);
@@ -55,13 +49,11 @@ void CInterfaceMPAddressBook::Serialize( const bool bRead )
 		saver.Add( "Servers", &szServers );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPAddressBook::SaveServersList()
 {
 	bChanged = false;
 	Serialize( false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPAddressBook::DeleteServer()
 {
 	IUIListControl *pList = checked_cast<IUIListControl*>( pUIScreen->GetChildByID( E_LIST ) );
@@ -79,7 +71,6 @@ void CInterfaceMPAddressBook::DeleteServer()
 		pList->InitialUpdate();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPAddressBook::AddServerInternal( const std::string &szServer )
 {
 	IUIListControl *pList = checked_cast<IUIListControl*>( pUIScreen->GetChildByID( E_LIST ) );
@@ -89,7 +80,6 @@ void CInterfaceMPAddressBook::AddServerInternal( const std::string &szServer )
 	pRow->GetElement( 0 )->SetWindowText( 0, reinterpret_cast<const WORD*>( wszServer.c_str() ) );
 	pList->InitialUpdate();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPAddressBook::AddServer( const std::string &szServer )
 {
 	CServersList::iterator it = szServers.find( szServer );
@@ -103,17 +93,14 @@ void CInterfaceMPAddressBook::AddServer( const std::string &szServer )
 		CheckEnableButtons();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPAddressBook::Done()
 {
 	CInterfaceMultiplayerScreen::Done();
 	SaveServersList();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::string CInterfaceMPAddressBook::GetServer()
 {
 	IUIListControl *pList = checked_cast<IUIListControl*>( pUIScreen->GetChildByID( E_LIST ) );
-	// all must work
 	const int nSelItem = pList->GetSelectionItem();
 	if ( -1 != nSelItem )
 	{
@@ -124,7 +111,6 @@ std::string CInterfaceMPAddressBook::GetServer()
 
 	return "";
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPAddressBook::OnGetFocus( bool bFocus )
 {
 	CInterfaceScreenBase::OnGetFocus( bFocus );
@@ -135,7 +121,6 @@ void CInterfaceMPAddressBook::OnGetFocus( bool bFocus )
 		DeleteServer();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMPAddressBook::ProcessMPCommand( const SToUICommand &cmd )
 {
 	if ( pDialogWaitForConnection && CMPConnectionError::DisplayError( cmd.eCommandID ) )
@@ -146,7 +131,6 @@ bool CInterfaceMPAddressBook::ProcessMPCommand( const SToUICommand &cmd )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMPAddressBook::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceMultiplayerScreen::ProcessMessage( msg ) )
@@ -206,7 +190,6 @@ bool CInterfaceMPAddressBook::ProcessMessage( const SGameMessage &msg )
 		}
 		else
 		{
-			// close whole interface
 			FinishInterface( MISSION_COMMAND_MAIN_MENU, NStr::Format( "%d", CInterfaceMainMenu::E_MULTIPLAYER ) );
 			GetSingleton<IMainLoop>()->Command( MAIN_COMMAND_CHANGE_TRANSCEIVER, NStr::Format("%d 0", MAIN_SP_TRANSCEIVER) );
 		}
@@ -241,7 +224,6 @@ bool CInterfaceMPAddressBook::ProcessMessage( const SGameMessage &msg )
 		break;
 
 	case UI_NOTIFY_SELECTION_CHANGED:
-		// enable /disable buttons
 		CheckEnableButtons();
 
 		break;
@@ -251,7 +233,6 @@ bool CInterfaceMPAddressBook::ProcessMessage( const SGameMessage &msg )
 	
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPAddressBook::CheckEnableButtons()
 {
 	IUIListControl *pList = checked_cast<IUIListControl*>( pUIScreen->GetChildByID( E_LIST ) );
@@ -263,7 +244,6 @@ void CInterfaceMPAddressBook::CheckEnableButtons()
 	if ( pEl )
 		pEl->EnableWindow( nIndex != -1 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMPAddressBook::Init()
 {
 	CInterfaceMultiplayerScreen::Init();
@@ -271,7 +251,6 @@ bool CInterfaceMPAddressBook::Init()
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMPAddressBook::StartInterface()
 {
 	CInterfaceScreenBase::StartInterface();
@@ -288,4 +267,3 @@ void CInterfaceMPAddressBook::StartInterface()
 	pCommandManager->AddNotificationFromUI( notify );
 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

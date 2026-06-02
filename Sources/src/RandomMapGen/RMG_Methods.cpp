@@ -11,7 +11,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMLevelVSOParameter::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -26,7 +25,6 @@ int SRMLevelVSOParameter::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMLevelVSOParameter::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -41,7 +39,6 @@ int SRMLevelVSOParameter::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMPatch::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -53,7 +50,6 @@ int SRMPatch::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMPatch::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -65,7 +61,6 @@ int SRMPatch::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMContainer::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -89,7 +84,6 @@ int SRMContainer::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMContainer::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -133,7 +127,6 @@ int SRMContainer::GetIndices( int nDirection, const std::string &rszPlace, std::
 	return nIndicesCount;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMContainer::GetSupportedSettings( std::list<std::string> *pSupportedSettingsList ) const
 {
 	NI_ASSERT_TF( pSupportedSettingsList != 0,
@@ -200,7 +193,6 @@ int SRMContainer::GetSupportedSettings( std::list<std::string> *pSupportedSettin
 	return nSupportedSettings;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SRMContainer::IsSupportedSetting( const std::string &rszSettingName ) const
 {
 	std::vector<int> availiableIndices;
@@ -210,7 +202,6 @@ bool SRMContainer::IsSupportedSetting( const std::string &rszSettingName ) const
 					 ( GetIndices( ANGLE_270, rszSettingName, &availiableIndices ) > 0 ) );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMGraphNode::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -221,7 +212,6 @@ int SRMGraphNode::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMGraphNode::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -232,7 +222,6 @@ int SRMGraphNode::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMGraphLink::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -249,7 +238,6 @@ int SRMGraphLink::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMGraphLink::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -266,7 +254,6 @@ int SRMGraphLink::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMGraph::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -287,7 +274,6 @@ int SRMGraph::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMGraph::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -308,7 +294,6 @@ int SRMGraph::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMGraph::GetSupportedSettings( std::list<std::string> *pSupportedSettingsList ) const
 {
 	NI_ASSERT_TF( pSupportedSettingsList != 0,
@@ -381,7 +366,6 @@ int SRMGraph::GetSupportedSettings( std::list<std::string> *pSupportedSettingsLi
 	return nSupportedSettings;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SRMGraph::IsSupportedSetting( const std::string &rszSettingName ) const
 {
 	int nNodesCount = 0;
@@ -401,7 +385,6 @@ bool SRMGraph::IsSupportedSetting( const std::string &rszSettingName ) const
 	return ( nNodesCount > 0 );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMObjectSetShell::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -414,7 +397,6 @@ int SRMObjectSetShell::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMObjectSetShell::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -427,7 +409,6 @@ int SRMObjectSetShell::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMTileSetShell::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -438,7 +419,6 @@ int SRMTileSetShell::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMTileSetShell::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -449,7 +429,6 @@ int SRMTileSetShell::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMFieldSet::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -466,7 +445,6 @@ int SRMFieldSet::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMFieldSet::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -505,7 +483,6 @@ void SRMFieldSet::ValidateFieldSet( const STilesetDesc &rTilesetDesc, int nDefau
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMVSODesc::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -517,7 +494,6 @@ int SRMVSODesc::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMVSODesc::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -529,7 +505,6 @@ int SRMVSODesc::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SRMTemplate::FillDefaultDiplomacies()
 {
 	if ( diplomacies.empty() )
@@ -544,7 +519,6 @@ void SRMTemplate::FillDefaultDiplomacies()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMTemplate::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -585,7 +559,6 @@ int SRMTemplate::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMTemplate::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -626,7 +599,6 @@ int SRMTemplate::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMTemplate::GetSupportedSettings( std::list<std::string> *pSupportedSettingsList ) const
 {
 	NI_ASSERT_TF( pSupportedSettingsList != 0,
@@ -702,7 +674,6 @@ int SRMTemplate::GetSupportedSettings( std::list<std::string> *pSupportedSetting
 	return nSupportedSettings;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SRMTemplate::IsSupportedSetting( const std::string &rszSettingName ) const
 {
 	int nGraphsCount = 0;
@@ -725,7 +696,6 @@ bool SRMTemplate::IsSupportedSetting( const std::string &rszSettingName ) const
 	return ( nGraphsCount > 0 );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMFieldGraph::SPatch::FillBoundingPolygon( const CTRect<int> &rBoundingRect )
 {
 	boundingRect = rBoundingRect;
@@ -736,7 +706,6 @@ void CRMFieldGraph::SPatch::FillBoundingPolygon( const CTRect<int> &rBoundingRec
 	boundingPolygon[3] = CVec2( boundingRect.maxx * fWorldCellSize, boundingRect.miny * fWorldCellSize );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMFieldGraph::AddPatch(  const CTRect<int> &rBoundingRect )
 {
 	patches.push_back( SPatch() );
@@ -749,7 +718,6 @@ void CRMFieldGraph::AddPatch(  const CTRect<int> &rBoundingRect )
 	patches.back().marckedVertices[3] = false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMFieldGraph::AddLine( const std::list<CVec2> &rPoints, int nID )
 {
 	lines.push_back( SLine() );
@@ -765,7 +733,6 @@ void CRMFieldGraph::AddLine( const std::list<CVec2> &rPoints, int nID )
 	lines.back().end.nLineIndex = -1;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRMFieldGraph::ConnectLineToPatch( int nPatchIndex, int nLineIndex, bool bBegin )
 {
 	SPatch &rPatch = patches[nPatchIndex];
@@ -782,26 +749,10 @@ bool CRMFieldGraph::ConnectLineToPatch( int nPatchIndex, int nLineIndex, bool bB
 		vLinePoint = rLine.points.back();
 	}
 
-	//���������� ������� � ������� ����� ����� ����� ��������
-	//������� ������ �.� ������� ����� ���������� ������������ �����
-	//
-	// 1               2
-	//  *-------------*
-	//  |\     1     /|
-	//  |  \       /  |
-	//  |   vCenter   |
-	//  |0     *      |2
-	//  |    /   \    |
-	//  |  /       \  |
-	//  |/     3     \|
-	//  *-------------*
-	// 0               3
-	// 
 	int nSideIndex = 0;
 	const CVec2 vLocalPoint = vLinePoint - ( ( rPatch.boundingPolygon[0] + rPatch.boundingPolygon[2] ) / 2.0f );
 	if ( vLocalPoint.x > vLocalPoint.y )
 	{
-		//2 ��� 3
 		if ( ( vLocalPoint.x * ( -1 ) ) > vLocalPoint.y )
 		{
 			nSideIndex = 3;
@@ -813,7 +764,6 @@ bool CRMFieldGraph::ConnectLineToPatch( int nPatchIndex, int nLineIndex, bool bB
 	}
 	else
 	{
-		//0 ��� 1
 		if ( ( vLocalPoint.x * ( -1 ) ) < vLocalPoint.y )
 		{
 			nSideIndex = 1;
@@ -824,7 +774,6 @@ bool CRMFieldGraph::ConnectLineToPatch( int nPatchIndex, int nLineIndex, bool bB
 		}
 	}
 
-	//���������� ������� ���� ���������� ��������� ������
 	int nSideLineIndex = 0;
 	for ( ; nSideLineIndex < rPatch.linesIndices[nSideIndex].size(); ++nSideLineIndex )
 	{
@@ -869,7 +818,6 @@ bool CRMFieldGraph::ConnectLineToPatch( int nPatchIndex, int nLineIndex, bool bB
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CRMFieldGraph::IndexLines()
 {
 	int nElements = 0;
@@ -877,20 +825,17 @@ int CRMFieldGraph::IndexLines()
 	{
 		for ( int nSideIndex = 0; nSideIndex < 4; ++nSideIndex )
 		{
-			//patches[nPatchIndex].marckedVertices[nSideIndex] = false;
 			for ( int nLineIndex = 0; nLineIndex < patches[nPatchIndex].linesIndices[nSideIndex].size(); ++nLineIndex )
 			{
 				++nElements;
 				SLine &rLine = lines[patches[nPatchIndex].linesIndices[nSideIndex][nLineIndex]];
 				if ( rLine.begin.nPatchIndex == nPatchIndex )
 				{
-					//NStr::DebugTrace("patch %d, side %d, begin line %d\n", nPatchIndex, nSideIndex, patches[nPatchIndex].linesIndices[nSideIndex][nLineIndex] );
 					rLine.begin.nSideIndex = nSideIndex;
 					rLine.begin.nLineIndex = nLineIndex;
 				}
 				else if ( rLine.end.nPatchIndex == nPatchIndex )
 				{
-					//NStr::DebugTrace("patch %d, side %d, end line %d\n", nPatchIndex, nSideIndex, patches[nPatchIndex].linesIndices[nSideIndex][nLineIndex] );
 					rLine.end.nSideIndex = nSideIndex;
 					rLine.end.nLineIndex = nLineIndex;
 				}
@@ -905,16 +850,13 @@ int CRMFieldGraph::IndexLines()
 	return ( ( nElements / 2 ) +  ( patches.size() * 8 ) );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMFieldGraph::AddBorderLines( const CTRect<int> &rBoundingRect )
 {
-	//�������� ������ ������ �� ����� �����
 	bool bNeedBoundingPolygon = true;
 	std::vector<std::vector<int> > borderPatchesInidces;
 	borderPatchesInidces.resize( 4 );
 	for ( int nPatchIndex = 0; nPatchIndex < patches.size(); ++nPatchIndex )
 	{
-		//��������� ����� ����� ������������ ���������� ��������
 		std::vector<bool> sides;
 		sides.resize( 4 );
 		sides[0] = ( patches[nPatchIndex].boundingRect.minx == rBoundingRect.minx );
@@ -961,7 +903,6 @@ void CRMFieldGraph::AddBorderLines( const CTRect<int> &rBoundingRect )
 		}
 	}
 	
-	//������ ����� ����� ��� ������
 	std::vector<CVec2> boundingPolygon;
 	boundingPolygon.resize( 4 );
 	boundingPolygon[0] = CVec2( rBoundingRect.minx * fWorldCellSize, rBoundingRect.miny * fWorldCellSize );
@@ -969,7 +910,6 @@ void CRMFieldGraph::AddBorderLines( const CTRect<int> &rBoundingRect )
 	boundingPolygon[2] = CVec2( rBoundingRect.maxx * fWorldCellSize, rBoundingRect.maxy * fWorldCellSize );
 	boundingPolygon[3] = CVec2( rBoundingRect.maxx * fWorldCellSize, rBoundingRect.miny * fWorldCellSize );
 
-	//��������� ����� �����
 	for ( int nSideIndex = 0; nSideIndex < 4; ++nSideIndex )
 	{
 		for ( int nSidePatchIndex = 0; nSidePatchIndex < borderPatchesInidces[nSideIndex].size(); ++nSidePatchIndex )
@@ -995,7 +935,6 @@ void CRMFieldGraph::AddBorderLines( const CTRect<int> &rBoundingRect )
 				{
 					SPatch &rPatch = patches[ borderPatchesInidces[nSideIndex][nSidePatchIndex] ];
 					rPatch.marckedVertices[nNextSideIndex] = true;
-					//NStr::DebugTrace( "Patch %d, vertex %d, marked\n", borderPatchesInidces[nSideIndex][nSidePatchIndex], nNextSideIndex );
 				}
 				else
 				{
@@ -1032,11 +971,9 @@ void CRMFieldGraph::AddBorderLines( const CTRect<int> &rBoundingRect )
 		{
 			inclusivePolygons.back().push_back( *vertexIterator );
 		}
-		//NStr::DebugTrace( "Inclusive boundingPolygon\n" );
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMFieldGraph::UnmarkAllVertices()
 {
 	for ( int nPatchIndex = 0; nPatchIndex < patches.size(); ++nPatchIndex )
@@ -1048,7 +985,6 @@ void CRMFieldGraph::UnmarkAllVertices()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRMFieldGraph::FindUnmarkedVertex( int *pPatchIndex, int *pVertexIndex )
 {
 	for ( int nPatchIndex = 0; nPatchIndex < patches.size(); ++nPatchIndex )
@@ -1066,10 +1002,8 @@ bool CRMFieldGraph::FindUnmarkedVertex( int *pPatchIndex, int *pVertexIndex )
 	return false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRMFieldGraph::GetPolygonAndMarkVertices( int nBeginPatchIndex, int nBeginVertexIndex, std::list<CVec2> *pPolygon, int nMaximumIterations )
 {
-	//������ �������
 	SCaret currentCaret;
 	currentCaret.nPatchIndex = nBeginPatchIndex;
 	currentCaret.nSideIndex = nBeginVertexIndex;
@@ -1126,29 +1060,21 @@ bool CRMFieldGraph::GetPolygonAndMarkVertices( int nBeginPatchIndex, int nBeginV
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRMFieldGraph::FindPolygons( const CTRect<int> &rBoundingRect )
 {
-	//�������� ��������
 	inclusivePolygons.clear();
 	exclusivePolygons.clear();
 	
 	UnmarkAllVertices();
 
-	//������� ������� ����� �� ���� �����
-	//���� �� �������� �� ������ �����
-	//�� � �������� �������� ������� ���� ����� inclusivePolygon
 	AddBorderLines( rBoundingRect );
 	
-	//���������� � ����������� �����
 	int nMaximumIterations = IndexLines();
 	
 	int nPatchIndex = 0;
 	int nVertexIndex =0;
-	//���� �� ���������� ���� �����
 	while( FindUnmarkedVertex( &nPatchIndex, &nVertexIndex ) )
 	{
-		//�������� ������� � ����� ���� ������, ������� �� ����������
 		std::list<CVec2> newPolygon;
 		if ( !GetPolygonAndMarkVertices( nPatchIndex, nVertexIndex, &newPolygon, nMaximumIterations ) )
 		{
@@ -1156,25 +1082,21 @@ bool CRMFieldGraph::FindPolygons( const CTRect<int> &rBoundingRect )
 		}
 		UniquePolygon<std::list<CVec2>, CVec2>( &newPolygon, RMGC_MINIMAL_VIS_POINT_DISTANCE );
 		
-		//���������� ����������� ����� �����
 		const CVec2 vCenterPoint = ( ( patches[nPatchIndex].boundingPolygon[0] + patches[nPatchIndex].boundingPolygon[2] ) / 2.0f );
 		EClassifyPolygon classifyPolygon = ClassifyPolygon( newPolygon, vCenterPoint );
 		
 		if ( classifyPolygon == CP_OUTSIDE )
 		{
 			inclusivePolygons.push_back( newPolygon );
-			//NStr::DebugTrace( "Inclusive %d %d\n", nEmptyPatchIndex, nEmptyVertexIndex );
 		}
 		else
 		{
 			exclusivePolygons.push_back( newPolygon );
-			//NStr::DebugTrace( "exclusive %d %d\n", nEmptyPatchIndex, nEmptyVertexIndex );
 		}
 	}
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMTemplateUnitsTable::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -1186,7 +1108,6 @@ int SRMTemplateUnitsTable::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMTemplateUnitsTable::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -1243,7 +1164,6 @@ int SRMTemplateUnitsTable::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMContext::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -1253,7 +1173,6 @@ int SRMContext::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMContext::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -1263,7 +1182,6 @@ int SRMContext::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SRMContext::IsValid( int nLevelsCount, int nPlayersCount )
 {
 	bool bValid = true;
@@ -1273,7 +1191,6 @@ bool SRMContext::IsValid( int nLevelsCount, int nPlayersCount )
 		return false;
 	}
 
-	//��������� ���������� �������� ���������
 	if ( ( levels.size() <= 0 ) || ( levels.size() < nLevelsCount ) )
 	{
 		NI_ASSERT_T( 0, NStr::Format( "SRMSetting::IsValid, invalid levels count: %d (%d). Press \"Continue\" for further information.",
@@ -1284,10 +1201,8 @@ bool SRMContext::IsValid( int nLevelsCount, int nPlayersCount )
 	
 	for ( int nLevelIndex = 0; nLevelIndex < levels.size(); ++nLevelIndex )
 	{
-		//����� ������� ��� ��������������� ���������
 		const SRMTemplateUnitsTable &rTemplateUnitsTable = levels[nLevelIndex];
 	
-		//��������� ���������� �������
 		if ( ( rTemplateUnitsTable.unitCreationInfo.units.size() <= 0 ) || ( rTemplateUnitsTable.unitCreationInfo.units.size() < nPlayersCount ) )
 		{
 			NI_ASSERT_T( 0, NStr::Format( "SRMSetting::IsValid, level: %d, invalid players count in Unit Creation: %d (%d). Press \"Continue\" for further information.",
@@ -1307,10 +1222,7 @@ bool SRMContext::IsValid( int nLevelsCount, int nPlayersCount )
 		
 		for ( int nPlayerIndex = 0; nPlayerIndex < rTemplateUnitsTable.unitPlaceHolders.size(); ++nPlayerIndex )
 		{
-			//��������� UnitCreationInfo;
-			//const SUnitCreation &rUnitCreation = rTemplateUnitsTable.unitCreationInfo.units[nPlayerIndex];
 			
-			//��������� ������� ������
 			int nUnitsTableEntriesCount = 0;
 			for ( CRMUnitsPlaceHoldersHashMap::const_iterator unitsIterator = rTemplateUnitsTable.unitPlaceHolders[nPlayerIndex].begin(); unitsIterator != rTemplateUnitsTable.unitPlaceHolders[nPlayerIndex].end(); ++unitsIterator )
 			{
@@ -1400,7 +1312,6 @@ bool SRMContext::IsValid( int nLevelsCount, int nPlayersCount )
 			}
 		}
 		
-		//��������� ������:
 		if ( rTemplateUnitsTable.bonuses.size() <= 0 )
 		{
 			NI_ASSERT_T( 0, NStr::Format( "SRMSetting::IsValid, level: %d, no bonuses: %d. Press \"Continue\" for further information.",
@@ -1440,7 +1351,6 @@ bool SRMContext::IsValid( int nLevelsCount, int nPlayersCount )
 	
 	return bValid;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMSetting::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -1450,7 +1360,6 @@ int SRMSetting::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMSetting::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -1460,7 +1369,6 @@ int SRMSetting::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const std::string SRMTemplateUnitsTable::GetRandomBonus() const
 {
 	if ( bonuses.empty() ) 
@@ -1475,4 +1383,3 @@ const std::string SRMTemplateUnitsTable::GetRandomBonus() const
 	}
 	return vw.GetRandom( false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

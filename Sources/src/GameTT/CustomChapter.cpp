@@ -5,17 +5,13 @@
 #include "CommonId.h"
 #include "CustomChapter.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceCustomChapter::~CInterfaceCustomChapter()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceCustomChapter::Init()
 {
-	//инициализируем имена
 	fileMasks.clear();
 	fileMasks.push_back( "*.xml" );
-	//	szTopDir = std::string( GetSingleton<IDataStorage>()->GetName() );
 	szTopDir = "";
 	szTopDir += "scenarios\\custom\\chapters\\";
 	szCurrentDir = szTopDir;
@@ -23,12 +19,9 @@ bool CInterfaceCustomChapter::Init()
 	nSortType = E_SORT_BY_NAME;
 	bStorageFiles = true;
 	szCollectorName = "custom_chapters";
-	//
 	CInterfaceCustomList::Init();
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceCustomChapter::FillListItem( IUIListRow *pRow, const std::string &szFullFileName, bool *pSelectedItem )
 {
 	std::string szChapterName = szFullFileName.substr( 0, szFullFileName.rfind('.') );
@@ -59,7 +52,6 @@ bool CInterfaceCustomChapter::FillListItem( IUIListRow *pRow, const std::string 
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceCustomChapter::OnOk( const std::string &szFullFileName )
 {
 	std::string szBase = GetSingleton<IDataStorage>()->GetName();
@@ -85,7 +77,5 @@ bool CInterfaceCustomChapter::OnOk( const std::string &szFullFileName )
 												MISSION_COMMAND_CHAPTER,
 												0 ) );
 	
-	//FinishInterface( MISSION_COMMAND_CHAPTER, 0 );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

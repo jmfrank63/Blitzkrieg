@@ -19,13 +19,11 @@
 #include "PlayerScenarioInfo.h"
 #include "ScenarioStatistics.h"
 #include "ScenarioTracker2Internal.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMainObjectFactory theMainObjectFactory;
 IObjectFactory* STDCALL GetMainObjectFactory()
 {
 	return &theMainObjectFactory;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMainObjectFactory::CMainObjectFactory()
 {
 	REGISTER_CLASS( this, MAIN_SP_TRANSCEIVER, CSinglePlayerTransceiver );
@@ -57,7 +55,6 @@ CMainObjectFactory::CMainObjectFactory()
 	REGISTER_CLASS( this, TEXT_MANAGER, CTextManager );
 	REGISTER_CLASS( this, TEXT_STRING, CTextString );
 	REGISTER_CLASS( this, TEXT_DIALOG, CTextDialog );
-	//
 	REGISTER_CLASS( this, MAIN_SCENARIO_TRACKER, CScenarioTracker2 );
 	REGISTER_CLASS( this, MAIN_USER_PROFILE, CUserProfile );
 	REGISTER_CLASS( this, MAIN_SCENARIO_UNIT, CScenarioUnit );
@@ -80,4 +77,3 @@ CMainObjectFactory::CMainObjectFactory()
 	
 	REGISTER_CLASS( this, MAIN_AUTOMAGIC, CRPGStatsAutomagic );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

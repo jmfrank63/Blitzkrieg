@@ -53,7 +53,6 @@ using namespace STLPORT_RELOPS;
 
 # else /* _STLP_BROKEN_USING_DIRECTIVE */
 
-// Names from stl_function.h
 using _STLP_STD::unary_function; 
 using _STLP_STD::binary_function; 
 using _STLP_STD::plus; 
@@ -121,6 +120,3 @@ using _STLP_STD::mem_fun1_ref;
 
 #endif /* _STLP_FUNCTION_H */
 
-// Local Variables:
-// mode:C++
-// End:

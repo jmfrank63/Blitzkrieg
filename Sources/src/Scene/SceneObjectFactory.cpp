@@ -27,9 +27,7 @@
 #include "SmokinParticleSourceData.h"
 #include "TerrainInternal.h"
 #include "GammaEffect.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static CSceneObjectFactory theSceneObjectFactory;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSceneObjectFactory::CSceneObjectFactory()
 {
 	REGISTER_CLASS( this, SCENE_SCENE, CScene );
@@ -59,12 +57,10 @@ CSceneObjectFactory::CSceneObjectFactory()
 	REGISTER_CLASS( this, SCENE_SOUNDSCENE_SUBSTSOUND, CSoundScene::CSubstSound );
 	REGISTER_CLASS( this, SCENE_SOUNDSCENE_PLAYLIST, CSoundScene::CPlayList );
 	REGISTER_CLASS( this, SCENE_SOUNDSCENE_SOUNDCELL, CSoundScene::CSoundCell );
-	//
 	REGISTER_CLASS( this, SCENE_VIDEO_PLAYER, CBinkVideoPlayer );
 	REGISTER_CLASS( this, SCENE_TRANSITION, CTransition );
 	REGISTER_CLASS( this, SCENE_GAMMA_EFFECT, CGammaEffect );
 	REGISTER_CLASS( this, SCENE_GAMMA_FADER, CGammaFader );
-	//
 	REGISTER_CLASS( this, PFX_MANAGER, CParticleDataManager );
 	REGISTER_CLASS( this, PFX_KEYBASED, CKeyBasedParticleSource );
 	REGISTER_CLASS( this, PFX_KEYDATA, SParticleSourceData );
@@ -73,10 +69,8 @@ CSceneObjectFactory::CSceneObjectFactory()
 
 	REGISTER_CLASS( this, TERRAIN_TERRAIN, CTerrain );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static SModuleDescriptor theModuleDescriptor( "Scene", SCENE_SCENE, 0x0100, &theSceneObjectFactory, 0 );
 const SModuleDescriptor* STDCALL GetModuleDescriptor()
 {
 	return &theModuleDescriptor;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

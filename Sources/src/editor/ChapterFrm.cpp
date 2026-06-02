@@ -32,24 +32,18 @@ static const float zeroShiftY = 15.4f;
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CChapterFrame
 
 IMPLEMENT_DYNCREATE(CChapterFrame, CImageFrame)
 
 BEGIN_MESSAGE_MAP(CChapterFrame, CImageFrame)
-	//{{AFX_MSG_MAP(CChapterFrame)
 	ON_WM_CREATE()
 	ON_WM_LBUTTONDOWN()
 	ON_WM_LBUTTONUP()
 	ON_WM_MOUSEMOVE()
 	ON_COMMAND(ID_SHOW_CROSSES, OnShowCrosses)
 	ON_UPDATE_COMMAND_UI(ID_SHOW_CROSSES, OnUpdateShowCrosses)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////
-// CChapterFrame construction/destruction
 
 CChapterFrame::CChapterFrame()
 {
@@ -81,8 +75,6 @@ int CChapterFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// CChapterFrame message handlers
 
 void CChapterFrame::FillRPGStats( SChapterStats &rpgStats, CTreeItem *pRootItem, const char *pszProjectName )
 {
@@ -218,8 +210,6 @@ void CChapterFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 	
 	if ( szProjectFileName.size() > 0 )
 	{
-		//загрузим и отобразим картинку на экране
-		//Скомпонуем спрайт в editor temp dir
 		CChapterCommonPropsItem *pCommonProps = static_cast<CChapterCommonPropsItem *> ( pRootItem->GetChildItem( E_CHAPTER_COMMON_PROPS_ITEM ) );
 		std::string szMapFileName, szTemp;
 		szTemp = pCommonProps->GetMapImage();
@@ -234,7 +224,6 @@ bool CChapterFrame::ExportFrameData( IDataTree *pDT, const char *pszProjectName,
 	NI_ASSERT( pRootItem != 0 );
 	NI_ASSERT( pRootItem->GetItemType() == E_CHAPTER_ROOT_ITEM );
 	{
-		//validation
 		CChapterCommonPropsItem *pCommonProps = static_cast<CChapterCommonPropsItem *> ( pRootItem->GetChildItem( E_CHAPTER_COMMON_PROPS_ITEM ) );
 		std::string szErrorMsg;
 		std::string szTemp;
@@ -291,7 +280,6 @@ bool CChapterFrame::ExportFrameData( IDataTree *pDT, const char *pszProjectName,
 	szPrefix = szAddDir + szPrevExportFileName.substr( 0, szPrevExportFileName.rfind('\\') + 1 );
 	SaveRPGStats( pDT, pRootItem, pszProjectName );
 	
-	//Скопирую все данные в экспорт директорию
 	szPrefix = theApp.GetDestDir() + szPrefix;
 	CChapterCommonPropsItem *pCommonProps = static_cast<CChapterCommonPropsItem *> ( pRootItem->GetChildItem( E_CHAPTER_COMMON_PROPS_ITEM ) );
 	std::string szTemp, szSource, szResult, szDir;
@@ -327,7 +315,6 @@ bool CChapterFrame::ExportFrameData( IDataTree *pDT, const char *pszProjectName,
 	if ( szTemp.length() > 0 )
 	{
 		szTemp += ".tga";
-		//Надо скомпоновать картинку, чтобы она загружалась из текстуры
 		MakeFullPath( szDir.c_str(), szTemp.c_str(), szSource );
 		szResult = szPrefix + pCommonProps->GetMapImage();
 		if ( !ComposeImageToTexture( szSource.c_str(), szResult.c_str() ) )
@@ -364,7 +351,6 @@ bool CChapterFrame::ExportFrameData( IDataTree *pDT, const char *pszProjectName,
 	}
 	
 /*
-	//копирую все mission bonus файлы
 	CTreeItem *pMissions = pRootItem->GetChildItem( E_CHAPTER_MISSIONS_ITEM );
 	for ( CTreeItem::CTreeItemList::const_iterator it=pMissions->GetBegin(); it!=pMissions->GetEnd(); ++it )
 	{
@@ -608,7 +594,6 @@ void CChapterFrame::OnLButtonDown(UINT nFlags, CPoint point)
 
 	if ( bEditCrosses )
 	{
-		//проверим, вдруг некий крест надо сделать активным
 		FindActiveCross( point );
 	}
 	else

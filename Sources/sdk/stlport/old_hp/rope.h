@@ -45,6 +45,3 @@ using STLPORT::wrope;
 
 #endif /* _STLP_ROPE_H */
 
-// Local Variables:
-// mode:C++
-// End:

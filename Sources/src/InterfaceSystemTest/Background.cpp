@@ -1,22 +1,10 @@
-// Background.cpp: implementation of the CBackgroundPlainTexture class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include "Background.h"
 
 #include "..\Scene\Scene.h"
-//////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS(IBackground)
-//////////////////////////////////////////////////////////////////////
-// CBackgroundPlainTexture
-//////////////////////////////////////////////////////////////////////
 IMPLEMENT_CLONABLE(CBackgroundPlainTexture)
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
-//CBackground
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
 int CBackground::operator&( interface IDataTree &ss ) 
 { 
 	CTreeAccessor saver = &ss;
@@ -31,7 +19,6 @@ int CBackground::operator&( interface IDataTree &ss )
 		pTexture = GetSingleton<ITextureManager>()->GetTexture( szTextureName.c_str() );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////
 void CBackground::SetPos( const CVec2 &vPos, const CVec2 &vSize )
 {
 	pos.left = vPos.x;
@@ -39,20 +26,12 @@ void CBackground::SetPos( const CVec2 &vPos, const CVec2 &vSize )
 	pos.bottom = vPos.y + vSize.y;
 	pos.right = vPos.x + vSize.x;
 }
-//////////////////////////////////////////////////////////////////////
 int CBackground::operator&( interface IStructureSaver &ss )
 {
-		//CRAP{ TO DO
 	NI_ASSERT_T( FALSE, "NEED IMPLEMENT" );
 	return 0;
-	//CRAP}
 
 }
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
-//CBackgroundPlainTexture
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
 int CBackgroundPlainTexture::operator&( interface IDataTree &ss ) 
 { 
 	CTreeAccessor saver = &ss;
@@ -60,21 +39,16 @@ int CBackgroundPlainTexture::operator&( interface IDataTree &ss )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////
 int CBackgroundPlainTexture::operator&( interface IStructureSaver &ss )
 {
-		//CRAP{ TO DO
 	NI_ASSERT_T( FALSE, "NEED IMPLEMENT" );
 	return 0;
-	//CRAP}
 
 }
-//////////////////////////////////////////////////////////////////////
 CBackgroundPlainTexture::CBackgroundPlainTexture()
 {
 
 }
-//////////////////////////////////////////////////////////////////////
 void CBackgroundPlainTexture::Visit( interface ISceneVisitor * pVisitor )
 {
 	SGFXRect2 *pRects = GetTempBuffer<SGFXRect2>( 1 );
@@ -91,13 +65,7 @@ void CBackgroundPlainTexture::Visit( interface ISceneVisitor * pVisitor )
 
 	pVisitor->VisitUIRects( pTexture, 3, pRects, 1 );
 }
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
-// CBackgroundTiledTexture
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
 IMPLEMENT_CLONABLE(CBackgroundTiledTexture)
-//////////////////////////////////////////////////////////////////////
 int CBackgroundTiledTexture::SSubRect::operator&( interface IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -106,7 +74,6 @@ int CBackgroundTiledTexture::SSubRect::operator&( interface IDataTree &ss )
 	saver.Add( "rotation", &nRotate );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////
 int CBackgroundTiledTexture::operator&( interface IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -126,7 +93,6 @@ int CBackgroundTiledTexture::operator&( interface IDataTree &ss )
 	
 	if ( saver.IsReading() )
 	{
-	//CRAP{ FOR A7 COMPATIBILITY
 		InitTiles( &rLT );
 		InitTiles( &rRT );
 		InitTiles( &rLB );
@@ -138,12 +104,10 @@ int CBackgroundTiledTexture::operator&( interface IDataTree &ss )
 		InitTiles( &rR );
 		
 		InitTiles( &rF );
-	//CRAP}
 		InitBorderAndFill();
 	}	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////
 void CBackgroundTiledTexture::DivideSubrects( const SSubRect &in, std::vector<SGFXRect2> *pArr )
 {
 	SGFXRect2 sub;
@@ -188,47 +152,24 @@ void CBackgroundTiledTexture::DivideSubrects( const SSubRect &in, std::vector<SG
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////
 #define _X(v) CTPoint<float>(v.vSize.x,0)
 #define _Y(v) CTPoint<float>(0,v.vSize.y)
-//////////////////////////////////////////////////////////////////////
 void CBackgroundTiledTexture::InitBorderAndFill()
 {
 	SGFXRect2 *pRects = GetTempBuffer<SGFXRect2>( 9 );
 	
-	// corner elements
-		// LT
 	rLT.rect.Set( pos.GetLeftTop(), pos.GetLeftTop() + rLT.vSize );
-	//pRects[0].maps = rLT.maps;
-	  //RT
 	rRT.rect.Set( pos.GetRightTop() - _X(rRT), pos.GetRightTop() + _Y(rRT) );
-	//pRects[1].maps = rRT.maps;
-	  //LB
 	rLB.rect.Set( pos.GetLeftBottom() - _Y(rLB), pos.GetLeftBottom() + _X(rLB) );
-	//pRects[2].maps = rLB.maps;
-		//RB
 	rRB.rect.Set( pos.GetRightBottom() - rRB.vSize, pos.GetRightBottom() );
-	//pRects[3].maps = rRB.maps;
 
-	// border elements
-		//T
 	rT.rect.Set( pos.GetLeftTop() + _X(rLT), pos.GetRightTop() - _X(rRT) + _Y(rRT) );
-	//pRects[4].maps = rT.maps;
-		//B
 	rB.rect.Set( pos.GetLeftBottom() + _X(rLB) - _Y(rLB), pos.GetRightBottom() - _X(rRB) );
-	//pRects[5].maps = rB.maps;
-		//L
 	rL.rect.Set( pos.GetLeftTop() + _Y(rRT), pos.GetLeftBottom() - _Y(rLB) + _X(rLB) );
-	//pRects[6].maps = rL.maps;
-		//R
 	rR.rect.Set( pos.GetRightTop() + _Y(rRT) - _X(rRT), pos.GetRightBottom() - _Y(rRB) );
-	//pRects[7].maps = rR.maps;
 
-	// inner element
 	rF.rect.Set( pos.GetLeftTop() + rLT.vSize, pos.GetRightBottom() - rRT.vSize );
-	//pRects[8].maps = rF.maps;
 }
-//////////////////////////////////////////////////////////////////////
 void CBackgroundTiledTexture::InitTiles( SSubRect *pSub )
 {
 	float fSizeX = pTexture->GetSizeX( 0 );
@@ -242,15 +183,11 @@ void CBackgroundTiledTexture::InitTiles( SSubRect *pSub )
 
 	pSub->maps = maps;
 }
-//////////////////////////////////////////////////////////////////////
 void CBackgroundTiledTexture::SetPos( const CVec2 &vPos, const CVec2 &vSize )
 {
 	CBackground::SetPos( vPos, vSize );
 	InitBorderAndFill();
-	// recalc rects
 	rects.clear();
-	// reserve needed size at the beginning.
-	//rects.reserve( p
 
 	DivideSubrects( rLT, &rects );
 	DivideSubrects( rT, &rects );
@@ -263,26 +200,18 @@ void CBackgroundTiledTexture::SetPos( const CVec2 &vPos, const CVec2 &vSize )
 	DivideSubrects( rB, &rects );
 	DivideSubrects( rRB, &rects );
 }
-//////////////////////////////////////////////////////////////////////
 void CBackgroundTiledTexture::Visit( interface ISceneVisitor * pVisitor )
 {
 	if ( !rects.empty() )
 	{
-		//SGFXRect2 *pRects = GetTempBuffer<SGFXRect2>( pRects );
-		//memcpy( pRects, &rects[0], sizeof(SGFXRect2)*9 );
 		pVisitor->VisitUIRects( pTexture, 3, &rects[0], rects.size() );
 	}
 }
-//////////////////////////////////////////////////////////////////////
 int CBackgroundTiledTexture::operator&( interface IStructureSaver &ss )
 {
-		//CRAP{ TO DO
 	NI_ASSERT_T( FALSE, "NEED IMPLEMENT" );
 	return 0;
-	//CRAP}
 }
-//////////////////////////////////////////////////////////////////////
 CBackgroundTiledTexture::CBackgroundTiledTexture()
 {
 }
-//////////////////////////////////////////////////////////////////////

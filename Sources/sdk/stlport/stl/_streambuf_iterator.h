@@ -35,7 +35,6 @@ _STLP_BEGIN_NAMESPACE
 template <class _CharT, class _Traits>
 basic_streambuf<_CharT, _Traits>* _STLP_CALL _M_get_ostreambuf(basic_ostream<_CharT, _Traits>& ) ;
 
-// The default template argument is declared in iosfwd
 template<class _CharT, class _Traits>
 class ostreambuf_iterator
 {
@@ -77,7 +76,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_STREAMBUF_ITERATOR_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

@@ -1,8 +1,6 @@
 #ifndef __BASE_PATH_UNIT_H__
 #define __BASE_PATH_UNIT_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IBasePathUnit
 {
 	DECLARE_SERIALIZE;
@@ -22,9 +20,7 @@ public:
 	virtual const float GetSpeedForFollowing();
 	virtual const float GetMaxPossibleSpeed() const = 0;
 	virtual const float GetPassability() const = 0;
-	// может ли двигаться с точки зрения игровой логики
 	virtual bool CanMove() const = 0;
-	// может ли двигаться с точки зрения pathfinding
 	virtual bool CanMovePathfinding() const = 0;
 	virtual bool CanRotate() const { return true; }
 	virtual const CVec2& GetSpeed() const = 0;
@@ -52,10 +48,8 @@ public:
 	
 	virtual interface IStaticPathFinder* GetPathFinder() const = 0;
 	virtual interface ISmoothPath* GetCurPath() const = 0;
-	// возвращает - поехал или нет
 	virtual bool SendAlongPath( interface IStaticPath *pStaticPath, const CVec2 &vShift, bool bSmoothTurn = true ) = 0;
 	virtual bool SendAlongPath( interface IPath *pPath ) = 0;
-	// можно ли повернуться к направлению wNewDir, если нет - то попытаться проинициализировать путём в точку, где разворот возможен
 	virtual bool CheckToTurn( const WORD wNewDir ) = 0;
 
 	virtual void LockTiles( bool bUpdate = true ) = 0;
@@ -84,7 +78,6 @@ public:
 	virtual void AdjustWithDesirableSpeed( float *pfMaxSpeed ) const = 0;
 	
 	virtual const int CanGoBackward() const = 0;
-	// bRemoveLockedByUnitTiles - нужно ли разлокать тайлы под юнитом
 	bool IsOnLockedTiles( const struct SRect &rect );
 	
 	virtual bool IsLockingTiles() const = 0;
@@ -93,19 +86,15 @@ public:
 	virtual bool CanRotateTo( SRect smallRect, const CVec2 &vNewDir, bool bWithUnits, bool bCanGoBackward = true ) const { return true; }
 	virtual IStaticPath* CreateBigStaticPath( const CVec2 &vStartPoint, const CVec2 &vFinishPoint, interface IPointChecking *pPointChecking ) = 0;
 	
-	// для поездов - принадлежат ли оба юнита одному поезду
 	virtual bool IsInOneTrain( interface IBasePathUnit *pUnit ) const = 0;
 	virtual bool IsTrain() const = 0;
 	
-	// юнит не смог найти пути до своей формации
 	void CantFindPathToFormation();
 	const NTimer::STime& GetTimeToNextSearchPathToFormation() const { return nextTimeToSearchPathToFormation; }
 	
-	// последний тайл, на котором стояли, и который не был залокан
 	virtual const SVector GetLastKnownGoodTile() const = 0;
 
 	virtual bool IsDangerousDirExist() const = 0;
 	virtual const WORD GetDangerousDir() const = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __BASE_PATH_UNIT_H__

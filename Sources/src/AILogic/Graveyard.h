@@ -1,14 +1,10 @@
 #ifndef __GRAVEYARD_H__
 #define __GRAVEYARD_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "LinkObject.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAIUnit;
 class CCommonUnit;
 interface IUpdatableObj;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SKilledUnit
 { 
 	DECLARE_SERIALIZE;
@@ -17,11 +13,8 @@ public:
 	NTimer::STime endFogTime; 
 	NTimer::STime endSceneTime;
 	NTimer::STime timeToEndDieAnimation;
-	// ������� ���, ��� ������
 	bool bSentDead;
-	// ���������� �������� ������ � ��������������������� endSceneTime � endFogTime
 	bool bAnimFinished;
-	//
 	bool bDisappearUpdateSent;
 	
 	bool bFatality;						// ������ �� ��������
@@ -34,7 +27,6 @@ public:
 	SKilledUnit( CAIUnit *_pUnit, const NTimer::STime _timeToEndDieAnimation ) : pUnit( _pUnit ), timeToEndDieAnimation( _timeToEndDieAnimation ), endFogTime( 0 ), endSceneTime( 0 ), bSentDead( false ), bAnimFinished( false ), actionTime( 0 ), bFatality( false ), bDisappearUpdateSent( false ), bFogDeleted( false ) {}
 	SKilledUnit( CAIUnit *_pUnit, const NTimer::STime _timeToEndDieAnimation, const NTimer::STime _endSceneTime, const NTimer::STime _endFogTime ) : pUnit( _pUnit ), timeToEndDieAnimation( _timeToEndDieAnimation ), endSceneTime( _endSceneTime ), endFogTime( _endFogTime ), bSentDead( false ), bAnimFinished( false ), actionTime( 0 ), bFatality( false ), bDisappearUpdateSent( false ), bFogDeleted( false ) {}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CDeadUnit : public CLinkObject
 {
 	OBJECT_COMPLETE_METHODS( CDeadUnit );
@@ -60,7 +52,6 @@ public:
 
 	virtual IUpdatableObj* GetDieObject() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGraveyard
 {
 	DECLARE_SERIALIZE;
@@ -73,7 +64,6 @@ class CGraveyard
 	std::unordered_set<IUpdatableObj*, SDefaultPtrHash> bridgeSoldiersSet;
 	CBridgeDeadSoldiers bridgeDeadSoldiers;
 
-	//
 	void CheckSoonBeDead();
 public:
 	void Segment();
@@ -93,5 +83,4 @@ public:
 
 	void Clear();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __GRAVEYARD_H__

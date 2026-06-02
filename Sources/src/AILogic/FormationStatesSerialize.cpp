@@ -2,7 +2,6 @@
 
 #include "FormationStates.h"
 #include "SerializeOwner.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationRestState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -12,7 +11,6 @@ int CFormationRestState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationMoveToState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -24,7 +22,6 @@ int CFormationMoveToState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationEnterBuildingState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -36,7 +33,6 @@ int CFormationEnterBuildingState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationEnterEntrenchmentState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -47,7 +43,6 @@ int CFormationEnterEntrenchmentState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationIdleBuildingState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -57,7 +52,6 @@ int CFormationIdleBuildingState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationIdleEntrenchmentState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -67,7 +61,6 @@ int CFormationIdleEntrenchmentState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationLeaveBuildingState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -78,7 +71,6 @@ int CFormationLeaveBuildingState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationLeaveEntrenchmentState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -89,7 +81,6 @@ int CFormationLeaveEntrenchmentState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationPlaceMine::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -102,7 +93,6 @@ int CFormationPlaceMine::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationClearMine::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -113,7 +103,6 @@ int CFormationClearMine::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationAttackUnitState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -126,7 +115,6 @@ int CFormationAttackUnitState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationAttackCommonStatObjState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -137,7 +125,6 @@ int CFormationAttackCommonStatObjState::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationRotateState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -146,7 +133,6 @@ int CFormationRotateState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationEnterTransportState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -160,7 +146,6 @@ int CFormationEnterTransportState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationIdleTransportState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -170,7 +155,6 @@ int CFormationIdleTransportState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationEnterTransportByCheatPathState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -179,7 +163,6 @@ int CFormationEnterTransportByCheatPathState::operator&( IStructureSaver &ss )
 	saver.Add( 3, &pTransport );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationEnterTransportNowState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -189,7 +172,6 @@ int CFormationEnterTransportNowState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationServeUnitState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -200,7 +182,6 @@ int CFormationServeUnitState::operator&( IStructureSaver &ss )
 	saver.Add( 7, &pPreferredUnit );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationRepairUnitState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -215,7 +196,6 @@ int CFormationRepairUnitState::operator&( IStructureSaver &ss )
 	saver.Add( 9, &bNearTruck );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationResupplyUnitState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -230,7 +210,6 @@ int CFormationResupplyUnitState::operator&( IStructureSaver &ss )
 	saver.Add( 9, &bNearTruck );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationLoadRuState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -240,7 +219,6 @@ int CFormationLoadRuState::operator&( IStructureSaver &ss )
 	saver.Add( 4, &nEntrance );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationCatchTransportState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -252,7 +230,6 @@ int CFormationCatchTransportState::operator&( IStructureSaver &ss )
 	saver.Add( 6, &eState );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationPlaceAntitankState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -268,7 +245,6 @@ int CFormationPlaceAntitankState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationBuildLongObjectState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -282,7 +258,6 @@ int CFormationBuildLongObjectState::operator&( IStructureSaver &ss )
 	saver.Add( 10, &pHomeTransport );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationParaDropState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -290,7 +265,6 @@ int CFormationParaDropState::operator&( IStructureSaver &ss )
 	saver.Add( 3, &eState );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationUseSpyglassState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -298,7 +272,6 @@ int CFormationUseSpyglassState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationAttackFormationState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -310,7 +283,6 @@ int CFormationAttackFormationState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationInstallMortarState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -320,7 +292,6 @@ int CFormationInstallMortarState::operator&( IStructureSaver &ss )
 	saver.Add( 4, &nStage );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationGunCrewState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -352,7 +323,6 @@ int CFormationGunCrewState::operator&( IStructureSaver &ss )
 	saver.Add( 24, &vGunPos );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationCaptureArtilleryState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -363,7 +333,6 @@ int CFormationCaptureArtilleryState::operator&( IStructureSaver &ss )
 	saver.Add( 9, &usedSoldiers );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationParadeState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -373,7 +342,6 @@ int CFormationParadeState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationDisbandState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -382,7 +350,6 @@ int CFormationDisbandState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationFormState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -391,7 +358,6 @@ int CFormationFormState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationWaitToFormState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -404,7 +370,6 @@ int CFormationWaitToFormState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CCatchFormationState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -418,7 +383,6 @@ int CCatchFormationState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationSwarmState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -431,7 +395,6 @@ int CFormationSwarmState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationRepairBridgeState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -447,7 +410,6 @@ int CFormationRepairBridgeState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationRepairBuildingState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -463,7 +425,6 @@ int CFormationRepairBuildingState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationEnterBuildingNowState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -472,7 +433,6 @@ int CFormationEnterBuildingNowState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormationEnterEntrenchmentNowState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -481,4 +441,3 @@ int CFormationEnterEntrenchmentNowState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

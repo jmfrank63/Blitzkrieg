@@ -1,12 +1,9 @@
 #ifndef __IM_TOTAL_ENCYCLOPEDIA_H__
 #define __IM_TOTAL_ENCYCLOPEDIA_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "InterMission.h"
 #include "iMission.h"
 #include "..\Main\RPGStats.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInterfaceUnitsEncyclopediaBase
 {
 	int nViewUnitsType;			// index in array unitsArray
@@ -30,11 +27,9 @@ protected:
 	void SetViewIndex( const int nViewIndex ) { nViewUnitsType = nViewIndex; }
 public:
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInterfaceTotalEncyclopedia : public CInterfaceInterMission, protected CInterfaceUnitsEncyclopediaBase
 {
 	OBJECT_NORMAL_METHODS( CInterfaceTotalEncyclopedia );
-	// input
 	enum
 	{
 		ALLIES,
@@ -45,9 +40,7 @@ class CInterfaceTotalEncyclopedia : public CInterfaceInterMission, protected CIn
 
 	bool bFinished;
 	NInput::CCommandRegistrator commandMsgs;
-	//
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
-	// disable explicit destruction
 	virtual ~CInterfaceTotalEncyclopedia();
 	CInterfaceTotalEncyclopedia() : CInterfaceInterMission( "InterMission" ), CInterfaceUnitsEncyclopediaBase( 3 ), bFinished( false ) { }
 	
@@ -57,23 +50,19 @@ public:
 	virtual bool STDCALL Init();
 	virtual void STDCALL StartInterface();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CICTotalEncyclopedia : public CInterfaceCommandBase<CInterfaceTotalEncyclopedia, MISSION_INTERFACE_TOTAL_ENCYCLOPEDIA>
 {
 	OBJECT_NORMAL_METHODS( CICTotalEncyclopedia );
 	
 	virtual void PreCreate( IMainLoop *pML ) {  }
 	virtual void PostCreate( IMainLoop *pML, CInterfaceTotalEncyclopedia *pITE );
-	//
 	CICTotalEncyclopedia() {  }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInterfaceWarehouse : public CInterfaceInterMission, protected CInterfaceUnitsEncyclopediaBase
 {
 	OBJECT_NORMAL_METHODS( CInterfaceWarehouse );
 	NInput::CCommandRegistrator commandMsgs;
 public:
-	// single unit info
 	class CUnitInfoItem : public IRefCount
 	{
 		OBJECT_NORMAL_METHODS( CUnitInfoItem );
@@ -87,9 +76,7 @@ public:
 		CUnitInfoItem( const int nCommanderName, const std::string &szRPGStats, const int nWindowID );
 		bool IsEmpty() const { return !pSBItem; }
 		void Init( IUIDialog *pSBItem, IObjectsDB *pIDB );
-		// set all SBItem information
 		void ApplyRPGStats( const std::string &szNewStats, IObjectsDB *pIDB );
-		// send current RPG stats to player profile
 		void PerformUpgrade();
 		void EnableWindow( const bool bEnable );
 		bool OnHelpCalled( const SGameMessage &msg, std::string *pHelp );
@@ -98,7 +85,6 @@ public:
 		const char *GetRPGStats() const { return szCurrentRPGStats.c_str(); }
 	};
 	
-	// unit's class info
 	class CUnitClassInfo :public IRefCount
 	{
 		OBJECT_NORMAL_METHODS( CUnitClassInfo );
@@ -110,7 +96,6 @@ public:
 		void Init( IUIShortcutBar *pSB, const int nSBIndex, const EUnitRPGClass eType, IObjectsDB *pIDB );
 		bool IsEmpty() const { return units.empty(); }
 		void Expand( IUIShortcutBar *pSB, const bool bExpand, const bool bDisableCollapsed, const bool bNotify );
-		// return true if there is item with this window id
 		bool OnSelectionChanged(  IUIShortcutBar *pSB );
 		const int GetID() const { return nSBIndex; }
 		void SelectFirstItem( IUIShortcutBar *pSB ) const;
@@ -120,7 +105,6 @@ public:
 		const char *GetRPGStats( const int nIndex );
 	};
 
-	// common pane
 	class CUnitsPane
 	{
 		int nSelectedBar;
@@ -140,14 +124,12 @@ public:
 		CUnitsPane() : nExpandedNumber( -1 ), nSelectedBar( -1 ), bExpanded( false ) {  }
 		void Init( IUIShortcutBar *_pSB, int *pWindowIDs, IObjectsDB * pDB );
 		bool OnHelpCalled( const SGameMessage &msg, std::string *pHelp );
-		// return RPG stats of currently selected unit or 0 if no selected unit
 		const char * GetCurrentUnit();
 		bool OnSelectionChanged( int *pNewType );
 		void ExpandClass( const EUnitRPGClass eType );
 		void ExpandIndex( const int nTypeIndex );
 	};
 
-	// container for player's units
 	class CPlayerUnitsPane : public CUnitsPane
 	{
 	protected:
@@ -161,7 +143,6 @@ public:
 		int ApplyUpgrades();
 	};
 
-	// container for Depot units
 	class CDepotUnitsPane : public CUnitsPane
 	{
 	protected:
@@ -178,7 +159,6 @@ private:
 	CDepotUnitsPane depotPane;
 
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
-	// disable explicit destruction
 	virtual ~CInterfaceWarehouse();
 	CInterfaceWarehouse () : CInterfaceInterMission( "InterMission" ), CInterfaceUnitsEncyclopediaBase( 2 ) {  }
 	void EnableButton( const int nButtonID, const bool bEnable ) const;
@@ -187,15 +167,12 @@ public:
 	virtual bool STDCALL Init();
 	virtual void STDCALL StartInterface();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CICWarehouse : public CInterfaceCommandBase<CInterfaceWarehouse, MISSION_INTERFACE_WAREHOUSE>
 {
 	OBJECT_NORMAL_METHODS( CICWarehouse );
 	
 	virtual void PreCreate( IMainLoop *pML ) { }
 	virtual void PostCreate( IMainLoop *pML, CInterfaceWarehouse *pITE ) { pML->PushInterface( pITE ); }
-	//
 	CICWarehouse() {  }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif		//__IM_TOTAL_ENCYCLOPEDIA_H__

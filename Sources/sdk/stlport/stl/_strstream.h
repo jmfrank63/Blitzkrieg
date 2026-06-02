@@ -18,9 +18,6 @@ _STLP_BEGIN_NAMESPACE
 # define strstreambuf _STLP_strstreambuf
 #endif
 
-//----------------------------------------------------------------------
-// Class strstreambuf, a streambuf class that manages an array of char.
-// Note that this class is not a template.
 
 class _STLP_CLASS_DECLSPEC strstreambuf : public basic_streambuf<char, char_traits<char> >
 {
@@ -62,11 +59,9 @@ protected:                      // Overridden virtual member functions.
                                       = ios_base::in | ios_base::out);
 
 private:                        // Helper functions.
-  // Dynamic allocation, possibly using _M_alloc_fun and _M_free_fun.
   char* _M_alloc(size_t);
   void  _M_free(char*);
 
-  // Helper function used in constructors.
   void _M_setup(char* __get, char* __put, streamsize __n);
 private:                        // Data members.
   __alloc_fn _M_alloc_fun;
@@ -76,8 +71,6 @@ private:                        // Data members.
   bool _M_constant : 1;
 };
 
-//----------------------------------------------------------------------
-// Class istrstream, an istream that manages a strstreambuf.
 
 class _STLP_CLASS_DECLSPEC istrstream : public basic_istream<char, char_traits<char> >
 {
@@ -95,8 +88,6 @@ private:
   strstreambuf _M_buf;
 };
 
-//----------------------------------------------------------------------
-// Class ostrstream
 
 class _STLP_CLASS_DECLSPEC ostrstream : public basic_ostream<char, char_traits<char> >
 {
@@ -114,8 +105,6 @@ private:
   strstreambuf _M_buf;
 };
 
-//----------------------------------------------------------------------
-// Class strstream
 
 class _STLP_CLASS_DECLSPEC strstream : public basic_iostream<char, char_traits<char> >
 {

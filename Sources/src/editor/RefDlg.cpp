@@ -1,8 +1,5 @@
-// RefDlg.cpp : implementation file
-//
 
 #include "stdafx.h"
-//#include "..\\StreamIO\\StreamIO.h"
 
 #include "editor.h"
 #include "RefDlg.h"
@@ -17,8 +14,6 @@ static char THIS_FILE[] = __FILE__;
 #endif
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CReferenceDialog dialog
 
 
 CReferenceDialog::CReferenceDialog(CWnd* pParent /*=NULL*/)
@@ -26,39 +21,27 @@ CReferenceDialog::CReferenceDialog(CWnd* pParent /*=NULL*/)
 {
 	nReferenceType = E_CRATER_REF;
 
-	//{{AFX_DATA_INIT(CReferenceDialog)
 	m_refVal = _T("");
-	//}}AFX_DATA_INIT
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CReferenceDialog::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
-	//{{AFX_DATA_MAP(CReferenceDialog)
 	DDX_Control(pDX, IDC_REFERENCE_LIST, m_refList);
 	DDX_LBString(pDX, IDC_REFERENCE_LIST, m_refVal);
-	//}}AFX_DATA_MAP
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CReferenceDialog, CDialog)
-	//{{AFX_MSG_MAP(CReferenceDialog)
 	ON_LBN_DBLCLK(IDC_REFERENCE_LIST, OnDblclkReferenceList)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CReferenceDialog::Init( int nRefId )
 {
 	nReferenceType = (EReferenceType) nRefId;
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 string CReferenceDialog::GetValue()
 {
 	string szResult = (const char *) m_refVal;
 	return szResult;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// CReferenceDialog message handlers
 
 BOOL CReferenceDialog::PreTranslateMessage(MSG* pMsg) 
 {
@@ -67,7 +50,6 @@ BOOL CReferenceDialog::PreTranslateMessage(MSG* pMsg)
 	
 	return CDialog::PreTranslateMessage(pMsg);
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CReferenceDialog::OnInitDialog() 
 {
 	CDialog::OnInitDialog();
@@ -80,14 +62,11 @@ BOOL CReferenceDialog::OnInitDialog()
 	m_refList.SetCurSel( 0 );
 
 	return TRUE;  // return TRUE unless you set the focus to a control
-	              // EXCEPTION: OCX Property Pages should return FALSE
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CReferenceDialog::OnDblclkReferenceList() 
 {
 	CDialog::OnOK();
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CReferenceDialog::InitLists()
 {
 	spritesList.clear();
@@ -182,36 +161,30 @@ void CReferenceDialog::InitLists()
 			soldiersList.push_back( pDesc->szKey.c_str() );
 	}
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CReferenceDialog::CheckParentDir( const std::string &szDir, const std::string &szPath )
 {
 	return szPath.substr( 0, szDir.length() ) == szDir;
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CReferenceDialog::CheckExtention( const std::string &szExt, const std::string &szPath )
 {
 	int nExtLen = szExt.length();
 	return szPath.substr( szPath.length() - nExtLen, nExtLen ) == szExt;
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::string CReferenceDialog::StripFilename( const std::string &szDir, const std::string &szExt, const std::string &szPath )
 {
 	return szPath.substr( 0, szPath.length() - szExt.length() ).substr( szDir.length() );
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CReferenceDialog::FillFromList( const std::list<std::string> &entries )
 {
 	for ( std::list<std::string>::const_iterator it = entries.begin(); it != entries.end(); ++it )
 		m_refList.AddString( it->c_str() );
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CReferenceDialog::CheckedAdd( const std::list<std::string> &entries, const std::string &szRef )
 {
 	for ( std::list<std::string>::const_iterator it = entries.begin(); it != entries.end(); ++it )
 		if ( *it == szRef ) return;
 	m_refList.AddString( szRef.c_str() );
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CReferenceDialog::LoadItems( EReferenceType eType )
 {
 	std::vector<std::string> files;
@@ -366,7 +339,6 @@ void CReferenceDialog::LoadItems( EReferenceType eType )
 			break;
 	}
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const std::string CReferenceDialog::szSpritesDir = "effects\\sprites\\";
 const std::string CReferenceDialog::szParticlesDir = "effects\\particles\\";
 const std::string CReferenceDialog::szEffectsDir = "effects\\effects\\";
@@ -407,4 +379,3 @@ std::list<std::string> CReferenceDialog::movieList;
 std::list<std::string> CReferenceDialog::particleTextureList;
 std::list<std::string> CReferenceDialog::roadTextureList;
 std::list<std::string> CReferenceDialog::waterTextureList;
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

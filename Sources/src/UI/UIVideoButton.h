@@ -1,10 +1,8 @@
 #ifndef __UIVIDEO_BUTTON_H__
 #define __UIVIDEO_BUTTON_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "UIBasic.h"
 #include "..\Scene\Scene.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIVideoButton : public CSimpleWindow
 {
 	DECLARE_SERIALIZE;
@@ -16,7 +14,6 @@ class CUIVideoButton : public CSimpleWindow
 public:
 	CUIVideoButton() {  }
 
-	// serializing...
 	virtual int STDCALL operator&( IDataTree &ss );
 
 	virtual void STDCALL Draw( IGFX *pGFX );
@@ -28,7 +25,6 @@ public:
 	virtual int STDCALL GetCurrentFrame();
 	virtual bool STDCALL SetCurrentFrame( int nFrame );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIVideoButtonBridge : public IUIVideoButton, public CUIVideoButton
 {
 	OBJECT_NORMAL_METHODS( CUIVideoButtonBridge );
@@ -38,6 +34,5 @@ class CUIVideoButtonBridge : public IUIVideoButton, public CUIVideoButton
 	virtual int STDCALL GetCurrentFrame() { return CSuper::GetCurrentFrame(); }
 	virtual bool STDCALL SetCurrentFrame( int nFrame ) { return CSuper::SetCurrentFrame( nFrame ); }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #endif // __UIVIDEO_BUTTON_H__

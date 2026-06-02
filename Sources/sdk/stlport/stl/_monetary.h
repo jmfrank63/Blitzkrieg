@@ -15,9 +15,6 @@
  * modified is included with the above copyright notice.
  *
  */ 
-// WARNING: This is an internal header file, included by other C++
-// standard library headers.  You should not attempt to use this header
-// file directly.
 
 
 #ifndef _STLP_INTERNAL_MONETARY_H
@@ -45,10 +42,8 @@ public:
   };
 };
 
-// moneypunct facets: forward declaration
 template <class _charT, __DFL_NON_TYPE_PARAM(bool, _International, false) > class moneypunct {};
 
-// money_get facets
 
 template <class _CharT, __DFL_TMPL_PARAM(_InputIter , istreambuf_iterator<_CharT>) >
 class money_get : public locale::facet 
@@ -86,7 +81,6 @@ protected:
 };
 
 
-// moneypunct facets: definition of specializations
 
 _STLP_TEMPLATE_NULL
 class _STLP_CLASS_DECLSPEC moneypunct<char, true> : public locale::facet, public money_base 
@@ -377,10 +371,8 @@ protected:
 };
 # endif
 
-//===== methods ======
 
 
-// money_put facets
 
 template <class _CharT, __DFL_TMPL_PARAM( _OutputIter , ostreambuf_iterator<_CharT>) >
 class money_put : public locale::facet {
@@ -423,13 +415,9 @@ protected:
 # if defined (_STLP_USE_TEMPLATE_EXPORT)
 _STLP_EXPORT_TEMPLATE_CLASS money_get<char, istreambuf_iterator<char, char_traits<char> > >;
 _STLP_EXPORT_TEMPLATE_CLASS money_put<char, ostreambuf_iterator<char, char_traits<char> > >;
-// _STLP_EXPORT_TEMPLATE_CLASS money_get<char, const char* >;
-// _STLP_EXPORT_TEMPLATE_CLASS money_put<char, char* >;
 #  if ! defined (_STLP_NO_WCHAR_T)
 _STLP_EXPORT_TEMPLATE_CLASS money_get<wchar_t, istreambuf_iterator<wchar_t, char_traits<wchar_t> > >;
 _STLP_EXPORT_TEMPLATE_CLASS money_put<wchar_t, ostreambuf_iterator<wchar_t, char_traits<wchar_t> > >;
-// _STLP_EXPORT_TEMPLATE_CLASS money_get<wchar_t, const wchar_t* >;
-// _STLP_EXPORT_TEMPLATE_CLASS money_put<wchar_t, wchar_t* >;
 #  endif
 # endif /* _STLP_USE_TEMPLATE_EXPORT */
 
@@ -456,8 +444,5 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_MONETARY_H */
 
-// Local Variables:
-// mode:C++
-// End:
 
 

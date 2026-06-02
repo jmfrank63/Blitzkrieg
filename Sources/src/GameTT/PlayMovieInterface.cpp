@@ -4,15 +4,6 @@
 
 #include "iMission.h"
 #include "..\Misc\HPTimer.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** play movie interface command
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CICPlayMovie::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -21,33 +12,27 @@ int CICPlayMovie::operator&( IStructureSaver &ss )
 	saver.Add( 3, &szNextICConfig );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICPlayMovie::Configure( const char *pszConfig )
 {
 	if ( !pszConfig ) return;
 	std::vector<std::string> szStrings;
 	NStr::SplitString( pszConfig, szStrings, ';' );
-	// movie sequence name
 	if ( szStrings.size() >= 1 ) 
 		szSequenceName = szStrings[0];
-	// next interface type ID
 	if ( szStrings.size() >= 2 ) 
 		nNextICTypeID = NStr::ToInt( szStrings[1] );
 	else
 		nNextICTypeID = 0;
-	// next interface configuration
 	if ( szStrings.size() >= 3 ) 
 	{
 		for ( int i = 2; i < szStrings.size(); ++i )
 			szNextICConfig += szStrings[i] + ";";
-		//
 		if ( !szNextICConfig.empty() ) 
 			szNextICConfig.resize( szNextICConfig.size() - 1 );
 	}
 	else
 		szNextICConfig.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICPlayMovie::PostCreate( IMainLoop *pML, CPlayMovieInterface *pInterface ) 
 { 
 	if ( GetGlobalVar("novideo", 0) != 0 )
@@ -66,15 +51,6 @@ void CICPlayMovie::PostCreate( IMainLoop *pML, CPlayMovieInterface *pInterface )
 		pML->PushInterface( pInterface ); 
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** play movie interface
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry movieCommands[] = 
 {
 	{ "movie_skip_sequence"	,	MC_MOVIE_SKIP_SEQUENCE	},
@@ -82,18 +58,15 @@ static const NInput::SRegisterCommandEntry movieCommands[] =
 	{ "movie_skip_frame"		, MC_MOVIE_SKIP_FRAME			},
 	{ 0											,	0												}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CPlayMovieInterface::CPlayMovieInterface()
 : CInterfaceScreenBase( "InterMission" )
 {
 	nCurrMovie = -1;
 	nNextInterfaceCommandTypeID = -1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CPlayMovieInterface::~CPlayMovieInterface()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPlayMovieInterface::LoadMovieSequence( const std::string &szFileName )
 {
 	movies.clear();
@@ -102,25 +75,21 @@ void CPlayMovieInterface::LoadMovieSequence( const std::string &szFileName )
 		nCurrMovie = 1000000000;
 		return;
 	}
-	//
 	if ( CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream(szFileName.c_str(), STREAM_ACCESS_READ) )
 	{
 		CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::READ );
 		saver.Add( "Movies", &movies );
-		//
 		const std::string szBaseDirName = GetSingleton<IDataStorage>()->GetName();
 		for ( std::vector<SMovie>::iterator it = movies.begin(); it != movies.end(); ++it )
 			it->szFileName = szBaseDirName + it->szFileName;
 	}
 	nCurrMovie = movies.empty() ? -1 : 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPlayMovieInterface::SetNextInterface( const int nTypeID, const std::string &szConfig )
 {
 	nNextInterfaceCommandTypeID = nTypeID;
 	szNextInterfaceCommandConfig = szConfig;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPlayMovieInterface::Init()
 {
 	CInterfaceScreenBase::Init();
@@ -128,18 +97,15 @@ bool CPlayMovieInterface::Init()
 	SetBindSection( "play_movies" );
 	GetSingleton<ICursor>()->Show( false );
 	pScene->RemoveSceneObject( 0 );
-	// turn haze off
 	while ( pScene->ToggleShow(SCENE_SHOW_HAZE) != false );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPlayMovieInterface::Done() 
 {
 	CInterfaceScreenBase::Done();
 	pScene->RemoveSceneObject( pPlayer );
 	GetSingleton<ICursor>()->Show( true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPlayMovieInterface::ProcessMessage( const SGameMessage &msg )
 {
 	switch ( msg.nEventID ) 
@@ -161,7 +127,6 @@ bool CPlayMovieInterface::ProcessMessage( const SGameMessage &msg )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPlayMovieInterface::Step( bool bAppActive )
 {
 	CInterfaceScreenBase::Step( bAppActive );
@@ -178,7 +143,6 @@ void CPlayMovieInterface::Step( bool bAppActive )
 	else if ( PlayMovie() == false ) 
 		StartNextInterface();								// exit this screen...
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPlayMovieInterface::StartNextInterface()
 {
 	if ( nNextInterfaceCommandTypeID != 0 ) 
@@ -186,12 +150,10 @@ void CPlayMovieInterface::StartNextInterface()
 	else
 		GetSingleton<IMainLoop>()->Command( MAIN_COMMAND_EXIT_GAME, 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPlayMovieInterface::PlayMovie()
 {
 	if ( (nCurrMovie < 0) || (nCurrMovie >= movies.size()) )
 		return false;
-	//
 	pPlayer = CreateObject<IVideoPlayer>( SCENE_VIDEO_PLAYER );
 	const CTRect<long> rcScreen = pGFX->GetScreenRect();
 	pPlayer->SetDstRect( rcScreen, true );
@@ -208,15 +170,12 @@ bool CPlayMovieInterface::PlayMovie()
 	pScene->AddSceneObject( pPlayer );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPlayMovieInterface::OnGetFocus( bool bFocus )
 {
 	CInterfaceScreenBase::OnGetFocus( bFocus );
-	//
 	if ( bFocus ) 
 		SuspendAILogic( true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlayMovieInterface::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -226,4 +185,3 @@ int CPlayMovieInterface::operator&( IStructureSaver &ss )
 	saver.Add( 4, &pPlayer );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

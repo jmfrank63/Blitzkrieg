@@ -9,10 +9,8 @@
 
 CManuverBuilder theManuverBuilder;
 static const std::string szFileName = "PlaneManuvers.xml";
-/////////////////////////////////////////////////////////////////////////////
 std::vector<int> CManuverBuilder::suitableIndeces;
 CManuverStateDescriptor CManuverBuilder::state;
-/////////////////////////////////////////////////////////////////////////////
 int CManuverDescriptor::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -23,11 +21,6 @@ int CManuverDescriptor::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
-//	CManuverStateDescriptor
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
 void CManuverStateDescriptor::Init( const enum EPlanesAttitude _att, interface IPlane *pPos, interface IPlane *pEnemy )
 {
 	att = _att;
@@ -56,25 +49,16 @@ void CManuverStateDescriptor::Init( const enum EPlanesAttitude _att, interface I
 	parameters[EPID_SELF_SPEED] = ( fabs( vSpeed1 ) - pref1.GetStallSpeed() ) / pref1.GetMaxSpeed();
 	parameters[EPID_ENEMY_SPEED] = ( fabs( vSpeed2 ) - pref2.GetStallSpeed() ) / pref2.GetMaxSpeed();
 }
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
-//	CManuverBuilder
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
 #define STRING_ENUM_ADD(TypeConverter,eEnum) TypeConverter[#eEnum] = eEnum;
-/////////////////////////////////////////////////////////////////////////////
 void CManuverBuilder::Init()
 {
 	std::unordered_map<std::string,int> loadHelper;
-	// manuver ID
 	STRING_ENUM_ADD( loadHelper, EMID_GENERIC )
 	STRING_ENUM_ADD( loadHelper, EMID_STEEPCLIMB )
 
-	// point ID
 	STRING_ENUM_ADD( loadHelper, EMD_PREDICTED_POINT )
 	STRING_ENUM_ADD( loadHelper, EMD_MANUVER_DEPENDENT )
 
-	// attitude
 	STRING_ENUM_ADD( loadHelper, EPA_ATTACK )
 	STRING_ENUM_ADD( loadHelper, EPA_RETREAT )
 	
@@ -94,8 +78,6 @@ void CManuverBuilder::Init()
 	tree.Add( "Manuvers", &forLoad );
 	*/
 
-	// load manuver's descriptions.
-	//descriptors
 	std::vector<SManuverDescriptorForLoad> forLoad;
 	CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( szFileName.c_str(), STREAM_ACCESS_READ );
 	NI_ASSERT_T( pStream != 0, NStr::Format( "can't open file \"%s\"", szFileName.c_str() ) );
@@ -120,7 +102,6 @@ void CManuverBuilder::Init()
 	suitableIndeces.reserve( nDescs );
 
 }
-/////////////////////////////////////////////////////////////////////////////
 const CManuverDescriptor *CManuverBuilder::Choose( const CManuverStateDescriptor &current ) const
 {
 	CManuvers::const_iterator manuverIter = manuvers.find( current.GetAtt() );
@@ -139,20 +120,15 @@ const CManuverDescriptor *CManuverBuilder::Choose( const CManuverStateDescriptor
 	}
 	if ( !suitableIndeces.empty() )
 	{
-		//CRAP{ TO DO
-		// choose manuver by random
-		//CRAP}
 		return &descriptors[*suitableIndeces.begin()];
 	}
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////
 interface IManuver * CManuverBuilder::CreateDefaultManuver( const enum EPlanesAttitude att, interface IPlane *pPos, interface IPlane *pEnemy ) const
 {
 	if ( EPA_RETREAT == att )
 	{
-		// horisontal manuver in random direction
 		const CVec3 vSpeed( pPos->GetSpeedB2() );
 		const float fSpeed( fabs( vSpeed ) );
 		CVec3 vPerp ( -vSpeed.y, vSpeed.x, 0 );
@@ -164,26 +140,22 @@ interface IManuver * CManuverBuilder::CreateDefaultManuver( const enum EPlanesAt
 	}
 	else
 	{
-		// aim to predicted point
 		return CreatePointManuver( pPos, CManuver::CalcPredictedPoint( pPos, pEnemy ) );
 	}
 }
 	
-/////////////////////////////////////////////////////////////////////////////
 interface IManuver* CManuverBuilder::CreatePointManuver ( interface IPlane *pPos, const CVec3 &vPoint ) const
 {
 	CManuverGeneric *pHor = new CManuverGeneric;
 	pHor->Init( pPos, vPoint );
 	return pHor;
 }
-/////////////////////////////////////////////////////////////////////////////
 EPlanesAttitude CManuverBuilder::GetAttitude( interface IPlane *pPlane, interface IPlane *pEnemy ) const
 { 
 	if ( pPlane->IsBeingAttackedB2()  )
 		return EPA_RETREAT;
 	return EPA_ATTACK;
 }
-/////////////////////////////////////////////////////////////////////////////
 interface IManuver* CManuverBuilder::CreateManuver ( interface IPlane *pPos, interface IPlane *pEnemy ) const
 {
 	EPlanesAttitude att = GetAttitude( pPos, pEnemy );
@@ -192,7 +164,6 @@ interface IManuver* CManuverBuilder::CreateManuver ( interface IPlane *pPos, int
 	const CManuverDescriptor *pDesc = Choose( state );
 	if ( pDesc )
 	{
-		// create manuver according to descriptor and return
 		IManuver * pManuver = CreateObject<IManuver>( pDesc->GetManuverID() );
 		pManuver->Init( pDesc->GetDestination(), pPos, pEnemy );
 		return pManuver;

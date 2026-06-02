@@ -1,7 +1,6 @@
 #include "StdAfx.h"
 
 #include "ImageBMP.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EBitmapCompression
 {
  BC_RGB       = 0,
@@ -9,7 +8,6 @@ enum EBitmapCompression
  BC_RLE4      = 2,
  BC_BITFIELDS = 3
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline long GetShort( int nOffset, BYTE *pBuff )
 {
 	return *reinterpret_cast<short*>( pBuff + nOffset );
@@ -26,7 +24,6 @@ inline long GetDWord( int nOffset, BYTE *pBuff )
 {
 	return *reinterpret_cast<DWORD*>( pBuff + nOffset );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool NImage::RecognizeFormatBMP( IDataStream *pStream )
 {
 	char signature[2];
@@ -36,14 +33,12 @@ bool NImage::RecognizeFormatBMP( IDataStream *pStream )
 		return false;
 	return (signature[0] == 'B') && (signature[1] == 'M');
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CImage* NImage::LoadImageBMP( IDataStream *pStream )
 {
 	int i;
 	long nFileStart = pStream->GetPos();
 	BYTE header[54];
 	pStream->Read( header, 54 );
-	// read all necessary data
 	DWORD dwFileSize = GetDWord( 2, header );
 	DWORD dwOffset = GetDWord( 10, header );
 	WORD wNumPlanes = GetWord( 26, header );
@@ -53,15 +48,11 @@ CImage* NImage::LoadImageBMP( IDataStream *pStream )
 	DWORD dwWidth = GetDWord( 18, header );
 	DWORD dwHeight = GetDWord( 22, header );
 	std::vector<DWORD> image( dwWidth * dwHeight );
-	// load image
 	if ( wNumPlanes != 1 )
 		return 0;
-	//
 	DWORD *pImageData = 0;
-	//
 	if ( wNumBits == 8 )                  // palettized image with 256 color palette
 	{
-		// read palette (used colors)
 		DWORD palette[256];
 		dwNumColors = dwNumColors > 0 ? dwNumColors : 256;
 		memset( palette, 0, dwNumColors * sizeof(DWORD) );
@@ -69,28 +60,21 @@ CImage* NImage::LoadImageBMP( IDataStream *pStream )
 		{
 			BYTE color[4];
 			pStream->Read( color, 4 );
-			// BMP file have reversed (read turned inside out) palette format: BGRA instead of ARGB
 			palette[i] = DWORD( 255 << 24 ) | (DWORD(color[2]) << 16) | (DWORD(color[1]) << 8) | DWORD(color[0]);
 		}
-		// seek to image data
 		pStream->Seek( nFileStart + dwOffset, STREAM_SEEK_SET );
-		// read data
 		if ( dwCompression == 0 )           // unpacked values
 		{
       int nEndOfLineSkip = (dwFileSize - 54 - dwNumColors*4) / dwHeight - dwWidth;
 			std::vector<BYTE> dataline( dwWidth );
-			// image data pointer must point to the last line of the image
 			pImageData = &(image[0]) + dwWidth*dwHeight - dwWidth - 1;
-			//
       for ( i=0; i<dwHeight; ++i )
       {
 				if ( pStream->Read( &(dataline[0]), dwWidth ) != dwWidth )
 					return 0;
 				pImageData = &(image[0]) + ( dwHeight - i - 1 ) * dwWidth;
-				// convert image from palette to ARGB
 				for ( std::vector<BYTE>::const_iterator pos = dataline.begin(); pos != dataline.end(); ++pos )
 					*pImageData++ = palette[ *pos ];
-				// skip 'left' bytes
 				if ( nEndOfLineSkip )
 					pStream->Seek( nEndOfLineSkip, STREAM_SEEK_CUR );
       }
@@ -141,7 +125,6 @@ CImage* NImage::LoadImageBMP( IDataStream *pStream )
           x += rlepair[0];
         }
       }
-			// depalettize image
 			pImageData = &( image[0] );
 			for ( std::vector<BYTE>::const_iterator pos = imagedata.begin(); pos != imagedata.end(); ++pos )
 				*pImageData++ = palette[ *pos ];
@@ -151,11 +134,9 @@ CImage* NImage::LoadImageBMP( IDataStream *pStream )
 	{
 		if ( dwCompression != BC_BITFIELDS )
 			return 0;
-		// read palette ('red', 'green' and 'blue' bit masks)
 		DWORD palette[3];
 		pStream->Read( palette, sizeof(DWORD)*3 );
 		SPixelConvertInfo pci( 0, palette[0], palette[1], palette[2] );
-		//
     int nEndOfLineSkip = ( dwFileSize - 54 - /* dwNumColors*4 */ 3*4 ) / dwHeight - dwWidth*2;
     WORD x, y;
 
@@ -226,4 +207,3 @@ CImage* NImage::LoadImageBMP( IDataStream *pStream )
 
 	return new CImage( dwWidth, dwHeight, image );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

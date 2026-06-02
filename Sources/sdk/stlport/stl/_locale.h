@@ -15,9 +15,6 @@
  * modified is included with the above copyright notice.
  *
  */ 
-// WARNING: This is an internal header file, included by other C++
-// standard library headers.  You should not attempt to use this header
-// file directly.
 
 
 #ifndef _STLP_INTERNAL_LOCALE_H
@@ -57,7 +54,6 @@ __locale_do_operator_call (const locale* __that,
 
 class _STLP_CLASS_DECLSPEC locale {
 public:
-  // types:
 
   class _STLP_DECLSPEC facet : private _Refcount_Base {
   protected:
@@ -107,13 +103,11 @@ public:
 # endif
   ;
 
-  // construct/copy/destroy:
   locale();
   locale(const locale&) _STLP_NOTHROW;
   explicit locale(const char *);
   locale(const locale&, const char*, category);
 
-  // those are for internal use
   locale(_Locale_impl*);
   locale(_Locale_impl*, bool);
 
@@ -123,7 +117,6 @@ public:
   template <class _Facet> 
   locale(const locale& __loc, _Facet* __f) : _M_impl(0)
     {
-      //      _M_impl = this->_S_copy_impl(__loc._M_impl, __f != 0);
       new(this) locale(__loc._M_impl, __f != 0);
       if (__f != 0)
         this->_M_insert(__f, _Facet::id);
@@ -146,7 +139,6 @@ public:
     return __result;
   }
 # endif
-  // locale operations:
   string name() const;
 
   bool operator==(const locale&) const;
@@ -165,23 +157,19 @@ public:
   }              
 # endif
 
-  // global locale objects:
   static locale _STLP_CALL global(const locale&);
   static const locale& _STLP_CALL classic();
 
 public:                         // Helper functions for locale globals.
   facet* _M_get_facet(const id&) const;
-  // same, but throws
   facet* _M_use_facet(const id&) const;
   static void _STLP_CALL _M_throw_runtime_error(const char* = 0);
   static void _STLP_CALL _S_initialize();
   static void _STLP_CALL _S_uninitialize();
 
 private:                        // More helper functions.
-  //  static _Locale_impl* _STLP_CALL _S_copy_impl(_Locale_impl*, bool);
   void _M_insert(facet* __f, id& __id);
 
-  // friends:
   friend class _Locale_impl;
   friend class _Locale;
   friend class ios_base;
@@ -190,8 +178,6 @@ private:                        // Data members
   _Locale_impl* _M_impl;
 };
 
-//----------------------------------------------------------------------
-// locale globals
 
 # ifdef _STLP_NO_EXPLICIT_FUNCTION_TMPL_ARGS
 template <class _Facet>
@@ -219,7 +205,6 @@ template <class _Facet> inline bool has_facet(const locale& __loc) _STLP_NOTHROW
 }
 
 # ifdef _STLP_NO_EXPLICIT_FUNCTION_TMPL_ARGS
-  // close class definition
 };
 # endif
 
@@ -227,7 +212,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_LOCALE_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

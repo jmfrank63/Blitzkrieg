@@ -11,7 +11,6 @@
 #include "StandartSmoothMechPath.h"
 #include "ArtilleryPaths.h"
 #include "SerializeOwner.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CCommonStaticPath::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -24,7 +23,6 @@ int CCommonStaticPath::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CStandartPath::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -49,7 +47,6 @@ int CStandartPath::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CStandartDirPath::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -62,7 +59,6 @@ int CStandartDirPath::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CStandartSmoothMechPath::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -93,7 +89,6 @@ int CStandartSmoothMechPath::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CStandartSmoothSoldierPath::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -120,7 +115,6 @@ int CStandartSmoothSoldierPath::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CStandartSmoothPathMemento::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -130,7 +124,6 @@ int CStandartSmoothPathMemento::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlanePath::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -142,7 +135,6 @@ int CPlanePath::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlaneSmoothPath::CPathFraction::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -150,7 +142,6 @@ int CPlaneSmoothPath::CPathFraction::operator&( IStructureSaver &ss )
 	saver.Add( 1, &bActive );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlaneSmoothPath::CLinePathFraction::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -160,7 +151,6 @@ int CPlaneSmoothPath::CLinePathFraction::operator&( IStructureSaver &ss )
 	saver.Add( 5, &fLength );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlaneSmoothPath::CArcPathFraction::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -172,7 +162,6 @@ int CPlaneSmoothPath::CArcPathFraction::operator&( IStructureSaver &ss )
 	saver.Add( 8, &wCurAngle );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlaneSmoothPath::SMemberInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -183,7 +172,6 @@ int CPlaneSmoothPath::SMemberInfo::operator&( IStructureSaver &ss )
 	saver.Add( 5, &lastMoveTime );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlaneSmoothPath::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -211,7 +199,6 @@ int CPlaneSmoothPath::operator&( IStructureSaver &ss )
 	saver.Add( 24, &pathHistory );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPlaneInFormationSmoothPath::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -219,7 +206,6 @@ int CPlaneInFormationSmoothPath::operator&( IStructureSaver &ss )
 	SerializeOwner( 2, &pOwner, &saver );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CParatrooperPath::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -233,7 +219,6 @@ int CParatrooperPath::operator&( IStructureSaver &ss )
 	saver.Add( 8, &vFinishPoint2D );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CArtilleryCrewPath::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -246,7 +231,6 @@ int CArtilleryCrewPath::operator&( IStructureSaver &ss )
 	saver.Add( 7, &vSpeed3 );	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CArtilleryBeingTowedPath::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -258,7 +242,6 @@ int CArtilleryBeingTowedPath::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTankPitPath::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -269,7 +252,6 @@ int CTankPitPath::operator&( IStructureSaver &ss )
 	return 0;
 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPresizePath::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -285,7 +267,6 @@ int CPresizePath::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTrainPath::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -296,7 +277,6 @@ int CTrainPath::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTrainSmoothPath::SPathPoint::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -305,7 +285,6 @@ int CTrainSmoothPath::SPathPoint::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTrainSmoothPath::SCarriagePos::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -315,7 +294,6 @@ int CTrainSmoothPath::SCarriagePos::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTrainSmoothPath::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -332,7 +310,6 @@ int CTrainSmoothPath::operator&( IStructureSaver &ss )
 
 	if ( !saver.IsReading() )
 	{
-		// записать сдвиги итераторов
 		if ( pTrainPath == 0 || IsFinished() )
 			iteratorShift = -1;
 		else if ( !bJustLoaded )
@@ -351,7 +328,6 @@ int CTrainSmoothPath::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SPathEdge::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -361,7 +337,6 @@ int SPathEdge::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTrainSmoothPathMemento::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -370,4 +345,3 @@ int CTrainSmoothPathMemento::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -2,25 +2,18 @@
 #define __CHEATS_H__
 
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SCheats
 {
 	DECLARE_SERIALIZE;
 private:
-	// просчитывать ли туман bWarFog
 	bool bWarFog;
-	// для кого просчитывать туман
 	int nPartyForWarFog;
 
-	// загружать статич. объекты и реки или нет
 	bool bLoadObjects;
 	
 	bool bTurnOffWarFog;
 	bool bHistoryPlaying;
-	//
-	// убиваема или нет данная сторона
 	std::vector<BYTE> immortals;
-	// убивает ли данная сторона с первого раза
 	std::vector<BYTE> firstShoot;
 
 	bool bPasswordOK;
@@ -56,5 +49,4 @@ public:
 	
 	bool IsPasswordOk() const { return bPasswordOK; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __CHEATS_H__

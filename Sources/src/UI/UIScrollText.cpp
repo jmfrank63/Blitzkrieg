@@ -2,8 +2,6 @@
 #include "UIMessages.h"
 #include "UIScrollText.h"
 
-//const int GLAD = 20;			//��� �������� ��������������
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIScrollTextBox::SetWindowText( int nState, const WORD *pszText )
 {
 	NI_ASSERT_T( nState < states.size(), NStr::Format("Can't set window text for %d stats (max %d)", nState, states.size()) );
@@ -13,8 +11,6 @@ void CUIScrollTextBox::SetWindowText( int nState, const WORD *pszText )
 	states[nState].pGfxText->SetText( pText );
 	states[nState].pGfxText->SetColor( dwTextColor );
 
-	// ����������, ������� ������� ���������� ��� ����������� ����� ������
-	// ������ ����������, ����� ScrollBar ���������
 	states[nState].pGfxText->SetWidth( wndRect.Width() - nLeftSpace - nRightSpace );
 	int nNumLines = states[nState].pGfxText->GetNumLines();					//����� ����� �����
 	
@@ -26,15 +22,11 @@ void CUIScrollTextBox::SetWindowText( int nState, const WORD *pszText )
 		if ( nNumberOfScreenStrings > nNumLines )
 		{
 			pScrollBar->ShowWindow( UI_SW_HIDE );
-			//CRAP{ CHECK IF IT WILL NOT LED TO BUGS
-			//return;
-			//CRAP}
 		}
 		else
 			pScrollBar->ShowWindow( UI_SW_SHOW );
 	}
 
-	// �������������� ScrollBar
 	states[nState].pGfxText->SetWidth( wndRect.Width() - pScrollBar->wndRect.Width() - nLeftSpace - nRightSpace );
 	nNumLines = states[nState].pGfxText->GetNumLines();							//����� ����� �����
 
@@ -50,7 +42,6 @@ void CUIScrollTextBox::SetWindowText( int nState, const WORD *pszText )
 
 	UpdateScrollBar( nMax * states[nState].pGfxText->GetLineSpace(), 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIScrollTextBox::	UpdateScrollBar( const int nMaxValue, const int nCurValue )
 {
 	pScrollBar->SetMinValue( 0 );
@@ -60,7 +51,6 @@ void CUIScrollTextBox::	UpdateScrollBar( const int nMaxValue, const int nCurValu
 
 	pScrollBar->SetStep( 1 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIScrollTextBox::AppendText( const WORD *pszText )
 {
 	bool bNeedScrollToEnd = pScrollBar->GetPosition() == pScrollBar->GetMaxValue();
@@ -71,14 +61,12 @@ void CUIScrollTextBox::AppendText( const WORD *pszText )
 
 	SetWindowText( nCurrentState, reinterpret_cast<const WORD*>(wszTemp.c_str()) );
 	
-	//������� ������� ScrollBar, ���� ��� ����������
 	if ( bNeedScrollToEnd )
 	{
 		pScrollBar->SetPosition( pScrollBar->GetMaxValue() );
 		m_nY = -pScrollBar->GetPosition();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIScrollTextBox::GetBorderRect( CTRect<float> *pBorderRect ) const
 {
 	*pBorderRect = wndRect;
@@ -89,20 +77,16 @@ void CUIScrollTextBox::GetBorderRect( CTRect<float> *pBorderRect ) const
 	if ( pScrollBar->IsVisible() )
 		pBorderRect->right -= pScrollBar->wndRect.Width();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIScrollTextBox::Visit( interface ISceneVisitor *pVisitor )
 {
 	if ( !nCmdShow )
 		return;
 
-	// ��� ������� ���������� �������������� ��� ��������� ���������, ������� ��� �� ��������� ���� �������� ��, �������� CUIScrollTextBox
 	VisitBackground( pVisitor );
 	
-	// ������ �����
 	for ( CWindowList::reverse_iterator ri = childList.rbegin(); ri != childList.rend(); ++ri )
 		(*ri)->Visit( pVisitor );
 	
-	// ������ �����
 	if ( states[nCurrentState].pGfxText )
 	{
 		CTRect<float> textRC;
@@ -111,7 +95,6 @@ void CUIScrollTextBox::Visit( interface ISceneVisitor *pVisitor )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIScrollTextBox::Draw( IGFX *pGFX )
 {
 	NI_ASSERT_SLOW_T( false, "Can't user Draw() directly - use visitor pattern" );
@@ -120,15 +103,12 @@ void CUIScrollTextBox::Draw( IGFX *pGFX )
 	if ( !nCmdShow )
 		return;
 
-	//��� ������� ���������� �������������� ��� ��������� ���������, ������� ��� �� ��������� ���� �������� ��, �������� CUIScrollTextBox
 	pGFX->SetShadingEffect( 3 );
 	DrawBackground( pGFX );
 	
-	//������ �����
 	for ( CWindowList::reverse_iterator ri=childList.rbegin(); ri!=childList.rend(); ri++ )
 		(*ri)->Draw( pGFX );
 	
-	//������ �����
 	if ( states[nCurrentState].pGfxText )
 	{
 		CTRect<float> textRC;
@@ -136,14 +116,11 @@ void CUIScrollTextBox::Draw( IGFX *pGFX )
 		pGFX->DrawText( states[nCurrentState].pGfxText, textRC, m_nY, FNT_FORMAT_JUSTIFY );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIScrollTextBox::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
 	saver.AddTypedSuper( static_cast<CMultipleWindow*>(this) );
 	
-	//	saver.Add( "Left_Scrollbar", &bLeftScrollBar );
-	//	saver.Add( "Scrollbar_Always_Visible", &bScrollBarAlwaysVisible );
 	saver.Add( "ScrollBarWidth", &nScrollBarWidth );
 	saver.Add( "LeftSpace", &nLeftSpace );
 	saver.Add( "RightSpace", &nRightSpace );
@@ -153,7 +130,6 @@ int CUIScrollTextBox::operator&( IDataTree &ss )
 
 	if ( saver.IsReading() )
 	{
-		//�������������� pScrollBar
 		pScrollBar = dynamic_cast<CUIScrollBar *>( GetChildByID(1) );
 		NI_ASSERT_T( pScrollBar != 0, "can't find scroll bar" );
 
@@ -167,7 +143,6 @@ int CUIScrollTextBox::operator&( IDataTree &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIScrollTextBox::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -195,36 +170,29 @@ int CUIScrollTextBox::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIScrollTextBox::RepositionScrollbar()
 {
 	CVec2 size = pScrollBar->GetSize();
 	pScrollBar->SetPos( CVec2(0, 0) );
 	pScrollBar->SetSize( CVec2(size.x, GetSize().y ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIScrollTextBox::RepositionText()
 {
-	//������� �����
 	IText *pText = states[0].pGfxText->GetText();
 	std::wstring szTempString = reinterpret_cast<const wchar_t*>(pText->GetString());
 	SetWindowText( 0, reinterpret_cast<const WORD*>(szTempString.c_str()) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIScrollTextBox::Reposition( const CTRect<float> &rcParent )
 {
 	RepositionScrollbar();
 	CMultipleWindow::Reposition( rcParent );
 	RepositionText();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIScrollTextBox::ProcessMessage( const SUIMessage &msg )
 {
-	//Scroll Text ������������ NOTIFY ��������� �� ScrollBar
 	switch( msg.nMessageCode )
 	{
 	case UI_NOTIFY_POSITION_CHANGED:
-		// �������� �����
 		m_nY = -pScrollBar->GetPosition();
 
 		return true;
@@ -232,7 +200,6 @@ bool CUIScrollTextBox::ProcessMessage( const SUIMessage &msg )
 	
 	return CMultipleWindow::ProcessMessage( msg );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIScrollTextBox::OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, float fDelta )
 {
 	if ( !IsInside( vPos ) )
@@ -244,4 +211,3 @@ bool CUIScrollTextBox::OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, 
 	pScrollBar->SetPosition( pScrollBar->GetPosition() + fDelta*GetMouseWheelMultiplyer() );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

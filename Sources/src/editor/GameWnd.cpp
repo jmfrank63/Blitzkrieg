@@ -1,5 +1,3 @@
-// GameWnd.cpp : implementation file
-//
 
 #include "stdafx.h"
 #include "editor.h"
@@ -14,8 +12,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CGameWnd
 
 CGameWnd::CGameWnd()
 {
@@ -27,7 +23,6 @@ CGameWnd::~CGameWnd()
 
 
 BEGIN_MESSAGE_MAP(CGameWnd, CWnd)
-	//{{AFX_MSG_MAP(CGameWnd)
 	ON_WM_MOUSEMOVE()
 	ON_WM_LBUTTONDOWN()
 	ON_WM_LBUTTONUP()
@@ -36,16 +31,12 @@ BEGIN_MESSAGE_MAP(CGameWnd, CWnd)
 	ON_WM_PAINT()
 	ON_WM_CREATE()
 	ON_WM_LBUTTONDBLCLK()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CGameWnd message handlers
 
 void CGameWnd::OnMouseMove(UINT nFlags, CPoint point) 
 {
-//	CWnd::OnMouseMove(nFlags, point);
 	::SendMessage( g_frameManager.GetActiveWnd()->GetSafeHwnd(), WM_MOUSEMOVE, nFlags, MAKELPARAM(point.x, point.y) );
 }
 
@@ -71,8 +62,6 @@ void CGameWnd::OnRButtonUp(UINT nFlags, CPoint point)
 
 void CGameWnd::OnPaint() 
 {
-//	CPaintDC dc(this); // device context for painting
-//	::SendMessage( GetParent()->GetSafeHwnd(), WM_USER+10, 0, 0 );
 
 	ValidateRect( 0 );
 }
@@ -100,7 +89,6 @@ int CGameWnd::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	if (CWnd::OnCreate(lpCreateStruct) == -1)
 		return -1;
 	
-	// TODO: Add your specialized creation code here
 	m_mainFramePtr = static_cast<CMainFrame *>( GetParent() ); // first time this is MainFrame
 	
  	return 0;
@@ -108,6 +96,5 @@ int CGameWnd::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 void CGameWnd::OnLButtonDblClk(UINT nFlags, CPoint point) 
 {
-	// TODO: Add your message handler code here and/or call default
 	::SendMessage( g_frameManager.GetActiveWnd()->GetSafeHwnd(), WM_LBUTTONDBLCLK, nFlags, MAKELPARAM(point.x, point.y) );
 }

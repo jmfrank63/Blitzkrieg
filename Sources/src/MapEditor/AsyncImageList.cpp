@@ -9,14 +9,8 @@ static char THIS_FILE[]=__FILE__;
 #define new DEBUG_NEW
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//class CIndicesHolder
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CIndicesHolder::INVALID_INDEX = ( -1 );
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//AsyncImageListThreadFunc( PVOID pvParam )
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 DWORD WINAPI AsyncImageListThreadFunc( PVOID pvParam )
 {
 	CAsyncImageList *pAsyncImageList = reinterpret_cast<CAsyncImageList*>( pvParam );
@@ -27,12 +21,8 @@ DWORD WINAPI AsyncImageListThreadFunc( PVOID pvParam )
 	return ERROR_INVALID_PARAMETER;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//class CAsyncImageList
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CAsyncImageList::DEFAULT_ICON_NUMBER = 0;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAsyncImageList::Clear()
 {
 	if ( hImageList )
@@ -47,7 +37,6 @@ void CAsyncImageList::Clear()
 	}
 	indicesHolder.Clear();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAsyncImageList::CAsyncImageList()
 	: nForceStartImageIndex( CIndicesHolder::INVALID_INDEX ), hImageList( 0 ), hSmallImageList( 0 ), hThread( 0 ), hExitEvent( 0 )
 {
@@ -56,7 +45,6 @@ CAsyncImageList::CAsyncImageList()
 	hForceStartEvent = ::CreateEvent( NULL, TRUE, FALSE, NULL );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAsyncImageList::~CAsyncImageList()
 {
 	StopFilling();
@@ -66,7 +54,6 @@ CAsyncImageList::~CAsyncImageList()
 	::DeleteCriticalSection( &criticalSection );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 DWORD CAsyncImageList::Fill()
 {
 	::EnterCriticalSection( &criticalSection );
@@ -117,7 +104,6 @@ DWORD CAsyncImageList::Fill()
 	return ERROR_SUCCESS;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAsyncImageList::Create( int nImageCount, const CTPoint<int> &rImageSize )
 {
 	Clear();
@@ -147,7 +133,6 @@ bool CAsyncImageList::Create( int nImageCount, const CTPoint<int> &rImageSize )
 	pSmallImage->Set( whiteColor );
 	
 	dwTime = GetTickCount() - dwTime;
-	//NStr::DebugTrace( "CAsyncImageList::Create(): image %d\n", dwTime );
 	dwTime = GetTickCount();
 
 	HDC hDC = ::GetDC( ::GetDesktopWindow() );
@@ -155,10 +140,8 @@ bool CAsyncImageList::Create( int nImageCount, const CTPoint<int> &rImageSize )
 	HBITMAP hSmallBitmap = CreateCompatibleBitmap( hDC, ::GetSystemMetrics( SM_CXSMICON ), ::GetSystemMetrics( SM_CYSMICON ) );
 
 	dwTime = GetTickCount() - dwTime;
-	//NStr::DebugTrace( "CAsyncImageList::Create(): bitmap1 %d\n", dwTime );
 	dwTime = GetTickCount();
 
-	//������� HBITMAP ����� ���������� � � image list
 	BITMAPINFO bitmapInfo;
 	bitmapInfo.bmiHeader.biSize  = sizeof( bitmapInfo.bmiHeader );
 	bitmapInfo.bmiHeader.biWidth  = rImageSize.x;
@@ -176,7 +159,6 @@ bool CAsyncImageList::Create( int nImageCount, const CTPoint<int> &rImageSize )
 	::ReleaseDC( ::GetDesktopWindow(), hDC );
 
 	dwTime = GetTickCount() - dwTime;
-	//NStr::DebugTrace( "CAsyncImageList::Create(): bitmap2 %d\n", dwTime );
 	dwTime = GetTickCount();
 
 	for ( int nImageIndex = 0; nImageIndex < nImageCount; ++nImageIndex )
@@ -190,7 +172,6 @@ bool CAsyncImageList::Create( int nImageCount, const CTPoint<int> &rImageSize )
 	}
 
 	dwTime = GetTickCount() - dwTime;
-	//NStr::DebugTrace( "CAsyncImageList::Create(): imageList %d\n", dwTime );
 
 	::DeleteObject( hBitmap );
 	::DeleteObject( hSmallBitmap );
@@ -200,12 +181,10 @@ bool CAsyncImageList::Create( int nImageCount, const CTPoint<int> &rImageSize )
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAsyncImageList::AsyncFill()
 {
 	if ( IsFilling() )
 	{
-		//return ERROR_ALREADY_INITIALIZED;
 		return true;
 	}
 	::ResetEvent( hExitEvent );
@@ -213,15 +192,12 @@ bool CAsyncImageList::AsyncFill()
 	hThread = ::CreateThread( NULL, 0, AsyncImageListThreadFunc, reinterpret_cast<PVOID>( this ), CREATE_SUSPENDED, &dwThreadId );
 	if ( hThread == 0 )
 	{
-		//return ERROR_INVALID_HANDLE;
 		return false;
 	}
 	::ResumeThread( hThread );
-	//return ERROR_SUCCESS;
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAsyncImageList::IsFilling()
 {
 	if ( !hThread )
@@ -233,7 +209,6 @@ bool CAsyncImageList::IsFilling()
 	return ( dwStatus == STILL_ACTIVE );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAsyncImageList::StopFilling()
 {
 	DWORD dwStatus = ERROR_SUCCESS;
@@ -248,11 +223,9 @@ bool CAsyncImageList::StopFilling()
 		::CloseHandle( hThread );
 		hThread = 0;
 	}
-	//return dwStatus;
 	return ( dwStatus == ERROR_SUCCESS );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CAsyncImageList::AddCallback( IAsyncImageListCallback *pCallback )
 {
 	NI_ASSERT_TF( pCallback != 0,
@@ -272,7 +245,6 @@ int CAsyncImageList::AddCallback( IAsyncImageListCallback *pCallback )
 	return nKey;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAsyncImageList::RemoveCallback( int nKey )
 {
 	::EnterCriticalSection( &criticalSection );
@@ -283,7 +255,6 @@ void CAsyncImageList::RemoveCallback( int nKey )
 	::LeaveCriticalSection( &criticalSection );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAsyncImageList::ForceFillFrom( int nImageIndex )
 {
 	if ( IsFilling() )
@@ -296,4 +267,3 @@ bool CAsyncImageList::ForceFillFrom( int nImageIndex )
 	}
 	return false;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

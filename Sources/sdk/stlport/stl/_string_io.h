@@ -19,20 +19,15 @@
 #ifndef _STLP_STRING_IO_H
 #define _STLP_STRING_IO_H
 
-// this is for link-time instantiation
 #if !defined  ( _STLP_STRING )
 # include <string>
 # endif
 
-//#ifndef _STLP_LOCALE
-//# include <locale>
-//#endif
 
 # ifdef _STLP_DEBUG
 #  define basic_string _Nondebug_string
 # endif
 
-// I/O.  
 _STLP_BEGIN_NAMESPACE
 
 #if defined (_STLP_USE_NEW_IOSTREAMS)
@@ -71,7 +66,6 @@ __stlp_string_fill(basic_ostream<_CharT, _Traits>& __os,
                   size_t __n);
 #elif ! defined ( _STLP_USE_NO_IOSTREAMS )
 
-// (reg) For Watcom IO, this tells if ostream class is in .exe or in .dll
 # ifdef _WPRTLINK
 typedef _WPRTLINK ostream _OSTREAM_DLL;
 typedef _WPRTLINK istream _ISTREAM_DLL;

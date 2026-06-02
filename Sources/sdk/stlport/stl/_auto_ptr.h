@@ -20,7 +20,6 @@
 # define _STLP_AUTO_PTR_H
 
 _STLP_BEGIN_NAMESPACE
-// implementation primitive
 class __ptr_base {
 public:
   void* _M_p;
@@ -123,7 +122,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_AUTO_PTR_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

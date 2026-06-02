@@ -54,11 +54,6 @@ inline pair<_Tp*, ptrdiff_t>  _STLP_CALL get_temporary_buffer(ptrdiff_t __len) {
 }
 
 # if ! defined(_STLP_NO_EXTENSIONS)
-// This overload is not required by the standard; it is an extension.
-// It is supported for backward compatibility with the HP STL, and
-// because not all compilers support the language feature (explicit
-// function template arguments) that is required for the standard
-// version of get_temporary_buffer.
 template <class _Tp>
 inline pair<_Tp*, ptrdiff_t>  _STLP_CALL
 get_temporary_buffer(ptrdiff_t __len, _Tp*) {
@@ -69,7 +64,6 @@ get_temporary_buffer(ptrdiff_t __len, _Tp*) {
 
 template <class _Tp>
 inline void  _STLP_CALL return_temporary_buffer(_Tp* __p) {
-// SunPro brain damage
   free((char*)__p);
 }
 
@@ -107,7 +101,6 @@ public:
   _Tp* end() { return _M_buffer + _M_len; }
 
   _Temporary_buffer(_ForwardIterator __first, _ForwardIterator __last) {
-    // Workaround for a __type_traits bug in the pre-7.3 compiler.
 #   if defined(__sgi) && !defined(__GNUC__) && _COMPILER_VERSION < 730
     typedef typename __type_traits<_Tp>::is_POD_type _Trivial;
 #   else
@@ -128,14 +121,12 @@ public:
   }
 
 private:
-  // Disable copy constructor and assignment operator.
   _Temporary_buffer(const _Temporary_buffer<_ForwardIterator, _Tp>&) {}
   void operator=(const _Temporary_buffer<_ForwardIterator, _Tp>&) {}
 };
 
 # ifndef _STLP_NO_EXTENSIONS
 
-// Class temporary_buffer is not part of the standard.  It is an extension.
 
 template <class _ForwardIterator, 
           class _Tp 
@@ -160,6 +151,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_TEMPBUF_H */
 
-// Local Variables:
-// mode:C++
-// End:

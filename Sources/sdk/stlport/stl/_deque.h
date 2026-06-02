@@ -312,11 +312,6 @@ template <class _Tp, class _Traits> inline ptrdiff_t* _STLP_CALL
 distance_type(const _Deque_iterator<_Tp, _Traits  >&) { return 0; }
 #endif
 
-// Deque base class.  It has two purposes.  First, its constructor
-//  and destructor allocate (but don't initialize) storage.  This makes
-//  exception safety easier.  Second, the base class encapsulates all of
-//  the differences between SGI-style allocators and standard-conforming
-//  allocators.
 
 template <class _Tp, class _Alloc>
 class _Deque_base {
@@ -441,7 +436,6 @@ public:                         // Constructor, destructor.
         const allocator_type& __a = allocator_type()) : 
     _Deque_base<_Tp, _Alloc>(__a, __n)
     { _M_fill_initialize(__val); }
-  // int,long variants may be needed 
   explicit deque(size_type __n) : _Deque_base<_Tp, _Alloc>(allocator_type(), __n)
     { _M_fill_initialize(value_type()); }
 
@@ -460,7 +454,6 @@ public:                         // Constructor, destructor.
   }
 
 # ifdef _STLP_NEEDS_EXTRA_TEMPLATE_CONSTRUCTORS
-  // VC++ needs this
   template <class _InputIterator>
   deque(_InputIterator __first, _InputIterator __last) : 
     _Deque_base<_Tp, _Alloc>(allocator_type()) {
@@ -469,7 +462,6 @@ public:                         // Constructor, destructor.
   }
 # endif
 
-  // Check whether it's an integral type.  If so, it's not an iterator.
   template <class _InputIterator>
   deque(_InputIterator __first, _InputIterator __last,
         const allocator_type& __a _STLP_ALLOCATOR_TYPE_DFL) : 
@@ -506,10 +498,6 @@ public:                         // Constructor, destructor.
   }
 
 public: 
-  // assign(), a generalized assignment member function.  Two
-  // versions: one that takes a count, and one that takes a range.
-  // The range version is a member template, so we dispatch on whether
-  // or not the type is an integer.
 
   void _M_fill_assign(size_type __n, const _Tp& __val) {
     if (__n > size()) {
@@ -658,7 +646,6 @@ public:                         // Insert
 
 #ifdef _STLP_MEMBER_TEMPLATES  
 
-  // Check whether it's an integral type.  If so, it's not an iterator.
   template <class _InputIterator>
   void insert(iterator __pos, _InputIterator __first, _InputIterator __last) {
     typedef typename _Is_integer<_InputIterator>::_Integral _Integral;
@@ -902,9 +889,6 @@ void  insert(iterator __pos,
 
 protected:                      // Allocation of _M_map and nodes
 
-  // Makes sure the _M_map has space for new nodes.  Does not actually
-  //  add the nodes.  Can invalidate _M_map pointers.  (And consequently, 
-  //  deque iterators.)
 
   void _M_reserve_map_at_back (size_type __nodes_to_add = 1) {
     if (__nodes_to_add + 1 > this->_M_map_size._M_data - (this->_M_finish._M_node - this->_M_map._M_data))
@@ -920,7 +904,6 @@ protected:                      // Allocation of _M_map and nodes
  
 };
 
-// Nonmember functions.
 
 template <class _Tp, class _Alloc >
 inline bool  _STLP_CALL operator==(const deque<_Tp, _Alloc>& __x,
@@ -984,7 +967,6 @@ swap(deque<_Tp,_Alloc>& __x, deque<_Tp,_Alloc>& __y)
 
 _STLP_END_NAMESPACE 
 
-// do a cleanup
 # undef deque
 # undef __deque__
 # define __deque__ __WORKAROUND_DBG_RENAME(deque)
@@ -1003,7 +985,4 @@ _STLP_END_NAMESPACE
   
 #endif /* _STLP_INTERNAL_DEQUE_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

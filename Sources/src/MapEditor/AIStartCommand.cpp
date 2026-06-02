@@ -1,13 +1,7 @@
 #include "stdafx.h"
 #include "editor.h"
-//#include "..\GFX\GFX.h"
-//#include <comdef.h>
-//#include <Mmsystem.h>
-//#include <set>
 #include "TemplateEditorFrame1.h"
 #include "PropertieDialog.h"
-//#include "SEditorMApObject.h"
-//#include "..\AILogic\AILogic.h"
 #include "frames.h"
 
 #include "AIStartCommand.h"
@@ -18,14 +12,10 @@ static char THIS_FILE[]=__FILE__;
 #define new DEBUG_NEW
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CPropertiesRegister thePropertiesRegister01;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CAISCHelper::DEFAULT_ACTION_COMMAND_INDEX = 9;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAISCHelper::Initialize()
 {
 	commands.clear();
@@ -33,7 +23,6 @@ void CAISCHelper::Initialize()
 	IDataStorage *pStorage = GetSingleton<IDataStorage>();
 	if ( pStorage )
 	{
-//		CPtr<IDataBase> pDB = OpenDataBase( pStorage->GetName(), TABLE_ACCESS_READ );
 		CPtr<IDataBase> pDB = OpenDataBase( 0, TABLE_ACCESS_READ ); // to work with packed resources
 		CPtr<IDataStream> pDataStream = pStorage->OpenStream( "editor\\actions.ini", STREAM_ACCESS_READ );
 		if ( pDataStream != 0 )
@@ -56,7 +45,6 @@ void CAISCHelper::Initialize()
 	isInitialized = true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IManipulator* CMutableAIStartCommand::GetManipulator()
 {
 	CAIStartCommandManipulator  *pManipulator = new CAIStartCommandManipulator();  	
@@ -64,7 +52,6 @@ IManipulator* CMutableAIStartCommand::GetManipulator()
 	return pManipulator; 
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
 void CMutableAIStartCommand::Update( CTemplateEditorFrame *pFrame )
 {
@@ -76,7 +63,6 @@ void CMutableAIStartCommand::Update( CTemplateEditorFrame *pFrame )
 	}
 }
 /**/
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
 void CMutableAIStartCommand::Update( TMutableAIStartCommandList *pCommands, CTemplateEditorFrame *pFrame )
 {
@@ -92,7 +78,6 @@ void CMutableAIStartCommand::Update( TMutableAIStartCommandList *pCommands, CTem
 }
 /**/
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAIStartCommandManipulator::CAIStartCommandManipulator() 
 : CManipulator( &thePropertiesRegister01, "AI Start Command" )
 {
@@ -137,7 +122,6 @@ CAIStartCommandManipulator::CAIStartCommandManipulator()
 		{
 			VARIANT variant;
 			variant.vt = VT_BSTR;
-			//_bstr_t tmpVal = it->first.c_str();
 			variant.bstrVal = "false";
 			pProperty->values.push_back( variant ) ;
 			variant.bstrVal = "true";
@@ -154,12 +138,9 @@ CAIStartCommandManipulator::CAIStartCommandManipulator()
 }
 
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandManipulator::SetCmdType( const variant_t &value )
 {
-	//CString tmp = CString ( value.bstrVal );
 	pMutableObject->cmdType = static_cast<EActionCommand>( g_frameManager.GetTemplateEditorFrame()->aiscHelper.commands[CAISCHelper::DEFAULT_ACTION_COMMAND_INDEX].nID );	
-	//CString szBuffer(value.bstrVal);
 	for ( int nCommandIndex = 0; nCommandIndex < g_frameManager.GetTemplateEditorFrame()->aiscHelper.commands.size(); ++nCommandIndex )
 	{
 		if ( value == variant_t( g_frameManager.GetTemplateEditorFrame()->aiscHelper.commands[nCommandIndex].szName.c_str() ) )
@@ -170,7 +151,6 @@ void CAIStartCommandManipulator::SetCmdType( const variant_t &value )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandManipulator::GetCmdType( variant_t *pValue, int nIndex )
 {
 	*pValue = variant_t( g_frameManager.GetTemplateEditorFrame()->aiscHelper.commands[CAISCHelper::DEFAULT_ACTION_COMMAND_INDEX].szName.c_str() );
@@ -184,13 +164,10 @@ void CAIStartCommandManipulator::GetCmdType( variant_t *pValue, int nIndex )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandManipulator::SetUnitNumber( const variant_t &value )
 {
-	//только для показывания количества юнитов
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandManipulator::GetUnitNumber( variant_t *pValue, int nIndex )
 {
 	if ( pMutableObject->pMapObjects.empty() )
@@ -229,39 +206,32 @@ void CAIStartCommandManipulator::GetUnitNumber( variant_t *pValue, int nIndex )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandManipulator::SetVPosX( const variant_t &value )
 {
  	pMutableObject->vPos.x = float( value ) * 2 * SAIConsts::TILE_SIZE;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandManipulator::GetVPosX( variant_t *pValue, int nIndex )
 {
 	*pValue = variant_t( pMutableObject->vPos.x / ( 2 * SAIConsts::TILE_SIZE ) );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandManipulator::SetVPosY( const variant_t &value )
 {
 	pMutableObject->vPos.y = float( value ) * 2 * SAIConsts::TILE_SIZE;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandManipulator::GetVPosY( variant_t *pValue, int nIndex )
 {
 	*pValue = variant_t( pMutableObject->vPos.y / ( 2 * SAIConsts::TILE_SIZE ) );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandManipulator::SetNumber( const variant_t &value )
 {
 	pMutableObject->fNumber = float( value );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIStartCommandManipulator::GetNumber( variant_t *pValue, int nIndex )
 {
 	*pValue = variant_t( pMutableObject->fNumber );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

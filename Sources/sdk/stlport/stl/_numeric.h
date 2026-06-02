@@ -138,8 +138,6 @@ _Tp __power(_Tp __x, _Integer __n, _MonoidOperation __opr);
 
 # ifndef _STLP_NO_EXTENSIONS
 
-// Returns __x ** __n, where __n >= 0.  _Note that "multiplication"
-// is required to be associative, but not necessarily commutative.
 
 template <class _Tp, class _Integer>
 inline _Tp __power(_Tp __x, _Integer __n)
@@ -147,8 +145,6 @@ inline _Tp __power(_Tp __x, _Integer __n)
   return __power(__x, __n, multiplies<_Tp>());
 }
 
-// Alias for the internal name __power.  Note that power is an extension,
-// not part of the C++ standard.
 template <class _Tp, class _Integer, class _MonoidOperation>
 inline _Tp power(_Tp __x, _Integer __n, _MonoidOperation __opr) {
   return __power(__x, __n, __opr);
@@ -160,7 +156,6 @@ inline _Tp power(_Tp __x, _Integer __n) {
   return __power(__x, __n, multiplies<_Tp>());
 }
 
-// iota is not part of the C++ standard.  It is an extension.
 
 template <class _ForwardIterator, class _Tp>
 _STLP_INLINE_LOOP
@@ -181,6 +176,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_NUMERIC_H */
 
-// Local Variables:
-// mode:C++
-// End:

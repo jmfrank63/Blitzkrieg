@@ -15,9 +15,6 @@
  * modified is included with the above copyright notice.
  *
  */ 
-// This header defines classes basic_filebuf, basic_ifstream,
-// basic_ofstream, and basic_fstream.  These classes represent
-// streambufs and streams whose sources or destinations are files.
 
 #ifndef _STLP_INTERNAL_FSTREAM_H
 #define _STLP_INTERNAL_FSTREAM_H
@@ -46,16 +43,12 @@
     && ! defined (_STLP_USE_UNIX_EMULATION_IO) && !defined (_STLP_USE_STDIO_IO)
 
 # if defined (_STLP_UNIX)  || defined (__CYGWIN__) || defined (__amigaos__)
-// open/close/read/write
 #  define _STLP_USE_UNIX_IO
 # elif defined (_STLP_WIN32)  && ! defined (__CYGWIN__)
-// CreateFile/ReadFile/WriteFile
 #  define _STLP_USE_WIN32_IO
 # elif defined (_STLP_WIN16) || defined (_STLP_WIN32) || defined (_STLP_MAC)
-// _open/_read/_write
 #  define _STLP_USE_UNIX_EMULATION_IO
 # else
-// fopen/fread/fwrite
 #  define _STLP_USE_STDIO_IO
 # endif /* _STLP_UNIX */
 
@@ -73,9 +66,6 @@ typedef int _STLP_fd;
 
 _STLP_BEGIN_NAMESPACE
 
-//----------------------------------------------------------------------
-// Class _Filebuf_base, a private base class to factor out the system-
-// dependent code from basic_filebuf<>.
 
 class _STLP_CLASS_DECLSPEC _Filebuf_base {
 public:                      // Opening and closing files.
@@ -97,13 +87,6 @@ public:                      // Memory-mapped I/O.
   void _M_unmap(void* __mmap_base, streamoff __len);
 
 public:
-  // Returns a value n such that, if pos is the file pointer at the
-  // beginning of the range [first, last), pos + n is the file pointer at
-  // the end.  On many operating systems n == __last - __first.
-  // In Unix, writing n characters always bumps the file position by n.
-  // In Windows text mode, however, it bumps the file position by n + m,
-  // where m is the number of newlines in the range.  That's because an
-  // internal \n corresponds to an external two-character sequence.
   streamoff _M_get_offset(char* __first, char* __last) {
 #if defined (_STLP_UNIX) || defined (_STLP_MAC)
     return __last - __first;
@@ -114,8 +97,6 @@ public:
 #endif
   }
 
-  // Returns true if we're in binary mode or if we're using an OS or file 
-  // system where there is no distinction between text and binary mode.
   bool _M_in_binary_mode() const {
 # if defined (_STLP_UNIX) || defined (_STLP_MAC)  || defined(__BEOS__) || defined (__amigaos__)
     return true;
@@ -132,7 +113,6 @@ protected:                      // Static data members.
 protected:                      // Data members.
   _STLP_fd _M_file_id;
 # ifdef _STLP_USE_STDIO_IO
-  // for stdio, the whole FILE* is being kept here
   FILE* _M_file;
 # endif
 # ifdef _STLP_USE_WIN32_IO
@@ -156,10 +136,7 @@ public :
 
 
 
-//----------------------------------------------------------------------
-// Class basic_filebuf<>.
 
-// Forward declaration of two helper classes.
 template <class _Traits> class _Noconv_input;
 _STLP_TEMPLATE_NULL
 class _Noconv_input<char_traits<char> >;
@@ -168,8 +145,6 @@ template <class _Traits> class _Noconv_output;
 _STLP_TEMPLATE_NULL
 class _Noconv_output< char_traits<char> >;
 
-// There is a specialized version of underflow, for basic_filebuf<char>,
-// in fstream.cxx.
 
 template <class _CharT, class _Traits>
 class _Underflow;
@@ -202,7 +177,6 @@ public:                         // Opening and closing files.
   }
 
 # ifndef _STLP_NO_EXTENSIONS
-  // These two version of open() and file descriptor getter are extensions.
   _Self* open(const char* __s, ios_base::openmode __m,
 		      long __protection) {
     return _M_base._M_open(__s, __m, __protection) ? this : 0;
@@ -239,8 +213,6 @@ protected:                      // Virtual functions from basic_streambuf.
 
 private:                        // Helper functions.
 
-  // Precondition: we are currently in putback input mode.  Effect:
-  // switches back to ordinary input mode.
   void _M_exit_putback_mode() {
     this->setg(_M_saved_eback, _M_saved_gptr, _M_saved_egptr);
     _M_in_putback_mode = false;
@@ -251,8 +223,6 @@ private:                        // Helper functions.
 
   int_type _M_input_error();
   int_type _M_underflow_aux();
-  //  friend class _Noconv_input<_Traits>;
-  //  friend class _Noconv_output<_Traits>;
   friend class _Underflow<_CharT, _Traits>;
 
   int_type _M_output_error();
@@ -292,40 +262,27 @@ private:                        // Locale-related information.
   unsigned char _M_constant_width;
   unsigned char _M_always_noconv;
   
-  // private:                        // Mode flags.
   unsigned char _M_int_buf_dynamic;  // True if internal buffer is heap allocated,
-  // false if it was supplied by the user.
   unsigned char _M_in_input_mode;
   unsigned char _M_in_output_mode;
   unsigned char _M_in_error_mode;
   unsigned char _M_in_putback_mode;
   
-  // Internal buffer: characters seen by the filebuf's clients.
   _CharT* _M_int_buf;
   _CharT* _M_int_buf_EOS;
   
-  // External buffer: characters corresponding to the external file.
   char* _M_ext_buf;
   char* _M_ext_buf_EOS;
 
-  // The range [_M_ext_buf, _M_ext_buf_converted) contains the external
-  // characters corresponding to the sequence in the internal buffer.  The
-  // range [_M_ext_buf_converted, _M_ext_buf_end) contains characters that
-  // have been read into the external buffer but have not been converted
-  // to an internal sequence.
   char* _M_ext_buf_converted;
   char* _M_ext_buf_end;
 
-  // State corresponding to beginning of internal buffer.
   _State_type _M_state;
 
 private:                        // Data members used only in input mode.
 
-  // Similar to _M_state except that it corresponds to
-  // the end of the internal buffer instead of the beginning.
   _State_type _M_end_state;
 
-  // This is a null pointer unless we are in mmap input mode.
   void*     _M_mmap_base;
   streamoff _M_mmap_len;
 
@@ -344,7 +301,6 @@ private:                        // Data members used only in putback mode.
   enum { _S_pback_buf_size = 8 };
   _CharT _M_pback_buf[_S_pback_buf_size];
 
-  // for _Noconv_output
 public:
   bool _M_write(char* __buf,  ptrdiff_t __n) {return _M_base._M_write(__buf, __n); }
 
@@ -364,8 +320,6 @@ _STLP_EXPORT_TEMPLATE_CLASS basic_filebuf<wchar_t, char_traits<wchar_t> >;
 #  endif
 # endif /* _STLP_USE_TEMPLATE_EXPORT */
 
-// public:
-// helper class.
 template <class _CharT>
 struct _Filebuf_Tmp_Buf
 {
@@ -375,10 +329,6 @@ struct _Filebuf_Tmp_Buf
 };
 
 
-//
-// This class had to be designed very carefully to work
-// with Visual C++.
-//
 template <class _Traits>
 class _Noconv_output {
 public:
@@ -406,17 +356,9 @@ public:
   }
 };
 
-//----------------------------------------------------------------------
-// basic_filebuf<> helper functions.
 
 
-//----------------------------------------
-// Helper functions for switching between modes.
 
-//
-// This class had to be designed very carefully to work
-// with Visual C++.
-//
 template <class _Traits>
 class _Noconv_input {
 public:
@@ -439,10 +381,6 @@ public:
   }
 };
 
-// underflow() may be called for one of two reasons.  (1) We've
-// been going through the special putback buffer, and we need to move back
-// to the regular internal buffer.  (2) We've exhausted the internal buffer,
-// and we need to replentish it.  
 template <class _CharT, class _Traits>
 class _Underflow {
 public:
@@ -453,8 +391,6 @@ public:
 };
 
 
-// Specialization of underflow: if the character type is char, maybe
-// we can use mmap instead of read.
 _STLP_TEMPLATE_NULL
 class _STLP_CLASS_DECLSPEC _Underflow< char, char_traits<char> > {
 public:
@@ -463,8 +399,6 @@ public:
   static  int _STLP_CALL _M_doit(basic_filebuf<char, traits_type >* __this);
 };
 
-// There is a specialized version of underflow, for basic_filebuf<char>,
-// in fstream.cxx.
 
 template <class _CharT, class _Traits>
 _STLP_TYPENAME_ON_RETURN_TYPE _Underflow<_CharT, _Traits>::int_type // _STLP_CALL
@@ -491,8 +425,6 @@ _STLP_EXPORT_TEMPLATE_CLASS _Underflow<wchar_t, char_traits<wchar_t> >;
 #endif
 
 
-//----------------------------------------------------------------------
-// Class basic_ifstream<>
 
 template <class _CharT, class _Traits>
 class basic_ifstream : public basic_istream<_CharT, _Traits>
@@ -566,8 +498,6 @@ private:
 };
 
 
-//----------------------------------------------------------------------
-// Class basic_ofstream<>
 
 template <class _CharT, class _Traits>
 class basic_ofstream : public basic_ostream<_CharT, _Traits>
@@ -638,8 +568,6 @@ private:
 };
 
 
-//----------------------------------------------------------------------
-// Class basic_fstream<>
 
 template <class _CharT, class _Traits>
 class basic_fstream : public basic_iostream<_CharT, _Traits>
@@ -736,6 +664,3 @@ _STLP_END_NAMESPACE
 #endif /* _STLP_FSTREAM */
 
 
-// Local Variables:
-// mode:C++
-// End:

@@ -1,8 +1,6 @@
 #ifndef __DEPTHOPTIMIZER_H__
 #define __DEPTHOPTIMIZER_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline const float ClampF( const float fVal, const float fMin, const float fMax )
 {
 	union { float f; int hex; };
@@ -13,7 +11,6 @@ inline const float ClampF( const float fVal, const float fMin, const float fMax 
 	f += fMax;
 	return f;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CDepthOptimizer
 {
 	CArray2D<float> depthbuffer;					//
@@ -22,7 +19,6 @@ class CDepthOptimizer
 	int nScreenSizeY;											//
 	float fCoeffX;												//
 	float fCoeffY;												//
-	//
 	bool CanAddLocal( const int nX1, const int nY1, const int nX2, const int nY2 ) const
 	{
 		float fTotalDepth = 0;
@@ -36,10 +32,8 @@ class CDepthOptimizer
 				++pCurr;
 			}
 		}
-		//
 		return fTotalDepth / float( (nX2 - nX1) * (nY2 - nY1) ) <= fAllowedDepth;
 	}
-	//
 	void AddLocal( const int nX1, const int nY1, const int nX2, const int nY2 )
 	{
 		for ( int i = nY1; i < nY2; ++i )
@@ -60,7 +54,6 @@ public:
 		nScreenSizeX = nScreenSizeY = 0;
 		fCoeffX = fCoeffY = 0;
 	}
-	//
 	void SetScreenSize( const int nSizeX, const int nSizeY )
 	{
 		nScreenSizeX = nSizeX;
@@ -68,7 +61,6 @@ public:
 		fCoeffX = float( depthbuffer.GetSizeX() ) / float( nScreenSizeX );
 		fCoeffY = float( depthbuffer.GetSizeY() ) / float( nScreenSizeY );
 	}
-	//
 	bool CheckAndAdd( const float fX1, const float fY1, const float fX2, const float fY2 )
 	{
 		const int nX1 = int( ClampF(fX1*fCoeffX       , 0.0f, float(depthbuffer.GetSizeX())) );
@@ -82,11 +74,9 @@ public:
 		}
 		return false;
 	}
-	//
 	void Clear()
 	{
 		depthbuffer.SetZero();
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __DEPTHOPTIMIZER_H__

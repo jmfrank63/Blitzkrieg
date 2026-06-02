@@ -2,17 +2,14 @@
 #define __TRANSPORT_STATES__
 
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "UnitStates.h"
 #include "StatesFactory.h"
 #include "CLockWithUnlockPossibilities.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormation;
 class CAIUnit;
 class CBuildingStorage;
 class CArtillery;
 interface IStaticPath;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTransportStatesFactory : public IStatesFactory
 {
 	OBJECT_COMPLETE_METHODS( CTransportStatesFactory );
@@ -24,10 +21,8 @@ public:
 	virtual interface IUnitState* ProduceRestState( class CQueueUnit *pUnit );
 
 	virtual bool CanCommandBeExecuted( class CAICommand *pCommand );
-	// for Saving/Loading of static members
 	friend class CStaticMembers;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTransportWaitPassengerState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CTransportWaitPassengerState );
@@ -50,9 +45,6 @@ public:
 
 	void AddFormationToWait( class CFormation *pFormation );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//состояние выгрузки солдат из транспорта
-//
 class CTransportLandState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CTransportLandState );
@@ -65,7 +57,6 @@ class CTransportLandState : public IUnitState
 
 	CVec2 vLandPoint;
 
-	//
 	void LandPassenger( class CSoldier *pLandUnit );
 	const SVector GetLandingPoint();
 public:
@@ -81,7 +72,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTransportLoadRuState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CTransportLoadRuState );
@@ -123,7 +113,6 @@ public:
 	
 	bool IsSubStateFinished() const { return eState == ETLRS_SUBSTATE_FINISHED; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTransportServeState : public IUnitState
 {
 	DECLARE_SERIALIZE;
@@ -174,7 +163,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const { return vServePoint; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTransportResupplyState: public CTransportServeState
 {
 	OBJECT_COMPLETE_METHODS( CTransportResupplyState );
@@ -196,7 +184,6 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_RESUPPLY_UNIT; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTransportRepairState: public CTransportServeState
 {
 	OBJECT_COMPLETE_METHODS( CTransportRepairState );
@@ -217,7 +204,6 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_REPAIR_UNIT; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTransportResupplyHumanResourcesState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CTransportResupplyHumanResourcesState );
@@ -249,9 +235,7 @@ class CTransportResupplyHumanResourcesState : public IUnitState
 
 	bool bWaitForPath;
 
-	// return true if artillery is served
 	bool ServeArtillery( CArtillery *pArtillery );
-	// return true if squad is served
 	bool ServeSquad( CFormation *pSquad );
 
 	void FindNotCompleteSquads( std::list< CPtr<CFormation> > *pSquads ) const;
@@ -273,8 +257,6 @@ public:
 	
 	virtual EUnitStateNames GetName() { return EUSN_HUMAN_RESUPPLY; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// погрузка пушки
 class CTransportHookArtilleryState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CTransportHookArtilleryState );
@@ -321,10 +303,7 @@ public:
 	
 	virtual EUnitStateNames GetName() { return EUSN_HOOK_ARTILLERY; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// отцепление ариллерии
 class CTransportUnhookArtilleryState : public IUnitState
 {
 	OBJECT_COMPLETE_METHODS( CTransportUnhookArtilleryState );
@@ -361,7 +340,6 @@ public:
 	virtual bool IsAttackingState() const { return false; }
 	virtual const CVec2 GetPurposePoint() const { return vDestPoint; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTransportBuildState : public IUnitState
 {
 	DECLARE_SERIALIZE;
@@ -397,9 +375,7 @@ protected:
 	virtual bool HaveToSendEngeneersNow()  = 0;
 	virtual void SendEngineers() = 0;
 	virtual bool IsEndPointNeeded() const = 0;
-	// хватает ли инженерам ресурсов, чтобы строить
 	virtual bool IsEnoughResources() const = 0;
-	// все ли инженеры построили
 	virtual bool IsWorkDone() const = 0;
 	virtual bool MustSayNegative() const { return true; }
 	virtual void NotifyGoToStorage() { }
@@ -419,7 +395,6 @@ public:
 	virtual const CVec2 GetPurposePoint() const { return vStartPoint; }
 };
 class CLongObjectCreation;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTransportBuildLongObjectState : public CTransportBuildState
 {
 	DECLARE_SERIALIZE;
@@ -443,7 +418,6 @@ public:
 	virtual void SetEndPoint( const CVec2& _vEndPoint );
 	
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTransportBuildFenceState : public CTransportBuildLongObjectState 
 {
 	DECLARE_SERIALIZE;
@@ -456,7 +430,6 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_BUILD_FENCE; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTransportBuildEntrenchmentState : public CTransportBuildLongObjectState 
 {
 	DECLARE_SERIALIZE;
@@ -469,7 +442,6 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_BUILD_ENTRENCHMENT; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTransportClearMineState : public CTransportBuildState 
 {
 	DECLARE_SERIALIZE;
@@ -494,7 +466,6 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_CLEAR_MINE; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTransportPlaceMineState : public CTransportBuildState 
 {
 	DECLARE_SERIALIZE;
@@ -521,7 +492,6 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_PLACE_MINE; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTransportPlaceAntitankState : public CTransportBuildState 
 {
 	DECLARE_SERIALIZE;
@@ -545,7 +515,6 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_PLACE_ANTITANK; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFullBridge;
 class CTransportRepairBridgeState : public CTransportBuildState
 {
@@ -570,7 +539,6 @@ public:
 	
 	virtual EUnitStateNames GetName() { return EUSN_REPAIR_BRIDGE; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CBridgeCreation;
 class CTransportBuildBridgeState : public CTransportBuildState
 {
@@ -596,7 +564,6 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_BUILD_BRIDGE; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CBuilding;
 class CTransportRepairBuildingState : public CTransportBuildState 
 {
@@ -621,7 +588,6 @@ public:
 
 	virtual EUnitStateNames GetName() { return EUSN_REPAIR_BUILDING; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMoveToPointNotPresize : public IUnitState
 {
 	DECLARE_SERIALIZE;
@@ -646,5 +612,4 @@ public:
 	virtual const CVec2 GetPurposePoint() const { return vPurposePoint; }
 	virtual EUnitStateNames GetName() { return EUSN_MOVE_TO_RESUPPLY_CELL; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __TRANSPORT_STATES__

@@ -2,10 +2,7 @@
 
 #include "RMG_TemplateFieldPropertiesDialog.h"
 
-//#include "editor.h"
 
-//#include "MapEditorBarWnd.h"
-//#include "TemplateEditorFrame1.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -13,7 +10,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CRMGTemplateFieldPropertiesDialog::vID[] = 
 {
 	IDC_RMG_TFP_STATS_LABEL_LEFT,		//0
@@ -28,16 +24,13 @@ const int CRMGTemplateFieldPropertiesDialog::vID[] =
 	IDCANCEL,												//9
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CRMGTemplateFieldPropertiesDialog::CRMGTemplateFieldPropertiesDialog( CWnd* pParent )
 	: CResizeDialog( CRMGTemplateFieldPropertiesDialog::IDD, pParent )
 {
-	//{{AFX_DATA_INIT(CRMGTemplateFieldPropertiesDialog)
 	m_bDefault = FALSE;
 	m_strWeight = _T("");
 	m_strStats = _T("");
 	m_strPath = _T("");
-	//}}AFX_DATA_INIT
 
 	SetControlStyle( vID[0], ANCHORE_LEFT_TOP );
 	SetControlStyle( vID[1], ANCHORE_LEFT_TOP | RESIZE_HOR );
@@ -55,23 +48,14 @@ CRMGTemplateFieldPropertiesDialog::CRMGTemplateFieldPropertiesDialog( CWnd* pPar
 	SetControlStyle( vID[9], ANCHORE_BOTTOM | ANCHORE_HOR_CENTER );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGTemplateFieldPropertiesDialog::DoDataExchange(CDataExchange* pDX)
 {
 	CResizeDialog::DoDataExchange( pDX );
-	//{{AFX_DATA_MAP( CRMGTemplateFieldPropertiesDialog )
 	DDX_Check(pDX, IDC_RMG_TFP_DEFAULT_CHECK_BOX, m_bDefault);
 	DDX_Text(pDX, IDC_RMG_TFP_WEIGHT_EDIT, m_strWeight);
 	DDX_Text(pDX, IDC_RMG_TFP_STATS_LABEL_RIGHT, m_strStats);
 	DDX_Text(pDX, IDC_RMG_TFP_PATH_LABEL_RIGHT, m_strPath);
-	//}}AFX_DATA_MAP
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CRMGTemplateFieldPropertiesDialog, CResizeDialog)
-	//{{AFX_MSG_MAP(CRMGTemplateFieldPropertiesDialog)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// basement storage  
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

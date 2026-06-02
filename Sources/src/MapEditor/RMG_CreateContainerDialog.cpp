@@ -15,7 +15,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char *CC_CONTAINERS_XML_NAME = "Containers";
 const char *CC_CONTAINERS_FILE_NAME = "Editor\\DefaultContainers";
 const char *CC_CONTAINERS_DIALOG_TITLE = "Containers Composer";
@@ -32,7 +31,6 @@ int					CC_PATCHES_COLUMN_WIDTH [CC_PATCHES_COLUMN_COUNT] = { 200, 60, 120, 80, 
 
 const char *CC_SET_DIRECTION = "Yes";
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CALLBACK CC_ContainersCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort )
 {
 	CRMGCreateContainerDialog* pContainerDialog = reinterpret_cast<CRMGCreateContainerDialog*>( lParamSort );
@@ -49,7 +47,6 @@ int CALLBACK CC_ContainersCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lP
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CALLBACK CC_PatchesCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort )
 {
 	CRMGCreateContainerDialog* pContainerDialog = reinterpret_cast<CRMGCreateContainerDialog*>( lParamSort );
@@ -66,7 +63,6 @@ int CALLBACK CC_PatchesCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lPara
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CRMGCreateContainerDialog::vID[] = 
 {
 	IDC_RMG_CC_CONTAINERS_LABEL,						//0
@@ -86,12 +82,9 @@ const int CRMGCreateContainerDialog::vID[] =
 	IDC_RMG_CC_CHECK_CONTAINERS_BUTTON,			//14
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CRMGCreateContainerDialog::CRMGCreateContainerDialog( CWnd* pParent )
 	: CResizeDialog( CRMGCreateContainerDialog::IDD, pParent ), isChanged( false ), bSomeDeleted( false ), nSortColumn( 0 )
 {
-	//{{AFX_DATA_INIT(CRMGCreateContainerDialog)
-	//}}AFX_DATA_INIT
 
 	SetControlStyle( vID[0], ANCHORE_LEFT_TOP | RESIZE_HOR );
 	SetControlStyle( vID[1], ANCHORE_LEFT_TOP | RESIZE_HOR_VER, 0.5f, 0.5f, 1.0f, 0.5f );
@@ -110,19 +103,14 @@ CRMGCreateContainerDialog::CRMGCreateContainerDialog( CWnd* pParent )
 	SetControlStyle( vID[14], ANCHORE_RIGHT_TOP );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::DoDataExchange( CDataExchange* pDX )
 {
 	CResizeDialog::DoDataExchange( pDX );
-	//{{AFX_DATA_MAP(CRMGCreateContainerDialog)
 	DDX_Control(pDX, IDC_RMG_CC_CONTAINERS_LIST, m_ContainersList);
 	DDX_Control(pDX, IDC_RMG_CC_PATCHES_LIST, m_PatchesList);
-	//}}AFX_DATA_MAP
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CRMGCreateContainerDialog, CResizeDialog )
-	//{{AFX_MSG_MAP(CRMGCreateContainerDialog)
 	ON_BN_CLICKED(IDC_RMG_CC_ADD_BUTTON, OnAddButton)
 	ON_BN_CLICKED(IDC_RMG_CC_DELETE_BUTTON, OnDeleteButton)
 	ON_BN_CLICKED(IDC_RMG_CC_PROPERTIES_BUTTON, OnPropertiesButton)
@@ -151,10 +139,8 @@ BEGIN_MESSAGE_MAP(CRMGCreateContainerDialog, CResizeDialog )
 	ON_COMMAND(ID_FILE_SAVEAS, OnFileSaveas)
 	ON_COMMAND(ID_FILE_EXIT, OnFileExit)
 	ON_BN_CLICKED(IDC_RMG_CC_CHECK_CONTAINERS_BUTTON, OnCheckContainersButton)
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CRMGCreateContainerDialog::OnInitDialog() 
 {
 	CResizeDialog ::OnInitDialog();
@@ -177,7 +163,6 @@ BOOL CRMGCreateContainerDialog::OnInitDialog()
 	return TRUE;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnOK() 
 {
 	for ( int nColumnIndex = 0; nColumnIndex < CC_CONTAINERS_COLUMN_COUNT; ++nColumnIndex )
@@ -193,7 +178,6 @@ void CRMGCreateContainerDialog::OnOK()
 	CResizeDialog::OnOK();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnCancel() 
 {
 	for ( int nColumnIndex = 0; nColumnIndex < CC_CONTAINERS_COLUMN_COUNT; ++nColumnIndex )
@@ -208,7 +192,6 @@ void CRMGCreateContainerDialog::OnCancel()
 	CResizeDialog::OnCancel();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnAddButton() 
 {
 	IDataStorage* pDataStorage = GetSingleton<IDataStorage>();
@@ -275,7 +258,6 @@ void CRMGCreateContainerDialog::OnAddButton()
 				{
 					return;
 				}
-				//check stats!
 				std::string szCheckResult;
 				if ( rContainer.patches.empty() )
 				{
@@ -357,7 +339,6 @@ void CRMGCreateContainerDialog::OnAddButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnDeleteButton() 
 {
 	int nFocusedItem = m_ContainersList.GetNextItem( -1, LVNI_FOCUSED );
@@ -379,7 +360,6 @@ void CRMGCreateContainerDialog::OnDeleteButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnPropertiesButton()
 {
 	int nFocusedItem = m_ContainersList.GetNextItem( -1, LVNI_FOCUSED );
@@ -495,7 +475,6 @@ void CRMGCreateContainerDialog::OnPropertiesButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnAddContainerButton()
 {
 	IDataStorage* pDataStorage = GetSingleton<IDataStorage>();
@@ -576,7 +555,6 @@ void CRMGCreateContainerDialog::OnAddContainerButton()
 	delete[] fileDialog.m_ofn.lpstrFile;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnDeleteContainerButton()
 {
 	CString strTitle;
@@ -607,12 +585,10 @@ void CRMGCreateContainerDialog::OnDeleteContainerButton()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnContainerPropertiesButton() 
 {
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnItemchangedPatchesList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -620,14 +596,12 @@ void CRMGCreateContainerDialog::OnItemchangedPatchesList(NMHDR* pNMHDR, LRESULT*
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnDblclkPatchesList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	OnPropertiesButton();
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnRclickPatchesList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	CMenu composersMenu;
@@ -656,7 +630,6 @@ void CRMGCreateContainerDialog::OnRclickPatchesList(NMHDR* pNMHDR, LRESULT* pRes
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnKeydownPatchesList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	LV_KEYDOWN* pLVKeyDown = (LV_KEYDOWN*)pNMHDR;
@@ -693,7 +666,6 @@ void CRMGCreateContainerDialog::OnKeydownPatchesList(NMHDR* pNMHDR, LRESULT* pRe
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnColumnclickPatchesList(NMHDR* pNMHDR, LRESULT* pResult) 
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -714,7 +686,6 @@ void CRMGCreateContainerDialog::OnColumnclickPatchesList(NMHDR* pNMHDR, LRESULT*
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnItemchangedContainersList(NMHDR* pNMHDR, LRESULT* pResult)
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -726,14 +697,12 @@ void CRMGCreateContainerDialog::OnItemchangedContainersList(NMHDR* pNMHDR, LRESU
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnDblclkContainersList(NMHDR* pNMHDR, LRESULT* pResult)
 {
 	OnContainerPropertiesButton();
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnRclickContainersList(NMHDR* pNMHDR, LRESULT* pResult)
 {
 	CMenu composersMenu;
@@ -764,7 +733,6 @@ void CRMGCreateContainerDialog::OnRclickContainersList(NMHDR* pNMHDR, LRESULT* p
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnKeydownContainersList(NMHDR* pNMHDR, LRESULT* pResult)
 {
 	LV_KEYDOWN* pLVKeyDown = (LV_KEYDOWN*)pNMHDR;
@@ -801,7 +769,6 @@ void CRMGCreateContainerDialog::OnKeydownContainersList(NMHDR* pNMHDR, LRESULT* 
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnColumnclickContainersList(NMHDR* pNMHDR, LRESULT* pResult)
 {
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
@@ -822,37 +789,31 @@ void CRMGCreateContainerDialog::OnColumnclickContainersList(NMHDR* pNMHDR, LRESU
 	*pResult = 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnAddMenu() 
 {
 	OnAddButton();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnDeleteMenu() 
 {
 	OnDeleteButton();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnPropertiesMenu() 
 {
 	OnPropertiesButton();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnAddContainerMenu() 
 {
 	OnAddContainerButton();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnDeleteContainerMenu() 
 {
 	OnDeleteContainerButton();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
 void CRMGCreateContainerDialog::OnContainerPropertiesMenu() 
 {
@@ -860,7 +821,6 @@ void CRMGCreateContainerDialog::OnContainerPropertiesMenu()
 }
 /**/
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRMGCreateContainerDialog::LoadContainersList()
 {
 	IDataStorage* pDataStorage = GetSingleton<IDataStorage>();
@@ -871,10 +831,8 @@ bool CRMGCreateContainerDialog::LoadContainersList()
 
 	SetWindowText( NStr::Format( "%s - [%s]", CC_CONTAINERS_DIALOG_TITLE, resizeDialogOptions.szParameters[3] ) );
 	BeginWaitCursor();
-	//считываем containers с диска
 	LoadDataResource( resizeDialogOptions.szParameters[3], "", false, 0, CC_CONTAINERS_XML_NAME, containers );
 	
-	//заполняем информацию по containers
 	m_ContainersList.DeleteAllItems();
 	for ( CRMContainersHashMap::const_iterator containerIterator = containers.begin();  containerIterator != containers.end(); ++containerIterator )
 	{
@@ -897,7 +855,6 @@ void CRMGCreateContainerDialog::OnSaveButton()
 	SaveContainersList();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRMGCreateContainerDialog::SaveContainersList()
 {
 	IDataStorage* pDataStorage = GetSingleton<IDataStorage>();
@@ -908,14 +865,12 @@ bool CRMGCreateContainerDialog::SaveContainersList()
 
 	SetWindowText( NStr::Format( "%s - [%s]", CC_CONTAINERS_DIALOG_TITLE, resizeDialogOptions.szParameters[3] ) );
 	BeginWaitCursor();
-	//сохраняем containers на диск
 	for ( CRMContainersHashMap::const_iterator containerIterator = containers.begin();  containerIterator != containers.end(); ++containerIterator )
 	{
 		SRMContainer container = containerIterator->second;
 		SaveDataResource( containerIterator->first, "", false, 0, RMGC_CONTAINER_XML_NAME, container );
 	}
 
-	//сохраняем список containers на диск
 	if ( !SaveDataResource( resizeDialogOptions.szParameters[3], "", false, 0, CC_CONTAINERS_XML_NAME, containers ) )
 	{
 		EndWaitCursor();
@@ -925,7 +880,6 @@ bool CRMGCreateContainerDialog::SaveContainersList()
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRMGCreateContainerDialog::LoadContainerToControls()
 {
 	m_PatchesList.DeleteAllItems();
@@ -965,7 +919,6 @@ bool CRMGCreateContainerDialog::LoadContainerToControls()
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRMGCreateContainerDialog::SaveContainerFromControls()
 {
 	int nFocusedItem = m_ContainersList.GetNextItem( -1, LVNI_FOCUSED );
@@ -975,14 +928,12 @@ bool CRMGCreateContainerDialog::SaveContainerFromControls()
 
 		SRMContainer &rContainer = containers[szKey];
 		
-		//очистим информацию
 		rContainer.patches.clear();
 		rContainer.indices[SRMContainer::ANGLE_0].clear();
 		rContainer.indices[SRMContainer::ANGLE_90].clear();
 		rContainer.indices[SRMContainer::ANGLE_180].clear();
 		rContainer.indices[SRMContainer::ANGLE_270].clear();
 
-		//заполним заново
 		int nX = 0;
 		int nY = 0;
 		int nItemCount = m_PatchesList.GetItemCount();
@@ -1017,7 +968,6 @@ bool CRMGCreateContainerDialog::SaveContainerFromControls()
 		rContainer.size.x = nX;
 		rContainer.size.y = nY;
 
-		//при отсутствии патчей убираем check info
 		if ( rContainer.patches.empty() )
 		{
 			rContainer.nSeason = 0;
@@ -1073,17 +1023,14 @@ void CRMGCreateContainerDialog::SetContainerItem( int nItem, const SRMContainer 
 	m_ContainersList.SetItem( nItem, 11, LVIF_TEXT, szUsedScripAreas.c_str(), 0, 0, 0, 0 );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CRMGCreateContainerDialog::IsValidContainerEntered()
 {
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::UpdateControls()
 {
 	CWnd* pWnd = 0;
-	//Containers buttons
 	if ( pWnd = GetDlgItem( vID[5] ) )
 	{
 		pWnd->EnableWindow( m_ContainersList.GetSelectedCount() > 0 );
@@ -1096,7 +1043,6 @@ void CRMGCreateContainerDialog::UpdateControls()
 	{
 		pWnd->EnableWindow( m_ContainersList.GetItemCount() > 0 );
 	}
-	//Patches buttons
 	if ( pWnd = GetDlgItem( vID[7] ) )
 	{
 		pWnd->EnableWindow( m_ContainersList.GetSelectedCount() > 0 );
@@ -1111,7 +1057,6 @@ void CRMGCreateContainerDialog::UpdateControls()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::CreateControls()
 {
 	m_ContainersList.SetExtendedStyle( m_ContainersList.GetExtendedStyle() | LVS_EX_FULLROWSELECT );
@@ -1142,13 +1087,11 @@ void CRMGCreateContainerDialog::CreateControls()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::ClearControls()
 {
 	m_PatchesList.DeleteAllItems();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnFileNew() 
 {
 	SaveContainersList();
@@ -1157,7 +1100,6 @@ void CRMGCreateContainerDialog::OnFileNew()
 	UpdateControls();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnFileOpen() 
 {
 	IDataStorage* pDataStorage = GetSingleton<IDataStorage>();
@@ -1202,13 +1144,11 @@ void CRMGCreateContainerDialog::OnFileOpen()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnFileSave() 
 {
 	SaveContainersList();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnFileSaveas() 
 {
 	IDataStorage* pDataStorage = GetSingleton<IDataStorage>();
@@ -1217,7 +1157,6 @@ void CRMGCreateContainerDialog::OnFileSaveas()
 		return;
 	}
 
-	//SaveContainersList();
 
 	CFileDialog fileDialog( false, ".xml", "", OFN_OVERWRITEPROMPT, "XML files (*.xml)|*.xml||" );
 	fileDialog.m_ofn.lpstrInitialDir = resizeDialogOptions.szParameters[2].c_str();
@@ -1251,7 +1190,6 @@ void CRMGCreateContainerDialog::OnFileSaveas()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGCreateContainerDialog::OnFileExit() 
 {
 	OnOK();
@@ -1302,7 +1240,6 @@ void CRMGCreateContainerDialog::OnCheckContainersButton()
 				return;
 			}
 
-			//check stats!
 			if ( nPatchIndex == 0 )
 			{
 				containerIterator->second.nSeason = mapInfo.nSeason;
@@ -1379,6 +1316,3 @@ void CRMGCreateContainerDialog::OnCheckContainersButton()
 	LoadContainersList();
 	EndWaitCursor();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// basement storage  
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -2,7 +2,6 @@
 
 #include "ArtilleryStates.h"
 #include "SerializeOwner.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CArtilleryMoveToState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -14,7 +13,6 @@ int CArtilleryMoveToState::operator&( IStructureSaver &ss )
 	saver.Add( 5, &pStaticPath );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CArtilleryTurnToPointState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -26,7 +24,6 @@ int CArtilleryTurnToPointState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CArtilleryBombardmentState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -38,7 +35,6 @@ int CArtilleryBombardmentState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CArtilleryRangeAreaState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -56,7 +52,6 @@ int CArtilleryRangeAreaState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CArtilleryInstallTransportState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -66,7 +61,6 @@ int CArtilleryInstallTransportState::operator&( IStructureSaver &ss )
 	saver.Add( 2, &eState );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CArtilleryUninstallTransportState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -75,7 +69,6 @@ int CArtilleryUninstallTransportState::operator&( IStructureSaver &ss )
 	saver.Add( 2, &eState );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CArtilleryBeingTowedState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -91,7 +84,6 @@ int CArtilleryBeingTowedState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CArtilleryAttackState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -110,7 +102,6 @@ int CArtilleryAttackState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CArtilleryAttackCommonStatObjState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -126,7 +117,6 @@ int CArtilleryAttackCommonStatObjState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CArtilleryRestState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -136,7 +126,6 @@ int CArtilleryRestState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CArtilleryAttackAviationState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -146,4 +135,3 @@ int CArtilleryAttackAviationState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

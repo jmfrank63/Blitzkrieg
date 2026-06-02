@@ -1,8 +1,6 @@
 #include "StdAfx.h"
 #include "ARText.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//see CTextManager::AddTextFile(
 bool CARText::Load( const std::vector<BYTE> &rData )
 {
 	if ( ( rData.size() < 4 ) || ( rData[0] != 0xff ) || ( rData[1] != 0xfe ) )
@@ -15,7 +13,6 @@ bool CARText::Load( const std::vector<BYTE> &rData )
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CARText::SetCodePage( int nCodePage )
 {
 	int nBufferLength = ::WideCharToMultiByte( nCodePage, 0, wszText.c_str(), wszText.length(), 0, 0, 0, 0 );
@@ -23,4 +20,3 @@ void CARText::SetCodePage( int nCodePage )
 	::WideCharToMultiByte( nCodePage, 0, wszText.c_str(), wszText.length(), lptStr, nBufferLength, 0, 0 );
 	szText.ReleaseBuffer();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,9 +1,6 @@
-// STLport configuration file
-// It is internal STLport header - DO NOT include it directly
 
 # define _STLP_HAS_SPECIFIC_PROLOG_EPILOG
 
-// define native include path before trying to include anything
 
 # define _STLP_NATIVE_HEADER(__x) </usr/include/CC/##__x>
 # define _STLP_NATIVE_C_HEADER(__x) </usr/include/##__x>
@@ -17,7 +14,6 @@
 #define _STLP_NO_NATIVE_WIDE_FUNCTIONS
 #define _STLP_NO_MEMBER_TEMPLATE_CLASSES
 
-// #define _STLP_NO_BAD_ALLOC
 
 #define _STL_HAS_NAMESPACES
 
@@ -25,21 +21,16 @@
 # define _STLP_NO_EXCEPTIONS
 #endif
 
-// #define _STLP_NOTHROW throw()
      
 #  define __EDG_SWITCHES
 
-// any version ???
 #  define _STLP_AUTOMATIC_TYPE_TRAITS 1
 
 #  define _STLP_USE_SGI_STRING         1
 
 #  define _STLP_HAS_NO_NEW_C_HEADERS 1
-// #  define _STLP_VENDOR_GLOBAL_EXCEPT_STD
 
-// # if ! defined (_STLP_NO_OWN_IOSTREAMS) && ! defined (_STLP_NO_NEW_IOSTREAMS)
 #  define _STLP_NO_POST_COMPATIBLE_SECTION
-// # endif
 
 #  include <standards.h>
 
@@ -85,7 +76,6 @@
 #   if !(_COMPILER_VERSION >= 730 && defined(_STANDARD_C_PLUS_PLUS))
 #     define _STLP_NO_AT_MEMBER_FUNCTION
 #   endif
-// #   if !(_COMPILER_VERSION >= 730 && defined(_STANDARD_C_PLUS_PLUS))
 #   if !(_COMPILER_VERSION >= 721 && defined(_STANDARD_C_PLUS_PLUS))
 #     define _STLP_NO_TEMPLATE_CONVERSIONS
 #   endif

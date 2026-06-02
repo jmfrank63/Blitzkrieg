@@ -7,7 +7,6 @@
 #include "..\Misc\Intersection.h"
 #include <mmreg.h>
 #include <dsound.h>
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CBinkVideoPlayer::CBinkVideoPlayer()
 {
 	dwCopyFlags = 0;
@@ -20,18 +19,15 @@ CBinkVideoPlayer::CBinkVideoPlayer()
 	nShadingEffectFinish = 18;
 	bStopped = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CBinkVideoPlayer::~CBinkVideoPlayer()
 {
 	if ( hBink ) 
 		BinkClose( hBink );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBinkVideoPlayer::SetupRects()
 {
 	if ( rcDstRect.IsEmpty() || (hBink == 0) || images.empty() || images[0].rcSrcRect.IsEmpty() ) 
 		return;
-	//
 	if ( bMaintainAspect ) 
 	{
 		const float fCoeffX = rcDstRect.Width() / float( hBink->Width );
@@ -49,7 +45,6 @@ void CBinkVideoPlayer::SetupRects()
 			rcDstRect.x2 = rcDstRect.x1 + fNewSizeX;
 		}
 	}
-	//
 	const float fCoeffX = rcDstRect.Width() / float( hBink->Width );
 	const float fCoeffY = rcDstRect.Height() / float( hBink->Height );
 	for ( CImagesList::iterator it = images.begin(); it != images.end(); ++it )
@@ -60,7 +55,6 @@ void CBinkVideoPlayer::SetupRects()
 		it->rcRect.y2 = int( rcDstRect.y1 + it->rcSrcRect.y2*fCoeffY ) - 0.5f;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBinkVideoPlayer::SetTarget( IGFXTexture *pTexture, IGFX *pGFX )
 {
 	SImagePart image;
@@ -68,14 +62,12 @@ void CBinkVideoPlayer::SetTarget( IGFXTexture *pTexture, IGFX *pGFX )
 	images.clear();
 	images.push_back( image );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBinkVideoPlayer::SetDstRect( const RECT &_rcDstRect, bool _bMaintainAspect )
 {
 	rcDstRect = _rcDstRect;
 	bMaintainAspect = _bMaintainAspect;
 	SetupRects();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBinkVideoPlayer::OpenBink( const char *pszFileName, DWORD dwOpenFlags, DWORD dwFlags )
 {
 	if ( dwFlags & IVideoPlayer::PLAY_FROM_MEMORY ) 
@@ -89,29 +81,23 @@ bool CBinkVideoPlayer::OpenBink( const char *pszFileName, DWORD dwOpenFlags, DWO
 	}
 	else
 		hBink = BinkOpen( pszFileName, dwOpenFlags );
-	//
 	dwPlayFlags = dwFlags;
-	//
 	if ( hBink != 0 )
 	{
-		// set sound volume
 		s32 nVolume = 32768 * GetSingleton<ISFX>()->GetSFXMasterVolume() / 255.0f;
 		BinkSetVolume( hBink, 0, nVolume );
 	}
 	return hBink != 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CBinkVideoPlayer::Play( const char *pszFileName, DWORD dwFlags, IGFX *pGFX, interface ISFX *pSFX )
 {
 	Stop();
-	// initialize sound
 	if ( pSFX ) 
 	{
 		LPDIRECTSOUND pDS = reinterpret_cast<LPDIRECTSOUND>( pSFX->QI(0) );
 		if ( pDS != 0 ) 
 			BinkSoundUseDirectSound( pDS );
 	}
-	//
 	szFileName = pszFileName;
 	DWORD dwOpenFlags = 0;
 	if ( images.size() == 1 )							// if we have set 'external' render target
@@ -137,10 +123,8 @@ int CBinkVideoPlayer::Play( const char *pszFileName, DWORD dwFlags, IGFX *pGFX, 
 			default:
 				NI_ASSERT_T( false, "Unsupported format in Bink video player" );
 		}
-		// open bink
 		if ( OpenBink(pszFileName, dwOpenFlags, dwFlags) == false ) 
 			return 0;
-		// setup rects
 		const int nSizeX = Min( images[0].pTexture->GetSizeX(0), int(hBink->Width) );
 		const int nSizeY = Min( images[0].pTexture->GetSizeY(0), int(hBink->Height) );
 		images[0].rcSrcRect.Set( 0, 0, nSizeX, nSizeY );
@@ -152,7 +136,6 @@ int CBinkVideoPlayer::Play( const char *pszFileName, DWORD dwFlags, IGFX *pGFX, 
 		dwCopyFlags |= BINKSURFACE32A;
 		if ( dwFlags & IVideoPlayer::PLAY_WITH_ALPHA ) 
 			dwOpenFlags |= BINKALPHA;
-		// open bink
 		if ( OpenBink(pszFileName, dwOpenFlags, dwFlags) == false ) 
 			return 0;
 		const bool bHasNonPow2Textures = (GetGlobalVar( "GFX.Caps.Texture.NonPow2Conditional", 0 ) != 0) || (GetGlobalVar( "GFX.Caps.Texture.NonPow2", 0 ) != 0);
@@ -165,7 +148,6 @@ int CBinkVideoPlayer::Play( const char *pszFileName, DWORD dwFlags, IGFX *pGFX, 
 			image.rcSrcRect.Set( 0, 0, hBink->Width, hBink->Height );
 			image.rcDstRect.Set( 0, 0, hBink->Width, hBink->Height );
 			image.rcMaps.Set( 0, 0, 1, 1 );
-			//
 			images.push_back( image );
 		}
 		else																// create serie of 256x256 textures to cover all render target
@@ -173,7 +155,6 @@ int CBinkVideoPlayer::Play( const char *pszFileName, DWORD dwFlags, IGFX *pGFX, 
 			const int nNumTexturesX = fmod( hBink->Width, 256 ) == 0 ? hBink->Width / 256 : hBink->Width / 256 + 1;
 			const int nNumTexturesY = fmod( hBink->Height, 256 ) == 0 ? hBink->Height / 256 : hBink->Height / 256 + 1;
 			const bool bSquareOnly = GetGlobalVar( "GFX.Caps.Texture.SquareOnly", 0 ) != 0;
-			//
 			int nRestSizeY = hBink->Height;
 			int nPosY = 0;
 			for ( int i = 0; i < nNumTexturesY; ++i )
@@ -188,15 +169,12 @@ int CBinkVideoPlayer::Play( const char *pszFileName, DWORD dwFlags, IGFX *pGFX, 
 					int nTextureSizeY = nRestSizeY < 256 ? GetNextPow2( nRestSizeY ) : 256;
 					if ( bSquareOnly ) 
 						nTextureSizeX = nTextureSizeY = Max( nTextureSizeX, nTextureSizeY );
-					//
 					SImagePart image;
 					image.pTexture = pGFX->CreateTexture( nTextureSizeX, nTextureSizeY, 1, GFXPF_ARGB8888, GFXD_STATIC );
 					image.rcSrcRect.Set( nPosX, nPosY, nPosX + nSrcSizeX, nPosY + nSrcSizeY );
 					image.rcDstRect.Set( 0, 0, nSrcSizeX, nSrcSizeY );
 					image.rcMaps.Set( 0, 0, float(image.rcDstRect.Width()) / float(nTextureSizeX), float(image.rcDstRect.Height()) / float(nTextureSizeY) );
-					//
 					images.push_back( image );
-					//
 					nRestSizeX -= 256;
 					nPosX += 256;
 				}
@@ -205,7 +183,6 @@ int CBinkVideoPlayer::Play( const char *pszFileName, DWORD dwFlags, IGFX *pGFX, 
 			}
 		}
 	}
-	// for non-multiple to 16 movies do COPY ALL
 	if ( ((hBink->Width % 16) != 0) || ((hBink->Height % 16) != 0) )
 	{
 		NStr::DebugTrace( "****** WARNING: movie \"%s\" has non-multiple to 16 size (%d : %d)! Possible performance hit!\n", pszFileName, hBink->Width, hBink->Height );
@@ -213,32 +190,24 @@ int CBinkVideoPlayer::Play( const char *pszFileName, DWORD dwFlags, IGFX *pGFX, 
 	}
 	if ( dwFlags & IVideoPlayer::COPY_ALL ) 
 		dwCopyFlags |= BINKCOPYALL;
-	// clear system image
 	for ( CImagesList::const_iterator it = images.begin(); it != images.end(); ++it )
 	{
 		SSurfaceLockInfo lock;
 		it->pTexture->Lock( 0, &lock );
-		//
 		for ( int i = 0; i < it->pTexture->GetSizeY(0); ++i )
 			memset( ((char*)lock.pData) + i*lock.nPitch, 0, it->pTexture->GetSizeX(0) );
-		//
 		it->pTexture->Unlock( 0 );
 	}
-	// setup rects (geometry and txture mapping)
 	if ( rcDstRect.IsEmpty() ) 
 		rcDstRect.Set( 0, 0, hBink->Width, hBink->Height );
 	SetupRects();
-	// do first frame (w/o rendering)
 	DoOneFrame( false );
 	CopyRects();
-	//
 	return (hBink != 0) && (hBink->FrameRate > 0) ? 1000 * hBink->Frames / hBink->FrameRate : 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBinkVideoPlayer::Stop()
 {
 	CopyRects();
-	//
 	if ( hBink ) 
 	{
 		BinkClose( hBink );
@@ -247,14 +216,12 @@ bool CBinkVideoPlayer::Stop()
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBinkVideoPlayer::Pause( bool bPause )
 {
 	if ( hBink == 0 ) 
 		return false;
 	return BinkPause( hBink, bPause );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBinkVideoPlayer::DoOneFrame( bool bCheckForStop )
 {
 	if ( hBink == 0 ) 
@@ -266,21 +233,16 @@ bool CBinkVideoPlayer::DoOneFrame( bool bCheckForStop )
 		BinkNextFrame( hBink );
 		return true;
 	}
-	//
 	BinkDoFrame( hBink );
 	BinkNextFrame( hBink );
-	//
 	if ( bCheckForStop && (nLastPlayedFrame > hBink->FrameNum) && !bLooped )
 	{
 		CopyRects();
 		return Stop();
 	}
-	//
 	nLastPlayedFrame = hBink->FrameNum;
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBinkVideoPlayer::Update( const NTimer::STime &time, bool bForcedUpdate )
 {
 	if ( hBink == 0 ) 
@@ -305,7 +267,6 @@ bool CBinkVideoPlayer::Update( const NTimer::STime &time, bool bForcedUpdate )
 	}
 	return IsPlaying() || ((dwPlayFlags & IVideoPlayer::PLAY_INFINITE) != 0);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static CTRect<long> rcDirtyRects[BINKMAXDIRTYRECTS];
 bool HasIntersection( const CTRect<long> &rcRect, const int nNumDirtyRects )
 {
@@ -316,27 +277,21 @@ bool HasIntersection( const CTRect<long> &rcRect, const int nNumDirtyRects )
 	}
 	return nNumDirtyRects == 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CopyRect( HBINK hBink, const SImagePart &image, const DWORD dwCopyFlags, const int nNumDirtyRects )
 {
 	if ( !HasIntersection(image.rcSrcRect, nNumDirtyRects) ) 
 		return;
-	//
 	SSurfaceLockInfo lock;
 	image.pTexture->Lock( 0, &lock );
-	//
 	BinkCopyToBufferRect( hBink, lock.pData, lock.nPitch, image.rcDstRect.Height(), image.rcDstRect.x1, image.rcDstRect.y1,
 												image.rcSrcRect.x1, image.rcSrcRect.y1, image.rcSrcRect.Width(), image.rcSrcRect.Height(), dwCopyFlags );
-	//
 	image.pTexture->Unlock( 0 );
 	image.pTexture->AddDirtyRect( 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBinkVideoPlayer::CopyRects()
 {
 	if ( hBink == 0 ) 
 		return;
-	//
 	const int nNumDirtyRects = BinkGetRects( hBink, BINKSURFACEFAST );
 	for ( int i = 0; i < nNumDirtyRects; ++i )
 	{
@@ -346,25 +301,21 @@ void CBinkVideoPlayer::CopyRects()
 												 hBink->FrameRects[i].Left + hBink->FrameRects[i].Width,
 												 hBink->FrameRects[i].Top + hBink->FrameRects[i].Height );
 	}
-	//
 	IGFX *pGFX = GetSingleton<IGFX>();
 	for ( CImagesList::const_iterator it = images.begin(); it != images.end(); ++it )
 		CopyRect( hBink, *it, dwCopyFlags, nNumDirtyRects );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBinkVideoPlayer::Draw( IGFX *pGFX )
 {
 	pGFX->SetShadingEffect( nShadingEffectStart );
 	for ( CImagesList::const_iterator it = images.begin(); it != images.end(); ++it )
 	{
-		// draw
 		SGFXRect2 rect;
 		rect.rect = it->rcRect;
 		rect.maps = it->rcMaps;
 		rect.color = 0xffffffff;
 		rect.specular = 0xff000000;
 		rect.fZ = 0;
-		//
 		pGFX->SetTexture( 0, it->pTexture );
 		pGFX->DrawRects( &rect, 1 );
 	}
@@ -372,8 +323,6 @@ bool CBinkVideoPlayer::Draw( IGFX *pGFX )
 	return true;
 
 /*	
-	// create and setup WORLD matrix for direct (texel-to-pixel) rendering.
-	// NOTE: projection matrix are assumed to be parallel
 	const SHMatrix &matProjection = pGFX->GetProjectionMatrix();
 	const CTRect<float> rcScreen = pGFX->GetScreenRect();
 	const float fWidth = Max( rcScreen.Width(), 1.0f );
@@ -387,24 +336,20 @@ bool CBinkVideoPlayer::Draw( IGFX *pGFX )
 	matrix._33 = 1.0f / matProjection._33;//-( far_plane - near_plane );
 	matrix._34 = -matProjection._34 / matProjection._33;//-near_plane;
 	matrix._44 = 1;
-	//
 	SHMatrix matWorld;
 	Multiply( &matWorld, pGFX->GetInverseViewMatrix(), matrix );
 	pGFX->SetWorldTransforms( 0, &matWorld, 1 );
-	//
 	pGFX->SetShadingEffect( nShadingEffectStart );
 	for ( CImagesList::const_iterator it = images.begin(); it != images.end(); ++it )
 	{
 		const DWORD color = 0xffffffff;
 		const DWORD specular = 0xff000000;
 		const float fDepth = 0;
-		//
 		CTempBufferLock<SGFXLVertex> vertices = pGFX->GetTempVertices( 4, SGFXLVertex::format, GFXPT_TRIANGLELIST );
 		vertices[0].Setup( it->rcRect.minx, it->rcRect.maxy, fDepth, color, specular, it->rcMaps.minx, it->rcMaps.maxy );
 		vertices[1].Setup( it->rcRect.minx, it->rcRect.miny, fDepth, color, specular, it->rcMaps.minx, it->rcMaps.miny );
 		vertices[2].Setup( it->rcRect.maxx, it->rcRect.maxy, fDepth, color, specular, it->rcMaps.maxx, it->rcMaps.maxy );
 		vertices[3].Setup( it->rcRect.maxx, it->rcRect.miny, fDepth, color, specular, it->rcMaps.maxx, it->rcMaps.miny );
-		//
 		CTempBufferLock<WORD> indices = pGFX->GetTempIndices( 6, GFXIF_INDEX16, GFXPT_TRIANGLELIST );
 		indices[0] = 2;
 		indices[1] = 1;
@@ -412,7 +357,6 @@ bool CBinkVideoPlayer::Draw( IGFX *pGFX )
 		indices[3] = 1;
 		indices[4] = 2;
 		indices[5] = 3;
-		//
 		pGFX->SetTexture( 0, it->pTexture );
 		pGFX->DrawTemp();
 	}
@@ -420,24 +364,20 @@ bool CBinkVideoPlayer::Draw( IGFX *pGFX )
 	return true;
 */
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBinkVideoPlayer::Visit( ISceneVisitor *pVisitor, int nType )
 {
 	pVisitor->VisitSceneObject( this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBinkVideoPlayer::IsPlaying() const
 {
 	return (hBink != 0) && !bStopped;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CBinkVideoPlayer::GetCurrentFrame() const
 {
 	if ( !IsPlaying() ) 
 		return -1;
 	return hBink->FrameNum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBinkVideoPlayer::SetCurrentFrame( const int nFrame )
 {
 	if ( !IsPlaying() ) 
@@ -447,27 +387,22 @@ bool CBinkVideoPlayer::SetCurrentFrame( const int nFrame )
 	CopyRects();
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CBinkVideoPlayer::GetLength() const
 {
 	return (hBink != 0) && (hBink->FrameRate > 0) ? 1000 * hBink->Frames / hBink->FrameRate : 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CBinkVideoPlayer::GetNumFrames() const
 {
 	return hBink != 0? hBink->Frames : 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBinkVideoPlayer::GetMovieSize( CVec2 *pSize ) const
 {
 	if ( (hBink == 0) || (pSize == 0) ) 
 		return false;
-	//
 	pSize->x = hBink->Width;
 	pSize->y = hBink->Height;
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CBinkVideoPlayer::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -481,7 +416,6 @@ int CBinkVideoPlayer::operator&( IStructureSaver &ss )
 	saver.Add( 8, &nShadingEffectStart );
 	saver.Add( 9, &nShadingEffectFinish );
 	saver.Add( 10, &bStopped );
-	//
 	bool bPlaying = IsPlaying();
 	saver.Add( 20, &bPlaying );
 	
@@ -498,4 +432,3 @@ int CBinkVideoPlayer::operator&( IStructureSaver &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

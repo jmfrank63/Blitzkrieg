@@ -1,14 +1,10 @@
 #ifndef __COMMON_UNIT_H__
 #define __COMMON_UNIT_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "LinkObject.h"
 #include "BasePathUnit.h"
 #include "GroupUnit.h"
 #include "QueueUnit.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// причины по которым с юнита пытаются снять камуфляж,
 enum ECamouflageRemoveReason
 {
 	ECRR_SELF_MOVE,
@@ -16,9 +12,7 @@ enum ECamouflageRemoveReason
 	ECRR_GOOD_VISIBILITY,
 	ECRR_USER_COMMAND,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CBasicGun;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SBehaviour
 {
 	enum EMoving
@@ -43,7 +37,6 @@ public:
 	SBehaviour() : moving( EMRoaming ), fire( EFAtWill ) { }
 	SBehaviour( const EMoving _moving, const EFire _fire ) : moving( _moving ), fire( _fire ) { }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IShootEstimator;
 interface IScenarioUnit;
 class CAIUnit;
@@ -67,7 +60,6 @@ class CCommonUnit : public CLinkObject, public IBasePathUnit, public CGroupUnit,
 
 	float fDesirableSpeed;
 	CPtr<CCommonUnit> pFollowedUnit;
-	// минимальная желательная скорость из-за того, что за нами кто-то следует
 	float fMinFollowingSpeed;
 	CVec2 vFollowShift;
 
@@ -101,7 +93,6 @@ public:
 	virtual void ChangePlayer( const BYTE cPlayer ) = 0;
 	virtual void SetPlayerForEditor( const int nPlayer ) = 0;
 
-	// какой максимальный damage можно нанести юниту pTarget
 	virtual const float GetMaxDamage( class CCommonUnit *pTarget ) const;
 
 	virtual const float GetSightRadius() const = 0;
@@ -118,7 +109,6 @@ public:
 	virtual const int GetDBID() const { return dbID; }
 	
 	virtual const bool NeedDeinstall() const { return false; }
-	// может ли сейчас стрелять ( например, если не инсталлирована, то не может )
 	virtual const bool CanShoot() const { return true; }
 	virtual const bool CanShootToPlanes() const = 0;
 	
@@ -134,15 +124,11 @@ public:
 	virtual void RemoveCamouflage( ECamouflageRemoveReason eReason )=0;
 
 	
-	// про updat-ить область range/пристрелки
 	virtual void UpdateArea( const EActionNotify eAction ) = 0;
 	virtual BYTE GetAIClass() const { return AI_CLASS_ANY; }
 	
-	// залокать unit ( если уже был залокана, то старый lock исчезает )
 	virtual void Lock( const CBasicGun *pGun );
-	// unlock unit ( если залокан другим gun-ом, то ничего не делается )
 	virtual void Unlock( const CBasicGun *pGun );
-	// залокан ли каким-либо gun-ом, не равным pGun
 	virtual bool IsLocked( const CBasicGun *pGun ) const;
 	
 	virtual class CTurret* GetTurret( const int nTurret ) const = 0;
@@ -156,17 +142,13 @@ public:
 	void SetTruck( class CAIUnit *pUnit );
 	class CAIUnit* GetTruck() const;
 	
-	// удалить юнит с карты
 	virtual void Disappear() = 0;
-	// умереть
 	virtual void Die( const bool fromExplosion, const float fDamage ) = 0;
 
-	// true возвращает только формация
 	virtual bool IsFormation() const { return false; }
 	virtual bool IsInfantry() const { return false; }
 
 	virtual void SendAcknowledgement( EUnitAckType ack, bool bForce = false ) = 0;
-	// ack для команды pCommand
 	virtual void SendAcknowledgement( CAICommand *pCommand, EUnitAckType ack, bool bForce = false ) = 0;
 
 	virtual const float GetMaxSpeedHere( const CVec2 &point, bool bAdjust = true ) const;
@@ -175,21 +157,17 @@ public:
 	virtual float GetDesirableSpeed() const;
 	virtual void AdjustWithDesirableSpeed( float *pfMaxSpeed ) const;
 
-	// follow state - мы за кем-то следуем
 	void SetFollowState( class CCommonUnit *pFollowedUnit );
 	void UnsetFollowState();
 	bool IsInFollowState();
-	// вернуть юнит, за которым следуем
 	class CCommonUnit* GetFollowedUnit() const;
 	const CVec2& GetFollowShift() const { return vFollowShift; }
 
-	// юнит pFollowingUnit следует за нами
 	void FollowingByYou( class CCommonUnit *pFollowingUnit );
 
 	virtual void Segment();
 	virtual void FreezeSegment();
 	
-	// управляем ли (н-р, пушка без расчёта неуправляема)
 	virtual bool IsOperable() const { return true; }
 	
 	virtual const int GetMinArmor() const = 0;
@@ -206,10 +184,7 @@ public:
 
 	virtual EUnitAckType GetGunsRejectReason() const = 0;
 
-	// для целеразрешения
 	void SetShootEstimator( interface IShootEstimator *pShootEstimator );
-	// сбросить всю информацию в shoot estimator и проинициализировать его юнитом pCurEnemy
-	// считается что сейчас стреляем по pCurEnemy, bDamageUpdated - был ли update на damage pCurEnemy нами
 	void ResetShootEstimator( class CAIUnit *pCurEnemy, const bool bDamageUpdated, const DWORD dwForbidden = 0 );
 	void AddUnitToShootEstimator( class CAIUnit *pUnit );
 	CAIUnit* GetBestShootEstimatedUnit() const;
@@ -217,16 +192,11 @@ public:
 	const int GetNumOfBestShootEstimatedGun() const;
 
 	virtual const float GetKillSpeed( class CAIUnit *pEnemy ) const { return 0; }
-	// обнулить время для периодов сканирования
 	virtual void ResetTargetScan() = 0;
-	// просканировать, если пора; если нашли цель, то атаковать
 	virtual BYTE AnalyzeTargetScan(	CAIUnit *pCurTarget, const bool bDamageUpdated, const bool bScanForObstacles, IRefCount *pCheckBuilding = 0 ) = 0;
-	// просканировать на поиск цели
 	virtual void LookForTarget( CAIUnit *pCurTarget, const bool bDamageUpdated, CAIUnit **pBestTarget, CBasicGun **pGun ) = 0;
-	// поиск препятствия
 	virtual interface IObstacle * LookForObstacle() { return 0; };
 	
-	// нужно ли пытаться подъезать близко к точке, которую охраняет (н-р, для поездов не нужно)
 	virtual bool CanMoveForGuard() const = 0;
 	virtual bool CanRotate() const = 0;
 	
@@ -253,5 +223,4 @@ public:
 	
 	virtual bool CanMoveAfterUserCommand() const = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __COMMON_UNIT_H__

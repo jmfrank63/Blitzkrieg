@@ -12,7 +12,6 @@
 #include "..\RandomMapGen\Resource_Types.h"
 #include "..\GameTT\ReplayList.h"
 #include "..\StreamIO\StreamIOTypes.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommandsHistory::PrepareToStartMission()
 {
 	if ( !bLoadedFromCommandLine )
@@ -32,7 +31,6 @@ void CCommandsHistory::PrepareToStartMission()
 	bLoadedHistory = false;
 	pStartScenarioTracker = GetSingleton<IScenarioTracker>()->Duplicate();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CCommandsHistory::LoadCommandLineHistory()
 {
 	if ( !bLoadedFromCommandLine )
@@ -54,7 +52,6 @@ bool CCommandsHistory::LoadCommandLineHistory()
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommandsHistory::Clear()
 {
 	if ( bStored )
@@ -63,7 +60,6 @@ void CCommandsHistory::Clear()
 	RemoveGlobalVar( "History.Playing" );
 	RemoveGlobalVar( "MultiplayerGame" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CCommandsHistory::Load( const char *pszFileName )
 {
 	CPtr<IDataStream> pStream = CreateFileStream( pszFileName, STREAM_ACCESS_READ );
@@ -83,12 +79,9 @@ bool CCommandsHistory::Load( const char *pszFileName )
 	std::string szChapterName( "" );
 	saver.Add( "ChapterName", &szChapterName );
 	SetGlobalVar( "Chapter.Current.Name", szChapterName.c_str() );
-	// store original scenario tracker
 	bStored = true;
 	GetSingleton<IMainLoop>()->StoreScenarioTracker();
-	// load 'historical' scenario tracker
 	saver.Add( "ScenarioTracker", GetSingleton<IScenarioTracker>() );
-	//
 	/*
 	bool bRandomMission = false;
 	saver.Add( "IsRandomMission", &bRandomMission );
@@ -101,7 +94,6 @@ bool CCommandsHistory::Load( const char *pszFileName )
 
 		RestoreRandomMap( szMissionName, rndhdr, pSeed );
 	}
-	// main game random seed
 	saver.Add( "RandomSeed01", &pStartRandomSeed );
 	if ( pStartRandomSeed != 0 )
 		GetSingleton<IRandomGen>()->SetSeed( pStartRandomSeed );
@@ -112,11 +104,9 @@ bool CCommandsHistory::Load( const char *pszFileName )
 
 	saver.Add( "Players", &players );
 
-	// load checksums
 	unsigned long checkSumMap = GetGlobalVar( "Multiplayer.CheckSumMap", 0 );
 	unsigned long checkSumRes = GetGlobalVar( "Multiplayer.CheckSumRes", 0 );
 
-	// load global vars
 	int nMultiplayerGame = GetGlobalVar( "MultiplayerGame", 0 ) != 0;
 	saver.Add( "Multiplayer", &nMultiplayerGame );
 	if ( nMultiplayerGame == 1 )
@@ -128,9 +118,6 @@ bool CCommandsHistory::Load( const char *pszFileName )
 	unsigned long savedCheckSumMap = GetGlobalVar( "Multiplayer.CheckSumMap", 0 );
 	unsigned long savedCheckSumRes = GetGlobalVar( "Multiplayer.CheckSumRes", 0 );
 
-	// if variables aren't set (playing replay)
-	// он может реально быть 0, но такое встречаетс€ редко
-//	if ( checkSumRes == 0.0f )
 	{
 		std::string szMapName = GetGlobalVar( "Multiplayer.MapName", "" );
 		CMapInfo fullMapInfo;
@@ -162,11 +149,9 @@ bool CCommandsHistory::Load( const char *pszFileName )
 		return true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommandsHistory::Save( const char *pszFileName )
 {
 	std::string szFileName( pszFileName );
-	// for testing, -sh parameter
 	if ( (szFileName == "") || szFileName.empty() )
 		szFileName = GetGlobalVar( "SaveHistoryFileName", "" );
 
@@ -197,7 +182,6 @@ void CCommandsHistory::Save( const char *pszFileName )
 		if ( pStartScenarioTracker == 0 )
 			pStartScenarioTracker = GetSingleton<IScenarioTracker>()->Duplicate();
 		saver.Add( "ScenarioTracker", &pStartScenarioTracker );
-		//
 		/*
 		bool bRandomMission = GetGlobalVar( ("Mission." + szMissionName + ".Random").c_str(), 0 ) != 0;
 		saver.Add( "IsRandomMission", &bRandomMission );
@@ -212,7 +196,6 @@ void CCommandsHistory::Save( const char *pszFileName )
 		}
 		*/
 
-		// save all players
 		std::vector<SMPPlayerInfo> savingPlayers;
 		for ( CPtr<IPlayerScenarioInfoIterator> pIter = pStartScenarioTracker->CreatePlayerScenarioInfoIterator(); !pIter->IsEnd(); pIter->Next() )
 		{
@@ -238,13 +221,11 @@ void CCommandsHistory::Save( const char *pszFileName )
 		saver.Add( "MODVersion", &szCurModVersion );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommandsHistory::AddCommand( const int nSegment, IAILogicCommand *pCmd )
 {
 	if ( pCmd->NeedToBeStored() )
 		savingHistory[nSegment].push_back( pCmd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommandsHistory::ExecuteSegmentCommands( const int nSegment, ITransceiver *pTranceiver )
 {
 	if ( GetGlobalVar("HistoryClient", 0 ) == 0 )
@@ -256,13 +237,11 @@ void CCommandsHistory::ExecuteSegmentCommands( const int nSegment, ITransceiver 
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommandsHistory::InvalidHistory( const char *pMessage )
 {
 	GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CHAT, pMessage, 0xffff0000, false );
 	GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CONSOLE, pMessage, 0xffff0000, true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommandsHistory::CheckStartMapCheckSum( const int checkSum )
 {
 	const std::string szLoadedHistoryFileName = GetGlobalVar( "LoadHistoryFileName" );
@@ -274,19 +253,16 @@ void CCommandsHistory::CheckStartMapCheckSum( const int checkSum )
 
 	startMapCheckSum = checkSum;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CCommandsHistory::GetMPPlayerLogicID( const int nPlayer ) const
 {
 	NI_ASSERT_T( nPlayer < GetNumPlayersInMPGame(), NStr::Format( "Number of player (%d) is to big, total number of players is %d", nPlayer, GetNumPlayersInMPGame() ) );
 	return players[nPlayer].nLogicID;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CCommandsHistory::GetMPPlayerSide( const int nPlayer ) const
 {
 	NI_ASSERT_T( nPlayer < GetNumPlayersInMPGame(), NStr::Format( "Number of player (%d) is to big, total number of players is %d", nPlayer, GetNumPlayersInMPGame() ) );
 	return players[nPlayer].nSide;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CCommandsHistory::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -303,4 +279,3 @@ int CCommandsHistory::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

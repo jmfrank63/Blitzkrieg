@@ -7,11 +7,9 @@
 
 #include "ResizeDialog.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTabTerrainFieldsDialog : public CResizeDialog
 {
 protected:
-	//{{AFX_MSG(CTabTerrainFieldsDialog)
 	virtual BOOL OnInitDialog();
 	afx_msg void OnSelchangeFieldFieldCombo();
 	afx_msg void OnEditchangeFieldFieldCombo();
@@ -27,13 +25,10 @@ protected:
 	afx_msg void OnFieldUpdateMapCheckBox();
 	afx_msg void OnFieldCheckPassabilityCheckBox();
 	afx_msg void OnDestroy();
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 		
-	//{{AFX_VIRTUAL(CTabTerrainFieldsDialog)
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);
-	//}}AFX_VIRTUAL
 
 	bool bCreateControls;
 	virtual std::string GetXMLOptionsLabel() { return "CTabTerrainFieldsDialog"; }
@@ -41,7 +36,6 @@ protected:
 
 public:
 	CTabTerrainFieldsDialog( CWnd* pParent = NULL );
-	//{{AFX_DATA(CTabTerrainFieldsDialog)
 	enum { IDD = IDD_TAB_TERRAIN_FIELDS };
 	CComboBox	m_Fields;
 	CEdit	m_MinLength;
@@ -54,10 +48,7 @@ public:
 	CButton	m_FillHeightsButton;
 	CButton	m_UpdateMapButton;
 	CButton	m_CheckPassabilityButton;
-	//}}AFX_DATA
 
 	void SetControlsToActualValues();
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//{{AFX_INSERT_LOCATION}}
 #endif // !defined(__Tabs__Terrain_Fields_Tab_Dialog__)

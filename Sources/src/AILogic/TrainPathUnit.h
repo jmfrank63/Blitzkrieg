@@ -1,17 +1,13 @@
 #ifndef __TRAIN_PATH_UNIT_H__
 #define __TRAIN_PATH_UNIT_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "PathUnit.h"
 #include "BasePathUnit.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTrainSmoothPath;
 class CEdgePoint;
 class CCarriagePathUnit;
 interface IEdge;
 interface IStaticPath;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTrainPathUnit : public IRefCount, public IBasePathUnit
 {
 	OBJECT_COMPLETE_METHODS( CTrainPathUnit );
@@ -41,7 +37,6 @@ public:
 	CTrainPathUnit() : fTrainLength( 0 ), bFrontDir( true ), bCanMove( false ) { }
 	CTrainPathUnit( class CAIUnit *pOwner ) : fTrainLength( 0 ), bFrontDir( true ), bCanMove( false ) { }
 	virtual void Init( const CVec2 &center, const int z, const WORD dir, const WORD id ) { }
-	// проинициализировать локомотивом pUnit
 	bool InitBy( class CCarriagePathUnit *pUnit );
 
 	virtual ISmoothPath* GetSmoothPath() const;
@@ -53,7 +48,6 @@ public:
 
 	virtual void SecondSegment( const bool bUpdate = true );
 	virtual IStaticPath* CreateBigStaticPath( const CVec2 &vStartPoint, const CVec2 &vFinishPoint, interface IPointChecking *pPointChecking );
-	// возвращает - поехал или нет
 	virtual bool SendAlongPath( interface IStaticPath *pStaticPath, const CVec2 &vShift, bool bSmoothTurn = true );
 	virtual bool SendAlongPath( interface IPath *pPath );
 
@@ -65,7 +59,6 @@ public:
 
 	const int GetNCarriages() const { return carriages.size(); }
 	CCarriagePathUnit* GetCarriage( const int n );
-	// расстояние от заднего колеса вагона n до переднего колеса вагона m, если m присоединён к m
 	const float GetDistFromBackToFrontWheel( const int n, const int m );
 	const float GetDistFromFrontToBackWheel( const int n, const int m );
 	void PushNodesToFrontCarriage( std::list<int> &newNodes );
@@ -78,7 +71,6 @@ public:
 
 	void GetTrainNodes( std::list<int> *pNodesOfTrain );
 
-	// IBasePathUnit
 	virtual void SetRightDir( bool _bRightDir ) { }
 	virtual bool GetRightDir() const { return true; }
 
@@ -114,7 +106,6 @@ public:
 	virtual void ForceGoByRightDir() { }
 	
 	virtual interface IStaticPathFinder* GetPathFinder() const;
-	// можно ли повернуться к направлению wNewDir, если нет - то попытаться проинициализировать путём в точку, где разворот возможен
 	virtual bool CheckToTurn( const WORD wNewDir ) { return false; }
 
 	virtual void LockTiles( bool bUpdate = true ) { }
@@ -159,7 +150,6 @@ public:
 	virtual bool IsDangerousDirExist() const { return false; }
 	virtual const WORD GetDangerousDir() const { return 0; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCarriagePathUnit : public CPathUnit
 {
 	OBJECT_COMPLETE_METHODS( CCarriagePathUnit );
@@ -170,12 +160,10 @@ class CCarriagePathUnit : public CPathUnit
 	CPtr<CEdgePoint> pFrontWheelPoint;
 	CPtr<CEdgePoint> pBackWheelPoint;
 
-	// рёбра, на которых стоит вагон
 	std::list< CPtr<IEdge> > edges;
 	CVec2 vOldDir;
 	CVec2 vOldCenter;
 
-	//
 	void InitCenterAndDir3D( const CVec2 &vCenter, CVec3 *pvCenter3D, CVec3 *pvDir3D ) const;
 	const CVec3 Get3DPointOfUnit( const CVec2 &vCenter, const float fLength ) const;
 	const CVec2 Get2DPointOfUnit( const CVec2 &vCenter, const float fLength ) const;
@@ -194,7 +182,6 @@ public:
 	virtual void FirstSegment();
 	virtual void SecondSegment( const bool bUpdate = true );
 	virtual IStaticPath* CreateBigStaticPath( const CVec2 &vStartPoint, const CVec2 &vFinishPoint, interface IPointChecking *pPointChecking );
-	// возвращает - поехал или нет
 	virtual bool SendAlongPath( interface IStaticPath *pStaticPath, const CVec2 &vShift, bool bSmoothTurn = true );
 	virtual bool SendAlongPath( interface IPath *pPath );
 
@@ -243,5 +230,4 @@ public:
 	
 	virtual void TrackDamagedState( const bool bTrackDamaged );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __TRAIN_PATH_UNIT_H__

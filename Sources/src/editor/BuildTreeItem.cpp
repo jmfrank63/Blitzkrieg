@@ -122,14 +122,11 @@ void CBuildingTreeRootItem::ComposeAnimations( const char *pszProjectFileName, c
 
 			if ( i == 1 || i == 2 )
 			{
-				//Скомпонуем noise файл
 				string szNoiseFullName;
 				bool bRes = MakeFullPath( szDir.c_str(), pGraphPropsItem->GetNoiseFileName(), szNoiseFullName );
 				if ( !bRes )
 					szNoiseFullName = pGraphPropsItem->GetNoiseFileName();
 
-				//noise file надо промодулировать альфой из инвертированной картинки здания.
-				//Загружаем здание
 				CPtr<IDataStream> pBuildStream = OpenFileStream( szSpriteFullName.c_str(), STREAM_ACCESS_READ );
 				if ( pBuildStream == 0 )
 					goto label1;
@@ -140,7 +137,6 @@ void CBuildingTreeRootItem::ComposeAnimations( const char *pszProjectFileName, c
 				pInverseSprite->SharpenAlpha( 128 );
 				pInverseSprite->InvertAlpha();
 				
-				//Загружаем noise file
 				CPtr<IDataStream> pNoiseStream = OpenFileStream( szNoiseFullName.c_str(), STREAM_ACCESS_READ );
 				if ( pNoiseStream == 0 )
 					goto label1;
@@ -162,7 +158,6 @@ void CBuildingTreeRootItem::ComposeAnimations( const char *pszProjectFileName, c
 				rc.top = 0;
 				rc.right = pInverseSprite->GetSizeX();
 				rc.bottom = pInverseSprite->GetSizeY();
-				// промодулировать noise инверсной альфой из основной картинки
 				pNoiseImage->ModulateAlphaFrom( pInverseSprite, &rc, 0, 0 );
 
 				string szResNoiseFile = pszResultingDir;
@@ -525,7 +520,6 @@ void CBuildingSlotPropsItem::MyKeyDown( int nChar )
 	switch ( nChar )
 	{
 		case VK_DELETE:
-			//Убиваем этот shoot point
 			CBuildingFrame *pFrame = static_cast<CBuildingFrame *> ( g_frameManager.GetFrame( CFrameManager::E_BUILDING_FRAME ) );
 			pFrame->DeleteShootPoint( this );
 			DeleteMeInParentTreeItem();
@@ -539,7 +533,6 @@ void CBuildingSlotPropsItem::UpdateItemValue( int nItemId, const CVariant &value
 	CBuildingFrame *pFrame = static_cast<CBuildingFrame *> ( g_frameManager.GetFrame( CFrameManager::E_BUILDING_FRAME ) );
 	if ( nItemId == 1 )
 	{
-		//Изменилось направление Cone Direction, обновим информацию в BuildingFrame
 		CTreeItem *pTemp = pFrame->GetActiveShootPointItem();
 		if ( pTemp != this )
 		{
@@ -554,7 +547,6 @@ void CBuildingSlotPropsItem::UpdateItemValue( int nItemId, const CVariant &value
 
 	if ( nItemId == 2 )
 	{
-		//Изменилось направление Cone Angle, обновим информацию в BuildingFrame
 		CBuildingFrame *pFrame = static_cast<CBuildingFrame *> ( g_frameManager.GetFrame( CFrameManager::E_BUILDING_FRAME ) );
 		CTreeItem *pTemp = pFrame->GetActiveShootPointItem();
 		if ( pTemp != this )
@@ -642,7 +634,6 @@ void CBuildingGraphicPropsItem::UpdateItemValue( int nItemId, const CVariant &va
 	if ( nItemId == 1 || nItemId == 2 || nItemId == 3 )
 	{
 		CBuildingFrame *pFrame = static_cast<CBuildingFrame *> ( g_frameManager.GetFrame( CFrameManager::E_BUILDING_FRAME ) );
-		//Изменилось имя файла, конвертируем его к относительному виду
 		if ( !IsRelatedPath( value ) )
 		{
 			string szProjectName = g_frameManager.GetFrame( CFrameManager::E_BUILDING_FRAME )->GetProjectFileName();
@@ -673,7 +664,6 @@ void CBuildingGraphicPropsItem::UpdateItemValue( int nItemId, const CVariant &va
 
 void CBuildingGraphicPropsItem::MyLButtonClick()
 {
-	//этот item становится текущим спрайтом в Building composer
 	CBuildingFrame *pFrame = static_cast<CBuildingFrame *> ( g_frameManager.GetFrame( CFrameManager::E_BUILDING_FRAME ) );
 	pFrame->SetActiveGraphicPropsItem( this );
 }
@@ -976,7 +966,6 @@ void CBuildingFirePointPropsItem::MyKeyDown( int nChar )
 	switch ( nChar )
 	{
 		case VK_DELETE:
-			//Убиваем этот fire point
 			CBuildingFrame *pFrame = static_cast<CBuildingFrame *> ( g_frameManager.GetFrame( CFrameManager::E_BUILDING_FRAME ) );
 			pFrame->DeleteFirePoint( this );
 			DeleteMeInParentTreeItem();
@@ -990,7 +979,6 @@ void CBuildingFirePointPropsItem::UpdateItemValue( int nItemId, const CVariant &
 	if ( nItemId == 1 )
 	{
 		CBuildingFrame *pFrame = static_cast<CBuildingFrame *> ( g_frameManager.GetFrame( CFrameManager::E_BUILDING_FRAME ) );
-		//Изменилось направление fire direction, обновим информацию в BuildingFrame
 		CTreeItem *pTemp = pFrame->GetActiveFirePointItem();
 		if ( pTemp != this )
 		{
@@ -1087,7 +1075,6 @@ void CBuildingDirExplosionPropsItem::UpdateItemValue( int nItemId, const CVarian
 	CTreeItem::UpdateItemValue( nItemId, value );
 	if ( nItemId == 1 )
 	{
-		//Изменилось направление direction explosion direction, обновим информацию в BuildingFrame
 		CBuildingFrame *pFrame = static_cast<CBuildingFrame *> ( g_frameManager.GetFrame( CFrameManager::E_BUILDING_FRAME ) );
 		pFrame->ComputeDirExpDirectionLines();
 		return;
@@ -1149,7 +1136,6 @@ void CBuildingSmokePropsItem::UpdateItemValue( int nItemId, const CVariant &valu
 	CTreeItem::UpdateItemValue( nItemId, value );
 	if ( nItemId == 1 )
 	{
-		//Изменилось направление direction explosion direction, обновим информацию в BuildingFrame
 		CBuildingFrame *pFrame = static_cast<CBuildingFrame *> ( g_frameManager.GetFrame( CFrameManager::E_BUILDING_FRAME ) );
 		pFrame->ComputeSmokeLines();
 		return;
@@ -1161,7 +1147,6 @@ void CBuildingSmokePropsItem::MyKeyDown( int nChar )
 	switch ( nChar )
 	{
 	case VK_DELETE:
-		//Убиваем этот smoke point
 		CBuildingFrame *pFrame = static_cast<CBuildingFrame *> ( g_frameManager.GetFrame( CFrameManager::E_BUILDING_FRAME ) );
 		pFrame->DeleteSmokePoint();
 		DeleteMeInParentTreeItem();

@@ -1,6 +1,3 @@
-// Variant.h: interface for the CVariant class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_VARIANT_H__77531325_97A6_47DC_B434_9D8D9E3ECD1F__INCLUDED_)
 #define AFX_VARIANT_H__77531325_97A6_47DC_B434_9D8D9E3ECD1F__INCLUDED_
@@ -40,7 +37,6 @@ private:
 	void OptimizeBool() const;
 	void OptimizeInt64() const;
 
-	// Optimeze flags
 	bool HasFlag( int nFlag ) const { return ( m_flagsOptimized & nFlag ) != 0; }
 	void AddFlag( int nFlag ) const { m_flagsOptimized |= nFlag; }
 	void SetFlag( int nFlag, bool bSet ) { if ( bSet ) m_flagsOptimized |= nFlag; else m_flagsOptimized &= ~nFlag; }

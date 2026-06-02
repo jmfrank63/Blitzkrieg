@@ -24,10 +24,8 @@ public:
 	CAnimationFrame();
 	virtual ~CAnimationFrame();
 	
-// Attributes
 public:
 
-// Operations
 public:
 	virtual void ShowFrameWindows( int nCommand );
 	virtual void GFXDraw();
@@ -49,17 +47,10 @@ public:
 
 	int DisplayAcksMenu();
 	
-// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CAnimationFrame)
 	protected:
-//	virtual BOOL OnCmdMsg(UINT nID, int nCode, void* pExtra, AFX_CMDHANDLERINFO* pHandlerInfo);
 	virtual LRESULT WindowProc(UINT message, WPARAM wParam, LPARAM lParam);
-	//}}AFX_VIRTUAL
 
-// Implementation
 private:
-	// view for the client area of the frame.
 	CDirectoryPropsItem *m_pActiveDirTreeItem;
 	CUnitAnimationPropsItem *m_pActiveAnimation;
 
@@ -71,7 +62,6 @@ private:
 	bool bComposed;
 	bool bExportOnlyRPGStats;			//��� �������� ������ rpg stats, �� �������� �������� ��������
 	
-	//��� ���������� �������� � ������������ ����������
 	struct SUnitObject
 	{
 		CVec3 vPos;
@@ -99,9 +89,7 @@ protected:
 	virtual FILETIME FindMaximalSourceTime( const char *pszProjectName, CTreeItem *pRootItem );
 	virtual FILETIME FindMinimalExportFileTime( const char *pszResultFileName, CTreeItem *pRootItem );
 	
-// Generated message map functions
 protected:
-	//{{AFX_MSG(CAnimationFrame)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnRunButton();
 	afx_msg void OnStopButton();
@@ -111,14 +99,10 @@ protected:
 	afx_msg void OnUpdateFileExportOnlyRpgStats(CCmdUI* pCmdUI);
 	afx_msg void OnUpdateImportAckFile(CCmdUI* pCmdUI);
 	afx_msg void OnUpdateExportAckFile(CCmdUI* pCmdUI);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 
-/////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif // __ANIMATIONFRM_H__
 

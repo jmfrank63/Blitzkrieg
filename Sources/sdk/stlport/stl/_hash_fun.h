@@ -102,6 +102,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_HASH_FUN_H */
 
-// Local Variables:
-// mode:C++
-// End:

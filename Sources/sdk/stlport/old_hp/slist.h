@@ -52,6 +52,3 @@ using STLPORT::__slist;
 
 #endif /* _STLP_SLIST_H */
 
-// Local Variables:
-// mode:C++
-// End:

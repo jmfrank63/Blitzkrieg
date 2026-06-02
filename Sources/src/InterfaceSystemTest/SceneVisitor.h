@@ -1,6 +1,3 @@
-// SceneVisitor.h: interface for the CSceneVisitor class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_SCENEVISITOR_H__CC0E1C35_E89D_4F88_9097_8E7A4330C6C2__INCLUDED_)
 #define AFX_SCENEVISITOR_H__CC0E1C35_E89D_4F88_9097_8E7A4330C6C2__INCLUDED_

@@ -13,11 +13,6 @@
 #include "..\GameTT\UIConsts.h"
 #include "..\GameTT\MultiplayerCommandManager.h"
 #include "..\StreamIO\Globals.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// REACTIONS
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ConstructWhoWin( class CInterfaceScreenBase *_pInterface )
 {
 	ITextManager *pTM = GetSingleton<ITextManager>();
@@ -50,17 +45,14 @@ void ConstructWhoWin( class CInterfaceScreenBase *_pInterface )
 
 	SetGlobalVar( "temp.Replay.WinMessage", reinterpret_cast<const WORD*>( szMessage.c_str() ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ReactionSetMultiplayerTimeout( class CInterfaceScreenBase *_pInterface )
 {
 	GetSingleton<ITransceiver>()->CommandTimeOut( true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ReactionRemoveMultiplayerTimeout( class CInterfaceScreenBase *_pInterface )
 {
 	GetSingleton<ITransceiver>()->CommandTimeOut( false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool OnDemoVersionEndMission( class CInterfaceScreenBase *pInterface, bool bWin = true )
 {
 	if ( GetGlobalVar( "demoversion", 0 ) )
@@ -71,7 +63,6 @@ bool OnDemoVersionEndMission( class CInterfaceScreenBase *pInterface, bool bWin 
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ReactionRestartMisssion( class CInterfaceScreenBase *_pInterface )
 {
 	std::string szMapName;
@@ -85,7 +76,6 @@ void ReactionRestartMisssion( class CInterfaceScreenBase *_pInterface )
 	GetSingleton<IScenarioTracker>()->FinishMission( MISSION_FINISH_RESTART );
 	GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_MISSION, szMapName.c_str() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ReactionQuitMission( class CInterfaceScreenBase *pInterface )
 {
 	GetSingleton<IScenarioTracker>()->FinishMission( MISSION_FINISH_ABORT );
@@ -106,12 +96,10 @@ void ReactionQuitMission( class CInterfaceScreenBase *pInterface )
 		RegisterSingleton( ITransceiver::tidTypeID, pTrans );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ReactionExitToWindows( class CInterfaceScreenBase *_pInterface )
 {
 	GetSingleton<IMainLoop>()->Command( MAIN_COMMAND_EXIT_GAME, 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ReactionAutosaveMissionEnd( class CInterfaceScreenBase *pInterface )
 {
 	std::string szSaveName;
@@ -120,13 +108,11 @@ void ReactionAutosaveMissionEnd( class CInterfaceScreenBase *pInterface )
 	szSaveName += ".sav";
 	GetSingleton<IMainLoop>()->Command( MAIN_COMMAND_SAVE, NStr::Format( "%s;1", szSaveName.c_str() ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ReactionWin( class CInterfaceScreenBase *pInterface )
 {
 	NI_ASSERT_T( pInterface != 0, "EMPTY MISSION INTERFACE" );
 
 	if ( GetGlobalVar( "temp.Mission.Current.Aborted", 0 ) )
-		//GetSingleton<IScenarioTracker>()->FinishMission( MISSION_FINISH_WIN );
 		GetSingleton<IScenarioTracker>()->FinishMission( MISSION_FINISH_ABORT );
 	else
 		GetSingleton<IScenarioTracker>()->FinishMission( MISSION_FINISH_WIN );	
@@ -143,14 +129,11 @@ void ReactionWin( class CInterfaceScreenBase *pInterface )
 	else
 	{
 		pInterface->FinishInterface( MISSION_COMMAND_PLAYERS_STATS, "1" );
-		//pInterface->FinishInterface( MISSION_COMMAND_UNIT_PERFORMANCE, 0 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ReactionLoose( class CInterfaceScreenBase *pInterface )
 {
 	GetSingleton<IGlobalVars>()->RemoveVarsByMatch( "temp." );
-	//
 	GetSingleton<IScenarioTracker>()->FinishMission( MISSION_FINISH_LOSE );
 	NI_ASSERT_T( pInterface != 0, "EMPTY MISSION INTERFACE" );
 
@@ -164,14 +147,8 @@ void ReactionLoose( class CInterfaceScreenBase *pInterface )
 	else
 	{
 		pInterface->FinishInterface( MISSION_COMMAND_PLAYERS_STATS, "1" );
-		//pInterface->FinishInterface( MISSION_COMMAND_UNIT_PERFORMANCE, 0 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// REACTIONS
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCustomMessageReaction::LaunchReaction( const std::string &szCutomReactionName, class CInterfaceScreenBase *_pInterface  )
 {
 	CReactions::iterator it = reactions.find( szCutomReactionName );
@@ -183,12 +160,10 @@ void CCustomMessageReaction::LaunchReaction( const std::string &szCutomReactionN
 	NI_ASSERT_T( FALSE, NStr::Format( "not found custom reaction \"%s\"", szCutomReactionName.c_str() ) );
 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCustomMessageReaction::Clear()
 {
 	reactions.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCustomMessageReaction::Init()
 {
 	reactions["ReactionRestartMisssion"].pfnReaction =	ReactionRestartMisssion;

@@ -4,7 +4,6 @@
 #pragma ONCE
 
 #include "..\Image\Image.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SVectorStripeObjectPoint
 {
 	CVec3 vPos;														// point position
@@ -14,15 +13,12 @@ struct SVectorStripeObjectPoint
 	bool	bKeyPoint;											// key point of the sampling
 	float fOpacity;												// прозрачность ( 0..1 ) только для key point
 
-	//----------------------------------------------------------------------------------------------------
 	SVectorStripeObjectPoint()
 		: vPos( VNULL3 ), vNorm( VNULL3 ), fRadius( 0.0f ), fWidth( 0.0f ), bKeyPoint( false ), fOpacity( 1.0f ) {}
 
-	//----------------------------------------------------------------------------------------------------
 	int operator&( IDataTree &ss );
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SVectorStripeObjectDesc
 {
 	enum EType
@@ -33,7 +29,6 @@ struct SVectorStripeObjectDesc
 		TYPE_RAILROAD	= 3,
 	};
 	
-	//----------------------------------------------------------------------------------------------------
 	struct SLayer
 	{
 		BYTE opacityCenter;									// прозрачность в центре потока
@@ -53,7 +48,6 @@ struct SVectorStripeObjectDesc
 		int operator&( IStructureSaver &ss );
 	};
 	
-	//----------------------------------------------------------------------------------------------------
 	int	eType;														// type
 	int nPriority;												// priority
 	float fPassability;										// passability
@@ -66,49 +60,35 @@ struct SVectorStripeObjectDesc
 	};
 	BYTE cSoilParams;											// параметры почвы - следы, пыль и т.д.
 	
-	//----------------------------------------------------------------------------------------------------
-	// layers
 	SLayer bottom;												// bottom central layer
 	std::vector<SLayer> bottomBorders;		// bottom layer border parts
 	std::vector<SLayer> layers;						// additional layers
 	SColor miniMapCenterColor;						// цвет обьекта на минимапе ( центральная часть )
 	SColor miniMapBorderColor;						// цвет обьекта на минимапе ( край )
 	
-	//----------------------------------------------------------------------------------------------------
-	// ambient sound
 	std::string szAmbientSound;
 	
-	//----------------------------------------------------------------------------------------------------
 	SVectorStripeObjectDesc() 
 		: eType( TYPE_UNKNOUN ), nPriority( 0 ), miniMapCenterColor( 0x00000000 ), miniMapBorderColor( 0x00000000 ),
 			fPassability( 1.0f ), dwAIClasses( 0 ), cSoilParams( 0 ) { }
 	
-	//----------------------------------------------------------------------------------------------------
 	virtual int operator&( IDataTree &ss );
 	virtual int operator&( IStructureSaver &ss );
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SVectorStripeObject : SVectorStripeObjectDesc
 {
 	std::string szDescName;								// complete path to descriptor
 
-	//----------------------------------------------------------------------------------------------------
-	// points
 	std::vector<SVectorStripeObjectPoint> points;	// points
 	std::vector<CVec3> controlpoints;			// control polyline points
 
-	//----------------------------------------------------------------------------------------------------
-	// object's ID
 	int nID;															// ID
 
-	//----------------------------------------------------------------------------------------------------
 
 	virtual int operator&( IDataTree &ss );
 	virtual int operator&( IStructureSaver &ss );
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::vector<SVectorStripeObject> TVSOList;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif //#if !defined(__FMT__VSO__H__)

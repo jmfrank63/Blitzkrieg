@@ -8,7 +8,6 @@
 
 #include "..\Net\NetDriver.h"
 #include "..\Main\Transceiver.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace
 {
 	inline const WORD* ToWordText( const wchar_t *pszText )
@@ -16,7 +15,6 @@ namespace
 		return reinterpret_cast<const WORD*>( pszText );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const int OPEN_TIME = 200;						//����� �������� � �������� ��������� � �������������
 static const int CONSOLE_HEIGHT = 240;			//������ ������� � ��������
 static const int TEXT_LEFT_SPACE = 20;			//������ �� ������ ���� ������ �� ������ � �������
@@ -26,7 +24,6 @@ static const int CURSOR_ANIMATION_TIME = 400;		//������ ����
 static const WCHAR szPrefix[] = L">>";
 
 /*
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SetIGlobalVar( struct lua_State *state )
 int SetFGlobalVar( struct lua_State *state )
 int SetSGlobalVar( struct lua_State *state )
@@ -34,7 +31,6 @@ int GetIGlobalVar( struct lua_State *state )
 int GetFGlobalVar( struct lua_State *state )
 int GetSGlobalVar( struct lua_State *state )
 */
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIConsole::SColorString::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -42,7 +38,6 @@ int CUIConsole::SColorString::operator&( IDataTree &ss )
 	saver.Add( "Color", &dwColor );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIConsole::SColorString::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -51,7 +46,6 @@ int CUIConsole::SColorString::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIConsole::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -73,7 +67,6 @@ int CUIConsole::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIConsole::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -91,7 +84,6 @@ int CUIConsole::operator&( IDataTree &ss )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIConsole::IsVisible()
 {
 	if ( bAnimation && dwLastCloseTime > 0 )
@@ -99,12 +91,10 @@ bool CUIConsole::IsVisible()
 
 	return CSimpleWindow::IsVisible();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIConsole::ShowWindow( int _nCmdShow )
 {
 	if ( _nCmdShow != UI_SW_HIDE && _nCmdShow != UI_SW_MINIMIZE )
 	{
-		//���������� ���������
 		DWORD dwCurrentTime = GetSingleton<IGameTimer>()->GetAbsTime();
 		if ( dwCurrentTime - dwLastCloseTime < OPEN_TIME )
 			dwLastOpenTime = dwCurrentTime + ( dwCurrentTime - dwLastCloseTime - OPEN_TIME );
@@ -113,7 +103,6 @@ void CUIConsole::ShowWindow( int _nCmdShow )
 		dwLastCloseTime = 0;
 		bAnimation = true;
 
-		//�������� ������ ��������� ����� ������������ TEXT_MODE
 		SUIMessage msg;
 		msg.nMessageCode = MC_SET_TEXT_MODE;
 		msg.nFirst = GetWindowID();
@@ -131,7 +120,6 @@ void CUIConsole::ShowWindow( int _nCmdShow )
 			return;
 		}
 
-		//�������� ���������
 		DWORD dwCurrentTime = GetSingleton<IGameTimer>()->GetAbsTime();
 		if ( dwCurrentTime - dwLastOpenTime < OPEN_TIME )
 			dwLastCloseTime = dwCurrentTime + ( dwCurrentTime - dwLastOpenTime - OPEN_TIME );
@@ -140,24 +128,20 @@ void CUIConsole::ShowWindow( int _nCmdShow )
 		dwLastOpenTime = 0;
 		bAnimation = true;
 
-		//�������� ������ ��������� ����� ��������� TEXT_MODE
 		SUIMessage msg;
 		msg.nMessageCode = MC_CANCEL_TEXT_MODE;
 		msg.nFirst = GetWindowID();
 		GetParent()->ProcessMessage( msg );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIConsole::Reposition( const CTRect<float> &rcParent )
 {
 	CTRect<float> rc = GetScreenRect();
-	//������, ��� ������� �������� child ��� screen
 	rc.x1 = rcParent.x1;
 	rc.x2 = rcParent.x2;
 	SetScreenRect( rc );
 	UpdateSubRects();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIConsole::Update( const NTimer::STime &currTime )
 {
 	if ( currTime - dwLastCursorAnimatedTime > CURSOR_ANIMATION_TIME )
@@ -166,14 +150,11 @@ bool CUIConsole::Update( const NTimer::STime &currTime )
 		bShowCursor = !bShowCursor;
 	}
 	
-	// retrieve and parse commands from console buffer
 	{
 		IConsoleBuffer *pBuffer = GetSingleton<IConsoleBuffer>();
 		DWORD color = 0;
-		// read console log
 		while ( const wchar_t *pszString = pBuffer->Read(CONSOLE_STREAM_CONSOLE, &color) ) 
 			vectorOfStrings.push_back( SColorString(pszString, color) );
-		// read commands
 		while ( const wchar_t *pszString = pBuffer->Read(CONSOLE_STREAM_COMMAND, &color) ) 
 		{
 			std::wstring szString = pszString;
@@ -181,20 +162,16 @@ bool CUIConsole::Update( const NTimer::STime &currTime )
 			vectorOfStrings.push_back( SColorString(szString, color) );
 			ParseCommand( szString );
 
-			// read console log
 			while ( const wchar_t *pszString = pBuffer->Read(CONSOLE_STREAM_CONSOLE, &color) ) 
 				vectorOfStrings.push_back( SColorString(pszString, color) );
 		}
 	}
-	//
 	if ( !bAnimation )
 		return false;
 
 	CTRect<float> rc = GetScreenRect();
 	if ( currTime - dwLastOpenTime < OPEN_TIME )
 	{
-		//������� � �������� ��������
-		//��������� ���������� �������
 		rc.bottom = CONSOLE_HEIGHT * ( currTime - dwLastOpenTime ) / OPEN_TIME;
 		rc.top = rc.bottom - CONSOLE_HEIGHT;
 		SetScreenRect( rc );
@@ -203,7 +180,6 @@ bool CUIConsole::Update( const NTimer::STime &currTime )
 	}
 	else if ( dwLastCloseTime == 0 )
 	{
-		//���� ������� ��������� ���� ��������
 		rc.top = 0;
 		rc.bottom = CONSOLE_HEIGHT;
 		bAnimation = false;
@@ -214,8 +190,6 @@ bool CUIConsole::Update( const NTimer::STime &currTime )
 	
 	if ( currTime - dwLastCloseTime < OPEN_TIME )
 	{
-		//������� � �������� ��������
-		//��������� ���������� �������
 		rc.bottom = CONSOLE_HEIGHT - CONSOLE_HEIGHT * ( currTime - dwLastCloseTime ) / OPEN_TIME;
 		rc.top = rc.bottom - CONSOLE_HEIGHT;
 		SetScreenRect( rc );
@@ -224,13 +198,11 @@ bool CUIConsole::Update( const NTimer::STime &currTime )
 	}
 	else if ( dwLastOpenTime == 0 )
 	{
-		//���� ������� ��������� ���� ��������
 		rc.top = -CONSOLE_HEIGHT;
 		rc.bottom = 0;
 		bAnimation = false;
 		SetScreenRect( rc );
 		UpdateSubRects();
-//CSimpleWindow::ShowWindow( UI_SW_MINIMIZE );
 		CSimpleWindow::ShowWindow( UI_SW_HIDE );
 
 		SUIMessage msg;
@@ -247,19 +219,16 @@ bool CUIConsole::Update( const NTimer::STime &currTime )
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIConsole::Visit( interface ISceneVisitor *pVisitor )
 {
 	CSimpleWindow::Visit( pVisitor );
 	pVisitor->VisitUICustom( dynamic_cast<IUIElement*>(this) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIConsole::Draw( interface IGFX *pGFX )
 {
 	if ( IsVisible() || bAnimation )
 	{
 		pGFX->SetShadingEffect( 3 );
-		// ��������� ������������� �������
 		int nCurrentY = wndRect.y2 - 2 * TEXT_VERTICAL_SIZE;
 		pGFX->DrawString( szPrefix, TEXT_LEFT_SPACE, nCurrentY );
 		pGFX->DrawString( szEditString.c_str(), TEXT_LEFT_SPACE + TEXT_VERTICAL_SIZE, nCurrentY );
@@ -270,7 +239,6 @@ void CUIConsole::Draw( interface IGFX *pGFX )
 		}
 		nCurrentY -= TEXT_VERTICAL_SIZE;
 
-		// ��������� ������� � �������
 		int nSize = vectorOfStrings.size();
 		for ( int i = nBeginString; i < nSize; ++i )
 		{
@@ -280,7 +248,6 @@ void CUIConsole::Draw( interface IGFX *pGFX )
 				break;
 		}
 
-		// ������ ������
 		if ( bShowCursor )
 		{
 			IText *pText = states[nCurrentState].pGfxText->GetText();
@@ -295,7 +262,6 @@ void CUIConsole::Draw( interface IGFX *pGFX )
 			rc.rect.right = rc.rect.left + 2;
 			if ( rc.rect.left < wndRect.right - 1 )
 			{
-				//������ �� ������� �� ���� ������
 				int nH = states[nCurrentState].pGfxText->GetLineSpace();
 				rc.rect.top = wndRect.bottom - 2 * TEXT_VERTICAL_SIZE;
 				rc.rect.bottom = rc.rect.top + nH;
@@ -303,7 +269,6 @@ void CUIConsole::Draw( interface IGFX *pGFX )
 				
 				if ( bBounded )
 				{
-					// ��������, ����� ����� ������ ����� �������
 					float fTemp;
 					fTemp = rcBound.y1 - rc.rect.y1;
 					if ( fTemp > 0 )
@@ -326,7 +291,6 @@ void CUIConsole::Draw( interface IGFX *pGFX )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIConsole::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD keyState )
 {
 	if ( !IsVisible() )
@@ -335,8 +299,6 @@ bool CUIConsole::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD k
 	if ( !bPressed )
 		return false;
 	
-	//���� �������� ������, �� ������ ������� ���
-//	if ( isprint( nAsciiCode ) )
 	if ( nAsciiCode >= 32 && ( keyState == E_KEYBOARD_FREE || keyState == E_SHIFT_KEY_DOWN ) )
 	{
 		szEditString.insert( nCursorPos, 1, nAsciiCode );
@@ -352,7 +314,6 @@ bool CUIConsole::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD k
 		return true;
 	}
 
-	//���� �� �������� ������, �� ������������ �������������� ����������
 	switch( nVirtualKey )
 	{
 	case VK_RETURN:
@@ -382,12 +343,10 @@ bool CUIConsole::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD k
 			break;
 		if ( keyState == E_KEYBOARD_FREE )
 		{
-			//�� ���� ������� �����
 			nCursorPos--;
 		}
 		if ( keyState & E_CTRL_KEY_DOWN )
 		{
-			//���� ������ crtl � ������� �����, �� ���������� ����� �� ���� �����
 			while( nCursorPos > 0 && isspace(szEditString[nCursorPos-1]) )
 				nCursorPos--;
 			if ( nCursorPos > 0 )
@@ -407,12 +366,10 @@ bool CUIConsole::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD k
 			break;
 		if ( keyState == E_KEYBOARD_FREE )
 		{
-			//�� ���� ������� ������
 			nCursorPos++;
 		}
 		else if ( keyState & E_CTRL_KEY_DOWN )
 		{
-			//���� ������ crtl � ������� ������, �� ���������� ������ �� ���� �����
 			if ( nCursorPos < szEditString.size() )
 			{
 				if ( isalpha(szEditString[nCursorPos]) )
@@ -441,7 +398,6 @@ bool CUIConsole::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD k
 
 			if ( nBeginCommand > 0 )
 			{
-				//������� ������� �� ������� ����
 				nBeginCommand--;
 				szEditString = vectorOfCommands[ nBeginCommand ];
 				nCursorPos = szEditString.size();
@@ -455,7 +411,6 @@ bool CUIConsole::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD k
 		
 		if ( keyState == E_KEYBOARD_FREE )
 		{
-			//��������� ���������� �������
 			nBeginCommand++;
 			if ( nBeginCommand == vectorOfCommands.size() )
 			{
@@ -474,12 +429,10 @@ bool CUIConsole::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD k
 	case VK_HOME:
 		if ( keyState == E_KEYBOARD_FREE )
 		{
-			//�� ������ ������
 			nCursorPos = 0;
 		}
 		else if ( keyState == E_CTRL_KEY_DOWN )
 		{
-			//���������� ������ ����������� ������ ( ����� ������ )
 			if ( vectorOfStrings.size() > CONSOLE_HEIGHT / TEXT_VERTICAL_SIZE )
 				nBeginString = vectorOfStrings.size() - CONSOLE_HEIGHT / TEXT_VERTICAL_SIZE + MINUS_PAGE_SIZE;
 		}
@@ -488,12 +441,10 @@ bool CUIConsole::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD k
 	case VK_END:
 		if ( keyState == E_KEYBOARD_FREE )
 		{
-			//�� ����� ������
 			nCursorPos = szEditString.size();
 		}
 		else if ( keyState == E_CTRL_KEY_DOWN )
 		{
-			//���������� ����� ����������� ������ ( ����� ����� )
 			nBeginString = 0;
 		}
 		break;
@@ -519,13 +470,11 @@ bool CUIConsole::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD k
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIConsole::RegisterCommand( IConsoleCommandHandler *pHandler )
 {
 	NI_ASSERT_T( pHandler != 0, "NULL POINTER, WTF??" );
 	commandsChain.push_back( pHandler );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIConsole::ParseCommand( const std::wstring &szExtCommand )
 {
 	std::string szCommandString;
@@ -533,7 +482,6 @@ void CUIConsole::ParseCommand( const std::wstring &szExtCommand )
 	NStr::TrimLeft( szCommandString );
 	if ( szCommandString.empty() )
 		return;
-	// check for special commands
 	if ( szCommandString[0] == '@' )
 	{
 		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_SCRIPT, szCommandString.c_str() + 1 );
@@ -544,7 +492,6 @@ void CUIConsole::ParseCommand( const std::wstring &szExtCommand )
 		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_WORLD, szCommandString.c_str() + 1 );
 		return;
 	}
-// CRAP{ for debug
 	else if ( szCommandString == "PauseNet()" )
 	{
 		if ( GetSingleton<ITransceiver>()->GetInGameNetDriver() )
@@ -583,7 +530,6 @@ void CUIConsole::ParseCommand( const std::wstring &szExtCommand )
 	{
 		throw 1;
 	}
-// CRAP}
 	else
 	{
 		for ( CCommandsList::iterator it = commandsChain.begin(); it != commandsChain.end(); ++it )
@@ -593,7 +539,6 @@ void CUIConsole::ParseCommand( const std::wstring &szExtCommand )
 		}
 	}
 
-	//��������, ����� ��� ������� ���������������� ��� ���������� � ������� �������, ����� �������� ��
 	int nPos = szCommandString.find( '(' );
 	std::string szFunctionName;
 	if ( nPos > 0 )
@@ -630,14 +575,10 @@ void CUIConsole::ParseCommand( const std::wstring &szExtCommand )
 	}
 	else
 	{
-		// unknown command - report it
 		const std::string szError = std::string( "Unknown command: " ) + szCommandString;
 		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CONSOLE, szError.c_str(), 0xffff0000 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//������ ���������� �������
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SetIGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -649,7 +590,6 @@ int SetIGlobalVar( struct lua_State *state )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SetFGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -661,7 +601,6 @@ int SetFGlobalVar( struct lua_State *state )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SetSGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -673,7 +612,6 @@ int SetSGlobalVar( struct lua_State *state )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int GetIGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -685,7 +623,6 @@ int GetIGlobalVar( struct lua_State *state )
 	
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int GetFGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -697,7 +634,6 @@ int GetFGlobalVar( struct lua_State *state )
 	
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int GetSGlobalVar( struct lua_State *state )
 {
 	Script script( state );
@@ -709,7 +645,6 @@ int GetSGlobalVar( struct lua_State *state )
 	
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int Exec( struct lua_State *state )
 {
 	Script script( state );
@@ -724,7 +659,6 @@ int Exec( struct lua_State *state )
 	if ( nPos != std::string::npos )
 		szFileName = szFileName.substr( 0, nPos + 1 );
 	szFileName += script.GetObject( 1 );
-//	IStream *pStream = OpenFileStream( szFileName, STREAM_ACCESS_READ );
 	
 	FILE *pFile = nullptr;
 	if ( fopen_s( &pFile, szFileName.c_str(), "r" ) != 0 || !pFile )
@@ -744,7 +678,6 @@ int Exec( struct lua_State *state )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 Script::SRegFunction reglist[] =
 {
 	{ "SetIGlobalVar"	,	SetIGlobalVar },
@@ -757,25 +690,20 @@ Script::SRegFunction reglist[] =
 	{ 0, 0 },
 };
 const int nRegListSize = sizeof( reglist ) / sizeof( reglist[0] ) - 1;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIConsole::InitConsoleScript()
 {
-	// register global script functions
 	consoleScript.Clear();
 	consoleScript.Init();
 	consoleScript.Register( reglist );
 }
-////////////////////////////////////////////////////////////////////////////////
 bool CUIConsole::RunScriptFile( const std::string &szScriptFileName )
 {
-	// read and execute script
 	if ( (szScriptFileName != "") && !szScriptFileName.empty() )
 	{
 		CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( (szScriptFileName + ".lua").c_str(), STREAM_ACCESS_READ );
 		if ( pStream )
 		{
 			const int nSize = pStream->GetSize();
-			// +10 �� ������ ������
 			std::vector<char> buffer( nSize + 10 );
 			pStream->Read( &(buffer[0]), nSize );
 			return !( consoleScript.DoBuffer( &(buffer[0]), nSize, "Script" ) );
@@ -786,7 +714,6 @@ bool CUIConsole::RunScriptFile( const std::string &szScriptFileName )
 	else
 		return false;
 }
-////////////////////////////////////////////////////////////////////////////////
 CUIConsole::CUIConsole() : dwLastOpenTime( 0 ), dwLastCloseTime( 0 ), nCursorPos( 0 ),
 	dwLastCursorAnimatedTime( 0 ), bAnimation( false ), nBeginString( 0 ), nBeginCommand( -1 ),
 	m_dwColor( 0xFFFFFFFF ), bShowCursor( true )
@@ -798,4 +725,3 @@ CUIConsole::CUIConsole() : dwLastOpenTime( 0 ), dwLastCloseTime( 0 ), nCursorPos
 		consoleFunctions[ reglist[i].name ] = 1;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

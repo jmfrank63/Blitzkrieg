@@ -3,12 +3,7 @@
 #include "..\RefDlg.h"
 #include "..\MultySelDialog.h"
 
-/////////////////////////////////////////////////////////////////////////////
-// COIReferenceButton
-/////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(COIReferenceButton, CButton)
-//{{AFX_MSG_MAP(COIReferenceButton)
-//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 static std::string MakeOneSlash( std::string str )
@@ -31,8 +26,6 @@ COIReferenceButton::COIReferenceButton( COIReferenceEdit *pPrnt, CEdit* pEdtBrow
 {
   ASSERT( pPrnt );
   ASSERT( pEdtBrowse );
-  //{{AFX_DATA_INIT(COIReferenceButton)
-  //}}AFX_DATA_INIT
   
   m_pEdtBrowse = pEdtBrowse;
   m_pParentWnd = pPrnt;
@@ -45,19 +38,14 @@ COIReferenceButton::~COIReferenceButton()
 
 BOOL COIReferenceButton::Create()
 {
-  // Make sure we have an edit control.  
   ASSERT(m_pEdtBrowse != NULL);
   
-  // Get the parent edit control and shrink it by the width
-  // of the button to be created.
   CRect rc;
 
   m_pEdtBrowse->GetWindowRect(&rc);
   m_pEdtBrowse->SetWindowPos(NULL, 0, 0, rc.Width() - (BTN_WIDTH + 1),
     rc.Height(), SWP_NOZORDER | SWP_NOMOVE);
   
-  // Now calculate the size and location of the button, get an
-  // unused control ID, and create it.
   
   m_pParentWnd->ScreenToClient(&rc);
   rc.left = rc.right - BTN_WIDTH;
@@ -84,16 +72,11 @@ BOOL COIReferenceButton::OnChildNotify( UINT uiMsg, WPARAM wParam, LPARAM lParam
   return FALSE;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// COIReferenceButton
-/////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(COIReferenceEdit, CWnd)
-//{{AFX_MSG_MAP(COIReferenceEdit)
   ON_WM_ENABLE()
 	ON_WM_CREATE()
 	ON_WM_SIZE()
 	ON_WM_SHOWWINDOW()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 COIReferenceEdit::COIReferenceEdit() : m_BrowseBtn( this, &m_Edit )
@@ -111,7 +94,6 @@ int COIReferenceEdit::OnCreate(LPCREATESTRUCT lpCreateStruct)
   if (CWnd::OnCreate(lpCreateStruct) == -1)
     return -1;
   
-  // Create font
   LOGFONT lf;
   memset(&lf, 0, sizeof(LOGFONT));			// zero out structure
   lf.lfHeight = 15;							// request a ?-pixel-height font
@@ -182,8 +164,6 @@ void COIReferenceEdit::OnSize(UINT nType, int cx, int cy)
 	CWnd::OnSize(nType, cx, cy);	
   m_Edit.MoveWindow( 0, 0, cx, cy );
 
-  // Get the parent edit control and shrink it by the width
-  // of the button to be created.
   CRect rc;
   m_Edit.GetWindowRect(&rc);
   m_Edit.SetWindowPos(NULL, 0, 0, rc.Width() - (BTN_WIDTH + 1),

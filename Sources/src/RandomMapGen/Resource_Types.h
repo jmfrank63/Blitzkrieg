@@ -2,7 +2,6 @@
 #define __Resource__Types__
 
 #include "..\GFX\GFXTypes.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class Type>
 bool LoadDataResource( const std::string &rszResourceFileName, const std::string &rszBinaryExtention, bool bBinary, int nChunkNumber, const std::string &rszChunkLabel, Type &rResource )
 {
@@ -42,7 +41,6 @@ bool LoadDataResource( const std::string &rszResourceFileName, const std::string
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class Type>
 bool LoadTypedSuperDataResource( const std::string &rszResourceFileName, const std::string &rszBinaryExtention, bool bBinary, int nChunkNumber, Type &rResource )
 {
@@ -82,7 +80,6 @@ bool LoadTypedSuperDataResource( const std::string &rszResourceFileName, const s
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class Type>
 bool SaveDataResource( const std::string &rszResourceFileName, const std::string &rszBinaryExtention, bool bBinary, int nChunkNumber, const std::string &rszChunkLabel, Type &rResource )
 {
@@ -122,7 +119,6 @@ bool SaveDataResource( const std::string &rszResourceFileName, const std::string
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class Type>
 bool SaveTypedSuperDataResource( const std::string &rszResourceFileName, const std::string &rszBinaryExtention, bool bBinary, int nChunkNumber, Type &rResource )
 {
@@ -162,7 +158,6 @@ bool SaveTypedSuperDataResource( const std::string &rszResourceFileName, const s
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class Type>
 bool LoadLatestDataResource( const std::string &rszResourceFileName, const std::string &rszBinaryExtention, int nChunkNumber, const std::string &rszChunkLabel, Type &rResource )
 {
@@ -176,7 +171,6 @@ bool LoadLatestDataResource( const std::string &rszResourceFileName, const std::
 
 		SStorageElementStats statsBinary, statsXML;
 		{
-			// get stats from Binary and XML files
 			Zero( statsBinary );
 			pDataStorage->GetStreamStats( ( szResourceFileName + rszBinaryExtention ).c_str(), &statsBinary );
 			Zero( statsXML );
@@ -212,7 +206,6 @@ bool LoadLatestDataResource( const std::string &rszResourceFileName, const std::
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class Type>
 bool LoadTypedSuperLatestDataResource( const std::string &rszResourceFileName, const std::string &rszBinaryExtention, int nChunkNumber, Type &rResource, std::string *pszFullFileName = 0 )
 {
@@ -226,7 +219,6 @@ bool LoadTypedSuperLatestDataResource( const std::string &rszResourceFileName, c
 
 		SStorageElementStats statsBinary, statsXML;
 		{
-			// get stats from Binary and XML files
 			Zero( statsBinary );
 			pDataStorage->GetStreamStats( ( szResourceFileName + rszBinaryExtention ).c_str(), &statsBinary );
 			Zero( statsXML );
@@ -270,20 +262,15 @@ bool LoadTypedSuperLatestDataResource( const std::string &rszResourceFileName, c
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern bool SaveImageToTGAImageResource( interface IImage *pImage, const std::string &rszTGAImageResourceFileName );
-//������� ������ ��� ���� ( minimap )
 extern bool SaveImageToDDSImageResource( interface IImage *pImage, const std::string &rszDDSImageResourceFileName,
 																				 EGFXPixelFormat nCompressedFormat = GFXPF_DXT1,
 																				 EGFXPixelFormat nLowFormat = GFXPF_ARGB0565,
 																				 EGFXPixelFormat nHighFormat = GFXPF_ARGB8888 );
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//������������ ������ ��� ��������� �������� ��������.� �. ��������� ImageProcessor
 extern interface IImage* LoadImageFromTGAImageResource( const std::string &rszTGAImageResourceFileName );
 extern interface IImage* LoadImageFromDDSImageResource( const std::string &rszDDSImageResourceFileName );
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SEnumFilesInDataStorageParameter
 {
 	std::list<std::string> fileNames;
@@ -294,7 +281,6 @@ struct SEnumFilesInDataStorageParameter
 	int nExtentionLength;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::unordered_map<std::string, std::set<std::string> > TEnumFolders;
 struct SEnumFolderStructureParameter
 {
@@ -309,11 +295,8 @@ struct SEnumFolderStructureParameter
 	static void SetRelativeFolder( TEnumFolders *pFolders, const std::string &rszFolder, const std::string &rszRelativeFolder );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void EnumFilesInDataStorage( std::vector<SEnumFilesInDataStorageParameter> *pParameters, IDataStorage *pStorage, SEnumFolderStructureParameter *pEnumFolderStructureParameter = 0 );
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool ExecuteProcess( const std::string &szCommand, const std::string &szCmdLine, const std::string &szDirectory, bool bWait = true );
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // #if !defined(__Resource__Types__)

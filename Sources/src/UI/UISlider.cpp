@@ -5,7 +5,6 @@
 
 const int TIME_TO_SCROLL = 50;
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUISlider::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -24,7 +23,6 @@ int CUISlider::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUISlider::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -43,7 +41,6 @@ int CUISlider::operator&( IDataTree &ss )
 		SaveTextureAndMap( &saver, pSliderTexture, "Elevator_Texture", sliderMapa, "Elevator_Maps" );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUISlider::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD keyState )
 {
 	if ( !IsVisible() )
@@ -73,10 +70,8 @@ bool CUISlider::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD ke
 			return false;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUISlider::ProcessMessage( const SUIMessage &msg )
 {
-	//ScrollBar ������������ NOTIFY ��������� �� �����
 	switch( msg.nMessageCode )
 	{
 	case MESSAGE_KEY_UP:
@@ -95,7 +90,6 @@ bool CUISlider::ProcessMessage( const SUIMessage &msg )
 
 	return CSimpleWindow::ProcessMessage( msg );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUISlider::ComputeElevatorCoord()
 {
 	const CTRect<float> rc = GetScreenRect();
@@ -113,7 +107,6 @@ int CUISlider::ComputeElevatorCoord()
 		return rc.top + (rc.bottom-rc.top-m_nElevatorWidth)*m_nPos/(m_nMax-m_nMin);
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUISlider::NotifyPositionChanged()
 {
 	if ( m_nPrevPos == m_nPos )
@@ -126,7 +119,6 @@ void CUISlider::NotifyPositionChanged()
 	msg.nSecond = m_nPos;
 	GetParent()->ProcessMessage( msg );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUISlider::UpdatePosition( int nCoord )
 {
 	const CTRect<float> rc = GetScreenRect();
@@ -169,7 +161,6 @@ void CUISlider::UpdatePosition( int nCoord )
 		float nNumberOfPositions = (float) ( m_nMax - m_nMin ) / m_nStep;
 		float nSizeOfInterval = (float)  ( rc.bottom - rc.top - m_nElevatorWidth ) / ( nNumberOfPositions );
 		m_nPos = (float) ( nCoord - rc.top - m_nElevatorWidth/2 + nSizeOfInterval/2 ) / nSizeOfInterval;
-//		m_nPos = (float) ( nCoord - rc.top ) / nSizeOfInterval;
 		m_nPos *= m_nStep;
 	}
 
@@ -180,15 +171,12 @@ void CUISlider::UpdatePosition( int nCoord )
 
 	NotifyPositionChanged();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUISlider::Visit( interface ISceneVisitor *pVisitor )
 {
 	CSimpleWindow::Visit( pVisitor );
 
 	if ( m_nMin < m_nMax )
 	{
-		// ������ ������ ��������
-		// ����� �������������� ���     nMin <= nPosition <= nMax
 		SGFXRect2 rect;
 		rect.rect = GetScreenRect();
 		if ( !bVertical )
@@ -207,7 +195,6 @@ void CUISlider::Visit( interface ISceneVisitor *pVisitor )
 		pVisitor->VisitUIRects( pSliderTexture, 3, &rect, 1 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUISlider::Draw( IGFX *pGFX )
 {
 	NI_ASSERT_SLOW_T( false, "Can't user Draw() directly - use visitor pattern" );
@@ -217,8 +204,6 @@ void CUISlider::Draw( IGFX *pGFX )
 
 	if ( m_nMin < m_nMax )
 	{
-		//������ ������ ��������
-		//����� �������������� ���     nMin <= nPosition <= nMax
 		pGFX->SetShadingEffect( 3 );
 		SGFXRect2 rect;
 		rect.rect = GetScreenRect();
@@ -239,7 +224,6 @@ void CUISlider::Draw( IGFX *pGFX )
 		pGFX->DrawRects( &rect, 1 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUISlider::OnMouseMove( const CVec2 &vPos, EMouseState mouseState )
 {
 	bool bRes = CSimpleWindow::OnMouseMove( vPos, mouseState );
@@ -247,8 +231,6 @@ bool CUISlider::OnMouseMove( const CVec2 &vPos, EMouseState mouseState )
 	if ( mouseState == E_MOUSE_FREE )
 		return bRes;
 
-	//��� ������, ��� bRes true ����� �������� ����� ���� ����������, � ������ ����� ��� ������ ������, ��� ������ ����������� ����
-	//���� ����� ������ ����� ������
 	if ( mouseState & E_LBUTTONDOWN )
 	{
 		if ( !bVertical )
@@ -262,7 +244,6 @@ bool CUISlider::OnMouseMove( const CVec2 &vPos, EMouseState mouseState )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUISlider::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 {
 	bool bRes = CSimpleWindow::OnMouseMove( vPos, mouseState );
@@ -270,8 +251,6 @@ bool CUISlider::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 	if ( mouseState == E_MOUSE_FREE || !bRes )
 		return bRes;
 
-	//��� ������, ��� bRes true ����� �������� ����� ���� ����������, � ������ ����� ��� ������ ������, ��� ������ ����������� ����
-	//���� ����� ������ ����� ������
 	if ( mouseState & E_LBUTTONDOWN )
 	{
 		if ( !bVertical )
@@ -285,7 +264,6 @@ bool CUISlider::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUISlider::SetPosition( int nPos )
 {
 	if ( nPos <= m_nMin )
@@ -300,7 +278,6 @@ void CUISlider::SetPosition( int nPos )
 		m_nPos = nPos;
 	NotifyPositionChanged();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUISlider::SetMinValue( int nMin ) 
 { 
 	m_nMin = nMin; 
@@ -308,14 +285,12 @@ void CUISlider::SetMinValue( int nMin )
 	if ( m_nPos < m_nMin )
 		SetPosition( m_nMin );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUISlider::SetMaxValue( int nMax ) 
 { 
 	m_nMax = nMax; 
 	if ( m_nPos > m_nMax )
 		SetPosition( m_nMax );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIScrollBar::NotifyPositionChanged()
 {
 	SUIMessage msg;
@@ -324,10 +299,8 @@ void CUIScrollBar::NotifyPositionChanged()
 	msg.nSecond = pSlider->GetPosition();
 	GetParent()->ProcessMessage( msg );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIScrollBar::ProcessMessage( const SUIMessage &msg )
 {
-	//ScrollBar ������������ NOTIFY ��������� �� �����
 	switch( msg.nMessageCode )
 	{
 	case UI_NOTIFY_WINDOW_CLICKED:
@@ -357,7 +330,6 @@ bool CUIScrollBar::ProcessMessage( const SUIMessage &msg )
 
 	return CMultipleWindow::ProcessMessage( msg );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIScrollBar::Reposition( const CTRect<float> &rcParent )
 {
 	CSimpleWindow::Reposition( rcParent );
@@ -365,7 +337,6 @@ void CUIScrollBar::Reposition( const CTRect<float> &rcParent )
 	CTRect<float> rc, newRc, myRc;
 	myRc = GetScreenRect();
 	
-	//������ ������� ������ ������� ��� ������������ ScrollBar
 	if ( !IsVertical() )
 	{
 		rc = pMinButton->GetScreenRect();
@@ -392,7 +363,6 @@ void CUIScrollBar::Reposition( const CTRect<float> &rcParent )
 		pSlider->SetScreenRect( newRc );
 		pSlider->SetPos( CVec2( pMinButton->GetSize().x, 0 ) );
 		pSlider->SetSize( CVec2( myRc.Width() - pMinButton->GetSize().x - pMaxButton->GetSize().x, myRc.Height() ) );
-//		pSlider->UpdateSubRects();
 	}
 	else
 	{
@@ -420,10 +390,8 @@ void CUIScrollBar::Reposition( const CTRect<float> &rcParent )
 		pSlider->SetScreenRect( newRc );
 		pSlider->SetPos( CVec2( 0, pMinButton->GetSize().y ) );
 		pSlider->SetSize( CVec2( myRc.Width(), myRc.Height() - pMinButton->GetSize().y - pMaxButton->GetSize().y ) );
-//		pSlider->UpdateSubRects();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIScrollBar::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -453,7 +421,6 @@ int CUIScrollBar::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIScrollBar::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -462,7 +429,6 @@ int CUIScrollBar::operator&( IDataTree &ss )
 	
 	if ( saver.IsReading() )
 	{
-		//�������������� ���������� ����������
 		pMinButton = dynamic_cast<CUIButton *>( GetChildByID(1) );
 		pMaxButton = dynamic_cast<CUIButton *>( GetChildByID(2) );
 		pSlider = dynamic_cast<CUISlider *>( GetChildByID(3) );
@@ -470,10 +436,8 @@ int CUIScrollBar::operator&( IDataTree &ss )
 	NI_ASSERT_T( pMinButton && pMaxButton && pSlider, "Invalid data for ScrollBar, can not create elements" );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIScrollBar::Update( const NTimer::STime &currTime )
 {
-	//��������, ����� min ��� max ������ � ������� ������������
 	if ( pMinButton->GetCurrentSubState() == E_PUSHED_STATE )
 	{
 		if ( currTime - dwLastUpdateTime > TIME_TO_SCROLL )
@@ -498,4 +462,3 @@ bool CUIScrollBar::Update( const NTimer::STime &currTime )
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

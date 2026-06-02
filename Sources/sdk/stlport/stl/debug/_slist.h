@@ -88,8 +88,6 @@ public:
   explicit _DBG_slist(size_type __n) : _STLP_DBG_SLIST_BASE(__n) , _M_iter_list(_Get_base()) {}
   
 #ifdef _STLP_MEMBER_TEMPLATES
-  // We don't need any dispatching tricks here, because _M_insert_after_range
-  // already does them.
 # ifdef _STLP_NEEDS_EXTRA_TEMPLATE_CONSTRUCTORS
   template <class _InputIterator>
   _DBG_slist(_InputIterator __first, _InputIterator __last) :
@@ -125,7 +123,6 @@ public:
 
 public:
   void assign(size_type __n, const _Tp& __val) {
-    // fbp :check invalidation here !
     _Base::assign(__n, __val); 
   }
 
@@ -148,7 +145,6 @@ public:
   }
 
 public:
-  // fbp : checks here !
   reference front() { 
     _STLP_VERBOSE_ASSERT(!this->empty(), _StlMsg_EMPTY_CONTAINER)
     return _Base::front(); 
@@ -186,19 +182,14 @@ public:
 
   template <class _InputIterator>
   void assign(_InputIterator __first, _InputIterator __last) {
-    // fbp :check invalidation here !
     _Base::assign(__first, __last);
   }
 
-  // We don't need any dispatching tricks here, because _M_insert_after_range
-  // already does them.
   template <class _InIter>
   void insert_after(iterator __pos, _InIter __first, _InIter __last) {
     _Base::insert_after(__pos._M_iterator, __first, __last);
   }
 
-  // We don't need any dispatching tricks here, because _M_insert_after_range
-  // already does them.
   template <class _InIter>
   void insert(iterator __pos, _InIter __first, _InIter __last) {
     _Base::insert(__pos._M_iterator, __first, __last);
@@ -277,8 +268,6 @@ public:
   }
 
 public:
-  // Moves the range [__before_first + 1, __before_last + 1) to *this,
-  //  inserting it immediately after __pos.  This is constant time.
   void splice_after(iterator __pos, 
                     iterator __before_first, iterator __before_last)
   {
@@ -292,24 +281,18 @@ public:
     }
   }
 
-  // Moves the element that follows __prev to *this, inserting it immediately
-  //  after __pos.  This is constant time.
   void splice_after(iterator __pos, iterator __prev)
   {
     _Base::splice_after(__pos._M_iterator, __prev._M_iterator);
     __invalidate_iterator(__prev._Owner(), ++__prev);
   }
 
-  // Removes all of the elements from the list __x to *this, inserting
-  // them immediately after __pos.  __x must not be *this.  Complexity:
-  // linear in __x.size().
   void splice_after(iterator __pos, _Self& __x)
   {
     _Base::splice_after(__pos._M_iterator, (_Base&)__x);
     __x._Invalidate_all();
   }
 
-  // Linear in distance(begin(), __pos), and linear in __x.size().
   void splice(iterator __pos, _Self& __x) {
     _STLP_VERBOSE_ASSERT(!(&__x==this), _StlMsg_INVALID_ARGUMENT)
     _STLP_DEBUG_CHECK(__check_if_owner(&_M_iter_list,__pos))
@@ -317,7 +300,6 @@ public:
     __x._Invalidate_all();
   }
 
-  // Linear in distance(begin(), __pos), and in distance(__x.begin(), __i).
   void splice(iterator __pos, _Self& __x, iterator __i) {
     _STLP_VERBOSE_ASSERT(&__x!=this, _StlMsg_INVALID_ARGUMENT)
     _STLP_DEBUG_CHECK(__check_if_owner(&_M_iter_list,__pos) && 
@@ -326,8 +308,6 @@ public:
     __x._Invalidate_iterator(__i);
   }
 
-  // Linear in distance(begin(), __pos), in distance(__x.begin(), __first),
-  // and in distance(__first, __last).
   void splice(iterator __pos, _Self& __x, iterator __first, iterator __last)
   {
     _STLP_VERBOSE_ASSERT(&__x!=this, _StlMsg_INVALID_ARGUMENT)
@@ -341,7 +321,6 @@ public:
 
   void remove(const _Tp& __val) {
     _Base::remove(__val);
-    //    __x._Invalidate_all();    
   }
   void unique() {
     _Base::unique();
@@ -443,6 +422,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_DBG_SLIST_H */
 
-// Local Variables:
-// mode:C++
-// End:

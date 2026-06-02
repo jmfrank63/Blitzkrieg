@@ -12,7 +12,6 @@
 #include "IconHPBar.h"
 
 #include "..\Common\Icons.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVisObjBuilder::Init( ISingleton *pSingleton )
 {
 	pGFX = GetSingleton<IGFX>( pSingleton );
@@ -24,7 +23,6 @@ bool CVisObjBuilder::Init( ISingleton *pSingleton )
 
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IVisObj* CVisObjBuilder::BuildObject( const char *pszModelName, const char *pszTextureName, EObjVisType type )
 {
 	switch ( type )
@@ -37,13 +35,11 @@ IVisObj* CVisObjBuilder::BuildObject( const char *pszModelName, const char *pszT
 			return CreateEffectVisObj( pszModelName );
 		case SGVOT_FLASH:
 			return CreateFlashVisObj( pszModelName );
-		//!?!
 		case SGVOT_UNKNOWN:
 			return CreateSpriteVisObj( pszModelName );
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFlashVisObj* CVisObjBuilder::CreateFlashVisObj( const std::string &szName )
 {
 	CFlashVisObj *pObj = CreateObject<CFlashVisObj>( SCENE_VISOBJ_FLASH );
@@ -51,7 +47,6 @@ CFlashVisObj* CVisObjBuilder::CreateFlashVisObj( const std::string &szName )
 	pObj->SetTexture( pTexture );
 	return pObj;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSpriteVisObj* CVisObjBuilder::CreateSpriteVisObj( const std::string &szName )
 {
 	CSpriteVisObj *pObj = new CSpriteVisObj();
@@ -61,7 +56,6 @@ CSpriteVisObj* CVisObjBuilder::CreateSpriteVisObj( const std::string &szName )
 	pObj->Release();
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMeshVisObj* CVisObjBuilder::CreateMeshVisObj( const char *pszModelName, const char *pszTextureName )
 {
 	CMeshVisObj *pObj = new CMeshVisObj();
@@ -71,10 +65,8 @@ CMeshVisObj* CVisObjBuilder::CreateMeshVisObj( const char *pszModelName, const c
 	pObj->Release();
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char* CVisObjBuilder::GetEffectSound( const std::string &szName )
 {
-	// acquire effect descriptor
 	CEffectDescMap::iterator pos = effectDescs.find( szName );
 	if ( pos == effectDescs.end() )
 	{
@@ -90,10 +82,8 @@ const char* CVisObjBuilder::GetEffectSound( const std::string &szName )
 	}
 	return pos->second.szSound.c_str();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CEffectVisObj* CVisObjBuilder::CreateEffectVisObj( const std::string &szName )
 {
-	// acquire effect descriptor
 	CEffectDescMap::iterator pos = effectDescs.find( szName );
 	if ( pos == effectDescs.end() )
 	{
@@ -108,15 +98,12 @@ CEffectVisObj* CVisObjBuilder::CreateEffectVisObj( const std::string &szName )
 			return 0;
 	}
 	SEffectDesc &effect = pos->second;
-	// create effect
 	CEffectVisObj *pEffect = new CEffectVisObj( effect.szSound );
-	// fill it with sprite subeffects
 	for ( SEffectDesc::CSpritesList::const_iterator it = effect.sprites.begin(); it != effect.sprites.end(); ++it )
 	{
 		CSpriteVisObj *pSprite = CreateSpriteVisObj( (it->szPath + "\\1").c_str() );
 		pEffect->AddSpriteEffect( pSprite, it->nStart, it->nRepeat, it->vPos );
 	}
-	// fill it particle subeffects
 	
 	for ( SEffectDesc::CParticlesList::iterator it = effect.particles.begin(); it != effect.particles.end(); ++it )
 	{
@@ -138,32 +125,19 @@ CEffectVisObj* CVisObjBuilder::CreateEffectVisObj( const std::string &szName )
 			pEffect->AddParticleEffect( pPS, it->nStart, it->nDuration, it->vPos );
 		}
 	}
-	//
 	pEffect->SetEffectDirection( MONE );
 	return pEffect;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** changing visual object's model/texture
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVisObjBuilder::ChangeObject( IVisObj *pObj, const char *pszModelName, const char *pszTextureName, EObjVisType type )
 {
 	if ( type == SGVOT_MESH )
 	{
 		CMeshVisObj *pVO = static_cast<CMeshVisObj*>( pObj );
-		//
 		if ( (pszModelName != 0) && (pszTextureName != 0) )
 		{
-			// change entire model
 			const std::string szModelName = pszModelName;
 			IGFXMesh *pMesh = pMM->GetMesh( (szModelName + ".mod").c_str() );
 			IMeshAnimation *pAnimation = pAM->GetMeshAnimation( (szModelName + ".mod").c_str() );
-			//
 			if ( (pMesh != 0) && (pAnimation != 0) )
 			{
 				IGFXTexture *pTexture = pTM->GetTexture( pszTextureName );
@@ -173,18 +147,15 @@ bool CVisObjBuilder::ChangeObject( IVisObj *pObj, const char *pszModelName, cons
 		}
 		else if ( pszModelName == 0 )
 		{
-			// change texture only
 			IGFXTexture *pTexture = pTM->GetTexture( pszTextureName );
 			pVO->SetTexture( pTexture );
 			return true;
 		}
 		else if ( pszTextureName == 0 )
 		{
-			// change model/animatio only
 			const std::string szModelName = pszModelName;
 			IGFXMesh *pMesh = pMM->GetMesh( (szModelName + ".mod").c_str() );
 			IMeshAnimation *pAnimation = pAM->GetMeshAnimation( (szModelName + ".mod").c_str() );
-			//
 			if ( (pMesh != 0) && (pAnimation != 0) )
 			{
 				pVO->SetMeshAnim( pMesh, pAnimation );
@@ -201,7 +172,6 @@ bool CVisObjBuilder::ChangeObject( IVisObj *pObj, const char *pszModelName, cons
 		if ( pAnimation != 0 )
 		{
 			IGFXTexture *pTexture = pTM->GetTexture( szName.c_str() );
-			//
 			int nDirection = 0;
 			ISpriteAnimation *pOldAnim = static_cast<ISpriteAnimation*>( pVO->GetAnimation() );
 			if ( pOldAnim ) 
@@ -212,7 +182,6 @@ bool CVisObjBuilder::ChangeObject( IVisObj *pObj, const char *pszModelName, cons
 				pAnimation->SetScaleTimer( pOldAnim->GetScaleTimer() );
 				pAnimation->SetFrameIndex( pOldAnim->GetFrameIndex() );
 			}
-			//
 			pAnimation->SetDirection( nDirection & 0x0000ffff );
 			pVO->Init( pTexture, pAnimation );
 			pVO->SetDirection( nDirection );
@@ -224,18 +193,8 @@ bool CVisObjBuilder::ChangeObject( IVisObj *pObj, const char *pszModelName, cons
 			return true;
 		}
 	}
-	//
 	return false;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** different scene objects building
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ISceneObject* CVisObjBuilder::BuildSceneObject( const char *pszName, ESceneObjectType eType, int nSubtype )
 {
 	switch( eType ) 
@@ -274,7 +233,6 @@ ISceneObject* CVisObjBuilder::BuildSceneObject( const char *pszName, ESceneObjec
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVisObjBuilder::ChangeSceneObject( ISceneObject *pObj, const char *pszName, ESceneObjectType eType, int nSubtype )
 {
 	if ( pObj == 0 ) 
@@ -282,7 +240,6 @@ bool CVisObjBuilder::ChangeSceneObject( ISceneObject *pObj, const char *pszName,
 	ISceneIconPic *pIcon = dynamic_cast<ISceneIconPic*>( pObj );
 	if ( pIcon == 0 ) 
 		return false;
-	//
 	if ( IGFXTexture *pTexture = pTM->GetTexture(pszName) )
 	{
 		pIcon->SetTexture( pTexture );
@@ -291,10 +248,7 @@ bool CVisObjBuilder::ChangeSceneObject( ISceneObject *pObj, const char *pszName,
 		const CTRect<short> rcSprite( -fSizeX/2, -fSizeY, fSizeX/2, 0 );
 		const CTRect<float> rcMaps( 0, 0, 1.0f + 0.5f/fSizeX, 1.0f + 0.5f/fSizeY );
 		pIcon->SetRect( rcSprite, rcMaps );
-		//
 		return true;
 	}
-	//
 	return false;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -7,17 +7,14 @@
 
 #include "ResizeDialog.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CALLBACK ReinforcementsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
 int CALLBACK PositionsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTabAIGeneralDialog : public CResizeDialog
 {
 	friend int CALLBACK ReinforcementsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
 	friend int CALLBACK PositionsCompareFunc( LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort );
 
-	//{{AFX_MSG(CTabAIGeneralDialog)
 	afx_msg void OnColumnclickPositionsList(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnColumnclickReinforcementsList(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnAigDeleteMobileReinforcementScriptIdButton();
@@ -42,25 +39,20 @@ class CTabAIGeneralDialog : public CResizeDialog
 	afx_msg void OnRButtonDown(UINT nFlags, CPoint point);
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
 	afx_msg void OnDestroy();
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 
 public:
-	//{{AFX_DATA(CTabAIGeneralDialog)
 	enum { IDD = IDD_TAB_AI_GENERAL };
 	CListCtrl	m_PositionsList;
 	CListCtrl	m_ReinforcementsList;
 	CStatic	m_MessageStatic;
 	int		m_nSide;
-	//}}AFX_DATA
 
 	CTabAIGeneralDialog( CWnd* pParent = NULL );
 
-	//{{AFX_VIRTUAL(CTabAIGeneralDialog)
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
 	virtual BOOL OnInitDialog();
-	//}}AFX_VIRTUAL
 protected:
 	const static int vID[];
 	
@@ -87,7 +79,5 @@ public:
 	void DeletePosition( int nPositionIndex );
 	void AddPosition( int nPositionIndex );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
 #endif // !defined(__Tabs__AIGeneral_Dialog__)

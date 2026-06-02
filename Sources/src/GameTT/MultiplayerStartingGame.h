@@ -1,8 +1,6 @@
 #ifndef __MULTIPLAYERSTARTINGGAME_H__
 #define __MULTIPLAYERSTARTINGGAME_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "InterMission.h"
 #include "iMission.h"
 #include "MultiplayerCommandManager.h"
@@ -11,9 +9,7 @@
 
 #include "..\Main\Transceiver.h"
 #include "..\StreamIO\ProgressHook.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMapSettingsWrapper;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInterfaceMPStartingGame : public CInterfaceMultiplayerScreen, public IWhisper
 {
 	OBJECT_NORMAL_METHODS( CInterfaceMPStartingGame );
@@ -31,7 +27,6 @@ class CInterfaceMPStartingGame : public CInterfaceMultiplayerScreen, public IWhi
 	CInterfaceMPStartingGame() : CInterfaceMultiplayerScreen ( "InterMission" ) { }
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
 	
-	// return true if need process commands further
 	bool ProcessMPCommand( const SToUICommand &cmd );
 	void UpdateButtons();
 	void AddOrUpdatePlayer( SUIPlayerInfo * pPlayerInfo );
@@ -52,10 +47,8 @@ public:
 	virtual void STDCALL StartInterface();
 	virtual void STDCALL SetParams( const char * pszParams );
 	virtual void STDCALL Done();
-	//IWhisper
 	const WORD * GetDestinationName();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CICMultyplayerStartingGame : public CInterfaceCommandBase<CInterfaceMPStartingGame, MISSION_INTERFACE_MULTIPLAYER_STARTINGGAME>
 {
 	DECLARE_SERIALIZE;
@@ -77,7 +70,6 @@ public:
 			szParams = pszConfig;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CICGameSpyClientConnect : public CInterfaceCommandBase<CInterfaceMPStartingGame, MISSION_INTERFACE_MULTIPLAYER_STARTINGGAME>
 {
 	DECLARE_SERIALIZE;
@@ -126,5 +118,4 @@ public:
 		GetSingleton<IMainLoop>()->Command( MAIN_COMMAND_CHANGE_TRANSCEIVER, NStr::Format("%d %d", MAIN_MP_TRANSCEIVER, EMCT_GAMESPY ) );
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __MULTIPLAYERSTARTINGGAME_H__

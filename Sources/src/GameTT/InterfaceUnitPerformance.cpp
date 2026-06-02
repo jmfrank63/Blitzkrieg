@@ -11,16 +11,13 @@
 #include "Campaign.h"
 #include "MainMenu.h"
 #include "..\GameTT\eTypes.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAfterMissionPopups * pPopups = 0;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_cancel"		, IMC_CANCEL		},
 	{	"inter_ok", 				IMC_OK				},
 	{ 0									,	0							}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum 
 {
 	E_BUTTON_OK														= 10002,
@@ -33,19 +30,16 @@ enum
 	E_STARS																= 115,	
 	E_STARS_0_STAR												= 0,		// 0 STAR
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceUnitPerformance::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 
 	saver.Add( 1, &pPopups );
-	//saver.Add( 2, &bDisableGetFocus );
 	saver.AddTypedSuper( 3, static_cast<CInterfaceInterMission*>( this ) );
 	saver.Add( 4, &nPlayerUnits );
 	saver.Add( 5, &nTotalNumUnits );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char * CInterfaceUnitPerformance::GetUnitNameByWindowID( const int nWindowID )
 {
 	if ( nWindowID >= 20000 && nWindowID < 29000 )
@@ -66,7 +60,6 @@ const char * CInterfaceUnitPerformance::GetUnitNameByWindowID( const int nWindow
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceUnitPerformance::ProcessMessage( const SGameMessage &msg )
 {
 	/*if ( msg.nEventID == TUTORIAL_WINDOW_ID || msg.nEventID == 	TUTORIAL_BUTTON_ID )
@@ -101,7 +94,6 @@ bool CInterfaceUnitPerformance::ProcessMessage( const SGameMessage &msg )
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceUnitPerformance::Init()
 {
 	CInterfaceInterMission::Init();
@@ -109,7 +101,6 @@ bool CInterfaceUnitPerformance::Init()
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceUnitPerformance::StartInterface()
 {
 	RemoveGlobalVar( "EncyclopediaShown");
@@ -127,7 +118,6 @@ void CInterfaceUnitPerformance::StartInterface()
 	pScene->AddUIScreen( pUIScreen );
 	GetSingleton<IInput>()->AddMessage( SGameMessage(TUTORIAL_TRY_SHOW_IF_NOT_SHOWN) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceUnitPerformance::OnGetFocus( bool bFocus )
 {
 	CInterfaceScreenBase::OnGetFocus( bFocus );
@@ -152,7 +142,6 @@ void CInterfaceUnitPerformance::OnGetFocus( bool bFocus )
 		}
 	}*/
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceUnitPerformance::PrepairShortcutBar()
 {
 	ITextManager *pTextM = GetSingleton<ITextManager>();
@@ -160,7 +149,6 @@ void CInterfaceUnitPerformance::PrepairShortcutBar()
 	IPlayerScenarioInfo *pPlayerInfo = GetSingleton<IScenarioTracker>()->GetUserPlayer();
 	IObjectsDB * pDB = GetSingleton<IObjectsDB>();
 	
-	// leveled up sb
 	IUIShortcutBar *pLeveledUpSB = checked_cast<IUIShortcutBar *> ( pUIScreen->GetChildByID( E_LEVELED_UP_SB ) );
 	IUIShortcutBar *pDeadUnitsSB = checked_cast<IUIShortcutBar *> ( pUIScreen->GetChildByID( E_DEAD_UNITS_SB ) );
 	pLeveledUpSB->Clear();
@@ -170,7 +158,6 @@ void CInterfaceUnitPerformance::PrepairShortcutBar()
 		pBar->SetWindowText( 0, reinterpret_cast<const WORD*>( L"1" ) );
 		pBar->SetWindowText( 1, reinterpret_cast<const WORD*>( L"2" ) );
 		pBar->SetWindowID( 0 );
-		// fill all leveled up units
 		nPlayerUnits = pPlayerInfo->GetNumUnits();
 		
 		for ( int i = 0; i < nPlayerUnits; ++i )
@@ -191,7 +178,6 @@ void CInterfaceUnitPerformance::PrepairShortcutBar()
 		}
 		pLeveledUpSB->SetBarExpandState( 0, true );
 	}
-	// fill dead units
 	{
 		IUIElement *pBar = pDeadUnitsSB->AddBar();		//bar невидимый
 		IMissionStatistics * pStat = pPlayerInfo->GetMissionStats();

@@ -9,7 +9,6 @@ using _STLP_NEW_IO_NAMESPACE::streamsize;
 using _STLP_NEW_IO_NAMESPACE::ios_base;
 using _STLP_NEW_IO_NAMESPACE::basic_ios;
 
-// _lib.std.ios.manip_, manipulators:	
 using _STLP_NEW_IO_NAMESPACE::boolalpha;
 using _STLP_NEW_IO_NAMESPACE::noboolalpha;
 using _STLP_NEW_IO_NAMESPACE::showbase;
@@ -23,17 +22,14 @@ using _STLP_NEW_IO_NAMESPACE::noskipws;
 using _STLP_NEW_IO_NAMESPACE::uppercase;
 using _STLP_NEW_IO_NAMESPACE::nouppercase;
 
-// _lib.adjustfield.manip_ adjustfield:
 using _STLP_NEW_IO_NAMESPACE::internal;
 using _STLP_NEW_IO_NAMESPACE::left;
 using _STLP_NEW_IO_NAMESPACE::right;
 
-// _lib.basefield.manip_ basefield:
 using _STLP_NEW_IO_NAMESPACE::dec;
 using _STLP_NEW_IO_NAMESPACE::hex;
 using _STLP_NEW_IO_NAMESPACE::oct;
 
-// _lib.floatfield.manip_ floatfield:
 using _STLP_NEW_IO_NAMESPACE::fixed;
 using _STLP_NEW_IO_NAMESPACE::scientific;
 

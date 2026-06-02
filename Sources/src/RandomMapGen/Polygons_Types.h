@@ -1,16 +1,11 @@
 #if !defined(__Polygons__Types__)
 #define __Polygons__Types__
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\formats\fmtVSO.h"
 #include "..\formats\fmtVSO.h"
 
-//Plane Geometry
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern const float RMGC_MINIMAL_VIS_POINT_DISTANCE;	//2.0f
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TYPE>
 inline const TYPE GetPointType( const CVec2 &vec, TYPE *pTargetType )
 {
@@ -43,8 +38,6 @@ inline const CVec3 GetPointType<CVec3>( const CVec3 &vec, CVec3 *pVec3 )
 	return vec;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//определитель что разность элементов меньше заданного значения
 template <class TYPE>
 struct SInRangeFunctional
 {
@@ -58,7 +51,6 @@ struct SInRangeFunctional
 	}
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EClassifyEdge
 {
 	CE_UNKNOWN	= 0,
@@ -75,7 +67,6 @@ enum EClassifyEdge
 };
 extern const EClassifyEdge NEGATIVE_CLASSIFY_EDGE[CE_COUNT + 1];
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EClassifyPolygon
 {
 	CP_UNKNOWN	= 0,
@@ -89,7 +80,6 @@ enum EClassifyPolygon
 };
 extern const EClassifyPolygon NEGATIVE_CLASSIFY_POLYGON[CP_COUNT + 1];
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EClassifyIntersection
 {
 	CI_UNKNOWN				= 0,
@@ -103,7 +93,6 @@ enum EClassifyIntersection
 	CI_COUNT					= 6,
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EClassifyRotation
 {
 	CR_UNKNOWN					= 0,
@@ -116,31 +105,26 @@ enum EClassifyRotation
 };
 extern const EClassifyRotation NEGATIVE_CLASSIFY_ROTATION[CR_COUNT + 1];
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline EClassifyEdge GetNegativeClassifyEdge( EClassifyEdge classifyEdge )
 {
 	return NEGATIVE_CLASSIFY_EDGE[static_cast<int>(classifyEdge)];
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline EClassifyPolygon GetNegativeClassifyPolygon( EClassifyPolygon classifyPolygon )
 {
 	return NEGATIVE_CLASSIFY_POLYGON[static_cast<int>(classifyPolygon)];
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline EClassifyRotation GetNegativeClassifyRotation( EClassifyRotation classifyRotation )
 {
 	return NEGATIVE_CLASSIFY_ROTATION[static_cast<int>(classifyRotation)];
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline EClassifyEdge GetClassifyNormal()
 {
 	return CE_LEFT;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline EClassifyEdge GetClassifyEdgeInnerSpace( EClassifyRotation classifyRotation )
 {
 	if ( classifyRotation == CR_CLOCKWISE )
@@ -157,18 +141,6 @@ inline EClassifyEdge GetClassifyEdgeInnerSpace( EClassifyRotation classifyRotati
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-//                                  *CE_LEFT
-//
-//
-//               CE_BEGIN                  CE_END
-// -*----------- *===========*============>* ------------*--------      
-//  CE_BEHIND                CE_BETWEEN                  CE_BEYONG
-//
-//                     *CE_RIGHT
-//
-//
 template<class PointType>
 EClassifyEdge ClassifyEdge( const PointType &rvBegin, const PointType &rvEnd, const PointType &v )
 {
@@ -202,7 +174,6 @@ EClassifyEdge ClassifyEdge( const PointType &rvBegin, const PointType &rvEnd, co
 	return CE_BETWEEN;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class PointType>
 EClassifyIntersection ClassifyIntersect( const PointType &rvBegin0, const PointType &rvEnd0, const PointType &rvBegin1, const PointType &rvEnd1, float *pfIntercectionPoint )
 {
@@ -235,7 +206,6 @@ EClassifyIntersection ClassifyIntersect( const PointType &rvBegin0, const PointT
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class PointType>
 EClassifyIntersection ClassifyCross( const PointType &rvBegin0, const PointType &rvEnd0,  const PointType &rvBegin1, const PointType &rvEnd1, float *pfIntercectionPoint )
 {
@@ -271,7 +241,6 @@ EClassifyIntersection ClassifyCross( const PointType &rvBegin0, const PointType 
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
 template<class Type, class PointType>
 EClassifyIntersection ClassifyCross( const Type &rPolygon, const PointType &rvBegin, const PointType &rvEnd, Type::const_iterator *pBeginIterator, Type::const_iterator *pEndIterator, float *pfIntercectionPoint )
@@ -361,8 +330,6 @@ EClassifyIntersection ClassifyCross( const Type &rPolygon, const PointType &rvBe
 }
 /**/
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//Точка в полигоне или нет
 template<class Type, class PointType>
 EClassifyPolygon ClassifyConvexPolygon( const Type &rPolygon, const PointType &v )
 {
@@ -430,7 +397,6 @@ EClassifyPolygon ClassifyConvexPolygon( const Type &rPolygon, const PointType &v
 	return CP_INSIDE;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class Type, class PointType>
 EClassifyPolygon ClassifyPolygon( const Type &rPolygon, const PointType &v )
 {
@@ -491,12 +457,9 @@ EClassifyPolygon ClassifyPolygon( const Type &rPolygon, const PointType &v )
 	return classifyPolygon;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//Периметр полигона
 template<class Type>
 float GetPolygonPerimeter( const Type &rPolygon )
 {
-	//ноль точек
 	if ( rPolygon.empty() )
 	{
 		return 0.0f;
@@ -505,7 +468,6 @@ float GetPolygonPerimeter( const Type &rPolygon )
 	Type::const_iterator currentPointIterator0 = rPolygon.begin();
 	Type::const_iterator currentPointIterator1 = rPolygon.begin();
 	++currentPointIterator1;
-	//одна точка
 	if ( currentPointIterator1 == rPolygon.end() )
 	{
 		return 0.0f;
@@ -526,12 +488,9 @@ float GetPolygonPerimeter( const Type &rPolygon )
 	return fPerimeter;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//Площадь полигона
 template<class Type>
 float GetSignedPolygonSquare( const Type &rPolygon )
 {
-	//ноль точек
 	if ( rPolygon.empty() )
 	{
 		return 0.0f;
@@ -542,13 +501,11 @@ float GetSignedPolygonSquare( const Type &rPolygon )
 	Type::const_iterator currentPointIterator2 = rPolygon.begin();
 	++currentPointIterator1;
 	++currentPointIterator2;
-	//одна точка
 	if ( currentPointIterator1 == rPolygon.end() )
 	{
 		return 0.0f;
 	}
 	++currentPointIterator2;
-	//две точки
 	if ( currentPointIterator2 == rPolygon.end() )
 	{
 		return 0.0f;
@@ -574,7 +531,6 @@ float GetSignedPolygonSquare( const Type &rPolygon )
 	return ( fSquare / 2.0f );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class PointType>
 EClassifyRotation ClassifyRotation( const PointType &v0, const PointType &v1, const PointType &v2 )
 {
@@ -590,7 +546,6 @@ EClassifyRotation ClassifyRotation( const PointType &v0, const PointType &v1, co
 	return CR_LINE;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class Type>
 EClassifyRotation ClassifyRotation( const Type &rPolygon )
 {
@@ -606,7 +561,6 @@ EClassifyRotation ClassifyRotation( const Type &rPolygon )
 	return CR_LINE;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class PointType>
 float GetSignedAngle( const PointType &rvBegin, const PointType &rvEnd, const PointType &v )
 {
@@ -638,7 +592,6 @@ float GetSignedAngle( const PointType &rvBegin, const PointType &rvEnd, const Po
 
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class Type>
 Type GetPointOnEdge( const Type &rvBegin, const Type &rvEnd, float fPoint )
 {
@@ -646,13 +599,11 @@ Type GetPointOnEdge( const Type &rvBegin, const Type &rvEnd, float fPoint )
 }
 
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline CVec2 CreateFromPolarCoord( float r, float a ) { return CVec2( r * cos( a ), r * sin( a ) ); }
 inline CVec3 CreateFromPolarCoord( float r, float a, float fZ ) { return CVec3( r * cos( a ), r * sin( a ), fZ ); }
 template<class PointType>
 inline void RotatePoint( PointType *pPoint, float a ) { PointType point = PointType( ( pPoint->x * cos( a ) ) - ( pPoint->y * sin( a ) ), ( pPoint->x * sin( a ) ) + ( pPoint->y * cos( a ) ) ); ( *pPoint ) = point; }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class PointType>
 float GetPolarAngle( const PointType &v )
 {
@@ -678,14 +629,12 @@ float GetPolarAngle( const PointType &v )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class PointType>
 float GetPolarLength( const PointType &v )
 {
 	return fabs( v.x, v.y );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class PointType>
 PointType GetNormal( const PointType &v )
 {
@@ -695,7 +644,6 @@ PointType GetNormal( const PointType &v )
 	return vNormal;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class PointType>
 void RotateEdgeToPI2( PointType *pvBegin, PointType *pvEnd )
 {
@@ -709,7 +657,6 @@ void RotateEdgeToPI2( PointType *pvBegin, PointType *pvEnd )
 	( *pvEnd ) = m + 0.5f * vNormal;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class PointType>
 void FlipEdgeToPI( PointType *pvBegin, PointType *pvEnd )
 {
@@ -721,7 +668,6 @@ void FlipEdgeToPI( PointType *pvBegin, PointType *pvEnd )
 	( *pvBegin ) = vTemp;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class Type, class PointType>
 bool SplitByEdge( const Type &rSourcePolygon, const PointType &rvBegin, const PointType &rvEnd, Type *pLeftPolygon, Type *pRightPolygon )
 {
@@ -877,7 +823,6 @@ bool SplitByEdge( const Type &rSourcePolygon, const PointType &rvBegin, const Po
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class Type, class PointType>
 bool CutByPolygonCore( const Type &rPolygon, const Type &rPolygonCore, Type *pCutPolygon )
 {
@@ -960,7 +905,6 @@ bool CutByPolygonCore( const Type &rPolygon, const Type &rPolygonCore, Type *pCu
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class Type, class PointType>
 bool GetVoronoyPolygon( const Type &rBoundingPolygon, const Type &rPoints, const PointType &rPoint, Type *pVoronoyPolygon )
 {
@@ -1036,7 +980,6 @@ bool GetVoronoyPolygon( const Type &rBoundingPolygon, const Type &rPoints, const
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class Type, class PointType>
 bool GetVoronoyPolygon( const Type &rBoundingPolygon, const PointType &rPoint, Type *pVoronoyPolygon )
 {
@@ -1044,9 +987,6 @@ bool GetVoronoyPolygon( const Type &rBoundingPolygon, const PointType &rPoint, T
 	return GetVoronoyPolygon( rBoundingPolygon, points, rPoint, pVoronoyPolygon );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//Убирание пар точек из вектора расположенных на расстоянии fRange между друг другом
-//возвращает число удаленных элементов
 template<class Type, class PointType>
 void UniquePolygon( Type *pPolygon, float fRange )
 {
@@ -1059,8 +999,6 @@ void UniquePolygon( Type *pPolygon, float fRange )
 									 pPolygon->end() );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//Минимальный прямоугольник в корорый входят все точки полигона
 template<class Type>
 void GetPolygonBoundingBox( const Type &rPolygon, CTRect<float> *pBoundingBox )
 {
@@ -1068,7 +1006,6 @@ void GetPolygonBoundingBox( const Type &rPolygon, CTRect<float> *pBoundingBox )
 							 NStr::Format( "Wrong parameter: %x\n", pBoundingBox ) );
 
 	pBoundingBox->Set( 0.0f, 0.0f, 0.0f, 0.0f );
-	//вырожденный случай
 	if ( !rPolygon.empty() )
 	{
 		Type::const_iterator pointIterator = rPolygon.begin();
@@ -1095,7 +1032,6 @@ void GetPolygonBoundingBox( const Type &rPolygon, CTRect<float> *pBoundingBox )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class Type>
 inline CTRect<float> GetPolygonBoundingBox( const Type &rPolygon )
 {
@@ -1104,7 +1040,6 @@ inline CTRect<float> GetPolygonBoundingBox( const Type &rPolygon )
 	return boundingBox;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class PointType>
 PointType GetRandomBetweenPoint( const PointType &rvBegin, const PointType &rvEnd, float fMinSideDistanceRatio, const CTPoint<float> &rShiftRatio, EClassifyEdge classifyEdge )
 {
@@ -1134,7 +1069,6 @@ PointType GetRandomBetweenPoint( const PointType &rvBegin, const PointType &rvEn
 	return vPoint;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class Type, class PointType>
 bool RandomizeEdges( const Type &rSourceSequence, int nDepth, float fMinSideDistanceRatio, const CTPoint<float> &rShiftRatio, Type *pRandomizedSequence, float fMinEdgeLength, float fMaxEdgeLength, bool bPolygon )
 {
@@ -1267,7 +1201,6 @@ bool RandomizeEdges( const Type &rSourceSequence, int nDepth, float fMinSideDist
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class Type, class PointType>
 bool EnlargePolygonCore( const Type &rBoundingPolygon, const Type &rPolygon, float fDistance, Type *pEnlargedPolygon )
 {
@@ -1367,14 +1300,9 @@ bool EnlargePolygonCore( const Type &rBoundingPolygon, const Type &rPolygon, flo
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// 0 - на границе
-// > 0 - внутри
-// < 0 - снарукжи
 template<class Type, class PointType>
 float PolygonDistance( const Type &rPolygon, const PointType &v )
 {
-	//нет точек
 	if ( rPolygon.empty() )
 	{
 		return 0.0;
@@ -1383,7 +1311,6 @@ float PolygonDistance( const Type &rPolygon, const PointType &v )
 	Type::const_iterator currentPointIterator0 = rPolygon.begin();
 	Type::const_iterator currentPointIterator1 = rPolygon.begin();
 
-	//одна точка
 	++currentPointIterator1;
 	if ( currentPointIterator1 == rPolygon.end() )
 	{
@@ -1392,31 +1319,24 @@ float PolygonDistance( const Type &rPolygon, const PointType &v )
 	
 	EClassifyPolygon classifyPolygon = ClassifyPolygon( rPolygon, v );
 	
-	//точка на границе полигона
 	if ( ( classifyPolygon == CP_BOUNDARY ) || ( classifyPolygon == CP_VERTEX ) )
 	{
 		return 0.0f;
 	}
 
 	float fDistance = fabs( v  - ( *currentPointIterator0 ) );
-	//определяем минимальное расстояние для стороны и для вертекса стороны
 	while ( currentPointIterator0 != rPolygon.end() )
 	{
-		//( *currentPointIterator0 );
-		//( *currentPointIterator1 );
 
-		//расстояние до точки ( *currentPointIterator0 )
 		const float fVertexDistance = fabs( v - ( *currentPointIterator0 ) );
 		if ( fVertexDistance < fDistance )
 		{
 			fDistance = fVertexDistance;
 		}
 		
-		//скялярные произведения
 		const float dotPoduct_v0_10 = ( v - ( *currentPointIterator0 ) ) * ( ( *currentPointIterator1 ) - ( *currentPointIterator0 ) );
 		const float dotPoduct_v1_01 = ( v - ( *currentPointIterator1 ) ) * ( ( *currentPointIterator0 ) - ( *currentPointIterator1 ) );
 		
-		//проекция внутри отрезка
 		if ( ( dotPoduct_v0_10 > FP_EPSILON ) && ( dotPoduct_v1_01 > FP_EPSILON ) )
 		{
 			const float fEdgeDistance = fVertexDistance * sqrt( 1 - fabs2( dotPoduct_v0_10 / ( fVertexDistance * fabs( ( *currentPointIterator1 ) - ( *currentPointIterator0 ) ) ) ) );	
@@ -1436,8 +1356,6 @@ float PolygonDistance( const Type &rPolygon, const PointType &v )
 	return ( fDistance * ( ( classifyPolygon == CP_INSIDE ) ? ( 1.0f ) : ( -1.0f ) ) );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//Создание различных полигонов
 template<class Type>
 bool GetBoundingPolygon( const SVectorStripeObject &rVectorStripeObject, Type *pBoundingPolygon )
 {
@@ -1461,12 +1379,8 @@ bool GetBoundingPolygon( const SVectorStripeObject &rVectorStripeObject, Type *p
 	}
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // #if !defined(__Polygons__Types__)
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// basement storage  
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
 bool NPGeometry::CPolygon::Split( int nPointIndex, CPolygon *pNewPolygon )
 {
@@ -1497,15 +1411,3 @@ bool NPGeometry::CPolygon::Split( int nPointIndex, CPolygon *pNewPolygon )
 	return true;
 }
 /**/
-//	---------->
-//  v0 -_ 
-//			 \
-//        |
-//				|
-//	| v1  |
-//	||	  | 
-//	|	\__/
-//	|
-//	|
-//	V
-//

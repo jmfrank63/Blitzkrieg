@@ -18,7 +18,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SSetColorFunctional
 {
 	CImageAccessor imageAccessor;
@@ -36,7 +35,6 @@ struct SSetColorFunctional
 	}
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SSetColorWithoutCheckPointFunctional
 {
 	CImageAccessor imageAccessor;
@@ -51,7 +49,6 @@ struct SSetColorWithoutCheckPointFunctional
 	}
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMImageCreateParameterList &rImageCreateParameterList, IProgressHook *pProgressHook )
 {
 	CPtr<IImageProcessor> pImageProcessor = GetImageProcessor();
@@ -62,7 +59,6 @@ bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMIm
 		return false;
 	}
 
-	//PROGRESS_HOOK
 	if ( pProgressHook )
 	{
 		pProgressHook->Step();
@@ -75,9 +71,7 @@ bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMIm
 	const std::string szParameterPath = rLoadMapInfo.szSeasonFolder;
 	LoadDataResource( szParameterPath + RMGC_MINIMAP_FILE_NAME, "", false, 0, RMGC_MINIMAP_XML_NAME, createParameter );
 
-	//������� �������� � ��������� �� AI �����
 	const CTPoint<int> imageSize( rLoadMapInfo.terrain.tiles.GetSizeX() * 2, rLoadMapInfo.terrain.tiles.GetSizeY() * 2 );
-	//��� ��������� ��������� ��������
 	const CTRect<int> imageRect( 0, 0, imageSize.x, imageSize.y );
 
 	std::vector<CPtr<IImage> > layers;
@@ -92,16 +86,12 @@ bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMIm
 		layers.back()->Set( 0 );
 	}
 
-	//PROGRESS_HOOK
 	if ( pProgressHook )
 	{
 		pProgressHook->Step();
 	}
 
-	//terrain
-	//������ ������ �� ��� Y
 	{
-		//�������� ImageAccessor ��� TileSet 
 		CPtr<IDataStream> pTilesetStream = pDataStorage->OpenStream( ( rLoadMapInfo.terrain.szTilesetDesc  + GetDDSImageExtention( COMPRESSION_HIGH_QUALITY ) ).c_str(), STREAM_ACCESS_READ );
 		if ( !pTilesetStream )
 		{
@@ -115,7 +105,6 @@ bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMIm
 		CTImageAccessor< SColor, IDDSImage, CPtr<IDDSImage> > tilesetImageAccessor = pTilesetImage;
 		CImageAccessor layerImageAccessor = layers[SRMMiniMapCreateParameter::MML_TERRAIN];
 
-		//���������� �������������� �����
 		std::unordered_map<int, SColor> terrainColorsHashMap;
 		for ( int nYIndex = 0; nYIndex < rLoadMapInfo.terrain.tiles.GetSizeY(); ++nYIndex )
 		{
@@ -128,7 +117,6 @@ bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMIm
 				}
 				else
 				{
-					//�������� ����
 					const CVec2 *pVertices = tilesetDesc.tilemaps[ rLoadMapInfo.terrain.tiles[nYIndex][nXIndex].tile ].maps;
 					CTRect<int> colorRect( ( pVertices[0].x * pTilesetImage->GetSizeX() + pVertices[2].x * pTilesetImage->GetSizeX() ) / 2,
 																 ( pVertices[0].y * pTilesetImage->GetSizeY() + pVertices[2].y * pTilesetImage->GetSizeY() ) / 2,
@@ -156,7 +144,6 @@ bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMIm
 						dwBlue /= ( colorRect.Width() * colorRect.Height() );
 					}
 
-					//������������� ����
 					SColor calculatedColor( 0xFF, dwRed & 0xFF, dwGreen & 0xFF, dwBlue & 0xFF );
 					color = calculatedColor;
 					terrainColorsHashMap[rLoadMapInfo.terrain.tiles[nYIndex][nXIndex].tile] = color;
@@ -173,14 +160,11 @@ bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMIm
 		}
 	}
 
-	//PROGRESS_HOOK
 	if ( pProgressHook )
 	{
 		pProgressHook->Step();
 	}
 
-	//Rivers
-	//�������������� ������ �� ��� Y
 	{
 		CImageAccessor layerImageAccessor = layers[SRMMiniMapCreateParameter::MML_RIVERS];
 
@@ -239,14 +223,11 @@ bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMIm
 		}
 	}
 
-	//PROGRESS_HOOK
 	if ( pProgressHook )
 	{
 		pProgressHook->Step();
 	}
 
-	//Roads3D and RailRoads
-	//�������������� ������ �� ��� Y
 	{
 		CImageAccessor railRoadLayerImageAccessor = layers[SRMMiniMapCreateParameter::MML_RAILROADS];
 		CImageAccessor roadLayerImageAccessor = layers[SRMMiniMapCreateParameter::MML_ROADS3D];
@@ -335,14 +316,11 @@ bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMIm
 		}
 	}
 
-	//PROGRESS_HOOK
 	if ( pProgressHook )
 	{
 		pProgressHook->Step();
 	}
 	
-	//Forests && Buildings && Bridges
-	//�������������� ������ �� ��� Y
 	std::unordered_map<int, SMapObjectInfo> nLinkID2BridgesHashMap;
 	{
 		SSetColorFunctional forestSetColorFunctional( layers[SRMMiniMapCreateParameter::MML_FORESTS], createParameter.layers[SRMMiniMapCreateParameter::MML_FORESTS].color, imageRect );
@@ -479,13 +457,11 @@ bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMIm
 		}
 	}
 	
-	//PROGRESS_HOOK
 	if ( pProgressHook )
 	{
 		pProgressHook->Step();
 	}
 
-	//���������� �����
 	for ( int nLayerIndex = 0; nLayerIndex < SRMMiniMapCreateParameter::MML_COUNT; ++nLayerIndex )
 	{
 		if ( createParameter.layers[nLayerIndex].borderColor.a >= createParameter.dwMinAlpha )
@@ -507,13 +483,11 @@ bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMIm
 		}
 	}
 
-	//PROGRESS_HOOK
 	if ( pProgressHook )
 	{
 		pProgressHook->Step();
 	}
 
-	//������������������ �����
 	std::vector<CPtr<IImage> > shadows;
 	{
 		for ( int nLayerIndex = 0; nLayerIndex < SRMMiniMapCreateParameter::MML_COUNT; ++nLayerIndex )
@@ -536,13 +510,11 @@ bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMIm
 		}
 	}
 
-	//PROGRESS_HOOK
 	if ( pProgressHook )
 	{
 		pProgressHook->Step();
 	}
 
-	//������������������ ������������
 	std::vector<CPtr<IImage> > aphaEmbosses;
 	{
 		for ( int nLayerIndex = 0; nLayerIndex < SRMMiniMapCreateParameter::MML_COUNT; ++nLayerIndex )
@@ -564,13 +536,11 @@ bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMIm
 		}
 	}
 
-	//PROGRESS_HOOK
 	if ( pProgressHook )
 	{
 		pProgressHook->Step();
 	}
 
-	//��������� ���� �� 3d Terrain
 	if ( createParameter.bTerrainShades )
 	{
 		CPtr<IImage> pTerrainShades = CVertexAltitudeInfo::GetShadesImage( rLoadMapInfo.terrain.altitudes, createParameter.fTerrainShadeRatio, true );
@@ -600,10 +570,8 @@ bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMIm
 		}
 	}
 	
-	//��������� ������ ��������� �� ������� ��������
 	for ( CRMImageCreateParameterList::const_iterator imageCreateParameterIterator = rImageCreateParameterList.begin(); imageCreateParameterIterator != rImageCreateParameterList.end(); ++imageCreateParameterIterator )
 	{
-		//������������������ �����
 		std::vector<CPtr<IImage> > noises;
 		{
 			for ( int nLayerIndex = 0; nLayerIndex < SRMMiniMapCreateParameter::MML_COUNT; ++nLayerIndex )
@@ -649,11 +617,6 @@ bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMIm
 			}
 		}
 		
-		//���������� ����� ��������
-		//��� ������� ����:
-		//��������� ����
-		//������ Emboss ( ���� ���� )
-		//������ ���� ( ���� ���� )
 		CPtr<IImage> pMiniMapImage = 0;
 		for ( int nLayerIndex = ( SRMMiniMapCreateParameter::MML_COUNT - 1 ); nLayerIndex >= 0; --nLayerIndex )
 		{
@@ -684,7 +647,6 @@ bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMIm
 			}
 		}
 
-		//���� �������� �� ������� �������
 		CPtr<IImage> pCompressedMiniMapImage = 0;
 		if ( ( pMiniMapImage->GetSizeX() != imageCreateParameterIterator->size.x ) || ( pMiniMapImage->GetSizeY() != imageCreateParameterIterator->size.y ) )
 		{
@@ -699,7 +661,6 @@ bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMIm
 			pCompressedMiniMapImage = pMiniMapImage;
 		}
 		
-		//���� ���� ������������ �����:
 		CPtr<IImage> pColorCorrectedCompressedMiniMapImage = 0;
 		if ( imageCreateParameterIterator->bColorCorrection )
 		{
@@ -730,7 +691,6 @@ bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMIm
 		}
 	}
 
-	//PROGRESS_HOOK
 	if ( pProgressHook )
 	{
 		pProgressHook->Step();
@@ -738,5 +698,4 @@ bool CMapInfo::CreateMiniMapImage( const SLoadMapInfo &rLoadMapInfo, const CRMIm
 	
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

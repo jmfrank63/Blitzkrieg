@@ -1,6 +1,3 @@
-// ObjectFrm.h : interface of the CObjectFrame class
-//
-/////////////////////////////////////////////////////////////////////////////
 
 #ifndef __OBJECTFRM_H__
 #define __OBJECTFRM_H__
@@ -20,11 +17,9 @@ public:
 	CObjectFrame();
 	virtual ~CObjectFrame();
 
-// Attributes
 public:
 	typedef vector< CPtr<IGFXVertices> > CVectorOfVertices;
 
-// Operations
 public:
 	virtual void GFXDraw();
 	virtual void ShowFrameWindows( int nCommand );
@@ -34,13 +29,8 @@ public:
 	void UpdateActiveSprite();
 	void SetTranseparenceCombo( CComboBox *pCombo ) { m_pTransparenceCombo = pCombo; }
 	
-// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CObjectFrame)
 	protected:
-	//}}AFX_VIRTUAL
 
-// Implementation
 private:
 	int m_mode;
 	CVec2 objShift, zeroShift;
@@ -57,7 +47,6 @@ private:
 	CComboBox *m_pTransparenceCombo;
 	int m_transValue;
 	
-	//one way transeparence
 	bool bDragging;
 	struct STransLine
 	{
@@ -75,7 +64,6 @@ private:
 	int m_nSelected;
 	CListOfNormalTiles dirTiles;
 
-	// для отображения нужного спрайта
 	CTreeItem *pActiveGraphicProps;
 	
 protected:
@@ -97,9 +85,7 @@ protected:
 	virtual FILETIME FindMaximalSourceTime( const char *pszProjectName, CTreeItem *pRootItem );
 	virtual FILETIME FindMinimalExportFileTime( const char *pszResultFileName, CTreeItem *pRootItem );
 	
-// Generated message map functions
 protected:
-	//{{AFX_MSG(CObjectFrame)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
 	afx_msg void OnRButtonDown(UINT nFlags, CPoint point);
@@ -116,13 +102,9 @@ protected:
 	afx_msg void OnChangeTranseparence();
 	afx_msg void OnDrawOneWayTranseparence();
 	afx_msg void OnUpdateDrawOneWayTranseparence(CCmdUI* pCmdUI);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 
-/////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif		//__OBJECTFRM_H__

@@ -4,19 +4,16 @@
 #include "..\Image\Image.h"
 #include "TerrainBuilder.h"
 #include "..\Misc\Spline.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline bool GetTileIndexLocal( const CVec3 &point, int *pnX, int *pnY, 
 															 const float fTerraSizeX, const float fTerraSizeY, 
 															 const float fCellSize,
 															 bool bTerrainCoords, bool isExact )
 {
-	// это базисные линии (X, Y) системы координат ландшафта
 	CVec3 vAxisX, vAxisY;
 	GetLineEq( 0, 0, 1, 0, &vAxisX.x, &vAxisX.y, &vAxisX.z );
 	GetLineEq( 0, 1, 0, 0, &vAxisY.x, &vAxisY.y, &vAxisY.z );
 
 	bool result = true;
-	// x
 	{
 		const float fDist = vAxisY.x*point.x + vAxisY.y*point.y + vAxisY.z;
 		if ( isExact )
@@ -32,7 +29,6 @@ inline bool GetTileIndexLocal( const CVec3 &point, int *pnX, int *pnY,
 			result = false;
 		}
 	}
-	// y
 	{
 		const float fDist = vAxisX.x*point.x + vAxisX.y*point.y + vAxisX.z;
 		if ( bTerrainCoords )
@@ -62,24 +58,20 @@ inline bool GetTileIndexLocal( const CVec3 &point, int *pnX, int *pnY,
 			result = false;
 		}
 	}
-	//
 	return result;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTerrain::GetTileIndex( const CVec3 &point, int *pnX, int *pnY, bool isExact )
 {
 	const float fTerraSizeX = terrainInfo.patches.GetSizeX() * fWorldCellSize * STerrainPatchInfo::nSizeX;
 	const float fTerraSizeY = terrainInfo.patches.GetSizeY() * fWorldCellSize * STerrainPatchInfo::nSizeY;
 	return GetTileIndexLocal( point, pnX, pnY, fTerraSizeX, fTerraSizeY, fWorldCellSize, true, isExact );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTerrain::GetAITileIndex( const CVec3 &point, int *pnX, int *pnY, bool isExact )
 {
 	const float fTerraSizeX = terrainInfo.patches.GetSizeX() * fWorldCellSize * STerrainPatchInfo::nSizeX;
 	const float fTerraSizeY = terrainInfo.patches.GetSizeY() * fWorldCellSize * STerrainPatchInfo::nSizeY;
 	return GetTileIndexLocal( point, pnX, pnY, fTerraSizeX, fTerraSizeY, fWorldCellSize * 0.5f, false, isExact );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCrossTileEqualFunctional
 {
 	const SCrossTileInfo &cross;
@@ -100,7 +92,6 @@ BYTE CTerrain::GetTile( int x, int y )
 	return 	terrainInfo.tiles[y][x].tile ;//tilesetDesc.terrtypes[tile].GetMapsIndex();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTerrain::SetShade( int x, int y, BYTE shade )
 {
 	terrainInfo.altitudes[y][x].shade = shade;
@@ -109,7 +100,6 @@ BYTE CTerrain::GetShade( int x, int y )
 {
 	return terrainInfo.altitudes[y][x].shade;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTerrain::Update( const CTRect<int> &rcPatches )
 {
 	int nTerrainSizeX = terrainInfo.patches.GetSizeX() * STerrainPatchInfo::nSizeX;
@@ -117,7 +107,6 @@ void CTerrain::Update( const CTRect<int> &rcPatches )
 	if ( nTerrainSizeX * nTerrainSizeY )
 	{
 		CTRect<int> rcSuper( 0, 0, nTerrainSizeX, nTerrainSizeY );
-		//
 		CTerrainBuilder &builder = terrabuild;
 
 		{
@@ -148,22 +137,12 @@ void CTerrain::Update( const CTRect<int> &rcPatches )
 				{
 					builder.CopyCrosses( &terrainInfo.patches[i][j], newCrosses );
 					/*
-					// убираем старые cross'ы и вставляем новые
 					STerrainPatchInfo::CCrossesList &oldCrosses = terrainInfo.patches[i][j].crosses;
-					// если старый кросс есть в старом списке, заменяем 'cross' на старый
-//					for ( STerrainPatchInfo::CCrossesList::const_iterator it = oldCrosses.begin(); it != oldCrosses.end(); ++it )
-//					{
-//						CTerrainBuilder::CCrossesList::iterator pos = std::find_if( newCrosses.begin(), newCrosses.end(), CCrossTileEqualFunctional(*it) );
-//						if ( pos != newCrosses.end() )
-//							pos->cross = it->cross;
-//					}
-					// копируем результат в патч
 					terrainInfo.patches[i][j].crosses.clear();
 					terrainInfo.patches[i][j].crosses.reserve( newCrosses.size() );
 					for ( CTerrainBuilder::CCrossesList::const_iterator it = newCrosses.begin(); it != newCrosses.end(); ++it )
 						terrainInfo.patches[i][j].crosses.push_back( *it );
 						*/
-					// убиваем этот патч и пересобираем ландшафт
 					for ( std::list<STerrainPatch>::iterator it = patches.begin(); it != patches.end(); ++it )
 					{
 						if ( (it->nX == j) && (it->nY == i) )
@@ -177,12 +156,9 @@ void CTerrain::Update( const CTRect<int> &rcPatches )
 		}
 	}
 	
-	//
-	//
 	vOldAnchor.x = -1000000;
 	vOldAnchor.y = -1000000;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTerrain::Import( IImage *pImage )
 {
 	CTerrainBuilder builder( tilesetDesc, crossetDesc/*, roadsetDesc*/ );
@@ -204,14 +180,12 @@ bool CTerrain::Import( IImage *pImage )
 	vOldAnchor.y = -1000000;
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CTerrain::Export()
 {
 	if ( (terrainInfo.tiles.GetSizeX() == 0) || (terrainInfo.tiles.GetSizeY() == 0) )
 		return 0;
 	IImageProcessor *pIP = GetImageProcessor();
 	IImage *pImage = pIP->CreateImage( terrainInfo.tiles.GetSizeX(), terrainInfo.tiles.GetSizeY() );
-	//
 	pImage->Set( 0 );
 	SColor *pColors = pImage->GetLFB();
 	SMainTileInfo *pTiles = terrainInfo.tiles.GetBuffer();
@@ -224,7 +198,6 @@ IImage* CTerrain::Export()
 	}
 	return pImage;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
 void CTerrain::SetRoads( const SRoadItem *pItems, int nNumItems ) 
 {
@@ -235,19 +208,9 @@ void CTerrain::SetRoads( const SRoadItem *pItems, int nNumItems )
 	}
 }
 /**/
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** river editing operations
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTerrain::AddRiver( const SVectorStripeObject &river )
 {
 	int nRiverID = -1;
-	// generate river ID
 	bool bContinue = true;
 	while ( bContinue )
 	{
@@ -262,17 +225,14 @@ int CTerrain::AddRiver( const SVectorStripeObject &river )
 			}
 		}
 	}
-	// add river
 	terrainInfo.rivers.push_back( river );
 	terrainInfo.rivers.back().nID = nRiverID;
 	rivers.push_back( CTerrainWater() );
 	rivers.back().Init( terrainInfo.rivers.back(), this );
 	rivers.back().SelectPatches( roadPatches );
-	//
 	return nRiverID;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTerrain::UpdateRiver( const int nRiverID )
 {
 	for ( int i = 0; i != terrainInfo.rivers.size(); ++i )
@@ -287,7 +247,6 @@ bool CTerrain::UpdateRiver( const int nRiverID )
 	return false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTerrain::RemoveRiver( const int nRiverID )
 {
 	for ( int i = 0; i != terrainInfo.rivers.size(); ++i )
@@ -301,11 +260,9 @@ bool CTerrain::RemoveRiver( const int nRiverID )
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTerrain::AddRoad( const SVectorStripeObject &road )
 {
 	int nRoadID = -1;
-	// generate river ID
 	bool bContinue = true;
 	while ( bContinue )
 	{
@@ -320,31 +277,25 @@ int CTerrain::AddRoad( const SVectorStripeObject &road )
 			}
 		}
 	}
-	// add river
 	terrainInfo.roads3.push_back( road );
 	terrainInfo.roads3.back().nID = nRoadID;
 	roads.push_back( CTerrainRoad() );
 	roads.back().Init( terrainInfo.roads3.back(), this );
 	roads.back().SelectPatches( roadPatches );
 	std::sort( roads.begin(), roads.end() );
-	//
 	return nRoadID;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTerrain::UpdateRoad( const int nRoadID )
 {
 	CTerrainRoad *pRoad = 0;
 	SVectorStripeObject *pRoadDesc = 0;
 	for ( int i = 0; i != terrainInfo.roads3.size(); ++i )
 	{
-		// find terrain road with such ID
 		if ( roads[i].GetID() == nRoadID )
 			pRoad = &( roads[i] );
-		// find road descriptor with such ID
 		if ( terrainInfo.roads3[i].nID == nRoadID )
 			pRoadDesc = &( terrainInfo.roads3[i] );
-		// re-init road
 		if ( pRoad && pRoadDesc )
 		{
 			pRoad->Init( *pRoadDesc, this );
@@ -355,7 +306,6 @@ bool CTerrain::UpdateRoad( const int nRoadID )
 	return false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CTerrain::RemoveRoad( const int nRoadID )
 {
 	for ( int i = 0; i != terrainInfo.roads3.size(); ++i )
@@ -377,7 +327,6 @@ bool CTerrain::RemoveRoad( const int nRoadID )
 	return false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SliceSpline( const CAnalyticBSpline2 &spline, std::list<SVectorStripeObjectPoint> *points, float *pfRest, const float fStep )
 {
 	const float fSplineLength = spline.GetLengthAdaptive( 1 );
@@ -392,7 +341,6 @@ int SliceSpline( const CAnalyticBSpline2 &spline, std::list<SVectorStripeObjectP
 		while ( fLen < fStep ) 
 		{
 			vLastPos = vPos;
-			// make step
 			fT += dt;
 			vPos = spline.Get( fT );
 			fLen += fabs( vLastPos - vPos );
@@ -401,7 +349,6 @@ int SliceSpline( const CAnalyticBSpline2 &spline, std::list<SVectorStripeObjectP
 		}
 		if ( (fT > 1) || (fLen < fStep) ) 
 			break;
-		//
 		SVectorStripeObjectPoint point;
 		point.vPos = spline( fT );
 		point.vNorm = spline.GetDiff1( fT );
@@ -411,16 +358,12 @@ int SliceSpline( const CAnalyticBSpline2 &spline, std::list<SVectorStripeObjectP
 		point.fRadius = spline.GetCurvatureRadius( fT );
 		points->push_back( point );
 		fLastT = fT;
-		//
 		++nCounter;
 	}
 	points->back().bKeyPoint = true;
-	//
 	*pfRest = spline.GetLength( fLastT, 1.0f, 100 );
-	//
 	return nCounter;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTerrain::SampleCurve( const CVec3 *_plots, int nNumPlots, float fStep, 
 													  SVectorStripeObjectPoint **ppSamples, int *pnNumSamples )
 {
@@ -428,7 +371,6 @@ void CTerrain::SampleCurve( const CVec3 *_plots, int nNumPlots, float fStep,
 	memcpy( &(plots[1]), _plots, nNumPlots*sizeof(CVec3) );
 	plots[0] = _plots[0] - ( _plots[1] - _plots[0] );
 	plots[nNumPlots + 1] = _plots[nNumPlots - 1] + (_plots[nNumPlots - 1] - _plots[nNumPlots - 2]);
-	// form spline points
 	const float fSplineStep = fStep;
 	float fRestLength = fSplineStep - 1e-8f;
 	std::list<SVectorStripeObjectPoint> points;
@@ -441,7 +383,6 @@ void CTerrain::SampleCurve( const CVec3 *_plots, int nNumPlots, float fStep,
 	}
 	if ( !points.empty() )
 		points.front().bKeyPoint = true;
-	//
 	*ppSamples = GetTempBuffer<SVectorStripeObjectPoint>( nCounter );
 	int i = 0;
 	for ( std::list<SVectorStripeObjectPoint>::const_iterator it = points.begin(); it != points.end(); ++it, ++i )
@@ -451,14 +392,11 @@ void CTerrain::SampleCurve( const CVec3 *_plots, int nNumPlots, float fStep,
 	}
 	*pnNumSamples = nCounter;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTerrain::SmoothCurveWidth( SVectorStripeObjectPoint *points, const int nNumPoints )
 {
-	// count key points
 	int nNumKeyPoints = 0;
 	for ( SVectorStripeObjectPoint *it = points; it != points + nNumPoints; ++it )
 		nNumKeyPoints += it->bKeyPoint;
-	// collect key point indices in the vector
 	std::vector<int> keypoints;
 	keypoints.reserve( nNumKeyPoints );
 	for ( int i = 0; i != nNumPoints; ++i )
@@ -466,11 +404,9 @@ void CTerrain::SmoothCurveWidth( SVectorStripeObjectPoint *points, const int nNu
 		if ( points[i].bKeyPoint )
 			keypoints.push_back( i );
 	}
-	// build spline over width in the key points
 	std::vector<float> widthes( nNumPoints );
 	for ( int i = 0; i != nNumPoints; ++i )
 		widthes[i] = points[i].fWidth;
-	// form indices for spline
 	std::vector<int> indices;
 	indices.reserve( nNumKeyPoints + 4 );
 	indices.push_back( 0 );
@@ -495,8 +431,6 @@ void CTerrain::SmoothCurveWidth( SVectorStripeObjectPoint *points, const int nNu
 			widthes[j] = spline( t );
 		}
 	}
-	// write widthes to the result array
 	for ( int i = 0; i != nNumPoints; ++i )
 		points[i].fWidth = widthes[i];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

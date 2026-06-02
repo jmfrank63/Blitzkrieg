@@ -129,8 +129,6 @@ inline void _Destroy(const wchar_t*, const wchar_t*) {}
 # endif
 
 # ifndef _STLP_NO_ANACHRONISMS
-// --------------------------------------------------
-// Old names from the HP STL.
 
 template <class _T1, class _T2>
 inline void construct(_T1* __p, const _T2& __val) {_Construct(__p, __val); }
@@ -145,6 +143,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_CONSTRUCT_H */
 
-// Local Variables:
-// mode:C++
-// End:

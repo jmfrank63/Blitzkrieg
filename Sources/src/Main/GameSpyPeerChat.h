@@ -1,14 +1,11 @@
 #ifndef __PEER_CHAT_H__
 #define __PEER_CHAT_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "GameCreationInterfaces.h"
 #include "MessagesStore.h"
 
 #include "..\Misc\Thread.h"
 #include "..\GameSpy\peer\peer.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGameSpyPeerChat : public IChat, public CThread
 {
 	OBJECT_NORMAL_METHODS( CGameSpyPeerChat );
@@ -34,15 +31,12 @@ class CGameSpyPeerChat : public IChat, public CThread
 
 	CMessagesStore messages;
 
-	// без изменений для обеспечения уникальность имён
 	std::string szRealUserName;	
-	// с изменениями для обеспечения уникальность имён
 	std::string szNick;
 	int nNamePostfix;
 
 	CPtr<IChat> pInGameChat;
 
-	// global peer callbacks
 	static PEERCallbacks callBacks;
 
 	static void disconnectedCallBack( PEER peer, const char *reason, void *param );
@@ -95,7 +89,6 @@ class CGameSpyPeerChat : public IChat, public CThread
 	void GOARules( PEERBool playing, char *pOutbuf, int maxlen );
 	void GOAPlayers( PEERBool playing, char *pOutbuf, int maxlen );
 
-	// other callbacks
 	static void nickErrorCallback( PEER peer, int type, const char *nick, void *param );
 	static void connectCallback( PEER peer, PEERBool success, void *param );
 	static void enumPlayersCallback( PEER peer, PEERBool success, RoomType roomType, int index, const char *nick, int flags, void *param );
@@ -108,7 +101,6 @@ class CGameSpyPeerChat : public IChat, public CThread
 	void JoinRoom( PEERBool success, PEERJoinResult result, RoomType roomType );
 	void GetRoomKeys( PEERBool success, const char *pszNick, int num, char **ppszKeys, char **ppszValues );
 
-	//
 	void InitGSChat( const char *pszRealUserName, const char *pszNick );
 	void DisconnectFromChat( bool bShutDown );
 	bool IsDisconnected() const;
@@ -138,5 +130,4 @@ public:
 
 	virtual void STDCALL UserModeChanged( const EUserMode eMode );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __PEER_CHAT_H__

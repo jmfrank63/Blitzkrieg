@@ -1,7 +1,6 @@
 #include "StdAfx.h"
 
 #include "SoundScene.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoundScene::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -22,7 +21,6 @@ int CSoundScene::operator&( IStructureSaver &ss )
 	saver.Add( 8, &substTable );
 	saver.Add( 9, &vLimit );
 	saver.Add( 10, &soundIDs );
-	// а теперь самое сложное - звуки
 	saver.Add( 12, &interfaceSounds );
 	saver.Add( 13, &soundCellsInBounds  );
 	saver.Add( 14, &streamingSounds );
@@ -38,21 +36,16 @@ int CSoundScene::operator&( IStructureSaver &ss )
 	saver.Add( 21, &finishedInterfaceSounds );
 	saver.Add( 22, &deletedInterfaceSounds );
 
-	//CRAP{ FOR SAVES COMPATIBILITY
 	if ( saver.IsReading() )
 		cellsPHS.Clear();
-	//CRAP}
 
 	saver.Add( 23, &cellsPHS );
 	
-	//CRAP{ FOR SAVES COMPATIBILITY
 	if ( saver.IsReading() )
 		if ( !cellsPHS.IsInitted() )
 			cellsPHS.Init( vLimit.x, vLimit.y );
-	//CRAP}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMapSounds::CMapSoundCell::SMapSounds::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -61,12 +54,10 @@ int CMapSounds::CMapSoundCell::SMapSounds::operator&( IStructureSaver &ss )
 	saver.Add( 3, &nCount );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMapSounds::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 
-	//saver.Add( 2, &pSoundScene ); // это не сериализовать
 	saver.Add( 4, &soundIDs );
 	saver.Add( 16, &mapCells );
 	saver.Add( 17, &cells );
@@ -75,7 +66,6 @@ int CMapSounds::operator&( IStructureSaver &ss )
 	saver.Add( 18, &registeredSounds );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMapSounds::CMapSoundCell::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -87,7 +77,6 @@ int CMapSounds::CMapSoundCell::operator&( IStructureSaver &ss )
 	return 0;
 
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoundScene::CSubstSound::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -103,7 +92,6 @@ int CSoundScene::CSubstSound::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoundScene::CSound::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -128,7 +116,6 @@ int CSoundScene::CSound::operator&( IStructureSaver &ss )
 	saver.Add( 17, &eCombatType );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoundScene::CSoundCell::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -138,7 +125,6 @@ int CSoundScene::CSoundCell::operator&( IStructureSaver &ss )
 	saver.Add( 5, &timeLastCombatHear );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoundScene::CStreamingSounds::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;		
@@ -161,7 +147,6 @@ int CSoundScene::CStreamingSounds::operator&( IStructureSaver &ss )
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoundScene::CPlayList::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;		
@@ -171,7 +156,6 @@ int CSoundScene::CPlayList::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoundScene::CTerrainSounds::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;		
@@ -189,7 +173,6 @@ int CSoundScene::CTerrainSounds::operator&( IStructureSaver &ss )
 	saver.Add( 6, &bMuteAll );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoundScene::CTerrainSounds::CTerrainSound::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;		
@@ -205,7 +188,6 @@ int CSoundScene::CTerrainSounds::CTerrainSound::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoundScene::CTerrainSounds::CTerrainSound::SSoundInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;		
@@ -214,7 +196,6 @@ int CSoundScene::CTerrainSounds::CTerrainSound::SSoundInfo::operator&( IStructur
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CCellsConglomerateContainer::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;		

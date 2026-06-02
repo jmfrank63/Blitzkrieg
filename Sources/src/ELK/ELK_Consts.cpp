@@ -8,7 +8,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 LPCTSTR SELKTextProperty::STATE_LABELS[STATE_COUNT] =
 {
 	_T( "Not_Translated" ),
@@ -25,7 +24,6 @@ LPCTSTR SELKTextProperty::STATE_NAMES[STATE_COUNT] =
 	_T( "Approved" ),
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const TCHAR SELKElement::DATA_BASE_FOLDER[] = _T( "_DATA_BASE\\" );
 const TCHAR SELKElement::DATA_BASE_RESERVE_FOLDER[] = _T( "_DATA_BASE_RESERVE\\" );
 
@@ -55,7 +53,6 @@ const TCHAR CELK::PAK_DESCRIPTION_EXTENTION[] = _T( ".description" );
 const TCHAR CELK::ZIP_EXE[] = _T( "zip.exe" );
 const TCHAR CELK::ELK_CHM[] = _T( "elk.chm" );
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const int CFontGen::LEADING_PIXELS = 2;
 const TCHAR CFontGen::FONT_NAME[] = _T( "Times New Roman" );
@@ -70,4 +67,3 @@ LPCTSTR CFontGen::FONTS_FOLDER[FONTS_COUNT] =
 	_T( "fonts\\medium\\" ),
 	_T( "fonts\\large\\" ),
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

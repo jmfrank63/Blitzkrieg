@@ -9,12 +9,9 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CChooseFontsDialog::CChooseFontsDialog( CWnd* pParent )
 	: CResizeDialog( CChooseFontsDialog::IDD, pParent ), bCreateControls( true ), strFontName( CFontGen::FONT_NAME ), dwNormalFontSize( CFontGen::FONTS_SIZE[2] ), dwLargeFontSize( CFontGen::FONTS_SIZE[3] ), nCodePage( GetACP() )
 {
-	//{{AFX_DATA_INIT(CChooseFontsDialog)
-	//}}AFX_DATA_INIT
 
 	SetControlStyle( IDC_CHFS_FONT_LABEL, ANCHORE_LEFT_TOP );
 	SetControlStyle( IDC_CHFS_FONT_COMBO_BOX, ANCHORE_LEFT_TOP | RESIZE_HOR );
@@ -37,7 +34,6 @@ CChooseFontsDialog::CChooseFontsDialog( CWnd* pParent )
 	SetControlStyle( IDC_CHFS_SET_DEFAULT_BUTTON, ANCHORE_RIGHT_BOTTOM );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::string CChooseFontsDialog::GetRegistryKey()
 {
 	CString strPath;
@@ -50,30 +46,23 @@ std::string CChooseFontsDialog::GetRegistryKey()
 	return szRegistryKey;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CChooseFontsDialog::DoDataExchange(CDataExchange* pDX)
 {
 	CResizeDialog::DoDataExchange(pDX);
-	//{{AFX_DATA_MAP(CChooseFontsDialog)
 	DDX_Control(pDX, IDC_CHFS_SIZE_NORMAL_COMBO_BOX, wndNormalFontSizeComboBox);
 	DDX_Control(pDX, IDC_CHFS_SIZE_LARGE_COMBO_BOX, wndLargeFontSizeComboBox);
 	DDX_Control(pDX, IDC_CHFS_SAMPLE_LABEL, wndSample);
 	DDX_Control(pDX, IDC_CHFS_FONT_COMBO_BOX, wndFontComboBox);
-	//}}AFX_DATA_MAP
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CChooseFontsDialog, CResizeDialog)
-	//{{AFX_MSG_MAP(CChooseFontsDialog)
 	ON_CBN_SELCHANGE(IDC_CHFS_FONT_COMBO_BOX, OnSelchangeFontComboBox)
 	ON_CBN_SELCHANGE(IDC_CHFS_SIZE_LARGE_COMBO_BOX, OnSelchangeSizeLargeComboBox)
 	ON_CBN_SELCHANGE(IDC_CHFS_SIZE_NORMAL_COMBO_BOX, OnSelchangeSizeNormalComboBox)
 	ON_BN_CLICKED(IDC_CHFS_SET_DEFAULT_BUTTON, OnDefaultButton)
 	ON_WM_DESTROY()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CChooseFontsDialog::OnInitDialog()
 {
   CResizeDialog::OnInitDialog();
@@ -84,12 +73,10 @@ BOOL CChooseFontsDialog::OnInitDialog()
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CChooseFontsDialog::CreateControls()
 {
 	bCreateControls = true;
 
-	//
 	std::set<CString> fonts;
 	CFontGen::GetFonts( nCodePage, &fonts );
 	if ( !fonts.empty() )
@@ -100,7 +87,6 @@ void CChooseFontsDialog::CreateControls()
 		}
 	}
 
-	//
 	wndFontComboBox.ResetContent();
 	for ( std::set<CString>::const_iterator it = fonts.begin(); it != fonts.end(); ++it )
 	{
@@ -113,7 +99,6 @@ void CChooseFontsDialog::CreateControls()
 			wndFontComboBox.SetCurSel( 0 );
 		}
 	}
-	//
 	wndNormalFontSizeComboBox.ResetContent();
 	for ( int i = CFontGen::FONTS_SIZE[1]; i <= CFontGen::FONTS_SIZE[2]; ++i )
 	{
@@ -130,7 +115,6 @@ void CChooseFontsDialog::CreateControls()
 			wndNormalFontSizeComboBox.SelectString( CB_ERR, NStr::Format( "%d", CFontGen::FONTS_SIZE[2] ) );
 		}
 	}
-	//
 	wndLargeFontSizeComboBox.ResetContent();
 	for ( int i = CFontGen::FONTS_SIZE[1]; i <= CFontGen::FONTS_SIZE[3]; ++i )
 	{
@@ -189,7 +173,6 @@ void CChooseFontsDialog::CreateControls()
 	bCreateControls = false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CChooseFontsDialog::UpdateControls()
 {
 	LOGFONT logFont;
@@ -206,7 +189,6 @@ void CChooseFontsDialog::UpdateControls()
 	wndSample.SetFont( &sampleFont, true );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CChooseFontsDialog::OnSelchangeFontComboBox() 
 {
 	if ( !bCreateControls )
@@ -221,7 +203,6 @@ void CChooseFontsDialog::OnSelchangeFontComboBox()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CChooseFontsDialog::OnSelchangeSizeNormalComboBox() 
 {
 	if ( !bCreateControls )
@@ -235,7 +216,6 @@ void CChooseFontsDialog::OnSelchangeSizeNormalComboBox()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CChooseFontsDialog::OnSelchangeSizeLargeComboBox() 
 {
 	if ( !bCreateControls )
@@ -249,7 +229,6 @@ void CChooseFontsDialog::OnSelchangeSizeLargeComboBox()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CChooseFontsDialog::OnDefaultButton() 
 {
 	strFontName = CFontGen::FONT_NAME;
@@ -259,11 +238,9 @@ void CChooseFontsDialog::OnDefaultButton()
 	UpdateControls();
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CChooseFontsDialog::OnDestroy() 
 {
 	CResizeDialog::OnDestroy();
 	
 	sampleFont.DeleteObject();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

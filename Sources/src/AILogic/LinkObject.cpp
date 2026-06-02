@@ -3,7 +3,6 @@
 #include "LinkObject.h"
 
 #include "MPLog.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::vector< CPtr<CLinkObject> > CLinkObject::link2object;
 std::list<int> CLinkObject::deletedObjects;
 std::unordered_map< int, CPtr<CLinkObject> > CLinkObject::unitsID2object;
@@ -11,12 +10,10 @@ std::list<int> CLinkObject::deletedUniqueObjects;
 int CLinkObject::nCurUniqueID = 0;
 
 extern NTimer::STime curTime;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CLinkObject::CLinkObject()
 : nLink( -1 )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CLinkObject::~CLinkObject()
 {
 	if ( GetLink() > 0 )
@@ -28,19 +25,14 @@ CLinkObject::~CLinkObject()
 		deletedUniqueObjects.push_back( nUniqueID );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CLinkObject::SetUniqueId()
 {
-//	NI_ASSERT_T( nUniqueID == -1, "Double set of unique id" );
 	nUniqueID = ++nCurUniqueID;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CLinkObject::SetLink( const int _nLink )
 {
 	nLink = _nLink;
-	// CRAP{ ����� ��������� ������ �����
 	if ( _nLink > 0 )
-	// }CRAP
 	{
 		NI_ASSERT_T( link2object.size() <= _nLink || link2object[_nLink] == 0, NStr::Format( "Repeated link %d", _nLink ) );
 
@@ -50,13 +42,11 @@ void CLinkObject::SetLink( const int _nLink )
 		link2object[nLink] = this;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CLinkObject::Mem2UniqueIdObjs()
 { 
 	NI_ASSERT_T( nUniqueID > 0, "Unique id isn't set" );
 	unitsID2object.insert( std::pair< int, CPtr<CLinkObject> >( nUniqueID, this ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CLinkObject* CLinkObject::GetObjectByLink( const int nLink )
 {
 	if ( nLink >= link2object.size() || nLink <= 0 )
@@ -64,7 +54,6 @@ CLinkObject* CLinkObject::GetObjectByLink( const int nLink )
 	else
 		return link2object[nLink];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CLinkObject::Segment()
 {
 	for ( std::list<int>::iterator iter = deletedObjects.begin(); iter != deletedObjects.end(); ++iter )
@@ -77,7 +66,6 @@ void CLinkObject::Segment()
 	}
 	deletedObjects.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CLinkObject::Clear()
 {
 	for ( int i = 0; i < link2object.size(); ++i )
@@ -93,7 +81,6 @@ void CLinkObject::Clear()
 
 	nCurUniqueID = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CLinkObject::ClearLinks()
 {
 	for ( int i = 0; i < link2object.size(); ++i )
@@ -104,14 +91,12 @@ void CLinkObject::ClearLinks()
 	
 	link2object.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CLinkObject* CLinkObject::GetObjectByUniqueId( const int nUniqueID )
 { 
 	NI_ASSERT_T( nUniqueID > 0, "Wrong object" );
 	NI_ASSERT_T( unitsID2object.find( nUniqueID ) != unitsID2object.end(), NStr::Format( "Wrong unique id (%d)", nUniqueID ) );
 	return unitsID2object[nUniqueID];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CLinkObject::GetFreeLinks( std::list<int> *pLinks, const int nSize )
 {
 	pLinks->clear();
@@ -131,4 +116,3 @@ void CLinkObject::GetFreeLinks( std::list<int> *pLinks, const int nSize )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

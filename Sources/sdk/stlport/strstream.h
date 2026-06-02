@@ -23,7 +23,6 @@
 
 # if defined ( _STLP_USE_NEW_IOSTREAMS )
 
-// fbp - if we are going to use that consistently, let's do it
 #ifdef __BORLANDC__
 #  include <strstream.>
 #else
@@ -53,7 +52,6 @@ using _STLP_STD::strstream;
 # else
 
 
-// just include old-style strstream.h
 #  if defined (_MSC_VER) && (_MSC_VER <= 1200)
 #   include _STLP_NATIVE_OLD_STREAMS_HEADER(strstrea.h)
 #  else
@@ -69,7 +67,4 @@ using _STLP_STD::strstream;
 
 #endif /* _STLP_STRSTREAM_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

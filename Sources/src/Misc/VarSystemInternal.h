@@ -1,17 +1,13 @@
 #ifndef __VARSYSTEMINTERNAL_H__
 #define __VARSYSTEMINTERNAL_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SSerialVariantT : public variant_t
 {
 	SSerialVariantT() {  }
 	SSerialVariantT( const variant_t &var ) : variant_t( var ) {  }
-	//
 	void Set( const variant_t &var ) { *(static_cast<variant_t*>(this)) = var; }
 	const variant_t& Get() const { return *(static_cast<const variant_t*>(this)); }
 	variant_t& Get() { return *(static_cast<variant_t*>(this)); }
-	//
 	virtual int STDCALL operator&( IStructureSaver &ss )
 	{
 		CSaverAccessor saver = &ss;
@@ -118,32 +114,20 @@ struct SSerialVariantT : public variant_t
 		return 0;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** helper functionals
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMatchNameFunctional
 {
 	const std::string &szMatchName;
 public:
 	CMatchNameFunctional( const std::string _szMatchName ) : szMatchName( _szMatchName ) {  }
-	//
 	bool operator()( const std::string &szVarName ) const
 	{
 		return szVarName.compare(0, szMatchName.size(), szMatchName) == 0;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMatchInListFunctional
 {
 	const std::list<std::string> &serialIncludes;
 	const std::list<std::string> &serialExcludes;
-	//
 	bool IsMatchName( const std::list<std::string> &lst, const std::string &szVarName ) const
 	{
 		for ( std::list<std::string>::const_iterator it = lst.begin(); it != lst.end(); ++it )
@@ -158,7 +142,6 @@ class CMatchInListFunctional
 public:
 	CMatchInListFunctional( const std::list<std::string> &_serialIncludes, const std::list<std::string> &_serialExcludes )
 		: serialIncludes( _serialIncludes ), serialExcludes( _serialExcludes ) {  }
-	//
 	bool operator()( const std::string &szVarName ) const
 	{
 		if ( serialIncludes.empty() ) 
@@ -167,27 +150,16 @@ public:
 			return IsInIncludes( szVarName );
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TVar>
 struct SSerialVarEqFunctional
 {
 	bool operator()( const TVar &v1, const TVar &v2 ) const { return v1.szKeyName < v2.szKeyName; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TVarSystem>
 struct SEmptySorter
 {
 	void Sort( std::list<typename TVarSystem::CVarsMap::const_iterator> &lst ) const {  }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** main var system
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TVar, class TBase>
 class CTVarSystem : public TBase
 {
@@ -198,10 +170,8 @@ private:
 	struct SSerialVar : public TVar
 	{
 		std::string szKeyName;
-		//
 		const TVar& Get() const { return *( static_cast<const TVar*>(this) ); }
 		void Set( const TVar &var ) { *( static_cast<TVar*>(this) ) = var; }
-		//
 		virtual int STDCALL operator&( IDataTree &ss )
 		{
 			CTreeAccessor saver = &ss;
@@ -210,24 +180,19 @@ private:
 			return 0;
 		}
 	};
-	//
 	CVarsMap variables;										// variables map
 	std::list<std::string> serialIncludes;// vars to include in serialization
 	std::list<std::string> serialExcludes;// vars to exclude from serialization
 	bool bVarsChanged;										// vars was changed from serialization
-	//
-	//
 	template <class TCheck>
 		bool RemoveVars( CVarsMap &vars, TCheck check )
 		{
 			std::list<std::string> toRemove;
-			// find all vars to remove
 			for ( CVarsMap::const_iterator it = vars.begin(); it != vars.end(); ++it )
 			{
 				if ( check(it->first) )
 					toRemove.push_back( it->first );
 			}
-			// remove found vars
 			const bool bVarsRemoved = !toRemove.empty();
 			for ( std::list<std::string>::const_iterator it = toRemove.begin(); it != toRemove.end(); ++it )
 				vars.erase( *it );
@@ -248,9 +213,7 @@ protected:
 public:
 	CTVarSystem() : bVarsChanged( false ) {  }
 	virtual ~CTVarSystem() {  }
-	//
 	virtual bool STDCALL IsChanged() const { return bVarsChanged; }
-	// get/set variable by name
 	virtual bool STDCALL Get( const std::string &szVarName, variant_t *pVar ) const
 	{
 		CVarsMap::const_iterator pos = variables.find( szVarName );
@@ -274,7 +237,6 @@ public:
 		}
 		return true;
 	}
-	// remove variable by name or by match
 	virtual bool STDCALL Remove( const std::string &szVarName )
 	{
 		CVarsMap::iterator pos = variables.find( szVarName );
@@ -290,7 +252,6 @@ public:
 			bVarsChanged = true;
 		return true;
 	}
-	// include/exclude variable by match to serialize
 	virtual bool STDCALL ChangeSerialize( const std::string &szVarMatch, bool bInclude )
 	{
 		if ( bInclude ) 
@@ -299,7 +260,6 @@ public:
 			serialExcludes.push_back( szVarMatch );
 		return true;
 	}
-	// serialization
 	virtual int STDCALL operator&( IStructureSaver &ss )
 	{
 		CSaverAccessor saver = &ss;
@@ -307,9 +267,7 @@ public:
 		{
 			CVarsMap newvars;
 			saver.Add( 1, &newvars );
-			// remove all 'include' and 'non-exclude' variables from vars map
 			RemoveVars( variables, CMatchInListFunctional(serialIncludes, serialExcludes) );
-			// add new vars
 			for ( CVarsMap::const_iterator it = newvars.begin(); it != newvars.end(); ++it )
 				variables[it->first] = it->second;
 			bVarsChanged = false;
@@ -317,9 +275,7 @@ public:
 		else
 		{
 			CVarsMap temp = variables;
-			// remove all 'include' and 'non-exclude' variables from vars map
 			RemoveVars( temp, CMatchInListFunctional(serialIncludes, serialExcludes) );
-			//
 			saver.Add( 1, &temp );
 		}
 		return 0;
@@ -331,9 +287,7 @@ public:
 		{
 			std::list<SSerialVar> vars;
 			saver.Add( "Vars", &vars );
-			// remove all 'include' and 'non-exclude' variables from vars map
 			RemoveVars( variables, CMatchInListFunctional(serialIncludes, serialExcludes) );
-			// add new vars
 			for ( std::list<SSerialVar>::const_iterator it = vars.begin(); it != vars.end(); ++it )
 				variables[it->szKeyName] = it->Get();
 			bVarsChanged = false;
@@ -341,9 +295,7 @@ public:
 		else
 		{
 			CVarsMap temp = variables;
-			// remove all 'include' and 'non-exclude' variables from vars map
 			RemoveVars( temp, CMatchInListFunctional(serialIncludes, serialExcludes) );
-			//
 			std::vector<SSerialVar> vars;
 			vars.reserve( temp.size() );
 			for ( CVarsMap::const_iterator it = temp.begin(); it != temp.end(); ++it )
@@ -358,17 +310,14 @@ public:
 		}
 		return 0;
 	}
-	//
 	typename CVarsMap::const_iterator begin() const { return variables.begin(); }
 	typename CVarsMap::const_iterator end() const { return variables.end(); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TVar>
 struct SVarAccepter 
 { 
 	const bool operator()( const TVar &var ) const { return true; } 
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template < class TVarSystem, class TBase, class TSorter = SEmptySorter<TVarSystem>, class TVarAccepter = SVarAccepter<typename TVarSystem::CVar> >
 class CTVarSystemIterator : public TBase
 {
@@ -392,23 +341,17 @@ public:
 		pos = positions.begin();
 	}
 	virtual ~CTVarSystemIterator() {  }
-	// go to the next item
 	virtual bool STDCALL Next() { ++pos; return !IsEnd(); }
-	// was all items already iterated?
 	virtual bool STDCALL IsEnd() const { return pos == positions.end(); }
-	// get current variable
 	virtual bool STDCALL Get( variant_t *pVarName, variant_t *pVar = 0 ) const
 	{
 		if ( IsEnd() ) 
 			return false;
-		//
 		if ( pVarName ) 
 			*pVarName = (*pos)->first.c_str();
 		if ( pVar ) 
 			*pVar = (*pos)->second.Get();
-		//
 		return true;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __VARSYSTEMINTERNAL_H__

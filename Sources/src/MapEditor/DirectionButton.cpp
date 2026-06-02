@@ -1,5 +1,3 @@
-// DirectionButton.cpp : implementation file
-//
 
 #include "stdafx.h"
 #include "DirectionButton.h"
@@ -11,8 +9,6 @@ static char THIS_FILE[] = __FILE__;
 #endif
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CDirectionButton
 
 CDirectionButton::CDirectionButton()
 {
@@ -24,14 +20,12 @@ CDirectionButton::~CDirectionButton()
 }
 
 BEGIN_MESSAGE_MAP(CDirectionButton, CWnd)
-	//{{AFX_MSG_MAP(CDirectionButton)
 	ON_WM_CREATE()
 	ON_WM_PAINT()
 	ON_WM_LBUTTONDOWN()
 	ON_WM_MOUSEMOVE()
 	ON_WM_LBUTTONUP()
 	ON_WM_DESTROY()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
@@ -106,8 +100,6 @@ void CDirectionButton::OnPaint()
 		float angle  = fAngle ;
 		angle = angle < 0 ? ( 2 * PI - fabs( angle ) ) : angle;
 		angle = angle > PI / 4 ? angle - PI / 4 : 2 * PI - ( PI / 4 -  angle ) ;
-		//sprintf( str, "%.2f " , ( angle * 180 ) / PI  );
-		//dc.TextOut( clientRC.left , clientRC.bottom - 11, str , strlen( str ) );
 		sprintf( str, "Angle: %.2f", ( angle * 180 ) / PI );
 		dc.TextOut( clientRC.left, clientRC.top - 2, str, strlen( str ) );
 		dc.SelectObject( pOldFont );
@@ -125,8 +117,6 @@ void CDirectionButton::OnPaint()
 	dc.SelectObject( pOldBrush );*/
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// CDirectionButton message handlers
 
 int CDirectionButton::GetQuadrant()
 {
@@ -159,7 +149,6 @@ void CDirectionButton::OnLButtonDown(UINT nFlags, CPoint pt)
 	cx = pt.x - clientRC.right/2;
 	cy = clientRC.bottom/2 - pt.y;
 	
-//	OutputDebugString( "OnLButtonDown" );
 
 	fAngle = atan2( cy, cx );
 	GetParent()->PostMessage( WM_ANGLE_CHANGED );
@@ -178,20 +167,16 @@ void CDirectionButton::OnMouseMove(UINT nFlags, CPoint pt)
 		cx = pt.x - clientRC.right/2;
 		cy = clientRC.bottom/2 - pt.y;
 		
-//		OutputDebugString( "OnMouseMove" );
 
 		fAngle = atan2( cy, cx );
 		GetParent()->PostMessage( WM_ANGLE_CHANGED );
-//		RedrawWindow();
 		Invalidate();
 	}
-	//CVec2
 	CWnd::OnMouseMove(nFlags, pt);
 }
 
 void CDirectionButton::OnLButtonUp(UINT nFlags, CPoint point) 
 {
-	// TODO: Add your message handler code here and/or call default
 	ReleaseCapture();
 	CWnd::OnLButtonUp(nFlags, point);
 }

@@ -1,14 +1,7 @@
 #ifndef __PLANE_PATH_H__
 #define __PLANE_PATH_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Path.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													CPlanePath															*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CPlanePath : public IPath
 {
 	OBJECT_COMPLETE_METHODS( CPlanePath );
@@ -47,17 +40,11 @@ public:
 	virtual bool ShouldCheckTurn() const { return false; }
 	virtual bool IsWithFormation() const { return false; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CBasePlaneSmoothPath : public ISmoothPath
 {
 public:
 	virtual void SetAviationUnit( IAviationUnit *_pPlane ) {  }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													CPlaneSmoothPath												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CPlaneSmoothPath : public CBasePlaneSmoothPath
 {
 	OBJECT_COMPLETE_METHODS( CPlaneSmoothPath );
@@ -87,31 +74,21 @@ public:
 		SPathVisitor( const CVec2 &vPoint ) : vCurPoint( vPoint ) {  }
 		SPathVisitor( const WORD wAngle ) : wCurAngle( wAngle ) {  }
 	};
-	//
 	class CPathFraction : public IRefCount
 	{
 		DECLARE_SERIALIZE;
 		bool bActive;
 	public:
 		CPathFraction () : bActive( true ) { }
-		// return true if the formation offset corresponds this path fraction; in this case vPosition is filled with 
-		// world coordinates
-		// offset - when it is not first fraction.
 		virtual bool CalcPoint( const CVec2 &vFormationOffset/*path coordinates*/, CVec2 * vPosition /*world coordinates*/, WORD *wUnitDir, float *pfCurvatureRadius, CVec2 *pvSpeed, const float fOffset ) const = 0;
-		// length in world coordinates, 
 		virtual float GetLength() const = 0;
-		// if this fraction is being moved by
 		bool IsCurrent() const;
-		// sets current position
 		virtual void SetCurPos( const SPathVisitor &rVisitor ) = 0;
-		// mark path as finished
 		virtual void SetFinished( const SPathVisitor &rVisitor ) = 0;
-		// last segment did'n use this fraction
 		void SetActive( const bool _bActive ) { bActive = _bActive; }
 		bool IsActive() const { return bActive; }
 	};
 
-	// arc path fraction, from angle to angle, 
 	class CArcPathFraction : public CPathFraction
 	{
 		OBJECT_COMPLETE_METHODS( CArcPathFraction );
@@ -126,7 +103,6 @@ public:
 		void CalcLenght();
 	public:
 		CArcPathFraction() {  }
-		// angles - from center
 		CArcPathFraction( const CCircle &_flyCircle, const WORD wDirFrom, const int _nAngleSingn );
 		
 		virtual bool CalcPoint( const CVec2 &vFormationOffset/*path coordinates*/, CVec2 * vPosition /*world coordinates*/, WORD *wUnitDir, float *pfCurvatureRadius, CVec2 *pvSpeed, const float fOffset ) const;
@@ -136,7 +112,6 @@ public:
 		virtual void SetFinished( const SPathVisitor &rVisitor );
 	};
 
-	// line path fraction, from point to point
 	class CLinePathFraction : public CPathFraction
 	{
 		OBJECT_COMPLETE_METHODS( CLinePathFraction );
@@ -206,9 +181,7 @@ private:
 	bool bSmoothTurn; // if true значит самолет не в боевом режиме
 	float fVerTurnRatio;
 	
-	//
 	void CompareWithBest( const CVec2 &p, CVec2 *bestPoint, WORD *wBestAngle, const CCircle &circle, const short int sign );
-	// новый радиус поворота
 	void SetTurnRadius( float fTurnRadius );
 	float Calc2DDistanceToGo() const;			// дистанция, которая осталась до конечной точки (по проекции на горизонтальную плоскость)
 	static bool IsHeightOK( const IBasePathUnit *pUnit, const IAviationUnit *pPlane, const float fZ, const float fAngleSpeed );
@@ -241,7 +214,6 @@ public:
 	virtual void NotifyAboutClosestThreat( interface IBasePathUnit *pUnit, const float fDist ) { }
 	virtual void SlowDown() { }
 
-	//
 	virtual bool TurnToDir( const WORD &newDir ) { return true; }
 	
 	virtual bool CanGoBackward() const { return false; }
@@ -257,13 +229,10 @@ public:
 	virtual void SetOwner( interface IBasePathUnit *pUnit );
 	virtual IBasePathUnit* GetOwner() const;	
 
-		// calsulates world coordinates form formation coordinates
 	void CalculateMemberInfo( const CVec2 &vFormationOffset, SMemberInfo *pMemberInfo ) const;
 	void ClearUnisedHistory();
 };
 class CPlanesFormation;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// path for planes, that formation with horisontal shift.
 class CPlaneInFormationSmoothPath : public CBasePlaneSmoothPath
 {
 	OBJECT_COMPLETE_METHODS( CPlaneInFormationSmoothPath );
@@ -276,7 +245,6 @@ public:
 	CPlaneInFormationSmoothPath() : pOwner( 0 ) {  }
 	void Init( class CAviation *_pOwner ) ;
 
-	// forward to formation path
 	virtual const CVec2& GetFinishPoint() const;
 	virtual bool IsFinished() const;
 	virtual const CVec3 GetPoint( NTimer::STime timeDiff );
@@ -285,12 +253,10 @@ public:
 	virtual CVec2 GetCurvatureCenter() const;
 
 
-	// need to correct work of CBasePathUnit
 	virtual bool CanGoBackward() const;
 	virtual void SetOwner( interface IBasePathUnit *pUnit );
 	virtual IBasePathUnit* GetOwner() const;
 
-	// empty functions
 	virtual bool Init( interface IBasePathUnit *pUnit, IPath *pPath, bool bSmoothTurn, bool bCheckTurn = true ) { NI_ASSERT_T(false, "wrong call" ); return false; }
 	virtual bool Init( interface IMemento *pMemento, interface IBasePathUnit *pUnit ) { NI_ASSERT_T(false, "wrong call" ); return false; }
 	virtual bool InitByFormationPath( class CFormation *pFormation, interface IBasePathUnit *pUnit ) { NI_ASSERT_T(false, "wrong call" ); return false; }
@@ -303,5 +269,4 @@ public:
 	virtual bool IsWithFormation() const { NI_ASSERT_T(false, "wrong call" ); return true; }
 	virtual void Stop() { NI_ASSERT_T(false, "wrong call" ); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __PLANE_PATH_H__

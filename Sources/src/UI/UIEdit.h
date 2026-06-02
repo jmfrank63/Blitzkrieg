@@ -1,8 +1,6 @@
 #ifndef __UI_EDIT_BOX_H__
 #define __UI_EDIT_BOX_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "UIBasic.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIEditBox : public CSimpleWindow
 {
 	DECLARE_SERIALIZE;
@@ -20,8 +18,6 @@ class CUIEditBox : public CSimpleWindow
 	bool bFileNameSymbols;					//символы доступные для имени файла
 	int nMaxLength;									//если эта переменная установлена, то включено ограничение на количество символов в тексте
 
-	//для скроллинга текста влево и вправо
-	//в pGFXText будет храниться лишь часть отображаемой строки, а в этой переменной полностью текст
 	std::wstring wszFullText;
 	int nBeginText;		//с этой позиции начинается отображение текста szFullText
 	bool bTextScroll;	//если установлена эта переменная, то можно вводить текст шире поля edit box
@@ -32,13 +28,10 @@ public:
 		m_nBeginSel( -1 ), m_nEndSel( -1 ), dwSelColor( 0xff2e401b ), m_nBeginDragSel( -1 ), nBeginText( 0 ), bNumericMode( 0 ), bLocalPlayerNameMode ( false ) {}
 	~CUIEditBox() {}
 
-	// mouse actions
 	virtual bool STDCALL OnMouseMove( const CVec2 &vPos, EMouseState mouseState );
 	virtual bool STDCALL OnLButtonDown( const CVec2 &vPos, EMouseState mouseState );
 	virtual bool STDCALL OnRButtonDown( const CVec2 &vPos, EMouseState mouseState );
-//	virtual bool STDCALL OnLButtonUp( const CVec2 &vPos, EMouseState mouseState ) { return true; }
 
-	//
 	virtual void STDCALL SetWindowText( int nState, const WORD *pszText );
 	virtual void STDCALL SetFocus( bool bFocus );
 	virtual void STDCALL SetCursor( int nPos );
@@ -50,19 +43,16 @@ public:
 	virtual void STDCALL GetSel( int *nBegin, int *nEnd ) { *nBegin = m_nBeginSel; *nEnd = m_nEndSel; }
 	virtual void STDCALL SetMaxLength( const int nLength ) { nMaxLength = nLength; }
 
-	// serializing...
 	virtual int STDCALL operator&( IDataTree &ss );
 	virtual bool STDCALL OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD keyState );
 	virtual bool STDCALL ProcessMessage( const SUIMessage &msg );
 private:
 	bool DeleteSelection();
 	int GetSelection( int nX );
-	//посылка сообщения наверх об изменении текущей позиции
 	void NotifyTextChanged();
 	void EnsureCursorVisible();
 	bool IsTextInsideEditBox();
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIEditBoxBridge : public IUIEditBox, public CUIEditBox
 {
 	OBJECT_NORMAL_METHODS( CUIEditBoxBridge );
@@ -75,5 +65,4 @@ class CUIEditBoxBridge : public IUIEditBox, public CUIEditBox
 	virtual void STDCALL GetSel( int *nBegin, int *nEnd ) { CSuper::GetSel( nBegin, nEnd ); }
 	virtual void STDCALL SetMaxLength( const int nLength ) { CSuper::SetMaxLength( nLength ); }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __UI_EDIT_BOX_H__

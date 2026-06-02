@@ -1,24 +1,13 @@
 #ifndef __IMAGE_HELPER_H__
 #define __IMAGE_HELPER_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** choose best format for compression
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline const EGFXPixelFormat ChooseBestFormat( IImage *pImage, const ECompressionType eType )
 {
-	// create alpha histograms
 	SColor *pColors = pImage->GetLFB();
 	const int nNumColors = pImage->GetSizeX() * pImage->GetSizeY();
 	float alphas[256];
 	memset( alphas, 0, sizeof(alphas) );
 	for ( int i = 0; i < pImage->GetSizeX()*pImage->GetSizeY(); ++i )
 		alphas[ pColors[i].a ]++;
-	//
 	int nMin = 0;
 	for ( int i = 0; i < 256; ++i )
 	{
@@ -26,7 +15,6 @@ inline const EGFXPixelFormat ChooseBestFormat( IImage *pImage, const ECompressio
 		if ( alphas[i] < alphas[nMin] ) 
 			nMin = i;
 	}
-	// collect first 4 alphas
 	int nMax1 = nMin, nMax2 = nMin, nMax3 = nMin, nMax4 = nMin;
 	for ( int i = 0; i < 256; ++i )
 	{
@@ -48,7 +36,6 @@ inline const EGFXPixelFormat ChooseBestFormat( IImage *pImage, const ECompressio
 		if ( (alphas[i] > alphas[nMax4]) && (i != nMax1) && (i != nMax2) && (i != nMax3) ) 
 			nMax4 = i;
 	}
-	// analyze alpha histograms
 	switch ( eType ) 
 	{
 		case COMPRESSION_DXT:
@@ -70,5 +57,4 @@ inline const EGFXPixelFormat ChooseBestFormat( IImage *pImage, const ECompressio
 	}
 	return GFXPF_UNKNOWN;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __IMAGE_HELPER_H__

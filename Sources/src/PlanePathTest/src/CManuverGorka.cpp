@@ -5,7 +5,6 @@
 #include "IPlane.h"
 #include "ComplexPathFraction.h"
 
-/////////////////////////////////////////////////////////////////////////////
 void CManuverGorka::Init( interface IPlane *pPos )
 {
 	pPlane = pPos;
@@ -28,21 +27,16 @@ void CManuverGorka::Init( interface IPlane *pPos )
 	fProgress = 0;
 	fZ = GetPos().z;
 }
-/////////////////////////////////////////////////////////////////////////////
 CVec3 CManuverGorka::GetPos() const
 {
 	return pPath->GetPoint( fProgress );
 }
-/////////////////////////////////////////////////////////////////////////////
 CVec3 CManuverGorka::GetSpeed() const
 {
 	return pPath->GetTangent( fProgress ) * fSpeed;
 }
-/////////////////////////////////////////////////////////////////////////////
 bool CManuverGorka::Advance()
 {
-	//CRAP{ FIND OUT COMMON MANUVER PART
-		// determine if it is circle path fraction or not.
 	fProgress += fSpeed;
 
 	const CVec3 vNewPos( GetPos() );
@@ -51,6 +45,4 @@ bool CManuverGorka::Advance()
 
 	fSpeed += 2 * g * fDz / fSpeed;
 	return fProgress + fSpeed >= pPath->GetLength();
-	//CRAP}
 }
-/////////////////////////////////////////////////////////////////////////////

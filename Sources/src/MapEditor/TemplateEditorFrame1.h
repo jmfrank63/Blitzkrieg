@@ -4,8 +4,6 @@
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
-// TemplateEditorFrame1.h : header file
-//
 
 #include "..\RandomMapGen\MapInfo_Types.h"
 #include "..\RandomMapGen\Resource_Types.h"
@@ -22,22 +20,17 @@
 #include "EditorObjectItem.h"
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CTemplateEditorFrame window
 class CTabTileEditDialog;
 class CMapEditorBarWnd;
 class CPropertieDialog; 
 struct IVisObj; 
 interface IImage;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "UnitCreation.h"
 #include "AIStartCommand.h"
 #include "ReservePosition.h"
 #include "MapSoundInfo.h"
 #include "MODCollector.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SReinforcementCheckBoxesInfo
 {
 	std::unordered_map< int, int > groupsCheckBoxes; 
@@ -57,7 +50,6 @@ struct SReinforcementCheckBoxesInfo
 	}
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMapEditorOptions
 {
 public:
@@ -91,9 +83,6 @@ class CTemplateEditorFrame : public   SECWorksheet, public CWorldBase
 	friend class CRandomMapGeneratorDialog;
 	friend class CMainFrame;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// ����� ����
 public:
 	enum INPUT_STATES
 	{
@@ -150,9 +139,6 @@ public:
 	std::vector<CPtr<IVisObj> > cameraVisObj;
 	
 	CMapInfo currentMapInfo;
-	//std::string szSeasonFolderBackup;
-	//std::string szChapterNameBackup;
-	//int nMissionIndexBackup;
 
 	CUCHelper ucHelper;
 	CAISCHelper aiscHelper;
@@ -214,40 +200,28 @@ public:
 	int SetPlayerForFlag( SMapObjectInfo *pFlagObjectInfo );
 	void ResetPlayersForFlags();
 	bool NeedUpdateStorages();
-// ************************************************************************************************************************ //
 private:
 	DECLARE_DYNCREATE(CTemplateEditorFrame)
 
-	//-----------------------------------------------------
 	std::string  m_scriptName;
 	CMutableUnitCreationInfo m_unitCreationInfo;
-	//-----------------------------------------------------
 
-	//-----------------------------------------------------
 	std::vector<SEntrenchmentInfo> m_entrenchments;	
 	std::vector< std::vector< std::vector< IRefCount* > > > m_entrenchmentsAI;
 	void CalculateTrenchFromAI();
 	void CalculateTrenchToAI();
-	//-----------------------------------------------------
 
-	//-----------------------------------------------------
 	std::vector<SScriptArea> m_scriptAreas;									// ���������� �������
 	void CalculateAreasFromAI();
 	void CalculateAreasToAI();
-	//-----------------------------------------------------
 
-	//----------------------------------------------------- // ��� ��� ������ 
 		std::vector< CPtr<SBridgeSpanObject> >									m_tempSpans;
 		std::vector< std::vector< CPtr<SBridgeSpanObject> > >		m_Spans;
-	//-----------------------------------------------------
 
 	std::map< std::string, int >						m_objectFor;	
 
 		
-	//=====================������ Default'��� ��� ���������==============================
 	
-	///SRiverInfo				 m_defaultRiver;
-	//===================================================================================
 
 	std::string szStartDirectory;
 
@@ -256,9 +230,6 @@ private:
 	CTabTileEditDialog *m_pTabTileEditDialog;
 	CInputControlBar *m_mapEditorBarPtr;
 
-	//SRoadsetDesc descrRoads;
-	// ��� ����� ���������
-	//std::map< int, std::vector< SMapObject * > > m_reinforcementGroups;  
 	SReinforcementGroupInfo m_reinforcementGroup;
 	SReinforcementCheckBoxesInfo m_reinforcementGroupCheckBoxes;
 	
@@ -270,17 +241,11 @@ private:
 	TMutableReservePositionList m_reservePositions;
 	CMutableReservePosition m_CurentReservePosition;
 	bool isReservePositionActive;
-	//0 - pos
-	//1 - artillery
-	//2 - truck
 	std::list<int> m_ReservePositionSequence;
 	
 	inline void AddArtilleryToCurrentReservePosition()
 	{
 		m_CurentReservePosition.pArtilleryObject = m_currentMovingObjectPtrAI;
-		//0 - pos
-		//1 - artillery
-		//2 - truck
 		if ( ( m_ReservePositionSequence.size() > 2 ) ||
 				 ( ( !m_ReservePositionSequence.empty() ) && 
 					 ( ( *m_ReservePositionSequence.begin() ) == 1 ) ) )
@@ -293,9 +258,6 @@ private:
 	inline void AddTruckToCurrentReservePosition()
 	{
 		m_CurentReservePosition.pTruckObject = m_currentMovingObjectPtrAI;
-		//0 - pos
-		//1 - artillery
-		//2 - truck
 		if ( ( m_ReservePositionSequence.size() > 2 ) ||
 				 ( ( !m_ReservePositionSequence.empty() ) && 
 					 ( ( *m_ReservePositionSequence.begin() ) == 2 ) ) )
@@ -308,9 +270,6 @@ private:
 	inline void AddPosToCurrentReservePosition( const CVec3 &v )
 	{
 		m_CurentReservePosition.vPos = CVec2( v.x, v.y );
-		//0 - pos
-		//1 - artillery
-		//2 - truck
 		if ( ( m_ReservePositionSequence.size() > 2 ) ||
 				 ( ( !m_ReservePositionSequence.empty() ) && 
 			     ( ( *m_ReservePositionSequence.begin() ) == 0 ) ) )
@@ -333,17 +292,12 @@ private:
 
 	bool			m_bGrid ;
 
-	//std::vector< SRoadItem > m_roads;
 	
 	std::unordered_map< IVisObj*, SEditorObjectItem, SDefaultPtrHash > m_objects;  
-	//----------- ����� �������������� �������� ����� ����������� -------------------
 	CPtr<IVisObj> m_currentMovingObjectForPlacementPtr;	
 	
 	std:: vector<CPtr<IVisObj> > m_currentMovingObjectsForPlacementPtr;
 	std::string						 m_currentMovingPasteGroupName;	// ����� �� Advanced clippboard'a ������ paste 
-																												// �� ����� ����������� ����� ����������� 
-																												// ��������.
-	//-------------------------------------------------------------------------------
 	std::vector< std::pair<IVisObj*, CVec2> > m_pickedObjects;
 
 	std::unordered_map< SMapObject *, SEditorObjectItem*, SDefaultPtrHash > m_objectsAI;  
@@ -353,8 +307,6 @@ private:
 	std::map<IRefCount*, CVec2>									m_squadsShiftsForMovingObjectsAI;
 	std::vector<SMapObject*>											m_currentForPasteObjectsAI;
 	std::map<SMapObject*, CVec3>									m_shiftsForPasteObjectsAI;
-	//SMapObject*																		m_currentObjectForPastePtrAI;	
-	// ��� ���������������� ��������� �������
 	std::vector<IVisObj*>	m_currentFences;
 	
 	bool				m_ifCanMultiSelect;
@@ -363,9 +315,7 @@ private:
 	CVec2			m_currentObjectShift;
 	int m_curPickNum;
 
-	//void DrawLine( int x1, int y1, int x2,int y2);
 
-	//std::stack< IUndoRedoCmd* > m_undoStack;
 
 	CTPoint<int>		m_firstSelectPoint;
 	CTPoint<int>		m_lastSelectPoint;
@@ -374,13 +324,11 @@ private:
 	
 	LPTSTR m_cursorName;
 
-// Construction 
 public: 
 
 	CTemplateEditorFrame();
 	 
 	CInputControlBar* GetMapEditorBar() { return m_mapEditorBarPtr; } 
-//	CAdvancedClipboardBar* GetAdvancedClipboardBar() { return m_advancedClipBoardBar; } 
 
 	int				m_brushDX; 
 	int				m_brushDY;
@@ -397,11 +345,7 @@ public:
 	std::string m_currentMapName;
 	CPropertieDialog *dlg;
 
-	//---------------------------------------------------------------------------------------
-	// ��� ���������� �������� ���������� ��������
-	//CMiniMapDialog, CCreateForestDilaog
 	CTRect<int> m_minimapDialogRect;
-	//---------------------------------------------------------------------------------------
 	
 	SEditorObjectItem* GetEditorObjectItem( SMapObject* ptr )
 	{
@@ -418,7 +362,6 @@ public:
 	}
 
 
-	//===================================================================================
   /**
 	void UpdateRiver()
 	{
@@ -430,31 +373,21 @@ public:
 	}
 	SRiverInfo::SLayer GetDefaultRiverLayer();
 	/**/
-	//===================================================================================
 
-// Attributes
 public: 
 
-// Operations 
 public:
 		
-// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CTemplateEditorFrame)
 	protected:
 	virtual LRESULT WindowProc(UINT message, WPARAM wParam, LPARAM lParam);
-	//}}AFX_VIRTUAL
 
 
-// Implementation
 public: 
-	//=============================== ������� ��� ������� =========================================
 	void PopFromBuilding( SEditorObjectItem *obj ); // ������� ���� ���������� ���� ��� ���� 
 	int  GetNumSoldiersInBuilding( SEditorObjectItem *obj ); // ������� ���������� � ���� ������� �����  
 	int  GetSoldiersInBuilding( SEditorObjectItem *obj, std::vector<SEditorObjectItem*> &units );// ���������� ���� ���������� � obj
 
 	void MoveObject( IRefCount *pAiObject, short x, short y, bool isFormation = false ); // ������� � ������ ������� unit' ��   
-	//=============================================================================================
 	
 	void  FillMapInfoParamForObject( SMapObjectInfo &info, SMapObject* obj  );
 
@@ -466,19 +399,15 @@ public:
 	SReinforcementGroupInfo& GetGroupInfo() { return m_reinforcementGroup; }
 	void SetGroupInfo( SReinforcementGroupInfo &info ) { m_reinforcementGroup = info; }
 	void CalculateReinforcementGroups( bool update = true ); //true  - m_reinforcementGroupCheckBoxes->list
-																													 //false - list->m_reinforcementGroupCheckBoxes
 
 	void ShowAIInfo()												{	ToggleAIInfo(); RedrawWindow(); }
 	bool ifObjectExist( SMapObject * ptr )	{ return m_objectsAI.find(ptr) !=  m_objectsAI.end() ;}
 	bool IfCashedFile( std::string name );
-	//void AddRoad( SRoadItem &s );
-	//void DeleteRoad( SRoadItem &road);
 	void MoveObject( IVisObj *obj, CVec3 &pos, bool isFormation = false );
 	void AddTileCmd(  std::vector<STileRedoCmdInfo> &inf, bool cmd = true );
 	void RemoveObject( IVisObj* object);
 	void RemoveObject(SMapObject *object);
 	
-	//������ �� ���������� ���������
 	void RemoveObjectFromAIStartCommand( SMapObject *object );
 	void AddObjectToAIStartCommand( SMapObject *object, bool isRemove = false );
 	
@@ -489,16 +418,12 @@ public:
 	void RecalculateStartCommandRedLines( const CVec3& rPos );
 	void DrawAIStartCommandRedLines();
 	void DrawUnitsSelection();
-	//
 
-	//������ � reserve positions
 	void RemoveObjectFromReservePositions( SMapObject *object );
 	void DrawReservePositionRedLines();
 	
-	//temp == true ���� ���� ��������� � ������ undo / redo
 	IVisObj* AddObject( const SGDBObjectDesc &desc, int p = 0 ,bool temp = false);
 	SMapObject*	AddObjectByAI( SMapObjectInfo &info , int p = 0 ,bool temp = false, bool bScenarioUnit = false );
-	//void CalculateRoads();
 	void CalculateAreas();
 
 	void ShowFrameWindows( int nCommand);
@@ -513,11 +438,9 @@ public:
 	int  GetAnimationFrameIndex( struct IVisObj *pVisObj);
 	
 	void ShowFireRange( bool isShow );
-	// Generated message map functions
 protected:
 	virtual void ResetSelection( SMapObject *pMO ) {};
 protected:
-	//{{AFX_MSG(CTemplateEditorFrame)
 	afx_msg void OnMouseMove( UINT nFlags, CPoint point );
 	afx_msg void OnLButtonDown( UINT nFlags, CPoint point );
 	afx_msg void OnLButtonUp( UINT nFlags, CPoint point );
@@ -622,7 +545,6 @@ protected:
 	afx_msg void OnUpdateFileSaveBzm(CCmdUI* pCmdUI);
 	afx_msg void OnFileSaveXml();
 	afx_msg void OnUpdateFileSaveXml(CCmdUI* pCmdUI);
-	//}}AFX_MSG
 public:
 	afx_msg void OnButtonUpdate();
 	DECLARE_MESSAGE_MAP() 
@@ -641,14 +563,9 @@ private:
 	void FillGRect( GRect &r, std::vector< CTPoint<int> > &points  );
 	void GetTileIndexBy2DPoint( int x, int y , int &xtile, int &ytile );
 	SRoadItem ifRoadItemIntersect( int x, int y );
-	//ERoadItemTypes GetTileType( SRoadItem &item, int x, int y );
 	int GetCurrentDirection();
-	//int GetCurrentRoadType();
 };
-/////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif // !defined(AFX_TEMPLATEEDITORFRAME1_H__FA5612CB_1305_4F95_959D_94DB91746A51__INCLUDED_)
 

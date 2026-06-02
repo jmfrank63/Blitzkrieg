@@ -16,7 +16,6 @@
 #include "..\Main\GameStats.h"
 #include "..\Scene\PFX.h"
 #include "..\Input\InputTypes.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry stdCommands[] = 
 {
 	{ "save"			,	CMD_SAVE				},
@@ -29,18 +28,14 @@ static const NInput::SRegisterCommandEntry stdCommands[] =
 	{ "wireframe"	,	CMD_WIREFRAME		},
 	{ "memdump"		, CMD_DUMP_MEMORY },
 #endif // _FINALRELEASE
-	//
 	{ "game_speed_inc", CMD_GAME_SPEED_INC_SEND	},
 	{ "game_speed_dec", CMD_GAME_SPEED_DEC_SEND	},
 	{ "game_pause"		, CMD_GAME_PAUSE_SEND	},
-	//double clicks
 	{ "mouse0_dblclk"	,	CMD_MOUSE0_DBLCLK		},
-	// actions
 	{ "begin_action1"	,	CMD_BEGIN_ACTION1		},
 	{ "end_action1"		,	CMD_END_ACTION1			},
 	{ "begin_action2"	,	CMD_BEGIN_ACTION2		},
 	{ "end_action2"		,	CMD_END_ACTION2			},
-	//
 	{ "mouse_button0_down", CMD_MOUSE_BUTTON0_DOWN },
 	{ "mouse_button0_up"	, CMD_MOUSE_BUTTON0_UP	 },
 	{ "mouse_button1_down", CMD_MOUSE_BUTTON1_DOWN },
@@ -48,12 +43,9 @@ static const NInput::SRegisterCommandEntry stdCommands[] =
 	{ "mouse_button2_down", CMD_MOUSE_BUTTON2_DOWN },
 	{ "mouse_button2_up"	, CMD_MOUSE_BUTTON2_UP	 },
 	{ "numpad_enter"			,	CMD_NUMPAD_ENTER			 },
-	//
 	{ "switch_input"			, CMD_SWITCH_INPUT			 },
-	//
 	{ 0,						0								}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SerializeConfig( const bool bRead, const DWORD dwSerialize )
 {
 	if ( !bRead && !GetSingleton<IUserProfile>()->IsChanged() ) 
@@ -67,10 +59,8 @@ bool SerializeConfig( const bool bRead, const DWORD dwSerialize )
 	if ( bRead && !NFile::IsFileExist(szConfigFileName.c_str()) &&
 								!NFile::IsFileExist(szDefaultValuesName.c_str())	) 
 		return false;
-	//
 
 	CPtr<IDataStream> pStream = OpenFileStream(szConfigFileName.c_str(), bRead ? STREAM_ACCESS_READ : STREAM_ACCESS_WRITE);
-	// to repair from
 	CPtr<IDataStream> pStreamToRepair;
 	CPtr<IDataTree> pTreeToRepair;
 	if( bRead )
@@ -91,22 +81,12 @@ bool SerializeConfig( const bool bRead, const DWORD dwSerialize )
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** main loop 
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IMainLoop* STDCALL CreateMainLoop()
 {
 	IBaseCommand *pCommand = new CSaveCommandsHistoryCommand( GetSingleton<ICommandsHistory>() );
 	NBugSlayer::AddEmergencyCommand( pCommand );
 	
 	IMainLoop *pML = new CMainLoop();
-	//
 	CPtr<IDataStream> pStream = CreateFileStream( ".\\saves\\emergency.sav", STREAM_ACCESS_WRITE );
 	if ( pStream )
 	{
@@ -117,17 +97,14 @@ IMainLoop* STDCALL CreateMainLoop()
 			NBugSlayer::AddEmergencyCommand( pCommand );
 		}
 	}
-	//
 	return pML;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMainLoop::CMainLoop()
 : bAppIsActive( false ), bWireFrame( false ), bPaused( false )
 { 
 	bDisableMessageProcessing = false;
 	nAutoSavePeriod = GetGlobalVar( "autosave", 0 ) * 1000;
 	timeLastAutoSave = 0;
-	// base dir
 	{
 		char buff[2048];
 		GetCurrentDirectory( 2048, buff );
@@ -137,18 +114,14 @@ CMainLoop::CMainLoop()
 		else if ( szBaseDir[szBaseDir.size() - 1] != '\\' )
 			szBaseDir += '\\';
 	}
-	//
 	nNetAppID = -1;
 	nNetPort = 8889;
-	// acquire all singletons
 	pGFX = GetSingleton<IGFX>();
 	pInput = GetSingleton<IInput>();
 	pScene = GetSingleton<IScene>();
 	pCamera = GetSingleton<ICamera>();
 	pCursor = GetSingleton<ICursor>();
-	//
 	standardMsgs.Init( pInput, stdCommands );
-	// retrieve all shared data managers
 	{
 		int nNumObjects = 0;
 		IRefCount **pObjects = 0;
@@ -161,21 +134,14 @@ CMainLoop::CMainLoop()
 		}
 	}
 
-	// AI part
 	pAILogic = GetSingleton<IAILogic>();
 	IGameTimer *pGameTimer = GetSingleton<IGameTimer>();
 	pGameTimer->GetGameSegmentTimer()->SetSegmentTime( SAIConsts::AI_SEGMENT_DURATION );
 	pGameTimer->GetSyncSegmentTimer()->SetSegmentTime( SAIConsts::AI_SEGMENT_DURATION );
-	// end of AI part
 
-	// guaranee FPS
 	nGuaranteeFPS = GetGlobalVar( "GuaranteeFPS", -1 );
 	nGuaranteeFPSTime = 0;
-	//hThread = 0;
-	//hFinishedLoading = CreateEvent( 0, true, false, 0 );
-	//hThreadFinished = CreateEvent( 0, true, false, 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMainLoop::~CMainLoop()
 {
 	while ( !interfaces.empty() ) 
@@ -184,92 +150,55 @@ CMainLoop::~CMainLoop()
 		interfaces.pop_back();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainLoop::Serialize( IStructureSaver *pSS, IProgressHook *pHook )
 {
 	CSaverAccessor saver = pSS;
 	if ( pHook ) 
 		pHook->SetNumSteps( 6 );
-	// serialize shared managers. shared managers IDs begin from the 100
 	for ( CManagersList::iterator i = managers.begin(); i != managers.end(); ++i )
 	{
 		(*i)->operator&( *pSS );
 	}
-	// step hook
 	if ( pHook ) 
 	{
 		pHook->Recover();
 		pHook->Step(); // 0
 	}
-	// serialize commands
 	saver.Add( 1, &cmds );
-	// serialize interfaces
 	saver.Add( 2, &interfaces );
-	// step hook
 	if ( pHook ) 
 		pHook->Step(); // 1
-	//
 	if ( saver.IsReading() )
 	{
-		// init interfaces
 		for ( CInterfacesList::iterator i = interfaces.begin(); i != interfaces.end(); ++i )
 			(*i)->Init();
 	}
-	// serialize global objects
-	// scene
 	saver.Add( 3, pScene.GetPtr() );
-	// step hook
 	if ( pHook ) 
 		pHook->Step(); // 2
-	// camera and cursor
 	saver.Add( 4, pCamera.GetPtr() );
 	saver.Add( 5, pCursor.GetPtr() );
-	// game timer
 	saver.Add( 6, GetSingleton<IGameTimer>() );
-	// serialize data
 	saver.Add( 7, &bWireFrame );
-	// AI variables	
 	saver.Add( 8, pAILogic.GetPtr() );
-	// 
-	// step hook
 	if ( pHook ) 
 		pHook->Step(); // 3
-	// CRAP{ resore font
 	saver.Add( 9, pGFX.GetPtr() );
-	// CRAP}
-	// global vars system serialization
 	saver.Add( 10, GetSingleton<IGlobalVars>() );
-	// serialize sounds
 	saver.Add( 11, GetSingleton<ISFX>() );
-	// serialize transceiver
 	saver.Add( 12, GetSingleton<ITransceiver>() );
-	//
-	// ack manager
 	saver.Add( 13, GetSingleton<IClientAckManager>() );
-	// step hook
 	if ( pHook ) 
 		pHook->Step(); // 4
-	// random gen
 	if ( g_pGlobalRandomGen ) 
 		saver.Add( 14, g_pGlobalRandomGen );
-	// input
 	saver.Add( 15, GetSingleton<IInput>() );
-	//
 	saver.Add( 16, &nAutoSavePeriod );
 	saver.Add( 17, &timeLastAutoSave );
-	// scenario tracker
 	saver.Add( 18, GetSingleton<IScenarioTracker>() );
-	// enabble/disable message processing
 	saver.Add( 19, &bDisableMessageProcessing );
-//	// timeout counter
-//	saver.Add( 21, &timeout );
-	//
 	saver.Add( 22, &pStoredScenarioTracker );
-	//
 	saver.Add( 23, GetSingleton<ICommandsHistory>() );
-	//
-//	saver.Add( 24, GetSingleton<IFilesInspector>() );
-	// serialize added missions in chapter stats
 	{
 		const std::string szChapterName = GetGlobalVar( "Chapter.Current.Name", "" );
 		const SChapterStats *pChapter = static_cast<const SChapterStats*>( GetSingleton<IObjectsDB>()->GetGameStats(szChapterName.c_str(), IObjectsDB::CHAPTER) );
@@ -279,13 +208,10 @@ void CMainLoop::Serialize( IStructureSaver *pSS, IProgressHook *pHook )
 			if ( saver.IsReading() ) 
 			{
 				SChapterStats *pNCChapter = const_cast<SChapterStats*>( pChapter );
-				// read stored template missions
 				saver.Add( 25, &missions );
-				// restore template missions
 				pNCChapter->RemoveTemplateMissions();
 				for ( int i = 0; i < missions.size(); ++i )
 					pNCChapter->AddMission( missions[i] );
-				// write resulting stats
 				IDataStorage *pStorage = GetSingleton<IDataStorage>();
 				const std::string szChapterFileName = pStorage->GetName() + szChapterName + ".xml";
 				CPtr<IDataStream> pStream = CreateFileStream( szChapterFileName.c_str(), STREAM_ACCESS_WRITE );
@@ -294,35 +220,28 @@ void CMainLoop::Serialize( IStructureSaver *pSS, IProgressHook *pHook )
 			}
 			else
 			{
-				// form template missions
 				for ( int i = 0; i < pChapter->missions.size(); ++i )
 				{
 					if ( pChapter->missions[i].pMission && pChapter->missions[i].pMission->IsTemplate() ) 
 						missions.push_back( pChapter->missions[i] );
 				}
-				// store template missions list
 				saver.Add( 25, &missions );
 			}
 		}
 	}
 	if ( saver.IsReading() )
 	{
-		// pause game after loading
 		bPaused = false;
 		Pause( bPaused = !bPaused, PAUSE_TYPE_USER_PAUSE );
-		// restore wireframe state
 		pGFX->SetWireframe( bWireFrame );		
 	}
-	// step hook
 	if ( pHook ) 
 		pHook->Step(); // 5
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainLoop::SerializeConfig( const bool bRead, const DWORD dwSerialize )
 {
 	::SerializeConfig( bRead, dwSerialize );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainLoop::Pause( const bool _bPause, const int _nPauseReason )
 {
 	IGameTimer *pTimer = GetSingleton<IGameTimer>();
@@ -331,18 +250,15 @@ void CMainLoop::Pause( const bool _bPause, const int _nPauseReason )
 		                       pTimer->HasPause( PAUSE_TYPE_MENU ) ||
 		                       pTimer->HasPause( PAUSE_TYPE_MP_TIMEOUT );
 	const bool bPauseALL = pTimer->HasPause( PAUSE_TYPE_INACTIVE );
-	//
 	if ( bPauseALL || bPauseSFXes ) 
 		GetSingleton<ISFX>()->Pause( true );
 	else
 		GetSingleton<ISFX>()->Pause( false );
-	//
 	if ( bPauseALL ) 
 		GetSingleton<ISFX>()->PauseStreaming( true );
 	else
 		GetSingleton<ISFX>()->PauseStreaming( false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainLoop::ClearResources( const bool bClearAll )
 {
 	if ( bClearAll ) 
@@ -354,9 +270,7 @@ void CMainLoop::ClearResources( const bool bClearAll )
 		GetSingleton<IFontManager>()->Clear( ISharedManager::CLEAR_ALL );
 		GetSingleton<IMeshManager>()->Clear( ISharedManager::CLEAR_ALL );
 		GetSingleton<ITextureManager>()->Clear( ISharedManager::CLEAR_ALL );
-		// we can't clear all text data because it's a inter-interface data!
 		GetSingleton<ITextManager>()->Clear( ISharedManager::CLEAL_UNREFERENCED );
-		// restore system font
 		GetSingleton<IGFX>()->SetFont( GetSingleton<IFontManager>()->GetFont( "fonts\\medium" ) );
 	}
 	else
@@ -370,7 +284,6 @@ void CMainLoop::ClearResources( const bool bClearAll )
 		GetSingleton<ITextManager>()->Clear( ISharedManager::CLEAL_UNREFERENCED );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainLoop::ResetStack()
 {
 	while ( !interfaces.empty() ) 
@@ -379,7 +292,6 @@ void CMainLoop::ResetStack()
 		interfaces.back()->Done();
 		interfaces.pop_back();
 	}
-	// clear all managers data
 	GetSingleton<IScene>()->Clear();
 	GetSingleton<ICursor>()->Clear();
 }
@@ -406,10 +318,8 @@ void CMainLoop::PopInterface()
 		interfaces.back()->Done();
 		interfaces.pop_back();
 	}
-	//
 	if ( !interfaces.empty() )
 		interfaces.back()->OnGetFocus( true );
-	// clear unreferenced resources
 	ClearResources( false );
 }
 IInterfaceBase* CMainLoop::GetInterface() const
@@ -418,7 +328,6 @@ IInterfaceBase* CMainLoop::GetInterface() const
     return 0;
   return interfaces.back();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static int nShotIndex = 0;
 static bool bUseInput = true;
 static int nSaveNum = 30;
@@ -437,16 +346,13 @@ void CMainLoop::ProcessStandardMsgs( const SGameMessage &msg )
 				{
 					while ( NFile::IsFileExist(NStr::Format("%sscreenshots\\shot%.4d.tga", szBaseDir.c_str(), nShotIndex)) ) 
 						++nShotIndex;
-					//
 					CPtr<IDataStream> pStream = CreateFileStream( NStr::Format("%sscreenshots\\shot%.4d.tga", szBaseDir.c_str(), nShotIndex), STREAM_ACCESS_WRITE );
 					GetImageProcessor()->SaveImageAsTGA( pStream, pImage );
-					//
 					if ( IText *pText = GetSingleton<ITextManager>()->GetDialog("textes\\strings\\screenshot") )
 					{
 						const std::wstring wszShotName = std::wstring(reinterpret_cast<const wchar_t*>(pText->GetString())) + NStr::ToUnicode( NStr::Format(" screenshots\\shot%.4d.tga", nShotIndex) );
 						GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_CHAT, wszShotName.c_str(), 0xff00ff00 );
 					}
-					//
 					++nShotIndex;
 				}
 			}
@@ -513,7 +419,6 @@ void CMainLoop::ProcessStandardMsgs( const SGameMessage &msg )
 			break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainLoop::OnMultiplayerStateCommand( const SGameMessage &msg )
 {
 	const int nPlayer = ( msg.nParam & 0xff00 ) >> 8;	// player's id 
@@ -523,7 +428,6 @@ void CMainLoop::OnMultiplayerStateCommand( const SGameMessage &msg )
 	IScenarioTracker * pTracker = GetSingleton<IScenarioTracker>();
 	ITransceiver * pTransceiver = GetSingleton<ITransceiver>();
 	
-	// 0 - remove, 1 - out of sync, 2 - lag started, 3 - lag finished
 	switch( nEvent )
 	{
 		case 0:	// remove
@@ -546,7 +450,6 @@ void CMainLoop::OnMultiplayerStateCommand( const SGameMessage &msg )
 					szOutput += MakeWideStringFromWordString( pLeftTheGame->GetString() );
 					pBuffer->Write( CONSOLE_STREAM_CHAT, szOutput.c_str(), 0xffff0000 );
 				}
-				// if player was lagged, it is not lagged anymore
 				pInput->AddMessage( SGameMessage(MC_MP_LAG_FINISHED, nPlayer) );
 				pInput->AddMessage( SGameMessage(MC_MP_PLAYER_LOAD_FINISHED, nPlayer) );
 				GetSingleton<IScene>()->AddSound( "Int_information", VNULL3, SFX_INTERFACE, SAM_ADD_N_FORGET );
@@ -606,12 +509,10 @@ void CMainLoop::OnMultiplayerStateCommand( const SGameMessage &msg )
 			break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainLoop::Command( IInterfaceCommand *pCmd )
 {
 	cmds.push_back( pCmd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainLoop::Command( int nCommandID, const char *pszConfiguration )
 {
 	if ( nCommandID != -1 ) 
@@ -624,7 +525,6 @@ void CMainLoop::Command( int nCommandID, const char *pszConfiguration )
 	else
 		Command( 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool GetFileVersion( const std::string &szFileName, VS_FIXEDFILEINFO *pVersionInfo )
 {
 	char pszLocalFileName[2048];
@@ -645,7 +545,6 @@ bool GetFileVersion( const std::string &szFileName, VS_FIXEDFILEINFO *pVersionIn
 	*pVersionInfo = *pFFI;
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void GetFileVersionString( const std::string &szFileName, std::string *pVersion )
 {
 	VS_FIXEDFILEINFO version;
@@ -658,7 +557,6 @@ void GetFileVersionString( const std::string &szFileName, std::string *pVersion 
 	else
 		*pVersion = "\"UNKNOWN\"";
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ReportDesc( const SModuleDescriptor *pDesc, IConsoleBuffer *pCB )
 {
 	const std::string szModuleFileName = NMain::GetModuleFileNameByDesc( pDesc );
@@ -666,7 +564,6 @@ void ReportDesc( const SModuleDescriptor *pDesc, IConsoleBuffer *pCB )
 	GetFileVersionString( szModuleFileName, &szVersion );
 	pCB->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format("Module \"%s\"of version %s", pDesc->pszName, szVersion.c_str()), 0xffffffff, true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ReportMainModuleVersion( IConsoleBuffer *pCB )
 {
 	char buffer[2048];
@@ -675,7 +572,6 @@ void ReportMainModuleVersion( IConsoleBuffer *pCB )
 	GetFileVersionString( buffer, &szVersion );
 	pCB->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format("Main Module Version: %s", szVersion.c_str()), 0xffffffff, true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ParseWorldStreamCommands()
 {
 	IConsoleBuffer *pCB = GetSingleton<IConsoleBuffer>();
@@ -694,7 +590,6 @@ void ParseWorldStreamCommands()
 				while ( const SModuleDescriptor *pDesc = NMain::GetNextModuleDesc() ) 
 					ReportDesc( pDesc, pCB );
 			}
-			// main build version
 			ReportMainModuleVersion( pCB );
 		}
 		else if ( szStrings[0] == "dumpvars" ) 
@@ -704,11 +599,9 @@ void ParseWorldStreamCommands()
 		else
 			returncommands.push_back( pszCommand );
 	}
-	// add unprocessed commands
 	for ( std::list<std::string>::const_iterator it = returncommands.begin(); it != returncommands.end(); ++it )
 		pCB->WriteASCII( CONSOLE_STREAM_WORLD, it->c_str() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
 void CMainLoop::ProcessTimeoutMsg( const SGameMessage &msg )
 {
@@ -724,11 +617,9 @@ void CMainLoop::ProcessTimeoutMsg( const SGameMessage &msg )
 	}
 }
 */
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMainLoop::StepApp( bool bActive )
 {
 	bAppIsActive = bActive;
-	// do autosave
 #ifndef _FINALRELEASE	
 	if ( nAutoSavePeriod > 0 ) 
 	{
@@ -740,7 +631,6 @@ bool CMainLoop::StepApp( bool bActive )
 		}
 	}
 #endif // _FINALRELEASE
-	// execute interface (overlord) commands
 	CInterfaceCommandsList delayedCommands;
 	const NTimer::STime timeAbs = timeGetTime();
 	while ( !cmds.empty() )
@@ -758,10 +648,8 @@ bool CMainLoop::StepApp( bool bActive )
 		else
 			delayedCommands.push_back( pCmd );
 	}
-	// re-store delayed commands
 	for ( CInterfaceCommandsList::iterator it = delayedCommands.begin(); it != delayedCommands.end(); ++it )
 		cmds.push_back( *it );
-	// check for empty interfaces stack
 	if ( interfaces.empty() )
 	{
 		NI_ASSERT_T( !interfaces.empty(), "Can't perform execution more: empty interfaces stack... leaving..." );
@@ -769,9 +657,7 @@ bool CMainLoop::StepApp( bool bActive )
 		return false;
 	}
 	NI_ASSERT_T( interfaces.back()->IsValid(), NStr::Format("Invalid Interface of class \"%s\"", typeid(*interfaces.back()).name()) );
-	// parse WORLD commands from console
 	ParseWorldStreamCommands();
-	// update game timer
 	if ( nGuaranteeFPS == -1 ) 
 	{
 		NHPTimer::STime hptime;
@@ -783,26 +669,20 @@ bool CMainLoop::StepApp( bool bActive )
 		nGuaranteeFPSTime += nGuaranteeFPS;
 		GetSingleton<IGameTimer>()->Update( nGuaranteeFPSTime );
 	}
-	// do all game segments
 	GetSingleton<ITransceiver>()->DoSegments();
 
-	// commands processing
 	if ( !bDisableMessageProcessing ) 
 	{
-		// process text messages
 		STextMessage textMessage;
 		while ( pInput->GetTextMessage( &textMessage ) )
 			interfaces.back()->ProcessTextMessage( textMessage );
-		// process main messages
 		SGameMessage msg;
 		while ( pInput->GetMessage( &msg ) )
 		{
-			//ProcessTimeoutMsg( msg );
 			interfaces.back()->ProcessUIMessage( msg );
 			while ( interfaces.back()->GetMessage(&msg) )
 				ProcessStandardMsgs( msg );
 		}
-		// make UI self-generated messages processing
 		msg.nEventID = -1;
 		if ( interfaces.back()->ProcessUIMessage(msg) )
 		{
@@ -812,17 +692,12 @@ bool CMainLoop::StepApp( bool bActive )
 	}
 	else
 	{
-		// clear text messages
 		STextMessage textMessage;
 		while ( pInput->GetTextMessage( &textMessage ) );
-		// clear main messages
 		SGameMessage msg;
-//		while ( pInput->GetMessage( &msg ) )
-//			ProcessTimeoutMsg( msg );
 		while ( pInput->GetMessage( &msg ) );
 	}
 	/*
-	// check for timeout update
 	if ( timeout.IsActive() ) 
 	{
 		const NTimer::STime timeRest = timeout.Update();
@@ -832,10 +707,8 @@ bool CMainLoop::StepApp( bool bActive )
 			GetSingleton<ITransceiver>()->CommandTimeOut( false );
 	}
 	*/
-	// do step for all interfaces
 	for ( CInterfacesList::reverse_iterator it = interfaces.rbegin(); it != interfaces.rend(); ++it )
 		(*it)->Step( bActive );
-	// save movie frame (if it is)
 	if ( bActive ) 
 	{
 		if ( const char *pszMovieDir = GetGlobalVar("MovieDir", (const char*)0) )
@@ -854,11 +727,8 @@ bool CMainLoop::StepApp( bool bActive )
 			}
 		}
 	}
-//	GetSingleton<ITransceiver>()->SegmentFinished();
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainLoop::EnableMessageProcessing( const bool bEnable ) 
 { 
 	bDisableMessageProcessing = !bEnable; 
@@ -866,7 +736,6 @@ void CMainLoop::EnableMessageProcessing( const bool bEnable )
 	GetSingleton<ICursor>()->SetMode( bEnable ? USER_ACTION_UNKNOWN : USER_ACTION_HOURGLASS );
 	GetSingleton<IInput>()->AddMessage( SGameMessage(TUTORIAL_TRY_SHOW_IF_NOT_SHOWN) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainLoop::StoreScenarioTracker()
 {
 	NI_ASSERT_T( pStoredScenarioTracker == 0, "Can't store new scenario tracker - restore previous one before" );
@@ -883,15 +752,6 @@ void CMainLoop::RestoreScenarioTracker()
 		pStoredScenarioTracker = 0;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** progress screen
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CProgressScreen::Init( EProgressType nType )
 {
 	CPtr<IDataStorage> pStorage = GetSingleton<IDataStorage>();
@@ -926,11 +786,9 @@ void CProgressScreen::Init( EProgressType nType )
 	Init( "movies\\progress\\" + vMovies[i].szMovieName );
 	SetText( &(vMovies[i]) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CProgressScreen::Init( const std::string &szMovieName )
 {
 	pGFX = GetSingleton<IGFX>();
-//	pGFX->Clear( 0, 0, GFXCLEAR_TARGET | GFXCLEAR_ZBUFFER | GFXCLEAR_STENCIL, 0 );
 	pVP = CreateObject<IVideoPlayer>( SCENE_VIDEO_PLAYER );
 	pVP->Play( szMovieName.c_str(), IVideoPlayer::PLAY_FROM_MEMORY, pGFX, GetSingleton<ISFX>() );
 	nNumFrames = pVP->GetNumFrames();
@@ -939,13 +797,11 @@ void CProgressScreen::Init( const std::string &szMovieName )
 	nCurrFrame = 0;
 	GetSingleton<ICursor>()->Show( false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CProgressScreen::Stop()
 {
 	pVP->Stop();
 	GetSingleton<ICursor>()->Show( true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CProgressScreen::SetNumSteps( const int nRange, const float fPercentage )
 {
 	if ( nNumFrames == 0 ) 
@@ -968,25 +824,21 @@ void CProgressScreen::SetNumSteps( const int nRange, const float fPercentage )
 		nCurrentStep = fCurrPercentage * nRange;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CProgressScreen::Step()
 {
 	if ( nCurrentStep != nNumSteps )
 		++nCurrentStep;
 	Draw();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CProgressScreen::SetCurrPos( const int nPos )
 {
 	nCurrentStep = Clamp( nPos, 1, nNumSteps );
 	Draw();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CProgressScreen::GetCurrPos() const
 {
 	return nCurrentStep;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CProgressScreen::Draw()
 {
 	if ( pVP != 0 )
@@ -1026,7 +878,6 @@ void CProgressScreen::Draw()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CProgressScreen::SetText( const SProgressMovieInfo *pInfo )
 {
 	if ( CPtr<IText> pText = GetSingleton<ITextManager>()->GetString(pInfo->szTextSource.c_str()) )
@@ -1067,7 +918,6 @@ void CProgressScreen::SetText( const SProgressMovieInfo *pInfo )
 	else
 		pGFXText = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CProgressScreen::Recover()
 {
 	switch ( nFontSize )
@@ -1084,4 +934,3 @@ void CProgressScreen::Recover()
 			break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -7,14 +7,11 @@
 #include "UnitsIterators2.h"
 #include "Turret.h"
 #include "AIUnit.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern NTimer::STime curTime;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CFreeFireManager::CFreeFireManager( CCommonUnit *pOwner ) 
 : shootInfo( 2 * pOwner->GetNGuns() ), lastCheck( 0 ) 
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFreeFireManager::Analyze( CCommonUnit *pUnit, CBasicGun *pActiveGun )
 {
 	if ( curTime - lastCheck >= TIME_TO_CHECK )
@@ -33,7 +30,6 @@ void CFreeFireManager::Analyze( CCommonUnit *pUnit, CBasicGun *pActiveGun )
 		{
 			CBasicGun *pGun = pUnit->GetGun( i );
 
-			// нельзя анализировать
 			if ( pGun->IsCommonEqual( pActiveGun ) || pGun->IsCommonGunFiring() || pGun->GetGun().nPriority == 0 && !pUnit->IsIdle() || pGun->GetNAmmo() == 0 )
 			{
 				dwForbidden |= ( 1 << i );
@@ -74,12 +70,10 @@ void CFreeFireManager::Analyze( CCommonUnit *pUnit, CBasicGun *pActiveGun )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFreeFireManager::SShotInfo::NeedAim( CAIUnit *pNewTarget, CBasicGun *pGun ) const
 {
 	return pNewTarget != pTarget || shootingPos != pNewTarget->GetCenter() || unitDir != pNewTarget->GetFrontDir() || gunDir != pGun->GetGlobalDir();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFreeFireManager::SShotInfo::SetInfo( CAIUnit *pNewTarget, CBasicGun *pGun )
 {
 	pTarget = pNewTarget;
@@ -87,4 +81,3 @@ void CFreeFireManager::SShotInfo::SetInfo( CAIUnit *pNewTarget, CBasicGun *pGun 
 	unitDir = pNewTarget->GetFrontDir();
 	gunDir = pGun->GetGlobalDir();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

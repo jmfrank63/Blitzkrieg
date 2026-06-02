@@ -1,6 +1,3 @@
-// Variant.cpp: implementation of the CVariant class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include "Variant.h"
@@ -237,7 +234,6 @@ void CVariant::SetNewValue( const string strVal )
 	case VT_INT64:
 		m_int64Val = MyHexStrTo64( strVal.c_str() );
 	case VT_INT32:
-//		m_int64Val = _atoi64( strVal.c_str() );
 		m_intVal = HexStrToInt( strVal.c_str() );
 		break;
   case VT_STR:
@@ -300,7 +296,6 @@ void CVariant::SetType( EVarialeType tip )		//RR
 int CVariant::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
-	//Сохраняем тип варианта
 	if ( saver.IsReading() )
 	{
 		int nType = 0;
@@ -313,7 +308,6 @@ int CVariant::operator&( IDataTree &ss )
 		saver.Add( "type", &nType );
 	}
 
-	//Сохраняем значения
 	saver.Add( "flag", &m_flagsOptimized );
 	saver.Add( "float_value", &m_floatVal );
 	saver.Add( "int_value", &m_intVal );
@@ -333,6 +327,5 @@ int CVariant::operator&( IDataTree &ss )
 		saver.Add( "int64high", &dwHigh );
 		m_int64Val = ((int64) dwHigh << 32) + dwLow;
 	}
-	//
 	return 0;
 }

@@ -1,6 +1,5 @@
 #ifndef __WINFRAME_H__
 #define __WINFRAME_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NWinFrame
 {
 	struct SWindowsMsg
@@ -25,23 +24,17 @@ namespace NWinFrame
 		};
 		DWORD dwFlags;
 	};
-	//
 	bool GetMessage( SWindowsMsg *pRes );
 	HWND GetHWnd();
 	HINSTANCE GetHInstance();
-	// main creation function
 	bool InitApplication( HINSTANCE hInstance, const char *pszAppName, const char *pszWndName, int nWidth, int nHeight );
 	void ShowAppWindow( bool bShow );
-	// splash screen
 	void ShowSplashScreen( HINSTANCE hInstance, bool bShow );
-	// 
 	void PumpMessages();
-	//
 	void SetActive( bool bActive );
 	void Exit( int nExitCode );
 	bool IsActive();
 	bool IsExit();
 	void ResetExit();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __WINFRAME_H__

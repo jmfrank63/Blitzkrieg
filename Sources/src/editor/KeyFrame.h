@@ -6,8 +6,6 @@
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
-// KeyFrame.h : header file
-//
 
 const UINT WM_KEY_FRAME_RCLICK	= WM_USER + 35;		// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 const UINT WM_KEY_FRAME_UPDATE	= WM_USER + 36;		// ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ framesList
@@ -15,12 +13,9 @@ const UINT WM_KEY_FRAME_UPDATE	= WM_USER + 36;		// ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï
 using std::list;
 using std::pair;
 
-/////////////////////////////////////////////////////////////////////////////
-// CKeyFrameEditor window
 
 class CKeyFrameEditor : public CWnd
 {
-// Construction
 public:
 	enum EActiveMode
 	{
@@ -31,10 +26,8 @@ public:
 	CKeyFrameEditor();
 	virtual ~CKeyFrameEditor();
 	
-// Attributes
 public:
 
-// Operations
 public:
 	void SetDimentions( float fMinX, float fMaxX, float fStepX, float fMinY, float fMaxY, float fStepY );
 	void SetFramesList( CFramesList frames ) { framesList = frames; }
@@ -44,23 +37,16 @@ public:
 	void SetXResizeMode( bool bResize );
 	void DeleteActiveNode();
 	
-// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CKeyFrameEditor)
 	public:
 	virtual BOOL Create(LPCTSTR lpszClassName, LPCTSTR lpszWindowName, DWORD dwStyle, const RECT& rect, CWnd* pParentWnd, UINT nID, CCreateContext* pContext = NULL);
-	//}}AFX_VIRTUAL
 
-// Implementation
 protected:
-//	void GetScreenCoord( float x, float y, float *screenX, float *screenY );
 	void SetHDimention( float fMin, float fMax );
 	void SetVDimention( float fMin, float fMax );
 	void GetVisibleX( int *nMin, int *nMax );			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ScrollBar
 	void GetVisibleY( int *nMin, int *nMax );
 	void GetScreenByValue( float fValX, float fValY, float *pScreenX, float *pScreenY );
 	void GetValueByScreen( int x, int y, float *pValX, float *pValY );
-//	CFramesList::iterator GetNearNodeIndex( int x, int y, int *pIndex );
 		
 private:
 	CScrollBar m_BottomScroll, m_LeftScroll;
@@ -76,9 +62,7 @@ private:
 	float m_XS;
 	int m_YS;
 
-	// Generated message map functions
 protected:
-	//{{AFX_MSG(CKeyFrameEditor)
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg void OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
 	afx_msg void OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
@@ -97,14 +81,10 @@ protected:
 	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
 	afx_msg void OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags);
 	afx_msg void OnRButtonDown(UINT nFlags, CPoint point);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 
-/////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif // !defined(AFX_KEYFRAME_H__B132E21D_2C65_44F9_A0C5_8F120B411033__INCLUDED_)
 

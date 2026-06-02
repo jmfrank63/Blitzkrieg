@@ -43,7 +43,6 @@ template <class _Key, __DFL_TMPL_PARAM(_Compare,less<_Key>),
                      _STLP_DEFAULT_ALLOCATOR_SELECT(_Key) >
 class set {
 public:
-// typedefs:
   typedef _Key     key_type;
   typedef _Key     value_type;
   typedef _Compare key_compare;
@@ -68,7 +67,6 @@ private:
   _Rep_type _M_t;  // red-black tree representing set
 public:
 
-  // allocation/deallocation
 
   set() : _M_t(_Compare(), allocator_type()) {}
   explicit set(const _Compare& __comp,
@@ -116,7 +114,6 @@ public:
     return *this;
   }
 
-  // accessors:
 
   key_compare key_comp() const { return _M_t.key_comp(); }
   value_compare value_comp() const { return _M_t.key_comp(); }
@@ -131,7 +128,6 @@ public:
   size_type max_size() const { return _M_t.max_size(); }
   void swap(set<_Key,_Compare,_Alloc>& __x) { _M_t.swap(__x._M_t); }
 
-  // insert/erase
   pair<iterator,bool> insert(const value_type& __x) { 
     typedef typename _Rep_type::iterator _Rep_iterator;
     pair<_Rep_iterator, bool> __p = _M_t.insert_unique(__x); 
@@ -167,7 +163,6 @@ public:
   }
   void clear() { _M_t.clear(); }
 
-  // set operations:
 # if defined(_STLP_MEMBER_TEMPLATES) && ! defined ( _STLP_NO_EXTENSIONS )
   template <class _KT>
   iterator find(const _KT& __x) const { return _M_t.find(__x); }
@@ -192,7 +187,6 @@ template <class _Key, __DFL_TMPL_PARAM(_Compare,less<_Key>),
                      _STLP_DEFAULT_ALLOCATOR_SELECT(_Key) >
 class multiset {
 public:
-  // typedefs:
 
   typedef _Key     key_type;
   typedef _Key     value_type;
@@ -217,7 +211,6 @@ public:
 private:
   _Rep_type _M_t;  // red-black tree representing multiset
 public:
-  // allocation/deallocation
 
   multiset() : _M_t(_Compare(), allocator_type()) {}
   explicit multiset(const _Compare& __comp,
@@ -272,7 +265,6 @@ public:
     return *this;
   }
 
-  // accessors:
 
   key_compare key_comp() const { return _M_t.key_comp(); }
   value_compare value_comp() const { return _M_t.key_comp(); }
@@ -287,7 +279,6 @@ public:
   size_type max_size() const { return _M_t.max_size(); }
   void swap(multiset<_Key,_Compare,_Alloc>& __x) { _M_t.swap(__x._M_t); }
 
-  // insert/erase
   iterator insert(const value_type& __x) { 
     return _M_t.insert_equal(__x);
   }
@@ -322,7 +313,6 @@ public:
   }
   void clear() { _M_t.clear(); }
 
-  // multiset operations:
 
 # if defined(_STLP_MEMBER_TEMPLATES) && ! defined ( _STLP_NO_EXTENSIONS )
   template <class _KT>
@@ -353,10 +343,8 @@ public:
 
 _STLP_END_NAMESPACE
 
-// do a cleanup
 # undef set
 # undef multiset
-// provide a way to access full funclionality 
 # define __set__  __FULL_NAME(set)
 # define __multiset__  __FULL_NAME(multiset)
 
@@ -366,7 +354,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_SET_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

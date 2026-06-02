@@ -1,9 +1,7 @@
 #ifndef __UI_MEDALS_H__
 #define __UI_MEDALS_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "UIBasic.h"
 #include "UISlider.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIMedals : public CMultipleWindow
 {
 	DECLARE_SERIALIZE;
@@ -21,13 +19,11 @@ public:
 		nNextPosX( 0 ), nNextPosY( 0 ), nVTextSpace( 5 ) {}
 	~CUIMedals() {}
 	
-	// serializing...
 	virtual int STDCALL operator&( IDataTree &ss );
 	virtual void STDCALL Reposition( const CTRect<float> &rcParent );
 	
 	virtual bool STDCALL ProcessMessage( const SUIMessage &msg );
 	
-	// drawing
 	virtual void STDCALL Draw( IGFX *pGFX );
 	virtual void STDCALL Visit( interface ISceneVisitor *pVisitor );
 	
@@ -43,12 +39,10 @@ private:
 	void UpdateScrollbar();						//вызывается после добавления всех objectives для обновления ScrollBar
 	void InitMaps();									//для инициализации текстурных координат
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUIMedalsBridge : public IUIContainer, public CUIMedals
 {
 	OBJECT_NORMAL_METHODS( CUIMedalsBridge );
 	DECLARE_SUPER( CUIMedals );
 	DEFINE_UICONTAINER_BRIDGE;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif		//__UI_MEDALS_H__

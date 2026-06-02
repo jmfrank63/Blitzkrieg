@@ -1,10 +1,7 @@
 #ifndef __FENCE_H__
 #define __FENCE_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "StaticObject.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFence : public CCommonStaticObject
 {
 	OBJECT_COMPLETE_METHODS( CFence );
@@ -21,12 +18,9 @@ class CFence : public CCommonStaticObject
 	enum ETypesOfLife { ETOL_SAFE, ETOL_LEFT, ETOL_RIGHT, ETOL_DESTROYED };
 	ETypesOfLife eLifeType;
 
-	// соседние заборы
 	std::list< CPtr<CFence> > neighFences;
-	// стороны, у которых ломаются заборы
 	std::list<ETypesOfLife> dirToBreak;
 
-	//
 	void InitDirectionInfo();
 	void AnalyzeConnection( CFence *pFence );
 	void DamagePartially( const ETypesOfLife eType );
@@ -48,5 +42,4 @@ public:
 	virtual bool IsAlive() const { return eLifeType != ETOL_DESTROYED && CCommonStaticObject::IsAlive(); }
 	virtual bool ShouldSuspendAction( const EActionNotify &eAction ) const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __FENCE_H__

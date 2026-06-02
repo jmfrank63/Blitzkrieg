@@ -46,7 +46,6 @@ public:
 	virtual void Init( IGFX *_pGFX );
 	
 private:
-	//��� ����������� �����
 	CPtr<IGFXVertices> pGridVertices;
 	
 protected:

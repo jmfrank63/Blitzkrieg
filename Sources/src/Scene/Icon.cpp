@@ -1,7 +1,6 @@
 #include "StdAfx.h"
 
 #include "Icon.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SIconDesc::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -13,11 +12,9 @@ int SIconDesc::operator&( IStructureSaver &ss )
 	saver.Add( 6, &vAddStep );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void RepositionIconsLocal( CIconsList &icons, DWORD placement, const CTRect<float> &rcRect, const float _fAddZ )
 {
 	CIconsList locals;
-	// form list and sort it by priority
 	for ( CIconsList::iterator it = icons.begin(); it != icons.end(); ++it )
 	{
 		if ( (it->placement & placement) == placement )
@@ -26,14 +23,11 @@ void RepositionIconsLocal( CIconsList &icons, DWORD placement, const CTRect<floa
 	if ( locals.empty() )
 		return;
 	locals.sort( SIconDescPriorityLessFunctional() );
-	// do placement
 	const float fAddZ = rcRect.top + _fAddZ;
-	//
 	CVec3 vPos = VNULL3;
 	CVec3 vStep = VNULL3;
 	CVec3 vStepSign = CVec3( 1, 1, 1 );
 	CVec3 vAdd = VNULL3;
-	// horizontal placement
 	switch ( placement & (ICON_ALIGNMENT_LEFT | ICON_ALIGNMENT_HCENTER | ICON_ALIGNMENT_RIGHT) ) 
 	{
 		case ICON_ALIGNMENT_LEFT:
@@ -50,7 +44,6 @@ void RepositionIconsLocal( CIconsList &icons, DWORD placement, const CTRect<floa
 		default:
 			NI_ASSERT_T( false, "unknown horizontal placement" )
 	}
-	// vertical plcement
 	switch ( placement & (ICON_ALIGNMENT_TOP | ICON_ALIGNMENT_VCENTER | ICON_ALIGNMENT_BOTTOM) ) 
 	{
 		case ICON_ALIGNMENT_TOP:
@@ -66,7 +59,6 @@ void RepositionIconsLocal( CIconsList &icons, DWORD placement, const CTRect<floa
 		default:
 			NI_ASSERT_T( false, "unknown vertical placement" )
 	}
-	// direction
 	switch ( placement & (ICON_PLACEMENT_VERTICAL | ICON_PLACEMENT_HORIZONTAL) ) 
 	{
 		case ICON_PLACEMENT_VERTICAL:
@@ -82,17 +74,14 @@ void RepositionIconsLocal( CIconsList &icons, DWORD placement, const CTRect<floa
 		default:
 			NI_ASSERT_T( false, "unknown direction" )
 	}
-	//
 	NI_ASSERT_T( vStep != VNULL3, NStr::Format("Can't reposition icons - placement 0x%x still not realized", placement) );
 	for ( CIconsList::iterator it = locals.begin(); it != locals.end(); ++it )
 	{
 		vPos += it->vAddStep;
 		it->pIcon->SetPosition( vPos + it->vAddValue );
-		//
 		const CVec2 vSize = it->pIcon->GetSize();
 		vPos.x += vStepSign.x * ( vStep.x * vSize.x + vAdd.x );
 		vPos.y += vStepSign.y * ( vStep.y * vSize.x + vAdd.y );
 		vPos.z += vStepSign.z * ( vStep.z * vSize.y + vAdd.z );
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -12,7 +12,6 @@
 #include "CutScenesHelper.h"
 #include "UIConsts.h"
 #include "..\Misc\FileUtils.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void IUIState::Show()
 {
 	GetSingleton<IScene>()->SetToolTip( 0, CVec2(0, 0), CTRect<float>(0, 0, 0, 0) );
@@ -26,13 +25,11 @@ void IUIState::Show()
 	pHeader->SetWindowText( 0, pHeaderText->GetString() );
 	GetMainInterface()->RefreshCursor();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void IUIState::Hide()
 {
 	IUIElement *pMenu = GetMainInterface()->GetUIScreen()->GetChildByID( nMenuID );
 	pMenu->ShowWindow( UI_SW_HIDE );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIMainMenuState::ProcessMessage( const SGameMessage &msg )
 {
 	switch ( msg.nEventID )
@@ -45,8 +42,6 @@ bool CUIMainMenuState::ProcessMessage( const SGameMessage &msg )
 			GetMainInterface()->SetActiveState( CInterfaceMainMenu::E_NEW_GAME );
 			return true;
 		case IMC_MULTIPLAYER:
-			// check if strings exists
-			// if it is, then display message, else switch to multiplayer directly
 			{
 				const bool bFileExists = NFile::IsFileExist( "Data\\DisplayESRBMessage.txt" );
 				if ( bFileExists )
@@ -73,14 +68,12 @@ bool CUIMainMenuState::ProcessMessage( const SGameMessage &msg )
 	
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUINewGameState::Show()
 {
 	IUIState::Show();
 
 	IScenarioTracker * pTracker = GetSingleton<IScenarioTracker>();
 
-	//check if player's name differ from default
 	IOptionSystem * pOptions =  GetSingleton<IOptionSystem>();
 	const SOptionDesc * pDesc = pOptions->GetDesc( "GamePlay.PlayerName" );
 	variant_t varPlayerName;
@@ -97,7 +90,6 @@ void CUINewGameState::Show()
 		GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_PLAYER_PROFILE, 0 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUINewGameState::ProcessMessage( const SGameMessage &msg )
 {
 	switch ( msg.nEventID )
@@ -132,10 +124,8 @@ bool CUINewGameState::ProcessMessage( const SGameMessage &msg )
 			GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_PLAYER_PROFILE, 0 );
 			return true;
 	}
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUISelectCampaignState::Show()
 {
 	IUIState::Show();
@@ -143,10 +133,7 @@ void CUISelectCampaignState::Show()
 	IDataStorage *pStorage = GetSingleton<IDataStorage>();
 	IUIScreen *pUIScreen = GetMainInterface()->GetUIScreen();
 
-	// CRAP{ криво у нас кампании на уровне интерфейса сделаны...
 	const int indices[] = { 10004, 10003, 10002 };
-	// 10004 - german (0), 10003 - russian (1), 10002 - allies (2)
-	// CRAP}
 	for ( int i = 0; i < 3; ++i )
 	{
 		const std::string szPartyName = CUIConsts::GetPartyNameByNumber( i );
@@ -164,7 +151,6 @@ void CUISelectCampaignState::Show()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUISelectCampaignState::ProcessMessage( const SGameMessage &msg )
 {
 	switch ( msg.nEventID )
@@ -196,13 +182,11 @@ bool CUISelectCampaignState::ProcessMessage( const SGameMessage &msg )
 
 			SetGlobalVar( "Campaign.Current", nNewCampaign );
 			const SCampaignStats *pCampaignStats = CInterfaceCampaign::ReadCampaignStats();
-			// don't start campaign in the case of empty stats
 			if ( pCampaignStats == 0 ) 
 			{
 				SetGlobalVar( "Campaign.Current", -1 );
 				break;
 			}
-			// проиграем видео
 			SetGlobalVar( "Campaign.Current.Name", pCampaignStats->szParentName.c_str() );
 			GetSingleton<IScenarioTracker>()->StartCampaign( pCampaignStats->szParentName.c_str(), CAMPAIGN_TYPE_SINGLE );
 
@@ -213,10 +197,8 @@ bool CUISelectCampaignState::ProcessMessage( const SGameMessage &msg )
 		}
 		break;
 	}
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIOptionsState::ProcessMessage( const SGameMessage &msg )
 {
 	switch ( msg.nEventID )
@@ -238,10 +220,8 @@ bool CUIOptionsState::ProcessMessage( const SGameMessage &msg )
 			return true;
 	}
 	
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIMultiplayerState::ProcessMessage( const SGameMessage &msg )
 {
 	switch ( msg.nEventID )
@@ -269,10 +249,8 @@ bool CUIMultiplayerState::ProcessMessage( const SGameMessage &msg )
 
 			return true;
 	}
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUICustomGameState::ProcessMessage( const SGameMessage &msg )
 {
 	switch ( msg.nEventID )
@@ -290,10 +268,8 @@ bool CUICustomGameState::ProcessMessage( const SGameMessage &msg )
 			GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_CUSTOM_MISSION, 0 );
 			return true;
 	}
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUILoadGameState::ProcessMessage( const SGameMessage &msg )
 {
 	switch ( msg.nEventID )
@@ -308,14 +284,11 @@ bool CUILoadGameState::ProcessMessage( const SGameMessage &msg )
 			GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_REPLAY_LIST, 0 );
 			return true;
 	}
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUICreditsState::Show()
 {
 	IUIState::Show();
-	//
 	GetMainInterface()->GetUIScreen()->GetChildByID( 20001 )->ShowWindow( UI_SW_HIDE );
 	GetMainInterface()->GetUIScreen()->GetChildByID( 2007 )->ShowWindow( UI_SW_HIDE );
 	GetMainInterface()->GetUIScreen()->GetChildByID( 7777 )->ShowWindow( UI_SW_SHOW );
@@ -327,16 +300,13 @@ void CUICreditsState::Show()
 	bLeaveToMainMenu = GetGlobalVar( "FinishingCampaign", 0 ) == 1;
 	RemoveGlobalVar( "FinishingCampaign" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUICreditsState::Hide()
 {
 	GetMainInterface()->GetUIScreen()->GetChildByID( 20001 )->ShowWindow( UI_SW_SHOW );
 	GetMainInterface()->GetUIScreen()->GetChildByID( 7777 )->ShowWindow( UI_SW_HIDE );
 	GetMainInterface()->PlayIntermissionSound();
-	//
 	IUIState::Hide();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUICreditsState::ProcessMessage( const SGameMessage &msg )
 {
 	switch ( msg.nEventID )
@@ -351,10 +321,8 @@ bool CUICreditsState::ProcessMessage( const SGameMessage &msg )
 		default:
 			break;
 	}
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIDemoMainMenuState::ProcessMessage( const SGameMessage &msg )
 {
 	switch( msg.nEventID )

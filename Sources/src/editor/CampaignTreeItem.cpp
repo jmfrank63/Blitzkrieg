@@ -107,7 +107,6 @@ void CCampaignCommonPropsItem::UpdateItemValue( int nItemId, const CVariant &val
 	
 	if ( nItemId == 1 || nItemId == 2 || nItemId == 3 )
 	{
-		//сконвертим путь к файлу в относительный без расширения
 		if ( !IsRelatedPath( value ) )
 		{
 			string szValue = value;
@@ -115,7 +114,6 @@ void CCampaignCommonPropsItem::UpdateItemValue( int nItemId, const CVariant &val
 			bool bRes =	MakeSubRelativePath( g_frameManager.GetFrame( CFrameManager::E_CAMPAIGN_FRAME )->GetProjectFileName().c_str(), szValue.c_str(), szRelatedPath );
 			if ( bRes )
 			{
-				//обрежем расширение в конце
 				szRelatedPath = szRelatedPath.substr( 0, szRelatedPath.rfind( '.' ) );
 				CVariant newVal = szRelatedPath;
 				CTreeItem::UpdateItemValue( nItemId, newVal );
@@ -155,7 +153,6 @@ void CCampaignChaptersItem::MyKeyDown( int nChar )
 	{
 		case VK_INSERT:
 			CTreeItem *pItem = new CCampaignChapterPropsItem;
-			// string szName = NStr::Format( "Objective", GetChildsCount() );
 			pItem->SetItemName( "Chapter" );
 			AddChild( pItem );
 			g_frameManager.GetFrame( CFrameManager::E_CAMPAIGN_FRAME )->SetChangedFlag( true );
@@ -169,7 +166,6 @@ void CCampaignChaptersItem::MyRButtonClick()
 	if ( nRes == ID_INSERT_TREE_ITEM )
 	{
 		CTreeItem *pItem = new CCampaignChapterPropsItem;
-		// string szName = NStr::Format( "Objective", GetChildsCount() );
 		pItem->SetItemName( "Chapter" );
 		AddChild( pItem );
 		g_frameManager.GetFrame( CFrameManager::E_CAMPAIGN_FRAME )->SetChangedFlag( true );
@@ -252,12 +248,10 @@ void CCampaignChapterPropsItem::UpdateItemValue( int nItemId, const CVariant &va
 	
 	if ( nItemId == 1 )
 	{
-		//добавляю scenarious\\chapters\\ в начало имени, если оно еще не присутствует
 		std::string szValue = value;
 		std::string szPrefix = "scenarios\\chapters\\";
 		if ( strncmp( szValue.c_str(), szPrefix.c_str(), szPrefix.size() ) )
 		{
-			//нету такой строчки вначале
 			szValue = szPrefix + szValue;
 			CTreeItem::UpdateItemValue( nItemId, szValue );
 			g_frameManager.GetFrame( CFrameManager::E_CAMPAIGN_FRAME )->UpdatePropView( this );
@@ -336,14 +330,12 @@ void CCampaignTemplatesItem::UpdateItemValue( int nItemId, const CVariant &value
 	
 	if ( nItemId == 1 )
 	{
-		//изменилась директория, считываю все *.san файлы из поддиректорий
 		std::string szVal = value;
 		string szMask = "*.xml";
 		vector<string> files;
 		std::string szBaseDir = theApp.GetEditorDataDir();
 		szBaseDir += "Scenarios\\TemplateMissions\\";
 		
-		//обновим имя директории
 		std::string szShortDirName;
 		bool bRes = MakeSubRelativePath( szBaseDir.c_str(), szVal.c_str(), szShortDirName );
 		if ( !bRes )
@@ -366,7 +358,6 @@ void CCampaignTemplatesItem::UpdateItemValue( int nItemId, const CVariant &value
 		g_frameManager.GetFrame( CFrameManager::E_CAMPAIGN_FRAME )->UpdatePropView( this );
 		g_frameManager.GetFrame( CFrameManager::E_CAMPAIGN_FRAME )->SetChangedFlag( true );
 		
-		//составляю полный список xml файлов
 		NFile::EnumerateFiles( szVal.c_str(), szMask.c_str(), NFile::CGetAllFilesRelative( szBaseDir.c_str(), &files ), true );
 		for ( int i=0; i<files.size(); i++ )
 		{
@@ -429,12 +420,10 @@ void CCampaignTemplatePropsItem::UpdateItemValue( int nItemId, const CVariant &v
 	
 	if ( nItemId == 1 )
 	{
-		//добавляю scenarious\\templatemissions\\ в начало имени, если оно еще не присутствует
 		std::string szValue = value;
 		std::string szPrefix = "scenarios\\templatemissions\\";
 		if ( strncmp( szValue.c_str(), szPrefix.c_str(), szPrefix.size() ) )
 		{
-			//нету такой строчки вначале
 			ChangeItemName( szValue.c_str() );
 
 			szValue = szPrefix + szValue;
@@ -443,7 +432,6 @@ void CCampaignTemplatePropsItem::UpdateItemValue( int nItemId, const CVariant &v
 		}
 		else
 		{
-			//обрежем начало значения и установим в качестве имени
 			szValue = szValue.c_str() + szPrefix.size();
 			ChangeItemName( szValue.c_str() );
 			g_frameManager.GetFrame( CFrameManager::E_CAMPAIGN_FRAME )->UpdatePropView( this );

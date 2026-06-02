@@ -1,24 +1,18 @@
 #ifndef __INTERFACEMESSAGEBOX_H__
 #define __INTERFACEMESSAGEBOX_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "InterMission.h"
 #include "iMission.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CInterfaceMessageBox : public CInterfaceInterMission
 {
 	OBJECT_NORMAL_METHODS( CInterfaceMessageBox );
 	DECLARE_SERIALIZE;
 	
-	// input
 	NInput::CCommandRegistrator commandMsgs;
 
 	std::string szGlobalVarOnOk;
 	bool bDoubleButton;
-	//
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
-	// disable explicit destruction
 	virtual ~CInterfaceMessageBox();
 	CInterfaceMessageBox();
 
@@ -26,7 +20,6 @@ public:
 	virtual bool STDCALL Init();
 	void Create( const std::string &szCaptionKey, const std::string &szMessageKey, const bool _bDoubleButton, const std::string &szGlobalVarOnOk );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CICMessageBox : public CInterfaceCommandBase<CInterfaceMessageBox, MISSION_INTERFACE_MESSAGE_BOX>
 {
 	OBJECT_NORMAL_METHODS( CICMessageBox );
@@ -42,7 +35,6 @@ class CICMessageBox : public CInterfaceCommandBase<CInterfaceMessageBox, MISSION
 		pIMM->Create( szCaptionKey, szMessageKey, bDoubleButton, szGlobalVarOnOk );
 		pML->PushInterface( pIMM );
 	}
-	//
 public:
 	virtual void STDCALL Configure( const char *pszConfig )
 	{
@@ -59,5 +51,4 @@ public:
 		}
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __INTERFACEMESSAGEBOX_H__

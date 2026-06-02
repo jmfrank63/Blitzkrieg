@@ -16,20 +16,10 @@
 #include "..\Input\Input.h"
 #include "..\Input\InputTypes.h"
 #include "..\Main\iMainCommands.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** options system
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 COptionSystem::COptionSystem()
 {
 	ChangeSerialize( "*", true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void FillOnOff( std::vector<SOptionDropListValue> *pDroplist )
 {
 	SOptionDropListValue val;
@@ -39,7 +29,6 @@ void FillOnOff( std::vector<SOptionDropListValue> *pDroplist )
 	val.szProgName = "OFF";
 	pDroplist->push_back( val );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void FillDifficulty( std::vector<SOptionDropListValue> *pDroplist )
 {
 	SOptionDropListValue val;
@@ -56,7 +45,6 @@ void FillDifficulty( std::vector<SOptionDropListValue> *pDroplist )
 	val.szProgName = "Ironman";
 	pDroplist->push_back( val );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SetWeather( const variant_t &var )
 {
 	const std::string szOnOff = (const char*)bstr_t(var);
@@ -65,14 +53,12 @@ void SetWeather( const variant_t &var )
 	else
 		SetGlobalVar( "Options.NoWeather", 1 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SetMouseSensitivity( const variant_t &var )
 {
 	const int nSensitivity = short( var ); // 0 - 100
 	const float fSense = 0.5f + 2.0f * float( nSensitivity ) / 100.0f;
 	GetSingleton<ICursor>()->SetSensitivity( fSense );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SetMultipleMarkers( const variant_t &var )
 {
 	const std::string szOnOff = (const char*)bstr_t(var);
@@ -82,7 +68,6 @@ void SetMultipleMarkers( const variant_t &var )
 	else
 		SetGlobalVar( "Options.NoMultipleMarkers", 1 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SetDifficulty( const variant_t &var )
 {
 	RemoveGlobalVar( "Options.MissionSave.Disabled" );
@@ -106,7 +91,6 @@ void SetDifficulty( const variant_t &var )
 		SetGlobalVar( "Options.MissionSave.Disabled", 1 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void GetGameSpeed( std::vector<SOptionDropListValue> *pDroplist )
 {
 	SOptionDropListValue val;
@@ -125,7 +109,6 @@ void GetGameSpeed( std::vector<SOptionDropListValue> *pDroplist )
 	val.szProgName = "VeryFast";
 	pDroplist->push_back( val );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SetGameSpeed( const variant_t &var )
 {
 	if ( GetGlobalVar("MultiplayerGame", 0) == 1 ) 
@@ -135,7 +118,6 @@ void SetGameSpeed( const variant_t &var )
 		GetSingleton<IGameTimer>()->SetSpeed( nSpeed );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SOptionDesc* COptionSystem::GetDesc( const std::string &szVarName ) const
 {
 	if ( const SOption *pOpt = GetVar(szVarName) )
@@ -151,16 +133,13 @@ const SOptionDesc* COptionSystem::GetDesc( const std::string &szVarName ) const
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool COptionSystem::Set( const std::string &szVarName, const variant_t &_var )
 {
 	variant_t var = _var;
 
 	bool bRetVal = false;
-	//CRAP{ long string cutting (Game Spy server name only)
 	if ( var.vt == VT_BSTR )
 	{
-		// cut string for allowable lenght
 		std::wstring szStr = (const wchar_t*)bstr_t(var);
 		if ( szStr.size() > 12 )
 		{
@@ -168,9 +147,7 @@ bool COptionSystem::Set( const std::string &szVarName, const variant_t &_var )
 			var = bstr_t(szStr.c_str());
 		}
 	}
-	//CRAP}
 
-	//CRAP{ FOR LOCAL PLAYER NAME
 	if ( szVarName == "GamePlay.PlayerName" )
 	{
 		std::wstring szPlayerName = (const wchar_t*)bstr_t(var);
@@ -186,11 +163,9 @@ bool COptionSystem::Set( const std::string &szVarName, const variant_t &_var )
 	}
 	else
 		bRetVal = CBase::Set( szVarName, var );
-	//CRAP}
 	
 	InnerSet( szVarName, var );
 
-	//during sound options we must play sound
 	if ( const SOption *pOpt = GetVar(szVarName) )
 	{
 		if ( pOpt->szAction == "SetSFXVolume" )
@@ -199,10 +174,8 @@ bool COptionSystem::Set( const std::string &szVarName, const variant_t &_var )
 	return bRetVal;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void COptionSystem::InnerSet( const std::string &szVarName, const variant_t &var )
 {
-	//
 	if ( const SOption *pOpt = GetVar(szVarName) )
 	{
 		
@@ -235,7 +208,6 @@ void COptionSystem::InnerSet( const std::string &szVarName, const variant_t &var
 				SetGlobalVar( ("Options." + szVarName).c_str(), 1 );
 			else
 				SetGlobalVar( ("Options." + szVarName).c_str(), 0 );
-			// to reload blood settings
 		}
 		else if ( pOpt->szAction == "SetMouseSensitivity" )
 		{
@@ -274,7 +246,6 @@ void COptionSystem::InnerSet( const std::string &szVarName, const variant_t &var
 			const float fBrightness = ((Get( "GFX.Gamma.Brightness", &var ) == true ? float(var) : 50.0f) - 50.0f ) / 50.0f;
 			const float fContrast = ((Get( "GFX.Gamma.Contrast", &var ) == true ? float(var) : 50.0f) - 50.0f ) / 50.0f;
 			const float fGamma = ((Get( "GFX.Gamma.Gamma", &var ) == true ? float(var) : 50.0f) - 50.0f ) / 50.0f;
-			//
 			SetGammaCorrection( fBrightness, fContrast, fGamma, GetSingleton<IGFX>(), GetGlobalVar("GFX.Caps.Gamma.Calibrate", 0) != 0 );
 		}
 		else if ( pOpt->szAction == "SetTextureQuality" ) 
@@ -312,7 +283,6 @@ void COptionSystem::InnerSet( const std::string &szVarName, const variant_t &var
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const std::vector<SOptionDropListValue>& COptionSystem::GetDropValues( const std::string &szVarName ) const
 {
 	droplist.clear();
@@ -322,7 +292,6 @@ const std::vector<SOptionDropListValue>& COptionSystem::GetDropValues( const std
 		{
 			if ( !pOpt->szActionFill.empty() ) 
 			{
-				// CRAP{ some hardcoded actions - think about change it :)
 				if ( pOpt->szActionFill == "GetGameSpeed" )
 				{
 					GetGameSpeed( &droplist );
@@ -351,7 +320,6 @@ const std::vector<SOptionDropListValue>& COptionSystem::GetDropValues( const std
 				{
 					ITextManager *pTM = GetSingleton<ITextManager>();
 					const int nMaxTextureQuality = GetGlobalVar( "GFX.Limit.TextureQuality", 100 );
-					// low quality
 					if ( (GetGlobalVar("GFX.Caps.Texture.Format.ARGB0565", 0) != 0) &&
 						   (GetGlobalVar("GFX.Caps.Texture.Format.ARGB1555", 0) != 0) &&
 							 (GetGlobalVar("GFX.Caps.Texture.Format.ARGB4444", 0) != 0) &&
@@ -361,14 +329,12 @@ const std::vector<SOptionDropListValue>& COptionSystem::GetDropValues( const std
 						val.szProgName = "Low";
 						droplist.push_back( val );
 					}
-					// compressed quality
 					if ( (GetGlobalVar("GFX.Caps.Texture.Format.DXT", 0) != 0) && (nMaxTextureQuality >= 1) )
 					{
 						SOptionDropListValue val;
 						val.szProgName = "Compressed";
 						droplist.push_back( val );
 					}
-					// high quality
 					if ( (GetGlobalVar("GFX.Caps.Texture.Format.ARGB8888", 0) != 0) && (nMaxTextureQuality >= 2) )
 					{
 						SOptionDropListValue val;
@@ -376,13 +342,11 @@ const std::vector<SOptionDropListValue>& COptionSystem::GetDropValues( const std
 						droplist.push_back( val );
 					}
 				}
-				// CRAP}
 			}
 		}
 	}
 	return droplist;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void COptionSystem::Init()
 {
 	for ( CPtr<IOptionSystemIterator> pIter = CreateIterator(); !pIter->IsEnd(); pIter->Next() )
@@ -395,15 +359,12 @@ void COptionSystem::Init()
 			InnerSet( pDesc->szName, pDesc->defaultValue ); // or set default
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// serialize to configuration file
 bool COptionSystem::SerializeConfig( IDataTree *pSS )
 {
 	CTreeAccessor saver = pSS;
 	saver.Add( "Options", static_cast<CBase*>(this) );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void COptionSystem::Repair( IDataTree *pSS, const bool bToDefault )
 {
 	if ( bToDefault )
@@ -422,7 +383,6 @@ void COptionSystem::Repair( IDataTree *pSS, const bool bToDefault )
 			const SOptionDesc *pDesc = pIterator->GetDesc();
 			const bool bRet = Get( pDesc->szName, &dummy );
 			
-			//CRAP{ FOR LOCAL PLAYER'S NAME
 			if ( pDesc->szName == "GamePlay.PlayerName" )
 			{
 				const std::wstring szPlayerName = (const wchar_t*)bstr_t(dummy);
@@ -432,7 +392,6 @@ void COptionSystem::Repair( IDataTree *pSS, const bool bToDefault )
 					Set( pDesc->szName, pTmpOptions->GetVar( pDesc->szName ) );
 				}
 			}
-			//CRAP}
 			else  if ( !bRet )
 			{
 					SetVar( pDesc->szName, pTmpOptions->GetVar( pDesc->szName ) );
@@ -440,44 +399,22 @@ void COptionSystem::Repair( IDataTree *pSS, const bool bToDefault )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// begin to iterate through all variables
 IOptionSystemIterator* COptionSystem::CreateIterator( const DWORD dwMask )
 {
 	return new COptionSystemIterator( this, dwMask );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** options system iterator
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 COptionSystemIterator::COptionSystemIterator( COptionSystem *_pOS, const DWORD dwMask )
 : CBase( _pOS, COptionMaskAccepter(dwMask) ), pOS( _pOS )
 {  
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SOptionDesc* COptionSystemIterator::GetDesc() const 
 { 
 	return GetVS()->GetDesc( GetIt()->first ); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const std::vector<SOptionDropListValue>& COptionSystemIterator::GetDropValues() const
 {
 	return GetVS()->GetDropValues( GetIt()->first ); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** option system sorter
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SOptionSortCmp
 {
 	const bool operator()( const COptionSystem::CVarsMap::const_iterator &opt1, const COptionSystem::CVarsMap::const_iterator &opt2 ) const
@@ -492,4 +429,3 @@ void SOptionSorter::Sort( std::list<COptionSystem::CVarsMap::const_iterator> &va
 {
 	vals.sort( SOptionSortCmp() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

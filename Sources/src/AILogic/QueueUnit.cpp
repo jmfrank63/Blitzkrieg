@@ -5,11 +5,8 @@
 #include "UnitStates.h"
 #include "Commands.h"
 #include "CommonUnit.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern NTimer::STime curTime;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CDecksSet< CObj<CAICommand> > CQueueUnit::cmds( SConsts::AI_START_VECTOR_SIZE );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CQueueUnit::Init()
 {
 	bCmdFinished = false;
@@ -17,35 +14,29 @@ void CQueueUnit::Init()
 	pCmdCurrent = 0;
 	lastChangeStateTime = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CQueueUnit::Clear() 
 { 
 	cmds.Clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CQueueUnit::IsEmptyCmdQueue() const 
 {
 	return cmds.IsEmpty( GetID() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAICommand* CQueueUnit::GetCurCmd() const 
 {
 	return pCmdCurrent;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CQueueUnit::CheckCmdsSize( const int id )
 {
 	if ( id >= cmds.GetDecksNum() )
 		cmds.IncreaseDecksNum( id * 1.5 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CQueueUnit::DelCmdQueue( const int id )
 {
 	for ( int i = cmds.begin( id ); i != cmds.end(); i = cmds.GetNext( i ) )
 		cmds.GetEl( i ) = 0;
 	cmds.DelDeck( id );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CQueueUnit::InitWCommands( CQueueUnit *pUnit )
 {
 	FreezeByState( false );
@@ -67,7 +58,6 @@ void CQueueUnit::InitWCommands( CQueueUnit *pUnit )
 			cmds.Push( wThisID, pCmd );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CQueueUnit::InsertUnitCommand( CAICommand *pCommand )
 {
 	CPtr<CAICommand> pGarbage = pCommand;
@@ -80,7 +70,6 @@ void CQueueUnit::InsertUnitCommand( CAICommand *pCommand )
 	if ( CanCommandBeExecuted( pCommand ) &&
 			 GetStatesFactory()->CanCommandBeExecuted( pCommand ) )
 	{
-		//вставить текущую команду в очередь
 		if ( pCmdCurrent.IsValid() )
 		{
 			CAICommand *pOldCommand = new CAICommand( *pCmdCurrent );
@@ -94,11 +83,9 @@ void CQueueUnit::InsertUnitCommand( CAICommand *pCommand )
 			NullSegmTime();
 		}
 
-		//вставить полученную команду в очередь
 		cmds.PushFront( GetID(), pCommand );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CQueueUnit::PushFrontUnitCommand( CAICommand *pCommand )
 {
 	CPtr<CAICommand> pGarbage = pCommand;
@@ -119,7 +106,6 @@ void CQueueUnit::PushFrontUnitCommand( CAICommand *pCommand )
 		cmds.PushFront( GetID(), pCommand );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CQueueUnit::UnitCommand( CAICommand *pCommand, bool bPlaceInQueue, bool bOnlyThisUnitCommand )
 {
 	CPtr<CAICommand> pGarbage = pCommand;
@@ -144,17 +130,14 @@ void CQueueUnit::UnitCommand( CAICommand *pCommand, bool bPlaceInQueue, bool bOn
 	
 	if ( bPlaceInQueue )
 		cmds.Push( GetID(), pCmd.GetPtr() );
-	//если текущее состояние завершено
 	else if ( bCmdFinished || !pState )
 	{
 		DelCmdQueue( GetID() );
 
 		bCmdFinished = true;
 
-		//добавить текушую команду в очередь
 		cmds.Push( GetID(), pCmd.GetPtr() );
 	}
-	//текущее состояние не завершено
 	else 
 	{
 		if ( pCmd && pCmd->ToUnitCmd().cmdType == ACTION_COMMAND_STOP_THIS_ACTION ) // прервать насильно
@@ -172,39 +155,30 @@ void CQueueUnit::UnitCommand( CAICommand *pCommand, bool bPlaceInQueue, bool bOn
 				case TSIR_YES_IMMIDIATELY:
 					NullSegmTime();
 				case TSIR_YES_WAIT:
-					// почистить очередь
 					DelCmdQueue( GetID() );
-					//добавить текушую команду в очередь
 					cmds.Push( GetID(), pCmd.GetPtr() );
 
 					break;
 				case TSIR_YES_MANAGED_ALREADY:
-					// команду уже поместили в очередь
 					break;
 				case TSIR_NO_COMMAND_INCOMPATIBLE:
-					// игнорировать команду
 					break;
 			}
 		}
 	}
-	// команду игнорировать
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CQueueUnit::SetCommandFinished()
 {
 	bCmdFinished = true;
 	pCmdCurrent = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CQueueUnit::PopCmd( const int nID )
 {
 	cmds.Peek( nID ) = 0;
 	cmds.Pop( nID );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CQueueUnit::Segment()
 {
-	// отдыхаем, а есть команды, которые нужно выполнить
 	if ( !bCmdFinished && pState.IsValid() && IsRestState( pState->GetName() ) && !cmds.IsEmpty( GetID() ) )
 	{
 		CObj<CAICommand> pCmd = cmds.Peek( GetID() );
@@ -217,7 +191,6 @@ void CQueueUnit::Segment()
 				break;
 			case TSIR_YES_WAIT:
 				cmds.PushFront( GetID(), pCmd.GetPtr() );
-				// это нужно, если юнит захотел задержаться в RestState ( например если ждем починки )
 				pState->Segment();
 				break;
 			case TSIR_YES_MANAGED_ALREADY:
@@ -226,7 +199,6 @@ void CQueueUnit::Segment()
 				break;
 		}
 	} 
-	// текущее состояние завершилось само
 	else if ( bCmdFinished ) 
 	{
 		bCmdFinished = false;
@@ -245,7 +217,6 @@ void CQueueUnit::Segment()
 			{
 				CObj<CAICommand> pCmd = cmds.Peek( GetID() );
 				
-				// self-action
 				const EActionCommand cmdType = pCmd->ToUnitCmd().cmdType;
 				if ( cmdType & 0x8000 )
 				{
@@ -283,7 +254,6 @@ void CQueueUnit::Segment()
 				}
 				else
 				{
-					// команда игнорируется					
 				}
 			}
 		} while( pNewState == 0 );
@@ -293,7 +263,6 @@ void CQueueUnit::Segment()
 	else
 		pState->Segment();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAICommand* CQueueUnit::GetNextCommand() const
 {
 	if ( cmds.IsEmpty( GetID() ) )
@@ -301,7 +270,6 @@ CAICommand* CQueueUnit::GetNextCommand() const
 	else
 		return cmds.Peek( GetID() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAICommand* CQueueUnit::GetLastCommand() const
 {
 	if ( cmds.IsEmpty( GetID() ) )
@@ -309,7 +277,6 @@ CAICommand* CQueueUnit::GetLastCommand() const
 	else
 		return cmds.GetLastEl( GetID() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CQueueUnit::KillStatesAndCmdsInfo()
 {
 	DelCmdQueue( GetID() );
@@ -317,29 +284,23 @@ void CQueueUnit::KillStatesAndCmdsInfo()
 	pState = 0;
 	bCmdFinished = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CQueueUnit::SetCurState( IUnitState *_pState )
 {
 	pState = _pState;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CQueueUnit::GetBeginCmdsIter() const
 {
 	return cmds.begin( GetID() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CQueueUnit::GetEndCmdsIter() const
 {
 	return cmds.end();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CQueueUnit::GetNextCmdsIter( const int nIter ) const
 {
 	return cmds.GetNext( nIter );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAICommand* CQueueUnit::GetCommand( const int nIter ) const
 {
 	return cmds.GetEl( nIter );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

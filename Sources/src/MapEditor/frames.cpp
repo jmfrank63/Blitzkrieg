@@ -28,7 +28,6 @@ bool MakeRelativePath( const char *pszSrcName, const char *pszDstName, string &s
 	const char *pszs = szTempSrc.c_str();
 	const char *pszd = szTempDst.c_str();
 
-	//Проверяем имя диска
 	if ( pszs[0] != pszd[0] || pszs[1] != pszd[1] || pszs[2] != pszd[2] )
 		return false;
 
@@ -152,7 +151,6 @@ FILETIME GetFileChangeTime( const char *pszFileName )
 	if ( !bRes )
 		return zero;
 
-	//Возвращаю максимальное время из времени создания и времени последней модификации
 	if ( fileInfo.ftCreationTime > fileInfo.ftLastWriteTime )
 		return fileInfo.ftCreationTime;
 	else

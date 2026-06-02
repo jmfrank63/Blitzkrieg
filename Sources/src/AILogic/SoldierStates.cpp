@@ -35,10 +35,8 @@
 #include "MPLog.h"
 #include "StaticObjectsIters.h"
 
-// for profiling
 #include "TimeCounter.h"
 #include "AAFeedBacks.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CAAFeedBacks theAAFeedBacks;
 extern CSupremeBeing theSupremeBeing;
 extern CUnitCreation theUnitCreation;
@@ -51,11 +49,6 @@ extern CGroupLogic theGroupLogic;
 extern CDiplomacy theDipl;
 
 extern CTimeCounter timeCounter;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										  CSoldierStatesFactory												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CPtr<CSoldierStatesFactory> CSoldierStatesFactory::pFactory = 0;
 
 IStatesFactory* CSoldierStatesFactory::Instance()
@@ -65,7 +58,6 @@ IStatesFactory* CSoldierStatesFactory::Instance()
 
 	return pFactory;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoldierStatesFactory::CanCommandBeExecuted( CAICommand *pCommand )
 {
 	const EActionCommand &cmdType = pCommand->ToUnitCmd().cmdType;
@@ -104,7 +96,6 @@ bool CSoldierStatesFactory::CanCommandBeExecuted( CAICommand *pCommand )
 			cmdType == ACTION_COMMAND_MOVE_TO_GRID
 		);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierStatesFactory::ProduceState( class CQueueUnit *pObj, CAICommand *pCommand )
 {
 	NI_ASSERT_T( dynamic_cast<CAIUnit*>(pObj) != 0, "Wrong unit passed" );
@@ -194,7 +185,6 @@ IUnitState* CSoldierStatesFactory::ProduceState( class CQueueUnit *pObj, CAIComm
 			{
 				CONVERT_OBJECT_PTR( CStaticObject, pStaticObj, cmd.pObject, "Wrong static object to attack" );
 
-				// attack the artillery
 				if ( pStaticObj->GetObjectType() == ESOT_ARTILLERY_BULLET_STORAGE )
 				{
 					pCommand->ToUnitCmd().cmdType = bSwarmAttack ? ACTION_COMMAND_SWARM_ATTACK_UNIT : ACTION_COMMAND_ATTACK_UNIT;
@@ -330,7 +320,6 @@ IUnitState* CSoldierStatesFactory::ProduceState( class CQueueUnit *pObj, CAIComm
 
 	return pResult;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierStatesFactory::ProduceRestState( class CQueueUnit *pUnit )
 {
 	CSoldier *pSoldier = checked_cast<CSoldier*>( pUnit );
@@ -339,16 +328,10 @@ IUnitState* CSoldierStatesFactory::ProduceRestState( class CQueueUnit *pUnit )
 	else
 		return CSoldierRestState::Instance( pSoldier );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											  CSoldierRestState													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierRestState::Instance( CAIUnit *pUnit )
 {
 	return new CSoldierRestState( pUnit );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierRestState::CSoldierRestState( CAIUnit *_pUnit )
 : pUnit( _pUnit ), nextMove( 0 ), bScanned( false ), fDistToGuardPoint( -1.0f )
 {
@@ -361,7 +344,6 @@ CSoldierRestState::CSoldierRestState( CAIUnit *_pUnit )
 
 	pUnit->StopUnit();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierRestState::Segment()
 {
 	if ( !pUnit->GetArtilleryIfCrew() )
@@ -418,7 +400,6 @@ void CSoldierRestState::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierRestState::TryInterruptState( class CAICommand *pCommand )
 {
 	pUnit->UnRegisterAsBored( ACK_BORED_IDLE );
@@ -426,16 +407,10 @@ ETryStateInterruptResult CSoldierRestState::TryInterruptState( class CAICommand 
 
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										  CSoldierAttackState													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierAttackState::Instance( CAIUnit *pUnit, CAIUnit *pEnemy, bool bAim, const bool bSwarmAttack )
 {
 	return new CSoldierAttackState( pUnit, pEnemy, bAim, bSwarmAttack );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierAttackState::CSoldierAttackState( CAIUnit *_pUnit, CAIUnit *_pEnemy, bool _bAim, const bool _bSwarmAttack )
 : pUnit( _pUnit ), pEnemy( _pEnemy ),
 	nextShootCheck( 0 ), lastEnemyTile( -1, -1 ), bAim( _bAim ), wLastEnemyDir( 0 ), pGun( 0 ), bFinish( false ),
@@ -444,7 +419,6 @@ CSoldierAttackState::CSoldierAttackState( CAIUnit *_pUnit, CAIUnit *_pEnemy, boo
 {
 	ResetTime( pEnemy );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierAttackState::FireNow()
 {
 	NI_ASSERT_T( pGun != 0, "Wrong gun descriptor" );
@@ -456,7 +430,6 @@ void CSoldierAttackState::FireNow()
 
 	NI_ASSERT_T( runUpToEnemy.IsRunningToEnemy() == false, "Wrong state" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierAttackState::StopFire()
 {
 	if ( pGun )
@@ -468,7 +441,6 @@ void CSoldierAttackState::StopFire()
 
 	bFinish = true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierAttackState::TryInterruptState( CAICommand *pCommand )
 {
 	if ( !pCommand )
@@ -495,7 +467,6 @@ ETryStateInterruptResult CSoldierAttackState::TryInterruptState( CAICommand *pCo
 		return TSIR_YES_WAIT;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierAttackState::StartAgain()
 {
 	if ( pGun )
@@ -506,7 +477,6 @@ void CSoldierAttackState::StartAgain()
 
 	damageToEnemyUpdater.UnsetDamageFromEnemy( pEnemy );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierAttackState::AnalyzeBruteMovingPosition()
 {
 	const bool bIdle = pUnit->IsIdle();
@@ -518,7 +488,6 @@ void CSoldierAttackState::AnalyzeBruteMovingPosition()
 	}
 	else
 	{
-		// враг в зоне огня
 		if ( ( bIdle || curTime >= nextShootCheck ) && bEnemyVisible && pGun->CanShootToUnitWOMove( pEnemy ) )
 			FireNow();
 		else if ( curTime >= nextShootCheck && pGun->TooCloseToFire( pEnemy ) )
@@ -528,7 +497,6 @@ void CSoldierAttackState::AnalyzeBruteMovingPosition()
 		}
 		else if ( bIdle || curTime >= nextShootCheck && lastEnemyTile != pEnemy->GetTile() )
 		{
-			// позиция врага сменилась или уже стоим
 			const float fRandomDist = 5.0f * SConsts::TILE_SIZE;
 
 			CPtr<IStaticPath> pStaticPath = 
@@ -553,7 +521,6 @@ void CSoldierAttackState::AnalyzeBruteMovingPosition()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierAttackState::AnalyzeMovingPosition()
 {
 	const bool bIdle = pUnit->IsIdle();
@@ -568,22 +535,18 @@ void CSoldierAttackState::AnalyzeMovingPosition()
 		FireNow();
 	else if ( bIdle || curTime >= nextShootCheck && lastEnemyTile != pEnemy->GetTile() )
 	{
-		// в зоне поиска пути к стороне
 		if ( pGun->InGoToSideRange( pEnemy ) )
 		{
 			lastEnemyTile = SVector( -1, -1 );
 			state = ESAS_MOVING_TO_SIDE;
 		}
-		// слишком близко
 		else if ( pGun->TooCloseToFire( pEnemy ) )
 		{
 			pUnit->SendAcknowledgement( ACK_ENEMY_IS_TO_CLOSE );
 			StopFire();
 		}
-		// позиция врага сменилась или уже стоим, но далеко, чтобы идти к стороне
 		else if ( bIdle || lastEnemyTile != pEnemy->GetTile() )
 		{
-			// путь до расстояния, достаточно близкого до юнита, чтобы оттуда потом бежать к стороне
 			CPtr<IStaticPath> pStaticPath = 
 				CreateStaticPathForAttack( pUnit, pEnemy, pGun->GetWeapon()->fRangeMin, 2 * pGun->GetFireRange( 0 ) );
 
@@ -604,7 +567,6 @@ void CSoldierAttackState::AnalyzeMovingPosition()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IStaticPath* CSoldierAttackState::BestSidePath()
 {
 	const CVec2 vUnitCenter = pUnit->GetCenter();
@@ -628,10 +590,8 @@ IStaticPath* CSoldierAttackState::BestSidePath()
 	
 	float fMinLength = 1e10;
 	int nBestSide = -1;
-	// цикл по всем направлениям
 	for ( int i = 0; i < 4; ++i )
 	{
-		// можно пробить по этому направлению
 		if ( pGun->CanBreach( pEnemy, i ) )
 		{
 			const float fDist = fabs2( vUnitCenter - vSides[i] );
@@ -651,7 +611,6 @@ IStaticPath* CSoldierAttackState::BestSidePath()
 
 	return pBestPath;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierAttackState::AnalyzeMovingToSidePosition()
 {
 	const bool bIdle = pUnit->IsIdle();
@@ -668,13 +627,10 @@ void CSoldierAttackState::AnalyzeMovingToSidePosition()
 	{
 		const SVector curEnemyTile = pEnemy->GetTile();
 		const WORD wCurEnemyDir = pEnemy->GetDir();
-		// стоим или пора проверять позицию и враг сдвинулся или повернулся
 		if ( bIdle || lastEnemyTile != curEnemyTile || DirsDifference( wCurEnemyDir, wLastEnemyDir ) >= ENEMY_DIR_TOLERANCE )
 		{
-			// убежал слишком далеко
 			if ( !pGun->InGoToSideRange( pEnemy ) )
 				state = ESAS_MOVING;
-			// в радиуса поиска пути к стороне
 			else 
 			{
 				if ( IStaticPath *pStaticPath = BestSidePath() )
@@ -696,7 +652,6 @@ void CSoldierAttackState::AnalyzeMovingToSidePosition()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoldierAttackState::IsBruteMoving()
 {
 	const int nMinPossiblePiercing = pGun->GetMinPossiblePiercing();
@@ -707,7 +662,6 @@ bool CSoldierAttackState::IsBruteMoving()
 		pEnemy->GetArmor(2) <= nMinPossiblePiercing &&
 		pEnemy->GetArmor(3) <= nMinPossiblePiercing;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierAttackState::Segment()
 {
 	if ( bFinish )
@@ -747,9 +701,6 @@ void CSoldierAttackState::Segment()
 		{
 			runUpToEnemy.Segment();			
 
-			// если можно перевыбирать цель, то выбрать цель
-//			if ( bSwarmAttack )
-//				pUnit->AnalyzeTargetScan( pEnemy, damageToEnemyUpdater.IsDamageUpdated(), false );
 
 			if ( !bFinish )
 			{
@@ -783,7 +734,6 @@ void CSoldierAttackState::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CSoldierAttackState::GetPurposePoint() const
 {
 	if ( IsValidObj( pEnemy ) )
@@ -791,16 +741,10 @@ const CVec2 CSoldierAttackState::GetPurposePoint() const
 	else
 		return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										  CSoldierMoveToState													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierMoveToState::Instance( CAIUnit *pUnit, const CVec2 &point )
 {
 	return new CSoldierMoveToState( pUnit, point );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierMoveToState::CSoldierMoveToState( CAIUnit *_pUnit, const CVec2 &_point )
 : pUnit( _pUnit ), startTime( curTime ), bWaiting( true ), CFreeFireManager( _pUnit ),
 	point( _point ), wDirToPoint( _pUnit->GetFrontDir() )
@@ -808,7 +752,6 @@ CSoldierMoveToState::CSoldierMoveToState( CAIUnit *_pUnit, const CVec2 &_point )
 	pUnit->UnlockTiles();
 	pUnit->FixUnlocking();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierMoveToState::Segment()
 {
 	if ( bWaiting )
@@ -856,7 +799,6 @@ void CSoldierMoveToState::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierMoveToState::TryInterruptState( class CAICommand *pCommand )
 { 
 	pUnit->UnfixUnlocking();
@@ -869,27 +811,19 @@ ETryStateInterruptResult CSoldierMoveToState::TryInterruptState( class CAIComman
 
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CSoldierMoveToState::GetPurposePoint() const
 {
 	return point;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CSoldierTurnToPointState										*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierTurnToPointState::Instance( CAIUnit *pUnit, const CVec2 &targCenter )
 {
 	return new CSoldierTurnToPointState( pUnit, targCenter );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierTurnToPointState::CSoldierTurnToPointState( CAIUnit *_pUnit, const CVec2 &_targCenter )
 : pUnit( _pUnit ), lastCheck( curTime ), targCenter( _targCenter )
 {
 	pUnit->StopUnit();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierTurnToPointState::Segment()
 {
 	if ( !pUnit->CanRotateTo( pUnit->GetUnitRect(), targCenter - pUnit->GetCenter(), false, false ) )
@@ -905,13 +839,11 @@ void CSoldierTurnToPointState::Segment()
 			lastCheck = curTime;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierTurnToPointState::TryInterruptState( class CAICommand *pCommand )
 { 
 	pUnit->SetCommandFinished(); 
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CSoldierTurnToPointState::GetPurposePoint() const
 {
 	if ( pUnit && pUnit->IsValid() && pUnit->IsAlive() )
@@ -919,49 +851,34 @@ const CVec2 CSoldierTurnToPointState::GetPurposePoint() const
 	else
 		return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CSoldierMoveByDirState											*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierMoveByDirState::Instance( CAIUnit *pUnit, const CVec2 &vTarget )
 {
 	return new CSoldierMoveByDirState( pUnit, vTarget );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierMoveByDirState::CSoldierMoveByDirState( CAIUnit *_pUnit, const CVec2 &vTarget )
 : pUnit( _pUnit )
 {
 	IPath *pPath = new CStandartDirPath( pUnit->GetCenter(), Norm( vTarget - pUnit->GetCenter() ), vTarget );
 	pUnit->SendAlongPath( pPath );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierMoveByDirState::Segment()
 {
 	if ( pUnit->IsIdle() )
 		pUnit->SetCommandFinished();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierMoveByDirState::TryInterruptState( class CAICommand *pCommand )
 {
 	pUnit->SetCommandFinished();
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CSoldierMoveByDirState::GetPurposePoint() const
 {
 	return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CSoldierEnterState													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierEnterState::Instance( CAIUnit *pUnit, CBuilding *pBuilding )
 {
 	return new CSoldierEnterState( pUnit, pBuilding );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierEnterState::CSoldierEnterState( CAIUnit *_pUnit, CBuilding *_pBuilding )
 :	pUnit( _pUnit ), pBuilding( _pBuilding ), state( EES_START ), nEfforts( 0 )
 {
@@ -978,7 +895,6 @@ CSoldierEnterState::CSoldierEnterState( CAIUnit *_pUnit, CBuilding *_pBuilding )
 			++i;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoldierEnterState::SetPathForRunUp()
 {
 	CPtr<IStaticPath> pBestPath = pUnit->GetPathToBuilding( pBuilding, &nEntrance );
@@ -991,7 +907,6 @@ bool CSoldierEnterState::SetPathForRunUp()
 		return true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierEnterState::Segment()
 {
 	if ( !IsValidObj( pBuilding ) || pBuilding->GetNFreePlaces() == 0 )
@@ -1026,13 +941,11 @@ void CSoldierEnterState::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierEnterState::TryInterruptState( class CAICommand *pCommand )
 {
 	pUnit->SetCommandFinished();
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CSoldierEnterState::GetPurposePoint() const
 {
 	if ( IsValidObj( pBuilding ) )
@@ -1040,23 +953,16 @@ const CVec2 CSoldierEnterState::GetPurposePoint() const
 	else
 		return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CSoldierEnterEntrenchmentState								*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierEnterEntrenchmentState::Instance( CAIUnit *pUnit, CEntrenchment *pEntrenchment )
 {
 	return new CSoldierEnterEntrenchmentState( pUnit, pEntrenchment );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierEnterEntrenchmentState::CSoldierEnterEntrenchmentState( CAIUnit *_pUnit, CEntrenchment *_pEntrenchment )
 : pUnit( _pUnit ), state( EES_START ), pEntrenchment( _pEntrenchment )
 {
 	if ( pEntrenchment->IsPointInside( pUnit->GetCenter() ) )
 		state = EES_RUN;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoldierEnterEntrenchmentState::SetPathForRunIn()
 {
 	CPtr<IStaticPath> pPath = pUnit->GetPathToEntrenchment( pEntrenchment );
@@ -1069,12 +975,10 @@ bool CSoldierEnterEntrenchmentState::SetPathForRunIn()
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierEnterEntrenchmentState::EnterToEntrenchment()
 {
 	theGroupLogic.UnitCommand( SAIUnitCmd( ACTION_COMMAND_IDLE_TRENCH, pEntrenchment ), pUnit, false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierEnterEntrenchmentState::Segment()
 {
 	switch ( state )
@@ -1100,7 +1004,6 @@ void CSoldierEnterEntrenchmentState::Segment()
 			break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierEnterEntrenchmentState::TryInterruptState( class CAICommand *pCommand )
 {
 	if ( !pCommand || 
@@ -1113,26 +1016,18 @@ ETryStateInterruptResult CSoldierEnterEntrenchmentState::TryInterruptState( clas
 	else
 		return TSIR_YES_WAIT;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CSoldierEnterEntrenchmentState::GetPurposePoint() const
 {
 	return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*									CSoldierAttackCommonStatObjState								*	
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierAttackCommonStatObjState::Instance( CAIUnit *pUnit, CStaticObject *pObj, bool bSwarmAttack )
 {
 	return new CSoldierAttackCommonStatObjState( pUnit, pObj, bSwarmAttack );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierAttackCommonStatObjState::CSoldierAttackCommonStatObjState( CAIUnit *_pUnit, CStaticObject *pObj, bool _bSwarmAttack )
 : pUnit( _pUnit ), CCommonAttackCommonStatObjState( _pUnit, pObj, _bSwarmAttack )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierAttackCommonStatObjState::FireNow()
 {
 	NI_ASSERT_T( pGun != 0, "Wrong gun descriptor" );	
@@ -1140,10 +1035,8 @@ void CSoldierAttackCommonStatObjState::FireNow()
 	pUnit->StopUnit();
 	if ( pGun->IsOnTurret() )
 		pGun->GetTurret()->Lock( pGun );
-	// выстрелить
 	pGun->StartPointBurst( pObj->GetAttackCenter( pUnit->GetCenter() ), bAim );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierAttackCommonStatObjState::TryInterruptState( class CAICommand *pCommand )
 {
 	if ( pCommand == 0 || !pGun.IsValid() || !pGun->IsBursting() )
@@ -1167,7 +1060,6 @@ ETryStateInterruptResult CSoldierAttackCommonStatObjState::TryInterruptState( cl
 	bFinish = true;
 	return TSIR_YES_WAIT;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierAttackCommonStatObjState::Segment()
 {
 	CCommonAttackCommonStatObjState::Segment();
@@ -1175,12 +1067,10 @@ void CSoldierAttackCommonStatObjState::Segment()
 	if ( bSwarmAttack )
 		pUnit->AnalyzeTargetScan( 0, false, false, pObj );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAIUnit* CSoldierAttackCommonStatObjState::GetUnit() const
 { 
 	return pUnit; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CSoldierAttackCommonStatObjState::GetPurposePoint() const
 {
 	if ( GetTarget() && GetTarget()->IsValid() && GetTarget()->IsAlive() && pUnit && pUnit->IsValid() && pUnit->IsAlive() )
@@ -1188,11 +1078,6 @@ const CVec2 CSoldierAttackCommonStatObjState::GetPurposePoint() const
 	else
 		return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												CSoldierParadeState												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierParadeState::Instance( class CAIUnit *pUnit )
 {
 	if ( pUnit->GetStats()->IsInfantry() && static_cast<CSoldier*>(pUnit)->IsInFormation() )
@@ -1208,28 +1093,23 @@ IUnitState* CSoldierParadeState::Instance( class CAIUnit *pUnit )
 	else
 		return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierParadeState::CSoldierParadeState( class CAIUnit *_pUnit )
 : pUnit( _pUnit )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierParadeState::Segment()
 {
 	if ( pUnit->IsIdle() )
 	{
 		pUnit->SetCommandFinished();
-		// повернуться в нужном направлении
 		pUnit->UpdateDirection( pUnit->GetFormation()->GetUnitDir( pUnit->GetFormationSlot() ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierParadeState::TryInterruptState( class CAICommand *pCommand )
 {
 	pUnit->SetCommandFinished();
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CSoldierParadeState::GetPurposePoint() const
 {
 	if ( pUnit && pUnit->IsValid() && pUnit->IsAlive() )
@@ -1237,23 +1117,16 @@ const CVec2 CSoldierParadeState::GetPurposePoint() const
 	else
 		return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												CSoldierPlaceMineNowState									*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierPlaceMineNowState::Instance( class CAIUnit *pUnit, const CVec2 &point, const enum SMineRPGStats::EType nType )
 {
 	return new CSoldierPlaceMineNowState( pUnit, point, nType );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierPlaceMineNowState::CSoldierPlaceMineNowState( class CAIUnit *_pUnit, const CVec2 &_point, const enum SMineRPGStats::EType _nType )
 : pUnit( _pUnit ), point( _point ), nType( _nType )
 {
 	updater.Update( ACTION_NOTIFY_USE_DOWN, pUnit );
 	beginAnimTime = curTime;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierPlaceMineNowState::Segment()
 {
 	if ( pUnit->GetPlayer() == theDipl.GetNeutralPlayer() )
@@ -1264,7 +1137,6 @@ void CSoldierPlaceMineNowState::Segment()
 		pUnit->SetCommandFinished();		
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierPlaceMineNowState::TryInterruptState( class CAICommand *pCommand )
 {
 	if ( !pCommand )
@@ -1275,26 +1147,18 @@ ETryStateInterruptResult CSoldierPlaceMineNowState::TryInterruptState( class CAI
 
 	return TSIR_YES_WAIT;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CSoldierPlaceMineNowState::GetPurposePoint() const
 {
 	return point;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CSoldierClearMineRadiusState								*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierClearMineRadiusState::Instance( CAIUnit *pUnit, const CVec2 &clearCenter )
 {
 	return new CSoldierClearMineRadiusState( pUnit, clearCenter );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierClearMineRadiusState::CSoldierClearMineRadiusState( CAIUnit *_pUnit, const CVec2 &_clearCenter )
 : pUnit( _pUnit ), clearCenter( _clearCenter ), eState( EPM_START )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoldierClearMineRadiusState::FindMineToClear()
 {
 	float fBestDistance2 = 1e10;
@@ -1303,7 +1167,6 @@ bool CSoldierClearMineRadiusState::FindMineToClear()
 	CStObjCircleIter<false> iter( clearCenter, SConsts::MINE_CLEAR_RADIUS );
 	while ( !iter.IsFinished() )
 	{
-		// мину никто не собирается удалять и она в радиусе осмотра
 		if ( (*iter)->GetObjectType() == ESOT_MINE && 
 				!static_cast<CMineStaticObject*>(*iter)->IsBeingDisarmed() && 
 				fabs2( (*iter)->GetCenter() - clearCenter ) <= sqr( float(SConsts::MINE_CLEAR_RADIUS) ) )
@@ -1332,7 +1195,6 @@ bool CSoldierClearMineRadiusState::FindMineToClear()
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierClearMineRadiusState::Segment()
 {
 	if ( pMine != 0 && !IsValidObj( pMine ) )
@@ -1382,7 +1244,6 @@ void CSoldierClearMineRadiusState::Segment()
 			break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierClearMineRadiusState::TryInterruptState( class CAICommand *pCommand )
 {
 	if ( eState != EPM_WAITING || !pUnit->IsAlive() || !pCommand || pCommand->ToUnitCmd().cmdType == ACTION_COMMAND_DISAPPEAR )
@@ -1396,32 +1257,23 @@ ETryStateInterruptResult CSoldierClearMineRadiusState::TryInterruptState( class 
 	else
 		return TSIR_YES_WAIT;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CSoldierAttackUnitInBuildingState							*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierAttackUnitInBuildingState::FireNow()
 {
 	pUnit->StopUnit();
 
 	if ( pGun->IsOnTurret() )
 		pGun->GetTurret()->Lock( pGun );
-	// выстрелить
 	pGun->StartEnemyBurst( pTarget, bAim );
 	bAim = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierAttackUnitInBuildingState::Instance( CAIUnit *pUnit, CSoldier *pTarget, bool bAim, const bool bSwarmAttack )
 {
 	return new CSoldierAttackUnitInBuildingState( pUnit, pTarget, bAim, bSwarmAttack );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierAttackUnitInBuildingState::CSoldierAttackUnitInBuildingState( CAIUnit *_pUnit, CSoldier *pTarget, bool bAim, const bool bSwarmAttack )
 : pUnit( _pUnit ), bTriedToShootBuilding( false ), CCommonAttackUnitInBuildingState( _pUnit, pTarget, bAim, bSwarmAttack )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierAttackUnitInBuildingState::Segment()
 {
 	if ( IsValidObj( pTarget ) && !pTarget->IsInBuilding() )
@@ -1440,18 +1292,15 @@ void CSoldierAttackUnitInBuildingState::Segment()
 	else
 		CCommonAttackUnitInBuildingState::Segment();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierAttackUnitInBuildingState::TryInterruptState( class CAICommand *pCommand )
 {
 	FinishState();
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAIUnit* CSoldierAttackUnitInBuildingState::GetUnit() const
 {  
 	return pUnit; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CSoldierAttackUnitInBuildingState::GetPurposePoint() const
 {
 	if ( GetTarget() && GetTarget()->IsValid() && GetTarget()->IsAlive() )
@@ -1459,29 +1308,21 @@ const CVec2 CSoldierAttackUnitInBuildingState::GetPurposePoint() const
 	else
 		return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CSoldierEnterTransportNowState								*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierEnterTransportNowState::Instance( CAIUnit *pUnit, CMilitaryCar *pTransport )
 {
 	return new CSoldierEnterTransportNowState( pUnit, pTransport );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierEnterTransportNowState::CSoldierEnterTransportNowState( CAIUnit *_pUnit, CMilitaryCar *_pTransport )
 : pUnit( _pUnit ), pTransport( _pTransport ), eState( EETS_START ), 
 	vLastTransportCenter( _pTransport->GetCenter() ), wLastTransportDir( _pTransport->GetFrontDir() )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierEnterTransportNowState::Segment()
 {
 	if ( !IsValidObj( pTransport ) )
 		pUnit->SetCommandFinished();
 	else
 	{
-		// проверять не сдвинулся ли транспорт
 		if ( curTime - timeLastTrajectoryUpdate > pUnit->GetBehUpdateDuration() )
 		{
 			if ( vLastTransportCenter != pTransport->GetCenter() || wLastTransportDir != pTransport->GetFrontDir() )
@@ -1518,13 +1359,11 @@ void CSoldierEnterTransportNowState::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierEnterTransportNowState::TryInterruptState( class CAICommand *pCommand )
 {
 	pUnit->SetCommandFinished();
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CSoldierEnterTransportNowState::GetPurposePoint() const
 {
 	if ( IsValidObj( pTransport ) )
@@ -1532,16 +1371,10 @@ const CVec2 CSoldierEnterTransportNowState::GetPurposePoint() const
 	else
 		return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CSoldierParaDroppingState											*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierParaDroppingState::Instance( class CSoldier *_pUnit )
 {
 	return new CSoldierParaDroppingState( _pUnit );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierParaDroppingState::CSoldierParaDroppingState( class CSoldier *_pUnit )
 : pUnit( _pUnit ), eState( ESPDS_OPEN_PARASHUTE )
 {
@@ -1551,11 +1384,8 @@ CSoldierParaDroppingState::CSoldierParaDroppingState( class CSoldier *_pUnit )
 	updater.Update( ACTION_NOTIFY_NEW_UNIT, pUnit );
 	updater.Update( ACTION_NOTIFY_NEW_FORMATION, pUnit );
 
-	// подменить падающего солдата паращютистом
-	// запустить анимацию открывания парашюта
 	updater.Update( ACTION_NOTIFY_CHANGE_DBID, pUnit, theUnitCreation.GetParadropperDBID( pUnit->GetPlayer() ) );
 	updater.Update( ACTION_NOTIFY_RPG_CHANGED, pUnit );
-	// change visibiliti for paradroper model
 	updater.Update( ACTION_NOTIFY_CHANGE_VISIBILITY, pUnit, pUnit->IsVisibleByPlayer() );
 	
 	updater.Update( ACTION_NOTIFY_FALLING, pUnit );
@@ -1569,7 +1399,6 @@ CSoldierParaDroppingState::CSoldierParaDroppingState( class CSoldier *_pUnit )
 	timeToCloseParashute = curTime + CParatrooperPath::CalcFallTime( pUnit->GetZ() ) + 
 		pStats->GetAnimTime( GetAnimationFromAction(ACTION_NOTIFY_CLOSE_PARASHUTE) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierParaDroppingState::Segment()
 {
 	bool bAgain = false;
@@ -1584,7 +1413,6 @@ void CSoldierParaDroppingState::Segment()
 			{
 				updater.Update( ACTION_NOTIFY_OPEN_PARASHUTE, pUnit );
 				eState = ESPDS_WAIT_FOR_END_UPDATES;
-//				StartWaitUpdate();
 				eStateToSwitch = ESPDS_OPEN_PARASHUTE;
 			}
 			
@@ -1594,7 +1422,6 @@ void CSoldierParaDroppingState::Segment()
 			{
 				updater.Update( ACTION_NOTIFY_PARASHUTE, pUnit );
 				eState = ESPDS_WAIT_FOR_END_UPDATES;
-				//StartWaitUpdate();
 				eStateToSwitch = ESPDS_FALLING_W_PARASHUTE;
 			}
 
@@ -1604,13 +1431,11 @@ void CSoldierParaDroppingState::Segment()
 			{
 				updater.Update( ACTION_NOTIFY_CLOSE_PARASHUTE, pUnit );
 				eState = ESPDS_WAIT_FOR_END_UPDATES;
-				//StartWaitUpdate();
 				eStateToSwitch = ESPDS_CLOSING_PARASHUTE;
 			}
 
 			break;
 		case ESPDS_CLOSING_PARASHUTE:
-			// дождаться, когда время оставшегося падения меньше или равно времени сбора парашюта
 			if ( timeToCloseParashute <= curTime )
 			{
 				updater.Update( ACTION_NOTIFY_CHANGE_DBID, pUnit, pUnit->GetDBID() );
@@ -1621,7 +1446,6 @@ void CSoldierParaDroppingState::Segment()
 					pUnit->Die( false, 0 ); // при падении на технику - смерть.
 				else
 				{
-					//StartWaitUpdate();
 					eState = ESPDS_WAIT_FOR_END_UPDATES;
 					eStateToSwitch = ESPDS_FINISH_STATE;
 				}
@@ -1637,7 +1461,6 @@ void CSoldierParaDroppingState::Segment()
 
 			break;
 		case ESPDS_WAIT_FOR_END_UPDATES:
-//			if ( curTime > timeLastEndUpdates )
 			{
 				eState = eStateToSwitch;
 				bAgain = true;
@@ -1646,7 +1469,6 @@ void CSoldierParaDroppingState::Segment()
 		}
 	} while( bAgain );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierParaDroppingState::TryInterruptState( class CAICommand *pCommand )
 {
 	if ( !pCommand )
@@ -1657,7 +1479,6 @@ ETryStateInterruptResult CSoldierParaDroppingState::TryInterruptState( class CAI
 
 	return TSIR_YES_WAIT;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CSoldierParaDroppingState::GetPurposePoint() const
 {
 	if ( pUnit && pUnit->IsValid() && pUnit->IsAlive() )
@@ -1665,34 +1486,25 @@ const CVec2 CSoldierParaDroppingState::GetPurposePoint() const
 	else
 		return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CSoldierUseSpyglassState											*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierUseSpyglassState::Instance( CSoldier *pSoldier, const CVec2 &point )
 {
 	return new CSoldierUseSpyglassState( pSoldier, point );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierUseSpyglassState::CSoldierUseSpyglassState( CSoldier *_pSoldier, const CVec2 &point )
 : pSoldier( _pSoldier ), vPoint2Look( point )
 {
 	pSoldier->SendAcknowledgement( ACK_POSITIVE );
 	pSoldier->StopUnit();
-	//
 	const	WORD wDir2Look = GetDirectionByVector( vPoint2Look - pSoldier->GetCenter() );
 	pSoldier->TurnToDir( wDir2Look, false );
 	pSoldier->SetOwnSightRadius( SConsts::SPY_GLASS_RADIUS );
 	pSoldier->SetVisionAngle( SConsts::SPY_GLASS_ANGLE );
-//	pSoldier->SetAngles( wDir2Point - SConsts::SPY_GLASS_ANGLE, wDir2Point + SConsts::SPY_GLASS_ANGLE );
 	pSoldier->ChangeWarFogState();
 
 	pSoldier->StartCamouflating();
 
 	SetLookAnimation();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierUseSpyglassState::SetLookAnimation()
 {
 	if ( pSoldier->GetStats()->type == RPG_TYPE_SNIPER && pSoldier->IsLying() )
@@ -1700,7 +1512,6 @@ void CSoldierUseSpyglassState::SetLookAnimation()
 	else
 		updater.Update( ACTION_NOTIFY_USE_SPYGLASS, pSoldier );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierUseSpyglassState::Segment()
 {
 	if ( pSoldier->IsIdle() )
@@ -1713,7 +1524,6 @@ void CSoldierUseSpyglassState::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierUseSpyglassState::TryInterruptState( CAICommand *pCommand )
 {
 	pSoldier->RemoveOwnSightRadius();
@@ -1724,7 +1534,6 @@ ETryStateInterruptResult CSoldierUseSpyglassState::TryInterruptState( CAICommand
 	pSoldier->SetCommandFinished();
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CSoldierUseSpyglassState::GetPurposePoint() const
 {
 	if ( pSoldier && pSoldier->IsValid() && pSoldier->IsAlive() )	
@@ -1732,21 +1541,14 @@ const CVec2 CSoldierUseSpyglassState::GetPurposePoint() const
 	else
 		return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CSoldierAttackFormationState									*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierAttackFormationState::Instance( CAIUnit *pUnit, CFormation *pTarget, const bool bSwarmAttack )
 {
 	return new CSoldierAttackFormationState( pUnit, pTarget, bSwarmAttack );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierAttackFormationState::CSoldierAttackFormationState( CAIUnit *_pUnit, CFormation *_pTarget, const bool _bSwarmAttack )
 : pUnit ( _pUnit ), pTarget ( _pTarget ), bSwarmAttack( _bSwarmAttack )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierAttackFormationState::Segment()
 {
 	if ( !IsValidObj( pTarget ) || pTarget->Size() == 0 )
@@ -1769,13 +1571,11 @@ void CSoldierAttackFormationState::Segment()
 	TryInterruptState ( 0 ) ;
 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierAttackFormationState::TryInterruptState( class CAICommand *pCommand )
 {
 	pUnit->SetCommandFinished();
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CSoldierAttackFormationState::GetPurposePoint() const
 {
 	if ( IsValidObj( pTarget ) )
@@ -1783,31 +1583,22 @@ const CVec2 CSoldierAttackFormationState::GetPurposePoint() const
 	else
 		return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CSoldierIdleState															*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierIdleState::Instance( class CAIUnit *pUnit )
 {
 	return new CSoldierIdleState( pUnit );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierIdleState::CSoldierIdleState( class CAIUnit *pUnit )
 : pUnit( pUnit )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierIdleState::Segment()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierIdleState::TryInterruptState( class CAICommand *pCommand )
 {
 	pUnit->SetCommandFinished();
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CSoldierIdleState::GetPurposePoint() const
 {
 	if ( pUnit && pUnit->IsValid() && pUnit->IsAlive() )	
@@ -1815,11 +1606,6 @@ const CVec2 CSoldierIdleState::GetPurposePoint() const
 	else
 		return CVec2( -1.0f, -1.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CSoldierAttackAviationState										*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierAttackAviationState::SPredict::SPredict( const CVec3 &pt, const float _fRange, const NTimer::STime _timeToFire, CAIUnit *pOwner )
 	: vPt( pt ), fRange( _fRange ), timeToFire ( _timeToFire )
 {
@@ -1829,19 +1615,16 @@ CSoldierAttackAviationState::SPredict::SPredict( const CVec3 &pt, const float _f
 	wHor = GetDirectionByVector( vDir );
 	wVer = GetDirectionByVector( fabs(vDir), pt.z );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierAttackAviationState::Instance( class CAIUnit *pUnit, class CAviation *pPlane )
 {
 	return new CSoldierAttackAviationState( pUnit, pPlane );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierAttackAviationState::CSoldierAttackAviationState ( class CAIUnit *pUnit, class CAviation *pPlane )
 : pUnit(pUnit), pPlane(pPlane), eState( SAAS_ESITMATING ), bAttacking( false )
 {
 	theSupremeBeing.SetAAVisible( pUnit, pPlane->GetParty(), true );
 	const CVec2 vCenter = pUnit->GetCenter();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierAttackAviationState::StopFire()
 {
 	for ( int i = 0; i < pUnit->GetNGuns(); ++i )
@@ -1850,7 +1633,6 @@ void CSoldierAttackAviationState::StopFire()
 		pUnit->GetGun( i )->CanShoot();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoldierAttackAviationState::IsFinishedFire()
 {
 	int nGuns = pUnit->GetNGuns();
@@ -1861,7 +1643,6 @@ bool CSoldierAttackAviationState::IsFinishedFire()
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoldierAttackAviationState::CanFireNow() const
 {
 	int nGuns = pUnit->GetNGuns();
@@ -1872,7 +1653,6 @@ bool CSoldierAttackAviationState::CanFireNow() const
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierAttackAviationState::FireNow()
 {
 	const int nGuns = pUnit->GetNGuns();
@@ -1882,7 +1662,6 @@ void CSoldierAttackAviationState::FireNow()
 		pGun->CanShoot();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierAttackAviationState::Segment()
 {
 	if (	eState != SAAS_WAIT_FOR_END_OF_BURST && 
@@ -1892,7 +1671,6 @@ void CSoldierAttackAviationState::Segment()
 		eState = SAAS_FINISH;
 		StopFire();
 	}
-	// CRAP{ очень некрасиво
 	else if ( pUnit->GetStats()->IsArtillery() )
 	{
 		NI_ASSERT_T( dynamic_cast<CArtillery*>(pUnit) != 0, "Wrong type of unit" );
@@ -1903,7 +1681,6 @@ void CSoldierAttackAviationState::Segment()
 			return;
 		}
 	}
-	// CRAP}
 
 	switch ( eState )
 	{
@@ -1977,7 +1754,6 @@ void CSoldierAttackAviationState::Segment()
 		break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierAttackAviationState::Aim()
 {
 	const int nGuns = pUnit->GetNGuns();
@@ -1991,7 +1767,6 @@ void CSoldierAttackAviationState::Aim()
 		}
 	}	
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSoldierAttackAviationState::CalcAimPoint()
 {
 	if ( !IsValidObj( pPlane ) ) return false;
@@ -2002,7 +1777,6 @@ bool CSoldierAttackAviationState::CalcAimPoint()
 	float fRange = 0;
 	CTurret * pTurret = 0;
 	CBasicGun * pGunAbleToShoot = 0;
-	// choose the first gun that able to shoot to plane
 	for ( int i = 0; i < nGuns ; ++i )
 	{
 		CBasicGun *pGun = pUnit->GetGun( i );
@@ -2022,14 +1796,11 @@ bool CSoldierAttackAviationState::CalcAimPoint()
 		return false;
 	}
 	
-	// вычислить точку прицеливания 
 	CVec3 vPlaneSpeed ;
 	pPlane->GetSpeed3( &vPlaneSpeed );
-	// for circle plane motion
 	const float fCircleRadius = pPlane->GetCurPath()->GetCurvatureRadius();
 	const CVec2 vCircleCenter = pPlane->GetCurPath()->GetCurvatureCenter();
 
-	// calculate angle speed if needed
 	float fAngleSpeed = 0;
 	if ( 0 != fCircleRadius )
 	{
@@ -2061,7 +1832,6 @@ bool CSoldierAttackAviationState::CalcAimPoint()
 	aimPoint = SPredict( vPredict, fRange, curTime + nTimeToShoot, pUnit );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierAttackAviationState::TryInterruptState(class CAICommand *pCommand)
 {
 	if ( !pCommand )
@@ -2082,25 +1852,17 @@ ETryStateInterruptResult CSoldierAttackAviationState::TryInterruptState(class CA
 
 	return TSIR_YES_WAIT;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAIUnit* CSoldierAttackAviationState::GetTargetUnit() const
 {
 	return pPlane;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										CSoldierFireMoraleShellState									*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierFireMoraleShellState::Instance( CAIUnit * pUnit, const class CVec2 &vTarget )
 {
 	return new CSoldierFireMoraleShellState( pUnit, vTarget );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierFireMoraleShellState::CSoldierFireMoraleShellState( CAIUnit * pUnit, const class CVec2 &vTarget )
 : pUnit( pUnit ), nMoraleGun( -1 ), vTarget( vTarget )
 {
-	// choose morale gun
 	const int nGuns = pUnit->GetNGuns();
 	for ( int i = 0; i < nGuns; ++i )
 	{
@@ -2124,30 +1886,22 @@ CSoldierFireMoraleShellState::CSoldierFireMoraleShellState( CAIUnit * pUnit, con
 		TryInterruptState( 0 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierFireMoraleShellState::Segment()
 {
 	CBasicGun *pGun = pUnit->GetGun( nMoraleGun );
 	if ( !pGun->IsFiring() )
 		pGun->StartPointBurst( vTarget, false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierFireMoraleShellState::TryInterruptState( CAICommand *pCommand )
 {
 	if ( -1 != nMoraleGun && pUnit && pUnit->IsAlive() )
 		pUnit->GetGun( nMoraleGun )->StopFire();
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												CSoldierUseState													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierUseState::Instance( CAIUnit *pUnit, const EActionNotify &eState )
 {
 	return new CSoldierUseState( pUnit, eState );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierUseState::CSoldierUseState( CAIUnit *_pUnit, const EActionNotify &_eState )
 : pUnit( _pUnit ), eState( _eState )
 {
@@ -2156,11 +1910,9 @@ CSoldierUseState::CSoldierUseState( CAIUnit *_pUnit, const EActionNotify &_eStat
 	
 	NI_ASSERT_T( eState == ACTION_NOTIFY_USE_UP || eState == ACTION_NOTIFY_USE_DOWN, NStr::Format( "Wrong action (%d) in UseState", (int)eState ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierUseState::Segment()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierUseState::TryInterruptState( CAICommand *pCommand )
 {
 	pUnit->StopCurAnimation();
@@ -2168,4 +1920,3 @@ ETryStateInterruptResult CSoldierUseState::TryInterruptState( CAICommand *pComma
 	
 	return TSIR_YES_IMMIDIATELY;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

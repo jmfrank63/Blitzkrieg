@@ -4,11 +4,8 @@
 #include "GeneralInternalInterfaces.h"
 #include "AIHashFuncs.h"
 #include "..\Misc\FreeIDs.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAIUnit;
 class CEnemyRememberer;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ��������� ���������� � �x ������� ��� ���� �������
 class CGeneralAirForce : public IRefCount, public IEnemyEnumerator
 {
 	friend class CGeneralAirForceLaunchFighters;
@@ -38,7 +35,6 @@ class CGeneralAirForce : public IRefCount, public IEnemyEnumerator
 		SSupportInfo() : vPoint( VNULL2 ), nResistanceCellNumber( -1 ) { }
 	};
 
-	// �����, � �������� ������� ������ ���� � �������������� ���������
 	std::vector<NTimer::STime> reservedTimes;		
 
 	
@@ -60,8 +56,6 @@ private:
 
 	void LaunchPlane( const int /*SUCAviation::AIRCRAFT_TYPE*/ nType, const std::list<CVec2> &vPoints, const int nPlayer );
 
-	// returns 0 if line is safe to fly.
-	// otherwize returns severty( how many planes will die while flying by this line )
 	float CheckLineForSafety( const CVec2 &vStart, const CVec2 &vFinish, const float fFlyHeight );
 	bool IsTimePossible( const int nPlayer, const NTimer::STime timeToLaunch ) const; // ����������� ��������� �������� � ��� �����.
 
@@ -81,7 +75,6 @@ public:
 		pEnemyContainer = _pEnemyConatainer;
 	}
 
-	//IEnemyEnumerator
 	virtual bool EnumEnemy( class CAIUnit *pEnemy );
 
 	void SetAAVisible( class CAIUnit *pUnit, const bool bVisible );
@@ -89,7 +82,6 @@ public:
 	void ReserveAviationForTimes( const std::vector<NTimer::STime> &times );
 
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGeneralAirForceLaunchFighters : public IGeneralDelayedTask 
 {
 	OBJECT_COMPLETE_METHODS( CGeneralAirForceLaunchFighters );
@@ -105,5 +97,4 @@ public:
 	virtual void Run() ;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __GENERAL_AIR_FORCE__

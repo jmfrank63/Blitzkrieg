@@ -6,14 +6,11 @@
 #include "Guns.h"
 #include "SerializeOwner.h"
 #include "Path.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern NTimer::STime curTime;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CRndRunUpToEnemy::CRndRunUpToEnemy( CAIUnit *pOwner, CAIUnit *pEnemy )
 {
 	Init( pOwner, pEnemy );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRndRunUpToEnemy::Init( CAIUnit *_pOwner, CAIUnit *_pEnemy )
 {
 	pEnemy = _pEnemy;
@@ -33,7 +30,6 @@ void CRndRunUpToEnemy::Init( CAIUnit *_pOwner, CAIUnit *_pEnemy )
 		bCheck = false;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRndRunUpToEnemy::SendOwnerToRandomRun()
 {
 	NI_ASSERT_T( !bForceStaying, "Wrong force staying value ( false expected )" );
@@ -49,7 +45,6 @@ void CRndRunUpToEnemy::SendOwnerToRandomRun()
 		wResultDir = wDirToEnemy + wRandomAngle;
 
 	float fRandomDist;
-	// ползти
 	if ( Random( 0.0f, 1.0f ) < 0.7f )
 	{
 		fRandomDist = Random( float( 0.4f * SConsts::TILE_SIZE ), float( 2.0f * SConsts::TILE_SIZE ) );
@@ -65,7 +60,6 @@ void CRndRunUpToEnemy::SendOwnerToRandomRun()
 
 	if ( IStaticPath *pStaticPath = CreateStaticPathToPoint( vPointToRunUp, VNULL2, pOwner, true ) )
 	{
-		// путь не слишком длинный и конечная точка не слишком далека от нужной нам
 		if ( ( bForceStaying && pStaticPath->GetLength() <= 5 ||
  				   !bForceStaying && pStaticPath->GetLength() <= 3 ) &&
 				 fabs2( pStaticPath->GetFinishPoint() - vPointToRunUp ) < sqr( 3.0f * SConsts::TILE_SIZE / 4.0f ) )
@@ -89,7 +83,6 @@ void CRndRunUpToEnemy::SendOwnerToRandomRun()
 		bForceStaying = false;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRndRunUpToEnemy::Segment()
 {
 	if (
@@ -128,13 +121,11 @@ void CRndRunUpToEnemy::Segment()
 
 	NI_ASSERT_T( bRunningToEnemy || !bForceStaying, "Wrong force staying value ( false expected )" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRndRunUpToEnemy::Finish()
 {
 	if ( pOwner )
 		pOwner->AllowLieDown( true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CRndRunUpToEnemy::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -149,4 +140,3 @@ int CRndRunUpToEnemy::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,15 +1,6 @@
 #include "StdAfx.h"
 
 #include "MatrixEffector.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** recoil
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMatrixEffectorRecoil::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -21,14 +12,12 @@ int CMatrixEffectorRecoil::operator&( IStructureSaver &ss )
 	saver.Add( 6, &fAngle );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMatrixEffectorRecoil::Update( const NTimer::STime &time )
 {
 	if ( time < timeStart )
 		return true;
 	else if ( time >= timeStart + timeLife )
 		return false;
-	//
 	NTimer::STime timeDiff = time - timeStart;
 	if ( timeDiff < timeLife / 10 )
 	{
@@ -48,15 +37,6 @@ bool CMatrixEffectorRecoil::Update( const NTimer::STime &time )
 		matResult = MONE;
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** jogging
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMatrixEffectorJogging::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -66,7 +46,6 @@ int CMatrixEffectorJogging::operator&( IStructureSaver &ss )
 	saver.Add( 4, &fWeightCoeff );
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMatrixEffectorJogging::Update( const NTimer::STime &time )
 {
 	if ( time < timeStart )
@@ -78,13 +57,10 @@ bool CMatrixEffectorJogging::Update( const NTimer::STime &time )
 	const float fDiff = float( time - timeStart ) / 1000.0f * FP_2PI;	// difference in seconds
 	const float fCoeff1 = cos( fDiff * fPeriod1 );
 	const float fCoeff2 = sin( fDiff * fPeriod2 );
-	//
 	CQuat quat( fCoeff1*ToRadian(2.0f), V3_AXIS_X );
 	CQuat q1( fCoeff2*ToRadian(2.0f), V3_AXIS_Y );
 	quat *= q1;
 	const CVec3 vShift = fCoeff1*V3_AXIS_Z*10.0f;
 	matResult.Set( vShift, quat );
-	//
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

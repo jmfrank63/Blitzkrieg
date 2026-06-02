@@ -1,7 +1,6 @@
 #include "StdAfx.h"
 
 #include "CellsConglomerateContainer.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template < class TEnumerator>
 		void EnumConglomerates( const int nMaxRank, const SIntPair &vCenter, const int nRadius, TEnumerator enumerator )
 {
@@ -13,13 +12,11 @@ template < class TEnumerator>
 
 	if ( nMinX == nMaxX || nMinY == nMaxY ) return ;		// nothing to do
 	
-	// for better performance
 	const int nAreaUnderSound = ( nMaxX - nMinX ) * (  nMaxY - nMinY );
 	int nAreaSoFar = 0;
 
 	int nCurXMin, nCurYMin, nCurXMax, nCurYMax;
 		
-	// fill center with cells of maximum possible rank
 	int nCurRank = nMaxRank;
 	for ( ; nCurRank >= 0 && nAreaSoFar < nAreaUnderSound; --nCurRank )
 	{
@@ -33,7 +30,6 @@ template < class TEnumerator>
 		if ( nCurXMin < nCurXMax && nCurYMin < nCurYMax )
 		{
 			const int nConglomerateArea = nConglomerateSize * nConglomerateSize;
-			// try fill with cells of this rank, if success - then continue to add
 			for ( int nX = nCurXMin; nX < nCurXMax; ++nX )
 			{
 				for ( int nY = nCurYMin; nY < nCurYMax; ++nY )
@@ -42,21 +38,16 @@ template < class TEnumerator>
 					nAreaSoFar += nConglomerateArea;
 				}
 			}
-			// these cells has sizes, so next will start from coordinates:
-			///++nCurXMax;
-			//++nCurYMax;
 			--nCurRank;
 			break;
 		}
 	}
 
-	// cells are 2 times smaller, former rank
 	nCurXMin *= 2;
 	nCurYMin *= 2;
 	nCurXMax *= 2;
 	nCurYMax *= 2;
 	
-	// fill borders successively by cells with smaller rank
 	for ( ; nCurRank >= 0 && nAreaSoFar < nAreaUnderSound; --nCurRank )
 	{
 		const int nConglomerateSize = 1 << nCurRank;
@@ -68,7 +59,6 @@ template < class TEnumerator>
 		const int nRankMaxX = (nMaxX / nConglomerateSize );
 		const int nRankMaxY = (nMaxY / nConglomerateSize );
 
-		// fill top row (if exists)
 		const bool bTopExists = nRankMinY < nCurYMin;
 		if ( bTopExists )
 		{
@@ -79,7 +69,6 @@ template < class TEnumerator>
 			}
 		}
 
-		// fill bottom row
 		const bool bBottomExists = nRankMaxY > nCurYMax;
 		if ( bBottomExists )
 		{
@@ -90,7 +79,6 @@ template < class TEnumerator>
 			}
 		}
 
-		// fill left & right colums
 		const bool bLeftExists = nRankMinX < nCurXMin;
 		if ( bLeftExists )					// left column exists
 		{
@@ -110,7 +98,6 @@ template < class TEnumerator>
 				enumerator( nCurRank, nCurXMax, nY );
 			}
 		}
-			// setup new inner rectangle
 		nCurXMin = nRankMinX * 2;
 		nCurYMin = nRankMinY * 2;
 
@@ -118,23 +105,15 @@ template < class TEnumerator>
 		nCurYMax = ( bBottomExists ? nRankMaxY : nCurYMax ) * 2;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*															CCellsConglomerateContainer
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CCellsConglomerateContainer::MAX_RANK = 4;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCellsConglomerateContainer::Clear() 
 { 
 	bInitted = false; 
 	conglomerates.clear(); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCellsConglomerateContainer::Init( const int nMaxX, const int nMaxY )
 {
 	bInitted = true;
-	// create conglomerates of all avalable ranks.
 	nMaxRank = MAX_RANK;
 	conglomerates.reserve( MAX_RANK + 1 );
 	
@@ -150,7 +129,6 @@ void CCellsConglomerateContainer::Init( const int nMaxX, const int nMaxY )
 		conglomerates[i].SetSizes( nMaxX / nConglomerateSize, nMaxY / nConglomerateSize );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCellsConglomerateContainer::AddHearCell( const SIntPair &vCenter, const int nRadius )
 {
 	if ( nRadius )
@@ -159,7 +137,6 @@ void CCellsConglomerateContainer::AddHearCell( const SIntPair &vCenter, const in
 		EnumConglomerates( nMaxRank, vCenter, nRadius, en );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCellsConglomerateContainer::RemoveHearCell( const SIntPair &vCenter, const int nRadius )
 {
 	if ( nRadius )

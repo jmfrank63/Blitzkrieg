@@ -26,10 +26,6 @@
  */
 
 
-//==========================================================
-// User-settable macros that control compilation:
-//              Features selection
-//==========================================================
 
 /* _STLP_NO_OWN_IOSTREAMS: 
  * __STL_NO_SGI_IOSTREAMS (in older versions)
@@ -56,13 +52,11 @@
  * Hint : In VC++ 6.x, they are not.
  */
 
-// #define   _STLP_NO_NEW_IOSTREAMS	1
 
 /*
  * Use this switch for embedded systems where no iostreams are available
  * at all. STLport own iostreams will also get disabled automatically then.
  */
-// # define _STLP_NO_IOSTREAMS 1
 
 /* 
  * Set _STLP_DEBUG to turn the "Debug Mode" on.
@@ -89,7 +83,6 @@
  *  on per-project basis.
  *
  */
-// #define _STLP_NO_CUSTOM_IO
 
 
 /* 
@@ -100,7 +93,6 @@
  * to simulate hiding them into rel_ops. This was proved to resolve many compiler bugs with ambiguity.
  */
 
-// #define _STLP_NO_RELOPS_NAMESPACE 1
 
 
 /*
@@ -109,7 +101,6 @@
  * setup (like you are using third-party library that has to use vendor's STL), 
  * please define the following switch :
  */
-// # define _STLP_DONT_REDEFINE_STD 1
 
 
 /*
@@ -123,7 +114,6 @@
  * Otherwise this option is not recommended as it increases the size of your object files
  * and slows down compilation.
  */
-// # define _STLP_WHOLE_NATIVE_STD
 
 
 /*
@@ -155,24 +145,18 @@
  * 
  */
 
-// #define _STLP_GCC_USES_GNU_LD
 
 
-//==========================================================
-// Compatibility section
-//==========================================================
 
 /*
  *  Define this macro to disable anachronistic constructs (like the ones used in HP STL and
  *  not included in final standard, etc. 
  */
-// define _STLP_NO_ANACHRONISMS 1
 
 /*
  *  Define this macro to disable STLport extensions (for example, to make sure your code will 
  *  compile with some other implementation )
  */
-// define _STLP_NO_EXTENSIONS   1
 
 
 /* 
@@ -181,12 +165,8 @@
  *
  */
 
-// # define _STLP_USE_MFC 1
 
 
-// boris : this setting is here as we cannot detect precense of new Platform SDK automatically 
-// If you are using new PSDK with VC++ 6.0 or lower, please define this to get correct prototypes for InterlockedXXX functions
-// # define _STLP_NEW_PLATFORM_SDK 1
 
 /*
  * Use minimum set of default arguments on template classes that have more
@@ -199,15 +179,10 @@
  * queue<>, priority_queue<>, stack<>, istream_iterator<>
  */
 
-// # define _STLP_MINIMUM_DEFAULT_TEMPLATE_PARAMS 1
 
 /*
  *  Don't use SGI allocators - they produce memory leaks!!!
  *
  */
 #define _STLP_USE_NEWALLOC 1
-//==========================================================
 
-// Local Variables:
-// mode:C++
-// End:

@@ -5,36 +5,29 @@
 #include "..\Main\GameStats.h"
 #include "CommonId.h"
 #include "eTypes.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum ECommands
 {
 	IMC_SHOW_ENCYCLOPEDIA		= 10003,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_ok"				,	IMC_CANCEL		},
 	{ "inter_cancel"		, IMC_CANCEL		},
 	{ 0									,	0							}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICSingleMedal::Configure( const char *pszConfig )
 {
 	if ( !pszConfig ) return;
-	//получаем параметры из командной строки
 	szName = pszConfig;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICSingleMedal::PostCreate( IMainLoop *pML, CInterfaceSingleMedal *pISM )
 {
 	pISM->Create( szName.c_str() );
 	pML->PushInterface( pISM );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceSingleMedal::~CInterfaceSingleMedal()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceSingleMedal::Init()
 {
 	CInterfaceInterMission::Init();
@@ -42,7 +35,6 @@ bool CInterfaceSingleMedal::Init()
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceSingleMedal::Create( const char *pszName )
 {
 	szMedalName = pszName;
@@ -69,13 +61,11 @@ void CInterfaceSingleMedal::Create( const char *pszName )
 	if ( p1 != 0 )
 		pText->SetWindowText( 0, p1->GetString() );
 	
-	// caption - medal title
 	IUIElement *pCaption = pUIScreen->GetChildByID( 20000 );
 	IText * pTextCaption = GetSingleton<ITextManager>()->GetString( pMedalStats->szHeaderText.c_str() );
 	pCaption->SetWindowText( 0, pTextCaption->GetString() );
 
 	
-	//установим правильный размер для картинки
 	const CVec2 vMedalSize ( pMedalStats->mapImageRect.x1,  pMedalStats->mapImageRect.y1 );
 	CVec2 vStaticSize;
 	CVec2 vStaticPos;
@@ -89,7 +79,6 @@ void CInterfaceSingleMedal::Create( const char *pszName )
 	pPicture->SetWindowPlacement( 0, &size );
 	*/
 	
-	//установим map для картинки
 	CTRect<float> rc( 0.0f, 0.0f, pMedalStats->mapImageRect.x2, pMedalStats->mapImageRect.y2 );
 	pPicture->SetWindowMap( rc );
 	
@@ -99,7 +88,6 @@ void CInterfaceSingleMedal::Create( const char *pszName )
 	pUIScreen->Reposition( pGFX->GetScreenRect() );
 	pScene->AddUIScreen( pUIScreen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceSingleMedal::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceInterMission::ProcessMessage( msg ) )
@@ -112,7 +100,6 @@ bool CInterfaceSingleMedal::ProcessMessage( const SGameMessage &msg )
 			return true;
 			
 		case IMC_SHOW_ENCYCLOPEDIA:
-			//вызовем энциклопедию
 			const SMedalStats *pMedalStats = NGDB::GetGameStats<SMedalStats>( szMedalName.c_str(), IObjectsDB::MEDAL );
 			NI_ASSERT_TF( pMedalStats != 0, "Invalid medal stats in SingleMedal interface", return true );
 			std::string szTemp = NStr::Format( "%d;", E_MEDAL );
@@ -121,7 +108,5 @@ bool CInterfaceSingleMedal::ProcessMessage( const SGameMessage &msg )
 			return true;
 	}
 	
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

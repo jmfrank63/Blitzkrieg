@@ -10,8 +10,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CCampaignView
 
 CCampaignView::CCampaignView()
 {
@@ -23,16 +21,12 @@ CCampaignView::~CCampaignView()
 
 
 BEGIN_MESSAGE_MAP(CCampaignView, CWnd)
-//{{AFX_MSG_MAP(CCampaignView)
 ON_WM_PAINT()
 ON_WM_HSCROLL()
 ON_WM_VSCROLL()
-//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CCampaignView message handlers
 
 BOOL CCampaignView::PreCreateWindow(CREATESTRUCT& cs) 
 {

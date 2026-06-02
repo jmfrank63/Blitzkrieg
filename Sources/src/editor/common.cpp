@@ -23,14 +23,12 @@ const std::string szDDSFilter = "DDS compressed textures (*.dds)|*.dds||";
 
 void FillTileMaps( int nSizeX, int nSizeY, vector<STileMapsDesc> &tileMaps, bool bGenerateInverse )
 {
-	//Заполняем массив maps в зависимости от размера текстуры
 	int nNumColumn = 0;
 	for ( int i=0; i<nSizeY-32; i+=32 )
 	{
 		CVec2 maps[4];
 		STileMapsDesc tileMap;
 		
-		//Primary maps
 		for ( int k=0; k<4; k++ )
 		{
 			GetPrimaryMaps( k, nNumColumn, false, maps, nSizeX, nSizeY );
@@ -45,7 +43,6 @@ void FillTileMaps( int nSizeX, int nSizeY, vector<STileMapsDesc> &tileMaps, bool
 			}
 		}
 		
-		//Secondary maps
 		for ( int k=0; k<3; k++ )
 		{
 			GetSecondaryMaps( k, nNumColumn, false, maps, nSizeX, nSizeY );
@@ -67,7 +64,6 @@ void FillTileMaps( int nSizeX, int nSizeY, vector<STileMapsDesc> &tileMaps, bool
 		CVec2 maps[4];
 		STileMapsDesc tileMap;
 		
-		//Primary maps
 		for ( int k=0; k<4; k++ )
 		{
 			GetPrimaryMaps( k, nNumColumn, false, maps, nSizeX, nSizeY );
@@ -102,7 +98,6 @@ bool CheckDDSExtension( const char *pszFileName )
 {
 	std::string szName = pszFileName;
 	int nPos = szName.rfind( '\\' );
-//	NI_ASSERT( nPos != std::string::npos );
 	if ( nPos != std::string::npos )
 		szName = szName.substr( nPos + 1 );
 

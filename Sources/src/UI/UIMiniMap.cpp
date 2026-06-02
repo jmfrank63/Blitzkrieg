@@ -1,5 +1,4 @@
 #include "StdAfx.h"
-//ReportObjectiveStateChanged
 #include "..\Input\Input.h"
 #include "..\Main\iMainCommands.h"
 #include "..\Scene\Scene.h"
@@ -12,12 +11,10 @@
 #include "..\RandomMapGen\Bresenham_Types.h"
 #include "..\RandomMapGen\Resource_Types.h"
 #include "..\Common\PauseGame.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const char CUIMiniMap::MARKERS_TYPES_FILE_NAME[] = "UI\\MiniMapMarkers";
 const char CUIMiniMap::MARKERS_TEXTURE_NAME[] = "MiniMapMarkersTexture";
 const char CUIMiniMap::MARKERS_TYPES_NAME[] = "MiniMapMarkers";
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int STextureMarker::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss; 
@@ -28,12 +25,10 @@ int STextureMarker::operator&( IDataTree &ss )
 		CTPoint<int> hotSpot;
 		saver.Add( "Rect", &screenRect );
 		saver.Add( "HotSpot", &hotSpot );
-		//
 		textureRect.minx = ( screenRect.minx + 0.5f ) / size.x;
 		textureRect.miny = ( screenRect.miny + 0.5f ) / size.y;
 		textureRect.maxx = ( screenRect.maxx + 0.5f ) / size.x;
 		textureRect.maxy = ( screenRect.maxy + 0.5f ) / size.y;
-		//
 		screenRect.minx -= hotSpot.x;
 		screenRect.miny -= hotSpot.y;
 		screenRect.maxx -= hotSpot.x;
@@ -54,7 +49,6 @@ int STextureMarker::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int STextureMarker::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -66,7 +60,6 @@ int STextureMarker::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SMiniMapMarker::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -82,24 +75,20 @@ int SMiniMapMarker::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMiniMap::CreateMiniMapTextures()
 {
 	IGFX* _pGFX = GetSingleton<IGFX>();
 
 	if ( IsInitialized() )
 	{
-		//������� �������� ������� �������
 		pWarFog = _pGFX->CreateTexture( GetNextPow2( terrainSize.x ), GetNextPow2( terrainSize.y ), 1, GFXPF_ARGB4444, GFXD_SYSMEM );
 		pWarFogTexture = _pGFX->CreateTexture( GetNextPow2( terrainSize.x ), GetNextPow2( terrainSize.y ), 1, GFXPF_ARGB4444, GFXD_STATIC );
 
 		pInstantObjects = _pGFX->CreateTexture( GetNextPow2( static_cast<int>( wndRect.right - wndRect.left ) ), GetNextPow2( static_cast<int>( wndRect.bottom - wndRect.top ) ), 1, GFXPF_ARGB4444, GFXD_SYSMEM );
 		pInstantObjectsTexture = _pGFX->CreateTexture( GetNextPow2( static_cast<int>(wndRect.right - wndRect.left ) ), GetNextPow2( static_cast<int>( wndRect.bottom - wndRect.top ) ), 1, GFXPF_ARGB4444, GFXD_STATIC );
 
-		//�������������� �������� ��� �����������
 		if ( pWarFog )
 		{
-			//�������������� �������� pWarFog
 			{
 				CTextureLock<SGFXColor4444> textureLock( pWarFog , 0 );
 				const int nNumElements = pWarFog->GetSizeX( 0 );
@@ -113,7 +102,6 @@ void CUIMiniMap::CreateMiniMapTextures()
 		}
 		if ( pInstantObjects )
 		{
-			//�������������� �������� pInstantObjects
 			{
 				CTextureLock<SGFXColor4444> textureLock( pInstantObjects , 0 );
 				int nBytesCount = pInstantObjects->GetSizeX( 0 ) * sizeof( WORD );
@@ -125,7 +113,6 @@ void CUIMiniMap::CreateMiniMapTextures()
 			}
 		}
 
-		//���������  �������� pWarFog � �����������
 		if ( pWarFog && pWarFogTexture && isWarFogNeedUpdate )
 		{
 			pWarFog->AddDirtyRect( &( static_cast<RECT>( CTRect<int>( 0, 0, pWarFog->GetSizeX( 0 ), pWarFog->GetSizeY( 0 ) ) ) ) );
@@ -133,7 +120,6 @@ void CUIMiniMap::CreateMiniMapTextures()
 			isWarFogNeedUpdate = false;
 		}
 
-		//���������  �������� pInstantObjects � �����������
 		if ( pInstantObjects && pInstantObjectsTexture && isInstantObjectsNeedUpdate )
 		{
 			pInstantObjects->AddDirtyRect( &( static_cast<RECT>( CTRect<int>( 0, 0, pInstantObjects->GetSizeX( 0 ), pInstantObjects->GetSizeY( 0 ) ) ) ) );
@@ -143,7 +129,6 @@ void CUIMiniMap::CreateMiniMapTextures()
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIMiniMap::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -152,7 +137,6 @@ int CUIMiniMap::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIMiniMap::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -172,9 +156,6 @@ int CUIMiniMap::operator&( IStructureSaver &ss )
   
   saver.Add( 11, &shootAreas );
   saver.Add( 12, &circles );
-	//�� �����, �������� � CreateMiniMapTextures()
-	//saver.Add( 13, &isWarFogNeedUpdate );
-	//saver.Add( 14, &isInstantObjectsNeedUpdate );
 	saver.Add( 13, &dwScreenFrameColorShadow );
 	
 	saver.Add( 14, &markersTypes );
@@ -190,7 +171,6 @@ int CUIMiniMap::operator&( IStructureSaver &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMiniMap::GetZeroPoint( float *pfXZeroPoint, float *pfYZeroPoint, bool isTopLeft )
 {
 	NI_ASSERT_SLOW_T( ( pfXZeroPoint ) && ( pfYZeroPoint ),
@@ -228,7 +208,6 @@ void CUIMiniMap::GetZeroPoint( float *pfXZeroPoint, float *pfYZeroPoint, bool is
 	}
 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMiniMap::PointToTextureMiniMap( float fXPos, float fYPos, float *pfXMiniMapPos, float *pfYMiniMapPos, bool isLeftTop )
 {
 	NI_ASSERT_SLOW_T( ( pfXMiniMapPos ) && ( pfYMiniMapPos ),
@@ -260,7 +239,6 @@ void CUIMiniMap::PointToTextureMiniMap( float fXPos, float fYPos, float *pfXMini
 		*pfYMiniMapPos =  ( fYLocalPos - fXLocalPos ) / 2.0f  + zeroPoint.y;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMiniMap::TextureMiniMapToPoint( float fXMiniMapPos, float fYMiniMapPos, float *pfXPos, float *pfYPos , bool isLeftTop )
 {
 	NI_ASSERT_SLOW_T( ( pfXPos ) && ( pfYPos ),
@@ -295,7 +273,6 @@ void CUIMiniMap::TextureMiniMapToPoint( float fXMiniMapPos, float fYMiniMapPos, 
 		*pfYPos =  ( fXLocalPos / 2.0f + fYLocalPos ) * fAy;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMiniMap::GetVerticalClippedScreenEdge( const CTPoint<float> &v0, const CTPoint<float> &v1, std::vector<CTPoint<float> > *pvPoints )
 {
 	NI_ASSERT_SLOW_T( pvPoints != 0,
@@ -304,13 +281,10 @@ void CUIMiniMap::GetVerticalClippedScreenEdge( const CTPoint<float> &v0, const C
 	float fXMax = terrainSize.x;
 	float fYMax = terrainSize.y;
 	
-	//������������ ������� 0 � ����� 0 - 1
 	if ( InMiniMap( v0.x, v0.y ) )
 	{
 		if ( InMiniMap ( v1.x, v1.y ) )
 		{
-			//��������� ����� 0 - 1 ��� ���������
-			//��� ����� ������
 			pvPoints->push_back( CTPoint<float>( v0.x, v0.y ) );
 			pvPoints->push_back( CTPoint<float>( v1.x, v1.y ) );
 		}
@@ -319,16 +293,12 @@ void CUIMiniMap::GetVerticalClippedScreenEdge( const CTPoint<float> &v0, const C
 			float fXbyY0_0_1 = GetXByY( 0.0f, v0.x, v0.y, v1.x, v1.y );
 			if ( fXbyY0_0_1 <= fXMax )
 			{
-				//��������� ����� 0 - 1 c ���������� �� ����� (0,0)-(fXMax, 0)
-				//����� 0 ������, ����� 1 ������� �� ������� ����� (0,0)
 				pvPoints->push_back( CTPoint<float>( v0.x, v0.y ) );
 				pvPoints->push_back( CTPoint<float>( fXbyY0_0_1, 0 ) );
 			}
 			else
 			{
 				float fYbyXmax_0_1 = GetYByX( fXMax, v0.x, v0.y, v1.x, v1.y );
-				//��������� ����� 0 - 1 c ���������� �� ����� (fXMax,0)-(fXMax,fYMax)
-				//����� 0 ������, ����� 1 ������� �� ������� ����� (fXMax,fYMax)
 				pvPoints->push_back( CTPoint<float>( v0.x, v0.y ) );
 				pvPoints->push_back( CTPoint<float>( fXMax, fYbyXmax_0_1 ) );
 			}
@@ -341,16 +311,12 @@ void CUIMiniMap::GetVerticalClippedScreenEdge( const CTPoint<float> &v0, const C
 		{
 			if ( fYbyX0_0_1 <= fYMax )
 			{
-				//��������� ����� 0 - 1 c ���������� �� ����� (0,0)-(0, fYMax)
-				//����� 0 �������, ����� 1 ������ �� ������� ����� (0,0)
 				pvPoints->push_back( CTPoint<float>( 0, fYbyX0_0_1 ) );
 				pvPoints->push_back( CTPoint<float>( v1.x, v1.y ) );
 			}
 			else
 			{
 				float fXbyYmax_0_1 = GetXByY( fYMax, v0.x, v0.y, v1.x, v1.y );
-				//��������� ����� 0 - 1 c ���������� �� ����� (0,fYMax)-(fXMax, fYMax)
-				//����� 0 �������, ����� 1 ������ �� ������� ����� (fXMax, fYMax)
 				pvPoints->push_back( CTPoint<float>( fXbyYmax_0_1, fYMax ) );
 				pvPoints->push_back( CTPoint<float>( v1.x, v1.y ) );
 			}
@@ -362,14 +328,11 @@ void CUIMiniMap::GetVerticalClippedScreenEdge( const CTPoint<float> &v0, const C
 				if ( ( fYbyX0_0_1 >= v1.y )  && ( fYbyX0_0_1 <= v0.y ) )
 				{
 					float fXbyY0_0_1 = GetXByY( 0.0f, v0.x, v0.y, v1.x, v1.y );
-					//��������� ����� 0 - 1 c ���������� �� ������ (0,0)-(0, fYMax) � (0,0)-(fXMax, 0)
-					//����� 0 �������, ����� 1 ������� �� ������� ����� (0, 0)
 					pvPoints->push_back( CTPoint<float>( 0, fYbyX0_0_1 ) );
 					pvPoints->push_back( CTPoint<float>( fXbyY0_0_1, 0 ) );
 				}
 				else
 				{
-					//��� �����
 				}
 			}
 			else
@@ -380,25 +343,20 @@ void CUIMiniMap::GetVerticalClippedScreenEdge( const CTPoint<float> &v0, const C
 					if ( ( fYbyXmax_0_1 >= v1.y ) && ( fYbyXmax_0_1 <= v0.y ) )
 					{
 						float fXbyYmax_0_1 = GetXByY( fYMax, v0.x, v0.y, v1.x, v1.y );
-						//��������� ����� 0 - 1 c ���������� �� ������ (0,fYmax)-(fXMax, fYMax) � (fXmax,0)-(fXMax, fYMax)
-						//����� 0 �������, ����� 1 ������� �� ������� ����� (fXMax, fYMax)
 						pvPoints->push_back( CTPoint<float>( fXbyYmax_0_1, fYMax ) );
 						pvPoints->push_back( CTPoint<float>( fXMax, fYbyXmax_0_1 ) );
 					}
 					else
 					{
-						//��� �����
 					}
 				}
 				else
 				{
-					//��� �����
 				}
 			}
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMiniMap::GetHorizontalClippedScreenEdge( const CTPoint<float> &v1, const CTPoint<float> &v2, std::vector<CTPoint<float> > *pvPoints )
 {
 	NI_ASSERT_SLOW_T( pvPoints != 0,
@@ -411,8 +369,6 @@ void CUIMiniMap::GetHorizontalClippedScreenEdge( const CTPoint<float> &v1, const
 	{
 		if ( InMiniMap ( v2.x, v2.y ) )
 		{
-			//��������� ����� 1 - 2 ��� ���������
-			//��� ����� ������
 			pvPoints->push_back( CTPoint<float>( v1.x, v1.y ) );
 			pvPoints->push_back( CTPoint<float>( v2.x, v2.y ) );
 		}
@@ -421,16 +377,12 @@ void CUIMiniMap::GetHorizontalClippedScreenEdge( const CTPoint<float> &v1, const
 			float fYbyXmax_1_2 = GetYByX( fXMax, v1.x, v1.y, v2.x, v2.y );
 			if ( fYbyXmax_1_2 <= fYMax )
 			{
-				//��������� ����� 1 - 2 c ���������� �� ����� (fXMax,0)-(fXMax, fYmax)
-				//����� 1 ������, ����� 2 ������� �� ������� ����� (fXMax,0)
 				pvPoints->push_back( CTPoint<float>( v1.x, v1.y ) );
 				pvPoints->push_back( CTPoint<float>( fXMax, fYbyXmax_1_2 ) );
 			}
 			else
 			{
 				float fXbyYmax_1_2 = GetXByY( fYMax, v1.x, v1.y, v2.x, v2.y );
-				//��������� ����� 1 - 2 c ���������� �� ����� (0,fYMax)-(fXMax,fYMax)
-				//����� 1 ������, ����� 2 ������� �� ������� ����� (0,fYMax)
 				pvPoints->push_back( CTPoint<float>( v1.x, v1.y ) );
 				pvPoints->push_back( CTPoint<float>( fXbyYmax_1_2, fYMax ) );
 			}
@@ -443,16 +395,12 @@ void CUIMiniMap::GetHorizontalClippedScreenEdge( const CTPoint<float> &v1, const
 		{
 			if ( fXbyY0_1_2 >= 0 )
 			{
-				//��������� ����� 1 - 2 c ���������� �� ����� (0,0)-(0, fYMax)
-				//����� 1 �������, ����� 2 ������ �� ������� ����� (fXMax,0)
 				pvPoints->push_back( CTPoint<float>( fXbyY0_1_2 , 0.0f ) );
 				pvPoints->push_back( CTPoint<float>( v2.x, v2.y ) );
 			}
 			else
 			{
 				float fYbyX0_1_2 = GetYByX( 0.0f, v1.x, v1.y, v2.x, v2.y );
-				//��������� ����� 1 - 2 c ���������� �� ����� (0,0-(0, fYMax)
-				//����� 1 �������, ����� 2 ������ �� ������� ����� (0, fYMax)
 				pvPoints->push_back( CTPoint<float>( 0.0f, fYbyX0_1_2 ) );
 				pvPoints->push_back( CTPoint<float>( v2.x, v2.y ) );
 			}
@@ -464,14 +412,11 @@ void CUIMiniMap::GetHorizontalClippedScreenEdge( const CTPoint<float> &v1, const
 				if ( ( fXbyY0_1_2 >= v1.x )  && ( fXbyY0_1_2 <= v2.x ) )
 				{
 					float fYbyXmax_1_2 = GetYByX( fXMax, v1.x, v1.y, v2.x, v2.y );
-					//��������� ����� 1 - 2 c ���������� �� ������ (0,0)-(fXMax, 0) � (fXMax,0)-(fXMax, fYMax)
-					//����� 1 �������, ����� 2 ������� �� ������� ����� (fxMax, 0)
 					pvPoints->push_back( CTPoint<float>( fXbyY0_1_2, 0 ) );
 					pvPoints->push_back( CTPoint<float>( fXMax, fYbyXmax_1_2 ) );
 				}
 				else
 				{
-					//��� �����
 				}
 			}
 			else
@@ -482,31 +427,25 @@ void CUIMiniMap::GetHorizontalClippedScreenEdge( const CTPoint<float> &v1, const
 					if ( ( fXbyYmax_1_2 >= v1.x ) && ( fXbyYmax_1_2 <= v2.x ) )
 					{
 						float fYbyX0_1_2 = GetYByX( 0.0f, v1.x, v1.y, v2.x, v2.y );
-						//��������� ����� 0 - 1 c ���������� �� ������ (0,fYmax)-(fXMax, fYMax) � (fXmax,0)-(fXMax, fYMax)
-						//����� 0 �������, ����� 1 ������� �� ������� ����� (fXMax, fYMax)
 						pvPoints->push_back( CTPoint<float>( 0, fYbyX0_1_2 ) );
 						pvPoints->push_back( CTPoint<float>( fXbyYmax_1_2, fYMax ) );
 					}
 					else
 					{
-						//��� �����
 					}
 				}
 				else
 				{
-					//��� �����
 				}
 			}
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMiniMap::GetClippedScreenFrame( std::vector<CTPoint<float> > *pvPoints, IGFX *_pGFX )
 {
 	NI_ASSERT_SLOW_T( pvPoints != 0,
 										NStr::Format( "Wrong parameter: (%x)", pvPoints ) );
 
-	//�������� ������� ���������� ����� ������
 	CTRect<float> screenRect = _pGFX->GetScreenRect();
 	
 	CVec3 v0;	//left top
@@ -532,7 +471,6 @@ void CUIMiniMap::GetClippedScreenFrame( std::vector<CTPoint<float> > *pvPoints, 
 	GetHorizontalClippedScreenEdge( CTPoint<float>( v0.x, v0.y ), CTPoint<float>( v3.x, v3.y ), pvPoints );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMiniMap::SetTerrainSize( int nXTerrainSize, int nYTerrainSize, int _nPlayersCount )
 {
 	terrainSize.x = nXTerrainSize;
@@ -558,7 +496,6 @@ void CUIMiniMap::SetTerrainSize( int nXTerrainSize, int nYTerrainSize, int _nPla
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIMiniMap::AddWarFogData( const BYTE *pVizBuffer, int nLength )
 {
 	if ( IsInitialized() && nLength != 0 )
@@ -566,7 +503,6 @@ bool CUIMiniMap::AddWarFogData( const BYTE *pVizBuffer, int nLength )
 		NI_ASSERT_SLOW_T( pVizBuffer != 0,
 											NStr::Format( "Wrong parameter: (%x)", pVizBuffer ) );
 
-		//��������� � �������� pWarFog � ����������� ������ ������ �� AI
 		if ( nFiledVISTiles < ( terrainSize.x * terrainSize.y ) )
 		{
 			NI_ASSERT_SLOW_T( ( nFiledVISTiles + nLength ) <= ( terrainSize.x * terrainSize.y ),
@@ -574,11 +510,9 @@ bool CUIMiniMap::AddWarFogData( const BYTE *pVizBuffer, int nLength )
 
 			CTextureLock<SGFXColor4444> textureLock( pWarFog , 0 );
 
-			//��������� �������� pWarFog � ����������� ������
 			for ( int nYIndex = 0; nYIndex < ( nLength / terrainSize.x ); ++nYIndex )
 			{
 				int nYPosition = terrainSize.y - ( nYIndex + ( nFiledVISTiles / terrainSize.x ) ) - 1;
-				//int nYPosition = ( terrainSize.y - ( nYIndex + ( nFiledVISTiles / terrainSize.x ) ) ) % terrainSize.y;
 				for ( int nXIndex = 0; nXIndex < terrainSize.x; ++nXIndex )
 				{
 					textureLock[nYPosition][nXIndex] = pWarFogValues[ pVizBuffer[( nYIndex * terrainSize.x ) + nXIndex] ]; // / SAIConsts::VIS_POWER
@@ -588,7 +522,6 @@ bool CUIMiniMap::AddWarFogData( const BYTE *pVizBuffer, int nLength )
 		}
 		if ( nFiledVISTiles >= ( terrainSize.x * terrainSize.y ) )
 		{
-			//������������� ������� vis ������ � ����
 			isWarFogNeedUpdate = true;
 			nFiledVISTiles = 0;
 			return true;
@@ -597,7 +530,6 @@ bool CUIMiniMap::AddWarFogData( const BYTE *pVizBuffer, int nLength )
 	return false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMiniMap::AddUnitsData( const SMiniMapUnitInfo *pUnitsBuffer, int nUnitsCount )
 {
 	if( IsInitialized() )
@@ -607,7 +539,6 @@ void CUIMiniMap::AddUnitsData( const SMiniMapUnitInfo *pUnitsBuffer, int nUnitsC
 			NI_ASSERT_SLOW_T( pUnitsBuffer != 0, NStr::Format( "Wrong parameter: (%x)", pUnitsBuffer ) );
 		}
 
-		//��������� ������
 		units.clear();
 		CTPoint<float> miniMapPoint( 0.0f, 0.0f );
 		const float fRatio = FP_SQRT_3 / ( FP_SQRT_2 * fWorldCellSize );
@@ -621,7 +552,6 @@ void CUIMiniMap::AddUnitsData( const SMiniMapUnitInfo *pUnitsBuffer, int nUnitsC
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMiniMap::AddFireRangeAreas( const SShootAreas *pShootAreasBuffer, int nShootAreasCount )
 {
 	if( IsInitialized() )
@@ -630,14 +560,12 @@ void CUIMiniMap::AddFireRangeAreas( const SShootAreas *pShootAreasBuffer, int nS
 		{
 			NI_ASSERT_SLOW_T( pShootAreasBuffer != 0, NStr::Format( "Wrong parameter: (%x)", pShootAreasBuffer ) );
 		}
-		//��������� ����� ��������
 		shootAreas.clear();
 		for ( int index = 0; index < nShootAreasCount; ++index )
 			shootAreas.push_back( pShootAreasBuffer[index] );
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMiniMap::AddCircle( const CVec2 &vCenter, const float fRadius, int nStyle, WORD wColor, const NTimer::STime &rStart, const NTimer::STime &rDuration, bool bRelative, LPARAM lParam )
 {
 	if( IsInitialized() )
@@ -653,7 +581,6 @@ void CUIMiniMap::AddCircle( const CVec2 &vCenter, const float fRadius, int nStyl
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int STDCALL CUIMiniMap::AddMarker( const std::string &rszName, const CVec2 &vPos, bool _bActive, int _nID, const NTimer::STime &rStart, const NTimer::STime &rDuration, bool bRelative )
 {
 	if ( markersTypes.find( rszName ) == markersTypes.end() )
@@ -671,7 +598,6 @@ int STDCALL CUIMiniMap::AddMarker( const std::string &rszName, const CVec2 &vPos
 	return _nID;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void STDCALL CUIMiniMap::ActivateMarker( int _nID, bool _bActive )
 {
 	for ( std::list<SMiniMapMarker>::iterator markerIterator = markers.begin(); markerIterator != markers.end(); ++markerIterator )
@@ -684,7 +610,6 @@ void STDCALL CUIMiniMap::ActivateMarker( int _nID, bool _bActive )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void STDCALL CUIMiniMap::ActivateMarker( const std::string &rszName, bool _bActive )
 {
 	for ( std::list<SMiniMapMarker>::iterator markerIterator = markers.begin(); markerIterator != markers.end(); ++markerIterator )
@@ -697,7 +622,6 @@ void STDCALL CUIMiniMap::ActivateMarker( const std::string &rszName, bool _bActi
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void STDCALL CUIMiniMap::RemoveMarker( int _nID )
 {
 	for ( std::list<SMiniMapMarker>::iterator markerIterator = markers.begin(); markerIterator != markers.end(); )
@@ -713,7 +637,6 @@ void STDCALL CUIMiniMap::RemoveMarker( int _nID )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void STDCALL CUIMiniMap::RemoveMarker( const std::string &rszName )
 {
 	for ( std::list<SMiniMapMarker>::iterator markerIterator = markers.begin(); markerIterator != markers.end(); )
@@ -729,7 +652,6 @@ void STDCALL CUIMiniMap::RemoveMarker( const std::string &rszName )
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMiniMap::DrawFireRanges( CTextureLock<SGFXColor4444> *pTextureLock )
 {
 	const int nInstantObjSizeX = pInstantObjects->GetSizeX( 0 );
@@ -758,7 +680,6 @@ void CUIMiniMap::DrawFireRanges( CTextureLock<SGFXColor4444> *pTextureLock )
 
 				if ( area.wStartAngle != area.wFinishAngle )
 				{
-					// ������ ����
 					{
 						const float fAngle = fmod( float( area.wStartAngle ) / 65535.0f * FP_2PI + FP_PI2, FP_2PI );
 						const float fCos = cos( fAngle );
@@ -774,7 +695,6 @@ void CUIMiniMap::DrawFireRanges( CTextureLock<SGFXColor4444> *pTextureLock )
 											 markSectors );
 					}
 					
-					// ������ ����
 					{
 						const float fAngle = fmod( float( area.wFinishAngle ) / 65535.0f * FP_2PI + FP_PI2, FP_2PI );
 						const float fCos = cos( fAngle );
@@ -794,7 +714,6 @@ void CUIMiniMap::DrawFireRanges( CTextureLock<SGFXColor4444> *pTextureLock )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIMiniMap::Update( const NTimer::STime &currTime )
 {
 	if( !IsInitialized() )
@@ -816,11 +735,9 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 	CTPoint<float> miniMapPoint( 0.0f, 0.0f );
 	CTPoint<float> additionalPoint( 0.0f, 0.0f );
 
-	//�������������� �������� pInstantObjects
 	if ( pInstantObjects )
 	{
 		CTextureLock<SGFXColor4444> textureLock( pInstantObjects , 0 );
-		//������� ��������
 		{
 			int nBytesCount = pInstantObjects->GetSizeX( 0 ) * sizeof( WORD );
 			for ( int nYIndex = 0; nYIndex < pInstantObjects->GetSizeY( 0 ); ++nYIndex )
@@ -828,7 +745,6 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 				memset( static_cast<void*>( textureLock[nYIndex] ), 0x00, nBytesCount );
 			}
 		}
-		//������ ������
 		{
 
 			for( int nUnitIndex = 0; nUnitIndex < units.size() ; ++nUnitIndex )
@@ -862,15 +778,12 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 			}
 		}
 		
-		//��������� ����� �������� ���� ��� ����
 		DrawFireRanges( &textureLock );
 		isInstantObjectsNeedUpdate = true;
 		
-		//�����
 		{
 			for ( std::list<SMiniMapCircle>::iterator it = circles.begin(); it != circles.end(); )
 			{
-				//SMiniMapCircle &rCircle = *it;
 				if ( it->timeStart > currentAbsTime )
 				{
 					++it;
@@ -1011,7 +924,6 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 		}
 	}
 		
-	//��������� �������� pWarFogTexture � ����� ������
 	if ( pWarFog && pWarFogTexture && isWarFogNeedUpdate )
 	{
 		pWarFog->AddDirtyRect( &( static_cast<RECT>( CTRect<int>( 0, 0, pWarFog->GetSizeX( 0 ), pWarFog->GetSizeY( 0 ) ) ) ) );
@@ -1019,7 +931,6 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 		isWarFogNeedUpdate = false;
 	}
 
-	//���������  �������� pInstantObjects � �����������
 	if ( pInstantObjects && pInstantObjectsTexture && isInstantObjectsNeedUpdate )
 	{
 		pInstantObjects->AddDirtyRect( &( static_cast<RECT>( CTRect<int>( 0, 0, pInstantObjects->GetSizeX( 0 ), pInstantObjects->GetSizeY( 0 ) ) ) ) );
@@ -1028,13 +939,11 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMiniMap::Visit( interface ISceneVisitor *pVisitor )
 {
 	if ( IsInitialized() )
 		pVisitor->VisitUICustom( dynamic_cast<IUIElement*>(this) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIMiniMap::Draw( IGFX *_pGFX )
 {
 	if ( IsInitialized() )
@@ -1046,10 +955,8 @@ void CUIMiniMap::Draw( IGFX *_pGFX )
 		}
 		const NTimer::STime currentAbsTime = _pGameTimer->GetAbsTime();
 		float zCoord = 0.0f;
-		// const CTRect<float> &wndRect = GetScreenRect();
 		nSize = wndRect.right - wndRect.left;
 
-		// ������������� ���������� ���������, ������������������ ������ ��������� � �������������
 		std::vector<CTPoint<float> > vPoints;
 		vPoints.resize(4);
 		vPoints[0] = CTPoint<float>( 0.0f, terrainSize.y );
@@ -1061,15 +968,12 @@ void CUIMiniMap::Draw( IGFX *_pGFX )
 
 		_pGFX->SetShadingEffect( 21 );
 		
-		// ������ �������� pBackgroundTexture � pWarFogTexture
 		IGFXTexture *pTextures[3] = { pBackgroundTexture, pWarFogTexture, pInstantObjectsTexture };
 		for ( int textureIndex = 0; textureIndex < 3; ++textureIndex )
 		{
-			// �������� ������� ��������� � ������������������� ������ ��������� � �������������
 			CTempBufferLock<SGFXLVertex> vertices = _pGFX->GetTempVertices( vPoints.size(), SGFXLVertex::format, GFXPT_TRIANGLELIST );
 			CTempBufferLock<WORD> indices = _pGFX->GetTempIndices( 6, GFXIF_INDEX16, GFXPT_TRIANGLELIST );
 
-			// ��������� ������ ���������
 			for ( int index = 0; index < vPoints.size(); ++index )
 			{
 				PointToTextureMiniMap( vPoints[index].x, vPoints[index].y, &( miniMapPoint.x ), &( miniMapPoint.y ) );
@@ -1104,7 +1008,6 @@ void CUIMiniMap::Draw( IGFX *_pGFX )
 															 wndRect.top + miniMapPoint.y,
 															 zCoord, 1.0f, 0xFFffFFff, 0xFF000000, tU, tV );
 			}
-			//��������� ������ ������������������� ������ ��������� � �������������
 			indices[0] = 0;
 			indices[1] = 1;
 			indices[2] = 2;
@@ -1112,7 +1015,6 @@ void CUIMiniMap::Draw( IGFX *_pGFX )
 			indices[4] = 2;
 			indices[5] = 3;
 
-			//������ ��� ����������
 			_pGFX->SetTexture( 0, pTextures[textureIndex] );
 			_pGFX->DrawTemp();
 		}		
@@ -1145,7 +1047,6 @@ void CUIMiniMap::Draw( IGFX *_pGFX )
 		
 		if ( nActiveMarkersCount > 0 )
 		{
-			//�������� ������� ��������� � ������������������� ������ ��������� � �������������
 			CTempBufferLock<SGFXLVertex> vertices = _pGFX->GetTempVertices( 4 * nActiveMarkersCount, SGFXLVertex::format, GFXPT_TRIANGLELIST );
 			CTempBufferLock<WORD> indices = _pGFX->GetTempIndices( 6 * nActiveMarkersCount, GFXIF_INDEX16, GFXPT_TRIANGLELIST );
 
@@ -1155,44 +1056,32 @@ void CUIMiniMap::Draw( IGFX *_pGFX )
 				if ( ( markerIterator->timeStart <= currentAbsTime ) && ( markerIterator->bActive ) )
 				{
 					PointToTextureMiniMap( markerIterator->vPos.x / fWorldCellSize, markerIterator->vPos.y / fWorldCellSize, &( miniMapPoint.x ), &( miniMapPoint.y ) );
-					//	1			2
-					//  -------
-					//  |    /|
-					//  |  /  |
-					//  |/    |
-					//  -------
-					//	0			3
 					
 					CTPoint<int> minXYPoint( wndRect.left + miniMapPoint.x + markerIterator->screenRect.minx, wndRect.top + miniMapPoint.y + markerIterator->screenRect.miny );
 					CTPoint<int> maxXYPoint( wndRect.left + miniMapPoint.x + markerIterator->screenRect.maxx, wndRect.top + miniMapPoint.y + markerIterator->screenRect.maxy );
 
 					SMiniMapMarker r = *markerIterator;
-					//0
 					vertices[nActiveMarkerIndex * 4 + 0].Setup( minXYPoint.x,
 																											maxXYPoint.y,
 																											zCoord, 1.0f, 0xFFffFFff, 0xFF000000,
 																											markerIterator->textureRect.minx,
 																											markerIterator->textureRect.maxy );
-					//1
 					vertices[nActiveMarkerIndex * 4 + 1].Setup( minXYPoint.x,
 																											minXYPoint.y,
 																											zCoord, 1.0f, 0xFFffFFff, 0xFF000000,
 																											markerIterator->textureRect.minx,
 																											markerIterator->textureRect.miny );
-					//2
 					vertices[nActiveMarkerIndex * 4 + 2].Setup( maxXYPoint.x,
 																											minXYPoint.y,
 																											zCoord, 1.0f, 0xFFffFFff, 0xFF000000,
 																											markerIterator->textureRect.maxx,
 																											markerIterator->textureRect.miny );
-					//3
 					vertices[nActiveMarkerIndex * 4 + 3].Setup( maxXYPoint.x,
 																											maxXYPoint.y,
 																											zCoord, 1.0f, 0xFFffFFff, 0xFF000000,
 																											markerIterator->textureRect.maxx,
 																											markerIterator->textureRect.maxy );
 
-					//��������� ������ ������������������� ������ ��������� � �������������
 					indices[nActiveMarkerIndex * 6 + 0] = nActiveMarkerIndex * 4 + 0;
 					indices[nActiveMarkerIndex * 6 + 1] = nActiveMarkerIndex * 4 + 2;
 					indices[nActiveMarkerIndex * 6 + 2] = nActiveMarkerIndex * 4 + 1;
@@ -1208,48 +1097,38 @@ void CUIMiniMap::Draw( IGFX *_pGFX )
 		/**/
 		_pGFX->SetTexture( 0, 0 );
 
-		// ������ �����
-		// ��������� ���������� �� ������ ����� ������
 		vPoints.clear();
 		GetClippedScreenFrame( &vPoints, _pGFX );
 
 		if ( vPoints.size() > 0 )
 		{
-			// �������� ������� ���������
 			CTempBufferLock<SGFXLineVertex> vertices = _pGFX->GetTempVertices( vPoints.size() * 2, SGFXLineVertex::format, GFXPT_LINELIST );
 
-			// ��������� �������� ������� ������ ����� ������
 			for ( int index = 0; index < vPoints.size(); ++index )
 			{
-				// �������� �������� ���������� ������� ����� ������
 				PointToTextureMiniMap( vPoints[index].x, vPoints[index].y, &( miniMapPoint.x ), &( miniMapPoint.y ) );
 				vertices[static_cast<int>( index + vPoints.size() )].Setup( wndRect.left + miniMapPoint.x , wndRect.top + miniMapPoint.y, zCoord, dwScreenFrameColor );
 				vertices[index].Setup( wndRect.left + miniMapPoint.x + 1, wndRect.top + miniMapPoint.y + 1, zCoord, dwScreenFrameColorShadow );
 			}			
-			// ������ ��� ����������
 			_pGFX->DrawTemp();
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIMiniMap::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 {
 	if ( IsInitialized() )
 	{
-		//wndRect - �� �������� ������
 		nSize = wndRect.right - wndRect.left;
 		
 		ICursor *_pCursor = GetSingleton<ICursor>();
 		_pCursor->SetBounds( wndRect.left, wndRect.top, wndRect.right, wndRect.bottom );
 
-		//�������� �������� ���������� ����
 		CTPoint<float> miniMapMousePos;
 		miniMapMousePos.x = vPos.x - wndRect.left;
 		miniMapMousePos.y = vPos.y - wndRect.top;
 
 		CTPoint<float> mapMousePos;
 		TextureMiniMapToPoint( miniMapMousePos.x, miniMapMousePos.y, &( mapMousePos.x ), &( mapMousePos.y ) );
-		// move camera anchor (if in 'controllable' mode)
 		if ( GetSingleton<IGameTimer>()->GetPauseReason() < PAUSE_TYPE_NO_CONTROL ) 
 		{
 			ICamera *_pCamera = GetSingleton<ICamera>();
@@ -1261,7 +1140,6 @@ bool CUIMiniMap::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIMiniMap::OnLButtonUp( const CVec2 &vPos, EMouseState mouseState )
 {
 	if ( IsInitialized() )
@@ -1274,7 +1152,6 @@ bool CUIMiniMap::OnLButtonUp( const CVec2 &vPos, EMouseState mouseState )
 	}
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIMiniMap::OnMouseMove( const CVec2 &vPos, EMouseState mouseState )
 {
 	if ( IsInitialized() )
@@ -1287,12 +1164,10 @@ bool CUIMiniMap::OnMouseMove( const CVec2 &vPos, EMouseState mouseState )
 	return true;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIMiniMap::OnRButtonUp( const CVec2 &vPos, EMouseState mouseState )
 {
 	if ( IsInitialized() )
 	{
-		//�������� �������� ���������� ����
 		CTPoint<float> miniMapMousePos;
 		miniMapMousePos.x = vPos.x - wndRect.left;
 		miniMapMousePos.y = vPos.y - wndRect.top;
@@ -1301,14 +1176,6 @@ bool CUIMiniMap::OnRButtonUp( const CVec2 &vPos, EMouseState mouseState )
 		TextureMiniMapToPoint( miniMapMousePos.x, miniMapMousePos.y, &( mapMousePos.x ), &( mapMousePos.y ) );
 		if ( InMiniMap( mapMousePos.x, mapMousePos.y ) )
 		{
-			//��� ���������� ���������� �� ��������� �������
-			//(��� ������� ���� ��������� ��� � �������� �������)
-			//CVec2( DWORD(msg.nParam) & 0x00007fff, (DWORD(msg.nParam) & 0x7fff0000) >> 15 );
-			//��� ����������� ����, ��� � ��������� ���� ����������, ������� ��� ������ ���� �������
-			//(msg.nParam |= 0x80000000) msg.nEventID = CMD_END_ACTION2;
-			//���������� ��� GetSingleton<IInput>()->AddMessage( SGameMessage(ID, PARAM) );
-			//���������� ������ ���� � �������� ����������� �� ��������� (�.�. (0, 0) => � ����� ������� ����,
-			//Y => ����, X => ������)
 			DWORD dwParam = 0x80000000 + 
 											( ( DWORD )( mapMousePos.x * fWorldCellSize ) & 0x00007fff ) + 
 											( ( ( ( DWORD )( mapMousePos.y * fWorldCellSize ) & 0x00007fff ) << 15 ) & 0x7fff0000 );
@@ -1318,12 +1185,10 @@ bool CUIMiniMap::OnRButtonUp( const CVec2 &vPos, EMouseState mouseState )
 	return CSimpleWindow::OnRButtonUp( vPos, mouseState );;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIMiniMap::IsInside( const CVec2 &vPos )
 {
 	if ( IsInitialized() )
 	{
-		//�������� �������� ���������� ����
 		CTPoint<float> miniMapMousePos;
 		miniMapMousePos.x = vPos.x - wndRect.left;
 		miniMapMousePos.y = vPos.y - wndRect.top;
@@ -1335,4 +1200,3 @@ bool CUIMiniMap::IsInside( const CVec2 &vPos )
 	return false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

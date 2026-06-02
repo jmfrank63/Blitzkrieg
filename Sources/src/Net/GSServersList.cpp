@@ -6,22 +6,17 @@
 #include "..\Main\MultiplayerConsts.h"
 #include "..\GameTT\MultiplayerCommandManager.h"
 #include "..\StreamIO\StreamIOTypes.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 using namespace NWin32Helper;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CGSServersListDriver::SERVER_LIST_UPDATE_PERIOD = 2000;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CGSServersListDriver::CGSServersListDriver()
 : CThread( 50 ), serverList( 0 )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CGSServersListDriver::~CGSServersListDriver()
 {
 	StopThread();
 	ServerListFree( serverList );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGSServersListDriver::Init( const APPLICATION_ID nApplicationID, int _nGamePort, bool _bClientOnly )
 {
 	nNetVersion = nApplicationID;
@@ -29,7 +24,6 @@ bool CGSServersListDriver::Init( const APPLICATION_ID nApplicationID, int _nGame
 	std::string szSecretKey;
 	szSecretKey.resize( 6 );
 
-	//set the secret key, in a semi-obfuscated manner
 	szSecretKey[0] = 'f';
 	szSecretKey[1] = 'Y';
 	szSecretKey[2] = 'D';
@@ -50,17 +44,14 @@ bool CGSServersListDriver::Init( const APPLICATION_ID nApplicationID, int _nGame
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 INetDriver::EState CGSServersListDriver::GetState() const
 {
 	return ACTIVE;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 INetDriver::EReject CGSServersListDriver::GetRejectReason() const
 {
 	return NONE;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGSServersListDriver::GetGameInfo( int nIdx, INetNodeAddress *pAddr, bool *pWrongVersion, float *pPing, SGameInfo *pGameInfo )
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
@@ -85,7 +76,6 @@ bool CGSServersListDriver::GetGameInfo( int nIdx, INetNodeAddress *pAddr, bool *
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGSServersListDriver::RefreshServersList()
 {
 	bUpdating = true;	
@@ -94,7 +84,6 @@ void CGSServersListDriver::RefreshServersList()
 
 	servers.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGSServersListDriver::Step()
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
@@ -108,7 +97,6 @@ void CGSServersListDriver::Step()
 			RefreshServersList();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGSServersListDriver::AddServer( GServer server )
 {
 	SServerInfo serverInfo;
@@ -116,14 +104,12 @@ void CGSServersListDriver::AddServer( GServer server )
 	serverInfo.gameInfo.wszServerName = NStr::ToUnicode( ServerGetStringValue( server, "hostname", "Noname" ) );
 	serverInfo.gameInfo.nHostPort = ServerGetIntValue( server, "hostport", SMultiplayerConsts::NET_PORT );
 
-	// replace all / to '\\'
 	std::string szMapName = ServerGetStringValue( server, "mapname", "" );
 	for ( int i = 0; i < szMapName.size(); ++i )
 	{
 		if ( szMapName[i] == '/' )
 			szMapName = '\\';
 	}
-	//
 	serverInfo.gameInfo.wszMapName = NStr::ToUnicode( ServerGetStringValue( server, "mapname", "" ) );
 	serverInfo.gameInfo.nCurPlayers = ServerGetIntValue( server, "numplayers", 0 );
 	serverInfo.gameInfo.nMaxPlayers = ServerGetIntValue( server, "maxplayers", 0 );	
@@ -180,7 +166,6 @@ void CGSServersListDriver::AddServer( GServer server )
 
 	servers.push_back( serverInfo );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGSServersListDriver::List( GServerList serverList, int nMsg, void *pParam1, void *pParam2 )
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
@@ -218,10 +203,7 @@ void CGSServersListDriver::List( GServerList serverList, int nMsg, void *pParam1
 			NI_ASSERT_T( false, "Unknown message" );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// call back functions
 void CGSServersListDriver::ListCallBack( GServerList serverList, int nMsg, void *pInstance, void *pParam1, void *pParam2 )
 {
 	reinterpret_cast<CGSServersListDriver*>(pInstance)->List( serverList, nMsg, pParam1, pParam2 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

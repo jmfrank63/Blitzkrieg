@@ -56,7 +56,6 @@
 #endif
 
 _STLP_BEGIN_NAMESPACE
-// swap and iter_swap
 template <class _Tp>
 inline void swap(_Tp& __a, _Tp& __b) {
   _Tp __tmp = __a;
@@ -69,8 +68,6 @@ inline void iter_swap(_ForwardIter1 __i1, _ForwardIter2 __i2) {
   swap(*__i1, *__i2);
 }
 
-//--------------------------------------------------
-// min and max
 
 # if !defined (__BORLANDC__) || defined (_STLP_USE_OWN_NAMESPACE)
 template <class _Tp>
@@ -94,14 +91,7 @@ inline const _Tp& (max)(const _Tp& __a, const _Tp& __b, _Compare __comp) {
   return __comp(__a, __b) ? __b : __a;
 }
 
-//--------------------------------------------------
-// copy
 
-// All of these auxiliary functions serve two purposes.  (1) Replace
-// calls to copy with memmove whenever possible.  (Memmove, not memcpy,
-// because the input and output ranges are permitted to overlap.)
-// (2) If we're using random access iterators, then write the loop as
-// a for loop with an explicit count.
 
 template <class _InputIter, class _OutputIter, class _Distance>
 inline _OutputIter __copy(_InputIter __first, _InputIter __last,
@@ -150,8 +140,6 @@ __copy_trivial(const void* __first, const void* __last, void* __result) {
     ((const char*)__last - (const char*)__first);
 }
 
-//--------------------------------------------------
-// copy_backward auxiliary functions
 
 template <class _BidirectionalIter1, class _BidirectionalIter2, 
           class _Distance>
@@ -192,8 +180,6 @@ inline _OutputIter __copy_ptrs(_InputIter __first, _InputIter __last, _OutputIte
 }
 template <class _InputIter, class _OutputIter>
 inline _OutputIter __copy_ptrs(_InputIter __first, _InputIter __last, _OutputIter __result, const __true_type&) {
-// we know they all pointers, so this cast is OK 
-  //  return (_OutputIter)__copy_trivial(&(*__first), &(*__last), &(*__result));
   return (_OutputIter)__copy_trivial(__first, __last, __result);
 }
 
@@ -276,8 +262,6 @@ _STLP_DECLARE_COPY_TRIVIAL(long double)
 #undef _STLP_DECLARE_COPY_TRIVIAL
 #endif /* _STLP_CLASS_PARTIAL_SPECIALIZATION */
 
-//--------------------------------------------------
-// copy_n (not part of the C++ standard)
 
 template <class _InputIter, class _Size, class _OutputIter>
 _STLP_INLINE_LOOP 
@@ -315,8 +299,6 @@ copy_n(_InputIter __first, _Size __count, _OutputIter __result) {
   return __copy_n(__first, __count, __result, _STLP_ITERATOR_CATEGORY(__first, _InputIter));
 }
 
-//--------------------------------------------------
-// fill and fill_n
 
 
 template <class _ForwardIter, class _Tp>
@@ -337,7 +319,6 @@ _OutputIter fill_n(_OutputIter __first, _Size __n, const _Tp& __val) {
 }
 
 
-// Specialization: for one-byte types we can use memset.
 
 inline void fill(unsigned char* __first, unsigned char* __last,
                  const unsigned char& __val) {
@@ -381,8 +362,6 @@ inline char* fill_n(char* __first, _Size __n, const char& __val) {
 #endif /* _STLP_FUNCTION_TMPL_PARTIAL_ORDER */
 
 
-//--------------------------------------------------
-// equal and mismatch
 
 template <class _InputIter1, class _InputIter2>
 _STLP_INLINE_LOOP
@@ -437,9 +416,6 @@ bool equal(_InputIter1 __first1, _InputIter1 __last1,
   return true;
 }
 
-//--------------------------------------------------
-// lexicographical_compare and lexicographical_compare_3way.
-// (the latter is not part of the C++ standard.)
 
 template <class _InputIter1, class _InputIter2>
 bool lexicographical_compare(_InputIter1 __first1, _InputIter1 __last1,
@@ -518,7 +494,6 @@ int lexicographical_compare_3way(_InputIter1 __first1, _InputIter1 __last1,
 
 # endif /* EXTENSIONS */
 
-// count
 template <class _InputIter, class _Tp>
 _STLP_INLINE_LOOP _STLP_DIFFERENCE_TYPE(_InputIter)
 count(_InputIter __first, _InputIter __last, const _Tp& __val) {
@@ -530,18 +505,15 @@ count(_InputIter __first, _InputIter __last, const _Tp& __val) {
   return __n;
 }
 
-// find and find_if. Note find may be expressed in terms of find_if if appropriate binder was available.
 template <class _InputIter, class _Tp>
 _InputIter find(_InputIter __first, _InputIter __last, const _Tp& __val);
 template <class _InputIter, class _Predicate>
 _InputIter find_if(_InputIter __first, _InputIter __last, _Predicate __pred);
 
-// search.
 template <class _ForwardIter1, class _ForwardIter2, class _BinaryPred>
 _ForwardIter1 search(_ForwardIter1 __first1, _ForwardIter1 __last1,
                      _ForwardIter2 __first2, _ForwardIter2 __last2, _BinaryPred  __predicate);
 
-// find_first_of
 template <class _InputIter, class _ForwardIter, class _BinaryPredicate>
 _InputIter __find_first_of(_InputIter __first1, _InputIter __last1,
                            _ForwardIter __first2, _ForwardIter __last2,
@@ -554,7 +526,6 @@ find_end(_ForwardIter1 __first1, _ForwardIter1 __last1,
          _ForwardIter2 __first2, _ForwardIter2 __last2,
          _BinaryPredicate __comp);
 
-// replace
 template <class _ForwardIter, class _Tp>
 _STLP_INLINE_LOOP void 
 replace(_ForwardIter __first, _ForwardIter __last,
@@ -577,7 +548,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_ALGOBASE_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

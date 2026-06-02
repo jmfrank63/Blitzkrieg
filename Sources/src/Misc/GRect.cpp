@@ -1,5 +1,4 @@
 #include "StdAfx.h"
-//-------------------------------------------------------------------- setters
 
 void GRect::set( GPoint p0, GPoint p1 )
 {
@@ -14,7 +13,6 @@ void GRect::set( GPoint p0, GPoint p1 )
   set( p0.x, p0.y, p1.x, p1.y );
 }
 
-//-------------------------------------------------------------------- margins
 
 void GRect::left ( GSPos n )
 {
@@ -30,14 +28,12 @@ void GRect::top ( GSPos n )
   size.y   = (GSPos)(b - n + 1);
 }
 
-//------------------------------------------------------------- corners & size
 
 void GRect::center( const GPoint& new_center )
 {
   origin += new_center - center();
 }
 
-//-------------------------------------------------------------------- testing
 
 bool GRect::contains( GSPos x, GSPos y ) const
 {
@@ -53,7 +49,6 @@ bool GRect::contains( const GRect& r ) const
          bottom() >= r.bottom();
 }
 
-//------------------------------------------------------- rectangle operations
 
 void GRect::grow( GSPos x, GSPos y )
 {
@@ -112,7 +107,6 @@ void GRect::split_horizontally( GSPos shift_from_top,  GRect& t,  GRect& b ) con
   b.top   ( (GSPos)(shift_from_top+1) );
 }
 
-//-------------------------------------------------- clipping inside rectangle
 
 /*  An implementation of the Sutherland-Cohen clipping algorithm. */
 

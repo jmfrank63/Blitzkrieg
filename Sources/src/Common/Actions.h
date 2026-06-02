@@ -1,27 +1,13 @@
 #ifndef __ACTIONS_H__
 #define __ACTIONS_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Main\RPGStats.h"
 #include "..\AILogic\AITypes.h"
 #include "..\Anim\Animation.h"
 #include "..\StreamIO\StreamIOHelper.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** notify structures
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EActionNotify
 {
-	// ( EActionNotify & 1 ) == 1 => идут в UpdateActions
-	// ( EActionNotify & 1 ) == 0 => разбрасываются по различным функциям
 
-	// actions
 	ACTION_NOTIFY_IDLE								= 0x001,
 	ACTION_NOTIFY_MOVE								= 0x011,
 	ACTION_NOTIFY_PLACEMENT						= 0x000,
@@ -34,7 +20,6 @@ enum EActionNotify
 	ACTION_NOTIFY_RPG_CHANGED					= 0x030,
 	ACTION_NOTIFY_DIE									= 0x0e1, // умер, update на исчезновение не будет
 
-	// Specific soldier actions
 	ACTION_NOTIFY_CRAWL								= 0x031,
 	ACTION_NOTIFY_IDLE_LYING					= 0x041,
 	ACTION_NOTIFY_AIM_LYING						= 0x051,
@@ -55,19 +40,15 @@ enum EActionNotify
 	ACTION_NOTIFY_IDLE_TRANSPORT			= 0x0c1,
 	ACTION_NOTIFY_DIE_TRANSPORT				= 0x0d1, // умер, update на исчезновение не будет
 
-	// Specific cannonry actions
 	ACTION_NOTIFY_INSTALL_ROTATE			= 0x0181,
 	ACTION_NOTIFY_UNINSTALL_ROTATE		= 0x0191,
 	ACTION_NOTIFY_INSTALL_TRANSPORT		= 0x01a1,
 	ACTION_NOTIFY_UNINSTALL_TRANSPORT = 0x01b1,
 
-	// CRAP{ unnecessary, need to be deleted
 	ACTION_NOTIFY_INSTALL							= 0x0f1,
 	ACTION_NOTIFY_UNINSTALL						= 0x101,
-	// CRAP}
 	ACTION_NOTIFY_HIT									= 0x0f0,
 
-	//
 	ACTION_NOTIFY_NEW_PROJECTILE			= 0x100,
 	ACTION_NOTIFY_DEAD_PROJECTILE			= 0x110,
 	ACTION_NOTIFY_NEW_ST_OBJ					=	0x120,
@@ -78,7 +59,6 @@ enum EActionNotify
 	ACTION_NOTIFY_NEW_FORMATION				= 0x1b0,
 
 	ACTION_NOTIFY_ENTRANCE_STATE			= 0x190,	// войти куда-либо
-	// всяческие support-действия типа постановка/снятие мин, ремонт/перезарядка техники и т.д.
 	ACTION_NOTIFY_USE_UP							= 0x091,
 	ACTION_NOTIFY_USE_DOWN						= 0x0a1,
 
@@ -118,7 +98,6 @@ enum EActionNotify
 	ACTION_NOTIFY_UNINSTALL_MOVE			= 0x281,
 	
 	ACTION_NOTIFY_CHANGE_VISIBILITY		= 0x301,
-	//
 	ACTION_NOTIFY_DELAYED_SHOOT				= 0x291,
 	ACTION_NOTIFY_STATE_CHANGED				= 0x311,
 	ACTION_NOTIFY_SILENT_DEATH				= 0x321,
@@ -152,20 +131,16 @@ enum EActionNotify
 
 	ACTION_NOTIFY_SELECT_CHECKED		  = 0x461,		
 	ACTION_SET_SELECTION_GROUP		    = 0x471,		
-	//ACTION_NOTIFY_RU_STORAGE_AREA			= 0x210,
 	ACTION_NOTIFY_CHANGE_SCENARIO_INDEX = 0x481,
-	// нужен только для отложенных updates
 	ACTION_NOTIFY_GET_DEAD_UNITS_UPDATE = 0xfffffffe,
 
 	ACTION_NOTIFY_NONE								= 0xffffffff,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EMovingType
 {
 	MOVE_TYPE_MOVE = 0,										// на самом деле либо Move либо Turn
 	MOVE_TYPE_DIVE = 1,										//for dive bombers
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline bool IsDyingAction( const EActionNotify eAction )
 {
 	return
@@ -175,7 +150,6 @@ inline bool IsDyingAction( const EActionNotify eAction )
 		eAction == ACTION_NOTIFY_DIE_BUILDING ||
 		eAction == ACTION_NOTIFY_DIE_TRANSPORT;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SSuspendedUpdate
 {
 	IRefCount *pObj;											// subject to change
@@ -186,8 +160,6 @@ struct SSuspendedUpdate
 	virtual void Recall( IDataStream *pStream ) = 0;
 	virtual void Pack( IDataStream *pStream ) const = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// animation action update
 struct SAINotifyAction : public SSuspendedUpdate
 {
 	WORD typeID;															// action type
@@ -195,7 +167,6 @@ struct SAINotifyAction : public SSuspendedUpdate
 
 	NTimer::STime time;
 
-	//
 	SAINotifyAction() : typeID( 0 ), nParam( -1 ), time() { }
 	SAINotifyAction( const BYTE _typeID, IRefCount *pObj ) 
 		: SSuspendedUpdate( pObj ), typeID( _typeID ), nParam( -1 ), time() { }
@@ -217,7 +188,6 @@ struct SAINotifyDeadAtAll : public SSuspendedUpdate
 {
 	bool bRot;															// true - если потом придёт update на исчезновение
 
-	//
 	virtual void Pack( IDataStream *pStream ) const
 	{
 		CStreamAccessor stream( pStream );
@@ -231,7 +201,6 @@ struct SAINotifyDeadAtAll : public SSuspendedUpdate
 	}
 };
 
-// RPG stats (hit points for now) update
 struct SAINotifyRPGStats : public SSuspendedUpdate
 {
 	float fHitPoints;											// hit points
@@ -239,7 +208,6 @@ struct SAINotifyRPGStats : public SSuspendedUpdate
 	int nMainAmmo, nSecondaryAmmo;				// патроны главной пушки и всего остального
 	NTimer::STime time;
 
-	//
 	SAINotifyRPGStats() : fHitPoints( 0.0f ), fMorale( 0.0f ), nMainAmmo( 0 ), nSecondaryAmmo( 0 ), time() { }
 	SAINotifyRPGStats( IRefCount *pObj, const float _fHitPoints ) 
 		: SSuspendedUpdate( pObj ), fHitPoints( _fHitPoints ), fMorale( 0.0f ), nMainAmmo( 0 ), nSecondaryAmmo( 0 ), time() { }
@@ -262,7 +230,6 @@ struct SAINotifyDiplomacy : public SSuspendedUpdate
 	EDiplomacyInfo eDiplomacy;
 	int nPlayer;
 
-	//
 	SAINotifyDiplomacy() : eDiplomacy( EDI_ENEMY ), nPlayer( 0 ) { }
 	SAINotifyDiplomacy( EDiplomacyInfo _eDiplomacy, IRefCount *pObj, const int _nPlayer ) 
 		: SSuspendedUpdate( pObj ), eDiplomacy( _eDiplomacy ), nPlayer( _nPlayer ) { }
@@ -279,8 +246,6 @@ struct SAINotifyDiplomacy : public SSuspendedUpdate
 		stream >> eDiplomacy >> nPlayer;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// update на вход/выход, юниты сначала входят не в стрелковую ячейку
 struct SAINotifyEntranceState
 {
 	IRefCount *pInfantry;										// кто входит
@@ -290,7 +255,6 @@ struct SAINotifyEntranceState
 	SAINotifyEntranceState() : pInfantry( 0 ), pTarget( 0 ), bEnter( false ) { }
 	SAINotifyEntranceState( IRefCount *_pInfantry, IRefCount *_pTarget, const bool _bEnter ) : pInfantry( _pInfantry ), pTarget( _pTarget ), bEnter( _bEnter ) { }
 };
-// placement update
 struct SAINotifyPlacement : public SSuspendedUpdate
 {
 	CVec2 center;													// (x, y)
@@ -316,7 +280,6 @@ struct SAINotifyPlacement : public SSuspendedUpdate
 		stream >> center.x >> center.y >> z >> dir;
 	}
 
-	// для использования в AILogic
 	virtual int STDCALL operator&( IStructureSaver &ss )
 	{
 		CSaverAccessor saver = &ss;
@@ -331,10 +294,8 @@ struct SAINotifyPlacement : public SSuspendedUpdate
 		return 0;
 	}
 };
-// information about new unit
 struct SNewUnitInfo : public SAINotifyPlacement
 {
-	// placement of a unit
 	float fResize;												//for resizing the object
 	float fHitPoints;
 	float fMorale;
@@ -343,7 +304,6 @@ struct SNewUnitInfo : public SAINotifyPlacement
 	EDiplomacyInfo eDipl;									// diplomacy settings
 	int nPlayer;
 	int nFrameIndex;											// frame index for static objects
-//
 	SNewUnitInfo() : fResize( 0.0f ), fHitPoints( 0.0f ), fMorale( 0.0f ), dbID( 0 ), eDipl( EDI_ENEMY ), nPlayer( 0 ), nFrameIndex( 0 ) {  }
 
 	virtual void Pack( IDataStream *pStream ) const
@@ -361,7 +321,6 @@ struct SNewUnitInfo : public SAINotifyPlacement
 	}
 };
 
-// hit update
 struct SAINotifyHitInfo
 {
 	const SWeaponRPGStats *pWeapon;					// weapon shell was fired
@@ -381,7 +340,6 @@ struct SAINotifyHitInfo
 	SAINotifyHitInfo( const SWeaponRPGStats *_pWeapon, const WORD _wShell, const WORD &_wDir, const CVec3 _explCoord )
 		: pWeapon( _pWeapon ), wShell( _wShell ), wDir( _wDir ), eHitType( EHT_NONE ), pVictim( 0 ), explCoord( _explCoord ) { }
 };
-// aiming: turret turning update
 struct SAINotifyTurretTurn
 {
 	IRefCount *pObj;											// object turret belong to
@@ -393,7 +351,6 @@ struct SAINotifyTurretTurn
 	SAINotifyTurretTurn( IRefCount *_pObj, const int &_nModelPart, const WORD &_wAngle, const NTimer::STime &_endTime )
 		: pObj( _pObj ), nModelPart( _nModelPart ), wAngle( _wAngle ), endTime( _endTime ) { }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SAINotifyBaseShot
 {
 	int typeID;														// shot type
@@ -401,38 +358,30 @@ struct SAINotifyBaseShot
 	BYTE cShell;													// shell number
 	NTimer::STime time;										// time, this shot was...
 	CVec3 vDestPos;												// destination point of this shot
-	//
 	SAINotifyBaseShot() : typeID( 0 ), pObj( 0 ), cShell( 0 ), time(), vDestPos( VNULL3 ) {  }
 	SAINotifyBaseShot( const BYTE _typeID, IRefCount *_pObj, const BYTE _cShell, const NTimer::STime &_time, const CVec3 &_vDestPos )
 		: typeID( _typeID ), pObj( _pObj ), cShell( _cShell ), time( _time ), vDestPos( _vDestPos ) {  }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SAINotifyMechShot : public SAINotifyBaseShot
 {
 	BYTE cGun;														// gun number
-	//
 	SAINotifyMechShot() : cGun( 0 ) { }
 	SAINotifyMechShot( const BYTE _typeID, IRefCount *_pObj, const BYTE _cGun, const BYTE _cShell, const NTimer::STime &_time, const CVec3 &_vDestPos )
 		: SAINotifyBaseShot( _typeID, _pObj, _cShell, _time, _vDestPos ), cGun( _cGun ) {  }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SAINotifyInfantryShot : public SAINotifyBaseShot
 {
 	const SWeaponRPGStats *pWeapon;				// оружие
-	// если nSlot >= 0, то стрельбы из объекта, nSlot == -1, то стрельба в открытую
 	short int nSlot;											// номер слота
-	//
 	SAINotifyInfantryShot() : pWeapon( 0 ), nSlot( -1 ) {  }
 	SAINotifyInfantryShot( const BYTE _typeID, IRefCount *_pObj, const short int _nSlot, const BYTE _cShell, const NTimer::STime &_time, const CVec3 &_vDestPos )
 		: SAINotifyBaseShot( _typeID, _pObj, _cShell, _time, _vDestPos ), nSlot( _nSlot ) {  }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SAINotifySelections
 {
 	IRefCount *pObj;
 	bool bSelectable;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SAINotifyNewProjectile
 {
 	IRefCount *pObj;
@@ -441,34 +390,16 @@ struct SAINotifyNewProjectile
 	int nGun;
 	int nShell;
 
-	// время полёта снаряда
 	NTimer::STime flyingTime;
-	// время запуска снаряда
 	NTimer::STime startTime;
 
 	SAINotifyNewProjectile() : pObj( 0 ), pSource( 0 ), nGun( 0 ), nShell( 0 ), flyingTime(), startTime() { }
 	SAINotifyNewProjectile( IRefCount *_pObj, IRefCount *_pSource, const int _nGun, const int _nShell, const NTimer::STime _flyingTime )
 		: pObj( _pObj ), pSource( _pSource ), nGun( _nGun ), nShell( _nShell ), flyingTime( _flyingTime ), startTime() { }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** command action
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// общее правило:
-//	команды, которые посылаются от пользователя, нумеруются от 0 до 999
-//	команды, которые посылаются внутри AI нумеруются от 1000 до 32767 и начинаются на 4 таба правее (для того, чтобы было легко отличать)
 
-// при добавлении новой пользовательской команды определить её pointtogo в GetGoPointByCommand дл
-// корректной отдачи приказов формациям в окопах и зданиях
 
-// если в команде выставлен старший бит 0x8000, то это self-action
 
-// значения должны быть не больше, чем 65535!
 enum EActionCommand
 {
 	ACTION_COMMAND_MOVE_TO					= 0,		// move to location
@@ -482,13 +413,10 @@ enum EActionCommand
 	ACTION_COMMAND_ROTATE_TO				= 8,		// rotate to point
 	ACTION_COMMAND_STOP							= 9,		// stop all actions
 	ACTION_COMMAND_PARADE						= 10,		// выстроиться в формацию
-	//
 	ACTION_COMMAND_DIE											= 1000,	// (AI only)
-	//
 	ACTION_COMMAND_LOAD_NOW									= 1001,	// (AI only)
 	ACTION_COMMAND_UNLOAD_NOW								= 1002,	// (AI only)
 	ACTION_COMMAND_LEAVE_NOW								= 1003,	// (AI only)
-	//
 	ACTION_MOVE_BY_DIR											= 1004,	// (AI only)
 	ACTION_MOVE_BY_OWN_DIR									= 1005,	// (AI only)
 	ACTION_COMMAND_WAIT_FOR_UNITS						= 1006,	// (AI only)
@@ -497,7 +425,6 @@ enum EActionCommand
 	ACTION_COMMAND_IDLE_BUILDING						= 1009,	// (AI only)
 	ACTION_COMMAND_ENTER_TRANSPORT_NOW			= 1010,// (AI only)
 	ACTION_COMMAND_IDLE_TRANSPORT						=	1011,	// (AI only)
-	//
 	ACTION_COMMAND_PLACEMINE				= 11,
 	ACTION_COMMAND_CLEARMINE				= 12,
 	ACTION_COMMAND_CLEARMINE_RADIUS					= 1012,	// (AI only)
@@ -511,20 +438,14 @@ enum EActionCommand
 	ACTION_COMMAND_ART_BOMBARDMENT	= 16,
 	ACTION_COMMAND_INSTALL					= 17,
 	ACTION_COMMAND_UNINSTALL				= 18,
-	//
 	ACTION_COMMAND_CALL_BOMBERS			= 19,
-	// fighters commands
 	ACTION_COMMAND_CALL_FIGHTERS		= 20,
 	ACTION_MOVE_FIGHTER_PATROL							= 1015,	// (AI only)
-	//scouts
 	ACTION_COMMAND_CALL_SCOUT				= 21,
-	//
 	ACTION_MOVE_PLANE_LEAVE									= 1017,	// (AI only)
-	//drop paratroopers
 	ACTION_COMMAND_PARADROP					= 22,		// call for paradropers
 	ACTION_MOVE_DROP_PARATROOPERS						= 1018,	// (AI only)
 	ACTION_MOVE_PARACHUTE										= 1019,	// (AI only)
-	//
 	ACTION_COMMAND_RESUPPLY					= 23,
 	ACTION_MOVE_RESUPPLY_UNIT								= 1020,	// (AI only)
 
@@ -541,7 +462,6 @@ enum EActionCommand
 	ACTION_COMMAND_ENTRENCH_BEGIN		=	27,
 	ACTION_COMMAND_ENTRENCH_END							=	1025,	// (AI only)
 
-	///ACTION_COMMAND_CATCH_ARTILLERY	=	28,		// assign gunners to artillery
 	ACTION_MOVE_GUNSERVE										= 1026,	// (AI only)
 
 	ACTION_COMMAND_USE_SPYGLASS			= 29,		// officer command - use spyglasses
@@ -583,16 +503,12 @@ enum EActionCommand
 	
 	ACTION_COMMAND_SWARM_ATTACK_UNIT				= 1040, // (AI only) атака с самостоятельным перевыбором цели (например, при swarm)
 	ACTION_MOVE_SWARM_ATTACK_FORMATION			= 1041, // (AI only) атака с самостоятельным перевыбором цели (например, при swarm)
-//	ACTION_COMMAND_FIRE_MORALE_SHELL	= 44,		//выстрел моральным снарядом
 
 	ACTION_COMMAND_ENTRENCH_SELF			= 45,
-//	ACTION_COMMAND_ENTRENCH_UNIT		= 25,
-//	ACTION_COMMAND_ENTER_TANKPIT		= 40,
 	ACTION_COMMAND_SWARM_ATTACK_OBJECT			= 1042,
 	ACTION_MOVE_PLANE_BOMB_POINT						= 1043,
 	ACTION_COMMAND_CHANGE_SHELLTYPE		= 46,
 
-//	ACTION_COMMAND_CREATE_RU_STORAGE= 30,
 
 	ACTION_MOVE_BUILD_LONGOBJECT						= 1044,
 	ACTION_MOVE_FLY_DEAD										= 1045,
@@ -629,19 +545,14 @@ enum EActionCommand
 	ACTION_COMMAND_MOVE_TO_GRID				= 55,
 	ACTION_COMMAND_CATCH_ARTILLERY		= 56,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SAIUnitCmd
 {
 	EActionCommand cmdType;								// command type
 	CVec2 vPos;														// for ground pointing commands
 	CPtr<IRefCount> pObject;							// for object pointing commands
 	bool fromExplosion;										// for death from explosion
-	// команда ACTION_COMMAND_CALL_BOMBERS - число бомберов
-	// команда ACTION_COMMAND_ENTER:		 0 - войти в здание, 1 - войти в окоп
-	// команда ACTION_COMMAND_ATTACK_OBJECT: 0 - атаковать не окоп, 1 - атаковать окоп
 	float fNumber;
 	bool bFromAI;			// если true, то команда пришла от клиента или от генерала
-	//
 	SAIUnitCmd() : cmdType( ACTION_COMMAND_MOVE_TO ), vPos( -1, -1 ), fromExplosion( false ), fNumber( 0 ), bFromAI( true ) { }
 	explicit SAIUnitCmd( const EActionCommand &_cmdType )
 		: cmdType( _cmdType ), vPos( -1, -1 ), fNumber( 0 ), fromExplosion( false ), bFromAI(true) { }
@@ -665,7 +576,6 @@ struct SAIUnitCmd
 		: cmdType( _cmdType ), fromExplosion( _fromExpl ), vPos( -1, -1 ), fNumber( _fNumber ), bFromAI(true) { }
 	SAIUnitCmd( const EActionCommand &_cmdType, const CVec2 &_vPos, const float _fNumber, const bool _fromExplosion )
 		: cmdType( _cmdType ), vPos( _vPos ), fNumber( _fNumber ), fromExplosion( _fromExplosion ), bFromAI(true) { }
-	//
 	int operator&( IStructureSaver &ss )
 	{
 		CSaverAccessor saver = &ss;
@@ -680,14 +590,12 @@ struct SAIUnitCmd
 		return 0;
 	}
 	
-	// pObject не сэйвится!
 	int operator&( IDataTree &ss )
 	{
 		CTreeAccessor saver = &ss;
 
 		saver.Add( "Command", &cmdType );
 		saver.Add( "Position", &vPos );
-//		CPtr<IRefCount> pObject;
 		saver.Add( "FromExplosionFlag", &fromExplosion );
 		saver.Add( "NumberFlag", &fNumber );
 		saver.Add( "FromAIFlag", &bFromAI );
@@ -695,13 +603,9 @@ struct SAIUnitCmd
 		return 0;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// user input actions
-// to achive RESET_USER_ACTION_xx one must bitwise OR correspending user action with 0x00000100
 enum EUserAction
 {
 	USER_ACTION_UNKNOWN		= 0,
-	//
 	USER_ACTION_MOVE			= 1,						// go to point...
 	USER_ACTION_ATTACK		= 2,						// attack object (unit/building/etc.)
 	USER_ACTION_SWARM			= 3,						// swarm to point
@@ -721,7 +625,6 @@ enum EUserAction
 	USER_ACTION_STAND_GROUND	= 17,				// stand ground - defence
 	USER_ACTION_MOVE_TO_GRID	= 18,				// move to grid...
 	USER_ACTION_CAPTURE_ARTILLERY = 19,		// squad: set some squad members to serve gun.
-	// engineer special actions
 	USER_ACTION_ENGINEER_PLACE_MINE_AP	= 20,	// place anti-personnel mines
 	USER_ACTION_ENGINEER_PLACE_MINE_AT	= 21,	// place anti-tank mines
 	USER_ACTION_ENGINEER_CLEAR_MINES		= 22,	// remove mines
@@ -729,51 +632,38 @@ enum EUserAction
 	USER_ACTION_ENGINEER_BUILD_ENTRENCHMENT = 24,	// build entrenchment segment for personnel
 	USER_ACTION_ENGINEER_REPAIR_BUILDING= 25,	// repair building...
 	USER_ACTION_ENGINEER_REPAIR					= 26, // repair all damaged mech units
-	//
 	USER_ACTION_SUPPORT_RESUPPLY				= 27,	// resupply with ammo
 	USER_ACTION_ENGINEER_BUILD_BRIDGE		= 28,	// build bridge
 	USER_ACTION_ENGINEER_BUILD_ANTITANK	= 29,	// build anti-tank defence
-	// officer special actions
 	USER_ACTION_OFFICER_CALL_BOMBERS		= 30,	// call for bombers to bomb area
 	USER_ACTION_OFFICER_CALL_FIGHTERS		= 31,	// call for fighter to defend area
 	USER_ACTION_OFFICER_CALL_SPY				= 32,	// call spy plane to scout the area
 	USER_ACTION_OFFICER_CALL_PARADROPERS= 33,	// call paradropper plane to drop paratroopers
 	USER_ACTION_OFFICER_BINOCULARS			= 34,	// look at the binoculars
 	USER_ACTION_OFFICER_CALL_GUNPLANES	= 35,	// call gunplane (штурмовик) to hunt in the area
-	//
 	USER_ACTION_HUMAN_RESUPPLY					= 36,	// resupply by humans
 	USER_ACTION_FILL_RU									= 37,	// fill resource units
-	// gunner special actions
-	//USER_ACTION_GUNNER_ASSIGN_TO_GUN		= 40,	// assign gunners to gun
 	USER_ACTION_HOOK_ARTILLERY					= 41,	// hook artillery for towing
 	USER_ACTION_DEPLOY_ARTILLERY				= 42,	// deploy artillery after towing
-	// formation changes
-	// CRAP{ из-за чьих-то кривых ручёнок (не будем тыкать пальцем в Славика) нумерация формаций такая кривая
 	USER_ACTION_FORMATION_0				= 50,		// change formation to '0'
 	USER_ACTION_FORMATION_3				= 51,		// change formation to '1'
 	USER_ACTION_FORMATION_2				= 52,		// change formation to '2'
 	USER_ACTION_FORMATION_1				= 53,		// change formation to '3'
 	USER_ACTION_FORMATION_4				= 54,		// change formation to '4'
-	// CRAP}
 	USER_ACTION_USE_SHELL_DAMAGE	= 55,		// use damage shell
 	USER_ACTION_USE_SHELL_AGIT		= 56,		// use agitation shell
 	USER_ACTION_USE_SHELL_SMOKE		= 57,		// use smoke shell
-	//
 	USER_ACTION_PLACE_MARKER			= 59,		// place marker on minimap
 	USER_ACTION_CHANGE_MOVEMENT_ORDER	= 60,	// идти в точку или параллельно
-	//
 	USER_ACTION_DISBAND_SQUAD			= 61,		// disband squad
 	USER_ACTION_FORM_SQUAD				= 62,		// form squad again (after disbanding)
 	USER_ACTION_STOP							= 63,		// stop all actions
-	// 
 	USER_ACTION_CANCEL						= 100,	// cancel action
 	USER_ACTION_SELECT_FRIEND			= 101,	// select friendly objects
 	USER_ACTION_SELECT_NEUTRAL		= 102,	// select neutral objects
 	USER_ACTION_SELECT_FOE				= 103,	// select foe objects
-	//
 	USER_ACTION_CALL_HQ						= 110,	// call to headquarter
 	USER_ACTION_DO_SELFACTION			= 111,	// do self-action (specific for each unit in group! in accordance with priority)
-	// special actions for user interface configuration
 	USER_ACTION_CHANGE_ACTIONS_1	= 201,	// change actions (low DWORD)
 	USER_ACTION_CHANGE_ACTIONS_2  = 202,	// change actions (high DWORD)
 	USER_ACTION_CHANGE_ACTIONS_3	= 203,	// change actions (low DWORD)
@@ -797,7 +687,6 @@ enum EUserAction
 	USER_ACTION_CHOOSE_PLANE              = 524,
 
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline int GetAnimationFromAction( int nAction )
 {
 	switch ( nAction )
@@ -876,13 +765,10 @@ inline int GetAnimationFromAction( int nAction )
 
 	return -1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline bool IsDeathAnimation( const int nAnimation )
 {
 	return ( nAnimation == ANIMATION_DEATH || nAnimation == ANIMATION_DEATH_DOWN );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// check, do we need animation + action or animation only (for the actions, which have animation)
 inline bool DoWeNeedAction( const int nAction )
 {
 	switch ( nAction )
@@ -914,12 +800,10 @@ inline bool DoWeNeedAction( const int nAction )
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline bool IsMovingAction( const EActionNotify updateType )
 {
 	return updateType == ACTION_NOTIFY_MOVE || updateType == ACTION_NOTIFY_CRAWL || updateType == ACTION_COMMAND_ROTATE_TO;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EFeedBack
 {
 	EFB_WIN		= 0,
@@ -969,7 +853,6 @@ enum EFeedBack
 	EFB_SNIPER_DEAD,											// nParam == makelong( x y )
 	EFB_TROOPS_PASSED,										// nParam == makelong( fromPlayer toPlayer )
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SAIFeedBack
 {
 	EFeedBack feedBackType;
@@ -983,7 +866,6 @@ struct SAIFeedBack
 	SAIFeedBack( const SAIFeedBack &feedBack ) : feedBackType( feedBack.feedBackType ), nParam( feedBack.nParam ) { }
 	const SAIFeedBack& operator=( const SAIFeedBack &feedBack ) { feedBackType = feedBack.feedBackType; nParam = feedBack.nParam; return *this; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SAIAcknowledgment
 {
 	EUnitAckType            eAck;
@@ -998,8 +880,6 @@ struct SAIAcknowledgment
 	{
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// для посылки клиенту изменения состояния Bored у юнита
 struct SAIBoredAcknowledgement
 {
 	EUnitAckType            eAck;
@@ -1015,5 +895,4 @@ struct SAIBoredAcknowledgement
 	}
 
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __ACTIONS_H__

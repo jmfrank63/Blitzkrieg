@@ -1,13 +1,11 @@
 #include "StdAfx.h"
 
 #include "BuildVersion.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool HasExtension( const std::string &szFileName, const char *pszExtension )
 {
 	const int nPos = szFileName.rfind( '.' );
 	return ( nPos != std::string::npos ) && ( szFileName.compare(nPos, std::string::npos, pszExtension) == 0 );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int PrintUsage()
 {
 	printf( "Build Increment Utility\n" );
@@ -17,12 +15,10 @@ int PrintUsage()
 	printf( " BuildVersion.exe <WorkSpaceFileName>.dsw <MainProjectName> [<IniFileName>.ini]\n" );
 	return 0xDEAD;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main( int argc, char *argv[] )
 {
 	if ( argc < 3 ) 
 		return PrintUsage();
-	//
 	std::string szWorkSpaceFileName, szConfigFileName = ".\\BuildVersion.ini";
 	std::vector<std::string> szProjectNames;
 	for ( int i = 1; i < argc; ++i )
@@ -42,15 +38,11 @@ int main( int argc, char *argv[] )
 		else
 			szProjectNames.push_back( argv[i] );
 	}
-	//
 	if ( szWorkSpaceFileName.empty() || szProjectNames.empty() || szConfigFileName.empty() ) 
 		return PrintUsage();
-	//
 	CBuildVersion build( szConfigFileName.c_str() );
 	build.UpdateVersion( szWorkSpaceFileName.c_str(), szProjectNames.back().c_str() );
 	for ( std::vector<std::string>::const_iterator it = szProjectNames.begin(); it != szProjectNames.end(); ++it )
 		build.MakeBuild( it->c_str() );
-	//
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

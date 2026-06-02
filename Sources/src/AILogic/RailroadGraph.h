@@ -1,11 +1,8 @@
 #ifndef __RAILROADGRAPH_H__
 #define __RAILROADGRAPH_H__
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Graph.h"
 #include "..\Misc\Spline.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IEdge;
 class CEdgePoint : public IRefCount
 {
@@ -37,25 +34,19 @@ public:
 		return false;
 	}
 
-	// ������������� ��������� ��� ��� �� ����� �� �������� ����� ( (v1, v2) -> (v2, v1) )
 	void Reverse( IEdge *pReversedEdge );
 
-	//
 	const int GetNPart() const { return nPart; }
 	const float GetT() const { return fT; }
 
 	friend class CSplineEdge;
 	friend class CZeroEdge;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SEdgeLessFunctional
 {
 	bool operator ()( const CPtr<CEdgePoint> &point1, const CPtr<CEdgePoint> &point2 ) const { return point1->Less( *point2 ); }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ���������� ����� ������� �� ����� �����
 const float fabs( CEdgePoint *p1, CEdgePoint *p2 );
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IEdge : public IRefCount
 {
 	virtual IEdge* CreateEdge( CEdgePoint *p1, CEdgePoint *p2 ) = 0;
@@ -78,9 +69,7 @@ interface IEdge : public IRefCount
 	virtual const CVec2 GetFirst2DPoint() const = 0;
 	virtual const CVec2 GetLast2DPoint() const = 0;
 
-	// ����� ��� �����
 	virtual const float GetLength() const = 0;
-	// ���������� ����� ����� ������� �� ���� �����
 	virtual const float GetLength( CEdgePoint *p1, CEdgePoint *p2 ) = 0;
 	virtual void GetClosestPoints( const CVec2 &vPoint, std::list< CPtr<CEdgePoint> > *pPoints, float *pfMinDist, const float fTolerance = SConsts::CLOSEST_TO_RAILROAD_POINT_TOLERANCE ) = 0;
 
@@ -88,7 +77,6 @@ interface IEdge : public IRefCount
 
 	virtual CEdgePoint* MakeIndent( const CVec2 &vPointToMeasureDist, CEdgePoint *p1, CEdgePoint *p2, const float fDist ) = 0;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSplineEdge : public IEdge
 {
 	DECLARE_SERIALIZE;
@@ -107,20 +95,16 @@ class CSplineEdge : public IEdge
 
 	std::vector<SEdgePart> edgeParts;
 
-	// ������ ������ ������ � ����� �����
 	int v1, v2;
 	float fEdgeLength;
 
-	// ����� ����� nPart �� fBegin �� fEnd
 	const float CalculateLengthOfEdgePart( const int nPart, const float fBegin, const float fEnd );
-	// ����� ����� �����
 	void CalculateEdgeLength();
 	void Init( CEdgePoint *p1, CEdgePoint *p2 );
 	CEdgePoint* MakeIndentOnOneSpline( const CVec2 &vPointToMeasureDist, const int nPart, const float fTBegin, const float fTEnd, float fDist );
 public:
 	CSplineEdge() : v1( -1 ), v2( -1 ), fEdgeLength( -1 ) { }
 	explicit CSplineEdge( const struct SVectorStripeObject &edgeDescriptor );
-	//
 	CSplineEdge( CEdgePoint *p1, CEdgePoint *p2 ) { Init( p1, p2 ); }
 
 	virtual IEdge* CreateReversedEdge() const;
@@ -143,7 +127,6 @@ public:
 	virtual const CVec2 GetLast2DPoint() const;
 
 	virtual const float GetLength() const { NI_ASSERT_T( fEdgeLength >= 0.0f, "Edge length hasn't been initialized" ); return fEdgeLength; }
-	// ���������� ����� ����� ������� �� ���� �����
 	virtual const float GetLength( CEdgePoint *p1, CEdgePoint *p2 );
 	virtual void GetClosestPoints( const CVec2 &vPoint, std::list< CPtr<CEdgePoint> > *pPoints, float *pfMinDist, const float fTolerance = SConsts::CLOSEST_TO_RAILROAD_POINT_TOLERANCE );
 
@@ -151,7 +134,6 @@ public:
 
 	virtual bool IsLastPoint( const int nPart, const float fT ) const;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSimpleSplineEdge : public CSplineEdge
 {
 	OBJECT_COMPLETE_METHODS( CSimpleSplineEdge );
@@ -159,12 +141,10 @@ class CSimpleSplineEdge : public CSplineEdge
 public:
 	CSimpleSplineEdge() { }
 	explicit CSimpleSplineEdge( const struct SVectorStripeObject &edgeDescriptor ) : CSplineEdge( edgeDescriptor ) { }
-	//
 	CSimpleSplineEdge( CEdgePoint *p1, CEdgePoint *p2 ) : CSplineEdge( p1, p2 ) { }
 
 	IEdge* CreateEdge( CEdgePoint *p1, CEdgePoint *p2 );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CZeroEdge : public IEdge
 {
 	OBJECT_COMPLETE_METHODS( CZeroEdge );
@@ -176,7 +156,6 @@ class CZeroEdge : public IEdge
 	float fLength;
 public:
 	CZeroEdge() : fLength( -1.0f ) { }
-	// ������� �� ����� p1 ������ ����� �� ����� p2 ������� ����� �� �������� �����
 	CZeroEdge( CEdgePoint *p1, CEdgePoint *p2 );
 
 	IEdge* CreateEdge( CEdgePoint *p1, CEdgePoint *p2 );
@@ -200,7 +179,6 @@ public:
 	virtual const CVec2 GetLast2DPoint() const { return vFirstPoint + vDir * fTEnd; }
 
 	virtual const float GetLength() const { NI_ASSERT_T( fLength >= 0.0f, "Edge length hasn't been initialized" ); return 0; }
-	// ���������� ����� ����� ������� �� ���� �����
 	virtual const float GetLength( CEdgePoint *p1, CEdgePoint *p2 ) { return 0; }
 	virtual void GetClosestPoints( const CVec2 &vPoint, std::list< CPtr<CEdgePoint> > *pPoints, float *pfMinDist, const float fTolerance = SConsts::CLOSEST_TO_RAILROAD_POINT_TOLERANCE );
 
@@ -208,7 +186,6 @@ public:
 
 	virtual bool IsLastPoint( const int nPart, const float fT ) const;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRailroad : public CSplineEdge
 {
 	OBJECT_COMPLETE_METHODS( CRailroad );
@@ -229,7 +206,6 @@ public:
 
 	const int GetNodeByIntersectionPoint( CEdgePoint *pPoint );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRailroadsIntersection
 {
 	DECLARE_SERIALIZE;
@@ -243,7 +219,6 @@ public:
 	CEdgePoint* GetPoint1() const { return p1; }
 	CEdgePoint* GetPoint2() const { return p2; }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRailroadGraphConstructor
 {
 	DECLARE_SERIALIZE;
@@ -254,7 +229,6 @@ class CRailroadGraphConstructor
 	CRailroadsList railroads;
 	std::list<CRailroadsIntersection> intersections;
 
-	//
 	void SpliceRailroad( CRailroad *pRailroad, std::vector< CPtr<CEdgePoint> > *pPoints, int *pnLen );
 	void FindIntersections( CRailroad *pRailroad1, CRailroad *pRailroad2 );
 	void AddIntersectionEdge( const CRailroadsIntersection &intersection, class CRailroadGraph *pGraph );
@@ -263,7 +237,6 @@ public:
 
 	void Construct( const struct STerrainInfo &terrain, class CRailroadGraph *pGraph );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SPointInfo
 {
 	int v;
@@ -272,7 +245,6 @@ struct SPointInfo
 	SPointInfo() : v( -1 ) { }
 	SPointInfo( int _v, const CVec2 &_vDir ) : v( _v ), vDir( _vDir ) { }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRailroadGraph : public CGraph
 {
 	DECLARE_SERIALIZE;
@@ -280,10 +252,7 @@ class CRailroadGraph : public CGraph
 	std::unordered_map< DWORD, CObj<IEdge> > edges;
 	std::vector< CObj<CEdgePoint> > edgeNodes;
 
-	//
 	void LookForPoint( const int v, const CVec2 &vDir, std::unordered_set<int> *pVisitedPoints, std::list<SPointInfo> *pPointsList );
-	// ���������� v2 �����, ��� ����� � ����� � ������������ vDir ��� �������� �� ����� ( v, v2 ) � dir ��� ��� ����� ����� � vDir
-	// ���� v2 �� �������, �� ���������� -1
 	void GetMovablePoint( const int v, const CVec2 &vDir, std::unordered_set<int> *pVisitedPoints, std::list<SPointInfo> *pPointsList );
 public:
 	CRailroadGraph() : edgeNodes( 10 ) { }
@@ -292,15 +261,11 @@ public:
 	void AddEdge( IEdge *pEdge );
 	virtual const float GetEdgeLength( const int v1, const int v2 );
 
-	// vConnectionNode - ��������� ������� ������ ������ � ��� �� ���������� ���������, ��� � vConnectionNode, ���� vConnectionNode == -1, �� � �����
 	void GetClosestPoints( const CVec2 &vPoint, std::list< CPtr<CEdgePoint> > *pPoints, float *pfMinDist, const int vConnectionNode, const float fTolerance = SConsts::CLOSEST_TO_RAILROAD_POINT_TOLERANCE );
 
-	// ����� �� ���� ��������
 	IEdge* GetEdge( const int v1, const int v2 );
-	// edgePoint �� �������
 	CEdgePoint* GetEdgePoint( const int v ) const;
 
 	CEdgePoint* MakeIndent( const CVec2 &vDir, CEdgePoint *pPoint, const float fDist );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __RAILROADGRAPH_H__

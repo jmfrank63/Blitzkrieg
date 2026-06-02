@@ -1,10 +1,7 @@
-// Stingray Objective Toolkit
 
 #define SEC_NO_NAMESPACE_USING 1
 #include "..\\Common\\StingrayCompat.h"
-// Objective Toolkit toolbar/menubar migrated via StingrayCompat.h
 
-//
 #include "..\Formats\fmtTerrain.h"
 inline bool IsShiftKeyDown()
 {

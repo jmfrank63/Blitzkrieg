@@ -241,7 +241,6 @@ struct _Locale_messages;
 #if !(defined(__XPG4_CHAR_CLASS__) || defined(_XPG4_2) || \
     (defined(_XOPEN_SOURCE) && (_XOPEN_VERSION - 0 == 4))) && ! defined (_ISCNTRL)
   /* fbp : on 2.5.1, the defines are different ;( */
-  // # if ( defined (__sun) && defined (__SVR4) && ! defined (_ISCNTRL) )
 #   define _ISCNTRL _C
 #   define _ISUPPER _U
 #   define _ISLOWER _L
@@ -291,7 +290,6 @@ struct _Locale_messages;
 #  define _Locale_PUNCT  _PUNCT
 #  define _Locale_SPACE  _SPACE
 #  define _Locale_PRINT  (_ALPHA | _DIGIT | _BLANK | _PUNCT)
-// is this one has to be so complex ?  
 #  define _Locale_ALPHA  ( _ALPHA & ~ (_UPPER | _LOWER )) 
 #elif defined(__MRC__) || defined(__SC__)		//*TY 02/24/2000 - added support for MPW
 #  define _Locale_CNTRL  _CTL

@@ -12,7 +12,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SQuickLoadMapInfo::FillFromMapInfo( const SLoadMapInfo &rLoadMapInfo )
 {
 	playerParties.resize( rLoadMapInfo.unitCreation.units.size() );
@@ -30,7 +29,6 @@ void SQuickLoadMapInfo::FillFromMapInfo( const SLoadMapInfo &rLoadMapInfo )
 	szMODVersion = rLoadMapInfo.szMODVersion;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SQuickLoadMapInfo::FillFromRMTemplate( const SRMTemplate &rRMTemplate )
 {
 	playerParties.resize( rRMTemplate.unitCreation.units.size() );
@@ -47,7 +45,6 @@ void SQuickLoadMapInfo::FillFromRMTemplate( const SRMTemplate &rRMTemplate )
 	szMODVersion = rRMTemplate.szMODVersion;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SQuickLoadMapInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -63,7 +60,6 @@ int SQuickLoadMapInfo::operator&( IStructureSaver &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SQuickLoadMapInfo::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -79,19 +75,16 @@ int SQuickLoadMapInfo::operator&( IDataTree &ss )
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::FillDefaultDiplomacies()
 {
 	FillDefaultDiplomacies( this );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::Clear()
 {
 	Clear( this );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::Create( const CTPoint<int> &rSize, int _nSeason, const std::string &rszSeasonFolder, int nPlayersCount, int _nType )
 {
 	return Create( this, rSize, _nSeason, rszSeasonFolder, nPlayersCount, _nType );
@@ -102,7 +95,6 @@ bool CMapInfo::IsValid()
 	return IsValid( *this );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMapInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -136,25 +128,20 @@ int CMapInfo::operator&( IStructureSaver &ss )
 
 	if ( saver.IsReading() )
 	{
-		// CRAP{ ����� ��� ������� diplomacies
 		FillDefaultDiplomacies();
-		// CRAP}
 		if ( szSeasonFolder.empty() )
 		{	
 			szSeasonFolder = SEASON_FOLDERS[nSeason];
 		}
-		// CRAP{ set passability for roads as 1
 		for ( TVSOList::iterator it = terrain.roads3.begin(); it != terrain.roads3.end(); ++it )
 		{
 			if ( it->fPassability == 0 ) 
 				it->fPassability = 1;
 		}
-		// CRAP}
 	}
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMapInfo::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -188,43 +175,35 @@ int CMapInfo::operator&( IDataTree &ss )
 
 	if ( saver.IsReading() )
 	{
-		// CRAP{ ����� ��� ������� diplomacies
 		FillDefaultDiplomacies();
-		// CRAP}
 		if ( szSeasonFolder.empty() )
 		{
 			szSeasonFolder = SEASON_FOLDERS[nSeason];
 		}
-		// CRAP{ set passability for roads as 1
 		for ( TVSOList::iterator it = terrain.roads3.begin(); it != terrain.roads3.end(); ++it )
 		{
 			if ( it->fPassability == 0 ) 
 				it->fPassability = 1;
 		}
-		// CRAP}
 	}
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMapInfo::GetSelectedSeason()
 {
 	return GetSelectedSeason( nSeason, szSeasonFolder );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::RemoveObject( int nObjectIndex )
 {
 	return RemoveObject( this, nObjectIndex );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::RemoveObjects( const std::list<CVec2> &rClearPolygon )
 {
 	return RemoveObjects( this, rClearPolygon );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::UpdateTerrain( const CTRect<int> &rUpdateRect )
 {
 	if ( IDataStorage* pDataStorage = GetSingleton<IDataStorage>() )
@@ -238,7 +217,6 @@ bool CMapInfo::UpdateTerrain( const CTRect<int> &rUpdateRect )
 	return false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::UpdateTerrainCrosses( const CTRect<int> &rUpdateRect )
 {
 	if ( IDataStorage* pDataStorage = GetSingleton<IDataStorage>() )
@@ -252,129 +230,107 @@ bool CMapInfo::UpdateTerrainCrosses( const CTRect<int> &rUpdateRect )
 	return false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::UpdateTerrainRivers( const CTRect<int> &rUpdateRect )
 {
 	return UpdateTerrainRivers( &terrain, rUpdateRect );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::UpdateTerrainRoads3D( const CTRect<int> &rUpdateRect )
 {
 	return UpdateTerrainRoads3D( &terrain, rUpdateRect );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::UpdateTerrainShades( const CTRect<int> &rUpdateRect )
 {
 	return UpdateTerrainShades( &terrain, rUpdateRect, CVertexAltitudeInfo::GetSunLight( static_cast<CMapInfo::SEASON>( nSeason ) ) );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMapInfo::UpdateObjects( const CTRect<int> &rUpdateRect )
 {
 	return UpdateObjects( this, rUpdateRect );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::PackFrameIndices()
 {
 	PackFrameIndices( this );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::UnpackFrameIndices()
 {
 	UnpackFrameIndices( this );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::RemoveNonExistingObjects( IDataStorage *pDataStorage, IObjectsDB *pObjectsDB, std::string *pszOutputString )
 {
 	return RemoveNonExistingObjects( this, pDataStorage, pObjectsDB, pszOutputString );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::TerrainHitTest( const CVec3 &rPoint, TERRAIN_HIT_TEST_TYPE type, std::vector<int> *pTerrainObjects )
 {
 	return TerrainHitTest( terrain, rPoint, type, pTerrainObjects );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SVectorStripeObject* CMapInfo::GetRiver( int nID )
 {
 	return GetRiver( terrain, nID );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SVectorStripeObject* CMapInfo::GetRoad3D( int nID )
 {
 	return GetRoad3D( terrain, nID );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::CreateMiniMapImage( const CRMImageCreateParameterList &rImageCreateParameterList, IProgressHook *pProgressHook )
 {
 	return CreateMiniMapImage( *( this ), rImageCreateParameterList, pProgressHook );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::AddSounds( TMapSoundInfoList *pSoundsList, DWORD dwSoundTypeBits )
 {
 	return AddSounds( *( this ), pSoundsList, dwSoundTypeBits );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::GetUsedLinkIDs( CUsedLinkIDs *pUsedLinkIDs )
 {
 	return GetUsedLinkIDs( *( this ), pUsedLinkIDs );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::GetUsedScriptIDs( CUsedScriptIDs *pUsedScriptIDs )
 {
 	return GetUsedScriptIDs( *( this ), pUsedScriptIDs );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::GetUsedScriptAreas( CUsedScriptAreas *pUsedScriptAreas )
 {
 	return GetUsedScriptAreas( *( this ), pUsedScriptAreas );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::GetTerrainTileIndices( const CVec3 &rPoint, CTPoint<int> *pPoint )
 {
 	return GetTerrainTileIndices( terrain, rPoint, pPoint );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::GetTileIndices( const CVec3 &rPoint, CTPoint<int> *pPoint )
 {
 	return GetTileIndices( terrain, rPoint, pPoint );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::GetAITileIndices( const CVec3 &rPoint, CTPoint<int> *pPoint )
 {
 	return GetAITileIndices( terrain, rPoint, pPoint );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::InvertYTile( CTPoint<int> *pPoint )
 {
 	InvertYTile( terrain, pPoint );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapInfo::InvertYPosition( CTPoint<float> *pPoint )
 {
 	InvertYPosition( terrain, pPoint );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::AddMapInfo( const CTPoint<int> &destPoint, const SLoadMapInfo &rSourceLoadMapInfo )
 {
 	return AddMapInfo( this, destPoint, rSourceLoadMapInfo );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::FillTerrain( int nTileIndex )
 {
 	if ( IDataStorage* pDataStorage = GetSingleton<IDataStorage>() )
@@ -386,7 +342,6 @@ bool CMapInfo::FillTerrain( int nTileIndex )
 	return false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::FillTileSet( const std::list<CVec2> &rInclusivePolygon, const std::list<std::list<CVec2> > &rExclusivePolygons, const CRMTileSet &rTileSet, std::unordered_map<LPARAM, float> *pDistances )
 {
 	if ( IDataStorage* pDataStorage = GetSingleton<IDataStorage>() )
@@ -398,38 +353,30 @@ bool CMapInfo::FillTileSet( const std::list<CVec2> &rInclusivePolygon, const std
 	return false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::FillObjectSet( const std::list<CVec2> &rInclusivePolygon, const std::list<std::list<CVec2> > &rExclusivePolygons, const CRMObjectSet &rObjectSet, CArray2D<BYTE> *pTileMap )
 {
 	return FillObjectSet( this, rInclusivePolygon, rExclusivePolygons, rObjectSet, pTileMap );
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMapInfo::FillProfilePattern( const std::list<CVec2> &rInclusivePolygon, const std::list<std::list<CVec2> > &rExclusivePolygons, const SVAGradient &rGradient, const CTPoint<int> &rPatternSize, float fPositiveRatio, std::unordered_map<LPARAM, float> *pDistances )
 {
 	return FillProfilePattern( &terrain, rInclusivePolygon, rExclusivePolygons, rGradient, rPatternSize, fPositiveRatio, pDistances );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//obsolete
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
 bool CMapInfo::AddRoad( const CTRect<int> &rRoadRect, int nRoadType, int nRoadDirection, std::vector<SRoadItem> *pRoad )
 {
 	return AddRoad( this, rRoadRect, nRoadType, nRoadDirection, pRoad );
 }
 /**/
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
 bool CMapInfo::MakeRoad( const SRoadPoint &rFrom, const SRoadPoint &rTo, int nRoadType, const SRoadMakeParameter &rRoadMakeParamerer, std::vector<SRoadItem> *pRoad )
 {
 	return MakeRoad( this, rFrom, rTo, nRoadType, rRoadMakeParamerer, pRoad );
 }
 /**/
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
 bool CMapInfo::UpdateTerrainRoads( const CTRect<int> &rUpdateRect )
 {
-	//��������� ���������� � ������������ �������� ������
 	if ( IDataStorage* pDataStorage = GetSingleton<IDataStorage>() )
 	{
 		SRoadsetDesc roadsetDesc;
@@ -443,9 +390,6 @@ bool CMapInfo::UpdateTerrainRoads( const CTRect<int> &rUpdateRect )
 	return false;
 }
 /**/
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// basement storage  
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
 	if ( IDataStorage* pDataStorage = GetSingleton<IDataStorage>() )
 	{
@@ -501,7 +445,6 @@ bool CMapInfo::UpdateTerrainRoads( const CTRect<int> &rUpdateRect )
 /**/
 
 	/**
-	// CRAP{ ����� ��� ������� diplomacies
 	if ( saver.IsReading() )
 	{
 		if ( (  diplomacies.GetSizeX() == 0 ) || 
@@ -528,11 +471,9 @@ bool CMapInfo::UpdateTerrainRoads( const CTRect<int> &rUpdateRect )
 			}
 		}
 	}
-	// CRAP}
 	/**/
 
 	/**
-	// CRAP{ ����� ��� ������� diplomacies
 	if ( saver.IsReading() )
 	{
 		if ( (  diplomacies.GetSizeX() == 0 ) || 
@@ -559,5 +500,4 @@ bool CMapInfo::UpdateTerrainRoads( const CTRect<int> &rUpdateRect )
 			}
 		}
 	}
-	// CRAP}
 	/**/

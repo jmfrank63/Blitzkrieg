@@ -15,9 +15,6 @@
  * modified is included with the above copyright notice.
  *
  */ 
-// WARNING: This is an internal header file, included by other C++
-// standard library headers.  You should not attempt to use this header
-// file directly.
 
 
 #ifndef _STLP_INTERNAL_NUM_PUT_H
@@ -35,8 +32,6 @@
 
 _STLP_BEGIN_NAMESPACE
 
-//----------------------------------------------------------------------
-// num_put facet
 
 # ifdef _STLP_LIMITED_DEFAULT_TEMPLATES
 template <class _CharT, class _OutputIter>  
@@ -121,10 +116,8 @@ protected:
 
 # ifdef _STLP_USE_TEMPLATE_EXPORT
 _STLP_EXPORT_TEMPLATE_CLASS num_put<char, ostreambuf_iterator<char, char_traits<char> > >;
-// _STLP_EXPORT_TEMPLATE_CLASS num_put<char, char*>;
 #  ifndef _STLP_NO_WCHAR_T
 _STLP_EXPORT_TEMPLATE_CLASS num_put<wchar_t, ostreambuf_iterator<wchar_t, char_traits<wchar_t> > >;
-// _STLP_EXPORT_TEMPLATE_CLASS num_put<wchar_t, wchar_t*>;
 #  endif /* _STLP_NO_WCHAR_T */
 # endif
 
@@ -180,7 +173,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_NUMERIC_FACETS_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

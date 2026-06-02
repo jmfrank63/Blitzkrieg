@@ -9,7 +9,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CRMGFieldObjectPropertiesDialog::VIS_TYPES_COUNT = 4;
 const int CRMGFieldObjectPropertiesDialog::GAME_TYPES_COUNT = 18;
 const int CRMGFieldObjectPropertiesDialog::SQUAD_TYPES_COUNT = 9;
@@ -66,18 +65,15 @@ const char* CRMGFieldObjectPropertiesDialog::BUILDING_TYPES[] =
 	"Pillbox",
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CRMGFieldObjectPropertiesDialog::CRMGFieldObjectPropertiesDialog( CWnd* pParent )
 	: CResizeDialog( CRMGFieldObjectPropertiesDialog::IDD, pParent ), bDisableEditWeight( false ), hIcon( 0 )
 {
-	//{{AFX_DATA_INIT(CRMGFieldObjectPropertiesDialog)
 	m_szName = _T("");
 	m_szPath = _T("");
 	m_szStats = _T("");
 	m_szVisType = _T("");
 	m_szGameType = _T("");
 	m_szWeight = _T("");
-	//}}AFX_DATA_INIT
 
 	SetControlStyle( IDC_RMG_CF_OS_OP_STATS_LABEL_LEFT, ANCHORE_LEFT_TOP );
 	SetControlStyle( IDC_RMG_CF_OS_OP_STATS_LABEL_RIGHT, ANCHORE_LEFT_TOP | RESIZE_HOR );
@@ -107,11 +103,9 @@ CRMGFieldObjectPropertiesDialog::CRMGFieldObjectPropertiesDialog( CWnd* pParent 
 	SetControlStyle( IDCANCEL, ANCHORE_BOTTOM | ANCHORE_HOR_CENTER );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldObjectPropertiesDialog::DoDataExchange(CDataExchange* pDX)
 {
 	CResizeDialog::DoDataExchange( pDX );
-	//{{AFX_DATA_MAP( CRMGFieldObjectPropertiesDialog )
 	DDX_Control(pDX, IDC_RMG_CF_OS_OP_ICON, m_Icon);
 	DDX_Text(pDX, IDC_RMG_CF_OS_OP_NAME_LABEL_RIGHT, m_szName);
 	DDX_Text(pDX, IDC_RMG_CF_OS_OP_PATH_LABEL_RIGHT, m_szPath);
@@ -119,17 +113,12 @@ void CRMGFieldObjectPropertiesDialog::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_RMG_CF_OS_OP_VIS_TYPE_LABEL_RIGHT, m_szVisType);
 	DDX_Text(pDX, IDC_RMG_CF_OS_OP_GAME_TYPE_LABEL_RIGHT, m_szGameType);
 	DDX_Text(pDX, IDC_RMG_CF_OS_OP_WEIGHT_EDIT, m_szWeight);
-	//}}AFX_DATA_MAP
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_MESSAGE_MAP(CRMGFieldObjectPropertiesDialog, CResizeDialog)
-	//{{AFX_MSG_MAP(CRMGFieldObjectPropertiesDialog)
 	ON_WM_DESTROY()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CRMGFieldObjectPropertiesDialog::OnInitDialog() 
 {
 	CResizeDialog::OnInitDialog();
@@ -149,7 +138,6 @@ BOOL CRMGFieldObjectPropertiesDialog::OnInitDialog()
 		if ( CWnd *pWnd = GetDlgItem( IDCANCEL ) )
 		{
 			pWnd->ShowWindow( SW_HIDE );
-			//pWnd->EnableWindow( false );
 		}
 		if ( CWnd *pWnd = GetDlgItem( IDOK ) )
 		{
@@ -182,7 +170,6 @@ BOOL CRMGFieldObjectPropertiesDialog::OnInitDialog()
 	return TRUE;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRMGFieldObjectPropertiesDialog::OnDestroy() 
 {
 	CResizeDialog::OnDestroy();
@@ -194,7 +181,6 @@ void CRMGFieldObjectPropertiesDialog::OnDestroy()
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::string CRMGFieldObjectPropertiesDialog::GetObjectStats( IObjectsDB *pODB, const SGDBObjectDesc *pObjectDesc )
 {
 	std::string szStats;
@@ -270,6 +256,3 @@ std::string CRMGFieldObjectPropertiesDialog::GetObjectStats( IObjectsDB *pODB, c
 	}
 	return szStats;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// basement storage  
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

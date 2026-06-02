@@ -1,6 +1,3 @@
-// MeshFrm.h : interface of the CMeshFrame class
-//
-/////////////////////////////////////////////////////////////////////////////
 
 #ifndef __MESHFRM_H__
 #define __MESHFRM_H__
@@ -24,7 +21,6 @@ public:
 	CMeshFrame();
 	virtual ~CMeshFrame();
 
-// Operations
 public:
 	virtual void GFXDraw();
 	virtual void ShowFrameWindows( int nCommand );
@@ -40,16 +36,10 @@ public:
 	void SetTransportableMesh( const char *pszMeshName, const char *pszProjectName, CTreeItem *pRootItem = 0 );
 
 	void SelectLocator( CMeshLocatorPropsItem *pLoc );
-//	void UpdateItemType();
 	void UpdateLocatorVisibility();
 	
-// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CMeshFrame)
 	protected:
-	//}}AFX_VIRTUAL
 
-// Implementation
 private:
 	CPtr<IObjVisObj> pCombatObject, pInstallObject, pTransObject;
 	CMeshLocatorPropsItem *pActiveLocator;
@@ -65,7 +55,6 @@ protected:
 	virtual void SpecificInit();
 	virtual void SpecificClearBeforeBatchMode();
 	virtual BOOL SpecificTranslateMessage( MSG *pMsg );
-	//загружает данные перед экспортом проекта
 	virtual bool LoadFramePreExportData( const char *pszProjectFile, CTreeItem *pRootItem );
 	
 	virtual void SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const char *pszProjectName );
@@ -77,9 +66,7 @@ protected:
 	virtual FILETIME FindMaximalSourceTime( const char *pszProjectName, CTreeItem *pRootItem );
 	virtual FILETIME FindMinimalExportFileTime( const char *pszResultFileName, CTreeItem *pRootItem );
 
-// Generated message map functions
 protected:
-	//{{AFX_MSG(CMeshFrame)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnShowLocatorsInfo();
 	afx_msg void OnUpdateShowLocatorsInfo(CCmdUI* pCmdUI);
@@ -88,13 +75,9 @@ protected:
 	afx_msg void OnShowDirectionButton();	
 	afx_msg void OnUpdateShowDirectionButton(CCmdUI* pCmdUI);
 	afx_msg void OnRButtonDown(UINT nFlags, CPoint point);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 
-/////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif		//__MESHFRM_H__

@@ -74,6 +74,3 @@ using _STLP_STD::temporary_buffer;
 
 #endif /* _STLP_TEMPBUF_H */
 
-// Local Variables:
-// mode:C++
-// End:

@@ -9,7 +9,6 @@
 #include "GeneralIntendant.h"
 #include "GeneralConsts.h"
 #include "CommonUnit.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSupremeBeing::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -17,7 +16,6 @@ int CSupremeBeing::operator&( IStructureSaver &ss )
 	saver.Add( 2, &ironmans );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CCommander::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -25,7 +23,6 @@ int CCommander::operator&( IStructureSaver &ss )
 	saver.Add( 2, &fMeanSeverity );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGeneral::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -35,7 +32,6 @@ int CGeneral::operator&( IStructureSaver &ss )
 		SGeneralConsts::Init();
 	}
 	saver.Add( 1, &nParty );
-	//saver.Add( 2, &enemys );
 	saver.Add( 3, &infantryInTrenches );
 	saver.Add( 4, &infantryFree );
 	saver.Add( 5, &tanksFree );
@@ -71,12 +67,10 @@ int CGeneral::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGeneralTaskToDefendPatch::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 
-	//SerializeOwner( 1, &pEnemyContainer, &saver );
 
 	saver.Add( 2, &patchInfo );
 	saver.Add( 3, &nCurReinforcePoint );
@@ -99,7 +93,6 @@ int CGeneralTaskToDefendPatch::operator&( IStructureSaver &ss )
 	saver.Add( 20, &timeLastUpdate );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGeneralTaskToHoldReinforcement::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -112,7 +105,6 @@ int CGeneralTaskToHoldReinforcement::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGeneralArtilleryGoToPosition::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -127,7 +119,6 @@ int CGeneralArtilleryGoToPosition::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGeneralArtilleryTask::SBombardmentUnitState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -139,7 +130,6 @@ int CGeneralArtilleryTask::SBombardmentUnitState::operator&( IStructureSaver &ss
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGeneralArtilleryTask::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -160,7 +150,6 @@ int CGeneralArtilleryTask::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGeneralArtillery::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -173,7 +162,6 @@ int CGeneralArtillery::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGeneralAirForce::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -193,7 +181,6 @@ int CGeneralAirForce::operator&( IStructureSaver &ss )
 	saver.Add( 14, &fighterCheckPeriod );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGeneralAirForceLaunchFighters::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -202,7 +189,6 @@ int CGeneralAirForceLaunchFighters::operator&( IStructureSaver &ss )
 	saver.Add( 3, &nPlayer );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CEnemyRememberer::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -211,7 +197,6 @@ int CEnemyRememberer::operator&( IStructureSaver &ss )
 	saver.Add( 3, &timeBeforeForget );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CResupplyCellInfo::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -223,7 +208,6 @@ int CResupplyCellInfo::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGeneralIntendant::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -242,7 +226,6 @@ int CGeneralIntendant::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGeneralTaskToDefendStorage::CWaitForChangePlayer::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -251,7 +234,6 @@ int CGeneralTaskToDefendStorage::CWaitForChangePlayer::operator&( IStructureSave
 	saver.Add( 3, &nParty );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGeneralTaskToDefendStorage::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -262,7 +244,6 @@ int CGeneralTaskToDefendStorage::operator&( IStructureSaver &ss )
 	saver.Add( 8, &eState );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGeneralTaskToSwarmToPoint::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -285,7 +266,6 @@ int CGeneralTaskToSwarmToPoint::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGeneralTaskRecaptureStorage::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -295,7 +275,6 @@ int CGeneralTaskRecaptureStorage::operator&( IStructureSaver &ss )
 	saver.Add( 4, &bFinished );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGeneralTaskCheckCellDanger::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -305,7 +284,6 @@ int CGeneralTaskCheckCellDanger::operator&( IStructureSaver &ss )
 	saver.Add( 4, &pCommander );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGeneralTaskToResupplyCell::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -320,7 +298,6 @@ int CGeneralTaskToResupplyCell::operator&( IStructureSaver &ss )
 	SerializeOwner( 9, &pCells, &saver );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGeneralSwarmWaitForReady::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;

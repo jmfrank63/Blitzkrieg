@@ -208,19 +208,16 @@ public:                         // Insert
 
   iterator insert(iterator __position, const value_type& __x) {
     _STLP_DEBUG_CHECK(__check_if_owner(&_M_iter_list, __position))
-    // fbp : invalidation !
     return iterator(&_M_iter_list, _Base::insert(__position._M_iterator, __x));
   }
 
   iterator insert(iterator __position) { 
     _STLP_DEBUG_CHECK(__check_if_owner(&_M_iter_list, __position))
-    // fbp : invalidation !
     return iterator(&_M_iter_list, _Base::insert(__position._M_iterator));
   }
 
   void insert(iterator __position, size_type __n, const value_type& __x) {
     _STLP_DEBUG_CHECK(__check_if_owner(&_M_iter_list, __position))
-    // fbp : invalidation !
     _Base::insert(__position._M_iterator, __n, __x);
   }
 
@@ -228,7 +225,6 @@ public:                         // Insert
   template <class _InputIterator>
   void insert(iterator __position, _InputIterator __first, _InputIterator __last) {
     _STLP_DEBUG_CHECK(__check_if_owner(&_M_iter_list, __position))
-    // fbp : invalidation !
     _Base::insert(__position._M_iterator, __first, __last);
   }
 #else /* _STLP_MEMBER_TEMPLATES */
@@ -244,11 +240,7 @@ public:                         // Insert
   }
 #endif /* _STLP_MEMBER_TEMPLATES */
 
-  //  void resize(size_type __new_size, const value_type& __x) {
-  //    _Base::resize(__new_size, __x);
-  //  }
 
-  //  void resize(size_type new_size) { resize(new_size, value_type()); }
 
 public:                         // Erase
   iterator erase(iterator __pos) {
@@ -268,7 +260,6 @@ public:                         // Erase
 };
 
 # ifdef _STLP_EXTRA_OPERATORS_FOR_DEBUG
-// Nonmember functions.
 
 template<class _Tp, class _Alloc>
 inline bool operator==(const _DBG_deque<_Tp,_Alloc >& __x, const _DBG_deque<_Tp,_Alloc >& __y)
@@ -322,6 +313,3 @@ _STLP_END_NAMESPACE
   
 #endif /* _STLP_INTERNAL_DEQUE_H */
 
-// Local Variables:
-// mode:C++
-// End:

@@ -394,11 +394,6 @@ extern	float	fsqrt(float);
 *****************************************************************************/
 
 #ifdef _WIN32
-// Explicitly define BYTE_ORDER, BIG_ENDIAN and LITTLE_ENDIAN
-// WARNING: If this is changed,make sure the definitions in:
-// Hmachine.h, Apache/NTDependencies.h, MayaFur/NTDependencies.h and flib.h
-// are also updated
-//
 #ifndef BYTE_ORDER
 #	ifndef BIG_ENDIAN
 #		define BIG_ENDIAN 1
@@ -466,10 +461,6 @@ extern	float	fsqrt(float);
 **	ids can be read, written and compared without any byte swapping
 */
 
-//#define	FLmakeid(c1,c2,c3,c4)	((unsigned long)(c1)				| \
-//				((unsigned long)(c2) << 8)			| \
-//				((unsigned long)(c3) << 16)			| \
-//				((unsigned long)(c4) << 24))
 
 /*	pretty standard swapping macros					*/
 
@@ -480,16 +471,9 @@ extern	float	fsqrt(float);
 
 #define FLswaphalf(h)		(((h & 0xff) << 8) | ((unsigned short)(h) >> 8))
 
-// PDB--The FLswapfloat macro doesn't work so I'm replacing it with a
-// more efficient assembly language version on Windows NT (courtesy
-// of Garr).  If we ever port to another little-endian host, we'll
-// have to come up with an equivalent macro on that host.
 #ifdef _WIN32
 #if defined (_M_IA64)
 #pragma message ("Intel: PK: Performance Issue --> " __FILE__)
-	// x86 assembly not supported on IA64
-	// This may be a performance issue to be reviewed once the 
-	// IA-64 port is complete and functionally working
 __inline void FLswapfloat(float fSrc, float *pfDst)
 {
 	long result;
@@ -603,11 +587,6 @@ static inline void FLswapint64(__uint64_t dSrc, __uint64_t *pdDst)
 }
 
 #endif
-//#define	FLftol(f)		(*((unsigned long *)&f))
-//#define	FLswapfloat(f)		((FLftol(f) << 24)			| \
-//				((FLftol(f) << 8) & 0x00ff0000)		| \
-//				((FLftol(f) >> 8) & 0x0000ff00)		| \
-//				(FLftol(f) >> 24))
 
 #define	FLuswapword(wp)		((unsigned long)(((unsigned char *)wp)[0])		| \
 				((unsigned long)(((unsigned char *)wp)[1]) << 8)	| \
@@ -1071,7 +1050,6 @@ static inline void FLswapint64(__uint64_t dSrc, __uint64_t *pdDst)
 #define	FL_ToSeek	(FL_SeekRead | FL_SeekWrite)
 
 /*	maximum file name length (including path) and null	*/
-//	#define	FL_MaxName	(PATH_MAX + NAME_MAX + 2)
 #ifndef _WIN32
 #define	FL_MaxName	(PATH_MAX + NAME_MAX + 2)
 #else

@@ -2,7 +2,6 @@
 
 #include "Updater.h"
 #include "SaveDBID.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUpdater::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -25,7 +24,6 @@ int CUpdater::operator&( IStructureSaver &ss )
 	saver.Add( 31, &nCheck );
 	if ( !saver.IsReading() )
 	{
-		// saver all simple actions with nParam == dbID
 		int nChunk = 32;
 		for ( CSimpleUpdatesSet::iterator iter = simpleUpdates[ACTION_NOTIFY_CHANGE_DBID >> 4].begin(); iter != simpleUpdates[ACTION_NOTIFY_CHANGE_DBID >> 4].end(); ++iter )
 			SaveDBID( &saver, nChunk++, iter->second.nParam );
@@ -58,4 +56,3 @@ int CUpdater::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

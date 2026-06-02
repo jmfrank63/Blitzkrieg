@@ -16,9 +16,6 @@
  *
  */ 
 
-// WARNING: This is an internal header file, included by other C++
-// standard library headers.  You should not attempt to use this header
-// file directly.
 
 
 #ifndef _STLP_INTERNAL_MESSAGES_H
@@ -38,7 +35,6 @@
 
 _STLP_BEGIN_NAMESPACE
 
-// messages facets
 
 class messages_base {
 public:
@@ -162,7 +158,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_MESSAGES_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

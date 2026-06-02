@@ -3,23 +3,19 @@
 #include "GameSpyPeerChat.h"
 #include "LanChat.h"
 #include "ChatMessages.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 PEERCallbacks CGameSpyPeerChat::callBacks;
 const std::string CGameSpyPeerChat::szRoomKeyName = "b_player_flag";
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CGameSpyPeerChat::CGameSpyPeerChat()
 : CThread( 500 ), peer( 0 ), eInitState( EIS_NONE ), szRealUserName( "" ), lastTimeToTryToReconnect( 0 ),
 	eMode( EUM_NONE )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CGameSpyPeerChat::~CGameSpyPeerChat()
 {
 	StopThread();
 	if ( peer )
 		DisconnectFromChat( true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::Step()
 {
 	if ( peer )
@@ -31,7 +27,6 @@ void CGameSpyPeerChat::Step()
 		peerJoinTitleRoom( peer, joinRoomCallback, this, PEERFalse );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::InitGSChat( const char *pszRealUserName, const char *pszNick )
 {
 	szRealUserName = pszRealUserName;
@@ -40,7 +35,6 @@ void CGameSpyPeerChat::InitGSChat( const char *pszRealUserName, const char *pszN
 	std::string szSecretKey;
 	szSecretKey.resize( 6 );
 
-	//set the secret key, in a semi-obfuscated manner
 	szSecretKey[0] = 'f';
 	szSecretKey[1] = 'Y';
 	szSecretKey[2] = 'D';
@@ -102,7 +96,6 @@ void CGameSpyPeerChat::InitGSChat( const char *pszRealUserName, const char *pszN
 			peerConnect( peer, szNick.c_str(), 0, nickErrorCallback, connectCallback, this, PEERFalse );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::InitGSChat( const WORD *pszUserName )
 {
 	NStr::SetCodePage( GetACP() );
@@ -116,13 +109,11 @@ void CGameSpyPeerChat::InitGSChat( const WORD *pszUserName )
 
 	RunThread();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::InitInGameChat( INetDriver *pNetDriver )
 {
 	pInGameChat = new CLanChat();
 	static_cast_ptr<CLanChat*>(pInGameChat)->InitInGameChat( pNetDriver );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::DisconnectFromChat( bool bShutDown )
 {
 	peerShutdown( peer );
@@ -135,17 +126,14 @@ void CGameSpyPeerChat::DisconnectFromChat( bool bShutDown )
 	if ( IsInChatRoom() )
 		messages.AddMessage( new CSimpleChatMessage( CSimpleChatMessage::EP_DISCONNECTED ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::DestroyInGameChat()
 {
 	pInGameChat = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGameSpyPeerChat::IsDisconnected() const
 {
 	return eInitState == EIS_NONE || eInitState == EIS_CHANGED_NICK || eInitState == EIS_DISCONNECTED;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::SendMessage( const WORD *pszMessage, const SPlayerInfo &ourPlayer )
 {
 	if ( !IsInChatRoom() )
@@ -163,7 +151,6 @@ void CGameSpyPeerChat::SendMessage( const WORD *pszMessage, const SPlayerInfo &o
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::SendWhisperMessage( const WORD *pszMessage, const SPlayerInfo &toPlayer, const SPlayerInfo &ourPlayer )
 {
 	if ( !IsInChatRoom() )
@@ -172,7 +159,6 @@ void CGameSpyPeerChat::SendWhisperMessage( const WORD *pszMessage, const SPlayer
 			pInGameChat->SendWhisperMessage( pszMessage, toPlayer, ourPlayer );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::SendMessage( const WORD *pszMessage, const WORD *wszToPlayer, const bool bWhisper )
 {
 	if ( eInitState == EIS_INITIALIZED && IsInChatRoom() )
@@ -193,7 +179,6 @@ void CGameSpyPeerChat::SendMessage( const WORD *pszMessage, const WORD *wszToPla
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::Segment()
 {
 	if ( pInGameChat )
@@ -217,7 +202,6 @@ void CGameSpyPeerChat::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////	
 IMultiplayerMessage* CGameSpyPeerChat::GetMessage()
 {
 	IMultiplayerMessage *pMessage = 0;
@@ -229,7 +213,6 @@ IMultiplayerMessage* CGameSpyPeerChat::GetMessage()
 
 	return pMessage;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::SetRoomKeys()
 {
 	std::string value;
@@ -257,7 +240,6 @@ void CGameSpyPeerChat::SetRoomKeys()
 */
 	peerSetRoomKeys( peer, TitleRoom, szNick.c_str(), 1, &pszKey, &pszValue );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGameSpyPeerChat::AnalyzeRoomKeys( const char *pszKeyName, const char *pszKeyValue, EUserMode *pMode )
 {
 	if ( strcmp( pszKeyName, szRoomKeyName.c_str() ) == 0 )
@@ -282,14 +264,12 @@ bool CGameSpyPeerChat::AnalyzeRoomKeys( const char *pszKeyName, const char *pszK
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::AskForRoomKeys()
 {
 	const char* pszKeyName = szRoomKeyName.c_str();
 
 	peerGetRoomKeys( peer, TitleRoom, "*", 1, &pszKeyName, getRoomKeysCallBack, this, PEERFalse );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::UserModeChanged( const EUserMode _eMode )
 {
 	if ( eInitState == EIS_INITIALIZED && eMode != _eMode )
@@ -333,7 +313,6 @@ void CGameSpyPeerChat::UserModeChanged( const EUserMode _eMode )
 		messages.AddMessage( new CChatUserChanged( CChatUserChanged::EUS_MODE, szNick.c_str(), eMode ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::AnalyzeMode( int nFlags, EUserMode *pMode )
 {
 	if ( nFlags & PEER_FLAG_PLAYING )
@@ -347,11 +326,6 @@ void CGameSpyPeerChat::AnalyzeMode( int nFlags, EUserMode *pMode )
 	else
 		*pMode = EUM_NONE;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// callbacks wrappers
-//
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::Disconnected( const char *pszReason )
 {
 	if ( !IsDisconnected() )
@@ -361,42 +335,33 @@ void CGameSpyPeerChat::Disconnected( const char *pszReason )
 		eInitState = EIS_DISCONNECTED;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::RoomMessage( RoomType roomType, const char *pszNick, const char *pszMessage, MessageType messageType )
 {
 	if ( IsInChatRoom() )
 		messages.AddMessage( new CChatMessage( pszMessage, pszNick, false ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::RoomUTM( RoomType roomType, const char *pszNick, const char *pszCommand,	const char *pszParameters, PEERBool authenticated )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::RoomNameChanged( RoomType roomType )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::RoomModeChanged( RoomType roomType, CHATChannelMode *pMode )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::PlayerMessage( const char *pszNick, const char *pszMessage, MessageType messageType )
 {
 	messages.AddMessage( new CChatMessage( pszMessage, pszNick, true ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::PlayerUTM( const char *pszNick, const char *pszCommand, const char *pszParameters, PEERBool authenticated )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::ReadyChanged( const char *nick, PEERBool ready )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::GameStarted( unsigned int IP, const char *message )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::PlayerJoined( RoomType roomType, const char *pszNick )
 {
 	if ( IsInChatRoom() )	
@@ -410,35 +375,29 @@ void CGameSpyPeerChat::PlayerJoined( RoomType roomType, const char *pszNick )
 		messages.AddMessage( new CChatUserChanged( CChatUserChanged::EUS_JOINED, pszNick, eUserMode ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::PlayerLeft( RoomType roomType, const char *pszNick, const char *pszReason )
 {
 	if ( IsInChatRoom() )
 		messages.AddMessage( new CChatUserChanged( CChatUserChanged::EUS_PARTED, pszNick, EUM_NONE ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::Kicked( RoomType roomType, const char *pszNick, const char *pszReason )
 {
 	if ( IsInChatRoom() )
 		messages.AddMessage( new CSimpleChatMessage( CSimpleChatMessage::EP_KICKED ) );
 	eInitState = EIS_DISCONNECTED;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::NewPlayerList( RoomType roomType )
 {
 	peerEnumPlayers( peer, TitleRoom, enumPlayersCallback, this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::PlayerChangedNick( RoomType roomType, const char *pszOldNick, const char *pszNewNick )
 {
 	if ( IsInChatRoom() )
 		messages.AddMessage( new CChatUserChangedNick( pszOldNick, pszNewNick ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::PlayerInfo( RoomType roomType, const char *pszNick, unsigned int IP, int profileID )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::PlayerFlagsChanged( RoomType roomType, const char *pszNick, int oldFlags, int newFlags )
 {
 	EUserMode eUserMode;
@@ -447,42 +406,33 @@ void CGameSpyPeerChat::PlayerFlagsChanged( RoomType roomType, const char *pszNic
 	if ( eUserMode != EUM_NONE )
 		messages.AddMessage( new CChatUserChanged( CChatUserChanged::EUS_MODE, pszNick, eUserMode ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::Ping( const char *pszNick, int ping )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::CrossPing( const char *pszNick1, const char *pszNick2, int crossPing )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::GlobalKeyChanged( const char *pszNick, const char *pszKey, const char *pszValue )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::RoomKeyChanged( RoomType roomType, const char *pszNick, const char *pszKey, const char *pszValue )
 {
 	EUserMode eUserMode;
 	if ( AnalyzeRoomKeys( pszKey, pszValue, &eUserMode ) )
 		messages.AddMessage( new CChatUserChanged( CChatUserChanged::EUS_MODE, pszNick, eUserMode ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::GOABasic( PEERBool playing, char *outbuf, int maxlen )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::GOAInfo( PEERBool playing, char *pOutbuf, int maxlen )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::GOARules( PEERBool playing, char *pOutbuf, int maxlen )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::GOAPlayers( PEERBool playing, char *pOutbuf, int maxlen )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::NickError( int nType, const char *pszNick )
 {
 	if ( nType == PEER_IN_USE )
@@ -514,7 +464,6 @@ void CGameSpyPeerChat::NickError( int nType, const char *pszNick )
 		eInitState = EIS_DISCONNECTED;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::Connect( PEERBool success )
 {
 	switch ( success )
@@ -532,7 +481,6 @@ void CGameSpyPeerChat::Connect( PEERBool success )
 			break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::EnumPlayers( PEERBool success, RoomType roomType, int index, const char *pszNick, int flags )
 {
 	if ( IsInChatRoom() && success == PEERTrue && index >= 0 )
@@ -545,7 +493,6 @@ void CGameSpyPeerChat::EnumPlayers( PEERBool success, RoomType roomType, int ind
 		messages.AddMessage( new CChatUserChanged( CChatUserChanged::EUS_JOINED, pszNick, eUserMode ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::JoinRoom( PEERBool success, PEERJoinResult result, RoomType roomType )
 {
 	if ( success == PEERTrue && result == PEERJoinSuccess )
@@ -569,7 +516,6 @@ void CGameSpyPeerChat::JoinRoom( PEERBool success, PEERJoinResult result, RoomTy
 		eInitState = EIS_DISCONNECTED;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::GetRoomKeys( PEERBool success, const char *pszNick, int num, char **ppszKeys, char **ppszValues )
 {
 	if ( success == PEERTrue && pszNick )
@@ -582,153 +528,119 @@ void CGameSpyPeerChat::GetRoomKeys( PEERBool success, const char *pszNick, int n
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// callbacks	
-//
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::disconnectedCallBack( PEER peer, const char *reason, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->Disconnected( reason );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::roomMessageCallBack( PEER peer, RoomType roomType, const char *nick, const char *message,	MessageType messageType, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->RoomMessage( roomType, nick, message, messageType );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::roomUTMCallBack( PEER peer, RoomType roomType, const char *nick, const char *command,	const char *parameters, PEERBool authenticated, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->RoomUTM( roomType, nick, command, parameters, authenticated );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::peerRoomNameChangedCallback( PEER peer, RoomType roomType, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->RoomNameChanged( roomType );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::roomModeChangedCallBack( PEER peer, RoomType roomType, CHATChannelMode *mode, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->RoomModeChanged( roomType, mode );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::playerMessageCallBack( PEER peer, const char *nick, const char *message, MessageType messageType, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->PlayerMessage( nick, message, messageType );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::playerUTMCallBack( PEER peer, const char *nick, const char *command, const char *parameters, PEERBool authenticated, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->PlayerUTM( nick, command, parameters, authenticated );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::readyChangedCallBack( PEER peer, const char *nick, PEERBool ready, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->ReadyChanged( nick, ready );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::gameStartedCallBack( PEER peer, unsigned int IP, const char *message, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->GameStarted( IP, message );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::playerJoinedCallBack( PEER peer, RoomType roomType, const char *nick, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->PlayerJoined( roomType, nick );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::playerLeftCallBack( PEER peer, RoomType roomType, const char *nick, const char *reason, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->PlayerLeft( roomType, nick, reason );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::kickedCallBack( PEER peer, RoomType roomType, const char *nick, const char *reason, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->Kicked( roomType, nick, reason );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::newPlayerListCallBack( PEER peer, RoomType roomType, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->NewPlayerList( roomType );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::playerChangedNickCallBack( PEER peer, RoomType roomType, const char *oldNick, const char *newNick, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->PlayerChangedNick( roomType, oldNick, newNick );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::playerInfoCallBack( PEER peer, RoomType roomType, const char *nick, unsigned int IP, int profileID, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->PlayerInfo( roomType, nick, IP, profileID );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::playerFlagsChangedCallBack( PEER peer, RoomType roomType, const char *nick, int oldFlags, int newFlags, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->PlayerFlagsChanged( roomType, nick, oldFlags, newFlags );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::pingCallBack( PEER peer, const char *nick, int ping, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->Ping( nick, ping );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::crossPingCallBack( PEER peer, const char *nick1, const char *nick2, int crossPing, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->CrossPing( nick1, nick2, crossPing );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::globalKeyChangedCallBack( PEER peer, const char *nick, const char *key, const char *value, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->GlobalKeyChanged( nick, key, value );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::roomKeyChangedCallBack( PEER peer, RoomType roomType, const char *nick, const char *key, const char *value, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->RoomKeyChanged( roomType, nick, key, value );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::GOABasicCallBack( PEER peer, PEERBool playing, char *outbuf, int maxlen, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->GOABasic( playing, outbuf, maxlen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::GOAInfoCallBack( PEER peer, PEERBool playing, char *outbuf, int maxlen, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->GOAInfo( playing, outbuf, maxlen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::GOARulesCallBack( PEER peer, PEERBool playing, char *outbuf, int maxlen, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->GOARules( playing, outbuf, maxlen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::GOAPlayersCallBack( PEER peer, PEERBool playing, char *outbuf, int maxlen, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->GOAPlayers( playing, outbuf, maxlen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::nickErrorCallback( PEER peer, int type, const char *nick, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->NickError( type, nick );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::connectCallback( PEER peer, PEERBool success, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->Connect( success );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::enumPlayersCallback( PEER peer, PEERBool success, RoomType roomType, int index, const char *nick, int flags, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->EnumPlayers( success, roomType, index, nick, flags );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::joinRoomCallback( PEER peer, PEERBool success, PEERJoinResult result, RoomType roomType, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->JoinRoom( success, result, roomType );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGameSpyPeerChat::getRoomKeysCallBack( PEER peer, PEERBool success, RoomType roomType, const char *nick, int num, char **keys, char **values, void *param )
 {
 	reinterpret_cast<CGameSpyPeerChat*>(param)->GetRoomKeys( success, nick, num, keys, values );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

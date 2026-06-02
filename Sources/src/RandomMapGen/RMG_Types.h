@@ -1,10 +1,7 @@
 #ifndef __RMG_TYPES_H__
 #define __RMG_TYPES_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Formats\FmtMap.h"
 #include "WV_Types.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//��������� �������� ������������ ��� ������ � xml �������
 extern const char *RMGC_CONTAINER_XML_NAME;
 extern const char *RMGC_GRAPH_XML_NAME;
 extern const char *RMGC_OBJECTSET_XML_NAME;
@@ -25,7 +22,6 @@ extern const char *RMGC_OWN_MOD_FOLDER;
 
 extern const int RMGC_CREATE_RANDOM_MAP_STEP_COUNT;
 extern const int RMGC_CREATE_MINIMAP_IMAGE_STEP_COUNT;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::set<int> CUsedLinkIDs;
 typedef std::set<int> CUsedScriptIDs;
 typedef std::set<std::string> CUsedScriptAreas;
@@ -39,7 +35,6 @@ struct SRMLevelVSOParameter
 	bool bLevelEnds;									//����������� ����� ��� � �����
 	bool bLevelPatches;								//����������� �����
 
-	//constructors
 	SRMLevelVSOParameter() : fHeight( 0.0f ), bAdd( true ), nMiddlePointsCount( 0 ), bLevelEnds( false ), bLevelPatches( true )  {}
 	SRMLevelVSOParameter( const SRMLevelVSOParameter &rRMLevelVSOParameter ) : szProfileFileName( rRMLevelVSOParameter.szProfileFileName ), fHeight( rRMLevelVSOParameter.fHeight ), bAdd( rRMLevelVSOParameter.bAdd ), nMiddlePointsCount( rRMLevelVSOParameter.nMiddlePointsCount ), bLevelEnds( rRMLevelVSOParameter.bLevelEnds ), bLevelPatches( rRMLevelVSOParameter.bLevelPatches ) {}
 	SRMLevelVSOParameter& operator=( const SRMLevelVSOParameter &rRMLevelVSOParameter )
@@ -56,19 +51,16 @@ struct SRMLevelVSOParameter
 		return *this;
 	}	
 
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SRMPatch
 {
 	CTPoint<int> size;														//������ ����� � VIS ������ ( 16 �� 16 VIS ������ )
 	std::string szFileName;												//��� �����
 	std::string szPlace;													//��� ���������
 
-	//constructors
 	SRMPatch() : size( 0, 0 ) {}
 	SRMPatch( const CTPoint<int> &rSize, const std::string &rszFileName, const std::string &rszPlace ) : size( rSize ), szFileName( rszFileName ), szPlace( rszPlace ) {}
 	SRMPatch( const SRMPatch &rPatch ) : size( rPatch.size ), szFileName( rPatch.szFileName ), szPlace( rPatch.szPlace ) {} 
@@ -83,13 +75,10 @@ struct SRMPatch
 		return *this;
 	}	
 
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef	std::vector<SRMPatch> CRMPatchesList;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SRMContainer
 {
 	enum ANGLE
@@ -111,14 +100,12 @@ struct SRMContainer
 	CRMPatchesList patches;												//����� ������
 	std::vector<int> indices[4];									//������� ������ �� ������� �� ��������� � ���������� �������
 	
-	//check info
 	CTPoint<int> size;														//������ � VIS ������ ( 16 �� 16 VIS ������ )
 	int nSeason;																	//�����
 	std::string szSeasonFolder;										//������� ������
 	CUsedScriptIDs usedScriptIDs;									//������������ scriptIDs
 	CUsedScriptAreas usedScriptAreas;							//������������ scriptAreas
 
-	//constructors
 	SRMContainer() : size( 0, 0 ), nSeason ( 0 ) {}
 	SRMContainer( const SRMContainer &rContainer )
 		: patches( rContainer.patches ),
@@ -152,7 +139,6 @@ struct SRMContainer
 		return *this;
 	}
 	
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 
@@ -161,16 +147,13 @@ struct SRMContainer
 	bool IsSupportedSetting( const std::string &rszSettingName ) const;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::unordered_map<std::string, SRMContainer > CRMContainersHashMap;
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SRMGraphNode
 {
 	CTRect<int> rect;															//��������� � VIS ������ � AI ���������� (������������� ������������ terrainY )
 	std::string	szContainerFileName;							//���� � ����������
 
-	//constructors
 	SRMGraphNode() : rect( 0, 0, 0, 0 ) {}
 	SRMGraphNode( const SRMGraphNode &rGraphNode ) : rect( rGraphNode.rect ), szContainerFileName( rGraphNode.szContainerFileName ) {}
 	SRMGraphNode& operator=( const SRMGraphNode &rGraphNode )
@@ -183,12 +166,10 @@ struct SRMGraphNode
 		return *this;
 	}
 
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SRMGraphLink
 {
 	static const int INVALID_LINK_VALUE;
@@ -214,7 +195,6 @@ struct SRMGraphLink
 	float fDistance;															//���������� �� ����� �� ���������� ���������� ( 0...1 )
 	float fDisturbance;														//���������� ( 0...1 )
 
-	//constructors
 	SRMGraphLink() : link( INVALID_LINK_VALUE, INVALID_LINK_VALUE ), nType( TYPE_ROAD ), fRadius( DEFAULT_RADIUS ), nParts( DEFAULT_PARTS ), fMinLength( DEFAULT_MIN_LENGTH ), fDistance( DEFAULT_DISTANCE ), fDisturbance( DEFAULT_DISTURBANCE ) {}
 	SRMGraphLink( const SRMGraphLink &rGraphLink )
 		: link( rGraphLink.link ),
@@ -241,29 +221,24 @@ struct SRMGraphLink
 		return *this;
 	}
 
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef	std::vector<SRMGraphNode> CRMGraphNodesList;
 typedef	std::vector<SRMGraphLink> CRMGraphLinksList;
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SRMGraph
 {
 	CRMGraphNodesList nodes;
 	CRMGraphLinksList links;
 
-	//check info
 	CTPoint<int> size;														//� ������ � VIS ������ ( 16 �� 16 VIS ������ )
 	int nSeason;																	//�����
 	std::string szSeasonFolder;										//������� ������
 	CUsedScriptIDs usedScriptIDs;									//������������ scriptID
 	CUsedScriptAreas usedScriptAreas;							//������������ scriptAreas
 
-	//constructors
 	SRMGraph() : size( 0, 0 ), nSeason( 0 ) {}
 	SRMGraph( const SRMGraph &rGraph )
 		: nodes( rGraph.nodes ),
@@ -288,18 +263,15 @@ struct SRMGraph
 		return *this;
 	}
 
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 
 	int GetSupportedSettings( std::list<std::string> *pSupportedSettingsList ) const;
 	bool IsSupportedSetting( const std::string &rszSettingName ) const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::unordered_map<std::string, SRMGraph> CRMGraphsHashMap;
 typedef	CWeightVector<std::string> CRMGraphWeightVector;
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SRMObjectSetShell
 {
 	TStringWeightVector objects;
@@ -307,7 +279,6 @@ struct SRMObjectSetShell
 	int nBetweenDistance;					//VIS tiles
 	float fRatio;									//(0...1)
 
-	//constructors
 	SRMObjectSetShell() : fWidth( 0.0f ), nBetweenDistance( 0 ), fRatio( 0 ) {}
 	SRMObjectSetShell( const SRMObjectSetShell &rObjectSetShell ) : objects( rObjectSetShell.objects ), fWidth( rObjectSetShell.fWidth ), nBetweenDistance( rObjectSetShell.nBetweenDistance ), fRatio( rObjectSetShell.fRatio ) {}
 	SRMObjectSetShell& operator=( const SRMObjectSetShell &rObjectSetShell )
@@ -322,18 +293,15 @@ struct SRMObjectSetShell
 		return *this;
 	}
 
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SRMTileSetShell
 {
 	TIntWeightVector tiles;
 	float fWidth;								//VIS tiles
 
-	//constructors
 	SRMTileSetShell() : fWidth( 0.0f ) {}
 	SRMTileSetShell( const SRMTileSetShell &rTileSetShell ) : tiles( rTileSetShell.tiles ), fWidth( rTileSetShell.fWidth ) {}
 	SRMTileSetShell& operator=( const SRMTileSetShell &rTileSetShell )
@@ -346,18 +314,15 @@ struct SRMTileSetShell
 		return *this;
 	}
 	
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef	std::vector<SRMObjectSetShell> CRMObjectSet;
 typedef	std::vector<SRMTileSetShell> CRMTileSet;
 typedef std::unordered_map<std::string, CRMObjectSet> CRMObjectSetHashMap;
 typedef std::unordered_map<std::string, CRMTileSet> CRMTileSetHashMap;
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SRMFieldSet
 {
 	CRMObjectSet objectsShells;				//�������
@@ -368,13 +333,11 @@ struct SRMFieldSet
 	CTPoint<int> patternSize;					//����������� - ������������ ���������� ��������
 	float fPositiveRatio;							// 1 - ��� ���������, 0 - ��� ��������
 	
-	//������ ��� ����������
 	int	nSeason;											// ����� (����/����/������ :)
 	std::string szSeasonFolder;				//������� ������
 	
 	void ValidateFieldSet( const struct STilesetDesc &rTilesetDesc, int nDefaultTileIndex );
 
-	//constructors
 	SRMFieldSet() : fHeight( 4.0f ), fPositiveRatio( 0.5f ), patternSize( 2, 5 ), nSeason( 0 ) {}
 	SRMFieldSet( const SRMFieldSet &rFieldSet )
 		: objectsShells( rFieldSet.objectsShells ),
@@ -401,14 +364,11 @@ struct SRMFieldSet
 		return *this;
 	}
 
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::unordered_map<std::string, SRMFieldSet> CRMFieldSetsHashMap;
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SRMVSODesc
 {
 	static const float DEFAULT_WIDTH;
@@ -418,7 +378,6 @@ struct SRMVSODesc
 	float fWidth;
 	float fOpacity;
 
-	//constructors
 	SRMVSODesc() : fWidth( DEFAULT_WIDTH ), fOpacity( DEFAULT_OPACITY ) {}
 	SRMVSODesc( const SRMVSODesc &rVSODesc ) : szVSODescFileName( rVSODesc.szVSODescFileName ), fWidth( rVSODesc.fWidth ), fOpacity( rVSODesc.fOpacity ) {}
 	SRMVSODesc& operator=( const SRMVSODesc &rVSODesc )
@@ -432,22 +391,18 @@ struct SRMVSODesc
 		return *this;
 	}
 	
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef CWeightVector<std::string> CRMFieldSetWeightVector;
 typedef CWeightVector<SRMVSODesc> CRMVSOWeightVector;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SRMTemplate
 {
 	CRMFieldSetWeightVector fields;								//���������� �� ������� ������ �����������
 	CRMGraphWeightVector graphs;									//����� ������������ ������ � ������ ����� ����
 	CRMVSOWeightVector vso;												//������������� ������
 		
-	//check info
 	CTPoint<int> size;														//� ������ � VIS ������ ( 16 �� 16 VIS ������ )
 	int	nSeason;																	// ����� (����/����/������ :)
 	std::string szSeasonFolder;										//������� ������
@@ -469,12 +424,10 @@ struct SRMTemplate
 	int nType;																		// ��� ����� ( ������ CMapInfo )
 	int nAttackingSide;														//��������� ������� ( ��� ����������� ( 0 - 1 ) )
 
-	//MOD Support
 	std::string szMODName;
 	std::string szMODVersion;
 
 
-	//constructors
 	SRMTemplate() : size( 0, 0 ), nSeason( 0 ), nDefaultFieldIndex( -1 ), vCameraAnchor( VNULL3 ), nMissionIndex( 0 ), nType( 0 ), nAttackingSide( 0 )
 	{
 		FillDefaultDiplomacies();
@@ -533,21 +486,16 @@ struct SRMTemplate
 		return *this;
 	}
 
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 	
 	void FillDefaultDiplomacies();
 	
-	//
 	int GetSupportedSettings( std::list<std::string> *pSupportedSettingsList ) const;
 	bool IsSupportedSetting( const std::string &rszSettingName ) const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::unordered_map<std::string, SRMTemplate> CRMTemplatesHashMap;
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//��� ���������� �����
 struct SRMPlacedPatch : public SRMPatch
 {
 	enum EPointSelectionType
@@ -558,7 +506,6 @@ struct SRMPlacedPatch : public SRMPatch
 		PST_EMPTY = 3,
 	};
 	
-	//��������� ��� ������ �����
 	struct SVSOPoint
 	{
 		int nID;
@@ -581,14 +528,11 @@ struct SRMPlacedPatch : public SRMPatch
 		}	
 	};
 
-	//����� ������
 	CTPoint<int> minXYCorner;						//��������� ����� � VIS ������ � AI ���������� (������������� ������������ terrainY )
 
-	//������ ��� ������ �����
 	std::list<SVSOPoint> riversPoints;	//����� ���������� ���
 	std::list<SVSOPoint> roadsPoints;		//����� ���������� �����
 
-	//constructors
 	SRMPlacedPatch() : minXYCorner( 0, 0 ) {}
 	SRMPlacedPatch( const SRMPatch &rPatch ) : SRMPatch( rPatch ), minXYCorner( 0, 0 ) {}
 	SRMPlacedPatch( const SRMPlacedPatch &rPlacedPatch ) : SRMPatch( rPlacedPatch.size, rPlacedPatch.szFileName, rPlacedPatch.szPlace ), minXYCorner( rPlacedPatch.minXYCorner ), riversPoints( rPlacedPatch.riversPoints ), roadsPoints( rPlacedPatch.roadsPoints ) {}
@@ -607,8 +551,6 @@ struct SRMPlacedPatch : public SRMPatch
 		return *this;
 	}	
 
-	//��������������� ��� �����
-	//����� ��������� ����� �� ���������� �������� �� ������
 	static bool GetAndRemoveClosestVSOPoints( int nType,														//������ - ���� ( SRMGraphLink::TYPE )
 																						SRMPlacedPatch &rStartPlacedPatch,		//��������� ����
 																						SRMPlacedPatch &rEndPlacedPatch,			//�������� ����
@@ -617,11 +559,8 @@ struct SRMPlacedPatch : public SRMPatch
 																						SVSOPoint *pBeginVSOPoint,						//��������� �����
 																						SVSOPoint *pEndVSOPoint );						//�������� �����
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef	std::vector<SRMPlacedPatch> CRMPlacedPatchesList;
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//��� ���������� ������ �����������
 class CRMFieldGraph
 {
 	struct SPatch
@@ -631,18 +570,6 @@ class CRMFieldGraph
 		CTRect<int> boundingRect;											//�������������, ����� ��� ���������� �������������� ������
 		std::vector<std::vector<int> > linesIndices;	//������� ����� �� ����� � ��� � ������� lines
 		
-		// 1(minx, maxy)  2(maxx, maxy)
-		// *--------------*
-		// |    side 1    |
-		// |              |
-		// |              |
-		// |side 0        |size 2
-		// |              |
-		// |              |
-		// |    side 3    |
-		// *--------------*
-		// 0(minx, miny) 3(maxx, miny)
-		//
 		void FillBoundingPolygon( const CTRect<int> &rBoundingRect );
 	};
 	
@@ -670,7 +597,6 @@ class CRMFieldGraph
 		int nLineIndex;
 	};
 
-	//������� ������
 	std::vector<SPatch> patches;
 	std::vector<SLine> lines;
 	
@@ -683,7 +609,6 @@ class CRMFieldGraph
 	bool GetPolygonAndMarkVertices( int nBeginPatchIndex, int nBeginVertexIndex, std::list<CVec2> *pPolygon, int nMaximumItations );
 
 	public:
-	//�������� ������
 	std::list<std::list<CVec2> > inclusivePolygons;
 	std::list<std::list<CVec2> > exclusivePolygons;
 	
@@ -698,11 +623,9 @@ class CRMFieldGraph
 	inline int GetLinesCount() { return lines.size(); }
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::unordered_map<DWORD, CWeightVector<std::string> > CRMUnitsPlaceHoldersHashMap;
 typedef std::unordered_map<std::string, CWeightVector<std::string> > CRMUnitsPlaceHoldersMnemonicsHashMap;
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SRMTemplateUnitsTable
 {
 protected:	
@@ -714,7 +637,6 @@ public:
 		std::string szRPGStats;							// RPG stats name
 		int nWeight;												// weight
 		SRandomMissionBonus() : nWeight( 0 ) { }
-		//
 		int operator&( IDataTree &ss )
 		{
 			CTreeAccessor saver = &ss;
@@ -730,7 +652,6 @@ public:
 			return 0;
 		}
 	};
-	//
 	static const int UNIT_RPG_TYPE_COUNT;
 	static const DWORD INVALID_UNIT_RPG_TYPE;
 	static const DWORD SQUAD_UNIT_RPG_TYPE;
@@ -747,7 +668,6 @@ public:
 	std::vector<CRMUnitsPlaceHoldersHashMap> unitPlaceHolders;	// �� ����� ������
 	SUnitCreationInfo unitCreationInfo;													// ���� ������������ ��� ����� appear points
 	std::vector<SRandomMissionBonus> bonuses;										// random mission bonuses
-	//
 	const std::string GetRandomBonus() const;
 	void GetRandomBonuses( std::vector<std::string> &_bonuses ) const
 	{
@@ -774,16 +694,13 @@ public:
 			}
 		}
 	}
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SRMContext
 {
 	std::vector<SRMTemplateUnitsTable> levels;	//�� ������� ���������
-	//
 	const std::string GetRandomBonus( const int nLevel ) const
 	{
 		if ( levels.empty() ) 
@@ -799,7 +716,6 @@ struct SRMContext
 			return levels[nLevel].GetRandomBonus();
 		}
 	}
-	//
 	void GetRandomBonuses( const int nLevel, std::vector<std::string> &bonuses ) const
 	{
 		if ( levels.empty() ) 
@@ -815,7 +731,6 @@ struct SRMContext
 			levels[nLevel].GetRandomBonuses( bonuses );
 		}
 	}
-	//
 	void GetAllRandomBonuses( const int nLevel, std::vector<std::string> &bonuses ) const
 	{
 		if ( levels.empty() ) 
@@ -832,7 +747,6 @@ struct SRMContext
 		}
 	}
 
-	//���������� ���������� �������� � ������� ��� ������
 	int GetAvailiableUnits( int nPlayer, DWORD nUnitRPGType, std::unordered_set<std::string> *pAvailableUnits )
 	{
 		for ( int nLevelIndex = 0; nLevelIndex < levels.size(); ++nLevelIndex )
@@ -850,23 +764,19 @@ struct SRMContext
 		return pAvailableUnits->size();
 	}
 
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 	bool IsValid( int nLevelsCount, int nPlayersCount );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SRMSetting
 {
 	CRMFieldSetWeightVector fields;							//���������� �� ������� ������ �����������
 
-	// serializing...
 	virtual int STDCALL operator&( IStructureSaver &ss );
 	virtual int STDCALL operator&( IDataTree &ss );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SRMUsedTemplateInfo
 {
 	std::string szTemplateName;
@@ -876,5 +786,4 @@ struct SRMUsedTemplateInfo
 	int nGraphAngle;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __RMG_TYPES_H__

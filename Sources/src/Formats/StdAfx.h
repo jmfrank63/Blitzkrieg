@@ -1,8 +1,4 @@
 #define _CRT_SECURE_NO_WARNINGS
-// stdafx.h : include file for standard system include files,
-//  or project specific include files that are used frequently, but
-//      are changed infrequently
-//
 
 #if !defined(AFX_STDAFX_H__A9DB83DB_A9FD_11D0_BFD1_444553540000__INCLUDED_)
 #define AFX_STDAFX_H__A9DB83DB_A9FD_11D0_BFD1_444553540000__INCLUDED_
@@ -11,15 +7,12 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-// STLport configuration defines
 #define _NOTHREADS 1
 #define _STLP_DEBUG_TERMINATE 1
 #define _STLP_DEBUG_MESSAGE 1
-//
 
 #include <comutil.h>
 #include <assert.h>
-// undef some Windows API defines, like GetObject and CreateObject
 #ifdef GetObject
 #undef GetObject
 #endif // GetObject
@@ -27,9 +20,7 @@
 #undef CreateObject
 #endif // CreateObject
 
-//#include <stdlib.h>
 #include <math.h>
-// STL headers
 #pragma warning( disable : 4503 4018 4786 4800 4290 4146 4244 4284 )
 #include <algorithm>
 #include <list>
@@ -40,22 +31,18 @@
 #include <unordered_set>
 #include <set>
 #include <queue>
-//
 typedef __int64 int64;									// due to lack of 'long long' type support
 typedef unsigned __int64 QWORD;					// quadra word
 #define for if(false); else for					// to achive standard variable scope resolving, declared inside 'for'
 #define STDCALL __stdcall								// to use with interface function calls
-// define 'interface' keyword
 #ifndef interface
 #define interface struct
 #endif // interface
-// define pragma once
 #if _MSC_VER > 1000
 #define ONCE once
 #else
 #define ONCE message ""
 #endif // _MSC_VER > 1000
-// define ASSERT for easy access and common usage. in the non-_DEBUG mode turn it off
 #ifdef _DEBUG
 #ifndef ASSERT
 #define ASSERT( x ) assert( x )
@@ -65,7 +52,6 @@ typedef unsigned __int64 QWORD;					// quadra word
 #define ASSERT( x )
 #endif // ASSERT
 #endif // _DEBUG
-//
 #include "..\Misc\Basic.h"							// base interfaces
 #include "..\Misc\ModernAssert.h"				// modern C++ asserts
 #include "..\Misc\Tools.h"							// different usefull tools
@@ -84,13 +70,9 @@ typedef unsigned __int64 QWORD;					// quadra word
 #include "..\Misc\Basic.h"
 #include "..\Main\GameTimer.h"
 #include "..\Main\GameDB.h"
-// in the file 'Specific.h' one can define own project-specific includes
 #include "Specific.h"
 
-// TODO: reference additional headers your program requires here
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif // !defined(AFX_STDAFX_H__A9DB83DB_A9FD_11D0_BFD1_444553540000__INCLUDED_)
 

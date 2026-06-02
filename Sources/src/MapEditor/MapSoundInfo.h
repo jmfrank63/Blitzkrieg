@@ -9,12 +9,8 @@
 #include "..\Formats\FmtMap.h"
 #include "..\Misc\Manipulator.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CTemplateEditorFrame;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//коллекционер обьектов
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMSHelper
 {
 	static const char DEFAULT_SOUND_NAME[];
@@ -34,29 +30,23 @@ typedef std::vector<CMutableMapSoundInfo> TMutableMapSoundInfoVector;
 
 class CMutableMapSoundInfo : public CMapSoundInfo
 {
-	//Внутренние константы
 	
-	//Перевод из предка в потомок и обратно
 	void MutateTo() {}
 	void MutateFrom() {}
 
 public:	
 	friend class CMapSoundInfoManipulator;
 
-	//Внутренние переменные
 	CPtr<IVisObj> pVisObj;
 
-	//Конструкторы и операторы преобразования
 	CMutableMapSoundInfo() { MutateTo(); }
 	CMutableMapSoundInfo( const CMapSoundInfo &rMapSoundInfo )
 		:	CMapSoundInfo( rMapSoundInfo ) { MutateTo(); }
 	CMapSoundInfo& Mutate() { MutateFrom(); return *this; }
 
-	//Манипулятор
 	virtual IManipulator* GetManipulator();
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMapSoundInfoManipulator : public CManipulator
 {
 	OBJECT_MINIMAL_METHODS( CMapSoundInfoManipulator );
@@ -70,5 +60,4 @@ public:
 
 	inline void SetObject( CMutableMapSoundInfo *_pMutableObject ) { pMutableObject = _pMutableObject; }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // !defined(__AIMapSoundInfo__MANIPULATOR__)

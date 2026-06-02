@@ -1,6 +1,3 @@
-// IEditorState.cpp: implementation of the IEditorState class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include "editor.h"
@@ -43,7 +40,6 @@ bool CStateParameter::Update( STATE_EVENT nType, const CTPoint<int> &rPoint, CTe
 					g_frameManager.GetGameWnd()->ClientToScreen( &point );
 				}
 				/**/
-				//g_frameManager.GetGameWnd()->ScreenToClient( &point );
 
 				/**
 				RECT screenRect;

@@ -1,7 +1,6 @@
 #include "StdAfx.h"
 #include "UIListSorter.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIListTextSorter::operator() ( int nSortColumn, const IUIListRow *pRow1, const IUIListRow *pRow2, const bool bForward ) const
 {
 	IUIElement *pElement = pRow1->GetElement( nSortColumn );
@@ -16,7 +15,6 @@ bool CUIListTextSorter::operator() ( int nSortColumn, const IUIListRow *pRow1, c
 	else
 		return (bForward ? nRes < 0 : nRes > 0);
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIListNumberSorter::operator() ( int nSortColumn, const IUIListRow *pRow1, const IUIListRow *pRow2, const bool bForward ) const
 {
 	IUIElement *pElement = pRow1->GetElement( nSortColumn );
@@ -32,11 +30,9 @@ bool CUIListNumberSorter::operator() ( int nSortColumn, const IUIListRow *pRow1,
 	else
 		return (bForward ? d1 > d2 : d1 < d2);
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIListUserDataSorter::operator() ( int nSortColumn, const IUIListRow *pRow1, const IUIListRow *pRow2, const bool bForward ) const
 {
 	int n1 = pRow1->GetUserData();
 	int n2 = pRow2->GetUserData();
 	return (bForward ? n1 < n2 : n1 > n2 );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

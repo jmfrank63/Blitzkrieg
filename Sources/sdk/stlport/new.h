@@ -41,6 +41,3 @@
 #   undef  _STLP_DONT_POP_0x848
 # endif
 
-// Local Variables:
-// mode:C++
-// End:

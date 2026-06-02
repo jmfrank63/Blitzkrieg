@@ -1,8 +1,6 @@
 #include "StdAfx.h"
 
 #include "RangeAllocs.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// fibonacci numbers sequence [2..64]:
 /*
   1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597,
   2584, 4181, 6765, 10946, 17711, 28657, 46368, 75025, 121393,
@@ -16,12 +14,10 @@
   4052739537881, 6557470319842, 10610209857723
 
 */
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline DWORD GetPow2( int nSize )
 {
 	return GetMSB( GetNextPow2( nSize ) );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline int GetChunkSize( int nChunk )
 {
 	return 1UL << nChunk;
@@ -34,29 +30,21 @@ inline int GetOptimalChunkSize( int nSize )
 {
 	return GetChunkSize( GetOptimalChunk( nSize ) );
 }
-// r2 и r2 будут в поле second содержать не размер, а индекс chunk'а
 inline void SplitChunk( int nChunk, int nStart, SRangeLimits *pR1, SRangeLimits *pR2 )
 {
-	// first (меньший)
 	pR1->first = nStart;
 	pR1->second = nChunk - 1;
-	// second (больший)
 	pR2->first = pR1->first + GetChunkSize( pR1->second );
 	pR2->second = nChunk - 1;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPow2Allocator::SetSize( int nAmount )
 {
-	// clear all ranges
 	for ( std::vector< std::list<SRangeLimits> >::iterator pos = ranges.begin(); pos != ranges.end(); ++pos )
 		pos->clear();
-	// calc new size and resize ranges
 	DWORD dwPow2 = GetMSB( nAmount );
 	ranges.resize( dwPow2 + 1 );
-	// set for 'dwPow2' range total amount
 	ranges[dwPow2].push_back( SRangeLimits(0, nAmount) );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPow2Allocator::GetRangeFromChunk( int nChunk, SRangeLimits *pRange )
 {
 	if ( ranges[nChunk].empty() )
@@ -65,7 +53,6 @@ bool CPow2Allocator::GetRangeFromChunk( int nChunk, SRangeLimits *pRange )
 	ranges[nChunk].pop_front();
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPow2Allocator::AllocateChunk( int nOptimalChunk, int nChunk, const SRangeLimits &range, SRangeLimits *pResult )
 {
 	if ( nChunk == nOptimalChunk )
@@ -79,22 +66,17 @@ bool CPow2Allocator::AllocateChunk( int nOptimalChunk, int nChunk, const SRangeL
 		SplitChunk( nChunk, range.first, &r1, &r2 );
 		if ( r1.second >= nOptimalChunk )
 		{
-			// отдадим range r2
 			FreeLocal( r2.first, r2.second );
-			// выделим нужную нам часть из r1
 			return AllocateChunk( nOptimalChunk, r1.second, r1, pResult );
 		}
 		else if ( r2.second >= nOptimalChunk )
 		{
-			// отдадим range r1
 			FreeLocal( r1.first, r1.second );
-			// выделим нужную нам часть из r2
 			return AllocateChunk( nOptimalChunk, r2.second, r2, pResult );
 		}
 		return false;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPow2Allocator::FreeLocal( int nStart, int nChunk )
 {
 	std::list<SRangeLimits> &subranges = ranges[nChunk];
@@ -119,8 +101,6 @@ void CPow2Allocator::FreeLocal( int nStart, int nChunk )
 				return;
 			}
 		}
-		// try to collapse with 2 blocks from the 'nChunk - 1' subranges with transition to the 'nChunk + 1' subranges
-		// |--(--|--)--|
 		if ( nChunk - 1 >= 0 )
 		{
 			const int nStart1 = nStart - GetChunkSize( nChunk - 1 );
@@ -134,7 +114,6 @@ void CPow2Allocator::FreeLocal( int nStart, int nChunk )
 				else if ( it->first == nStart2 )
 					its[1] = it;
 			}
-			//
 			if ( (its[0] != subranges2.end()) && (its[1] != subranges2.end()) )
 			{
 				subranges2.erase( its[0] );
@@ -143,12 +122,8 @@ void CPow2Allocator::FreeLocal( int nStart, int nChunk )
 				return;
 			}
 		}
-		// try to collapse with 'nChunk + 1' block and 'nChunk' block with transition to the 'nChunk + 2' subranges
-		// (--)--|--(--)
 		if ( nChunk < ranges.size() - 1 )
 		{
-			// process first variant
-			// [ nStart ] & [ nStart + GetChunkSize(nChunk) + GetChunkSize(nChunk + 1) ]
 			const int nStart1 = nStart + GetChunkSize( nChunk ) + GetChunkSize( nChunk + 1 );
 			for ( std::list<SRangeLimits>::iterator it = subranges.begin(); it != subranges.end(); ++it )
 			{
@@ -169,8 +144,6 @@ void CPow2Allocator::FreeLocal( int nStart, int nChunk )
 					break;
 				}
 			}
-			// process second variant
-			// [ nStart ] & [ nStart - GetChunkSize(nChunk) - GetChunkSize(nChunk + 1) ]
 			const int nStart2 = nStart - GetChunkSize( nChunk ) - GetChunkSize( nChunk + 1 );
 			for ( std::list<SRangeLimits>::iterator it = subranges.begin(); it != subranges.end(); ++it )
 			{
@@ -193,19 +166,14 @@ void CPow2Allocator::FreeLocal( int nStart, int nChunk )
 			}
 
 		}
-		// can't collapse at all - add it as lone subrange to 'nChunk'
 		subranges.push_back( SRangeLimits(nStart, nChunk) );
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 EAllocVals CPow2Allocator::Allocate( int nAmount, SRangeLimits *pRange )
 {
-	// check for total size
 	if ( nAmount > GetTotalSize() )
 		return EAV_NOSIZE;
-	//
 	int nOptimalChunk = GetOptimalChunk( nAmount );
-	// find first non-empty chunk from optimal one
 	int nTopChunk = nOptimalChunk;
 	for ( ; nTopChunk != ranges.size(); ++nTopChunk )
 	{
@@ -225,19 +193,15 @@ EAllocVals CPow2Allocator::Allocate( int nAmount, SRangeLimits *pRange )
 	}
 	return EAV_NOFREE;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPow2Allocator::Free( const SRangeLimits &range )
 {
 	int nChunk = GetOptimalChunk( range.second );
 	FreeLocal( range.first, nChunk );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 EAllocVals CPow2Allocator::HasBlock( int nAmount ) const
 {
-	// check for total size
 	if ( nAmount > GetTotalSize() )
 		return EAV_NOSIZE;
-	//
 	DWORD dwPow2 = GetPow2( nAmount );
 	std::vector< std::list<SRangeLimits> >::const_iterator pos = ranges.begin();
 	std::advance( pos, dwPow2 );
@@ -248,7 +212,6 @@ EAllocVals CPow2Allocator::HasBlock( int nAmount ) const
 	}
 	return EAV_NOFREE;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPow2Allocator::GetNumBlocks() const
 {
 	int nNumBlocks = 0;
@@ -256,7 +219,6 @@ int CPow2Allocator::GetNumBlocks() const
 		nNumBlocks += it->size();
 	return nNumBlocks;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CPow2Allocator::GetFree() const
 {
 	int nAllocated = 0;
@@ -265,7 +227,6 @@ int CPow2Allocator::GetFree() const
 		nAllocated += it->size() * GetChunkSize( i );
 	return nAllocated;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPow2Allocator::TestRanges() const
 {
 	int i = 0;
@@ -282,4 +243,3 @@ void CPow2Allocator::TestRanges() const
 	}
 	NStr::DebugTrace( "\n\n" );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

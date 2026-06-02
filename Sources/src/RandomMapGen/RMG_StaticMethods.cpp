@@ -8,7 +8,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SRMPlacedPatch::GetAndRemoveClosestVSOPoints( int nType,
 																									 SRMPlacedPatch &rBeginPlacedPatch,
 																									 SRMPlacedPatch &rEndPlacedPatch,
@@ -32,7 +31,6 @@ bool SRMPlacedPatch::GetAndRemoveClosestVSOPoints( int nType,
 	
 	bool bOneMismatch = false;
 	
-	//����� �� ����� �����
 	std::list<std::list<SVSOPoint>::iterator> beginIterators;
 	for ( std::list<SVSOPoint>::iterator pointIterator = ( ( nType != SRMGraphLink::TYPE_ROAD ) ? rBeginPlacedPatch.riversPoints.begin() : rBeginPlacedPatch.roadsPoints.begin() );
 				pointIterator != ( ( nType != SRMGraphLink::TYPE_ROAD ) ? rBeginPlacedPatch.riversPoints.end() : rBeginPlacedPatch.roadsPoints.end() );
@@ -65,7 +63,6 @@ bool SRMPlacedPatch::GetAndRemoveClosestVSOPoints( int nType,
 		}
 	}
 	
-	//����� �� ������ �����
 	std::list<std::list<SVSOPoint>::iterator> endIterators;
 	for ( std::list<SVSOPoint>::iterator pointIterator = ( ( nType != SRMGraphLink::TYPE_ROAD ) ? rEndPlacedPatch.riversPoints.begin() : rEndPlacedPatch.roadsPoints.begin() );
 				pointIterator != ( ( nType != SRMGraphLink::TYPE_ROAD ) ? rEndPlacedPatch.riversPoints.end() : rEndPlacedPatch.roadsPoints.end() );
@@ -105,7 +102,6 @@ bool SRMPlacedPatch::GetAndRemoveClosestVSOPoints( int nType,
 	NI_ASSERT_T( ( !beginIterators.empty() ) && ( ! endIterators.empty() ),
 							 NStr::Format( "SRMPlacedPatch::GetAndRemoveClosestVSOPoints, Can't get points, desc: %s", rVSODescFileName.c_str() ) );
 
-	//������� ��������� �����
 	std::list<SVSOPoint>::iterator beginIteratorToReturn = beginIterators.front();
 	std::list<SVSOPoint>::iterator endIteratorToReturn = endIterators.front();
 	for ( std::list<std::list<SVSOPoint>::iterator>::iterator beginIterator = beginIterators.begin(); beginIterator != beginIterators.end(); ++beginIterator )
@@ -120,12 +116,9 @@ bool SRMPlacedPatch::GetAndRemoveClosestVSOPoints( int nType,
 		}		
 	}
 	
-	//�������� ������������ ��� �����
 	( *pBeginVSOPoint ) = ( *beginIteratorToReturn );
 	( *pEndVSOPoint ) = ( *endIteratorToReturn );
 	
-	//������� �� �� ����������� ������������
-	//������� �� �� ����������� ������������
 	if( nType != SRMGraphLink::TYPE_ROAD )
 	{
 		rBeginPlacedPatch.riversPoints.erase( beginIteratorToReturn );
@@ -139,7 +132,6 @@ bool SRMPlacedPatch::GetAndRemoveClosestVSOPoints( int nType,
 	return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::string SRMTemplateUnitsTable::GetUnitRPGMnemonic( DWORD nUnitRPGType )
 {
 	int nUnitRPGTypeIndex = UnitRPGTypeToIndex( nUnitRPGType );
@@ -153,7 +145,6 @@ std::string SRMTemplateUnitsTable::GetUnitRPGMnemonic( DWORD nUnitRPGType )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 DWORD SRMTemplateUnitsTable::GetUnitRPGType( const std::string &rszUnitRPGMnenonic )
 {
 	std::string szToCompare = rszUnitRPGMnenonic;
@@ -169,7 +160,6 @@ DWORD SRMTemplateUnitsTable::GetUnitRPGType( const std::string &rszUnitRPGMnenon
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMTemplateUnitsTable::UnitRPGTypeToIndex( DWORD nUnitRPGType )
 {
 	if ( unitRPGTypeToIndex.empty() )
@@ -191,7 +181,6 @@ int SRMTemplateUnitsTable::UnitRPGTypeToIndex( DWORD nUnitRPGType )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SRMTemplateUnitsTable::UnitRPGMnemonicToIndex( const std::string &rszUnitRPGMnenonic )
 {
 	if ( unitRPGMnemonicToIndex.empty() )
@@ -212,5 +201,4 @@ int SRMTemplateUnitsTable::UnitRPGMnemonicToIndex( const std::string &rszUnitRPG
 		return indexIterator->second;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

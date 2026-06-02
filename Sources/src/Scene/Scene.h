@@ -1,10 +1,7 @@
 #ifndef __SCENE_H__
 #define __SCENE_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "fmtSprite.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum
 {
 	SCENE_BASE_VALUE			= 0x10060000,
@@ -46,9 +43,6 @@ enum
 	
 	SCENE_FORCE_DWORD = 0x7fffffff
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// �������� ������
-// ��������� ��� ���������� ������ ������ ����
 enum ESoundMixType
 {
 	SFX_MIX_IF_TIME_EQUALS,
@@ -58,8 +52,6 @@ enum ESoundMixType
 	
 	SFX_MIX_ALL = 0x7fffffff,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ��� ������� ����, ��� ���� ����� ���� �� ����� ���.
 enum ESoundCombatType
 {
 	ESCT_GENERIC						= 0,					// �� �������� �� ����� ��� � �� �������� ������ ���
@@ -69,13 +61,11 @@ enum ESoundCombatType
 	ESCT_ASK_RPG						= 3,					// ��� ����� ��������� � ������
 	ESCT_ALL								= 0x7fffffff,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum ESoundSceneMode
 {
 	ESSM_INTERMISSION_INTERFACE,
 	ESSM_INGAME,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EVisObjSelectionState
 {
 	SGVOSS_UNSELECTED		= 0,
@@ -84,7 +74,6 @@ enum EVisObjSelectionState
 
 	SGVOSS_FORCE_DWORD	= 0x7fffffff
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum ESceneObjectType
 {
 	SCENE_OBJECT_TYPE_CURSOR					= 1,
@@ -96,7 +85,6 @@ enum ESceneObjectType
 
 	SCENE_OBJECT_TYPE_FORCE_DWORD = 0x7fffffff
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SMechTrace
 {
 	NTimer::STime birthTime;
@@ -106,11 +94,9 @@ struct SMechTrace
 	CVec3 vPos;
 	int nNumTracks;
 	float alpha;
-	//
 	const CVec3& GetPosition() const { return vPos; }
 	bool operator==( const SMechTrace &obj ) const { return birthTime == obj.birthTime && vPos == obj.vPos; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SGunTrace
 {
 	NTimer::STime birthTime;
@@ -118,11 +104,9 @@ struct SGunTrace
 	CVec3 vPoints[4];
 	CVec3 vDir;
 	CVec3 vStart;
-	//
 	const CVec3& GetPosition() const { return vStart; }
 	bool operator==( const SGunTrace &obj ) const { return birthTime == obj.birthTime && vStart == obj.vStart; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SBasicSpriteInfo
 {
 	enum EType { TYPE_NORMAL_SPRITE, TYPE_COMPLEX_SPRITE };
@@ -132,7 +116,6 @@ struct SBasicSpriteInfo
 	interface IGFXTexture *pTexture;			// sprite's texture
 	CVec3 relpos;													// relative screen position (one frame valid only!!!)
 	DWORD dwCheckFlags;										// screen check flags (low WORD) and priority (high WORD)
-	//
 	SBasicSpriteInfo( EType _type ) : type( _type ), pTexture( 0 ), dwCheckFlags( 0 ) {  }
 };
 struct SSpriteInfo : public SBasicSpriteInfo
@@ -141,56 +124,27 @@ struct SSpriteInfo : public SBasicSpriteInfo
 	CTRect<short> rect;										// rect with respect to sprite's zero point
 	float fDepthLeft;											// left depth
 	float fDepthRight;										// right depth
-	//
 	SSpriteInfo() : SBasicSpriteInfo( TYPE_NORMAL_SPRITE ), fDepthLeft( 0 ), fDepthRight( 0 ) {  }
 };
 struct SComplexSpriteInfo : public SBasicSpriteInfo
 {
 	const SSpritesPack::SSprite *pSprite;	// complex sprite data
-	//
 	SComplexSpriteInfo() : SBasicSpriteInfo( TYPE_COMPLEX_SPRITE ), pSprite( 0 ) {  }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** scene visitor interface
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface ISceneVisitor : public IRefCount
 {
-	// billboard sprite object
 	virtual void STDCALL VisitSprite( const SBasicSpriteInfo *pObj, int nType, int nPriority ) = 0;
-	// mesh object
 	virtual void STDCALL VisitMeshObject( interface IMeshVisObj *pObj, int nType, int nPriority ) = 0;
-	// particles
 	virtual void STDCALL VisitParticles( interface IParticleSource *pObj ) = 0;
-	// unknown scene object
 	virtual void STDCALL VisitSceneObject( interface ISceneObject *pObj ) = 0;
-	// text object
 	virtual void STDCALL VisitText( const CVec3 &vPos, const char *pszText, interface IGFXFont *pFont, DWORD color ) = 0;
-	// bold line object
 	virtual void STDCALL VisitBoldLine( CVec3 *corners, float fWidth, DWORD color ) = 0;
-	// mech trace object
 	virtual void STDCALL VisitMechTrace( const SMechTrace &trace ) = 0;
-	// gun trace object
 	virtual void STDCALL VisitGunTrace( const SGunTrace &trace ) = 0;
-	// UI elements visiting
 	virtual void STDCALL VisitUIRects( interface IGFXTexture *pTexture, const int nShadingEffect, struct SGFXRect2 *rects, const int nNumRects ) = 0;
 	virtual void STDCALL VisitUIText( interface IGFXText *pText, const CTRect<float> &rcRect, const int nY, const DWORD dwColor, const DWORD dwFlags ) = 0;
 	virtual void STDCALL VisitUICustom( interface IUIElement *pElement ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** effectors
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface ISceneEffector : public IRefCount
 {
 	virtual bool STDCALL Update( const NTimer::STime &time ) = 0;
@@ -214,33 +168,12 @@ interface ISceneMaterialEffector : public ISceneEffector
 	virtual DWORD STDCALL GetSpecular() const = 0;
 	virtual void STDCALL SetupData( BYTE maxAlpha, DWORD maxSpecular ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** basic scene object
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface ISceneObject : public IRefCount
 {
-	// update object
 	virtual bool STDCALL Update( const NTimer::STime &time, bool bForced = false ) = 0;
-	// drawing
 	virtual bool STDCALL Draw( interface IGFX *pGFX ) = 0;
-	// visiting
 	virtual void STDCALL Visit( interface ISceneVisitor *pVisitor, int nType = -1 ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** icons
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const DWORD ICON_ALIGNMENT_LEFT			= 0x00000001;
 static const DWORD ICON_ALIGNMENT_HCENTER		= 0x00000002;
 static const DWORD ICON_ALIGNMENT_RIGHT			= 0x00000004;
@@ -251,19 +184,15 @@ static const DWORD ICON_PLACEMENT_VERTICAL	= 0x00000040;
 static const DWORD ICON_PLACEMENT_HORIZONTAL= 0x00000080;
 interface ISceneIcon : public ISceneObject
 {
-	// position
 	virtual void STDCALL SetPosition( const CVec3 &vPos ) = 0;
 	virtual void STDCALL Reposition( const CVec3 &vPos ) = 0;
 	virtual const CVec2 STDCALL GetSize() = 0;
-	// color
 	virtual void STDCALL SetColor( DWORD color ) = 0;
 	virtual void STDCALL SetAlpha( BYTE alpha ) = 0;
-	// enable this icon
 	virtual void STDCALL Enable( bool bEnable ) = 0;
 };
 interface ISceneIconBar : public ISceneIcon
 {
-	// size and length percentage
 	virtual void STDCALL LockBarColor() = 0;
 	virtual void STDCALL UnlockBarColor() = 0;
 	virtual void STDCALL SetBorderColor( DWORD dwColor ) = 0;
@@ -281,67 +210,44 @@ interface ISceneIconPic : public ISceneIcon
 	virtual void STDCALL SetTexture( interface IGFXTexture *pTexture ) = 0;
 	virtual void STDCALL SetRect( const CTRect<short> &rect, const CTRect<float> &maps ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** vis objects
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// direction is an angle of rotation around z-axis, direction is lied in the range [0..65536) = [0..2*pi)
 interface IVisObj : public ISceneObject
 {
-	// placement
 	virtual void STDCALL SetDirection( const int nDirection ) = 0;
 	virtual void STDCALL SetPosition( const CVec3 &pos ) = 0;
 	virtual void STDCALL SetPlacement( const CVec3 &pos, const int nDir ) = 0;
 	virtual const CVec3& STDCALL GetPosition() const = 0;
 	virtual int STDCALL GetDirection() const = 0;
-	// opacity & color
 	virtual void STDCALL SetOpacity( BYTE opacity ) = 0;
 	virtual void STDCALL SetColor( DWORD color ) = 0;
 	virtual void STDCALL SetSpecular( DWORD color ) = 0;
-	// selection / selection test
 	virtual void STDCALL Select( EVisObjSelectionState state ) = 0;
 	virtual EVisObjSelectionState STDCALL GetSelectionState() const = 0;
 	virtual bool STDCALL IsHit( const SHMatrix &matTransform, const CVec2 &point, CVec2 *pShift ) = 0;
 	virtual bool STDCALL IsHit( const SHMatrix &matTransform, const RECT &rect ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IObjVisObj : public IVisObj
 {
-	// scale
 	virtual void STDCALL SetScale( float sx, float sy, float sz ) = 0;
-	// scene game type
 	virtual void STDCALL SetGameType( const DWORD dwType ) = 0;
-	// animations
 	virtual void STDCALL SetAnimation( const int nAnim ) = 0;
 	virtual interface IAnimation* STDCALL GetAnimation() = 0;
-	// icons
 	virtual void STDCALL AddIcon( ISceneIcon *pIcon, int nID, const CVec3 &vAddValue, const CVec3 &vAddStep, 
 		                            int nPriority, DWORD placement, bool bReposition = true ) = 0;
 	virtual void STDCALL RemoveIcon( int nID, bool bReposition = true ) = 0;
 	virtual ISceneIcon* STDCALL GetIcon( int nID ) const = 0;
-	// visibility
 	virtual bool STDCALL IsVisible() const = 0;
 	virtual void STDCALL SetVisible( const bool bVisible ) = 0;
-	//
 	virtual void STDCALL SetPriority( const int nPriority ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface ISpriteVisObj : public IObjVisObj
 {
 	virtual const SSpriteInfo* STDCALL GetSpriteInfo() const = 0;
 	virtual interface IGFXTexture* STDCALL GetTexture() const = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IMeshVisObj : public IObjVisObj
 {
 	virtual bool STDCALL DrawBB( interface IGFX *pGFX ) = 0;
 	virtual bool STDCALL DrawShadow( interface IGFX *pGFX, const SHMatrix *pMatShadow, const CVec3 &vSunDir ) = 0;
-	//
 	virtual void STDCALL SetAnim( interface IAnimation *pAnim ) = 0;
 	virtual interface IGFXMesh* STDCALL GetMesh() const =0;
 	virtual interface IGFXTexture* STDCALL GetTexture() const = 0;
@@ -350,15 +256,12 @@ interface IMeshVisObj : public IObjVisObj
 	virtual const SHMatrix STDCALL GetBasePlacement() = 0;
 	virtual const SHMatrix* STDCALL GetMatrices() = 0;
 	virtual const SHMatrix* STDCALL GetExtMatrices( const SHMatrix &matExternal ) = 0;
-	//
 	virtual DWORD STDCALL CheckForViewVolume( const SPlane *pViewVolumePlanes ) = 0;
-	// effectors
 	virtual void STDCALL AddEffector( int nID, ISceneMatrixEffector *pEffector, int nPart = -1 ) = 0;
 	virtual void STDCALL RemoveEffector( int nID, int nPart = -1 ) = 0;
 	virtual void STDCALL AddMaterialEffector( ISceneMaterialEffector *pEffector ) = 0;
 	virtual void STDCALL RemoveMaterialEffector() = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IEffectVisObj : public IVisObj
 {
 	virtual void STDCALL SetStartTime( DWORD time ) = 0;
@@ -367,25 +270,19 @@ interface IEffectVisObj : public IVisObj
 	virtual void STDCALL CalibrateDuration( const NTimer::STime &timeDuration ) = 0;
 	virtual void STDCALL Stop() = 0;
 	virtual void STDCALL SetSuspendedState( bool bState ) = 0;
-	// scale
 	virtual void STDCALL SetScale( const float fScale ) = 0;
-	// data retrieving.
 	virtual const std::string& STDCALL GetSoundEffect() const = 0;
-	// NOTE: all of this functions are uses temp buffer 0
 	virtual void STDCALL GetSpriteEffects( const SSpriteInfo ***ppEffects, int *pnNumEffects, bool bAll = false ) = 0;
 	virtual void STDCALL GetParticleEffects( interface IParticleSource ***ppEffects, int *pnNumEffects, bool bAll = false ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IFlashVisObj : public IVisObj
 {
 	virtual void STDCALL Setup( const NTimer::STime &timeStart, const NTimer::STime &timeDuration, const int nPower, const DWORD dwColor ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IBoldLineVisObj : public ISceneObject
 {
 	virtual void STDCALL Setup( const CVec3 &vStart, const CVec3 &vEnd, float fWidth, DWORD color ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface ISquadVisObj : public ISceneObject
 {
 	struct SData
@@ -397,109 +294,58 @@ interface ISquadVisObj : public ISceneObject
 	virtual bool STDCALL UpdateData( SData *pObjects, int nNumObjects ) = 0;
 	virtual bool STDCALL ToggleSelection() = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** frame selection
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IFrameSelection : public ISceneObject
 {
 	virtual void STDCALL Begin( const CVec3 &point ) = 0;
 	virtual void STDCALL End() = 0;
 	virtual void STDCALL Update( const CVec3 &point ) = 0;
 	virtual void STDCALL Reset() = 0;
-	//
 	virtual CVec3 STDCALL GetBeginPoint() = 0;
 	virtual CVec3 STDCALL GetEndPoint() = 0;
 	virtual bool STDCALL IsActive() = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** statistics system
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IStatSystem : public ISceneObject
 {
-	// add/remove statistics entry
 	virtual void STDCALL AddEntry( const char *pszName ) = 0;
 	virtual void STDCALL RemoveEntry( const char *pszName ) = 0;
-	// update entry
 	virtual void STDCALL UpdateEntry( const char *pszName, double val ) = 0;
 	virtual void STDCALL UpdateEntry( const char *pszName, const char *pszVal ) = 0;
 	virtual void STDCALL ResetEntry( const char *pszName ) = 0;
-	// position
 	virtual void STDCALL SetPosition( int nX, int nY ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** camera
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface ICamera : public IRefCount
 {
-	// type ID
 	enum { tidTypeID = SCENE_CAMERA };
-	//
 	virtual void STDCALL Init( ISingleton *pSingleton ) = 0;
 	virtual void STDCALL SetBounds( int x1, int y1, int x2, int y2 ) = 0;
-	// placement functions
 	virtual void STDCALL SetPlacement( const CVec3 &vAnchor, float fDist, float fPitch, float fYaw ) = 0;
 	virtual void STDCALL SetAnchor( const CVec3 &_vAnchor ) = 0;
 	virtual const SHMatrix STDCALL GetPlacement() const = 0;
 	virtual const CVec3 STDCALL GetPos() const = 0;
 	virtual const CVec3 STDCALL GetAnchor() = 0;
-	// last unchanged position
 	virtual void STDCALL GetLastPos( CVec3 *pvPos, NTimer::STime *pTime ) const = 0;
-	// scrolling
 	virtual void STDCALL ResetSliders() = 0;
 	virtual void STDCALL SetScrollSpeedX( float fSpeed ) = 0;
 	virtual void STDCALL SetScrollSpeedY( float fSpeed ) = 0;
-	// eqrthquake
 	virtual void STDCALL AddEarthquake( const CVec3 &vPos, const float fPower ) = 0;
-	//
 	virtual void STDCALL Update() = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** cursor
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef ICursor
 #undef ICursor
 #endif
 interface ISceneCursor : public ISceneObject
 {
-	// type ID
 	enum { tidTypeID = SCENE_CURSOR };
-	//
 	enum EUpdateMode
 	{
 		UPDATE_MODE_WINDOWS = 1,
 		UPDATE_MODE_INPUT		= 2,
 	};
-	//
 	virtual void STDCALL Init( ISingleton *pSingleton ) = 0;
 	virtual void STDCALL Done() = 0;
 	virtual void STDCALL Clear() = 0;
 	virtual void STDCALL SetUpdateMode( const EUpdateMode _eUpdateMode ) = 0;
 	virtual void STDCALL OnSetCursor() = 0;
-	//
 	virtual void STDCALL RegisterMode( int nMode, const char *pszPictureName, int nSizeX, int nSizeY, int hotX, int hotY, WORD wResourceID ) = 0;
 	virtual bool STDCALL SetMode( int nMode ) = 0;
 	virtual bool STDCALL SetModifier( int nMode ) = 0;
@@ -512,20 +358,9 @@ interface ISceneCursor : public ISceneObject
 	virtual void STDCALL SetPos( int nX, int nY ) = 0;
 	virtual const CVec2 STDCALL GetPos() = 0;
 	virtual void STDCALL ResetSliders() = 0;
-	// last unchanged position
 	virtual void STDCALL GetLastPos( CVec2 *pvPos, NTimer::STime *pTime ) const = 0;
-	//
 	virtual void STDCALL SetSensitivity( float fSensitivity ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** video player
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IVideoPlayer : public ISceneObject
 {
 	enum
@@ -537,56 +372,29 @@ interface IVideoPlayer : public ISceneObject
 		PLAY_LOOPED				= 0x00000010,
 		COPY_ALL					= 0x00000020
 	};
-	// setup target to render video to. by default it renders to own internal texture(s)
 	virtual void STDCALL SetTarget( interface IGFXTexture *pTexture, interface IGFX *pGFX ) = 0;
-	// set destination rect to render to
 	virtual void STDCALL SetDstRect( const RECT &rcDstRect, bool bMaintainAspect ) = 0;
-	// set loop mode
 	virtual void STDCALL SetLoopMode( bool bLooped ) = 0;
-	// playing position
 	virtual int STDCALL GetCurrentFrame() const = 0;
 	virtual bool STDCALL SetCurrentFrame( const int nFrame ) = 0;
-	// shading effect
 	virtual void SetShadingEffect( const int nEffect, bool bStart ) = 0;
-	// playing capabilities
-	// function Play returns movie length in milliseconds
 	virtual int STDCALL Play( const char *pszFileName, DWORD dwFlags, interface IGFX *pGFX, interface ISFX *pSFX ) = 0;
 	virtual bool STDCALL Stop() = 0;
 	virtual bool STDCALL Pause( bool bPause ) = 0;
 	virtual bool STDCALL IsPlaying() const = 0;
-	// movie statistics:
 	virtual int STDCALL GetLength() const = 0;
 	virtual int STDCALL GetNumFrames() const = 0;
 	virtual bool STDCALL GetMovieSize( CVec2 *pSize ) const = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** transition screen
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface ITransition : public ISceneObject
 {
 	virtual int STDCALL Start( const char *pszVideoName, const DWORD dwAddFlags, const NTimer::STime &currTime, const bool bFadeIn ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IGammaEffect : public ISceneObject
 {
 	virtual void STDCALL Init( const float fGammaR, const float fGammaG, const float fGammaB,
 														 const NTimer::STime &timeStart, const NTimer::STime &timeDuration ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** main scene interface
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum
 {
 	SCENE_SHOW_HAZE							= 0,
@@ -605,41 +413,26 @@ enum
 
 	SCENE_SHOW_FORCE_DWORD = 0x7fffffff
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// ** ��� ���������� ����� � �����
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum ESoundAddMode
 {
 	SAM_LOOPED_NEED_ID,										// �������� ID �����, ���� ����� �����������
 	SAM_NEED_ID,													// �������� ID �����
 	SAM_ADD_N_FORGET,											// �������� 0, ����� ���� ������ ����.
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IScene : public IRefCount
 {
-	// type ID
 	enum { tidTypeID = SCENE_SCENE };
-	//
 	virtual bool STDCALL Init( ISingleton *pSingleton ) = 0;
-	//
 	virtual void STDCALL SetSeason( const int nSeason ) = 0;
 	virtual void STDCALL InitMusic(	const std::string &szPartyName ) = 0;
 	virtual void STDCALL InitMapSounds( const struct CMapSoundInfo *pSound, int nElements )=0;
-	// ��� ��������� ������ �� ��������
 	virtual void STDCALL InitTerrainSound( interface ITerrain *pTerrain ) = 0;
-	// NOTE: terrain MUST BE loaded before this operation!!!
-	// NOTE: if terrain's size was changed, call SetTerrain() again
 	virtual void STDCALL SetTerrain( interface ITerrain *pTerrain ) = 0;
 	virtual interface ITerrain * STDCALL GetTerrain() = 0;
-	// add/remove visual objects
 	virtual bool STDCALL AddObject( IVisObj *pObject, EObjGameType eGameType, const SGDBObjectDesc *pDesc = 0 ) = 0;
 	virtual bool STDCALL AddCraterObject( IVisObj *pObject, EObjGameType eGameType ) = 0;
 	virtual bool STDCALL AddOutboundObject( IVisObj *pObject, EObjGameType eGameType ) = 0;
-	// CRAP{ ��� ����� ��� ����� ��-�� ��������� ����������
 	virtual bool STDCALL AddOutboundObject2( IVisObj *pObject, EObjGameType eGameType ) = 0;
-	// CRAP}
 	virtual void STDCALL AddMechTrace( const SMechTrace &trace ) = 0;
 	virtual void STDCALL AddGunTrace( const SGunTrace &trace ) = 0;
 	virtual bool STDCALL AddSceneObject( ISceneObject *pObject ) = 0;
@@ -653,10 +446,8 @@ interface IScene : public IRefCount
 	virtual interface IUIScreen* STDCALL GetMissionScreen() = 0;
 	virtual bool STDCALL AddLine( IBoldLineVisObj *pLine ) = 0;
 	virtual bool STDCALL RemoveLine( IBoldLineVisObj *pLine ) = 0;
-	// set areas for fire ranges, zeroing, etc. visualization
 	virtual void STDCALL SetAreas( const struct SShootAreas *areas, int nNumAreas ) = 0;
 	virtual void STDCALL GetAreas( struct SShootAreas **areas, int *pnNumAreas ) = 0;
-	// add/remove sound object
 
 
 	virtual void STDCALL SetSoundPos( const WORD wID, const CVec3 &vPos ) = 0;
@@ -677,39 +468,25 @@ interface IScene : public IRefCount
 	virtual void STDCALL CombatNotify()=0;
 	virtual void STDCALL SetSoundSceneMode( const enum ESoundSceneMode eSoundSceneMode ) = 0;
 
-	// additional objects
 	virtual int STDCALL AddMeshPair( interface IGFXVertices *pVertices, interface IGFXIndices *pIndices, interface IGFXTexture *pTexture, int nShadingEffect, bool bTemporary ) = 0;
 	virtual int STDCALL AddMeshPair2( void *vertices, int nNumVertices, int nVertexSize, DWORD dwFormat,
 		                                WORD *indices, int nNumIndices, enum EGFXPrimitiveType ePrimitiveType,
 																		IGFXTexture *pTexture, int nShadingEffect, bool bTemporary ) = 0;
 	virtual bool STDCALL RemoveMeshPair( int nID ) = 0;
-	// CRAP{ fake object - circle for artillery reveal - remove, then minimap will be
 	virtual void STDCALL AddCircle( const CVec3 &vCenter, const float fRadius, const NTimer::STime &start, const NTimer::STime &duration ) = 0;
-	// CRAP}
-	// tooltip
 	virtual void STDCALL SetToolTip( interface IText *pText, const CVec2 &vPos, const CTRect<float> &rcOut, const DWORD dwColor = 0 ) = 0;
-	// transfer UNIT to graveyard
 	virtual bool STDCALL TransferToGraveyard( IVisObj *pObject ) = 0;
-	// set visible objects
 	virtual void STDCALL SetVisibleObjects( IVisObj **ppObjects, int nNumObjects ) = 0;
 	virtual void STDCALL SetWarFog( struct SAIVisInfo *pObjects, int nNumObjects ) = 0;
-	// remove all visual objects - clear scene
 	virtual void STDCALL Clear() = 0;
-	// retrieve all objects from scene
 	virtual int STDCALL GetNumSceneObjects() const = 0;
 	virtual int STDCALL GetAllSceneObjects( std::pair<const SGDBObjectDesc*, CVec3> *pBuffer ) const = 0;
-	//
 	virtual IFrameSelection* STDCALL GetFrameSelection() = 0;
 	virtual IStatSystem* STDCALL GetStatSystem() = 0;
-	//
 	virtual void STDCALL Draw( interface ICamera *pCamera ) = 0;
-	// enables
 	virtual bool STDCALL ToggleShow( int nTypeID ) = 0;
-	// picking objects
-	// NOTE: this functions are using 'temp buffer 0'
 	virtual void STDCALL Pick( const CVec2 &point, std::pair<IVisObj*, CVec2> **ppObjects, int *pnNumObjects, EObjGameType type, bool bVisible = true ) = 0;
 	virtual void STDCALL Pick( const CTRect<float> &rcRect, std::pair<IVisObj*, CVec2> **ppObjects, int *pnNumObjects, EObjGameType type, bool bVisible = true ) = 0;
-	// 3D <=> 2D position transforms
 	virtual void STDCALL GetPos3( CVec3 *pPos, const CVec2 &pos, bool bOnZero = false ) = 0;
 	virtual void STDCALL GetPos2( CVec2 *pPos, const CVec3 &pos ) = 0;
 	virtual void STDCALL GetScreenCoords( const CVec3 &pos, CVec3 *vScreen ) = 0;
@@ -728,22 +505,10 @@ interface IScene : public IRefCount
 
 	virtual void STDCALL Reposition() = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** visualization objects builder
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IVisObjBuilder : public IRefCount
 {
-	// type ID
 	enum { tidTypeID = SCENE_VISOBJ_BUILDER };
-	//
 	virtual bool STDCALL Init( ISingleton *pSingleton ) = 0;
-	//
 	virtual IVisObj* STDCALL BuildObject( const char *pszName, const char *pszName2, EObjVisType type ) = 0;
 	virtual ISceneObject* STDCALL BuildSceneObject( const char *pszName, ESceneObjectType eType, int nSubtype = -1 ) = 0;
 	virtual const char* STDCALL GetEffectSound( const std::string &szName ) = 0;
@@ -752,15 +517,6 @@ interface IVisObjBuilder : public IRefCount
 	virtual void STDCALL Clear() = 0;
 };
 #define ICursor ISceneCursor
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** scene helper functions
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NScene
 {
 	template <class TYPE>
@@ -769,5 +525,4 @@ namespace NScene
 			return static_cast<TYPE*>( pVOB->BuildObject( pszName, eVisType ) );
 		}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __SCENE_H__

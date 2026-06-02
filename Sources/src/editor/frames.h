@@ -12,35 +12,24 @@ using std::vector;
 class CETreeCtrl;
 class CPropView;
 
-//Вспомогательная функция, вычисляет относительный путь
-//Первый параметр - полный путь, относительно которого вычисляется результат
-//Второй параметр - полный путь, который надо сделать относительным
 bool MakeRelativePath( const char *pszDirectoryName, const char *pszFileName, string &szResult );
 
-//Вычисляет относительный путь только для поддиректорий, иначе возвращает false
 bool MakeSubRelativePath( const char *pszDirectoryName, const char *pszFileName, string &szResult );
 
-//Возвращает имя директории по полному имени файла
 string GetDirectory( const char *pszFileName );
 
-//Определяет, является ли данный путь полным или относительным
 bool IsRelatedPath( const char *pszFileName );
 
-//Из полного имени и относительного создает полное имя
-//pszFullName это имя директории, обязано заканчиваться на '\\'
 bool MakeFullPath( const char *pszFullDirName, const char *pszRelName, string &szResult );
 
-//вспомогательная функция для всех frames
 void ShowFirstChildElementInPropertyView( CETreeCtrl *pTree, CPropView *pOIDockBar );
 
-//Получить время изменения для файла
 FILETIME GetFileChangeTime( const char *pszFileName );
 FILETIME GetTextureFileChangeTime( const char *pszFileName );
 bool operator > ( FILETIME a, FILETIME b );
 bool operator < ( FILETIME a, FILETIME b );
 bool operator == ( FILETIME a, FILETIME b );
 
-//copy file and change it's modification time to the current system time
 BOOL MyCopyFile( const char *pszSrc, const char *pszDest );
 void MyCopyDir( const string szSrc, const string szDest );
 

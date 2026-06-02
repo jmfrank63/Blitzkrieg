@@ -53,6 +53,3 @@ using STLPORT::sort_heap;
 
 #endif /* _STLP_HEAP_H */
 
-// Local Variables:
-// mode:C++
-// End:

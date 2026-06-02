@@ -50,8 +50,6 @@
 #  include <stl/_hash_fun.h>
 # endif
 
-// Hashtable class, used to implement the hashed associative containers
-// hash_set, hash_map, hash_multiset, and hash_multimap.
 
 #ifdef _STLP_DEBUG
 #  define hashtable __WORKAROUND_DBG_RENAME(hashtable)
@@ -68,7 +66,6 @@ struct _Hashtable_node
   __TRIVIAL_STUFF(_Hashtable_node)
 };  
 
-// some compilers require the names of template parameters to be the same
 template <class _Val, class _Key, class _HF,
           class _ExK, class _EqK, class _All>
 class hashtable;
@@ -99,8 +96,6 @@ struct _Ht_iterator : public _Hashtable_iterator< _Val, _Key,_HF, _ExK,_EqK,_All
   
   typedef _Hashtable_iterator<_Val,_Key,_HF,_ExK,_EqK,_All> _Base;
 
-  //  typedef _Ht_iterator<_Val, _Nonconst_traits<_Val>,_Key,_HF,_ExK,_EqK,_All> iterator;
-  //  typedef _Ht_iterator<_Val, _Const_traits<_Val>,_Key,_HF,_ExK,_EqK,_All> const_iterator;
   typedef _Ht_iterator<_Val, _Traits,_Key,_HF,_ExK,_EqK,_All> _Self;
 
   typedef hashtable<_Val,_Key,_HF,_ExK,_EqK,_All> _Hashtable;
@@ -196,13 +191,6 @@ _STLP_EXPORT_TEMPLATE_CLASS _Stl_prime<bool>;
 typedef _Stl_prime<bool> _Stl_prime_type;
 
 
-// Hashtables handle allocators a bit differently than other containers
-//  do.  If we're using standard-conforming allocators, then a hashtable
-//  unconditionally has a member variable to hold its allocator, even if
-//  it so happens that all instances of the allocator type are identical.
-// This is because, for hashtables, this extra storage is negligible.  
-//  Additionally, a base class wouldn't serve any other purposes; it 
-//  wouldn't, for example, simplify the exception-handling code.
 template <class _Val, class _Key, class _HF,
           class _ExK, class _EqK, class _All>
 class hashtable {
@@ -516,18 +504,13 @@ public:
   equal_range(const key_type& __key) const;
 
   size_type erase(const key_type& __key);
-  //   void erase(const iterator& __it); `
   void erase(const const_iterator& __it) ;
 
-  //  void erase(const const_iterator& __first, const const_iterator __last) {
-  //     erase((const iterator&)__first, (const iterator&)__last);
-  //  }
   void erase(const_iterator __first, const_iterator __last);
   void resize(size_type __num_elements_hint);
   void clear();
 
 public:
-  // this is for hash_map::operator[]
   reference _M_insert(const value_type& __obj);
 
 private:
@@ -568,7 +551,6 @@ private:
     __n->_M_next = 0;
     _STLP_TRY {
       _Construct(&__n->_M_val, __obj);
-      //      return __n;
     }
     _STLP_UNWIND(_M_num_elements.deallocate(__n, 1));
     return __n;
@@ -624,8 +606,5 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_HASHTABLE_H */
 
-// Local Variables:
-// mode:C++
-// End:
 
 

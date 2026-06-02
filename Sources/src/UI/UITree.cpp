@@ -4,8 +4,6 @@
 
 
 #ifdef __OLD
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//CRAP �������� �� ������ ������, �������� ���� ������� GLAD
 static const int GLAD = 20;		//��� ��������� ��� ��������� �����������, ����� ����� ���� ������� ���������� ScrollBar � �������� ������� ����
 
 IUITreeItem* SUITreeItem::AddTreeItem( IUIElement *_pIcon, IUIElement *_pInfo, int nUserData )
@@ -18,7 +16,6 @@ IUITreeItem* SUITreeItem::AddTreeItem( IUIElement *_pIcon, IUIElement *_pInfo, i
 	return pNew;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SUITreeItem::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -31,7 +28,6 @@ int SUITreeItem::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SUITreeItem::operator&( IDataTree &ss  )
 {
 	CTreeAccessor saver = &ss;
@@ -47,14 +43,12 @@ int SUITreeItem::operator&( IDataTree &ss  )
 	return 0;
 }
 /*
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SUIListRaw::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 	saver.Add( 1, &subItems );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int SUIListRaw::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -62,7 +56,6 @@ int SUIListRaw::operator&( IDataTree &ss )
 	return 0;
 }
 */
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUIElement* SUIListRaw::GetElement( int nIndex )
 {
 	NI_ASSERT_T( subItems.size() > nIndex, "Invalid index in vector operation" );
@@ -73,11 +66,9 @@ IUIElement* SUIListRaw::GetElement( int nIndex )
 */
 	return subItems[nIndex];
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CUIList::~CUIList()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIList::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -98,7 +89,6 @@ int CUIList::operator&( IStructureSaver &ss )
 	saver.Add( 16, &listItems );
 	saver.Add( 17, &columnProperties );
 	
-	// scrollbar pointer
 	if ( !saver.IsReading() )
 	{
 		CPtr<IUIElement> pElement = pScrollBar != 0 ? dynamic_cast<IUIElement*>( pScrollBar ) : 0;
@@ -114,7 +104,6 @@ int CUIList::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIList::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -133,8 +122,6 @@ int CUIList::operator&( IDataTree &ss )
 	
 	if ( saver.IsReading() )
 	{
-		//�������������� ������ headers
-		//if ( nHeaderSize > 0 )
 		{
 			headers.subItems.resize( columnProperties.size() );
 			for ( int i=0; i<columnProperties.size(); i++ )
@@ -145,9 +132,7 @@ int CUIList::operator&( IDataTree &ss )
 			}
 		}
 		/*else*/ // NAHUYUA ETO DELAT?
-		//headers.subItems.clear();
 
-		//�������������� pScrollBar
 		IUIElement *pScrollElement = GetChildByID( 1 );
 		pScrollBar = pScrollElement == 0 ? 0 : dynamic_cast<CUIScrollBar *>( pScrollElement );
 		
@@ -185,7 +170,6 @@ int CUIList::operator&( IDataTree &ss )
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSimpleWindow* CUIList::CreateComponent( int nWindowType )
 {
 	IObjectFactory *pFactory = GetCommonFactory();
@@ -200,7 +184,6 @@ CSimpleWindow* CUIList::CreateComponent( int nWindowType )
 	AddChild( pElement );
 	return pSimple;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::AddItem()
 {
 	listItems.resize( listItems.size() + 1 );
@@ -230,14 +213,12 @@ void CUIList::AddItem()
 	
 	UpdateScrollBarStatus();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::RemoveItem( int nIndex )
 {
 	NI_ASSERT_T( nIndex < listItems.size() && nIndex >= 0, NStr::Format("Wrong item (%d) to remove (max %d)", nIndex, listItems.size()) );
 	CUIListItems::iterator it = listItems.begin() + nIndex;
 	listItems.erase( it );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUIListRaw* CUIList::GetItem( int nIndex )
 {
 	if ( nIndex == -1 )
@@ -249,16 +230,13 @@ IUIListRaw* CUIList::GetItem( int nIndex )
 	CUIListItems::iterator it = listItems.begin() + nIndex;
 	return &(*it);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::OnUserChangeScrollBarPosition()
 {
 	NI_ASSERT_T( pScrollBar != 0, "Can't find scroll bar" );
 	
-	//������������� ���������� ��� ���� ���������� ���������
 	CTRect<float> rect = GetScreenRect();
 	int nNumberOfPossible = (rect.bottom - rect.top - nTopSpace * 2 - nHeaderSize) / nItemHeight;
 	int nFirstVisible = pScrollBar->GetPosition() / GLAD;
-	//��������� ������� ��� nFirstVisible + nNumberOfPossible - 1
 	
 	CTRect<float> rc;
 	int top = rect.top + nTopSpace + nHeaderSize - nFirstVisible * nItemHeight;
@@ -288,14 +266,12 @@ void CUIList::OnUserChangeScrollBarPosition()
 		nItem++;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
 void CUIList::SetNumberOfColumns( int nNumber )
 {
 	if ( nNumber == nNumberOfColumns )
 		return;
 	
-	//�������� ���������� Properties
 	columnProperties.resize( nNumber );
 	for ( CUIListItems::iterator item=listItems.begin(); item!=listItems.end(); ++item )
 	{
@@ -315,7 +291,6 @@ void CUIList::SetNumberOfColumns( int nNumber )
 	
 	if ( nNumberOfColumns < nNumber )
 	{
-		//������� � ��������� ����� ����������
 		for ( CUIListItems::iterator it=listItems.begin(); it!=listItems.end(); ++it )
 		{
 			CUIListSubItems *subItem = (*it);
@@ -330,17 +305,14 @@ void CUIList::SetNumberOfColumns( int nNumber )
 	UpdateAll();
 }
 */
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::UpdateAll()
 {
 	UpdateItemsCoordinates();
 	UpdateScrollBarCoordinates();
 	UpdateScrollBarStatus();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::UpdateItemsCoordinates()
 {
-	//������������� ���������� ��� ���� ���������� ���������
 	CTRect<float> rect = GetScreenRect();
 	int nNumberOfPossible = (rect.bottom - rect.top - nTopSpace * 2 - nHeaderSize) / nItemHeight;
 	CTRect<float> rc;
@@ -372,7 +344,6 @@ void CUIList::UpdateItemsCoordinates()
 		nItem++;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::UpdateScrollBarCoordinates()
 {
 /*
@@ -398,7 +369,6 @@ void CUIList::UpdateScrollBarCoordinates()
 	pScrollBar->SetScreenRect( rc );
 */
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::UpdateScrollBarStatus()
 {
 	if ( !pScrollBar )
@@ -454,7 +424,6 @@ void CUIList::UpdateScrollBarStatus()
 		pScrollBar->SetValue( 0 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
 void CUIList::SetColumnProp( int nColumn, const SColumnProperties &prop )
 {
@@ -462,7 +431,6 @@ void CUIList::SetColumnProp( int nColumn, const SColumnProperties &prop )
 	columnProperties[nColumn].nWidth = prop.nWidth;
 	if ( columnProperties[nColumn].nWindowType != prop.nWindowType )
 	{
-		//������� ����� ���������� � ���� ��������
 		columnProperties[nColumn].nWindowType = prop.nWindowType;
 		for ( CUIListItems::iterator item=listItems.begin(); item!=listItems.end(); ++item )
 		{
@@ -477,7 +445,6 @@ void CUIList::SetColumnProp( int nColumn, const SColumnProperties &prop )
 	UpdateAll();
 }
 */
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::Reposition( const CTRect<float> &rcParent )
 {
 	if ( !bLeftScrollBar )
@@ -498,13 +465,11 @@ void CUIList::Reposition( const CTRect<float> &rcParent )
 		left += nScrollBarWidth;
 	int top = nTopSpace;
 
-	//���������� ���������
 	for ( int i=0; i<headers.subItems.size(); i++ )
 	{
 		CSimpleWindow *pWindow = dynamic_cast<CSimpleWindow *> ( headers.subItems[i].GetPtr() );
 		pWindow->SetPos( CVec2( left + nHSubSpace, top + nVSubSpace ) );
 		pWindow->SetSize( CVec2( columnProperties[i].nWidth - 2*nHSubSpace, nHeaderSize - 2*nVSubSpace ) );
-//		pWindow->UpdateSubRects();
 
 		left += columnProperties[i].nWidth;
 	}
@@ -512,10 +477,8 @@ void CUIList::Reposition( const CTRect<float> &rcParent )
 	CMultipleWindow::Reposition( rcParent );
 	UpdateItemsCoordinates();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIList::ProcessMessage( const SUIMessage &msg )
 {
-	//ListControl ������������ NOTIFY ��������� �� ScrollBar
 	switch( msg.nMessageCode )
 	{
 	case UI_NOTIFY_POSITION_CHANGED:
@@ -525,24 +488,19 @@ bool CUIList::ProcessMessage( const SUIMessage &msg )
 	
 	return CMultipleWindow::ProcessMessage( msg );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::Visit( interface ISceneVisitor *pVisitor )
 {
 	if ( !IsVisible() )
 		return;
 	
-	// ������ ��������
 	CSimpleWindow::Visit( pVisitor );
 	
-	// ������ ���������� �����
 	CTRect<float> rect = GetScreenRect();
 	int nNumberOfPossible = (rect.bottom - rect.top - nTopSpace * 2 - nHeaderSize) / nItemHeight;
 	int nFirstVisible = pScrollBar->GetPosition() / GLAD;
-	// ��������� ������� ��� nFirstVisible + nNumberOfPossible - 1
 	
 	if ( pSelectionTexture && !( nSelection < nFirstVisible || nSelection > nFirstVisible + nNumberOfPossible - 1 ) )
 	{
-		// selection �����
 		if ( !selSubRects.empty() )
 		{
 			const int nSize = selSubRects.size();
@@ -567,11 +525,9 @@ void CUIList::Visit( interface ISceneVisitor *pVisitor )
 		}
 	}
 	
-	// ������ �����
 	for ( CWindowList::reverse_iterator ri = childList.rbegin(); ri != childList.rend(); ++ri )
 		(*ri)->Visit( pVisitor );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIList::Draw( IGFX *pGFX )
 {
 	NI_ASSERT_SLOW_T( false, "Can't user Draw() directly - use visitor pattern" );
@@ -579,19 +535,15 @@ void CUIList::Draw( IGFX *pGFX )
 	if ( !IsVisible() )
 		return;
 	
-	//������ ��������
 	CSimpleWindow::Draw( pGFX );
 	
-	//������ ���������� �����
 	pGFX->SetShadingEffect( 3 );
 	CTRect<float> rect = GetScreenRect();
 	int nNumberOfPossible = (rect.bottom - rect.top - nTopSpace * 2 - nHeaderSize) / nItemHeight;
 	int nFirstVisible = pScrollBar->GetPosition() / GLAD;
-	//��������� ������� ��� nFirstVisible + nNumberOfPossible - 1
 	
 	if ( pSelectionTexture && !( nSelection < nFirstVisible || nSelection > nFirstVisible + nNumberOfPossible - 1 ) )
 	{
-		//selection �����
 		SGFXRect2 rc;
 		pGFX->SetTexture( 0, pSelectionTexture );
 		
@@ -619,22 +571,18 @@ void CUIList::Draw( IGFX *pGFX )
 		}
 	}
 	
-	//������ �����
 	for ( CWindowList::reverse_iterator ri=childList.rbegin(); ri!=childList.rend(); ri++ )
 		(*ri)->Draw( pGFX );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUIList::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 {
 	bool bRet = CMultipleWindow::OnLButtonDown( vPos, mouseState );
 	if ( !bRet )
 		return bRet;			//����� ��� ������
 	
-	//��� �������������� ��������� Selection
 	CTRect<float> rect = GetScreenRect();
 	int nNumberOfPossible = (rect.bottom - rect.top - nTopSpace * 2 - nHeaderSize) / nItemHeight;
 	int nFirstVisible = pScrollBar->GetPosition() / GLAD;
-	//��������� ������� ��� nFirstVisible + nNumberOfPossible - 1
 	
 	if ( vPos.x < rect.left + nLeftSpace || vPos.x > rect.right - nScrollBarWidth - nLeftSpace )
 		return true;
@@ -642,14 +590,12 @@ bool CUIList::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 	int nSel = ( vPos.y - rect.top - nTopSpace - nHeaderSize ) / nItemHeight;
 	nSelection = nFirstVisible + nSel;
 	
-	//���������, ����� selection �� ����� �� ������� ������
 	if ( nSelection >= listItems.size() )
 	{
 		nSelection = listItems.size() - 1;
 		return true;
 	}
 
-	//����������� �� ��������� selection
 	SUIMessage msg;
 	msg.nMessageCode = UI_NOTIFY_SELECTION_CHANGED;
 	msg.nFirst = GetWindowID();
@@ -658,5 +604,4 @@ bool CUIList::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif		//OLD

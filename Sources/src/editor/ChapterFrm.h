@@ -22,19 +22,12 @@ public:
 	
 	virtual void GFXDraw();
 	
-	// Attributes
 public:
 	
-	// Operations
 public:
 	
-	// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CChapterFrame)
 protected:
-	//}}AFX_VIRTUAL
 	
-	// Implementation
 private:
 	std::string szPrefix;		//эта переменная используется для передачи параметра в функцию FillRpgStats, чтобы не было необходимости изменять интерфейс
 	CChapterMissionPropsItem *pActiveMission;
@@ -56,22 +49,16 @@ protected:
 
 	void FindActiveCross( const CPoint &point );
 	
-	// Generated message map functions
 protected:
-	//{{AFX_MSG(CChapterFrame)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
 	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
 	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
 	afx_msg void OnShowCrosses();
 	afx_msg void OnUpdateShowCrosses(CCmdUI* pCmdUI);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 
-/////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif		//__CHAPTERFRM_H__

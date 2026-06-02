@@ -1,11 +1,8 @@
 #include "StdAfx.h"
 
 #include "InterfaceSwitchModeTo.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "CommonID.h"
 #include "MultiplayerCommandManager.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EControls
 {
 	E_REPLAY_EDIT_BOX											= 2000,
@@ -13,23 +10,19 @@ enum EControls
 	E_MESSAGE_TEXT_ID											= 20001,
 	E_CAPTION_ID													= 20000,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands[] = 
 {
 	{ "inter_ok"				,	IMC_OK				},
 	{ "inter_cancel"		, IMC_CANCEL		},
 	{ 0									,	0							}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceSwitchModeTo::SEnumDirs::operator()( const NFile::CFileIterator &fileIt ) const
 {
 	pModDirs->push_back( CModName( fileIt.GetFilePath(), fileIt.GetFileName() ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceSwitchModeTo::~CInterfaceSwitchModeTo()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceSwitchModeTo::Init()
 {
 	CInterfaceInterMission::Init();
@@ -37,7 +30,6 @@ bool CInterfaceSwitchModeTo::Init()
 	
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceSwitchModeTo::Create(	const std::string &szDesiredModName,
 																			const std::string &szDesiredModVer,
 																			const int nCommandID,
@@ -51,7 +43,6 @@ bool CInterfaceSwitchModeTo::Create(	const std::string &szDesiredModName,
 	IMainLoop *pML = GetSingleton<IMainLoop>();
 	pUIScreen = CreateObject<IUIScreen>( UI_SCREEN );
 
-	// check if mode to switch to exists
 	bModExists = false;
 	bool bVersionMismatch = false;
 	std::string szLocalMODVersion = "";
@@ -63,7 +54,6 @@ bool CInterfaceSwitchModeTo::Create(	const std::string &szDesiredModName,
 	}
 	else
 	{
-		// find mod directory
 		std::string szDesiredModDirectory;
 
 		std::string szModsDirectory = GetSingleton<IMainLoop>()->GetBaseDir();
@@ -79,7 +69,6 @@ bool CInterfaceSwitchModeTo::Create(	const std::string &szDesiredModName,
 					filesIter != modDirs.end() && !bModExists;  
 					++filesIter )
 		{
-			// determine needed mod name
 			if ( CPtr<IDataStorage> pMOD = OpenStorage((filesIter->first + "\\data\\*.pak").c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_COMMON) )
 			{
 				if ( CPtr<IDataStream> pStream = pMOD->OpenStream("mod.xml", STREAM_ACCESS_READ) )
@@ -105,19 +94,15 @@ bool CInterfaceSwitchModeTo::Create(	const std::string &szDesiredModName,
 		}
 	}
 
-	// initiate silent switch to new mod
 	if ( bModExists && bSilentSwitch )
 	{
-//		OnOk();
 		return true;
 	}
 
-	// check if current mod == desired mod
 	if ( bModExists && 
 			 szDesiredModName == GetGlobalVar( "MOD.Name", "" ) &&
 			 szDesiredModVer == GetGlobalVar( "MOD.Version", "" ) )
 	{
-	//	OnOk();
 		return true;
 	}
 
@@ -139,7 +124,6 @@ bool CInterfaceSwitchModeTo::Create(	const std::string &szDesiredModName,
 	}
 	else
 	{
-		// mod exists and all is OK, ask if user want to switch
 		pUIScreen->Load( "ui\\Popup\\SwitchModTo" );
 		pText = pTM->GetDialog( "Textes\\UI\\Intermission\\MainMenu\\Mods\\message_would_you_like_to_switch" );
 		pCaptionText = pTM->GetDialog( "Textes\\UI\\Intermission\\MainMenu\\Mods\\caption_would_you_like_to_switch" );
@@ -161,7 +145,6 @@ bool CInterfaceSwitchModeTo::Create(	const std::string &szDesiredModName,
 	pScene->AddUIScreen( pUIScreen );
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceSwitchModeTo::OnOk()
 {
 	IMainLoop * pML = GetSingleton<IMainLoop>();
@@ -169,7 +152,6 @@ void CInterfaceSwitchModeTo::OnOk()
 	pML->Command( nCommandOnOk, szCommandParams.c_str() );
 	GetSingleton<IMPToUICommandManager>()->AddNotificationFromUI( SFromUINotification(EUTMN_SWITCH_MOD_OK,0) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceSwitchModeTo::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceInterMission::ProcessMessage( msg ) )
@@ -184,7 +166,6 @@ bool CInterfaceSwitchModeTo::ProcessMessage( const SGameMessage &msg )
 				return true;
 			}
 			
-			// break removed 
 		case IMC_CANCEL:
 			if ( bSilentSwitch )
 				GetSingleton<IMainLoop>()->Command( MAIN_COMMAND_EXIT_GAME, 0 );
@@ -197,7 +178,5 @@ bool CInterfaceSwitchModeTo::ProcessMessage( const SGameMessage &msg )
 			
 	}
 	
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,6 +1,3 @@
-// MultipleWindow.h: interface for the CMultipleWindow class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_MULTIPLEWINDOW_H__E9951EA6_F10E_49BA_91A3_61408A6EC2D7__INCLUDED_)
 #define AFX_MULTIPLEWINDOW_H__E9951EA6_F10E_49BA_91A3_61408A6EC2D7__INCLUDED_

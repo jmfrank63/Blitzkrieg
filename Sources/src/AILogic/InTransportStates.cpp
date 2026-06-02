@@ -4,13 +4,7 @@
 #include "Commands.h"
 #include "Soldier.h"
 #include "Technics.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern NTimer::STime curTime;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*										  CInTransportStatesFactory										*
-//*******************************************************************
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CPtr<CInTransportStatesFactory> CInTransportStatesFactory::pFactory = 0;
 
 IStatesFactory* CInTransportStatesFactory::Instance()
@@ -20,7 +14,6 @@ IStatesFactory* CInTransportStatesFactory::Instance()
 
 	return pFactory;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInTransportStatesFactory::CanCommandBeExecuted( CAICommand *pCommand )
 {
 	const EActionCommand &cmdType = pCommand->ToUnitCmd().cmdType;
@@ -28,7 +21,6 @@ bool CInTransportStatesFactory::CanCommandBeExecuted( CAICommand *pCommand )
 		(	cmdType == ACTION_COMMAND_DIE ||
 			cmdType == ACTION_COMMAND_DISAPPEAR );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CInTransportStatesFactory::ProduceState( class CQueueUnit *pUnit, CAICommand *pCommand )
 {
 	NI_ASSERT_T( dynamic_cast<CSoldier*>( pUnit ) != 0, "Wrong unit type" );		
@@ -48,26 +40,18 @@ IUnitState* CInTransportStatesFactory::ProduceState( class CQueueUnit *pUnit, CA
 
 	return pResult;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CInTransportStatesFactory::ProduceRestState( class CQueueUnit *pUnit )
 {
 	NI_ASSERT_T( dynamic_cast<CSoldier*>( pUnit ) != 0, "Wrong unit type" );		
 	return CSoldierRestOnBoardState::Instance( static_cast<CSoldier*>(pUnit), 0 );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CSoldierRestOnBoardState										*
-//*******************************************************************
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitState* CSoldierRestOnBoardState::Instance( CSoldier *pSoldier, CMilitaryCar *pTransport )
 {
 	return new CSoldierRestOnBoardState( pSoldier, pTransport );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoldierRestOnBoardState::CSoldierRestOnBoardState( CSoldier *_pSoldier, CMilitaryCar* pTransport )
 : pSoldier( _pSoldier )
 {
-	// если ещё не внутри транспорта
 	if ( pTransport != 0 )
 	{
 		if ( pTransport->IsValid() && pTransport->IsAlive() )
@@ -81,17 +65,14 @@ CSoldierRestOnBoardState::CSoldierRestOnBoardState( CSoldier *_pSoldier, CMilita
 	else
 		NI_ASSERT_T( pSoldier->IsInTransport(), "Wrong unit state" );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSoldierRestOnBoardState::Segment()
 {
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ETryStateInterruptResult CSoldierRestOnBoardState::TryInterruptState( class CAICommand *pCommand )
 { 
 	pSoldier->SetCommandFinished();
 	return TSIR_YES_IMMIDIATELY;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CSoldierRestOnBoardState::GetPurposePoint() const
 {
 	if ( pSoldier && pSoldier->IsValid() && pSoldier->IsAlive() )	
@@ -99,4 +80,3 @@ const CVec2 CSoldierRestOnBoardState::GetPurposePoint() const
 	else
 		return CVec2( -1.0f, -1.0f );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

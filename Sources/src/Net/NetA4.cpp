@@ -13,7 +13,6 @@
 #include "..\StreamIO\StreamIOTypes.h"
 #include "NetDriverConsts.h"
 
-// for testing
 #include "..\Main\GameTimer.h"
 #include "..\StreamIO\Globals.h"
 
@@ -23,7 +22,6 @@ extern "C"
 #include "peerA4Ext.h"
 }
 #endif
-//#define LOG
 #ifdef LOG
 #include <iostream>
 #endif
@@ -32,10 +30,6 @@ namespace NNet
 {
 using namespace NWin32Helper;
 	
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// interaction with master server is accomplished with different object
-// if so then it should be possible to start
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EPacket
 {
 	NORMAL,
@@ -49,7 +43,6 @@ enum EPacket
 	NOP,
 	GAMESPY = '\\'
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int N_APPLICATIONID = 0x45143100;
 class CSendPacket
 {
@@ -84,9 +77,6 @@ public:
 CMemoryStream CSendPacket::pkt;
 CBitLocker CSendPacket::bits;
 bool CSendPacket::bLastPacket;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// packet to/from stream
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static bool CanReadPacket( CRingBuffer<N_STREAM_BUFFER> &buf )
 {
 	if ( buf.GetSize() < 4 )
@@ -96,12 +86,10 @@ static bool CanReadPacket( CRingBuffer<N_STREAM_BUFFER> &buf )
 	if ( nSize & 1 )
 		nSize &= 0xff;
 	nSize >>= 1;
-//	if ( nSize > 7100 ) cout << "SIZE PIZDOS " << nSize << endl;
 	if ( buf.GetSize() >= nSize + (nSize >= 128 ? 4 : 1) )
 		return true;
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static void WritePacket( std::list<CMemoryStream> *pDst, CMemoryStream &pkt )
 {
 	NI_ASSERT_T( pkt.GetSize() < N_STREAM_BUFFER - 1000, NStr::Format( "Wrong memory stream size (%d)", pkt.GetSize() ) );
@@ -129,22 +117,11 @@ static void ReadPacket( CRingBuffer<N_STREAM_BUFFER> &src, CMemoryStream *pDst )
 	if ( (nSize & 1) == 0 )
 		src.Read( ((char*)&nSize) + 1, 3 );
 	nSize >>= 1;
-//	if ( nSize > 7100 )	cout << "SIZE PIZDOS " << nSize << endl;
 	pDst->SetSizeDiscard( nSize );
 	src.Read( pDst->GetBufferForWrite(), nSize );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** net driver
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 DWORD WINAPI TheThreadProc( LPVOID lpParameter )
 {
-	// run finction
 	CNetDriver *pNet = reinterpret_cast<CNetDriver*>(lpParameter);
 	pNet->StartThread();
 
@@ -158,22 +135,18 @@ DWORD WINAPI TheThreadProc( LPVOID lpParameter )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::StartThread()
 {
 	ResetEvent( hFinishReport );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CNetDriver::CanWork()
 {
 	return WaitForSingleObject( hStopCommand, 0 ) != WAIT_OBJECT_0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::FinishThread()
 {
 	SetEvent( hFinishReport );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CNetDriver::CNetDriver() 
 : serverInfo( 0 ), login( 0 ), bMultiChannel( false ), state( INACTIVE )
 {
@@ -181,7 +154,6 @@ CNetDriver::CNetDriver()
 	hFinishReport = CreateEvent( 0, true, false, 0 );
 	hStopCommand = CreateEvent( 0, true, false, 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CNetDriver::~CNetDriver()
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
@@ -205,7 +177,6 @@ CNetDriver::~CNetDriver()
 
 	if ( hThread )
 	{
-		// ���� ���� �� �����������
 		if ( WaitForSingleObject( hFinishReport,0 ) != WAIT_OBJECT_0 )
 		{
 			SetEvent( hStopCommand );
@@ -223,7 +194,6 @@ CNetDriver::~CNetDriver()
 	CloseHandle( hFinishReport );
 	CloseHandle( hStopCommand );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CNetDriver::Init( const APPLICATION_ID _nApplicationID, int _nGamePort, bool _bClientOnly )
 {
 	bMultiChannel = false;
@@ -232,12 +202,10 @@ bool CNetDriver::Init( const APPLICATION_ID _nApplicationID, int _nGamePort, boo
 	serverInfo.Init( _nApplicationID );
 	login.Init( _nApplicationID );
 	nGamePort = _nGamePort;
-	//
 	state = INACTIVE;
 	lastReject = NONE;
 	bAcceptNewClients = true;
 	NHPTimer::GetTime( &lastTime );
-	//
 	const bool bReturn = _bClientOnly ? links.Start( 0 ) : links.Start( nGamePort );
 
 #ifdef __TEST_LAGS__
@@ -257,7 +225,6 @@ bool CNetDriver::Init( const APPLICATION_ID _nApplicationID, int _nGamePort, boo
 	
 	return bReturn;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CNetDriver::SPeer* CNetDriver::GetClientByAddr( const CNodeAddress &addr )
 {
 	for ( std::list<SPeer>::iterator i = clients.begin(); i != clients.end(); ++i )
@@ -267,7 +234,6 @@ CNetDriver::SPeer* CNetDriver::GetClientByAddr( const CNodeAddress &addr )
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////
 CNetDriver::SPeer* CNetDriver::GetClient( CP2PTracker::UCID nID )
 {
 	for ( std::list<SPeer>::iterator i = clients.begin(); i != clients.end(); ++i )
@@ -277,7 +243,6 @@ CNetDriver::SPeer* CNetDriver::GetClient( CP2PTracker::UCID nID )
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::AddClient( const SClientAddressInfo &addr, CP2PTracker::UCID clientID )
 {
 	clients.push_back( SPeer() );
@@ -290,14 +255,12 @@ void CNetDriver::AddClient( const SClientAddressInfo &addr, CP2PTracker::UCID cl
 	peer.bTryShortcut = !addr.inetAddress.SameIP( test );
 	peer.bTryShortcut |= !addr.localAddress.GetAddress( 1, &test );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::AddNewP2PClient( const SClientAddressInfo &addr, CP2PTracker::UCID clientID )
 {
 	CMemoryStream addrInfo;
 	addrInfo.Write( &addr, sizeof( addr ) );
 	p2p.AddNewClient( clientID, addrInfo );
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::RemoveClient( CP2PTracker::UCID nID )
 {
 	for ( std::list<SPeer>::iterator i = clients.begin(); i != clients.end(); )
@@ -308,7 +271,6 @@ void CNetDriver::RemoveClient( CP2PTracker::UCID nID )
 			++i;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////
 bool CNetDriver::SendBroadcast( IDataStream *pPkt )
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
@@ -327,23 +289,18 @@ bool CNetDriver::SendBroadcast( IDataStream *pPkt )
 	
 	if ( state != ACTIVE )
 		return false;
-	//
 
-	// CRAP{ for traffic measurement
 	nSent += pPkt->GetSize();
-	// CRAP}
 
 	static CMemoryStream pkt;
 	pkt.SetSize( pPkt->GetSize() );
 	pPkt->Seek( 0, STREAM_SEEK_SET );
 	pPkt->Read( pkt.GetBufferForWrite(), pkt.GetSize() );
 
-	//
 	p2p.SendBroadcast( pkt );
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CNetDriver::SendDirect( int nClient, IDataStream *pPkt )
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
@@ -360,9 +317,7 @@ bool CNetDriver::SendDirect( int nClient, IDataStream *pPkt )
 	}
 #endif // __TEST_LAGS__
 
-	// CRAP{ for traffic measurement
 	nSent += pPkt->GetSize();
-	// CRAP}
 
 	SPeer *pDst = GetClient( nClient );
 	if ( pDst == 0 || state != ACTIVE )
@@ -374,11 +329,9 @@ bool CNetDriver::SendDirect( int nClient, IDataStream *pPkt )
 		pkt.SetSize( pPkt->GetSize() );
 		pPkt->Seek( 0, STREAM_SEEK_SET );
 		pPkt->Read( pkt.GetBufferForWrite(), pkt.GetSize() );
-		//
 		p2p.SendDirect( pDst->clientID, pkt );
 
 /*		
-		// for debug
 		pPkt->Seek( 0, STREAM_SEEK_SET );
 		BYTE cMsgID;
 		CStreamAccessor stream = pPkt;
@@ -388,18 +341,15 @@ bool CNetDriver::SendDirect( int nClient, IDataStream *pPkt )
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::Kick( int nClient )
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
 	
 	SPeer *pDst = GetClient( nClient );
-//	NI_ASSERT_T( pDst != 0, "pDst == 0 " );
 	NI_ASSERT_T( state == ACTIVE, "Wrong state of the game" );
 	if ( pDst )
 		p2p.KickClient( nClient );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef __TEST_LAGS__
 bool CNetDriver::AnalyzeLags()
 {
@@ -412,10 +362,8 @@ bool CNetDriver::AnalyzeLags()
 	if ( GetSingleton<IGameTimer>() )
 	{
 		const NTimer::STime curTime = GetSingleton<IGameTimer>()->GetAbsTime();
-		// all messages are received and it's lag now
 		if ( nMsgCanReceive == 0 && lastReceiveTime + lagPeriod > curTime )
 			return false;
-		// lag finished
 		if ( lastReceiveTime + lagPeriod <= curTime )
 		{
 			lastReceiveTime = curTime;
@@ -435,7 +383,6 @@ bool CNetDriver::AnalyzeLags()
 	return true;
 }
 #endif // __TEST_LAGS__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CNetDriver::GetMessage( EMessage *pMsg, int *pClientID, int *received, IDataStream *pPkt )
 {
 	if ( bMultiChannel )
@@ -462,17 +409,14 @@ bool CNetDriver::GetMessage( EMessage *pMsg, int *pClientID, int *received, IDat
 			pPkt->SetSize( 0 );
 			pPkt->Write( msg.pkt.GetBuffer(), msg.pkt.GetSize() );
 			pPkt->Seek( 0, STREAM_SEEK_SET );
-			//
 			msgQueue.pop_front();
 		}
 
 		return true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::ProcessLogin( const CNodeAddress &addr, CBitStream &bits )
 {
-	// if can accept login requests only
 	CLoginSupport::SLoginInfo info;
 	if ( login.ProcessLogin( addr, bits, &info ) )
 	{
@@ -516,7 +460,6 @@ void CNetDriver::ProcessLogin( const CNodeAddress &addr, CBitStream &bits )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::ProcessNormal( const CNodeAddress &addr, CBitStream &bits )
 {
 	CP2PTracker::UCID clientID = -1;
@@ -539,20 +482,15 @@ void CNetDriver::ProcessNormal( const CNodeAddress &addr, CBitStream &bits )
 	}
 	else
 	{
-		//if (pCSLog) (*pCSLog) << "normal packet from non client received from " << addr.GetFastName() << endl;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::ProcessIncomingMessages()
 {
-	// process incoming packets
-//	CNodeAddress addr;
 	static CMemoryStream pkt;
 	while ( links.Recv( &addr, &pkt ) )
 	{
 		if ( pkt.GetSize() == 0 )
 		{
-			//if (pCSLog) (*pCSLog) << "ZERO length packet received from " << addr.GetFastName() << endl;
 			continue;
 		}
 		EPacket cmd = (EPacket)0;
@@ -629,7 +567,6 @@ void CNetDriver::ProcessIncomingMessages()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::StepInactive()
 {
 	std::vector<CNodeAddress> dest;
@@ -644,7 +581,6 @@ void CNetDriver::StepInactive()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::StepConnecting()
 {
 	switch ( login.GetState() )
@@ -680,7 +616,6 @@ void CNetDriver::StepConnecting()
 			break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::AddOutputMessage( EMessage msg, const CP2PTracker::UCID &_from, 
 		CMemoryStream &data, const std::vector<CP2PTracker::UCID> &received )
 {
@@ -701,10 +636,8 @@ void CNetDriver::AddOutputMessage( EMessage msg, const CP2PTracker::UCID &_from,
 			res.received.push_back( pTest->clientID );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::PollMessages( SPeer *pPeer )
 {
-	// seek for packets through incoming traffic
 	while ( CanReadPacket( pPeer->data.channelInBuf ) )
 	{
 		CMemoryStream pkt;
@@ -715,10 +648,8 @@ void CNetDriver::PollMessages( SPeer *pPeer )
 		p2p.ProcessPacket( pPeer->clientID, pkt );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::StepActive( float fDeltaTime )
 {
-	// rollback outdated packets
 	for ( CPeerList::iterator i = clients.begin(); i != clients.end(); ++i )
 	{
 		std::vector<PACKET_ID> rolled, erased;
@@ -727,7 +658,6 @@ void CNetDriver::StepActive( float fDeltaTime )
 		i->data.Erase( erased );
 		PollMessages( &(*i) );
 	}
-	// process peer2peer messages
 	CP2PTracker::SMessage msg;
 	while ( p2p.GetMessage( &msg ) )
 	{
@@ -760,7 +690,6 @@ void CNetDriver::StepActive( float fDeltaTime )
 				break;
 		}
 	}
-	// form output packets
 	for ( int pi = 0; pi < p2p.packets.size(); ++pi )
 	{
 		CP2PTracker::SPacket &p = p2p.packets[pi];
@@ -780,7 +709,6 @@ void CNetDriver::StepActive( float fDeltaTime )
 		}
 	}
 	p2p.packets.resize( 0 );
-	// send updates & check for timeouts
 	for ( CPeerList::iterator it = clients.begin(); it != clients.end(); ++it )
 	{
 		if ( it->acks.GetTimeSinceLastRecv() > SNetDriverConsts::F_TIMEOUT )
@@ -790,7 +718,6 @@ void CNetDriver::StepActive( float fDeltaTime )
 /*
 			if ( !it->data.HasOutData() )
 			{
-				// ����� ���������? ������
 				CMemoryStream shit;
 				static int nShit = 0;
 				shit.SetSize( 7000 );//15000 );
@@ -832,20 +759,14 @@ void CNetDriver::StepActive( float fDeltaTime )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// CRAP{
 int nTrafficPackets;
 int nTrafficTotalSize;
-// CRAP}
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::Step()
 {
 	{
 		CCriticalSectionLock criticalSectionLock( criticalSection );
 
-		// CRAP{
 		/*
-		// for traffic to winsock measurement
 		NTimer::STime curTime = GetSingleton<IGameTimer>()->GetAbsTime();
 		if ( lastTrafficCheckTime > curTime )
 			lastTrafficCheckTime = curTime;
@@ -864,14 +785,11 @@ void CNetDriver::Step()
 			nSent = 0;
 		}
 		*/
-		// CRAP}
-		//
 
 		float fSeconds = NHPTimer::GetTimePassed( &lastTime );
 		serverInfo.Step( fSeconds );
 		login.Step( fSeconds );
 		ProcessIncomingMessages();
-		//
 		switch ( state )
 		{
 			case INACTIVE:
@@ -925,15 +843,12 @@ void CNetDriver::Step()
 	}
 #endif // __TEST_LAGS__
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::StartGame()
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
 
-	//	NI_ASSERT_T( state == INACTIVE, "Wrong state of the game" );
 	state = ACTIVE;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::ConnectGame( const INetNodeAddress *pAddr, IDataStream *pPwd )
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
@@ -948,7 +863,6 @@ void CNetDriver::ConnectGame( const INetNodeAddress *pAddr, IDataStream *pPwd )
 	gameHostAddress.Clear();
 	gameHostAddress.SetInetName( pAddr->GetName(), 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::StartGameInfoSend( IDataStream *pData )
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
@@ -957,10 +871,8 @@ void CNetDriver::StartGameInfoSend( IDataStream *pData )
 	data.SetSize( pData->GetSize() );
 	pData->Seek( 0, STREAM_SEEK_SET );
 	pData->Read( data.GetBufferForWrite(), data.GetSize() );
-	//
 	serverInfo.StartReply( data );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::StartGameInfoSend( const SGameInfo &gameInfo )
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
@@ -971,14 +883,12 @@ void CNetDriver::StartGameInfoSend( const SGameInfo &gameInfo )
 
 	StartGameInfoSend( pStream );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::StopGameInfoSend()
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
 	
 	serverInfo.StopReply();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CNetDriver::GetGameInfo( int nIdx, INetNodeAddress *pAddr, bool *pWrongVersion, float *pPing, SGameInfo *pGameInfo )
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
@@ -1009,51 +919,42 @@ bool CNetDriver::GetGameInfo( int nIdx, INetNodeAddress *pAddr, bool *pWrongVers
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::StartNewPlayerAccept() 
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
 
 	bAcceptNewClients = true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::StopNewPlayerAccept()
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
 	
 	bAcceptNewClients = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SOCKET CNetDriver::GetSocket()
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
 
 	return links.GetSocket();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 sockaddr *CNetDriver::GetSockAddr()
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
 
 	return addr.GetSockAddr();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 INetDriver* MakeDriver( const APPLICATION_ID nApplicationID, int nGamePort, bool bClientOnly )
 {
 	CNetDriver *pRes = new CNetDriver();
 	pRes->Init( nApplicationID, nGamePort, bClientOnly );
 	return pRes;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// multichannel
-//
 void CNetDriver::ResizeArrays( const int nNewSize )
 {
 	channelMsgTypes.resize( nNewSize );
 	channelMsgs.resize( nNewSize );
 	existingChannels.resize( nNewSize );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::AddChannel( const int nChannelID, const std::unordered_set<BYTE> &channelMessages )
 {
 	{
@@ -1072,7 +973,6 @@ void CNetDriver::AddChannel( const int nChannelID, const std::unordered_set<BYTE
 
 	StepMultiChannel();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::RemoveChannel( const int nChannelID )
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
@@ -1082,7 +982,6 @@ void CNetDriver::RemoveChannel( const int nChannelID )
 	if ( nChannelID < existingChannels.size() && existingChannels[nChannelID] == 1 )
 		existingChannels[nChannelID] = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::StepMultiChannel()
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
@@ -1091,10 +990,7 @@ void CNetDriver::StepMultiChannel()
 	int nClientID;
 	int received[128];
 	CStreamAccessor pkt = CreateObject<IDataStream>( STREAMIO_MEMORY_STREAM );
-	//
-	// ����� ��� ����� ��������� ���������� ���������
 	bMultiChannel = false;
-	// �� ���� ���������� ����������
 
 	criticalSectionLock.Leave();
 #ifdef __TEST_LAGS__
@@ -1103,7 +999,6 @@ void CNetDriver::StepMultiChannel()
 	while ( GetMessage(&eMsgID, &nClientID, received, pkt) )
 	{
 		criticalSectionLock.Enter();
-		// ������ ���
 		BYTE msg;
 		int i = 0;
 		const int nCurStreamPosition = pkt->GetPos();
@@ -1111,7 +1006,6 @@ void CNetDriver::StepMultiChannel()
 		{
 			pkt >> msg;
 			
-			// try to find appropriate not-common channel
 			i = existingChannels.size() - 1;
 			while ( i > 0 && ( existingChannels[i] == 0 || channelMsgTypes[i].find( msg ) == channelMsgTypes[i].end() ) )
 				--i;
@@ -1136,7 +1030,6 @@ void CNetDriver::StepMultiChannel()
 
 	bMultiChannel = true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CNetDriver::GetChannelMessage( EMessage *pMsg, int *pClientID, int *received, IDataStream *pPkt, const int nChannel )
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
@@ -1157,7 +1050,6 @@ bool CNetDriver::GetChannelMessage( EMessage *pMsg, int *pClientID, int *receive
 
 		pPkt->SetSize( 0 );		
 		IDataStream *pMemStream = channelMsgs[nChannel].front().pPkt;
-		// ����������� 'nLength' ���� �� ������� ������� ������ � ������ ������� 'pDstStream' ������
 		pMemStream->CopyTo( pPkt, pMemStream->GetSize() );
 		pPkt->Seek( 0, STREAM_SEEK_SET );
 
@@ -1166,7 +1058,6 @@ bool CNetDriver::GetChannelMessage( EMessage *pMsg, int *pClientID, int *receive
 		return true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CNetDriver::GetPing( const int nClientID )
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
@@ -1180,7 +1071,6 @@ const float CNetDriver::GetPing( const int nClientID )
 	else
 		return iter->acks.GetPing();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CNetDriver::GetTimeSinceLastRecv( const int nClientID )
 {
 	CCriticalSectionLock criticalSectionLock( criticalSection );
@@ -1194,9 +1084,7 @@ const float CNetDriver::GetTimeSinceLastRecv( const int nClientID )
 	else
 		return iter->acks.GetTimeSinceLastRecv();	
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//
 void CNetDriver::SGameInfoWrapper::Pack( IDataStream *pDataStream )
 {
 	CStreamAccessor stream( pDataStream );
@@ -1206,7 +1094,6 @@ void CNetDriver::SGameInfoWrapper::Pack( IDataStream *pDataStream )
 	pGameSettings->CopyTo( pDataStream, pGameSettings->GetSize() );
 	pGameSettings->Seek( 0, STREAM_SEEK_SET );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::SGameInfoWrapper::Unpack( IDataStream *pDataStream )
 {
 	CStreamAccessor stream( pDataStream );
@@ -1215,8 +1102,6 @@ void CNetDriver::SGameInfoWrapper::Unpack( IDataStream *pDataStream )
 	pGameSettings = CreateObject<IDataStream>( STREAMIO_MEMORY_STREAM );
 	pDataStream->CopyTo( pGameSettings, pDataStream->GetSize() - pDataStream->GetPos() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// for debug
 const char* CNetDriver::GetAddressByClientID( const int nClientID ) const
 {
 	CPeerList::const_iterator iter = clients.begin();
@@ -1228,27 +1113,22 @@ const char* CNetDriver::GetAddressByClientID( const int nClientID ) const
 	else
 		return iter->currentAddr.GetFastName().c_str();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::PauseNet()
 {
 #ifdef __TEST_LAGS__
 	bPaused = true;
 #endif // __TEST_LAGS__
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::UnpauseNet()
 {
 #ifdef __TEST_LAGS__
 	bPaused = false;
 #endif // __TEST_LAGS__
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CNetDriver::SetLag( const NTimer::STime period )
 {
 #ifdef __TEST_LAGS__
 	lagPeriod = period;
 #endif // __TEST_LAGS__
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

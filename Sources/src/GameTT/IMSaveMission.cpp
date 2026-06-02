@@ -1,21 +1,17 @@
 #include "StdAfx.h"
 
 #include "IMSaveMission.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "CommonId.h"
 #include "IMLoadMission.h"
 #include "MultiplayerCommandManager.h"
 #include "..\Main\ScenarioTracker.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICIMSaveMission::PostCreate( IMainLoop *pML, CInterfaceIMSaveMission *pILM )
 {
 	pML->PushInterface( pILM );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceIMSaveMission::~CInterfaceIMSaveMission()
 {
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceIMSaveMission::OnGetFocus( bool bFocus )
 {
 	CInterfaceBaseList::OnGetFocus( bFocus );
@@ -25,10 +21,8 @@ void CInterfaceIMSaveMission::OnGetFocus( bool bFocus )
 		Save();
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceIMSaveMission::Init()
 {
-	//инициализируем имена
 	fileMasks.clear();
 	fileMasks.push_back( "*.sav" );
 	szTopDir = GetSingleton<IMainLoop>()->GetBaseDir();
@@ -46,13 +40,10 @@ bool CInterfaceIMSaveMission::Init()
 	nSortType = E_SORT_BY_TIME;
 	nFirstSortColumn = 1;
 	bNotDiveIntoSubdirs = true;
-	//
 	CInterfaceBaseList::Init();
 	bClosed = false;
-	//
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceIMSaveMission::StartInterface()
 {
 	CInterfaceBaseList::StartInterface();
@@ -63,7 +54,6 @@ void CInterfaceIMSaveMission::StartInterface()
 	pEdit->SetCursor( -1 );
 	pEdit->SetSel( 0, -1 );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceIMSaveMission::FillListItem( IUIListRow *pRow, const std::string &szFullFileName, bool *pSelectedItem )
 {
 	IUIElement *pElement = pRow->GetElement( 1 );
@@ -81,7 +71,6 @@ bool CInterfaceIMSaveMission::FillListItem( IUIListRow *pRow, const std::string 
 	pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszVal.c_str() ) );
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceIMSaveMission::OnOk()
 {
 	if ( bClosed ) return false;
@@ -93,7 +82,6 @@ bool CInterfaceIMSaveMission::OnOk()
 	NStr::TrimBoth( szEdit );
 	if ( szEdit.size() == 0 )
 	{
-		//введенная строчка пустая, попробуем взять текущий selection из list control
 		IUIElement *pElement = pUIScreen->GetChildByID( 1000 );		//should be List Control
 		IUIListControl *pList = checked_cast<IUIListControl*>( pElement );
 		if ( !pList )
@@ -125,7 +113,6 @@ bool CInterfaceIMSaveMission::OnOk()
 		Save();
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceIMSaveMission::Save()
 {
 	IMainLoop *pML = GetSingleton<IMainLoop>();
@@ -134,15 +121,12 @@ void CInterfaceIMSaveMission::Save()
 	pML->Command( MAIN_COMMAND_SAVE, szProspectiveFileName.c_str() );
 	bClosed = true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceIMSaveMission::OnOk( const std::string &szFullFileName )
 {
 	return OnOk();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceIMSaveMission::OnSelectionChanged()
 {
-	//попробуем взять текущий selection из list control
 	IUIElement *pElement = pUIScreen->GetChildByID( 1000 );		//should be List Control
 	IUIListControl *pList = checked_cast<IUIListControl*>( pElement );
 	if ( !pList )
@@ -154,7 +138,6 @@ void CInterfaceIMSaveMission::OnSelectionChanged()
 	
 	IUIListRow *pSelRow = pList->GetItem( nSave );
 	std::string szEdit = szSaves[pSelRow->GetUserData()];
-	//????????? ???? ??????? ? ??????????? ?????
 	pElement = pUIScreen->GetChildByID( 2000 );
 	const std::wstring wszEdit = NStr::ToUnicode( szEdit );
 	pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( wszEdit.c_str() ) );
@@ -165,7 +148,6 @@ void CInterfaceIMSaveMission::OnSelectionChanged()
 	pEdit->ShowWindow( UI_SW_SHOW );
 	pEdit->SetFocus( true );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceIMSaveMission::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceBaseList::ProcessMessage( msg ) )
@@ -200,8 +182,6 @@ bool CInterfaceIMSaveMission::ProcessMessage( const SGameMessage &msg )
 		break;
 	}
 
-	//
 	return false;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

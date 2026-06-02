@@ -36,7 +36,6 @@
 
 _STLP_BEGIN_NAMESPACE
 
-// Heap-manipulation functions: push_heap, pop_heap, make_heap, sort_heap.
 
 template <class _RandomAccessIterator>
 void 
@@ -124,6 +123,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_HEAP_H */
 
-// Local Variables:
-// mode:C++
-// End:

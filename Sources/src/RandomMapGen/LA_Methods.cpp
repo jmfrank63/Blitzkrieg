@@ -8,9 +8,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//RMGC - random map generator constants
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const BYTE RMGC_UNLOCKED							= 0;
 const BYTE RMGC_LOCKED								= 1;
 
@@ -33,7 +30,6 @@ extern const BYTE RMGC_NEGATIVE_DIRECTIONS[4] = { RMGC_HORIZONTAL_FROM_ZERO,
 																									RMGC_VERTICAL_FROM_ZERO,
 																									RMGC_VERTICAL_TO_ZERO, };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int FindPath( const CTPoint<int> &rStartPoint,
 						  const CTPoint<int> &rFinishPoint,
 						  CArray2D<BYTE> *pLockArray,
@@ -47,9 +43,7 @@ int FindPath( const CTPoint<int> &rStartPoint,
 		           IsValidIndices( (*pLockArray), rFinishPoint ),
 							 NStr::Format( "Invalid parameters!" ) );
 
-	//вектор уже может содержать точки
 	int nPointCount = 0;
-	//исключаем вырожденный случай
 	if ( rStartPoint == rFinishPoint )
 	{
 		pPointList->push_back( rFinishPoint );
@@ -57,14 +51,10 @@ int FindPath( const CTPoint<int> &rStartPoint,
 		return nPointCount;
 	}
 
-	//может быть несколько точек финиша
-	//ClearLockArray( pLockArray );
 
-	//чтобы последовательность точек пути шла от первой точки меняем местами обозначения
 	(*pLockArray)[rStartPoint.y][rStartPoint.x] = RMGC_FINISH_POINT;
 	(*pLockArray)[rFinishPoint.y][rFinishPoint.x] = RMGC_START_POINT;
 	
-	//алгоритм поиска в ширину
 	std::list<CTPoint<int> > pointList;
 	pointList.push_back( rFinishPoint );
 	CTPoint<int> pointToAdd;
@@ -79,14 +69,12 @@ int FindPath( const CTPoint<int> &rStartPoint,
 			pointToAdd = pointToRemove - RMGC_SHIFT_POINTS[nDirection];
 			if ( IsValidIndices( (*pLockArray), pointToAdd ) )
 			{
-				//точка финиша, все равно записываем в нее точку откуда пришли!
 				if ( (*pLockArray)[pointToAdd.y][pointToAdd.x] == RMGC_FINISH_POINT )
 				{
 					(*pLockArray)[pointToAdd.y][pointToAdd.x] = RMGC_HORIZONTAL_TO_ZERO + nDirection;
 					isFinished = true;
 					break;
 				}
-				//записываем точку откуда пришли
 				if ( (*pLockArray)[pointToAdd.y][pointToAdd.x] == RMGC_UNLOCKED )
 				{
 					(*pLockArray)[pointToAdd.y][pointToAdd.x] = RMGC_HORIZONTAL_TO_ZERO + nDirection;
@@ -100,7 +88,6 @@ int FindPath( const CTPoint<int> &rStartPoint,
 		}
 	}
 	
-	//нашли точку финиша, собираем точки поворотов
 	if ( isFinished )
 	{
 		pPointList->push_back( pointToAdd );
@@ -120,8 +107,5 @@ int FindPath( const CTPoint<int> &rStartPoint,
 		}
 	}
 	
-	//оставляем для дальнейшего использования
-	//ClearLockArray( pLockArray );
 	return nPointCount;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

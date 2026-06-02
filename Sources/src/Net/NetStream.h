@@ -8,10 +8,8 @@
 #include <unordered_map>
 #include "Streams.h"
 #include "NetAcks.h"
-/////////////////////////////////////////////////////////////////////////////////////
 namespace NNet
 {
-/////////////////////////////////////////////////////////////////////////////////////
 template<int N_SIZE>
 class CRingBuffer
 {
@@ -60,14 +58,11 @@ public:
 		return nRes;
 	}
 };
-/////////////////////////////////////////////////////////////////////////////////////
-// streamed connection, input/output buffers
 const int N_STREAM_BUFFER = 32768;
 const int N_MAX_PACKET_SIZE = 1024; // low level packet size
 class CStreamTracker
 {
 public:
-	// channel data
 	CRingBuffer<N_STREAM_BUFFER> channelInBuf;
 	std::list<CMemoryStream> outList;
 	
@@ -95,8 +90,6 @@ private:
 	};
 #pragma pack(pop)
 	
-	// streaming data control structures
-	// ������� �������� ���������� � ����������� ������
 	CHANNEL_DATA_OFFSET nChannelOutputOffset, nChannelInputOffset;
 	typedef std::list<SChannelBlock> SChannelBlockList;
 	SChannelBlockList channelOutFlyList, channelOutList, channelInList;
@@ -104,7 +97,5 @@ private:
 
 	static bool IsBefore( CHANNEL_DATA_OFFSET border, CHANNEL_DATA_OFFSET test );
 };
-/////////////////////////////////////////////////////////////////////////////////////
 }
-/////////////////////////////////////////////////////////////////////////////////////
 #endif

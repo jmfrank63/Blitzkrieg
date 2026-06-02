@@ -1,6 +1,3 @@
-// WindowSlider.h: interface for the CWindowSlider class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_WINDOWSLIDER_H__FF45A97C_D276_4BE2_BF2C_061AFFE51E2F__INCLUDED_)
 #define AFX_WINDOWSLIDER_H__FF45A97C_D276_4BE2_BF2C_061AFFE51E2F__INCLUDED_
@@ -12,11 +9,7 @@
 #include "Interface.h"
 #include "Window.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// window with button. button can move horisontally or vertically,
-// 
 class CWindowMSButton;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CWindowSlider : public CWindow, public ISlider  
 {
 	OBJECT_COMPLETE_METHODS(CWindowSlider)
@@ -31,7 +24,6 @@ class CWindowSlider : public CWindow, public ISlider
 	float fCur;
 	float fPageSize;														// 
 	
-	// fast scrolling parameters
 	bool bPressed;													// remember pressed state, scrolls by timer
 	bool bFirstTime;												// first scroll should will wait for a longer time
 	NTimer::STime animTime;
@@ -41,11 +33,8 @@ class CWindowSlider : public CWindow, public ISlider
 
 	ISliderNotify * pNotifySink;						// parent
 	
-	//Verifies that the position of a slider control is between the minimum and maximum values.
 	void UpdatePos();
-	// return fCur suitable for current mouse pressed pos
 	float CalcPressedPos( const CVec2 &vPos ) const;
-	// return suitable position, that matches _fCur as close as possible
 	float VerifyPos( const float _fCur ) const;
 	void ScrollFast();
 
@@ -56,7 +45,6 @@ public:
 
 	bool IsHorisontal() const { return bHorisontal; }
 
-	// message sinks
 	void OnKeyUp( const struct SGameMessage &msg );
 	void OnKeyDown( const struct SGameMessage &msg );
 
@@ -68,16 +56,13 @@ public:
 
 	void OnKeyHome( const struct SGameMessage &msg );
 	void OnKeyEnd( const struct SGameMessage &msg );
-	// end message sinks
 
-	// ISlider
 	virtual void STDCALL SetRange( const float _fMin, const float _fMax, const float _fPageSize );
 	virtual void STDCALL GetRange( int *pMax, int *pMin ) const;
 	virtual void STDCALL SetPos( const int _nCur );
 	virtual int STDCALL GetPos() const;
 	virtual void STDCALL SetNotifySink( interface ISliderNotify *_pNotifySink ) { pNotifySink = _pNotifySink; }
 
-	// IWindow & CWindow
 	virtual int STDCALL operator&( IDataTree &ss );
 	virtual void STDCALL Reposition( const CTRect<float> &parentRect );
 
@@ -88,5 +73,4 @@ public:
 	virtual void STDCALL OnButtonUp( const CVec2 &vPos, const int nButton );
 
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // !defined(AFX_WINDOWSLIDER_H__FF45A97C_D276_4BE2_BF2C_061AFFE51E2F__INCLUDED_)

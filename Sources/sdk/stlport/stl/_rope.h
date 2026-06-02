@@ -24,11 +24,6 @@
  *   You should not attempt to use it directly.
  */
 
-// rope<_CharT,_Alloc> is a sequence of _CharT.
-// Ropes appear to be mutable, but update operations
-// really copy enough of the data structure to leave the original
-// valid.  Thus ropes can be logically copied by just copying
-// a pointer value.
 
 #ifndef _STLP_INTERNAL_ROPE_H
 # define _STLP_INTERNAL_ROPE_H
@@ -85,9 +80,6 @@
 
 _STLP_BEGIN_NAMESPACE
 
-// First a lot of forward declarations.  The standard seems to require
-// much stricter "declaration before use" than many of the implementations
-// that preceded it.
 template<class _CharT, _STLP_DEFAULT_ALLOCATOR_SELECT(_CharT) > class rope;
 template<class _CharT, class _Alloc> struct _Rope_RopeConcatenation;
 template<class _CharT, class _Alloc> struct _Rope_RopeRep;
@@ -99,11 +91,7 @@ template<class _CharT, class _Alloc> class _Rope_const_iterator;
 template<class _CharT, class _Alloc> class _Rope_char_ref_proxy;
 template<class _CharT, class _Alloc> class _Rope_char_ptr_proxy;
 
-// Some helpers, so we can use power on ropes.
-// See below for why this isn't local to the implementation.
 
-// This uses a nonstandard refcount convention.
-// The result has refcount 0.
 template<class _CharT, class _Alloc>
 struct _Rope_Concat_fn
   : public binary_function<rope<_CharT,_Alloc>, rope<_CharT,_Alloc>,
@@ -122,22 +110,15 @@ __identity_element(_Rope_Concat_fn<_CharT, _Alloc>)
   return rope<_CharT,_Alloc>();
 }
 
-// The _S_eos function is used for those functions that
-// convert to/from C-like strings to detect the end of the string.
 
-// The end-of-C-string character.
-// This is what the draft standard says it should be.
 template <class _CharT>
 inline _CharT _S_eos(_CharT*) { return _CharT(); }
 
-// fbp : some compilers fail to zero-initialize builtins ;(
 inline const char _S_eos(const char*) { return 0; }
 # ifdef _STLP_HAS_WCHAR_T
 inline const wchar_t _S_eos(const wchar_t*) { return 0; }
 # endif
 
-// Test for basic character types.
-// For basic character types leaves having a trailing eos.
 template <class _CharT>
 inline bool _S_is_basic_char_type(_CharT*) { return false; }
 template <class _CharT>
@@ -149,8 +130,6 @@ inline bool _S_is_one_byte_char_type(char*) { return true; }
 inline bool _S_is_basic_char_type(wchar_t*) { return true; }
 # endif
 
-// Store an eos iff _CharT is a basic character type.
-// Do not reference _S_eos if it isn't.
 template <class _CharT>
 inline void _S_cond_store_eos(_CharT&) {}
 
@@ -159,35 +138,14 @@ inline void _S_cond_store_eos(char& __c) { __c = 0; }
 inline void _S_cond_store_eos(wchar_t& __c) { __c = 0; }
 # endif
 
-// char_producers are logically functions that generate a section of
-// a string.  These can be convereted to ropes.  The resulting rope
-// invokes the char_producer on demand.  This allows, for example,
-// files to be viewed as ropes without reading the entire file.
 template <class _CharT>
 class char_producer {
 public:
   virtual ~char_producer() {};
   virtual void operator()(size_t __start_pos, size_t __len, 
                           _CharT* __buffer) = 0;
-  // Buffer should really be an arbitrary output iterator.
-  // That way we could flatten directly into an ostream, etc.
-  // This is thoroughly impossible, since iterator types don't
-  // have runtime descriptions.
 };
 
-// Sequence buffers:
-//
-// Sequence must provide an append operation that appends an
-// array to the sequence.  Sequence buffers are useful only if
-// appending an entire array is cheaper than appending element by element.
-// This is true for many string representations.
-// This should  perhaps inherit from ostream<sequence::value_type>
-// and be implemented correspondingly, so that they can be used
-// for formatted.  For the sake of portability, we don't do this yet.
-//
-// For now, sequence buffers behave as output iterators.  But they also
-// behave a little like basic_ostringstream<sequence::value_type> and a
-// little like containers.
 
 template<class _Sequence
 # if !(defined (_STLP_NON_TYPE_TMPL_PARAM_BUG) || \
@@ -199,7 +157,6 @@ template<class _Sequence
 #   endif /* __sgi */
 # endif /* _STLP_NON_TYPE_TMPL_PARAM_BUG */
 >
-// The 3rd parameter works around a common compiler bug.
 class sequence_buffer : public iterator <output_iterator_tag, void, void, void, void> {
 public:
 #       ifndef __TYPEDEF_WORKAROUND
@@ -213,7 +170,6 @@ public:
   > _Self;
   enum { _Buf_sz = 100}; 
 # endif /* _STLP_NON_TYPE_TMPL_PARAM_BUG */
-  // # endif
 #	else /* __TYPEDEF_WORKAROUND */
   typedef _V value_type;
   typedef sequence_buffer<_Sequence, _Buf_sz, _V> _Self;
@@ -299,49 +255,14 @@ public:
   _Self& operator++(int) { return *this; }
 };
 
-// The following should be treated as private, at least for now.
 template<class _CharT>
 class _Rope_char_consumer {
 public:
-  // If we had member templates, these should not be virtual.
-  // For now we need to use run-time parametrization where
-  // compile-time would do.  _Hence this should all be private
-  // for now.
-  // The symmetry with char_producer is accidental and temporary.
   virtual ~_Rope_char_consumer() {};
   virtual bool operator()(const _CharT* __buffer, size_t __len) = 0;
 };
 
-//
-// What follows should really be local to rope.  Unfortunately,
-// that doesn't work, since it makes it impossible to define generic
-// equality on rope iterators.  According to the draft standard, the
-// template parameters for such an equality operator cannot be inferred
-// from the occurence of a member class as a parameter.
-// (SGI compilers in fact allow this, but the __result wouldn't be
-// portable.)
-// Similarly, some of the static member functions are member functions
-// only to avoid polluting the global namespace, and to circumvent
-// restrictions on type inference for template functions.
-//
 
-//
-// The internal data structure for representing a rope.  This is
-// private to the implementation.  A rope is really just a pointer
-// to one of these.
-//
-// A few basic functions for manipulating this data structure
-// are members of _RopeRep.  Most of the more complex algorithms
-// are implemented as rope members.
-//
-// Some of the static member functions of _RopeRep have identically
-// named functions in rope that simply invoke the _RopeRep versions.
-//
-// A macro to introduce various allocation and deallocation functions
-// These need to be defined differently depending on whether or not
-// we are using standard conforming allocators, and whether the allocator
-// instances have real state.  Thus this macro is invoked repeatedly
-// with different definitions of __ROPE_DEFINE_ALLOC.
 
 #if defined (_STLP_MEMBER_TEMPLATE_CLASSES)
 # define __ROPE_DEFINE_ALLOC(_Tp, __name, _M_proxy) \
@@ -376,10 +297,6 @@ public:
 #  define __ROPE_DEPTH_SIZE 46
   enum { _S_max_rope_depth = __ROPE_MAX_DEPTH };
   enum _Tag {_S_leaf, _S_concat, _S_substringfn, _S_function};
-  // Apparently needed by VC++
-  // The data fields of leaves are allocated with some
-  // extra space, to accomodate future growth and for basic
-  // character types, to hold a trailing eos character.
   enum { _S_alloc_granularity = 8 };
 
   
@@ -417,7 +334,6 @@ public:
   void _M_incr () {}
 #   endif
 
-  // fbp : moved from RopeLeaf
   static size_t _S_rounded_up_size(size_t __n) {
     size_t __size_with_eos;
     
@@ -429,7 +345,6 @@ public:
 #       ifdef __GC
     return __size_with_eos;
 #       else
-    // Allow slop for in-place expansion.
     return (__size_with_eos + _S_alloc_granularity-1)
       &~ (_S_alloc_granularity-1);
 #       endif
@@ -441,7 +356,6 @@ public:
     if (!_S_is_basic_char_type((_CharT*)0)) {
       _Destroy(__s, __s + __len);
     }
-    //  This has to be a static member, so this gets a bit messy
 #   ifdef _STLP_MEMBER_TEMPLATE_CLASSES
     __a.deallocate(__s, _S_rounded_up_size(__len));		//*ty 03/24/2001 - restored not to use __stl_alloc_rebind() since it is not defined under _STLP_MEMBER_TEMPLATE_CLASSES
 #   else
@@ -449,16 +363,9 @@ public:
 #   endif
   }
   
-  // Deallocate data section of a leaf.
-  // This shouldn't be a member function.
-  // But its hard to do anything else at the
-  // moment, because it's templatized w.r.t.
-  // an allocator.
-  // Does nothing if __GC is defined.
 #   ifndef __GC
   void _M_free_c_string();
   void _M_free_tree();
-  // Deallocate t. Assumes t is not 0.
   void _M_unref_nonnil()
   {
     _M_decr(); if (!_M_ref_count) _M_free_tree();
@@ -508,7 +415,6 @@ public:
   {
     _STLP_ASSERT(_p_size > 0)
     if (_S_is_basic_char_type((_CharT *)0)) {
-      // already eos terminated.
       this->_M_c_string = __d;
     }
   }
@@ -518,9 +424,6 @@ public:
   _Rope_RopeLeaf(const _Rope_RopeLeaf<_CharT, _Alloc>& ) {}
 # endif
   
-// The constructor assumes that d has been allocated with
-  // the proper allocator and the properly padded size.
-  // In contrast, the destructor deallocates the data:
 # ifndef __GC
   ~_Rope_RopeLeaf() {
     if (_M_data != this->_M_c_string) {
@@ -566,15 +469,7 @@ public:
   char_producer<_CharT>* _M_fn;
 #   ifndef __GC
   bool _M_delete_when_done; // Char_producer is owned by the
-                                // rope and should be explicitly
-                                // deleted when the rope becomes
-                                // inaccessible.
 #   else
-  // In the GC case, we either register the rope for
-  // finalization, or not.  Thus the field is unnecessary;
-  // the information is stored in the collector data structures.
-  // We do need a finalization procedure to be invoked by the
-  // collector.
   static void _S_fn_finalization_proc(void * __tree, void *) {
     delete ((_Rope_RopeFunction *)__tree) -> _M_fn;
   }
@@ -612,13 +507,6 @@ public:
   }
 # endif
 };
-// Substring results are usually represented using just
-// concatenation nodes.  But in the case of very long flat ropes
-// or ropes with a functional representation that isn't practical.
-// In that case, we represent the __result as a special case of
-// RopeFunction, whose char_producer points back to the rope itself.
-// In all cases except repeated substring operations and
-// deallocation, we treat the __result as a RopeFunction.
 template<class _CharT, class _Alloc>
 # if  ( defined (__IBMCPP__) && (__IBMCPP__ == 500) )  // JFA 10-Aug-2000 for some reason xlC cares about the order
 struct _Rope_RopeSubstring : public char_producer<_CharT> , public _Rope_RopeFunction<_CharT,_Alloc>
@@ -628,7 +516,6 @@ struct _Rope_RopeSubstring : public _Rope_RopeFunction<_CharT,_Alloc>,
 # endif
 {
 public:
-  // XXX this whole class should be rewritten.
   typedef _Rope_RopeRep<_CharT,_Alloc> _Base;
   _Rope_RopeRep<_CharT,_Alloc>* _M_base;      // not 0
   size_t _M_start;
@@ -684,15 +571,6 @@ public:
   }
 };
 
-// Self-destructing pointers to Rope_rep.
-// These are not conventional smart pointers.  Their
-// only purpose in life is to ensure that unref is called
-// on the pointer either at normal exit or if an exception
-// is raised.  It is the caller's responsibility to
-// adjust reference counts when these pointers are initialized
-// or assigned to.  (This convention significantly reduces
-// the number of potentially expensive reference count
-// updates.)
 #ifndef __GC
 template<class _CharT, class _Alloc>
 struct _Rope_self_destruct_ptr {
@@ -714,11 +592,6 @@ struct _Rope_self_destruct_ptr {
 };
 #endif
 
-// Dereferencing a nonconst iterator has to return something
-// that behaves almost like a reference.  It's not possible to
-// return an actual reference since assignment requires extra
-// work.  And we would get into the same problems as with the
-// CD2 version of basic_string.
 template<class _CharT, class _Alloc>
 class _Rope_char_ref_proxy {
   typedef _Rope_char_ref_proxy<_CharT, _Alloc> _Self;
@@ -741,10 +614,6 @@ public:
     _M_pos(__p), _M_current_valid(false), _M_root(__r) {}
   _Rope_char_ref_proxy(const _Self& __x) :
     _M_pos(__x._M_pos), _M_current_valid(false), _M_root(__x._M_root) {}
-  // Don't preserve cache if the reference can outlive the
-  // expression.  We claim that's not possible without calling
-  // a copy constructor or generating reference to a proxy
-  // reference.  We declare the latter to have undefined semantics.
   _Rope_char_ref_proxy(_My_rope* __r, size_t __p,
                        _CharT __c) :
     _M_pos(__p), _M_current(__c), _M_current_valid(true), _M_root(__r) {}
@@ -765,12 +634,6 @@ inline void swap(_Rope_char_ref_proxy <_CharT, __Alloc > __a,
   __b = __tmp;
 }
 #else
-// There is no really acceptable way to handle this.  The default
-// definition of swap doesn't work for proxy references.
-// It can't really be made to work, even with ugly hacks, since
-// the only unusual operation it uses is the copy constructor, which
-// is needed for other purposes.  We provide a macro for
-// full specializations, and instantiate the most common case.
 # define _ROPE_SWAP_SPECIALIZATION(_CharT, __Alloc) \
     inline void swap(_Rope_char_ref_proxy <_CharT, __Alloc > __a, \
                      _Rope_char_ref_proxy <_CharT, __Alloc > __b) { \
@@ -785,7 +648,6 @@ _ROPE_SWAP_SPECIALIZATION(char,_STLP_DEFAULT_ALLOCATOR(char) )
 
   template<class _CharT, class _Alloc>
 class _Rope_char_ptr_proxy {
-  // XXX this class should be rewritten.
 public:
   typedef _Rope_char_ptr_proxy<_CharT, _Alloc> _Self;
   friend class _Rope_char_ref_proxy<_CharT,_Alloc>;
@@ -813,14 +675,6 @@ public:
 };
 
 
-// Rope iterators:
-// Unlike in the C version, we cache only part of the stack
-// for rope iterators, since they must be efficiently copyable.
-// When we run out of cache, we have to reconstruct the iterator
-// value.
-// Pointers from iterators are not included in reference counts.
-// Iterators are assumed to be thread private.  Ropes can
-// be shared.
 
 template<class _CharT, class _Alloc>
 class _Rope_iterator_base
@@ -830,51 +684,21 @@ class _Rope_iterator_base
   typedef _Rope_iterator_base<_CharT, _Alloc> _Self;
 public:
   typedef _Rope_RopeRep<_CharT,_Alloc> _RopeRep;
-  // Borland doesnt want this to be protected.
-  //  protected:
   enum { _S_path_cache_len = 4 }; // Must be <= 9.
   enum { _S_iterator_buf_len = 15 };
   size_t _M_current_pos;
   _RopeRep* _M_root;     // The whole rope.
   size_t _M_leaf_pos;    // Starting position for current leaf
   __GC_CONST _CharT* _M_buf_start;
-  // Buffer possibly
-  // containing current char.
   __GC_CONST _CharT* _M_buf_ptr;
-  // Pointer to current char in buffer.
-  // != 0 ==> buffer valid.
   __GC_CONST _CharT* _M_buf_end;
-  // One past __last valid char in buffer.
-  // What follows is the path cache.  We go out of our
-  // way to make this compact.
-  // Path_end contains the bottom section of the path from
-  // the root to the current leaf.
   const _RopeRep* _M_path_end[_S_path_cache_len];
   int _M_leaf_index;     // Last valid __pos in path_end;
-  // _M_path_end[0] ... _M_path_end[leaf_index-1]
-  // point to concatenation nodes.
   unsigned char _M_path_directions;
-  // (path_directions >> __i) & 1 is 1
-  // iff we got from _M_path_end[leaf_index - __i - 1]
-  // to _M_path_end[leaf_index - __i] by going to the
-  // __right. Assumes path_cache_len <= 9.
   _CharT _M_tmp_buf[_S_iterator_buf_len];
-  // Short buffer for surrounding chars.
-  // This is useful primarily for 
-  // RopeFunctions.  We put the buffer
-  // here to avoid locking in the
-  // multithreaded case.
-  // The cached path is generally assumed to be valid
-  // only if the buffer is valid.
   static void _S_setbuf(_Rope_iterator_base<_CharT, _Alloc>& __x);
-  // Set buffer contents given
-  // path cache.
   static void _S_setcache(_Rope_iterator_base<_CharT, _Alloc>& __x);
-  // Set buffer contents and
-  // path cache.
   static void _S_setcache_for_incr(_Rope_iterator_base<_CharT, _Alloc>& __x);
-  // As above, but assumes path
-  // cache is valid for previous posn.
   _Rope_iterator_base() {}
   _Rope_iterator_base(_RopeRep* __root, size_t __pos)
     : _M_current_pos(__pos),_M_root(__root),  _M_buf_ptr(0) {}
@@ -900,21 +724,16 @@ class _Rope_const_iterator : public _Rope_iterator_base<_CharT,_Alloc> {
   friend class rope<_CharT,_Alloc>;
   typedef  _Rope_const_iterator<_CharT, _Alloc> _Self;
   typedef _Rope_iterator_base<_CharT,_Alloc> _Base;
-  //  protected:
 public:
 #   ifndef _STLP_HAS_NO_NAMESPACES
   typedef _Rope_RopeRep<_CharT,_Alloc> _RopeRep;
-  // The one from the base class may not be directly visible.
 #   endif
   _Rope_const_iterator(const _RopeRep* __root, size_t __pos):
     _Rope_iterator_base<_CharT,_Alloc>(
                                        __CONST_CAST(_RopeRep*,__root), __pos)
-    // Only nonconst iterators modify root ref count
   {}
 public:
   typedef _CharT reference;   // Really a value.  Returning a reference
-                                // Would be a mess, since it would have
-                                // to be included in refcount.
   typedef const _CharT* pointer;
   typedef _CharT value_type;
   typedef ptrdiff_t difference_type;
@@ -976,9 +795,6 @@ public:
     size_t __old_pos = this->_M_current_pos;
     this->_M_incr(1);
     return _Rope_const_iterator<_CharT,_Alloc>(this->_M_root, __old_pos);
-    // This makes a subsequent dereference expensive.
-    // Perhaps we should instead copy the iterator
-    // if it has a valid cache?
   }
   _Self operator--(int) {
     size_t __old_pos = this->_M_current_pos;
@@ -994,16 +810,8 @@ class _Rope_iterator : public _Rope_iterator_base<_CharT,_Alloc> {
   typedef _Rope_iterator<_CharT, _Alloc> _Self;
   typedef _Rope_iterator_base<_CharT,_Alloc> _Base;
   typedef _Rope_RopeRep<_CharT,_Alloc> _RopeRep;
-  //  protected:
 public:
   rope<_CharT,_Alloc>* _M_root_rope;
-  // root is treated as a cached version of this,
-  // and is used to detect changes to the underlying
-  // rope.
-  // Root is included in the reference count.
-  // This is necessary so that we can detect changes reliably.
-  // Unfortunately, it requires careful bookkeeping for the
-  // nonGC case.
   _Rope_iterator(rope<_CharT,_Alloc>* __r, size_t __pos);
   
   void _M_check();
@@ -1143,8 +951,6 @@ protected:
   
   static bool _S_is0(_CharT __c) { return __c == _S_eos((_CharT*)0); }
   enum { _S_copy_max = 23 };
-  // For strings shorter than _S_copy_max, we copy to
-  // concatenate.
   
 public:
   typedef _Rope_RopeRep<_CharT, _Alloc> _RopeRep;
@@ -1152,7 +958,6 @@ public:
   typedef typename _Alloc_traits<_CharT,_Alloc>::allocator_type  allocator_type;
   allocator_type get_allocator() const { return allocator_type(_M_tree_ptr); }
 public:
-  // The only data member of a rope:
   _STLP_alloc_proxy<_RopeRep*, _CharT, allocator_type> _M_tree_ptr;
 
   typedef _Rope_RopeConcatenation<_CharT,_Alloc> _RopeConcatenation;
@@ -1162,25 +967,16 @@ public:
 
 
 
-  // Retrieve a character at the indicated position.
   static _CharT _S_fetch(_RopeRep* __r, size_type __pos);
 
 #       ifndef __GC
-  // Obtain a pointer to the character at the indicated position.
-  // The pointer can be used to change the character.
-  // If such a pointer cannot be produced, as is frequently the
-  // case, 0 is returned instead.
-  // (Returns nonzero only if all nodes in the path have a refcount
-  // of 1.)
   static _CharT* _S_fetch_ptr(_RopeRep* __r, size_type __pos);
 #       endif
 
   static bool _S_apply_to_pieces(
-                                // should be template parameter
                                  _Rope_char_consumer<_CharT>& __c,
                                  const _RopeRep* __r,
                                  size_t __begin, size_t __end);
-                                // begin and end are assumed to be in range.
 
 #       ifndef __GC
   static void _S_unref(_RopeRep* __t)
@@ -1203,30 +999,20 @@ public:
   typedef _Rope_self_destruct_ptr<_CharT,_Alloc> _Self_destruct_ptr;
 #       endif
 
-  // _Result is counted in refcount.
   static _RopeRep* _S_substring(_RopeRep* __base,
                                 size_t __start, size_t __endp1);
 
   static _RopeRep* _S_concat_char_iter(_RopeRep* __r,
                                        const _CharT* __iter, size_t __slen);
-  // Concatenate rope and char ptr, copying __s.
-  // Should really take an arbitrary iterator.
-  // Result is counted in refcount.
   static _RopeRep* _S_destr_concat_char_iter(_RopeRep* __r,
                                              const _CharT* __iter, size_t __slen)
-    // As above, but one reference to __r is about to be
-    // destroyed.  Thus the pieces may be recycled if all
-    // relevent reference counts are 1.
 #           ifdef __GC
-    // We can't really do anything since refcounts are unavailable.
   { return _S_concat_char_iter(__r, __iter, __slen); }
 #           else
   ;
 #           endif
 
   static _RopeRep* _S_concat_rep(_RopeRep* __left, _RopeRep* __right);
-  // General concatenation on _RopeRep.  _Result
-  // has refcount of 1.  Adjusts argument refcounts.
 
 public:
   void apply_to_pieces( size_t __begin, size_t __end,
@@ -1249,8 +1035,6 @@ protected:
     }
   }
                 
-  // Allocate and construct a RopeLeaf using the supplied allocator
-  // Takes ownership of s instead of copying.
   static _RopeLeaf* _S_new_RopeLeaf(__GC_CONST _CharT *__s,
                                     size_t _p_size, allocator_type __a)
   {
@@ -1314,32 +1098,18 @@ protected:
   }
             
 
-  // Concatenation of nonempty strings.
-  // Always builds a concatenation node.
-  // Rebalances if the result is too deep.
-  // Result has refcount 1.
-  // Does not increment left and right ref counts even though
-  // they are referenced.
   static _RopeRep*
   _S_tree_concat(_RopeRep* __left, _RopeRep* __right);
 
-  // Concatenation helper functions
   static _RopeLeaf*
   _S_leaf_concat_char_iter(_RopeLeaf* __r,
                            const _CharT* __iter, size_t __slen);
-  // Concatenate by copying leaf.
-  // should take an arbitrary iterator
-  // result has refcount 1.
 #       ifndef __GC
   static _RopeLeaf* _S_destr_leaf_concat_char_iter
   (_RopeLeaf* __r, const _CharT* __iter, size_t __slen);
-  // A version that potentially clobbers __r if __r->_M_ref_count == 1.
 #       endif
 
 
-  // A helper function for exponentiating strings.
-  // This uses a nonstandard refcount convention.
-  // The result has refcount 0.
   friend struct _Rope_Concat_fn<_CharT,_Alloc>;
   typedef _Rope_Concat_fn<_CharT,_Alloc> _Concat_fn;
 
@@ -1355,18 +1125,12 @@ public: /* for operators */
   rope(_RopeRep* __t, const allocator_type& __a = allocator_type())
     : _M_tree_ptr(__a, __t) { }
 private:
-  // Copy __r to the _CharT buffer.
-  // Returns __buffer + __r->_M_size._M_data.
-  // Assumes that buffer is uninitialized.
   static _CharT* _S_flatten(_RopeRep* __r, _CharT* __buffer);
 
-  // Again, with explicit starting position and length.
-  // Assumes that buffer is uninitialized.
   static _CharT* _S_flatten(_RopeRep* __r,
                             size_t __start, size_t __len,
                             _CharT* __buffer);
 
-  // fbp : HP aCC prohibits access to protected min_len from within static methods ( ?? )
 public:
   static const unsigned long _S_min_len[46];
 protected:
@@ -1381,7 +1145,6 @@ protected:
   { return (__r->_M_depth <= 1 ||
             __r->_M_size._M_data >= _S_min_len[__r->_M_depth - 2]); }
 
-  // Assumes the result is not empty.
   static _RopeRep* _S_concat_and_set_balanced(_RopeRep* __left,
                                               _RopeRep* __right)
   {
@@ -1390,32 +1153,19 @@ protected:
     return __result;
   }
 
-  // The basic rebalancing operation.  Logically copies the
-  // rope.  The result has refcount of 1.  The client will
-  // usually decrement the reference count of __r.
-  // The result is within height 2 of balanced by the above
-  // definition.
   static _RopeRep* _S_balance(_RopeRep* __r);
 
-  // Add all unbalanced subtrees to the forest of balanceed trees.
-  // Used only by balance.
   static void _S_add_to_forest(_RopeRep*__r, _RopeRep** __forest);
         
-  // Add __r to forest, assuming __r is already balanced.
   static void _S_add_leaf_to_forest(_RopeRep* __r, _RopeRep** __forest);
 
-  // Print to stdout, exposing structure
   static void _S_dump(_RopeRep* __r, int __indent = 0);
 
-  // Return -1, 0, or 1 if __x < __y, __x == __y, or __x > __y resp.
   static int _S_compare(const _RopeRep* __x, const _RopeRep* __y);
 
 public:
   bool empty() const { return 0 == _M_tree_ptr._M_data; }
 
-  // Comparison member function.  This is public only for those
-  // clients that need a ternary comparison.  Others
-  // should use the comparison operators below.
   int compare(const _Self& __y) const {
     return _S_compare(_M_tree_ptr._M_data, __y._M_tree_ptr._M_data);
   }
@@ -1429,9 +1179,6 @@ public:
     : _M_tree_ptr(__a, (_STLP_ROPE_FROM_UNOWNED_CHAR_PTR(__s, __len, __a)))
   { }
 
-  // Should perhaps be templatized with respect to the iterator type
-  // and use Sequence_buffer.  (It should perhaps use sequence_buffer
-  // even now.)
   rope(const _CharT *__s, const _CharT *__e,
        const allocator_type& __a = allocator_type())
     : _M_tree_ptr(__a, _STLP_ROPE_FROM_UNOWNED_CHAR_PTR(__s, __e - __s, __a))
@@ -1469,7 +1216,6 @@ public:
     _RopeRep* __remainder;
     rope<_CharT,_Alloc> __remainder_rope;
 	    
-    // gcc-2.7.2 bugs
     typedef _Rope_Concat_fn<_CharT,_Alloc> _Concat_fn;
 	    
     if (0 == __n)
@@ -1507,7 +1253,6 @@ public:
 		__result = __base_rope;
 #         ifndef __GC
 		_STLP_ASSERT(2 == __result._M_tree_ptr._M_data->_M_ref_count)
-		// One each for base_rope and __result
 #         endif
       } else {
 		__result = power(__base_rope, __exponent, _Concat_fn());
@@ -1526,7 +1271,6 @@ public:
   rope(const allocator_type& __a = allocator_type())
     : _M_tree_ptr(__a, (_RopeRep*)0) {}
 
-  // Construct a rope from a function that can compute its members
   rope(char_producer<_CharT> *__fn, size_t __len, bool __delete_fn,
        const allocator_type& __a = allocator_type())
     : _M_tree_ptr(__a, (_RopeRep*)0)
@@ -1617,11 +1361,6 @@ public:
     _S_flatten(_M_tree_ptr._M_data, __buffer);
   }
 
-  // This is the copy function from the standard, but
-  // with the arguments reordered to make it consistent with the
-  // rest of the interface.
-  // Note that this guaranteed not to compile if the draft standard
-  // order is assumed.
   size_type copy(size_type __pos, size_type __n, _CharT* __buffer) const 
   {
     size_t _p_size = size();
@@ -1632,29 +1371,19 @@ public:
     return __len;
   }
 
-  // Print to stdout, exposing structure.  May be useful for
-  // performance debugging.
   void dump() {
     _S_dump(_M_tree_ptr._M_data);
   }
 
-  // Convert to 0 terminated string in new allocated memory.
-  // Embedded 0s in the input do not terminate the copy.
   const _CharT* c_str() const;
 
-  // As above, but lso use the flattened representation as the
-  // the new rope representation.
   const _CharT* replace_with_c_str();
 
-  // Reclaim memory for the c_str generated flattened string.
-  // Intentionally undocumented, since it's hard to say when this
-  // is safe for multiple threads.
   void delete_c_str () {
     if (0 == _M_tree_ptr._M_data) return;
     if (_RopeRep::_S_leaf == _M_tree_ptr._M_data->_M_tag && 
         ((_RopeLeaf*)_M_tree_ptr._M_data)->_M_data == 
         _M_tree_ptr._M_data->_M_c_string) {
-      // Representation shared
       return;
     }
 #           ifndef __GC
@@ -1668,7 +1397,6 @@ public:
   }
 
   _CharT at(size_type __pos) const {
-    // if (__pos >= size()) throw out_of_range;  // XXX
     return (*this)[__pos];
   }
 
@@ -1676,7 +1404,6 @@ public:
     return(const_iterator(_M_tree_ptr._M_data, 0));
   }
 
-  // An easy way to get a const iterator from a non-const container.
   const_iterator const_begin() const {
     return(const_iterator(_M_tree_ptr._M_data, 0));
   }
@@ -1699,9 +1426,6 @@ public:
 
   size_type max_size() const {
     return _S_min_len[__ROPE_MAX_DEPTH-1] - 1;
-    //  Guarantees that the result can be sufficirntly
-    //  balanced.  Longer ropes will probably still work,
-    //  but it's harder to make guarantees.
   }
 
   const_reverse_iterator rbegin() const {
@@ -1719,12 +1443,7 @@ public:
   const_reverse_iterator const_rend() const {
     return const_reverse_iterator(begin());
   }
-  // The symmetric cases are intentionally omitted, since they're presumed
-  // to be less common, and we don't handle them as well.
 
-  // The following should really be templatized.
-  // The first argument should be an input iterator or
-  // forward iterator with value_type _CharT.
   _Self& append(const _CharT* __iter, size_t __n) {
     _RopeRep* __result = 
       _S_destr_concat_char_iter(_M_tree_ptr._M_data, __iter, __n);
@@ -1791,7 +1510,6 @@ public:
 
 
 protected:
-  // Result is included in refcount.
   static _RopeRep* replace(_RopeRep* __old, size_t __pos1,
                            size_t __pos2, _RopeRep* __r) {
     if (0 == __old) { _S_ref(__r); return __r; }
@@ -1832,9 +1550,6 @@ public:
     _Self_destruct_ptr __right(_S_substring(_M_tree_ptr._M_data, __p, size()));
     _Self_destruct_ptr __left_result(
                                      _S_concat_char_iter(__left, __i, __n));
-    // _S_ destr_concat_char_iter should be safe here.
-    // But as it stands it's probably not a win, since __left
-    // is likely to have additional references.
     _RopeRep* __result = _S_concat_rep(__left_result, __right);
     _S_unref(_M_tree_ptr._M_data);
     _M_tree_ptr._M_data = __result;
@@ -1870,7 +1585,6 @@ public:
     insert(__p, __r);
   }
 
-  // (position, length) versions of replace operations:
 
   void replace(size_t __p, size_t __n, const _Self& __r) {
     _RopeRep* __result = 
@@ -1913,7 +1627,6 @@ public:
     replace(__p, __n, __r);
   }
 
-  // Single character variants:
   void replace(size_t __p, _CharT __c) {
     iterator __i(this, __p);
     *__i = __c;
@@ -1945,19 +1658,16 @@ public:
     replace(__p, 1, __i, __j);
   }
 
-  // Erase, (position, size) variant.
   void erase(size_t __p, size_t __n) {
     _RopeRep* __result = replace(_M_tree_ptr._M_data, __p, __p + __n, 0);
     _S_unref(_M_tree_ptr._M_data);
     _M_tree_ptr._M_data = __result;
   }
 
-  // Erase, single character
   void erase(size_t __p) {
     erase(__p, __p + 1);
   }
 
-  // Insert, iterator variants.  
   iterator insert(const iterator& __p, const _Self& __r)
   { insert(__p.index(), __r); return __p; }
   iterator insert(const iterator& __p, size_t __n, _CharT __c)
@@ -1980,7 +1690,6 @@ public:
                   const iterator& __i, const iterator& __j)
   { insert(__p.index(), __i, __j); return __p; }
 
-  // Replace, range variants.
   void replace(const iterator& __p, const iterator& __q,
                const _Self& __r)
   { replace(__p.index(), __q.index() - __p.index(), __r); }
@@ -2002,7 +1711,6 @@ public:
                const iterator& __i, const iterator& __j)
   { replace(__p.index(), __q.index() - __p.index(), __i, __j); }
 
-  // Replace, iterator variants.
   void replace(const iterator& __p, const _Self& __r)
   { replace(__p.index(), __r); }
   void replace(const iterator& __p, _CharT __c)
@@ -2019,7 +1727,6 @@ public:
   void replace(const iterator& __p, iterator __i, iterator __j)
   { replace(__p.index(), __i, __j); }
 
-  // Iterator and range variants of erase
   iterator erase(const iterator& __p, const iterator& __q) {
     size_t __p_index = __p.index();
     erase(__p_index, __q.index() - __p_index);
@@ -2048,8 +1755,6 @@ public:
   }
         
   _Self substr(const_iterator __start, const_iterator __end) const {
-    // This might eventually take advantage of the cache in the
-    // iterator.
     return rope<_CharT,_Alloc>(
                                _S_substring(_M_tree_ptr._M_data, __start.index(), __end.index()));
   }
@@ -2062,7 +1767,6 @@ public:
 
   enum { npos = -1 };
 
-  //         static const size_type npos;
 
   size_type find(_CharT __c, size_type __pos = 0) const;
   size_type find(const _CharT* __s, size_type __pos = 0) const {
@@ -2102,7 +1806,6 @@ public:
   }
 
   reference at(size_type __pos) {
-    // if (__pos >= size()) throw out_of_range;  // XXX
     return (*this)[__pos];
   }
 
@@ -2113,9 +1816,6 @@ public:
     return max_size();
   }
 
-  // Stuff below this line is dangerous because it's error prone.
-  // I would really like to get rid of it.
-  // copy function with funny arg ordering.
   size_type copy(_CharT* __buffer, size_type __n, 
                  size_type __pos = 0) const {
     return copy(__pos, __n, __buffer);
@@ -2304,8 +2004,6 @@ operator+ (const rope<_CharT,_Alloc>& __left,
 {
   _STLP_ASSERT(__left.get_allocator() == __right.get_allocator())
   return rope<_CharT,_Alloc>(rope<_CharT,_Alloc>::_S_concat_rep(__left._M_tree_ptr._M_data, __right._M_tree_ptr._M_data));
-  // Inlining this should make it possible to keep __left and
-  // __right in registers.
 }
 
 template <class _CharT, class _Alloc>
@@ -2452,7 +2150,6 @@ inline void swap(wrope& __x, wrope& __y) { __x.swap(__y); }
 #endif /* _STLP_FUNCTION_TMPL_PARTIAL_ORDER */
 
 
-// Hash functions should probably be revisited later:
 _STLP_TEMPLATE_NULL struct hash<crope>
 {
   size_t operator()(const crope& __str) const
@@ -2478,7 +2175,6 @@ _STLP_TEMPLATE_NULL struct hash<wrope>
 #endif
 
 #ifndef _STLP_MSVC
-// I couldn't get this to work with VC++
 template<class _CharT,class _Alloc>
 void
 _Rope_rotate(_Rope_iterator<_CharT,_Alloc> __first,
@@ -2486,7 +2182,6 @@ _Rope_rotate(_Rope_iterator<_CharT,_Alloc> __first,
              _Rope_iterator<_CharT,_Alloc> __last);
 
 #if !defined(__GNUC__)
-// Appears to confuse g++
 inline void rotate(_Rope_iterator<char,_STLP_DEFAULT_ALLOCATOR(char) > __first,
                    _Rope_iterator<char,_STLP_DEFAULT_ALLOCATOR(char) > __middle,
                    _Rope_iterator<char,_STLP_DEFAULT_ALLOCATOR(char) > __last) {
@@ -2513,6 +2208,3 @@ _STLP_END_NAMESPACE
 
 # endif /* _STLP_INTERNAL_ROPE_H */
 
-// Local Variables:
-// mode:C++
-// End:

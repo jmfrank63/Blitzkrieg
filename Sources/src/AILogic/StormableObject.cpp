@@ -6,40 +6,30 @@
 #include "Randomize.h"
 #include "Soldier.h"
 #include "Cheats.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CDiplomacy theDipl;
 extern NTimer::STime curTime;
 extern SCheats theCheats;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													CStormableObject												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStormableObject::AddInsider( CSoldier *pUnit )
 {
 	const int nPlayer = pUnit->GetPlayer();
 	const int nParty = pUnit->GetParty();
 	
-	// дипломатия совпадает с дипломатией защитников объекта
 	if ( GetNDefenders() > 0 && theDipl.GetDiplStatus( GetPlayer(), nPlayer ) != EDI_ENEMY ||
 			 GetNDefenders() == 0 && !bAttackers )
 		AddSoldier( pUnit );
 	else
 	{
-		// таких ещё нет
 		if ( attackers.begin( nParty ) == attackers.end() )
 			startTimes[nParty] = curTime;
 		
 		attackers.Add( nParty, pUnit );
 		++nAttackers[nParty];
 
-		// эта party уже атакует
 		if ( startTimes[nParty] == 0 )
 			++nActiveAttackers;
 
 		pUnit->SetToSolidPlace();
 		
-		// изменить warfog для всех защитников
 		if ( !bAttackers )
 		{
 			bAttackers = true;			
@@ -48,7 +38,6 @@ void CStormableObject::AddInsider( CSoldier *pUnit )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStormableObject::DelFromAttackers( CSoldier *pUnit )
 {
 	const int nParty = pUnit->GetParty();
@@ -63,11 +52,9 @@ void CStormableObject::DelFromAttackers( CSoldier *pUnit )
 	attackers.Erase( nParty, i );
 
 	--nAttackers[nParty];
-	// эта party уже атакует
 	if ( startTimes[nParty] == 0 )
 		--nActiveAttackers;
 
-	// всех активных удалили - проверить, не удалили ли всех атакующих
 	if ( nActiveAttackers == 0 )
 	{
 		int i = 0;
@@ -78,13 +65,11 @@ void CStormableObject::DelFromAttackers( CSoldier *pUnit )
 		{
 			bAttackers = false;
 
-			// изменить warfog для всех защитников
 			for ( int i = 0; i < GetNDefenders(); ++i )
 				GetUnit( i )->ChangeWarFogState();
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStormableObject::FindInAttackers( CSoldier *pUnit ) const
 {
 	const int nParty = pUnit->GetParty();
@@ -97,7 +82,6 @@ bool CStormableObject::FindInAttackers( CSoldier *pUnit ) const
 
 	return i != attackers.end();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStormableObject::DelInsider( CSoldier *pUnit )
 {
 	if ( FindInAttackers( pUnit ) )
@@ -105,14 +89,11 @@ void CStormableObject::DelInsider( CSoldier *pUnit )
 	else
 		DelSoldier( pUnit, true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStormableObject::InsiderDamaged( CSoldier *pUnit )
 {
-	// защитник объекта
 	if ( !FindInAttackers( pUnit ) )
 		SoldierDamaged( pUnit );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CStormableObject::GetDamage( CBasicGun *pGun, CSoldier *pTarget ) const
 {
 	float fDamage = 0;
@@ -139,7 +120,6 @@ const float CStormableObject::GetDamage( CBasicGun *pGun, CSoldier *pTarget ) co
 
 	return fDamage;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStormableObject::Combat( CSoldier *pAttacker, CSoldier *pDefender )
 {
 	const float fDamageFromAttacker = GetDamage( pAttacker->GetGun( 0 ), pDefender );
@@ -148,7 +128,6 @@ void CStormableObject::Combat( CSoldier *pAttacker, CSoldier *pDefender )
 	pDefender->TakeDamage( fDamageFromAttacker, &pAttacker->GetGun( 0 )->GetShell(), pAttacker->GetPlayer(), pAttacker );
 	pAttacker->TakeDamage( fDamageFromDefender, &pDefender->GetGun( 0 )->GetShell(), pDefender->GetPlayer(), pDefender );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStormableObject::MakeDefenders( const int nParty )
 {
 	while ( attackers.begin( nParty ) != attackers.end() )
@@ -159,10 +138,8 @@ void CStormableObject::MakeDefenders( const int nParty )
 		AddSoldier( pSoldier );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStormableObject::Segment()
 {
-	// нет атакующих
 	if ( !bAttackers )
 		return false;
 	else
@@ -173,7 +150,6 @@ bool CStormableObject::Segment()
 
 			for ( int i = 0; i < 3; ++i )
 			{
-				// добавить тех атакующих, кто закончил концентрацию сил
 				if ( nAttackers[i] != 0 && startTimes[i] != 0 && curTime - startTimes[i] >= SConsts::CAMPING_TIME )
 				{
 					startTimes[i] = 0;
@@ -189,7 +165,6 @@ bool CStormableObject::Segment()
 				int nParty = 0;
 				while ( nParty < 3 && i <= nAttacker )
 				{
-					// им можно штурмовать
 					if ( nAttackers[nParty] != 0 && startTimes[nParty] == 0 )
 					{
 						predI = i;
@@ -200,7 +175,6 @@ bool CStormableObject::Segment()
 				}
 
 				--nParty;
-				// атакующие есть, а защищающихся нет
 				if ( GetNDefenders() == 0 )
 					MakeDefenders( nParty );
 				else
@@ -228,7 +202,6 @@ bool CStormableObject::Segment()
 		return true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CStormableObject::GetNFriendlyAttackers( const int nPlayer ) const
 {
 	int nResult = 0;
@@ -240,7 +213,6 @@ const int CStormableObject::GetNFriendlyAttackers( const int nPlayer ) const
 
 	return nResult;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CStormableObject::IsAnyInsiderVisible() const
 {
 	if ( IsAnyAttackers() )
@@ -258,4 +230,3 @@ const bool CStormableObject::IsAnyInsiderVisible() const
 		return false;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

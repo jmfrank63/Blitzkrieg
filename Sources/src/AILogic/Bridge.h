@@ -2,9 +2,7 @@
 #define __BRIDGE_H__
 
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "StaticObject.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFullBridge;
 
 class CBridgeSpan : public CGivenPassabilityStObject
@@ -19,7 +17,6 @@ class CBridgeSpan : public CGivenPassabilityStObject
 	bool bNewBuilt;												// этот мост построили во время тгры
 	bool bLocked;													// залочены ли тайл
 
-	// умирает данный сегмент, начинает удалять все вокруг.
 	bool bDeletingAround;
 
 	int nScriptID;
@@ -69,7 +66,6 @@ public:
 
 	friend class CFullBridge;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFullBridge : public IRefCount
 {
 	OBJECT_COMPLETE_METHODS( CFullBridge );
@@ -89,7 +85,6 @@ public:
 		std::list<BYTE> formerTiles;
 		CBridgeSpan * pSpan;
 	public:
-		//
 		SSpanLock(): pSpan( 0 ) {  }
 		SSpanLock( CBridgeSpan * pSpan, const WORD wDir );
 		void Unlock();
@@ -105,7 +100,6 @@ public:
 
 	const float GetHPPercent() const;
 
-	// when span was built
 	void SpanBuilt( CBridgeSpan * pSpan );
 
 	void AddSpan( CBridgeSpan *pSpan );
@@ -124,5 +118,4 @@ public:
 
 	friend class CBridgeCreation;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __BRIDGE_H__

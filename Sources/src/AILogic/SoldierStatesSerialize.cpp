@@ -5,7 +5,6 @@
 #include "InEntrenchmentStates.h"
 #include "InTransportStates.h"
 #include "SerializeOwner.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierRestState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -19,7 +18,6 @@ int CSoldierRestState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierAttackState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -42,7 +40,6 @@ int CSoldierAttackState::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierMoveToState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -56,7 +53,6 @@ int CSoldierMoveToState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierTurnToPointState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -67,7 +63,6 @@ int CSoldierTurnToPointState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierMoveByDirState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -76,7 +71,6 @@ int CSoldierMoveByDirState::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierEnterState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -89,7 +83,6 @@ int CSoldierEnterState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierEnterEntrenchmentState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -100,7 +93,6 @@ int CSoldierEnterEntrenchmentState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierAttackCommonStatObjState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -110,7 +102,6 @@ int CSoldierAttackCommonStatObjState::operator&( IStructureSaver &ss )
 	saver.Add( 3, &bSwarmAttack );	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierParadeState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -119,7 +110,6 @@ int CSoldierParadeState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierPlaceMineNowState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -131,7 +121,6 @@ int CSoldierPlaceMineNowState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierClearMineRadiusState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -144,7 +133,6 @@ int CSoldierClearMineRadiusState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierRestOnBoardState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -153,7 +141,6 @@ int CSoldierRestOnBoardState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierRestInEntrenchmentState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -164,7 +151,6 @@ int CSoldierRestInEntrenchmentState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierAttackInEtrenchState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -180,7 +166,6 @@ int CSoldierAttackInEtrenchState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierRestInBuildingState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -191,7 +176,6 @@ int CSoldierRestInBuildingState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierAttackInBuildingState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -205,7 +189,6 @@ int CSoldierAttackInBuildingState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierAttackUnitInBuildingState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -216,7 +199,6 @@ int CSoldierAttackUnitInBuildingState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierEnterTransportNowState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -230,7 +212,6 @@ int CSoldierEnterTransportNowState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierParaDroppingState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -245,7 +226,6 @@ int CSoldierParaDroppingState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierAttackFormationState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -256,7 +236,6 @@ int CSoldierAttackFormationState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierIdleState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -264,7 +243,6 @@ int CSoldierIdleState::operator&( IStructureSaver &ss )
 	SerializeOwner( 1, &pUnit, &saver );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierUseSpyglassState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -275,7 +253,6 @@ int CSoldierUseSpyglassState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierAttackAviationState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -287,7 +264,6 @@ int CSoldierAttackAviationState::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierFireMoraleShellState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -298,7 +274,6 @@ int CSoldierFireMoraleShellState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSoldierUseState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -308,4 +283,3 @@ int CSoldierUseState::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

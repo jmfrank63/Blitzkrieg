@@ -5,17 +5,13 @@
 #include "CommonId.h"
 #include "CustomCampaign.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceCustomCampaign::~CInterfaceCustomCampaign()
 {
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceCustomCampaign::Init()
 {
-	//инициализируем имена
 	fileMasks.clear();
 	fileMasks.push_back( "*.xml" );
-	//	szTopDir = std::string( GetSingleton<IDataStorage>()->GetName() );
 	szTopDir = "";
 	szTopDir += "scenarios\\custom\\campaigns\\";
 	szCurrentDir = szTopDir;
@@ -23,12 +19,9 @@ bool CInterfaceCustomCampaign::Init()
 	nSortType = E_SORT_BY_NAME;
 	bStorageFiles = true;
 	szCollectorName = "custom_campaigns";
-	//
 	CInterfaceCustomList::Init();
-	//
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceCustomCampaign::FillListItem( IUIListRow *pRow, const std::string &szFullFileName, bool *pSelectedItem )
 {
 	std::string szCampaignName = szFullFileName.substr( 0, szFullFileName.rfind('.') );
@@ -54,7 +47,6 @@ bool CInterfaceCustomCampaign::FillListItem( IUIListRow *pRow, const std::string
 
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceCustomCampaign::OnOk( const std::string &szFullFileName )
 {
 	std::string szBase = GetSingleton<IDataStorage>()->GetName();
@@ -77,7 +69,5 @@ bool CInterfaceCustomCampaign::OnOk( const std::string &szFullFileName )
 												MISSION_COMMAND_CAMPAIGN,
 												0 ) );
 
-	//FinishInterface( MISSION_COMMAND_CAMPAIGN, 0 );
 	return true;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -59,12 +59,9 @@
 
 #include "Guns.h"
 
-//CRAP{ for profiling
 #ifdef _PROFILER
 #include "VTuneAPI.h"
 #endif // _PROFILER
-//CRAP}
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CWeather theWeather;
 extern CSupremeBeing theSupremeBeing;
 extern CCombatEstimator theCombatEstimator;
@@ -92,20 +89,13 @@ extern CMultiplayerInfo theMPInfo;
 extern CDifficultyLevel theDifficultyLevel;
 extern CGraveyard theGraveyard;
 
-// for debug
 extern CShellsStore theShellsStore;
 NTimer::STime timeToLogStart;
 NTimer::STime timeToLogFinish;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 								   CAILogic																		*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAILogic::CAILogic()
 {
 	pAILogic = this;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::Clear()
 {
 	CQueueUnit::Clear();
@@ -115,21 +105,17 @@ void CAILogic::Clear()
 
 	DestroyContents();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CVec2 CAILogic::LockAvitaionAppearPoint()
 {
 	theUnitCreation.LockAppearPoint( theDipl.GetMyNumber(), true);
 	return theUnitCreation.GetFirstIntercectWithMap( theDipl.GetMyNumber() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::UnlockAviationAppearPoint()
 {
 	theUnitCreation.LockAppearPoint( theDipl.GetMyNumber(), false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::LoadAvailableTrucks()
 {
-	//�������� ������ templates ��������, ������� �������� ��� settings ������� �������
 	std::string szChapterName = GetGlobalVar( "Chapter.Current.Name" );
 
 	NStr::ToLower( szChapterName );
@@ -151,7 +137,6 @@ void CAILogic::LoadAvailableTrucks()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAILogic::CheckForScenarioTruck( const SMapObjectInfo &object, IObjectsDB *pIDB, const SGDBObjectDesc *pDesc, const int nDBIndex, LinkInfo *linksInfo, const SMechUnitRPGStats **pNewStats ) const
 {
 	if ( !theDipl.IsNetGame() )
@@ -159,22 +144,18 @@ bool CAILogic::CheckForScenarioTruck( const SMapObjectInfo &object, IObjectsDB *
 		NI_ASSERT_T( dynamic_cast<const SUnitBaseRPGStats*>(pIDB->GetRPGStats( pDesc )) != 0, NStr::Format( "Object (%s) was passed as SGVOGT_UNIT", pDesc->GetName() ) );
 		CGDBPtr<SUnitBaseRPGStats> pStats = static_cast<const SUnitBaseRPGStats*>( pIDB->GetRPGStats( pDesc ) );
 
-		// ��������� � � ���-�� ���������
 		if ( pStats->IsTransport() && object.link.nLinkWith > 0 )
 		{
 			IRefCount *pObj = CLinkObject::GetObjectByLink( object.link.nLinkWith );
-			// ������ ������, � ������� ���������
 			if ( pObj )
 			{
 				CArtillery *pArtillery = dynamic_cast<CArtillery*>( pObj );
 	
-				// ��������� � �����������
 				if ( pArtillery )
 				{
 					if ( !pArtillery->GetStats()->availExposures.GetData( ACTION_COMMAND_TAKE_ARTILLERY ) )
 						return false;
 
-					// ���������� �����������, ����� �������� �� ����������� ��������
 					if ( pArtillery->GetScenarioUnit() )
 					{
 						*pNewStats = 0;
@@ -193,7 +174,6 @@ bool CAILogic::CheckForScenarioTruck( const SMapObjectInfo &object, IObjectsDB *
 				else
 					return false;
 			}
-			// ��������� � �������������� ��������
 			else
 				return false;
 		}
@@ -201,7 +181,6 @@ bool CAILogic::CheckForScenarioTruck( const SMapObjectInfo &object, IObjectsDB *
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::SendAcknowlegdementForced( IRefCount *pObj, const EUnitAckType eAck )
 {
 	if ( pObj && pObj->IsValid() )
@@ -210,7 +189,6 @@ void CAILogic::SendAcknowlegdementForced( IRefCount *pObj, const EUnitAckType eA
 		pUnit->SendAcknowledgement( eAck, true );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IRefCount* CAILogic::AddObject( const SMapObjectInfo &object, IObjectsDB *pIDB, LinkInfo *linksInfo, bool bInitialization, bool IsEditor, const SHPObjectRPGStats *pPassedStats )
 {
 	IUpdatableObj *pResult = 0;
@@ -427,7 +405,6 @@ IRefCount* CAILogic::AddObject( const SMapObjectInfo &object, IObjectsDB *pIDB, 
 
 	return pResult;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::LoadUnits( const SLoadMapInfo &mapInfo, LinkInfo *linksInfo )
 {
 	CPtr<IObjectsDB> pIDB = GetSingleton<IObjectsDB>();
@@ -435,7 +412,6 @@ void CAILogic::LoadUnits( const SLoadMapInfo &mapInfo, LinkInfo *linksInfo )
 	std::list<int> transports;
 	for ( int i = 0; i < mapInfo.objects.size(); ++i )
 	{
-		// � reinforcement
 		const int nGroup = mapInfo.reinforcements.GetGroupById( mapInfo.objects[i].nScriptID );
 		if ( nGroup != -1 )
 			scripts.AddUnitToReinforcGroup( mapInfo.objects[i], nGroup, 0, 0 );
@@ -454,11 +430,9 @@ void CAILogic::LoadUnits( const SLoadMapInfo &mapInfo, LinkInfo *linksInfo )
 	for ( std::list<int>::iterator iter = transports.begin(); iter != transports.end(); ++iter )
 		AddObject( mapInfo.objects[*iter], pIDB, linksInfo, true, false, 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::InitLinks( LinkInfo &linksInfo )
 {
 	std::set<int> locomotives;
-	// �����, ������� ��������� � �����
 	std::unordered_map<int, int> nextCarriages;
 	
 	for ( LinkInfo::iterator iter = linksInfo.begin(); iter != linksInfo.end(); ++iter )
@@ -469,7 +443,6 @@ void CAILogic::InitLinks( LinkInfo &linksInfo )
 			if ( pTrain->GetStats()->IsTrain() )
 			{
 				bTrain = true;				
-				// ���������
 				if ( linksInfo[pTrain].nLinkWith <= 0 )
 					locomotives.insert( pTrain->GetID() );
 				else
@@ -487,18 +460,15 @@ void CAILogic::InitLinks( LinkInfo &linksInfo )
 			if ( CCommonUnit *pUnit = dynamic_cast<CCommonUnit*>(iter->first) )
 			{
 				const SMapObjectInfo::SLinkInfo &link = linksInfo[pUnit];
-				// � ���-�� ��������� � ���� ���-�� ����������
 				if ( link.nLinkWith > 0 )
 				{
 					IRefCount *pObj = CLinkObject::GetObjectByLink( link.nLinkWith );
 					if ( pObj )
 					{
-						//�������� ���������� � ������
 						if ( CArtillery *pArtillery = dynamic_cast<CArtillery*>( pObj ) )
 						{
 							if ( CAITransportUnit *pTransport = dynamic_cast<CAITransportUnit*>(pUnit) )
 							{
-								// ����������� ���������� � �����
 								pTransport->SetTowedArtillery( pArtillery );
 								pTransport->SetTowedArtilleryCrew( pArtillery->GetCrew() );
 								pArtillery->UpdateDirection( 65535/2 + pTransport->GetFrontDir() );
@@ -508,13 +478,10 @@ void CAILogic::InitLinks( LinkInfo &linksInfo )
 								const CVec2 vShiftFromHookPointToArtillery = pArtillery->GetCenter() - vArtilleryHookPoint;
 								const CVec2 vHookPoint = vTransportHookPoint + vShiftFromHookPointToArtillery;
 
-								// cannons can be outside map. need adjustment.
-								//CRAP{ SIMPLEST ADJUSTMENT
 								if ( theStaticMap.IsPointInside( vHookPoint ) )
 									pArtillery->SetNewCoordinates( CVec3( vHookPoint.x, vHookPoint.y, theStaticMap.GetZ( AICellsTiles::GetTile( vHookPoint ) ) ) );
 								else
 									pArtillery->SetNewCoordinates( CVec3( vTransportHookPoint.x, vTransportHookPoint.y, theStaticMap.GetZ( AICellsTiles::GetTile( vTransportHookPoint ) ) ) );
-								//CRAP}
 								
 								CCommonUnit* pCrew = pArtillery->GetCrew();
 								if ( pCrew )
@@ -524,17 +491,13 @@ void CAILogic::InitLinks( LinkInfo &linksInfo )
 								theGroupLogic.UnitCommand( SAIUnitCmd( ACTION_MOVE_BEING_TOWED, pTransport ), pArtillery, false );
 							}
 						}
-						// �������� � ������
 						else if ( CCommonUnit *pWithUnit = dynamic_cast<CCommonUnit*>(pObj) )
 						{
-							// ��������� ���������
 							if ( pUnit->IsFormation() )
 								theGroupLogic.UnitCommand( SAIUnitCmd( link.bIntention ? ACTION_COMMAND_LOAD : ACTION_COMMAND_LOAD_NOW, pWithUnit ), pUnit, false );
 						}
-						// link with static object
 						else if ( CStaticObject *pStaticObj = dynamic_cast<CStaticObject*>( pObj ) )
 						{
-							// �������� � �������
 							if ( pStaticObj->GetObjectType() == ESOT_BUILDING )
 							{
 								if ( link.bIntention )
@@ -545,7 +508,6 @@ void CAILogic::InitLinks( LinkInfo &linksInfo )
 									theGroupLogic.UnitCommand( SAIUnitCmd( ACTION_COMMAND_ENTER_BUILDING_NOW, pStaticObj ), pLoadingUnit, false );
 								}
 							}
-							// �������� � ������
 							else if ( pStaticObj->GetObjectType() == ESOT_ENTR_PART )
 							{
 								if ( link.bIntention )
@@ -587,13 +549,10 @@ void CAILogic::InitLinks( LinkInfo &linksInfo )
 		}
 	}
 } 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::LoadEntrenchments( const std::vector<SEntrenchmentInfo> &entrenchments )
 {
-	// �� ������
 	for ( int i = 0; i < entrenchments.size(); ++i )
 	{
-		// �� �������
 		CPtr<CFullEntrenchment> pFullEntrenchment = new CFullEntrenchment();
 		for ( int j = 0; j < entrenchments[i].sections.size(); ++j )
 		{
@@ -609,14 +568,11 @@ void CAILogic::LoadEntrenchments( const std::vector<SEntrenchmentInfo> &entrench
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::LoadBridges( const std::vector< std::vector<int> > &bridgesInfo )
 {
-	// �� ������
 	for ( int i = 0; i < bridgesInfo.size(); ++i )
 	{
 		std::list<CPtr<CBridgeSpan> > bridge;
-		// �� �������
 		CPtr<CFullBridge> pFullBridge = new CFullBridge;
 		for ( int j = 0; j < bridgesInfo[i].size(); ++j )
 		{
@@ -632,7 +588,6 @@ void CAILogic::LoadBridges( const std::vector< std::vector<int> > &bridgesInfo )
 		bridges.push_back( bridge );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::LaunchStartCommand( const SAIStartCommand &startCommand, IRefCount **pUnitsBuffer, const int nSize )
 {
 	SAIUnitCmd cmd;
@@ -650,7 +605,6 @@ void CAILogic::LaunchStartCommand( const SAIStartCommand &startCommand, IRefCoun
 	theGroupLogic.GroupCommand( cmd, wGroup, true );
 	theGroupLogic.UnregisterGroup( wGroup );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::InitStartCommands()
 {
 	for ( SLoadMapInfo::TStartCommandsList::const_iterator iter = startCmds.begin(); iter != startCmds.end(); ++iter )
@@ -666,7 +620,6 @@ void CAILogic::InitStartCommands()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::InitStartCommands( const LinkInfo &linksInfo, std::unordered_map<int, int> &old2NewLinks )
 {
 	for ( SLoadMapInfo::TStartCommandsList::const_iterator iter = startCmds.begin(); iter != startCmds.end(); ++iter )
@@ -692,7 +645,6 @@ void CAILogic::InitStartCommands( const LinkInfo &linksInfo, std::unordered_map<
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::InitReservePositions()
 {
 	for ( SLoadMapInfo::TReservePositionsList::const_iterator iter = reservePositions.begin(); iter != reservePositions.end(); ++iter )
@@ -703,7 +655,6 @@ void CAILogic::InitReservePositions()
 			CAIUnit *pUnit = checked_cast<CAIUnit*>( pLinkObject );
 			pUnit->SetBattlePos( iter->vPos );
 
-			// ���� ����������, ������� �������
 			CLinkObject *pLinkTruck = CLinkObject::GetObjectByLink( iter->nTruckLinkID );
 			if ( pLinkTruck && pLinkTruck->IsValid() && pLinkTruck->IsAlive() )
 			{
@@ -714,7 +665,6 @@ void CAILogic::InitReservePositions()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::InitReservePositions( std::unordered_map<int, int> &old2NewLinks )
 {
 	for ( SLoadMapInfo::TReservePositionsList::const_iterator iter = reservePositions.begin(); iter != reservePositions.end(); ++iter )
@@ -728,7 +678,6 @@ void CAILogic::InitReservePositions( std::unordered_map<int, int> &old2NewLinks 
 				CCommonUnit *pUnit = checked_cast<CCommonUnit*>( pLinkObject );
 				pUnit->SetBattlePos( iter->vPos );
 
-				// ���� ����������, ������� �������
 				const int nTruckLink = iter->nTruckLinkID;
 				if ( old2NewLinks.find( nTruckLink ) != old2NewLinks.end() )
 				{
@@ -743,13 +692,10 @@ void CAILogic::InitReservePositions( std::unordered_map<int, int> &old2NewLinks 
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::CommonInit( const STerrainInfo &terrainInfo )
 {
-	// for debug
 	timeToLogStart = 0;
 	timeToLogFinish = 1000000;
-	//
 	
 	NTrg::Init();
 	theCheats.Init();
@@ -795,28 +741,22 @@ void CAILogic::CommonInit( const STerrainInfo &terrainInfo )
 
 	theCheats.SetHistoryPlaying( GetGlobalVar( "History.Playing", 0 ) != 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::LoadScenarioUnits( const SLoadMapInfo &mapInfo, LinkInfo *linksInfo )
 {
 	IScenarioTracker *pScenarioTracker = GetSingleton<IScenarioTracker>();
 	IPlayerScenarioInfo *pUserPlayer = pScenarioTracker->GetUserPlayer();
-	// ���������� ������, ������� player ���� � ����� � ������
 	const int nMissionUnits = pUserPlayer->GetNumUnits();
 
-	// ��� ����������� ������� �� �����
 	const std::vector<SMapObjectInfo> &scenarioObjects = mapInfo.scenarioObjects;	
-	// �������� ��� ��� ����������� ������ �� ���� ������
 	std::vector<bool> takenScenarioObjects( scenarioObjects.size(), false );
 
 	IObjectsDB *pIDB = GetSingleton<IObjectsDB>();
-	// �� ���� ������ ������
 	for ( int k = 0; k < nMissionUnits; ++k )
 	{
 		IScenarioUnit *pScenarioUnit = pUserPlayer->GetUnit( k );
 		const std::string &szUnitStats = pScenarioUnit->GetRPGStats();
 		const SUnitBaseRPGStats *pScenaroUnitStats = NGDB::GetRPGStats<SUnitBaseRPGStats>( szUnitStats.c_str() );
 
-		// ����� ���������� ����������� ������ ��� ����� k
 		int i;
 		for ( i = 0; i < scenarioObjects.size(); ++i )
 		{
@@ -831,11 +771,9 @@ void CAILogic::LoadScenarioUnits( const SLoadMapInfo &mapInfo, LinkInfo *linksIn
 					break;
 			}
 		}
-		// check, if we found place for this scenario unit
 		if ( i >= scenarioObjects.size() ) 
 			continue;
 
-		// ���������� ����������� ������ ��� ����� k �� ������
 		NI_ASSERT_T( i < scenarioObjects.size(), NStr::Format( "Slot for mission unit %d not found", k ) );
 		takenScenarioObjects[i] = true;
 
@@ -854,12 +792,8 @@ void CAILogic::LoadScenarioUnits( const SLoadMapInfo &mapInfo, LinkInfo *linksIn
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::Init( const SLoadMapInfo &mapInfo, IProgressHook *pProgress )
 {
-	// set control word for FP co-processor
-	// _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24
-	// 0xa001f
 	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24, 0xfffff );
 
 	theDipl.Load( mapInfo.diplomacies );	
@@ -884,8 +818,6 @@ void CAILogic::Init( const SLoadMapInfo &mapInfo, IProgressHook *pProgress )
 	LinkInfo linksInfo;
 
 	theUnitCreation.Init( mapInfo.unitCreation );
-	// ����� ��������� ������ ���������, ��� �������� ��������� ��������
-	// -- ������� �� ������
 	LoadAvailableTrucks();
 	LoadScenarioUnits( mapInfo, &linksInfo );
 	if ( pProgress )
@@ -898,18 +830,14 @@ void CAILogic::Init( const SLoadMapInfo &mapInfo, IProgressHook *pProgress )
 	if ( pProgress )
 		pProgress->Step(); //8
 
-	// ������������������� ��� maxes �� �����
 	for ( int i = 1; i < 16; i *= 2 )
 		theStaticMap.UpdateMaxesForAddedStObject( 0, theStaticMap.GetSizeX() - 1, 0, theStaticMap.GetSizeY() - 1, i );
 	theStaticMap.UpdateMaxesForAddedStObject( 0, theStaticMap.GetSizeX() - 1, 0, theStaticMap.GetSizeY() - 1, AI_CLASS_ANY );
 
-	//theStatObjs.UpdateAllPartiesStorages( true, false );
-	//
 	InitLinks( linksInfo );
 	reservePositions = mapInfo.reservePositionsList;
 	InitReservePositions();
 
-	// init general
 	if ( !theDipl.IsNetGame() )
 	{
 		std::list<CCommonUnit*> pUnits;
@@ -920,7 +848,6 @@ void CAILogic::Init( const SLoadMapInfo &mapInfo, IProgressHook *pProgress )
 		theSupremeBeing.GiveNewUnitsToGenerals( pUnits );
 	}
 
-	// -- ����� ������� �� ������
 	startCmds = mapInfo.startCommandsList;
 	InitStartCommands();
 
@@ -937,7 +864,6 @@ void CAILogic::Init( const SLoadMapInfo &mapInfo, IProgressHook *pProgress )
 
 	UpdateCheckSum( false );
 	GetSingleton<ICommandsHistory>()->CheckStartMapCheckSum( checkSum );
-/////////////////////////////////////
 	bool bOldSuspended = bSuspended;
 	bSuspended = false;
 	Segment();
@@ -947,7 +873,6 @@ void CAILogic::Init( const SLoadMapInfo &mapInfo, IProgressHook *pProgress )
 	if ( theDipl.IsNetGame() )
 		updater.AddFeedBack( SAIFeedBack( EFB_OBJECTIVE_CHANGED, 0xff<<8 ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::InitEditor( const STerrainInfo &terrainInfo )
 {
 	theCheats.SetWarFog( true );
@@ -967,7 +892,6 @@ void CAILogic::InitEditor( const STerrainInfo &terrainInfo )
 	
 	Resume();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::UpdateCheckSum( bool bSend )
 {
 	using namespace NCheckSums;
@@ -998,17 +922,11 @@ void CAILogic::UpdateCheckSum( bool bSend )
 	if ( bSend )
 		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_MULTIPLAYER_CHECK, NStr::Format( "%ul", checkSum ), 0, false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::Segment()
 {
-	// set control word for FP co-processor
-	// _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24
-	// 0xa001f
 	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24, 0xfffff );
-	//
 	if ( !bSuspended )
 	{
-//	for debug
 /**
 		if ( curTime >= timeToLogStart && curTime <= timeToLogFinish )
 		{
@@ -1056,12 +974,10 @@ void CAILogic::Segment()
 			updater.AddFeedBack( SAIFeedBack( EFB_ASK_FOR_WARFOG ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::GetDeadUnits( SAINotifyDeadAtAll **pDeadUnitsBuffer, int *pnLen )
 {
 	theGraveyard.GetDeadUnits( pDeadUnitsBuffer, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::UnitCommand( const SAIUnitCmd *pCommand, const WORD wGroupID, const int nPlayer )
 {
 	curTime = GetAIGetSegmTime( pGameSegment );
@@ -1107,7 +1023,6 @@ void CAILogic::UnitCommand( const SAIUnitCmd *pCommand, const WORD wGroupID, con
 	if ( bAviationCall )
 		theStatistics.AviationCalled( nPlayer );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
 void GetWarfogVisibilities( const T &warFog, const CVec2 &upLeft, const CVec2 &downLeft, const CVec2 &downRight, const CVec2 &upRight, const int nPartyForWarFog,
 											 SAIVisInfo **pVisBuffer, int *pnLen )
@@ -1124,7 +1039,6 @@ void GetWarfogVisibilities( const T &warFog, const CVec2 &upLeft, const CVec2 &d
 	{
 		for ( int sum = ( minSum + minSum % 2 ) / 2; sum <= ( maxSum - maxSum % 2 ) / 2; ++sum )
 		{
-			// ������� �� 2
 			if ( ( ((sum + diff) & 1) == 0 ) && ( ((sum-diff) & 1) == 0 ) )
 			{
 				(*pVisBuffer)[*pnLen].x = (sum + diff) / 2;
@@ -1158,7 +1072,6 @@ void GetWarfogVisibilities( const T &warFog, const CVec2 &upLeft, const CVec2 &d
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::GetVisibilities( const CVec2 &upLeft, const CVec2 &downLeft, 
 																const CVec2 &downRight, const CVec2 &upRight,
 															  struct SAIVisInfo **pVisBuffer, int *pnLen ) const
@@ -1168,27 +1081,22 @@ void CAILogic::GetVisibilities( const CVec2 &upLeft, const CVec2 &downLeft,
 	else
 		*pnLen = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const WORD CAILogic::GenerateGroupNumber()
 {
 	return theGroupLogic.GenerateGroupNumber();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::RegisterGroup( IRefCount **pUnitsBuffer, const int nLen, const WORD wGroup )
 {
 	theGroupLogic.RegisterGroup( pUnitsBuffer, nLen, wGroup );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::UnregisterGroup( const WORD wGroup )
 {
 	theGroupLogic.UnregisterGroup( wGroup );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::GroupCommand( const SAIUnitCmd *pCommand, const WORD wGroup, bool bPlaceInQueue )
 {
 	theGroupLogic.GroupCommand( *pCommand, wGroup, bPlaceInQueue );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::CheckDiplomacy( const IRefCount **pUnitsBuffer, BYTE **pResults, const int nLen )
 {
 	*pResults = GetTempBuffer<BYTE>( nLen );
@@ -1196,7 +1104,6 @@ void CAILogic::CheckDiplomacy( const IRefCount **pUnitsBuffer, BYTE **pResults, 
 	for ( int i = 0; i < nLen; ++i )
 		(*pResults)[i] = theDipl.GetDiplStatus( static_cast<const CAIUnit*>( pUnitsBuffer[i] )->GetPlayer(), theDipl.GetMyNumber() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::GetGlobalPassability( BYTE **pMapBuffer, int *pnLen )
 {
 	*pMapBuffer = GetTempBuffer<BYTE>( theStaticMap.GetSizeX() * theStaticMap.GetSizeY() );
@@ -1210,7 +1117,6 @@ void CAILogic::GetGlobalPassability( BYTE **pMapBuffer, int *pnLen )
 																				AI_CLASS_HALFTRACK * theStaticMap.IsLocked( j, i, AI_CLASS_HALFTRACK ) |
 																				AI_CLASS_TRACK		 * theStaticMap.IsLocked( j, i, AI_CLASS_TRACK );
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::GetDisplayPassability( const class CVec2 &upLeft, const class CVec2 &downLeft, 
 																			const class CVec2 &downRight, const class CVec2 &upRight,
 																			SAIPassabilityInfo **pPassBuffer, int *pnLen )
@@ -1238,7 +1144,6 @@ void CAILogic::GetDisplayPassability( const class CVec2 &upLeft, const class CVe
 	{
 		for ( int sum = minSum; sum <= maxSum; ++sum )
 		{
-			// ������� �� 2
 			if ( ( ((sum + diff) & 1) == 0 ) && ( ((sum-diff) & 1) == 0 ) )
 			{
 				const int x = (sum + diff) / 2;
@@ -1256,112 +1161,90 @@ void CAILogic::GetDisplayPassability( const class CVec2 &upLeft, const class CVe
 		}
 	}
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::CallScriptFunction( const char *pszCommand )
 {
 	scripts.CallScriptFunction( pszCommand );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::UpdateTurretTurn( struct SAINotifyTurretTurn **pTurretsBuffer, int *pnLen )
 {
 	updater.UpdateTurretTurn( pTurretsBuffer, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::GetDeletedStaticObjects( IRefCount ***pObjBuffer, int *pnLen )
 {
 	updater.GetDeletedStaticObjects( pObjBuffer, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::GetNewProjectiles( struct SAINotifyNewProjectile **pProjectiles, int *pnLen )
 {
 	updater.GetNewProjectiles( pProjectiles, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::GetDeadProjectiles( IRefCount ***pProjectilesBuf, int *pnLen )
 {
 	updater.GetDeadProjectiles( pProjectilesBuf, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::GetDisappearedUnits( IRefCount ***pUnitsBuffer, int *pnLen )
 {
 	updater.GetDisappearedUnits( pUnitsBuffer, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::GetNewStaticObjects( SNewUnitInfo **pObjects, int *pnLen )
 {
 	updater.GetNewStaticObjects( pObjects, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::UpdateRPGParams( SAINotifyRPGStats **pUnitRPGBuffer, int *pnLen )
 {
 	updater.UpdateRPGParams( pUnitRPGBuffer, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::UpdatePlacements( SAINotifyPlacement **pObjPosBuffer, int *pnLen )
 {
 	updater.UpdatePlacements( pObjPosBuffer, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::UpdateStObjPlacements( SAINotifyPlacement **pObjPosBuffer, int *pnLen )
 {
 	updater.UpdateStObjPlacements( pObjPosBuffer, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::GetNewUnits( SNewUnitInfo **pNewUnitBuffer, int *pnLen )
 {
 	updater.GetNewUnits( pNewUnitBuffer, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::UpdateHits( SAINotifyHitInfo **pHits, int *pnLen )
 {
 	updater.UpdateHits( pHits, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::UpdateActions( SAINotifyAction **pActionsBuffer, int *pnLen )
 {
 	updater.UpdateActions( pActionsBuffer, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::UpdateShots( SAINotifyMechShot **pShots, int *pnLen )
 {
 	updater.UpdateShots( pShots, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::UpdateShots( SAINotifyInfantryShot **pShots, int *pnLen )
 {
 	updater.UpdateShots( pShots, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::UpdateFeedbacks( SAIFeedBack **pFeedBacksBuffer, int *pnLen )
 {
 	updater.UpdateFeedBacks( pFeedBacksBuffer, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::EndUpdates()
 {
 	updater.EndUpdates();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::UpdateEntranceStates( SAINotifyEntranceState **pUnits, int *pnLen )
 {
 	updater.UpdateEntranceStates( pUnits, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::GetEntrenchments( SSegment2Trench **pEntrenchemnts, int *pnLen )
 {
 	updater.GetEntrenchments( pEntrenchemnts, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::GetFormations( struct SSoldier2Formation **pFormations, int *pnLen )
 {
 	updater.GetFormations( pFormations, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::GetNewBridgeSpans( struct SNewUnitInfo **pObjects, int *pnLen )
 {
 	updater.GetNewBridgeSpans( pObjects, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAILogic::GetNewBridge( IRefCount ***pSpans, int *pnLen )
 {
 	*pnLen = 0;	
@@ -1377,22 +1260,18 @@ bool CAILogic::GetNewBridge( IRefCount ***pSpans, int *pnLen )
 
 	return !bridges.empty();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::GetRevealCircles( CCircle **pCircleBuffer, int *pnLen )
 {
 	updater.GetRevealCircles( pCircleBuffer, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::UpdateDiplomacies( struct SAINotifyDiplomacy **pDiplomaciesBuffer, int *pnLen )
 {
 	updater.UpdateDiplomacies( pDiplomaciesBuffer, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAILogic::CanShowVisibilities() const
 {
 	return curTime >= SConsts::AI_SEGMENT_DURATION * SConsts::SHOW_ALL_TIME_COEFF;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::GetMiniMapInfo( struct SMiniMapUnitInfo **pUnitsBuffer, int *pnLen )
 {
 	if ( CanShowVisibilities() && ( !theDipl.IsNetGame() || bNetGameStarted ) )
@@ -1425,7 +1304,6 @@ void CAILogic::GetMiniMapInfo( struct SMiniMapUnitInfo **pUnitsBuffer, int *pnLe
 	else
 		*pnLen = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::GetMiniMapInfo( BYTE **pVisBuffer, int *pnLen )
 {
 	if ( CanShowVisibilities() && ( !theDipl.IsNetGame() || bNetGameStarted ) )
@@ -1433,7 +1311,6 @@ void CAILogic::GetMiniMapInfo( BYTE **pVisBuffer, int *pnLen )
 	else
 		*pnLen = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::ShowAreas( const int nGroup, const EActionNotify eType, bool bShow )
 {
 	if ( bShow )
@@ -1446,7 +1323,6 @@ void CAILogic::ShowAreas( const int nGroup, const EActionNotify eType, bool bSho
 	else
 		updater.UpdateAreasGroup( -1 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::UpdateShootAreas( struct SShootAreas **pShootAreas, int *pnLen )
 {
 	switch ( eTypeOfAreasToShow )
@@ -1461,45 +1337,37 @@ void CAILogic::UpdateShootAreas( struct SShootAreas **pShootAreas, int *pnLen )
 		break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAILogic::IsCombatSituation()
 {
 	return theCombatEstimator.IsCombatSituation();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::ToGarbage( CCommonUnit *pUnit )
 {
 	garbage.push_back( pUnit );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CAILogic::GetUniqueIDOfObject( IRefCount *pObj )
 {
 	NI_ASSERT_T( dynamic_cast<CLinkObject*>(pObj) != 0, NStr::Format("Wrong object of type \"%s\" - CLinkObject expected", typeid(*pObj).name()) );
 
 	return static_cast<CLinkObject*>(pObj)->GetUniqueId();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IRefCount* CAILogic::GetObjByUniqueID( const int id )
 {
 	return GetObjectByUniqueIdSafe<IRefCount>( id );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::SetMyInfo( const int nParty, const int nNumber )
 {
 	theDipl.SetMyNumber( nNumber );
 	theDipl.SetParty( theDipl.GetMyNumber(), nParty );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::SetNPlayers( const int nPlayers )
 {
 	theDipl.SetNPlayers( nPlayers );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::SetNetGame( bool bNetGame )
 {
 	theDipl.SetNetGame( bNetGame );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAILogic::SubstituteUniqueIDs( IRefCount **pUnitsBuffer, const int nLen )
 {
 	bool bCorrect = true;
@@ -1525,65 +1393,53 @@ bool CAILogic::SubstituteUniqueIDs( IRefCount **pUnitsBuffer, const int nLen )
 
 	return bCorrect;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::UpdateAcknowledgments( SAIAcknowledgment **pAckBuffer, int *pnLen )
 {
 	theAckManager.UpdateAcknowledgments( pAckBuffer, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::UpdateAcknowledgments( SAIBoredAcknowledgement **pAckBuffer, int *pnLen )
 {
 	theAckManager.UpdateAcknowledgments( pAckBuffer, pnLen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CAILogic::GetZ( const CVec2 &vPoint ) const
 {
 	return theStaticMap.GetVisZ( vPoint.x, vPoint.y );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const DWORD CAILogic::GetNormal( const CVec2 &vPoint ) const
 {
 	return theStaticMap.GetNormal( vPoint.x, vPoint.y );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CAILogic::GetIntersectionWithTerrain( CVec3 *pvResult, const CVec3 &vBegin, const CVec3 &vEnd ) const
 {
 	return theStaticMap.GetIntersectionWithTerrain( pvResult, vBegin, vEnd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAILogic::ToggleShow( const int nShowType )
 {
 	theCheats.SetTurnOffWarFog( !theCheats.GetTurnOffWarFog() );
 	return theCheats.GetTurnOffWarFog();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::SetDifficultyLevel( const int nLevel )
 {
 	if ( !theDipl.IsNetGame() )
 		theDifficultyLevel.SetLevel( nLevel );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::SetCheatDifficultyLevel( const int nCheatLevel )
 {
 	if ( !theDipl.IsNetGame() )
 		theDifficultyLevel.SetCheatLevel( nCheatLevel );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::NetGameStarted()
 {
 	bNetGameStarted = true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAILogic::IsNetGameStarted() const
 {
 	return bNetGameStarted;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CDifficultyLevel* CAILogic::GetDifficultyLevel() const
 {
 	return &theDifficultyLevel;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::NeutralizePlayer( const int nPlayer )
 {
 	if ( theDipl.IsPlayerExist( nPlayer ) )
@@ -1628,17 +1484,14 @@ void CAILogic::NeutralizePlayer( const int nPlayer )
 			updater.AddFeedBack( SAIFeedBack( EFB_TROOPS_PASSED, MAKELONG( nPlayer, nBestPlayer ) ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::NoWin()
 {
 	theMPInfo.NoWin();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAILogic::IsNoWin() const
 {
 	return theMPInfo.IsNoWin();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IRefCount* CAILogic::GetUnitState( IRefCount *pObj )
 {
 	if ( CQueueUnit *pUnit = dynamic_cast<CQueueUnit*>(pObj) )
@@ -1646,7 +1499,6 @@ IRefCount* CAILogic::GetUnitState( IRefCount *pObj )
 	else
 		return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAILogic::IsFrozen( IRefCount *pObj ) const
 {
 	if ( CCommonUnit *pUnit = dynamic_cast<CCommonUnit*>(pObj) )
@@ -1654,7 +1506,6 @@ bool CAILogic::IsFrozen( IRefCount *pObj ) const
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAILogic::IsFrozenByState( IRefCount *pObj ) const
 {
 	if ( CCommonUnit *pUnit = dynamic_cast<CCommonUnit*>(pObj) )
@@ -1662,7 +1513,6 @@ bool CAILogic::IsFrozenByState( IRefCount *pObj ) const
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::GetGridUnitsCoordinates( const int nGroup, const CVec2 &vGridCenter, CVec2 **pCoord, int *pnLen )
 {
 	CGrid grid( vGridCenter, nGroup, CVec2( 1.0f, 0.0f ) );
@@ -1672,14 +1522,11 @@ void CAILogic::GetGridUnitsCoordinates( const int nGroup, const CVec2 &vGridCent
 	for ( int i = 0; i < *pnLen; ++i )
 		(*pCoord)[i] = grid.GetUnitCenter( i ) - vGridCenter;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::Suspend() 
 { 
 	bSuspended = true; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogic::Resume() 
 { 
 	bSuspended = false; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

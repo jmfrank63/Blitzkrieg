@@ -19,7 +19,6 @@
  *  header properly included
  */
 
-// include BC native <limits.h>
 
 #include  <..\climits.>
 
@@ -27,6 +26,3 @@
 # include  <..\limits.>
 #endif
 
-// Local Variables:
-// mode:C++
-// End:

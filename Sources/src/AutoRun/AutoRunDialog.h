@@ -6,23 +6,18 @@
 #endif // _MSC_VER > 1000
 
 #include "AR_Types.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAutoRunDialog : public CDialog
 {
 	friend class CARMenuSelector;
 public:
 	CAutoRunDialog( CWnd* pParent = NULL );
 	bool Load();
-	//{{AFX_DATA(CAutoRunDialog)
 	enum { IDD = IDD_AUTORUN_DIALOG };
-	//}}AFX_DATA
 
-	//{{AFX_VIRTUAL(CAutoRunDialog)
 	public:
 	virtual BOOL PreTranslateMessage(MSG* pMsg);
 	protected:
 	virtual void DoDataExchange( CDataExchange* pDX );
-	//}}AFX_VIRTUAL
 
 protected:
 	static const DWORD FINISH_TIMER_ID;
@@ -46,7 +41,6 @@ protected:
 	bool CheckGameApp( LPCSTR pszMainClass, LPCSTR pszMainTitle );
 	bool CheckPreviousApp( LPCSTR pszMainClass, LPCSTR pszMainTitle );
 	
-	//{{AFX_MSG(CAutoRunDialog)
 	virtual BOOL OnInitDialog();
 	afx_msg void OnPaint();
 	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
@@ -57,10 +51,7 @@ protected:
 	virtual void OnCancel();
 	afx_msg void OnTimer(UINT nIDEvent);
 	afx_msg void OnClose();
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
 #endif // !defined(__AUTO_RUN_MAIN_DIALOG__)

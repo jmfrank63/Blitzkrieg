@@ -27,7 +27,6 @@ void CBuildingFrame::SetActiveShootPoint( SShootPoint *pShootPoint )
 {
 	if ( pActiveShootPoint )
 	{
-		//устанавливаем предыдущий активный shoot point в неактивное состо€ние
 		pActiveShootPoint->pSprite->SetOpacity( MIN_OPACITY );
 		if ( pActiveShootPoint->pHLine )
 			pActiveShootPoint->pHLine->SetOpacity( 0 );
@@ -67,11 +66,9 @@ bool CBuildingFrame::ComputeMaxAndMinPositions( const CVec3 &vPos3 )
 	CVec2 vPos2;
 	pSG->GetPos2( &vPos2, vPos3 );
 	
-	//найдем минимальную и максимальную координаты движка, дл€ задани€ горизонтального положени€ точки стрельбы
 	if ( lockedTiles.empty() )
 		return false;
 	
-	//—перва найдем минимальные и максимальные координаты тайлов в lockedTiles
 	int nTileMinX = lockedTiles.front().nTileX, nTileMaxX = lockedTiles.front().nTileX;
 	int nTileMinY = lockedTiles.front().nTileY, nTileMaxY = lockedTiles.front().nTileY;
 	CListOfTiles::iterator it=lockedTiles.begin();
@@ -102,10 +99,7 @@ bool CBuildingFrame::ComputeMaxAndMinPositions( const CVec3 &vPos3 )
     3
 */
 
-	//лини€ 21 это OY
-	//лини€ 23 это OX
 
-	// найдем пересечение с линией 21
 	CGridFrame::GetGameTileCoordinates( nTileMinX, nTileMinY, fx1, fy1, fx2, fy2, fx3, fy3, fx4, fy4 );
 	x1 = fx2;
 	y1 = fy2;
@@ -122,7 +116,6 @@ bool CBuildingFrame::ComputeMaxAndMinPositions( const CVec3 &vPos3 )
 	}
 	else
 	{
-		// найдем пересечение с линией 14
 		x1 = x2;
 		y1 = y2;
 		
@@ -138,18 +131,14 @@ bool CBuildingFrame::ComputeMaxAndMinPositions( const CVec3 &vPos3 )
 		}
 		else
 		{
-//			AfxMessageBox( "Error: The shoot point should be inside horizontal locked tile position, it need be deleted" );
-//			pTreeDockBar->SetFocus();
 		}
 	}
 
 	if ( !bFound )
 	{
-		//«начит точка нигде не пересекает залоченные тайлы
 		return false;
 	}
 
-	// найдем пересечение с линией 23
 	CGridFrame::GetGameTileCoordinates( nTileMinX, nTileMinY, fx1, fy1, fx2, fy2, fx3, fy3, fx4, fy4 );
 	x1 = fx2;
 	y1 = fy2;
@@ -163,7 +152,6 @@ bool CBuildingFrame::ComputeMaxAndMinPositions( const CVec3 &vPos3 )
 		yMax = y;
 	else
 	{
-		// найдем пересечение с линией 34
 		x1 = x2;
 		y1 = y2;
 
@@ -231,14 +219,12 @@ void CBuildingFrame::ComputeAngleLines()
 	vLine2.x = vCenter3.x - (float) (EDGE_LENGTH - 20) * sin( fA + fTemp );
 	vLine2.y = vCenter3.y + (float) (EDGE_LENGTH - 20) * cos( fA + fTemp );
 	
-	//теперь мы нашли точки v1, v2, получим 2D координаты дл€ построени€ линий
 	{
 		CVerticesLock<SGFXTLVertex> vertices( pConeVertices );
 		
 		CVec2 v;
 		pSG->GetPos2( &v, v1 );
 		
-		//0xffff60e6 == (255, 96, 230) розовый цвет
 		DWORD dwColor = 0xffffff00;
 		vertices[0].Setup( vCenter2.x, vCenter2.y, 1, 1, dwColor, 0xff000000, 0, 0 );
 		vertices[1].Setup( v.x, v.y, 1, 1, dwColor, 0xff000000, 0, 0 );
@@ -321,7 +307,6 @@ void CBuildingFrame::AddOrSelectShootPoint( const POINT &point )
 	objShift = VNULL2;
 	zeroShift = VNULL2;
 
-	//провер€ем, вдруг shoot point с такими координатами уже существует
 	CListOfShootPoints::iterator it=shootPoints.begin();
 	for ( ; it!=shootPoints.end(); ++it )
 	{
@@ -332,11 +317,9 @@ void CBuildingFrame::AddOrSelectShootPoint( const POINT &point )
 		if ( point.x >= vPos2.x - SHOOT_PICTURE_SIZE && point.x <= vPos2.x + SHOOT_PICTURE_SIZE &&
 			point.y >= vPos2.y - SHOOT_PICTURE_SIZE && point.y <= vPos2.y + SHOOT_PICTURE_SIZE )
 		{
-			//выдел€ем этот shoot point
 			SetActiveShootPoint( &(*it) );
 			it->pSlot->SelectMeInTheTree();
 
-			//начинаем перетаскивать этот компонент
 			SetChangedFlag( true );
 			objShift.x = vPos2.x - point.x;
 			objShift.y = vPos2.y - point.y;
@@ -347,7 +330,6 @@ void CBuildingFrame::AddOrSelectShootPoint( const POINT &point )
 			zeroShift.y = vPos2.y - point.y;
 
 			m_mode = E_SET_SHOOT_POINT;
-			//pTreeDockBar->SetFocus();
 			g_frameManager.GetGameWnd()->SetCapture();
 			return;
 		}
@@ -355,11 +337,9 @@ void CBuildingFrame::AddOrSelectShootPoint( const POINT &point )
 	
 	if ( !ComputeMaxAndMinPositions( shootPos3 ) )
 	{
-		//Ќе нашел пересечени€ с залоченными тайлами, не добавл€ю точку
 		return;
 	}
 
-	//добавл€ем спрайт 'точка стрельбы' с такими координатами
 	IVisObjBuilder *pVOB = GetSingleton<IVisObjBuilder>();
 	CPtr<IObjVisObj> pObject = static_cast<IObjVisObj *> ( pVOB->BuildObject( "editor\\shoot\\1", 0, SGVOT_SPRITE ) );
 	NI_ASSERT( pObject != 0 );
@@ -374,7 +354,6 @@ void CBuildingFrame::AddOrSelectShootPoint( const POINT &point )
 	pSG->AddObject( pObject, SGVOGT_OBJECT );
 	pObject->SetOpacity( MAX_OPACITY );
 	
-	//добавл€ем точку стрельбы в дерево
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
 	CTreeItem *pRoot = pTree->GetRootItem();
 	CTreeItem *pShootsItem = pRoot->GetChildItem( E_BUILDING_SLOTS_ITEM );
@@ -387,10 +366,8 @@ void CBuildingFrame::AddOrSelectShootPoint( const POINT &point )
 	shoot.pSlot = pNewSlot;
 	shoot.pSprite = pObject;
 
-	// опируем в новый shoot point информацию из старого
 	if ( pActiveShootPoint )
 	{
-		//скопируем конус стрельбы из предыдущего shoot point
 		shoot.fAngle = pActiveShootPoint->fAngle;
 		shoot.fDirection = pActiveShootPoint->fDirection;
 		shoot.pSlot->SetConeAngle( shoot.fAngle );
@@ -400,14 +377,12 @@ void CBuildingFrame::AddOrSelectShootPoint( const POINT &point )
 	}
 	else
 	{
-		//создадим конус стрельбы по умолчанию
 		shoot.fAngle = 80;
 		shoot.fDirection = 0;
 		shoot.pSlot->SetConeAngle( shoot.fAngle );
 		shoot.pSlot->SetConeDirection( shoot.fDirection );
 	}
 
-	//нашел точку пересечени€
 	CVec3 vHPos3 = shootPos3;
 	if ( pActiveShootPoint )
 	{
@@ -432,7 +407,6 @@ void CBuildingFrame::AddOrSelectShootPoint( const POINT &point )
 		pSG->GetPos3( &vHPos3, vPos2 );
 	}
 
-	//создаем спрайт - горизонтальную линию
 	pObject = static_cast<IObjVisObj *> ( pVOB->BuildObject( "editor\\shoot_horizontal\\1", 0, SGVOT_SPRITE ) );
 	NI_ASSERT( pObject != 0 );
 
@@ -498,7 +472,6 @@ void CBuildingFrame::SetShootPointAngle( const POINT &point )
 	CVec3 vPos3;
 	pSG->GetPos3( &vPos3, vPos2 );
 	
-	//ѕересчитаем из координат на плоскости в значени€ углов
 	CVec3 vCone;
 	vCone.x = vPos3.x - vCenter3.x;
 	vCone.y = vPos3.y - vCenter3.y;

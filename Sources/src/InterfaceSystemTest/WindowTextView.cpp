@@ -1,19 +1,10 @@
-// WindowTextView.cpp: implementation of the CWindowTextView class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include "WindowTextView.h"
 #include "..\GFX\GFX.h"
 #include "..\Scene\Scene.h"
 #include "..\Main\TextSystem.h"
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
-// CWindowTextView
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////
 IMPLEMENT_CLONABLE(CWindowTextView)
-//////////////////////////////////////////////////////////////////////
 int CWindowTextView::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -28,7 +19,6 @@ int CWindowTextView::operator&( IDataTree &ss )
 */
 	saver.Add( "Format", &format );
 
-	// init text
 	saver.Add( "TextKey", &szKey );
 	if ( saver.IsReading() )
 	{
@@ -42,7 +32,6 @@ int CWindowTextView::operator&( IDataTree &ss )
 		}
 	}
 
-	// init font
 	saver.Add( "FontName", &szFontName );
 	if ( saver.IsReading() )
 	{
@@ -50,7 +39,6 @@ int CWindowTextView::operator&( IDataTree &ss )
 		pGfxText->SetFont( pFont );	
 	}
 
-	// init red line space
 	saver.Add( "RedLine", &nRedLineSpace );
 	if ( saver.IsReading() )
 	{
@@ -58,13 +46,11 @@ int CWindowTextView::operator&( IDataTree &ss )
 		pGfxText->SetRedLine( nRedLineSpace );
 	}
 
-	// init height
 	if ( saver.IsReading() )
 		InitHeight();
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////
 bool CWindowTextView::InitHeight()
 {
 	int nWidth, nHeight;
@@ -76,7 +62,6 @@ bool CWindowTextView::InitHeight()
 		SetPlacement( 0, 0, 0, nTmp, EWPF_SIZE_Y );
 	return bRet;
 }
-//////////////////////////////////////////////////////////////////////
 CWindowTextView::CWindowTextView( int TEST )
 {
 	dwColor = 0xff000000;
@@ -85,16 +70,12 @@ CWindowTextView::CWindowTextView( int TEST )
 	szFontName = "fonts\\medium";
 	Init( 0 );
 }
-//////////////////////////////////////////////////////////////////////
 int CWindowTextView::operator&( IStructureSaver &ss )
 {
-	//CRAP{ TO DO
 	NI_ASSERT_T( FALSE, "NEED IMPLEMENT" );
 	return 0;
-	//CRAP}
 }
 
-//////////////////////////////////////////////////////////////////////
 void CWindowTextView::Visit( interface ISceneVisitor *pVisitor )
 {
 	CWindow::Visit( pVisitor );
@@ -103,7 +84,6 @@ void CWindowTextView::Visit( interface ISceneVisitor *pVisitor )
 	FillWindowRect( &textRC );
 	pVisitor->VisitUIText( pGfxText, textRC, 0, dwColor, format );
 }
-//////////////////////////////////////////////////////////////////////
 bool CWindowTextView::SetText( const std::wstring &szText )
 {
 	CTRect<float> textRC;

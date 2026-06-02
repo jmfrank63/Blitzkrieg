@@ -66,7 +66,6 @@ template <class _BidirectionalIterator, class _Tp, __DFL_TMPL_PARAM(_Reference, 
 class reverse_bidirectional_iterator {
   typedef reverse_bidirectional_iterator<_BidirectionalIterator, _Tp, 
                                          Reference__, _Distance> _Self;
-  //  friend inline bool operator== _STLP_NULL_TMPL_ARGS (const _Self& x, const _Self& y);
 protected:
   _BidirectionalIterator current;
 public:
@@ -154,14 +153,10 @@ inline bool  _STLP_CALL operator!=(
 
 #if ! defined ( _STLP_CLASS_PARTIAL_SPECIALIZATION )
 
-// This is the old version of reverse_iterator, as found in the original
-//  HP STL.  It does not use partial specialization.
 
 template <class _RandomAccessIterator, 
 # if defined (__MSL__) && (__MSL__ >= 0x2405) \
 	|| defined(__MRC__) || defined(__SC__)		//*ty 03/22/2001 - give the default to the secont param under MPW. 
-												// I believe giving the default will cause any harm even though the 2nd type parameter 
-												// still have to be provided for T* type iterators.
 	__DFL_TMPL_PARAM(_Tp,iterator_traits<_RandomAccessIterator>::value_type),
 # else
 	class _Tp,
@@ -346,6 +341,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_ITERATOR_H */
 
-// Local Variables:
-// mode:C++
-// End:

@@ -1,22 +1,15 @@
 #ifndef __OPTIONSSYSTEM_H__
 #define __OPTIONSSYSTEM_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\Misc\VarSystem.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EOptionEditorType
 {
-	//OPTION_EDITOR_TYPE_CHECKBOX = 1,
-	//OPTION_EDITOR_TYPE_SLIDER		= 2,
-	//OPTION_EDITOR_TYPE_DROPLIST	= 3
 	EOET_NUMERIC_ENTRY						= 1,				// NUMERIC EDIT BOX( NUMERIC INPUT )
 	EOET_SLIDER										= 2,				// SLIDER CONSTROL TO ADJUST
 	EOET_CLICK_SWITCHES						= 3,				// SEVERAL STRING VALUES.
 	EOET_TEXT_ENTRY								= 4,				// TEXT FEILD (ANY INPUT)
 	EOET_GAMESPY_TEXT_ENTRY				= 5,				// text feild, GameSpy allowed Characters only
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EOptionsFlag
 {
 	OPTION_FLAG_GENERIC_OPTION						= 1<<0,
@@ -32,46 +25,33 @@ enum EOptionsFlag
 	OPTION_FLAG_IN_MISSION	= OPTION_FLAG_CHANGE_IN_MISSION,
 	OPTION_FLAG_IN_MP_MISSION = OPTION_FLAG_CHANGE_IN_MISSION_INCLUDING_MP,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SOptionDesc
 {
 	std::string szDivision;								// division name. to create file name with localized name just add '.name' to it
-																				// to create file name with localized description just add '.desc' to it
 	std::string szName;										// option name. to create  file name with localized name just add '.name' to it
-																				// to create file name with localized description just add '.desc' to it
 	int nDataType;												// data type like in 'VARIANT'
 	int nEditorType;											// control to edit this option
 	DWORD dwFlags;												// flags. for example, can this option be changed in mission etc.
 	variant_t defaultValue;								// default value for this option
 	bool bInstantApply;										// option must be applied instantly.
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SOptionDropListValue
 {
 	std::string szProgName;								// program name
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IOptionSystemIterator : public IVarIterator
 {
-	// get option descriptor
 	virtual const SOptionDesc* STDCALL GetDesc() const = 0;
-	// get values for option droplist editor type
 	virtual const std::vector<SOptionDropListValue>& STDCALL GetDropValues() const = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 interface IOptionSystem : public IVarSystem
 {
 	enum { tidTypeID = -4 };
-	// get option descriptor
 	virtual const SOptionDesc* STDCALL GetDesc( const std::string &szVarName ) const = 0;
-	// get values for option droplist editor type
 	virtual const std::vector<SOptionDropListValue>& STDCALL GetDropValues( const std::string &szVarName ) const = 0;
-	// begin to iterate through all variables
 	virtual IOptionSystemIterator* STDCALL CreateIterator( const DWORD dwMask = 0xffffffff ) = 0;
-	// serialize to configuration file
 	virtual bool STDCALL SerializeConfig( IDataTree *pSS ) = 0;
 	virtual void STDCALL Init() = 0;
 	virtual void STDCALL Repair( IDataTree *pSS, const bool bToDefault ) = 0;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __OPTIONSSYSTEM_H__

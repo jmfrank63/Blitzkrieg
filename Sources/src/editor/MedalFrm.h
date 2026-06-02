@@ -17,19 +17,12 @@ public:
 	virtual ~CMedalFrame();
 	virtual void UpdatePropView( CTreeItem *pTreeItem );				
 	
-	// Attributes
 public:
 	
-	// Operations
 public:
 	
-	// Overrides
-	// ClassWizard generated virtual function overrides
-	//{{AFX_VIRTUAL(CMedalFrame)
 protected:
-	//}}AFX_VIRTUAL
 	
-	// Implementation
 private:
 	std::string szPrefix;		//эта переменная используется для передачи параметра в функцию FillRpgStats, чтобы не было необходимости изменять интерфейс
 	
@@ -43,17 +36,11 @@ protected:
 	virtual FILETIME FindMaximalSourceTime( const char *pszProjectName, CTreeItem *pRootItem );
 	virtual FILETIME FindMinimalExportFileTime( const char *pszResultFileName, CTreeItem *pRootItem );
 	
-	// Generated message map functions
 protected:
-	//{{AFX_MSG(CMedalFrame)
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
-	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
 
-/////////////////////////////////////////////////////////////////////////////
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif		//__MEDALFRM_H__

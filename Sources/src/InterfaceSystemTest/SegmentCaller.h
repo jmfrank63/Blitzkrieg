@@ -1,6 +1,3 @@
-// SegmentCaller.h: interface for the CSegmentCaller class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_SEGMENTCALLER_H__8EE96FEB_D4DB_4EAC_9B05_73713A683C65__INCLUDED_)
 #define AFX_SEGMENTCALLER_H__8EE96FEB_D4DB_4EAC_9B05_73713A683C65__INCLUDED_

@@ -6,33 +6,23 @@
 #include "AIStaticMap.h"
 #include "Formation.h"
 #include "PathFinder.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CStaticMap theStaticMap;
 extern NTimer::STime curTime;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CStandartSmoothSoldierPath									*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CStandartSmoothSoldierPath );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStandartSmoothSoldierPath::CStandartSmoothSoldierPath()
 : speed( 0 ),	bNotified( false ), pPath( 0 ), nPoints( 0 ), bStopped( false ), 
 	bMinSlowed( false ), bMaxSlowed( false ),
 	pUnit( 0 )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartSmoothSoldierPath::SetOwner( IBasePathUnit *_pUnit )
 {
 	pUnit = _pUnit;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IBasePathUnit* CStandartSmoothSoldierPath::GetOwner() const
 {
 	return pUnit;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStandartSmoothSoldierPath::Init( IBasePathUnit *_pUnit, IPath *_pPath, bool _bSmoothTurn, bool bCheckTurn )
 {
 	NI_ASSERT_T( _pPath != 0, "Smooth path is trying to be initialized by NULL static path" );
@@ -70,7 +60,6 @@ bool CStandartSmoothSoldierPath::Init( IBasePathUnit *_pUnit, IPath *_pPath, boo
 	
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStandartSmoothSoldierPath::InitByFormationPath( CFormation *_pFormation, interface IBasePathUnit *_pUnit )
 {
 	pUnit = _pUnit;
@@ -82,7 +71,6 @@ bool CStandartSmoothSoldierPath::InitByFormationPath( CFormation *_pFormation, i
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartSmoothSoldierPath::GetNextTiles( std::list<SVector> *pTiles )
 {
 	CBSpline::SForwardIter iter;
@@ -97,13 +85,11 @@ void CStandartSmoothSoldierPath::GetNextTiles( std::list<SVector> *pTiles )
 		spline.IterateForward( &iter );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CVec2 CStandartSmoothSoldierPath::GetShift( const int nToShift ) const
 {
 	NI_ASSERT_T( pPath != 0, "Wrong call of GetShift" );
 	return pPath->PeekPoint( nToShift );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStandartSmoothSoldierPath::ValidateCurPath( const CVec2 &center, const CVec2 &newPoint )
 {
 	if ( center.x / ( SConsts::TILE_SIZE ) != newPoint.x / ( SConsts::TILE_SIZE ) ||
@@ -130,7 +116,6 @@ bool CStandartSmoothSoldierPath::ValidateCurPath( const CVec2 &center, const CVe
 						bBad = true;
 					else
 					{
-						// до конца пути осталось немного, лучше остановиться
 						const float fDist2 = fabs2( center - pPath->GetFinishPoint() );
 						if ( fDist2 <= sqr( 3 * pUnit->GetAABBHalfSize().y ) )
 						{
@@ -163,7 +148,6 @@ bool CStandartSmoothSoldierPath::ValidateCurPath( const CVec2 &center, const CVe
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStandartSmoothSoldierPath::IsFinished() const
 { 
 	return
@@ -171,13 +155,11 @@ bool CStandartSmoothSoldierPath::IsFinished() const
 			!pPath && !IsValidObj( pFormation ) ||
 			!pPath && IsValidObj( pFormation ) && pFormation->GetCurPath()->IsFinished() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartSmoothSoldierPath::Stop()
 {
 	bStopped = true;
 	speed = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CStandartSmoothSoldierPath::InitSpline()
 {
 	p0 = p1; p1 = p2; p2 = p3;
@@ -229,7 +211,6 @@ int CStandartSmoothSoldierPath::InitSpline()
 	
 	return inc;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CStandartSmoothSoldierPath::GetPointWithoutFormation( NTimer::STime timeDiff )
 {
 	const CVec2 &vUnitCenter = pUnit->GetCenter();
@@ -301,9 +282,7 @@ const CVec2 CStandartSmoothSoldierPath::GetPointWithoutFormation( NTimer::STime 
 	
 	const CVec2 result = 
 		fabs( spline.GetPoint() - vUnitCenter ) < fRemain  ?
-		// так и не прошли по сплайну, сколько надо
 		spline.GetPoint() :
-		// прошли чуть дальше, нужно точно отсчитать fRemain
 		vUnitCenter + Norm( spline.GetPoint() - vUnitCenter ) * fRemain;
 
 	speed = fabs( result - vUnitCenter ) / timeDiff;
@@ -313,13 +292,11 @@ const CVec2 CStandartSmoothSoldierPath::GetPointWithoutFormation( NTimer::STime 
 
 	return result;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartSmoothSoldierPath::ValidateCurPathWithFormation( const CVec2 &newCenter )
 {
 	if ( !theStaticMap.CanUnitGoToPoint( pUnit->GetBoundTileRadius(), newCenter, pUnit->GetAIClass() ) )
 	{
 		const bool bDrive = DriveToFormation( pUnit->GetCenter(), false );
-		// идти никуда не может, а формация остановилась
 		if ( !bDrive && pFormation->IsStopped() )
 		{
 			bFinished = true;
@@ -339,7 +316,6 @@ void CStandartSmoothSoldierPath::ValidateCurPathWithFormation( const CVec2 &newC
 	if ( !theStaticMap.CanUnitGoToPoint( pUnit->GetBoundTileRadius(), vCenterAhead, pUnit->GetAIClass() ) )
 	{
 		const bool bDrive = DriveToFormation( newCenter, false );
-		// идти никуда не может, а формация остановилась
 		if ( !bDrive && pFormation->IsStopped() )
 		{
 			bFinished = true;
@@ -351,16 +327,13 @@ void CStandartSmoothSoldierPath::ValidateCurPathWithFormation( const CVec2 &newC
 		return;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartSmoothSoldierPath::CutDriveToFormationPath( CCommonStaticPath *pPath )
 {
 	if ( pPath->GetLength() >= 4 )
 		pPath->MoveFinishTileTo( pPath->GetLength() / 2 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStandartSmoothSoldierPath::CanGoToFormationPos( const CVec2 &newCenter, const CVec2 &vDesPos, const CVec2 &vFormPos )
 {
-	// помещается в нужную точку
 	if ( theStaticMap.CanUnitGoToPoint( pUnit->GetBoundTileRadius(), vDesPos, pUnit->GetAIClass() ) )
 	{
 		IStaticPath* _pPath = CreateStaticPathToPoint( newCenter, vDesPos, VNULL2, pUnit );
@@ -371,12 +344,10 @@ bool CStandartSmoothSoldierPath::CanGoToFormationPos( const CVec2 &newCenter, co
 			pPath = static_cast<CCommonStaticPath*>(_pPath);
 		}
 
-		// можно дойти
 		if ( pPath != 0 )
 		{
 			CPtr<IStaticPath> pCheckPath = CreateStaticPathToPoint( pPath->GetFinishPoint(), vFormPos, VNULL2, pUnit );
 
-			// от нужной точки можно дойти до центра формации и путь не слишком длинный
 			if ( pCheckPath != 0 && 
 					( pCheckPath->GetLength() * SConsts::TILE_SIZE <= 2.0f * fabs( pFormation->GetUnitShift( pUnit->GetFormationSlot() ) )
 					   /*pCheckPath->GetLength() <= 2.0 * pPath->GetLength() / 3.0f */)
@@ -391,7 +362,6 @@ bool CStandartSmoothSoldierPath::CanGoToFormationPos( const CVec2 &newCenter, co
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStandartSmoothSoldierPath::DriveToFormation( const CVec2 &newCenter, const bool bAnyPoint )
 {
 	if ( bAnyPoint )
@@ -431,10 +401,8 @@ bool CStandartSmoothSoldierPath::DriveToFormation( const CVec2 &newCenter, const
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CStandartSmoothSoldierPath::GetPointWithFormation( NTimer::STime timeDiff, const bool bFirstCall )
 {
-	// не смогли найти пути до формации (юнит где-то заблокался)
 	if ( pUnit->GetTimeToNextSearchPathToFormation() > curTime )
 	{
 		speed = 0;
@@ -461,14 +429,12 @@ const CVec2 CStandartSmoothSoldierPath::GetPointWithFormation( NTimer::STime tim
 
 	CVec2 result = pUnit->GetUnitPointInFormation();
   const float lineShift = pFormation->GetUnitLineShift( pUnit->GetFormationSlot() );
-	// стоим впереди
 	if ( lineShift > 0 )
 		result += pFormation->GetDirVector() * lineShift;
 
 	const float fDist = fabs( result - pUnit->GetCenter() );
 	const float fDiff = fDist - speed * timeDiff;
 
-	// точка по направлению к нужному положению
 	if ( fDiff > 0 )
 		result = pUnit->GetCenter() + ( result - pUnit->GetCenter() ) * ( speed * timeDiff / fDist );
 
@@ -481,13 +447,11 @@ const CVec2 CStandartSmoothSoldierPath::GetPointWithFormation( NTimer::STime tim
 	
 	speed = fabs( result - pUnit->GetCenter() ) / timeDiff;
 
-	// путь до формации не мог найтись достаточно давно
 	if ( curTime - pUnit->GetTimeToNextSearchPathToFormation() > 1000 )
 		pFormation->NotifyDiff( -lineShift );
 
 	if ( AICellsTiles::GetTile( result ) != AICellsTiles::GetTile( pUnit->GetCenter() ) || bFirstCall )
 	{
-		// далеко от нужного положения
 		const bool bCanGoToPoint = theStaticMap.CanUnitGoToPoint( pUnit->GetBoundTileRadius(), result, pUnit->GetAIClass() );
 		if ( lineShift <= 0 && fDiff > 6 * SConsts::TILE_SIZE && bCanGoToPoint )
 		{
@@ -511,7 +475,6 @@ const CVec2 CStandartSmoothSoldierPath::GetPointWithFormation( NTimer::STime tim
 			}
 		}
 
-		// всё ещё путь с формацией
 		if ( pFormation != 0 )
 		{
 			CPtr<IStaticPath> pCheckPath = CreateStaticPathToPoint( pFormation->GetCenter(), VNULL2, pUnit, true );
@@ -522,7 +485,6 @@ const CVec2 CStandartSmoothSoldierPath::GetPointWithFormation( NTimer::STime tim
 		}
 	}
 
-	// прошли слишком мало
 	if ( pFormation != 0 && fabs2( pUnit->GetCenter() - result ) < sqr( pFormation->GetMaxSpeedHere( pFormation->GetCenter() ) * timeDiff / 1.5f ) )
 	{
 		speed = 0;
@@ -533,7 +495,6 @@ const CVec2 CStandartSmoothSoldierPath::GetPointWithFormation( NTimer::STime tim
 
 	return result;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec3 CStandartSmoothSoldierPath::GetPoint( NTimer::STime timeDiff )
 {
 	const bool bFirstCall = speed == 0.0f;
@@ -563,7 +524,6 @@ const CVec3 CStandartSmoothSoldierPath::GetPoint( NTimer::STime timeDiff )
 	}
 	bNotified = bMinSlowed = bMaxSlowed = false;		
 
-	// не с формацией
 	if ( pPath || !pUnit->IsInFormation() || !IsValidObj( pFormation ) )
 	{
 		bWithFormation = false;
@@ -576,12 +536,10 @@ const CVec3 CStandartSmoothSoldierPath::GetPoint( NTimer::STime timeDiff )
 			bStopped = bFinished = false;
 
 		bWithFormation = true;
-		// с формацией
 		const CVec2 vResult = GetPointWithFormation( timeDiff, bFirstCall );
 		return CVec3( vResult, pUnit->GetZ() );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartSmoothSoldierPath::NotifyAboutClosestThreat( IBasePathUnit *pUnit, const float fDist )
 {
 	if ( pUnit->CanMovePathfinding() )
@@ -597,7 +555,6 @@ void CStandartSmoothSoldierPath::NotifyAboutClosestThreat( IBasePathUnit *pUnit,
 			}
 			else
 			{
-				// повышать скорость, только если это можно делать
 				if ( !bMinSlowed && !bMaxSlowed )
 					speed = speed + maxPossibleSpeed / 40;
 			}
@@ -628,7 +585,6 @@ void CStandartSmoothSoldierPath::NotifyAboutClosestThreat( IBasePathUnit *pUnit,
 
 	bNotified = true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStandartSmoothSoldierPath::SlowDown()
 {
 	if ( !bMinSlowed && !bMaxSlowed )
@@ -637,7 +593,6 @@ void CStandartSmoothSoldierPath::SlowDown()
 		speed = Max( pUnit->GetMaxSpeedHere( pUnit->GetCenter() ) / 3.0f, speed - pUnit->GetMaxPossibleSpeed() / 60 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStandartSmoothSoldierPath::Init( IMemento *pMemento, IBasePathUnit *_pUnit )
 {
 	NI_ASSERT_T( dynamic_cast<CStandartSmoothPathMemento*>(pMemento) != 0, "Wrong memento passed" );
@@ -668,7 +623,6 @@ bool CStandartSmoothSoldierPath::Init( IMemento *pMemento, IBasePathUnit *_pUnit
 	else
 		return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IMemento* CStandartSmoothSoldierPath::GetMemento() const
 {
 	CStandartSmoothPathMemento *pMemento = new CStandartSmoothPathMemento();
@@ -677,4 +631,3 @@ IMemento* CStandartSmoothSoldierPath::GetMemento() const
 
 	return pMemento;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

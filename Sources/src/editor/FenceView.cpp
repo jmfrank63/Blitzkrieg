@@ -10,8 +10,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CFenceView
 
 CFenceView::CFenceView()
 {
@@ -23,15 +21,11 @@ CFenceView::~CFenceView()
 
 
 BEGIN_MESSAGE_MAP(CFenceView, CWnd)
-//{{AFX_MSG_MAP(CFenceView)
 ON_WM_PAINT()
 ON_WM_SIZE()
-//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CFenceView message handlers
 
 BOOL CFenceView::PreCreateWindow(CREATESTRUCT& cs) 
 {

@@ -1,16 +1,10 @@
 #ifndef __GENERAL_TASKS__
 #define __GENERAL_TASKS__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "GeneralInternalInterfaces.h"
 #include "..\Formats\fmtMap.h"
 #include "AIHashFuncs.h"
 #include "Resistance.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ****
-// ������ �����.
-// ****
 class CGeneralTaskToDefendPatch : public IGeneralTask, public IWorkerEnumerator, public IEnemyEnumerator 
 {
 	DECLARE_SERIALIZE;
@@ -47,7 +41,6 @@ public:
 
 	virtual void SetEnemyConatiner( IEnemyContainer * _pEnemyConatainer ) { pEnemyConatainer = _pEnemyConatainer; }
 
-	//ITask
 	virtual ETaskName GetName() const ;
 	virtual void AskForWorker( ICommander *pManager, const float _fMaxSeverity, const bool bInit = false );
 	virtual void ReleaseWorker( ICommander *pManager, const float _fMinSeverity );
@@ -56,18 +49,12 @@ public:
 	virtual void CancelTask( ICommander *pManager ) ;
 	virtual void Segment() ;
 
-	//IEnumerator
 	virtual bool EnumWorker( class CCommonUnit *pUnit, const enum EForceType eType );
 	virtual bool EvaluateWorker( CCommonUnit * pUnit, const enum EForceType eType ) const;
 	
-	//IEnemyEnumerator
 	virtual bool EnumEnemy( class CAIUnit *pEnemy );
 
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ****
-// hold reinforcemen
-// ****
 class CGeneralTaskToHoldReinforcement : public IGeneralTask, public IWorkerEnumerator
 {
 	DECLARE_SERIALIZE;
@@ -82,10 +69,8 @@ class CGeneralTaskToHoldReinforcement : public IGeneralTask, public IWorkerEnume
 public:
 	CGeneralTaskToHoldReinforcement();
 	void Init( const struct SAIGeneralParcelInfo &_patchInfo );
-	//empty reinforcement parcell. uses unit's initial positions as reinforcements positions.
 	void Init(){ 	fSeverity = 0; }
 
-	//ITask
 	virtual ETaskName GetName() const { return ETN_HOLD_REINFORCEMENT; }
 	virtual void AskForWorker( ICommander *pManager, const float fMaxSeverity, const bool bInit = false );
 	virtual void ReleaseWorker( ICommander *pManager, const float fMinSeverity );
@@ -96,11 +81,9 @@ public:
 	virtual int NeedNBest( const enum EForceType eType ) const { return true; }
 
 
-	//IEnumerator
 	virtual bool EnumWorker( class CCommonUnit *pUnit, const enum EForceType eType );
 	virtual bool EvaluateWorker( CCommonUnit * pUnit, const enum EForceType eType ) const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGeneralTaskRecaptureStorage : public IGeneralTask, public IWorkerEnumerator
 {
 	DECLARE_SERIALIZE;
@@ -114,7 +97,6 @@ public:
 	CGeneralTaskRecaptureStorage() {  }
 	CGeneralTaskRecaptureStorage( const CVec2 & vReinforcePoint );
 
-	//ITask
 	virtual ETaskName GetName() const { return ETN_HOLD_REINFORCEMENT; }
 	virtual void AskForWorker( ICommander *pManager, const float fMaxSeverity, const bool bInit = false );
 	virtual void ReleaseWorker( ICommander *pManager, const float fMinSeverity );
@@ -123,11 +105,9 @@ public:
 	virtual void CancelTask( ICommander *pManager ) ;
 	virtual void Segment() ;
 
-	//IEnumerator
 	virtual bool EnumWorker( class CCommonUnit *pUnit, const enum EForceType eType );
 	virtual bool EvaluateWorker( CCommonUnit * pUnit, const enum EForceType eType ) const;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGeneralTaskToSwarmToPoint : public IGeneralTask, public IWorkerEnumerator, public IEnemyEnumerator
 {
 	DECLARE_SERIALIZE;
@@ -170,7 +150,6 @@ public:
 	
 	virtual void SetEnemyConatiner( IEnemyContainer * _pEnemyConatainer ) { pEnemyConatainer = _pEnemyConatainer; }
 
-	//ITask
 	virtual ETaskName GetName() const { return ETN_SWARM_TO_POINT; }
 	virtual void AskForWorker( ICommander *pManager, const float _fMaxSeverity, const bool bInit = false );
 	virtual void ReleaseWorker( ICommander *pManager, const float fMinSeverity );
@@ -179,7 +158,6 @@ public:
 	virtual void CancelTask( ICommander *pManager ) ;
 	virtual void Segment() ;
 
-	//IEnumerator
 	virtual bool EnumWorker( class CCommonUnit *pUnit, const enum EForceType eType );
 	virtual bool EvaluateWorker( CCommonUnit * pUnit, const enum EForceType eType ) const;
 	virtual int NeedNBest( const enum EForceType eType ) const { return 10000; }
@@ -190,7 +168,6 @@ public:
 
 	friend class CGeneralSwarmWaitForReady;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGeneralSwarmWaitForReady : public IGeneralDelayedTask 
 {
 	OBJECT_COMPLETE_METHODS( CGeneralSwarmWaitForReady );
@@ -207,5 +184,4 @@ public:
 	virtual void Run() { pGeneralTask->Run(); }
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __GENERAL_TASKS__

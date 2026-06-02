@@ -31,7 +31,6 @@
 #  include _STLP_NATIVE_CPP_RUNTIME_HEADER(typeinfo.h)
 #endif
 
-// if <typeinfo> already included, do not import anything
 
 # if defined  (_STLP_USE_OWN_NAMESPACE) && ! (defined (_STLP_TYPEINFO) && !defined(_STLP_NO_NEW_NEW_HEADER))
 
@@ -56,7 +55,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_OLDSTD_typeinfo */
 
-// Local Variables:
-// mode:C++
-// End:
 

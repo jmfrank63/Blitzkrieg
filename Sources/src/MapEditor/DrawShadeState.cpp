@@ -23,7 +23,6 @@ static char THIS_FILE[]=__FILE__;
 #define new DEBUG_NEW
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class SDrawVAPatternFunctional
 {
 private:
@@ -89,7 +88,6 @@ public:
 	}
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawShadeState::Draw( CTemplateEditorFrame* pFrame )
 {
 	if ( IScene *pScene = GetSingleton<IScene>() )
@@ -138,7 +136,6 @@ void CDrawShadeState::Draw( CTemplateEditorFrame* pFrame )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawShadeState::Update( CTemplateEditorFrame* pFrame, bool bUpdateTileHeight )
 {
 	IScene *pScene = GetSingleton<IScene>();
@@ -151,7 +148,6 @@ void CDrawShadeState::Update( CTemplateEditorFrame* pFrame, bool bUpdateTileHeig
 		CTPoint<int> terrainTile;
 		if( CMapInfo::GetTerrainTileIndices( rTerrainInfo, stateParameter.vLastPos, &terrainTile ) )
 		{
-			//вычисление высоты
 			fTileHeight = ( rTerrainInfo.altitudes[terrainTile.y + 0][terrainTile.x + 0].fHeight +
 											rTerrainInfo.altitudes[terrainTile.y + 1][terrainTile.x + 0].fHeight +
 											rTerrainInfo.altitudes[terrainTile.y + 1][terrainTile.x + 1].fHeight +
@@ -187,7 +183,6 @@ void CDrawShadeState::Update( CTemplateEditorFrame* pFrame, bool bUpdateTileHeig
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawShadeState::OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( IAIEditor* pAIEditor = GetSingleton<IAIEditor>() )
@@ -199,7 +194,6 @@ void CDrawShadeState::OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint,
 				pFrame->m_mapEditorBarPtr->GetShade()->m_tickCount = GetTickCount();
 				if ( ( nFlags & MK_LBUTTON ) || ( nFlags & MK_RBUTTON ) || ( nFlags & MK_MBUTTON ) )
 				{
-					//Update( pFrame, false );
 
 					pFrame->SetMapModified();
 					IScene *pScene = GetSingleton<IScene>();
@@ -284,7 +278,6 @@ void CDrawShadeState::OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint,
 					}
 					else if ( nFlags & MK_LBUTTON )
 					{
-						//Update( pFrame, false );
 						{
 							SVAAddPatternFunctional functional( &( rTerrainInfo.altitudes ) );
 							ApplyVAPattern( altitudeRect, pFrame->m_mapEditorBarPtr->GetShade()->m_currentPattern, functional, true );
@@ -308,7 +301,6 @@ void CDrawShadeState::OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint,
 					}
 					else if ( nFlags & MK_RBUTTON )
 					{
-						//Update( pFrame, false );
 						{
 							SVASubstractPatternFunctional functional( &( rTerrainInfo.altitudes ) );
 							ApplyVAPattern( altitudeRect, pFrame->m_mapEditorBarPtr->GetShade()->m_currentPattern, functional, true );
@@ -338,29 +330,24 @@ void CDrawShadeState::OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint,
 					Update( pFrame );
 				}
 			}
-			//Draw( pFrame );
 			pFrame->RedrawWindow();
 		}
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawShadeState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( stateParameter.Update( CInputStateParameter::ISE_LBUTTONDOWN, rMousePoint, pFrame ) )
 	{
 		Update( pFrame );
-		//Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawShadeState::UpdateZ( CTemplateEditorFrame* pFrame )
 {
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawShadeState::OnLButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( stateParameter.Update( CInputStateParameter::ISE_LBUTTONUP, rMousePoint, pFrame ) )
@@ -373,23 +360,19 @@ void CDrawShadeState::OnLButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint,
 		}
 		
 		UpdateZ( pFrame );
-		//Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawShadeState::OnRButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( stateParameter.Update( CInputStateParameter::ISE_RBUTTONDOWN, rMousePoint, pFrame ) )
 	{
 		Update( pFrame );
-		//Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawShadeState::OnRButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( stateParameter.Update( CInputStateParameter::ISE_RBUTTONUP, rMousePoint, pFrame ) )
@@ -402,23 +385,19 @@ void CDrawShadeState::OnRButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint,
 		}
 
 		UpdateZ( pFrame );
-		//Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawShadeState::OnMButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( stateParameter.Update( CInputStateParameter::ISE_MBUTTONDOWN, rMousePoint, pFrame ) )
 	{
 		Update( pFrame );
-		//Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawShadeState::OnMButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( stateParameter.Update( CInputStateParameter::ISE_MBUTTONUP, rMousePoint, pFrame ) )
@@ -431,25 +410,19 @@ void CDrawShadeState::OnMButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint,
 		}
 		
 		UpdateZ( pFrame );
-		//Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawShadeState::OnKeyDown( UINT nChar, UINT nRepCnt, UINT nFlags, CTemplateEditorFrame* pFrame )
 {
 	if ( stateParameter.Update( CInputStateParameter::ISE_KEYDOWN, CTPoint<int>( 0, 0 ), pFrame ) )
 	{
 		
 		Update( pFrame, false );
-		//Draw( pFrame );
-		//Do not draw scene here!
-		//pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawShadeState::Enter()
 {
 	if ( CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame() )
@@ -460,12 +433,10 @@ void CDrawShadeState::Enter()
 		}
 	
 		bLeaved = false;
-		//Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawShadeState::Leave()
 {
 	if ( CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame() )
@@ -481,18 +452,14 @@ void CDrawShadeState::Leave()
 			}
 		}
 		bLeaved = true;
-		//Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDrawShadeState::Update()
 {
 	if ( CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame() )
 	{
-		//Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

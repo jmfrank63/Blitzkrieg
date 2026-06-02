@@ -48,8 +48,6 @@ void SetUnitProperty( IUIStatusBar *pBar, const int nIndex, const int nLevel, co
 #include "MessageReaction.h"
 #include "MissionInterfaceEscapeMenu.h"
 #include "..\GameTT\WorldClient.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// INTERFACE ELEMENTS ENUM	
 enum
 {
 	E_MULTIPLAYER_PLAYER_LAGGED_DIALOG								= 100001,
@@ -59,7 +57,6 @@ enum
 
 	E_SINGLE_OBJECTIVE_BUTTON													= 6001,
 
-	// in game scores small
 	E_DIALOG_MULTIPLAYER_SCORES_SMALL									= 30000,
 
 	E_MULTIPLAYER_SCORES_SMALL_TEAMFRAGS							= 20001,
@@ -74,7 +71,6 @@ enum
 	E_MULTIPLAYER_SCORES_SMALL_MOD_NAME							  = 20015,
 	E_MULTIPLAYER_SCORES_SMALL_MOD_VERSION						= 20016,
 
-	// in-replay scores small
 	E_DIALOG_REPLAY_SS																= 30001,
 	
 	E_REPLAY_SS_TIMEBEFORECAPTURE											= 20001,
@@ -97,7 +93,6 @@ enum
 
 	E_REPLAY_SS_MOD_NAME															= 20013,
 	E_REPLAY_SS_MOD_VERSION														= 20014,
-	// END scores small
 
 
 
@@ -112,7 +107,6 @@ enum
 	E_MULTIPLAYER_PLAYER_LOADING_LIST									= 3000,
 
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry missionCommands[] = 
 {
 	{ "show_warfog"					, MC_SHOW_WARFOG					},
@@ -128,19 +122,14 @@ static const NInput::SRegisterCommandEntry missionCommands[] =
 	{ "show_statistics"			,	MC_SHOW_STATISTICS			},
 	{ "show_depth"					, MC_SHOW_DEPTH						},
 	{ "show_ui"							,	MC_SHOW_UI							},
-	//
 	{ "select_first_object"	, MC_SELECT_FIRST_OBJECT	},
 	{ "select_next_object"	, MC_SELECT_NEXT_OBJECT		},
 	{ "drop_object"					, MC_DROP_OBJECT					},
 	{ "enter_ingame_editor"	, MC_ENTER_INGAME_EDITOR	},
 	{ "leave_ingame_editor"	, MC_LEAVE_INGAME_EDITOR	},
-	//
 	{ "save_scene"					, MC_SAVE_SCENE						},
-	//
 #endif // !defined(_FINALRELEASE) || defined( _PROFILER )
-	//
 	{ "show_avia_buttons"		,	MC_SHOW_AVIA_BUTTONS		},
-	// actions
 	{ "add_action_on"				,	MC_ADD_ACTION_ON				},
 	{ "add_action_off"			,	MC_ADD_ACTION_OFF				},
 	{ "force_action_move_on",	MC_FORCE_ACTION_MOVE_ON	},
@@ -148,7 +137,6 @@ static const NInput::SRegisterCommandEntry missionCommands[] =
 	{ "force_action_attack_on",	MC_FORCE_ACTION_ATTACK_ON	},
 	{ "force_action_attack_off",	MC_FORCE_ACTION_ATTACK_OFF	},
 	{ "reset_selection"			,	MC_RESET_SELECTION			},
-	//
 	{ "show_console"				, MC_SHOW_CONSOLE					},
 	{ "enter_chat_mode"			, MC_ENTER_CHAT_MODE			},
 	{ "enter_chat_mode_friends", MC_ENTER_CHAT_MODE_FRIENDS	},
@@ -158,7 +146,6 @@ static const NInput::SRegisterCommandEntry missionCommands[] =
 	{ "show_help_screen"		, MC_SHOW_HELP_SCREEN			},
 	{ "show_status_bar"			, MC_TOGGLE_UNIT_INFO			},
 	{ "show_objectives"			, MC_SHOW_OBJECTIVES			},
-	//{ "show_single_objective", MC_SHOW_SINGLE_OBJECTIVE },
 	{ "show_single_objective", WCC_SHOW_LAST_OBJECTIVE },
 	{ "begin_timeout"				,	CMD_GAME_TIMEOUT_SEND		},
 	{ "stop_timeout"				,	CMD_GAME_UNTIMEOUT_SEND	},
@@ -166,12 +153,10 @@ static const NInput::SRegisterCommandEntry missionCommands[] =
 	{ "make_map_shot"				, MC_MAKE_MAP_SHOT				},
 	{ 0											,	0												}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static DWORD timeFrameLastTime = 0;
 static DWORD timePeriodTime = 0;
 static NTimer::STime timeFrameLastGameTime = 0;
 static int nPeriodCounter = 0;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 inline void ResetGameSpeedAdjusting()
 {
 	timeFrameLastTime = 0;
@@ -179,22 +164,12 @@ inline void ResetGameSpeedAdjusting()
 	timePeriodTime = 0;
 	nPeriodCounter = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** mission command
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CICMission::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 	saver.Add( 1, &szMapName );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICMission::Configure( const char *pszConfig )
 {
 	if ( !pszConfig ) return;
@@ -207,27 +182,22 @@ void CICMission::Configure( const char *pszConfig )
 	else
 		bCycledLaunch = false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void GUID2String( std::string *pString, const GUID &guid )
 {
 	*pString = NStr::Format( "%.8x-%.4x-%.4x-%.2x%.2x-%.2x%.2x%.2x%.2x%.2x%.2x", guid.Data1, guid.Data2, guid.Data3, guid.Data4[0], 
 														guid.Data4[1], guid.Data4[2], guid.Data4[3], guid.Data4[4], guid.Data4[5], guid.Data4[6], guid.Data4[7] );
 	NStr::ToUpper( *pString );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICMission::PreCreate( IMainLoop *pML ) 
 { 
 	pML->ResetStack(); 
 	pML->ClearResources(); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICMission::PostCreate( IMainLoop *pML, CInterfaceMission *pInterface ) 
 { 
 	NStr::ToLower( szMapName );
-	//
 	IDataStorage *pStorage = GetSingleton<IDataStorage>();
 	const std::string szTerrainName = std::string( "maps\\" ) + szMapName.substr( 0, szMapName.rfind( '.' ) );
-	// get stats from XML and BZM files
 	SStorageElementStats stats;
 	Zero( stats );
 	if ( pStorage->IsStreamExist( (szTerrainName + ".xml").c_str() ) == false &&
@@ -236,15 +206,11 @@ void CICMission::PostCreate( IMainLoop *pML, CInterfaceMission *pInterface )
 		pML->Command( MISSION_COMMAND_MAIN_MENU, 0 );
 		return;
 	}
-	//
 	SetGlobalVar( "Map.Current.Name", szMapName.c_str() );
-	// for loading from command line
 	GetSingleton<ICommandsHistory>()->LoadCommandLineHistory();
 
-	//
 	GetSingleton<ICommandsHistory>()->PrepareToStartMission();
 	GetSingleton<ITransceiver>()->PreMissionInit();
-	//
 	pML->PushInterface( pInterface ); 
 
 	if ( pInterface->NewMission(szMapName, bCycledLaunch) )
@@ -258,21 +224,11 @@ void CICMission::PostCreate( IMainLoop *pML, CInterfaceMission *pInterface )
 		pInterface->ConfigureInterfacePreferences();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** CPlayerLaggedDialog
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CTimeoutDialog::ProcessMessage( const SGameMessage &msg, IUIScreen * pUIScreen )
 {
 	switch( msg.nEventID )
 	{
 	case CMD_GAME_UNTIMEOUT:
-		// hide timeout window
 		GetSingleton<IMainLoop>()->Pause( false, PAUSE_TYPE_MP_TIMEOUT );
 		{
 			IUIDialog *pDialog = checked_cast<IUIDialog*>( pUIScreen->GetChildByID( E_MULTIPLAYER_TIMEOUT_DIALOG ) );
@@ -281,7 +237,6 @@ void CInterfaceMission::CTimeoutDialog::ProcessMessage( const SGameMessage &msg,
 
 		break;
 	case CMD_GAME_TIMEOUT_UPDATE:
-		// update timeout text in window
 		{
 			IUIDialog *pDialog = checked_cast<IUIDialog*>( pUIScreen->GetChildByID( E_MULTIPLAYER_TIMEOUT_DIALOG ) );
 			IUIStatic *pCounter = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_MULTIPLAYER_TIMEOUT_COUNTER ) );
@@ -290,7 +245,6 @@ void CInterfaceMission::CTimeoutDialog::ProcessMessage( const SGameMessage &msg,
 		break;
 
 	case CMD_GAME_TIMEOUT:
-		// show timeout window
 		GetSingleton<IMainLoop>()->Pause( true, PAUSE_TYPE_MP_TIMEOUT );
 		{
 			IUIDialog *pDialog = checked_cast<IUIDialog*>( pUIScreen->GetChildByID( E_MULTIPLAYER_TIMEOUT_DIALOG ) );
@@ -312,26 +266,15 @@ void CInterfaceMission::CTimeoutDialog::ProcessMessage( const SGameMessage &msg,
 
 	}		
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CTimeoutDialog::StepLocal( IUIScreen * pUIScreen )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** CDialogStateLagged
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CPlayerLaggedDialog::CDialogStateLagged::RemovePlayer( const int nPlayer, IUIScreen *pUIScreen )
 {
 	players.Delete( nPlayer );
 	if ( players.IsEmpty() )
 		Hide( pUIScreen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CPlayerLaggedDialog::CDialogStateLagged::Show( IUIScreen *pUIScreen )
 {
 	IUIDialog * pDialog = checked_cast<IUIDialog*>( pUIScreen->GetChildByID( E_MULTIPLAYER_PLAYER_LAGGED_DIALOG ) );
@@ -342,7 +285,6 @@ void CInterfaceMission::CPlayerLaggedDialog::CDialogStateLagged::Show( IUIScreen
 	
 	players.SetListControl( checked_cast<IUIListControl*>( pDialog->GetChildByID( E_MULTIPLAYER_PLAYER_LAGGED_LIST ) ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CPlayerLaggedDialog::CDialogStateLagged::Hide( IUIScreen *pUIScreen )
 {
 	bShowedWindow = false;
@@ -350,7 +292,6 @@ void CInterfaceMission::CPlayerLaggedDialog::CDialogStateLagged::Hide( IUIScreen
 	GetSingleton<IMainLoop>()->Pause( false, PAUSE_TYPE_MP_LOADING );
 	pDialog->ShowWindow( UI_SW_HIDE );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CPlayerLaggedDialog::CDialogStateLagged::AddPlayer( const int nParam, IUIScreen *pUIScreen )
 {
 	const int nPlayer = nParam & 0xff;
@@ -386,15 +327,6 @@ void CInterfaceMission::CPlayerLaggedDialog::CDialogStateLagged::AddPlayer( cons
 		pDropButton->SetWindowText( 0, pText->GetString() );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** CDialogStateLoading 
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CPlayerLaggedDialog::CDialogStateLoading::Show( IUIScreen *pUIScreen )
 {
 	IUIDialog * pDialog = checked_cast<IUIDialog*>( pUIScreen->GetChildByID( E_MULTIPLAYER_PLAYER_LOADING_DIALOG ) );
@@ -406,7 +338,6 @@ void CInterfaceMission::CPlayerLaggedDialog::CDialogStateLoading::Show( IUIScree
 	players.SetListControl( checked_cast<IUIListControl*>( pDialog->GetChildByID( E_MULTIPLAYER_PLAYER_LOADING_LIST ) ) );
 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CPlayerLaggedDialog::CDialogStateLoading::Hide( IUIScreen *pUIScreen )
 {
 	bShowedWindow = false;
@@ -414,7 +345,6 @@ void CInterfaceMission::CPlayerLaggedDialog::CDialogStateLoading::Hide( IUIScree
 	GetSingleton<IMainLoop>()->Pause( false, PAUSE_TYPE_MP_LOADING );
 	pDialog->ShowWindow( UI_SW_HIDE );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CPlayerLaggedDialog::CDialogStateLoading::AddPlayer( const int nParam, IUIScreen *pUIScreen )
 {
 	const int nPlayer = nParam;
@@ -429,22 +359,12 @@ void CInterfaceMission::CPlayerLaggedDialog::CDialogStateLoading::AddPlayer( con
 	IPlayerScenarioInfo *pPlayer = GetSingleton<IScenarioTracker>()->GetPlayer( nPlayer );
 	SetUIWindowText( pEl, pPlayer->GetName() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CPlayerLaggedDialog::CDialogStateLoading::RemovePlayer( const int nPlayer, IUIScreen *pUIScreen )
 {
 	players.Delete( nPlayer );
 	if ( players.IsEmpty() )
 		Hide( pUIScreen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** CPlayerLaggedDialog
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CPlayerLaggedDialog::ProcessMessage( const SGameMessage &msg, IUIScreen * pUIScreen )
 {
 	const int nPlayer = msg.nParam & 0xff;
@@ -463,7 +383,6 @@ void CInterfaceMission::CPlayerLaggedDialog::ProcessMessage( const SGameMessage 
 			if ( pState )
 				pState->Hide( pUIScreen );
 			pState = new CDialogStateLagged;
-			// hide win dialog if any
 			GetSingleton<IInput>()->AddMessage( SGameMessage( MC_SHOW_ESCAPE_MENU, 2 ) );
 		}
 		if ( pState && pState->GetName() == EWM_LAG )
@@ -498,24 +417,13 @@ void CInterfaceMission::CPlayerLaggedDialog::ProcessMessage( const SGameMessage 
 		pState = 0;
 
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CPlayerLaggedDialog::StepLocal( IUIScreen * pUIScreen )
 {
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** CGameScoresState
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::Show( IUIScreen * pUIScreen )
 {
 	Init( pUIScreen );
 	ITextManager *pTM = GetSingleton<ITextManager>();
-	//скроем кнопочку показа SINGLE OBJECTIVE
 	IUIElement *pSingleObjectiveButton = checked_cast<IUIElement*>( pUIScreen->GetChildByID( E_SINGLE_OBJECTIVE_BUTTON ) );
 	pSingleObjectiveButton->ShowWindow( UI_SW_HIDE );
 
@@ -525,19 +433,13 @@ void CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::Show( IUISc
 	IUIStatic * pName = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_REPLAY_SS_TIME ) );
 	pName->ShowWindow( UI_SW_SHOW );
 	pVal->ShowWindow( UI_SW_SHOW );
-	//OnFlags( 0, 0 );
-	//OnFrags( 0, 0 );
-	//OnFlags( 0, 1 );
-	//OnFrags( 0, 1 );
 
-	//SET PARTY'S NAMES
 	IUIStatic *pParty1Name = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_REPLAY_SS_TEAM_1_PARTYNAME ) );
 	pParty1Name->SetWindowText( 0, CUIConsts::GetLocalPartyName( GetGlobalVar( "Multiplayer.Side0.Name", "" ) ) );
 
 	IUIStatic *pParty2Name = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_REPLAY_SS_TEAM_2_PARTYNAME ) );
 	pParty2Name->SetWindowText( 0, CUIConsts::GetLocalPartyName( GetGlobalVar( "Multiplayer.Side1.Name", "" ) ) );
 	
-	// show MOD info
 	if ( GetGlobalVar( "MOD.Active", 0 ) )
 	{
 		IUIStatic *pModName = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_MULTIPLAYER_SCORES_SMALL_MOD_NAME ) );
@@ -548,7 +450,6 @@ void CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::Show( IUISc
 		pModVersion->ShowWindow( UI_SW_SHOW );
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::OnFrags( const int nFrags, const int nParty )
 {
 	IUIStatic * pVal = checked_cast<IUIStatic*>( pDialog->GetChildByID( nParty ? E_REPLAY_SS_TEAM_2_FRAGS_VAL  : E_REPLAY_SS_TEAM_1_FRAGS_VAL ) );
@@ -558,7 +459,6 @@ void CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::OnFrags( co
 	pName->ShowWindow( UI_SW_SHOW );
 	pVal->ShowWindow( UI_SW_SHOW );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::OnFlags( const int nFlags, const int nParty )
 {
 	IUIStatic * pVal = checked_cast<IUIStatic*>( pDialog->GetChildByID( nParty ? E_REPLAY_SS_TEAM_2_FLAGS_VAL  : E_REPLAY_SS_TEAM_1_FLAGS_VAL ) );
@@ -567,7 +467,6 @@ void CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::OnFlags( co
 	pName->ShowWindow( UI_SW_SHOW );
 	pVal->ShowWindow( UI_SW_SHOW );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::OnTimeBeforeCapture( const int nTime )
 {
 	IUIStatic * pVal = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_REPLAY_SS_TIMEBEFORECAPTURE_VAL ) );
@@ -576,13 +475,11 @@ void CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::OnTimeBefor
 	pVal->ShowWindow( nTime != 0 ? UI_SW_SHOW : UI_SW_HIDE  );
 	SetUIWindowText( pVal, NStr::ToUnicode( NStr::Format( "%d:%02d", nTime/60, nTime%60 ) ) );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::OnTime( const int nTime )
 {
 	IUIStatic * pVal = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_REPLAY_SS_TIME_VAL ) );
 	SetUIWindowText( pVal, NStr::ToUnicode( NStr::Format( "%d:%02d", nTime/60, nTime%60 ) ) );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::Init( IUIScreen *pUIScreen )
 {
 	if ( !bInitted )
@@ -592,19 +489,9 @@ void CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::Init( IUISc
 		bInitted = true;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** CGameScoresState
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::Show( IUIScreen * pUIScreen )
 {
 	Init( pUIScreen );
-	//скроем кнопочку показа SINGLE OBJECTIVE
 	IUIElement *pSingleObjectiveButton = checked_cast<IUIElement*>( pUIScreen->GetChildByID( E_SINGLE_OBJECTIVE_BUTTON ) );
 	pSingleObjectiveButton->ShowWindow( UI_SW_HIDE );
 
@@ -614,10 +501,7 @@ void CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::Show( IUIScre
 	IUIStatic * pName = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_MULTIPLAYER_SCORES_SMALL_TIME_VAL) );
 	pName->ShowWindow( UI_SW_SHOW );
 	pVal->ShowWindow( UI_SW_SHOW );
-	//OnFlags( 0, 0 );
-	//OnFrags( 0, 0 );
 	
-	// show MOD info
 	if ( GetGlobalVar( "MOD.Active", 0 ) )
 	{
 		IUIStatic *pModName = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_MULTIPLAYER_SCORES_SMALL_MOD_NAME ) );
@@ -628,7 +512,6 @@ void CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::Show( IUIScre
 		pModVersion->ShowWindow( UI_SW_SHOW );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::OnFrags( const int nFrags, const int nPlayer )
 {
 	IUIStatic * pVal = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_MULTIPLAYER_SCORES_SMALL_TEAMFRAGS_VAL ) );
@@ -637,7 +520,6 @@ void CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::OnFrags( cons
 	pName->ShowWindow( UI_SW_SHOW );
 	pVal->ShowWindow( UI_SW_SHOW );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::OnFlags( const int nFlags, const int nPlayer )
 {
 	IUIStatic * pVal = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_MULTIPLAYER_SCORES_SMALL_TEAMFLAGS_VAL ) );
@@ -646,7 +528,6 @@ void CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::OnFlags( cons
 	pName->ShowWindow( UI_SW_SHOW );
 	pVal->ShowWindow( UI_SW_SHOW );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::Init( IUIScreen *pUIScreen )
 {
 	if ( !bInitted )
@@ -656,7 +537,6 @@ void CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::Init( IUIScre
 		bInitted = true;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::OnTimeBeforeCapture( const int nTime )
 {
 	IUIStatic * pVal = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_MULTIPLAYER_SCORES_SMALL_TIMEBEFORECAPTURE_VAL ) );
@@ -666,25 +546,14 @@ void CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::OnTimeBeforeC
 	const std::wstring szTimeBeforeCapture = NStr::ToUnicode( NStr::Format( "%d:%02d", nTime/60, nTime%60 ) );
 	SetUIWindowText( pVal, szTimeBeforeCapture );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::OnTime( const int nTime )
 {
 	IUIStatic * pVal = checked_cast<IUIStatic*>( pDialog->GetChildByID( E_MULTIPLAYER_SCORES_SMALL_TIME_VAL ) );
 	const std::wstring szTime = NStr::ToUnicode( NStr::Format( "%d:%02d", nTime/60, nTime%60 ) );
 	SetUIWindowText( pVal, szTime );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** MultiplayerScoresSmall
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::CScoresState::ProcessMessage( const SGameMessage &msg, IUIScreen * pUIScreen )
 { 
-	// show dialog.
 	if ( !bVisible )
 	{
 		Show( pUIScreen );
@@ -716,15 +585,12 @@ void CInterfaceMission::CMultiplayerScoresSmall::CScoresState::ProcessMessage( c
 		break;
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::CScoresState::StepLocal( IUIScreen * pUIScreen )
 {
 	if ( !bVisible ) return;
 
-	//update time (astronomical time)
 	const NTimer::STime curTime = GetSingleton<ITransceiver>()->GetMultiplayerTime();
 	
-	// timeBefore Capture - in game time (not astronomical)
 	const NTimer::STime curGameTime = GetSingleton<IGameTimer>()->GetGameTime();
 	const NTimer::STime timeToCapture = timeBeforeCapture >= curGameTime ? timeBeforeCapture - curGameTime : 0 ;
 	
@@ -743,51 +609,27 @@ void CInterfaceMission::CMultiplayerScoresSmall::CScoresState::StepLocal( IUIScr
 		OnTime( nGameTime );
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** MultiplayerScoresSmall
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::ProcessMessage( const SGameMessage &msg, IUIScreen * pUIScreen )
 {
 	if ( pState )
 		pState->ProcessMessage( msg, pUIScreen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::Done()
 {
 	pState = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::Init()
 {
 	if ( GetGlobalVar( "MultiplayerGame", 0 ) )
 	{
-		//if ( GetGlobalVar( "History.Playing", 0 ) )
 			pState = new CReplayScoresState;
-		//else
-			//pState = new CGameScoresState;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CMultiplayerScoresSmall::StepLocal( IUIScreen * pUIScreen )
 {
 	if ( pState )
 		pState->StepLocal( pUIScreen );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** mission internal
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceMission::CInterfaceMission()
 : CInterfaceScreenBase( "Mission" ), 
   vCameraStartPos( VNULL3 ), pSelectedObject( 0 ), bEditMode( false ), 
@@ -797,10 +639,8 @@ CInterfaceMission::CInterfaceMission()
 	bCycledLaunch = false;
 	nFPSAveragePeriod = 5000;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceMission::~CInterfaceMission() 
 {
-	// сначала необходимо освободить всю клиенсткую часть, а только потом звать очистку AI
 	pFrameSelection = 0;
 	pWorld = 0;
 	if ( pScene )
@@ -813,14 +653,12 @@ CInterfaceMission::~CInterfaceMission()
 		pAckManager->Clear();
 		pAckManager = 0;
 	}
-	//
 	if ( pAILogic )
 	{
 		pAILogic->Clear();
 		pAILogic->Suspend();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -828,7 +666,6 @@ int CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState::operator&( I
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -836,7 +673,6 @@ int CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState::operator&( ISt
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceMission::CMultiplayerScoresSmall::CScoresState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -851,7 +687,6 @@ int CInterfaceMission::CMultiplayerScoresSmall::CScoresState::operator&( IStruct
 	}
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceMission::CMultiplayerScoresSmall::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -859,20 +694,17 @@ int CInterfaceMission::CMultiplayerScoresSmall::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceMission::CTimeoutDialog::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceMission::CPlayerLaggedDialog::CDialogState::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 	saver.Add( 1, &bShowedWindow );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceMission::CPlayerLaggedDialog::CDialogStateLagged::operator&( IStructureSaver &ss )
 {	
 	CSaverAccessor saver = &ss;
@@ -880,39 +712,28 @@ int CInterfaceMission::CPlayerLaggedDialog::CDialogStateLagged::operator&( IStru
 	saver.Add( 3, &players );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceMission::CPlayerLaggedDialog::CDialogStateLoading::operator&( IStructureSaver &ss )
 {	
 	CSaverAccessor saver = &ss;
 	saver.AddTypedSuper( 1, static_cast<CDialogState*>(this) );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceMission::CPlayerLaggedDialog::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 
-	//saver.Add( 1, &laggedPlayers );
-	//saver.Add( 2, &bShowedWindow );
-	//saver.Add( 3, &nTimeLeft );
-	//saver.Add( 4, &timeShowed );
-	//saver.Add( 6, &eState );
-	//saver.Add( 7, &loadingPlayers );
 	saver.Add( 8, &pState);
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceMission::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
-	//
 	saver.AddTypedSuper( 1, static_cast<CInterfaceScreenBase*>(this) );
 	saver.Add( 2, &pWorld );
 	saver.Add( 3, &pUIScreen );
 	saver.Add( 4, &vCameraStartPos );
 	saver.Add( 5, &nDirection );
 	saver.Add( 6, &vLastAnchor );
-//	saver.Add( 7, &nSelectionID );
 	saver.Add( 8, &pTextPause );
 	saver.Add( 10, &szCurrMapName );
 	saver.Add( 11, &bCycledLaunch );
@@ -920,70 +741,49 @@ int CInterfaceMission::operator&( IStructureSaver &ss )
 	saver.Add( 13, &laggedDialog );
 	saver.Add( 14, &timeoutDialog );
 	
-	//
 	if ( saver.IsReading() )
 	{
-		// init world
 		pWorld->Init( GetSingletonGlobal() );
-		// reset pre-selection
 		preselectedObjects.clear();
 		selectedObjects.clear();
 		itCurrSelected = selectedObjects.end();
 		pSelectedObject = 0;
-		// reset start pause counter
 		nStartPauseCounter = 0;
 		pAckManager = GetSingleton<IClientAckManager>();
 		nFPSAveragePeriod = GetGlobalVar( "Word.FPSAveragePeriod", 5000 );
 		ResetGameSpeedAdjusting();
 	}
-	//
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMission::Init()
 {
 	CInterfaceScreenBase::Init();
 
 	GetSingleton<IMessageLinkContainer>()->SetInterface( this );
 
-	// turn haze on
 	while ( pScene->ToggleShow(SCENE_SHOW_HAZE) == false );
 
-	//inti scores
 	multiplayerScoresSmall.Init();
 
-	//
 	pAILogic = GetSingleton<IAILogic>();
 
 	pAckManager = GetSingleton<IClientAckManager>();
-	//
 	pFrameSelection = pScene->GetFrameSelection();
-	//
 	missionMsgs.Init( pInput, missionCommands );
-	//                 
-	// init mission camera
 	CTRect<long> rcScreen = pGFX->GetScreenRect();
 	pCamera->SetPlacement( CVec3(0, 0, 0), 1024*4 + rcScreen.Height(), -ToRadian(90.0f + 30.0f), ToRadian(45.0f) );
-	//
 	nFPSAveragePeriod = GetGlobalVar( "Word.FPSAveragePeriod", 5000 );
-	//
 	SetBindSection( "game_mission" );
-	//
 	pAILogic->Resume();
 	
-	//
   return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::Done()
 {
 	GetSingleton<IMessageLinkContainer>()->SetInterface( 0 );
-	// remove mission temporary global variables
 	GetSingleton<IGlobalVars>()->RemoveVarsByMatch( "temp." );	
-	// сначала необходимо освободить всю клиенсткую часть, а только потом звать очистку AI
 	pFrameSelection = 0;
 	pWorld = 0;
-	//
 	NI_ASSERT_T( pScene != 0, "pScene is 0, information will not clear" );
 	if ( pScene )
 	{
@@ -997,32 +797,26 @@ void CInterfaceMission::Done()
 		pAckManager->Clear();
 		pAckManager = 0;
 	}
-	// очистим AI
 	if ( pAILogic )
 	{
 		pAILogic->Clear();
 		pAILogic->Suspend();
 	}
-	// мы вышли из миссии
 	RemoveGlobalVar( "AreWeInMission" );
 	GetSingleton<IMainLoop>()->ClearResources( true );
 	multiplayerScoresSmall.Done();
 
-	// чистка переменных
 /*
 	int nMulty = GetGlobalVar( "MultiplayerGame", 0 );
 	if ( !nMulty )		//если не в режиме multyplayer
 		GetSingleton<IMainLoop>()->Command( MAIN_COMMAND_CHANGE_TRANSCEIVER, NStr::Format("%d 0", MAIN_SP_TRANSCEIVER) );
 */
-	//
 	CInterfaceScreenBase::Done();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMission::OpenCurtains() 
 { 
 	return true; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::ConfigureInterfacePreferences()
 {
 	if ( GetSingleton<IUserProfile>()->GetVar( "Mission.UnitExtendedInfo.opened", 1 ) )
@@ -1031,34 +825,27 @@ void CInterfaceMission::ConfigureInterfacePreferences()
 			GetSingleton<IInput>()->AddMessage( SGameMessage( MC_TOGGLE_UNIT_INFO ) );
 	}
 }	
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::CheckResolution()
 {
 	if ( !pUIScreen ) return;
 
 	const int nSizeXAfter = GetGlobalVar( "GFX.Mode.Current.SizeX", 1024 );
 	
-	// screen resolution become smaller by X
 	const bool bEnoughToAllControls = nSizeXAfter >= 800;
 
 	if ( bEnoughToAllControls )
 	{
-		//enable info bar expanision 
 		pUIScreen->GetChildByID( 110 )->ShowWindow( UI_SW_SHOW_DONT_MOVE_UP );
 	}
 	else
 	{
-		// close expanded unit info bar
 		pUIScreen->GetChildByID( 40000 )->EnableWindow( false );
 		pUIScreen->GetChildByID( 40000 )->ShowWindow( UI_SW_HIDE );
 
-		// disable expanision
-		//pUIScreen->GetChildByID( 110 )->EnableWindow( false );
 		pUIScreen->GetChildByID( 110 )->ShowWindow( UI_SW_HIDE );
 		pUIScreen->GetChildByID( 110 )->SetState( 0 );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::OnGetFocus( bool bFocus )
 {
  	CInterfaceScreenBase::OnGetFocus( bFocus );
@@ -1071,7 +858,6 @@ void CInterfaceMission::OnGetFocus( bool bFocus )
 	}
 	ResetGameSpeedAdjusting();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct STestBorder
 {
 	std::vector<std::string> fronts;
@@ -1080,7 +866,6 @@ struct STestBorder
 	float fF2B;														// front to back change | 
 	float fFrontWidth;
 	float fBackWidth;
-	//
 	int operator&( IDataTree &ss )
 	{
 		CTreeAccessor saver = &ss;
@@ -1090,13 +875,11 @@ struct STestBorder
 		saver.Add( "F2BChange", &fF2B );
 		saver.Add( "BackWidth", &fBackWidth );
 		saver.Add( "FrontWidth", &fFrontWidth );
-		//
 		if ( saver.IsReading() ) 
 		{
 			fB2F = fB2F / 360.0f * 65535.0f;
 			fF2B = fF2B / 360.0f * 65535.0f;
 		}
-		//
 		return 0;
 	}
 };
@@ -1106,7 +889,6 @@ struct SPolylineSample
 	int nFirst, nLast;
 	float fCoeff;
 	SPolylineSample() : nFirst( 0 ), nLast( 1 ), fCoeff( 0 ) {  }
-	//
 	const CVec3 GetPoint( const std::vector<CVec3> &points )
 	{
 		CVec3 vPos;
@@ -1114,14 +896,12 @@ struct SPolylineSample
 		return vPos;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SBorderSegment
 {
 	int nFrameIndex;
 	CVec3 vPos;
 	WORD wDir;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool FindNextPoint( SPolylineSample *pRes, const SPolylineSample &curr, const float fLen, const std::vector<CVec3> &points )
 {
 	CVec3 vPos;
@@ -1132,38 +912,31 @@ bool FindNextPoint( SPolylineSample *pRes, const SPolylineSample &curr, const fl
 		++nNextIndex;
 	if ( nNextIndex == points.size() ) 
 		return false;
-	//
 	const CVec3 vFrom = curr.nLast == nNextIndex ? vPos : points[nNextIndex - 1];
 	const CVec3 vTo = points[nNextIndex];
 	float fStartCoeff = curr.nLast == nNextIndex ? curr.fCoeff : 0;
 	const CVec3 vVec = vTo - vFrom;
-	//
 	float fCurrCoeff;
 	for ( fCurrCoeff = fStartCoeff; fCurrCoeff < 1.0f; fCurrCoeff += 0.01f )
 	{
 		if ( fabs2(vFrom + fCurrCoeff*vVec) >= fLen2 )
 			break;
 	}
-	//
 	pRes->nFirst = nNextIndex - 1;
 	pRes->nLast = nNextIndex;
 	pRes->fCoeff = fCurrCoeff;
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void AddBorder( const SVectorStripeObject &stripe, const int nSide, std::vector<SMapObjectInfo> &objects )
 {
 	if ( GetGlobalVar("border", 0) == 0 ) 
 		return;
-	//
 	STestBorder borders;
 	{
 		CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( "borders.xml", STREAM_ACCESS_READ );
 		CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::READ );
 		saver.AddTypedSuper( &borders );
 	}
-	//
 	std::vector<CVec3> points( stripe.points.size() );
 	WORD wAngleAdd = 0;
 	if ( nSide == 0 ) 
@@ -1177,7 +950,6 @@ void AddBorder( const SVectorStripeObject &stripe, const int nSide, std::vector<
 		for ( int i = 0; i < stripe.points.size(); ++i )
 			points[i] = stripe.points[i].vPos - stripe.points[i].vNorm*stripe.points[i].fWidth;
 	}
-	//
 	SPolylineSample curr, next;
 	while ( FindNextPoint(&next, curr, borders.fFrontWidth*fWorldCellSize/2.0f, points) ) 
 	{
@@ -1192,14 +964,11 @@ void AddBorder( const SVectorStripeObject &stripe, const int nSide, std::vector<
 		wDir += wAngleAdd;
 		CVec3 vCenter = ( vFirst + vLast ) / 2.0f;
 		Vis2AI( &vCenter );
-		// from 24575
-		// to 57343
 		std::string szName;
 		if ( (wDir > borders.fB2F) && (wDir < borders.fF2B) ) 
 			szName = borders.fronts[rand() % borders.fronts.size()];
 		else
 			szName = borders.backs[rand() % borders.backs.size()];
-		//
 		SMapObjectInfo obj;
 		obj.szName = szName;
 		obj.vPos = vCenter;
@@ -1210,7 +979,6 @@ void AddBorder( const SVectorStripeObject &stripe, const int nSide, std::vector<
 		curr = next;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycledLaunch )
 {
 	CPtr<IMovieProgressHook> pProgress = CreateObject<IMovieProgressHook>( MAIN_PROGRESS_INDICATOR );
@@ -1220,43 +988,32 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 	RemoveGlobalVar( "Mission.Current.StartTime" );
 	RemoveGlobalVar( "Mission.Current.HasObjectivesToShow" );
 	RemoveGlobalVar( "Mission.Current.HasActiveObjective" );
-	//
 	const std::string szMissionName = GetGlobalVar("Mission.Current.Name", "None" );
 	const std::string szVarName = "Mission." + szMissionName + ".Random.Generated";
 	RemoveGlobalVar( szVarName.c_str() );
 	NStr::DebugTrace( "CInterfaceMission::NewMission(), remove Template Mission: %s\n", szMissionName.c_str() );
 	
-	// set off all multiplayer pauses
 	GetSingleton<IMainLoop>()->Pause( false, PAUSE_TYPE_MP_NO_SEGMENT_DATA );
 	GetSingleton<IMainLoop>()->Pause( false, PAUSE_TYPE_MP_LAGG );
 	GetSingleton<IMainLoop>()->Pause( false, PAUSE_TYPE_MP_TIMEOUT );
 	GetSingleton<IMainLoop>()->Pause( false, PAUSE_TYPE_MP_LOADING );
 
-	//
-	// мы зашли в миссию
 	SetGlobalVar( "AreWeInMission", 1 );
-	// remove menu pause
 	GetSingleton<IMainLoop>()->Pause( false, PAUSE_TYPE_MENU );
-	// remove game pause and set game speed to 0
 	GetSingleton<IMainLoop>()->Pause( false, PAUSE_TYPE_USER_PAUSE );
 	GetSingleton<ISFX>()->Pause( false );
 	GetSingleton<ISFX>()->PauseStreaming( false );
 	pTimer->SetSpeed( 0 );
-	//
-	// reset segments
 	pTimer->GetGameSegmentTimer()->Set( pTimer->GetGameTime() );
 	GetSingleton<IMainLoop>()->Pause( true, PAUSE_TYPE_PREMISSION );
-	// store params for subsequent cycled launch
 	szCurrMapName = _szMapName;
 	bCycledLaunch = _bCycledLaunch;
-	//
 	pTextPause = CreateObject<IGFXText>( GFX_TEXT );
 	pTextPause->SetText( GetSingleton<ITextManager>()->GetString("pause") );
 	pTextPause->SetFont( GetSingleton<IFontManager>()->GetFont("fonts\\large") );
 
 	pProgress->Step(); //2
 	
-	// create UI
 	{
 		pUIScreen = CreateObject<IUIScreen>( UI_SCREEN );
 		pUIScreen->Load( "ui\\mission" );
@@ -1272,25 +1029,21 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 		}
 		if ( !GetGlobalVar( "MultiplayerGame", 0 ) )
 		{
-			// disable set marker button
 			IUIElement *pElement = pUIScreen->GetChildByID( 12002 );
 			if ( pElement )
 				pElement->EnableWindow( GetGlobalVar( "MultiplayerGame", 0  ) );
 		}
 	}
-	//
 	pProgress->Step(); //3
 	
 	const std::string szMapName = _szMapName.substr( 0, _szMapName.rfind( '.' ) );
 	const std::string szTerrainName = std::string( "maps\\" ) + _szMapName.substr( 0, _szMapName.rfind( '.' ) );
-	// load map info
 	CMapInfo mapinfo;
 	CPtr<IDataStream> pMapStream;
 	RemoveGlobalVar( "nogeneral_script" );
 	try
 	{
 		IDataStorage *pStorage = GetSingleton<IDataStorage>();
-		// get stats from XML and BZM files
 		SStorageElementStats statsXML, statsBZM;
 		Zero( statsXML );
 		pStorage->GetStreamStats( (szTerrainName + ".xml").c_str(), &statsXML );
@@ -1298,12 +1051,10 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 		pStorage->GetStreamStats( (szTerrainName + ".bzm").c_str(), &statsBZM );
 		NI_ASSERT_T( (statsXML.mtime != 0) || (statsBZM.mtime != 0), NStr::Format("Can't find neither XML nor BZM file with map \"%s\"", szTerrainName.c_str()) );
 		
-		// load map from newest stream
 		if ( statsXML.mtime > statsBZM.mtime ) 
 		{
 			pMapStream = pStorage->OpenStream( (szTerrainName + ".xml").c_str(), STREAM_ACCESS_READ );
 			NI_ASSERT_T( pMapStream != 0, NStr::Format("Can't open XML stream with map \"%s\"", szTerrainName.c_str()) );
-			// load XML
 			CTreeAccessor saver = CreateDataTreeSaver( pMapStream, IDataTree::READ );
 			saver.AddTypedSuper( &mapinfo );
 		}
@@ -1311,7 +1062,6 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 		{
 			pMapStream = pStorage->OpenStream( (szTerrainName + ".bzm").c_str(), STREAM_ACCESS_READ );
 			NI_ASSERT_T( pMapStream != 0, NStr::Format("Can't open BZM stream with map \"%s\"", szTerrainName.c_str()) );
-			// load binary BZM
 			CPtr<IStructureSaver> pSaver = CreateStructureSaver( pMapStream, IStructureSaver::READ );
 			CSaverAccessor saver = pSaver;
 			saver.Add( 1, &mapinfo );
@@ -1325,13 +1075,11 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format("Invalid or corrupted map file \"%s\"", szTerrainName.c_str()), 0xffff0000, true );
 		return false;
 	}
-	//
 	for ( int i = 0; i < mapinfo.diplomacies.size(); ++i )
 	{
 		NStr::DebugTrace( "CInterfaceMission::NewMission(), player: %d, diplomacy %d\n", i, mapinfo.diplomacies[i] );
 	}
 	mapinfo.UnpackFrameIndices();
-	// set players info to scenario tracker
 	if ( GetGlobalVar("MultiplayerGame", 0) == 0 ) 
 	{
 		for ( CPtr<IPlayerScenarioInfoIterator> pIt = GetSingleton<IScenarioTracker>()->CreatePlayerScenarioInfoIterator(); !pIt->IsEnd(); pIt->Next() )
@@ -1352,7 +1100,6 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 			pIt->Get()->SetSide( szPartyName );
 		}
 	}
-	// add test borders
 	if ( GetGlobalVar("border", 0) != 0 ) 
 	{
 		for ( int i = 0; i < mapinfo.terrain.rivers.size(); ++i )
@@ -1361,7 +1108,6 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 			AddBorder( mapinfo.terrain.rivers[i], 1, mapinfo.objects );
 		}
 	}
-	// compose full script name from map and script names
 	{
 		std::string szScriptName;
 		const int nMapNamePos = szTerrainName.rfind( '\\' );
@@ -1374,7 +1120,6 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 			szScriptName += mapinfo.szScriptFile;
 		mapinfo.szScriptFile = szScriptName;
 	}
-	// set mission usage counter
 	{
 		const std::string szMissionName = GetGlobalVar( "Mission.Current.Name", "" );
 		if ( !szMissionName.empty() )
@@ -1393,7 +1138,6 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 
 	pProgress->Step(); //4
 
-	// set current mission to scenario tracker
 	GetSingleton<IScenarioTracker>()->StartMission( GetGlobalVar("Mission.Current.Name", "UNKNOWN") );
 
 	mapinfo.AddSounds( &( mapinfo.soundsList ), CMapInfo::SOUND_TYPE_BITS_RIVERS );
@@ -1406,40 +1150,28 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 		if ( vCameraStartPos == VNULL3 ) 
 			vCameraStartPos = mapinfo.vCameraAnchor;
 	}
-	//
 	pCamera->SetAnchor( vCameraStartPos );
 	pCamera->SetBounds( 0, 0, mapinfo.terrain.tiles.GetSizeX() * fWorldCellSize, mapinfo.terrain.tiles.GetSizeY() * fWorldCellSize );
-	//
-	// AI initialization
 
 	pProgress->Step(); //5
-	//
 	pAILogic->Init( mapinfo, pProgress );
 	pProgress->Step(); //11
-	// create and init terrain
 	ITerrain *pTerrain = CreateTerrain();
 	pTerrain->Load( szTerrainName.c_str(), mapinfo.terrain );
 	GetSingleton<IScene>()->SetTerrain( pTerrain );
-	// set cursor to the screen center
 	CTRect<long> rcScreen = pGFX->GetScreenRect();
 	pCursor->SetPos( rcScreen.Width()/2, rcScreen.Height()/2 );
-	// resume AI logic after initialization
 	pAILogic->Resume();
-	//
-	// create world
 	pWorld = CreateObject<IWorldClient>( MISSION_WORLD );
 	pWorld->Init( GetSingletonGlobal() );
 	pWorld->Start();
 	pWorld->SetSeason( mapinfo.nSeason );
 	preselectedObjects.clear();
-	//
 	selectedObjects.clear();
 	itCurrSelected = selectedObjects.end();
 	pSelectedObject = 0;
-	// set variable about start time
 	SetGlobalVar( "Mission.Current.StartTime", int(pTimer->GetGameTime()) );
 
-	// CRAP{ minimap initialize
 	if ( pUIScreen ) 
 	{
     if ( IUIMiniMap *pUIMiniMap = checked_cast<IUIMiniMap*>( pUIScreen->GetChildByID( 20000 ) ) )
@@ -1461,7 +1193,6 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 			}
 
 			pUIMiniMap->SetBackgroundTexture( GetSingleton<ITextureManager>()->GetTexture( szTextureName.c_str() ) );
-			//показывание обжективов
 			std::string szMissionName = GetGlobalVar( "Mission.Current.Name" );
 			const SMissionStats *pMissionStats = NGDB::GetGameStats<SMissionStats>( szMissionName.c_str(), IObjectsDB::MISSION );
 			if ( pMissionStats != 0 )
@@ -1480,18 +1211,12 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 					}
 				}
 			}
-      //pUIMiniMap->SetRefreshTimeout( 0 );
     }
 	}
-	// CRAP}
-	//
-	// иницализация звуков от карты
 	if ( mapinfo.soundsList.size() )
 		pScene->InitMapSounds( &mapinfo.soundsList.front(), mapinfo.soundsList.size() );
 
-	// Инициализация музыки внутри игры
 	pScene->InitMusic( GetSingleton<IScenarioTracker>()->GetUserPlayer()->GetGeneralSide() );
-	// add mission bonus
 	RemoveGlobalVar( "Mission.Current.Bonus" );
 	const std::string szChapterName = GetGlobalVar( "Chapter.Current.Name", "" );
 	if ( !szChapterName.empty() ) 
@@ -1499,7 +1224,6 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 		const SChapterStats *pChapter = NGDB::GetGameStats<SChapterStats>( szChapterName.c_str(), IObjectsDB::CHAPTER );
 		if ( pChapter ) 
 		{
-			// get mission
 			const std::string szMissionName = GetGlobalVar( "Mission.Current.Name", "" );
 			if ( !szMissionName.empty() ) 
 			{
@@ -1507,7 +1231,6 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 				{
 					if ( it->szMission == szMissionName ) 
 					{
-						// add bonus for this mission
 						if ( !it->szMissionBonus.empty() ) 
 						{
 							if ( GetSingleton<IObjectsDB>()->GetDesc(it->szMissionBonus.c_str()) != 0 )
@@ -1519,48 +1242,35 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 			}
 		}
 	}
-	// add mission UI screen 
 	if ( pUIScreen ) 
 	{
 		pScene->AddUIScreen( pUIScreen );
 		pScene->SetMissionScreen( pUIScreen ); 
 	}
-	// заходим в игру
 	pScene->SetSoundSceneMode( ESSM_INGAME );
 	pProgress->Step(); //12
 	pProgress->Stop();
-	//
-	// darken screen in single player only
 	if ( GetGlobalVar("notransition", 0) == 0 && GetGlobalVar( "MultiplayerGame", 0 ) == 0 )
 	{
 		ISceneObject *pObj = CreateObject<ISceneObject>( SCENE_GAMMA_FADER );
 		GetSingleton<IScene>()->AddSceneObject( pObj );
 	}
-	//
 	ResetGameSpeedAdjusting();
-	// minimum difficulty (trough campaign)
 	GetSingleton<IScenarioTracker>()->UpdateMinimumDifficulty();
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMission::StepLocal( bool bAppActive )
 {
 	if ( !bAppActive )
 		return false;
 
 	const bool bInterfaceActive = pScene->GetMissionScreen() == pScene->GetUIScreen();
-	//
 	++nStartPauseCounter;
 	if ( nStartPauseCounter == 2 )
 		GetSingleton<IMainLoop>()->Pause( false, PAUSE_TYPE_PREMISSION );
-	// CRAP{ special delay to emulate slow computer
 	if ( const int nDelay = GetGlobalVar("delay", 0) ) 
 		Sleep( nDelay );
-	// CRAP}
-	// time
 	NTimer::STime currentGameTime = pTimer->GetGameTime();
-	// scroll
 	if ( bInterfaceActive )
 	{
 		RECT rcScreen = pGFX->GetScreenRect();
@@ -1577,7 +1287,6 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 		pCamera->SetScrollSpeedX( vScroll.x );
 		pCamera->SetScrollSpeedY( vScroll.y );
 	}
-	// frame selection
 	if ( bInterfaceActive )
 	{
 		CVec3 pos3;
@@ -1589,7 +1298,6 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 			pScene->GetPos2( &vBegin, pFrameSelection->GetBeginPoint() );
 			CVec2 vEnd;
 			pScene->GetPos2( &vEnd, pFrameSelection->GetEndPoint() );
-			//
 			CTRect<float> rcRect( vBegin, vEnd );
 			rcRect.Normalize();
 			if ( !rcRect.IsEmpty() )
@@ -1599,17 +1307,14 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 			}
 		}
 	}
-	// mouse movement processing
 	if ( bInterfaceActive )
 		OnCursorMove( pCursor->GetPos() );
-	// minimap update
 	if ( pUIScreen )
 	{
 		IUIElement *pElement = pUIScreen->GetChildByID( 20000 );
 		if ( pElement )
 		{
 			IUIMiniMap *pMiniMap = checked_cast<IUIMiniMap*>( pElement );
-			// war fog and units
 			BYTE *pVisInfo = 0;
 			int nNumObjects = 0;
 			pAILogic->GetMiniMapInfo( &pVisInfo, &nNumObjects );
@@ -1620,14 +1325,12 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 				pAILogic->GetMiniMapInfo( &pObjects, &nNumObjects );
 				pMiniMap->AddUnitsData( pObjects, nNumObjects );
 			}
-			// range areas
 			{
 				SShootAreas *pObjects = 0;
 				int nNumObjects = 0;
 				pScene->GetAreas( &pObjects, &nNumObjects );
 				pMiniMap->AddFireRangeAreas( pObjects, nNumObjects );
 			}
-			// add reveal circles
 			NTimer::STime currentAbsTime = pTimer->GetAbsTime();
 			
 			{
@@ -1639,37 +1342,28 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 					CVec3 vCenter;
 					AI2Vis( &vCenter, pObjects[i].center.x, pObjects[i].center.y, 0 );
 					const float fRadius = pObjects[i].r * fAITileXCoeff;
-					//
 					pMiniMap->AddCircle( CVec2( vCenter.x, vCenter.y ), fRadius, MMC_STYLE_DIVERGENT, 0xFF80, currentAbsTime, 2000, false, 0 );
 				}
 			}
 			pWorld->GetAviationCircles( pMiniMap, currentAbsTime );
 		}
 	}
-	// step time in multiplayer interface
 	multiplayerScoresSmall.StepLocal( pUIScreen );
 
-	//step time in player lagged dialog
 	laggedDialog.StepLocal( pUIScreen );
 	timeoutDialog.StepLocal( pUIScreen );
 
-	// UI & world Update
 	if ( pUIScreen ) 
 		pUIScreen->Update( pTimer->GetAbsTime() );
 	pWorld->Update( currentGameTime );
-	//
 	if ( pSelectedObject && bEditMode )
 	{
 		CVec2 pos = pCursor->GetPos();
 		pos += pSelectedObject->second;
 		CVec3 vPos3;
 		GetPos3( &vPos3, pos );
-		// move object and his shadow
 		pWorld->MoveObject( pSelectedObject->first, vPos3 );
 	} 
-	//
-	// game speed adjusting to preserve FPS (don't do it in multiplayer)
-	// 
 	if ( GetGlobalVar("MultiplayerGame", 0) == 0 ) 
 	{
 		const DWORD timeFrameCurrTime = timeGetTime();
@@ -1685,7 +1379,6 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 			++nPeriodCounter;
 		}
 		timeFrameLastTime = timeFrameCurrTime;
-		//
 		if ( timePeriodTime >= nFPSAveragePeriod ) 
 		{
 			const float fAveFPS = 1000.0f * float( nPeriodCounter ) / float( timePeriodTime );
@@ -1712,25 +1405,20 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 						}
 					}
 				}
-				//
 			}
 			timeFrameLastGameTime = timeGameTime;
 		}
 	}
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMission::OnCursorMove( const CVec2 &vPos )
 {
 	CInterfaceScreenBase::OnCursorMove( vPos );
 	pWorld->OnMouseMove( pCursor->GetPos(), pUIScreen != 0 ? pUIScreen->PickElement(vPos, 1000000000) : 0 );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::DrawAdd()
 {
-	// draw 'PAUSED' if it is
 	if ( pTimer->GetPauseReason() == 0 )
 	{
 		pGFX->SetupDirectTransform();
@@ -1738,12 +1426,9 @@ void CInterfaceMission::DrawAdd()
 		const int nH = rcScreen.Height() / 2;
 		const int nTextHalfHeight = pTextPause->GetLineSpace() / 2;
 		rcScreen.Set( rcScreen.x1, nH - nTextHalfHeight - 4, rcScreen.x2, nH + nTextHalfHeight + 4 );
-		//
-		// draw shadow under text
 		rcScreen.Move( 2, 2 );
 		pTextPause->SetColor( 0xff000000 );
 		pGFX->DrawText( pTextPause, rcScreen, 1, FNT_FORMAT_CENTER );
-		// draw main text
 		rcScreen.Move( -2, -2 );
 		const std::string szSeasonName = GetGlobalVar( "World.Season" );
 		const DWORD dwColor = GetGlobalVar( ("Scene.Colors." + szSeasonName + ".Text.Default.Color").c_str(), int(0xffffffff) );
@@ -1752,7 +1437,6 @@ void CInterfaceMission::DrawAdd()
 		pGFX->RestoreTransform();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMission::ProcessMessage( const SGameMessage &msg )
 {
 	pWorld->ProcessMessage( msg );
@@ -1762,59 +1446,48 @@ bool CInterfaceMission::ProcessMessage( const SGameMessage &msg )
 		ProcessMessageLocal( localmsg );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SetChildWindowText( IUIElement *pParent, const int nID, const wchar_t *pszText )
 {
 	IUIContainer *pContainer = checked_cast<IUIContainer*>( pParent );
 	if ( IUIElement *pElement = pContainer->GetChildByID(nID) )
 		pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( pszText ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SetChildWindowText( IUIElement *pParent, const int nID, const std::wstring &szText )
 {
 	SetChildWindowText( pParent, nID, szText.c_str() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SetUIWindowText( IUIElement *pElement, const wchar_t *pszText )
 {
 	pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( pszText ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SetUIWindowText( IUIElement *pElement, const std::wstring &szText )
 {
 	SetUIWindowText( pElement, szText.c_str() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SetHelpContext( IUIElement *pElement, const wchar_t *pszText )
 {
 	pElement->SetHelpContext( 0, reinterpret_cast<const WORD*>( pszText ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SetHelpContext( IUIElement *pElement, const std::wstring &szText )
 {
 	SetHelpContext( pElement, szText.c_str() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void OutputString( IUIStatusBar *pBar, const int nIndex, const wchar_t *pszText )
 {
 	pBar->OutputString( nIndex, reinterpret_cast<const WORD*>( pszText ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void OutputString( IUIStatusBar *pBar, const int nIndex, const std::wstring &szText )
 {
 	OutputString( pBar, nIndex, szText.c_str() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SetUnitProperty( IUIStatusBar *pBar, const int nIndex, const int nLevel, const wchar_t *pszText )
 {
 	pBar->SetUnitProperty( nIndex, nLevel, reinterpret_cast<const WORD*>( pszText ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SetUnitProperty( IUIStatusBar *pBar, const int nIndex, const int nLevel, const std::wstring &szText )
 {
 	SetUnitProperty( pBar, nIndex, nLevel, szText.c_str() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SMissionStatusObject* GetMissionStatusObject();
 void CInterfaceMission::SetMissionStatusObject( bool bStatus )
 {
@@ -1822,16 +1495,13 @@ void CInterfaceMission::SetMissionStatusObject( bool bStatus )
 
 	if ( pUIScreen == 0 )
 		return;
-	// primary stats
 	if ( IUIElement *pElement = pUIScreen->GetChildByID(40000) )
 	{
 		IUIStatusBar *pBar = checked_cast<IUIStatusBar*>( pElement );
 		IUIDialog *pDialog = checked_cast<IUIDialog *>( pUIScreen->GetChildByID( 5000 ) );
 		if ( pStatus )
 		{
-			//
 			pBar->SetUnitIcons( pStatus->dwIconsStatus );
-			// recruit/regular/veteran/elite
 			int nExp = 0;
 			int nExpNextLevel = 0;
 			float fExperience = 0.0f;
@@ -1842,17 +1512,14 @@ void CInterfaceMission::SetMissionStatusObject( bool bStatus )
 			}
 			else if ( IScenarioUnit *pUnit = GetSingleton<IScenarioTracker>()->GetUserPlayer()->GetUnit(pStatus->nScenarioIndex) ) 
 			{
-				// level, exp, exp-to-next-level
 				const int nLevel = pUnit->GetValue( STUT_LEVEL );
 				nExp = pUnit->GetValue( STUT_EXP );
 				nExpNextLevel = pUnit->GetValue(STUT_EXP_NEXT_LEVEL );
 				const int nPrevLevel = pUnit->GetValue( STUT_EXP_CURR_LEVEL );
-				//
 				IText *pText = GetSingleton<ITextManager>()->GetDialog( NStr::Format("textes\\ui\\mission\\status\\tt_unit_level%d", nLevel) );
 				std::wstring wToolTip = pText != 0 ? MakeWideStringFromWordString( pText->GetString() ) : L"";
 				wToolTip += NStr::ToUnicode( NStr::Format("(%d / %d)", nExp, nExpNextLevel) );
 				SetUnitProperty( pBar, 0, nLevel, wToolTip );
-				// personal name
 				if ( IText *pText = pUnit->GetName() ) 
 					pBar->OutputString( 1, pText->GetString() );
 				else
@@ -1886,7 +1553,6 @@ void CInterfaceMission::SetMissionStatusObject( bool bStatus )
 				SetHelpContext( pIcon, szValue );	
 			}
 
-			// experience value - to morale bar
 			const int nTempID = 10 + 3;
 			IUINumberIndicator *pNumIndicator = checked_cast<IUINumberIndicator *> ( pDialog->GetChildByID( nTempID ) );
 			pNumIndicator->SetValue( fExperience );
@@ -1918,11 +1584,9 @@ void CInterfaceMission::SetMissionStatusObject( bool bStatus )
 			pBar->SetUnitIcons( 0 );
 		}
 	}
-	// extended stats
 	IUIContainer *pDialog = checked_cast<IUIContainer *> ( pUIScreen->GetChildByID( 40000 ) );
 	if ( pStatus )
 	{
-		//Show armor and weapon icons
 		IUIElement *pElement = pDialog->GetChildByID( 300 );
 		if ( pElement )
 			pElement->ShowWindow( UI_SW_SHOW );
@@ -1931,7 +1595,6 @@ void CInterfaceMission::SetMissionStatusObject( bool bStatus )
 			pElement->ShowWindow( UI_SW_SHOW );
 
 		static std::wstring szText;
-		// armors
 		for ( int i = 0; i < 4; ++i )
 		{
 			NStr::ToUnicode( &szText, NStr::Format("%d", pStatus->armors[i]) );
@@ -1941,10 +1604,6 @@ void CInterfaceMission::SetMissionStatusObject( bool bStatus )
 				SetUIWindowText( pElement, szText );
 			}
 		}
-		// weapon stats
-		//CRAP{
-		//3 is a height value, temporary switched off
-		//}
 		for ( int i = 0; i < 2 /*3*/; ++i )
 		{
 			NStr::ToUnicode( &szText, NStr::Format("%d", pStatus->weaponstats[i]) );
@@ -1957,7 +1616,6 @@ void CInterfaceMission::SetMissionStatusObject( bool bStatus )
 	}
 	else
 	{
-		//Hide armor and weapon icons
 		IUIElement *pElement = pDialog->GetChildByID( 300 );
 		if ( pElement )
 			pElement->ShowWindow( UI_SW_HIDE );
@@ -1965,16 +1623,11 @@ void CInterfaceMission::SetMissionStatusObject( bool bStatus )
 		if ( pElement )
 			pElement->ShowWindow( UI_SW_HIDE );
 
-		//Hide armor and weapon stats
-		//я скрываю, чтобы не отображались тултипы на пустом фоне
 		for ( int i = 0; i < 4; ++i )
 		{
 			if ( IUIElement *pElement = pDialog->GetChildByID(101 + i) )
 				pElement->ShowWindow( UI_SW_HIDE );
 		}
-		//CRAP{
-		//3 is a height value, temporary switched off
-		//}
 		for ( int i = 0; i < 2 /*3*/; ++i )
 		{
 			if ( IUIElement *pElement = pDialog->GetChildByID(111 + i) )
@@ -1982,10 +1635,8 @@ void CInterfaceMission::SetMissionStatusObject( bool bStatus )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 {
-	// disable all mouse actions and user action in the higher pause modes
 	if ( pTimer->GetPauseReason() > PAUSE_TYPE_NO_CONTROL ) 
 	{
 		if ( (msg.nEventID == CMD_BEGIN_ACTION1) || (msg.nEventID == CMD_END_ACTION1) || 
@@ -1999,7 +1650,6 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 	if ( GetSingleton<IMessageLinkContainer>()->ProcessMessage( msg ) )
 		return true;
 	
-	//
 	switch ( msg.nEventID )
 	{
 		case MC_SHOW_GRID:
@@ -2025,7 +1675,6 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 			break;
 		case MC_SHOW_WARFOG:
 			GetSingleton<IAILogic>()->ToggleShow( 0 );
-			//pScene->ToggleShow( SCENE_SHOW_WARFOG );
 			break;
 		case MC_SHOW_STATISTICS:
 			ToggleShowStats();
@@ -2040,7 +1689,6 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 			GetSingleton<IInput>()->AddMessage( SGameMessage( UI_NEXT_STATE_MESSAGE, 12003 ) );
 			break;
 		case MC_TOGGLE_UNIT_INFO:
-			//GetSingleton<IInput>()->AddMessage( SGameMessage( UI_NEXT_STATE_MESSAGE, 12003 ) );
 			{
 				IUIElement *pUnitInfo = pUIScreen->GetChildByID( 40000 );
 				IUIElement *pButton = pUIScreen->GetChildByID( 110 );
@@ -2135,7 +1783,6 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 			GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_QUIT_MISSION, 0 );
 			break;
 		case CMD_GAME_PAUSE_MENU:
-			// can pause menu only in single-player game
 			if ( GetGlobalVar("MultiplayerGame", 0) != 1 ) 
 				GetSingleton<IMainLoop>()->Pause( true, PAUSE_TYPE_MENU );
 			break;
@@ -2181,12 +1828,10 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 				pUIScreen->ClearStrings();
 			break;
 			
-			//RR begin
 		case UI_NOTIFY_SELECTION_CHANGED:
 		case UI_NOTIFY_BAR_EXPAND:
 			if ( msg.nParam == 10 )		//это objectives Shortcut Bar
 			{
-				//отобразим круги на минимапе
 				IUIMiniMap *pUIMiniMap = checked_cast<IUIMiniMap*>( pUIScreen->GetChildByID( 20000 ) );
 				if ( pUIMiniMap )
 				{
@@ -2198,8 +1843,6 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 					pSB->GetSelectionItem( &nBar, &nItem );
 					if ( nBar != -1 && pSB->GetBarExpandState( nBar ) )
 					{
-						//nBar содержит номер выделенного objective
-						//получим статсы миссии
 						IUIElement *pBar = pSB->GetBar( nBar );
 						NI_ASSERT_T( pBar != 0, "Error in UI_NOTIFY_BAR_EXPAND" );
 						const int nObjectiveNumber = pBar->GetWindowID();
@@ -2239,14 +1882,11 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 		case MC_CLEAR_ACTIVE_BUTTON + 2:
 			GetSingleton<IInput>()->AddMessage( SGameMessage( msg.nEventID ) );
 			break;
-		//RR end
-		//multiplayer scores interface
 		case MC_UPDATE_TEAM_F_R_AGS:
 		case MC_UPDATE_TEAM_F_L_AGS:
 		case MC_UPDATE_TIME_BEFORE_CAPTURE:
 			multiplayerScoresSmall.ProcessMessage( msg, pUIScreen );
 			break;
-		//end multiplayer scores interface
 
 		case MC_ENTER_CHAT_MODE:
 		{
@@ -2297,7 +1937,6 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::VisualizeFeedback( const int /*EMissionCommands*/ nFeedBack, const int nParam )
 {
 	bool bCircle = false;
@@ -2401,15 +2040,12 @@ void CInterfaceMission::VisualizeFeedback( const int /*EMissionCommands*/ nFeedB
 			switch( nFeedbackType )
 			{
 			case 1:
-				// player's 
 				szKey += "LocalPlayer\\";
 				break;
 			case 2:
-				// party's 
 				szKey += "LocalParty\\";
 				break;
 			case 3:
-				// enemy's
 				szKey += "Enemy\\";
 				break;
 			}
@@ -2449,42 +2085,32 @@ void CInterfaceMission::VisualizeFeedback( const int /*EMissionCommands*/ nFeedB
 		pBuffer->Write( CONSOLE_STREAM_CHAT, MakeWideStringFromWordString( pText->GetString() ).c_str(), dwTextColor );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMission::PickObjects( CPickVisObjList *pPickedObjects, const CVec2 &point, EObjGameType type, bool bVisible )
 {
 	pPickedObjects->clear();
-	// pick from scene (vis objects)
 	std::pair<IVisObj*, CVec2> *pObjects = 0;
 	int nNumObjects = 0;
 	pScene->Pick( point, &pObjects, &nNumObjects, type, bVisible );
-	// 
 	for ( int i=0; i<nNumObjects; ++i )
 		pPickedObjects->push_back( pObjects[i] );
-	//
 	return !pPickedObjects->empty();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMission::PickObjects( CPickVisObjList *pPickedObjects, const CTRect<float> &rcRect, EObjGameType type, bool bVisible )
 {
 	pPickedObjects->clear();
-	// pick from scene (vis objects)
 	std::pair<IVisObj*, CVec2> *pObjects = 0;
 	int nNumObjects = 0;
 	pScene->Pick( rcRect, &pObjects, &nNumObjects, type, bVisible );
-	// 
 	for ( int i=0; i<nNumObjects; ++i )
 		pPickedObjects->push_back( pObjects[i] );
-	//
 	return !pPickedObjects->empty();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::ResetPreSelection() 
 { 
 	pWorld->ResetPreSelection();
 	preselectedObjects.clear();
 }
 void CInterfaceMission::ResetSelection( IVisObj *pObj ) { pWorld->ResetSelection( pObj ); }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::ResetSelectionLocal()
 {
 	for ( CPickVisObjList::iterator it = selectedObjects.begin(); it != selectedObjects.end(); ++it )
@@ -2493,7 +2119,6 @@ void CInterfaceMission::ResetSelectionLocal()
 	itCurrSelected = selectedObjects.end();
 	pSelectedObject = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMission::PreSelectObjects( const CVec2 &vPos, EObjGameType type )
 {
 	CPickVisObjList picked;
@@ -2516,7 +2141,6 @@ void CInterfaceMission::PreSelectObjects( const CPickVisObjList &picked )
 		preselectedObjects[i] = it->first;
 	pWorld->PreSelect( &(preselectedObjects[0]), preselectedObjects.size() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::AddPreSelectedObjects()
 {
 	if ( !preselectedObjects.empty() )
@@ -2525,7 +2149,6 @@ void CInterfaceMission::AddPreSelectedObjects()
 		preselectedObjects.clear();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMission::SelectFirstObject( const CVec2 &point )
 {
 	ResetSelectionLocal();
@@ -2538,10 +2161,8 @@ bool CInterfaceMission::SelectFirstObject( const CVec2 &point )
 				selectedObjects.push_back( *it );
 		}
 	}
-	// highlight down all pre-selected objects
 	for ( CVisObjList::iterator it = preselectedObjects.begin(); it != preselectedObjects.end(); ++it )
 		(*it)->Select( SGVOSS_UNSELECTED );
-	// select first object and highlight it
 	if ( !selectedObjects.empty() )
 	{
 		itCurrSelected = selectedObjects.begin();
@@ -2551,7 +2172,6 @@ bool CInterfaceMission::SelectFirstObject( const CVec2 &point )
 	
 	return pSelectedObject != 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::SelectNextObject()
 {
 	if ( pSelectedObject )
@@ -2566,44 +2186,36 @@ void CInterfaceMission::SelectNextObject()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMission::DropObject( const CVec2 &pos )
 {
 	if ( !pSelectedObject )
 		return false;
-	// reset selection
 	ResetSelectionLocal();
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::GetPos3( CVec3 *pPos, const CVec2 &pos )
 {
 	pScene->GetPos3( pPos, pos );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::GetPos3( CVec3 *pPos, float x, float y )
 {
 	pScene->GetPos3( pPos, CVec2(x, y) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::DoAction( const SGameMessage &msg )
 {
 	pWorld->DoAction( msg );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::BeginAction( const SGameMessage &msg )
 {
 	pWorld->BeginAction( msg );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::BeginSelection( const CVec2 &vPos2 )
 {
 	CVec3 vPos3;
 	pScene->GetPos3( &vPos3, vPos2 );
 	pFrameSelection->Begin( vPos3 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMission::EndSelection( const CVec2 &vPos2 )
 {
 	CTRect<float> rcRect( 0, 0, 0, 0 );
@@ -2613,12 +2225,10 @@ void CInterfaceMission::EndSelection( const CVec2 &vPos2 )
 		pScene->GetPos2( &vBegin, pFrameSelection->GetBeginPoint() );
 		CVec2 vEnd;
 		pScene->GetPos2( &vEnd, pFrameSelection->GetEndPoint() );
-		//
 		rcRect.Set( vBegin, vEnd );
 		rcRect.Normalize();
 		pFrameSelection->End();
 	}
-	//
 	if ( !rcRect.IsEmpty() )							// do frame selection
 		AddPreSelectedObjects();
 	else			// do pick selection
@@ -2627,29 +2237,24 @@ void CInterfaceMission::EndSelection( const CVec2 &vPos2 )
 		ResetPreSelection();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMission::MakeMapShot()
 {
 	ITerrain *pTerrain = pScene->GetTerrain();
 	if ( pTerrain == 0 ) 
 		return false;
-	//
 	const CTRect<long> rcScreenRect = pGFX->GetScreenRect();
 	const int nStepX = rcScreenRect.Width();
 	const int nStepY = rcScreenRect.Height() * 2;
-	//
 	const int nMaxY =  pTerrain->GetSizeY() * fCellSizeX;
 	const int nMinY = -pTerrain->GetSizeY() * fCellSizeX;
 	const int nMaxX = pTerrain->GetSizeX() * fCellSizeX * 2;
 	const int nMinX = 0;
-	//
 	while ( pScene->ToggleShow(SCENE_SHOW_HAZE) != false );
 	while ( pScene->ToggleShow(SCENE_SHOW_UI) != false );
 	while ( pScene->ToggleShow(SCENE_SHOW_WARFOG) != false );
 	pCamera->SetBounds( 0, 0, 0, 0 );
 	pCursor->Show( false );
 	const CVec3 vOldAnchor = pCamera->GetAnchor();
-	//
 	const int nLargeSizeX = ( (nMaxX - nMinX) / nStepX + 1 ) * rcScreenRect.Width();
 	const int nLargeSizeY = ( (nMaxY - nMinY) / nStepY + 2 ) * rcScreenRect.Height();
 	const int nImageStepX = rcScreenRect.Width();
@@ -2664,32 +2269,19 @@ bool CInterfaceMission::MakeMapShot()
 		int nImageX = 0;
 		for ( int j = nMinX, nCountX = 0; j <= nMaxX; j += nStepX, nImageX += nImageStepX, ++nCountX )
 		{
-			//
-			// set new position for camera
-			//
 			const double fX = double(j - i) / SQRT_2;
 			const double fY = double(j + i) / SQRT_2;
 			pCamera->SetAnchor( CVec3(fX, fY, 0) );
-			//
-			// draw scene
-			//
-			// begin scene
 			pGFX->Clear( 0, 0, GFXCLEAR_ALL, 0 );
 			pGFX->BeginScene();
-			// draw main scene
 			pScene->Draw( pCamera );
-			// finish scene and present current frame buffer
 			pGFX->EndScene();
 			pGFX->Flip();
-			//
-			// make screen shot
-			//
 			CPtr<IImage> pShot = pIP->CreateImage( rcScreenRect.Width(), rcScreenRect.Height() );
 			if ( pGFX->TakeScreenShot(pShot) )
 				pImage->CopyFrom( pShot, 0, nImageX, nImageY );
 		}
 	}
-	//
 	{
 		CPtr<IDataStream> pStream = CreateFileStream( NStr::Format("%smapshot.tga", GetSingleton<IMainLoop>()->GetBaseDir()), STREAM_ACCESS_WRITE );
 		pIP->SaveImageAsTGA( pStream, pImage );
@@ -2700,7 +2292,5 @@ bool CInterfaceMission::MakeMapShot()
 	while ( pScene->ToggleShow(SCENE_SHOW_WARFOG) == false );
 	pCamera->SetAnchor( vOldAnchor );
 	pCursor->Show( true );
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

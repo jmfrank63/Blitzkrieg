@@ -29,9 +29,7 @@
 
 #include "..\Main\ScenarioTracker.h"
 
-// for profiling
 #include "TimeCounter.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern CSupremeBeing theSupremeBeing;
 extern CAckManager theAckManager;
 extern CPtr<IStaticPathFinder> pThePathFinder;
@@ -47,11 +45,6 @@ extern CStatistics theStatistics;
 extern CDifficultyLevel theDifficultyLevel;
 
 extern CTimeCounter timeCounter;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												CFormationCenter													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationCenter::Init( const CVec2 &_center, const int _z, const WORD _dir, const int dbID )
 {
 	center = _center;
@@ -68,7 +61,6 @@ void CFormationCenter::Init( const CVec2 &_center, const int _z, const WORD _dir
 	
 	pSmoothPath->Init( this, pThePathFinder->CreatePathByDirection( GetCenter(), CVec2( 1, 1 ), GetCenter(), nBoundTileRadius ), true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SRect CFormationCenter::GetUnitRectForLock() const
 {
 	const float length = vAABBHalfSize.y * SConsts::COEFF_FOR_LOCK;
@@ -79,36 +71,30 @@ const SRect CFormationCenter::GetUnitRectForLock() const
 
 	return unitRect;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////	
 bool CFormationCenter::TurnToDir( const WORD &newDir, const bool bCanBackward, const bool bForward )
 {
 	dir = GetVectorByDirection( newDir );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationCenter::UpdateDirection( const CVec2 &newDir )
 {
 	float fR =  fabs( newDir );
 	if ( fR != 0 )
 		dir = newDir * ( 1 / fR );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationCenter::UpdateDirection( const WORD newDir )
 {
 	dir = GetVectorByDirection( newDir );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationCenter::NotifyDiff( const float fDiff )
 {
 	if ( fDiff > maxDiff )
 		maxDiff = fDiff;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CFormationCenter::GetPathSegmentsPeriod() const
 {
 	return 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationCenter::Segment()
 {
 	if ( maxDiff > 0 )
@@ -122,7 +108,6 @@ void CFormationCenter::Segment()
 	}
 	
 	CVec2 oldDir = dir;
-	// ��� update �������� � AI_SEGMENT_DURATION
 	NTimer::STime timeDiff = SConsts::AI_SEGMENT_DURATION * GetPathSegmentsPeriod();
 	const CVec3 center3D = pSmoothPath->GetPoint( timeDiff );
 	theSupremeBeing.UnitChangedPosition( this, CVec2( center3D.x, center3D.y ) );
@@ -149,12 +134,10 @@ void CFormationCenter::Segment()
 		lastKnownGoodTile = GetTile();
 	theStaticMap.RestoreMode();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const SVector CFormationCenter::GetLastKnownGoodTile() const
 {
 	return lastKnownGoodTile;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormationCenter::SendAlongPath( IStaticPath *_pStaticPath, const CVec2 &vShift, bool bSmoothTurn )
 {
 	if ( _pStaticPath )
@@ -168,60 +151,49 @@ bool CFormationCenter::SendAlongPath( IStaticPath *_pStaticPath, const CVec2 &vS
 	
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormationCenter::SendAlongPath( IPath *pPath )
 {
 	return pSmoothPath->Init( this, pPath, Size() > 1 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IStaticPathFinder* CFormationCenter::GetPathFinder() const
 {
 	return pThePathFinder;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormationCenter::GetNearFormationPos() const
 {
 	return GetCenter();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormationCenter::GetFarFormationPos() const
 {
 	return pSmoothPath->GetShift( SConsts::SPLINE_STEP );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationCenter::GetNextTiles( std::list<SVector> *pTiles ) const
 {
 	pSmoothPath->GetNextTiles( pTiles );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationCenter::StopFormationCenter()
 {
 	pSmoothPath->Init( this, pThePathFinder->CreatePathByDirection( GetCenter(), CVec2( 1, 1 ), GetCenter(), nBoundTileRadius ), true );
 	speed =	VNULL2;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationCenter::SetCoordWOUpdate( const CVec3 &newCenter )
 {
 	theSupremeBeing.UnitChangedPosition( this, CVec2(newCenter.x, newCenter.y) );
 	center = CVec2( newCenter.x, newCenter.y );
 	z = newCenter.z;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormationCenter::SetNewCoordinates( const CVec3 &newCenter, bool bStopUnit )
 {
 	SetCoordWOUpdate( newCenter );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CFormationCenter::GetSmoothTurnThreshold() const 
 { 
 	return 0.6f; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CFormationCenter::GetMaxPossibleSpeed() const 
 { 
 	return maxSpeed / fSpeedCoeff;// * GetCurSpeedBonus();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CFormationCenter::GetSpeedForFollowing()
 {
 	float fOldSpeedCoeff = fSpeedCoeff;
@@ -231,7 +203,6 @@ const float CFormationCenter::GetSpeedForFollowing()
 
 	return fResult;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IStaticPath* CFormationCenter::CreateBigStaticPath( const CVec2 &vStartPoint, const CVec2 &vFinishPoint, interface IPointChecking *pPointChecking )
 {
 	theStaticMap.MemMode();
@@ -250,16 +221,10 @@ IStaticPath* CFormationCenter::CreateBigStaticPath( const CVec2 &vStartPoint, co
 	else
 		return new CCommonStaticPath( *GetPathFinder(), vFinishPoint );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormationCenter::IsInOneTrain( IBasePathUnit *pUnit ) const 
 { 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													CFormation															*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormation::CCarryedMortar::CreateMortar( const class CFormation *pOwner)
 {
 	NI_ASSERT_T( bHasMortar, "formation doesn't have mortar");
@@ -270,7 +235,6 @@ int CFormation::CCarryedMortar::CreateMortar( const class CFormation *pOwner)
 	bHasMortar = false;
 	return id;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::CCarryedMortar::Init( const class CAIUnit *pArt )
 {
 	NI_ASSERT_T( pArt->GetStats()->type == RPG_TYPE_ART_MORTAR || pArt->GetStats()->type == RPG_TYPE_ART_HEAVY_MG, "foramtion attempted to take not mortar");
@@ -279,13 +243,7 @@ void CFormation::CCarryedMortar::Init( const class CAIUnit *pArt )
 	nDBID = pArt->GetDBID();
 	pStats = pArt->GetStats();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*													CFormation															*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CFormation );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::AddUnit( class CSoldier *pUnit, const int nPos )
 {
 	++nUnits;
@@ -331,7 +289,6 @@ void CFormation::AddUnit( class CSoldier *pUnit, const int nPos )
 
 	theSupremeBeing.UnitAskedForResupply( this, ERT_HUMAN_RESUPPLY, Size() != pStats->members.size() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::AddNewUnitToSlot( CSoldier *pUnit, const int nSlot, const bool bSendToWorld )
 {
 	const int nPos = nUnits;
@@ -359,37 +316,31 @@ void CFormation::AddNewUnitToSlot( CSoldier *pUnit, const int nSlot, const bool 
 	if ( bSendToWorld )
 		updater.Update( ACTION_NOTIFY_NEW_FORMATION, pUnit );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormation::GetUnitCoord( const BYTE cSlot ) const
 { 
 	NI_ASSERT_T( cSlot < Size(), "Wrong unit position" ); 
 	return GetCenter() + ( GetDirVector() ^ units[cSlot].geoms[nCurGeometry].vForm2Unit );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CFormation::GetUnitSlotInStats( const BYTE cSlot ) const
 {
 	NI_ASSERT_T( cSlot < Size(), "Wrong unit position" ); 
 	NI_ASSERT_T( units[cSlot].nSlotInStats != -1, "Non initialized stats-slot of unit" );
 	return units[cSlot].nSlotInStats;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::SetUnitToPos( const BYTE cPos, class CSoldier *pUnit )
 {
 	units[cPos].pUnit = pUnit;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormation::GetUnitShift( const BYTE cSlot ) const
 {
 	return GetDirVector() ^ units[cSlot].geoms[nCurGeometry].vForm2Unit;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CFormation::GetUnitLineShift( const BYTE cSlot ) const
 {
 	NI_ASSERT_T( cSlot >= 0 && cSlot < Size(), "Wrong unit's slot" );
 	NI_ASSERT_T( units[cSlot].pUnit && units[cSlot].pUnit->IsAlive(), "Wrong unit in formation" );
 	return GetDirVector() * ( units[cSlot].pUnit->GetCenter() - GetCenter() ) - units[cSlot].geoms[nCurGeometry].fUnitProj;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::MoveGeometries2Center()
 {
 	const CVec2 vDir2( 0, -1 );
@@ -423,7 +374,6 @@ void CFormation::MoveGeometries2Center()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::InitGeometries()
 {
 	units.resize( pStats->members.size() );
@@ -447,7 +397,6 @@ void CFormation::InitGeometries()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::Init( const SSquadRPGStats *_pStats, const CVec2 &center, const int z, const WORD dir, const int dbID )
 {
 	bCanBeResupplied = true;
@@ -480,7 +429,6 @@ void CFormation::Init( const SSquadRPGStats *_pStats, const CVec2 &center, const
 	
 	theGroupLogic.RegisterSegments( this, pAILogic->IsFirstTime(), true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::CheckForMoveFormationBored()
 {
 	if ( GetStats()->formations[GetCurGeometry()].type == SSquadRPGStats::SFormation::MOVEMENT )
@@ -516,7 +464,6 @@ void CFormation::CheckForMoveFormationBored()
 		UnRegisterAsBored( ACK_BORED_INFANTRY_TRAVEL );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::Segment()
 {
 	if ( !bDisabled )
@@ -536,7 +483,6 @@ void CFormation::Segment()
 			}
 		}
 
-		// acknowledgements
 		if ( curTime - lastBoredInMoveFormationCheck >= 2000 )
 		{
 			lastBoredInMoveFormationCheck = curTime;
@@ -544,12 +490,10 @@ void CFormation::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormation::IsStopped() const
 {
 	return GetCurPath() == 0 || GetCurPath()->IsFinished();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::GetNextPositions( const BYTE cPos, std::list<SVector> *pTiles ) const
 {
 	GetNextTiles( pTiles );
@@ -558,17 +502,14 @@ void CFormation::GetNextPositions( const BYTE cPos, std::list<SVector> *pTiles )
 	for ( std::list<SVector>::iterator iter = pTiles->begin(); iter != pTiles->end(); ++iter )
 		(*iter) = AICellsTiles::GetTile( AICellsTiles::GetPointByTile( *iter ) + unitShift );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec2 CFormation::GetFarUnitPos( const BYTE cPos )
 {
 	return GetNearFormationPos() + GetUnitShift( cPos );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IStatesFactory* CFormation::GetStatesFactory() const
 {
 	return CFormationStatesFactory::Instance();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormation::IsIdle() const
 {
 	if ( IsStopped() )
@@ -583,7 +524,6 @@ bool CFormation::IsIdle() const
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::BalanceCenter()
 {
 	if ( Size() > 0 ) 
@@ -596,20 +536,16 @@ void CFormation::BalanceCenter()
 		SetNewCoordinates( CVec3( vNewCenter, GetZ() ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::StopUnit()
 {
 	StopFormationCenter();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::StopTurning()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormation::CanCommandBeExecuted( class CAICommand *pCommand )
 {
 	const int &nCmd = pCommand->ToUnitCmd().cmdType;
-	// ��������� �� ����������� ���������� ������ user �������
 	if ( nCmd < 1000 )
 	{
 		NI_ASSERT_T( nCmd >= 0 && nCmd < availCommands.GetSize(), NStr::Format( "Wrong command ( %d )\n", nCmd ) );
@@ -619,16 +555,13 @@ bool CFormation::CanCommandBeExecuted( class CAICommand *pCommand )
 
 	if ( nCmd == ACTION_COMMAND_FORM_FORMATION )
 	{
-		// ������ �������, ���� �� single formation
 		if ( Size() > 1 )
 			return false;
 
-		// ������ �������, ���� ������ �� ���� ���������
 		CFormation *pOldFormation = (*this)[0]->GetMemFormation();
 		if ( pOldFormation == 0 )
 			return false;
 
-		// ������ �������, ���� ���-�� � ����������
 		for ( int i = 0; i < pOldFormation->Size(); ++i )
 		{
 			if ( (*pOldFormation)[i]->IsInTransport() )
@@ -644,10 +577,8 @@ bool CFormation::CanCommandBeExecuted( class CAICommand *pCommand )
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormation::CanCommandBeExecutedByStats( int nCmd ) const
 {
-	// ��������� �� ����������� ���������� ������ user �������
 	if ( nCmd < 1000 )
 	{
 		NI_ASSERT_T( nCmd >= 0 && nCmd < availCommands.GetSize(), NStr::Format( "Wrong command ( %d )\n", nCmd ) );
@@ -657,12 +588,10 @@ bool CFormation::CanCommandBeExecutedByStats( int nCmd ) const
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormation::CanCommandBeExecutedByStats( class CAICommand *pCommand )
 {
 	return CanCommandBeExecutedByStats( pCommand->ToUnitCmd().cmdType );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormation::IsEveryUnitInTransport() const
 {
 	bool bAllInside = true;
@@ -671,14 +600,12 @@ bool CFormation::IsEveryUnitInTransport() const
 		bAllInside = operator[](i)->IsInTransport();
 	return bAllInside;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormation::IsMemberResting( CSoldier *pSoldier ) const
 {
 	IUnitState *pState = pSoldier->GetState();
 	return
 		pState && IsRestState( pState->GetName() ) && pSoldier->IsEmptyCmdQueue();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormation::IsEveryUnitResting() const
 {
 	int i = 0;
@@ -687,17 +614,14 @@ bool CFormation::IsEveryUnitResting() const
 
 	return i == Size();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CBasicGun* CFormation::GetGun( const int n ) const
 {
 	return units[guns[n].nUnit].pUnit->GetGun( guns[n].nUnitGun );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CBasicGun* CFormation::ChooseGunForStatObj( class CStaticObject *pObj, NTimer::STime *pTime )
 {
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CFormation::GetSightRadius() const
 {
 	float fResult = 0;
@@ -706,23 +630,19 @@ const float CFormation::GetSightRadius() const
 
 	return fResult;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::Disable() 
 { 
 	bDisabled = true;
 	theSupremeBeing.UnitAskedForResupply( this, ERT_HUMAN_RESUPPLY, false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::Enable() 
 { 
 	bDisabled = false; 
 	if ( units.size() != pStats->members.size() )
 		theSupremeBeing.UnitAskedForResupply( this, ERT_HUMAN_RESUPPLY, true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::DelUnit( const BYTE cPos )
 {
-	// ������ �� ������
 	for ( int i = cPos; i < nUnits - 1; ++i )
 		units[i] = units[i+1];
 
@@ -747,21 +667,18 @@ void CFormation::DelUnit( const BYTE cPos )
 	if ( nUnits > 0 )
 		MoveGeometries2Center();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::WasHitNearUnit()
 {
 	if ( pStats->formations[nCurGeometry].changesByEvent[SSquadRPGStats::HIT_NEAR] != -1 && 
 			 pStats->formations[nCurGeometry].changesByEvent[SSquadRPGStats::HIT_NEAR] != nCurGeometry )
 		ChangeGeometry( pStats->formations[nCurGeometry].changesByEvent[SSquadRPGStats::HIT_NEAR] );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::SetSelectable	( bool bSelectable )
 {
 	CCommonUnit::SetSelectable( bSelectable );
 	for ( int i = 0; i < Size(); ++i )
 		units[i].pUnit->SetSelectable( bSelectable );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::ChangePlayer( const BYTE _cPlayer )
 {
 	cPlayer = _cPlayer;
@@ -772,7 +689,6 @@ void CFormation::ChangePlayer( const BYTE _cPlayer )
 		units[i].pUnit->ChangePlayer( cPlayer );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::SetPlayerForEditor( const int nPlayer )
 {
 	cPlayer = nPlayer;
@@ -780,14 +696,12 @@ void CFormation::SetPlayerForEditor( const int nPlayer )
 	for ( int i = 0; i < Size(); ++i )
 		units[i].pUnit->SetPlayerForEditor( nPlayer );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const WORD CFormation::GetUnitDir( const BYTE cSlot ) const
 {
 	NI_ASSERT_T( cSlot < Size(), "Wrong number of cSlot" );
 
 	return GetDir() + units[cSlot].geoms[nCurGeometry].dir;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CFormation::IsVisible( const BYTE party ) const
 {
 	for ( int i = 0; i < Size(); ++i )
@@ -798,7 +712,6 @@ const bool CFormation::IsVisible( const BYTE party ) const
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CFormation::CanShootToPlanes() const
 {
 	for ( int i = 0; i < Size(); ++i )
@@ -809,42 +722,35 @@ const bool CFormation::CanShootToPlanes() const
 
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::SetAmbush()
 {
 	for ( int i = 0; i < Size(); ++i )
 		units[i].pUnit->SetAmbush();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::RemoveAmbush()
 {
 	for ( int i = 0; i < Size(); ++i )
 		units[i].pUnit->RemoveAmbush();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::SetCamoulfage()
 {
 	for ( int i = 0; i < Size(); ++i )
 		units[i].pUnit->SetCamoulfage();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::RemoveCamouflage( ECamouflageRemoveReason eReason )
 {
 	for ( int i = 0; i < Size(); ++i )
 		units[i].pUnit->RemoveCamouflage( eReason );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const NTimer::STime CFormation::GetTimeToCamouflage() const
 {
 	return timeToCamouflage;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::UpdateArea( const EActionNotify eAction )
 {
 	for ( int i = 0; i < Size(); ++i )
 		units[i].pUnit->UpdateArea( eAction );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::PrepareToDelete()
 {
 	GetState()->TryInterruptState( 0 );
@@ -862,10 +768,8 @@ void CFormation::PrepareToDelete()
 	theSupremeBeing.UnitDied( this );
 	theGroupLogic.UnregisterSegments( this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::Disappear()
 {
-	// �.�. ��������� ���� �������� ������� ��� �������, �� ����� �������� �������� ����������� ������ �����
 	if ( Size() != 0 )
 	{
 		while ( Size() != 0 )
@@ -874,10 +778,8 @@ void CFormation::Disappear()
 	else
 		PrepareToDelete();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::Die( const bool fromExplosion, const float fDamage )
 {
-	// �.�. ��������� ���� �������� ������� ��� �������, �� ����� �������� �������� ����������� ������ �����	
 	if ( Size() != 0 )
 	{
 		while ( Size() != 0 )
@@ -889,7 +791,6 @@ void CFormation::Die( const bool fromExplosion, const float fDamage )
 		theStatistics.UnitDead( this );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormation::SendAlongPath( IStaticPath *pStaticPath, const CVec2 &vShift, bool bSmoothTurn )
 {
 	for ( int i = 0; i < Size(); ++i )
@@ -901,7 +802,6 @@ bool CFormation::SendAlongPath( IStaticPath *pStaticPath, const CVec2 &vShift, b
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormation::SendAlongPath( IPath *pPath )
 {
 	for ( int i = 0; i < Size(); ++i )
@@ -913,7 +813,6 @@ bool CFormation::SendAlongPath( IPath *pPath )
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::SetGeometryPropertiesToSoldier( CSoldier *pSoldier, const bool bChangeWarFog )
 {
 	if ( pStats->formations[nCurGeometry].cLieFlag == 1 )
@@ -924,7 +823,6 @@ void CFormation::SetGeometryPropertiesToSoldier( CSoldier *pSoldier, const bool 
 	if ( bChangeWarFog )
 		pSoldier->ChangeWarFogState();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::ChangeGeometry( const int nGeometry )
 {
 	NI_ASSERT_T( nGeometry < pStats->formations.size(), NStr::Format("Wrong geometry (%d) for squad \"%s\"", nGeometry, pStats->szParentName.c_str()) );
@@ -935,48 +833,39 @@ void CFormation::ChangeGeometry( const int nGeometry )
 	for ( int i = 0; i < Size(); ++i )
 		SetGeometryPropertiesToSoldier( (*this)[i], bChangeWarfog );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CFormation::GetNGeometries() const
 {
 	return pStats->formations.size();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CFormation::GetCurSpeedBonus() const
 {
 	return pStats->formations[nCurGeometry].fSpeedBonus;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CFormation::GetDispersionBonus() const
 {
 	return 
 		pStats->formations[nCurGeometry].fDispersionBonus * theDifficultyLevel.GetDispersionCoeff( theDipl.GetNParty( GetPlayer() ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CFormation::GetRelaxTimeBonus() const
 {
 	return pStats->formations[nCurGeometry].fRelaxTimeBonus;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CFormation::GetFireRateBonus() const
 {
 	return pStats->formations[nCurGeometry].fFireRateBonus;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CFormation::GetCoverBonus() const
 {
 	return pStats->formations[nCurGeometry].fCoverBonus;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormation::IsAllowedLieDown() const
 {
 	return pStats->formations[nCurGeometry].cLieFlag != 1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormation::IsAllowedStandUp() const
 {
 	return pStats->formations[nCurGeometry].cLieFlag != 2;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SEdge
 {
 	CFormation *pFormation;
@@ -987,12 +876,10 @@ struct SEdge
 
 	operator float() const { return fDist; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool IsLoadCommand( const EActionCommand &cmd )
 {
 	return cmd == ACTION_COMMAND_LOAD || cmd == ACTION_COMMAND_ENTER;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SGetNAvailableSeats
 {
 	const int operator()( CMilitaryCar *pCar ) { return pCar->GetNAvailableSeats(); }
@@ -1005,7 +892,6 @@ struct SGetLoadPoint
 	template<class T>
 	const CVec2 operator()( T *pObj ) { return pObj->GetCenter(); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T, class TResult>
 const TResult GetLoadInfo( CAICommand *pCommand, T &functor, TResult* )
 {
@@ -1027,10 +913,8 @@ const TResult GetLoadInfo( CAICommand *pCommand, T &functor, TResult* )
 		default: NI_ASSERT_T( false, NStr::Format( "Unknown load command (%d)", cmd.cmdType ) ); return TResult();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::ProcessLoadCommand( CAICommand *pCommand, bool bPlaceInQueue )
 {
-	// not distributed
 	if ( pCommand->GetFlag() == -1 )
 	{
 		pCommand->SetFlag( bPlaceInQueue ? 1 : 2 );
@@ -1061,7 +945,6 @@ void CFormation::ProcessLoadCommand( CAICommand *pCommand, bool bPlaceInQueue )
 			{
 				CFormation *pFormation = static_cast<CFormation*>(pUnit);
 				const int nUniqueID = pFormation->GetUniqueId();
-//				if ( pFormation->IsFree() )
 				{
 					formations.insert( nUniqueID );					
 
@@ -1144,7 +1027,6 @@ void CFormation::ProcessLoadCommand( CAICommand *pCommand, bool bPlaceInQueue )
 	else
 		CFormationCenter::UnitCommand( pCommand, bPlaceInQueue, false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::UnitCommand( CAICommand *pCommand, bool bPlaceInQueue, bool bOnlyThisUnitCommand )
 {
 	if ( !bPlaceInQueue && Size() == 1 && pCommand->ToUnitCmd().cmdType < 1000 )
@@ -1174,7 +1056,6 @@ void CFormation::UnitCommand( CAICommand *pCommand, bool bPlaceInQueue, bool bOn
 			CFormationCenter::UnitCommand( pCommand, bPlaceInQueue, bOnlyThisUnitCommand );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::DelUnit( class CSoldier *pUnit )
 {
 	int i = 0;
@@ -1185,49 +1066,41 @@ void CFormation::DelUnit( class CSoldier *pUnit )
 
 	DelUnit( i );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::SetFree() 
 { 
 	eInsideType = EOIO_NONE; 
 	pObjInside = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::SetInBuilding( class CBuilding *pBuilding ) 
 { 
 	eInsideType = EOIO_BUILDING; 
 	pObjInside = pBuilding;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::SetInTransport(  class CMilitaryCar *pUnit ) 
 { 
 	eInsideType = EOIO_TRANSPORT; 
 	pObjInside = pUnit;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::SetInEntrenchment( class CEntrenchment *pEntrenchment ) 
 { 
 	eInsideType = EOIO_ENTRENCHMENT; 
 	pObjInside = pEntrenchment;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CBuilding* CFormation::GetBuilding() const
 {
 	NI_ASSERT_T( IsInBuilding(), "Soldier isn't in a building" );
 	return static_cast<CBuilding*>( pObjInside );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CEntrenchment* CFormation::GetEntrenchment() const
 {
 	NI_ASSERT_T( IsInEntrenchment(), "Soldier isn't in entrenchment" );
 	return static_cast<CEntrenchment*>( pObjInside );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMilitaryCar* CFormation::GetTransportUnit() const
 {
 	NI_ASSERT_T( IsInTransport(), "Soldier isn't in a transport" );
 	return static_cast<CMilitaryCar*>( pObjInside );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::GetNewUnitInfo( SNewUnitInfo *pNewUnitInfo )
 {
 	pNewUnitInfo->dir = GetDir();
@@ -1243,23 +1116,19 @@ void CFormation::GetNewUnitInfo( SNewUnitInfo *pNewUnitInfo )
 	pNewUnitInfo->fResize = 1.0f;
 	pNewUnitInfo->nPlayer = GetPlayer();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::SendAcknowledgement( CAICommand *pCommand, EUnitAckType ack, bool bForce )
 {
 	if ( Size() > 0 && ( bForce || pCommand && !pCommand->IsFromAI() ) )
 		(*this)[0]->SendAcknowledgement( pCommand, ack, theDipl.GetMyNumber() == GetPlayer() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::SendAcknowledgement( EUnitAckType ack, bool bForce )
 {
 	SendAcknowledgement( GetCurCmd(), ack, bForce );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CFormation::GetSightMultiplier() const
 {
 	return pStats->formations[nCurGeometry].fVisibleBonus;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 EUnitAckType CFormation::GetGunsRejectReason() const
 {
 	EUnitAckType eBestReason = EUnitAckType( ACK_NONE );
@@ -1273,13 +1142,11 @@ EUnitAckType CFormation::GetGunsRejectReason() const
 	
 	return ( eBestReason == ACK_NONE ) ? ACK_NEGATIVE : eBestReason;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int CFormation::GetVirtualUnitSlotInStats( const int nVirtualUnit ) const
 {
 	NI_ASSERT_T( nVirtualUnit < VirtualUnitsSize(), NStr::Format( "Wrong number of virtual unit (%d), size of virtual units (%d)", nVirtualUnit, VirtualUnitsSize() ) );
 	return virtualUnits[nVirtualUnit].nSlotInStats;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////v
 void CFormation::AddVirtualUnit( CSoldier *pSoldier, const int nSlotInStats )
 {
 	if ( virtualUnits.size() <= nVirtualUnits )
@@ -1292,7 +1159,6 @@ void CFormation::AddVirtualUnit( CSoldier *pSoldier, const int nSlotInStats )
 
 	pSoldier->SetVirtualFormation( this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::DelVirtualUnit( CSoldier *pSoldier )
 {
 	int i = 0;
@@ -1309,7 +1175,6 @@ void CFormation::DelVirtualUnit( CSoldier *pSoldier )
 
 	pSoldier->SetVirtualFormation( 0 );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::MakeVirtualUnitReal( CSoldier *pSoldier )
 {
 	int i = 0;
@@ -1325,7 +1190,6 @@ void CFormation::MakeVirtualUnitReal( CSoldier *pSoldier )
 
 	theSupremeBeing.UnitAskedForResupply( this, ERT_HUMAN_RESUPPLY, Size() != pStats->members.size() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::UnRegisterAsBored( const enum EUnitAckType eBoredType )
 {
 	for ( int i = 0; i < Size(); ++i )
@@ -1333,7 +1197,6 @@ void CFormation::UnRegisterAsBored( const enum EUnitAckType eBoredType )
 		(*this)[i]->UnRegisterAsBored( eBoredType );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::RegisterAsBored( const enum EUnitAckType eBoredType )
 {
 	for ( int i = 0; i < Size(); ++i )
@@ -1341,28 +1204,23 @@ void CFormation::RegisterAsBored( const enum EUnitAckType eBoredType )
 		(*this)[i]->RegisterAsBored( eBoredType );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::SetCarryedMortar( class CAIUnit *pMortar )
 {
 	mortar.Init( pMortar );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormation::HasMortar() const
 {
 	return mortar.HasMortar();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CFormation::InstallCarryedMortar()
 {
 	return mortar.CreateMortar( this );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::ResetTargetScan()
 {
 	for ( int i = 0; i < Size(); ++i )
 		(*this)[i]->ResetTargetScan();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BYTE CFormation::AnalyzeTargetScan(	CAIUnit *pCurTarget, const bool bDamageUpdated, bool bScanForObstacles, IRefCount *pCheckBuilding )
 {
 	BYTE cResult = 0;
@@ -1380,7 +1238,6 @@ BYTE CFormation::AnalyzeTargetScan(	CAIUnit *pCurTarget, const bool bDamageUpdat
 
 	return cResult;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::LookForTarget( CAIUnit *pCurTarget, const bool bDamageUpdated, CAIUnit **pBestTarget, CBasicGun **pGun )
 {
 	*pBestTarget = 0;
@@ -1392,12 +1249,10 @@ void CFormation::LookForTarget( CAIUnit *pCurTarget, const bool bDamageUpdated, 
 			return;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BYTE CFormation::GetAIClass() const 
 { 
 	return AI_CLASS_HUMAN;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float CFormation::GetPriceMax() const
 {
 	float fPrice = 0;
@@ -1408,12 +1263,10 @@ float CFormation::GetPriceMax() const
 	}
 	return fPrice;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CFormation::IsAlive() const 
 { 
 	return Size() != 0 || VirtualUnitsSize() != 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const float CFormation::GetTargetScanRadius()
 {
 	float fRadius = 0.0f;
@@ -1426,7 +1279,6 @@ const float CFormation::GetTargetScanRadius()
 
 	return fRadius;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFormation::FreezeByState( const bool bFreeze )
 {
 	if ( !bFreeze )
@@ -1437,4 +1289,3 @@ void CFormation::FreezeByState( const bool bFreeze )
 
 	CFormationCenter::FreezeByState( bFreeze );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -45,7 +45,6 @@ namespace MiniBall
 
 	bool BoundingSphere::visible(const ViewFrustum &viewFrustum) const
 	{
-		// NOTE: Conservative test, not exact
 
 		if(Plane::d(viewFrustum.nearPlane, center) < -radius)
 			return false;

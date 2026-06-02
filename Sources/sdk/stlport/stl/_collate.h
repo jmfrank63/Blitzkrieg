@@ -15,9 +15,6 @@
  * modified is included with the above copyright notice.
  *
  */ 
-// WARNING: This is an internal header file, included by other C++
-// standard library headers.  You should not attempt to use this header
-// file directly.
 
 #ifndef _STLP_INTERNAL_COLLATE_H
 #define _STLP_INTERNAL_COLLATE_H
@@ -177,6 +174,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_COLLATE_H */
 
-// Local Variables:
-// mode:C++
-// End:

@@ -1,5 +1,3 @@
-// KeyFrame.cpp : implementation file
-//
 
 #include "stdafx.h"
 #include "editor.h"
@@ -11,8 +9,6 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
-/////////////////////////////////////////////////////////////////////////////
-// CKeyFrameEditor
 
 static const int SCROLLBAR_SIZE = 15;		//������ ScrollBar
 static const int XS = 25;								//������ �������� ������ �� �����������
@@ -45,7 +41,6 @@ CKeyFrameEditor::~CKeyFrameEditor()
 
 
 BEGIN_MESSAGE_MAP(CKeyFrameEditor, CWnd)
-	//{{AFX_MSG_MAP(CKeyFrameEditor)
 	ON_WM_SIZE()
 	ON_WM_VSCROLL()
 	ON_WM_HSCROLL()
@@ -64,19 +59,15 @@ BEGIN_MESSAGE_MAP(CKeyFrameEditor, CWnd)
 	ON_WM_MOUSEMOVE()
 	ON_WM_KEYDOWN()
 	ON_WM_RBUTTONDOWN()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CKeyFrameEditor message handlers
 
 BOOL CKeyFrameEditor::Create(LPCTSTR lpszClassName, LPCTSTR lpszWindowName, DWORD dwStyle, const RECT& rect, CWnd* pParentWnd, UINT nID, CCreateContext* pContext) 
 {
 	if ( !CWnd::Create(lpszClassName, lpszWindowName, dwStyle, rect, pParentWnd, nID, pContext) )
 		return FALSE;
 
-	//������� ������� ScrollBar
 	m_BottomScroll.Create( SBS_HORZ | SBS_TOPALIGN | WS_CHILD, CRect(5,5,100,30), this, 100 );
 	m_BottomScroll.ShowScrollBar();
 
@@ -117,16 +108,13 @@ void CKeyFrameEditor::OnSize(UINT nType, int cx, int cy)
 
 void CKeyFrameEditor::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar) 
 {
-	// Get the minimum and maximum scroll-bar positions.
 	int minpos;
 	int maxpos;
 	pScrollBar->GetScrollRange(&minpos, &maxpos); 
 	maxpos = pScrollBar->GetScrollLimit();
 	
-	// Get the current position of scroll box.
 	int curpos = pScrollBar->GetScrollPos();
 	
-	// Determine the new position of scroll box.
 	switch (nSBCode)
 	{
 	case SB_LEFT:      // Scroll to far left.
@@ -152,7 +140,6 @@ void CKeyFrameEditor::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 		
 	case SB_PAGELEFT:    // Scroll one page left.
 		{
-      // Get the page size. 
       SCROLLINFO   info;
       pScrollBar->GetScrollInfo(&info, SIF_ALL);
 			
@@ -163,7 +150,6 @@ void CKeyFrameEditor::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 		
 	case SB_PAGERIGHT:      // Scroll one page right.
 		{
-      // Get the page size. 
       SCROLLINFO   info;
       pScrollBar->GetScrollInfo(&info, SIF_ALL);
 			
@@ -181,7 +167,6 @@ void CKeyFrameEditor::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 		break;
 	}
 	
-	// Set the new position of the thumb (scroll box).
 	pScrollBar->SetScrollPos(curpos);
 	Invalidate();
 	
@@ -190,16 +175,13 @@ void CKeyFrameEditor::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 
 void CKeyFrameEditor::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar) 
 {
-	// Get the minimum and maximum scroll-bar positions.
 	int minpos;
 	int maxpos;
 	pScrollBar->GetScrollRange(&minpos, &maxpos); 
 	maxpos = pScrollBar->GetScrollLimit();
 	
-	// Get the current position of scroll box.
 	int curpos = pScrollBar->GetScrollPos();
 	
-	// Determine the new position of scroll box.
 	switch (nSBCode)
 	{
 	case SB_TOP:      // Scroll to far left.
@@ -225,7 +207,6 @@ void CKeyFrameEditor::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 		
 	case SB_PAGEUP:    // Scroll one page left.
 		{
-      // Get the page size. 
       SCROLLINFO   info;
       pScrollBar->GetScrollInfo(&info, SIF_ALL);
 			
@@ -236,7 +217,6 @@ void CKeyFrameEditor::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 		
 	case SB_PAGEDOWN:      // Scroll one page right.
 		{
-      // Get the page size. 
       SCROLLINFO   info;
       pScrollBar->GetScrollInfo(&info, SIF_ALL);
 			
@@ -254,7 +234,6 @@ void CKeyFrameEditor::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 		break;
 	}
 	
-	// Set the new position of the thumb (scroll box).
 	pScrollBar->SetScrollPos(curpos);
 	Invalidate();
 	
@@ -274,30 +253,23 @@ void CKeyFrameEditor::OnPaint()
 	CBitmap *pOldBitmap = dc.SelectObject( &bmp );
 
 
-	//�������� ������ ����� ����������
 	dc.FillSolidRect( rc.left+SCROLLBAR_SIZE, rc.top, rc.right-rc.left-SCROLLBAR_SIZE, rc.bottom-rc.top-SCROLLBAR_SIZE, RGB(255,255,255) );
-	//�������� ��������� ������������ ����� ������������
-//	dc.FillSolidRect( rc.left, rc.bottom-SCROLLBAR_SIZE, SCROLLBAR_SIZE, SCROLLBAR_SIZE, GetSysColor(COLOR_SCROLLBAR) );
 	paintDC.FillSolidRect( rc.left, rc.bottom-SCROLLBAR_SIZE, SCROLLBAR_SIZE, SCROLLBAR_SIZE, RGB(255,255,255) );
 	
 	if ( !m_BottomScroll.IsWindowVisible() )
 	{
-		//���� �� ������� ScrollBar, �� ����������� ��� ����� ������
 		paintDC.FillSolidRect( rc.left+SCROLLBAR_SIZE, rc.bottom-SCROLLBAR_SIZE, rc.right-rc.left-SCROLLBAR_SIZE, SCROLLBAR_SIZE, RGB(255,255,255) );
 	}
 
 	if ( !m_LeftScroll.IsWindowVisible() )
 	{
-		//���� �� ������� ScrollBar, �� ����������� ��� ����� ������
 		paintDC.FillSolidRect( rc.left, rc.top, SCROLLBAR_SIZE, rc.bottom-rc.top-SCROLLBAR_SIZE, RGB(255,255,255) );
 	}
 	
 
 /*
-	//�������� ��� ������ ����� ������
 	dc.FillSolidRect( rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, RGB(255,255,255) );
 */
-	//������������� ��������� ����� ��� ����������� ������
 	CFont font;
 	LOGFONT lf;
 	memset(&lf, 0, sizeof(LOGFONT));       // zero out structure
@@ -305,11 +277,9 @@ void CKeyFrameEditor::OnPaint()
 	strcpy(lf.lfFaceName, "Arial");        // request a face name "Arial"
 	VERIFY(font.CreateFontIndirect(&lf));  // create the font
 	
-	// Do something with the font just created...
 	CFont* def_font = dc.SelectObject(&font);
 	dc.SetBkMode( TRANSPARENT );
 
-	//������������� ���� ��������� ��� ����������� �����
 	CPen grayPen( PS_SOLID, 1, RGB(200,200,200) );
 	dc.SelectObject( &grayPen );
 
@@ -317,7 +287,6 @@ void CKeyFrameEditor::OnPaint()
 	float fMinValX = m_fMaxValX, fMaxValX = m_fMinValX;			//��� ���������� � ����������� ������� ���������� �� ��� X �� ������
 	float fMinValY = m_fMaxValY, fMaxValY = m_fMinValY;			//�� ��� Y
 
-	//��������� ������������ �����
 	if ( m_BottomScroll.IsWindowVisible() )
 	{
 		GetVisibleX( &nMin, &nMax );
@@ -343,17 +312,14 @@ void CKeyFrameEditor::OnPaint()
 	}
 	for ( int x=nMin; x<=nMax; x++ )
 	{
-		//nVal ��� ����� ������� � �����
 		float fVal = m_fMinValX + x * m_fStepX;
 		if ( fVal > m_fMaxValX )
 			break;
 
-		//������ �����
 		int nDrawX = (x - nMin)*m_XS + LEFT;
 		dc.MoveTo( nDrawX, rc.bottom - BOTTOM );
 		dc.LineTo( nDrawX, maxTop );
 		
-		//������ �����
 		RECT textRC;
 		textRC.left = nDrawX - m_XS;
 		textRC.right = nDrawX + m_XS;
@@ -367,7 +333,6 @@ void CKeyFrameEditor::OnPaint()
 	}
 
 
-	//��������� �������������� �����
 	if ( m_LeftScroll.IsWindowVisible() )
 	{
 		GetVisibleY( &nMin, &nMax );
@@ -382,17 +347,14 @@ void CKeyFrameEditor::OnPaint()
 	fMaxValY = m_fMinValY + nMax * m_fStepY;
 	for ( int y=nMin; y<=nMax; y++ )
 	{
-		//fVal ��� ����� ������� � �����
 		float fVal = m_fMinValY + y * m_fStepY;
 		if ( fVal > m_fMaxValY )
 			break;
 		
-		//������ �����
 		int nDrawY = rc.bottom - BOTTOM - (y - nMin)*m_YS;
 		dc.MoveTo( rc.left+LEFT, nDrawY );
 		dc.LineTo( maxRight, nDrawY );
 		
-		//������ �����
 		RECT textRC;
 		textRC.left = rc.left;
 		textRC.right = rc.left + LEFT - TEXT_SPACE;
@@ -404,13 +366,11 @@ void CKeyFrameEditor::OnPaint()
 		dc.DrawText( szStr, &textRC, DT_RIGHT | DT_BOTTOM );
 	}
 	
-	//������������� ���� ��������� ��� ����������� �����
 	CPen blackPen( PS_SOLID, 1, RGB(0,0,0) );
 	CPen redPen( PS_SOLID, 1, RGB(255,0,0) );
 	CPen bluePen( PS_SOLID, 1, RGB(0,0,255) );
 	dc.SelectObject( &blackPen );
 
-	//���������� ������ �����
 	if ( framesList.size() > 0 )
 	{
 		int i = 0;
@@ -422,7 +382,6 @@ void CKeyFrameEditor::OnPaint()
 			float x = it->first;
 			float y = it->second;
 			
-			//��������� ���������� �� ��������� � ��������
 			float fScreenX;
 			float fScreenY;
 			GetScreenByValue( x, y, &fScreenX, &fScreenY );
@@ -458,7 +417,6 @@ void CKeyFrameEditor::OnPaint()
 				
 				dc.MoveTo( x1, y1 );
 				dc.LineTo( x2, y2 );
-//				dc.LineTo( fScreenX, fScreenY );
 			}
 
 			if ( fScreenX >= LEFT && fScreenY <= rc.bottom-BOTTOM )
@@ -481,7 +439,6 @@ void CKeyFrameEditor::OnPaint()
 			i++;
 		}
 
-		//�� ���������� ���� ���������� �����, �������� ������ � �������������
 		if ( bFlag )
 		{
 			dc.MoveTo( fPrevX, fPrevY );
@@ -499,12 +456,10 @@ void CKeyFrameEditor::OnPaint()
 	}
 
 	dc.SelectObject(def_font);
-	// Done with the font. Delete the font object.
 	font.DeleteObject();
 	
 	paintDC.BitBlt( SCROLLBAR_SIZE, 0, rc.right-SCROLLBAR_SIZE, rc.bottom-SCROLLBAR_SIZE, &dc, SCROLLBAR_SIZE, 0, SRCCOPY );
 	dc.SelectObject( pOldBitmap );
-	// Do not call CWnd::OnPaint() for painting messages
 }
 
 void CKeyFrameEditor::SetXResizeMode( bool bResizeMode )
@@ -538,7 +493,6 @@ void CKeyFrameEditor::SetHDimention( float fMin, float fMax )
 
 		RECT rc;
 		GetClientRect( &rc );
-		//���������� ������� ������
 		m_XS = (rc.right-rc.left-LEFT-15)/(m_fMaxValX - m_fMinValX)*m_fStepX;		//��� 15 ��� ������ ������
 		Invalidate();
 		return;
@@ -557,13 +511,11 @@ void CKeyFrameEditor::SetHDimention( float fMin, float fMax )
 		int nNumberOnTheScreen = (rc.right - rc.left - LEFT - m_XS/2) / m_XS + 0.5f;
 		if ( nNumberOnTheScreen > nNumberInSB )
 		{
-			//ScrollBar ���������
 			m_BottomScroll.ShowScrollBar( FALSE );
 			return;
 		}
 		else
 		{
-			//ScrollBar �������
 			m_BottomScroll.ShowScrollBar();
 		}
 		
@@ -591,14 +543,12 @@ void CKeyFrameEditor::SetVDimention( float fMin, float fMax )
 	int nNumberOnTheScreen = (rc.bottom - rc.top - BOTTOM - m_YS/4) / m_YS + 0.5f;
 	if ( nNumberOnTheScreen >= nNumberInSB )
 	{
-		//ScrollBar ���������
 		m_LeftScroll.ShowScrollBar( FALSE );
 		Invalidate();
 		return;
 	}
 	else
 	{
-		//ScrollBar �������
 		m_LeftScroll.ShowScrollBar();
 	}
 	
@@ -635,7 +585,6 @@ void CKeyFrameEditor::GetScreenByValue( float fValX, float fValY, float *pScreen
 {
 	int nMin, nMax;
 	
-	//������� �������������� ����������
 	if ( m_BottomScroll.IsWindowVisible() )
 		GetVisibleX( &nMin, &nMax );
 	else
@@ -644,7 +593,6 @@ void CKeyFrameEditor::GetScreenByValue( float fValX, float fValY, float *pScreen
 	float fScaleX = (float) m_XS / m_fStepX;
 	*pScreenX = (fValX - fMinValX) * fScaleX + LEFT;
 	
-	//������� ������������ ����������
 	if ( m_LeftScroll.IsWindowVisible() )
 		GetVisibleY( &nMin, &nMax );
 	else
@@ -661,7 +609,6 @@ void CKeyFrameEditor::GetValueByScreen( int x, int y, float *pValX, float *pValY
 {
 	int nMin, nMax;
 
-	//������� �������������� ����������
 	if ( m_BottomScroll.IsWindowVisible() )
 		GetVisibleX( &nMin, &nMax );
 	else
@@ -670,7 +617,6 @@ void CKeyFrameEditor::GetValueByScreen( int x, int y, float *pValX, float *pValY
 	float fScaleX = m_fStepX / m_XS;
 	*pValX = fMinValX + (x - LEFT) * fScaleX;
 
-	//������� ������������ ����������
 	if ( m_LeftScroll.IsWindowVisible() )
 		GetVisibleY( &nMin, &nMax );
 	else
@@ -760,25 +706,21 @@ void CKeyFrameEditor::OnKeyframeZoomouty()
 
 void CKeyFrameEditor::OnUpdateKeyframeZoominx(CCmdUI* pCmdUI) 
 {
-	// TODO: Add your command update UI handler code here
 	
 }
 
 void CKeyFrameEditor::OnUpdateKeyframeZoominy(CCmdUI* pCmdUI) 
 {
-	// TODO: Add your command update UI handler code here
 	
 }
 
 void CKeyFrameEditor::OnUpdateKeyframeZoomoutx(CCmdUI* pCmdUI) 
 {
-	// TODO: Add your command update UI handler code here
 	
 }
 
 void CKeyFrameEditor::OnUpdateKeyframeZoomouty(CCmdUI* pCmdUI) 
 {
-	// TODO: Add your command update UI handler code here
 	
 }
 
@@ -793,7 +735,6 @@ CFramesList::iterator CKeyFrameEditor::GetNearNodeIndex( int x, int y, int *pInd
 		float x = it->first;
 		float y = it->second;
 		
-		//��������� ���������� �� ��������� � ��������
 		float fScreenX;
 		float fScreenY;
 		GetScreenByValue( x, y, &fScreenX, &fScreenY );
@@ -822,8 +763,6 @@ void CKeyFrameEditor::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	SetFocus();
 
-	//������� �� ���� ������ � ������ � ������ screen coord.
-	//���� screen coord x ���� ���������� �� point.x, ����� ������ ��� ����� �����������
 
 	int i = 0;
 	bool bFound = false;
@@ -833,7 +772,6 @@ void CKeyFrameEditor::OnLButtonDown(UINT nFlags, CPoint point)
 		float x = it->first;
 		float y = it->second;
 		
-		//��������� ���������� �� ��������� � ��������
 		float fScreenX;
 		float fScreenY;
 		GetScreenByValue( x, y, &fScreenX, &fScreenY );
@@ -852,7 +790,6 @@ void CKeyFrameEditor::OnLButtonDown(UINT nFlags, CPoint point)
 	
 	if ( bFound )
 	{
-		//������������� �������� ������ ���������� �� Y
 		float fValX, fValY;
 		GetValueByScreen( point.x, point.y, &fValX, &fValY );
 		if ( fValY > m_fMaxValY )
@@ -873,10 +810,8 @@ void CKeyFrameEditor::OnLButtonDown(UINT nFlags, CPoint point)
 	}
 	else
 	{
-		//������� ����� ��� � ��������� ��� � ������
 		float fValX, fValY;
 		GetValueByScreen( point.x, point.y, &fValX, &fValY );
-		//��� ���� ���������, �� ������� �� ���������� ����� �� ������� ��������, � ���� ������ �� ���� ��������� ����� �������
 		if ( fValX >= m_fMinValX && fValX <= m_fMaxValX && fValY >= m_fMinValY && fValY <= m_fMaxValY )
 		{
 			pair<float, float> para;
@@ -912,7 +847,6 @@ void CKeyFrameEditor::OnMouseMove(UINT nFlags, CPoint point)
 {
 	if ( m_mode == E_FREE_MODE )
 	{
-		//������ ������������ ���, ���� ����� �������
 		int i = 0;
 		float fScreenX;
 		float fScreenY;
@@ -924,7 +858,6 @@ void CKeyFrameEditor::OnMouseMove(UINT nFlags, CPoint point)
 			float x = it->first;
 			float y = it->second;
 			
-			//��������� ���������� �� ��������� � ��������
 			GetScreenByValue( x, y, &fScreenX, &fScreenY );
 			
 			if ( fScreenX >= point.x-SELECT_SIZE && fScreenX <= point.x+SELECT_SIZE )
@@ -942,7 +875,6 @@ void CKeyFrameEditor::OnMouseMove(UINT nFlags, CPoint point)
 		if ( bFound )
 		{
 			m_nHighNodeIndex = i;
-			//��������� ������������ ����
 			Invalidate();
 		}
 		else if ( m_nHighNodeIndex != -1 )
@@ -960,8 +892,6 @@ void CKeyFrameEditor::OnMouseMove(UINT nFlags, CPoint point)
 		RECT rc;
 		GetClientRect( &rc );
 
-		//���������� ���� � �������� m_nDragIndex � ����� ����������
-		//������� iterator ����
 		int i = 0;
 		CFramesList::iterator it=framesList.begin();
 		for ( ; it!=framesList.end(); ++it )
@@ -973,8 +903,6 @@ void CKeyFrameEditor::OnMouseMove(UINT nFlags, CPoint point)
 		}
 		NI_ASSERT( it != framesList.end() );
 
-		//������ ���������� � ��������� ����
-		//���� ����� ��������� �� ����������� ������ ����� ����� ����� ������
 		CFramesList::iterator prev = it, next = it;
 		if ( it != framesList.begin() )
 		{
@@ -987,7 +915,6 @@ void CKeyFrameEditor::OnMouseMove(UINT nFlags, CPoint point)
 			{
 				if ( m_BottomScroll.IsWindowVisible() )
 				{
-					//������� ScrollBar �����
 					int nPos = m_BottomScroll.GetScrollPos();
 					if ( nPos > 0 )
 						m_BottomScroll.SetScrollPos( nPos-1 );
@@ -1008,7 +935,6 @@ void CKeyFrameEditor::OnMouseMove(UINT nFlags, CPoint point)
 				point.x = fMaxX - NODE_SPACE;
 			else
 			{
-				//���������, �� ����� �� ����� �� ������� �������� ������
 				int nMin, nMax;
 				GetVisibleX( &nMin, &nMax );
 				int nMaxScreenPosX = LEFT + (nMax - nMin)*m_XS;
@@ -1028,7 +954,6 @@ void CKeyFrameEditor::OnMouseMove(UINT nFlags, CPoint point)
 		}
 
 		{
-			//������������, ����� ���������� Y ���� ���� � �������� ������ m_fMinValY, m_fMaxValY
 			if ( point.y > rc.bottom - BOTTOM )
 			{
 				if ( m_LeftScroll.IsWindowVisible() )
@@ -1075,7 +1000,6 @@ void CKeyFrameEditor::OnMouseMove(UINT nFlags, CPoint point)
 			GetValueByScreen( point.x, point.y, &it->first, &it->second );
 */
 
-		//��������� ��������
 		m_beginDrag = point;
 		Invalidate();
 	}
@@ -1147,7 +1071,6 @@ void CKeyFrameEditor::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 
 void CKeyFrameEditor::ResetNodes()
 {
-	//������� ��� ���� ����� ������
 	if ( framesList.size() > 0 )
 	{
 		pair<float, float> first = framesList.front();
@@ -1161,7 +1084,6 @@ void CKeyFrameEditor::DeleteActiveNode()
 {
 	if ( m_nDragIndex != 0 )
 	{
-		//������� ���� � ���� ��������
 		int i = 0;
 		CFramesList::iterator it=framesList.begin();
 		for ( ; it!=framesList.end(); ++it )

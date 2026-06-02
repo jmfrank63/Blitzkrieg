@@ -51,8 +51,6 @@ __slist_make_link(_Slist_node_base* __prev_node,
 template <class _Dummy>
 class _Sl_global {
 public:
-  // those used to be global functions 
-  // moved here to reduce code bloat without templatizing _Slist_iterator_base
   static size_t _STLP_CALL size(_Slist_node_base* __node);
   static _Slist_node_base* _STLP_CALL __reverse(_Slist_node_base* __node);
   static void _STLP_CALL __splice_after(_Slist_node_base* __pos,
@@ -82,6 +80,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_SLIST_BASE_H */
 
-// Local Variables:
-// mode:C++
-// End:

@@ -37,7 +37,6 @@
 
 _STLP_BEGIN_NAMESPACE
 
-// provide a "default" deque adaptor
 template <class _Tp>
 class deque : public _DEQUE_SUPER {
 public:
@@ -71,6 +70,3 @@ operator<(const deque<_Tp>& __x, const deque<_Tp>& __y) {
 
 _STLP_END_NAMESPACE  
 
-// Local Variables:
-// mode:C++
-// End:

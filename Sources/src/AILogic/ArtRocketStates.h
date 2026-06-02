@@ -2,10 +2,8 @@
 #define __ART_ROCKET_STATES_H__
 
 #pragma ONCE
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "StatesFactory.h"
 #include "UnitStates.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CArtRocketStatesFactory : public IStatesFactory
 {
 	OBJECT_COMPLETE_METHODS( CArtRocketStatesFactory );
@@ -18,10 +16,8 @@ public:
 	virtual interface IUnitState* ProduceRestState( class CQueueUnit *pUnit );
 
 	virtual bool CanCommandBeExecuted( class CAICommand *pCommand );
-	// for Saving/Loading of static members
 	friend class CStaticMembers;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CArtRocketAttackGroundState : public IUnitAttackingState
 {
 	OBJECT_COMPLETE_METHODS( CArtRocketAttackGroundState );
@@ -52,5 +48,4 @@ public:
 	virtual bool IsAttacksUnit() const { return false; }
 	virtual class CAIUnit* GetTargetUnit() const { return 0; }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __ART_ROCKET_STATES_H__

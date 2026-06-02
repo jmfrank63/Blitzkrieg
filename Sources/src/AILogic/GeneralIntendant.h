@@ -1,11 +1,9 @@
 #ifndef __GENERALINTENDANT_H__
 #define __GENERALINTENDANT_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
 #include "Commander.h"
 #include "StaticObjects.h"
 #include "EnemyRememberer.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CResupplyCellInfo : public IRefCount
 {
 	DECLARE_SERIALIZE;
@@ -31,10 +29,8 @@ public:
 	void AddUnit( class CCommonUnit * pUnit, const byte cRes );
 	const bool IsUnitRegistered( CCommonUnit * pUnit ) const;
 
-	//for markink that this cell is under supply.
 	void MarkUnderSupply( const enum EResupplyType eType, const bool bSupply = true );
 	const bool IsMarkedUnderSupply( const enum EResupplyType eType ) const { return cMarkedUnderSupply & (1<<eType); }
-	// dander
 	void SetDanger( const NTimer::STime timeDanger ) ;
 	const bool IsDangerous() const ;
 
@@ -54,10 +50,8 @@ public:
 		{ return s1->GetNNeeded( cMask ) > s2->GetNNeeded( cMask ); }
 	};
 
-	// were transport must be to cover all units with resupply.
 	CVec2 CalcResupplyPos( const enum EResupplyType eType ) const;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CBuildingStorage;
 typedef std::list< CPtr<CBuildingStorage> > Storages;
 
@@ -114,7 +108,6 @@ public:
 	virtual float GetSeverity() const { return fSeverity; }
 	virtual bool IsFinished() const { return eState == TS_FINISHED; } 
 
-	//IWorkerEnumerator
 	virtual bool EnumWorker( class CCommonUnit *pUnit, const enum EForceType eType );
 	virtual bool EvaluateWorker( CCommonUnit * pUnit, const enum EForceType eType ) const;
 	virtual int NeedNBest( const enum EForceType eType ) const ;
@@ -122,7 +115,6 @@ public:
 
 	friend class CWaitForChangePlayer;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGeneralTaskToResupplyCell : public IGeneralTask, public IWorkerEnumerator
 {
 	DECLARE_SERIALIZE;
@@ -151,13 +143,11 @@ public:
 	virtual float GetSeverity() const { return fSeverity; }
 	virtual bool IsFinished() const { return bFinished; }
 
-	//IWorkerEnumerator
 	virtual bool EnumWorker( CCommonUnit *pUnit, const enum EForceType eType );
 	virtual bool EvaluateWorker( CCommonUnit * pUnit, const enum EForceType eType ) const;
 	virtual int NeedNBest( const enum EForceType eType ) const ;
 	virtual float EvaluateWorkerRating( CCommonUnit * pUnit, const enum EForceType eType ) const ;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CGeneralTaskCheckCellDanger : public IGeneralDelayedTask
 {
 	DECLARE_SERIALIZE;
@@ -183,8 +173,6 @@ public:
 			pTask->CancelTask( pCommander );
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// manipulate with storages and resupply trucks
 class CGeneralIntendant : public CCommander
 {
 	DECLARE_SERIALIZE;
@@ -201,11 +189,9 @@ private:
 	typedef std::unordered_map< SVector, CPtr<CResupplyCellInfo>, SVectorHash > ResupplyCells;
 	ResupplyCells cellsWithRequests;
 
-	// artillery without crew.
 	typedef std::unordered_map< /*Unique ID*/ int, CPtr<CEnemyRememberer> > CFreeArtillery;
 	CFreeArtillery freeArtillery;
 
-	// storages (tasks to defend storages)
 	CommonUnits resupplyTrucks;
 	typedef std::pair<CVec2, WORD> CPosition;
 	std::vector<CPosition> vPositions;
@@ -241,5 +227,4 @@ public:
 
 	void MarkCellsDangerous( const SVector &vCell );		
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __GENERALINTENDANT_H__

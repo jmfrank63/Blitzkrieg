@@ -1,16 +1,12 @@
 #ifndef __INTERFACEAFTERMISSIONPOPUPS_H__
 #define __INTERFACEAFTERMISSIONPOPUPS_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "InterMission.h"
 #include "iMission.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAfterMissionPopups : public IRefCount
 {
 	OBJECT_NORMAL_METHODS( CAfterMissionPopups );
 	DECLARE_SERIALIZE;
-	// input
 	NInput::CCommandRegistrator commandMsgs;
 
 	bool bTutorialWindow;
@@ -30,9 +26,7 @@ class CAfterMissionPopups : public IRefCount
 
 	bool bShowBlack;		// blacken bottom screen
 
-	// sets bNeedFinish
 	void FinishInterface( const int _nCommandID, const char *pszParam );
-	//
 public:
 	CAfterMissionPopups() : nMedalIterator( 0 ), bMainScreenShown( 0 ),
 		bUpgradesShown( 0 ), bNewUnitsShown( 0 ), bNextChapterShown( 0 ), bPlayerRankShown( 0 ),
@@ -47,5 +41,4 @@ public:
 	virtual void STDCALL OnGetFocus( bool bFocus );
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __INTERFACEAFTERMISSIONPOPUPS_H__

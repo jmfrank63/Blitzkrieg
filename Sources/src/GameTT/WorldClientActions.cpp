@@ -5,7 +5,6 @@
 #include "..\Formats\fmtTerrain.h"
 #include "SelectorVisitors.h"
 #include "..\UI\UI.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldClient::RegisterAction( int nAction, DWORD flags, USER_ACTION pfnUserAction )
 {
 	NI_ASSERT_SLOW_T( (flags != 0) && (pfnUserAction), NStr::Format("Can't register action %d with NULL functions and/or flags", nAction) );
@@ -13,10 +12,8 @@ void CWorldClient::RegisterAction( int nAction, DWORD flags, USER_ACTION pfnUser
 	action.flags = flags;
 	action.pfnAction = pfnUserAction;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CWorldClient::DetermineBestAutoAction( const SMapObject *pMO )
 {
-	// no target...
 	if ( pMO == 0 )
 	{
 		if ( IsSelectionEmpty() )
@@ -33,10 +30,8 @@ int CWorldClient::DetermineBestAutoAction( const SMapObject *pMO )
 				return USER_ACTION_MOVE;
 		}
 	}
-	// 
 	if ( IsSelectionEmpty() )
 	{
-		// empty selection - can only select
 		switch ( GetDiplomacyRelation(pMO) ) 
 		{
 			case EDI_FRIEND:
@@ -49,7 +44,6 @@ int CWorldClient::DetermineBestAutoAction( const SMapObject *pMO )
 	}
 	else
 	{
-		// form action flags
 		const std::vector<int> &priority = IsFriend( pMO ) ? userPriorityFriendly : 
 		                                                     ( IsFoe(pMO) ? userPriorityEnemy : userPriorityNeutral );
 		CUserActions actions, actionsBy, actionsWith;
@@ -62,10 +56,8 @@ int CWorldClient::DetermineBestAutoAction( const SMapObject *pMO )
 		actions = actionsBy;
 		actions &= actionsWith;
 		availCrossActions = actions;
-		// check for CTRL+ and ALT+ actions
 		if ( bActionModifierForcedMove )
 		{
-			// forced move: follow by the unit, board/sturm building/entrenchment, just go to point
 			const EObjGameType eGameType = pMO->GetDesc() != 0 ? pMO->GetDesc()->eGameType : SGVOGT_UNKNOWN;
 			if ( eGameType == SGVOGT_UNIT )	// follow by the unit
 			{
@@ -84,7 +76,6 @@ int CWorldClient::DetermineBestAutoAction( const SMapObject *pMO )
 		}
 		else if ( bActionModifierForcedAttack )
 		{
-			// forced attack: suppress fire (area), just attack target
 			if ( actionsBy.HasAction(USER_ACTION_SUPPRESS) )
 				return USER_ACTION_SUPPRESS | 0x80000000;
 			else
@@ -97,7 +88,6 @@ int CWorldClient::DetermineBestAutoAction( const SMapObject *pMO )
 			actions &= selfActions;
 			if ( !actions.IsEmpty() ) 
 			{
-				// determine best self-action with priority
 				for ( std::vector<int>::const_iterator action = userPrioritySelf.begin(); action != userPrioritySelf.end(); ++action )
 				{
 					if ( actions.HasAction(*action) ) 
@@ -111,19 +101,15 @@ int CWorldClient::DetermineBestAutoAction( const SMapObject *pMO )
 				return USER_ACTION_DO_SELFACTION;
 				*/
 		}
-		// check for other actions
 		for ( std::vector<int>::const_iterator it = priority.begin(); it != priority.end(); ++it )
 		{
 			if ( actions.HasAction(*it) ) 
 				return *it;
 		}
-		//
 		return USER_ACTION_MOVE;
 	}
-	//
 	return USER_ACTION_UNKNOWN;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldClient::BeginAction( const SGameMessage &msg )
 {
 	const CVec2 vPos = GetPosFromMsg( msg );
@@ -141,14 +127,11 @@ void CWorldClient::BeginAction( const SGameMessage &msg )
 		GetPos3( &vRotationalMovePos, vPos );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// do action... forced or auto...
 void CWorldClient::DoAction( const SGameMessage &msg )
 {
 	bGotMoveCommand = false;
 	bGotGridCommand = false;
 	const CVec2 vPos = GetPosFromMsg( msg );
-	// process forced action
 	if ( nForcedAction != USER_ACTION_UNKNOWN )
 	{
 		CVec3 vCommandPoint;
@@ -194,10 +177,8 @@ void CWorldClient::DoAction( const SGameMessage &msg )
 		}
 		return;
 	}
-	//
 	UpdatePick( vPos, pTimer->GetGameTime(), true, true, false );
 	const SMapObject *pMO = GetFirstPick( SGVOGT_FENCE, true, false );
-	// perform auto action
 	const int _nAction = DetermineBestAutoAction( pMO );
 	const int nAction = _nAction & 0x00007fff;
 	const int nType = _nAction & 0x80000000 ? SActionDesc::FORCED : SActionDesc::AUTO;
@@ -213,7 +194,6 @@ void CWorldClient::DoAction( const SGameMessage &msg )
 	{	
 		Vis2AI( &vRotationalMovePos );
 		bool result;
-		//to remember scene coordinates, not cursor on the screen
 		CVec3 vCommandPoint;
 		GetPos3( &vCommandPoint, vPos );
 		Vis2AI( &vCommandPoint );
@@ -281,27 +261,23 @@ void CWorldClient::DoAction( const SGameMessage &msg )
 		pScene->SetDirectionalArrow( VNULL3, VNULL3, false );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::PerformSelfActionPosParam( SMapObject *pMO, const int nAction, const int nParam, bool bAddAction )
 {
 	CVec3 vPos;
 	WORD wDir;
 	pMO->GetPlacement( &vPos, &wDir );
 	Vis2AI( &vPos );
-	// AI position and command at all
 	static SAIUnitCmd cmd;
 	cmd.cmdType = EActionCommand( nAction );
 	cmd.vPos.x = vPos.x;
 	cmd.vPos.y = vPos.y;
 	cmd.fNumber = nParam;
-	// send unit
 	IRefCount *pAIObj = pMO->GetAIObj();
 	const int nGroupID = pTransceiver->CommandRegisterGroup( &pAIObj, 1 );
 	pTransceiver->CommandGroupCommand( &cmd, nGroupID, bAddAction );
 	pTransceiver->CommandUnregisterGroup( nGroupID );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::DoSelfAction( SMapObject *pMO, const int nAction )
 {
 	switch ( nAction ) 
@@ -324,7 +300,6 @@ bool CWorldClient::DoSelfAction( SMapObject *pMO, const int nAction )
 	NI_ASSERT_SLOW_T( false, NStr::Format("Unknown user action %d for self action", nAction) );
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::DoSelfAction( const int nAction, const bool bAddAction )
 {
 	switch ( nAction ) 
@@ -345,19 +320,16 @@ bool CWorldClient::DoSelfAction( const int nAction, const bool bAddAction )
 	NI_ASSERT_SLOW_T( false, NStr::Format("Unknown user action %d for self action", nAction) );
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionDoSelfActionMsg( const SGameMessage &msg, bool bForced )
 {	
 	bool bRetVal = false;
 	selunits.Invalidate();
-	// do specific self action for each object, which has one
 	const CMapObjectsList &objects = selunits.GetObjects();
 	for ( CMapObjectsList::const_iterator it = objects.begin(); it != objects.end(); ++it )
 	{
 		SMapObject *pMO = *it;
 		CUserActions actions;
 		pMO->GetActions( &actions, IMapObj::ACTIONS_BY );
-		// determine best self-action with priority
 		for ( std::vector<int>::const_iterator action = userPrioritySelf.begin(); action != userPrioritySelf.end(); ++action )
 		{
 			if ( actions.HasAction(*action) ) 
@@ -367,16 +339,12 @@ bool CWorldClient::ActionDoSelfActionMsg( const SGameMessage &msg, bool bForced 
 			}
 		}
 	}
-	//
 	return bRetVal;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// setup auto action (previously determined)
 void CWorldClient::SetAutoAction( int nAction )
 {
 	if ( !CanDoAction(nAction) )
 		nAction = USER_ACTION_UNKNOWN;
-	//
 	nAutoAction = nAction;
 	if ( nForcedAction == USER_ACTION_UNKNOWN )
 	{
@@ -404,20 +372,15 @@ void CWorldClient::SetAutoAction( int nAction )
 		SetCursorMode( nForcedAction );
 		*/
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// setup forced action for further execution
 bool CWorldClient::SetForcedAction( int nAction )
 {
-	// check for reset this action (повторна€ активаци€)
 	if ( nForcedAction == nAction )
 	{
 		ResetForcedAction();
 		return true;
 	}
-	//
 	if ( !CanDoAction(nAction) )
 		return false;
-	// TODO{ сделать проверку на "действи€ без активного селекшена" как-то по другому
 	if ( ( IsSelectionEmpty() && 
 		     (nAction != USER_ACTION_OFFICER_CALL_BOMBERS) && 
 				 (nAction != USER_ACTION_OFFICER_CALL_FIGHTERS) && 
@@ -427,17 +390,12 @@ bool CWorldClient::SetForcedAction( int nAction )
 				 (nAction != USER_ACTION_PLACE_MARKER) ) && 
 		   !( (nAction == USER_ACTION_LEAVE) && IsBuildingsSelected() ) )
 		return false;
-	// TODO}
-	// reset previously action
 	if ( nForcedAction != USER_ACTION_UNKNOWN )
 		ResetForcedAction();
-	// set new one
 	nForcedAction = nAction;
 	SetCursorMode( nForcedAction );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// reset particular (or ANY) forced action
 void CWorldClient::ResetForcedAction( int nAction )
 {
 	if ( (nAction == -1) || (nAction == nForcedAction) )
@@ -446,11 +404,9 @@ void CWorldClient::ResetForcedAction( int nAction )
 			pInput->AddMessage( SGameMessage(nForcedAction | 0x00000100) );
 		nForcedAction = USER_ACTION_UNKNOWN;
 		GetSingleton<ICursor>()->SetMode( USER_ACTION_UNKNOWN );
-		//
 		ResetPoints();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldClient::ResetPoints()
 {
 	fencePoints.clear();
@@ -460,27 +416,19 @@ void CWorldClient::ResetPoints()
 	pScene->RemoveLine( pBoldLine );
 	pBoldLine = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// check, can we perform this action
 void CWorldClient::CheckActions()
 {
-	// auto action
 	SetAutoAction( nAutoAction );
-	// forced action
 	if ( !CanDoAction(nForcedAction) )
 		ResetForcedAction();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::CanDoAction( int nAction ) const
 { 
 	return nAction < 64 ? availActions.HasAction( nAction ) : true; 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// calc available actions
 void CWorldClient::CalcAvailableActionsSet( CUserActions *pActions, const IMapObj *pException, const IMapObj::EActionsType eActions ) const
 {
 	pActions->Clear();
-	//
 	if ( pException == 0 ) 
 	{
 		CGetActionsSelectiorVisitor visitor( eActions, pActions );
@@ -493,29 +441,23 @@ void CWorldClient::CalcAvailableActionsSet( CUserActions *pActions, const IMapOb
 		selunits.Visit( &visitor );
 		selbuildings.Visit( &visitor );
 	}
-	// can call for aviation only if it enabled
 	*pActions |= availPlanes;
-	//
 	pActions->SetAction( USER_ACTION_UNKNOWN );
 	if ( GetGlobalVar( "MultiplayerGame", 0 ) )
 		pActions->SetAction( USER_ACTION_PLACE_MARKER );
 	pActions->SetAction( USER_ACTION_CHANGE_MOVEMENT_ORDER );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldClient::ExcludeActions( CUserActions *pActions, const SMapObject *pMO ) const
 {
 	const std::vector<int> &excludes = IsFriend( pMO ) ? excludeFriendly : ( IsFoe(pMO) ? excludeEnemy : excludeNeutral );
 	for ( std::vector<int>::const_iterator it = excludes.begin(); it != excludes.end(); ++it )
 		pActions->RemoveAction( *it );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldClient::PrepareActionPosParam( SAIUnitCmd *pCmd, int nAction, const CVec2 &vPos, float fParam )
 {
-	// vis => ai pos
 	CVec3 vPos3;
 	GetPos3( &vPos3, vPos );
 	Vis2AI( &vPos3 );
-	// AI position and command at all
 	pCmd->cmdType = EActionCommand( nAction );
 	pCmd->vPos.x = vPos3.x;
 	pCmd->vPos.y = vPos3.y;
@@ -528,43 +470,33 @@ void CWorldClient::PrepareActionObjParam( SAIUnitCmd *pCmd, int nAction, IRefCou
 	pCmd->fNumber = fParam;
 	NI_ASSERT_SLOW_T( pAIObj != 0, NStr::Format("Trying to perform obj-action %d with NULL obj", nAction) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::PerformActionObjParam( int nAction, IRefCount *pAIObj, float fParam, bool bAddAction )
 {
 	if ( IsSelectionEmpty() )
 		return false;
-	//
 	static SAIUnitCmd cmd;
 	PrepareActionObjParam( &cmd, nAction, pAIObj, fParam );
 	pTransceiver->CommandGroupCommand( &cmd, selunits.GetAIGroup(), bAddAction );
-	// дл€ того, чтобы убрать ненужную ссылку на объект!
 	cmd.pObject = 0;
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::PerformActionPosParam( int nAction, const CVec2 &vPos2, float fParam, bool bAddAction, bool bMarkOnTerrain )
 {
 	if ( IsSelectionEmpty() )
 		return false;
-	//
 	static SAIUnitCmd cmd;
 	CVec3 vPos3;
 	GetPos3( &vPos3, vPos2 );
 	if ( vPos2 != VNULL2 && bMarkOnTerrain && nAction != ACTION_COMMAND_MOVE_TO && nAction != ACTION_COMMAND_SWARM_TO )
 		pScene->SetClickMarker( vPos3 );
 	PrepareActionPosParam( &cmd, nAction, vPos2, fParam );
-	// send unit
 	pTransceiver->CommandGroupCommand( &cmd, selunits.GetAIGroup(), bAddAction );
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::PerformActionPosParam( int nAction, const CVec3 &vPos3, float fParam, bool bAddAction, bool bMarkOnTerrain )
 {
 	if ( IsSelectionEmpty() )
 		return false;
-	// AI position and command at all
 	CVec3 vPos;
 	AI2Vis( &vPos, vPos3 );
 	if ( bMarkOnTerrain && nAction != ACTION_COMMAND_MOVE_TO && nAction != ACTION_COMMAND_SWARM_TO )
@@ -574,19 +506,14 @@ bool CWorldClient::PerformActionPosParam( int nAction, const CVec3 &vPos3, float
 	cmd.vPos.x = vPos3.x;
 	cmd.vPos.y = vPos3.y;
 	cmd.fNumber = fParam;
-	// send unit
 	pTransceiver->CommandGroupCommand( &cmd, selunits.GetAIGroup(), bAddAction );
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CWorldClient::PerformUnitActionPosParam( int nAction, const CVec2 &vPos2, float fParam, bool bAddAction )
 {
-	// visual position
 	CVec3 vPos3;
 	GetPos3( &vPos3, vPos2 );
 	Vis2AI( &vPos3 );
-	//
 	static SAIUnitCmd cmd;
 	cmd.cmdType = EActionCommand( nAction );
 	cmd.vPos.x = vPos3.x;
@@ -594,25 +521,14 @@ int CWorldClient::PerformUnitActionPosParam( int nAction, const CVec2 &vPos2, fl
 	cmd.fNumber = fParam;
 	return pTransceiver->CommandUnitCommand( &cmd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** particular actions
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionSendTo( const CVec2 &pos, bool bAddAction )
 {
 	return PerformActionPos( ACTION_COMMAND_MOVE_TO, pos, bAddAction );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionAttack( const CVec2 &vPos, DWORD flags, bool bAddAction )
 {
 	if ( IsSelectionEmpty() )
 		return false;
-	//
 	UpdatePick( vPos, pTimer->GetGameTime(), false, true, true );
 	for ( CMapObjectsPtrList::iterator it = framePick.begin(); it != framePick.end(); ++it )
 	{
@@ -642,35 +558,27 @@ bool CWorldClient::ActionAttack( const CVec2 &vPos, DWORD flags, bool bAddAction
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionLeave( const CVec2 &vPos2, bool bAddAction )
 {
 	static SAIUnitCmd cmd;
-	// 
 	std::vector<IMOUnit*> passangers;
 	if ( IsBuildingsSelected() )
 	{
 		GetPassangers( selbuildings.GetObjects(), passangers, true );
-		//
 		if ( passangers.empty() )
 			return false;
-		//
 		const int nNumObjects = passangers.size();
 		IRefCount **ppAIObjects = GetTempBuffer<IRefCount*>( nNumObjects );
 		IRefCount **ppTempObjects = ppAIObjects;
 		for ( std::vector<IMOUnit*>::iterator it = passangers.begin(); it != passangers.end(); ++it )
 			*ppTempObjects++ = (*it)->GetAIObj();
 		const int nLocalSelectionGroup = pTransceiver->CommandRegisterGroup( ppAIObjects, nNumObjects );
-		// perform command
-		// AI position
 		CVec3 vPos;
 		GetPos3( &vPos, vPos2 );
 		Vis2AI( &vPos );
-		//
 		cmd.cmdType = ACTION_COMMAND_LEAVE;
 		cmd.vPos.x = vPos.x;
 		cmd.vPos.y = vPos.y;
-		//
 		pTransceiver->CommandGroupCommand( &cmd, nLocalSelectionGroup, bAddAction );
 		pTransceiver->CommandUnregisterGroup( nLocalSelectionGroup );
 		return true;
@@ -686,15 +594,12 @@ bool CWorldClient::ActionLeave( const CVec2 &vPos2, bool bAddAction )
 				return PerformActionPos( ACTION_COMMAND_UNLOAD, vPos2, bAddAction );
 		}
 	}
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionBoard( SMapObject *pMO, bool bAddAction )
 {
 	if ( IsSelectionEmpty() )
 		return false;
-	//
 	if ( pMO->pDesc->eGameType == SGVOGT_BUILDING )
 		return PerformActionObjParam( ACTION_COMMAND_ENTER, pMO->pAIObj, 0, bAddAction );
 	else if ( pMO->pDesc->eGameType == SGVOGT_ENTRENCHMENT )
@@ -703,12 +608,10 @@ bool CWorldClient::ActionBoard( SMapObject *pMO, bool bAddAction )
 		return PerformActionObjParam( ACTION_COMMAND_LOAD, pMO->pAIObj, 1, bAddAction );
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionBoard( CMapObjectsPtrList &objects, bool bAddAction )
 {
 	if ( IsSelectionEmpty() )
 		return false;
-	//
 	for ( CMapObjectsPtrList::iterator it = objects.begin(); it != objects.end(); ++it )
 	{
 		if ( (*it)->IsAlive() && ActionBoard(*it, bAddAction) ) 
@@ -716,47 +619,31 @@ bool CWorldClient::ActionBoard( CMapObjectsPtrList &objects, bool bAddAction )
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** message actions
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// common actions
 bool CWorldClient::ActionMoveMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPos( ACTION_COMMAND_MOVE_TO, GetPosFromMsg(msg), bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionMoveToGridMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPos( ACTION_COMMAND_MOVE_TO_GRID, GetPosFromMsg(msg), bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionSwarmMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPos( ACTION_COMMAND_SWARM_TO, GetPosFromMsg(msg), bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionRotateMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPos( ACTION_COMMAND_ROTATE_TO, GetPosFromMsg(msg), bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionAttackMsg( const SGameMessage &msg, bool bForced )
 {
 	const DWORD flags = bForced ? ACTION_FLAG_FOE | ACTION_FLAG_NEUTRAL | ACTION_FLAG_FRIEND : ACTION_FLAG_FOE;
 	return ActionAttack( GetPosFromMsg(msg), flags, bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionFollow( SMapObject *pMO, bool bAdd )
 {
 	return PerformActionObj( ACTION_COMMAND_FOLLOW, pMO->GetAIObj(), bAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionFollowMsg( const SGameMessage &msg, bool bForced )
 {
 	UpdatePick( GetPosFromMsg(msg), pTimer->GetGameTime(), false, true, true );
@@ -769,8 +656,6 @@ bool CWorldClient::ActionFollowMsg( const SGameMessage &msg, bool bForced )
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// board/leave
 bool CWorldClient::ActionBoardMsg( const SGameMessage &msg, bool bForced )
 {
 	UpdatePick( GetPosFromMsg(msg), pTimer->GetGameTime(), false, true, true );
@@ -780,8 +665,6 @@ bool CWorldClient::ActionLeaveMsg( const SGameMessage &msg, bool bForced )
 {
 	return ActionLeave( GetPosFromMsg(msg), bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// install/uninstall
 bool CWorldClient::ActionInstallMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPos( ACTION_COMMAND_INSTALL, VNULL2, bActionModifierAdd );
@@ -790,8 +673,6 @@ bool CWorldClient::ActionUnInstallMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPos( ACTION_COMMAND_UNINSTALL, VNULL2, bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// place/remove mines
 bool CWorldClient::ActionPlaceMineAPMsg( const SGameMessage &msg, bool bForced )
 {
 	if ( bActionModifierAdd ) 
@@ -830,8 +711,6 @@ bool CWorldClient::ActionClearMineMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPos( ACTION_COMMAND_CLEARMINE, GetPosFromMsg(msg), bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// set logics (guard/ambush)
 bool CWorldClient::ActionGuardMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPos( ACTION_COMMAND_GUARD, GetPosFromMsg(msg), bActionModifierAdd );
@@ -840,8 +719,6 @@ bool CWorldClient::ActionAmbush( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPos( ACTION_COMMAND_AMBUSH, VNULL2, bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// long-range artillery: ranging and suppress
 bool CWorldClient::ActionRangingMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPos( ACTION_COMMAND_RANGE_AREA, GetPosFromMsg(msg), bActionModifierAdd );
@@ -850,7 +727,6 @@ bool CWorldClient::ActionSuppressMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPos( ACTION_COMMAND_ART_BOMBARDMENT, GetPosFromMsg(msg), bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldClient::AddAviationMarker( const CVec2 &vPos )
 {
 	CVec3 vCenter;
@@ -860,12 +736,10 @@ void CWorldClient::AddAviationMarker( const CVec2 &vPos )
 	CCircle circle( CVec2(vCenter.x, vCenter.y), fRadius );
 	aviationCircles.push_back( circle );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldClient::ClearAviationMarkers()
 {
 	aviationCircles.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorldClient::GetAviationCircles( interface IUIMiniMap * pMinimap, const NTimer::STime curTime )
 {
 	while( !aviationCircles.empty() )
@@ -875,10 +749,8 @@ void CWorldClient::GetAviationCircles( interface IUIMiniMap * pMinimap, const NT
 		aviationCircles.pop_front();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionAviationAddPoint( const EActionCommand cmdType, const CVec2 &vPos2 )
 {
-	// screen => vis => ai pos
 	CVec3 vPos;
 	GetPos3( &vPos, vPos2 );
 	Vis2AI( &vPos );
@@ -913,8 +785,6 @@ bool CWorldClient::ActionAviationAddPoint( const EActionCommand cmdType, const C
 		return bRes;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// officer actions - call planes
 bool CWorldClient::ActionCallForBombersMsg( const SGameMessage &msg, bool bForced )
 {
 	return ActionAviationAddPoint( ACTION_COMMAND_CALL_BOMBERS, GetPosFromMsg(msg) );
@@ -935,137 +805,103 @@ bool CWorldClient::ActionCallForGunplanesMsg( const SGameMessage &msg, bool bFor
 {
 	return ActionAviationAddPoint( ACTION_COMMAND_CALL_SHTURMOVIKS, GetPosFromMsg(msg) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionPlaceMarkerMsg( const SGameMessage &msg, bool bForced )
 {
 	PerformUnitActionPosParam( ACTION_COMMAND_PLACE_MARKER, GetPosFromMsg(msg), 0, false );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionAviationCall()
 {
 	NI_ASSERT_T( !aviationPoints.empty(), "Wrong call to aviation with 0 points" );
-	// add command to leave
 	aviationPoints.push_back( SAIUnitCmd(ACTION_COMMAND_PLANE_TAKEOFF_NOW) );
-	// call aviation
 	const int nAIGroup = pTransceiver->CommandUnitCommand( &(aviationPoints.front()) );
 	aviationPoints.pop_front();
 	if ( nAIGroup != -1 )
 	{
-		// set points
 		while ( !aviationPoints.empty() ) 
 		{
 			pTransceiver->CommandGroupCommand( &(aviationPoints.front()), nAIGroup, true );
 			aviationPoints.pop_front();
 		}
-		// unregister AI group
 		pTransceiver->CommandUnregisterGroup( nAIGroup );
 	}
 	aviationPoints.clear();
-	//
 	pAILogic->UnlockAviationAppearPoint();
 	bAviationLocked = false;
 
-	//
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// call to head quarter
 bool CWorldClient::ActionCallHQMsg( const SGameMessage &msg, bool bForced )
 {
 	pAILogic->CallScriptFunction( "CallHQ()" );
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// stop all actions for selected group
 bool CWorldClient::ActionStopMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPos( ACTION_COMMAND_STOP, VNULL2, false );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionBuildFenceMsg( const SGameMessage &msg, bool bForced )
 {
 	static SAIUnitCmd cmd;
-	// AI position
 	CVec3 vPos;
 	GetPos3( &vPos, GetPosFromMsg(msg) );
 	Vis2AI( &vPos );
-	//
 	if ( fencePoints.empty() )
 	{
-		// add first point
 		cmd.cmdType = ACTION_COMMAND_BUILD_FENCE_BEGIN;
 		cmd.vPos.x = vPos.x / SAIConsts::TILE_SIZE;
 		cmd.vPos.y = vPos.y / SAIConsts::TILE_SIZE;
 		fencePoints.push_back( cmd );
-		//
 		pBoldLine = CreateObject<IBoldLineVisObj>( SCENE_BOLD_LINE );
 		pScene->AddLine( pBoldLine );
-		//
 		return false;
 	}
 	else
 	{
 		const SAIUnitCmd &prevCmd = fencePoints.back();
 		NI_ASSERT_TF( prevCmd.cmdType == ACTION_COMMAND_BUILD_FENCE_BEGIN, "Can't perform wire fence building - previous command is not a fence begin!", fencePoints.clear(); return true; );
-		// add last point and call for build
 		cmd.cmdType = ACTION_COMMAND_BUILD_FENCE_END;
 		cmd.vPos.x = vPos.x / SAIConsts::TILE_SIZE;
 		cmd.vPos.y = vPos.y / SAIConsts::TILE_SIZE;
-		// fit to line...
 		if ( abs(cmd.vPos.x - prevCmd.vPos.x) > abs(cmd.vPos.y - prevCmd.vPos.y) )
 			cmd.vPos.y = prevCmd.vPos.y;
 		else
 			cmd.vPos.x = prevCmd.vPos.x;
-		// send commands
 		pTransceiver->CommandGroupCommand( &prevCmd, selunits.GetAIGroup(), bActionModifierAdd );
 		pTransceiver->CommandGroupCommand( &cmd, selunits.GetAIGroup(), true );
-		//
 		ResetPoints();
-		//
 		return true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionBuildEntrenchmentMsg( const SGameMessage &msg, bool bForced )
 {
 	static SAIUnitCmd cmd;
-	// AI position
 	CVec3 vPos;
 	GetPos3( &vPos, GetPosFromMsg(msg) );
 	Vis2AI( &vPos );
-	//
 	if ( fencePoints.empty() )
 	{
-		// add first point
 		cmd.cmdType = ACTION_COMMAND_ENTRENCH_BEGIN;
 		cmd.vPos.x = vPos.x;
 		cmd.vPos.y = vPos.y;
 		fencePoints.push_back( cmd );
-		//
 		pBoldLine = CreateObject<IBoldLineVisObj>( SCENE_BOLD_LINE );
 		pScene->AddLine( pBoldLine );
-		//
 		return false;
 	}
 	else
 	{
 		const SAIUnitCmd &prevCmd = fencePoints.back();
 		NI_ASSERT_TF( prevCmd.cmdType == ACTION_COMMAND_ENTRENCH_BEGIN, "Can't perform entrenchment building - previous command is not an entrenchment begin!", fencePoints.clear(); return true; );
-		// add last point and call for build
 		cmd.cmdType = ACTION_COMMAND_ENTRENCH_END;
 		cmd.vPos.x = vPos.x;
 		cmd.vPos.y = vPos.y;
-		// send commands
 		pTransceiver->CommandGroupCommand( &prevCmd, selunits.GetAIGroup(), bActionModifierAdd );
 		pTransceiver->CommandGroupCommand( &cmd, selunits.GetAIGroup(), true );
-		// 
 		ResetPoints();
-		//
 		return true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionBuildAntiTank( const SGameMessage &msg, bool bForced )
 {
 	if ( bActionModifierAdd ) 
@@ -1083,7 +919,6 @@ bool CWorldClient::ActionBuildAntiTank( const SGameMessage &msg, bool bForced )
 	else
 		return PerformActionPos( ACTION_COMMAND_PLACE_ANTITANK, GetPosFromMsg(msg), bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionRepairMsg( const SGameMessage &msg, bool bForced )
 {
 	UpdatePick( GetPosFromMsg(msg), pTimer->GetGameTime(), false, true, false );
@@ -1099,7 +934,6 @@ bool CWorldClient::ActionRepairMsg( const SGameMessage &msg, bool bForced )
 	}
 	return PerformActionPos( ACTION_COMMAND_REPAIR, GetPosFromMsg(msg), bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionRepairBuildingMsg( const SGameMessage &msg, bool bForced )
 {
 	UpdatePick( GetPosFromMsg(msg), pTimer->GetGameTime(), false, true, false );
@@ -1110,7 +944,6 @@ bool CWorldClient::ActionRepairBuildingMsg( const SGameMessage &msg, bool bForce
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionResupplyMsg( const SGameMessage &msg, bool bForced )
 {
 	UpdatePick( GetPosFromMsg(msg), pTimer->GetGameTime(), false, true, false );
@@ -1126,12 +959,10 @@ bool CWorldClient::ActionResupplyMsg( const SGameMessage &msg, bool bForced )
 	}
 	return PerformActionPos( ACTION_COMMAND_RESUPPLY, GetPosFromMsg(msg), bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionResupplyHRMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPos( ACTION_COMMAND_RESUPPLY_HR, GetPosFromMsg(msg), bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionFillRU( const SGameMessage &msg, bool bForced )
 {
 	UpdatePick( GetPosFromMsg(msg), pTimer->GetGameTime(), false );
@@ -1147,12 +978,10 @@ bool CWorldClient::ActionFillRU( const SGameMessage &msg, bool bForced )
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*bool CWorldClient::ActionBuildRUStorageMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPos( ACTION_COMMAND_CREATE_RU_STORAGE, GetPosFromMsg(msg), bActionModifierAdd );
 }*/
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*bool CWorldClient::ActionAssignToGunMsg( const SGameMessage &msg, bool bForced )
 {
 	UpdatePick( GetPosFromMsg(msg), pTimer->GetGameTime(), false );
@@ -1163,12 +992,10 @@ bool CWorldClient::ActionFillRU( const SGameMessage &msg, bool bForced )
 	}
 	return false;
 }*/
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionLookAtBinocularsMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPos( ACTION_COMMAND_USE_SPYGLASS, GetPosFromMsg(msg), bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionCaptureArtilleryMsg( const SGameMessage &msg, bool bForced )
 {
 	UpdatePick( GetPosFromMsg(msg), pTimer->GetGameTime(), false, true, true );
@@ -1184,7 +1011,6 @@ bool CWorldClient::ActionCaptureArtilleryMsg( const SGameMessage &msg, bool bFor
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionHookArtilleryMsg( const SGameMessage &msg, bool bForced )
 {
 	UpdatePick( GetPosFromMsg(msg), pTimer->GetGameTime(), false, true, true );
@@ -1195,37 +1021,30 @@ bool CWorldClient::ActionHookArtilleryMsg( const SGameMessage &msg, bool bForced
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionDeployArtilleryMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPos( ACTION_COMMAND_DEPLOY_ARTILLERY, GetPosFromMsg(msg), bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionEntrenchSelfMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPos( ACTION_COMMAND_ENTRENCH_SELF, VNULL2, bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionDisbandSquadMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPos( ACTION_COMMAND_DISBAND_FORMATION, VNULL2, bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionFormSquadMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPos( ACTION_COMMAND_FORM_FORMATION, VNULL2, bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionChangeFormationMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPosParam( ACTION_COMMAND_PARADE, VNULL2, msg.nEventID - USER_ACTION_FORMATION_0, bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionChangeShellTypeMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPosParam( ACTION_COMMAND_CHANGE_SHELLTYPE, VNULL2, msg.nEventID - USER_ACTION_USE_SHELL_DAMAGE, bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionBuildBridgeMsg( const SGameMessage &msg, bool bForced )
 {
 	UpdatePick( GetPosFromMsg(msg), pTimer->GetGameTime(), false, true, false );
@@ -1235,14 +1054,11 @@ bool CWorldClient::ActionBuildBridgeMsg( const SGameMessage &msg, bool bForced )
 			return PerformActionObj( ACTION_COMMAND_BUILD_BRIDGE, (*it)->pAIObj, bActionModifierAdd );
 	}
 	return false;
-	//return PerformActionPosParam( ACTION_COMMAND_BUILD_BRIDGE, GetPosFromMsg(msg), 0, bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::ActionStandGroundMsg( const SGameMessage &msg, bool bForced )
 {
 	return PerformActionPos( ACTION_COMMAND_STAND_GROUND, VNULL2, bActionModifierAdd );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWorldClient::DoCommandsList( CAIUnitCmdList &cmds )
 {
 	for ( CAIUnitCmdList::const_iterator it = cmds.begin(); it != cmds.end(); ++it )
@@ -1251,4 +1067,3 @@ bool CWorldClient::DoCommandsList( CAIUnitCmdList &cmds )
 	pScene->FlashPosMarkers();
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

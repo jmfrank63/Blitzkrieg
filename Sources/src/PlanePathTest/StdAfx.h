@@ -1,8 +1,4 @@
 #define _CRT_SECURE_NO_WARNINGS
-// stdafx.h : include file for standard system include files,
-//  or project specific include files that are used frequently, but
-//      are changed infrequently
-//
 
 #if !defined(AFX_STDAFX_H__E62D8585_ECF0_4202_AA6D_260587C04D03__INCLUDED_)
 #define AFX_STDAFX_H__E62D8585_ECF0_4202_AA6D_260587C04D03__INCLUDED_
@@ -12,7 +8,6 @@
 #endif // _MSC_VER > 1000
 
 #define VC_EXTRALEAN		// Exclude rarely-used stuff from Windows headers
-// STLport configuration removed - using standard Visual Studio STL
 
 
 #include <assert.h>
@@ -26,7 +21,6 @@
 
 #endif // _AFX_NO_AFXCMN_SUPPORT
 
-// STL headers
 #pragma warning( disable : 4503 4018 4786 4800 4290 4146 4244 4284 )
 #include <algorithm>
 #include <list>
@@ -37,17 +31,14 @@
 #include <unordered_set>
 #include <set>
 #include <queue>
-//
 typedef UINT FAR *LPUINT;
 typedef __int64 int64;									// due to lack of 'long long' type support
 typedef unsigned __int64 QWORD;					// quadra word
 #define for if(false); else for					// to achive standard variable scope resolving, declared inside 'for'
 #define STDCALL __stdcall								// to use with interface function calls
-// define 'interface' keyword
 #ifndef interface
 #define interface struct
 #endif // interface
-// define pragma once
 #if _MSC_VER > 1000
 #define ONCE once
 #else
@@ -72,10 +63,7 @@ typedef unsigned __int64 QWORD;					// quadra word
 #include "..\Main\GameTimer.h"
 #include "..\Main\GameDB.h"
 
-// in the file 'Specific.h' one can define own project-specific includes
 #include "Specific.h"
 
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif // !defined(AFX_STDAFX_H__E62D8585_ECF0_4202_AA6D_260587C04D03__INCLUDED_)

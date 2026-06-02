@@ -5,19 +5,14 @@
 #include "..\Main\ScenarioTracker.h"
 #include "MultiplayerCommandManager.h"
 #include "..\StreamIO\OptionSystem.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const NInput::SRegisterCommandEntry commands[] = 
 {
-//	{ "inter_ok"				,	IMC_OK						},
-//	{ "inter_cancel"		, IMC_CANCEL				},
 	{ "show_console"		, MC_SHOW_CONSOLE		},
 	{ "inter_cancel_credits", MC_CANCEL_CREDITS},
 	{ 0									,	0									}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void ResetCampaignStatus()
 {
-	// reset global vars
 	IGlobalVars *pGV = GetSingleton<IGlobalVars>();
 	pGV->RemoveVarsByMatch( "Campaign." );
 	pGV->RemoveVarsByMatch( "Chapter." );
@@ -29,11 +24,9 @@ void ResetCampaignStatus()
 		pGV->DumpVars( NStr::Format( "%s%s", pDataStorage->GetName(), "logs\\vars.txt" ) );
 	}
 	/*
-	// reinit player with current player's name and reset skills
 	IScenarioTracker *pScenarioTracker = GetSingleton<IScenarioTracker>();
 	pScenarioTracker->Clear();
 	
-	// pScenarioTracker->RemovePlayer( -1 );
 	pScenarioTracker->AddDefaultPlayers();
 	
 	IOptionSystem *pOptions = GetSingleton<IOptionSystem>();
@@ -46,15 +39,6 @@ void ResetCampaignStatus()
 	pProfile->SetPlayerName( wszNameFromOptions.c_str() );
 	*/
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** main menu command
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICMainMenu::Configure( const char *pszConfig )
 {
 	if ( pszConfig == 0 )
@@ -62,7 +46,6 @@ void CICMainMenu::Configure( const char *pszConfig )
 
 	std::vector<std::string> szStrings;
 	NStr::SplitString( pszConfig, szStrings, ';' );
-	// получаем параметры из командной строки
 	nState = NStr::ToInt( szStrings[0] );
 	if ( szStrings.size() > 1 ) 
 	{
@@ -75,7 +58,6 @@ void CICMainMenu::Configure( const char *pszConfig )
 	else
 		nNextIC = -1;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICMainMenu::PostCreate( IMainLoop *pML, CInterfaceMainMenu *pIMM )
 {
 	if ( GetGlobalVar( "demoversion", 0 ) )
@@ -87,7 +69,6 @@ void CICMainMenu::PostCreate( IMainLoop *pML, CInterfaceMainMenu *pIMM )
 	if ( nNextIC != -1 ) 
 		pML->Command( nNextIC, szNextICConfig.c_str() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CICMainMenu::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -96,15 +77,6 @@ int CICMainMenu::operator&( IStructureSaver &ss )
 	saver.Add( 3, &szNextICConfig );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** interface main menu
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceMainMenu::CInterfaceMainMenu() : CInterfaceInterMission( "InterMission" ), nActiveState( 0 )
 {
 	mainMenuState.Init( this );
@@ -127,14 +99,11 @@ CInterfaceMainMenu::CInterfaceMainMenu() : CInterfaceInterMission( "InterMission
 	states.push_back( &creditsState );
 	states.push_back( &demoMainMenu );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceMainMenu::~CInterfaceMainMenu()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMainMenu::PlayIntermissionSound()
 {
-	//init intermission interface stream sound
 	std::string szInterMissionStreamSound = GetGlobalVar( "InterMissionStreamSound", "" );
 	int nTimeToFade = GetGlobalVar( "Sound.TimeToFade", 5000 );
 	if ( szInterMissionStreamSound.size() > 0 )
@@ -143,11 +112,9 @@ void CInterfaceMainMenu::PlayIntermissionSound()
 		GetSingleton<ISFX>()->PlayStream( szInterMissionStreamSound.c_str(), true, nTimeToFade );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMainMenu::OnGetFocus( bool bFocus )
 {
 	CInterfaceInterMission::OnGetFocus( bFocus );
-	//states[nActiveState]->Show();
 	if ( GetGlobalVar( "MOD.Active", 0 ) )
 	{
 		IUIElement * pEl = pUIScreen->GetChildByID( 667 );
@@ -163,26 +130,20 @@ void CInterfaceMainMenu::OnGetFocus( bool bFocus )
 		SetActiveState( CInterfaceMainMenu::E_MULTIPLAYER );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMainMenu::Init()
 {
 	ResetCampaignStatus();
-	//запускаем звук
 	PlayIntermissionSound();
-	//
 	CInterfaceInterMission::Init();
 	commandMsgs.Init( pInput, commands );
-	//	SetBindSection( "intermission" );
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMainMenu::RefreshCursor()
 {
 	OnCursorMove( VNULL2 );
 	OnCursorMove( pCursor->GetPos() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool GetFileVersion( const std::string &szFileName, VS_FIXEDFILEINFO *pVersionInfo )
 {
 	char pszLocalFileName[2048];
@@ -219,7 +180,6 @@ std::string GetMainModuleVersion()
 	GetFileVersionString( buffer, &szVersion );
 	return szVersion;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMainMenu::Create( int nState )
 {
 	CInterfaceInterMission::StartInterface();
@@ -245,7 +205,6 @@ void CInterfaceMainMenu::Create( int nState )
 				wszVersion = MakeWideStringFromWordString( pText->GetString() );
 			else
 				wszVersion = L"Version:";
-			//
 			wszVersion += L" " + NStr::ToUnicode( szVersion.c_str() );
 			pElement->SetWindowText( 0, ToWordString( wszVersion ) );
 		}
@@ -261,7 +220,6 @@ void CInterfaceMainMenu::Create( int nState )
 	}
 	SetActiveState( nState );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceMainMenu::ProcessMessage( const SGameMessage &msg )
 {
 	if ( CInterfaceInterMission::ProcessMessage( msg ) )
@@ -269,11 +227,9 @@ bool CInterfaceMainMenu::ProcessMessage( const SGameMessage &msg )
 
 	return states[nActiveState]->ProcessMessage( msg );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceMainMenu::SetActiveState( int nState )
 {
 	states[nActiveState]->Hide();
 	nActiveState = nState;
 	states[nActiveState]->Show();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

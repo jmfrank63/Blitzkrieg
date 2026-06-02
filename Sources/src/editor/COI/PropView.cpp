@@ -4,18 +4,12 @@
 
 #define ID_OI 515
 
-/////////////////////////////////////////////////////////////////////////////
-// CPropView
 
 BEGIN_MESSAGE_MAP(CPropView, SECControlBar)
-//{{AFX_MSG_MAP(CPropView)
 	ON_WM_CREATE()
 	ON_WM_SIZE()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////
-// CPropView construction/destruction
 
 CPropView::CPropView()
 {
@@ -25,25 +19,20 @@ CPropView::CPropView()
 CPropView::~CPropView()
 {
 }
-/////////////////////////////////////////////////////////////////////////////////////
 int CPropView::OnCreate(LPCREATESTRUCT lpCreateStruct) 
 {
   if (SECControlBar::OnCreate(lpCreateStruct) == -1)
     return -1;
   
-	// Init object inspector
   RECT rect;
 	
   GetClientRect( &rect );
-	//  GetWindowRect( &rect );
-	//m_wndOI.CreateEx( WS_EX_STATICEDGE, 0, 0, WS_CHILD | WS_VISIBLE, rect, this, ID_OI );
   m_wndOI.Create( 0, "ObjectInspector", WS_CHILD | WS_VISIBLE, rect, this, ID_OI );
   m_wndOI.SetWindowPos( 0, 0, 0, 0, 0, SWP_NOZORDER | SWP_NOSIZE );
 
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////
 BOOL CPropView::PreTranslateMessage( MSG* pMsg )
 {
   if ( pMsg->message == WM_USER + 1 )
@@ -56,7 +45,6 @@ BOOL CPropView::PreTranslateMessage( MSG* pMsg )
   return SECControlBar::PreTranslateMessage( pMsg );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////
 void CPropView::OnSize(UINT nType, int cx, int cy) 
 {
   SECControlBar::OnSize(nType, cx, cy);
@@ -69,7 +57,6 @@ void CPropView::OnSize(UINT nType, int cx, int cy)
 }
 
 /*
-/////////////////////////////////////////////////////////////////////////////////////
 void CPropView::UpdatePropList()
 {
   if ( !pPropMap )
@@ -92,9 +79,7 @@ void CPropView::UpdatePropList()
     {
       var = pRelation->pItemsTree->GetItemName( it->second->GetValue() );
       gid = it->second->GetGroup();
-      //nViewType = DT_STR;
 			nViewType = DT_RELATION;
-//      bReadOnly = true;
       if ( gid )
         m_OIDlg.m_wndOI.SetGroup( gid, pRelation->szTabName, true );
     }
@@ -113,21 +98,16 @@ void CPropView::UpdatePropList()
   }
   m_OIDlg.m_wndOI.Invalidate();
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CPropView::SetPropMap( const CPropMap *_pPropMap )
 { 
-	// если изменим pPropMap до ClearAll, то можем потерять последнее измененное значение
 	m_OIDlg.m_wndOI.ClearAll();
-	//
   pPropMap = _pPropMap;
   UpdatePropList();
 }
-/////////////////////////////////////////////////////////////////////////////////////
 int CPropView::GetActiveProp( int nGroupID )
 {
   return m_OIDlg.m_wndOI.GetActiveProp( nGroupID );
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CPropView::UpdateProperty( int nPropID )
 {
   if ( !pPropMap )
@@ -149,7 +129,6 @@ void CPropView::UpdateProperty( int nPropID )
     }
   }
 }
-/////////////////////////////////////////////////////////////////////////////////////
 void CPropView::SetActiveProp( int nPropID )
 {
 	m_OIDlg.m_wndOI.SetActiveProp( nPropID );

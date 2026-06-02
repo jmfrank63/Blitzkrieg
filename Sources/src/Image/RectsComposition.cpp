@@ -3,9 +3,7 @@
 #include "ImageProcessor.h"
 
 #include "ImageReal.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static const int MAX_TEXTURE_SIZE = 2048;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SRectOptimizeStructure
 {
 	int nNum;
@@ -13,7 +11,6 @@ struct SRectOptimizeStructure
 	SRectOptimizeStructure() {  }
 	SRectOptimizeStructure( GRect rect, int num ) { nNum = num; rRect = rect; }
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFindFillRectHelper
 {
 public:	
@@ -28,7 +25,6 @@ public:
 			dx = r.rRect.right();
 	}
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 GRect GetFillRect( std::vector<SRectOptimizeStructure> &rects )
 {
 	CFindFillRectHelper hlp;
@@ -37,7 +33,6 @@ GRect GetFillRect( std::vector<SRectOptimizeStructure> &rects )
 	hlp.dy = GetNextPow2( hlp.dy + 1) - 1;
 	return GRect( 0, 0, hlp.dx, hlp.dy );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRectSortFunc
 {
 public:
@@ -50,13 +45,11 @@ public:
 			return r1.rRect.height() > r2.rRect.height();
 	}
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFindIntersectRectHelper
 {
 public:	
 	mutable bool intersect;
 	GRect rRect;
-	//
 	explicit CFindIntersectRectHelper( const GRect &r ) : intersect( false ), rRect( r ) {  }
 	void operator()( const SRectOptimizeStructure &r ) const
 	{ 
@@ -66,11 +59,6 @@ public:
 			intersect = true;
 	}
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//		двигаем rect вниз пока он не станет не скем пересекатся
-//	
-//
-//
 void SliceRectToDown( const std::vector<SRectOptimizeStructure> &rects, SRectOptimizeStructure &rect )
 {
 	bool intersect = true;
@@ -94,8 +82,6 @@ void SliceRectToDown( const std::vector<SRectOptimizeStructure> &rects, SRectOpt
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//оптимизируем для заданной ширины
 void OptimizeRectsByWidth( std::vector<SRectOptimizeStructure> &rects, int textureWidth )
 {
 	const int TEXTUREWIDTH = textureWidth;
@@ -138,15 +124,12 @@ void OptimizeRectsByWidth( std::vector<SRectOptimizeStructure> &rects, int textu
 	rects.clear();
 	rects = vTemp;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void OptimizeRects( std::vector< SRectOptimizeStructure > &rects )
 {
-	// вычислим самый широкий Rect
 	CFindFillRectHelper hlp;
 	hlp = std::for_each( rects.begin(), rects.end(), hlp );
 	hlp.dx = GetNextPow2 ( hlp.dx + 1) ;
 	int TEXTUREWIDTH = hlp.dx;
-	//
 	float procent = 0;
 	int lastGoodWidth = hlp.dx;
 	GRect rcSquareRect( 0, 0, 0, 0 );
@@ -159,17 +142,14 @@ void OptimizeRects( std::vector< SRectOptimizeStructure > &rects )
 		OptimizeRectsByWidth( vTmp, TEXTUREWIDTH );
 		int size = 0;
 		const GRect rcTempRect = GetFillRect( vTmp );
-		// remember square rect
 		if ( rcTempRect.width() == rcTempRect.height() ) 
 			rcSquareRect = rcTempRect;
-		// closer square 
 		const float fRespect = Max( 1.0f, float( GetNextPow2(rcTempRect.height()) ) / float( GetNextPow2(rcTempRect.width()) ) );
 		if ( fRespect < fLastCloserRespect ) 
 		{
 			fLastCloserRespect = fRespect;
 			rcCloseSquareRect = rcTempRect;
 		}
-		//
 		int maxRectSize = rcTempRect.width() * rcTempRect.height();
 
 		for ( std::vector< SRectOptimizeStructure >::const_iterator it = vTmp.begin(); it != vTmp.end(); ++it )
@@ -183,7 +163,6 @@ void OptimizeRects( std::vector< SRectOptimizeStructure > &rects )
 		}
 		TEXTUREWIDTH = GetNextPow2( TEXTUREWIDTH + 1 ) ;
 	}
-	//
 	const int nSqrWidth = GetNextPow2( rcSquareRect.width() );
 	const int nSqrHeight = GetNextPow2( rcSquareRect.height() );
 	const int nOptWidth = GetNextPow2( rcLastGoodRect.width() );
@@ -198,7 +177,6 @@ void OptimizeRects( std::vector< SRectOptimizeStructure > &rects )
 	else
 		OptimizeRectsByWidth( rects, nOptWidth );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int nBoundValue = 1000000;
 RECT AnalyzeSubrect( const CImageAccessor &image, const RECT &rect )
 {
@@ -236,26 +214,21 @@ RECT AnalyzeSubrect( const CImageAccessor &image, const RECT &rect )
 	RECT ret = { minx, miny, maxx, maxy };
 	return ret;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IImage* CImageProcessor::ComposeImages( IImage **pImages, RECT *pRects, RECT *pRectsMain, int nNumImages, int nSizeX, int nSizeY ) const
 {
 	std::vector< SRectOptimizeStructure > vTemp;
 	std::vector< SRectOptimizeStructure > vTemp2;
 
 	std::vector<RECT> rectsTemp( nNumImages );
-	//******************
-	//cформируем rects
 	for ( int i =0 ; i != nNumImages; ++i )
 	{
 		CImageAccessor image = pImages[i];
 		pRects[ i ] = AnalyzeSubrect( image, GRect(0, 0, pImages[ i ]->GetSizeX() - 1, pImages[ i ]->GetSizeY() - 1) );
 		pRectsMain[ i ] = GRect( 0, 0, pImages[ i ]->GetSizeX() - 1, pImages[ i ]->GetSizeY() - 1 );		
-		// CRAP{ для картинок шириной или длиной в 1 pixel расширить на 1
 		if ( (pRects[i].left == pRects[i].right) && (pRects[i].left != 0) )
 			pRects[i].right += 1;
 		if ( (pRects[i].top == pRects[i].bottom) && (pRects[i].top != 0) )
 			pRects[i].bottom += 1;
-		// CRAP}
 	}
 	memcpy( &rectsTemp[0], pRects ,sizeof(RECT) * nNumImages ) ;
 
@@ -283,7 +256,6 @@ IImage* CImageProcessor::ComposeImages( IImage **pImages, RECT *pRects, RECT *pR
 			pDst +=  texRect.width();
 		}
 	}
-	//теперь надо подвинуть большие rect'ы
 	for ( int i =0 ; i != nNumImages; ++i )
 	{
 		pRectsMain[ i ].top = pRects[ i ].top - ( rectsTemp[ i ].top - pRectsMain[ i ].top );
@@ -291,7 +263,5 @@ IImage* CImageProcessor::ComposeImages( IImage **pImages, RECT *pRects, RECT *pR
 		pRectsMain[ i ].bottom = pRects[ i ].bottom + ( pRectsMain[ i ].bottom - rectsTemp[ i ].bottom );
 		pRectsMain[ i ].right = pRects[ i ].right - ( pRectsMain[ i ].right - rectsTemp[ i ].right );
 	}
-	//
 	return pImage;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

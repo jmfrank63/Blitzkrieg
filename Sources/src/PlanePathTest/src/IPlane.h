@@ -12,16 +12,12 @@ interface IPlane
 public:
 
 	
-	// current speed
 	virtual CVec3 STDCALL GetSpeedB2() const = 0;
-	// current position
 	virtual CVec3 STDCALL GetPosB2() const = 0;
-	// current vertical direction
 	virtual CVec3 STDCALL GetNormalB2() const = 0;
 
 	virtual const interface IManuver * STDCALL GetManuver() const = 0;
 	
-	// next calculated position
 	virtual CVec3 STDCALL GetPosNext() const = 0;
 	virtual CVec3 STDCALL GetSpeedNext() const = 0;
 	virtual CVec3 STDCALL GetNormalNext() const = 0;
@@ -34,13 +30,10 @@ public:
 	/** когда враг уже готовится стрелять в самолет. нужно для того, чтобы за 1 самолетом не гонялось несколько. */
 	virtual void STDCALL NotifyAttackedB2(IPlane & attacker, bool bAttack) = 0;
 
-	// access to plane's preferences
 	virtual const class CPlanePreferences & STDCALL GetPreferencesB2() const = 0;
 	
-	//CRAP{ B2 PLANES
 	virtual void STDCALL SetManuver( interface IManuver *pManuver ) = 0;
 	virtual void STDCALL AdvanceB2( const NTimer::STime timeDiff ) = 0;
 	virtual bool STDCALL IsManuverFinishedB2() const = 0;
-	//CRAP}
 };
 #endif //IPLANE_H

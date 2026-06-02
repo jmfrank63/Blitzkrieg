@@ -8,7 +8,6 @@
 #include "MPLog.h"
 #include "Units.h"
 #include "Cheats.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMultiplayerInfo theMPInfo;
 extern CDiplomacy theDipl;
 extern CScripts *pScripts;
@@ -17,7 +16,6 @@ extern NTimer::STime curTime;
 extern CStatistics theStatistics;
 extern CUnits units;
 extern SCheats theCheats;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiplayerInfo::Init()
 {
 	if ( theDipl.IsNetGame() )
@@ -36,7 +34,6 @@ void CMultiplayerInfo::Init()
 
 		bCapturedByAttackingParty = false;
 
-		// init info in interface
 		if ( winConditions.nFlagScoreLimit != 0 && eGameType == CMapInfo::TYPE_FLAGCONTROL )
 		{
 			updater.AddFeedBack( SAIFeedBack( EFB_UPDATE_TEAM_F_L_AGS, 0 ) );
@@ -56,7 +53,6 @@ void CMultiplayerInfo::Init()
 		timeOfFlagCaptured = 0;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiplayerInfo::GameFinished( const EFeedBack eGameResult )
 {
 	if ( !bNoWin )
@@ -78,7 +74,6 @@ void CMultiplayerInfo::GameFinished( const EFeedBack eGameResult )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiplayerInfo::CheckFlagPoints()
 {
 	const int nMyParty = theDipl.GetMyParty();
@@ -89,7 +84,6 @@ void CMultiplayerInfo::CheckFlagPoints()
 	else if ( (int)flagPoints[nMyParty] < (int)flagPoints[nEnemyParty] )
 		GameFinished( EFB_LOOSE );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiplayerInfo::CheckTroopPoints()
 {
 	const int nMyParty = theDipl.GetMyParty();
@@ -100,7 +94,6 @@ void CMultiplayerInfo::CheckTroopPoints()
 	else if ( (int)troopsPoints[nMyParty] < (int)troopsPoints[nEnemyParty] )
 		GameFinished( EFB_LOOSE );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiplayerInfo::CheckSabotageWinConditions()
 {
 	const bool bFinishedByFlagCapture = bCapturedByAttackingParty && timeOfFlagCaptured >= winConditions.nTimeToCapture;
@@ -113,17 +106,14 @@ void CMultiplayerInfo::CheckSabotageWinConditions()
 	else if ( bFinishedByTimeLimit )
 		GameFinished( nAttackingParty == theDipl.GetMyParty() ? EFB_LOOSE : EFB_WIN );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiplayerInfo::CheckFlagControlWinConditions()
 {
-	// по timeLimit
 	if ( winConditions.nTimeLimit != 0 && curTime >= winConditions.nTimeLimit )
 	{
 		CheckFlagPoints();
 		CheckTroopPoints();
 		GameFinished( EFB_DRAW );
 	}
-	// по flagLimit
 	else if ( winConditions.nFlagScoreLimit != 0 &&
 				    ( flagPoints[0] >= winConditions.nFlagScoreLimit || flagPoints[1] >= winConditions.nFlagScoreLimit ) )
 	{
@@ -141,7 +131,6 @@ void CMultiplayerInfo::CheckFlagControlWinConditions()
 		else
 			GameFinished( EFB_LOOSE );
 	}
-	// по fraglimit
 	else if ( winConditions.nKillScoreLimit != 0 &&
 						( troopsPoints[0] >= winConditions.nKillScoreLimit || troopsPoints[1] >= winConditions.nKillScoreLimit ) )
 	{
@@ -159,7 +148,6 @@ void CMultiplayerInfo::CheckFlagControlWinConditions()
 		else
 			GameFinished( EFB_LOOSE );
 	}
-	// all flags captured	
 	if ( nFlagsAtTheMap != 0 )
 	{
 		if ( capturedByPartyFlags[theDipl.GetMyParty()].size() == nFlagsAtTheMap )
@@ -168,7 +156,6 @@ void CMultiplayerInfo::CheckFlagControlWinConditions()
 			GameFinished( EFB_LOOSE );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiplayerInfo::CheckWinConditions()
 {
 	if ( eGameType == CMapInfo::TYPE_SABOTAGE )
@@ -194,7 +181,6 @@ void CMultiplayerInfo::CheckWinConditions()
 
 	GameFinished( EFB_WIN );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiplayerInfo::Segment()
 {
 	if ( theDipl.IsNetGame() && !bNoWin )
@@ -226,7 +212,6 @@ void CMultiplayerInfo::Segment()
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiplayerInfo::AddFlagPoints( const int nParty, const float fPoints )
 {
 	if ( theDipl.IsNetGame() && eGameType == CMapInfo::TYPE_FLAGCONTROL && nParty != theDipl.GetNeutralParty() && !bNoWin )
@@ -240,7 +225,6 @@ void CMultiplayerInfo::AddFlagPoints( const int nParty, const float fPoints )
 		theStatistics.SetFlagPoints( nParty, flagPoints[nParty] );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiplayerInfo::FlagCaptured( const int nParty, const int nFlagID )
 {
 	if ( theDipl.IsNetGame() && !bNoWin )
@@ -273,7 +257,6 @@ void CMultiplayerInfo::FlagCaptured( const int nParty, const int nFlagID )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiplayerInfo::UnitsKilled( const int nKillerPlayer, const float fUnitsPrice, const int nKilledUnitsPlayer )
 {
 	if ( theDipl.IsNetGame() && theDipl.GetDiplStatus( nKillerPlayer, nKilledUnitsPlayer ) == EDI_ENEMY )
@@ -284,7 +267,6 @@ void CMultiplayerInfo::UnitsKilled( const int nKillerPlayer, const float fUnitsP
 		updater.AddFeedBack( SAIFeedBack( EFB_UPDATE_TEAM_F_R_AGS, (int(troopsPoints[nKillerParty]) << 2) | nKillerParty ) );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiplayerInfo::Clear()
 {
 	bNoWin = false;
@@ -300,7 +282,6 @@ void CMultiplayerInfo::Clear()
 	flagPoints4Script.clear();
 	flagPoints4Script.resize( 3, 0.0f );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const NTimer::STime CMultiplayerInfo::GetTimeToCaptureObject() const 
 { 
 	if ( eGameType == CMapInfo::TYPE_SABOTAGE )
@@ -308,9 +289,7 @@ const NTimer::STime CMultiplayerInfo::GetTimeToCaptureObject() const
 	else
 		return winConditions.nTimeToCapture;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMultiplayerInfo::NoWin()
 {
 	bNoWin = true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

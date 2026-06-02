@@ -41,7 +41,6 @@
 #include "InterfaceOptionsSettings.h"
 #include "InterfaceMPMapSettings.h"
 #include "IMSaveMission.h"
-//
 #include "..\Common\MOObject.h"
 #include "..\Common\MOUnitMechanical.h"
 #include "..\Common\MOUnitInfantry.h"
@@ -60,13 +59,11 @@
 #include "..\GameTT\InterfaceMessageBox.h"
 #include "..\GameTT\InterfaceNewDepotUpgrades.h"
 #include "..\GameTT\InterfaceMPAddressBook.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMissionObjectFactory theMissionObjectFactory;
 IObjectFactory* STDCALL GetMissionObjectFactory()
 {
 	return &theMissionObjectFactory;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CMissionObjectFactory::CMissionObjectFactory()
 {
 	REGISTER_CLASS( this, MISSION_MO_OBJECT, CMOObject );
@@ -77,21 +74,17 @@ CMissionObjectFactory::CMissionObjectFactory()
 	REGISTER_CLASS( this, MISSION_MO_SQUAD, CMOSquad );
 	REGISTER_CLASS( this, MISSION_MO_ENTRENCHMENT_SEGMENT, CMOEntrenchmentSegment );
 	REGISTER_CLASS( this, MISSION_MO_BRIDGE_SPAN, CMOBridgeSpan );
-	//
 	REGISTER_CLASS( this, MISSION_UI_WHO_IN_CONTAINER, CUISquadElement );
 	REGISTER_CLASS( this, MISSION_UI_UNIT_OBSERVER, CUIUnitObserver );
-	//
 	REGISTER_CLASS( this, MISSION_INTERFACE_MISSION, CInterfaceMission );
 	REGISTER_CLASS( this, MISSION_COMMAND_MISSION, CICMission );
 	REGISTER_CLASS( this, MISSION_WORLD, CWorldClientBridge );
-	//
 	REGISTER_CLASS( this, MISSION_INTERFACE_SAVE_MISSION, CInterfaceSaveMission );
 	REGISTER_CLASS( this, MISSION_COMMAND_SAVE_MISSION, CICSaveMission );
 	REGISTER_CLASS( this, MISSION_INTERFACE_LOAD_MISSION, CInterfaceLoadMission );
 	REGISTER_CLASS( this, MISSION_COMMAND_LOAD_MISSION, CICLoadMission );
 	REGISTER_CLASS( this, MISSION_INTERFACE_QUIT_MISSION, CInterfaceQuitMission );
 	REGISTER_CLASS( this, MISSION_COMMAND_QUIT_MISSION, CICQuitMission );
-	//
 	REGISTER_CLASS( this, MISSION_INTERFACE_CAMPAIGN, CInterfaceCampaign );
 	REGISTER_CLASS( this, MISSION_COMMAND_CAMPAIGN, CICCampaign );
 	REGISTER_CLASS( this, MISSION_INTERFACE_CHAPTER, CInterfaceChapter );
@@ -140,7 +133,6 @@ CMissionObjectFactory::CMissionObjectFactory()
 	REGISTER_CLASS( this, MISSION_INTERFACE_IM_TUTORIAL, CInterfaceIMTutorial );
 	REGISTER_CLASS( this, MISSION_COMMAND_IM_TUTORIAL, CICIMTutorial );
 	
-	//
 	REGISTER_CLASS( this, MISSION_INTERFACE_VIDEO, CPlayMovieInterface );
 	REGISTER_CLASS( this, MISSION_COMMAND_VIDEO, CICPlayMovie );
 
@@ -156,7 +148,6 @@ CMissionObjectFactory::CMissionObjectFactory()
 	REGISTER_CLASS( this, MISSION_INTERFACE_MULTIPLAYER_STARTINGGAME, CInterfaceMPStartingGame );
 	REGISTER_CLASS( this, MISSION_COMMAND_GAMESPY_CLIENT, CICGameSpyClientConnect );
 	REGISTER_CLASS( this, MISSION_COMMAND_GAMESPY_HOST, CICGameSpyCreateHost ) ;
-//	REGISTER_CLASS( this, GAMETT_NOTIFICATION_PARAM_SENDCHAT, SNotificationParamSendChat );
 	
 	REGISTER_CLASS( this, MISSION_INTERFACE_MULTYPLAYER_CHAT, CInterfaceMPChat );
 	REGISTER_CLASS( this, MISSION_COMMAND_MULTYPLAYER_CHAT, CICMultyplayerChat );
@@ -220,19 +211,8 @@ CMissionObjectFactory::CMissionObjectFactory()
 	REGISTER_CLASS( this, MISSION_SCORES_STATE_GAME, CInterfaceMission::CMultiplayerScoresSmall::CGameScoresState );
 	REGISTER_CLASS( this, MISSION_SCORES_STATE_REPLAY, CInterfaceMission::CMultiplayerScoresSmall::CReplayScoresState )
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** module descriptor and additional procedures
-// **
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static SModuleDescriptor theModuleDescriptor( "Main game logic", MISSION_BASE_VALUE, 0x0100, &theMissionObjectFactory, 0 );
 const SModuleDescriptor* STDCALL GetModuleDescriptor()
 {
 	return &theModuleDescriptor;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

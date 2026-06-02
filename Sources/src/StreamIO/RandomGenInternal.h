@@ -1,13 +1,9 @@
 #ifndef __RANDOMGENINTERNAL_H__
 #define __RANDOMGENINTERNAL_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "RandomGen.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const int RANDSIZL = 8;
 const int RANDSIZ = 1 << RANDSIZL;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SRandData
 {
 	unsigned _int32 randcnt;
@@ -17,14 +13,11 @@ struct SRandData
 	unsigned _int32 randb;
 	unsigned _int32 randc;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRandomGenSeed : public CTRefCount<IRandomGenSeed>
 {
 	OBJECT_SERVICE_METHODS( CRandomGenSeed );
 	DECLARE_SERIALIZE;
-	//
 	SRandData rnd;
-	//
 	bool RecFindFile( LPSTR pszFindedName, LPCSTR pszBaseMask, int nToFind, int* pnTotFinded );
 	void FillRandRsl();
 	void InitVariables();
@@ -32,33 +25,24 @@ public:
 	virtual void STDCALL Init();
 	virtual void STDCALL InitByZeroSeed();
 	
-	//
 	const SRandData& GetRandData() const { return rnd; }
 	void SetRandData( const SRandData &_rnd ) { rnd = _rnd; }
-	//
 	virtual int STDCALL operator&( IDataTree &ss );
-	//
 	virtual void STDCALL Store( IDataStream *pStream );
 	virtual void STDCALL Restore( IDataStream *pStream );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void Isaac( SRandData *pRnd );
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRandomGenerator : public CTRefCount<IRandomGen>
 {
 	OBJECT_SERVICE_METHODS( CRandomGenerator );
 	DECLARE_SERIALIZE;
-	//
 	BOOL bIsReady;
 	SRandData rnd;
-	//
 public:
 	CRandomGenerator() { bIsReady = FALSE; }
-	// Initialization. That is very slow operation
 	virtual void STDCALL Init();
 	virtual void STDCALL SetSeed( IRandomGenSeed *pSeed );
 	virtual IRandomGenSeed* STDCALL GetSeed();
-	//
 	virtual unsigned int STDCALL Get()
 	{
 		if ( rnd.randcnt-- == 0 )
@@ -82,5 +66,4 @@ public:
 		return nRes;
 	}
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __RANDOMGENINTERNAL_H__

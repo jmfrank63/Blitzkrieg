@@ -4,13 +4,11 @@
 #include "DataStorage.h"
 #include "ZipFile.h"
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const std::string CDataStorage::BITMAP_EXTENTION	= ".bmp";
 const std::string CDataStorage::TEXT_EXTENTION = ".txt";
 const std::string CDataStorage::SOUND_EXTENTION = ".wav";
 const std::string CDataStorage::CONFIGURATION_EXTENTION = ".ini";
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CDataStorage::Load( const std::string &rszFileName, CDC *pDC )
 {
 	CZipFile zipFile;
@@ -59,7 +57,6 @@ void CDataStorage::SetCodePage( int nCodePage )
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CARBitmap* CDataStorage::GetBitmap( const std::string& rszBitmapName )
 {
 	std::string szBitmapName = rszBitmapName;
@@ -72,7 +69,6 @@ const CARBitmap* CDataStorage::GetBitmap( const std::string& rszBitmapName )
 	return &( rBitmap );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CARSound* CDataStorage::GetSound( const std::string& rszSoundName )
 {
 	std::string szSoundName = rszSoundName;
@@ -85,7 +81,6 @@ const CARSound* CDataStorage::GetSound( const std::string& rszSoundName )
 	return &( rSound );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CARText* CDataStorage::GetText( const std::string& rszTextName )
 {
 	std::string szTextName = rszTextName;
@@ -98,7 +93,6 @@ const CARText* CDataStorage::GetText( const std::string& rszTextName )
 	return &( rText );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CARConfiguration* CDataStorage::GetConfiguration( const std::string& rszConfigurationName )
 {
 	std::string szConfigurationName = rszConfigurationName;
@@ -110,4 +104,3 @@ const CARConfiguration* CDataStorage::GetConfiguration( const std::string& rszCo
 	const CARConfiguration &rConfiguration = configurations[szConfigurationName];
 	return &( rConfiguration );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

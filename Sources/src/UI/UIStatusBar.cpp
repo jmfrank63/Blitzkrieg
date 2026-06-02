@@ -2,7 +2,6 @@
 #include "UIStatusBar.h"
 
 static const int ICON_WIDTH = 14;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CUIStatusBar::CUIStatusBar() : dwActiveIcons( 0 )
 {
 	vInitialIconPos = CVec2( 13, 14 );
@@ -21,21 +20,18 @@ CUIStatusBar::CUIStatusBar() : dwActiveIcons( 0 )
 	idVectors[1].push_back( 41 );		//temp
 	idVectors[1].push_back( 42 );		//temp
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIStatusBar::OutputString( int nControl, const WORD *pszText )
 {
 	IUIElement *pElement = GetChildByID( nControl );
 	NI_ASSERT_TF( pElement != 0, NStr::Format("Can't find child %d by ID", nControl), return );
 	pElement->SetWindowText( pElement->GetState(), pszText );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIStatusBar::OutputValue( int nControl, float fVal )
 {
 	IUINumberIndicator *pNumIndicator = checked_cast<IUINumberIndicator *> ( GetChildByID( nControl ) );
 	NI_ASSERT_TF( pNumIndicator != 0, NStr::Format("Can't find child %d by ID", nControl), return );
 	pNumIndicator->SetValue( fVal );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIStatusBar::SetUnitProperty( int nPropType, int nPropValue, const WORD *pszToolText )
 {
 	NI_ASSERT_T( nPropType < PROP_SIZE, "Invalid nPropType parameter in CUIStatusBar::SetUnitProperty()" );
@@ -49,11 +45,9 @@ void CUIStatusBar::SetUnitProperty( int nPropType, int nPropValue, const WORD *p
 	{
 		if ( nPropValue >= idVectors[nPropType].size() )
 		{
-			//������� � ���������� ����� ��������� �� ������
 			GetSingleton<IConsoleBuffer>()->Write( CONSOLE_STREAM_CONSOLE, L"Error in CUIStatusBar::SetUnitProperty(): nPropValue < idVectors[nPropType].size()" );
 			return;
 		}
-//		NI_ASSERT_T( nPropValue < idVectors[nPropType].size(), "Invalid nPropValue parameter in CUIStatusBar::SetUnitProperty()" );
 		nWindowID = idVectors[nPropType][nPropValue];
 	}
 
@@ -77,19 +71,16 @@ void CUIStatusBar::SetUnitProperty( int nPropType, int nPropValue, const WORD *p
 		nVisibleWindowPropIDs[nPropType] = nWindowID;
 	}
 
-	// ��������� ����� �������
 	if ( pszToolText )
 	{
 		if ( CSimpleWindow *pIcon = dynamic_cast<CSimpleWindow *> ( GetChildByID( nWindowID ) ) ) 
 			pIcon->SetHelpContext( 0, pszToolText );
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUIStatusBar::SetUnitIcons( DWORD dwIcons )
 {
 	if ( dwActiveIcons == dwIcons )
 	{
-		//������ �� ����������
 		return;
 	}
 
@@ -116,7 +107,6 @@ void CUIStatusBar::SetUnitIcons( DWORD dwIcons )
 	GetParent()->GetWindowPlacement( 0, 0, &screenRc );
 	Reposition( screenRc );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIStatusBar::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -124,13 +114,11 @@ int CUIStatusBar::operator&( IDataTree &ss )
 
 	if ( saver.IsReading() )
 	{
-		//��� ������� ��� ���������� ������, � ���� ����� ������������������� ��������� �� �� ���� ����� ������ ������
 		if ( IUIElement *pElement = GetChildByID(56) )
 			pElement->GetWindowPlacement( &vInitialIconPos, 0, 0 );
 	}
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUIStatusBar::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -140,4 +128,3 @@ int CUIStatusBar::operator&( IStructureSaver &ss )
 	
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

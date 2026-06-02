@@ -6,11 +6,6 @@
 #include "StandartPath.h"
 #include "StandartSmoothSoldierPath.h"
 #include "StandartSmoothMechPath.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												CPresizePath															*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CPresizePath::CPresizePath( IBasePathUnit *_pUnit, const class CVec2 &vEndPoint, const class CVec2 &vEndDir )
 :	vEndPoint( vEndPoint ), vEndDir( vEndDir ), eState( EPPS_APPROACH_BY_STANDART ), fSpeedLen( 0.0f ),
 	pUnit( _pUnit )
@@ -24,7 +19,6 @@ CPresizePath::CPresizePath( IBasePathUnit *_pUnit, const class CVec2 &vEndPoint,
 
 	pPathStandart->SetOwner( pUnit );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPresizePath::Init( IBasePathUnit *_pUnit, IPath *pPath, bool bSmoothTurn, bool bCheckTurn )
 {
 	pUnit =_pUnit;
@@ -34,7 +28,6 @@ bool CPresizePath::Init( IBasePathUnit *_pUnit, IPath *pPath, bool bSmoothTurn, 
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPresizePath::InitByFormationPath( CFormation *pFormation, IBasePathUnit *_pUnit )
 {
 	pUnit = _pUnit;
@@ -43,7 +36,6 @@ bool CPresizePath::InitByFormationPath( CFormation *pFormation, IBasePathUnit *_
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPresizePath::Init( IMemento *pMemento, IBasePathUnit *_pUnit ) 
 {
 	CPtr<IMemento> p = pMemento;
@@ -53,18 +45,14 @@ bool CPresizePath::Init( IMemento *pMemento, IBasePathUnit *_pUnit )
 
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPresizePath::IsFinished() const
 {
 	return EPPS_FINISHED == eState;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec3 CPresizePath::GetPoint( NTimer::STime timeDiff )
 {
-	// CRAP{ unknown bug
 	if ( pUnit && !pPathStandart->GetOwner() )
 		pPathStandart->SetOwner( pUnit );
-	// CRAP}
 
 	switch ( eState )
 	{
@@ -104,13 +92,11 @@ const CVec3 CPresizePath::GetPoint( NTimer::STime timeDiff )
 
 	return CVec3( pUnit->GetCenter(), pUnit->GetZ() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPresizePath::Stop()
 {
 	if ( eState == EPPS_APPROACH_BY_STANDART)
 		pPathStandart->Stop();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float& CPresizePath::GetSpeedLen()
 { 
 	if ( eState == EPPS_APPROACH_BY_STANDART)
@@ -119,53 +105,45 @@ float& CPresizePath::GetSpeedLen()
 		return pPathCheat->GetSpeedLen();
 	return fSpeedLen;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPresizePath::NotifyAboutClosestThreat( IBasePathUnit *pCollUnit, const float fDist ) 
 {
 	if ( eState == EPPS_APPROACH_BY_STANDART)
 		pPathStandart->NotifyAboutClosestThreat( pCollUnit, fDist ) ;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPresizePath::SlowDown()
 {
 	if ( eState == EPPS_APPROACH_BY_STANDART )
 		pPathStandart->SlowDown();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPresizePath::CanGoBackward() const 
 { 
 	if ( eState == EPPS_APPROACH_BY_STANDART)
 		return pPathStandart->CanGoBackward();
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPresizePath::CanGoForward() const
 {
 	if ( eState == EPPS_APPROACH_BY_STANDART)
 		return pPathStandart->CanGoForward();
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPresizePath::GetNextTiles( std::list<SVector> *pTiles ) 
 {
 	if ( eState == EPPS_APPROACH_BY_STANDART)
 		pPathStandart->GetNextTiles( pTiles ) ;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CVec2 CPresizePath::GetShift( const int nToShift ) const 
 { 
 	if ( eState == EPPS_APPROACH_BY_STANDART)
 		return pPathStandart->GetShift( nToShift );
 	return VNULL2;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 IMemento* CPresizePath::GetMemento() const 
 {
 	if ( eState == EPPS_APPROACH_BY_STANDART)
 		return pPathStandart->GetMemento();
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPresizePath::SetOwner( IBasePathUnit *_pUnit )
 { 
 	pUnit = _pUnit;
@@ -175,4 +153,3 @@ void CPresizePath::SetOwner( IBasePathUnit *_pUnit )
 	if ( pPathCheat.IsValid() )
 		pPathCheat->SetOwner( pUnit );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

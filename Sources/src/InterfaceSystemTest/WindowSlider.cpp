@@ -1,6 +1,3 @@
-// WindowSlider.cpp: implementation of the CWindowSlider class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include "WindowSlider.h"
@@ -8,17 +5,12 @@
 #include "SInterfaceConsts.h"
 #include "UIScreen.h"
 
-//////////////////////////////////////////////////////////////////////
-// CWindowSlider
-//////////////////////////////////////////////////////////////////////
 IMPLEMENT_CLONABLE(CWindowSlider);
-//////////////////////////////////////////////////////////////////////
 int CWindowSlider::operator&( IStructureSaver &ss )
 {
 	NI_ASSERT_T( FALSE, "NEED IMPLEMENT" );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CWindowSlider::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
@@ -26,7 +18,6 @@ int CWindowSlider::operator&( IDataTree &ss )
 	saver.Add( "Horisontal", &bHorisontal );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////
 void CWindowSlider::UpdatePos()
 {
 	fCur = VerifyPos( fCur );
@@ -34,7 +25,6 @@ void CWindowSlider::UpdatePos()
 	int nX, nY, nW, nH;
 	GetPlacement( &nX, &nY, &nW, &nH );
 
-	// reposition lever according to page size
 	int nLeverX, nLeverY, nLeverW, nLeverH;
 
 	if ( bHorisontal )
@@ -49,12 +39,9 @@ void CWindowSlider::UpdatePos()
 		nLeverY = ( nH - nLeverH ) * fCur / ( fMax - fMin );
 		pLever->SetPlacement( 0, nLeverY, 0, nLeverH,  EWPF_POS_Y|EWPF_SIZE_Y );
 	}
-	// notify parent about position change
 	NI_ASSERT_T( pNotifySink != 0, "slider witout notify sink" );
 	pNotifySink->SliderPosition( fCur / (fMax - fMin) );
-	//CRAP}
 }
-//////////////////////////////////////////////////////////////////////
 void CWindowSlider::SetRange( const float _fMin, const float _fMax, const float _fPageSize  )
 {
 	NI_ASSERT_T( _fMin < _fMax, NStr::Format( "minimum must be strict lesser than maximum" ) );
@@ -63,35 +50,29 @@ void CWindowSlider::SetRange( const float _fMin, const float _fMax, const float 
 	fPageSize = _fPageSize;
 	UpdatePos();
 }
-//////////////////////////////////////////////////////////////////////
 void CWindowSlider::GetRange( int *pMax, int *pMin ) const
 {
 	*pMin = fMin;
 	*pMax = fMax;
 }
-//////////////////////////////////////////////////////////////////////
 void CWindowSlider::SetPos( const int _fCur )
 {
 	fCur = _fCur;
 	UpdatePos();
 }
-//////////////////////////////////////////////////////////////////////
 int CWindowSlider::GetPos() const
 {
 	return fCur;
 }
-//////////////////////////////////////////////////////////////////////
 void CWindowSlider::Reposition( const CTRect<float> &parentRect )
 {
 	if ( !pLever )
 		pLever = dynamic_cast<CWindowMSButton*>( GetChild( "Lever" ) );
 	NI_ASSERT_T( pLever != 0, "slider without lever" );
 	
-	// set lever width or height
 	SetPos( fCur );
 	CWindow::Reposition( parentRect );
 }
-//////////////////////////////////////////////////////////////////////
 void CWindowSlider::OnKeyUp( const struct SGameMessage &msg )
 {
 	if ( !bHorisontal )
@@ -100,7 +81,6 @@ void CWindowSlider::OnKeyUp( const struct SGameMessage &msg )
 		UpdatePos();
 	}
 }
-//////////////////////////////////////////////////////////////////////
 void CWindowSlider::OnKeyDown( const struct SGameMessage &msg )
 {
 	if ( !bHorisontal )
@@ -109,31 +89,26 @@ void CWindowSlider::OnKeyDown( const struct SGameMessage &msg )
 		UpdatePos();
 	}
 }
-//////////////////////////////////////////////////////////////////////
 void CWindowSlider::OnKeyPgDn( const struct SGameMessage &msg )
 {
 	fCur += fPageSize;
 	UpdatePos();
 }
-//////////////////////////////////////////////////////////////////////
 void CWindowSlider::OnKeyPgUp( const struct SGameMessage &msg )
 {
 	fCur -= fPageSize;
 	UpdatePos();
 }
-//////////////////////////////////////////////////////////////////////
 void CWindowSlider::OnKeyHome( const struct SGameMessage &msg )
 {
 	fCur = fMin;
 	UpdatePos();
 }
-//////////////////////////////////////////////////////////////////////
 void CWindowSlider::OnKeyEnd( const struct SGameMessage &msg )
 {
 	fCur = fMax - 1;
 	UpdatePos();
 }
-//////////////////////////////////////////////////////////////////////
 void CWindowSlider::OnKeyRight( const struct SGameMessage &msg )
 {
 	if ( bHorisontal )
@@ -142,7 +117,6 @@ void CWindowSlider::OnKeyRight( const struct SGameMessage &msg )
 		UpdatePos();
 	}
 }
-//////////////////////////////////////////////////////////////////////
 void CWindowSlider::OnKeyLeft( const struct SGameMessage &msg )
 {
 	if ( bHorisontal )
@@ -151,21 +125,17 @@ void CWindowSlider::OnKeyLeft( const struct SGameMessage &msg )
 		UpdatePos();
 	}
 }
-//////////////////////////////////////////////////////////////////////
 void CWindowSlider::OnMouseMove( const CVec2 &vPos, const int nButton )
 {
 	if ( nButton & MSTATE_BUTTON1 )
 	{
-		// move lever with mouse
 		const char *pszPressed = GetPressedName( MSTATE_BUTTON1 );
 		if (  pszPressed && pLever->GetName() == pszPressed )
 		{
-			// update position
 			SetPos( CalcPressedPos( vPos ) );
 		}
 		else if ( Pick( vPos ) == pLever )			// lever is under cursor
 		{
-			// stop fast scrolling
 			bFastScrolling = false;
 		}
 		else if ( IsInside( vPos ) )
@@ -175,14 +145,12 @@ void CWindowSlider::OnMouseMove( const CVec2 &vPos, const int nButton )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////
 float CWindowSlider::VerifyPos( const float _fCur ) const
 {
 	if ( _fCur < fMin ) return fMin;
 	if ( _fCur > fMax ) return fMax;
 	return _fCur;
 }
-//////////////////////////////////////////////////////////////////////
 float CWindowSlider::CalcPressedPos( const CVec2 &vPos ) const
 {
 	CTRect<float> rect;
@@ -195,7 +163,6 @@ float CWindowSlider::CalcPressedPos( const CVec2 &vPos ) const
 	const float fSize = bHorisontal ? rect.Width() - nLeverW : rect.Height() - nLeverH;
 	return fOffset / fSize * ( fMax - fMin );
 }
-//////////////////////////////////////////////////////////////////////
 void CWindowSlider::OnButtonDown( const CVec2 &vPos, const int nButton )
 {
 	CWindow::OnButtonDown( vPos, nButton );
@@ -214,7 +181,6 @@ void CWindowSlider::OnButtonDown( const CVec2 &vPos, const int nButton )
 		GetScreen()->RegisterToSegment( this, true );
 	}
 }
-//////////////////////////////////////////////////////////////////////
 void CWindowSlider::ScrollFast()
 {
 	if ( VerifyPos( CalcPressedPos( vPressedPos ) ) > fCur == bFastScrollForward )
@@ -223,7 +189,6 @@ void CWindowSlider::ScrollFast()
 		UpdatePos();
 	}
 }
-//////////////////////////////////////////////////////////////////////
 void CWindowSlider::Segment( const NTimer::STime timeDiff )
 {
 	if ( bPressed && bFastScrolling )
@@ -242,10 +207,8 @@ void CWindowSlider::Segment( const NTimer::STime timeDiff )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////
 void CWindowSlider::OnButtonUp( const CVec2 &vPos, const int nButton )
 {
 	CWindow::OnButtonUp( vPos, nButton );
 	GetScreen()->RegisterToSegment( this, false );
 }
-//////////////////////////////////////////////////////////////////////

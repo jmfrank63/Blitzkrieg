@@ -41,6 +41,3 @@ namespace STLPORT {
 
 #endif /* _STLP_INTERNAL_WRAP_MULTIMAP_H */
 
-// Local Variables:
-// mode:C++
-// End:

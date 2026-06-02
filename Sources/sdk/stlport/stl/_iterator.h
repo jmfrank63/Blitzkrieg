@@ -37,11 +37,6 @@
 _STLP_BEGIN_NAMESPACE
 
 #if defined ( _STLP_CLASS_PARTIAL_SPECIALIZATION )
-// This is the new version of reverse_iterator, as defined in the
-//  draft C++ standard.  It relies on the iterator_traits template,
-//  which in turn relies on partial specialization.  The class
-//  reverse_bidirectional_iterator is no longer part of the draft
-//  standard, but it is retained for backward compatibility.
 
 template <class _Iterator>
 class reverse_iterator : 
@@ -264,6 +259,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_ITERATOR_H */
 
-// Local Variables:
-// mode:C++
-// End:

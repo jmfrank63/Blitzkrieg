@@ -1,6 +1,3 @@
-// MapToolState.cpp: implementation of the CMapToolState class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
 #include <math.h>
@@ -29,7 +26,6 @@ static char THIS_FILE[]=__FILE__;
 #define new DEBUG_NEW
 #endif
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapToolState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame *pFrame )
 {
 	if ( !stateParameter.Update( CInputStateParameter::ISE_LBUTTONDOWN, rMousePoint, pFrame ) )
@@ -47,16 +43,12 @@ void CMapToolState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint,
 	pFrame->m_firstPoint.x = v.x;
 	pFrame->m_firstPoint.y = v.y;
 
-	//-----------------------------------------------------------------------
-	//			Ломалка-чинилка 
-	//-----------------------------------------------------------------------
 	if ( pFrame->m_mapEditorBarPtr->GetToolsTab()->m_mode == toolStateConsts::nRepair )
 	{
 		std::pair<IVisObj*, CVec2> *pObjects;
 		int num;
 		GetSingleton<IScene>()->Pick( p, &pObjects, &num, SGVOGT_UNKNOWN );
 
-		//	
 		if( num != 0 )
 		{
 			SMapObject *pTmp= pFrame->FindByVis( pObjects[0].first );
@@ -90,15 +82,11 @@ void CMapToolState::OnLButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint,
 		}
 	}
 	
-	//-----------------------------------------------------------------------
-	//			Рисовалка бластей
-	//-----------------------------------------------------------------------
 	if(  pFrame->m_mapEditorBarPtr->GetToolsTab()->m_mode == toolStateConsts::nArea )
 	{
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapToolState::OnRButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame *pFrame )
 {
 	if ( !stateParameter.Update( CInputStateParameter::ISE_RBUTTONDOWN, rMousePoint, pFrame ) )
@@ -116,16 +104,12 @@ void CMapToolState::OnRButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint,
 	pFrame->m_firstPoint.x = v.x;
 	pFrame->m_firstPoint.y = v.y;
 
-	//-----------------------------------------------------------------------
-	//			Ломалка-чинилка 
-	//-----------------------------------------------------------------------
 	if ( pFrame->m_mapEditorBarPtr->GetToolsTab()->m_mode == toolStateConsts::nRepair )
 	{
 		std::pair<IVisObj*, CVec2> *pObjects;
 		int num;
 		GetSingleton<IScene>()->Pick( p, &pObjects, &num, SGVOGT_UNKNOWN );
 
-		//	
 		if( num != 0 )
 		{
 			SMapObject *pTmp= pFrame->FindByVis( pObjects[0].first );
@@ -160,7 +144,6 @@ void CMapToolState::OnRButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint,
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapToolState::OnMButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame *pFrame )
 {
 	if ( !stateParameter.Update( CInputStateParameter::ISE_RBUTTONDOWN, rMousePoint, pFrame ) )
@@ -178,16 +161,12 @@ void CMapToolState::OnMButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint,
 	pFrame->m_firstPoint.x = v.x;
 	pFrame->m_firstPoint.y = v.y;
 
-	//-----------------------------------------------------------------------
-	//			Ломалка-чинилка 
-	//-----------------------------------------------------------------------
 	if ( pFrame->m_mapEditorBarPtr->GetToolsTab()->m_mode == toolStateConsts::nRepair )
 	{
 		std::pair<IVisObj*, CVec2> *pObjects;
 		int num;
 		GetSingleton<IScene>()->Pick( p, &pObjects, &num, SGVOGT_UNKNOWN );
 
-		//	
 		if( num != 0 )
 		{
 			SMapObject *pTmp= pFrame->FindByVis( pObjects[0].first );
@@ -206,16 +185,12 @@ void CMapToolState::OnMButtonDown( UINT nFlags, const CTPoint<int> &rMousePoint,
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapToolState::OnLButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( !stateParameter.Update( CInputStateParameter::ISE_LBUTTONUP, rMousePoint, pFrame ) )
 	{
 		return;
 	}
-	//-----------------------------------------------------------------------
-	//			Рисовалка областей 
-	//-----------------------------------------------------------------------
 	if ( pFrame->m_mapEditorBarPtr->GetToolsTab()->m_mode == toolStateConsts::nArea )
 	{
 		CAreaNameDialog dlg;
@@ -224,14 +199,12 @@ void CMapToolState::OnLButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, C
 			SScriptArea area;
 			if( pFrame->m_mapEditorBarPtr->GetToolsTab()->m_drawType == toolStateConsts::nRectType )
 			{
-				 // для прямоугольника 
 				area.eType = SScriptArea::EAT_RECTANGLE;
 				area.center = CVec2( ( pFrame->m_firstPoint.x + pFrame->m_lastPoint.x ) / 2.0f, ( pFrame->m_firstPoint.y + pFrame->m_lastPoint.y ) / 2.0f ) ;
 				area.vAABBHalfSize = CVec2( abs( pFrame->m_firstPoint.x - pFrame->m_lastPoint.x ) / 2.0f, abs( pFrame->m_firstPoint.y - pFrame->m_lastPoint.y ) / 2.0f ) ;
 			}
 			else
 			{
-				// для круга
 				 area.eType = SScriptArea::EAT_CIRCLE;
 		  	 area.center = CVec2( pFrame->m_firstPoint.x , pFrame->m_firstPoint.y ) ;
 		  	 area.fR = fabs( pFrame->m_firstPoint.x - pFrame->m_lastPoint.x, 
@@ -246,7 +219,6 @@ void CMapToolState::OnLButtonUp( UINT nFlags, const CTPoint<int> &rMousePoint, C
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapToolState::OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint, CTemplateEditorFrame* pFrame )
 {
 	if ( !stateParameter.Update( CInputStateParameter::ISE_MOUSEMOVE, rMousePoint, pFrame ) )
@@ -272,10 +244,6 @@ void CMapToolState::OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint, C
 				pFrame->m_lastPoint.x = v.x;
 				pFrame->m_lastPoint.y = v.y;
 
-				//-----------------------------------------------------------------------
-				//			Рисовалка областей
-				//-----------------------------------------------------------------------
-				//		примоугольник 
 				pFrame->m_mapEditorBarPtr->GetToolsTab()->UpdateData();
 
 				CSceneDrawTool drawTool;
@@ -291,7 +259,6 @@ void CMapToolState::OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint, C
 					drawTool.DrawLine3D( CVec2( pFrame->m_firstPoint.x,	pFrame->m_lastPoint.y ), CVec2( pFrame->m_firstPoint.x,	pFrame->m_firstPoint.y ), dwColor, rTerrainInfo.altitudes, 16 );
 				}	
 
-				// круг   
 				if( ( nFlags & MK_LBUTTON ) &&
 						( pFrame->m_mapEditorBarPtr->GetToolsTab()->m_mode == toolStateConsts::nArea ) &&
 						( pFrame->m_mapEditorBarPtr->GetToolsTab()->m_drawType == toolStateConsts::nCircleType ) )
@@ -305,35 +272,27 @@ void CMapToolState::OnMouseMove( UINT nFlags, const CTPoint<int> &rMousePoint, C
 		}
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapToolState::Enter()
 {
 	if ( CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame() )
 	{
-		//Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapToolState::Leave()
 {
 	if ( CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame() )
 	{
-		//Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapToolState::Update()
 {
 	if ( CTemplateEditorFrame *pFrame = g_frameManager.GetTemplateEditorFrame() )
 	{
-		//Draw( pFrame );
 		pFrame->RedrawWindow();
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

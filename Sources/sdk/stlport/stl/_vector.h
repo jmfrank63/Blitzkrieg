@@ -57,9 +57,6 @@
 
 _STLP_BEGIN_NAMESPACE 
 
-// The vector base class serves two purposes.  First, its constructor
-// and destructor allocate (but don't initialize) storage.  This makes
-// exception safety easier.
 
 template <class _Tp, class _Alloc> 
 class _Vector_base {
@@ -121,7 +118,6 @@ protected:
   typedef typename  __type_traits<_Tp>::has_trivial_assignment_operator _TrivialAss;
   typedef typename  __type_traits<_Tp>::has_trivial_assignment_operator _IsPODType;
 
-  // handles insertions on overflow
   void _M_insert_overflow(pointer __position, const _Tp& __x, const __false_type&, 
 			  size_type __fill_len, bool __atend = false) {
     const size_type __old_size = size();
@@ -131,14 +127,12 @@ protected:
     pointer __new_finish = __new_start;
     _STLP_TRY {
       __new_finish = __uninitialized_copy(this->_M_start, __position, __new_start, __false_type());
-      // handle insertion
       if (__fill_len == 1) {
         _Construct(__new_finish, __x);
         ++__new_finish;
       } else
         __new_finish = __uninitialized_fill_n(__new_finish, __fill_len, __x, __false_type());
       if (!__atend)
-        // copy remainder
         __new_finish = __uninitialized_copy(__position, this->_M_finish, __new_finish, __false_type());
     }
     _STLP_UNWIND((_Destroy(__new_start,__new_finish), 
@@ -154,10 +148,8 @@ protected:
     
     pointer __new_start = this->_M_end_of_storage.allocate(__len);
     pointer __new_finish = (pointer)__copy_trivial(this->_M_start, __position, __new_start);
-      // handle insertion
     __new_finish = fill_n(__new_finish, __fill_len, __x);
     if (!__atend)
-      // copy remainder
       __new_finish = (pointer)__copy_trivial(__position, this->_M_finish, __new_finish);
     _M_clear();
     _M_set(__new_start, __new_finish, __new_start + __len);
@@ -230,7 +222,6 @@ public:
     _M_range_initialize(__first, __last, _STLP_ITERATOR_CATEGORY(__first, _InputIterator));
   }
 
-  // Check whether it's an integral type.  If so, it's not an iterator.
  # ifdef _STLP_NEEDS_EXTRA_TEMPLATE_CONSTRUCTORS
   template <class _InputIterator>
   vector(_InputIterator __first, _InputIterator __last) :
@@ -261,10 +252,6 @@ public:
 
   void reserve(size_type __n);
 
-  // assign(), a generalized assignment member function.  Two
-  // versions: one that takes a count, and one that takes a range.
-  // The range version is a member template, so we dispatch on whether
-  // or not the type is an integer.
 
   void assign(size_type __n, const _Tp& __val) { _M_fill_assign(__n, __val); }
   void _M_fill_assign(size_type __n, const _Tp& __val);
@@ -384,7 +371,6 @@ public:
     _M_range_insert(__pos, __first, __last, _STLP_ITERATOR_CATEGORY(__first, _InputIterator));
   }
 
-  // Check whether it's an integral type.  If so, it's not an iterator.
   template <class _InputIterator>
   void insert(iterator __pos, _InputIterator __first, _InputIterator __last) {
     typedef typename _Is_integer<_InputIterator>::_Integral _Integral;
@@ -491,10 +477,8 @@ public:
 protected:
 
   void _M_clear() {
-    //    if (this->_M_start) {
     _Destroy(this->_M_start, this->_M_finish);
     this->_M_end_of_storage.deallocate(this->_M_start, this->_M_end_of_storage._M_data - this->_M_start);
-    //    }
   }
 
   void _M_set(pointer __s, pointer __f, pointer __e) {
@@ -535,7 +519,6 @@ protected:
     for ( ; __first != __last; ++__first)
       push_back(*__first);
   }
-  // This function is only called by the constructor. 
   template <class _ForwardIterator>
   void _M_range_initialize(_ForwardIterator __first,
                            _ForwardIterator __last, const forward_iterator_tag &) {
@@ -585,7 +568,4 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_VECTOR_H */
 
-// Local Variables:
-// mode:C++
-// End:
 

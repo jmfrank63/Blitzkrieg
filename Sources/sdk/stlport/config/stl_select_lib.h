@@ -4,11 +4,6 @@
 #   define _STLP_LIB_STATIC_SUFFIX ""
 #  endif
 
-// Note : the code below is intended to make use of compiled
-// STLport iostreams easier. If you are with to change names used for
-// STLport libraries , please also change RELEASE_NAME and DEBUG_NAME
-// macros in makefile ../../src/vc6.mak (or whatever .mak you are using to build
-// STLport). If you are using binaries, you may just rename the binaries.
 #    if ! defined (__BUILDING_STLPORT) && ! defined (_STLP_DONT_FORCE_MSVC_LIB_NAME)
 #     if defined (_STLP_USE_DECLSPEC)
 #      ifdef _STLP_DEBUG
@@ -19,8 +14,6 @@
 #       pragma comment(lib, _STLP_LIB_BASENAME".lib")
 #      endif
 #     else /* _STLP_USE_DECLSPEC */
-// fbp : for static linking, debug setting _MUST_ correspond to what
-// has been compiled into binary lib
 #      ifdef _STLP_DEBUG
 #       if (! defined (_DEBUG))
 #        error "For static link with STLport library, _DEBUG setting MUST be on when _STLP_DEBUG is on. (/MTd forces _DEBUG)"

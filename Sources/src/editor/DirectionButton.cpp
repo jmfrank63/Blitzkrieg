@@ -1,5 +1,3 @@
-// DirectionButton.cpp : implementation file
-//
 
 #include "stdafx.h"
 #include "DirectionButton.h"
@@ -11,8 +9,6 @@ static char THIS_FILE[] = __FILE__;
 #endif
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CDirectionButton
 
 CDirectionButton::CDirectionButton()
 {
@@ -24,13 +20,11 @@ CDirectionButton::~CDirectionButton()
 }
 
 BEGIN_MESSAGE_MAP(CDirectionButton, CWnd)
-	//{{AFX_MSG_MAP(CDirectionButton)
 	ON_WM_CREATE()
 	ON_WM_PAINT()
 	ON_WM_LBUTTONDOWN()
 	ON_WM_MOUSEMOVE()
 	ON_WM_LBUTTONUP()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
@@ -124,8 +118,6 @@ void CDirectionButton::OnPaint()
 	dc.SelectObject( pOldBrush );*/
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// CDirectionButton message handlers
 
 int CDirectionButton::GetQuadrant()
 {
@@ -181,13 +173,11 @@ void CDirectionButton::OnMouseMove(UINT nFlags, CPoint pt)
 		Invalidate();
 		GetParent()->PostMessage( WM_ANGLE_CHANGED );
 	}
-	//CVec2
 	CWnd::OnMouseMove(nFlags, pt);
 }
 
 void CDirectionButton::OnLButtonUp(UINT nFlags, CPoint point) 
 {
-	// TODO: Add your message handler code here and/or call default
 	ReleaseCapture();
 	CWnd::OnLButtonUp(nFlags, point);
 }

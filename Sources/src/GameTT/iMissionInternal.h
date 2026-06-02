@@ -1,8 +1,6 @@
 #ifndef __IMISSIONINTERNAL_H__
 #define __IMISSIONINTERNAL_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\GFX\GFX.h"
 #include "..\Scene\Scene.h"
 #include "..\Input\Input.h"
@@ -16,7 +14,6 @@
 #include "iMission.h"
 #include "..\Main\TextSystem.h"
 #include "ListControlWrapper.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef std::pair<IVisObj*, CVec2> CPickVisObj;
 typedef std::list<CPickVisObj> CPickVisObjList;	// эти объекты не живут долго, поэтому им не нужен ref counting
 typedef std::vector<IVisObj*> CVisObjList;
@@ -24,7 +21,6 @@ class CInterfaceMission : public CInterfaceScreenBase
 {
 	OBJECT_NORMAL_METHODS( CInterfaceMission );
 	DECLARE_SERIALIZE;
-	//
 public:
 	class CMultiplayerScoresSmall
 	{
@@ -36,7 +32,6 @@ public:
 			ESSN_MP_GAME,
 		};
 	public:
-		//
 		class CScoresState : public IRefCount
 		{
 			DECLARE_SERIALIZE;
@@ -63,7 +58,6 @@ public:
 			void ProcessMessage( const SGameMessage &msg, IUIScreen * pUIScreen );
 			void StepLocal( IUIScreen * pUIScreen );
 		};
-		//
 		class CGameScoresState : public CScoresState
 		{
 			DECLARE_SERIALIZE;
@@ -78,7 +72,6 @@ public:
 		public:
 			
 		};
-		//
 		class CReplayScoresState : public CScoresState
 		{
 			DECLARE_SERIALIZE;
@@ -105,7 +98,6 @@ public:
 	};
 private:
 	CMultiplayerScoresSmall multiplayerScoresSmall;
-	// for counting of lagged players
 public:
 	class CPlayerLaggedDialog
 	{
@@ -116,7 +108,6 @@ public:
 			EWM_LAG,
 			EWM_LOADING,
 		};
-		// for easy tracking of states
 		class CDialogState : public IRefCount
 		{
 			DECLARE_SERIALIZE;
@@ -131,7 +122,6 @@ public:
 			virtual EDialogStateName GetName() const = 0;
 			virtual bool IsActive() const { return bShowedWindow; }
 		};
-		// lagged state
 		class CDialogStateLagged : public CDialogState
 		{
 			DECLARE_SERIALIZE;
@@ -148,7 +138,6 @@ public:
 				int GetID() const { return nPlayer; }
 			};
 
-			// this doesn's serialize, MP only
 			CListControlWrapper<SPlayerLaggedInfo, int /*nPlayer*/> players;
 
 			void Show( IUIScreen *pUIScreen );
@@ -159,7 +148,6 @@ public:
 
 			virtual EDialogStateName GetName() const { return EWM_LAG; }
 		};
-		// 
 		class CDialogStateLoading : public CDialogState
 		{
 			DECLARE_SERIALIZE;
@@ -175,7 +163,6 @@ public:
 				int GetID() const { return nPlayer; }
 			};
 			
-			// this doesn's serialize, MP only
 			CListControlWrapper<SPlayerLoadingInfo, int /*nPlayer*/> players;
 
 			void Show( IUIScreen *pUIScreen );
@@ -194,7 +181,6 @@ public:
 	};
 private:
 	CPlayerLaggedDialog laggedDialog;
-	// for displaying timeout messages
 	class CTimeoutDialog
 	{
 		DECLARE_SERIALIZE;
@@ -205,42 +191,27 @@ private:
 		void StepLocal( IUIScreen * pUIScreen );
 	};
 	CTimeoutDialog timeoutDialog;
-	// shortcut
 	CPtr<IClientAckManager> pAckManager;	// acknowledgements manager
 	CPtr<IAILogic> pAILogic;							// singleton AI logic shortcut
-	// external data
 	CPtr<IFrameSelection> pFrameSelection;	// frame selection - shortcut from scene
-	// internal data
 	CObj<IWorldClient> pWorld;						// world - all game data
-	// substituted data
 	CVec3 vCameraStartPos;								// camera start position
-	//
 	std::string szCurrMapName;						// map name
 	bool bCycledLaunch;										// cycled launch or normal
-	// pre-selection temporary structures
 	CVisObjList preselectedObjects;
-	// selection structures (for editor mode only!!!)
 	CPickVisObjList selectedObjects;			// currently picked objects
 	CPickVisObjList::iterator itCurrSelected;
 	CPickVisObj *pSelectedObject;
-  // text shortcuts
 	CPtr<IGFXText> pTextPause;						// pause
-	//
 	bool bForceRotation;
-	// start pause
 	int nStartPauseCounter;								// mission start pause counter
-	// input
 	NInput::CCommandRegistrator missionMsgs;
-	//
 	bool bEditMode;												// edit mode (obsolete)
 	bool bEnableStatistics;								// enable statistics drawing
-	//
 	int nDirection;												// rotation direction
 	CVec3 vLastAnchor;										// last camera anchor for sync
 	int nFPSAveragePeriod;
-	//
 	virtual bool OpenCurtains();
-	//
 	void BeginSelection( const CVec2 &vPos );
 	void EndSelection( const CVec2 &vPos );
 	bool PickObjects( CPickVisObjList *pPickedObjects, const CVec2 &pos, EObjGameType type, bool bVisible = false );
@@ -256,28 +227,21 @@ private:
 	bool SelectFirstObject( const CVec2 &pos );
 	void SelectNextObject();
 	bool DropObject( const CVec2 &pos );
-	// unit commands
 	void DoAction( const SGameMessage &msg );
 	void BeginAction( const SGameMessage &msg );
-	//
 	void GetPos3( CVec3 *pPos, const CVec2 &pos );
 	void GetPos3( CVec3 *pPos, float x, float y );
-	//
 	void VisualizeFeedback( const int nFeedBack, const int nParam );
-	//
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
 	virtual bool STDCALL ProcessMessageLocal( const SGameMessage &msg );
 	virtual bool STDCALL StepLocal( bool bAppActive );
 	virtual void STDCALL DrawAdd();
 	virtual bool STDCALL OnCursorMove( const CVec2 &vPos );
 	void SetMissionStatusObject( bool bStatus );
-	//
 	bool MakeMapShot();
-	// disable explicit destruction
 	virtual ~CInterfaceMission();
 public:
 	CInterfaceMission();
-	//
 	virtual bool STDCALL Init();
 	virtual void STDCALL Done();
 	virtual void STDCALL OnGetFocus( bool bFocus );
@@ -285,21 +249,16 @@ public:
 	void CheckResolution();
 	void ConfigureInterfacePreferences();
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CICMission : public CInterfaceCommandBase<CInterfaceMission, MISSION_INTERFACE_MISSION>
 {
 	OBJECT_NORMAL_METHODS( CICMission );
 	DECLARE_SERIALIZE;
-	//
 	std::string szMapName;
 	bool bCycledLaunch;
-	//
 	virtual void PreCreate( IMainLoop *pML );
 	virtual void PostCreate( IMainLoop *pML, CInterfaceMission *pInterface );
-	//
 	CICMission() : bCycledLaunch( false ) {  }
 public:
 	virtual void STDCALL Configure( const char *pszConfig );
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __IMISSIONINTERNAL_H__

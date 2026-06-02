@@ -65,6 +65,3 @@ using STLPORT::hashtable;
 # endif
 #endif /* _STLP_HASHTABLE_H */
 
-// Local Variables:
-// mode:C++
-// End:

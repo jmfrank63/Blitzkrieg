@@ -41,6 +41,3 @@
 
 #endif /* _STLP_OLDSTD_exception */
 
-// Local Variables:
-// mode:C++
-// End:

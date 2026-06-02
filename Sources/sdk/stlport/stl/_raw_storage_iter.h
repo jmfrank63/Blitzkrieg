@@ -77,6 +77,3 @@ _STLP_END_NAMESPACE
 
 #endif /* _STLP_INTERNAL_RAW_STORAGE_ITERATOR_H */
 
-// Local Variables:
-// mode:C++
-// End:

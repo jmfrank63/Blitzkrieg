@@ -28,9 +28,7 @@
 #include "..\Misc\BitData.h"
 #include "..\Scene\Scene.h"
 
-// for profiling
 #include "MPLog.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStaticObjects theStatObjs;
 extern CStaticMap theStaticMap;
 extern CUpdater updater;
@@ -40,11 +38,6 @@ extern CDiplomacy theDipl;
 extern CPtr<IStaticPathFinder> pThePathFinder;
 extern CGraveyard theGraveyard;
 extern SCheats theCheats;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*									CStaticObjects::SSegmentObjectsSort							*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStaticObjects::SSegmentObjectsSort::operator()( const CPtr<CStaticObject> &segmObj1, const CPtr<CStaticObject> &segmObj2 ) const
 {
 	bool res = 
@@ -53,26 +46,18 @@ bool CStaticObjects::SSegmentObjectsSort::operator()( const CPtr<CStaticObject> 
 				 segmObj1->GetUniqueId() < segmObj2->GetUniqueId();
 	return res;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*									CStaticObjects::CStoragesContainer							*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStaticObjects::CStoragesContainer::CStoragesContainer()
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::CStoragesContainer::StorageChangedDiplomacy( class CBuildingStorage *pNewStorage, const int nNewPlayer )
 {
 	RemoveStorage( pNewStorage );
 	AddStorage( pNewStorage, nNewPlayer );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::CStoragesContainer::AddStorage( class CBuildingStorage *pNewStorage )
 {
 	AddStorage( pNewStorage, pNewStorage->GetPlayer() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::CStoragesContainer::AddStorage( class CBuildingStorage *pNewStorage, const int nPlayer )
 {
 	const int nParty = theDipl.GetNParty( nPlayer );
@@ -95,7 +80,6 @@ void CStaticObjects::CStoragesContainer::AddStorage( class CBuildingStorage *pNe
 	else
 		storageSystem[nParty].secondary.push_back( pNewStorage );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::CStoragesContainer::RemoveStorage( class CBuildingStorage *pNewStorage )
 {
 	if ( pNewStorage == 0 )
@@ -120,14 +104,12 @@ void CStaticObjects::CStoragesContainer::RemoveStorage( class CBuildingStorage *
 			storageSystem[nParty].secondary.remove( pNewStorage );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::CStoragesContainer::Clear()
 {
 	storages.clear();
 	updated = (1<<0) | (1<<1);
 	storageSystem.clear();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::CStoragesContainer::EnumStoragesForParty( const int nParty, CStaticObjects::IEnumStoragesPredicate * pPred )
 {
 	for ( CStorages::iterator i = storages.begin(); i != storages.end(); ++i )
@@ -141,7 +123,6 @@ void CStaticObjects::CStoragesContainer::EnumStoragesForParty( const int nParty,
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::CStoragesContainer::EnumStoragesInRange( const CVec2 &vCenter, 
 																					 const int nParty, 
 																					 const float fMaxPathLenght,
@@ -188,24 +169,20 @@ void CStaticObjects::CStoragesContainer::EnumStoragesInRange( const CVec2 &vCent
 	}
 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::CStoragesContainer::Segment()
 {
-	//CRAP{ FOR SAVES COMPATIBLITY
 	if ( bInitOnSegment )
 	{
 		for ( CStorages::iterator it = storages.begin(); it != storages.end(); ++it )
 			AddStorage( it->first );
 		bInitOnSegment = false;
 	}
-	//CARP}
 	if ( updated )
 	{
 		for ( int i = 0; i < 2; ++i )
 		{
 			if ( updated & (1<<i) )
 			{
-				// find party's main storage
 				bool bFound = false;
 				CPartyInfo &info = storageSystem[i];
 				for ( CStoragesList::iterator it = info.mains.begin(); it != info.mains.end(); ++it )
@@ -224,20 +201,13 @@ void CStaticObjects::CStoragesContainer::Segment()
 		updated = 0;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*												  CStaticObjects													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::StorageChangedDiplomacy( class CBuildingStorage *pNewStorage, const int nNewPlayer )
 {
 	storagesContainer.StorageChangedDiplomacy( pNewStorage, nNewPlayer );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::RecalcPassabilityForPlayer( CArray2D<BYTE> *array, const int nParty )
 {
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::Init( const int nMapTileSizeX, const int nMapTileSizeY )
 {
 	areaMap.SetSizes( nMapTileSizeX / SConsts::STATIC_OBJ_CELL, nMapTileSizeY / SConsts::STATIC_OBJ_CELL );
@@ -248,7 +218,6 @@ void CStaticObjects::Init( const int nMapTileSizeX, const int nMapTileSizeY )
 	
 	storagesContainer.Init();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::EnumObstaclesInRange(  const CVec2 &vCenter,
 																						const float fR,
 																						interface IObstacleEnumerator *f )
@@ -273,12 +242,10 @@ void CStaticObjects::EnumObstaclesInRange(  const CVec2 &vCenter,
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::EnumStoragesForParty( const int nParty, CStaticObjects::IEnumStoragesPredicate * pPred )
 {
 	storagesContainer.EnumStoragesForParty( nParty, pPred );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::EnumStoragesInRange( const CVec2 &vCenter, 
 																					 const int nParty, 
 																					 const float fMaxPathLenght,
@@ -288,12 +255,10 @@ void CStaticObjects::EnumStoragesInRange( const CVec2 &vCenter,
 {
 	storagesContainer.EnumStoragesInRange( vCenter, nParty, fMaxPathLenght, fMaxOffset, pUnitToFindPath, pPred );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::DeleteInternalObjectInfo( CExistingObject *pObj )
 {
 	deletedObjects.insert( pObj );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::DeleteInternalObjectInfoForEditor( CExistingObject *pObj )
 {
 	UnregisterSegment( pObj );
@@ -305,7 +270,6 @@ void CStaticObjects::DeleteInternalObjectInfoForEditor( CExistingObject *pObj )
 	CBuildingStorage * pStor = static_cast<CBuildingStorage*>( pObj );
 	storagesContainer.RemoveStorage( pStor );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::DeleteInternalEntrenchmentInfo( CEntrenchment *pEntrench )
 {
 	IRefCount *pObj = pEntrench;
@@ -317,7 +281,6 @@ void CStaticObjects::DeleteInternalEntrenchmentInfo( CEntrenchment *pEntrench )
 
 	entrenchments.erase( iter );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStaticObject* CStaticObjects::AddNewFenceObject( const SFenceRPGStats *pStats, const float fHPFactor, const int dbID, const CVec2 &center, const int nFrameIndex, const int nDiplomacy, bool bInitialization, bool IsEditor )
 {
 	CFence *pFence = new CFence( pStats, center, dbID, pStats->fMaxHP * fHPFactor, nFrameIndex, nDiplomacy, IsEditor );
@@ -327,7 +290,6 @@ CStaticObject* CStaticObjects::AddNewFenceObject( const SFenceRPGStats *pStats, 
 
 	return pFence;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStaticObject* CStaticObjects::AddNewSmokeScreen( const CVec2 &vCenter, const float fR, const int nTransparency, const int nTime )
 {
 	CSmokeScreen *pObj = new CSmokeScreen( vCenter, fR, nTransparency, nTime );
@@ -342,7 +304,6 @@ CStaticObject* CStaticObjects::AddNewSmokeScreen( const CVec2 &vCenter, const fl
 
 	return pObj;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CExistingObject* CStaticObjects::AddNewTankPit( const SMechUnitRPGStats *pStats, const CVec2& center, const WORD dir, const int nFrameIndex, const int dbID, const class CVec2 &vHalfSize, const CTilesSet &tilesToLock, class CAIUnit *pOwner, bool bInitialization )
 {
 	CEntrenchmentTankPit *pObj = new CEntrenchmentTankPit( pStats, center, dir, nFrameIndex, dbID, vHalfSize, tilesToLock, pOwner );
@@ -354,7 +315,6 @@ CExistingObject* CStaticObjects::AddNewTankPit( const SMechUnitRPGStats *pStats,
 	updater.Update( ACTION_NOTIFY_NEW_ST_OBJ, pObj );*/
 	return pObj;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::AddStaticObject( class CCommonStaticObject* pObj, bool bAlreadyLocked, bool bInitialization )
 {
 	pObj->Mem2UniqueIdObjs();
@@ -371,7 +331,6 @@ void CStaticObjects::AddStaticObject( class CCommonStaticObject* pObj, bool bAlr
 		AddObstacle( pObstacle );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStaticObject* CStaticObjects::AddNewStaticObject( const SObjectBaseRPGStats *pStats, const float fHPFactor, const int dbID, const CVec2 &center, const int nFrameIndex, bool bInitialization )
 {
 	CCommonStaticObject *pObj = new CSimpleStaticObject( pStats, center, dbID, pStats->fMaxHP * fHPFactor, nFrameIndex, ESOT_COMMON );
@@ -382,7 +341,6 @@ CStaticObject* CStaticObjects::AddNewStaticObject( const SObjectBaseRPGStats *pS
 	
 	return pObj;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStaticObject* CStaticObjects::AddNewFlag( const SStaticObjectRPGStats *pStats, const float fHPFactor, const int dbID, const CVec2 &center, const int nFrameIndex, int player, bool bInitialization )
 {
 	CFlag *pFlag = new CFlag( pStats, center, dbID, pStats->fMaxHP * fHPFactor, nFrameIndex, player, ESOT_FLAG );
@@ -393,7 +351,6 @@ CStaticObject* CStaticObjects::AddNewFlag( const SStaticObjectRPGStats *pStats, 
 
 	return pFlag;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStaticObject* CStaticObjects::AddNewTerraObj( const SObjectBaseRPGStats *pStats, const float fHPFactor, const int dbID, const CVec2 &center, const int nFrameIndex, bool bInitialization )
 {
 	CCommonStaticObject *pObj = new CSimpleStaticObject( pStats, center, dbID, pStats->fMaxHP * fHPFactor, nFrameIndex, ESOT_TERRA );
@@ -408,7 +365,6 @@ CStaticObject* CStaticObjects::AddNewTerraObj( const SObjectBaseRPGStats *pStats
 
 	return pObj;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStaticObject* CStaticObjects::AddNewTerraMeshObj( const SObjectBaseRPGStats *pStats, const float fHPFactor, const int dbID, const CVec2 &center, const WORD wDir, const int nFrameIndex, bool bInitialization )
 {
 	CCommonStaticObject *pObj = new CTerraMeshStaticObject( pStats, center, wDir, dbID, pStats->fMaxHP * fHPFactor, nFrameIndex, ESOT_TERRA );
@@ -423,7 +379,6 @@ CStaticObject* CStaticObjects::AddNewTerraMeshObj( const SObjectBaseRPGStats *pS
 
 	return pObj;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::AddStorage( CBuildingStorage *pObj, bool bInitialization )
 {
 	pObj->LockTiles( bInitialization );
@@ -431,24 +386,20 @@ void CStaticObjects::AddStorage( CBuildingStorage *pObj, bool bInitialization )
 
 	AddToAreaMap( pObj );
 	storagesContainer.AddStorage( pObj );
-	//storagesContainer2.AddStorage( pObj );
 
 	updater.Update( ACTION_NOTIFY_NEW_ST_OBJ, pObj );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStaticObject* CStaticObjects::AddNewStorage( const SBuildingRPGStats *pStats, const float fHPFactor, const int dbID, const CVec2 &center, const int nFrameIndex, int player, bool bInitialization )
 {
 	CBuildingStorage *pObj = new CBuildingStorage( pStats, center, dbID, pStats->fMaxHP * fHPFactor, nFrameIndex, player );
 	pObj->Mem2UniqueIdObjs();
 	NI_ASSERT_T( pObj->GetStats() != 0, "storage lost stats after construction" );
-//	if ( SBuildingRPGStats::TYPE_MAIN_RU_STORAGE == pStats->eType )
 	RegisterSegment( pObj );
 	
 	AddStorage( pObj, bInitialization );
 		
 	return pObj;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStaticObject* CStaticObjects::AddNewBuilding( const SBuildingRPGStats *pStats, const float fHPFactor, const int dbID, const CVec2 &center, const int nFrameIndex, bool bInitialization )
 {
 	CBuildingSimple *pObj = new CBuildingSimple( pStats, center, dbID, pStats->fMaxHP * fHPFactor, nFrameIndex );
@@ -464,7 +415,6 @@ CStaticObject* CStaticObjects::AddNewBuilding( const SBuildingRPGStats *pStats, 
 
 	return pObj;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStaticObject* CStaticObjects::AddNewBridgeSpan( const SBridgeRPGStats *pStats, const float fHPFactor, const int dbID, const CVec2 &center, const WORD dir, const int nFrameIndex, bool bInitialization )
 {
 	CBridgeSpan *pObj = new CBridgeSpan( pStats, center, dbID, pStats->fMaxHP * fHPFactor, nFrameIndex );
@@ -479,19 +429,16 @@ CStaticObject* CStaticObjects::AddNewBridgeSpan( const SBridgeRPGStats *pStats, 
 
 	return pObj;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::RemoveObstacle( interface IObstacle *pObstacle )
 {
 	obstacleObjects.erase( pObstacle->GetObject()->GetUniqueId() );
 	obstacles.RemoveFromPosition( pObstacle, AICellsTiles::GetTile(pObstacle->GetCenter()) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::AddObstacle( interface IObstacle *pObstacle )
 {
 	obstacleObjects.insert( std::pair< int, CPtr<IObstacle> >(pObstacle->GetObject()->GetUniqueId(), pObstacle ) );
 	obstacles.AddToPosition( pObstacle, AICellsTiles::GetTile(pObstacle->GetCenter()) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::AddEntrencmentPart(  class CEntrenchmentPart *pObj, bool bLockedAlready, bool bInitialization )
 {
 	pObj->Mem2UniqueIdObjs();
@@ -501,7 +448,6 @@ void CStaticObjects::AddEntrencmentPart(  class CEntrenchmentPart *pObj, bool bL
 
 	AddToAreaMap( pObj );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStaticObject* CStaticObjects::AddNewEntrencmentPart( const SEntrenchmentRPGStats *pStats, const float fHPFactor, const int dbID, const CVec2 &center, const WORD dir, const int nFrameIndex, bool bInitialization )
 {
 	CEntrenchmentPart *pObj = new CEntrenchmentPart( pStats, center, dir, nFrameIndex, dbID, pStats->fMaxHP * fHPFactor );
@@ -512,7 +458,6 @@ CStaticObject* CStaticObjects::AddNewEntrencmentPart( const SEntrenchmentRPGStat
 
 	return pObj;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStaticObject* CStaticObjects::AddNewEntrencment( IRefCount** segments, const int nLen, class CFullEntrenchment *pFullEntrenchment, bool bInitialization )
 {
 	CEntrenchment *pEntrench = new CEntrenchment( segments, nLen, pFullEntrenchment );
@@ -522,7 +467,6 @@ CStaticObject* CStaticObjects::AddNewEntrencment( IRefCount** segments, const in
 
 	return pEntrench;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CStaticObject* CStaticObjects::AddNewMine( const SMineRPGStats *pStats, const float fHPFactor, const int dbID, const CVec2 &center, const int nFrameIndex, const int player, bool bInitialization )
 {
 	CMineStaticObject *pObj = new CMineStaticObject( pStats, center, dbID, pStats->fMaxHP * fHPFactor, nFrameIndex, player );
@@ -536,13 +480,11 @@ CStaticObject* CStaticObjects::AddNewMine( const SMineRPGStats *pStats, const fl
 
 	AddToAreaMap( pObj );
 	
-	// ������ ������ ���� ����
 	if ( theDipl.GetDiplStatus( theDipl.GetMyNumber(), player ) == EDI_FRIEND || theCheats.IsHistoryPlaying() )
 		pObj->RegisterInWorld();
 
 	return pObj;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::AddObjectToAreaMapTile( CExistingObject *pObj, const SVector &tile )
 {
 	if ( theStaticMap.IsTileInside( tile ) )
@@ -552,13 +494,11 @@ void CStaticObjects::AddObjectToAreaMapTile( CExistingObject *pObj, const SVecto
 			containersAreaMap.AddToPosition( pObj, tile );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::AddToAreaMap( CExistingObject *pObj )
 {
 	CTilesSet tiles;
 	pObj->GetCoveredTiles( &tiles );
 	
-	// ����� �� �������� ����� update
 	if ( tiles.empty() )
 		AddObjectToAreaMapTile( pObj, AICellsTiles::GetTile( pObj->GetCenter() ) );
 	else
@@ -569,7 +509,6 @@ void CStaticObjects::AddToAreaMap( CExistingObject *pObj )
 
 	++nObjs;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::RemoveObjectFromAreaMapTile( CExistingObject *pObj, const SVector &tile )
 {
 	if ( theStaticMap.IsTileInside( tile ) )
@@ -579,7 +518,6 @@ void CStaticObjects::RemoveObjectFromAreaMapTile( CExistingObject *pObj, const S
 			containersAreaMap.RemoveFromPosition( pObj, tile );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::RemoveFromAreaMap( CExistingObject *pObj )
 {
 	CTilesSet tiles;
@@ -596,17 +534,14 @@ void CStaticObjects::RemoveFromAreaMap( CExistingObject *pObj )
 	--nObjs;
 	NI_ASSERT_T( nObjs >= 0, "Wrong number of static objects" );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::RegisterSegment( class CStaticObject *pObj )
 {
 	segmObjects.insert( pObj );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::UnregisterSegment( class CStaticObject *pObj )
 {
 	unregisteredObjects.push_back( pObj );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::Segment()
 {
 	std::set< CPtr<CStaticObject>, SSegmentObjectsSort >::iterator iter = segmObjects.begin();
@@ -636,15 +571,11 @@ void CStaticObjects::Segment()
 		CExistingObject *pObj = *iter;
 		UnregisterSegment( pObj );
 
-		// ����������� ����� ��� ��������� ������
-		// CRAP{ �� �������������, ���� ��������� ����. ������ ��������� ���������
 		theWarFog.ReclaculateFogAfterRemoveObject( pObj );
-		// CRAP}
 
 		updater.Update( ACTION_NOTIFY_DELETED_ST_OBJ, pObj );
 
 		storagesContainer.RemoveStorage( static_cast<CBuildingStorage*>(pObj) );
-		//storagesContainer2.RemoveStorage( static_cast<CBuildingStorage*>(pObj) );
 
 		if ( obstacleObjects.end() != obstacleObjects.find( pObj->GetUniqueId() ) )
 			RemoveObstacle( obstacleObjects[pObj->GetUniqueId()] );
@@ -659,7 +590,6 @@ void CStaticObjects::Segment()
 
 	deletedObjects.clear();
 
-	// ������� �������
 	std::list<int> burningList;
 	for ( std::unordered_set<int>::const_iterator iter = burningObjects.begin(); iter != burningObjects.end(); ++iter )
 		burningList.push_back( *iter );
@@ -674,19 +604,15 @@ void CStaticObjects::Segment()
 	}
 
   storagesContainer.Segment();
-	//storagesContainer2.Segment();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::StartBurning( CExistingObject *pObj )
 {
 	burningObjects.insert( pObj->GetUniqueId() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::EndBurning( CExistingObject *pObj )
 {
 	burningObjects.erase( pObj->GetUniqueId() );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CStaticObjects::UpdateAllObjectsPos()
 {
 	for ( CObjectsHashSet::iterator iter = terraObjs.begin(); iter != terraObjs.end(); ++iter )
@@ -701,4 +627,3 @@ void CStaticObjects::UpdateAllObjectsPos()
 		pObj->SetNewPlacement( pObj->GetCenter(), pObj->GetDir() );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

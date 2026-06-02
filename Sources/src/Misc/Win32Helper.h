@@ -1,13 +1,10 @@
 #ifndef __WIN32HELPER_H__
 #define __WIN32HELPER_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NWin32Helper
 {
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CEvent
 {
 	HANDLE h;
@@ -22,13 +19,11 @@ public:
 	void Wait() { WaitForSingleObject(h, INFINITE ); }
 	bool IsSet() { return WaitForSingleObject( h, 0 ) == WAIT_OBJECT_0; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCriticalSection
 {
 	CRITICAL_SECTION sect;
 	CCriticalSection( const CCriticalSection & ) {}
 	CCriticalSection& operator=( const CCriticalSection &) {}
-	//
 	void Enter() { EnterCriticalSection( &sect ); }
 	void Leave() { LeaveCriticalSection( &sect ); }
 public:
@@ -36,7 +31,6 @@ public:
 	~CCriticalSection() { DeleteCriticalSection( &sect ); }
 	friend class CCriticalSectionLock;
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCriticalSectionLock
 {
 	CCriticalSection &lock;
@@ -48,7 +42,6 @@ public:
 	void Enter() { lock.Enter(); bInsideCriticalSection = true; }
 	void Leave() { if ( bInsideCriticalSection ) lock.Leave(); bInsideCriticalSection = false; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class T>
 class com_ptr
 {
@@ -63,16 +56,13 @@ public:
 	com_ptr& operator=( T *pObj ) { if ( pData == pObj ) return *this; Free(); Assign( pObj ); return *this; }
 	operator T*() const { return pData; }
 	T* operator->() const { return pData; }
-	// not fair play
 	void Create( T *_pData ) { Free(); pData = _pData; }
 	T** GetAddr() { Free(); pData = 0; return &pData; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CDLLHandle
 {
 	HMODULE handle;												// DLL handle
 	std::string szName;										// file name
-	// disable copying...
 	CDLLHandle( const CDLLHandle &dll ) {  }
 	CDLLHandle& operator=( const CDLLHandle &dll ) { return *this; }
 	CDLLHandle() : handle( 0 ) {  }
@@ -80,11 +70,7 @@ public:
 	CDLLHandle( const char *pszFileName ) : szName( pszFileName ) { const std::wstring szWideName = NStr::ToUnicode( szName ); handle = ::LoadLibraryW( reinterpret_cast<LPCWSTR>( szWideName.c_str() ) ); }
 	CDLLHandle( const std::string &szFileName ) : szName( szFileName ) { const std::wstring szWideName = NStr::ToUnicode( szName ); handle = ::LoadLibraryW( reinterpret_cast<LPCWSTR>( szWideName.c_str() ) ); }
 	~CDLLHandle() { if ( handle ) ::FreeLibrary( handle ); }
-	// success loading check
 	bool IsLoaded() const { return handle != 0; }
-	// proc loading. 
-	// NOTE: 2nd parameter are a fake - just for return template argument resolving (because of MSVC6.0 can't do it)
-	// one can pass just a '(TProc)0' here
 	template <class TProc> 
 		TProc GetProcAddress( const char *pszProcName, TProc )
 	{
@@ -95,14 +81,11 @@ public:
 	{
 		return IsLoaded() ? (TProc)::GetProcAddress( handle, (const char *)nProcID ) : (TProc)0;
 	}
-	// access & casting
 	HMODULE GetHMdule() const { return handle; }
 	const std::string& GetModuleName() const { return szName; }
 	operator HMODULE() const { return handle; }
 	operator const char*() const { return szName.c_str(); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif
 

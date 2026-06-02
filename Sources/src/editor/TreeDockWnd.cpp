@@ -13,8 +13,6 @@ static char THIS_FILE[] = __FILE__;
 #endif
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CTreeDockWnd
 
 CTreeDockWnd::CTreeDockWnd()
 {
@@ -31,18 +29,14 @@ CTreeDockWnd::~CTreeDockWnd()
 
 
 BEGIN_MESSAGE_MAP(CTreeDockWnd, SECControlBar)
-	//{{AFX_MSG_MAP(CTreeDockWnd)
 	ON_WM_CREATE()
 	ON_WM_SIZE()
 	ON_WM_RBUTTONDOWN()
 	ON_WM_PAINT()
 	ON_WM_SETFOCUS()
-	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 
-/////////////////////////////////////////////////////////////////////////////
-// CTreeDockWnd message handlers
 
 int CTreeDockWnd::OnCreate(LPCREATESTRUCT lpCreateStruct) 
 {
@@ -101,7 +95,6 @@ BOOL CTreeDockWnd::PreTranslateMessage(MSG* pMsg)
 	switch ( pMsg->message )
 	{
 	case WM_USERTREESEL:
-		//Отображаем свойства выделенного компонента в ObjectInspector
 		pItem = (CTreeItem *) pMsg->lParam;
 		NI_ASSERT ( pItem != 0 );
 		NI_ASSERT( pPropView != 0 );
@@ -154,7 +147,6 @@ void CTreeDockWnd::OnPaint()
 {
   if ( pTree )
   {
-//		dc.FillSolidRect( r, GetSysColor( COLOR_WINDOW ) );
 
     SECControlBar::OnPaint();
     return;

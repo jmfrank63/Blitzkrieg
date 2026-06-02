@@ -3,10 +3,8 @@
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const double pi = 3.141592535897932384624;
 const float fGeomScaleCoeff = 38.0f * 2.936f / 6.880226f;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SPlot
 {
 	float x, y, z;
@@ -23,27 +21,19 @@ struct SJoint
 	int nIndex;
 	int nParent;
 	bool bLocator;
-	// constraints
-	// rotation
 	float fMinAngleX, fMaxAngleX;
 	float fMinAngleY, fMaxAngleY;
 	float fMinAngleZ, fMaxAngleZ;
-	// translation
 	float fMinTransX, fMaxTransX;
 	float fMinTransY, fMaxTransY;
 	float fMinTransZ, fMaxTransZ;
-	//
 	SPlot pos;
 	SQuat rot;
 	SPlot scale;
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NConverter
 {
-	// meshes
 	extern std::vector<SJoint> joints;
-	//
-	//
 	extern SSkeletonFormat skeleton;
 	extern std::vector<SAnimationFormat> animations;
 	extern SAABBFormat aabb;
@@ -52,7 +42,6 @@ namespace NConverter
 
 	void ClearAll();
 	void AddFace( int nSet, int *pIndices );
-	//
 	void SetActiveMesh( const char *pszMeshName );
 	void SetMeshIndex( int nIndex );
 	void AddPoint( const CVec3 &point );
@@ -65,5 +54,4 @@ namespace NConverter
 	int GetAABB_AIndex( int nAABB );
 	int GetAABB_DIndex( int nAABB );
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif

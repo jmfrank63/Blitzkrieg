@@ -5,28 +5,17 @@
 
 #include "..\GameTT\MultiplayerCommandManager.h"
 #include "..\GameTT\MuliplayerToUIConsts.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 										CChatMessage															*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CChatMessage::CChatMessage( const char *pszMessage, const char *pszPlayerName, bool _bWhisper ) : bWhisper( _bWhisper )
 {
 	NStr::SetCodePage( GetACP() );
 	szMessage = NStr::ToUnicode( pszMessage );
 	szPlayerName = NStr::ToUnicode( pszPlayerName );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CChatMessage::SendToUI()
 {
 	IMPToUICommandManager *pCommandManager = GetSingleton<IMPToUICommandManager>();
 	pCommandManager->AddChatMessageToUI( new SChatMessage( reinterpret_cast<const WORD*>( szMessage.c_str() ), reinterpret_cast<const WORD*>( szPlayerName.c_str() ), bWhisper ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 									CSimpleChatMessage													*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleChatMessage::SendToUI()
 {
 	IMPToUICommandManager *pCommandManager = GetSingleton<IMPToUICommandManager>();	
@@ -43,18 +32,12 @@ void CSimpleChatMessage::SendToUI()
 			break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 									CChatUserChanged														*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CChatUserChanged::CChatUserChanged( const EUserState &_eState, const char *pszUserNick, const IChat::EUserMode &_eMode )
 : eState( _eState ), eMode( _eMode )
 {
 	NStr::SetCodePage( GetACP() );
 	wszUserNick = NStr::ToUnicode( pszUserNick );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CChatUserChanged::SendToUI()
 {
 	EPlayerChatState eUIState;
@@ -90,18 +73,12 @@ void CChatUserChanged::SendToUI()
 			break;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 									CChatUserChangedNick												*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CChatUserChangedNick::CChatUserChangedNick( const char *pszOldNick, const char *pszNewNick )
 {
 	NStr::SetCodePage( GetACP() );
 	wszOldNick = NStr::ToUnicode( pszOldNick );
 	wszNewNick = NStr::ToUnicode( pszNewNick );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CChatUserChangedNick::SendToUI()
 {
 	IMPToUICommandManager *pCommandManager = GetSingleton<IMPToUICommandManager>();
@@ -109,4 +86,3 @@ void CChatUserChangedNick::SendToUI()
 		SToUICommand( EMTUC_PLAYER_CHANGED_NICK, new SUIChatPlayerChangedNick( reinterpret_cast<const WORD*>( wszOldNick.c_str() ), reinterpret_cast<const WORD*>( wszNewNick.c_str() ) ) )
 	);
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

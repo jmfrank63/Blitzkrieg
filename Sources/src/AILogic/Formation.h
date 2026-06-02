@@ -1,11 +1,8 @@
 #ifndef __FORMATION_H__
 #define __FORMATION_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "CommonUnit.h"
 #include "..\Misc\BitData.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormationCenter : public CCommonUnit
 {
 	DECLARE_SERIALIZE;
@@ -53,16 +50,13 @@ public:
 	virtual bool TurnToDir( const WORD &newDir, const bool bCanBackward = true, const bool bForward = true );
 	virtual void UpdateDirection( const CVec2 &newDir );
 	virtual void UpdateDirection( const WORD newDir );
-	// stop only center of formation, not units
 	void StopFormationCenter();
 
-	//
 	void SetMaxSpeed( const float &_maxSpeed ) { maxSpeed = _maxSpeed; }
 	void SetAABBHalfSize( const CVec2 &_vAABBHalfSize ) { vAABBHalfSize = _vAABBHalfSize; }
 	void SetBoundTileRadius( const int _nBoundTileRadius ) { nBoundTileRadius = _nBoundTileRadius; }
 
 	void Segment();
-	// возвращает - поехал или нет
 	virtual bool SendAlongPath( interface IStaticPath *pStaticPath, const CVec2 &vShift, bool bSmoothTurn = true );
 	virtual bool SendAlongPath( IPath *pPath );
 
@@ -98,7 +92,6 @@ public:
 	virtual bool IsInOneTrain( interface IBasePathUnit *pUnit ) const;
 	virtual bool IsTrain() const { return false; }
 
-	// количество сегментнов, прошедшее с прошлого вызова SecondSegment
 	virtual const float GetPathSegmentsPeriod() const;
 
 	virtual const SVector GetLastKnownGoodTile() const;
@@ -106,7 +99,6 @@ public:
 	virtual bool IsDangerousDirExist() const { return false; }
 	virtual const WORD GetDangerousDir() const { return 0; }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFormation : public CFormationCenter
 {
 	OBJECT_NORMAL_METHODS( CFormation );
@@ -118,11 +110,8 @@ class CFormation : public CFormationCenter
 
 		struct SSquadGeometry
 		{
-			// поворот от направления формации к юниту
 			CVec2 vForm2Unit;
-			// проекция смещения юнита относительно центра формации на направление формации
 			float fUnitProj;
-			// собственное направление юнита, от центра формации
 			WORD dir;
 
 			SSquadGeometry() : vForm2Unit( VNULL2 ), fUnitProj( 0 ), dir( 0 ) { }
@@ -141,7 +130,6 @@ class CFormation : public CFormationCenter
 	struct SCommonGeometryInfo
 	{
 		float fMaxUnitProj;
-		// радиус формации
 		float fRadius;
 
 		SCommonGeometryInfo() : fMaxUnitProj( 0 ), fRadius( 0 ) { }
@@ -156,7 +144,6 @@ class CFormation : public CFormationCenter
 
 	CArray1Bit availCommands;
 
-	//
 	BYTE cPlayer;
 
 	struct SGunInfo
@@ -193,7 +180,6 @@ class CFormation : public CFormationCenter
 	int nVirtualUnits;
 	bool bCanBeResupplied;
 
-	// для хранения данных о переносимом миномете
 	class CCarryedMortar
 	{
 		DECLARE_SERIALIZE;
@@ -213,18 +199,15 @@ class CFormation : public CFormationCenter
 
 	bool bWithMoraleOfficer;
 
-	//
 	void InitGeometries();
 	void PrepareToDelete();
 
-	// проверка на посылка bored если в movement формации
 	void CheckForMoveFormationBored();
 	bool IsMemberResting( class CSoldier *pSoldier ) const;
 	void ProcessLoadCommand( CAICommand *pCommand, bool bPlaceInQueue );
 public:
 	CFormation() : pObjInside( 0 ), bWithMoraleOfficer( false ) { }
 	void Init( const SSquadRPGStats *pStats, const CVec2 &center, const int z, const WORD dir, const int dbID );
-	// передвигает центр формации в её центр масс и инициализирует geomInfo
 	void MoveGeometries2Center();
 	void ChangeGeometry( const int nGeometry );
 	const int GetNGeometries() const;
@@ -233,14 +216,11 @@ public:
 	virtual const WORD GetID() const { return id; }
 	const SSquadRPGStats* GetStats() const { return pStats; }
 
-	// добавить новый юнит в формацию, порядковый номер его в статах - nSlot, местоположение юнита инициализируется
 	void AddNewUnitToSlot( class CSoldier *pUnit, const int nSlot, const bool bSendToWorld = true );
 	
-	// добавить новый юнит на позицию nPos в списке юнитов объекта formation, причём местоположение юнита не инициализируется
 	void AddUnit( class CSoldier *pUnit, const int nPos );
 	void DelUnit( const BYTE cPos );
 	void DelUnit( class CSoldier *pUnit );
-	// для Save/Load
 	void SetUnitToPos( const BYTE cPos, class CSoldier *pUnit );
 	
 	virtual BYTE GetAIClass() const;
@@ -248,11 +228,8 @@ public:
 	const CVec2 GetUnitCoord( const BYTE cSlot ) const;
 	const float GetUnitLineShift( const BYTE cPos ) const;
 	const float GetMaxProjection() const { return geomInfo[nCurGeometry].fMaxUnitProj; }
-	// сдвиг юнита относительно центра формации, когда юнит стоит правильно
 	const CVec2 GetUnitShift( const BYTE cSlot ) const;
-	// каким должно быть собственное направление юнита
 	const WORD GetUnitDir( const BYTE cSlot ) const;
-	// возвращает позицию в статах формации для юнита с порядковым номером cSlot в массиве units 
 	const int GetUnitSlotInStats( const BYTE cSlot ) const;
 	virtual const float GetPassability() const { return fPass; }
 
@@ -266,7 +243,6 @@ public:
 	const CVec2 GetFarUnitPos( const BYTE cPos );
 	virtual bool IsIdle() const;
 	virtual bool IsTurning() const { return false; }
-	// все ли юниты находятся в rest состоянии?
 	bool IsEveryUnitResting() const;
 	bool IsEveryUnitInTransport() const;
 	virtual void StopUnit();
@@ -282,7 +258,6 @@ public:
 	virtual bool CanCommandBeExecutedByStats( class CAICommand *pCommand );
 	virtual bool CanCommandBeExecutedByStats( int nCmd ) const;
 
-	//
 	virtual const bool CanShootToPlanes() const;
 	virtual int GetNGuns() const { return guns.size(); }
 	virtual class CBasicGun* GetGun( const int n ) const;
@@ -297,14 +272,12 @@ public:
 
 	virtual const float GetSightRadius() const;
 
-	//
 	void SetToWaitingState() { bWaiting = true; }
 	void UnsetFromWaitingState() { bWaiting = false; }
 	const bool IsInWaitingState() const { return bWaiting; }
 	
 	virtual const bool IsVisible( const BYTE party ) const;
 	
-	//
 	void WasHitNearUnit();
 	
 	virtual void Fired( const float fGunRadius, const int nGun  ) { }
@@ -326,7 +299,6 @@ public:
 	virtual void Die( const bool fromExplosion, const float fDamage );
 
 	virtual bool IsAlive() const;
-	// возвращает - поехал или нет
 	virtual bool SendAlongPath( interface IStaticPath *pStaticPath, const CVec2 &vShift, bool bSmoothTurn = true );
 	virtual bool SendAlongPath( IPath *pPath );
 	
@@ -366,7 +338,6 @@ public:
 	
 	virtual void SendAcknowledgement( EUnitAckType ack, bool bForce = false );
 	virtual void SendAcknowledgement( CAICommand *pCommand, EUnitAckType ack, bool bForce = false );
-	// установить центр формации в центр тяжести юнитов
 	void BalanceCenter();
 	
 	virtual const int GetMinArmor() const { return 0; }
@@ -381,7 +352,6 @@ public:
 	
 	virtual EUnitAckType GetGunsRejectReason() const;
 
-	// используется только для отложенных updates
 	virtual const bool IsVisible( const int nParty ) const { return true; }
 	virtual void GetTilesForVisibility( CTilesSet *pTiles ) const { pTiles->clear(); }
 	virtual bool ShouldSuspendAction( const EActionNotify &eAction ) const { return false; }
@@ -392,29 +362,22 @@ public:
 	void MakeVirtualUnitReal( class CSoldier *pSoldier );
 	void DelVirtualUnit( class CSoldier *pSoldier );
 
-	// for bored condition
 	virtual void UnRegisterAsBored( const enum EUnitAckType eBoredType );
 	virtual void RegisterAsBored( const enum EUnitAckType eBoredType );
 
-	// устанавливает солдату бонусы от формации
 	void SetGeometryPropertiesToSoldier( class CSoldier *pSoldier, const bool bChangeWarFog );
 
-	// для переноса миномета
 	void SetCarryedMortar( class CAIUnit *pMortar );
 	bool HasMortar() const ;							// true when formation carryes a mortar
-		// returns ID of installed artillery
 	int InstallCarryedMortar();
-	//CRAP}
 
 	virtual void ResetTargetScan();
-	// просканировать, если пора; если нашли цель, то атаковать
 	virtual BYTE AnalyzeTargetScan(	CAIUnit *pCurTarget, const bool bDamageUpdated, const bool bScanForObstacles, IRefCount *pCheckBuilding );
 	virtual void LookForTarget( CAIUnit *pCurTarget, const bool bDamageUpdated, CAIUnit **pBestTarget, class CBasicGun **pGun );
 
 	virtual bool CanMoveForGuard() const { return CanMove(); }
 	virtual float GetPriceMax() const;
 	virtual const NTimer::STime& GetBehUpdateDuration() const { return SConsts::BEH_UPDATE_DURATION; }
-	//to protect from human resupply formation in some states
 	virtual bool IsResupplyable() const { return bCanBeResupplied; }
 	virtual void SetResupplyable( const bool _bCanBeResupplied ) { bCanBeResupplied = _bCanBeResupplied; }
 
@@ -422,10 +385,8 @@ public:
 
 	virtual void FreezeByState( const bool bFreeze );
 	
-	// slow working
 	virtual const float GetTargetScanRadius();
 	
 	virtual bool CanMoveAfterUserCommand() const { return CanMove(); }
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // __FORMATION_H__

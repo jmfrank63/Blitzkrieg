@@ -1,22 +1,12 @@
 #include "StdAfx.h"
 
 #include "SpriteAnimation.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** sprite animation functions
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSpriteAnimation::Init( SSpriteAnimationFormat *_pAnimations ) 
 { 
 	pAnimations = _pAnimations; 
 	timescales.insert( timescales.begin(), pAnimations->animations.size(), 1.0f );
 	return true; 
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSpriteAnimation::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -30,10 +20,8 @@ int CSpriteAnimation::operator&( IStructureSaver &ss )
 	saver.Add( 9, &rect.rect );
 	if ( saver.IsReading() )
 		pAnimation = 0;
-	//
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CSpriteAnimation::IsHit( const CVec3 &relpos, const CVec2 &point, CVec2 *pShift ) const
 {
 	const CTRect<float> rcRect( relpos.x + rect.rect.x1, relpos.y + rect.rect.y1,
@@ -46,27 +34,16 @@ const bool CSpriteAnimation::IsHit( const CVec3 &relpos, const CVec2 &point, CVe
 	}
 	return bRetVal;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CSpriteAnimation::IsHit( const CVec3 &relpos, const CTRect<float> &rcRect ) const
 {
 	return rcRect.IsInside( CTPoint<float>(relpos.x + (rect.rect.x1 + rect.rect.x2)*0.5f,
 		                                     relpos.y + (rect.rect.y1 + rect.rect.y2)*0.5f) );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSpriteAnimation::Visit( IAnimVisitor *pVisitor )
 {
 	const SSpriteRect &srRect = GetRect();
 	pVisitor->VisitSprite( &srRect );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** complex sprite functions
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CComplexSprite::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -75,7 +52,6 @@ int CComplexSprite::operator&( IStructureSaver &ss )
 	saver.Add( 3, &nFrameIndex );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CComplexSprite::IsHit( const CVec3 &relpos, const CVec2 &point, CVec2 *pShift ) const
 {
 	const bool bRetVal = GetSprite().IsInside( CVec2(point.x - relpos.x, point.y - relpos.y) );
@@ -86,16 +62,13 @@ const bool CComplexSprite::IsHit( const CVec3 &relpos, const CVec2 &point, CVec2
 	}
 	return bRetVal;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const bool CComplexSprite::IsHit( const CVec3 &relpos, const CTRect<float> &rcRect ) const
 {
 	const CTRect<float> &rcBoundBox = GetSprite().GetBoundBox();
 	return rcRect.IsInside( CTPoint<float>(relpos.x + (rcBoundBox.x1 + rcBoundBox.x2)*0.5f,
 		                                     relpos.y + (rcBoundBox.y1 + rcBoundBox.y2)*0.5f) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CComplexSprite::Visit( IAnimVisitor *pVisitor )
 {
 	pVisitor->VisitSprite( &(GetSprite()) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

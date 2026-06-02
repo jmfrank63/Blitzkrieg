@@ -3,20 +3,10 @@
 #include "VectorObject.h"
 
 #include "..\Misc\Checker.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** terrain vector object layer
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void STVOLayer::SelectPatches( const std::vector<DWORD> &sels, const int nNumBasePoints )
 {
 	std::vector<const SPatch*> selPatches;
 	selPatches.reserve( patches.size() );
-	// select patches and count points
 	int nNumPoints = 0;
 	for ( std::vector<SPatch>::const_iterator it = patches.begin(); it != patches.end(); ++it )
 	{
@@ -32,10 +22,8 @@ void STVOLayer::SelectPatches( const std::vector<DWORD> &sels, const int nNumBas
 		indices.clear();
 		return;
 	}
-	//
 	std::vector<int> points1;
 	points1.reserve( nNumPoints + 20 );
-	// form points list by merging all points from all patches
 	for ( std::vector<const SPatch*>::const_iterator it = selPatches.begin(); it != selPatches.end(); ++it )
 		points1.insert( points1.end(), (*it)->points.begin(), (*it)->points.end() );
 	std::sort( points1.begin(), points1.end() );
@@ -43,12 +31,9 @@ void STVOLayer::SelectPatches( const std::vector<DWORD> &sels, const int nNumBas
 
 	std::vector<int> points2;
 	points2.reserve( points1.size() + 20 );
-	// добавим по одной с каждого конца на каждом 'подпромежутке'
-	// результат запишем в промежуточный массив 'points2'
 	{
 		if ( points1.front() > 0 ) 
 			points2.push_back( points1.front() - 1 );
-		//
 		std::vector<int>::const_iterator point = points1.begin();
 		int nLastPoint = *point;
 		++point;
@@ -64,13 +49,10 @@ void STVOLayer::SelectPatches( const std::vector<DWORD> &sels, const int nNumBas
 				points2.push_back( nLastPoint );
 			nLastPoint = *point;
 		}
-		//
 		points2.push_back( nLastPoint );
-		// last point
 		if ( points1.back() < nNumBasePoints - 1 ) 
 			points2.push_back( points1.back() + 1 );
 	}
-	// вертексы можно просто скопировать
 	const int N = nNumVertsPerLine;
 	vertices.clear();
 	vertices.reserve( points2.size() * N );
@@ -81,7 +63,6 @@ void STVOLayer::SelectPatches( const std::vector<DWORD> &sels, const int nNumBas
 				             allvertices.begin() + ((*it) * N), 
 										 allvertices.begin() + ((*it) * N + N) );			
 	}
-	// индексы можно добавлять только для непрерывных промежутков
 	indices.clear();
 	indices.reserve( vertices.size() * 1.25f * 6 );
 	for ( int i = 1; i < points2.size(); ++i )
@@ -105,7 +86,6 @@ void STVOLayer::SelectPatches( const std::vector<DWORD> &sels, const int nNumBas
 	}
 	std::vector<WORD>( indices ).swap( indices );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int STVOLayer::SPatch::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -113,7 +93,6 @@ int STVOLayer::SPatch::operator&( IStructureSaver &ss )
 	saver.Add( 2, &points );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int STVOLayer::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -123,19 +102,9 @@ int STVOLayer::operator&( IStructureSaver &ss )
 	saver.Add( 4, &nNumVertsPerLine );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** terrain vector object
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CTerrainVectorObject::Init( const SVectorStripeObject &_desc )
 {
 	desc = _desc;
-	//
 	int nStart = 0;
 	for ( int i = 1; i < desc.points.size(); ++i )
 	{
@@ -150,4 +119,3 @@ void CTerrainVectorObject::Init( const SVectorStripeObject &_desc )
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

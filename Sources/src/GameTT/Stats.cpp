@@ -14,7 +14,6 @@
 #include "..\Main\RPGStats.h"
 #include "..\UI\UIListSorter.h"
 #include "MultiplayerCommandManager.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum E_InterfaceConsts
 {
 	IMC_SAVE_REPLAY			= 10003,
@@ -33,33 +32,24 @@ enum E_InterfaceConsts
 	E_ACTUAL_TEXT_ID		= 2,
 	E_STAR_ID						= 1,
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICStats::Configure( const char *pszConfig )
 {
-	//получаем параметры из командной строки
 	if ( pszConfig != 0 && strlen(pszConfig) > 0 )
 		nCurrentMissionStats = NStr::ToInt( pszConfig );
 	else
 		nCurrentMissionStats = 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICStats::PreCreate( IMainLoop *pML )
 {
 	const std::string szChapterName = GetGlobalVar( "Chapter.Current.Name", "" );
 	if ( GetGlobalVar( "MultiplayerGame", 0 ) || szChapterName == "custom_mission" )
 		pML->ResetStack();
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICStats::PostCreate( IMainLoop *pML, CInterfaceStats *pIS )
 {
 	pIS->Create( nCurrentMissionStats );
 	pML->PushInterface( pIS );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//	CCommonStats
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceStats::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -85,25 +75,17 @@ int CInterfaceStats::operator&( IStructureSaver &ss )
 	saver.AddTypedSuper( 14, static_cast<CInterfaceInterMission*>( this ) );
 	return 0;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//	CCommonStats
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceStats::CCommonStats::Init ( const CPlayerFullInfo &info )
 {
 	nTime = info.second->GetValue( STMT_TIME_ELAPSED );
 	nObjectivesCompleted = info.second->GetValue( STMT_OBJECTIVES_COMPLETED );
-	//nObjectivesFailed = info.second->GetValue( STMT_OBJECTIVES_FAILED );
 	nUpgrades = info.second->GetValue( STMT_UNITS_UPGRADED );
 	nSaves = info.second->GetValue( STMT_GAME_LOADED );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CInterfaceStats::CCommonStats::GetNStats( const bool bMultiplayer ) const
 {
 	return bMultiplayer ? 1 : 4;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::string CInterfaceStats::CCommonStats::GetStatTitleKey( const int nIndex ) const
 {
 	switch( nIndex )
@@ -113,10 +95,7 @@ std::string CInterfaceStats::CCommonStats::GetStatTitleKey( const int nIndex ) c
 		case 1: // completed obj
 			return "imheader-stats-objcompleted";
 		case 2: //failed obj
-			//return "imheader-stats-objfailed";
 			return "Textes\\Options\\GamePlay.Difficulty.name";
-		//case 3: //upgrades
-			//return "imheader-stats-upgraded";
 		case 3: //saves
 			return "imheader-stats-gameloaded";
 		default:
@@ -124,7 +103,6 @@ std::string CInterfaceStats::CCommonStats::GetStatTitleKey( const int nIndex ) c
 			return "";
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::wstring CInterfaceStats::CCommonStats::GetStatValue( const int nIndex ) const
 {
 	switch( nIndex )
@@ -144,8 +122,6 @@ std::wstring CInterfaceStats::CCommonStats::GetStatValue( const int nIndex ) con
 				if ( !pT ) return L"";
 				return pT->GetString();
 			}
-		//case 3: //upgrades
-			//return NStr::ToUnicode( NStr::Format( "%d", nUpgrades ) );
 		case 3: //saves
 			return NStr::ToUnicode( NStr::Format( "%d", nSaves ) );
 		default:
@@ -153,11 +129,6 @@ std::wstring CInterfaceStats::CCommonStats::GetStatValue( const int nIndex ) con
 			return L"";
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//	SStatConfugure
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceStats::CSorter::operator() ( int nSortColumn, 
 																						const IUIListRow *pRow1, 
 																						const IUIListRow *pRow2, const bool bForward ) const
@@ -167,7 +138,6 @@ bool CInterfaceStats::CSorter::operator() ( int nSortColumn,
 	const int nData2 = pRow2->GetUserData();
 	if ( nData1 == 0 ) return true;
 	if ( nData2 == 0 ) return false;
-	//return false;
 
 	IUIElement *pElement = pRow1->GetElement( nSortColumn );
 	std::wstring wsz1 = pElement->GetWindowText( 0 );
@@ -186,11 +156,6 @@ bool CInterfaceStats::CSorter::operator() ( int nSortColumn,
 		return (bForward ? d1 > d2 : d1 < d2);
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//	SStatConfugure
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceStats::SStatConfugure::SStatConfugure(	const  int _eStatType,
 																									const /*EPartyInfoType*/ int _eAccumulateType, 
 																									const int _eType1, const int _eType2,
@@ -203,22 +168,14 @@ CInterfaceStats::SStatConfugure::SStatConfugure(	const  int _eStatType,
 	eType[0] = _eType1;
 	eType[1] = _eType2;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceStats::SStatConfugure::IsToDisplay( const bool bMultiplayerGame ) const 
 { 
 	return EST_BOTH == eStatType || (bMultiplayerGame ? EST_MULTIPLAYER == eStatType : EST_SINGLEPLAYER == eStatType); 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//	SPlayerStatInfo
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::wstring CInterfaceStats::SPlayerStatInfo::GetValueToSort( const SStatConfugure &config ) const
 {
 	return NStr::ToUnicode( NStr::Format( "%d", int(fVal[config.nIndexToCountBest])) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::wstring CInterfaceStats::SPlayerStatInfo::GetValue( const SStatConfugure &config ) const
 {
 	if ( E_BEST_NO_PLAYER_DISPLAY == config.eAccumulateType )
@@ -227,13 +184,11 @@ std::wstring CInterfaceStats::SPlayerStatInfo::GetValue( const SStatConfugure &c
 	}
 	if ( config.eType[1] != -1 )
 	{
-		// 2 values at 1 a string
 		return NStr::ToUnicode( NStr::Format( "%d(%d)", int(fVal[0]), int(fVal[1]) ) );
 	}
 	else
 		return NStr::ToUnicode( NStr::Format( "%d", int(fVal[0]) ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceStats::SPlayerStatInfo::Init( const CPlayerFullInfo &playerInfo, const CInterfaceStats::SStatConfugure &config)
 {
 	for ( int i = 0; i < 2; ++i )
@@ -246,28 +201,19 @@ void CInterfaceStats::SPlayerStatInfo::Init( const CPlayerFullInfo &playerInfo, 
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//	CInterfaceStats::SPartyInfo::
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::wstring CInterfaceStats::SPartyInfo::GetValForSort( const SStatConfugure &config ) const
 {
-	//CHEAT - we return best value for party to allow it to be always sorted first.
 	return NStr::ToUnicode( NStr::Format( "%d", int(fVal[config.nIndexToCountBest]) ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 std::wstring CInterfaceStats::SPartyInfo::GetPartyVal( const SStatConfugure &config ) const 
 { 
 	if ( config.eType[1] != -1 )
 	{
-		// 2 values at 1 a string
 		return NStr::ToUnicode( NStr::Format( "%d(%d)", int(fVal[0]), int(fVal[1]) ) );
 	}
 	else
 		return NStr::ToUnicode( NStr::Format( "%d", int(fVal[0]) ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceStats::SPartyInfo::Init( const CInterfaceStats::CPlayersFullInformation &info, const CInterfaceStats::SStatConfugure &config )
 {
 	fVal[0] = fVal[1] = 0;
@@ -300,7 +246,6 @@ void CInterfaceStats::SPartyInfo::Init( const CInterfaceStats::CPlayersFullInfor
 
 				if ( i == config.nIndexToCountBest )
 				{
-					// check best index
 					if ( (config.bLeaderIsGreatest ? fCurrentVal > fBestVal[i] : fCurrentVal < fBestVal[i]) ||
 								nBestIndex < 0 )
 					{
@@ -312,21 +257,17 @@ void CInterfaceStats::SPartyInfo::Init( const CInterfaceStats::CPlayersFullInfor
 		}
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CInterfaceStats::~CInterfaceStats()
 {
 
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceStats::Init()
 {
 	CInterfaceInterMission::Init();
-	//	SetBindSection( "intermission" );
 
 	bTutorialWindow = false;
 	return true;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceStats::Done()
 {
 	CInterfaceInterMission::Done();
@@ -341,7 +282,6 @@ void CInterfaceStats::Done()
 		RegisterSingleton( ITransceiver::tidTypeID, pTrans );
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceStats::FillCommonStatsList( const bool bMultiplayer, const CInterfaceStats::CCommonStats &commonStats )
 {
 	IUIListControl *pList = checked_cast<IUIListControl*>( pUIScreen->GetChildByID( bMultiplayer ? E_COMMON_STATS_LIST_MP : E_COMMON_STATS_LIST_SP ) );
@@ -372,12 +312,10 @@ void CInterfaceStats::FillCommonStatsList( const bool bMultiplayer, const CInter
 	pList->InitialUpdate();
 	
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceStats::InitSorter()
 {
 	pSorter = new CSorter;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceStats::AquireLists()
 {
 	const bool bMultiplayer = GetGlobalVar( "MultiplayerGame", 0 );
@@ -387,37 +325,27 @@ void CInterfaceStats::AquireLists()
 	pPartyList[0]->InitialUpdate();
 	pPartyList[1] = checked_cast< IUIListControl *> ( pUIScreen->GetChildByID( bMultiplayer ? E_ENEMY_LIST_MP : E_ENEMY_LIST_SP ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceStats::RepositionList()
 {
 	const bool bMultiplayer = GetGlobalVar( "MultiplayerGame", 0 );
 	AquireLists();
-	// summary party's info
 	std::vector< std::vector<SPartyInfo> > partyInfo(2);
 	
-	// ToDo
-	// resize and reposition lists according to partys size
 
-	// create common statistics,
 	CCommonStats commonStats;
 	commonStats.Init( playerInfos[0].empty() ? playerInfos[1][0] : playerInfos[0][0] );		// it doesn't matter what player to use in MP, in SP we must use local. [0][0] will fit
 	FillCommonStatsList( bMultiplayer, commonStats );
 
-	// for counting every player (16 is maximum)
 	std::vector< std::vector<SPlayerStatInfo> > playerStat( playerInfos[0].size() + playerInfos[1].size() );
 	const int nPlayersIn0Party = playerInfos[0].size();
 
-	// calcualte statistics
 	for ( int nParty = 0; nParty < 2; ++nParty )
 	{
-		//partyInfo[nParty].resize( playerStatsConfigure.size() );
 		for ( int nStatFeild = 0; nStatFeild < playerStatsConfigure.size(); ++nStatFeild )
 		{
 			partyInfo[nParty].push_back( SPartyInfo() );
-			//party
 			partyInfo[nParty][nStatFeild].Init( playerInfos[nParty], playerStatsConfigure[nStatFeild] );
 		
-			// players
 			for ( int nPlayer = 0; nPlayer < playerInfos[nParty].size(); ++nPlayer )
 			{
 				playerStat[nPlayer + (nParty == 1 ? nPlayersIn0Party : 0 )].resize( playerStatsConfigure.size() ); // not nice, but will work
@@ -437,26 +365,21 @@ void CInterfaceStats::RepositionList()
 		
 		pList->ShowWindow( UI_SW_SHOW );
 		
-		// PARTY
 		{
 			pList->AddItem( 0 );
 		
-			// fill party name
 			const int nRowID = pList->GetItemByID( 0 );
 			IUIListRow * pRow = pList->GetItem( nRowID );
 			const IText * pSideName = playerInfos[nParty][0].first->GetSideName();
 			IUIElement * pPartyName = checked_cast<IUIContainer*>(pRow->GetElement( 0 ))->GetChildByID( E_PARTY_NAME );
 			pPartyName->SetWindowText( 0, pSideName->GetString() );
 			
-			// fill party's values
 			int nIndex = 1;	// +1 because of party's name
 			for ( int nStatFeild = 0; nStatFeild < playerStatsConfigure.size(); ++nStatFeild )
 			{
 				if ( playerStatsConfigure[nStatFeild].IsToDisplay( bMultiplayer ) )
 				{
 					pList->SetSortFunctor( nIndex, pSorter );
-					//representing double values as dialog with invisible text that is to sort
-					//by and with visible static with visible string.
 					IUIContainer * pElement = checked_cast<IUIContainer*>( pRow->GetElement( nIndex++ ) ); 
 					pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( partyInfo[nParty][nStatFeild].GetValForSort( playerStatsConfigure[nStatFeild] ).c_str() ) );
 					IUIElement * pActualText = pElement->GetChildByID( E_ACTUAL_TEXT_ID_PARTY );
@@ -467,19 +390,15 @@ void CInterfaceStats::RepositionList()
 			}
 		}
 		
-		// PLAYERS
 		const bool bDisplayStar = playerInfos[1].size() + playerInfos[0].size() > 1 ; // only if more than 1 playe exists
 		{
-			//fill player's values
 			for ( int nPlayer = 0; nPlayer < playersInfo.size(); ++nPlayer )
 			{
-				// player name
 				pList->AddItem( nPlayer + 1 );
 				const int nRowID = pList->GetItemByID( nPlayer + 1 );
 				IUIListRow * pRow = pList->GetItem( nRowID );
 				pRow->GetElement( 0 )->SetWindowText( 0, reinterpret_cast<const WORD*>( playersInfo[nPlayer].first->GetName().c_str() ) );
 				pRow->GetElement( 0 )->EnableWindow( false );
-				// player values
 				int nIndex = 1;	// +1 because of party's name
 				for ( int nStatFeild = 0; nStatFeild < playerStatsConfigure.size(); ++nStatFeild )
 				{
@@ -490,7 +409,6 @@ void CInterfaceStats::RepositionList()
 						const SPlayerStatInfo  &curPlayerStat = playerStat[nPlayer + (nParty == 1 ? nPlayersIn0Party : 0 )][nStatFeild];
 												
 						IUIContainer * pElement = checked_cast<IUIContainer*>( pRow->GetElement( nIndex++ ) ); 
-						// set text for sorting
 						pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( curPlayerStat.GetValueToSort( curConfigure ).c_str() ) );
 						IUIElement * pActualText = pElement->GetChildByID( E_ACTUAL_TEXT_ID );
 						pActualText->SetWindowText( 0, reinterpret_cast<const WORD*>( curPlayerStat.GetValue( curConfigure ).c_str() ) );
@@ -515,9 +433,6 @@ void CInterfaceStats::RepositionList()
 				}
 			}
 		}
-		// 
-		// resort list according to kills.
-		// remove all but 4 best players
 		pList->Sort( 1, -1 );
 		while( pList->GetNumberOfItems() > 5 )
 		{
@@ -526,7 +441,6 @@ void CInterfaceStats::RepositionList()
 		pList->InitialUpdate();
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceStats::CollectPlayerStats( interface IPlayerScenarioInfo *pPlayer, interface IScenarioStatistics *pStats )
 {
 	const int nParty = pPlayer->GetDiplomacySide();
@@ -535,10 +449,8 @@ void CInterfaceStats::CollectPlayerStats( interface IPlayerScenarioInfo *pPlayer
 	
 	playerInfos[nParty].push_back( CPlayerFullInfo( pPlayer, pStats ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceStats::Create( const int /*EStatsComplexity*/ nStatsType )
 {
-	// prepare party's info
 	playerStatsConfigure.push_back( SStatConfugure( EST_BOTH,					E_SUMMARY,									STMT_ENEMY_KILLED,							STMT_ENEMY_KILLED_AI_PRICE, 0, true ) );
 	playerStatsConfigure.push_back( SStatConfugure( EST_BOTH,					E_SUMMARY,									STMT_FRIENDLY_KILLED,						STMT_FRIENDLY_KILLED_AI_PRICE, 0, false ) );
 	playerStatsConfigure.push_back( SStatConfugure( EST_BOTH,					E_SUMMARY,									STMT_ENEMY_MACHINERY_CAPTURED,	-1, 0, true ) );
@@ -567,18 +479,14 @@ void CInterfaceStats::Create( const int /*EStatsComplexity*/ nStatsType )
 			break;
 
 		case STATS_COMPLEXITY_CHAPTER:
-			//установим текст заголовка
 			p2 = pTM->GetString( "imheader-stats-header" );
 			break;
 
 		case STATS_COMPLEXITY_MISSION:
 			{
-				// task: #4754: remove replay from stats in single player 
-				//установим текст заголовка
 				p2 = pTM->GetString( "imheader-stats-mission-header" );
 				if ( GetGlobalVar("MultiplayerGame", 0) == 1 && GetGlobalVar("History.Playing", 0) != 1 )
 				{
-					//отобразим кнопочку Save Replay
 					IUIElement *pSaveReplayButton = pUIScreen->GetChildByID( 10003 );
 					pSaveReplayButton->ShowWindow( UI_SW_SHOW );
 				}
@@ -617,18 +525,15 @@ void CInterfaceStats::Create( const int /*EStatsComplexity*/ nStatsType )
 	
 
 	RepositionList();
-	// for MP and SP back button hase different tooltips
 	
 	pUIScreen->Reposition( pGFX->GetScreenRect() );
 	if ( GetGlobalVar( "MultiplayerGame", 0 ) )
 	{
 		StoreScreen();
-		//запустим межмиссионную музыку
 		CInterfaceMainMenu::PlayIntermissionSound();
 	}
 	pScene->AddUIScreen( pUIScreen );
 
-	//сбрасываем переменные
 	bStatsShown = false;
 	nMedalIterator = 0;
 	bUpgradesShown = false;
@@ -639,7 +544,6 @@ void CInterfaceStats::Create( const int /*EStatsComplexity*/ nStatsType )
 	bTutorialWindow = false;
 	
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceStats::OnGetFocus( bool bFocus )
 {
 	CInterfaceScreenBase::OnGetFocus( bFocus );
@@ -648,7 +552,6 @@ void CInterfaceStats::OnGetFocus( bool bFocus )
 		bPopupsShowed = true;
 	}
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterfaceStats::ProcessMessage( const SGameMessage &msg )
 {
 	if ( msg.nEventID == TUTORIAL_WINDOW_ID )
@@ -678,8 +581,6 @@ bool CInterfaceStats::ProcessMessage( const SGameMessage &msg )
 			}
 			else if ( GetGlobalVar( "History.Playing", 0 ) > 0 )
 			{
-				//перейдем в экран просмотра replays
-				// чтобы второй раз не было открытия и закрытия шторок
 				SetGlobalVar( "CurtainsClosed", 1 );
 				IMainLoop * pML = GetSingleton<IMainLoop>();
 
@@ -695,8 +596,6 @@ bool CInterfaceStats::ProcessMessage( const SGameMessage &msg )
 			{
 				if ( GetGlobalVar( "MultiplayerGame", 0 ) )
 				{
-					//если эта переменная > 0, то мы находимся в multiplayer режиме
-					//выходим в окошко со списком multiplayer games
 					if ( GetSingleton<IMPToUICommandManager>()->GetConnectionType() == EMCT_INTERNET )
 						FinishInterface( MISSION_COMMAND_ADDRESS_BOOK, 0 );
 					else
@@ -721,10 +620,8 @@ bool CInterfaceStats::ProcessMessage( const SGameMessage &msg )
 			return true;
 	}
 	
-	//
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterfaceStats::OnDemoversionExit()
 {
 	const bool bWin = GetGlobalVar( "demoversion.Win", 0 );

@@ -1,24 +1,20 @@
 #if !defined(__Registry__Types__)
 #define __Registry__Types__
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRegistrySection
 {
   protected:
 	HKEY hRegistrySection;
 
   public:
-  //Constructor
   CRegistrySection( HKEY hKey, REGSAM samDesired, LPCTSTR pszRegistrySection );
   ~CRegistrySection();
 
-  //STL строка
 	LONG LoadString( LPCTSTR pszRegistryKey, std::string *pszLoadValue, const std::string &rszDefaultValue ) const;
   LONG SaveString( LPCTSTR pszRegistryKey, const std::string &szSaveValue ) const;
  
 	bool IsValid() { return ( hRegistrySection != 0 ); }
 	
-	//Любое число ( сохраняется в виде строки "%g" )
 	template<class Type>
 	LONG LoadNumber( LPCTSTR pszRegistryKey, LPCTSTR pszMask, Type *pLoadValue, const Type rDefaultValue ) const
 	{
@@ -51,7 +47,6 @@ class CRegistrySection
 		return SaveString( pszRegistryKey, szBuffer );
 	}
 
-  //CTRect<Type>
 	template<class Type>
 	LONG LoadRect( LPCTSTR pszRegistryKey, LPCTSTR pszMask, CTRect<Type> *pLoadValue, const CTRect<Type> &rDefaultValue ) const
 	{
@@ -90,7 +85,6 @@ class CRegistrySection
 		return SaveString( pszRegistryKey, szBuffer );
 	}
 };
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif //#if !defined(__Registry__Types__)
 
 

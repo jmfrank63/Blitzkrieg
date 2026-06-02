@@ -16,13 +16,11 @@ CUIWindowSubStateManipulator::CUIWindowSubStateManipulator()
 : CManipulator( &thePropertiesRegister, "WindowSubState" ), pSubState( 0 )
 {
 	BEGIN_PROPERTIES_MAP( CUIWindowSubState );
-	// fill properties
 	AddNewProperty( this, "Pos.X", &CUIWindowSubStateManipulator::SetMapPosX, &CUIWindowSubStateManipulator::GetMapPosX, SPropertyDesc::VAL_INT, SBaseProperty::LEAF );
 	AddNewProperty( this, "Pos.Y", &CUIWindowSubStateManipulator::SetMapPosY, &CUIWindowSubStateManipulator::GetMapPosY, SPropertyDesc::VAL_INT, SBaseProperty::LEAF );
 	AddNewProperty( this, "Size.X", &CUIWindowSubStateManipulator::SetMapSizeX, &CUIWindowSubStateManipulator::GetMapSizeX, SPropertyDesc::VAL_INT, SBaseProperty::LEAF );
 	AddNewProperty( this, "Size.Y", &CUIWindowSubStateManipulator::SetMapSizeY, &CUIWindowSubStateManipulator::GetMapSizeY, SPropertyDesc::VAL_INT, SBaseProperty::LEAF );
 	AddNewProperty( this, "Texture", &CUIWindowSubStateManipulator::SetTexture, &CUIWindowSubStateManipulator::GetTexture, SPropertyDesc::VAL_BROWSEFILE, SBaseProperty::LEAF );
-	//
 	END_PROPERTIES_MAP;
 }
 
@@ -131,12 +129,10 @@ CWindowStateManipulator::CWindowStateManipulator()
 : CManipulator( &thePropertiesRegister, "WindowState" ), pState( 0 )
 {
 	BEGIN_PROPERTIES_MAP( CWindowState );
-	// fill properties
 	AddNewProperty( this, "SubStates", CWindowStateProperty::SETFUNCTION(0), &CWindowStateManipulator::GetTexture, SPropertyDesc::VAL_BROWSEFILE, SBaseProperty::VECTOR );
 	AddNewProperty( this, "Push sound", &CWindowStateManipulator::SetPushSound, &CWindowStateManipulator::GetPushSound, SPropertyDesc::VAL_BROWSEFILE, SBaseProperty::LEAF );
 	AddNewProperty( this, "Click sound", &CWindowStateManipulator::SetClickSound, &CWindowStateManipulator::GetClickSound, SPropertyDesc::VAL_BROWSEFILE, SBaseProperty::LEAF );
 	AddNewProperty( this, "Text", &CWindowStateManipulator::SetText, &CWindowStateManipulator::GetText, SPropertyDesc::VAL_COMBO, SBaseProperty::LEAF );
-	//
 	END_PROPERTIES_MAP;
 }
 

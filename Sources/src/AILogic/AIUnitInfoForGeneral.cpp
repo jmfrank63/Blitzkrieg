@@ -5,17 +5,10 @@
 #include "Diplomacy.h"
 #include "General.h"
 #include "SerializeOwner.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 extern NTimer::STime curTime;
 extern CDiplomacy theDipl;
 extern CSupremeBeing theSupremeBeing;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*											CAIUnitInfoForGeneral												*
-//*******************************************************************
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 BASIC_REGISTER_CLASS( CAIUnitInfoForGeneral );
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 CAIUnitInfoForGeneral::CAIUnitInfoForGeneral( CAIUnit *_pOwner )
 : pOwner( _pOwner ),
 	lastVisibleTime( 0 ), vLastVisiblePosition( VNULL2 ),
@@ -24,10 +17,8 @@ CAIUnitInfoForGeneral::CAIUnitInfoForGeneral( CAIUnit *_pOwner )
 {
 	nextTimeToReportGeneral = curTime + Random( 2000, 5000 );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIUnitInfoForGeneral::Segment()
 {
-	// если это юнит не управляемый AI и пришло время рассказать генералу о своём состоянии
 	if ( curTime >= nextTimeToReportGeneral && theDipl.GetNeutralPlayer() != pOwner->GetPlayer() )
 	{
 		nextTimeToReportGeneral = curTime + Random( 2000, 5000 );
@@ -46,13 +37,11 @@ void CAIUnitInfoForGeneral::Segment()
 		);
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIUnitInfoForGeneral::UpdateVisibility( bool bVisible )
 {
 	lastVisibleTime = curTime;
 	vLastVisiblePosition = pOwner->GetCenter();
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIUnitInfoForGeneral::UpdateAntiArtFire( const NTimer::STime lastHeardTime, const CVec2 &vAntiArtCenter )
 {
 	if ( curTime - lastHeardTime <= 1000 && lastHeardTime != 0 )
@@ -62,12 +51,10 @@ void CAIUnitInfoForGeneral::UpdateAntiArtFire( const NTimer::STime lastHeardTime
 		fDistToLastVisibleAntiArt = fabs( vAntiArtCenter - pOwner->GetCenter() );
 	}
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIUnitInfoForGeneral::Die()
 {
 	theSupremeBeing.UnitDied( this );
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int CAIUnitInfoForGeneral::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -83,4 +70,3 @@ int CAIUnitInfoForGeneral::operator&( IStructureSaver &ss )
 
 	return 0;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

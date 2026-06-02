@@ -1,23 +1,12 @@
 #ifndef _AI_TYPES_H__
 #define _AI_TYPES_H__
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma ONCE
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ************************************************************************************************************************ //
-// **
-// ** diplomacy info
-// **
-// **
-// **
-// ************************************************************************************************************************ //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 enum EDiplomacyInfo
 {
 	EDI_ENEMY		=	0x01,
 	EDI_FRIEND	=	0x02,
 	EDI_NEUTRAL = 0x04
 };
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma pack( 1 )
 struct SSegment2Trench
 {
@@ -32,11 +21,9 @@ struct SSoldier2Formation
 	IRefCount *pSoldier;
 	IRefCount *pFormation;
 
-	//
 	SSoldier2Formation() : pSoldier( 0 ), pFormation( 0 ) { }
 	SSoldier2Formation( IRefCount *_pSoldier, IRefCount *_pFormation ) : pSoldier( _pSoldier ), pFormation( _pFormation ) { }
 };
-// tile visibility update
 struct SAIVisInfo
 {
 	DWORD x : 14;													// x coord
@@ -74,11 +61,9 @@ struct SShootArea
 	CVec3 vCenter3D;
 	float fMinR, fMaxR;
 
-	// углы задают конус стрельбы - против часовой стрелки
 	WORD wStartAngle;
 	WORD wFinishAngle;
 	
-	//
 	SShootArea()
 		: vCenter3D( VNULL3 ), fMinR( 0.0f ), fMaxR( 0.0f ), 
 			wStartAngle( 65535 ), wFinishAngle( 65535 ), eType( ESAT_LINE ) { }
@@ -107,7 +92,6 @@ struct SShootArea
 
 struct SShootAreas
 {
-	// выводить - последовательно, накладывая друг на друга, сначала areas[0], потом areas[1] и т.д.
 	std::list<SShootArea> areas;
 
 	virtual int STDCALL operator&( interface IStructureSaver &ss )
@@ -118,5 +102,4 @@ struct SShootAreas
 	}
 };
 #pragma pack()
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // _AI_TYPES_H__

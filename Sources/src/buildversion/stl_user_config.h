@@ -26,10 +26,6 @@
  */
 
 
-//==========================================================
-// User-settable macros that control compilation:
-//              Features selection
-//==========================================================
 
 /* __STL_NO_SGI_IOSTREAMS: 
  *
@@ -56,13 +52,11 @@
  * Hint : In VC++ 6.x, they are not.
  */
 
-// #define   __STL_NO_NEW_IOSTREAMS	1
 
 /*
  * Use this switch for embedded systems where no iostreams are available
  * at all. SGI iostreams will get disabled automatically then.
  */
-// # define __STL_NO_IOSTREAMS 1
 
 /* 
  * Set __STL_DEBUG to turn the "Debug Mode" on.
@@ -86,8 +80,6 @@
  * However, if this is the case, uncomment second line.
  */
 
-// # define __STL_NO_PROXY_ARROW_OPERATOR 1
-// # define __STL_NO_AUTO_PTR_PROXY_ARROW_OPERATOR 1
 
 
 /*
@@ -95,7 +87,6 @@
  * to _STL::. If you don't want this feature, or if it does not quite work for your
  * compiler, please define the following switch :
  */
-// # define __STL_DONT_REDEFINE_STD 1
 
 /* 
  * Edit relative path below (or put full path) to get native 
@@ -104,14 +95,6 @@
  * it may make sense to override in local stl_user_config.h only. 
  * Hint : never install STLport in the directory that ends with "include"
  */
-// #  undef __STL_NATIVE_INCLUDE_PATH
-// #  define __STL_NATIVE_INCLUDE_PATH ../include
-// same for C library headers like <cstring>
-// #  undef __STL_NATIVE_CPP_C_INCLUDE_PATH
-// #  define __STL_NATIVE_CPP_C_INCLUDE_PATH ../include
-// same for C headers like <string.h>
-// #  undef __STL_NATIVE_C_INCLUDE_PATH
-// #  define __STL_NATIVE_C_INCLUDE_PATH ../include
 
 
 /* 
@@ -123,7 +106,6 @@
  * For now, to get them not defined, define __STL_USE_SEPARATE_RELOPS_NAMESPACE. 
  */
 
-// #define __STL_NO_RELOPS_NAMESPACE 1
 
 /*
  * Use this option to catch uninitialized members in your classes.
@@ -147,21 +129,16 @@
 #define __STL_SHRED_BYTE 0xCD
 #endif // defined(_DEBUG) && !defined(_STL_FAST_DEBUG)
 
-//==========================================================
-// Compatibility section
-//==========================================================
 
 /*
  *  Define this macro to disable anachronistic constructs (like the ones used in HP STL and
  *  not included in final standard 
  */
-// define __STL_NO_ANACHRONISMS 1
 
 /*
  *  Define this macro to disable SGI/STLport extensions (for example, to make sure your code will 
  *  compile with some other implementation )
  */
-// define __STL_NO_EXTENSIONS   1
 
 /*
  * Use obsolete overloaded template functions iterator_category(), value_type(), distance_type()
@@ -172,8 +149,6 @@
  * please use public inheritance from iterator<> template to achieve desired effect. 
  * Second form is to disable old-style queries in any case.
  */
-// # define __STL_USE_OLD_HP_ITERATOR_QUERIES
-// # define __STL_NO_OLD_HP_ITERATOR_QUERIES
 
 /* 
  * You should define this macro if compiling with MFC - STLport <stl/_config.h>
@@ -181,7 +156,6 @@
  *
  */
 
-// # define __STL_USE_MFC 1
 
 /*
  * Use minimum set of default arguments on template classes that have more
@@ -194,7 +168,6 @@
  * queue<>, priority_queue<>, stack<>, istream_iterator<>
  */
 
-// # define __STL_MINIMUM_DEFAULT_TEMPLATE_PARAMS 1
 
 
 /* 
@@ -209,7 +182,6 @@
  * (better) defined __STL_USE_OWN_NAMESPACE
  */
 
-// #define  __STL_USE_SGI_STRING  1
 
 /*
  * __STL_WHOLE_NATIVE_STD : only meaningful in __STL_USE_OWN_NAMESPACE mode.
@@ -222,12 +194,7 @@
  * Otherwise this option is not recommended as it increases the size of your object files
  * and slows down compilation.
  */
-// # define __STL_WHOLE_NATIVE_STD
-
-//==========================================================
 
 
 
-// Local Variables:
-// mode:C++
-// End:
+

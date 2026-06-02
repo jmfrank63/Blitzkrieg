@@ -6,11 +6,6 @@
 #include "..\StreamIO\StreamIOHelper.h"
 #include "..\StreamIO\StreamIOTypes.h"
 #include "MultiplayerConsts.h"
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 								   SServerInfo																*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SServerInfo::SServerInfo( const SGameInfo &gameInfo )
 {
 	szGameName = gameInfo.szGameName;
@@ -24,7 +19,6 @@ SServerInfo::SServerInfo( const SGameInfo &gameInfo )
 	szModName = gameInfo.szModName;
 	szModVersion = gameInfo.szModVersion;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SServerInfo::operator==( const SServerInfo &info ) const
 {
 	if ( pAddress == 0 && info.pAddress == 0 )
@@ -36,7 +30,6 @@ bool SServerInfo::operator==( const SServerInfo &info ) const
 			nCurPlayers == info.nCurPlayers && fPing == info.fPing && bPasswordRequired == info.bPasswordRequired &&
 			szModName == info.szModName && szModVersion == info.szModVersion && gameSettings == info.gameSettings;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SServerInfo::Pack( INetDriver::SGameInfo *pGameInfo )
 {
 	std::string szGameType;
@@ -79,7 +72,6 @@ void SServerInfo::Pack( INetDriver::SGameInfo *pGameInfo )
 	pGameInfo->pGameSettings = CreateObject<IDataStream>( STREAMIO_MEMORY_STREAM );
 	gameSettings.Pack( pGameInfo->pGameSettings );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SServerInfo::Unpack( const INetDriver::SGameInfo &gameInfo )
 {
 	switch ( gameInfo.eGameMode )
@@ -99,7 +91,6 @@ void SServerInfo::Unpack( const INetDriver::SGameInfo &gameInfo )
 	else
 	{
 		eGameType = CMapInfo::TYPE_SABOTAGE;
-//		NI_ASSERT_T( false, "Unknown game type" );
 	}
 
 	nCurPlayers = gameInfo.nCurPlayers;
@@ -115,27 +106,16 @@ void SServerInfo::Unpack( const INetDriver::SGameInfo &gameInfo )
 	gameInfo.pGameSettings->Seek( 0, STREAM_SEEK_SET );
 	gameSettings.Unpack( gameInfo.pGameSettings );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 										SPlayerInfo																*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SPlayerInfo::Pack( IDataStream *pDataStream )
 {
 	CStreamAccessor stream = pDataStream;
 	stream << nLogicID << nSide << bReady << fPing << szName << cMapLoadProgress;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SPlayerInfo::Unpack( IDataStream *pDataStream )
 {
 	CStreamAccessor stream = pDataStream;
 	stream >> nLogicID >> nSide >> bReady >> fPing >> szName >> cMapLoadProgress;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//*******************************************************************
-//*		 										SGameInfo																	*
-//*******************************************************************
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SGameInfo::Pack( IDataStream *pDataStream )
 {
 	CStreamAccessor stream = pDataStream;
@@ -143,7 +123,6 @@ void SGameInfo::Pack( IDataStream *pDataStream )
 	gameSettings.Pack( pDataStream );
 	stream << checkSumMap << checkSumRes << bPasswordRequired << szPassword << szModName << szModVersion;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SGameInfo::Unpack( IDataStream *pDataStream )
 {
 	CStreamAccessor stream = pDataStream;
@@ -151,4 +130,3 @@ void SGameInfo::Unpack( IDataStream *pDataStream )
 	gameSettings.Unpack( pDataStream );
 	stream >> checkSumMap >> checkSumRes >> bPasswordRequired >> szPassword >> szModName >> szModVersion;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

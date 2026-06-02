@@ -4,10 +4,8 @@
 #include "MultiplayerCommandManager.h"
 #include "..\UI\UIMessages.h"
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CChatWrapper::AddMessageToChat( const struct SChatMessage *pChatMessage )
 {
-	// with default text color
 	std::wstring szName = pChatMessage->szPlayerName;
 	if ( pChatMessage->bWhisper )
 	{
@@ -18,7 +16,6 @@ void CChatWrapper::AddMessageToChat( const struct SChatMessage *pChatMessage )
 	szName += L":";
 	pChatText->AppendMessage( reinterpret_cast<const WORD*>( szName.c_str() ), reinterpret_cast<const WORD*>( pChatMessage->szMessageText.c_str() ) );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CChatWrapper::AddEditBoxText( const bool bWhisper )
 {
 	std::wstring wszTextTmp = MakeWideStringFromWordString( pChatEdit->GetWindowText( 0 ) );
@@ -34,7 +31,6 @@ void CChatWrapper::AddEditBoxText( const bool bWhisper )
 		
 		if ( !wszText.empty() )
 		{
-			// add editbox text to chat
 			CPtr<SChatMessage> pChatMessage = new SChatMessage( 
 				reinterpret_cast<const WORD*>( wszText.c_str() ), ( bWhisper ? pWhisper->GetDestinationName(): reinterpret_cast<const WORD*>(L"") ), bWhisper );
 			pCommandManager->AddChatMessageFromUI( pChatMessage );
@@ -42,14 +38,11 @@ void CChatWrapper::AddEditBoxText( const bool bWhisper )
 		}
 	}
 }		
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CChatWrapper::ClearEditBoxText()
 {
-		// clear editbox text
 	pChatEdit->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
 	pChatEdit->SetFocus( true );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CChatWrapper::Init( IUIColorTextScroll * _pChatText,
 							IUIEditBox * _pChatEdit,
 							const int _nWhisperButton,
@@ -62,12 +55,10 @@ void CChatWrapper::Init( IUIColorTextScroll * _pChatText,
 	nWhisperButton = _nWhisperButton;
 	pWhisper =_pWhisper;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void CChatWrapper::AddImportantText( const WORD *wszMessage )
 {
 	pChatText->AppendMessage( 0, wszMessage, IUIColorTextScroll::E_COLOR_IMPORTANT );
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CChatWrapper::ProcessMessage( const SGameMessage &msg )
 {
 	if ( msg.nEventID == nWhisperButton )
@@ -86,7 +77,6 @@ bool CChatWrapper::ProcessMessage( const SGameMessage &msg )
 
 			return true;
 		case UI_NOTIFY_EDIT_BOX_ESCAPE:
-			// if text is empty, do not process this message.
 			if ( MakeWideStringFromWordString( pChatEdit->GetWindowText( 0 ) ).empty() )
 				return false;
 
@@ -96,4 +86,3 @@ bool CChatWrapper::ProcessMessage( const SGameMessage &msg )
 	}
 	return false;
 }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

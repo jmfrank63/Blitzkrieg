@@ -1,6 +1,3 @@
-// Effects.h: interface for the CEffects class.
-//
-//////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_EFFECTS_H__6B78587C_177D_49D3_84E2_A3E0734C01F2__INCLUDED_)
 #define AFX_EFFECTS_H__6B78587C_177D_49D3_84E2_A3E0734C01F2__INCLUDED_
@@ -11,7 +8,6 @@
 
 #include "InterfaceBase.h"
 
-/////////////////////////////////////////////////////////////////////////////
 class CEffectMoveTo : public IUIEffector  
 {
 	
@@ -21,5 +17,4 @@ public:
 	virtual ~CEffectMoveTo();
 
 };
-/////////////////////////////////////////////////////////////////////////////
 #endif // !defined(AFX_EFFECTS_H__6B78587C_177D_49D3_84E2_A3E0734C01F2__INCLUDED_)
