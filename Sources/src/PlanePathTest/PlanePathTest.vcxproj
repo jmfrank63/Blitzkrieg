@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -189,9 +189,6 @@
     <CustomBuild Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\BugSlay\BugSlay.vcxproj">
-      <Project>{d152ba5b-15d9-e2cf-0c51-e23be879c2bf}</Project>
-    </ProjectReference>
     <ProjectReference Include="..\AILogic\AILogic.vcxproj">
       <Project>{CBDE2856-13C7-48D1-89C6-6DB46E375CAC}</Project>
     </ProjectReference>

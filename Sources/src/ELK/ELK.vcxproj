@@ -136,7 +136,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\FastDebug\ELK.exe</OutputFile>
-      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;htmlhelp.lib;odbc32.lib;odbccp32.lib;legacy_stdio_definitions.lib;version.lib;winmm.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;htmlhelp.lib;odbc32.lib;odbccp32.lib;legacy_stdio_definitions.lib;version.lib;winmm.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
@@ -184,7 +184,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\ELK.exe</OutputFile>
-      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;htmlhelp.lib;odbc32.lib;odbccp32.lib;legacy_stdio_definitions.lib;version.lib;winmm.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;htmlhelp.lib;odbc32.lib;odbccp32.lib;legacy_stdio_definitions.lib;version.lib;winmm.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
@@ -228,7 +228,7 @@
       <AdditionalLibraryDirectories>..\\..\\sdk\\STINGRAY\\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Release\ELK.exe</OutputFile>
-      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;htmlhelp.lib;odbc32.lib;odbccp32.lib;legacy_stdio_definitions.lib;version.lib;winmm.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;htmlhelp.lib;odbc32.lib;odbccp32.lib;legacy_stdio_definitions.lib;version.lib;winmm.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
@@ -273,7 +273,7 @@
       <AdditionalLibraryDirectories>..\\..\\sdk\\STINGRAY\\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\BetaRelease\ELK.exe</OutputFile>
-      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;htmlhelp.lib;odbc32.lib;odbccp32.lib;legacy_stdio_definitions.lib;version.lib;winmm.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;htmlhelp.lib;odbc32.lib;odbccp32.lib;legacy_stdio_definitions.lib;version.lib;winmm.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
@@ -428,10 +428,6 @@
     </ProjectReference>
     <ProjectReference Include="..\\Formats\\Formats.vcxproj">
       <Project>{F5769B94-C7AD-7479-611B-746B581FB65E}</Project>
-      <LinkLibraryDependencies>false</LinkLibraryDependencies>
-    </ProjectReference>
-    <ProjectReference Include="..\\BugSlay\\BugSlay.vcxproj">
-      <Project>{E3B96FFE-E10B-B318-3C7B-C15EBE685889}</Project>
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
     </ProjectReference>
   </ItemGroup>

@@ -1,0 +1,87 @@
+{
+  "configurations": [
+    {
+      "name": "Win32-Debug",
+      "includePath": [
+        "${workspaceFolder}/Sources/sdk/stlport",
+        "${workspaceFolder}/Sources/sdk/FMOD/api/inc",
+        "${workspaceFolder}/Sources/sdk/BINK",
+        "${workspaceFolder}/Sources/sdk/STINGRAY/Include",
+        "${workspaceFolder}/Sources/sdk/STINGRAY/Include/Toolkit",
+        "${workspaceFolder}/Sources/sdk/STINGRAY/Regex/Include",
+        "${workspaceFolder}/Sources/sdk/S3TC",
+        "${workspaceFolder}/Sources/sdk/MAYA40/include",
+        "${workspaceFolder}/Sources/sdk/GOLDParser",
+        "${workspaceFolder}/Sources/src/**",
+        "${vcToolsInstallDir}/include",
+        "${WindowsSdkDir}/Include/${WindowsSDKVersion}/um",
+        "${WindowsSdkDir}/Include/${WindowsSDKVersion}/ucrt",
+        "${WindowsSdkDir}/Include/${WindowsSDKVersion}/shared"
+      ],
+      "defines": [
+        "WIN32",
+        "_WINDOWS",
+        "_DEBUG",
+        "_MBCS",
+        "WINVER=0x0A00",
+        "_WIN32_WINNT=0x0A00",
+        "NTDDI_VERSION=0x0A000000",
+        "_WINSOCK_DEPRECATED_NO_WARNINGS"
+      ],
+      "windowsSdkVersion": "10.0.22621.0",
+      "compilerPath": "C:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x86/cl.exe",
+      "cStandard": "c11",
+      "cppStandard": "c++98",
+      "intelliSenseMode": "windows-msvc-x86",
+      "browse": {
+        "path": [
+          "${workspaceFolder}/Sources/sdk",
+          "${workspaceFolder}/Sources/src"
+        ],
+        "limitSymbolsToIncludedHeaders": true
+      }
+    },
+    {
+      "name": "Win32-Release",
+      "includePath": [
+        "${workspaceFolder}/Sources/sdk/stlport",
+        "${workspaceFolder}/Sources/sdk/FMOD/api/inc",
+        "${workspaceFolder}/Sources/sdk/BINK",
+        "${workspaceFolder}/Sources/sdk/STINGRAY/Include",
+        "${workspaceFolder}/Sources/sdk/STINGRAY/Include/Toolkit",
+        "${workspaceFolder}/Sources/sdk/STINGRAY/Regex/Include",
+        "${workspaceFolder}/Sources/sdk/S3TC",
+        "${workspaceFolder}/Sources/sdk/MAYA40/include",
+        "${workspaceFolder}/Sources/sdk/GOLDParser",
+        "${workspaceFolder}/Sources/src/**",
+        "${vcToolsInstallDir}/include",
+        "${WindowsSdkDir}/Include/${WindowsSDKVersion}/um",
+        "${WindowsSdkDir}/Include/${WindowsSDKVersion}/ucrt",
+        "${WindowsSdkDir}/Include/${WindowsSDKVersion}/shared"
+      ],
+      "defines": [
+        "WIN32",
+        "_WINDOWS",
+        "NDEBUG",
+        "_MBCS",
+        "WINVER=0x0A00",
+        "_WIN32_WINNT=0x0A00",
+        "NTDDI_VERSION=0x0A000000",
+        "_WINSOCK_DEPRECATED_NO_WARNINGS"
+      ],
+      "windowsSdkVersion": "10.0.22621.0",
+      "compilerPath": "C:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x86/cl.exe",
+      "cStandard": "c11",
+      "cppStandard": "c++98",
+      "intelliSenseMode": "windows-msvc-x86",
+      "browse": {
+        "path": [
+          "${workspaceFolder}/Sources/sdk",
+          "${workspaceFolder}/Sources/src"
+        ],
+        "limitSymbolsToIncludedHeaders": true
+      }
+    }
+  ],
+  "version": 4
+}

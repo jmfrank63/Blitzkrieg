@@ -1,3 +1,3 @@
 #include "..\image\image.h"
-#include "..\BugSlay\BugSlayer.h"
+#include "..\Misc\ModernAssert.h"
 #include "..\Anim\Animation.h"

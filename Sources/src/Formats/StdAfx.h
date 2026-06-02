@@ -80,7 +80,7 @@ typedef unsigned __int64 QWORD;					// quadra word
 #endif // _DEBUG
 //
 #include "..\Misc\Basic.h"							// base interfaces
-#include "..\BugSlay\BugSlayer.h"				// cool asserts :)
+#include "..\Misc\ModernAssert.h"				// modern C++ asserts
 #include "..\Misc\Tools.h"							// different usefull tools
 #include "..\Misc\Geometry.h"						// geometry primitives and operations (vectors, matrix, quaternion, etc.)
 #include "..\Misc\2DArray.h"						// 2-D array

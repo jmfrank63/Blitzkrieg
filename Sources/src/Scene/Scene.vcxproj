@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="BetaRelease|Win32">
@@ -824,9 +824,6 @@
     <ResourceCompile Include="Scene.rc" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\BugSlay\BugSlay.vcxproj">
-      <Project>{d152ba5b-15d9-e2cf-0c51-e23be879c2bf}</Project>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

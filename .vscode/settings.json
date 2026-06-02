@@ -1,0 +1,62 @@
+{
+  // Line ending and encoding settings - CRITICAL to prevent mass changes
+  "files.eol": "\r\n",
+  "files.encoding": "utf8bom",
+  "files.autoGuessEncoding": false,
+  "files.trimTrailingWhitespace": false,
+  "files.insertFinalNewline": false,
+  "files.trimFinalNewlines": false,
+  
+  // Disable all auto-formatting - preserve existing code style
+  "editor.formatOnSave": false,
+  "editor.formatOnSaveMode": "file",
+  "editor.formatOnPaste": false,
+  "editor.formatOnType": false,
+  
+  // Disable automatic code modifications
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "never",
+    "source.fixAll": "never"
+  },
+  
+  // C++ extension settings - minimize modifications
+  "C_Cpp.formatting": "disabled",
+  "C_Cpp.intelliSenseEngine": "default",
+  "C_Cpp.autoAddFileAssociations": false,
+  "C_Cpp.updateChannel": "Default",
+  "C_Cpp.default.browse.limitSymbolsToIncludedHeaders": true,
+  "C_Cpp.default.enableConfigurationSquiggles": true,
+  
+  // Exclude build artifacts and databases from search
+  "search.exclude": {
+    "**/*.VC.db": true,
+    "**/*.VC.opendb": true,
+    "**/Debug": true,
+    "**/Release": true,
+    "**/BetaRelease": true,
+    "**/FastDebug": true,
+    "**/Profiler": true,
+    "**/Template": true,
+    "**/ReleaseDebug": true,
+    "**/ReleaseDll": true,
+    "**/.vs": true,
+    "**/.vscode/ipch": true,
+    "**/bin": true,
+    "**/*.obj": true,
+    "**/*.pdb": true,
+    "**/*.ilk": true
+  },
+  
+  // Exclude from file watcher
+  "files.watcherExclude": {
+    "**/.vs/**": true,
+    "**/Debug/**": true,
+    "**/Release/**": true,
+    "**/*.VC.db": true,
+    "**/*.VC.opendb": true
+  },
+  
+  // Git configuration
+  "git.detectSubmodules": false,
+  "git.autofetch": false
+}

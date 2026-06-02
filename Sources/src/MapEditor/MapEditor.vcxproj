@@ -161,7 +161,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\FastDebug\MapEditor.exe</OutputFile>
-      <AdditionalDependencies>..\\Common\\$(Configuration)\\Common.lib;..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;htmlhelp.lib;version.lib;winmm.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Common\\$(Configuration)\\Common.lib;..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;htmlhelp.lib;version.lib;winmm.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
@@ -212,7 +212,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Profiler\MapEditor.exe</OutputFile>
-      <AdditionalDependencies>..\\Common\\$(Configuration)\\Common.lib;..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;htmlhelp.lib;version.lib;winmm.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Common\\$(Configuration)\\Common.lib;..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;htmlhelp.lib;version.lib;winmm.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
@@ -265,7 +265,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\BetaRelease\MapEditor.exe</OutputFile>
-      <AdditionalDependencies>..\\Common\\$(Configuration)\\Common.lib;..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;version.lib;winmm.lib;comsupp.lib;htmlhelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Common\\$(Configuration)\\Common.lib;..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;version.lib;winmm.lib;comsupp.lib;htmlhelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
@@ -316,7 +316,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Release\MapEditor.exe</OutputFile>
-      <AdditionalDependencies>..\\Common\\$(Configuration)\\Common.lib;..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;version.lib;winmm.lib;comsupp.lib;htmlhelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Common\\$(Configuration)\\Common.lib;..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;version.lib;winmm.lib;comsupp.lib;htmlhelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
@@ -369,7 +369,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\MapEditor.exe</OutputFile>
-      <AdditionalDependencies>..\\Common\\$(Configuration)\\Common.lib;..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;version.lib;winmm.lib;comsupp.lib;htmlhelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Common\\$(Configuration)\\Common.lib;..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;version.lib;winmm.lib;comsupp.lib;htmlhelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
@@ -1207,10 +1207,6 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     </ProjectReference>
     <ProjectReference Include="..\\Formats\\Formats.vcxproj">
       <Project>{F5769B94-C7AD-7479-611B-746B581FB65E}</Project>
-      <LinkLibraryDependencies>false</LinkLibraryDependencies>
-    </ProjectReference>
-    <ProjectReference Include="..\\BugSlay\\BugSlay.vcxproj">
-      <Project>{E3B96FFE-E10B-B318-3C7B-C15EBE685889}</Project>
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
     </ProjectReference>
   </ItemGroup>

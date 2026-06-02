@@ -29,3 +29,20 @@ x64/
 ipch/
 *.tlog/
 /.vs/CopilotSnapshots/
+
+# VSCode specific
+.vscode/.browse.c_cpp.db*
+.vscode/ipch/
+.vscode/compileCommands_*
+.vscode/symbolcache/
+
+# GitHub Copilot
+.github/copilot/
+
+# Additional build configurations
+BetaRelease/
+FastDebug/
+Profiler/
+Template/
+ReleaseDebug/
+ReleaseDll/
