@@ -7,7 +7,7 @@
   <ItemDefinitionGroup Condition="'$(MSBuildProjectExtension)'=='.vcxproj'">
 	<ClCompile>
 	  <PreprocessorDefinitions>WINVER=0x0A00;_WIN32_WINNT=0x0A00;NTDDI_VERSION=0x0A000000;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-	  <AdditionalIncludeDirectories>$(ProjectDir)..\Misc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+	  <AdditionalIncludeDirectories>$(ProjectDir)..\Misc;$(ProjectDir)..\Formats;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
 	  <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
 	</ClCompile>
 	<ResourceCompile>

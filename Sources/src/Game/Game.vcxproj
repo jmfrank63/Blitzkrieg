@@ -85,30 +85,35 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>.\Release\</OutDir>
     <IntDir>.\Release\</IntDir>
+    <LocalDebuggerWorkingDirectory>$(OutDir)</LocalDebuggerWorkingDirectory>
     <LinkIncremental>false</LinkIncremental>
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>.\Debug\</OutDir>
     <IntDir>.\Debug\</IntDir>
+    <LocalDebuggerWorkingDirectory>$(OutDir)</LocalDebuggerWorkingDirectory>
     <LinkIncremental>true</LinkIncremental>
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='FastDebug|Win32'">
     <OutDir>.\FastDebug\</OutDir>
     <IntDir>.\FastDebug\</IntDir>
+    <LocalDebuggerWorkingDirectory>$(OutDir)</LocalDebuggerWorkingDirectory>
     <LinkIncremental>true</LinkIncremental>
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Profiler|Win32'">
     <OutDir>.\Profiler\</OutDir>
     <IntDir>.\Profiler\</IntDir>
+    <LocalDebuggerWorkingDirectory>$(OutDir)</LocalDebuggerWorkingDirectory>
     <LinkIncremental>false</LinkIncremental>
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='BetaRelease|Win32'">
     <OutDir>.\BetaRelease\</OutDir>
     <IntDir>.\BetaRelease\</IntDir>
+    <LocalDebuggerWorkingDirectory>$(OutDir)</LocalDebuggerWorkingDirectory>
     <LinkIncremental>false</LinkIncremental>
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
   </PropertyGroup>
@@ -483,4 +488,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
   </Target>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
+  <Target Name="CreateDataDirectoryLink" AfterTargets="Build">
+    <Exec Command="if exist &quot;$(TargetDir)data&quot; rmdir &quot;$(TargetDir)data&quot; &amp;&amp; mklink /J &quot;$(TargetDir)data&quot; &quot;$(ProjectDir)..\data&quot;" />
+  </Target>
 </Project>

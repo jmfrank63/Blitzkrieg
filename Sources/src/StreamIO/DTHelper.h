@@ -1,6 +1,7 @@
 #ifndef __DTHELPER_H__
 #define __DTHELPER_H__
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#include "StructureSaver.h"
 #ifndef ZDATA_
 #define ZDATA_(a)
 #endif // ZDATA_
@@ -473,7 +474,7 @@ class CTreeAccessor
 			{
 				int nTypeID = -1;
 				Add( "ClassTypeID", &nTypeID );
-				// CRAP{ для совместимости со старыми проектами
+				// CRAP{ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 				if ( nTypeID == -1 )
 					Add( "type", &nTypeID );
 				// CRAP}

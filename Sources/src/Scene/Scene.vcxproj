@@ -135,6 +135,7 @@
       <PrecompiledHeaderOutputFile>.\Profiler\Scene.pch</PrecompiledHeaderOutputFile>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>StdAfx.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\StreamIO;$(ProjectDir)..\Common;$(ProjectDir)..\Formats;$(ProjectDir)..\Input;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ObjectFileName>.\Profiler\</ObjectFileName>
       <ProgramDataBaseFileName>.\Profiler\</ProgramDataBaseFileName>
       <AdditionalOptions> /Zm150 </AdditionalOptions>
@@ -184,6 +185,7 @@
       <PrecompiledHeaderOutputFile>.\Release\Scene.pch</PrecompiledHeaderOutputFile>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>StdAfx.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\StreamIO;$(ProjectDir)..\Common;$(ProjectDir)..\Formats;$(ProjectDir)..\Input;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ObjectFileName>.\Release\</ObjectFileName>
       <ProgramDataBaseFileName>.\Release\</ProgramDataBaseFileName>
       <AdditionalOptions> /Zm150 </AdditionalOptions>
@@ -231,6 +233,7 @@
       <PrecompiledHeaderOutputFile>.\FastDebug\Scene.pch</PrecompiledHeaderOutputFile>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>StdAfx.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\StreamIO;$(ProjectDir)..\Common;$(ProjectDir)..\Formats;$(ProjectDir)..\Input;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ObjectFileName>.\FastDebug\</ObjectFileName>
       <ProgramDataBaseFileName>.\FastDebug\</ProgramDataBaseFileName>
       <AdditionalOptions> /Zm150 </AdditionalOptions>
@@ -281,6 +284,7 @@
       <PrecompiledHeaderOutputFile>.\Debug\Scene.pch</PrecompiledHeaderOutputFile>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>StdAfx.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\StreamIO;$(ProjectDir)..\Common;$(ProjectDir)..\Formats;$(ProjectDir)..\Input;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ObjectFileName>.\Debug\</ObjectFileName>
       <ProgramDataBaseFileName>.\Debug\</ProgramDataBaseFileName>
       <AdditionalOptions> /Zm200 </AdditionalOptions>
@@ -332,6 +336,7 @@
       <PrecompiledHeaderOutputFile>.\BetaRelease\Scene.pch</PrecompiledHeaderOutputFile>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>StdAfx.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\StreamIO;$(ProjectDir)..\Common;$(ProjectDir)..\Formats;$(ProjectDir)..\Input;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ObjectFileName>.\BetaRelease\</ObjectFileName>
       <ProgramDataBaseFileName>.\BetaRelease\</ProgramDataBaseFileName>
       <AdditionalOptions> /Zm150 </AdditionalOptions>

@@ -2,7 +2,9 @@ Sources/src/A7.sdf
 Sources/src/.vs/
 Versions/
 **/Data
-!Sources/src/data
+!Sources/src/data/consts.xml
+!Sources/src/data/vssver.scc
+
 
 # Visual Studio / MSVC build artifacts
 *.obj

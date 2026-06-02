@@ -1,9 +1,9 @@
 #include "StdAfx.h"
 
-#include "..\StreamIO\RandomGen.h"
+#include "RandomGen.h"
 #include "..\Misc\Win32Helper.h"
 #include "..\Misc\FileUtils.h"
-#include "..\StreamIO\StreamIOTypes.h"
+#include "StreamIOTypes.h"
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef ISaveLoadSystem* (STDCALL *GETSLS_HOOK)();
 typedef ISingleton* (STDCALL *GETSINGLETONGLOBAL_HOOK)();

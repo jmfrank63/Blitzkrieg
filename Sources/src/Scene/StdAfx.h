@@ -76,12 +76,12 @@ typedef unsigned __int64 QWORD;					// quadra word
 #include "..\Misc\HashFuncs.h"					// different usefull hash functions
 #include "..\Misc\StrProc.h"						// string processing functions
 
-#include "..\StreamIO\Globals.h"				// globals - singleton, global var system, temp buffers, console, etc.
-#include "..\StreamIO\StreamIO.h"				// stream I/O base interfaces
-#include "..\StreamIO\DBIO.h"						// database I/O base interfaces
-#include "..\StreamIO\StructureSaver.h"	// strucutre saver base interfaces
-#include "..\StreamIO\SSHelper.h"				// strucutre saver helper classes
-#include "..\StreamIO\DTHelper.h"				// data tree helper classes
+#include "Globals.h"				// globals - singleton, global var system, temp buffers, console, etc.
+#include "StreamIO.h"				// stream I/O base interfaces
+#include "DBIO.h"						// database I/O base interfaces
+#include "StructureSaver.h"	// strucutre saver base interfaces
+#include "SSHelper.h"				// strucutre saver helper classes
+#include "DTHelper.h"				// data tree helper classes
 
 #include "..\Main\GameTimer.h"
 #include "..\Main\GameDB.h"
@@ -94,4 +94,5 @@ typedef unsigned __int64 QWORD;					// quadra word
 // Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif // !defined(AFX_STDAFX_H__A9DB83DB_A9FD_11D0_BFD1_444553540000__INCLUDED_)
+
 

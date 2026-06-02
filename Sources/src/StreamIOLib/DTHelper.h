@@ -1,5 +1,7 @@
-#ifndef __DTHELPER_H__
-#define __DTHELPER_H__
+#ifndef __STREAMIOLIB_DTHELPER_H__
+#define __STREAMIOLIB_DTHELPER_H__
+#include "StreamIO.h"
+#include "StructureSaver.h"
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #ifndef ZDATA_
 #define ZDATA_(a)
