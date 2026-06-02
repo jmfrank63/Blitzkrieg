@@ -26,6 +26,34 @@
   "C_Cpp.updateChannel": "Default",
   "C_Cpp.default.browse.limitSymbolsToIncludedHeaders": true,
   "C_Cpp.default.enableConfigurationSquiggles": true,
+  "C_Cpp.default.compilerPath": "C:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x86/cl.exe",
+  "C_Cpp.default.intelliSenseMode": "windows-msvc-x86",
+  "C_Cpp.default.cStandard": "c11",
+  "C_Cpp.default.cppStandard": "c++23",
+  "C_Cpp.default.windowsSdkVersion": "10.0.26100.0",
+  "C_Cpp.default.includePath": [
+    "${workspaceFolder}/Sources/sdk/FMOD/api/inc",
+    "${workspaceFolder}/Sources/sdk/BINK",
+    "${workspaceFolder}/Sources/sdk/STINGRAY/Include",
+    "${workspaceFolder}/Sources/sdk/STINGRAY/Include/Toolkit",
+    "${workspaceFolder}/Sources/sdk/STINGRAY/Regex/Include",
+    "${workspaceFolder}/Sources/sdk/S3TC",
+    "${workspaceFolder}/Sources/sdk/MAYA40/include",
+    "${workspaceFolder}/Sources/sdk/GOLDParser",
+    "${workspaceFolder}/Sources/src/StreamIO",
+    "${workspaceFolder}/Sources/src/Misc",
+    "${workspaceFolder}/Sources/src/Common",
+    "${workspaceFolder}/Sources/src/Main",
+    "${workspaceFolder}/Sources/src/**",
+    "C:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.51.36231/include",
+    "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/um",
+    "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/ucrt",
+    "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/shared"
+  ],
+  "C_Cpp.default.browse.path": [
+    "${workspaceFolder}/Sources/sdk",
+    "${workspaceFolder}/Sources/src"
+  ],
   
   // Exclude build artifacts and databases from search
   "search.exclude": {

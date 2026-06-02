@@ -130,7 +130,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <OutputFile>.\BetaRelease\BZMConvertor.exe</OutputFile>
-      <AdditionalDependencies>..\\Misc\\BetaRelease\\Misc.lib;..\\Formats\\BetaRelease\\Formats.lib;..\\Main\\BetaRelease\\Main.lib;..\\RandomMapGen\\BetaRelease\\RandomMapGen.lib;..\\BugSlay\\BetaRelease\\BugSlay.lib;..\\zlib\\BetaRelease\\zlib.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\BetaRelease\\Misc.lib;..\\Formats\\BetaRelease\\Formats.lib;..\\Main\\BetaRelease\\Main.lib;..\\RandomMapGen\\BetaRelease\\RandomMapGen.lib;..\\zlib\\BetaRelease\\zlib.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -169,7 +169,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <OutputFile>.\Debug\BZMConvertor.exe</OutputFile>
-      <AdditionalDependencies>..\\Misc\\Debug\\Misc.lib;..\\Formats\\Debug\\Formats.lib;..\\Main\\Debug\\Main.lib;..\\RandomMapGen\\Debug\\RandomMapGen.lib;..\\BugSlay\\Debug\\BugSlay.lib;..\\zlib\\Debug\\zlib.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\Debug\\Misc.lib;..\\Formats\\Debug\\Formats.lib;..\\Main\\Debug\\Main.lib;..\\RandomMapGen\\Debug\\RandomMapGen.lib;..\\zlib\\Debug\\zlib.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -205,7 +205,7 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <SubSystem>Console</SubSystem>
       <OutputFile>.\Release\BZMConvertor.exe</OutputFile>
-      <AdditionalDependencies>..\\Misc\\Release\\Misc.lib;..\\Formats\\Release\\Formats.lib;..\\Main\\Release\\Main.lib;..\\RandomMapGen\\Release\\RandomMapGen.lib;..\\BugSlay\\Release\\BugSlay.lib;..\\zlib\\Release\\zlib.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\Release\\Misc.lib;..\\Formats\\Release\\Formats.lib;..\\Main\\Release\\Main.lib;..\\RandomMapGen\\Release\\RandomMapGen.lib;..\\zlib\\Release\\zlib.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='FastDebug|Win32'">
@@ -242,7 +242,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <OutputFile>.\FastDebug\BZMConvertor.exe</OutputFile>
-      <AdditionalDependencies>..\\Misc\\FastDebug\\Misc.lib;..\\Formats\\FastDebug\\Formats.lib;..\\Main\\FastDebug\\Main.lib;..\\RandomMapGen\\FastDebug\\RandomMapGen.lib;..\\BugSlay\\FastDebug\\BugSlay.lib;..\\zlib\\FastDebug\\zlib.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\FastDebug\\Misc.lib;..\\Formats\\FastDebug\\Formats.lib;..\\Main\\FastDebug\\Main.lib;..\\RandomMapGen\\FastDebug\\RandomMapGen.lib;..\\zlib\\FastDebug\\zlib.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

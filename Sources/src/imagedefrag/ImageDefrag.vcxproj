@@ -94,7 +94,7 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <SubSystem>Console</SubSystem>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
-      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Image\\$(Configuration)\\Image.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\Common\\$(Configuration)\\Common.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;..\\zlib\\$(Configuration)\\zlib.lib;legacy_stdio_definitions.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Image\\$(Configuration)\\Image.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\Common\\$(Configuration)\\Common.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\zlib\\$(Configuration)\\zlib.lib;legacy_stdio_definitions.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -133,7 +133,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
-      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Image\\$(Configuration)\\Image.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\Common\\$(Configuration)\\Common.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;..\\zlib\\$(Configuration)\\zlib.lib;legacy_stdio_definitions.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Image\\$(Configuration)\\Image.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\Common\\$(Configuration)\\Common.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\zlib\\$(Configuration)\\zlib.lib;legacy_stdio_definitions.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

@@ -3,7 +3,6 @@
     {
       "name": "Win32-Debug",
       "includePath": [
-        "${workspaceFolder}/Sources/sdk/stlport",
         "${workspaceFolder}/Sources/sdk/FMOD/api/inc",
         "${workspaceFolder}/Sources/sdk/BINK",
         "${workspaceFolder}/Sources/sdk/STINGRAY/Include",
@@ -12,11 +11,15 @@
         "${workspaceFolder}/Sources/sdk/S3TC",
         "${workspaceFolder}/Sources/sdk/MAYA40/include",
         "${workspaceFolder}/Sources/sdk/GOLDParser",
+        "${workspaceFolder}/Sources/src/StreamIO",
+        "${workspaceFolder}/Sources/src/Misc",
+        "${workspaceFolder}/Sources/src/Common",
+        "${workspaceFolder}/Sources/src/Main",
         "${workspaceFolder}/Sources/src/**",
-        "${vcToolsInstallDir}/include",
-        "${WindowsSdkDir}/Include/${WindowsSDKVersion}/um",
-        "${WindowsSdkDir}/Include/${WindowsSDKVersion}/ucrt",
-        "${WindowsSdkDir}/Include/${WindowsSDKVersion}/shared"
+        "C:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.51.36231/include",
+        "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/um",
+        "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/ucrt",
+        "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/shared"
       ],
       "defines": [
         "WIN32",
@@ -28,10 +31,10 @@
         "NTDDI_VERSION=0x0A000000",
         "_WINSOCK_DEPRECATED_NO_WARNINGS"
       ],
-      "windowsSdkVersion": "10.0.22621.0",
+      "windowsSdkVersion": "10.0.26100.0",
       "compilerPath": "C:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x86/cl.exe",
       "cStandard": "c11",
-      "cppStandard": "c++98",
+      "cppStandard": "c++23",
       "intelliSenseMode": "windows-msvc-x86",
       "browse": {
         "path": [
@@ -44,7 +47,6 @@
     {
       "name": "Win32-Release",
       "includePath": [
-        "${workspaceFolder}/Sources/sdk/stlport",
         "${workspaceFolder}/Sources/sdk/FMOD/api/inc",
         "${workspaceFolder}/Sources/sdk/BINK",
         "${workspaceFolder}/Sources/sdk/STINGRAY/Include",
@@ -53,11 +55,15 @@
         "${workspaceFolder}/Sources/sdk/S3TC",
         "${workspaceFolder}/Sources/sdk/MAYA40/include",
         "${workspaceFolder}/Sources/sdk/GOLDParser",
+        "${workspaceFolder}/Sources/src/StreamIO",
+        "${workspaceFolder}/Sources/src/Misc",
+        "${workspaceFolder}/Sources/src/Common",
+        "${workspaceFolder}/Sources/src/Main",
         "${workspaceFolder}/Sources/src/**",
-        "${vcToolsInstallDir}/include",
-        "${WindowsSdkDir}/Include/${WindowsSDKVersion}/um",
-        "${WindowsSdkDir}/Include/${WindowsSDKVersion}/ucrt",
-        "${WindowsSdkDir}/Include/${WindowsSDKVersion}/shared"
+        "C:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.51.36231/include",
+        "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/um",
+        "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/ucrt",
+        "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/shared"
       ],
       "defines": [
         "WIN32",
@@ -69,10 +75,10 @@
         "NTDDI_VERSION=0x0A000000",
         "_WINSOCK_DEPRECATED_NO_WARNINGS"
       ],
-      "windowsSdkVersion": "10.0.22621.0",
+      "windowsSdkVersion": "10.0.26100.0",
       "compilerPath": "C:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x86/cl.exe",
       "cStandard": "c11",
-      "cppStandard": "c++98",
+      "cppStandard": "c++23",
       "intelliSenseMode": "windows-msvc-x86",
       "browse": {
         "path": [

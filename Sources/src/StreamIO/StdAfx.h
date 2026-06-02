@@ -82,13 +82,13 @@ typedef unsigned __int64 QWORD;					// quadra word
 #endif // ASSERT
 #endif // _DEBUG
 //
-#include "..\Misc\Basic.h"							// base interfaces
-#include "..\Misc\ModernAssert.h"				// modern C++ asserts
-#include "..\Misc\Tools.h"							// different usefull tools
-#include "..\Misc\Geometry.h"						// geometry primitives and operations (vectors, matrix, quaternion, etc.)
-#include "..\Misc\2DArray.h"						// 2-D array
-#include "..\Misc\HashFuncs.h"					// different usefull hash functions
-#include "..\Misc\StrProc.h"						// string processing functions
+#include "Basic.h"							// base interfaces
+#include "ModernAssert.h"				// modern C++ asserts
+#include "Tools.h"							// different usefull tools
+#include "Geometry.h"						// geometry primitives and operations (vectors, matrix, quaternion, etc.)
+#include "2DArray.h"						// 2-D array
+#include "HashFuncs.h"					// different usefull hash functions
+#include "StrProc.h"						// string processing functions
 
 #include "MSXMLImport.h"								// Common MSXML import
 
