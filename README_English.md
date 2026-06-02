@@ -1,75 +1,67 @@
-[English](README_English.md)        [Русский](README.md)        [中文](README_Chinese.md)        [हिन्दी](README_Hindi.md)        [Español](README_Spanish.md)        [Français](README_French.md)        [Deutsch](README_German.md)        [Português](README_Portuguese.md)        [日本語](README_Japanese.md)        [Bahasa Indonesia](README_Indonesian.md)
+﻿[English](README.md)        [Русский](README_Russian.md)        [中文](README_Chinese.md)        [हिन्दी](README_Hindi.md)        [Español](README_Spanish.md)        [Français](README_French.md)        [Deutsch](README_German.md)        [Português](README_Portuguese.md)        [日本語](README_Japanese.md)        [Bahasa Indonesia](README_Indonesian.md)
+
+
 
 [![Blitzkrieg Trailer](Blitzkrieg.png)](https://www.youtube.com/watch?v=zNxMvTcsJbk)
 
-The computer game [Blitzkrieg](https://wikipedia.org/wiki/Blitzkrieg_(video_game)) is the first installment of the legendary series of real-time strategy war games, developed by [Nival Interactive](http://nival.com/) and released by 1C Company on March 28, 2003.
 
-The game is still available on [Steam](https://store.steampowered.com/app/313480/Blitzkrieg_Anthology/) and [GOG.com](https://www.gog.com/en/game/blitzkrieg_anthology).
 
-In 2025, the game's singleplayer source code was released under a [special license](LICENSE.md) that prohibits commercial use but is completely open for the game's community, education and research.
-Please review the terms of the [license agreement](LICENSE.md) carefully before using it.
+This repository is a personal pet project by Johannes Maria Frank. I use it for fun and learning, especially to practice agentic coding in brownfield application work. The original README is preserved in `readme_original`.
 
-# What is in this repository
-- `Data` - game data
-- `Soft` and `Tools` - development tools
-- `Versions` - compiled versions of the game, including map editors
-- `Sources` - source code and tools
+Warning: this project is a work in progress.
 
-# Preparation
 
-All libraries from the SDK directory are needed for compilation. The paths to them must be entered in **Tools => Options => Directories** in the following order:
 
-## Include
-```
-C:\PROGRAM FILES\MICROSOFT VISUAL STUDIO\VC98\STLPORT
-C:\SDK\BINK (not included in the repository)
-C:\SDK\FMOD\API\INC (not included in the repository)
-C:\SDK\S3TC
-C:\SDK\STINGRAY STUDIO 2002\INCLUDE\TOOLKIT (not included in the repository)
-C:\SDK\STINGRAY STUDIO 2002\INCLUDE (not included in the repository)
-C:\SDK\STINGRAY STUDIO 2002\REGEX\INCLUDE (not included in the repository)
-C:\SDK\Maya4.0\include
-```
+# What this repository can do today
 
-## Lib
-```
-C:\SDK\BINK (not included in the repository)
-C:\SDK\FMOD\API\LIB (not included in the repository)
-C:\SDK\S3TC
-C:\SDK\STINGRAY STUDIO 2002\LIB (not included in the repository)
-C:\SDK\STINGRAY STUDIO 2002\REGEX\LIB (not included in the repository)
-C:\SDK\Maya4.0\lib
-```
+- Contains the full Blitzkrieg single-player source code and game data.
 
-In addition, **DirectX 8.1** or higher is required (it will automatically be added to the paths).
+- Builds cleanly from a fresh `A7.sln` solution under modern MSVC tooling.
 
-### Important Notes
+- Includes native exception reporting and modern debugging support.
 
-- **Bink, FMOD, Stingray** libraries are not included in this repository as they require separate licensing.
-- **stlport** *must* be located in the Visual C directory, alongside `include`.
-- The path `C:\PROGRAM FILES\MICROSOFT VISUAL STUDIO\VC98\STLPORT` must be **first**, otherwise, the build will fail.
+- Uses Git submodules for missing libraries.
 
----
+- Supports both native C++ and WinDbg debugging in VS Code Insiders.
 
-# Additional Tools
+- Has removed legacy BugSlay crash handling and replaced it with standard C++ asserts.
 
-- The **tools** directory contains utilities used during the build process.
-- Resources are stored in **zip (deflate)** format and are packed/unpacked using **zip/unzip**.
-- **Do not use pkzip** — it truncates file names and does not use the deflate algorithm.
-- Some data is edited manually using an **XML-editor**, as frequent editing was not necessary and writing a separate editor was impractical.
 
----
 
-# Files in `data`
+# History so far
 
-In the game's directory, under **data**, there are files that are manually edited or simply placed:
+- Found the missing libraries and added them as Git submodules.
 
-- `sin.arr` — binary file with a sine table (just place it, do not touch).
-- `objects.xml` — registry of game objects (edited manually).
-- `consts.xml` — game constants for designers (edited manually).
-- `MusicSettings.xml` — music settings (edited manually).
-- `partys.xml` — country data (which squad to use for gun crew, parachutist model, etc.).
+- Built a Windows XP SP3 VM with Visual Studio 6 to study the original environment.
 
-## Files in `medals`
+- VS 6 was unstable and crashed often, so the effort shifted to modern tooling.
 
-In the **medals** subdirectory, files `ranks.xml` contain ranks and **experience** needed to obtain them, organized by country.
+- Installed Visual Studio 2010 and converted the old `.dwr` project to `.sln`.
+
+- Loaded the solution into VS 2026 Insiders and updated all dependencies.
+
+- Completed two weeks of agentic coding to make the solution compile from a clean state with zero errors and warnings.
+
+- That did not mean the game was fully running yet, but it did reach tutorial load once and the video plus initial menu were already loading.
+
+- Moved development to VS Code Insiders for better tools.
+
+- Configured two debug paths: native C++ and WinDbg.
+
+- Removed BugSlay because it made debugging harder and in one case crashed after a crash.
+
+- Replaced BugSlay with simple standard C++ asserts.
+
+- With BugSlay removed, the project is now ready for focused runtime debugging toward a full run.
+
+
+
+# Roadmap
+
+1. Make the game run without exceptions.
+
+2. Move compilation to Zig.
+
+3. Replace FMOD, Stingray, and Bink with open source alternatives.
+
+4. Start replacing C++ projects one by one with Zig code.

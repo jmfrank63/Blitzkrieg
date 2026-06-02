@@ -1,75 +1,67 @@
-[English](README.md)        [Русский](README_Russian.md)        [中文](README_Chinese.md)        [हिन्दी](README_Hindi.md)        [Español](README_Spanish.md)        [Français](README_French.md)        [Deutsch](README_German.md)        [Português](README_Portuguese.md)        [日本語](README_Japanese.md)        [Bahasa Indonesia](README_Indonesian.md)
+﻿[English](README.md)        [Русский](README_Russian.md)        [中文](README_Chinese.md)        [हिन्दी](README_Hindi.md)        [Español](README_Spanish.md)        [Français](README_French.md)        [Deutsch](README_German.md)        [Português](README_Portuguese.md)        [日本語](README_Japanese.md)        [Bahasa Indonesia](README_Indonesian.md)
 
-[![闪电战 预告片](Blitzkrieg.png)](https://www.youtube.com/watch?v=zNxMvTcsJbk)
 
-电脑游戏 [闪电战 (Blitzkrieg)](https://wikipedia.org/wiki/Blitzkrieg_(video_game)) 是传奇即时战略战争游戏系列的第一部作品，由 [Nival Interactive](http://nival.com/) 开发，于2003年3月28日发布。
 
-该游戏至今仍可在 [Steam](https://store.steampowered.com/app/313480/Blitzkrieg_Anthology/) 和 [GOG.com](https://www.gog.com/en/game/blitzkrieg_anthology) 上获取。
+[![Blitzkrieg Trailer](Blitzkrieg.png)](https://www.youtube.com/watch?v=zNxMvTcsJbk)
 
-2025年，游戏单人版的源代码以[特殊许可证](LICENSE.md)形式开源，禁止商业用途，但完全向游戏社区、教育及科研开放。
-在使用前请仔细阅读[许可协议](LICENSE.md)条款。
 
-# 本仓库包含内容
-- `Data` —— 游戏数据
-- `Soft` 和 `Tools` —— 辅助开发工具
-- `Versions` —— 已编译版本，包括地图编辑器
-- `Sources` —— 源代码和工具
 
-# 准备工作
+这个仓库是 Johannes Maria Frank 的个人宠物项目。我用于娱乐和学习，尤其是练习棕地应用中的代理式编码。原始 README 已保存在 `readme_original`。
 
-编译时需要 SDK 目录下的所有库文件。需按如下顺序在 **Tools => Options => Directories** 中填写路径：
+警告：此项目仍在进行中。
 
-## Include
-```
-C:\PROGRAM FILES\MICROSOFT VISUAL STUDIO\VC98\STLPORT
-C:\SDK\BINK（仓库未包含）
-C:\SDK\FMOD\API\INC（仓库未包含）
-C:\SDK\S3TC
-C:\SDK\STINGRAY STUDIO 2002\INCLUDE\TOOLKIT（仓库未包含）
-C:\SDK\STINGRAY STUDIO 2002\INCLUDE（仓库未包含）
-C:\SDK\STINGRAY STUDIO 2002\REGEX\INCLUDE（仓库未包含）
-C:\SDK\Maya4.0\include
-```
 
-## Lib
-```
-C:\SDK\BINK（仓库未包含）
-C:\SDK\FMOD\API\LIB（仓库未包含）
-C:\SDK\S3TC
-C:\SDK\STINGRAY STUDIO 2002\LIB（仓库未包含）
-C:\SDK\STINGRAY STUDIO 2002\REGEX\LIB（仓库未包含）
-C:\SDK\Maya4.0\lib
-```
 
-此外，需要安装 **DirectX 8.1** 或更高版本（会自动添加到路径中）。
+# 本仓库当前能做什么
 
-### 重要说明
+- 包含完整的 Blitzkrieg 单机源代码和游戏数据。
 
-- **Bink、FMOD、Stingray** 库未包含在本仓库内，需要单独授权。
-- **stlport** *必须* 放在 Visual C 目录下，与 `include` 文件夹同级。
-- 路径 `C:\PROGRAM FILES\MICROSOFT VISUAL STUDIO\VC98\STLPORT` 必须放在**最前面**，否则编译无法通过。
+- 可以在现代 MSVC 工具链下，从干净的 `A7.sln` 解决方案进行干净构建。
 
----
+- 包含本机异常报告和现代调试支持。
 
-# 其他工具
+- 对缺失的库使用 Git 子模块管理。
 
-- **tools** 目录下包含构建过程中用到的工具。
-- 资源采用 **zip（deflate）** 格式存储，并通过 **zip/unzip** 工具压缩或解压。
-- **不要使用 pkzip** —— 它会截断文件名且不使用 deflate 算法。
-- 某些数据通过 **XML 编辑器**手动修改，因为频繁更改不必要，也不适合为此单独开发编辑器。
+- 支持在 VS Code Insiders 中进行本机 C++ 和 WinDbg 调试。
 
----
+- 已删除旧的 BugSlay 崩溃处理，并替换为标准 C++ 断言。
 
-# `data` 目录下的文件
 
-在游戏目录的 **data** 子文件夹下，有些文件需手动编辑或仅需放置：
 
-- `sin.arr` —— 正弦表的二进制文件（只需放置，不要动）。
-- `objects.xml` —— 游戏对象注册表（手动编辑）。
-- `consts.xml` —— 设计用游戏常量（手动编辑）。
-- `MusicSettings.xml` —— 音乐设置（手动编辑）。
-- `partys.xml` —— 国家数据（指定gun crew用哪个小队，伞兵模型等）。
+# 到目前为止的历史
 
-## `medals` 目录下的文件
+- 找到缺失库并将它们作为 Git 子模块添加进来。
 
-在 **medals** 子目录下，按国家划分，`ranks.xml` 文件里包含各等级及获得所需的**经验值**。
+- 创建了一个 Windows XP SP3 虚拟机并安装 Visual Studio 6，以还原旧环境。
+
+- VS6 非常不稳定，经常崩溃，因此改为使用现代工具。
+
+- 安装了 Visual Studio 2010，并将旧的 `.dwr` 项目转换为 `.sln`。
+
+- 将解决方案导入 VS 2026 Insiders，并更新了所有依赖项。
+
+- 经过两周的代理式编码，终于使解决方案从干净状态编译通过，且没有错误和警告。
+
+- 这并不意味着游戏已经完全运行，但它至少有一次进入了教程加载阶段，视频和初始菜单已经能够加载。
+
+- 将开发工作转移到 VS Code Insiders，因为它的工具更强大。
+
+- 配置了两条调试路径：本机 C++ 和 WinDbg。
+
+- 删除了 BugSlay，因为它让调试更困难，且在一次崩溃后它自己也崩溃了。
+
+- 用简单的标准 C++ 断言替换了 BugSlay。
+
+- BugSlay 删除后，项目现在可以继续调试，朝着完全运行迈进。
+
+
+
+# 路线图
+
+1. 让游戏在没有异常的情况下运行。
+
+2. 将编译迁移到 Zig。
+
+3. 用开源替代品替换 FMOD、Stingray 和 Bink。
+
+4. 开始逐个用 Zig 代码替换 C++ 项目。

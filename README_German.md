@@ -1,75 +1,67 @@
-[English](README.md)        [Русский](README_Russian.md)        [中文](README_Chinese.md)        [हिन्दी](README_Hindi.md)        [Español](README_Spanish.md)        [Français](README_French.md)        [Deutsch](README_German.md)        [Português](README_Portuguese.md)        [日本語](README_Japanese.md)        [Bahasa Indonesia](README_Indonesian.md)
+﻿[English](README.md)        [Русский](README_Russian.md)        [中文](README_Chinese.md)        [हिन्दी](README_Hindi.md)        [Español](README_Spanish.md)        [Français](README_French.md)        [Deutsch](README_German.md)        [Português](README_Portuguese.md)        [日本語](README_Japanese.md)        [Bahasa Indonesia](README_Indonesian.md)
+
+
 
 [![Blitzkrieg Trailer](Blitzkrieg.png)](https://www.youtube.com/watch?v=zNxMvTcsJbk)
 
-Das Computerspiel [Blitzkrieg](https://wikipedia.org/wiki/Blitzkrieg_(video_game)) ist der erste Teil der legendären Echtzeit-Strategiespielserie, entwickelt von [Nival Interactive](http://nival.com/) und am 28. März 2003 veröffentlicht.
 
-Das Spiel ist weiterhin auf [Steam](https://store.steampowered.com/app/313480/Blitzkrieg_Anthology/) und [GOG.com](https://www.gog.com/en/game/blitzkrieg_anthology) erhältlich.
 
-Im Jahr 2025 wurde der Singleplayer-Quellcode des Spiels unter einer [speziellen Lizenz](LICENSE.md) freigegeben, die die kommerzielle Nutzung untersagt, aber vollständig für die Community des Spiels, für Bildungszwecke und Forschung geöffnet ist. 
-Bitte lesen Sie die Bedingungen des [Lizenzvertrags](LICENSE.md) sorgfältig durch, bevor Sie ihn verwenden.
+Dieses Repository ist ein persönliches Projekt von Johannes Maria Frank. Ich nutze es zum Spaß und zum Lernen, besonders um agentisches Programmieren in Brownfield-Anwendungen zu üben. Das ursprüngliche README ist in `readme_original` erhalten.
 
-# Inhalt dieses Repositories
-- `Data` – Spieldaten
-- `Soft` und `Tools` – begleitende Entwickler-Tools
-- `Versions` – kompilierte Versionen des Spiels, einschließlich Karteneditoren
-- `Sources` – Quellcode und Werkzeuge
+Warnung: Dieses Projekt befindet sich noch in Arbeit.
 
-# Vorbereitung
 
-Alle Bibliotheken aus dem SDK-Verzeichnis werden für die Kompilierung benötigt. Die Pfade zu diesen Bibliotheken müssen in **Tools => Options => Directories** in folgender Reihenfolge angegeben werden:
 
-## Include
-```
-C:\PROGRAM FILES\MICROSOFT VISUAL STUDIO\VC98\STLPORT
-C:\SDK\BINK (nicht im Repository enthalten)
-C:\SDK\FMOD\API\INC (nicht im Repository enthalten)
-C:\SDK\S3TC
-C:\SDK\STINGRAY STUDIO 2002\INCLUDE\TOOLKIT (nicht im Repository enthalten)
-C:\SDK\STINGRAY STUDIO 2002\INCLUDE (nicht im Repository enthalten)
-C:\SDK\STINGRAY STUDIO 2002\REGEX\INCLUDE (nicht im Repository enthalten)
-C:\SDK\Maya4.0\include
-```
+# Was dieses Repository heute kann
 
-## Lib
-```
-C:\SDK\BINK (nicht im Repository enthalten)
-C:\SDK\FMOD\API\LIB (nicht im Repository enthalten)
-C:\SDK\S3TC
-C:\SDK\STINGRAY STUDIO 2002\LIB (nicht im Repository enthalten)
-C:\SDK\STINGRAY STUDIO 2002\REGEX\LIB (nicht im Repository enthalten)
-C:\SDK\Maya4.0\lib
-```
+- Enthält den vollständigen Blitzkrieg Singleplayer-Quellcode und Spieldaten.
 
-Zusätzlich wird **DirectX 8.1** oder höher benötigt (wird automatisch zu den Pfaden hinzugefügt).
+- Lässt sich sauber aus einer frischen `A7.sln`-Lösung mit modernen MSVC-Tools kompilieren.
 
-### Wichtige Hinweise
+- Enthält native Ausnahmeberichterstattung und moderne Debug-Unterstützung.
 
-- Die Bibliotheken **Bink, FMOD, Stingray** sind nicht in diesem Repository enthalten, da sie eine separate Lizenzierung erfordern.
-- **stlport** *muss* sich im Visual C-Verzeichnis neben `include` befinden.
-- Der Pfad `C:\PROGRAM FILES\MICROSOFT VISUAL STUDIO\VC98\STLPORT` muss **zuerst** stehen, sonst schlägt die Kompilierung fehl.
+- Verwendet Git-Submodule für fehlende Bibliotheken.
 
----
+- Unterstützt sowohl nativen C++- als auch WinDbg-Debugging in VS Code Insiders.
 
-# Zusätzliche Werkzeuge
+- Hat das veraltete BugSlay-Crash-Handling entfernt und durch standardmäßige C++-Asserts ersetzt.
 
-- Im Ordner **tools** befinden sich die beim Kompilieren verwendeten Hilfsprogramme.
-- Ressourcen werden im **zip (deflate)**-Format gespeichert und mit **zip/unzip** gepackt bzw. entpackt.
-- **Verwenden Sie kein pkzip** — es kürzt Dateinamen und verwendet nicht den Deflate-Algorithmus.
-- Einige Daten werden manuell mit einem **XML-Editor** bearbeitet, da häufiges Bearbeiten nicht nötig war und ein eigener Editor nicht sinnvoll gewesen wäre.
 
----
 
-# Dateien in `data`
+# Verlauf bisher
 
-Im Verzeichnis des Spiels, unter **data**, befinden sich Dateien, die manuell bearbeitet oder einfach abgelegt werden müssen:
+- Fehlende Bibliotheken wurden gefunden und als Git-Submodule hinzugefügt.
 
-- `sin.arr` — Binärdatei mit Sinustabelle (einfach ablegen, nicht bearbeiten).
-- `objects.xml` — Verzeichnis der Spielobjekte (manuell bearbeiten).
-- `consts.xml` — Spielkonstanten für Designer (manuell bearbeiten).
-- `MusicSettings.xml` — Musik-Einstellungen (manuell bearbeiten).
-- `partys.xml` — Länderdaten (welcher Trupp für Geschützbedienung, Modell des Fallschirmspringers usw.).
+- Es wurde eine Windows XP SP3-VM mit Visual Studio 6 eingerichtet, um die ursprüngliche Umgebung zu prüfen.
 
-## Dateien in `medals`
+- VS6 war instabil und stürzte oft ab, daher wurde der Fokus auf moderne Werkzeuge verlagert.
 
-Im Unterverzeichnis **medals** befinden sich, nach Ländern sortiert, die Dateien `ranks.xml`, die Dienstgrade und die erforderliche **Erfahrung** zum Erreichen enthalten.
+- Visual Studio 2010 wurde installiert und das alte `.dwr`-Projekt in `.sln` konvertiert.
+
+- Die Lösung wurde in VS 2026 Insiders geladen und alle Abhängigkeiten aktualisiert.
+
+- Zwei Wochen agentengesteuertes Codieren führten dazu, dass die Lösung aus einem sauberen Zustand ohne Fehler und Warnungen kompilierte.
+
+- Das bedeutete nicht, dass das Spiel vollständig lief, aber es erreichte einmal das Laden des Tutorials, und Video sowie das Anfangsmenü luden bereits.
+
+- Die Entwicklung wurde wegen besserer Werkzeuge nach VS Code Insiders verlagert.
+
+- Zwei Debug-Pfade wurden konfiguriert: nativer C++ und WinDbg.
+
+- BugSlay wurde entfernt, weil es das Debugging erschwerte und in einem Fall nach einem Absturz selbst ausfiel.
+
+- BugSlay wurde durch einfache standardmäßige C++-Asserts ersetzt.
+
+- Mit entferntem BugSlay ist das Projekt nun bereit, die gezielte Laufzeit-Debugging-Phase bis zum vollständigen Start fortzusetzen.
+
+
+
+# Roadmap
+
+1. Das Spiel ohne Ausnahmen zum Laufen bringen.
+
+2. Die Kompilierung auf Zig umstellen.
+
+3. FMOD, Stingray und Bink durch Open-Source-Alternativen ersetzen.
+
+4. C++-Projekte nach und nach durch Zig-Code ersetzen.
