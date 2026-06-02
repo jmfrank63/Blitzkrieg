@@ -42,6 +42,9 @@
       ],
       "windowsSdkVersion": "10.0.26100.0",
       "compilerPath": "C:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x86/cl.exe",
+      "forcedInclude": [
+        "${workspaceFolder}/Sources/src/Scene/StdAfx.h"
+      ],
       "cStandard": "c11",
       "cppStandard": "c++23",
       "intelliSenseMode": "windows-msvc-x86",
@@ -102,6 +105,9 @@
       ],
       "windowsSdkVersion": "10.0.26100.0",
       "compilerPath": "C:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x86/cl.exe",
+      "forcedInclude": [
+        "${workspaceFolder}/Sources/src/Scene/StdAfx.h"
+      ],
       "cStandard": "c11",
       "cppStandard": "c++23",
       "intelliSenseMode": "windows-msvc-x86",

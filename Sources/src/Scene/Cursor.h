@@ -4,6 +4,10 @@
 #pragma ONCE
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Scene.h"
+#include "Basic.h"
+#include "Tools.h"
+#include "Geometry.h"
+#include "Globals.h"
 #include "StreamIO.h"
 #include "StructureSaver.h"
 #include "DTHelper.h"
