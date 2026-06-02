@@ -163,7 +163,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
-      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;version.lib;winmm.lib;comsupp.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;version.lib;winmm.lib;comsupp.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='FastDebug|Win32'">
@@ -216,7 +216,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
-      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;version.lib;winmm.lib;comsupp.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;version.lib;winmm.lib;comsupp.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='BetaRelease|Win32'">
@@ -271,7 +271,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
-      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;version.lib;winmm.lib;comsupp.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;version.lib;winmm.lib;comsupp.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -325,7 +325,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
-      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;version.lib;winmm.lib;comsupp.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;version.lib;winmm.lib;comsupp.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -377,7 +377,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
-      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;version.lib;winmm.lib;comsupp.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;version.lib;winmm.lib;comsupp.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -1441,10 +1441,6 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     <ClInclude Include="MTree ctrl\TreeItemComboBox.h" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\BugSlay\BugSlay.vcxproj">
-      <Project>{E3B96FFE-E10B-B318-3C7B-C15EBE685889}</Project>
-      <LinkLibraryDependencies>false</LinkLibraryDependencies>
-    </ProjectReference>
     <ProjectReference Include="..\Formats\Formats.vcxproj">
       <Project>{F5769B94-C7AD-7479-611B-746B581FB65E}</Project>
       <LinkLibraryDependencies>false</LinkLibraryDependencies>

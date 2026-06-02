@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="BetaRelease|Win32">
@@ -132,8 +132,6 @@
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
-if exist "..\BugSlay\$(Configuration)\BugSlay.dll" copy /Y "..\BugSlay\$(Configuration)\BugSlay.dll" "$(TargetDir)"
-if exist "..\BugSlay\$(Configuration)\BugSlay.dll" copy /Y "..\BugSlay\$(Configuration)\BugSlay.dll" "$(SolutionDir)bin\\"
 if exist "..\..\sdk\BINK\binkw32.dll" copy /Y "..\..\sdk\BINK\binkw32.dll" "$(TargetDir)"
 if exist "..\..\sdk\BINK\binkw32.dll" copy /Y "..\..\sdk\BINK\binkw32.dll" "$(SolutionDir)bin\\"
 if exist "..\..\sdk\FMOD\api\fmod.dll" copy /Y "..\..\sdk\FMOD\api\fmod.dll" "$(TargetDir)"
@@ -167,7 +165,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Release\Game.exe</OutputFile>
-      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -192,8 +190,6 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
-if exist "..\BugSlay\$(Configuration)\BugSlay.dll" copy /Y "..\BugSlay\$(Configuration)\BugSlay.dll" "$(TargetDir)"
-if exist "..\BugSlay\$(Configuration)\BugSlay.dll" copy /Y "..\BugSlay\$(Configuration)\BugSlay.dll" "$(SolutionDir)bin\\"
 if exist "..\..\sdk\BINK\binkw32.dll" copy /Y "..\..\sdk\BINK\binkw32.dll" "$(TargetDir)"
 if exist "..\..\sdk\BINK\binkw32.dll" copy /Y "..\..\sdk\BINK\binkw32.dll" "$(SolutionDir)bin\\"
 if exist "..\..\sdk\FMOD\api\fmod.dll" copy /Y "..\..\sdk\FMOD\api\fmod.dll" "$(TargetDir)"
@@ -227,7 +223,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\Game.exe</OutputFile>
-      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;d3d9.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;d3d9.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='FastDebug|Win32'">
@@ -251,8 +247,6 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
-if exist "..\BugSlay\$(Configuration)\BugSlay.dll" copy /Y "..\BugSlay\$(Configuration)\BugSlay.dll" "$(TargetDir)"
-if exist "..\BugSlay\$(Configuration)\BugSlay.dll" copy /Y "..\BugSlay\$(Configuration)\BugSlay.dll" "$(SolutionDir)bin\\"
 if exist "..\..\sdk\BINK\binkw32.dll" copy /Y "..\..\sdk\BINK\binkw32.dll" "$(TargetDir)"
 if exist "..\..\sdk\BINK\binkw32.dll" copy /Y "..\..\sdk\BINK\binkw32.dll" "$(SolutionDir)bin\\"
 if exist "..\..\sdk\FMOD\api\fmod.dll" copy /Y "..\..\sdk\FMOD\api\fmod.dll" "$(TargetDir)"
@@ -286,7 +280,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\FastDebug\Game.exe</OutputFile>
-      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;d3d9.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;d3d9.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profiler|Win32'">
@@ -310,8 +304,6 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
-if exist "..\BugSlay\$(Configuration)\BugSlay.dll" copy /Y "..\BugSlay\$(Configuration)\BugSlay.dll" "$(TargetDir)"
-if exist "..\BugSlay\$(Configuration)\BugSlay.dll" copy /Y "..\BugSlay\$(Configuration)\BugSlay.dll" "$(SolutionDir)bin\\"
 if exist "..\..\sdk\BINK\binkw32.dll" copy /Y "..\..\sdk\BINK\binkw32.dll" "$(TargetDir)"
 if exist "..\..\sdk\BINK\binkw32.dll" copy /Y "..\..\sdk\BINK\binkw32.dll" "$(SolutionDir)bin\\"
 if exist "..\..\sdk\FMOD\api\fmod.dll" copy /Y "..\..\sdk\FMOD\api\fmod.dll" "$(TargetDir)"
@@ -346,7 +338,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Profiler\Game.exe</OutputFile>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;vtuneapi.lib;d3d9.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;vtuneapi.lib;d3d9.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='BetaRelease|Win32'">
@@ -371,8 +363,6 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
-if exist "..\BugSlay\$(Configuration)\BugSlay.dll" copy /Y "..\BugSlay\$(Configuration)\BugSlay.dll" "$(TargetDir)"
-if exist "..\BugSlay\$(Configuration)\BugSlay.dll" copy /Y "..\BugSlay\$(Configuration)\BugSlay.dll" "$(SolutionDir)bin\\"
 if exist "..\..\sdk\BINK\binkw32.dll" copy /Y "..\..\sdk\BINK\binkw32.dll" "$(TargetDir)"
 if exist "..\..\sdk\BINK\binkw32.dll" copy /Y "..\..\sdk\BINK\binkw32.dll" "$(SolutionDir)bin\\"
 if exist "..\..\sdk\FMOD\api\fmod.dll" copy /Y "..\..\sdk\FMOD\api\fmod.dll" "$(TargetDir)"
@@ -407,7 +397,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\BetaRelease\Game.exe</OutputFile>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;..\\BugSlay\\$(Configuration)\\BugSlay.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Main\\$(Configuration)\\Main.lib;..\\Misc\\$(Configuration)\\Misc.lib;..\\LuaLib\\$(Configuration)\\LuaLib.lib;..\\GameSpy\\$(Configuration)\\GameSpy.lib;..\\zlib\\$(Configuration)\\zlib.lib;..\\RandomMapGen\\$(Configuration)\\RandomMapGen.lib;..\\Formats\\$(Configuration)\\Formats.lib;version.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -477,10 +467,6 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     </ProjectReference>
     <ProjectReference Include="..\Formats\Formats.vcxproj">
       <Project>{F5769B94-C7AD-7479-611B-746B581FB65E}</Project>
-      <LinkLibraryDependencies>false</LinkLibraryDependencies>
-    </ProjectReference>
-    <ProjectReference Include="..\BugSlay\BugSlay.vcxproj">
-      <Project>{E3B96FFE-E10B-B318-3C7B-C15EBE685889}</Project>
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
     </ProjectReference>
   </ItemGroup>

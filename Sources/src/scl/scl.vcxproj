@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -174,9 +174,6 @@
     <ProjectReference Include="..\\Common\\Common.vcxproj">
       <Project>{10CF52CE-DE05-888B-A6DA-03CCEBCB160E}</Project>
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
-    </ProjectReference>
-    <ProjectReference Include="..\BugSlay\BugSlay.vcxproj">
-      <Project>{3EB88D2A-DDA9-4A71-B5BF-82043A29B5D6}</Project>
     </ProjectReference>
   </ItemGroup>
 </Project>

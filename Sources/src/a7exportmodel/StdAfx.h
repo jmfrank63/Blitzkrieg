@@ -43,8 +43,8 @@ typedef __int64 int64;									// due to lack of 'long long' type support
 #endif // _MSC_VER > 1000
 //
 
-#include "..\BugSlay\BugSlayer.h"
 #include "..\Misc\Basic.h"							// base interfaces
+#include "..\Misc\ModernAssert.h"				// modern C++ asserts
 #include "..\Misc\Tools.h"							// different usefull tools
 #include "..\Misc\Geometry.h"						// geometry primitives and operations (vectors, matrix, quaternion, etc.)
 #include "..\Misc\2DArray.h"						// 2-D array

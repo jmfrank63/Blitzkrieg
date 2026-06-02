@@ -313,9 +313,6 @@
     <ClCompile Include="pinger\pingerMain.c" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\BugSlay\BugSlay.vcxproj">
-      <Project>{d152ba5b-15d9-e2cf-0c51-e23be879c2bf}</Project>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
