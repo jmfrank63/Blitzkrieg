@@ -58,4 +58,17 @@
 	<Exec Command="cmd /c mklink /J &quot;$(BlitzkriegGameDataLink)&quot; &quot;$(BlitzkriegDataSourceDir)&quot;"
 		  ContinueOnError="WarnAndContinue" />
   </Target>
+
+  <Target Name="BlitzkriegCopyDataFilesToGameDataLink"
+		  AfterTargets="BlitzkriegEnsureDataLink"
+		  Condition="'$(MSBuildProjectName)' == 'Game' and Exists('$(BlitzkriegGameDataLink)')">
+	<ItemGroup>
+	  <BlitzkriegDataFile Include="$(MSBuildThisFileDirectory)data\consts.xml" Condition="Exists('$(MSBuildThisFileDirectory)data\consts.xml')" />
+	  <BlitzkriegDataFile Include="$(MSBuildThisFileDirectory)data\vssver.scc" Condition="Exists('$(MSBuildThisFileDirectory)data\vssver.scc')" />
+	</ItemGroup>
+	<Copy SourceFiles="@(BlitzkriegDataFile)"
+		  DestinationFolder="$(BlitzkriegGameDataLink)"
+		  SkipUnchangedFiles="true"
+		  Condition="'@(BlitzkriegDataFile)' != ''" />
+  </Target>
 </Project>

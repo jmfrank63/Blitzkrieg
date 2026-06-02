@@ -48,11 +48,25 @@
     "C:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.51.36231/include",
     "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/um",
     "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/ucrt",
-    "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/shared"
+    "C:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/shared",
+    "${env:windir}/SysWOW64",
+    "${env:windir}/System32",
+    "${workspaceFolder}/Sources/src/**/Debug",
+    "${workspaceFolder}/Sources/src/**/Release",
+    "${workspaceFolder}/Sources/src/**/FastDebug",
+    "${workspaceFolder}/Sources/src/**/BetaRelease",
+    "${workspaceFolder}/Sources/src/**/Profiler"
   ],
   "C_Cpp.default.browse.path": [
     "${workspaceFolder}/Sources/sdk",
-    "${workspaceFolder}/Sources/src"
+    "${workspaceFolder}/Sources/src",
+    "${env:windir}/SysWOW64",
+    "${env:windir}/System32",
+    "${workspaceFolder}/Sources/src/**/Debug",
+    "${workspaceFolder}/Sources/src/**/Release",
+    "${workspaceFolder}/Sources/src/**/FastDebug",
+    "${workspaceFolder}/Sources/src/**/BetaRelease",
+    "${workspaceFolder}/Sources/src/**/Profiler"
   ],
   
   // Exclude build artifacts and databases from search
@@ -86,5 +100,6 @@
   
   // Git configuration
   "git.detectSubmodules": false,
-  "git.autofetch": false
+  "git.autofetch": false,
+  "C_Cpp.errorSquiggles": "enabled"
 }

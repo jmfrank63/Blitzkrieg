@@ -471,6 +471,16 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="CopyBlitzkriegRuntimeDlls" AfterTargets="Build" Condition="'$(Configuration)|$(Platform)' == 'Debug|Win32' Or '$(Configuration)|$(Platform)' == 'Release|Win32' Or '$(Configuration)|$(Platform)' == 'FastDebug|Win32' Or '$(Configuration)|$(Platform)' == 'Profiler|Win32' Or '$(Configuration)|$(Platform)' == 'BetaRelease|Win32'">
+    <ItemGroup>
+      <BlitzkriegRuntimeDll Include="$(ProjectDir)..\..\sdk\FMOD\api\fmod.dll" Condition="Exists('$(ProjectDir)..\..\sdk\FMOD\api\fmod.dll')" />
+      <BlitzkriegRuntimeDll Include="$(ProjectDir)..\..\sdk\BINK\binkw32.dll" Condition="Exists('$(ProjectDir)..\..\sdk\BINK\binkw32.dll')" />
+      <BlitzkriegRuntimeDll Include="$(ProjectDir)..\..\autorun\mfc42.dll" Condition="Exists('$(ProjectDir)..\..\autorun\mfc42.dll')" />
+      <BlitzkriegRuntimeDll Include="$(ProjectDir)..\..\autorun\msvcp60.dll" Condition="Exists('$(ProjectDir)..\..\autorun\msvcp60.dll')" />
+      <BlitzkriegRuntimeDll Include="$(ProjectDir)..\..\autorun\msvcrt.dll" Condition="Exists('$(ProjectDir)..\..\autorun\msvcrt.dll')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(BlitzkriegRuntimeDll)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
+  </Target>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>

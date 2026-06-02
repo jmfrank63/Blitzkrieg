@@ -2,6 +2,7 @@ Sources/src/A7.sdf
 Sources/src/.vs/
 Versions/
 **/Data
+!Sources/src/data
 
 # Visual Studio / MSVC build artifacts
 *.obj
