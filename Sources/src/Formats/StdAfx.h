@@ -16,7 +16,6 @@
 #define _STLP_DEBUG_TERMINATE 1
 #define _STLP_DEBUG_MESSAGE 1
 //
-#ifndef __AFX__
 
 #include <comutil.h>
 #include <assert.h>
@@ -27,18 +26,6 @@
 #ifdef CreateObject
 #undef CreateObject
 #endif // CreateObject
-#else
-#define _STLP_USE_MFC 1
-#include "stl_user_config.h"
-//
-#include <afxwin.h>											// MFC core and standard components
-#include <afxext.h>											// MFC extensions
-#include <afxdtctl.h>										// MFC support for Internet Explorer 4 Common Controls
-#ifndef _AFX_NO_AFXCMN_SUPPORT
-#include <afxcmn.h>											// MFC support for Windows Common Controls
-#endif // _AFX_NO_AFXCMN_SUPPORT
-#include <comutil.h>
-#endif // __AFX__
 
 //#include <stdlib.h>
 #include <math.h>
@@ -106,3 +93,4 @@ typedef unsigned __int64 QWORD;					// quadra word
 // Microsoft Visual C++ will insert additional declarations immediately before the previous line.
 
 #endif // !defined(AFX_STDAFX_H__A9DB83DB_A9FD_11D0_BFD1_444553540000__INCLUDED_)
+
