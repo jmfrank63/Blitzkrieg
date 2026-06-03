@@ -97,6 +97,42 @@ static bool FindCurrentActiveDisplayMode( const SAdapterDesc &adapter, const D3D
 	*pMode = *pos;
 	return true;
 }
+static DWORD GetDeviceWindowedStyle()
+{
+	return WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
+}
+static void ResizeDeviceWindow( HWND hWindow, bool bWindowed, int nClientWidth, int nClientHeight )
+{
+	if ( hWindow == 0 )
+		return;
+
+	const DWORD dwStyle = bWindowed ? GetDeviceWindowedStyle() : WS_POPUP;
+	const DWORD dwExStyle = DWORD( GetWindowLong( hWindow, GWL_EXSTYLE ) );
+	SetWindowLong( hWindow, GWL_STYLE, LONG(dwStyle) );
+
+	RECT rcWindow = { 0, 0, 0, 0 };
+	GetWindowRect( hWindow, &rcWindow );
+
+	RECT rcTarget = { 0, 0, nClientWidth, nClientHeight };
+	if ( bWindowed )
+		AdjustWindowRectEx( &rcTarget, dwStyle, FALSE, dwExStyle );
+
+	const int nWindowWidth = rcTarget.right - rcTarget.left;
+	const int nWindowHeight = rcTarget.bottom - rcTarget.top;
+	int nX = bWindowed ? rcWindow.left : 0;
+	int nY = bWindowed ? rcWindow.top : 0;
+	if ( bWindowed && nX == 0 && nY == 0 )
+	{
+		RECT rcWork = { 0, 0, 0, 0 };
+		if ( SystemParametersInfo( SPI_GETWORKAREA, 0, &rcWork, 0 ) )
+		{
+			nX = rcWork.left + Max( 0, int( rcWork.right - rcWork.left - nWindowWidth ) / 2 );
+			nY = rcWork.top + Max( 0, int( rcWork.bottom - rcWork.top - nWindowHeight ) / 2 );
+		}
+	}
+
+	SetWindowPos( hWindow, HWND_NOTOPMOST, nX, nY, nWindowWidth, nWindowHeight, SWP_SHOWWINDOW | SWP_FRAMECHANGED );
+}
 bool EnumAdapters( std::list<SAdapterDesc> *pAdapters )
 {
 	pAdapters->clear();
@@ -676,7 +712,7 @@ bool CGraphicsEngine::ResetDevice()
 		if ( FAILED(dxrval) ) 
 			pScreenDepth = 0;
 	}
-	SetWindowPos( hWindow, HWND_NOTOPMOST, 0, 0, pp.BackBufferWidth, pp.BackBufferHeight, SWP_SHOWWINDOW );
+	ResizeDeviceWindow( hWindow, pp.Windowed != 0, pp.BackBufferWidth, pp.BackBufferHeight );
 	return true;
 }
 void CGraphicsEngine::MoveTo( int nX, int nY )

@@ -245,6 +245,11 @@ void CWorldBase::Start()
 SMapObject* CWorldBase::CreateMapObject( IRefCount *pAIObj, int nDBID, int nFrameIndex, const float fNewHP )
 {
 	const SGDBObjectDesc *pDesc = pGDB->GetDesc( nDBID );
+	if ( pDesc == 0 )
+	{
+		NI_ASSERT_T( false, NStr::Format("can't find DB entry for object %d", nDBID) );
+		return 0;
+	}
 	IMapObj *pMO = 0;
 	switch ( pDesc->eGameType ) 
 	{
@@ -264,6 +269,11 @@ SMapObject* CWorldBase::CreateMapObject( IRefCount *pAIObj, int nDBID, int nFram
 		default:
 			pMO = CreateObject<IMapObj>( MISSION_MO_OBJECT );
 	}
+	if ( pMO == 0 )
+	{
+		NI_ASSERT_T( false, NStr::Format("can't create map object for DB entry %d", nDBID) );
+		return 0;
+	}
 	if ( pMO->Create(pAIObj, pDesc, nSeason, nFrameIndex, fNewHP, pVOB, pGDB) == true )
 		return (SMapObject*)pMO;
 	else
@@ -275,13 +285,41 @@ SMapObject* CWorldBase::CreateMapObject( IRefCount *pAIObj, int nDBID, int nFram
 }
 SMapObject* CWorldBase::AddToWorld( IRefCount *pAIObj, int nDBID, int nFrameIndex, const float fNewHP )
 {
-	NI_ASSERT_T( aiobjects.find( pAIObj ) == aiobjects.end(), NStr::Format("object 0x%x (%s) already exist as \"%s\"", pAIObj, typeid(*pAIObj).name(), aiobjects[pAIObj]->pDesc->szKey.c_str()) );
+	CMapObjectsMap::iterator existing = aiobjects.find( pAIObj );
+	if ( existing != aiobjects.end() )
+	{
+		const char *pszAIType = pAIObj != 0 ? typeid(*pAIObj).name() : "NULL";
+		if ( existing->second != 0 )
+		{
+			const char *pszKey = existing->second->pDesc ? existing->second->pDesc->szKey.c_str() : "<no desc>";
+			NStr::DebugTrace( "object 0x%x (%s) already exist as \"%s\"\n", pAIObj, pszAIType, pszKey );
+		}
+		else
+			NStr::DebugTrace( "object 0x%x (%s) already exist without map object\n", pAIObj, pszAIType );
+		NI_ASSERT_T( false, "AI object already exists in world" );
+		return existing->second;
+	}
 	SMapObject *pMO = CreateMapObject( pAIObj, nDBID, nFrameIndex, fNewHP );
+	if ( pMO == 0 )
+	{
+		NI_ASSERT_T( false, NStr::Format("can't create map object %d", nDBID) );
+		return 0;
+	}
 	AddToWorld( pMO );
 	return pMO;
 }
 bool CWorldBase::AddToWorld( SMapObject *pMO )
 {
+	if ( pMO == 0 )
+	{
+		NI_ASSERT_T( false, "null map object passed to world" );
+		return false;
+	}
+	if ( pMO->pAIObj == 0 )
+	{
+		NI_ASSERT_T( false, "map object has null AI object" );
+		return false;
+	}
 	aiobjects[pMO->pAIObj] = pMO;
 	NewObjectAdded( pMO );
 	return true;
@@ -356,16 +394,38 @@ void CWorldBase::GetAllObjectsByMatch( std::list<SMapObject*> &mapobjects, const
 SBridgeSpanObject* CWorldBase::CreateSpanObject( int nDBID, int nFrameIndex, float fNewHP )
 {
 	const SGDBObjectDesc *pDesc = pGDB->GetDesc( nDBID );
-	NI_ASSERT_T( pDesc != 0, NStr::Format("can't find DB entry for object %d", nDBID) );
+	if ( pDesc == 0 )
+	{
+		NI_ASSERT_T( false, NStr::Format("can't find DB entry for object %d", nDBID) );
+		return 0;
+	}
 	const SBridgeRPGStats *pRPG = static_cast<const SBridgeRPGStats*>( pGDB->GetRPGStats( pDesc ) );
 	SBridgeSpanObject *pSpan = CreateObject<SBridgeSpanObject>( MISSION_MO_BRIDGE_SPAN );
+	if ( pSpan == 0 )
+	{
+		NI_ASSERT_T( false, NStr::Format("can't create bridge span object for DB entry %d", nDBID) );
+		return 0;
+	}
 	pSpan->Create( 0, pDesc, nSeason, nFrameIndex, fNewHP, pVOB, pGDB );
 	return pSpan;
 }
 SBridgeSpanObject* CWorldBase::AddSpanToWorld( IRefCount *pAIObj, int nDBID, int nFrameIndex, float fNewHP )
 {
-	NI_ASSERT_T( aispans.find( pAIObj ) == aispans.end(), NStr::Format("object 0x%x (%s) already exist as \"%s\"", pAIObj, typeid(*pAIObj).name(), aispans[pAIObj]->GetDesc()->szKey.c_str()) );
+	CBridgeSpanObjectsMap::iterator existing = aispans.find( pAIObj );
+	if ( existing != aispans.end() )
+	{
+		const char *pszAIType = pAIObj != 0 ? typeid(*pAIObj).name() : "NULL";
+		const char *pszKey = existing->second != 0 && existing->second->GetDesc() != 0 ? existing->second->GetDesc()->szKey.c_str() : "<no desc>";
+		NStr::DebugTrace( "object 0x%x (%s) already exist as \"%s\"\n", pAIObj, pszAIType, pszKey );
+		NI_ASSERT_T( false, "AI bridge span already exists in world" );
+		return existing->second;
+	}
 	SBridgeSpanObject *pSpan = CreateSpanObject( nDBID, nFrameIndex, fNewHP );
+	if ( pSpan == 0 )
+	{
+		NI_ASSERT_T( false, NStr::Format("can't create bridge span %d", nDBID) );
+		return 0;
+	}
 	pSpan->pSlab->pAIObj = pAIObj;
 	if ( pSpan->pBackGirder )
 		pSpan->pBackGirder->pAIObj = pAIObj;

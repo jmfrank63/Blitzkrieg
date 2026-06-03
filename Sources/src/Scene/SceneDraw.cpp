@@ -1168,9 +1168,10 @@ void CScene::DrawMarkers()
 			pGFX->DrawTemp();
 		}
 	}
-	for ( std::list<SClickMarker>::iterator it = clickMarkers.begin(); it != clickMarkers.end(); ++it ) 
+	const NTimer::STime nCurrentTime = GetSingleton<IGameTimer>()->GetAbsTime();
+	for ( std::list<SClickMarker>::iterator it = clickMarkers.begin(); it != clickMarkers.end(); ) 
 	{
-		const float fStage = float( GetSingleton<IGameTimer>()->GetAbsTime() - it->nStartTime ) / nMarkerLifetime;
+		const float fStage = float( nCurrentTime - it->nStartTime ) / nMarkerLifetime;
 		if ( fStage > 1 || fStage < 0 )
 		{
 			it = clickMarkers.erase( it );
@@ -1202,6 +1203,7 @@ void CScene::DrawMarkers()
 			vertices[16].Setup( vPos.x, vPos.y + fOuterRadius, vPos.z, dwColor );
 			vertices[17].Setup( vPos.x, vPos.y + fInnerRadius, vPos.z, dwColor );
 			pGFX->DrawTemp();
+			++it;
 		}
 	}
 }

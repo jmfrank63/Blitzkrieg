@@ -470,7 +470,8 @@ void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams )
 	pCmdParams->nStencilBPP = 0;
 	pCmdParams->nFreq = 0;
 	pCmdParams->bUseDXT = false;
-	pCmdParams->eFullscreenMode = GFXFS_FULLSCREEN;
+	pCmdParams->eFullscreenMode = GFXFS_WINDOWED;
+	SetGlobalVar( "windowed", "1" );
 	pCmdParams->szBindName = "bind.cfg";
 	pCmdParams->bMultiplayer = false;
 	pCmdParams->bCycledLaunch = false;
@@ -514,11 +515,13 @@ void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams )
 		{
 			pCmdParams->eFullscreenMode = GFXFS_WINDOWED;
 			SetGlobalVar( "windowed", "1" );
+			SetGlobalVar( "fullscreen", "0" );
 		}
 		else if ( szParams[i] == "-fullscreen" )
 		{
 			pCmdParams->eFullscreenMode = GFXFS_FULLSCREEN;
 			SetGlobalVar( "fullscreen", "1" );
+			SetGlobalVar( "windowed", "0" );
 		}
 		else if ( szParams[i].compare(0, 9, "-autosave") == 0 )
 		{

@@ -16,7 +16,9 @@
   
   #define NI_ASSERT(x)                               { assert(x); }
   
-  #define NI_ASSERT_T(x, user_text)                  { assert((x) && user_text); }
+  // Diagnostic text must not be evaluated on passing assertions; many callers
+  // build it with lookups that are only safe on the failing path.
+  #define NI_ASSERT_T(x, user_text)                  { assert(x); }
   
   #define NI_ASSERT_TF(x, user_text, statement)      \
     {                                                \
@@ -27,7 +29,7 @@
     }
   
   #define NI_ASSERTHR(x)                             { assert(!FAILED(x)); }
-  #define NI_ASSERTHR_T(x, user_text)                { assert((!FAILED(x)) && user_text); }
+  #define NI_ASSERTHR_T(x, user_text)                { assert(!FAILED(x)); }
   #define NI_ASSERTHR_TF(x, user_text, statement)    \
     {                                                \
       if (FAILED(x)) {                               \
@@ -55,10 +57,10 @@
 #if defined(_DEBUG) || defined(_DO_ASSERT_SLOW)
   
   #define NI_ASSERT_SLOW(x)                          { assert(x); }
-  #define NI_ASSERT_SLOW_T(x, user_text)             { assert((x) && user_text); }
+  #define NI_ASSERT_SLOW_T(x, user_text)             { assert(x); }
   #define NI_ASSERT_SLOW_TF(x, user_text, statement) NI_ASSERT_TF(x, user_text, statement)
   #define NI_ASSERTHR_SLOW(x)                        { assert(!FAILED(x)); }
-  #define NI_ASSERTHR_SLOW_T(x, user_text)           { assert((!FAILED(x)) && user_text); }
+  #define NI_ASSERTHR_SLOW_T(x, user_text)           { assert(!FAILED(x)); }
   #define NI_ASSERTHR_SLOW_TF(x, user_text, statement) NI_ASSERTHR_TF(x, user_text, statement)
 
 #else

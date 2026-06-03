@@ -12,6 +12,7 @@
 #include "..\Scene\Scene.h"
 #include "..\Input\Input.h"
 #include "..\Input\InputTypes.h"
+#include "..\GFX\GFXTypes.h"
 
 #include "resource.h"
 using namespace NWin32Helper;
@@ -33,6 +34,12 @@ static std::list<SWindowsMsg> msgList;  // pumped messages
 static std::string szAppTitleName = " Blitzkrieg Game"; // application title ( will be loaded during initialization )
 static std::string szWndClassName = "NIVAL_RTS_ENGINE"; // user window class name ( will be loaded during initialization )
 static HWND hWndSplashScreen = 0;
+static DWORD GetWindowedStyle() { return WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX; }
+static bool IsWindowedMode()
+{
+	return ( GetGlobalVar( "windowed", 0 ) != 0 ) ||
+		     ( GetGlobalVar( "GFX.Mode.Current.FullScreen", 0 ) == int( GFXFS_WINDOWED ) );
+}
 bool IsActive() { return bActive; }
 bool IsExit() { return bExit; }
 HWND GetHWnd() { return hWnd; }
@@ -65,16 +72,18 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
       ((MINMAXINFO*)lParam)->ptMinTrackSize.y = 100;
       break;
     case WM_ENTERSIZEMOVE:
-			NI_ASSERT( 0 );
+			if ( !IsWindowedMode() )
+				NI_ASSERT( 0 );
       break;
     case WM_EXITSIZEMOVE:
       break;
 		case WM_SETCURSOR:
-			if ( NMain::IsInitialized() ) 
+			if ( NMain::IsInitialized() && ( !IsWindowedMode() || LOWORD(lParam) == HTCLIENT ) )
 				GetSingleton<ICursor>()->OnSetCursor();
 			break;
     case WM_NCHITTEST:
-      return HTCLIENT;
+			if ( !IsWindowedMode() )
+				return HTCLIENT;
       break;
     case WM_POWERBROADCAST:
       switch( wParam )
@@ -87,15 +96,18 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
       }
       break;
     case WM_SYSCOMMAND:
-      switch( wParam )
+      switch( wParam & 0xfff0 )
       {
+        case SC_MONITORPOWER:
+				case SC_SCREENSAVE:
+          return 1;
+
         case SC_MOVE:
         case SC_SIZE:
         case SC_MAXIMIZE:
         case SC_KEYMENU:
-        case SC_MONITORPOWER:
-				case SC_SCREENSAVE:
-          return 1; // in both modes is prevented
+					if ( !IsWindowedMode() )
+						return 1;
           break;
 /*				case SC_RESTORE:
 					ShowWindow( hWnd, SW_RESTORE );
@@ -332,7 +344,7 @@ static void PreCreateWindow( CREATESTRUCT& cs )
   cs.hwndParent = 0;
   cs.x = 0;
   cs.y = 0;
-  cs.style = WS_POPUP;// | WS_CLIPSIBLINGS;
+  cs.style = IsWindowedMode() ? GetWindowedStyle() : WS_POPUP;// | WS_CLIPSIBLINGS;
   cs.lpszName = szAppTitleName.c_str();
   cs.lpszClass = LPCSTR( atomWndClassName );
   cs.dwExStyle = 0;
@@ -344,6 +356,20 @@ static bool InitInstance( HINSTANCE hInst, int nCmdShow, int nWidth, int nHeight
 	cs.cx = nWidth;
 	cs.cy = nHeight;
 	PreCreateWindow( cs );
+	if ( IsWindowedMode() )
+	{
+		RECT rcWindow = { 0, 0, cs.cx, cs.cy };
+		AdjustWindowRectEx( &rcWindow, cs.style, FALSE, cs.dwExStyle );
+		cs.cx = rcWindow.right - rcWindow.left;
+		cs.cy = rcWindow.bottom - rcWindow.top;
+
+		RECT rcWork = { 0, 0, 0, 0 };
+		if ( SystemParametersInfo( SPI_GETWORKAREA, 0, &rcWork, 0 ) )
+		{
+			cs.x = rcWork.left + Max( 0, int( rcWork.right - rcWork.left - cs.cx ) / 2 );
+			cs.y = rcWork.top + Max( 0, int( rcWork.bottom - rcWork.top - cs.cy ) / 2 );
+		}
+	}
   hWnd = CreateWindowEx( cs.dwExStyle, cs.lpszClass, cs.lpszName, cs.style, cs.x, cs.y, cs.cx, cs.cy,
 		                     cs.hwndParent, cs.hMenu, cs.hInstance, cs.lpCreateParams );
 	NI_ASSERT_TF( hWnd != 0, "Can't create main app window", return false; );
@@ -382,6 +408,12 @@ static bool CheckPreviousApp( LPCSTR pszMainClass, LPCSTR pszMainTitle )
 void SetActive( bool bActivate ) 
 { 
 	bActive = bActivate; 
+	if ( IsWindowedMode() )
+	{
+		if ( bActive && IsIconic(hWnd) )
+			ShowWindow( hWnd, SW_RESTORE );
+		return;
+	}
 	if ( !bActive )
 		ShowWindow( hWnd, SW_MINIMIZE );
 	else

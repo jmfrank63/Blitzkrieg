@@ -11,10 +11,10 @@ private:
 	const TCoeffType tCellSize;								// area map cell size
 	class CObjEqualFunctional
 	{
-		const TStorageType obj;
+		TYPE *pObj;
 	public:
-		explicit CObjEqualFunctional( TYPE *_pObj ) : obj( _pObj ) {  }
-		bool operator()( const TStorageType &ptr ) const { return ptr == obj; }
+		explicit CObjEqualFunctional( TYPE *_pObj ) : pObj( _pObj ) {  }
+		bool operator()( const TStorageType &ptr ) const { return ptr == pObj; }
 	};
 	void AddTo( int nX, int nY, TYPE *pObj )
 	{

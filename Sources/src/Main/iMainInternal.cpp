@@ -55,19 +55,20 @@ bool SerializeConfig( const bool bRead, const DWORD dwSerialize )
 	const std::string szConfigFileName = ".\\" + szConfigName;
 	const std::string szDefaultValuesName = GetGlobalVar( "DefaultConfigName", "defconf.cfg" );
 	const std::string szDefaultValuesFileName = ".\\" + szDefaultValuesName;
+	const bool bConfigExists = NFile::IsFileExist( szConfigFileName.c_str() );
+	const bool bDefaultValuesExist = NFile::IsFileExist( szDefaultValuesFileName.c_str() );
 	
-	if ( bRead && !NFile::IsFileExist(szConfigFileName.c_str()) &&
-								!NFile::IsFileExist(szDefaultValuesName.c_str())	) 
+	if ( bRead && !bConfigExists && !bDefaultValuesExist )
 		return false;
 
 	CPtr<IDataStream> pStream = OpenFileStream(szConfigFileName.c_str(), bRead ? STREAM_ACCESS_READ : STREAM_ACCESS_WRITE);
 	CPtr<IDataStream> pStreamToRepair;
 	CPtr<IDataTree> pTreeToRepair;
-	if( bRead )
+	if( bRead && bDefaultValuesExist )
 	{
 		pStreamToRepair = OpenFileStream( szDefaultValuesFileName.c_str(), STREAM_ACCESS_READ );
-		NI_ASSERT_T( pStreamToRepair != 0, NStr::Format( "NO CONFIG FILE %s", szDefaultValuesFileName.c_str() ) );
-		pTreeToRepair = CreateDataTreeSaver(pStreamToRepair, IDataTree::READ );
+		if ( pStreamToRepair )
+			pTreeToRepair = CreateDataTreeSaver(pStreamToRepair, IDataTree::READ );
 	}
 
 	CPtr<IDataTree> pTree;

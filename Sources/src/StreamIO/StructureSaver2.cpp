@@ -263,7 +263,8 @@ void CStructureSaver2::StoreObject( IRefCount *pObject )
 	{
 #ifdef _DO_ASSERT_SLOW
 		CPObjectsHashSet::iterator pos = storedObjects.find( pObject );
-		NI_ASSERT_SLOW_T( (pos == storedObjects.end()) || ((pos != storedObjects.end()) && (*pos == pObject)), NStr::Format("storing object 0x.8x of type \"%s\", but such object of type \"%s\" already exist", pObject, typeid(*pObject).name(), typeid(*(*pos)).name()) );
+		if ( pos != storedObjects.end() )
+			NI_ASSERT_SLOW_T( *pos == pObject, NStr::Format("storing object 0x.8x of type \"%s\", but such object of type \"%s\" already exist", pObject, typeid(*pObject).name(), typeid(*(*pos)).name()) );
 #endif // _DO_ASSERT_SLOW
 		toStore.push_back( pObject );
 		storedObjects.insert( pObject );

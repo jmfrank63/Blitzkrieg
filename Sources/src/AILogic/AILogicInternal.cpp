@@ -263,9 +263,15 @@ IRefCount* CAILogic::AddObject( const SMapObjectInfo &object, IObjectsDB *pIDB, 
 		{
 			if ( theCheats.GetLoadObjects() )
 			{
-				CGDBPtr<SBuildingRPGStats> pStats = static_cast<const SBuildingRPGStats*>(pPassedStats);
+				const IGDBObject *pRPGStats = pPassedStats;
+				if ( pRPGStats == 0 )
+					pRPGStats = pIDB->GetRPGStats( pDesc );
+				CGDBPtr<SBuildingRPGStats> pStats = dynamic_cast<const SBuildingRPGStats*>(pRPGStats);
 				if ( pStats == 0 )
-					pStats = static_cast<const SBuildingRPGStats*>( pIDB->GetRPGStats( pDesc ) );
+				{
+					NStr::DebugTrace( "Building object \"%s\" has invalid RPG stats\n", object.szName.c_str() );
+					NI_ASSERT_TF( false, "building object has invalid RPG stats", break );
+				}
 
 				switch ( pStats->eType )
 				{
