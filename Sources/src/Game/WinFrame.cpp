@@ -7,6 +7,8 @@
 
 #include "..\Misc\Win32Helper.h"
 #include "..\Main\iMain.h"
+#include "..\Main\iMainCommands.h"
+#include "..\GameTT\iMission.h"
 #include "..\Scene\Scene.h"
 #include "..\Input\Input.h"
 #include "..\Input\InputTypes.h"
@@ -36,6 +38,10 @@ bool IsExit() { return bExit; }
 HWND GetHWnd() { return hWnd; }
 HINSTANCE GetHInstance() { return hInstance; }
 void AddMsg( SWindowsMsg::EMsg msg, int x, int y, DWORD dwFlags );
+static void AddInputMessage( const int nEventID, const int nParam = 0 );
+static void AddMouseActionMessage( const int nEventID, const LPARAM lParam );
+static void UpdateCursorPos( const LPARAM lParam );
+static void AddMovieSkipMessage();
 ATOM RegisterClass( HINSTANCE hInst );
 bool CheckPreviousApp( LPCSTR pszMainClass, LPCSTR pszMainTitle );
 bool InitInstance( HINSTANCE hInst, int nCmdShow, int nWidth, int nHeight );
@@ -121,24 +127,48 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 			break;
 
 		case WM_LBUTTONDOWN:
-			if ( GetSingleton<IInput>()->IsEmulated(DEVICE_TYPE_MOUSE) ) 
+			if ( GetSingleton<IInput>()->IsEmulated(DEVICE_TYPE_MOUSE) )
+			{
+				SetCapture( hWnd );
+				AddMouseActionMessage( CMD_BEGIN_ACTION1, lParam );
+				AddMovieSkipMessage();
 				GetSingleton<IInput>()->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_BUTTON0, 0x80, timeGetTime(), TranslateCoords(lParam) );
+			}
 			break;
 		case WM_LBUTTONUP:
-			if ( GetSingleton<IInput>()->IsEmulated(DEVICE_TYPE_MOUSE) ) 
+			if ( GetSingleton<IInput>()->IsEmulated(DEVICE_TYPE_MOUSE) )
+			{
+				AddMouseActionMessage( CMD_END_ACTION1, lParam );
 				GetSingleton<IInput>()->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_BUTTON0, 0x00, timeGetTime(), TranslateCoords(lParam) );
+				if ( GetCapture() == hWnd )
+					ReleaseCapture();
+			}
 			break;
 		case WM_LBUTTONDBLCLK:
-			if ( GetSingleton<IInput>()->IsEmulated(DEVICE_TYPE_MOUSE) ) 
+			if ( GetSingleton<IInput>()->IsEmulated(DEVICE_TYPE_MOUSE) )
+			{
+				AddMouseActionMessage( CMD_MOUSE0_DBLCLK, lParam );
+				AddMovieSkipMessage();
 				GetSingleton<IInput>()->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_BUTTON0 | 0x4000, 0x80, timeGetTime(), TranslateCoords(lParam) );
+			}
 			break;
 		case WM_RBUTTONDOWN:
-			if ( GetSingleton<IInput>()->IsEmulated(DEVICE_TYPE_MOUSE) ) 
+			if ( GetSingleton<IInput>()->IsEmulated(DEVICE_TYPE_MOUSE) )
+			{
+				SetCapture( hWnd );
+				AddMouseActionMessage( CMD_BEGIN_ACTION2, lParam );
+				AddMovieSkipMessage();
 				GetSingleton<IInput>()->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_BUTTON1, 0x80, timeGetTime(), TranslateCoords(lParam) );
+			}
 			break;
 		case WM_RBUTTONUP:
-			if ( GetSingleton<IInput>()->IsEmulated(DEVICE_TYPE_MOUSE) ) 
+			if ( GetSingleton<IInput>()->IsEmulated(DEVICE_TYPE_MOUSE) )
+			{
+				AddMouseActionMessage( CMD_END_ACTION2, lParam );
 				GetSingleton<IInput>()->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_BUTTON1, 0x00, timeGetTime(), TranslateCoords(lParam) );
+				if ( GetCapture() == hWnd )
+					ReleaseCapture();
+			}
 			break;
 		case WM_RBUTTONDBLCLK:
 			if ( GetSingleton<IInput>()->IsEmulated(DEVICE_TYPE_MOUSE) ) 
@@ -165,10 +195,11 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 				GetSingleton<IInput>()->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_AXIS_Z, absZ, timeGetTime(), TranslateCoords(lParam) );
 			}
 			break;
-			/*
 		case WM_MOUSEMOVE:
-			AddMsg( SWindowsMsg::MOUSE_MOVE, lParam & 0xFFFF, (lParam >> 16) & 0xFFFF, wParam );
+			if ( NMain::IsInitialized() ) 
+				UpdateCursorPos( lParam );
 			break;
+			/*
 		case WM_KEYDOWN:
 			AddMsg( SWindowsMsg::KEY_DOWN, wParam, lParam & 0xFFFF, (lParam >> 16) & 0xFFFF );
 			break;
@@ -176,6 +207,21 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 			AddMsg( SWindowsMsg::KEY_UP, wParam, lParam & 0xFFFF, (lParam >> 16) & 0xFFFF );
 			break;
 			*/
+		case WM_KEYDOWN:
+		case WM_SYSKEYDOWN:
+			switch ( wParam )
+			{
+				case VK_ESCAPE:
+					AddMovieSkipMessage();
+					break;
+				case VK_SPACE:
+					AddMovieSkipMessage();
+					break;
+				case VK_RETURN:
+					AddMovieSkipMessage();
+					break;
+			}
+			break;
 		case WM_INPUTLANGCHANGEREQUEST:
 			break;
 		case WM_INPUTLANGCHANGE:
@@ -193,6 +239,29 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 			break;
 	}
 	return DefWindowProc( hWnd, uMsg, wParam, lParam );
+}
+static void AddInputMessage( const int nEventID, const int nParam )
+{
+	if ( NMain::IsInitialized() )
+		GetSingleton<IInput>()->AddMessage( SGameMessage( nEventID, nParam ) );
+}
+static void AddMouseActionMessage( const int nEventID, const LPARAM lParam )
+{
+	if ( NMain::IsInitialized() )
+	{
+		UpdateCursorPos( lParam );
+		AddInputMessage( nEventID, TranslateCoords(lParam) );
+	}
+}
+static void UpdateCursorPos( const LPARAM lParam )
+{
+	const int x = LOWORD( lParam );
+	const int y = HIWORD( lParam );
+	GetSingleton<ICursor>()->SetPos( x, y );
+}
+static void AddMovieSkipMessage()
+{
+	AddInputMessage( MC_MOVIE_SKIP_SEQUENCE, 0 );
 }
 static void AddMsg( SWindowsMsg::EMsg msg, int x, int y, DWORD dwFlags )
 {

@@ -9,6 +9,7 @@
 #include "..\GFX\GFX.h"
 #include "..\SFX\SFX.h"
 #include "..\Input\Input.h"
+#include "..\Input\InputTypes.h"
 #include "..\Scene\Scene.h"
 #include "..\GameTT\iMission.h"
 #include "..\Misc\FileUtils.h"
@@ -335,6 +336,8 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		CPtr<ICursor> pCursor = GetSingleton<ICursor>();
 		pCursor->SetBounds( 0, 0, cmdp.nScreenSizeX, cmdp.nScreenSizeY );
 		pCursor->SetMode( 0 );
+		GetSingleton<IInput>()->SetDeviceEmulationStatus( DEVICE_TYPE_MOUSE, true );
+		pCursor->SetUpdateMode( ICursor::UPDATE_MODE_INPUT );
 	}
 	{
 		CPtr<IGFXFont> pFont = GetSingleton<IFontManager>()->GetFont( "fonts\\medium" );

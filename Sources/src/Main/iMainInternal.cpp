@@ -329,7 +329,7 @@ IInterfaceBase* CMainLoop::GetInterface() const
   return interfaces.back();
 }
 static int nShotIndex = 0;
-static bool bUseInput = true;
+static bool bUseInput = false;
 static int nSaveNum = 30;
 void CMainLoop::ProcessStandardMsgs( const SGameMessage &msg )
 {
@@ -414,7 +414,7 @@ void CMainLoop::ProcessStandardMsgs( const SGameMessage &msg )
 			else
 			{
 				pInput->SetDeviceEmulationStatus( DEVICE_TYPE_MOUSE, true );
-				GetSingleton<ICursor>()->SetUpdateMode( ICursor::UPDATE_MODE_WINDOWS );
+				GetSingleton<ICursor>()->SetUpdateMode( ICursor::UPDATE_MODE_INPUT );
 			}
 			break;
 	}

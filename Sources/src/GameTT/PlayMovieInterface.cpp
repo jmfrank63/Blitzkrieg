@@ -106,6 +106,17 @@ void CPlayMovieInterface::Done()
 	pScene->RemoveSceneObject( pPlayer );
 	GetSingleton<ICursor>()->Show( true );
 }
+bool CPlayMovieInterface::ProcessUIMessage( const SGameMessage &msg )
+{
+	switch ( msg.nEventID )
+	{
+		case MC_MOVIE_SKIP_SEQUENCE:
+		case MC_MOVIE_SKIP_MOVIE:
+			return ProcessMessage( msg );
+		default:
+			return CInterfaceScreenBase::ProcessUIMessage( msg );
+	}
+}
 bool CPlayMovieInterface::ProcessMessage( const SGameMessage &msg )
 {
 	switch ( msg.nEventID ) 

@@ -41,6 +41,7 @@ class CPlayMovieInterface : public CInterfaceScreenBase
 	std::string szNextInterfaceCommandConfig;
 	bool PlayMovie();
 	void StartNextInterface();
+	virtual bool STDCALL ProcessUIMessage( const SGameMessage &msg );
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
 	virtual bool OpenCurtains() { return false; }
 public:	

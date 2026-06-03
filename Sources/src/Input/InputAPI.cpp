@@ -706,7 +706,7 @@ void CInputAPI::SetDeviceEmulationStatus( const enum EDeviceType eDeviceType, co
 			bCoopLevelSet = false;
 			const bool bOldFocusCaptured = bFocusCaptured;
 			bFocusCaptured = false;
-			SetFocus( bFocusCaptured );
+			SetFocus( bOldFocusCaptured );
 			break;
 		}
 	}
