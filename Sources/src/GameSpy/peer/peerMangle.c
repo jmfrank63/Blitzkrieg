@@ -54,7 +54,7 @@ static char ip_cryptbuffer[32];
 /**************
 ** FUNCTIONS **
 **************/
-//ripped from Aphex's ipencode.h
+
 static const char *
 EncodeIPAddr(unsigned int ulIPAddr, char * lpszEncodedAddr)
 	{
@@ -100,7 +100,7 @@ all_done:
 		return(ip_cryptbuffer);
 	}
 
-//ripped from Aphex's ipencode.h
+
 static unsigned int
 DecodeIPAddr(const char * lpszEncodedAddr)
 	{

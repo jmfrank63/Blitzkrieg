@@ -1066,7 +1066,7 @@ void peerJoinGroupRoom
 	PI_DO_BLOCKING;
 }
 
-// Either the server or the IP must be set, but not both.
+
 void piJoinStagingRoom
 (
 	PEER peer,

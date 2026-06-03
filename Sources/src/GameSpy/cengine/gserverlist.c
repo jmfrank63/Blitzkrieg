@@ -44,7 +44,7 @@ devsupport@gamespy.com
 #include <stdlib.h>
 
 #define MSHOST "master.gamespy.com"
-//#define MSHOST "207.199.80.230"
+
 #define MSPORT	28900
 #define SERVER_GROWBY 64
 #define LAN_SEARCH_TIME 3000 //3 sec
@@ -56,7 +56,7 @@ devsupport@gamespy.com
 extern "C" {
 #endif
 
-//todo: check state changes on error
+
 typedef struct 
 {
 	SOCKET s;
@@ -93,7 +93,7 @@ struct GServerListImplementation
 
 GServerList g_sortserverlist; //global serverlist for sorting info!!
 
-//PANTS - 10.2.00
+
 char ServerListHostname[64] = MSHOST;
 
 /* these correspond to the qt_ constants */
@@ -174,7 +174,7 @@ static GError InitUpdateList(GServerList serverlist)
 
 }
 
-//gsifree update sockets 
+
 static GError FreeUpdateList(GServerList serverlist) 
 {
 	int i;
@@ -187,7 +187,7 @@ static GError FreeUpdateList(GServerList serverlist)
 
 }
 
-//create and connect a server list socket
+
 static GError CreateServerListSocket(GServerList serverlist)
 {
 	struct   sockaddr_in saddr;
@@ -219,7 +219,7 @@ static GError CreateServerListSocket(GServerList serverlist)
 }
 
 
-//create and connect a server list socket
+
 static GError CreateServerListLANSocket(GServerList serverlist)
 {
 	int optval = 1;
@@ -236,7 +236,7 @@ static GError CreateServerListLANSocket(GServerList serverlist)
 
 }
 
-//trigger the callback and set the new mode
+
 static void ServerListModeChange(GServerList serverlist, GServerListState newstate)
 {
 	serverlist->state = newstate;
@@ -245,7 +245,7 @@ static void ServerListModeChange(GServerList serverlist, GServerListState newsta
 }
 
 
-// validate us to the master and send a list request
+
 #define SECURE "\\secure\\"
 static GError SendListRequest(GServerList serverlist, char *filter)
 {
@@ -326,7 +326,7 @@ static GError SendBroadcastRequest(GServerList serverlist, int startport, int en
 
 }
 
-//just wait for the server list to become idle
+
 static void DoSyncLoop(GServerList serverlist)
 {
 	while (serverlist->state != sl_idle)
@@ -409,8 +409,8 @@ static GServer ServerListAddServerData(GServerList serverlist, char **fieldlist,
 	return server;
 }
 
-//add the server to the list with the given ip, port
-//removed "static" token so that outsiders can add servers to a list - did not alter .h files (28mar01/bgw)
+
+
 GServer ServerListAddServer(GServerList serverlist, goa_uint32 ip, unsigned short port, GQueryType qtype)
 {
 	GServer server;
@@ -425,7 +425,7 @@ GServer ServerListAddServer(GServerList serverlist, goa_uint32 ip, unsigned shor
 	return server;
 }
 
-//add the server to the list with the given ip, port
+
 static GServer ServerListInsertServer(GServerList serverlist, goa_uint32 ip, unsigned short port, int pos, GQueryType qtype)
 {
 	GServer server;
@@ -435,7 +435,7 @@ static GServer ServerListInsertServer(GServerList serverlist, goa_uint32 ip, uns
 }
 
 
-//find the server in the list (up to max), returns -1 if it does not exist
+
 static int ServerListFindServerMax(GServerList serverlist, unsigned int ip, int port, int maxcheck)
 {
 	int i;
@@ -452,14 +452,14 @@ static int ServerListFindServerMax(GServerList serverlist, unsigned int ip, int 
 	return -1;
 }
 
-//find the server in the list, returns -1 if it does not exist
+
 int ServerListFindServer(GServerList serverlist, unsigned int ip, int port)
 {
 	return ServerListFindServerMax(serverlist, ip, port, ArrayLength(serverlist->servers));
 }
 
-//finds the server in the list of servers currently being queried
-// returns -1 if it does not exist
+
+
 static int ServerListFindServerInUpdateList(GServerList serverlist, GServer server)
 {
 	int i;
@@ -608,8 +608,8 @@ static GError ServerListLANList(GServerList serverlist)
 
 }
 
-//parses a \ delimited string and counts the number of characters to the Nth \ character
-// e.g. \test\3\test2\2335 N = 3, returns 8
+
+
 static int CountSlashOffset(char *data, int len, int slashcount)
 {
 	char *p = data;
@@ -626,9 +626,9 @@ static int CountSlashOffset(char *data, int len, int slashcount)
 }
 
 #define FIELDCOUNT_LENGTH 12 //length of string \fieldcount\ --
-//parses a server list with info in it, the format is:
-// \fieldcount\N\field1\field2\...\fieldN\server1Field1\server1Field2\...
-// \server1FieldN\server2Field1\server2Field2\...\serverXFieldN\final\ ---
+
+
+
 static int ServerListParseInfoList(GServerList serverlist, char *data, int len)
 {
 	static char *fieldlist[MAX_INFO_FIELDS];
@@ -695,7 +695,7 @@ static int ServerListParseInfoList(GServerList serverlist, char *data, int len)
 	return -1; //bad state!
 }
 							 
-//reads the server list from the socket and parses it
+
 static GError ServerListReadList(GServerList serverlist)
 {
 	static char data[2048]; //static input buffer
@@ -715,7 +715,7 @@ static GError ServerListReadList(GServerList serverlist)
 		return GE_NOERROR;
 #endif
 
-//append to data
+
 	len = recv(serverlist->slsocket, data + oldlen, sizeof(data) - oldlen - 1, 0);
 	if (len == SOCKET_ERROR || len == 0)
 	{
@@ -802,7 +802,7 @@ static GError ServerListReadList(GServerList serverlist)
 }
 
 
-//loop through pending queries and send out new ones
+
 static GError ServerListQueryLoop(GServerList serverlist)
 {
 	int i, scount = 0, error, final;
@@ -813,7 +813,7 @@ static GError ServerListQueryLoop(GServerList serverlist)
 	int saddrlen = sizeof(saddr);
 	GServer server;
 
-//first, check for available data
+
 	FD_ZERO(&set);
 	for (i = 0 ; i < serverlist->maxupdates ; i++)
 		if (serverlist->updatelist[i].currentserver != NULL) //there is a server waiting
@@ -882,7 +882,7 @@ static GError ServerListQueryLoop(GServerList serverlist)
 		return 0;
 	}
 	
-//now, send out queries on available sockets
+
 	for (i = 0 ; i < serverlist->maxupdates && serverlist->nextupdate < ArrayLength(serverlist->servers) ; i++)
 		if (serverlist->updatelist[i].currentserver == NULL) //it's availalbe
 		{

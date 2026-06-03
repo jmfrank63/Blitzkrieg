@@ -226,7 +226,7 @@
  *     - add support for runtime enable/disable/query of various MMX routines
  */
 
-//#define PNG_DEBUG 2   // GRR
+
 
 #define PNG_INTERNAL
 #include "png.h"
@@ -239,8 +239,8 @@ static const int FARDATA png_pass_inc[7]   = {8, 8, 4, 4, 2, 2, 1};
 static const int FARDATA png_pass_width[7] = {8, 4, 4, 2, 2, 1, 1};
 #endif
 
-// djgpp, Win32, and Cygwin add their own underscores to global variables,
-// so define them without:
+
+
 #if defined(__DJGPP__) || defined(WIN32) || defined(__CYGWIN__)
 #  define _mmx_supported  mmx_supported
 #  define _unmask         unmask
@@ -312,11 +312,11 @@ static unsigned long long _mask48_1 = 0x2020202040404040LL;
 static unsigned long long _mask48_0 = 0x4040808080808080LL;
 
 static unsigned long long _const4   = 0x0000000000FFFFFFLL;
-//static unsigned long long _const5 = 0x000000FFFFFF0000LL;     // NOT USED
+
 static unsigned long long _const6   = 0x00000000000000FFLL;
 
-// These are used in the row-filter routines and should/would be local
-//  variables if not for gcc addressing limitations.
+
+
 
 static png_uint_32  _FullLength;
 static png_uint_32  _MMXLength;
@@ -328,11 +328,11 @@ static int          _pctemp;
 
 
 
-//===========================================================================//
-//                                                                           //
-//                       P N G _ C O M B I N E _ R O W                       //
-//                                                                           //
-//===========================================================================//
+
+
+
+
+
 
 #if defined(PNG_HAVE_ASSEMBLER_COMBINE_ROW)
 
@@ -566,9 +566,9 @@ png_combine_row(png_structp png_ptr, png_bytep row, int mask)
                   "pand      %%mm7, %%mm0    \n\t" // nonzero if keep byte
                   "pcmpeqb   %%mm6, %%mm0    \n\t" // zeros->1s, v versa
 
-// preload        "movl      len, %%ecx      \n\t" // load length of line
-// preload        "movl      srcptr, %%esi   \n\t" // load source
-// preload        "movl      dstptr, %%edi   \n\t" // load dest
+
+
+
 
                   "cmpl      $0, %%ecx       \n\t" // len == 0 ?
                   "je        mainloop8end    \n\t"
@@ -586,11 +586,11 @@ png_combine_row(png_structp png_ptr, png_bytep row, int mask)
                   "ja        mainloop8       \n\t"
 
                 "mainloop8end:               \n\t"
-// preload        "movl      diff, %%ecx     \n\t" // (diff is in eax)
+
                   "movl      %%eax, %%ecx    \n\t"
                   "cmpl      $0, %%ecx       \n\t"
                   "jz        end8            \n\t"
-// preload        "movl      mask, %%edx     \n\t"
+
                   "sall      $24, %%edx      \n\t" // make low byte, high byte
 
                 "secondloop8:                \n\t"
@@ -617,7 +617,7 @@ png_combine_row(png_structp png_ptr, png_bytep row, int mask)
                   : "3" (srcptr),      // esi       // input regs
                     "4" (dstptr),      // edi
                     "0" (diff),        // eax
-// was (unmask)     "b"    RESERVED    // ebx       // Global Offset Table idx
+
                     "2" (len),         // ecx
                     "1" (mask)         // edx
 
@@ -687,9 +687,9 @@ png_combine_row(png_structp png_ptr, png_bytep row, int mask)
                   "pcmpeqb   %%mm6, %%mm0     \n\t"
                   "pcmpeqb   %%mm6, %%mm1     \n\t"
 
-// preload        "movl      len, %%ecx       \n\t" // load length of line
-// preload        "movl      srcptr, %%esi    \n\t" // load source
-// preload        "movl      dstptr, %%edi    \n\t" // load dest
+
+
+
 
                   "cmpl      $0, %%ecx        \n\t"
                   "jz        mainloop16end    \n\t"
@@ -717,11 +717,11 @@ png_combine_row(png_structp png_ptr, png_bytep row, int mask)
                   "ja        mainloop16       \n\t"
 
                 "mainloop16end:               \n\t"
-// preload        "movl      diff, %%ecx      \n\t" // (diff is in eax)
+
                   "movl      %%eax, %%ecx     \n\t"
                   "cmpl      $0, %%ecx        \n\t"
                   "jz        end16            \n\t"
-// preload        "movl      mask, %%edx      \n\t"
+
                   "sall      $24, %%edx       \n\t" // make low byte, high byte
 
                 "secondloop16:                \n\t"
@@ -746,7 +746,7 @@ png_combine_row(png_structp png_ptr, png_bytep row, int mask)
                     "=D" (dummy_value_D)
 
                   : "0" (diff),        // eax       // input regs
-// was (unmask)     " "    RESERVED    // ebx       // Global Offset Table idx
+
                     "1" (len),         // ecx
                     "2" (mask),        // edx
                     "3" (srcptr),      // esi
@@ -822,9 +822,9 @@ png_combine_row(png_structp png_ptr, png_bytep row, int mask)
                   "pcmpeqb   %%mm6, %%mm1     \n\t"
                   "pcmpeqb   %%mm6, %%mm2     \n\t"
 
-// preload        "movl      len, %%ecx       \n\t" // load length of line
-// preload        "movl      srcptr, %%esi    \n\t" // load source
-// preload        "movl      dstptr, %%edi    \n\t" // load dest
+
+
+
 
                   "cmpl      $0, %%ecx        \n\t"
                   "jz        mainloop24end    \n\t"
@@ -861,11 +861,11 @@ png_combine_row(png_structp png_ptr, png_bytep row, int mask)
                   "ja        mainloop24       \n\t"
 
                 "mainloop24end:               \n\t"
-// preload        "movl      diff, %%ecx      \n\t" // (diff is in eax)
+
                   "movl      %%eax, %%ecx     \n\t"
                   "cmpl      $0, %%ecx        \n\t"
                   "jz        end24            \n\t"
-// preload        "movl      mask, %%edx      \n\t"
+
                   "sall      $24, %%edx       \n\t" // make low byte, high byte
 
                 "secondloop24:                \n\t"
@@ -895,7 +895,7 @@ png_combine_row(png_structp png_ptr, png_bytep row, int mask)
                   : "3" (srcptr),      // esi       // input regs
                     "4" (dstptr),      // edi
                     "0" (diff),        // eax
-// was (unmask)     "b"    RESERVED    // ebx       // Global Offset Table idx
+
                     "2" (len),         // ecx
                     "1" (mask)         // edx
 
@@ -972,9 +972,9 @@ png_combine_row(png_structp png_ptr, png_bytep row, int mask)
                   "pcmpeqb   %%mm6, %%mm2     \n\t"
                   "pcmpeqb   %%mm6, %%mm3     \n\t"
 
-// preload        "movl      len, %%ecx       \n\t" // load length of line
-// preload        "movl      srcptr, %%esi    \n\t" // load source
-// preload        "movl      dstptr, %%edi    \n\t" // load dest
+
+
+
 
                   "cmpl      $0, %%ecx        \n\t" // lcr
                   "jz        mainloop32end    \n\t"
@@ -1018,11 +1018,11 @@ png_combine_row(png_structp png_ptr, png_bytep row, int mask)
                   "ja        mainloop32       \n\t"
 
                 "mainloop32end:               \n\t"
-// preload        "movl      diff, %%ecx      \n\t" // (diff is in eax)
+
                   "movl      %%eax, %%ecx     \n\t"
                   "cmpl      $0, %%ecx        \n\t"
                   "jz        end32            \n\t"
-// preload        "movl      mask, %%edx      \n\t"
+
                   "sall      $24, %%edx       \n\t" // low byte => high byte
 
                 "secondloop32:                \n\t"
@@ -1049,7 +1049,7 @@ png_combine_row(png_structp png_ptr, png_bytep row, int mask)
                   : "3" (srcptr),      // esi       // input regs
                     "4" (dstptr),      // edi
                     "0" (diff),        // eax
-// was (unmask)     "b"    RESERVED    // ebx       // Global Offset Table idx
+
                     "2" (len),         // ecx
                     "1" (mask)         // edx
 
@@ -1132,9 +1132,9 @@ png_combine_row(png_structp png_ptr, png_bytep row, int mask)
                   "pcmpeqb   %%mm6, %%mm4     \n\t"
                   "pcmpeqb   %%mm6, %%mm5     \n\t"
 
-// preload        "movl      len, %%ecx       \n\t" // load length of line
-// preload        "movl      srcptr, %%esi    \n\t" // load source
-// preload        "movl      dstptr, %%edi    \n\t" // load dest
+
+
+
 
                   "cmpl      $0, %%ecx        \n\t"
                   "jz        mainloop48end    \n\t"
@@ -1189,11 +1189,11 @@ png_combine_row(png_structp png_ptr, png_bytep row, int mask)
                   "ja        mainloop48       \n\t"
 
                 "mainloop48end:               \n\t"
-// preload        "movl      diff, %%ecx      \n\t" // (diff is in eax)
+
                   "movl      %%eax, %%ecx     \n\t"
                   "cmpl      $0, %%ecx        \n\t"
                   "jz        end48            \n\t"
-// preload        "movl      mask, %%edx      \n\t"
+
                   "sall      $24, %%edx       \n\t" // make low byte, high byte
 
                 "secondloop48:                \n\t"
@@ -1220,7 +1220,7 @@ png_combine_row(png_structp png_ptr, png_bytep row, int mask)
                   : "3" (srcptr),      // esi       // input regs
                     "4" (dstptr),      // edi
                     "0" (diff),        // eax
-// was (unmask)     "b"    RESERVED    // ebx       // Global Offset Table idx
+
                     "2" (len),         // ecx
                     "1" (mask)         // edx
 
@@ -1300,11 +1300,11 @@ png_combine_row(png_structp png_ptr, png_bytep row, int mask)
 
 
 
-//===========================================================================//
-//                                                                           //
-//                 P N G _ D O _ R E A D _ I N T E R L A C E                 //
-//                                                                           //
-//===========================================================================//
+
+
+
+
+
 
 #if defined(PNG_READ_INTERLACING_SUPPORTED)
 #if defined(PNG_HAVE_ASSEMBLER_READ_INTERLACE)
@@ -1509,10 +1509,10 @@ png_do_read_interlace(png_structp png_ptr)
 
          default:  // 8-bit or larger (this is where the routine is modified)
          {
-//          static unsigned long long _const4 = 0x0000000000FFFFFFLL;  no good
-//          static unsigned long long const4 = 0x0000000000FFFFFFLL;   no good
-//          unsigned long long _const4 = 0x0000000000FFFFFFLL;         no good
-//          unsigned long long const4 = 0x0000000000FFFFFFLL;          no good
+
+
+
+
             png_bytep sptr, dp;
             png_uint_32 i;
             png_size_t pixel_bytes;
@@ -1575,7 +1575,7 @@ png_do_read_interlace(png_structp png_ptr)
                         : "1" (sptr),      // esi      // input regs
                           "2" (dp),        // edi
                           "0" (width)      // ecx
-// doesn't work           "i" (0x0000000000FFFFFFLL)   // %1 (a.k.a. _const4)
+
 
 #if 0  /* %mm0, ..., %mm4 not supported by gcc 2.7.2.3 or egcs 1.1 */
                         : "%mm0", "%mm1", "%mm2"       // clobber list
@@ -2248,7 +2248,7 @@ png_do_read_interlace(png_structp png_ptr)
                //--------------------------------------------------------------
                else if (pixel_bytes == 8)
                {
-// GRR TEST:  should work, but needs testing (special 64-bit version of rpng2?)
+
                   // GRR NOTE:  no need to combine passes here!
                   if (((pass == 0) || (pass == 1)) && width)
                   {
@@ -2533,8 +2533,8 @@ png_do_read_interlace(png_structp png_ptr)
 
 
 
-// These variables are utilized in the functions below.  They are declared
-// globally here to ensure alignment on 8-byte boundaries.
+
+
 
 union uAll {
    long long use;
@@ -2546,13 +2546,13 @@ union uAll {
 
 
 
-//===========================================================================//
-//                                                                           //
-//           P N G _ R E A D _ F I L T E R _ R O W _ M M X _ A V G           //
-//                                                                           //
-//===========================================================================//
 
-// Optimized code for PNG Average filter decoder
+
+
+
+
+
+
 
 static void /* PRIVATE */
 png_read_filter_row_mmx_avg(png_row_infop row_info, png_bytep row,
@@ -2571,11 +2571,11 @@ png_read_filter_row_mmx_avg(png_row_infop row_info, png_bytep row,
 #ifdef __PIC__
       "pushl %%ebx                 \n\t" // save index to Global Offset Table
 #endif
-//pre "movl row, %%edi             \n\t" // edi:  Avg(x)
+
       "xorl %%ebx, %%ebx           \n\t" // ebx:  x
       "movl %%edi, %%edx           \n\t"
-//pre "movl prev_row, %%esi        \n\t" // esi:  Prior(x)
-//pre "subl bpp, %%edx             \n\t" // (bpp is preloaded into ecx)
+
+
       "subl %%ecx, %%edx           \n\t" // edx:  Raw(x-bpp)
 
       "xorl %%eax,%%eax            \n\t"
@@ -2587,7 +2587,7 @@ png_read_filter_row_mmx_avg(png_row_infop row_info, png_bytep row,
       "incl %%ebx                  \n\t"
       "shrb %%al                   \n\t" // divide by 2
       "addb -1(%%edi,%%ebx,),%%al  \n\t" // add Avg(x); -1 to offset inc ebx
-//pre "cmpl bpp, %%ebx             \n\t" // (bpp is preloaded into ecx)
+
       "cmpl %%ecx, %%ebx           \n\t"
       "movb %%al,-1(%%edi,%%ebx,)  \n\t" // write Raw(x); -1 to offset inc ebx
       "jb avg_rlp                  \n\t" // mov does not affect flags
@@ -2658,9 +2658,9 @@ png_read_filter_row_mmx_avg(png_row_infop row_info, png_bytep row,
             "movq _ActiveMask, %%mm7      \n\t"
             "movl _dif, %%ecx             \n\t" // ecx:  x = offset to
             "movq _LBCarryMask, %%mm5     \n\t" //  alignment boundary
-// preload  "movl row, %%edi              \n\t" // edi:  Avg(x)
+
             "movq _HBClearMask, %%mm4     \n\t"
-// preload  "movl prev_row, %%esi         \n\t" // esi:  Prior(x)
+
 
             // prime the pump:  load the first Raw(x-bpp) data set
             "movq -8(%%edi,%%ecx,), %%mm2 \n\t" // load previous aligned 8 bytes
@@ -2756,9 +2756,9 @@ png_read_filter_row_mmx_avg(png_row_infop row_info, png_bytep row,
 
             // load _ActiveMask and clear all bytes except for 1st active group
             "movq _ActiveMask, %%mm7     \n\t"
-// preload  "movl row, %%edi             \n\t" // edi:  Avg(x)
+
             "psrlq _ShiftRem, %%mm7      \n\t"
-// preload  "movl prev_row, %%esi        \n\t" // esi:  Prior(x)
+
             "movq %%mm7, %%mm6           \n\t"
             "movq _LBCarryMask, %%mm5    \n\t"
             "psllq _ShiftBpp, %%mm6      \n\t" // create mask for 2nd active group
@@ -2833,9 +2833,9 @@ png_read_filter_row_mmx_avg(png_row_infop row_info, png_bytep row,
             // re-init address pointers and offset
             "movl _dif, %%ecx            \n\t" // ecx:  x = offset to alignment boundary
             "movq _LBCarryMask, %%mm5    \n\t"
-// preload  "movl row, %%edi             \n\t" // edi:  Avg(x)
+
             "movq _HBClearMask, %%mm4    \n\t"
-// preload  "movl prev_row, %%esi        \n\t" // esi:  Prior(x)
+
 
             // prime the pump:  load the first Raw(x-bpp) data set
             "movq -8(%%edi,%%ecx,), %%mm2 \n\t" // load previous aligned 8 bytes
@@ -2932,13 +2932,13 @@ png_read_filter_row_mmx_avg(png_row_infop row_info, png_bytep row,
             "pushl %%ebx                 \n\t" // save Global Offset Table index
 #endif
             "movl _dif, %%ebx            \n\t" // ebx:  x = offset to alignment boundary
-// preload  "movl row, %%edi             \n\t" // edi:  Avg(x)
+
             "cmpl _FullLength, %%ebx     \n\t" // test if offset at end of array
             "jnb avg_1end                \n\t"
             // do Paeth decode for remaining bytes
-// preload  "movl prev_row, %%esi        \n\t" // esi:  Prior(x)
+
             "movl %%edi, %%edx           \n\t"
-// preload  "subl bpp, %%edx             \n\t" // (bpp is preloaded into ecx)
+
             "subl %%ecx, %%edx           \n\t" // edx:  Raw(x-bpp)
             "xorl %%ecx, %%ecx           \n\t" // zero ecx before using cl & cx
                                                //  in loop below
@@ -2983,9 +2983,9 @@ png_read_filter_row_mmx_avg(png_row_infop row_info, png_bytep row,
             // re-init address pointers and offset
             "movl _dif, %%ecx            \n\t" // ecx:  x == offset to alignment
             "movq _LBCarryMask, %%mm5    \n\t" //            boundary
-// preload  "movl row, %%edi             \n\t" // edi:  Avg(x)
+
             "movq _HBClearMask, %%mm4    \n\t"
-// preload  "movl prev_row, %%esi        \n\t" // esi:  Prior(x)
+
 
             // prime the pump:  load the first Raw(x-bpp) data set
             "movq -8(%%edi,%%ecx,), %%mm2 \n\t" // load previous aligned 8 bytes
@@ -3082,14 +3082,14 @@ png_read_filter_row_mmx_avg(png_row_infop row_info, png_bytep row,
       "pushl %%ebx                 \n\t" // save index to Global Offset Table
 #endif
       "movl _MMXLength, %%ebx      \n\t" // ebx:  x == offset bytes after MMX
-//pre "movl row, %%edi             \n\t" // edi:  Avg(x)
+
       "cmpl _FullLength, %%ebx     \n\t" // test if offset at end of array
       "jnb avg_end                 \n\t"
 
       // do Avg decode for remaining bytes
-//pre "movl prev_row, %%esi        \n\t" // esi:  Prior(x)
+
       "movl %%edi, %%edx           \n\t"
-//pre "subl bpp, %%edx             \n\t" // (bpp is preloaded into ecx)
+
       "subl %%ecx, %%edx           \n\t" // edx:  Raw(x-bpp)
       "xorl %%ecx, %%ecx           \n\t" // zero ecx before using cl & cx below
 
@@ -3131,13 +3131,13 @@ png_read_filter_row_mmx_avg(png_row_infop row_info, png_bytep row,
 
 
 
-//===========================================================================//
-//                                                                           //
-//         P N G _ R E A D _ F I L T E R _ R O W _ M M X _ P A E T H         //
-//                                                                           //
-//===========================================================================//
 
-// Optimized code for PNG Paeth filter decoder
+
+
+
+
+
+
 
 static void /* PRIVATE */
 png_read_filter_row_mmx_paeth(png_row_infop row_info, png_bytep row,
@@ -3156,9 +3156,9 @@ png_read_filter_row_mmx_paeth(png_row_infop row_info, png_bytep row,
       "pushl %%ebx                 \n\t" // save index to Global Offset Table
 #endif
       "xorl %%ebx, %%ebx           \n\t" // ebx:  x offset
-//pre "movl row, %%edi             \n\t"
+
       "xorl %%edx, %%edx           \n\t" // edx:  x-bpp offset
-//pre "movl prev_row, %%esi        \n\t"
+
       "xorl %%eax, %%eax           \n\t"
 
       // Compute the Raw value for the first bpp bytes
@@ -3168,7 +3168,7 @@ png_read_filter_row_mmx_paeth(png_row_infop row_info, png_bytep row,
       "movb (%%edi,%%ebx,), %%al   \n\t"
       "addb (%%esi,%%ebx,), %%al   \n\t"
       "incl %%ebx                  \n\t"
-//pre "cmpl bpp, %%ebx             \n\t" (bpp is preloaded into ecx)
+
       "cmpl %%ecx, %%ebx           \n\t"
       "movb %%al, -1(%%edi,%%ebx,) \n\t"
       "jb paeth_rlp                \n\t"
@@ -3290,8 +3290,8 @@ png_read_filter_row_mmx_paeth(png_row_infop row_info, png_bytep row,
 
          __asm__ __volatile__ (
             "movl _dif, %%ecx            \n\t"
-// preload  "movl row, %%edi             \n\t"
-// preload  "movl prev_row, %%esi        \n\t"
+
+
             "pxor %%mm0, %%mm0           \n\t"
             // prime the pump:  load the first Raw(x-bpp) data set
             "movq -8(%%edi,%%ecx,), %%mm1 \n\t"
@@ -3508,8 +3508,8 @@ png_read_filter_row_mmx_paeth(png_row_infop row_info, png_bytep row,
 
          __asm__ __volatile__ (
             "movl _dif, %%ecx            \n\t"
-// preload  "movl row, %%edi             \n\t"
-// preload  "movl prev_row, %%esi        \n\t"
+
+
             // prime the pump:  load the first Raw(x-bpp) data set
             "movq -8(%%edi,%%ecx,), %%mm1 \n\t"
             "pxor %%mm0, %%mm0           \n\t"
@@ -3665,8 +3665,8 @@ png_read_filter_row_mmx_paeth(png_row_infop row_info, png_bytep row,
 
          __asm__ __volatile__ (
             "movl _dif, %%ecx            \n\t"
-// preload  "movl row, %%edi             \n\t"
-// preload  "movl prev_row, %%esi        \n\t"
+
+
             "pxor %%mm0, %%mm0           \n\t"
             // prime the pump:  load the first Raw(x-bpp) data set
             "movq -8(%%edi,%%ecx,), %%mm1 \n\t" // only time should need to read
@@ -3810,8 +3810,8 @@ png_read_filter_row_mmx_paeth(png_row_infop row_info, png_bytep row,
 
          __asm__ __volatile__ (
             "movl _dif, %%ecx            \n\t"
-// preload  "movl row, %%edi             \n\t"
-// preload  "movl prev_row, %%esi        \n\t"
+
+
             "pxor %%mm0, %%mm0           \n\t"
             // prime the pump:  load the first Raw(x-bpp) data set
             "movq -8(%%edi,%%ecx,), %%mm1 \n\t" // only time should need to read
@@ -3962,11 +3962,11 @@ png_read_filter_row_mmx_paeth(png_row_infop row_info, png_bytep row,
             "cmpl _FullLength, %%ebx     \n\t"
             "jnb paeth_dend              \n\t"
 
-// preload  "movl row, %%edi             \n\t"
-// preload  "movl prev_row, %%esi        \n\t"
+
+
             // do Paeth decode for remaining bytes
             "movl %%ebx, %%edx           \n\t"
-// preload  "subl bpp, %%edx             \n\t" // (bpp is preloaded into ecx)
+
             "subl %%ecx, %%edx           \n\t" // edx = ebx - bpp
             "xorl %%ecx, %%ecx           \n\t" // zero ecx before using cl & cx
 
@@ -4073,11 +4073,11 @@ png_read_filter_row_mmx_paeth(png_row_infop row_info, png_bytep row,
       "movl _MMXLength, %%ebx      \n\t"
       "cmpl _FullLength, %%ebx     \n\t"
       "jnb paeth_end               \n\t"
-//pre "movl row, %%edi             \n\t"
-//pre "movl prev_row, %%esi        \n\t"
+
+
       // do Paeth decode for remaining bytes
       "movl %%ebx, %%edx           \n\t"
-//pre "subl bpp, %%edx             \n\t" // (bpp is preloaded into ecx)
+
       "subl %%ecx, %%edx           \n\t" // edx = ebx - bpp
       "xorl %%ecx, %%ecx           \n\t" // zero ecx before using cl & cx below
 
@@ -4177,13 +4177,13 @@ png_read_filter_row_mmx_paeth(png_row_infop row_info, png_bytep row,
 
 
 
-//===========================================================================//
-//                                                                           //
-//           P N G _ R E A D _ F I L T E R _ R O W _ M M X _ S U B           //
-//                                                                           //
-//===========================================================================//
 
-// Optimized code for PNG Sub filter decoder
+
+
+
+
+
+
 
 static void /* PRIVATE */
 png_read_filter_row_mmx_sub(png_row_infop row_info, png_bytep row)
@@ -4196,11 +4196,11 @@ png_read_filter_row_mmx_sub(png_row_infop row_info, png_bytep row)
    _FullLength = row_info->rowbytes - bpp;   // number of bytes to filter
 
    __asm__ __volatile__ (
-//pre "movl row, %%edi             \n\t"
+
       "movl %%edi, %%esi           \n\t" // lp = row
-//pre "movl bpp, %%eax             \n\t"
+
       "addl %%eax, %%edi           \n\t" // rp = row + bpp
-//irr "xorl %%eax, %%eax           \n\t"
+
       // get # of bytes to alignment
       "movl %%edi, _dif            \n\t" // take start of row
       "addl $0xf, _dif             \n\t" // add 7 + 8 to incr past
@@ -4250,11 +4250,11 @@ png_read_filter_row_mmx_sub(png_row_infop row_info, png_bytep row)
          _ShiftRem.use  = 40;      // == 64 - 24
 
          __asm__ __volatile__ (
-// preload  "movl row, %%edi              \n\t"
+
             "movq _ActiveMask, %%mm7       \n\t" // load _ActiveMask for 2nd
                                                 //  active byte group
             "movl %%edi, %%esi            \n\t" // lp = row
-// preload  "movl bpp, %%eax              \n\t"
+
             "addl %%eax, %%edi            \n\t" // rp = row + bpp
             "movq %%mm7, %%mm6            \n\t"
             "movl _dif, %%edx             \n\t"
@@ -4306,12 +4306,12 @@ png_read_filter_row_mmx_sub(png_row_infop row_info, png_bytep row)
       {
          __asm__ __volatile__ (
             "movl _dif, %%edx            \n\t"
-// preload  "movl row, %%edi             \n\t"
+
             "cmpl _FullLength, %%edx     \n\t"
             "jnb sub_1end                \n\t"
             "movl %%edi, %%esi           \n\t" // lp = row
             "xorl %%eax, %%eax           \n\t"
-// preload  "movl bpp, %%eax             \n\t"
+
             "addl %%eax, %%edi           \n\t" // rp = row + bpp
 
          "sub_1lp:                       \n\t"
@@ -4343,10 +4343,10 @@ png_read_filter_row_mmx_sub(png_row_infop row_info, png_bytep row)
          _ShiftRem.use = 64 - _ShiftBpp.use;
 
          __asm__ __volatile__ (
-// preload  "movl row, %%edi              \n\t"
+
             "movl _dif, %%edx             \n\t"
             "movl %%edi, %%esi            \n\t" // lp = row
-// preload  "movl bpp, %%eax              \n\t"
+
             "addl %%eax, %%edi            \n\t" // rp = row + bpp
 
             // prime the pump:  load the first Raw(x-bpp) data set
@@ -4394,12 +4394,12 @@ png_read_filter_row_mmx_sub(png_row_infop row_info, png_bytep row)
                                                 //  active byte group
             "movl _dif, %%edx             \n\t"
             "movq %%mm7, %%mm6            \n\t"
-// preload  "movl row, %%edi              \n\t"
+
             "psllq _ShiftBpp, %%mm6       \n\t" // move mask in mm6 to cover
                                                 //  3rd active byte group
             "movl %%edi, %%esi            \n\t" // lp = row
             "movq %%mm6, %%mm5            \n\t"
-// preload  "movl bpp, %%eax              \n\t"
+
             "addl %%eax, %%edi            \n\t" // rp = row + bpp
             "psllq _ShiftBpp, %%mm5       \n\t" // move mask in mm5 to cover
                                                 //  4th active byte group
@@ -4453,10 +4453,10 @@ png_read_filter_row_mmx_sub(png_row_infop row_info, png_bytep row)
       case 8:
       {
          __asm__ __volatile__ (
-// preload  "movl row, %%edi              \n\t"
+
             "movl _dif, %%edx             \n\t"
             "movl %%edi, %%esi            \n\t" // lp = row
-// preload  "movl bpp, %%eax              \n\t"
+
             "addl %%eax, %%edi            \n\t" // rp = row + bpp
             "movl _MMXLength, %%ecx       \n\t"
 
@@ -4533,9 +4533,9 @@ png_read_filter_row_mmx_sub(png_row_infop row_info, png_bytep row)
       {
          __asm__ __volatile__ (
             "movl _dif, %%edx             \n\t"
-// preload  "movl row, %%edi              \n\t"
+
             "movl %%edi, %%esi            \n\t" // lp = row
-// preload  "movl bpp, %%eax              \n\t"
+
             "addl %%eax, %%edi            \n\t" // rp = row + bpp
 
          "sub_Alp:                        \n\t"
@@ -4566,12 +4566,12 @@ png_read_filter_row_mmx_sub(png_row_infop row_info, png_bytep row)
 
    __asm__ __volatile__ (
       "movl _MMXLength, %%edx       \n\t"
-//pre "movl row, %%edi              \n\t"
+
       "cmpl _FullLength, %%edx      \n\t"
       "jnb sub_end                  \n\t"
 
       "movl %%edi, %%esi            \n\t" // lp = row
-//pre "movl bpp, %%eax              \n\t"
+
       "addl %%eax, %%edi            \n\t" // rp = row + bpp
       "xorl %%eax, %%eax            \n\t"
 
@@ -4599,13 +4599,13 @@ png_read_filter_row_mmx_sub(png_row_infop row_info, png_bytep row)
 
 
 
-//===========================================================================//
-//                                                                           //
-//            P N G _ R E A D _ F I L T E R _ R O W _ M M X _ U P            //
-//                                                                           //
-//===========================================================================//
 
-// Optimized code for PNG Up filter decoder
+
+
+
+
+
+
 
 static void /* PRIVATE */
 png_read_filter_row_mmx_up(png_row_infop row_info, png_bytep row,
@@ -4619,14 +4619,14 @@ png_read_filter_row_mmx_up(png_row_infop row_info, png_bytep row,
    len = row_info->rowbytes;              // number of bytes to filter
 
    __asm__ __volatile__ (
-//pre "movl row, %%edi              \n\t"
+
       // get # of bytes to alignment
       "movl %%edi, %%ecx            \n\t"
       "xorl %%ebx, %%ebx            \n\t"
       "addl $0x7, %%ecx             \n\t"
       "xorl %%eax, %%eax            \n\t"
       "andl $0xfffffff8, %%ecx      \n\t"
-//pre "movl prev_row, %%esi         \n\t"
+
       "subl %%edi, %%ecx            \n\t"
       "jz up_go                     \n\t"
 
@@ -4639,7 +4639,7 @@ png_read_filter_row_mmx_up(png_row_infop row_info, png_bytep row,
       "jb up_lp1                    \n\t" //  offset incl ebx
 
    "up_go:                          \n\t"
-//pre "movl len, %%edx              \n\t"
+
       "movl %%edx, %%ecx            \n\t"
       "subl %%ebx, %%edx            \n\t" // subtract alignment fix
       "andl $0x0000003f, %%edx      \n\t" // calc bytes over mult of 64
@@ -4742,15 +4742,15 @@ png_read_filter_row_mmx_up(png_row_infop row_info, png_bytep row,
 
 
 
-//===========================================================================//
-//                                                                           //
-//                   P N G _ R E A D _ F I L T E R _ R O W                   //
-//                                                                           //
-//===========================================================================//
+
+
+
+
+
 
 #if defined(PNG_HAVE_ASSEMBLER_READ_FILTER_ROW)
 
-// Optimized png_read_filter_row routines
+
 
 void /* PRIVATE */
 png_read_filter_row(png_structp png_ptr, png_row_infop row_info, png_bytep
@@ -4949,24 +4949,24 @@ png_read_filter_row(png_structp png_ptr, png_row_infop row_info, png_bytep
 
 
 
-//===========================================================================//
-//                                                                           //
-//                      P N G _ M M X _ S U P P O R T                        //
-//                                                                           //
-//===========================================================================//
 
-// GRR NOTES:  (1) the following code assumes 386 or better (pushfl/popfl)
-//             (2) all instructions compile with gcc 2.7.2.3 and later
-//             (3) the function is moved down here to prevent gcc from
-//                  inlining it in multiple places and then barfing be-
-//                  cause the ".NOT_SUPPORTED" label is multiply defined
-//             [is there a way to signal that a *single* function should
-//              not be inlined?  is there a way to modify the label for
-//              each inlined instance, e.g., by appending _1, _2, etc.?
-//              maybe if don't use leading "." in label name? (nope...sigh)]
 
-// GRR TO DO:  make sure PNGAPI doesn't do/require anything screwy here
-//             [looks OK for everybody except possibly Cygwin (__cdecl)]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 int PNGAPI
 png_mmx_support(void)
@@ -4975,15 +4975,15 @@ png_mmx_support(void)
         "pushl %%ebx          \n\t"  // ebx gets clobbered by CPUID instruction
         "pushl %%ecx          \n\t"  // so does ecx...
         "pushl %%edx          \n\t"  // ...and edx (but ecx & edx safe on Linux)
-//      ".byte  0x66          \n\t"  // convert 16-bit pushf to 32-bit pushfd
-//      "pushf                \n\t"  // 16-bit pushf
+
+
         "pushfl               \n\t"  // save Eflag to stack
         "popl %%eax           \n\t"  // get Eflag from stack into eax
         "movl %%eax, %%ecx    \n\t"  // make another copy of Eflag in ecx
         "xorl $0x200000, %%eax \n\t" // toggle ID bit in Eflag (i.e., bit 21)
         "pushl %%eax          \n\t"  // save modified Eflag back to stack
-//      ".byte  0x66          \n\t"  // convert 16-bit popf to 32-bit popfd
-//      "popf                 \n\t"  // 16-bit popf
+
+
         "popfl                \n\t"  // restore modified value to Eflag reg
         "pushfl               \n\t"  // save Eflag to stack
         "popl %%eax           \n\t"  // get Eflag from stack
@@ -4991,7 +4991,7 @@ png_mmx_support(void)
         "jz .NOT_SUPPORTED    \n\t"  // if same, CPUID instr. is not supported
 
         "xorl %%eax, %%eax    \n\t"  // set eax to zero
-//      ".byte  0x0f, 0xa2    \n\t"  // CPUID instruction (two-byte opcode)
+
         "cpuid                \n\t"  // get the CPU identification info
         "cmpl $1, %%eax       \n\t"  // make sure eax return non-zero value
         "jl .NOT_SUPPORTED    \n\t"  // if eax is zero, MMX is not supported
@@ -5017,7 +5017,7 @@ png_mmx_support(void)
         "popl %%edx           \n\t"  // restore edx
         "popl %%ecx           \n\t"  // restore ecx
         "popl %%ebx           \n\t"  // restore ebx ("row" in png_do_interlace)
-//      "ret                  \n\t"  // DONE:  no MMX support
+
                                      // (fall through to standard C "ret")
 
         :                            // output list (none)
@@ -5025,9 +5025,9 @@ png_mmx_support(void)
         :                            // any variables used on input (none)
 
         : "%eax"                     // clobber list
-//      , "%ebx", "%ecx", "%edx"     // GRR:  we handle these manually
-//      , "memory"   // if write to a variable gcc thought was in a reg
-//      , "cc"       // "condition codes" (flag bits)
+
+
+
     );
 
     // return %%eax;

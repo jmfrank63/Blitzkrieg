@@ -259,7 +259,7 @@ void msleep(unsigned long msec)
 	} while (current_time() < stoptime);
 #endif
 #ifdef _MACOS
-//	EventRecord rec;
+
 	WaitNextEvent(everyEvent,/*&rec*/NULL, (msec*1000)/60, NULL);
 #endif
 #ifdef _PS2
@@ -306,7 +306,7 @@ char * goastrdup(const char *src)
 }
 
 #if defined(_WIN32) && !defined(UNDER_CE)
-//do nothign
+
 #else
 #include <ctype.h>
 

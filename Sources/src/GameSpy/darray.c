@@ -33,7 +33,7 @@
 #endif
 
 
-// STRUCTURES
+
 struct DArrayImplementation
 {
 	int count, capacity;
@@ -43,12 +43,12 @@ struct DArrayImplementation
 	void *list; //array of elements
 };
 
-// PROTOTYPES
+
 static void *mylsearch(const void *key, void *base, int count, int size,
 					 ArrayCompareFn comparator);
 static void *mybsearch(const void *elem, void *base, int num, int elemsize, 
 					   ArrayCompareFn comparator, int *found);
-// FUNCTIONS
+
 
 /* FreeElement
  * Frees the element at position N in the array
@@ -190,7 +190,7 @@ void ArraySort(DArray array, ArrayCompareFn comparator)
 	qsort(array->list, array->count, array->elemsize, comparator);
 }
 
-//assert will be raised by ArrayNth if fromindex out of range
+
 int ArraySearch(DArray array, const void *key, ArrayCompareFn comparator, 
                   int fromIndex, int isSorted)
 {

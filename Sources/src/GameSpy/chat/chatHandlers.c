@@ -410,8 +410,8 @@ static void ciRemoveFilter(CHAT chat, ciServerMessageFilter * filter)
 	//ERRCON
 }
 
-// Calls the callback, if not NULL, then removes the filter.
-////////////////////////////////////////////////////////////
+
+
 static void ciFinishFilter(CHAT chat, ciServerMessageFilter * filter, void * params)
 {
 	int i;
@@ -574,8 +574,8 @@ static void ciFinishFilter(CHAT chat, ciServerMessageFilter * filter, void * par
 	ciRemoveFilter(chat, filter);
 }
 
-// Called when a filter times out to deal with calling the failed callback.
-///////////////////////////////////////////////////////////////////////////
+
+
 static void ciFilterTimedout(CHAT chat, ciServerMessageFilter * filter)
 {
 	assert(filter);

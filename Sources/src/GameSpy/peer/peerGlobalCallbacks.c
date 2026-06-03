@@ -78,8 +78,8 @@ static PEERBool piIsOldUTM
 	return PEERTrue;
 }
 
-// Returns PEERTrue if a UTM.
-/////////////////////////////
+
+
 static PEERBool piParseUTM
 (
 	const char * message
@@ -179,8 +179,8 @@ static void piProcessUTM
 		unsigned int IP;
 
 #ifdef _DEBUG
-//		if(inRoom)
-//			assert(connection->xpingRoom[roomType]);
+
+
 #endif
 		if(inRoom && !connection->xpingRoom[roomType])
 			return;

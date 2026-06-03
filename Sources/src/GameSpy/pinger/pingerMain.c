@@ -53,14 +53,14 @@ UPP = UDP Ping Protocol
 /**********
 ** TYPES **
 **********/
-// u_char must be 1 byte unsigned, and unsigned short must be 2 bytes unsigned.
-////////////////////////////////////////////////////////////////////////
+
+
 typedef unsigned char  uint8;
 typedef unsigned short uint16;
 
-// This is the internal data for a UDP ping.
-// This is an exact copy of what gets sent over the network, minus filler bytes.
-////////////////////////////////////////////////////////////////////////////////
+
+
+
 typedef struct piUDPPing
 {
 	uint8  magic;    // magic number - helps to ignore bad packets
@@ -70,8 +70,8 @@ typedef struct piUDPPing
 	uint16 ID_B;     // this ID is used by B (the destination for the first dgram)
 } piUDPPing;
 
-// This is a ping on which we're waiting for a reply.
-/////////////////////////////////////////////////////
+
+
 typedef struct piActivePing
 {
 	PINGERBool     originator;    // true if we sent the first dgram
@@ -85,8 +85,8 @@ typedef struct piActivePing
 	void *         replyParam;    // the extra param passed to reply
 } piActivePing;
 
-// This is a queued gotPing callback.
-/////////////////////////////////////
+
+
 typedef struct piQueuedCallback
 {
 	unsigned int IP;
@@ -373,7 +373,7 @@ static PINGERBool piSocketInit(const char * localAddress,
 			hostent = gethostbyname(localAddress);
 			if(hostent == NULL)
 			{
-//				iLastError = WSAGetLastError();
+
 				assert(0);
 				return PINGERFalse;
 			}

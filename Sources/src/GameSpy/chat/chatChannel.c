@@ -977,8 +977,8 @@ static void ciEnumJoinedChannelsMap(void * elem, void * clientData)
 	data->callback(data->chat, data->index++, channel->name, data->param);
 }
 
-// Enumerates the channels that we are joined to
-//////////////////////////////////////////////////////
+
+
 void ciEnumJoinedChannels(CHAT chat,
 					  chatEnumJoinedChannelsCallback callback,
 					  void * param)

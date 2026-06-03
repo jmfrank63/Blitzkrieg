@@ -105,7 +105,7 @@ DEFINES
 ********/
 #define MASTER_PORT 27900
 #define MASTER_ADDR "master.gamespy.com"
-//#define MASTER_ADDR "207.199.80.230"
+
 #define FIRST_HB_TIME 30000 /* 30 sec */
 #define HB_TIME 300000 /* 5 minutes */
 #define MAX_FIRST_COUNT 10 /* 10 tries = 5 minutes */
@@ -119,7 +119,7 @@ Define this to use reliable heartbeats. Only needed for certain
 classes of peer-to-peer games, please contact us if you are unsure
 whether you need this or not.
 ******/
-//#define TCP_HEARTBEATS
+
 
 /********
 TYPEDEFS

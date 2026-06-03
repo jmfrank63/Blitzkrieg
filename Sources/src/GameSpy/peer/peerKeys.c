@@ -31,15 +31,15 @@ devsupport@gamespy.com
 /**********
 ** TYPES **
 **********/
-// Stored in the *WatckKey tables.
-//////////////////////////////////
+
+
 typedef struct piWatchKey
 {
 	char * key;
 } piWatchKey;
 
-// Stored in the *WatchCache tables.
-////////////////////////////////////
+
+
 typedef struct piCacheKey
 {
 	char * nick;

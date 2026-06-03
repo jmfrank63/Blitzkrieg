@@ -1169,8 +1169,8 @@ void chatEnumUsers(CHAT chat,
 }
 
 
-// Enumerates the channels that we are joined to
-//////////////////////////////////////////////////////
+
+
 void chatEnumJoinedChannels(CHAT chat,
 					  chatEnumJoinedChannelsCallback callback,
 					  void * param)

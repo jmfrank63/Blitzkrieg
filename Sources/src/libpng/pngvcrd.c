@@ -1868,8 +1868,8 @@ loop4_pass4:
 #endif /* PNG_READ_INTERLACING_SUPPORTED */
 
 
-// These variables are utilized in the functions below.  They are declared
-// globally here to ensure alignment on 8-byte boundaries.
+
+
 
 union uAll {
    __int64 use;
@@ -1879,7 +1879,7 @@ union uAll {
   ActiveMask, ActiveMask2, ActiveMaskEnd, ShiftBpp, ShiftRem;
 
 
-// Optimized code for PNG Average filter decoder
+
 void /* PRIVATE */
 png_read_filter_row_mmx_avg(png_row_infop row_info, png_bytep row
                             , png_bytep prev_row)
@@ -2312,7 +2312,7 @@ davgend:
    } // end _asm block
 }
 
-// Optimized code for PNG Paeth filter decoder
+
 void /* PRIVATE */
 png_read_filter_row_mmx_paeth(png_row_infop row_info, png_bytep row,
                               png_bytep prev_row)
@@ -3208,7 +3208,7 @@ dpthend:
    } // end _asm block
 }
 
-// Optimized code for PNG Sub filter decoder
+
 void /* PRIVATE */
 png_read_filter_row_mmx_sub(png_row_infop row_info, png_bytep row)
 {
@@ -3512,7 +3512,7 @@ dsubend:
    } // end _asm block
 }
 
-// Optimized code for PNG Up filter decoder
+
 void /* PRIVATE */
 png_read_filter_row_mmx_up(png_row_infop row_info, png_bytep row,
    png_bytep prev_row)
@@ -3627,7 +3627,7 @@ dupend:
 }
 
 
-// Optimized png_read_filter_row routines
+
 void /* PRIVATE */
 png_read_filter_row(png_structp png_ptr, png_row_infop row_info, png_bytep
    row, png_bytep prev_row, int filter)

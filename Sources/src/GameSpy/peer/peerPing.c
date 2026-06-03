@@ -532,11 +532,11 @@ static void piPickPingPlayersMap
 		data->num++;
 }
 
-// Returns an array of pointers to players to ping,
-// or NULL if there's noone to ping.
-// The number of players in the array will be no
-// larger than min(PI_MAX_PING_PLAYERS, numPings).
-///////////////////////////////////////////////////
+
+
+
+
+
 static piPlayer ** piPickPingPlayers
 (
 	PEER peer,
@@ -673,8 +673,8 @@ static void piPickXpingPlayerMap
 	}
 }
 
-// Returns a player to ping, or NULL if there's noone to ping.
-//////////////////////////////////////////////////////////////
+
+
 static piPlayer * piPickXpingPlayer
 (
 	PEER peer

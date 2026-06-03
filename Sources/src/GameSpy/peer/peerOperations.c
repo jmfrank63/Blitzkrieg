@@ -457,8 +457,8 @@ static void piCreateStagingRoomEnumUsersCallback
 
 	// Check for ops.
 	/////////////////
-//	if(success && !(modes[0] & CHAT_OP))
-//		success = CHATFalse;
+
+
 
 	// Setup GOA.
 	/////////////

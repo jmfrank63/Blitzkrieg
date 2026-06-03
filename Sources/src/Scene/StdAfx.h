@@ -33,10 +33,10 @@
 #include <unordered_set>
 #include <set>
 #include <queue>
-typedef __int64 int64;									// due to lack of 'long long' type support
-typedef unsigned __int64 QWORD;					// quadra word
-#define for if(false); else for					// to achive standard variable scope resolving, declared inside 'for'
-#define STDCALL __stdcall								// to use with interface function calls
+typedef __int64 int64;									
+typedef unsigned __int64 QWORD;					
+#define for if(0); else for					
+#define STDCALL __stdcall								
 #ifndef interface
 #define interface struct
 #endif // interface
