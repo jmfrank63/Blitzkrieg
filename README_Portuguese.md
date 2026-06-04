@@ -18,6 +18,10 @@ Aviso: este projeto ainda está em andamento.
 
 - Compila limpo a partir de uma solução `A7.sln` nova com ferramentas MSVC modernas.
 
+- Roda em uma janela real por padrão, com `-fullscreen` ainda disponível como opção de linha de comando.
+
+- O tutorial agora funciona no build `Debug | Win32`; unidades podem ser selecionadas e movidas enquanto a depuração de runtime continua.
+
 - Inclui relatórios nativos de exceção e suporte de depuração moderno.
 
 - Usa submódulos Git para as bibliotecas ausentes.
@@ -25,6 +29,26 @@ Aviso: este projeto ainda está em andamento.
 - Suporta depuração nativa C++ e WinDbg no VS Code Insiders.
 
 - Removeu o tratamento de falhas legadas do BugSlay e o substituiu por asserts padrão do C++.
+
+
+
+# Executando o jogo com Visual Studio 2026 Insiders
+
+1. Clone o repositório com submódulos, ou execute `git submodule update --init --recursive` em um checkout existente.
+
+2. Instale o Visual Studio 2026 Insiders / Visual Studio 18 com o workload Desktop development with C++, a toolchain MSVC do VS 2026 e um SDK do Windows 10 ou Windows 11.
+
+3. Abra `Sources/src/A7.sln`.
+
+4. Selecione `Debug | Win32`.
+
+5. Compile o projeto `Game`, ou compile a solução inteira.
+
+6. Inicie o projeto `Game` com F5, ou execute `Sources/src/Game/Debug/Game.exe` diretamente.
+
+7. O jogo inicia em modo janela por padrão. Adicione `-fullscreen` aos argumentos de comando do projeto Game se quiser o comportamento antigo de tela cheia.
+
+Se uma compilação não conseguir copiar uma DLL para `Sources/src/Game/Debug`, feche qualquer processo `Game.exe` em execução e compile novamente.
 
 
 
@@ -42,7 +66,7 @@ Aviso: este projeto ainda está em andamento.
 
 - Duas semanas de codificação agentiva fizeram a solução compilar de um estado limpo sem erros e avisos.
 
-- Isso não significou que o jogo estivesse totalmente rodando, mas chegou a carregar o tutorial uma vez, e o vídeo e o menu inicial já estavam carregando.
+- A depuração de runtime agora passou do menu inicial: o tutorial carrega e é jogável, incluindo selecionar e mover um tanque.
 
 - O desenvolvimento mudou para o VS Code Insiders por causa de melhores ferramentas.
 
@@ -58,7 +82,7 @@ Aviso: este projeto ainda está em andamento.
 
 # Roteiro
 
-1. Fazer o jogo rodar sem exceções.
+1. Continuar removendo as exceções de runtime restantes além do caminho do tutorial que agora funciona.
 
 2. Mover a compilação para Zig.
 

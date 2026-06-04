@@ -18,6 +18,10 @@ Warning: this project is a work in progress.
 
 - Builds cleanly from a fresh `A7.sln` solution under modern MSVC tooling.
 
+- Runs in a real window by default, with `-fullscreen` still available as a command-line option.
+
+- The tutorial is now working in the `Debug | Win32` build; units can be selected and moved while runtime debugging continues.
+
 - Includes native exception reporting and modern debugging support.
 
 - Uses Git submodules for missing libraries.
@@ -25,6 +29,26 @@ Warning: this project is a work in progress.
 - Supports both native C++ and WinDbg debugging in VS Code Insiders.
 
 - Has removed legacy BugSlay crash handling and replaced it with standard C++ asserts.
+
+
+
+# Running the game with Visual Studio 2026 Insiders
+
+1. Clone the repository with submodules, or run `git submodule update --init --recursive` in an existing checkout.
+
+2. Install Visual Studio 2026 Insiders / Visual Studio 18 with the Desktop development with C++ workload, the VS 2026 MSVC toolchain, and a Windows 10 or Windows 11 SDK.
+
+3. Open `Sources/src/A7.sln`.
+
+4. Select `Debug | Win32`.
+
+5. Build the `Game` project, or build the full solution.
+
+6. Start the `Game` project with F5, or run `Sources/src/Game/Debug/Game.exe` directly.
+
+7. The game starts windowed by default. Add `-fullscreen` to the Game project command arguments if you want the old fullscreen behavior.
+
+If a build cannot copy a DLL into `Sources/src/Game/Debug`, close any running `Game.exe` process and build again.
 
 
 
@@ -42,7 +66,7 @@ Warning: this project is a work in progress.
 
 - Completed two weeks of agentic coding to make the solution compile from a clean state with zero errors and warnings.
 
-- That did not mean the game was fully running yet, but it did reach tutorial load once and the video plus initial menu were already loading.
+- Runtime debugging has now progressed past the initial menu: the tutorial loads and is playable, including selecting and moving a tank.
 
 - Moved development to VS Code Insiders for better tools.
 
@@ -58,7 +82,7 @@ Warning: this project is a work in progress.
 
 # Roadmap
 
-1. Make the game run without exceptions.
+1. Continue removing remaining runtime exceptions beyond the now-working tutorial path.
 
 2. Move compilation to Zig.
 

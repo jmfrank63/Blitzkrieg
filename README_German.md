@@ -18,6 +18,10 @@ Warnung: Dieses Projekt befindet sich noch in Arbeit.
 
 - Lässt sich sauber aus einer frischen `A7.sln`-Lösung mit modernen MSVC-Tools kompilieren.
 
+- Startet standardmäßig in einem echten Fenster; `-fullscreen` bleibt als Kommandozeilenoption verfügbar.
+
+- Das Tutorial funktioniert jetzt im Build `Debug | Win32`; Einheiten können ausgewählt und bewegt werden, während das Laufzeit-Debugging weitergeht.
+
 - Enthält native Ausnahmeberichterstattung und moderne Debug-Unterstützung.
 
 - Verwendet Git-Submodule für fehlende Bibliotheken.
@@ -25,6 +29,26 @@ Warnung: Dieses Projekt befindet sich noch in Arbeit.
 - Unterstützt sowohl nativen C++- als auch WinDbg-Debugging in VS Code Insiders.
 
 - Hat das veraltete BugSlay-Crash-Handling entfernt und durch standardmäßige C++-Asserts ersetzt.
+
+
+
+# Spiel mit Visual Studio 2026 Insiders ausführen
+
+1. Klone das Repository mit Submodulen, oder führe in einem bestehenden Checkout `git submodule update --init --recursive` aus.
+
+2. Installiere Visual Studio 2026 Insiders / Visual Studio 18 mit dem Workload Desktopentwicklung mit C++, der VS-2026-MSVC-Toolchain und einem Windows 10 oder Windows 11 SDK.
+
+3. Öffne `Sources/src/A7.sln`.
+
+4. Wähle `Debug | Win32`.
+
+5. Baue das Projekt `Game`, oder baue die gesamte Lösung.
+
+6. Starte das Projekt `Game` mit F5, oder führe `Sources/src/Game/Debug/Game.exe` direkt aus.
+
+7. Das Spiel startet standardmäßig im Fenstermodus. Füge `-fullscreen` zu den Befehlsargumenten des Game-Projekts hinzu, wenn du das alte Vollbildverhalten möchtest.
+
+Wenn ein Build keine DLL nach `Sources/src/Game/Debug` kopieren kann, schließe alle laufenden `Game.exe`-Prozesse und baue erneut.
 
 
 
@@ -42,7 +66,7 @@ Warnung: Dieses Projekt befindet sich noch in Arbeit.
 
 - Zwei Wochen agentengesteuertes Codieren führten dazu, dass die Lösung aus einem sauberen Zustand ohne Fehler und Warnungen kompilierte.
 
-- Das bedeutete nicht, dass das Spiel vollständig lief, aber es erreichte einmal das Laden des Tutorials, und Video sowie das Anfangsmenü luden bereits.
+- Das Laufzeit-Debugging ist nun über das Anfangsmenü hinausgekommen: Das Tutorial lädt und ist spielbar, einschließlich Auswahl und Bewegung eines Panzers.
 
 - Die Entwicklung wurde wegen besserer Werkzeuge nach VS Code Insiders verlagert.
 
@@ -58,7 +82,7 @@ Warnung: Dieses Projekt befindet sich noch in Arbeit.
 
 # Roadmap
 
-1. Das Spiel ohne Ausnahmen zum Laufen bringen.
+1. Weitere verbleibende Laufzeitausnahmen jenseits des nun funktionierenden Tutorial-Pfads beseitigen.
 
 2. Die Kompilierung auf Zig umstellen.
 

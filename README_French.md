@@ -18,6 +18,10 @@ Avertissement : ce projet est encore en cours de réalisation.
 
 - Se compile proprement à partir d'une solution `A7.sln` fraîche avec des outils MSVC modernes.
 
+- Se lance désormais dans une vraie fenêtre par défaut, avec `-fullscreen` toujours disponible comme option de ligne de commande.
+
+- Le tutoriel fonctionne maintenant dans la configuration `Debug | Win32` ; les unités peuvent être sélectionnées et déplacées pendant que le débogage d'exécution continue.
+
 - Inclut un rapport d'exceptions natif et un support de débogage moderne.
 
 - Utilise des sous-modules Git pour les bibliothèques manquantes.
@@ -25,6 +29,26 @@ Avertissement : ce projet est encore en cours de réalisation.
 - Prend en charge le débogage natif C++ et WinDbg dans VS Code Insiders.
 
 - A supprimé le gestionnaire de crash BugSlay hérité et l'a remplacé par des asserts C++ standard.
+
+
+
+# Lancer le jeu avec Visual Studio 2026 Insiders
+
+1. Clonez le dépôt avec les sous-modules, ou exécutez `git submodule update --init --recursive` dans un checkout existant.
+
+2. Installez Visual Studio 2026 Insiders / Visual Studio 18 avec la charge de travail Développement desktop en C++, la chaîne d'outils MSVC de VS 2026 et un SDK Windows 10 ou Windows 11.
+
+3. Ouvrez `Sources/src/A7.sln`.
+
+4. Sélectionnez `Debug | Win32`.
+
+5. Compilez le projet `Game`, ou compilez toute la solution.
+
+6. Lancez le projet `Game` avec F5, ou exécutez directement `Sources/src/Game/Debug/Game.exe`.
+
+7. Le jeu démarre en mode fenêtré par défaut. Ajoutez `-fullscreen` aux arguments de commande du projet Game si vous voulez l'ancien comportement plein écran.
+
+Si une compilation ne peut pas copier une DLL dans `Sources/src/Game/Debug`, fermez tout processus `Game.exe` en cours d'exécution puis recompilez.
 
 
 
@@ -42,7 +66,7 @@ Avertissement : ce projet est encore en cours de réalisation.
 
 - Deux semaines de codage agentif ont permis à la solution de se compiler à partir d'un état propre sans erreurs ni avertissements.
 
-- Cela ne voulait pas dire que le jeu fonctionnait complètement, mais il a atteint le chargement du tutoriel une fois, et la vidéo ainsi que le menu initial se chargeaient déjà.
+- Le débogage d'exécution a maintenant dépassé le menu initial : le tutoriel se charge et il est jouable, notamment avec la sélection et le déplacement d'un char.
 
 - Le développement a été déplacé vers VS Code Insiders pour de meilleurs outils.
 
@@ -58,7 +82,7 @@ Avertissement : ce projet est encore en cours de réalisation.
 
 # Feuille de route
 
-1. Faire fonctionner le jeu sans exceptions.
+1. Continuer à supprimer les exceptions d'exécution restantes au-delà du parcours de tutoriel désormais fonctionnel.
 
 2. Migrer la compilation vers Zig.
 

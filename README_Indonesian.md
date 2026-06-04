@@ -18,6 +18,10 @@ Peringatan: proyek ini masih dalam proses.
 
 - Dapat dibangun dengan bersih dari solusi `A7.sln` baru menggunakan alat MSVC modern.
 
+- Berjalan dalam jendela asli secara default, dengan `-fullscreen` tetap tersedia sebagai opsi command-line.
+
+- Tutorial sekarang berfungsi pada build `Debug | Win32`; unit dapat dipilih dan digerakkan sementara debugging runtime masih berlanjut.
+
 - Termasuk pelaporan pengecualian native dan dukungan debugging modern.
 
 - Menggunakan submodul Git untuk pustaka yang hilang.
@@ -25,6 +29,26 @@ Peringatan: proyek ini masih dalam proses.
 - Mendukung debugging C++ native dan WinDbg di VS Code Insiders.
 
 - Telah menghapus penanganan crash BugSlay warisan dan menggantinya dengan assert C++ standar.
+
+
+
+# Menjalankan game dengan Visual Studio 2026 Insiders
+
+1. Clone repositori bersama submodulnya, atau jalankan `git submodule update --init --recursive` pada checkout yang sudah ada.
+
+2. Instal Visual Studio 2026 Insiders / Visual Studio 18 dengan workload Desktop development with C++, toolchain MSVC VS 2026, dan Windows 10 atau Windows 11 SDK.
+
+3. Buka `Sources/src/A7.sln`.
+
+4. Pilih `Debug | Win32`.
+
+5. Build proyek `Game`, atau build seluruh solution.
+
+6. Jalankan proyek `Game` dengan F5, atau jalankan langsung `Sources/src/Game/Debug/Game.exe`.
+
+7. Game berjalan dalam mode windowed secara default. Tambahkan `-fullscreen` ke command arguments proyek Game jika ingin perilaku fullscreen lama.
+
+Jika build tidak dapat menyalin DLL ke `Sources/src/Game/Debug`, tutup proses `Game.exe` yang sedang berjalan lalu build lagi.
 
 
 
@@ -42,7 +66,7 @@ Peringatan: proyek ini masih dalam proses.
 
 - Dua minggu pengkodean agen membuat solusi dapat dikompilasi dari kondisi bersih tanpa kesalahan dan peringatan.
 
-- Itu tidak berarti game sepenuhnya berjalan, tetapi mencapai pemuatan tutorial sekali, dan video serta menu awal sudah dimuat.
+- Debugging runtime sekarang sudah melewati menu awal: tutorial dapat dimuat dan dimainkan, termasuk memilih dan menggerakkan tank.
 
 - Pengembangan dipindahkan ke VS Code Insiders karena alatnya lebih baik.
 
@@ -58,7 +82,7 @@ Peringatan: proyek ini masih dalam proses.
 
 # Peta jalan
 
-1. Buat game berjalan tanpa pengecualian.
+1. Terus menghapus pengecualian runtime yang tersisa di luar jalur tutorial yang sekarang sudah berfungsi.
 
 2. Pindahkan kompilasi ke Zig.
 
