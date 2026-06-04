@@ -11,6 +11,20 @@
 #include "..\Main\ScenarioTracker.h"
 CMultipleWindow::CMessageList CMultipleWindow::staticMessageList;
 CMultipleWindow::CLuaValues CMultipleWindow::staticLuaValues;
+
+static bool IsUnsetLayoutRect( const CTRect<float> &rc )
+{
+	return rc.x1 == -1.0f && rc.y1 == -1.0f && rc.x2 == -1.0f && rc.y2 == -1.0f;
+}
+
+static void ScaleLayoutRect( CTRect<float> *pRect, const CVec2 &vScale )
+{
+	pRect->x1 *= vScale.x;
+	pRect->x2 *= vScale.x;
+	pRect->y1 *= vScale.y;
+	pRect->y2 *= vScale.y;
+}
+
 IManipulator *CSimpleWindow::GetManipulator()
 {
 	if ( !pManipulator )
@@ -48,6 +62,7 @@ void CSimpleWindow::CopyInternals( CSimpleWindow * pWnd )
 	pWnd->nPositionFlag = nPositionFlag;									//������ ����� ��������
 	pWnd->vPos = vPos;													//���������� ����� ������� ����� ������ ������������ ��������� ����� ��������
 	pWnd->vSize = vSize;												//������� ������
+	pWnd->vAppliedLayoutScale = vAppliedLayoutScale;
 	pWnd->nID = nID;														//���������� ������������� ������
 	pWnd->pParent = pParent;					//��������
 	pWnd->bWindowActive = bWindowActive;									//������� �� ����				//??
@@ -348,6 +363,40 @@ void CSimpleWindow::SetWindowPlacement( const CVec2 *_vPos, const CVec2 *_vSize 
 				states[i].pGfxText->SetWidth( vSize.x );
 		}
 
+	}
+}
+void CSimpleWindow::ScaleLayout( const CVec2 &vScale )
+{
+	vAppliedLayoutScale.x *= vScale.x;
+	vAppliedLayoutScale.y *= vScale.y;
+	vPos.x *= vScale.x;
+	vPos.y *= vScale.y;
+	vSize.x *= vScale.x;
+	vSize.y *= vScale.y;
+	vShiftText.x *= vScale.x;
+	vShiftText.y *= vScale.y;
+	vTextPos.x *= vScale.x;
+	vTextPos.y *= vScale.y;
+	vShadowShift.x *= vScale.x;
+	vShadowShift.y *= vScale.y;
+
+	if ( bBounded )
+		ScaleLayoutRect( &rcBound, vScale );
+
+	for ( int i = 0; i < states.size(); ++i )
+	{
+		for ( int k = 0; k < 4; ++k )
+		{
+			CUIWindowSubState &subState = states[i].subStates[k];
+			for ( int a = 0; a < subState.subRects.size(); ++a )
+			{
+				if ( !IsUnsetLayoutRect( subState.subRects[a].rc ) )
+					ScaleLayoutRect( &subState.subRects[a].rc, vScale );
+			}
+		}
+
+		if ( states[i].pGfxText )
+			states[i].pGfxText->SetWidth( vSize.x );
 	}
 }
 void CSimpleWindow::SetWindowID( int _nID )
@@ -1663,6 +1712,23 @@ void CMultipleWindow::Reposition( const CTRect<float> &rcParent )
 	
 	for ( CWindowList::iterator it = childList.begin(); it != childList.end(); ++it )
 		(*it)->Reposition( GetScreenRect() );
+}
+void CMultipleWindow::ScaleLayout( const CVec2 &vScale )
+{
+	CSimpleWindow::ScaleLayout( vScale );
+	vMinPos.x *= vScale.x;
+	vMinPos.y *= vScale.y;
+	vMaxPos.x *= vScale.x;
+	vMaxPos.y *= vScale.y;
+	vBeginPos.x *= vScale.x;
+	vBeginPos.y *= vScale.y;
+
+	for ( CWindowList::iterator it = childList.begin(); it != childList.end(); ++it )
+	{
+		CSimpleWindow *pWindow = dynamic_cast<CSimpleWindow *>( it->GetPtr() );
+		if ( pWindow )
+			pWindow->ScaleLayout( vScale );
+	}
 }
 void CMultipleWindow::Visit( interface ISceneVisitor *pVisitor )
 {

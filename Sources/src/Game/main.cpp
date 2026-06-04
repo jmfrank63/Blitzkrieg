@@ -204,14 +204,14 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		SetGlobalVar( "GFX.Mode.Mission.Stencil", cmdp.nStencilBPP );
 		SetGlobalVar( "GFX.Mode.Mission.FullScreen", int(cmdp.eFullscreenMode) );
 		SetGlobalVar( "GFX.Mode.Mission.Frequency", cmdp.nFreq );
-		SetGlobalVar( "GFX.Mode.InterMission.SizeX", 1024 );
-		SetGlobalVar( "GFX.Mode.InterMission.SizeY", 768 );
+		SetGlobalVar( "GFX.Mode.InterMission.SizeX", GFX_DEFAULT_SCREEN_WIDTH );
+		SetGlobalVar( "GFX.Mode.InterMission.SizeY", GFX_DEFAULT_SCREEN_HEIGHT );
 		SetGlobalVar( "GFX.Mode.InterMission.BPP", cmdp.nScreenBPP );
 		SetGlobalVar( "GFX.Mode.InterMission.Stencil", -1 );
 		SetGlobalVar( "GFX.Mode.InterMission.FullScreen", int(cmdp.eFullscreenMode) );
 		SetGlobalVar( "GFX.Mode.InterMission.Frequency", cmdp.nFreq );
-		SetGlobalVar( "GFX.Mode.Current.SizeX", GetGlobalVar( "GFX.Mode.InterMission.SizeX", 1024 ) );
-		SetGlobalVar( "GFX.Mode.Current.SizeY", GetGlobalVar( "GFX.Mode.InterMission.SizeY", 768 ) );
+		SetGlobalVar( "GFX.Mode.Current.SizeX", GetGlobalVar( "GFX.Mode.InterMission.SizeX", GFX_DEFAULT_SCREEN_WIDTH ) );
+		SetGlobalVar( "GFX.Mode.Current.SizeY", GetGlobalVar( "GFX.Mode.InterMission.SizeY", GFX_DEFAULT_SCREEN_HEIGHT ) );
 		SetGlobalVar( "GFX.Mode.Current.BPP", GetGlobalVar( "GFX.Mode.InterMission.BPP", cmdp.nScreenBPP ) );
 		SetGlobalVar( "GFX.Mode.Current.Stencil", GetGlobalVar( "GFX.Mode.InterMission.Stencil", cmdp.nStencilBPP ) );
 		SetGlobalVar( "GFX.Mode.Current.FullScreen", GetGlobalVar( "GFX.Mode.InterMission.FullScreen", int(cmdp.eFullscreenMode) ) );
@@ -282,8 +282,8 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 	NWinFrame::ShowSplashScreen( hInstance, false );
 	timeMeter.Reset();
 	{
-		cmdp.nScreenSizeX = GetGlobalVar( "GFX.Mode.InterMission.SizeX", 1024 );
-		cmdp.nScreenSizeY = GetGlobalVar( "GFX.Mode.InterMission.SizeY", 768 );
+		cmdp.nScreenSizeX = GetGlobalVar( "GFX.Mode.InterMission.SizeX", GFX_DEFAULT_SCREEN_WIDTH );
+		cmdp.nScreenSizeY = GetGlobalVar( "GFX.Mode.InterMission.SizeY", GFX_DEFAULT_SCREEN_HEIGHT );
 		cmdp.nScreenBPP = GetGlobalVar( "GFX.Mode.InterMission.BPP", cmdp.nScreenBPP );
 		cmdp.nStencilBPP = GetGlobalVar( "GFX.Mode.InterMission.Stencil", 0 );
 		cmdp.eFullscreenMode = (EGFXFullscreen)GetGlobalVar( "GFX.Mode.InterMission.FullScreen", int(cmdp.eFullscreenMode) );
@@ -464,8 +464,8 @@ std::string ExtractMapName( const std::string &_szParam )
 }
 void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams )
 {
-	pCmdParams->nScreenSizeX = 1024;
-	pCmdParams->nScreenSizeY = 768;
+	pCmdParams->nScreenSizeX = GFX_DEFAULT_SCREEN_WIDTH;
+	pCmdParams->nScreenSizeY = GFX_DEFAULT_SCREEN_HEIGHT;
 	pCmdParams->nScreenBPP = 16;
 	pCmdParams->nStencilBPP = 0;
 	pCmdParams->nFreq = 0;

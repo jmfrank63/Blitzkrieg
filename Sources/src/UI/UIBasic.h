@@ -12,6 +12,7 @@ class CSimpleWindow
 	int nPositionFlag;									//задает точку привязки
 	CVec2 vPos;													//координаты левой верхней точки окошка относительно выбранной точки привязки
 	CVec2 vSize;												//размеры окошка
+	CVec2 vAppliedLayoutScale;
 	typedef std::vector<CWindowState> CStateVector;
 	
 	int nID;														//уникальный идентификатор окошка
@@ -79,7 +80,7 @@ protected:
 	int GetCmdShow() const { return nCmdShow; }
 public:
 	CSimpleWindow() : nID( -1 ), nCurrentSubState( 0 ), bShowBackground( true ), nTextAlign( 0x0011 ), vShiftText( 0, 0 ), nBlink( 0 ), dwLastBlinkTime( 0 ), dwCurrentBlinkColor( 0xff000000 ),
-		bWindowActive( true ), nCmdShow( UI_SW_SHOW ), states( 1 ), nCurrentState( 0 ), nPositionFlag( 0x0011 ), vPos(0, 0), vSize(0, 0), bBlinking( false ), bSingleLine( false ),
+		bWindowActive( true ), nCmdShow( UI_SW_SHOW ), states( 1 ), nCurrentState( 0 ), nPositionFlag( 0x0011 ), vPos(0, 0), vSize(0, 0), vAppliedLayoutScale( 1.0f, 1.0f ), bBlinking( false ), bSingleLine( false ),
 		dwTextColor( 0xff9aceb7 ), nFontSize( 1 ), bBounded( false ), vTextPos( 0, 0 ), bRedLine( false ), vShadowShift( 0, 0 ), dwShadowColor( 0xff000000 ), nBlinkColorIndex( 0 ) {}
 	virtual ~CSimpleWindow() {}
 	
@@ -109,6 +110,7 @@ public:
 	virtual IGFXTexture* STDCALL GetWindowTexture();
 	virtual void STDCALL SetWindowMap( const CTRect<float> &maps );
 	virtual void STDCALL SetWindowPlacement( const CVec2 *_vPos, const CVec2 *_vSize );		//require to call Reposition() next
+	virtual void ScaleLayout( const CVec2 &vScale );
 	virtual void STDCALL SetWindowID( int _nID );
 	virtual void STDCALL SetBoundRect( const CTRect<float> &rc ) { bBounded = true; rcBound = rc; }
 	
@@ -151,6 +153,7 @@ public:
 	void SetScreenRect( const CTRect<float> &rc ) { wndRect = rc; }
 	void UpdateSubRects();
 	CVec2 GetSize() { return vSize; }
+	CVec2 GetLayoutScale() const { return vAppliedLayoutScale; }
 	void SetPos( const CVec2 &pos ) { vPos = pos; }
 	void SetSize( const CVec2 &size ) { vSize = size; }
 	void SetPositionFlag( int nFlag ) { nPositionFlag = nFlag; }
@@ -227,6 +230,7 @@ public:
 	virtual void STDCALL SetFocus( bool bFocus );
 	virtual void STDCALL SetFocusedWindow( IUIElement *pNewFocusWindow );
 	virtual void STDCALL Reposition( const CTRect<float> &rcParent );
+	virtual void ScaleLayout( const CVec2 &vScale );
 	virtual void STDCALL EnableWindow( bool bEnable );
 	
 	virtual IText* STDCALL GetHelpContext( const CVec2 &vPos, CTRect<float> *pRect );

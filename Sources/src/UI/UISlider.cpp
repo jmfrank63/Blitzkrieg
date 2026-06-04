@@ -5,6 +5,13 @@
 
 const int TIME_TO_SCROLL = 50;
 
+static int ScaleUIPixelValue( int nValue, float fScale )
+{
+	if ( nValue == 0 )
+		return 0;
+	return int( float( nValue ) * fScale + ( nValue > 0 ? 0.5f : -0.5f ) );
+}
+
 int CUISlider::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -40,6 +47,12 @@ int CUISlider::operator&( IDataTree &ss )
 	else
 		SaveTextureAndMap( &saver, pSliderTexture, "Elevator_Texture", sliderMapa, "Elevator_Maps" );
 	return 0;
+}
+void CUISlider::ScaleLayout( const CVec2 &vScale )
+{
+	CSimpleWindow::ScaleLayout( vScale );
+	m_nElevatorWidth = ScaleUIPixelValue( m_nElevatorWidth, bVertical ? vScale.y : vScale.x );
+	m_nLineWidth = ScaleUIPixelValue( m_nLineWidth, bVertical ? vScale.x : vScale.y );
 }
 bool CUISlider::OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD keyState )
 {
@@ -391,6 +404,11 @@ void CUIScrollBar::Reposition( const CTRect<float> &rcParent )
 		pSlider->SetPos( CVec2( 0, pMinButton->GetSize().y ) );
 		pSlider->SetSize( CVec2( myRc.Width(), myRc.Height() - pMinButton->GetSize().y - pMaxButton->GetSize().y ) );
 	}
+}
+void CUIScrollBar::ScaleLayout( const CVec2 &vScale )
+{
+	CMultipleWindow::ScaleLayout( vScale );
+	m_nButtonStep = ScaleUIPixelValue( m_nButtonStep, IsVertical() ? vScale.y : vScale.x );
 }
 int CUIScrollBar::operator&( IStructureSaver &ss )
 {

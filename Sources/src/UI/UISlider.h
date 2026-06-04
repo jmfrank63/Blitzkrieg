@@ -29,6 +29,7 @@ public:
 	virtual bool STDCALL ProcessMessage( const SUIMessage &msg );
 
 	virtual int STDCALL operator&( IDataTree &ss );
+	virtual void ScaleLayout( const CVec2 &vScale );
 
 	virtual void STDCALL Draw( IGFX *pGFX );
 	virtual void STDCALL Visit( interface ISceneVisitor *pVisitor );
@@ -78,6 +79,7 @@ public:
 	~CUIScrollBar() {}
 	
 	virtual void STDCALL Reposition( const CTRect<float> &rcParent );
+	virtual void ScaleLayout( const CVec2 &vScale );
 	/*
 	virtual void STDCALL SetState( int nState );
 	virtual int  STDCALL GetState() { return nCurrentState; }

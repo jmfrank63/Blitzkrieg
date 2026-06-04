@@ -44,7 +44,7 @@ void STDCALL CGFXModuleChecker::SetModuleFunctionalityLimits() const
 		SetGlobalVar( "GFX.Limit.Mode.SizeY", 1000000 );
 		SetGlobalVar( "GFX.Limit.Mode.BPP", 32 );
 	}
-	if ( memory.local.dwTotal > 24*MB ) 
+	else if ( memory.local.dwTotal > 24*MB )
 	{
 		SetGlobalVar( "GFX.Limit.Mode.SizeX", 1600 );
 		SetGlobalVar( "GFX.Limit.Mode.SizeY", 1200 );

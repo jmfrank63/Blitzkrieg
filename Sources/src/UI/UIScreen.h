@@ -27,6 +27,8 @@ private:
 	std::list< SUIMessage > uiMessageList;
 
 	CPtr<IInputSlider> pMouseWheelSlider;
+	bool bScaleLayoutToScreen;
+	CVec2 vLayoutScale;
 
 	typedef std::list<SAcknowledgment> CListOfAcks;
 	CListOfAcks listOfAcks;

@@ -4,6 +4,21 @@
 #include "UIMessages.h"
 #include "..\GameTT\CommonId.h"
 
+static int ScaleUIPixelValue( int nValue, float fScale )
+{
+	if ( nValue == 0 )
+		return 0;
+	return int( float( nValue ) * fScale + ( nValue > 0 ? 0.5f : -0.5f ) );
+}
+
+static void ScaleUISubRect( SWindowSubRect *pSubRect, const CVec2 &vScale )
+{
+	pSubRect->rc.x1 *= vScale.x;
+	pSubRect->rc.x2 *= vScale.x;
+	pSubRect->rc.y1 *= vScale.y;
+	pSubRect->rc.y2 *= vScale.y;
+}
+
 int SUIListRow::operator &( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -172,6 +187,9 @@ IUIElement* CUIList::CreateComponent( const char *pszFileName )
 	CPtr<IUIElement> pElement;
 	saver.Add( "Element", &pElement );
 	AddChild( pElement );
+	CSimpleWindow *pWindow = dynamic_cast<CSimpleWindow *>( pElement.GetPtr() );
+	if ( pWindow )
+		pWindow->ScaleLayout( GetLayoutScale() );
 	return pElement;
 }
 void CUIList::SetSelectionItem( int nSel ) 
@@ -373,6 +391,24 @@ void CUIList::Reposition( const CTRect<float> &rcParent )
 	}
 
 	CMultipleWindow::Reposition( rcParent );
+}
+void CUIList::ScaleLayout( const CVec2 &vScale )
+{
+	CMultipleWindow::ScaleLayout( vScale );
+	nLeftSpace = ScaleUIPixelValue( nLeftSpace, vScale.x );
+	nTopSpace = ScaleUIPixelValue( nTopSpace, vScale.y );
+	nHeaderTopSpace = ScaleUIPixelValue( nHeaderTopSpace, vScale.y );
+	nItemHeight = ScaleUIPixelValue( nItemHeight, vScale.y );
+	nHSubSpace = ScaleUIPixelValue( nHSubSpace, vScale.x );
+	nVSubSpace = ScaleUIPixelValue( nVSubSpace, vScale.y );
+	nHeaderSize = ScaleUIPixelValue( nHeaderSize, vScale.y );
+	nScrollBarWidth = ScaleUIPixelValue( nScrollBarWidth, vScale.x );
+
+	for ( int i = 0; i < columnProperties.size(); ++i )
+		columnProperties[i].nWidth = ScaleUIPixelValue( columnProperties[i].nWidth, vScale.x );
+
+	for ( int i = 0; i < selSubRects.size(); ++i )
+		ScaleUISubRect( &selSubRects[i], vScale );
 }
 void CUIList::NotifySelectionChanged()
 {

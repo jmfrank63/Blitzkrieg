@@ -6,6 +6,7 @@
 #include "..\Formats\fmtMap.h"
 #include "..\Main\RPGStats.h"
 #include "..\Misc\FreeIds.h"
+#include "..\GFX\GFXTypes.h"
 BASIC_REGISTER_CLASS( CSoundScene );
 NTimer::STime CSoundScene::curTime;			// ����� �� ���������� �����
 SIntPair CSoundScene::vLimit;						// ������ � ������� ���� �������� �����
@@ -980,8 +981,8 @@ void CSoundScene::InitConsts()
 }
 void CSoundScene::InitScreenResolutionConsts()
 {
-	const int nScreenWidth = GetGlobalVar( "GFX.Mode.Mission.SizeX", 1024 );
-	const int nScreenHeight = GetGlobalVar( "GFX.Mode.Mission.SizeY", 768 );
+	const int nScreenWidth = GetGlobalVar( "GFX.Mode.Mission.SizeX", GFX_DEFAULT_SCREEN_WIDTH );
+	const int nScreenHeight = GetGlobalVar( "GFX.Mode.Mission.SizeY", GFX_DEFAULT_SCREEN_HEIGHT );
 	NI_ASSERT_T( nScreenWidth && nScreenHeight, NStr::Format( "wrong screen sizes %d x %d \n", nScreenWidth, nScreenHeight) );
 
 	vScreenResize.x = 1.0f * nScreenWidth / SSoundSceneConsts::DEFAULT_SCREEN_WIDTH;

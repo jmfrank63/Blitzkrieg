@@ -101,6 +101,51 @@ static DWORD GetDeviceWindowedStyle()
 {
 	return WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
 }
+static void FitClientSizeToBounds( int nRequestedWidth, int nRequestedHeight, int nMaxWidth, int nMaxHeight, int *pWidth, int *pHeight )
+{
+	*pWidth = nRequestedWidth;
+	*pHeight = nRequestedHeight;
+	if ( (nRequestedWidth <= 0) || (nRequestedHeight <= 0) || (nMaxWidth <= 0) || (nMaxHeight <= 0) )
+		return;
+	if ( (nRequestedWidth <= nMaxWidth) && (nRequestedHeight <= nMaxHeight) )
+		return;
+
+	const double fScaleX = double(nMaxWidth) / double(nRequestedWidth);
+	const double fScaleY = double(nMaxHeight) / double(nRequestedHeight);
+	const double fScale = fScaleX < fScaleY ? fScaleX : fScaleY;
+	*pWidth = Max( 1, int( double(nRequestedWidth) * fScale + 0.5 ) );
+	*pHeight = Max( 1, int( double(nRequestedHeight) * fScale + 0.5 ) );
+	if ( *pWidth > nMaxWidth )
+	{
+		*pWidth = nMaxWidth;
+		*pHeight = Max( 1, int( double(*pWidth) * double(nRequestedHeight) / double(nRequestedWidth) + 0.5 ) );
+	}
+	if ( *pHeight > nMaxHeight )
+	{
+		*pHeight = nMaxHeight;
+		*pWidth = Max( 1, int( double(*pHeight) * double(nRequestedWidth) / double(nRequestedHeight) + 0.5 ) );
+	}
+}
+static void FitWindowedBackBufferToWorkArea( HWND hWindow, int nRequestedWidth, int nRequestedHeight, int *pWidth, int *pHeight )
+{
+	*pWidth = nRequestedWidth;
+	*pHeight = nRequestedHeight;
+	if ( hWindow == 0 )
+		return;
+
+	RECT rcWork = { 0, 0, 0, 0 };
+	if ( !SystemParametersInfo( SPI_GETWORKAREA, 0, &rcWork, 0 ) )
+		return;
+
+	const DWORD dwStyle = GetDeviceWindowedStyle();
+	const DWORD dwExStyle = DWORD( GetWindowLong( hWindow, GWL_EXSTYLE ) );
+	RECT rcFrame = { 0, 0, 0, 0 };
+	AdjustWindowRectEx( &rcFrame, dwStyle, FALSE, dwExStyle );
+
+	const int nMaxClientWidth = Max( 1, int( rcWork.right - rcWork.left - (rcFrame.right - rcFrame.left) ) );
+	const int nMaxClientHeight = Max( 1, int( rcWork.bottom - rcWork.top - (rcFrame.bottom - rcFrame.top) ) );
+	FitClientSizeToBounds( nRequestedWidth, nRequestedHeight, nMaxClientWidth, nMaxClientHeight, pWidth, pHeight );
+}
 static void ResizeDeviceWindow( HWND hWindow, bool bWindowed, int nClientWidth, int nClientHeight )
 {
 	if ( hWindow == 0 )
@@ -309,8 +354,12 @@ bool CGraphicsEngine::FillPresentationParams( int nWidth, int nHeight, int nBPP,
 		pp.PresentationInterval = D3DPRESENT_INTERVAL_DEFAULT;
     HRESULT dxrval = pD3D->GetAdapterDisplayMode( adapter.nIndex, &displaymode );
 		NI_ASSERTHR_TF( dxrval, "Can't get current display mode for windowed case", return false );
-		displaymode.Width = Min( int(displaymode.Width), nWidth );
-		displaymode.Height = Min( int(displaymode.Height), nHeight );
+		int nBackBufferWidth = nWidth;
+		int nBackBufferHeight = nHeight;
+		FitWindowedBackBufferToWorkArea( hWindow, nBackBufferWidth, nBackBufferHeight, &nBackBufferWidth, &nBackBufferHeight );
+		FitClientSizeToBounds( nBackBufferWidth, nBackBufferHeight, int(displaymode.Width), int(displaymode.Height), &nBackBufferWidth, &nBackBufferHeight );
+		displaymode.Width = nBackBufferWidth;
+		displaymode.Height = nBackBufferHeight;
 		displaymode.RefreshRate = 0;
 		pp.BackBufferFormat = displaymode.Format;
 		pp.BackBufferWidth = displaymode.Width;

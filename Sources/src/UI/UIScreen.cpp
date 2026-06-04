@@ -16,6 +16,16 @@ static const int TEXT_LEFT_SPACE = 0;								// ������ �� ��
 static const int CHAT_MESSAGE_LEFT = 0;							// ������ �� ������ ���� ������ �� ������ � chat message
 static const int CHAT_MESSAGE_TOP = 0;							// ������ �� �������� ���� ������ �� ������ � chat message
 static int TEXT_ANIMATION_TIME = 5000;							// ����� ��� ����������� ���������� ���������, ����� ��� ���������
+static const float LEGACY_UI_WIDTH = 1024.0f;
+static const float LEGACY_UI_HEIGHT = 768.0f;
+
+static bool ShouldScaleLegacyLayout( const char *pszResourceName )
+{
+	return _stricmp( pszResourceName, "ui\\mainmenu" ) == 0 ||
+	       _stricmp( pszResourceName, "ui\\Popup\\IMTutorial" ) == 0 ||
+	       _stricmp( pszResourceName, "ui\\Lists\\IMTutorialList" ) == 0;
+}
+
 int CUIScreen::operator&( interface IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -58,7 +68,8 @@ int CUIScreen::SAcknowledgment::operator&( interface IStructureSaver &ss )
 	saver.Add( 3, &time );
 	return 0;
 }
-CUIScreen::CUIScreen() : m_mouseState( E_MOUSE_FREE ), m_keyboardState( E_KEYBOARD_FREE ), bChatMode( false ), nCursorPos( 0 )
+CUIScreen::CUIScreen() : m_mouseState( E_MOUSE_FREE ), m_keyboardState( E_KEYBOARD_FREE ), bChatMode( false ), nCursorPos( 0 ),
+	bScaleLayoutToScreen( false ), vLayoutScale( 1.0f, 1.0f )
 {
 	SetShowBackgroundFlag( false );
 	szLastChatMessage = L"";
@@ -82,6 +93,8 @@ int CUIScreen::Load( const char *pszResourceName, bool bRelative )
 
 		CPtr<IDataTree> pDT = bRelative ? CreateDataTreeSaver( pStream, IDataTree::READ ) : CreateDataTreeSaver( pStream, IDataTree::READ, "GUI_Composer_Project" );
 		this->operator&( *pDT );
+		bScaleLayoutToScreen = bRelative && ShouldScaleLegacyLayout( szResourceName.c_str() );
+		vLayoutScale = CVec2( 1.0f, 1.0f );
 		IUIElement *pElement = GetChildByIndex( 0 );
 		return pElement == 0 ? 0 : pElement->GetWindowID();
 	}
@@ -95,6 +108,16 @@ int CUIScreen::Load( const char *pszResourceName, bool bRelative )
 }
 void CUIScreen::Reposition( const CTRect<float> &rcParent )
 {
+	if ( bScaleLayoutToScreen )
+	{
+		CVec2 vNewScale( rcParent.Width() / LEGACY_UI_WIDTH, rcParent.Height() / LEGACY_UI_HEIGHT );
+		CVec2 vDeltaScale( vNewScale.x / vLayoutScale.x, vNewScale.y / vLayoutScale.y );
+		if ( fabs( vDeltaScale.x - 1.0f ) > 0.001f || fabs( vDeltaScale.y - 1.0f ) > 0.001f )
+		{
+			ScaleLayout( vDeltaScale );
+			vLayoutScale = vNewScale;
+		}
+	}
 	SetScreenRect( rcParent );
 	SetPos( CVec2(0, 0) );
 	SetSize( CVec2(rcParent.Width(), rcParent.Height()) );

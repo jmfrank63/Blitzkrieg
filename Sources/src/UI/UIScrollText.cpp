@@ -2,6 +2,13 @@
 #include "UIMessages.h"
 #include "UIScrollText.h"
 
+static int ScaleUIPixelValue( int nValue, float fScale )
+{
+	if ( nValue == 0 )
+		return 0;
+	return int( float( nValue ) * fScale + ( nValue > 0 ? 0.5f : -0.5f ) );
+}
+
 void CUIScrollTextBox::SetWindowText( int nState, const WORD *pszText )
 {
 	NI_ASSERT_T( nState < states.size(), NStr::Format("Can't set window text for %d stats (max %d)", nState, states.size()) );
@@ -187,6 +194,16 @@ void CUIScrollTextBox::Reposition( const CTRect<float> &rcParent )
 	RepositionScrollbar();
 	CMultipleWindow::Reposition( rcParent );
 	RepositionText();
+}
+void CUIScrollTextBox::ScaleLayout( const CVec2 &vScale )
+{
+	CMultipleWindow::ScaleLayout( vScale );
+	nScrollBarWidth = ScaleUIPixelValue( nScrollBarWidth, vScale.x );
+	m_nY = ScaleUIPixelValue( m_nY, vScale.y );
+	nLeftSpace = ScaleUIPixelValue( nLeftSpace, vScale.x );
+	nRightSpace = ScaleUIPixelValue( nRightSpace, vScale.x );
+	nTopSpace = ScaleUIPixelValue( nTopSpace, vScale.y );
+	nBottomSpace = ScaleUIPixelValue( nBottomSpace, vScale.y );
 }
 bool CUIScrollTextBox::ProcessMessage( const SUIMessage &msg )
 {

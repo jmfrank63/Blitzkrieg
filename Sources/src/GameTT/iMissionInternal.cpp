@@ -829,7 +829,7 @@ void CInterfaceMission::CheckResolution()
 {
 	if ( !pUIScreen ) return;
 
-	const int nSizeXAfter = GetGlobalVar( "GFX.Mode.Current.SizeX", 1024 );
+	const int nSizeXAfter = GetGlobalVar( "GFX.Mode.Current.SizeX", GFX_DEFAULT_SCREEN_WIDTH );
 	
 	const bool bEnoughToAllControls = nSizeXAfter >= 800;
 

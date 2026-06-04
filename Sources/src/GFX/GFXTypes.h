@@ -7,6 +7,11 @@ enum EGFXFullscreen
 	GFXFS_WINDOWED    = 2,
 	GFXFS_FORCE_DWORD = 0x7fffffff
 };
+enum
+{
+	GFX_DEFAULT_SCREEN_WIDTH = 1920,
+	GFX_DEFAULT_SCREEN_HEIGHT = 1440
+};
 enum EGFXDynamic
 {
 	GFXD_DYNAMIC	= 1,

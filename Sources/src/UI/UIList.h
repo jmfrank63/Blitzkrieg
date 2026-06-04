@@ -105,6 +105,7 @@ public:
 	virtual bool STDCALL OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, float fDelta ) = 0;
 
 	virtual void STDCALL Reposition( const CTRect<float> &rcParent );
+	virtual void ScaleLayout( const CVec2 &vScale );
 
 	virtual bool STDCALL OnChar( int nAsciiCode, int nVirtualKey, bool bPressed, DWORD keyState );
 	virtual bool STDCALL ProcessMessage( const SUIMessage &msg );

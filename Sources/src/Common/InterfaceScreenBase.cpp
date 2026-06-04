@@ -334,12 +334,12 @@ bool CInterfaceScreenBase::GetMessage( SGameMessage *pMsg )
 }
 bool CInterfaceScreenBase::ChangeResolution()
 {
-	const int nDesiredSizeX = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".SizeX").c_str(), 1024 );
-	const int nDesiredSizeY = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".SizeY").c_str(), 768 );
+	const int nDesiredSizeX = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".SizeX").c_str(), GFX_DEFAULT_SCREEN_WIDTH );
+	const int nDesiredSizeY = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".SizeY").c_str(), GFX_DEFAULT_SCREEN_HEIGHT );
 	const int nDesiredStencil = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".Stencil").c_str(), 0 );
 	const int nDesiredBPP = GetGlobalVar( ("GFX.Mode." + szInterfaceType + ".BPP").c_str(), 16 );
-	const int nCurrentSizeX = GetGlobalVar( "GFX.Mode.Current.SizeX", 1024 );
-	const int nCurrentSizeY = GetGlobalVar( "GFX.Mode.Current.SizeY", 768 );
+	const int nCurrentSizeX = GetGlobalVar( "GFX.Mode.Current.SizeX", GFX_DEFAULT_SCREEN_WIDTH );
+	const int nCurrentSizeY = GetGlobalVar( "GFX.Mode.Current.SizeY", GFX_DEFAULT_SCREEN_HEIGHT );
 	const int nCurrentStencil = GetGlobalVar( "GFX.Mode.Current.Stencil", 0 );
 	const int nCurrentBPP = GetGlobalVar( "GFX.Mode.Current.BPP", 16 );
 	if ( (nDesiredSizeX != nCurrentSizeX) || (nDesiredSizeY != nCurrentSizeY) || 
