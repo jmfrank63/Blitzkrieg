@@ -583,8 +583,8 @@ int CMOUnitMechanical::AIUpdateActions( const SAINotifyAction &action, const NTi
 			break;
 		case ACTION_NOTIFY_DIE:
 		case ACTION_NOTIFY_DEADPLANE:
+			SendDeathAcknowledgement( pAckManager, currTime - Min( action.time, currTime ) );
 			pAckManager->UnitDead( this, pScene );
-			SendAcknowledgement( pAckManager, ACK_UNIT_DIED, 0 );
 			ActionDie( action, currTime, pVOB, pScene );
 			ChangeState( STATE_DIE, currTime );
 			break;

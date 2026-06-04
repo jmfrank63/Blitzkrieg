@@ -749,8 +749,8 @@ void CWorldBase::AIUpdateRPGParams( const NTimer::STime &currTime )
 				{
 					pScene->RemoveSoundFromMap( soundIter->second.wLoopedSoundID );
 					pScene->RemoveSoundFromMap( soundIter->second.wSoundID );
+					objectsSounds.erase( soundIter );
 				}
-				objectsSounds.erase( soundIter );
 			}
 		}
 		else if ( SBridgeSpanObject *pSpan = FindSpanByAI(pObjects[i].pObj) )

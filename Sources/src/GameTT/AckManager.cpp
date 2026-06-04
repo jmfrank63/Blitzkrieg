@@ -480,9 +480,8 @@ void CClientAckManager::UnitDead( struct SMapObject *pUnit, interface IScene * p
 			UnregisterAck( &ack );
 			pScene->RemoveSound( ack.wSoundID );
 		}
+		unitAcks.erase( it );
 	}
-	
-	unitAcks.erase( it );
 
 	for ( BoredUnits::iterator it = boredUnits.begin(); it != boredUnits.end(); ++it )
 		it->second.DelUnit( pTipaUnit );
