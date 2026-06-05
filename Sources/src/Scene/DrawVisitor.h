@@ -67,6 +67,7 @@ class CDrawVisitor : public ISceneVisitor
 	ICamera *pCamera;
 	SHMatrix matrix;
 	CTRect<float> rcScreen;
+	float fSpriteScale;
 	SPlane vViewVolumePlanes[6];
 	CDepthOptimizer depthoptimizer;
 	void AddSingleSprite( const SBasicSpriteInfo *pObj, CSpriteVisList *pSprites, WORD wPriority );
@@ -94,7 +95,7 @@ public:
 	CUIObjectsList uiObjects;							// ui objects, divided by levels
 public:
 	CDrawVisitor( const float fAllowedDepth ) 
-		: pCamera( 0 ), depthoptimizer( 100, 75, fAllowedDepth ) {  }
+		: pCamera( 0 ), fSpriteScale( 1.0f ), depthoptimizer( 100, 75, fAllowedDepth ) {  }
 	void Init( ICamera *_pCamera, const SHMatrix &_matrix, const CTRect<short> &_rcScreen, const SPlane *pViewVolumePlanes );
 	void Clear();
 	void Sort();

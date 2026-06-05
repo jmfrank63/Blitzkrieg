@@ -739,6 +739,12 @@ bool CUIList::OnLButtonDblClk( const CVec2 &vPos )
 	if ( fSelIndex < 0 || fSelIndex >= listItems.size() )
 		return true;
 	
+	if ( nSelection != (int) fSelIndex )
+	{
+		RemoveFocusFromItem( nSelection );
+		nSelection = fSelIndex;
+		NotifySelectionChanged();
+	}
 	NotifyDoubleClick( fSelIndex );
 	return true;
 }

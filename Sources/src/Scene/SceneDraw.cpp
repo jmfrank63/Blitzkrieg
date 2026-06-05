@@ -193,6 +193,18 @@ void DrawMeshesChecked( CMeshVisList &meshes, IGFX *pGFX, bool bEnableBBs, const
 	}
 }
 static CObj<CDrawVisitor> pDrawVisitor;
+static void SetupScreenDirectTransform( IGFX *pGFX, const SHMatrix &matScreenProjection, const bool bUseScreenProjection )
+{
+	if ( bUseScreenProjection )
+		pGFX->SetProjectionTransform( matScreenProjection );
+	pGFX->SetupDirectTransform();
+}
+static void RestoreGameplayDirectTransform( IGFX *pGFX, const SHMatrix &matGameplayProjection, const bool bUseGameplayProjection )
+{
+	pGFX->RestoreTransform();
+	if ( bUseGameplayProjection )
+		pGFX->SetProjectionTransform( matGameplayProjection );
+}
 void CScene::Draw( ICamera *pCamera )
 {
 	_control87( _RC_NEAR, _MCW_RC );
@@ -250,14 +262,14 @@ void CScene::Draw( ICamera *pCamera )
 	pDrawVisitor->Sort();
 	if ( bEnableObjects )
 	{
-		pGFX->SetupDirectTransform();
+		SetupScreenDirectTransform( pGFX, matScreenProjection, bScaleGameplayProjection );
 		if ( !pDrawVisitor->terraObjects.empty() )
 		{
 			pGFX->SetDepthBufferMode( GFXDB_NONE );
 			pGFX->SetShadingEffect( 3 );
 			DrawTerraObjects( pDrawVisitor->terraObjects );
 		}
-		pGFX->RestoreTransform();
+		RestoreGameplayDirectTransform( pGFX, matGameplayProjection, bScaleGameplayProjection );
 		/*
 		if ( !pDrawVisitor->meshTerraObjects.empty() ) 
 		{
@@ -315,10 +327,10 @@ void CScene::Draw( ICamera *pCamera )
 			pGFX->SetShadingEffect( 110 );
 			if ( !pDrawVisitor->shadowObjects.empty() )
 			{
-				pGFX->SetupDirectTransform();
+				SetupScreenDirectTransform( pGFX, matScreenProjection, bScaleGameplayProjection );
 				pGFX->SetShadingEffect( 111 );
 				DrawTerraObjects( pDrawVisitor->shadowObjects );
-				pGFX->RestoreTransform();
+				RestoreGameplayDirectTransform( pGFX, matGameplayProjection, bScaleGameplayProjection );
 			}
 			if ( !pDrawVisitor->meshes.empty() )
 			{
@@ -352,16 +364,16 @@ void CScene::Draw( ICamera *pCamera )
 	{
 		if ( !pDrawVisitor->spriteUnits.empty() )
 		{
-			pGFX->SetupDirectTransform();
+			SetupScreenDirectTransform( pGFX, matScreenProjection, bScaleGameplayProjection );
 			pGFX->SetShadingEffect( 3 );
 			DrawSprites( pDrawVisitor->spriteUnits );
-			pGFX->RestoreTransform();
+			RestoreGameplayDirectTransform( pGFX, matGameplayProjection, bScaleGameplayProjection );
 		}
 		DrawMeshes( pDrawVisitor->meshes, pGFX, bEnableBBs, sunlight );
 	}
 	if ( bEnableObjects )
 	{
-		pGFX->SetupDirectTransform();
+		SetupScreenDirectTransform( pGFX, matScreenProjection, bScaleGameplayProjection );
 		if ( !pDrawVisitor->spriteBuildings.empty() )
 		{
 			pGFX->SetShadingEffect( 3 );
@@ -389,7 +401,7 @@ void CScene::Draw( ICamera *pCamera )
 				pGFX->DrawStringA( it->pszText, it->vScreenPos.x, it->vScreenPos.y, it->color );
 			}
 		}
-		pGFX->RestoreTransform();
+		RestoreGameplayDirectTransform( pGFX, matGameplayProjection, bScaleGameplayProjection );
 	}
 	if ( bEnableShadows && !pDrawVisitor->aviation.empty() )
 	{
@@ -436,7 +448,7 @@ void CScene::Draw( ICamera *pCamera )
 	{
 		if ( !pDrawVisitor->particles.empty() )
 		{
-			pGFX->SetupDirectTransform();
+			SetupScreenDirectTransform( pGFX, matScreenProjection, bScaleGameplayProjection );
 			pGFX->SetShadingEffect( 12 );
 			for ( CParticlesVisMap::const_iterator it = pDrawVisitor->particles.begin(); it != pDrawVisitor->particles.end(); ++it )
 			{
@@ -446,14 +458,14 @@ void CScene::Draw( ICamera *pCamera )
 				DrawParticles( it->second );
 			}
 			pGFX->SetShadingEffect( 11 );
-			pGFX->RestoreTransform();
+			RestoreGameplayDirectTransform( pGFX, matGameplayProjection, bScaleGameplayProjection );
 		}
 		if ( !pDrawVisitor->spriteEffects.empty() )
 		{
-			pGFX->SetupDirectTransform();
+			SetupScreenDirectTransform( pGFX, matScreenProjection, bScaleGameplayProjection );
 			pGFX->SetShadingEffect( 3 );
 			DrawSprites( pDrawVisitor->spriteEffects );
-			pGFX->RestoreTransform();
+			RestoreGameplayDirectTransform( pGFX, matGameplayProjection, bScaleGameplayProjection );
 		}
 	}
 	if ( !pDrawVisitor->boldLines.empty() )
@@ -510,17 +522,17 @@ void CScene::Draw( ICamera *pCamera )
 	}
 	if ( !pDrawVisitor->spriteFlashes.empty() )
 	{
-		pGFX->SetupDirectTransform();
+		SetupScreenDirectTransform( pGFX, matScreenProjection, bScaleGameplayProjection );
 		pGFX->SetShadingEffect( 16 );
 		pGFX->SetShadingEffect( 22 );
 		DrawSprites( pDrawVisitor->spriteFlashes );
 		pGFX->SetShadingEffect( 23 );
 		pGFX->SetDepthBufferMode( GFXDB_USE_Z );
-		pGFX->RestoreTransform();
+		RestoreGameplayDirectTransform( pGFX, matGameplayProjection, bScaleGameplayProjection );
 	}
 	if ( bEnableHaze )
 	{
-		pGFX->SetupDirectTransform();
+		SetupScreenDirectTransform( pGFX, matScreenProjection, bScaleGameplayProjection );
 		CTempBufferLock<SGFXLVertex> vertices = pGFX->GetTempVertices( 4, SGFXLVertex::format, GFXPT_TRIANGLELIST );
 		vertices[0].Setup( rcScreenRect.x1, rcScreenRect.y1, 0, 1, dwHazeColorTop, 0xff000000, 0, 0 );
 		vertices[1].Setup( rcScreenRect.x2, rcScreenRect.y1, 0, 1, dwHazeColorTop, 0xff000000, 0, 0 );
@@ -538,7 +550,7 @@ void CScene::Draw( ICamera *pCamera )
 		pGFX->SetDepthBufferMode( GFXDB_NONE );
 		pGFX->DrawTemp();
 		pGFX->SetDepthBufferMode( GFXDB_USE_Z );
-		pGFX->RestoreTransform();
+		RestoreGameplayDirectTransform( pGFX, matGameplayProjection, bScaleGameplayProjection );
 	}
 	if ( bEnableWarFog && pTerrain )
 		pTerrain->DrawWarFog();
@@ -731,39 +743,40 @@ class CNormalDepthCalculator
 {
 	const float fZBias;
 	const float fZBias2;
+	const float fSpriteScale;
 public:
-	CNormalDepthCalculator( const float _fZBias, const float _fZBias2 ) : fZBias( _fZBias ), fZBias2( _fZBias2 ) {  }
+	CNormalDepthCalculator( const float _fZBias, const float _fZBias2, const float _fSpriteScale ) : fZBias( _fZBias ), fZBias2( _fZBias2 ), fSpriteScale( _fSpriteScale ) {  }
 	const float GetZ1( const SSpriteInfo *pInfo ) const 
 	{ 
-		return pInfo->relpos.z - fZBias*(pInfo->rect.y2 - pInfo->fDepthLeft) + fZBias2*pInfo->fDepthLeft;
+		return pInfo->relpos.z - fZBias*(pInfo->rect.y2 - pInfo->fDepthLeft)*fSpriteScale + fZBias2*pInfo->fDepthLeft*fSpriteScale;
 	}
 	const float GetZ2( const SSpriteInfo *pInfo ) const 
 	{ 
-		return pInfo->relpos.z - fZBias*(pInfo->rect.y1 - pInfo->fDepthLeft) + fZBias2*pInfo->fDepthLeft;
+		return pInfo->relpos.z - fZBias*(pInfo->rect.y1 - pInfo->fDepthLeft)*fSpriteScale + fZBias2*pInfo->fDepthLeft*fSpriteScale;
 	}
 	const float GetZ3( const SSpriteInfo *pInfo ) const 
 	{ 
-		return pInfo->relpos.z - fZBias*(pInfo->rect.y2 - pInfo->fDepthRight) + fZBias2*pInfo->fDepthRight;
+		return pInfo->relpos.z - fZBias*(pInfo->rect.y2 - pInfo->fDepthRight)*fSpriteScale + fZBias2*pInfo->fDepthRight*fSpriteScale;
 	}
 	const float GetZ4( const SSpriteInfo *pInfo ) const 
 	{ 
-		return pInfo->relpos.z - fZBias*(pInfo->rect.y1 - pInfo->fDepthRight) + fZBias2*pInfo->fDepthRight;
+		return pInfo->relpos.z - fZBias*(pInfo->rect.y1 - pInfo->fDepthRight)*fSpriteScale + fZBias2*pInfo->fDepthRight*fSpriteScale;
 	}
 	const float GetZ1( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSquare &square ) const 
 	{ 
-		return pInfo->relpos.z - fZBias*(square.vLeftTop.y + square.fDepthLeft + square.fSize) + fZBias2*square.fDepthLeft;
+		return pInfo->relpos.z - fZBias*(square.vLeftTop.y + square.fDepthLeft + square.fSize)*fSpriteScale + fZBias2*square.fDepthLeft*fSpriteScale;
 	}
 	const float GetZ2( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSquare &square ) const 
 	{ 
-		return pInfo->relpos.z - fZBias*(square.vLeftTop.y + square.fDepthLeft) + fZBias2*square.fDepthLeft;
+		return pInfo->relpos.z - fZBias*(square.vLeftTop.y + square.fDepthLeft)*fSpriteScale + fZBias2*square.fDepthLeft*fSpriteScale;
 	}
 	const float GetZ3( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSquare &square ) const 
 	{ 
-		return pInfo->relpos.z - fZBias*(square.vLeftTop.y + square.fDepthRight + square.fSize) + fZBias2*square.fDepthRight;
+		return pInfo->relpos.z - fZBias*(square.vLeftTop.y + square.fDepthRight + square.fSize)*fSpriteScale + fZBias2*square.fDepthRight*fSpriteScale;
 	}
 	const float GetZ4( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSquare &square ) const 
 	{ 
-		return pInfo->relpos.z - fZBias*(square.vLeftTop.y + square.fDepthRight) + fZBias2*square.fDepthRight;
+		return pInfo->relpos.z - fZBias*(square.vLeftTop.y + square.fDepthRight)*fSpriteScale + fZBias2*square.fDepthRight*fSpriteScale;
 	}
 };
 class CTerrainDepthCalculator
@@ -794,12 +807,12 @@ inline const DWORD CheckForRect( const CTRect<float> &rect, const float x, const
 template <class TDepthCalculator>
 int AddSquare( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSquare &square, const WORD wCurrVertex,
 							 const TDepthCalculator &calculator, const CTRect<float> &rcScreen,
-							 const float fTexDiffX, const float fTexDiffY, const float fScrDiff )
+							 const float fTexDiffX, const float fTexDiffY, const float fScrDiff, const float fSpriteScale )
 {
-	const float fX1 = MINT( pInfo->relpos.x + square.vLeftTop.x ) + fScrDiff;
-	const float fX2 = MINT( pInfo->relpos.x + square.vLeftTop.x + square.fSize ) + fScrDiff;
-	const float fY1 = MINT( pInfo->relpos.y + square.vLeftTop.y ) + fScrDiff;
-	const float fY2 = MINT( pInfo->relpos.y + square.vLeftTop.y + square.fSize ) + fScrDiff;
+	const float fX1 = MINT( pInfo->relpos.x + square.vLeftTop.x * fSpriteScale ) + fScrDiff;
+	const float fX2 = MINT( pInfo->relpos.x + ( square.vLeftTop.x + square.fSize ) * fSpriteScale ) + fScrDiff;
+	const float fY1 = MINT( pInfo->relpos.y + square.vLeftTop.y * fSpriteScale ) + fScrDiff;
+	const float fY2 = MINT( pInfo->relpos.y + ( square.vLeftTop.y + square.fSize ) * fSpriteScale ) + fScrDiff;
 	if ( pInfo->dwCheckFlags & 1 ) 
 	{
 		const DWORD dwPoint1 = CheckForRect( rcScreen, fX1, fY2 );
@@ -838,12 +851,12 @@ int AddSquare( const SComplexSpriteInfo *pInfo, const SSpritesPack::SSprite::SSq
 template <class TDepthCalculator>
 int AddSquare( const SSpriteInfo *pInfo, const WORD wCurrVertex,
 							 const TDepthCalculator &calculator, const CTRect<float> &rcScreen,
-							 const float fTexDiffX, const float fTexDiffY, const float fScrDiff )
+							 const float fTexDiffX, const float fTexDiffY, const float fScrDiff, const float fSpriteScale )
 {
-	const float fX1 = MINT( pInfo->relpos.x + pInfo->rect.x1 ) + fScrDiff;
-	const float fX2 = MINT( pInfo->relpos.x + pInfo->rect.x2 ) + fScrDiff;
-	const float fY1 = MINT( pInfo->relpos.y + pInfo->rect.y1 ) + fScrDiff;
-	const float fY2 = MINT( pInfo->relpos.y + pInfo->rect.y2 ) + fScrDiff;
+	const float fX1 = MINT( pInfo->relpos.x + pInfo->rect.x1 * fSpriteScale ) + fScrDiff;
+	const float fX2 = MINT( pInfo->relpos.x + pInfo->rect.x2 * fSpriteScale ) + fScrDiff;
+	const float fY1 = MINT( pInfo->relpos.y + pInfo->rect.y1 * fSpriteScale ) + fScrDiff;
+	const float fY2 = MINT( pInfo->relpos.y + pInfo->rect.y2 * fSpriteScale ) + fScrDiff;
 	if ( pInfo->dwCheckFlags & 1 ) 
 	{
 		const DWORD dwPoint1 = CheckForRect( rcScreen, fX1, fY2 );
@@ -895,6 +908,7 @@ bool DrawSingleSpritesPack( const std::vector<const SSpriteInfo*> &sprites, cons
 	}
 	WORD wCurrVertex = 0;
 	DWORD dwSpecularCheck = 0;;
+	const float fSpriteScale = NSceneScreenScale::GetGameplayScale( rcScreen );
 	drawvertices.resize( 0 );
 	drawvertices.reserve( nNumSprites * 4 );
 	drawindices.resize( 0 );
@@ -902,7 +916,7 @@ bool DrawSingleSpritesPack( const std::vector<const SSpriteInfo*> &sprites, cons
 	_control87( _RC_CHOP, _MCW_RC );
 	for ( std::vector<const SSpriteInfo*>::const_iterator it = sprites.begin(); it != sprites.end(); ++it ) 
 	{
-		wCurrVertex += AddSquare( *it, wCurrVertex, calculator, rcScreen, fTexDiffX, fTexDiffY, fScrDiff );
+		wCurrVertex += AddSquare( *it, wCurrVertex, calculator, rcScreen, fTexDiffX, fTexDiffY, fScrDiff, fSpriteScale );
 		dwSpecularCheck |= (*it)->specular;
 	}
 	_control87( _RC_NEAR, _MCW_RC );
@@ -927,6 +941,7 @@ bool DrawComplexSpritesPack( const std::vector<const SComplexSpriteInfo*> &sprit
 	int nNumSquares = 0;
 	for ( std::vector<const SComplexSpriteInfo*>::const_iterator it = sprites.begin(); it != sprites.end(); ++it )
 		nNumSquares += (*it)->pSprite->squares.size();
+	const float fSpriteScale = NSceneScreenScale::GetGameplayScale( rcScreen );
 	drawvertices.resize( 0 );
 	drawvertices.reserve( nNumSquares * 4 );
 	drawindices.resize( 0 );
@@ -952,7 +967,7 @@ bool DrawComplexSpritesPack( const std::vector<const SComplexSpriteInfo*> &sprit
 				drawindices.resize( 0 );
 				drawindices.reserve( nNumSquares * 6 );
 			}
-			wCurrVertex += AddSquare( *sprite, *it, wCurrVertex, calculator, rcScreen, fTexDiffX, fTexDiffY, fScrDiff );
+			wCurrVertex += AddSquare( *sprite, *it, wCurrVertex, calculator, rcScreen, fTexDiffX, fTexDiffY, fScrDiff, fSpriteScale );
 		}
 	}
 	_control87( _RC_NEAR, _MCW_RC );
@@ -964,7 +979,8 @@ void CScene::DrawSprites( CSpriteVisList &sprites )
 {
 	if ( sprites.empty() )
 		return;
-	::DrawSprites( sprites, CNormalDepthCalculator(fZBias, fZBias2), pGFX->GetScreenRect(), pGFX );
+	const CTRect<float> rcScreen = pGFX->GetScreenRect();
+	::DrawSprites( sprites, CNormalDepthCalculator(fZBias, fZBias2, NSceneScreenScale::GetGameplayScale(rcScreen)), rcScreen, pGFX );
 }
 void CScene::DrawTerraObjects( CSpriteVisList &sprites )
 {
@@ -991,28 +1007,30 @@ void CScene::DrawSingleParticlesPack( const CParticlesVisList &particles, int nN
 	WORD wCurrVertex = 0;
 	bool bSpecularEnable = false;
 	float fX, fY;
+	const float fSpriteScale = NSceneScreenScale::GetGameplayScale( pGFX->GetScreenRect() );
 	for ( CParticlesVisList::const_iterator it = particles.begin(); it != particles.end(); ++it, wCurrVertex += 4 )
 	{
 		const SParticleInfo &info = *it;
 		const int nAngleCalibrated = FSinCosMakeAngleChecked( info.fAngle );
 		const float fCos = FCosCalibrated( nAngleCalibrated );
 		const float fSin = FSinCalibrated( nAngleCalibrated );
-		FastRotate( &fX, &fY, -info.fSize, +info.fSize, fCos, fSin );
+		const float fSize = info.fSize * fSpriteScale;
+		FastRotate( &fX, &fY, -fSize, +fSize, fCos, fSin );
 		pVertices->Setup( info.vPos.x + fX, info.vPos.y + fY, info.vPos.z - fZBias*fY, 1, 
 			                info.color, info.specular, info.maps.x1, info.maps.y2 );
 		++pVertices;
 
-		FastRotate( &fX, &fY, -info.fSize, -info.fSize, fCos, fSin );
+		FastRotate( &fX, &fY, -fSize, -fSize, fCos, fSin );
 		pVertices->Setup( info.vPos.x + fX, info.vPos.y + fY, info.vPos.z - fZBias*fY, 1, 
 			                info.color, info.specular, info.maps.x1, info.maps.y1 );
 		++pVertices;
 
-		FastRotate( &fX, &fY, +info.fSize, +info.fSize, fCos, fSin );
+		FastRotate( &fX, &fY, +fSize, +fSize, fCos, fSin );
 		pVertices->Setup( info.vPos.x + fX, info.vPos.y + fY, info.vPos.z - fZBias*fY, 1, 
 			                info.color, info.specular, info.maps.x2, info.maps.y2 );
 		++pVertices;
 
-		FastRotate( &fX, &fY, +info.fSize, -info.fSize, fCos, fSin );
+		FastRotate( &fX, &fY, +fSize, -fSize, fCos, fSin );
 		pVertices->Setup( info.vPos.x + fX, info.vPos.y + fY, info.vPos.z - fZBias*fY, 1, 
 			                info.color, info.specular, info.maps.x2, info.maps.y1 );
 		++pVertices;

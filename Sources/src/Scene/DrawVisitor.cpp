@@ -3,11 +3,20 @@
 #include "DrawVisitor.h"
 
 #include "..\Main\TextSystem.h"
+#include "SceneScreenScale.h"
+static void ScaleRect( CTRect<float> *pRect, const float fScale )
+{
+	if ( fScale <= 1.001f )
+		return;
+
+	pRect->Set( pRect->x1 * fScale, pRect->y1 * fScale, pRect->x2 * fScale, pRect->y2 * fScale );
+}
 void CDrawVisitor::Init( ICamera *_pCamera, const SHMatrix &_matrix, const CTRect<short> &_rcScreen, const SPlane *pViewVolumePlanes )
 {
 	pCamera = _pCamera;
 	matrix = _matrix;
 	rcScreen.Set( _rcScreen.x1, _rcScreen.y1, _rcScreen.x2, _rcScreen.y2 );
+	fSpriteScale = NSceneScreenScale::GetGameplayScale( rcScreen );
 	memcpy( &vViewVolumePlanes, pViewVolumePlanes, sizeof(vViewVolumePlanes) );
 	depthoptimizer.SetScreenSize( _rcScreen.Width(), _rcScreen.Height() );
 }
@@ -106,6 +115,7 @@ void CDrawVisitor::AddSingleSprite( const SBasicSpriteInfo *pObj, CSpriteVisList
 			rcRect = static_cast<SComplexSpriteInfo*>(pInfo)->pSprite->GetBoundBox();
 			break;
 	}
+	ScaleRect( &rcRect, fSpriteScale );
 	rcRect.Move( pInfo->relpos.x, pInfo->relpos.y );
 	if ( rcScreen.IsInside(rcRect) ) 
 	{
@@ -139,7 +149,7 @@ void CDrawVisitor::AddSingleParticleEffect( IParticleSource *pPS, CParticlesVisM
 			matrix.RotateHVector( &info.vPos, info.vPos );
 			info.vPos.x = MINT( info.vPos.x );
 			info.vPos.y = MINT( info.vPos.y );
-			const float fSize = info.fSize * FP_SQRT_2;
+			const float fSize = info.fSize * fSpriteScale * FP_SQRT_2;
 			CTRect<float> rcRect( info.vPos.x - fSize, info.vPos.y - fSize, 
 				                    info.vPos.x + fSize, info.vPos.y + fSize );
 			if ( rcRect.IsIntersect(rcScreen) )

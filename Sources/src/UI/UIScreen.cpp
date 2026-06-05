@@ -22,6 +22,8 @@ static const float LEGACY_UI_HEIGHT = 768.0f;
 static bool ShouldScaleLegacyLayout( const char *pszResourceName )
 {
 	return _stricmp( pszResourceName, "ui\\mainmenu" ) == 0 ||
+	       _stricmp( pszResourceName, "ui\\OptionsSettings" ) == 0 ||
+	       _stricmp( pszResourceName, "ui\\MissionOptionsSettings" ) == 0 ||
 	       _stricmp( pszResourceName, "ui\\Popup\\IMTutorial" ) == 0 ||
 	       _stricmp( pszResourceName, "ui\\Lists\\IMTutorialList" ) == 0;
 }

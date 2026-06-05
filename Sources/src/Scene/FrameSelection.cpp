@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 
 #include "FrameSelection.h"
+#include "SceneScreenScale.h"
 bool CFrameSelection::Draw( IGFX *pGFX )
 {
 	static CMatrixStack<4> mstack;
@@ -12,6 +13,9 @@ bool CFrameSelection::Draw( IGFX *pGFX )
 	matTransform.RotateHVector( &vScrBegin, vBegin );
 	matTransform.RotateHVector( &vScrEnd, vEnd );
 	mstack.Pop( 3 );
+	const CTRect<float> rcScreen = pGFX->GetScreenRect();
+	NSceneScreenScale::ScaleGameplayScreenPoint( &vScrBegin.x, &vScrBegin.y, rcScreen );
+	NSceneScreenScale::ScaleGameplayScreenPoint( &vScrEnd.x, &vScrEnd.y, rcScreen );
 	pGFX->SetTexture( 0, 0 );
 	pGFX->SetShadingEffect( 3 );
 	SGFXRect2 rect;

@@ -21,6 +21,12 @@ enum EUIElements
 	E_SUBDIALOG_TEXTEDIT_GAMESPY					= 3004,
 	E_EDITBOX_GAMESPY											= 10003
 };
+
+static bool IsGeneratedSelectionText( const char *pszOptionName )
+{
+	return _stricmp( pszOptionName, "GFX.Mode" ) == 0;
+}
+
 CUIOption::CUIOption( IUIStatic *_pOptionName, IUIDialog *_pDialog, IOption *_pOption )
 	: pDialog( _pDialog ), pOption( _pOption ), pOptionName( _pOptionName )
 {
@@ -30,9 +36,18 @@ CUIOption::CUIOption( IUIStatic *_pOptionName, IUIDialog *_pDialog, IOption *_pO
 	const std::string szKeyName = szKeyOption + ".name";
 	const std::string szKeyTooltip = szKeyOption + ".tooltip";
 	IText * pText = pTM->GetString( szKeyName.c_str() );
-	NI_ASSERT_T( pText != 0, NStr::Format("cannot find local name %s for options", szKeyName.c_str() ) );
 	if ( pText )
+	{
 		pOptionName->SetWindowText( 0, pText->GetString() );
+	}
+	else
+	{
+#ifndef _FINALRELEASE
+		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format( "cannot find localized string %s", szKeyName.c_str() ) );
+#endif // _FINALRELEASE
+		const std::wstring szFallbackName = NStr::ToUnicode( pOption->GetName() );
+		pOptionName->SetWindowText( 0, szFallbackName.c_str() );
+	}
 	pText = pTM->GetString( szKeyTooltip.c_str() );
 	if ( pText )
 		pOptionName->SetHelpContext( 0, pText->GetString() );
@@ -81,6 +96,7 @@ void CUIOption::OnSelected()
 }
 void CUIOption::ChangeSelection( const int nCurSelection )
 {
+	const bool bGeneratedSelectionText = IsGeneratedSelectionText( pOption->GetName() );
 	const std::string szKey = CUIConsts::ConstructOptionKey( pOption->GetName(), szSelections[nCurSelection].szProgName.c_str() );
 	const std::string szKeyName = szKey + ".name";
 	const std::string szKeyTooltip = szKey + ".tooltip";
@@ -94,7 +110,8 @@ void CUIOption::ChangeSelection( const int nCurSelection )
 	else
 	{
 #ifndef _FINALRELEASE
-		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format( "cannot find localized string %s", szKeyName.c_str() ) );
+		if ( !bGeneratedSelectionText )
+			GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format( "cannot find localized string %s", szKeyName.c_str() ) );
 #endif // _FINALRELEASE
 		pStatic->SetWindowText( 0, NStr::ToUnicode( szSelections[nCurSelection].szProgName ).c_str() );
 	}
@@ -105,7 +122,8 @@ void CUIOption::ChangeSelection( const int nCurSelection )
 	else
 	{
 #ifndef _FINALRELEASE
-		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format( "cannot find localized string %s", szKeyTooltip.c_str() ) );
+		if ( !bGeneratedSelectionText )
+			GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format( "cannot find localized string %s", szKeyTooltip.c_str() ) );
 #endif // _FINALRELEASE
 		IText * pHelpContext = pOptionName->GetHelpContext( VNULL2, 0 );
 		if ( pHelpContext )
