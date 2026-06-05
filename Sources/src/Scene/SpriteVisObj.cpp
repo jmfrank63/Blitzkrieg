@@ -77,6 +77,15 @@ bool CSpriteVisObj::Draw( IGFX *pGFX )
 {
 	return false;
 }
+void CSpriteVisObj::SetScale( float sx, float, float )
+{
+	if ( pAnim )
+	{
+		pAnim->SetScale( sx );
+		RetrieveSpriteInfo();
+		RepositionIcons();
+	}
+}
 void CSpriteVisObj::Visit( ISceneVisitor *pVisitor, int nType )
 {
 	if ( bComplexSprite ) 

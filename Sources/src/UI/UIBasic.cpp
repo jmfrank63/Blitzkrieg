@@ -213,6 +213,7 @@ void CSimpleWindow::InitDependentInfo()
 			{
 				states[i].pGfxText->SetColor( dwTextColor );
 				states[i].pGfxText->SetFont( pFont );
+				states[i].pGfxText->SetScale( Min( vAppliedLayoutScale.x, vAppliedLayoutScale.y ) );
 				states[i].pGfxText->EnableRedLine( bRedLine );
 			}
 		}
@@ -367,6 +368,7 @@ void CSimpleWindow::SetWindowPlacement( const CVec2 *_vPos, const CVec2 *_vSize 
 }
 void CSimpleWindow::ScaleLayout( const CVec2 &vScale )
 {
+	const float fTextScale = Min( vScale.x, vScale.y );
 	vAppliedLayoutScale.x *= vScale.x;
 	vAppliedLayoutScale.y *= vScale.y;
 	vPos.x *= vScale.x;
@@ -396,7 +398,10 @@ void CSimpleWindow::ScaleLayout( const CVec2 &vScale )
 		}
 
 		if ( states[i].pGfxText )
+		{
 			states[i].pGfxText->SetWidth( vSize.x );
+			states[i].pGfxText->SetScale( states[i].pGfxText->GetScale() * fTextScale );
+		}
 	}
 }
 void CSimpleWindow::SetWindowID( int _nID )
@@ -446,6 +451,7 @@ void CSimpleWindow::InitText()
 		
 		IGFXFont *pFont = GetSingleton<IFontManager>()->GetFont( "fonts\\medium" );
 		states[i].pGfxText->SetFont( pFont );
+		states[i].pGfxText->SetScale( Min( vAppliedLayoutScale.x, vAppliedLayoutScale.y ) );
 		states[i].pGfxText->SetWidth( textRC.Width() );
 	}
 }

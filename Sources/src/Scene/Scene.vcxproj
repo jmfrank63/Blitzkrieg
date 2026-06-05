@@ -779,6 +779,7 @@
     <ClInclude Include="stl_user_config.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="SceneInternal.h" />
+    <ClInclude Include="SceneScreenScale.h" />
     <ClInclude Include="SceneObjectFactory.h" />
     <ClInclude Include="Icon.h" />
     <ClInclude Include="IconBar.h" />

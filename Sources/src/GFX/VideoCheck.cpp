@@ -229,12 +229,18 @@ bool STDCALL NVideoCheck::GetVideoMemory( SVideoMemory *pMemory )
 		pMemory->nonlocal.dwFree = dwFree;
 	}
 	caps.dwCaps = DDSCAPS_TEXTURE;
-	pDD->GetAvailableVidMem( &caps, &dwTotal, &dwFree );
+	dxrval = pDD->GetAvailableVidMem( &caps, &dwTotal, &dwFree );
 	if ( SUCCEEDED(dxrval) ) 
 	{
 		pMemory->texture.dwTotal = dwTotal;
 		pMemory->texture.dwFree = dwFree;
 	}
+
+	const DWORD fallbackTotal = 256u * 1024u * 1024u;
+	if ( pMemory->local.dwTotal == 0 )
+		pMemory->local.dwTotal = fallbackTotal;
+	if ( pMemory->texture.dwTotal == 0 )
+		pMemory->texture.dwTotal = pMemory->local.dwTotal;
 
 	return true;
 }

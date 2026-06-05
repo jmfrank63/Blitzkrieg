@@ -4,6 +4,7 @@
 
 #include "..\Image\Image.h"
 #include "TerrainBuilder.h"
+#include "SceneScreenScale.h"
 #include "..\AILogic\AITypes.h"
 #include "..\AILogic\AILogic.h"
 #include "..\Scene\Scene.h"
@@ -291,17 +292,36 @@ void AddVertices( const std::vector<TVertex> &src, std::vector<TVertex> &dst,
 		const TVertex &v1 = *(vertex + 1);
 		const TVertex &v2 = *(vertex + 2);
 		const TVertex &v3 = *(vertex + 3);
-		const DWORD dwPoint0 = CheckForRect( rcScreen, v2.x, v0.y );
-		const DWORD dwPoint1 = CheckForRect( rcScreen, v1.x, v0.y );
-		const DWORD dwPoint2 = CheckForRect( rcScreen, v2.x, v3.y );
-		const DWORD dwPoint3 = CheckForRect( rcScreen, v1.x, v3.y );
+#ifndef _USE_HWTL
+		TVertex vScaled0 = v0;
+		TVertex vScaled1 = v1;
+		TVertex vScaled2 = v2;
+		TVertex vScaled3 = v3;
+		NSceneScreenScale::ScaleGameplayScreenVertex( &vScaled0, rcScreen );
+		NSceneScreenScale::ScaleGameplayScreenVertex( &vScaled1, rcScreen );
+		NSceneScreenScale::ScaleGameplayScreenVertex( &vScaled2, rcScreen );
+		NSceneScreenScale::ScaleGameplayScreenVertex( &vScaled3, rcScreen );
+		const TVertex &vDraw0 = vScaled0;
+		const TVertex &vDraw1 = vScaled1;
+		const TVertex &vDraw2 = vScaled2;
+		const TVertex &vDraw3 = vScaled3;
+#else
+		const TVertex &vDraw0 = v0;
+		const TVertex &vDraw1 = v1;
+		const TVertex &vDraw2 = v2;
+		const TVertex &vDraw3 = v3;
+#endif
+		const DWORD dwPoint0 = CheckForRect( rcScreen, vDraw2.x, vDraw0.y );
+		const DWORD dwPoint1 = CheckForRect( rcScreen, vDraw1.x, vDraw0.y );
+		const DWORD dwPoint2 = CheckForRect( rcScreen, vDraw2.x, vDraw3.y );
+		const DWORD dwPoint3 = CheckForRect( rcScreen, vDraw1.x, vDraw3.y );
 		if ( (dwPoint0 & dwPoint1 & dwPoint2 & dwPoint3) != 0 ) 
 			continue;
 		const int nNumVertices = dst.size();
-		dst.push_back( v0 );
-		dst.push_back( v1 );
-		dst.push_back( v2 );
-		dst.push_back( v3 );
+		dst.push_back( vDraw0 );
+		dst.push_back( vDraw1 );
+		dst.push_back( vDraw2 );
+		dst.push_back( vDraw3 );
 		indices.push_back( nNumVertices + 0 );
 		indices.push_back( nNumVertices + 2 );
 		indices.push_back( nNumVertices + 1 );

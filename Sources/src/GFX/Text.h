@@ -2,6 +2,7 @@
 #define __TEXT_H__
 #pragma ONCE
 #include "..\Main\TextSystem.h"
+#include "..\Formats\fmtFont.h"
 inline int GetLength( const wchar_t *pszString )
 {
 	int nCounter = 0;
@@ -55,6 +56,7 @@ class CGFXText : public IGFXText
 	mutable bool bPreFormattedLine;				// is text already pre-formatted as a single line?
 	CPtr<IText> pText;										// text source
 	float fWidth;													// format width
+	float fScale;													// glyph and metric scale
 	DWORD dwDefColor;											// default color
 	CPtr<IGFXFont> pFont;									// font to draw this text with
 	bool bRedLine;												// enable red line
@@ -68,7 +70,9 @@ class CGFXText : public IGFXText
 		if ( !_bPreFormatted ) 
 			pft.Clear(); 
 	}
-	const float GetRedLine() const { return fRedLineSize; }
+	const float GetRedLine() const { return fRedLineSize * fScale; }
+	const float GetScaledSpaceWidth() const { return pFont != 0 ? pFont->GetFormat().metrics.fSpaceWidth * fScale : 0; }
+	const float GetScaledHeight() const { return pFont != 0 ? pFont->GetFormat().metrics.nHeight * fScale : 0; }
 	void SetupRedLine();
 	CGFXText();
 	template <class TVisitor>
@@ -80,10 +84,12 @@ class CGFXText : public IGFXText
 			{
 				wchar_t c = *pszStringBegin++;
 				const SFontFormat::SCharDesc &character = format.GetChar( c );
-				sx += character.fA;
-				sx += format.GetKern( wLastChar, c );
-				visitor( character, sx, sy );
-				sx += character.fB + character.fC;
+				SFontFormat::SCharDesc scaledCharacter = character;
+				scaledCharacter.fWidth *= fScale;
+				sx += character.fA * fScale;
+				sx += format.GetKern( wLastChar, c ) * fScale;
+				visitor( scaledCharacter, sx, sy );
+				sx += ( character.fB + character.fC ) * fScale;
 				wLastChar = c;
 			}
 			return sx;
@@ -117,6 +123,8 @@ public:
 	virtual void STDCALL EnableRedLine( bool bEnable ) { if ( bEnable != bRedLine ) { bRedLine = bEnable; SetupRedLine(); SetPreFormatted( false ); } }
 	virtual void STDCALL SetRedLine( const int nRedLineIndention ) { fRedLineSize = nRedLineIndention; }
 	virtual void STDCALL SetChanged() { SetPreFormatted(false); }
+	virtual void STDCALL SetScale( float _fScale ) { _fScale = Max( 0.1f, _fScale ); if ( fScale != _fScale ) { fScale = _fScale; SetPreFormatted( false ); } }
+	virtual float STDCALL GetScale() const { return fScale; }
   bool FillGeometryData( DWORD dwFlags, const RECT &rect, float sy, DWORD dwColor, const DWORD dwSpecular,
                          std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices ) const;
 	IGFXFont* GetFont() { return pFont; }

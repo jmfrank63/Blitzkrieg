@@ -23,7 +23,7 @@ public:
 	CSpriteVisObj();
 	bool Init( IGFXTexture *_pTexture, ISpriteAnimation *_pAnimation );
 	virtual bool STDCALL Update( const NTimer::STime &time, bool bForced = false );
-	virtual void STDCALL SetScale( float sx, float sy, float sz ) {  }
+	virtual void STDCALL SetScale( float sx, float sy, float sz );
 	virtual void STDCALL SetDirection( const int _nDirection )
 	{
 		SetDir( _nDirection );

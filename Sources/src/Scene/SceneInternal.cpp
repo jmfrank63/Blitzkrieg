@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 
 #include "SceneInternal.h"
+#include "SceneScreenScale.h"
 
 #include "FrameSelection.h"
 #include "StatSystem.h"
@@ -373,8 +374,12 @@ void CScene::UpdateTransformMatrix()
 	NTimer::STime time = pTimer->GetGameTime();
 	{
 		static CMatrixStack<4> mstack;
+		const CTRect<float> rcScreen = pGFX->GetScreenRect();
+		SHMatrix matProjection;
+		if ( !NSceneScreenScale::CreateGameplayProjectionMatrix( &matProjection, rcScreen ) )
+			matProjection = pGFX->GetProjectionMatrix();
 		mstack.Push( pGFX->GetViewportMatrix() );
-		mstack.Push( pGFX->GetProjectionMatrix() );
+		mstack.Push( matProjection );
 		mstack.Push( pGFX->GetViewMatrix() );
 		matTransform = mstack();
 		mstack.Pop( 3 );
@@ -898,7 +903,15 @@ void CScene::GetScreenCoords( const CVec3 &pos, CVec3 *vScreen )
 void CScene::GetPos3( CVec3 *pPos, const CVec2 &pos, bool bOnZero )
 {
 	CVec3 vNear, vFar;
+	const CTRect<float> rcScreen = pGFX->GetScreenRect();
+	const SHMatrix matScreenProjection = pGFX->GetProjectionMatrix();
+	SHMatrix matGameplayProjection;
+	const bool bScaleGameplayProjection = NSceneScreenScale::CreateGameplayProjectionMatrix( &matGameplayProjection, rcScreen );
+	if ( bScaleGameplayProjection )
+		pGFX->SetProjectionTransform( matGameplayProjection );
 	pGFX->GetViewVolumeCrosses( pos, &vNear, &vFar );
+	if ( bScaleGameplayProjection )
+		pGFX->SetProjectionTransform( matScreenProjection );
 	Vis2AI( &vNear );
 	Vis2AI( &vFar );
 	if ( !bOnZero && GetSingleton<IAILogic>()->GetIntersectionWithTerrain(pPos, vNear, vFar) )

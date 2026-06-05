@@ -771,7 +771,8 @@ bool CInterfaceMission::Init()
 	pFrameSelection = pScene->GetFrameSelection();
 	missionMsgs.Init( pInput, missionCommands );
 	CTRect<long> rcScreen = pGFX->GetScreenRect();
-	pCamera->SetPlacement( CVec3(0, 0, 0), 1024*4 + rcScreen.Height(), -ToRadian(90.0f + 30.0f), ToRadian(45.0f) );
+	const float fGameplayCameraHeight = float( rcScreen.Height() );
+	pCamera->SetPlacement( CVec3(0, 0, 0), 1024*4 + fGameplayCameraHeight, -ToRadian(90.0f + 30.0f), ToRadian(45.0f) );
 	nFPSAveragePeriod = GetGlobalVar( "Word.FPSAveragePeriod", 5000 );
 	SetBindSection( "game_mission" );
 	pAILogic->Resume();
@@ -808,7 +809,7 @@ void CInterfaceMission::Done()
 
 /*
 	int nMulty = GetGlobalVar( "MultiplayerGame", 0 );
-	if ( !nMulty )		//если не в режиме multyplayer
+	if ( !nMulty )		//пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ multyplayer
 		GetSingleton<IMainLoop>()->Command( MAIN_COMMAND_CHANGE_TRANSCEIVER, NStr::Format("%d 0", MAIN_SP_TRANSCEIVER) );
 */
 	CInterfaceScreenBase::Done();
@@ -848,6 +849,19 @@ void CInterfaceMission::CheckResolution()
 }
 void CInterfaceMission::OnGetFocus( bool bFocus )
 {
+	if ( bFocus )
+	{
+		const int nInterMissionSizeX = GetGlobalVar( "GFX.Mode.InterMission.SizeX", GFX_DEFAULT_SCREEN_WIDTH );
+		const int nInterMissionSizeY = GetGlobalVar( "GFX.Mode.InterMission.SizeY", GFX_DEFAULT_SCREEN_HEIGHT );
+		const int nInterMissionBPP = GetGlobalVar( "GFX.Mode.InterMission.BPP", 16 );
+		const int nInterMissionFullScreen = GetGlobalVar( "GFX.Mode.InterMission.FullScreen", int(GFXFS_WINDOWED) );
+		const int nInterMissionFrequency = GetGlobalVar( "GFX.Mode.InterMission.Frequency", 0 );
+		SetGlobalVar( "GFX.Mode.Mission.SizeX", nInterMissionSizeX );
+		SetGlobalVar( "GFX.Mode.Mission.SizeY", nInterMissionSizeY );
+		SetGlobalVar( "GFX.Mode.Mission.BPP", nInterMissionBPP );
+		SetGlobalVar( "GFX.Mode.Mission.FullScreen", nInterMissionFullScreen );
+		SetGlobalVar( "GFX.Mode.Mission.Frequency", nInterMissionFrequency );
+	}
  	CInterfaceScreenBase::OnGetFocus( bFocus );
 	
 	if ( bFocus ) 
@@ -1830,7 +1844,7 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 			
 		case UI_NOTIFY_SELECTION_CHANGED:
 		case UI_NOTIFY_BAR_EXPAND:
-			if ( msg.nParam == 10 )		//это objectives Shortcut Bar
+			if ( msg.nParam == 10 )		//пїЅпїЅпїЅ objectives Shortcut Bar
 			{
 				IUIMiniMap *pUIMiniMap = checked_cast<IUIMiniMap*>( pUIScreen->GetChildByID( 20000 ) );
 				if ( pUIMiniMap )

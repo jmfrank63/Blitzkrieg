@@ -12,6 +12,7 @@
 #include "..\Formats\fmtMap.h"
 #include "..\Misc\Win32Random.h"
 #include "SoundScene.h"
+#include "SceneScreenScale.h"
 #define MESH_SHADOW_DENSITY 0.5f
 template <class TYPE>
 class CRawBuffer
@@ -197,6 +198,23 @@ void CScene::Draw( ICamera *pCamera )
 	_control87( _RC_NEAR, _MCW_RC );
 
 	CTRect<short> rcScreenRect = pGFX->GetScreenRect();
+	const CTRect<float> rcGameplayScreen = pGFX->GetScreenRect();
+	const SHMatrix matScreenProjection = pGFX->GetProjectionMatrix();
+	SHMatrix matGameplayProjection;
+	const bool bScaleGameplayProjection = NSceneScreenScale::CreateGameplayProjectionMatrix( &matGameplayProjection, rcGameplayScreen );
+	if ( bScaleGameplayProjection )
+		pGFX->SetProjectionTransform( matGameplayProjection );
+	static int nLastGameplayScreenWidth = 0;
+	static int nLastGameplayScreenHeight = 0;
+	static bool bLastScaleGameplayProjection = false;
+	if ( pTerrain && ( nLastGameplayScreenWidth != rcScreenRect.Width() || nLastGameplayScreenHeight != rcScreenRect.Height() ||
+		                 bLastScaleGameplayProjection != bScaleGameplayProjection ) )
+	{
+		pTerrain->ResetPosition();
+		nLastGameplayScreenWidth = rcScreenRect.Width();
+		nLastGameplayScreenHeight = rcScreenRect.Height();
+		bLastScaleGameplayProjection = bScaleGameplayProjection;
+	}
 	pCamera->Update();
 	pGFX->SetViewTransform( pCamera->GetPlacement() );
 	UpdateTransformMatrix();
@@ -210,9 +228,13 @@ void CScene::Draw( ICamera *pCamera )
 		pGFX->SetShadingEffect( 300 );
 	if ( bEnableTerrain && pTerrain )
 	{
+		if ( bScaleGameplayProjection )
+			pGFX->SetProjectionTransform( matScreenProjection );
 		pGFX->SetupDirectTransform();
 		pTerrain->Draw( pCamera );
 		pGFX->RestoreTransform();
+		if ( bScaleGameplayProjection )
+			pGFX->SetProjectionTransform( matGameplayProjection );
 		pTerrain->DrawVectorObjects();
 		pTerrain->DrawMarkers();
 	}
@@ -522,6 +544,8 @@ void CScene::Draw( ICamera *pCamera )
 		pTerrain->DrawWarFog();
 	if ( bEnableUnits )
 		DrawMeshesChecked( pDrawVisitor->aviation, pGFX, bEnableBBs, sunlight, &(vViewVolumePlanes[0]) );
+	if ( bScaleGameplayProjection )
+		pGFX->SetProjectionTransform( matScreenProjection );
 	pGFX->SetupDirectTransform();
 	pGFX->SetDepthBufferMode( GFXDB_NONE );
 	if ( pFrameSelection->IsActive() )

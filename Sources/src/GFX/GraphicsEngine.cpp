@@ -613,7 +613,7 @@ const SGFXDisplayMode* CGraphicsEngine::GetDisplayModes() const
 	adapter.extmodes.reserve( adapter.modes.size() );
 	for ( std::list<D3DDISPLAYMODE>::const_iterator it = adapter.modes.begin(); it != adapter.modes.end(); ++it )
 	{
-		if ( (it->Width >= 640) && (it->Height >= 480) && (it->Width <= nMaxModeSizeX) && (it->Height <= nMaxModeSizeY) ) 
+		if ( (it->Width >= 640) && (it->Height >= 480) && (it->Width <= nMaxModeSizeX) && (it->Height <= nMaxModeSizeY) && (it->Height * 4 == it->Width * 3) )
 		{
 			SGFXDisplayMode enumode;
 			enumode.nWidth = it->Width;
@@ -622,7 +622,7 @@ const SGFXDisplayMode* CGraphicsEngine::GetDisplayModes() const
 				enumode.nBPP = 32;
 			else if ( (it->Format == D3DFMT_R5G6B5) || (it->Format == D3DFMT_X1R5G5B5) || (it->Format == D3DFMT_A1R5G5B5) || (it->Format == D3DFMT_A4R4G4B4) )
 				enumode.nBPP = 16;
-			if ( (enumode.nBPP <= nMaxModeBPP) /*&& (float(it->Height)/float(it->Width) == 3.0f/4.0f)*/ ) 
+			if ( enumode.nBPP <= nMaxModeBPP )
 			{
 				adapter.extmodes.erase( std::remove( adapter.extmodes.begin(), adapter.extmodes.end(), enumode ), adapter.extmodes.end() );
 				adapter.extmodes.push_back( enumode );

@@ -103,6 +103,8 @@ interface IGFXText : public IRefCount
 	virtual void STDCALL EnableRedLine( bool bEnable ) = 0;
 	virtual void STDCALL SetRedLine( const int nRedLineIndention ) = 0;
 	virtual void STDCALL SetChanged() = 0;
+	virtual void STDCALL SetScale( float fScale ) = 0;
+	virtual float STDCALL GetScale() const = 0;
 	virtual int STDCALL GetNumLines() const = 0;
 	virtual int STDCALL GetLineSpace() const = 0;
 	virtual int STDCALL GetWidth( int nNumCharacters = -1 ) const = 0;

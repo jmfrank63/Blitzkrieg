@@ -234,6 +234,9 @@
     <ClInclude Include="SceneInternal.h">
       <Filter>Scene</Filter>
     </ClInclude>
+    <ClInclude Include="SceneScreenScale.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
     <ClInclude Include="SceneObjectFactory.h">
       <Filter>Scene</Filter>
     </ClInclude>

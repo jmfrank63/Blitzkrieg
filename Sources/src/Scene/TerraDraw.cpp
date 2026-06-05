@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 
 #include "TerrainInternal.h"
+#include "SceneScreenScale.h"
 
 #include "..\Scene\Scene.h"
 
@@ -129,13 +130,21 @@ bool CTerrain::DrawWarFog()
 {
 	pGFX->SetDepthBufferMode( GFXDB_NONE );
 	pGFX->SetupDirectTransform();
+	const CTRect<float> rcScreen = pGFX->GetScreenRect();
 	pGFX->SetTexture( 0, 0 );
 	pGFX->SetShadingEffect( 13 );
 	for ( CPatchesList::iterator it = patches.begin(); it != patches.end(); ++it )
 	{
 		if ( it->warfogverts.empty() || it->warfoginds.empty() )
 			continue;
+#ifndef _USE_HWTL
+		STerrainPatch::CVertex2List warfogverts = it->warfogverts;
+		for ( STerrainPatch::CVertex2List::iterator vertex = warfogverts.begin(); vertex != warfogverts.end(); ++vertex )
+			NSceneScreenScale::ScaleGameplayScreenVertex( &(*vertex), rcScreen );
+		::DrawTemp( pGFX, warfogverts, it->warfoginds );
+#else
 		::DrawTemp( pGFX, it->warfogverts, it->warfoginds );
+#endif
 	}
 	pGFX->RestoreTransform();
 	DrawBorder( 0x80000000, 32, true );
