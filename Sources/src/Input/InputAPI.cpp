@@ -638,7 +638,7 @@ bool CInputAPI::SetCoopLevel()
 		if ( it->bEmulated ) 
 			continue;
 		HRESULT dxrval;
-		if ( it->eType == DEVICE_TYPE_KEYBOARD )
+		if ( it->eType == DEVICE_TYPE_KEYBOARD || it->eType == DEVICE_TYPE_MOUSE )
 			dxrval = it->pDevice->SetCooperativeLevel( hWindow, DISCL_NONEXCLUSIVE | DISCL_FOREGROUND );
 		else
 			dxrval = it->pDevice->SetCooperativeLevel( hWindow, DISCL_EXCLUSIVE | DISCL_FOREGROUND );
