@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include <new>
 
 #include "Updater.h"
 #include "UpdatableObject.h"
@@ -10,6 +11,16 @@
 #include "SuspendedUpdates.h"
 #include "AILogicInternal.h"
 extern CSuspendedUpdates theSuspendedUpdates;
+static const int TEMP_BUFFER_INDEX_SHOOT_AREAS = 1;
+static int g_nConstructedShootAreasInTempBuffer = 0;
+static SShootAreas* GetShootAreasTempBuffer( const int nCount )
+{
+	SShootAreas *pBuffer = GetTempBufferN<SShootAreas>( nCount, TEMP_BUFFER_INDEX_SHOOT_AREAS );
+	for ( int i = 0; i < g_nConstructedShootAreasInTempBuffer; ++i )
+		pBuffer[i].~SShootAreas();
+	g_nConstructedShootAreasInTempBuffer = 0;
+	return pBuffer;
+}
 extern NTimer::STime curTime;
 extern CStaticMap theStaticMap;
 extern CDiplomacy theDipl;
@@ -714,7 +725,7 @@ void CUpdater::UpdateShootAreas( SShootAreas **pShootAreas, int *pnLen )
 	*pnLen = 0;
 	if ( !theDipl.IsNetGame() || pAILogic->IsNetGameStarted() )
 	{
-		*pShootAreas = GetTempBuffer<SShootAreas>( complexUpdates[ACTION_NOTIFY_SHOOT_AREA >> 4].size() * 15 );
+		*pShootAreas = GetShootAreasTempBuffer( complexUpdates[ACTION_NOTIFY_SHOOT_AREA >> 4].size() * 15 );
 
 		for ( CComplexUpdatesSet::iterator iter = complexUpdates[ACTION_NOTIFY_SHOOT_AREA >> 4].begin(); iter != complexUpdates[ACTION_NOTIFY_SHOOT_AREA >> 4].end(); ++iter )
 		{
@@ -722,18 +733,30 @@ void CUpdater::UpdateShootAreas( SShootAreas **pShootAreas, int *pnLen )
 			if ( IsValidObj( pObj ) )
 			{
 				int nAreas;
-				pObj->GetShootAreas( &(*pShootAreas)[(*pnLen)], &nAreas );
+				SShootAreas *pAreaSlot = &(*pShootAreas)[(*pnLen)];
+				new ( pAreaSlot ) SShootAreas();
+				pObj->GetShootAreas( pAreaSlot, &nAreas );
+
+				bool bGoodAreas = false;
 				for ( int i = 0; i < nAreas; ++i )
 				{
-					for ( std::list<SShootArea>::iterator iter = (*pShootAreas)[(*pnLen) + i].areas.begin(); iter != (*pShootAreas)[(*pnLen) + i].areas.end(); ++iter )
+					for ( std::list<SShootArea>::iterator areaIter = (*pShootAreas)[(*pnLen) + i].areas.begin(); areaIter != (*pShootAreas)[(*pnLen) + i].areas.end(); ++areaIter )
 					{
-						const float fX = iter->vCenter3D.x;
-						const float fY = iter->vCenter3D.y;
-						iter->vCenter3D.z = pObj->GetTerrainHeight( fX, fY, 0 );
+						const float fX = areaIter->vCenter3D.x;
+						const float fY = areaIter->vCenter3D.y;
+						areaIter->vCenter3D.z = pObj->GetTerrainHeight( fX, fY, 0 );
 					}
 				}
 
-				(*pnLen) += nAreas;
+				if ( nAreas > 0 )
+				{
+					(*pnLen) += nAreas;
+					g_nConstructedShootAreasInTempBuffer = *pnLen;
+				}
+				else
+				{
+					pAreaSlot->~SShootAreas();
+				}
 			}
 		}
 	}
@@ -743,7 +766,7 @@ void CUpdater::UpdateRangeAreas( SShootAreas **pRangeAreas, int *pnLen )
 	*pnLen = 0;
 	if ( !theDipl.IsNetGame() || pAILogic->IsNetGameStarted() )
 	{
-		*pRangeAreas = GetTempBuffer<SShootAreas>( complexUpdates[ACTION_NOTIFY_RANGE_AREA >> 4].size() );
+		*pRangeAreas = GetShootAreasTempBuffer( complexUpdates[ACTION_NOTIFY_RANGE_AREA >> 4].size() );
 
 		for ( CComplexUpdatesSet::iterator iter = complexUpdates[ACTION_NOTIFY_RANGE_AREA >> 4].begin(); iter != complexUpdates[ACTION_NOTIFY_RANGE_AREA >> 4].end(); ++iter )
 		{
@@ -751,20 +774,28 @@ void CUpdater::UpdateRangeAreas( SShootAreas **pRangeAreas, int *pnLen )
 			bool bGoodAreas = false;
 			if ( pObj->IsValid() )
 			{
-				pObj->GetRangeArea( &(*pRangeAreas)[(*pnLen)] );
+				SShootAreas *pAreaSlot = &(*pRangeAreas)[(*pnLen)];
+				new ( pAreaSlot ) SShootAreas();
+				pObj->GetRangeArea( pAreaSlot );
 
-				for ( std::list<SShootArea>::iterator iter = (*pRangeAreas)[(*pnLen)].areas.begin(); iter != (*pRangeAreas)[(*pnLen)].areas.end(); ++iter )
+				for ( std::list<SShootArea>::iterator areaIter = (*pRangeAreas)[(*pnLen)].areas.begin(); areaIter != (*pRangeAreas)[(*pnLen)].areas.end(); ++areaIter )
 				{
-					const float fX = iter->vCenter3D.x;
-					const float fY = iter->vCenter3D.y;
-					iter->vCenter3D.z = pObj->GetTerrainHeight( fX, fY, 0 );
+					const float fX = areaIter->vCenter3D.x;
+					const float fY = areaIter->vCenter3D.y;
+					areaIter->vCenter3D.z = pObj->GetTerrainHeight( fX, fY, 0 );
 
-					bGoodAreas = bGoodAreas || iter->fMaxR != 0;
+					bGoodAreas = bGoodAreas || areaIter->fMaxR != 0;
+				}
+				if ( bGoodAreas )
+				{
+					++(*pnLen);
+					g_nConstructedShootAreasInTempBuffer = *pnLen;
+				}
+				else
+				{
+					pAreaSlot->~SShootAreas();
 				}
 			}
-
-			if ( bGoodAreas )
-				++(*pnLen);
 		}
 	}
 }
