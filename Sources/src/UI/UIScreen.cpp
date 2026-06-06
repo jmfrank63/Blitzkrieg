@@ -21,11 +21,58 @@ static const float LEGACY_UI_HEIGHT = 768.0f;
 
 static bool ShouldScaleLegacyLayout( const char *pszResourceName )
 {
-	return _stricmp( pszResourceName, "ui\\mainmenu" ) == 0 ||
-	       _stricmp( pszResourceName, "ui\\OptionsSettings" ) == 0 ||
-	       _stricmp( pszResourceName, "ui\\MissionOptionsSettings" ) == 0 ||
-	       _stricmp( pszResourceName, "ui\\Popup\\IMTutorial" ) == 0 ||
-	       _stricmp( pszResourceName, "ui\\Lists\\IMTutorialList" ) == 0;
+	static const char *kScaledResources[] =
+	{
+		"ui\\AddressBook",
+		"ui\\AddUnitToMission",
+		"ui\\common\\campaign",
+		"ui\\common\\chapter",
+		"ui\\common\\mission",
+		"ui\\encyclopedia",
+		"ui\\Lists\\IMCustomCampaign",
+		"ui\\Lists\\IMCustomChapter",
+		"ui\\Lists\\IMCustomMission",
+		"ui\\lists\\IMCutsceneList",
+		"ui\\Lists\\IMModList",
+		"ui\\Lists\\IMTutorialList",
+		"ui\\LoadMission",
+		"ui\\mainmenu",
+		"ui\\mission",
+		"ui\\MissionOptionsSettings",
+		"ui\\MPMapSettings",
+		"ui\\MPMapSettings_NoChanges",
+		"ui\\MuptiplayerChat",
+		"ui\\MuptiplayerCreateGame",
+		"ui\\MuptiplayerGamesList",
+		"ui\\MuptiplayerStartingGame",
+		"ui\\OptionsSettings",
+		"ui\\PlayerProfile",
+		"ui\\PlayerStats",
+		"ui\\Popup\\DontHaveMod",
+		"ui\\Popup\\IMTutorial",
+		"ui\\Popup\\MessageBox",
+		"ui\\Popup\\MessageBoxMission",
+		"ui\\Popup\\NewDepotUpgrades",
+		"ui\\Popup\\NextChapter",
+		"ui\\Popup\\NextChapterNoStay",
+		"ui\\Popup\\PlayerRank",
+		"ui\\Popup\\SaveReplay",
+		"ui\\Popup\\SwitchModTo",
+		"ui\\quitmission",
+		"ui\\savemission",
+		"ui\\stats",
+		"ui\\TotalEncyclopedia",
+		"ui\\UnitsMissionPerformance",
+		"ui\\unitspool",
+		"ui\\upgrades",
+		"ui\\Warehouse",
+	};
+	for ( int i = 0; i < sizeof(kScaledResources) / sizeof(kScaledResources[0]); ++i )
+	{
+		if ( _stricmp( pszResourceName, kScaledResources[i] ) == 0 )
+			return true;
+	}
+	return false;
 }
 
 int CUIScreen::operator&( interface IStructureSaver &ss )
