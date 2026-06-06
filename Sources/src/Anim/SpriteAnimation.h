@@ -102,7 +102,15 @@ class CComplexSprite : public CTRefCount<ISpriteAnimation>
 	CScaleTimer timer;										// timer...
 	int nFrameIndex;											// current frame index (if it is)
 	SSpriteRect spriteRect;								// temp sprite rect
-	const SSpritesPack::SSprite& GetSprite() const { return pSprites->sprites[nFrameIndex == -1 ? 0 : nFrameIndex]; }
+	int GetSafeFrameIndex() const
+	{
+		if ( nFrameIndex == -1 )
+			return 0;
+		if ( pSprites == 0 || pSprites->sprites.empty() )
+			return nFrameIndex;
+		return Clamp( nFrameIndex, 0, int(pSprites->sprites.size()) - 1 );
+	}
+	const SSpritesPack::SSprite& GetSprite() const { return pSprites->sprites[GetSafeFrameIndex()]; }
 public:
 	bool Init( SSpritesPack *_pSprites ) { pSprites = _pSprites; nFrameIndex = 0; return true; }
 	virtual void STDCALL Visit( IAnimVisitor *pVisitor );
@@ -116,14 +124,19 @@ public:
 	virtual void STDCALL SetDirection( int nDirection ) {  }
 	virtual const SSpriteRect& STDCALL GetRect()
 	{
-		const int nLocalFrameIndex = nFrameIndex == -1 ? 0 : nFrameIndex;
+		const int nLocalFrameIndex = GetSafeFrameIndex();
 		const CTRect<float> &rcBoundBox = pSprites->sprites[nLocalFrameIndex].GetBoundBox();
 		spriteRect.rect.Set( rcBoundBox.x1, rcBoundBox.y1, rcBoundBox.x2, rcBoundBox.y2 );
 		spriteRect.fDepthLeft = spriteRect.fDepthRight = pSprites->sprites[nLocalFrameIndex].fMinDepth;
 		return spriteRect;
 	}
 	virtual float STDCALL GetSpeed() const { return 1; }
-	virtual void STDCALL SetFrameIndex( int nIndex ) { nFrameIndex = nIndex; }
+	virtual void STDCALL SetFrameIndex( int nIndex )
+	{
+		nFrameIndex = nIndex;
+		if ( nIndex != -1 && pSprites != 0 && !pSprites->sprites.empty() )
+			nFrameIndex = Clamp( nIndex, 0, int(pSprites->sprites.size()) - 1 );
+	}
 	virtual int STDCALL GetFrameIndex() { return nFrameIndex; }
 	virtual const bool STDCALL IsHit( const CVec3 &relpos, const CVec2 &point, CVec2 *pShift ) const;
 	virtual const bool STDCALL IsHit( const CVec3 &relpos, const CTRect<float> &rcRect ) const;
