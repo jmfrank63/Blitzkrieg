@@ -2,7 +2,7 @@
   <PropertyGroup>
 	<BlitzkriegGameOutputDir>$(MSBuildThisFileDirectory)Game\$(Configuration)\</BlitzkriegGameOutputDir>
 	<BlitzkriegGamePdbPath>$(BlitzkriegGameOutputDir)$(TargetName).pdb</BlitzkriegGamePdbPath>
-	  <BlitzkriegDataSourceDir>$(MSBuildThisFileDirectory)..\..\Data</BlitzkriegDataSourceDir>
+	<BlitzkriegDataSourceDir>$(MSBuildThisFileDirectory)data</BlitzkriegDataSourceDir>
 	<BlitzkriegGameDataLink>$(BlitzkriegGameOutputDir)Data</BlitzkriegGameDataLink>
   </PropertyGroup>
 
@@ -52,15 +52,40 @@
 		  Condition="'@(BlitzkriegRuntimePdb)' != ''" />
   </Target>
 
+  <PropertyGroup>
+    <BlitzkriegMovieAssetsSourceDir>$(MSBuildThisFileDirectory)..\..\VideoAssets\Movies</BlitzkriegMovieAssetsSourceDir>
+    <BlitzkriegMovieArchiveRootDir>$(MSBuildThisFileDirectory)..\..\VideoAssets</BlitzkriegMovieArchiveRootDir>
+    <BlitzkriegMovieArchivePath Condition="Exists('$(BlitzkriegMovieArchiveRootDir)\BlitzkriegVideos.7z.001')">$(BlitzkriegMovieArchiveRootDir)\BlitzkriegVideos.7z.001</BlitzkriegMovieArchivePath>
+    <BlitzkriegMovieArchivePath Condition="!Exists('$(BlitzkriegMovieArchivePath)') and Exists('$(BlitzkriegMovieArchiveRootDir)\BlitzkriegVideos.7z')">$(BlitzkriegMovieArchiveRootDir)\BlitzkriegVideos.7z</BlitzkriegMovieArchivePath>
+    <BlitzkriegDataMoviesLink>$(BlitzkriegDataSourceDir)\Movies</BlitzkriegDataMoviesLink>
+  </PropertyGroup>
+
+  <Target Name="BlitzkriegExtractMovieAssets"
+          AfterTargets="Build"
+          Condition="'$(MSBuildProjectName)' == 'Game' and !Exists('$(BlitzkriegMovieAssetsSourceDir)') and Exists('$(BlitzkriegMovieArchivePath)')">
+    <Message Text="Extracting movie assets from $(BlitzkriegMovieArchivePath) into VideoAssets\Movies" Importance="high" />
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(BlitzkriegMovieArchiveRootDir)\install_videos.ps1&quot; -ArchivePath &quot;$(BlitzkriegMovieArchivePath)&quot; -OutputPath &quot;$(BlitzkriegMovieAssetsSourceDir)&quot;"
+          WorkingDirectory="$(BlitzkriegMovieArchiveRootDir)" />
+  </Target>
+
   <Target Name="BlitzkriegEnsureDataLink"
-		  AfterTargets="Build"
-		  Condition="'$(MSBuildProjectName)' == 'Game' and Exists('$(BlitzkriegDataSourceDir)') and !Exists('$(BlitzkriegGameDataLink)')">
-	<Exec Command="cmd /c mklink /J &quot;$(BlitzkriegGameDataLink)&quot; &quot;$(BlitzkriegDataSourceDir)&quot;"
+          AfterTargets="Build"
+          Condition="'$(MSBuildProjectName)' == 'Game' and Exists('$(BlitzkriegDataSourceDir)') and !Exists('$(BlitzkriegGameDataLink)')">
+    <Exec Command="cmd /c mklink /J &quot;$(BlitzkriegGameDataLink)&quot; &quot;$(BlitzkriegDataSourceDir)&quot;"
+          ContinueOnError="WarnAndContinue" />
+  </Target>
+
+  <Target Name="BlitzkriegEnsureDataMoviesLink"
+		  DependsOnTargets="BlitzkriegExtractMovieAssets"
+		  AfterTargets="BlitzkriegEnsureDataLink"
+		  Condition="'$(MSBuildProjectName)' == 'Game' and Exists('$(BlitzkriegDataSourceDir)') and Exists('$(BlitzkriegMovieAssetsSourceDir)') and !Exists('$(BlitzkriegDataMoviesLink)')">
+	<Message Text="Creating Data\Movies junction to VideoAssets\Movies" Importance="high" />
+	<Exec Command="cmd /c mklink /J &quot;$(BlitzkriegDataMoviesLink)&quot; &quot;$(BlitzkriegMovieAssetsSourceDir)&quot;"
 		  ContinueOnError="WarnAndContinue" />
   </Target>
 
   <Target Name="BlitzkriegCopyDataFilesToGameDataLink"
-		  AfterTargets="BlitzkriegEnsureDataLink"
+		  AfterTargets="BlitzkriegEnsureDataMoviesLink"
 		  Condition="'$(MSBuildProjectName)' == 'Game' and Exists('$(BlitzkriegGameDataLink)')">
 	<ItemGroup>
 	  <BlitzkriegDataFile Include="$(MSBuildThisFileDirectory)data\consts.xml" Condition="Exists('$(MSBuildThisFileDirectory)data\consts.xml')" />

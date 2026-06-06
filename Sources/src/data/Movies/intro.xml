@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by Yuri V. Blazhevich (Nival Interactive) -->
+<!-- deleted comment here -->
+<base>
+	<Movies>
+		<item CanInterupt="1" CanSkipFrame="0">
+			<FileName>Movies\cdv</FileName>
+		</item>
+		<item CanInterupt="1" CanSkipFrame="0">
+			<FileName>Movies\nival</FileName>
+		</item>
+		<item CanInterupt="1" CanSkipFrame="0">
+			<FileName>Movies\intro</FileName>
+		</item>
+	</Movies>
+</base>

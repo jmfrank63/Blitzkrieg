@@ -28,6 +28,8 @@ Warning: this project is a work in progress.
 
 - Supports both native C++ and WinDbg debugging in VS Code Insiders.
 
+- Provides a helper workflow for compressed movie asset packaging under `VideoAssets/`.
+
 - Has removed legacy BugSlay crash handling and replaced it with standard C++ asserts.
 
 

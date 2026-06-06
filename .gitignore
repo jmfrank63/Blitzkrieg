@@ -4,6 +4,7 @@ Versions/
 **/Data
 !Sources/src/data/consts.xml
 !Sources/src/data/vssver.scc
+VideoAssets/Movies/
 
 
 # Visual Studio / MSVC build artifacts

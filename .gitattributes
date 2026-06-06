@@ -39,3 +39,9 @@
 *.chm binary
 *.upd binary
 *.reg binary
+*.7z binary
+*.7z.* binary
+*.zip binary
+*.zst binary
+*.tar binary
+*.gz binary

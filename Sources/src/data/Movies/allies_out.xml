@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by Yuri V. Blazhevich (Nival Interactive) -->
+<!-- deleted comment here -->
+<base>
+	<Movies>
+		<item FrameDelay="0" CanInterupt="1" CanSkipFrame="0">
+			<FileName>Movies\allies_out</FileName>
+		</item>
+	</Movies>
+</base>
