@@ -2,6 +2,28 @@
 #include "UIShortcutBar.h"
 #include "UIMessages.h"
 
+static int ScaleUIPixelValue( int nValue, float fScale )
+{
+	if ( nValue == 0 )
+		return 0;
+	return int( float( nValue ) * fScale + ( nValue > 0 ? 0.5f : -0.5f ) );
+}
+
+static void ScaleUISubRect( SWindowSubRect *pSubRect, const CVec2 &vScale )
+{
+	pSubRect->rc.x1 *= vScale.x;
+	pSubRect->rc.x2 *= vScale.x;
+	pSubRect->rc.y1 *= vScale.y;
+	pSubRect->rc.y2 *= vScale.y;
+}
+
+static void ApplyLayoutScale( IUIElement *pElement, const CVec2 &vScale )
+{
+	CSimpleWindow *pWindow = dynamic_cast<CSimpleWindow *>( pElement );
+	if ( pWindow )
+		pWindow->ScaleLayout( vScale );
+}
+
 
 static const int GLAD = 20;		//��� ��������� ��� ��������� �����������, ����� ����� ���� ������� ���������� ScrollBar � �������� ������� ����
 
@@ -139,6 +161,7 @@ IUIElement* CUIShortcutBar::AddBar()
 	SBar bar;
 	CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::READ );
 	saver.Add( "Element", &bar.pElement );
+	ApplyLayoutScale( bar.pElement, GetLayoutScale() );
 	bars.push_back( bar );
 	AddChild( bar.pElement );
 	return bar.pElement;
@@ -157,6 +180,13 @@ IUIElement* CUIShortcutBar::AddItem()
 	CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::READ );
 	CPtr<IUIElement> pElement;
 	saver.Add( "Element", &pElement );
+	ApplyLayoutScale( pElement, GetLayoutScale() );
+	if ( CSimpleWindow *pWindow = dynamic_cast<CSimpleWindow *>( pElement.GetPtr() ) )
+	{
+		for ( int s = 0; s < pWindow->states.size(); ++s )
+			for ( int k = 0; k < 4; ++k )
+				pWindow->states[s].subStates[k].pMask = 0;
+	}
 	
 	SBar &bar = bars[bars.size() - 1];
 	bar.items.push_back( pElement.GetPtr() );
@@ -179,11 +209,18 @@ void CUIShortcutBar::AddMultyItems( int nNum )
 	
 	CPtr<IUIElement> pElementBase;
 	saver.Add( "Element", &pElementBase );
+	ApplyLayoutScale( pElementBase, GetLayoutScale() );
 	CPtr<IUIElement> pElement;
 	
 	for ( int i = 0; i < nNum; ++i )
 	{
 		pElement = pElementBase->Duplicate();
+		if ( CSimpleWindow *pWindow = dynamic_cast<CSimpleWindow *>( pElement.GetPtr() ) )
+		{
+			for ( int s = 0; s < pWindow->states.size(); ++s )
+				for ( int k = 0; k < 4; ++k )
+					pWindow->states[s].subStates[k].pMask = 0;
+		}
 		bar.items.push_back( pElement.GetPtr() );
 		AddChild( pElement );
 	}
@@ -204,8 +241,15 @@ IUIElement* CUIShortcutBar::AddTextItem( const WORD *pszText )
 	CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::READ );
 	CObj<IUIElement> pText;
 	saver.Add( "Element", &pText );
+	ApplyLayoutScale( pText, GetLayoutScale() );
 
 	CSimpleWindow *pWindow = dynamic_cast<CSimpleWindow *> ( pText.GetPtr() );
+	if ( pWindow )
+	{
+		for ( int s = 0; s < pWindow->states.size(); ++s )
+			for ( int k = 0; k < 4; ++k )
+				pWindow->states[s].subStates[k].pMask = 0;
+	}
 	pWindow->vSize.x = wndRect.Width() - nLeftSpace - nRightSpace - 2*nItemLeftSpace - nScrollBarWidth;
 	pWindow->SetWindowText( 0, pszText );
 	
@@ -344,6 +388,21 @@ void CUIShortcutBar::Reposition( const CTRect<float> &rcParent )
 	pScrollBar->GetWindowPlacement( 0, &size, 0 );
 	pScrollBar->SetWindowPlacement( 0, &CVec2(size.x, wndRect.Height() ) );
 	CMultipleWindow::Reposition( rcParent );
+}
+void CUIShortcutBar::ScaleLayout( const CVec2 &vScale )
+{
+	CMultipleWindow::ScaleLayout( vScale );
+	nLeftSpace = ScaleUIPixelValue( nLeftSpace, vScale.x );
+	nRightSpace = ScaleUIPixelValue( nRightSpace, vScale.x );
+	nTopSpace = ScaleUIPixelValue( nTopSpace, vScale.y );
+	nBottomSpace = ScaleUIPixelValue( nBottomSpace, vScale.y );
+	nBarHeight = ScaleUIPixelValue( nBarHeight, vScale.y );
+	nVSubSpace = ScaleUIPixelValue( nVSubSpace, vScale.y );
+	nItemLeftSpace = ScaleUIPixelValue( nItemLeftSpace, vScale.x );
+	nScrollBarWidth = ScaleUIPixelValue( nScrollBarWidth, vScale.x );
+
+	for ( int i = 0; i < selSubRects.size(); ++i )
+		ScaleUISubRect( &selSubRects[i], vScale );
 }
 bool CUIShortcutBar::ProcessMessage( const SUIMessage &msg )
 {
@@ -555,28 +614,18 @@ bool CUIShortcutBar::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 		return bRet;			//����� ��� ������
 	if ( bars.size() == 0 )
 		return bRet;
-	
+
 	int nV = -pScrollBar->GetPosition();
-/*
-	int nPrevSelBar = nSelBar;
-	int nPrevSelItem = nSelItem;
-	nSelBar = nSelItem = -1;
-*/
+
 	for ( int i = 0; i < bars.size(); ++i )
 	{
 		SBar &bar = bars[i];
-		if ( nV <= fY && nV + nBarHeight > fY )
+		if ( bar.pElement->IsVisible() && bar.pElement->IsInside( vPos ) )
 		{
-			if ( !bars[i].pElement->IsInside( vPos ) )
-			{
-				return bRet;
-			}
-			
 			SetBarExpandState( i, !bar.bExpandState, true );
 
 			return bRet;
 		}
-		nV += nBarHeight;
 		
 		if ( bar.bExpandState )
 		{
@@ -616,6 +665,42 @@ bool CUIShortcutBar::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 	}
 
 	return bRet;
+}
+bool CUIShortcutBar::OnMouseMove( const CVec2 &vPos, EMouseState mouseState )
+{
+	if ( pScrollBar->IsInside( vPos ) )
+		return CMultipleWindow::OnMouseMove( vPos, mouseState );
+
+	float fX = vPos.x - wndRect.x1 - nLeftSpace;
+	if ( fX < 0 || fX > wndRect.Width() - nRightSpace - nScrollBarWidth )
+		return CMultipleWindow::OnMouseMove( vPos, mouseState );
+
+	float fY = vPos.y - wndRect.y1 - nTopSpace;
+	if ( fY < 0 || fY > wndRect.Height() - nTopSpace - nBottomSpace )
+		return CMultipleWindow::OnMouseMove( vPos, mouseState );
+
+	int nV = -pScrollBar->GetPosition();
+	for ( int i = 0; i < bars.size(); ++i )
+	{
+		SBar &bar = bars[i];
+		if ( nV <= fY && nV + nBarHeight > fY )
+			return true;
+		nV += nBarHeight;
+
+		if ( bar.bExpandState )
+		{
+			for ( CWindowList::iterator it = bar.items.begin(); it != bar.items.end(); ++it )
+			{
+				CVec2 vSize;
+				(*it)->GetWindowPlacement( 0, &vSize, 0 );
+				if ( nV <= fY && nV + vSize.y + nVSubSpace*2 > fY )
+					return true;
+				nV += vSize.y + nVSubSpace*2;
+			}
+		}
+	}
+
+	return CMultipleWindow::OnMouseMove( vPos, mouseState );
 }
 bool CUIShortcutBar::OnLButtonUp( const CVec2 &vPos, EMouseState mouseState )
 {

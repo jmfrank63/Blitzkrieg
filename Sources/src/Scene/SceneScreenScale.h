@@ -26,6 +26,16 @@ namespace NSceneScreenScale
 		*pfY = fCenterY + ( *pfY - fCenterY ) * fScale;
 	}
 
+	inline void UnscaleGameplaySpritePoint( float *pfX, float *pfY, const CVec3 &vSpriteCenter, const CTRect<float> &rcScreen )
+	{
+		const float fScale = GetGameplayScale( rcScreen );
+		if ( fScale <= 1.001f )
+			return;
+
+		*pfX = vSpriteCenter.x + ( *pfX - vSpriteCenter.x ) / fScale;
+		*pfY = vSpriteCenter.y + ( *pfY - vSpriteCenter.y ) / fScale;
+	}
+
 	template <class TVertex>
 	inline void ScaleGameplayScreenVertex( TVertex *pVertex, const CTRect<float> &rcScreen )
 	{

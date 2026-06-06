@@ -6,7 +6,7 @@
 class CUIShortcutBar : public CMultipleWindow
 {
 	DECLARE_SERIALIZE;
-	CObj<IUIScrollBar> pScrollBar;				//инициализируется во время загрузки и используется для ускорения доступа к компонентам
+	CObj<IUIScrollBar> pScrollBar;				//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
 	int nLeftSpace;
 	int nRightSpace;
@@ -31,16 +31,16 @@ class CUIShortcutBar : public CMultipleWindow
 	typedef std::vector<SBar> CBarsVector;
 	CBarsVector bars;
 
-	int nSelBar;										//выделенный bar
-	int nSelItem;										//выделенный item
+	int nSelBar;										//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ bar
+	int nSelItem;										//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ item
 	std::vector<SWindowSubRect> selSubRects;
-	CPtr<IGFXTexture> pSelectionTexture;				// внешний вид - текстура
+	CPtr<IGFXTexture> pSelectionTexture;				// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
 	std::string szBarFileName, szItemFileName, szTextFileName;
 
 	void InitSBWidth();
-	void UpdateItemsCoordinates();				//Обновляет координаты всех внутренних item
-	void UpdateScrollBarStatus();					//Обновляет мин макс и положение SB
+	void UpdateItemsCoordinates();				//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ item
+	void UpdateScrollBarStatus();					//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ SB
 
 public:
 	CUIShortcutBar();
@@ -49,6 +49,7 @@ public:
 
 	virtual bool STDCALL ProcessMessage( const SUIMessage &msg );
 	virtual void STDCALL Reposition( const CTRect<float> &rcParent );
+	virtual void ScaleLayout( const CVec2 &vScale );
 	
 	virtual int STDCALL operator&( IDataTree &ss );
 	
@@ -57,6 +58,7 @@ public:
 	
 	virtual bool STDCALL OnLButtonDown( const CVec2 &vPos, EMouseState mouseState );
 	virtual bool STDCALL OnLButtonUp( const CVec2 &vPos, EMouseState mouseState );
+	virtual bool STDCALL OnMouseMove( const CVec2 &vPos, EMouseState mouseState );
 	
 	virtual IUIElement* STDCALL AddBar();
 	virtual IUIElement* STDCALL AddItem();

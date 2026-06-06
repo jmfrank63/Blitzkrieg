@@ -2,6 +2,7 @@
 
 #include "SpriteVisObj.h"
 #include "AnimVisitor.h"
+#include "SceneScreenScale.h"
 #include "..\Misc\Win32Random.h"
 DWORD CSpriteVisObj::dwIdleData = 0;
 CSpriteVisObj::CSpriteVisObj() 
@@ -65,7 +66,15 @@ bool CSpriteVisObj::IsHit( const SHMatrix &matTransform, const CVec2 &point, CVe
 {
 	CVec3 relpos;
 	matTransform.RotateHVector( &relpos, GetPos() );
-	return pAnim->IsHit( relpos, point, pShift );
+	CVec2 vHitPoint = point;
+	NSceneScreenScale::UnscaleGameplaySpritePoint( &vHitPoint.x, &vHitPoint.y, relpos, GetSingleton<IGFX>()->GetScreenRect() );
+	const bool bHit = pAnim->IsHit( relpos, vHitPoint, pShift );
+	if ( bHit && pShift )
+	{
+		pShift->x = relpos.x - point.x;
+		pShift->y = relpos.y - point.y;
+	}
+	return bHit;
 }
 bool CSpriteVisObj::IsHit( const SHMatrix &matTransform, const RECT &rect )
 {
