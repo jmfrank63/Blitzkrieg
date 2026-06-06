@@ -1667,7 +1667,19 @@ bool CGraphicsEngine::DrawText( IGFXText *pTxt, const RECT &rect, int nY, DWORD 
 	if ( tempvertices.empty() || tempindices.empty() )
 		return true;
 	SetTexture( 0, static_cast<CFont*>( pText->GetFont() )->GetTexture() );
-	return ::DrawTemp( this, tempvertices, tempindices );
+	const float fTextScale = pText->GetScale();
+	if ( fTextScale > 1.05f )
+	{
+		pD3DDevice->SetSamplerState( 0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR );
+		pD3DDevice->SetSamplerState( 0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR );
+	}
+	bool bDrawResult = ::DrawTemp( this, tempvertices, tempindices );
+	if ( fTextScale > 1.05f )
+	{
+		pD3DDevice->SetSamplerState( 0, D3DSAMP_MAGFILTER, D3DTEXF_POINT );
+		pD3DDevice->SetSamplerState( 0, D3DSAMP_MINFILTER, D3DTEXF_POINT );
+	}
+	return bDrawResult;
 }
 bool CGraphicsEngine::DrawRects( const SGFXRect2 *pRects, int nNumRects, bool bSolid )
 {

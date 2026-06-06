@@ -59,7 +59,7 @@ const TCHAR CFontGen::FONT_NAME[] = _T( "Times New Roman" );
 const TCHAR CFontGen::FONT_FILE_NAME[] = _T( "1" );
 const TCHAR CFontGen::FONT_FILE_EXTENTION[] = _T( ".tfd" );
 
-const DWORD CFontGen::FONTS_SIZE[FONTS_COUNT] = { 8, 16, 20, 40 };
+const DWORD CFontGen::FONTS_SIZE[FONTS_COUNT] = { 8, 16, 24, 48 };
 LPCTSTR CFontGen::FONTS_FOLDER[FONTS_COUNT] =
 {
 	_T( "fonts\\tiny\\" ),
