@@ -1,0 +1,10 @@
+﻿{
+  "projectName": "Blitzkrieg Reloaded",
+  "created": "2026-06-06",
+  "workflow": "gsd-new-project",
+  "primaryLanguage": "C++",
+  "targetPlatform": "Win32",
+  "toolchain": "MSVC / VS Code Insiders",
+  "includeResearch": true,
+  "nextStep": "/gsd-plan-phase 1"
+}
