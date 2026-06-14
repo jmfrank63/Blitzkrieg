@@ -17,6 +17,19 @@
 #include "iMainClassIDs.h"
 #include "iMainCommands.h"
 #include "RandomMapHelper.h"
+static void TraceLoadProgress( const char *pszBaseDir, const char *pszMessage )
+{
+	if ( pszBaseDir == 0 || pszMessage == 0 )
+		return;
+	const std::string szTraceFileName = std::string( pszBaseDir ) + "load_trace.log";
+	FILE *pFile = fopen( szTraceFileName.c_str(), "ab" );
+	if ( pFile )
+	{
+		fprintf( pFile, "%lu %s\n", GetTickCount(), pszMessage );
+		fclose( pFile );
+	}
+	NStr::DebugTrace( "LOADTRACE: %s\n", pszMessage );
+}
 void ReportSaveLoad( const char *pszKey, const std::string &szFileName )
 {
 	if ( CPtr<IText> pText = GetSingleton<ITextManager>()->GetString(pszKey) )
@@ -78,8 +91,12 @@ void CICSave::Exec( IMainLoop *pML )
 }
 void CICLoad::Exec( IMainLoop *pML )
 {
+	TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec begin" );
 	if ( GetGlobalVar("MultiplayerGame", 0) != 0  )
+	{
+		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec skipped multiplayer" );
 		return;
+	}
 	std::string szModname = GetSingleton<IUserProfile>()->GetMOD();
 	if ( !szModname.empty() )
 	{
@@ -90,47 +107,64 @@ void CICLoad::Exec( IMainLoop *pML )
 	if ( pStream == 0 )
 	{
 		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format("Can't find file \"%s\" to load - skipping...", szFileName.c_str()), 0xffff0000 );
+		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec open failed" );
 		return;
 	}
+	TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec stream opened" );
 	{
 		CStreamAccessor stream = pStream;
 		DWORD dwSignature = 0;
 		stream >> dwSignature;
 		if ( dwSignature == NSaveLoad::SFileHeader::SIGNATURE ) 
 		{
+			TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec header signature" );
 			NSaveLoad::SFileHeader hdr;
 			stream >> hdr;
 			if ( hdr.nVersion != NSaveLoad::SFileHeader::VERSION )
 			{
 				GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format("Invalid save file \"%s\" of version %d (current version = %d)", szFullFileName.c_str(), hdr.nVersion, NSaveLoad::SFileHeader::VERSION), 0xffff0000 );
+				TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec version mismatch" );
 				return;
 			}
+			TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec popping interfaces" );
 			while ( pML->GetInterface() ) 
 				pML->PopInterface();
+			TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec interfaces popped" );
 			if ( hdr.bRandomMission ) 
 			{
+				TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec restore random map begin" );
 				NSaveLoad::SRandomHeader rndhdr;
 				stream >> rndhdr;
 				CPtr<IRandomGenSeed> pSeed = CreateObject<IRandomGenSeed>( STREAMIO_RANDOM_GEN_SEED );
 				pSeed->Restore( stream );
 				RestoreRandomMap( hdr.szMissionName, rndhdr, pSeed );
+				TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec restore random map end" );
 			}
 			pStream = new CStreamRangeAdaptor( pStream, pStream->GetPos(), pStream->GetSize() );
+			TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec range stream ready" );
 		}
 		else
 			pStream->Seek( -sizeof(dwSignature), STREAM_SEEK_CUR );
 	}
 	{
+		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec progress init begin" );
 		CPtr<IMovieProgressHook> pProgress = CreateObject<IMovieProgressHook>( MAIN_PROGRESS_INDICATOR );
 		pProgress->Init( IMovieProgressHook::PT_LOAD );
+		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec progress init end" );
 		CPtr<IStructureSaver> pSS = CreateStructureSaver( pStream, IStructureSaver::READ, pProgress );
+		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec serialize begin" );
 		pML->Serialize( pSS, pProgress );
+		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec serialize end" );
+		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec progress stop begin" );
 		pProgress->Stop();
+		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec progress stop end" );
 		GetSingleton<IUserProfile>()->RegisterLoad( GetSingleton<IScenarioTracker>()->GetCurrMissionGUID() );
+		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec register load end" );
 	}
 	ReportSaveLoad( "game_loaded", szFileName );
 	pML->EnableMessageProcessing( true );
 	pML->Command( MAIN_COMMAND_CMD, NStr::Format("%d", CMD_LOAD_FINISHED) );
+	TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec end" );
 }
 void CICSendCommand::Configure( const char *pszConfig )
 {

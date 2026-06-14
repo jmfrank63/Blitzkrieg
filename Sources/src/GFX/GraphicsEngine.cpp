@@ -686,6 +686,7 @@ static const SNameFormat formatsDXT[] =
 };
 bool CGraphicsEngine::ResetDevice()
 {
+	NStr::DebugTrace( "LOADTRACE: CGraphicsEngine::ResetDevice begin\n" );
 	pScreenColor = 0;
 	pScreenDepth = 0;
 	if ( (pD3D != 0) && (pD3DDevice == 0) )
@@ -735,8 +736,11 @@ bool CGraphicsEngine::ResetDevice()
 	{
 		DestroyAllObjects();
 		HRESULT dxrval = pD3DDevice->Reset( &pp );
-		if ( FAILED(dxrval) ) 
+		if ( FAILED(dxrval) )
+		{
+			NStr::DebugTrace( "LOADTRACE: CGraphicsEngine::ResetDevice Reset failed hr=0x%08x\n", dxrval );
 			return false;
+		}
 		ChangeViewport( displaymode.Width, displaymode.Height );
 		for ( int i=0; i<adapter.capsHWDevice.MaxSimultaneousTextures; ++i )
 		{
@@ -762,6 +766,7 @@ bool CGraphicsEngine::ResetDevice()
 			pScreenDepth = 0;
 	}
 	ResizeDeviceWindow( hWindow, pp.Windowed != 0, pp.BackBufferWidth, pp.BackBufferHeight );
+	NStr::DebugTrace( "LOADTRACE: CGraphicsEngine::ResetDevice end\n" );
 	return true;
 }
 void CGraphicsEngine::MoveTo( int nX, int nY )
@@ -1202,7 +1207,16 @@ bool CGraphicsEngine::IsActive()
 {
 	HRESULT dxrval = pD3DDevice->TestCooperativeLevel();
 	if ( dxrval == D3DERR_DEVICELOST )
+	{
+		static DWORD dwLastDeviceLostTrace = 0;
+		const DWORD dwNow = GetTickCount();
+		if ( dwNow > dwLastDeviceLostTrace + 1000 )
+		{
+			dwLastDeviceLostTrace = dwNow;
+			NStr::DebugTrace( "LOADTRACE: CGraphicsEngine::IsActive device lost hr=0x%08x\n", dxrval );
+		}
 		return false; 
+	}
 	if ( dxrval == D3D_OK )
 		return true;
 	/*
@@ -1213,11 +1227,17 @@ bool CGraphicsEngine::IsActive()
 			return false;
 	}
 	*/
+	NStr::DebugTrace( "LOADTRACE: CGraphicsEngine::IsActive resettable hr=0x%08x\n", dxrval );
 	ResetDevice();
 	dxrval = pD3DDevice->TestCooperativeLevel();
 	if ( dxrval == D3DERR_DEVICELOST )
+	{
+		NStr::DebugTrace( "LOADTRACE: CGraphicsEngine::IsActive still lost after reset hr=0x%08x\n", dxrval );
 		return false;
+	}
 	NI_ASSERTHR_T( dxrval == D3D_OK, "Unexpected error in test coop level" );
+	if ( dxrval != D3D_OK )
+		NStr::DebugTrace( "LOADTRACE: CGraphicsEngine::IsActive unexpected after reset hr=0x%08x\n", dxrval );
 	return dxrval == D3D_OK;
 }
 bool CGraphicsEngine::BeginScene()

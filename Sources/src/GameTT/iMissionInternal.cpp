@@ -755,8 +755,11 @@ int CInterfaceMission::operator&( IStructureSaver &ss )
 	}
 	return 0;
 }
+static void SyncMissionModeFromInterMission();
+static void SetMissionCameraPlacement( IGFX *pGFX, ICamera *pCamera, const CVec3 &vAnchor );
 bool CInterfaceMission::Init()
 {
+	SyncMissionModeFromInterMission();
 	CInterfaceScreenBase::Init();
 
 	GetSingleton<IMessageLinkContainer>()->SetInterface( this );
@@ -770,9 +773,7 @@ bool CInterfaceMission::Init()
 	pAckManager = GetSingleton<IClientAckManager>();
 	pFrameSelection = pScene->GetFrameSelection();
 	missionMsgs.Init( pInput, missionCommands );
-	CTRect<long> rcScreen = pGFX->GetScreenRect();
-	const float fGameplayCameraHeight = float( rcScreen.Height() );
-	pCamera->SetPlacement( CVec3(0, 0, 0), 1024*4 + fGameplayCameraHeight, -ToRadian(90.0f + 30.0f), ToRadian(45.0f) );
+	SetMissionCameraPlacement( pGFX, pCamera, CVec3(0, 0, 0) );
 	nFPSAveragePeriod = GetGlobalVar( "Word.FPSAveragePeriod", 5000 );
 	SetBindSection( "game_mission" );
 	pAILogic->Resume();
@@ -847,20 +848,30 @@ void CInterfaceMission::CheckResolution()
 		pUIScreen->GetChildByID( 110 )->SetState( 0 );
 	}
 }
+static void SyncMissionModeFromInterMission()
+{
+	const int nInterMissionSizeX = GetGlobalVar( "GFX.Mode.InterMission.SizeX", GFX_DEFAULT_SCREEN_WIDTH );
+	const int nInterMissionSizeY = GetGlobalVar( "GFX.Mode.InterMission.SizeY", GFX_DEFAULT_SCREEN_HEIGHT );
+	const int nInterMissionBPP = GetGlobalVar( "GFX.Mode.InterMission.BPP", 16 );
+	const int nInterMissionFullScreen = GetGlobalVar( "GFX.Mode.InterMission.FullScreen", int(GFXFS_WINDOWED) );
+	const int nInterMissionFrequency = GetGlobalVar( "GFX.Mode.InterMission.Frequency", 0 );
+	SetGlobalVar( "GFX.Mode.Mission.SizeX", nInterMissionSizeX );
+	SetGlobalVar( "GFX.Mode.Mission.SizeY", nInterMissionSizeY );
+	SetGlobalVar( "GFX.Mode.Mission.BPP", nInterMissionBPP );
+	SetGlobalVar( "GFX.Mode.Mission.FullScreen", nInterMissionFullScreen );
+	SetGlobalVar( "GFX.Mode.Mission.Frequency", nInterMissionFrequency );
+}
+static void SetMissionCameraPlacement( IGFX *pGFX, ICamera *pCamera, const CVec3 &vAnchor )
+{
+	CTRect<long> rcScreen = pGFX->GetScreenRect();
+	const float fGameplayCameraHeight = float( rcScreen.Height() );
+	pCamera->SetPlacement( vAnchor, 1024*4 + fGameplayCameraHeight, -ToRadian(90.0f + 30.0f), ToRadian(45.0f) );
+}
 void CInterfaceMission::OnGetFocus( bool bFocus )
 {
 	if ( bFocus )
 	{
-		const int nInterMissionSizeX = GetGlobalVar( "GFX.Mode.InterMission.SizeX", GFX_DEFAULT_SCREEN_WIDTH );
-		const int nInterMissionSizeY = GetGlobalVar( "GFX.Mode.InterMission.SizeY", GFX_DEFAULT_SCREEN_HEIGHT );
-		const int nInterMissionBPP = GetGlobalVar( "GFX.Mode.InterMission.BPP", 16 );
-		const int nInterMissionFullScreen = GetGlobalVar( "GFX.Mode.InterMission.FullScreen", int(GFXFS_WINDOWED) );
-		const int nInterMissionFrequency = GetGlobalVar( "GFX.Mode.InterMission.Frequency", 0 );
-		SetGlobalVar( "GFX.Mode.Mission.SizeX", nInterMissionSizeX );
-		SetGlobalVar( "GFX.Mode.Mission.SizeY", nInterMissionSizeY );
-		SetGlobalVar( "GFX.Mode.Mission.BPP", nInterMissionBPP );
-		SetGlobalVar( "GFX.Mode.Mission.FullScreen", nInterMissionFullScreen );
-		SetGlobalVar( "GFX.Mode.Mission.Frequency", nInterMissionFrequency );
+		SyncMissionModeFromInterMission();
 	}
  	CInterfaceScreenBase::OnGetFocus( bFocus );
 	
@@ -1760,7 +1771,12 @@ bool CInterfaceMission::ProcessMessageLocal( const SGameMessage &msg )
 			break;
 		case CMD_LOAD_FINISHED:
 			{
+				SyncMissionModeFromInterMission();
+				ChangeResolution();
 				CheckResolution();
+				if ( pUIScreen )
+					pUIScreen->Reposition( pGFX->GetScreenRect() );
+				SetMissionCameraPlacement( pGFX, pCamera, pCamera->GetAnchor() );
 				GetSingleton<IScenarioTracker>()->UpdateMinimumDifficulty();
 			}
 			return false;

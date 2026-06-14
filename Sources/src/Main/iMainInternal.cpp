@@ -151,48 +151,77 @@ CMainLoop::~CMainLoop()
 		interfaces.pop_back();
 	}
 }
+static void TraceMainLoadProgress( const std::string &szBaseDir, const char *pszMessage )
+{
+	if ( pszMessage == 0 )
+		return;
+	const std::string szTraceFileName = szBaseDir + "load_trace.log";
+	FILE *pFile = fopen( szTraceFileName.c_str(), "ab" );
+	if ( pFile )
+	{
+		fprintf( pFile, "%lu %s\n", GetTickCount(), pszMessage );
+		fclose( pFile );
+	}
+	NStr::DebugTrace( "LOADTRACE: %s\n", pszMessage );
+}
 void CMainLoop::Serialize( IStructureSaver *pSS, IProgressHook *pHook )
 {
+	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize begin" );
 	CSaverAccessor saver = pSS;
 	if ( pHook ) 
 		pHook->SetNumSteps( 6 );
+	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize managers begin" );
 	for ( CManagersList::iterator i = managers.begin(); i != managers.end(); ++i )
 	{
 		(*i)->operator&( *pSS );
 	}
+	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize managers end" );
 	if ( pHook ) 
 	{
 		pHook->Recover();
 		pHook->Step(); // 0
 	}
+	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize cmds/interfaces begin" );
 	saver.Add( 1, &cmds );
 	saver.Add( 2, &interfaces );
+	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize cmds/interfaces end" );
 	if ( pHook ) 
 		pHook->Step(); // 1
 	if ( saver.IsReading() )
 	{
+		TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize interface init begin" );
 		for ( CInterfacesList::iterator i = interfaces.begin(); i != interfaces.end(); ++i )
 			(*i)->Init();
+		TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize interface init end" );
 	}
+	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize scene begin" );
 	saver.Add( 3, pScene.GetPtr() );
+	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize scene end" );
 	if ( pHook ) 
 		pHook->Step(); // 2
+	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize camera/cursor/timer begin" );
 	saver.Add( 4, pCamera.GetPtr() );
 	saver.Add( 5, pCursor.GetPtr() );
 	saver.Add( 6, GetSingleton<IGameTimer>() );
 	saver.Add( 7, &bWireFrame );
+	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize camera/cursor/timer end" );
+	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize ai begin" );
 	saver.Add( 8, pAILogic.GetPtr() );
+	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize ai end" );
 	if ( pHook ) 
 		pHook->Step(); // 3
+	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize gfx/globals/sfx begin" );
 	saver.Add( 9, pGFX.GetPtr() );
 	saver.Add( 10, GetSingleton<IGlobalVars>() );
 	saver.Add( 11, GetSingleton<ISFX>() );
 	saver.Add( 12, GetSingleton<ITransceiver>() );
 	saver.Add( 13, GetSingleton<IClientAckManager>() );
+	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize gfx/globals/sfx end" );
 	if ( pHook ) 
 		pHook->Step(); // 4
 	if ( g_pGlobalRandomGen ) 
 		saver.Add( 14, g_pGlobalRandomGen );
+	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize input/etc begin" );
 	saver.Add( 15, GetSingleton<IInput>() );
 	saver.Add( 16, &nAutoSavePeriod );
 	saver.Add( 17, &timeLastAutoSave );
@@ -200,6 +229,7 @@ void CMainLoop::Serialize( IStructureSaver *pSS, IProgressHook *pHook )
 	saver.Add( 19, &bDisableMessageProcessing );
 	saver.Add( 22, &pStoredScenarioTracker );
 	saver.Add( 23, GetSingleton<ICommandsHistory>() );
+	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize input/etc end" );
 	{
 		const std::string szChapterName = GetGlobalVar( "Chapter.Current.Name", "" );
 		const SChapterStats *pChapter = static_cast<const SChapterStats*>( GetSingleton<IObjectsDB>()->GetGameStats(szChapterName.c_str(), IObjectsDB::CHAPTER) );
@@ -208,6 +238,7 @@ void CMainLoop::Serialize( IStructureSaver *pSS, IProgressHook *pHook )
 			std::vector<SChapterStats::SMission> missions;
 			if ( saver.IsReading() ) 
 			{
+				TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize chapter templates begin" );
 				SChapterStats *pNCChapter = const_cast<SChapterStats*>( pChapter );
 				saver.Add( 25, &missions );
 				pNCChapter->RemoveTemplateMissions();
@@ -218,6 +249,7 @@ void CMainLoop::Serialize( IStructureSaver *pSS, IProgressHook *pHook )
 				CPtr<IDataStream> pStream = CreateFileStream( szChapterFileName.c_str(), STREAM_ACCESS_WRITE );
 				CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::WRITE );
 				saver.Add( "RPG", pNCChapter );
+				TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize chapter templates end" );
 			}
 			else
 			{
@@ -232,12 +264,15 @@ void CMainLoop::Serialize( IStructureSaver *pSS, IProgressHook *pHook )
 	}
 	if ( saver.IsReading() )
 	{
+		TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize post-read begin" );
 		bPaused = false;
 		Pause( bPaused = !bPaused, PAUSE_TYPE_USER_PAUSE );
 		pGFX->SetWireframe( bWireFrame );		
+		TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize post-read end" );
 	}
 	if ( pHook ) 
 		pHook->Step(); // 5
+	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize end" );
 }
 void CMainLoop::SerializeConfig( const bool bRead, const DWORD dwSerialize )
 {

@@ -198,8 +198,28 @@ void CInterfaceScreenBase::Step( bool bAppActive )
 {
 	pCamera->Update();
 	pGFX->SetViewTransform( pCamera->GetPlacement() );
-	if ( (StepLocal( bAppActive ) == false) || (bAppActive == false) || !pGFX->IsActive() )
+	const bool bStepLocalResult = StepLocal( bAppActive );
+	const bool bGFXActive = pGFX->IsActive();
+	if ( (bStepLocalResult == false) || (bAppActive == false) || !bGFXActive )
 	{
+		static DWORD dwLastLoadTrace = 0;
+		const DWORD dwNow = GetTickCount();
+		if ( dwNow > dwLastLoadTrace + 1000 )
+		{
+			dwLastLoadTrace = dwNow;
+			const char *pszBaseDir = GetSingleton<IMainLoop>() ? GetSingleton<IMainLoop>()->GetBaseDir() : 0;
+			if ( pszBaseDir )
+			{
+				const std::string szTraceFileName = std::string( pszBaseDir ) + "load_trace.log";
+				FILE *pFile = fopen( szTraceFileName.c_str(), "ab" );
+				if ( pFile )
+				{
+					fprintf( pFile, "%lu CInterfaceScreenBase::Step skipped draw app=%d local=%d gfx=%d\n", dwNow, bAppActive, bStepLocalResult, bGFXActive );
+					fclose( pFile );
+				}
+			}
+			NStr::DebugTrace( "LOADTRACE: CInterfaceScreenBase::Step skipped draw app=%d local=%d gfx=%d\n", bAppActive, bStepLocalResult, bGFXActive );
+		}
 		Sleep( 10 );
 		return;
 	}

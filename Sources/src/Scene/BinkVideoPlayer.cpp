@@ -207,7 +207,6 @@ int CBinkVideoPlayer::Play( const char *pszFileName, DWORD dwFlags, IGFX *pGFX, 
 }
 bool CBinkVideoPlayer::Stop()
 {
-	CopyRects();
 	if ( hBink ) 
 	{
 		BinkClose( hBink );
@@ -281,8 +280,24 @@ void CopyRect( HBINK hBink, const SImagePart &image, const DWORD dwCopyFlags, co
 {
 	if ( !HasIntersection(image.rcSrcRect, nNumDirtyRects) ) 
 		return;
-	SSurfaceLockInfo lock;
-	image.pTexture->Lock( 0, &lock );
+	if ( image.pTexture == 0 || image.rcSrcRect.IsEmpty() || image.rcDstRect.IsEmpty() )
+		return;
+	const int nCopyWidth = image.rcSrcRect.Width();
+	const int nCopyHeight = image.rcSrcRect.Height();
+	const int nTextureWidth = image.pTexture->GetSizeX( 0 );
+	const int nTextureHeight = image.pTexture->GetSizeY( 0 );
+	if ( nCopyWidth <= 0 || nCopyHeight <= 0 ||
+		   image.rcDstRect.x1 < 0 || image.rcDstRect.y1 < 0 ||
+		   image.rcDstRect.x1 + nCopyWidth > nTextureWidth ||
+		   image.rcDstRect.y1 + nCopyHeight > nTextureHeight )
+	{
+		NStr::DebugTrace( "****** WARNING: invalid Bink copy rect dst=(%d,%d) size=(%d,%d) texture=(%d,%d)\n",
+		                  image.rcDstRect.x1, image.rcDstRect.y1, nCopyWidth, nCopyHeight, nTextureWidth, nTextureHeight );
+		return;
+	}
+	SSurfaceLockInfo lock = { 0, 0 };
+	if ( !image.pTexture->Lock( 0, &lock ) || lock.pData == 0 || lock.nPitch <= 0 )
+		return;
 	BinkCopyToBufferRect( hBink, lock.pData, lock.nPitch, image.rcDstRect.Height(), image.rcDstRect.x1, image.rcDstRect.y1,
 												image.rcSrcRect.x1, image.rcSrcRect.y1, image.rcSrcRect.Width(), image.rcSrcRect.Height(), dwCopyFlags );
 	image.pTexture->Unlock( 0 );

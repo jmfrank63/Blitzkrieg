@@ -81,49 +81,57 @@ void CUIMiniMap::CreateMiniMapTextures()
 
 	if ( IsInitialized() )
 	{
-		pWarFog = _pGFX->CreateTexture( GetNextPow2( terrainSize.x ), GetNextPow2( terrainSize.y ), 1, GFXPF_ARGB4444, GFXD_SYSMEM );
-		pWarFogTexture = _pGFX->CreateTexture( GetNextPow2( terrainSize.x ), GetNextPow2( terrainSize.y ), 1, GFXPF_ARGB4444, GFXD_DYNAMIC );
+		pWarFog = _pGFX->CreateTexture( GetNextPow2( terrainSize.x ), GetNextPow2( terrainSize.y ), 1, GFXPF_ARGB4444, GFXD_STATIC );
+		pWarFogTexture = pWarFog;
 
-		pInstantObjects = _pGFX->CreateTexture( GetNextPow2( static_cast<int>( wndRect.right - wndRect.left ) ), GetNextPow2( static_cast<int>( wndRect.bottom - wndRect.top ) ), 1, GFXPF_ARGB4444, GFXD_SYSMEM );
-		pInstantObjectsTexture = _pGFX->CreateTexture( GetNextPow2( static_cast<int>(wndRect.right - wndRect.left ) ), GetNextPow2( static_cast<int>( wndRect.bottom - wndRect.top ) ), 1, GFXPF_ARGB4444, GFXD_DYNAMIC );
+		pInstantObjects = _pGFX->CreateTexture( GetNextPow2( static_cast<int>( wndRect.right - wndRect.left ) ), GetNextPow2( static_cast<int>( wndRect.bottom - wndRect.top ) ), 1, GFXPF_ARGB4444, GFXD_STATIC );
+		pInstantObjectsTexture = pInstantObjects;
 
 		if ( pWarFog )
 		{
 			{
 				CTextureLock<SGFXColor4444> textureLock( pWarFog , 0 );
-				const int nNumElements = pWarFog->GetSizeX( 0 );
-				const DWORD dwValue = PackDWORD( pWarFogValues[0], pWarFogValues[0] );
-				for ( int nYIndex = 0; nYIndex < pWarFog->GetSizeY( 0 ); ++nYIndex )
+				if ( textureLock.GetSizeY() > 0 && textureLock.GetSizeX() > 0 )
 				{
-					MemSetDWord( reinterpret_cast<DWORD*>( textureLock[nYIndex] ), dwValue, nNumElements / 2 );
+					const int nNumElements = textureLock.GetSizeX();
+					const DWORD dwValue = PackDWORD( pWarFogValues[0], pWarFogValues[0] );
+					for ( int nYIndex = 0; nYIndex < textureLock.GetSizeY(); ++nYIndex )
+					{
+						MemSetDWord( reinterpret_cast<DWORD*>( textureLock[nYIndex] ), dwValue, nNumElements / 2 );
+					}
+					isWarFogNeedUpdate = true;
 				}
-				isWarFogNeedUpdate = true;
 			}
 		}
 		if ( pInstantObjects )
 		{
 			{
 				CTextureLock<SGFXColor4444> textureLock( pInstantObjects , 0 );
-				int nBytesCount = pInstantObjects->GetSizeX( 0 ) * sizeof( WORD );
-				for ( int nYIndex = 0; nYIndex < pInstantObjects->GetSizeY( 0 ); ++nYIndex )
+				if ( textureLock.GetSizeY() > 0 && textureLock.GetSizeX() > 0 )
 				{
-					memset( static_cast<void*>( textureLock[nYIndex] ), 0x00, nBytesCount );
+					int nBytesCount = textureLock.GetSizeX() * sizeof( WORD );
+					for ( int nYIndex = 0; nYIndex < textureLock.GetSizeY(); ++nYIndex )
+					{
+						memset( static_cast<void*>( textureLock[nYIndex] ), 0x00, nBytesCount );
+					}
+					isInstantObjectsNeedUpdate = true;
 				}
-				isInstantObjectsNeedUpdate = true;
 			}
 		}
 
 		if ( pWarFog && pWarFogTexture && isWarFogNeedUpdate )
 		{
 			pWarFog->AddDirtyRect( &( static_cast<RECT>( CTRect<int>( 0, 0, pWarFog->GetSizeX( 0 ), pWarFog->GetSizeY( 0 ) ) ) ) );
-			_pGFX->UpdateTexture( pWarFog, pWarFogTexture, false );
+			if ( pWarFog != pWarFogTexture )
+				_pGFX->UpdateTexture( pWarFog, pWarFogTexture, false );
 			isWarFogNeedUpdate = false;
 		}
 
 		if ( pInstantObjects && pInstantObjectsTexture && isInstantObjectsNeedUpdate )
 		{
 			pInstantObjects->AddDirtyRect( &( static_cast<RECT>( CTRect<int>( 0, 0, pInstantObjects->GetSizeX( 0 ), pInstantObjects->GetSizeY( 0 ) ) ) ) );
-			_pGFX->UpdateTexture( pInstantObjects, pInstantObjectsTexture, false );
+			if ( pInstantObjects != pInstantObjectsTexture )
+				_pGFX->UpdateTexture( pInstantObjects, pInstantObjectsTexture, false );
 			isInstantObjectsNeedUpdate = false;
 		}
 	}
@@ -501,10 +509,12 @@ void CUIMiniMap::SetTerrainSize( int nXTerrainSize, int nYTerrainSize, int _nPla
 
 bool CUIMiniMap::AddWarFogData( const BYTE *pVizBuffer, int nLength )
 {
-	if ( IsInitialized() && nLength != 0 )
+	if ( IsInitialized() && nLength > 0 )
 	{
 		NI_ASSERT_SLOW_T( pVizBuffer != 0,
 											NStr::Format( "Wrong parameter: (%x)", pVizBuffer ) );
+		if ( pVizBuffer == 0 || pWarFog == 0 || terrainSize.x <= 0 || terrainSize.y <= 0 )
+			return false;
 
 		if ( nFiledVISTiles < ( terrainSize.x * terrainSize.y ) )
 		{
@@ -512,16 +522,21 @@ bool CUIMiniMap::AddWarFogData( const BYTE *pVizBuffer, int nLength )
 												NStr::Format( "Wrong parameter: (%d), must be under or equal: %d", nLength, ( terrainSize.x * terrainSize.y ) - nFiledVISTiles ) );
 
 			CTextureLock<SGFXColor4444> textureLock( pWarFog , 0 );
-
-			for ( int nYIndex = 0; nYIndex < ( nLength / terrainSize.x ); ++nYIndex )
+			if ( textureLock.GetSizeY() <= 0 || textureLock.GetSizeX() <= 0 )
+				return false;
+			const int nTotalTiles = terrainSize.x * terrainSize.y;
+			const int nTilesToWrite = Min( nLength, nTotalTiles - nFiledVISTiles );
+			for ( int nTile = 0; nTile < nTilesToWrite; ++nTile )
 			{
-				int nYPosition = terrainSize.y - ( nYIndex + ( nFiledVISTiles / terrainSize.x ) ) - 1;
-				for ( int nXIndex = 0; nXIndex < terrainSize.x; ++nXIndex )
-				{
-					textureLock[nYPosition][nXIndex] = pWarFogValues[ pVizBuffer[( nYIndex * terrainSize.x ) + nXIndex] ]; // / SAIConsts::VIS_POWER
-				}
+				const int nTileIndex = nFiledVISTiles + nTile;
+				const int nXPosition = nTileIndex % terrainSize.x;
+				const int nYPosition = terrainSize.y - ( nTileIndex / terrainSize.x ) - 1;
+				const int nVizValue = Clamp( int( pVizBuffer[nTile] ), 0, int( SAIConsts::VIS_POWER ) );
+				if ( nXPosition >= 0 && nXPosition < textureLock.GetSizeX() &&
+					   nYPosition >= 0 && nYPosition < textureLock.GetSizeY() )
+					textureLock[nYPosition][nXPosition] = pWarFogValues[nVizValue]; // / SAIConsts::VIS_POWER
 			}
-			nFiledVISTiles += nLength;
+			nFiledVISTiles += nTilesToWrite;
 		}
 		if ( nFiledVISTiles >= ( terrainSize.x * terrainSize.y ) )
 		{
@@ -657,8 +672,10 @@ void STDCALL CUIMiniMap::RemoveMarker( const std::string &rszName )
 
 void CUIMiniMap::DrawFireRanges( CTextureLock<SGFXColor4444> *pTextureLock )
 {
-	const int nInstantObjSizeX = pInstantObjects->GetSizeX( 0 );
-	const int nInstantObjSizeY = pInstantObjects->GetSizeY( 0 );
+	const int nInstantObjSizeX = pTextureLock->GetSizeX();
+	const int nInstantObjSizeY = pTextureLock->GetSizeY();
+	if ( nInstantObjSizeX <= 0 || nInstantObjSizeY <= 0 )
+		return;
 	for ( int index = 0; index < shootAreas.size(); ++index )
 	{
 		for ( std::list<SShootArea>::iterator iter = shootAreas[index].areas.begin(); iter != shootAreas[index].areas.end(); ++iter )
@@ -741,9 +758,11 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 	if ( pInstantObjects )
 	{
 		CTextureLock<SGFXColor4444> textureLock( pInstantObjects , 0 );
+		if ( textureLock.GetSizeY() <= 0 || textureLock.GetSizeX() <= 0 )
+			return false;
 		{
-			int nBytesCount = pInstantObjects->GetSizeX( 0 ) * sizeof( WORD );
-			for ( int nYIndex = 0; nYIndex < pInstantObjects->GetSizeY( 0 ); ++nYIndex )
+			int nBytesCount = textureLock.GetSizeX() * sizeof( WORD );
+			for ( int nYIndex = 0; nYIndex < textureLock.GetSizeY(); ++nYIndex )
 			{
 				memset( static_cast<void*>( textureLock[nYIndex] ), 0x00, nBytesCount );
 			}
@@ -760,9 +779,9 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 					for ( int index = ( nXPos - nUnitCrossSize ); index <= ( nXPos + nUnitCrossSize ); ++index )
 					{
 						if ( ( index >= 0 ) &&
-								 ( index < pInstantObjects->GetSizeX( 0 ) ) &&
+								 ( index < textureLock.GetSizeX() ) &&
 								 ( nYPos >= 0 ) &&
-								 ( nYPos < pInstantObjects->GetSizeY( 0 ) ) )
+								 ( nYPos < textureLock.GetSizeY() ) )
 						{
 							textureLock[nYPos][index] = pPartyColors[units[nUnitIndex].player];
 						}
@@ -770,9 +789,9 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 					for ( int index = ( nYPos - nUnitCrossSize ); index <= ( nYPos + nUnitCrossSize ); ++index )
 					{
 						if ( ( index >= 0 ) &&
-								 ( index < pInstantObjects->GetSizeY( 0 ) ) &&
+								 ( index < textureLock.GetSizeY() ) &&
 								 ( nXPos >= 0 ) &&
-								 ( nXPos < pInstantObjects->GetSizeX( 0 ) ) )
+								 ( nXPos < textureLock.GetSizeX() ) )
 						{
 							textureLock[index][nXPos] = pPartyColors[units[nUnitIndex].player];
 						}
@@ -821,7 +840,7 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 						}
 						if ( fRadius > 0.0f )
 						{
-							CMarkPixelFunctional markCircles( &textureLock, it->wColor, CTPoint<int>( pInstantObjects->GetSizeX( 0 ), pInstantObjects->GetSizeY( 0 ) ) );
+							CMarkPixelFunctional markCircles( &textureLock, it->wColor, CTPoint<int>( textureLock.GetSizeX(), textureLock.GetSizeY() ) );
 							PointToTextureMiniMap( it->vCenter.x / fWorldCellSize,
 																		 it->vCenter.y / fWorldCellSize,
 																		 &( miniMapPoint.x ),
@@ -863,7 +882,7 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 						}
 						if ( fRadius > 0.0f )
 						{
-							CMarkPixelFunctional markCircles( &textureLock, it->wColor, CTPoint<int>( pInstantObjects->GetSizeX( 0 ), pInstantObjects->GetSizeY( 0 ) ) );
+							CMarkPixelFunctional markCircles( &textureLock, it->wColor, CTPoint<int>( textureLock.GetSizeX(), textureLock.GetSizeY() ) );
 							CTPoint<float> center;
 							PointToTextureMiniMap( it->vCenter.x / fWorldCellSize,
 																		 it->vCenter.y / fWorldCellSize,
@@ -930,14 +949,16 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 	if ( pWarFog && pWarFogTexture && isWarFogNeedUpdate )
 	{
 		pWarFog->AddDirtyRect( &( static_cast<RECT>( CTRect<int>( 0, 0, pWarFog->GetSizeX( 0 ), pWarFog->GetSizeY( 0 ) ) ) ) );
-		_pGFX->UpdateTexture( pWarFog, pWarFogTexture, false );
+		if ( pWarFog != pWarFogTexture )
+			_pGFX->UpdateTexture( pWarFog, pWarFogTexture, false );
 		isWarFogNeedUpdate = false;
 	}
 
 	if ( pInstantObjects && pInstantObjectsTexture && isInstantObjectsNeedUpdate )
 	{
 		pInstantObjects->AddDirtyRect( &( static_cast<RECT>( CTRect<int>( 0, 0, pInstantObjects->GetSizeX( 0 ), pInstantObjects->GetSizeY( 0 ) ) ) ) );
-		_pGFX->UpdateTexture( pInstantObjects, pInstantObjectsTexture, false );
+		if ( pInstantObjects != pInstantObjectsTexture )
+			_pGFX->UpdateTexture( pInstantObjects, pInstantObjectsTexture, false );
 		isInstantObjectsNeedUpdate = false;
 	}
 	return true;
