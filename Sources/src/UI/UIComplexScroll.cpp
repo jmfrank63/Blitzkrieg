@@ -4,6 +4,12 @@
 #include "UIMessages.h"
 #include "UISlider.h"
 #include "UIDialog.h"
+static int ScaleUIPixelValue( int nValue, float fScale )
+{
+	if ( nValue == 0 )
+		return 0;
+	return int( float( nValue ) * fScale + ( nValue > 0 ? 0.5f : -0.5f ) );
+}
 enum
 {
 	E_ELEMENT_CONTAINER				= 5,
@@ -114,6 +120,17 @@ void CUIComplexScroll::Reposition( const CTRect<float> &rcParent )
 	RepositionScrollbar();
 	CMultipleWindow::Reposition( rcParent );
 
+}
+void CUIComplexScroll::ScaleLayout( const CVec2 &vScale )
+{
+	CMultipleWindow::ScaleLayout( vScale );
+	nScrollBarWidth = ScaleUIPixelValue( nScrollBarWidth, vScale.x );
+	m_nY = ScaleUIPixelValue( m_nY, vScale.y );
+	nLeftSpace = ScaleUIPixelValue( nLeftSpace, vScale.x );
+	nRightSpace = ScaleUIPixelValue( nRightSpace, vScale.x );
+	nTopSpace = ScaleUIPixelValue( nTopSpace, vScale.y );
+	nBottomSpace = ScaleUIPixelValue( nBottomSpace, vScale.y );
+	nVSubSpace = ScaleUIPixelValue( nVSubSpace, vScale.y );
 }
 bool CUIComplexScroll::ProcessMessage( const SUIMessage &msg )
 {

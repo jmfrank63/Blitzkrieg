@@ -29,6 +29,7 @@ public:
 
 	virtual int STDCALL operator&( IDataTree &ss );
 	virtual void STDCALL Reposition( const CTRect<float> &rcParent );
+	virtual void ScaleLayout( const CVec2 &vScale );
 	virtual bool STDCALL ProcessMessage( const SUIMessage &msg );
 
 	virtual bool STDCALL OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, float fDelta ) = 0;

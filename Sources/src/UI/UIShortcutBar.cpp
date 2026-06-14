@@ -626,6 +626,7 @@ bool CUIShortcutBar::OnLButtonDown( const CVec2 &vPos, EMouseState mouseState )
 
 			return bRet;
 		}
+		nV += nBarHeight;
 		
 		if ( bar.bExpandState )
 		{
