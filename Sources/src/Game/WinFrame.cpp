@@ -30,6 +30,7 @@ static HINSTANCE hInstance = 0;         // instance handle
 static ATOM atomWndClassName = 0;       // atom window class name identification (assigned during registration)
 static bool bActive = false;
 static bool bExit = false;
+static bool bMouseReleased = false;
 static std::list<SWindowsMsg> msgList;  // pumped messages
 static std::string szAppTitleName = " Blitzkrieg Game"; // application title ( will be loaded during initialization )
 static std::string szWndClassName = "NIVAL_RTS_ENGINE"; // user window class name ( will be loaded during initialization )
@@ -49,6 +50,7 @@ static void AddInputMessage( const int nEventID, const int nParam = 0 );
 static void AddMouseActionMessage( const int nEventID, const LPARAM lParam );
 static void UpdateCursorPos( const LPARAM lParam );
 static void AddMovieSkipMessage();
+static void ApplyMouseClip();
 ATOM RegisterClass( HINSTANCE hInst );
 bool CheckPreviousApp( LPCSTR pszMainClass, LPCSTR pszMainTitle );
 bool InitInstance( HINSTANCE hInst, int nCmdShow, int nWidth, int nHeight );
@@ -132,7 +134,6 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 					case WA_INACTIVE:						// deactivate window
 						SetActive( false );
 						NMain::SwitchGame( false );
-						::ClipCursor( 0 );
 						break;
 				}
 			}
@@ -141,6 +142,7 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 		case WM_LBUTTONDOWN:
 			if ( GetSingleton<IInput>()->IsEmulated(DEVICE_TYPE_MOUSE) )
 			{
+				CaptureMouse();
 				SetCapture( hWnd );
 				AddMouseActionMessage( CMD_BEGIN_ACTION1, lParam );
 				AddMovieSkipMessage();
@@ -167,6 +169,7 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 		case WM_RBUTTONDOWN:
 			if ( GetSingleton<IInput>()->IsEmulated(DEVICE_TYPE_MOUSE) )
 			{
+				CaptureMouse();
 				SetCapture( hWnd );
 				AddMouseActionMessage( CMD_BEGIN_ACTION2, lParam );
 				AddMovieSkipMessage();
@@ -274,6 +277,35 @@ static void UpdateCursorPos( const LPARAM lParam )
 static void AddMovieSkipMessage()
 {
 	AddInputMessage( MC_MOVIE_SKIP_SEQUENCE, 0 );
+}
+static void ApplyMouseClip()
+{
+	if ( bMouseReleased || !bActive || hWnd == 0 || IsIconic( hWnd ) )
+	{
+		::ClipCursor( 0 );
+		return;
+	}
+
+	RECT rcClip;
+	if ( !GetClientRect( hWnd, &rcClip ) )
+	{
+		::ClipCursor( 0 );
+		return;
+	}
+
+	POINT ptTopLeft = { rcClip.left, rcClip.top };
+	POINT ptBottomRight = { rcClip.right, rcClip.bottom };
+	if ( !ClientToScreen( hWnd, &ptTopLeft ) || !ClientToScreen( hWnd, &ptBottomRight ) )
+	{
+		::ClipCursor( 0 );
+		return;
+	}
+
+	rcClip.left = ptTopLeft.x;
+	rcClip.top = ptTopLeft.y;
+	rcClip.right = ptBottomRight.x;
+	rcClip.bottom = ptBottomRight.y;
+	::ClipCursor( &rcClip );
 }
 static void AddMsg( SWindowsMsg::EMsg msg, int x, int y, DWORD dwFlags )
 {
@@ -408,6 +440,10 @@ static bool CheckPreviousApp( LPCSTR pszMainClass, LPCSTR pszMainTitle )
 void SetActive( bool bActivate ) 
 { 
 	bActive = bActivate; 
+	if ( bActive )
+		CaptureMouse();
+	else
+		ReleaseMouse();
 	if ( IsWindowedMode() )
 	{
 		if ( bActive && IsIconic(hWnd) )
@@ -418,6 +454,16 @@ void SetActive( bool bActivate )
 		ShowWindow( hWnd, SW_MINIMIZE );
 	else
 		ShowWindow( hWnd, SW_RESTORE );
+}
+void CaptureMouse()
+{
+	bMouseReleased = false;
+	ApplyMouseClip();
+}
+void ReleaseMouse()
+{
+	bMouseReleased = true;
+	::ClipCursor( 0 );
 }
 void PumpMessages()
 {
@@ -435,6 +481,7 @@ void PumpMessages()
 		else
 			bExit = true;
 	}
+	ApplyMouseClip();
 }
 void ResetExit()
 {

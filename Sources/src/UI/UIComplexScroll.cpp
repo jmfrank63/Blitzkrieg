@@ -152,6 +152,15 @@ bool CUIComplexScroll::OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, 
 }
 void CUIComplexScroll::AddItem( IUIElement *pElement, const bool bResizeToFitText )
 {
+	if ( CSimpleWindow *pWindow = dynamic_cast<CSimpleWindow *>( pElement ) )
+	{
+		const CVec2 vScale = GetLayoutScale();
+		const CVec2 vElementScale = pWindow->GetLayoutScale();
+		const CVec2 vDeltaScale( vScale.x / vElementScale.x, vScale.y / vElementScale.y );
+		if ( fabs( vDeltaScale.x - 1.0f ) > 0.001f || fabs( vDeltaScale.y - 1.0f ) > 0.001f )
+			pWindow->ScaleLayout( vDeltaScale );
+	}
+
 	CTRect<float> rect;
 	GetBorderRect( &rect );
 	

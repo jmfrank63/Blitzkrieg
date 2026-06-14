@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 
 #include "SysKeys.h"
+#include "WinFrame.h"
 #ifndef LLKHF_EXTENDED
 #define LLKHF_EXTENDED       0x00000001
 #endif
@@ -47,7 +48,11 @@ LRESULT CALLBACK LowLevelKeyboardProc( INT nCode, WPARAM wParam, LPARAM lParam )
     case HC_ACTION:
       bControlKeyDown = GetAsyncKeyState( VK_CONTROL ) >> ( (sizeof(SHORT) * 8) - 1 );
       if ( (pkbhs->vkCode == VK_ESCAPE) && bControlKeyDown )
+      {
+        if ( (pkbhs->flags & LLKHF_UP) == 0 )
+          NWinFrame::ReleaseMouse();
         return 1;
+      }
       if ( (pkbhs->vkCode == VK_ESCAPE) && (pkbhs->flags & LLKHF_ALTDOWN) )
         return 1;
 			if ( (pkbhs->vkCode == VK_LWIN) || (pkbhs->vkCode == VK_RWIN) || (pkbhs->vkCode == VK_APPS) ) 
