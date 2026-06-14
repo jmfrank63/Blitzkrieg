@@ -1332,13 +1332,10 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 			BYTE *pVisInfo = 0;
 			int nNumObjects = 0;
 			pAILogic->GetMiniMapInfo( &pVisInfo, &nNumObjects );
-			if ( pMiniMap->AddWarFogData( pVisInfo, nNumObjects ) == true )
-			{
-				struct SMiniMapUnitInfo *pObjects = 0;
-				int nNumObjects = 0;
-				pAILogic->GetMiniMapInfo( &pObjects, &nNumObjects );
-				pMiniMap->AddUnitsData( pObjects, nNumObjects );
-			}
+			pMiniMap->AddWarFogData( pVisInfo, nNumObjects );
+			struct SMiniMapUnitInfo *pObjects = 0;
+			pAILogic->GetMiniMapInfo( &pObjects, &nNumObjects );
+			pMiniMap->AddUnitsData( pObjects, nNumObjects );
 			{
 				SShootAreas *pObjects = 0;
 				int nNumObjects = 0;

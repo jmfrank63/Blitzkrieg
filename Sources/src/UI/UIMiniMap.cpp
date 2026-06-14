@@ -82,10 +82,10 @@ void CUIMiniMap::CreateMiniMapTextures()
 	if ( IsInitialized() )
 	{
 		pWarFog = _pGFX->CreateTexture( GetNextPow2( terrainSize.x ), GetNextPow2( terrainSize.y ), 1, GFXPF_ARGB4444, GFXD_SYSMEM );
-		pWarFogTexture = _pGFX->CreateTexture( GetNextPow2( terrainSize.x ), GetNextPow2( terrainSize.y ), 1, GFXPF_ARGB4444, GFXD_STATIC );
+		pWarFogTexture = _pGFX->CreateTexture( GetNextPow2( terrainSize.x ), GetNextPow2( terrainSize.y ), 1, GFXPF_ARGB4444, GFXD_DYNAMIC );
 
 		pInstantObjects = _pGFX->CreateTexture( GetNextPow2( static_cast<int>( wndRect.right - wndRect.left ) ), GetNextPow2( static_cast<int>( wndRect.bottom - wndRect.top ) ), 1, GFXPF_ARGB4444, GFXD_SYSMEM );
-		pInstantObjectsTexture = _pGFX->CreateTexture( GetNextPow2( static_cast<int>(wndRect.right - wndRect.left ) ), GetNextPow2( static_cast<int>( wndRect.bottom - wndRect.top ) ), 1, GFXPF_ARGB4444, GFXD_STATIC );
+		pInstantObjectsTexture = _pGFX->CreateTexture( GetNextPow2( static_cast<int>(wndRect.right - wndRect.left ) ), GetNextPow2( static_cast<int>( wndRect.bottom - wndRect.top ) ), 1, GFXPF_ARGB4444, GFXD_DYNAMIC );
 
 		if ( pWarFog )
 		{
@@ -484,15 +484,18 @@ void CUIMiniMap::SetTerrainSize( int nXTerrainSize, int nYTerrainSize, int _nPla
 	LoadDataResource( MARKERS_TYPES_FILE_NAME, "", false, 0, MARKERS_TEXTURE_NAME, szTextureFileName );
 	pMarkerTexture = GetSingleton<ITextureManager>()->GetTexture( szTextureFileName.c_str() );
 
-	for ( int nPartyIndex = 0; nPartyIndex < nPlayersCount; ++nPartyIndex )
+	for ( int nPartyIndex = 0; nPartyIndex <= SAIConsts::MAX_NUM_OF_PLAYERS; ++nPartyIndex )
 	{
 		const DWORD dwColor = static_cast<DWORD>( GetGlobalVar(NStr::Format( "Scene.PlayerColors.Player%d", nPartyIndex ), static_cast<int>( 0x00000000 ) ) );
-		const DWORD a = 0xF000 & ( ( 0xF & ( ( dwColor & 0xFF000000 ) >> 28 ) ) << 12 );
-		const DWORD b = 0xF00 & ( ( 0xF & ( ( dwColor & 0xFF0000 ) >> 20 ) ) << 8 );
-		const DWORD g = 0xF0 & ( ( 0xF & ( ( dwColor & 0xFF00 ) >> 12 ) ) << 4 );
-		const DWORD r = 0xF & ( ( dwColor & 0xFF ) >> 4 );
-		const WORD color = a + b + g + r;
-		pPartyColors[nPartyIndex] = color;
+		if ( dwColor != 0 )
+		{
+			const DWORD a = 0xF000 & ( ( 0xF & ( ( dwColor & 0xFF000000 ) >> 28 ) ) << 12 );
+			const DWORD b = 0xF00 & ( ( 0xF & ( ( dwColor & 0xFF0000 ) >> 20 ) ) << 8 );
+			const DWORD g = 0xF0 & ( ( 0xF & ( ( dwColor & 0xFF00 ) >> 12 ) ) << 4 );
+			const DWORD r = 0xF & ( ( dwColor & 0xFF ) >> 4 );
+			const WORD color = a + b + g + r;
+			pPartyColors[nPartyIndex] = color;
+		}
 	}
 }
 
@@ -749,7 +752,7 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 
 			for( int nUnitIndex = 0; nUnitIndex < units.size() ; ++nUnitIndex )
 			{
-				if ( units[nUnitIndex].player < nPlayersCount )
+				if ( units[nUnitIndex].player <= SAIConsts::MAX_NUM_OF_PLAYERS )
 				{
 					const int nXPos = units[nUnitIndex].x;
 					const int nYPos = units[nUnitIndex].y;
