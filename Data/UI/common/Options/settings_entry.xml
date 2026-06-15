@@ -1,0 +1,236 @@
+<?xml version="1.0"?>
+<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by Alexander Veselov (NIVAL Interactive) -->
+<!-- deleted comment here -->
+<base>
+	<Element ClassTypeID="0x10001107" PositionFlag="0x0011" ElementID="-1" VisibleFlag="1" ActiveFlag="1" CurrentState="0" Background="0" TextAlign="0x0013" TextColor="0xFFFDF2DB" RedLine="0">
+		<Script>UI\common\Options\ForwardMouseClicks</Script>
+		<WindowSize x="129" y="30"/>
+		<WindowPos x="0" y="0"/>
+		<Children>
+			<item ClassTypeID="0x10001107" PositionFlag="0x0011" ActiveFlag="1" Background="0" VisibleFlag="0" ElementID="3000">
+				<Script>UI\common\Options\ForwardMouseClicks</Script>
+				<!--static. select from number of predefined items.-->
+				<Children>
+					<item ClassTypeID="0x10001105" PositionFlag="0x0011" ElementID="10003" TextAlign="0x0013" VisibleFlag="1" TextColor="0xffffffff">
+						<ShadowShift x="1" y="2"/>
+						<TextPos x="0" y="0"/>
+						<Script>UI\common\Options\ForwardMouseClicks</Script>
+						<!--value-->
+						<WindowPos x="0" y="0"/>
+						<WindowSize x="130" y="30"/>
+						<States>
+							<item>
+								<AppearanceNormal Color="-1" Specular="-16777216" TextColor="0xFFe29b00">
+									<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+									<Maps x1="439" y1="788" x2="324" y2="50"/>
+								</AppearanceNormal>
+								<AppearanceHighlighted Color="-1" Specular="-16777216" TextColor="0xfff7c01f">
+									<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+									<Maps x1="439" y1="840" x2="324" y2="50"/>
+								</AppearanceHighlighted>
+								<AppearancePushed Color="-1" Specular="-16777216" TextColor="0xFFe29b00">
+									<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+									<Maps x1="439" y1="892" x2="324" y2="50"/>
+								</AppearancePushed>
+							</item>
+						</States>
+					</item>
+				</Children>
+				<WindowPos x="0" y="0"/>
+				<WindowSize x="130" y="30"/>
+				<States>
+					<item PushSound="0" ClickSound="0">
+						<AppearanceNormal Color="-1" Specular="-16777216">
+							<Maps x1="236" y1="90" x2="20" y2="22"/>
+							<Texture>ui\intermissiontextures\Options_entry</Texture>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="-1" Specular="-16777216">
+							<Maps x1="236" y1="90" x2="20" y2="22"/>
+							<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="-1" Specular="-16777216">
+							<Maps x1="236" y1="90" x2="20" y2="22"/>
+							<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+						</AppearancePushed>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001107" PositionFlag="0x0011" ActiveFlag="1" Background="1" VisibleFlag="0" ElementID="3001">
+				<Script>UI\common\Options\ForwardMouseClicks</Script>
+				<!--slider control, select form range.-->
+				<Children>
+					<item ClassTypeID="0x10001108" ElementID="10003" PositionFlag="0x0011" Min="0" Max="100" Step="1" VisibleFlag="1" Position="0" Width="100" Vertical="0" Elevator_Width="12">
+						<ShadowShift x="1" y="2"/>
+						<Elevator_Texture>UI\IntermissionTextures\Options_entry</Elevator_Texture>
+						<Elevator_Maps x1="161" y1="0" x2="12" y2="30"/>
+						<!--slider. elevator - button on scrollbar. states - elevator background. elevator_width - how long elevator is along scrollbar; elevator maps - texture of elevator-->
+						<WindowPos x="0" y="-4"/>
+						<WindowSize x="129" y="30"/>
+						<States>
+							<item EventID="-1">
+								<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="3" y1="94" x2="129" y2="30"/>
+									<Texture>UI\IntermissionTextures\Options_entry</Texture>
+								</AppearanceNormal>
+								<AppearanceDisabled Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="3" y1="94" x2="129" y2="30"/>
+									<Texture>UI\IntermissionTextures\Options_entry</Texture>
+								</AppearanceDisabled>
+								<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="3" y1="94" x2="129" y2="30"/>
+									<Texture>UI\IntermissionTextures\Options_entry</Texture>
+								</AppearanceHighlighted>
+								<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="3" y1="94" x2="129" y2="30"/>
+									<Texture>UI\IntermissionTextures\Options_entry</Texture>
+								</AppearancePushed>
+							</item>
+						</States>
+					</item>
+				</Children>
+				<WindowPos x="0" y="0"/>
+				<WindowSize x="130" y="30"/>
+				<States>
+					<item PushSound="0" ClickSound="0"/>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001107" PositionFlag="0x0011" ActiveFlag="1" Background="1" VisibleFlag="0" ElementID="3002">
+				<Script>UI\common\Options\ForwardMouseClicks</Script>
+				<!--edit box control, LocalPlayerName text input.-->
+				<Children>
+					<item ClassTypeID="0x1000110B" ElementID="10003" PositionFlag="0x0021" ActiveFlag="1" TextAlign="0x0021" SelColor="0xff2f3120" TextColor="0xFFe29b00" LocalPlayerName="1" MaxLength="12" VisibleFlag="1">
+						<ShadowShift x="1" y="2"/>
+						<!--edit box :  input-->
+						<TextPos x="5" y="0"/>
+						<ToolTip/>
+						<WindowPos x="0" y="-4"/>
+						<States>
+							<item EventID="-1">
+								<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="3" y1="125" x2="129" y2="30"/>
+									<Texture>UI\IntermissionTextures\Options_entry</Texture>
+								</AppearanceNormal>
+								<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="3" y1="125" x2="129" y2="30"/>
+									<Texture>UI\IntermissionTextures\Options_entry</Texture>
+								</AppearanceHighlighted>
+								<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="3" y1="125" x2="129" y2="30"/>
+									<Texture>UI\IntermissionTextures\Options_entry</Texture>
+								</AppearancePushed>
+								<AppearanceDisabled Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="3" y1="125" x2="129" y2="30"/>
+									<Texture>UI\IntermissionTextures\Options_entry</Texture>
+								</AppearanceDisabled>
+								<TextKey/>
+							</item>
+						</States>
+						<WindowSize x="130" y="30"/>
+					</item>
+				</Children>
+				<WindowPos x="0" y="0"/>
+				<WindowSize x="130" y="30"/>
+				<States>
+					<item PushSound="0" ClickSound="0"/>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001107" PositionFlag="0x0011" ActiveFlag="1" Background="1" VisibleFlag="0" ElementID="3003">
+				<Script>UI\common\Options\ForwardMouseClicks</Script>
+				<!--edit box control, numeric input only-->
+				<Children>
+					<item ClassTypeID="0x1000110B" ElementID="10003" PositionFlag="0x0021" ActiveFlag="1" TextAlign="0x0021" SelColor="0xff2f3120" TextColor="0xFFe29b00" VisibleFlag="1" NumericMode="1" MaxLength="8">
+						<ShadowShift x="1" y="2"/>
+						<!--edit box :  input-->
+						<TextPos x="5" y="0"/>
+						<ToolTip/>
+						<WindowPos x="0" y="-4"/>
+						<States>
+							<item EventID="-1">
+								<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="3" y1="125" x2="129" y2="30"/>
+									<Texture>UI\IntermissionTextures\Options_entry</Texture>
+								</AppearanceNormal>
+								<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="3" y1="125" x2="129" y2="30"/>
+									<Texture>UI\IntermissionTextures\Options_entry</Texture>
+								</AppearanceHighlighted>
+								<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="3" y1="125" x2="129" y2="30"/>
+									<Texture>UI\IntermissionTextures\Options_entry</Texture>
+								</AppearancePushed>
+								<AppearanceDisabled Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="3" y1="125" x2="129" y2="30"/>
+									<Texture>UI\IntermissionTextures\Options_entry</Texture>
+								</AppearanceDisabled>
+								<TextKey/>
+							</item>
+						</States>
+						<WindowSize x="130" y="30"/>
+					</item>
+				</Children>
+				<WindowPos x="0" y="0"/>
+				<WindowSize x="130" y="30"/>
+				<States>
+					<item PushSound="0" ClickSound="0"/>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001107" PositionFlag="0x0011" ActiveFlag="1" Background="1" VisibleFlag="0" ElementID="3004">
+				<Script>UI\common\Options\ForwardMouseClicks</Script>
+				<!--edit box control, GameSpy allowed characters-->
+				<Children>
+					<item ClassTypeID="0x1000110B" ElementID="10003" PositionFlag="0x0021" ActiveFlag="1" TextAlign="0x0021" SelColor="0xff2f3120" TextColor="0xFFe29b00" VisibleFlag="1" MaxLength="12" GameSpySymbols="1">
+						<ShadowShift x="1" y="2"/>
+						<!--edit box :  input-->
+						<TextPos x="5" y="0"/>
+						<ToolTip/>
+						<WindowPos x="0" y="-4"/>
+						<WindowSize x="130" y="30"/>
+						<States>
+							<item EventID="-1">
+								<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="3" y1="125" x2="129" y2="30"/>
+									<Texture>UI\IntermissionTextures\Options_entry</Texture>
+								</AppearanceNormal>
+								<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="3" y1="125" x2="129" y2="30"/>
+									<Texture>UI\IntermissionTextures\Options_entry</Texture>
+								</AppearanceHighlighted>
+								<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="3" y1="125" x2="129" y2="30"/>
+									<Texture>UI\IntermissionTextures\Options_entry</Texture>
+								</AppearancePushed>
+								<AppearanceDisabled Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="3" y1="125" x2="129" y2="30"/>
+									<Texture>UI\IntermissionTextures\Options_entry</Texture>
+								</AppearanceDisabled>
+								<TextKey/>
+							</item>
+						</States>
+					</item>
+				</Children>
+				<WindowPos x="0" y="0"/>
+				<WindowSize x="130" y="30"/>
+				<States>
+					<item PushSound="0" ClickSound="0"/>
+				</States>
+			</item>
+		</Children>
+		<States>
+			<item EventID="-1">
+				<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xFF000000">
+					<Maps x1="236" y1="90" x2="20" y2="22"/>
+					<Texture>ui\mapping</Texture>
+				</AppearanceNormal>
+				<AppearanceHighlighted Color="0xffffffff" TextColor="0xFF000000" Specular="0xff000000">
+					<Maps x1="236" y1="90" x2="20" y2="22"/>
+					<Texture>ui\mapping</Texture>
+				</AppearanceHighlighted>
+				<AppearancePushed TextColor="0xFF000000" Color="0xffffffff" Specular="0xff000000">
+					<Maps x1="236" y1="90" x2="20" y2="22"/>
+					<Texture>ui\mapping</Texture>
+				</AppearancePushed>
+				<TextKey/>
+			</item>
+		</States>
+	</Element>
+</base>

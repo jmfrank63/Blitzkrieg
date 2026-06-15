@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>Cannon shot 6</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="25" MaxDist="45" Probability="100" Peacefull="0">
+				<SoundPath>Sounds\Weapons\heavy\cshot6</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

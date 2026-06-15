@@ -1,0 +1,114 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<!-- deleted comment here -->
+<base>
+	<Element ClassTypeID="0x10001107" PositionFlag="0x0011" ElementID="0" VisibleFlag="1" ActiveFlag="1" TextColor="0xFF000000" CurrentState="0" Background="1" TextAlign="0x0021">
+		<TextPos x="38" y="0"/>
+		<WindowPos x="0" y="60"/>
+		<WindowSize x="420" y="41"/>
+		<States>
+			<item>
+				<AppearanceNormal Color="-1" Specular="-16777216">
+					<Texture>ui\intermissiontextures\tile-unitlist</Texture>
+					<TileRects>
+						<item>
+							<rect x1="0" y1="0" x2="420" y2="41"/>
+							<size x="420" y="41"/>
+							<map x1="6" y1="114" x2="420" y2="41"/>
+						</item>
+						<item>
+							<rect x1="11" y1="8" x2="34" y2="31"/>
+							<size x="23" y="23"/>
+							<map x1="395" y1="39" x2="23" y2="23"/>
+						</item>
+					</TileRects>
+				</AppearanceNormal>
+				<AppearanceHighlighted Color="-1" Specular="-16777216">
+					<Texture>ui\intermissiontextures\tile-unitlist</Texture>
+					<TileRects>
+						<item>
+							<rect x1="0" y1="0" x2="420" y2="41"/>
+							<size x="420" y="41"/>
+							<map x1="6" y1="114" x2="420" y2="41"/>
+						</item>
+						<item>
+							<rect x1="11" y1="8" x2="34" y2="31"/>
+							<size x="23" y="23"/>
+							<map x1="395" y1="39" x2="23" y2="23"/>
+						</item>
+					</TileRects>
+				</AppearanceHighlighted>
+				<AppearancePushed Color="-1" Specular="-16777216">
+					<Texture>ui\intermissiontextures\tile-unitlist</Texture>
+					<TileRects>
+						<item>
+							<rect x1="0" y1="0" x2="420" y2="41"/>
+							<size x="420" y="41"/>
+							<map x1="6" y1="114" x2="420" y2="41"/>
+						</item>
+						<item>
+							<rect x1="11" y1="8" x2="34" y2="31"/>
+							<size x="23" y="23"/>
+							<map x1="395" y1="39" x2="23" y2="23"/>
+						</item>
+					</TileRects>
+				</AppearancePushed>
+				<TextKey>medal</TextKey>
+			</item>
+			<item>
+				<AppearanceNormal Color="-1" Specular="-16777216">
+					<Texture>ui\intermissiontextures\tile-unitlist</Texture>
+					<TileRects>
+						<item>
+							<rect x1="0" y1="0" x2="420" y2="41"/>
+							<size x="420" y="41"/>
+							<map x1="6" y1="114" x2="420" y2="41"/>
+						</item>
+						<item>
+							<rect x1="11" y1="17" x2="34" y2="22"/>
+							<size x="23" y="5"/>
+							<map x1="395" y1="65" x2="23" y2="5"/>
+						</item>
+					</TileRects>
+				</AppearanceNormal>
+				<AppearanceHighlighted Color="-1" Specular="-16777216">
+					<Texture>ui\intermissiontextures\tile-unitlist</Texture>
+					<TileRects>
+						<item>
+							<rect x1="0" y1="0" x2="420" y2="41"/>
+							<size x="420" y="41"/>
+							<map x1="6" y1="114" x2="420" y2="41"/>
+						</item>
+						<item>
+							<rect x1="11" y1="17" x2="34" y2="22"/>
+							<size x="23" y="5"/>
+							<map x1="395" y1="65" x2="23" y2="5"/>
+						</item>
+					</TileRects>
+				</AppearanceHighlighted>
+				<AppearancePushed Color="-1" Specular="-16777216">
+					<Texture>ui\intermissiontextures\tile-unitlist</Texture>
+					<TileRects>
+						<item>
+							<rect x1="0" y1="0" x2="420" y2="41"/>
+							<size x="420" y="41"/>
+							<map x1="6" y1="114" x2="420" y2="41"/>
+						</item>
+						<item>
+							<rect x1="11" y1="17" x2="34" y2="22"/>
+							<size x="23" y="5"/>
+							<map x1="395" y1="65" x2="23" y2="5"/>
+						</item>
+					</TileRects>
+				</AppearancePushed>
+				<TextKey>medal</TextKey>
+			</item>
+		</States>
+		<Children>
+			<item ClassTypeID="0x10001105" ElementID="11" PositionFlag="0x0021" VisibleFlag="0">
+				<WindowPos x="33" y="8"/>
+				<WindowSize x="22" y="22"/>
+			</item>
+		</Children>
+	</Element>
+</base>

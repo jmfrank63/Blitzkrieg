@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<Element ClassTypeID="0x10001105" ElementID="20000" PositionFlag="0x0011" ActiveFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xff000000" Background="0">
+		<!--Skill name-->
+		<TextPos x="0" y="0"/>
+		<WindowPos x="0" y="0"/>
+		<WindowSize x="200" y="30"/>
+		<States>
+			<item>
+				<AppearanceNormal Color="-1" Specular="-16777216">
+					<Texture/>
+					<Maps x1="0" y1="768" x2="1000" y2="144"/>
+				</AppearanceNormal>
+				<AppearanceHighlighted Color="-1" Specular="-16777216">
+					<Texture/>
+					<Maps x1="0" y1="768" x2="1000" y2="144"/>
+				</AppearanceHighlighted>
+				<AppearancePushed Color="-1" Specular="-16777216">
+					<Texture/>
+					<Maps x1="0" y1="768" x2="1000" y2="144"/>
+				</AppearancePushed>
+				<PushSound/>
+				<ClickSound/>
+				<TextKey/>
+			</item>
+		</States>
+	</Element>
+</base>

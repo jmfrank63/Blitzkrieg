@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<!-- edited with XML Spy v3.5 NT (http://www.xmlspy.com) by Vinny (Nival) -->
+<!-- deleted comment here -->
+<base>
+	<VSODescription SoilParams="0" Type="1" Priority="6" Passability="1" AIClasses="0">
+		<MiniMapCenterColor>00000000</MiniMapCenterColor>
+		<MiniMapBorderColor>6C4D0BFF</MiniMapBorderColor>
+		<AmbientSound>Amb_Water_circle</AmbientSound>
+		<Bottom OpacityCenter="0" OpacityBorder="0" StreamSpeed="0" TextureStep="0.1" NumCells="4" Animated="0" Disturbance="0.3" RelWidth="1">
+			<Texture>water\bottom</Texture>
+		</Bottom>
+		<BottomBorders/>
+		<Layers>
+			<item OpacityCenter="255" OpacityBorder="0" StreamSpeed="0" TextureStep="0.1" NumCells="3" Animated="0" Disturbance="0.3" RelWidth="1">
+				<Texture>water\water</Texture>
+			</item>
+			<item OpacityCenter="128" OpacityBorder="0" StreamSpeed="0" TextureStep="0.1" NumCells="2" Animated="0" Disturbance="0.3" RelWidth="1">
+				<Texture>water\water</Texture>
+			</item>
+			<item OpacityCenter="128" OpacityBorder="0" StreamSpeed="0" TextureStep="0.4" NumCells="3" Animated="1" Disturbance="0.3" RelWidth="1">
+				<Texture>water\blick\</Texture>
+			</item>
+		</Layers>
+	</VSODescription>
+</base>

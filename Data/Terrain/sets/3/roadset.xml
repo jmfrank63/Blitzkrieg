@@ -1,0 +1,1324 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<roadset>
+		<roads>
+			<item priority="1">
+				<name>Grunt Road</name>
+				<roadtiles>
+					<item>
+						<tiles>
+							<item index="9" probability="25"/>
+							<item index="31" probability="25"/>
+							<item index="34" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="27" probability="25"/>
+							<item index="38" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="24" probability="25"/>
+							<item index="37" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="8" probability="25"/>
+							<item index="32" probability="25"/>
+							<item index="33" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="25" probability="25"/>
+							<item index="36" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="21" probability="25"/>
+							<item index="35" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="28" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="26" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="30" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="29" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="12" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="0" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="3" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="11" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="13" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="15" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="16" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="5" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="19" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="18" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="14" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="22" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="6" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="2" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="10" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="4" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="1" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="7" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="20" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="17" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="23" probability="25"/>
+						</tiles>
+					</item>
+				</roadtiles>
+			</item>
+			<item priority="2">
+				<name>City Asphalt</name>
+				<roadtiles>
+					<item>
+						<tiles>
+							<item index="9" probability="25"/>
+							<item index="31" probability="25"/>
+							<item index="34" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="27" probability="25"/>
+							<item index="38" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="24" probability="25"/>
+							<item index="37" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="8" probability="25"/>
+							<item index="32" probability="25"/>
+							<item index="33" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="25" probability="25"/>
+							<item index="36" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="21" probability="25"/>
+							<item index="35" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="28" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="26" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="30" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="29" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="12" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="0" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="3" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="11" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="13" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="15" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="16" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="5" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="19" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="18" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="14" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="22" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="6" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="2" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="10" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="4" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="1" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="7" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="20" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="17" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="23" probability="25"/>
+						</tiles>
+					</item>
+				</roadtiles>
+			</item>
+			<item priority="3">
+				<name>RailRoad</name>
+				<roadtiles>
+					<item>
+						<tiles>
+							<item index="9" probability="25"/>
+							<item index="31" probability="25"/>
+							<item index="34" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="27" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="24" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="8" probability="25"/>
+							<item index="32" probability="25"/>
+							<item index="33" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="25" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="21" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="28" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="26" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="30" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="29" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="12" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="0" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="3" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="11" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="13" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="15" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="16" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="5" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="19" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="18" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="14" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="22" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="6" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="2" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="10" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="4" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="1" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="7" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="20" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="17" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="23" probability="25"/>
+						</tiles>
+					</item>
+				</roadtiles>
+			</item>
+			<item priority="4">
+				<name>road 3</name>
+				<roadtiles>
+					<item>
+						<tiles>
+							<item index="9" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="27" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="24" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="8" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="25" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="21" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="28" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="26" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="30" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="29" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="12" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="0" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="3" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="11" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="13" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="15" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="16" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="5" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="19" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="18" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="14" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="22" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="6" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="2" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="10" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="4" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="1" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="7" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="20" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="17" probability="25"/>
+						</tiles>
+					</item>
+					<item>
+						<tiles>
+							<item index="23" probability="25"/>
+						</tiles>
+					</item>
+				</roadtiles>
+			</item>
+		</roads>
+		<tilemaps>
+			<item>
+				<maps0 x="0.126953125" y="0.0009765625"/>
+				<maps1 x="0.251953125" y="0.0322265625"/>
+				<maps2 x="0.001953125" y="0.0322265625"/>
+				<maps3 x="0.126953125" y="0.0634765625"/>
+			</item>
+			<item>
+				<maps0 x="0.376953125" y="0.0009765625"/>
+				<maps1 x="0.501953125" y="0.0322265625"/>
+				<maps2 x="0.251953125" y="0.0322265625"/>
+				<maps3 x="0.376953125" y="0.0634765625"/>
+			</item>
+			<item>
+				<maps0 x="0.626953125" y="0.0009765625"/>
+				<maps1 x="0.751953125" y="0.0322265625"/>
+				<maps2 x="0.501953125" y="0.0322265625"/>
+				<maps3 x="0.626953125" y="0.0634765625"/>
+			</item>
+			<item>
+				<maps0 x="0.876953125" y="0.0009765625"/>
+				<maps1 x="1.001953125" y="0.0322265625"/>
+				<maps2 x="0.751953125" y="0.0322265625"/>
+				<maps3 x="0.876953125" y="0.0634765625"/>
+			</item>
+			<item>
+				<maps0 x="0.251953125" y="0.0322265625"/>
+				<maps1 x="0.376953125" y="0.0634765625"/>
+				<maps2 x="0.126953125" y="0.0634765625"/>
+				<maps3 x="0.251953125" y="0.0947265625"/>
+			</item>
+			<item>
+				<maps0 x="0.501953125" y="0.0322265625"/>
+				<maps1 x="0.626953125" y="0.0634765625"/>
+				<maps2 x="0.376953125" y="0.0634765625"/>
+				<maps3 x="0.501953125" y="0.0947265625"/>
+			</item>
+			<item>
+				<maps0 x="0.751953125" y="0.0322265625"/>
+				<maps1 x="0.876953125" y="0.0634765625"/>
+				<maps2 x="0.626953125" y="0.0634765625"/>
+				<maps3 x="0.751953125" y="0.0947265625"/>
+			</item>
+			<item>
+				<maps0 x="0.126953125" y="0.0634765625"/>
+				<maps1 x="0.251953125" y="0.0947265625"/>
+				<maps2 x="0.001953125" y="0.0947265625"/>
+				<maps3 x="0.126953125" y="0.1259765625"/>
+			</item>
+			<item>
+				<maps0 x="0.376953125" y="0.0634765625"/>
+				<maps1 x="0.501953125" y="0.0947265625"/>
+				<maps2 x="0.251953125" y="0.0947265625"/>
+				<maps3 x="0.376953125" y="0.1259765625"/>
+			</item>
+			<item>
+				<maps0 x="0.626953125" y="0.0634765625"/>
+				<maps1 x="0.751953125" y="0.0947265625"/>
+				<maps2 x="0.501953125" y="0.0947265625"/>
+				<maps3 x="0.626953125" y="0.1259765625"/>
+			</item>
+			<item>
+				<maps0 x="0.876953125" y="0.0634765625"/>
+				<maps1 x="1.001953125" y="0.0947265625"/>
+				<maps2 x="0.751953125" y="0.0947265625"/>
+				<maps3 x="0.876953125" y="0.1259765625"/>
+			</item>
+			<item>
+				<maps0 x="0.251953125" y="0.0947265625"/>
+				<maps1 x="0.376953125" y="0.1259765625"/>
+				<maps2 x="0.126953125" y="0.1259765625"/>
+				<maps3 x="0.251953125" y="0.1572265625"/>
+			</item>
+			<item>
+				<maps0 x="0.501953125" y="0.0947265625"/>
+				<maps1 x="0.626953125" y="0.1259765625"/>
+				<maps2 x="0.376953125" y="0.1259765625"/>
+				<maps3 x="0.501953125" y="0.1572265625"/>
+			</item>
+			<item>
+				<maps0 x="0.751953125" y="0.0947265625"/>
+				<maps1 x="0.876953125" y="0.1259765625"/>
+				<maps2 x="0.626953125" y="0.1259765625"/>
+				<maps3 x="0.751953125" y="0.1572265625"/>
+			</item>
+			<item>
+				<maps0 x="0.126953125" y="0.1259765625"/>
+				<maps1 x="0.251953125" y="0.1572265625"/>
+				<maps2 x="0.001953125" y="0.1572265625"/>
+				<maps3 x="0.126953125" y="0.1884765625"/>
+			</item>
+			<item>
+				<maps0 x="0.376953125" y="0.1259765625"/>
+				<maps1 x="0.501953125" y="0.1572265625"/>
+				<maps2 x="0.251953125" y="0.1572265625"/>
+				<maps3 x="0.376953125" y="0.1884765625"/>
+			</item>
+			<item>
+				<maps0 x="0.626953125" y="0.1259765625"/>
+				<maps1 x="0.751953125" y="0.1572265625"/>
+				<maps2 x="0.501953125" y="0.1572265625"/>
+				<maps3 x="0.626953125" y="0.1884765625"/>
+			</item>
+			<item>
+				<maps0 x="0.876953125" y="0.1259765625"/>
+				<maps1 x="1.001953125" y="0.1572265625"/>
+				<maps2 x="0.751953125" y="0.1572265625"/>
+				<maps3 x="0.876953125" y="0.1884765625"/>
+			</item>
+			<item>
+				<maps0 x="0.251953125" y="0.1572265625"/>
+				<maps1 x="0.376953125" y="0.1884765625"/>
+				<maps2 x="0.126953125" y="0.1884765625"/>
+				<maps3 x="0.251953125" y="0.2197265625"/>
+			</item>
+			<item>
+				<maps0 x="0.501953125" y="0.1572265625"/>
+				<maps1 x="0.626953125" y="0.1884765625"/>
+				<maps2 x="0.376953125" y="0.1884765625"/>
+				<maps3 x="0.501953125" y="0.2197265625"/>
+			</item>
+			<item>
+				<maps0 x="0.751953125" y="0.1572265625"/>
+				<maps1 x="0.876953125" y="0.1884765625"/>
+				<maps2 x="0.626953125" y="0.1884765625"/>
+				<maps3 x="0.751953125" y="0.2197265625"/>
+			</item>
+			<item>
+				<maps0 x="0.126953125" y="0.1884765625"/>
+				<maps1 x="0.251953125" y="0.2197265625"/>
+				<maps2 x="0.001953125" y="0.2197265625"/>
+				<maps3 x="0.126953125" y="0.2509765625"/>
+			</item>
+			<item>
+				<maps0 x="0.376953125" y="0.1884765625"/>
+				<maps1 x="0.501953125" y="0.2197265625"/>
+				<maps2 x="0.251953125" y="0.2197265625"/>
+				<maps3 x="0.376953125" y="0.2509765625"/>
+			</item>
+			<item>
+				<maps0 x="0.626953125" y="0.1884765625"/>
+				<maps1 x="0.751953125" y="0.2197265625"/>
+				<maps2 x="0.501953125" y="0.2197265625"/>
+				<maps3 x="0.626953125" y="0.2509765625"/>
+			</item>
+			<item>
+				<maps0 x="0.876953125" y="0.1884765625"/>
+				<maps1 x="1.001953125" y="0.2197265625"/>
+				<maps2 x="0.751953125" y="0.2197265625"/>
+				<maps3 x="0.876953125" y="0.2509765625"/>
+			</item>
+			<item>
+				<maps0 x="0.251953125" y="0.2197265625"/>
+				<maps1 x="0.376953125" y="0.2509765625"/>
+				<maps2 x="0.126953125" y="0.2509765625"/>
+				<maps3 x="0.251953125" y="0.2822265625"/>
+			</item>
+			<item>
+				<maps0 x="0.501953125" y="0.2197265625"/>
+				<maps1 x="0.626953125" y="0.2509765625"/>
+				<maps2 x="0.376953125" y="0.2509765625"/>
+				<maps3 x="0.501953125" y="0.2822265625"/>
+			</item>
+			<item>
+				<maps0 x="0.751953125" y="0.2197265625"/>
+				<maps1 x="0.876953125" y="0.2509765625"/>
+				<maps2 x="0.626953125" y="0.2509765625"/>
+				<maps3 x="0.751953125" y="0.2822265625"/>
+			</item>
+			<item>
+				<maps0 x="0.126953125" y="0.2509765625"/>
+				<maps1 x="0.251953125" y="0.2822265625"/>
+				<maps2 x="0.001953125" y="0.2822265625"/>
+				<maps3 x="0.126953125" y="0.3134765625"/>
+			</item>
+			<item>
+				<maps0 x="0.376953125" y="0.2509765625"/>
+				<maps1 x="0.501953125" y="0.2822265625"/>
+				<maps2 x="0.251953125" y="0.2822265625"/>
+				<maps3 x="0.376953125" y="0.3134765625"/>
+			</item>
+			<item>
+				<maps0 x="0.626953125" y="0.2509765625"/>
+				<maps1 x="0.751953125" y="0.2822265625"/>
+				<maps2 x="0.501953125" y="0.2822265625"/>
+				<maps3 x="0.626953125" y="0.3134765625"/>
+			</item>
+			<item>
+				<maps0 x="0.876953125" y="0.2509765625"/>
+				<maps1 x="1.001953125" y="0.2822265625"/>
+				<maps2 x="0.751953125" y="0.2822265625"/>
+				<maps3 x="0.876953125" y="0.3134765625"/>
+			</item>
+			<item>
+				<maps0 x="0.251953125" y="0.2822265625"/>
+				<maps1 x="0.376953125" y="0.3134765625"/>
+				<maps2 x="0.126953125" y="0.3134765625"/>
+				<maps3 x="0.251953125" y="0.3447265625"/>
+			</item>
+			<item>
+				<maps0 x="0.501953125" y="0.2822265625"/>
+				<maps1 x="0.626953125" y="0.3134765625"/>
+				<maps2 x="0.376953125" y="0.3134765625"/>
+				<maps3 x="0.501953125" y="0.3447265625"/>
+			</item>
+			<item>
+				<maps0 x="0.751953125" y="0.2822265625"/>
+				<maps1 x="0.876953125" y="0.3134765625"/>
+				<maps2 x="0.626953125" y="0.3134765625"/>
+				<maps3 x="0.751953125" y="0.3447265625"/>
+			</item>
+			<item>
+				<maps0 x="0.126953125" y="0.3134765625"/>
+				<maps1 x="0.251953125" y="0.3447265625"/>
+				<maps2 x="0.001953125" y="0.3447265625"/>
+				<maps3 x="0.126953125" y="0.3759765625"/>
+			</item>
+			<item>
+				<maps0 x="0.376953125" y="0.3134765625"/>
+				<maps1 x="0.501953125" y="0.3447265625"/>
+				<maps2 x="0.251953125" y="0.3447265625"/>
+				<maps3 x="0.376953125" y="0.3759765625"/>
+			</item>
+			<item>
+				<maps0 x="0.626953125" y="0.3134765625"/>
+				<maps1 x="0.751953125" y="0.3447265625"/>
+				<maps2 x="0.501953125" y="0.3447265625"/>
+				<maps3 x="0.626953125" y="0.3759765625"/>
+			</item>
+			<item>
+				<maps0 x="0.876953125" y="0.3134765625"/>
+				<maps1 x="1.001953125" y="0.3447265625"/>
+				<maps2 x="0.751953125" y="0.3447265625"/>
+				<maps3 x="0.876953125" y="0.3759765625"/>
+			</item>
+			<item>
+				<maps0 x="0.251953125" y="0.3447265625"/>
+				<maps1 x="0.376953125" y="0.3759765625"/>
+				<maps2 x="0.126953125" y="0.3759765625"/>
+				<maps3 x="0.251953125" y="0.4072265625"/>
+			</item>
+			<item>
+				<maps0 x="0.501953125" y="0.3447265625"/>
+				<maps1 x="0.626953125" y="0.3759765625"/>
+				<maps2 x="0.376953125" y="0.3759765625"/>
+				<maps3 x="0.501953125" y="0.4072265625"/>
+			</item>
+			<item>
+				<maps0 x="0.751953125" y="0.3447265625"/>
+				<maps1 x="0.876953125" y="0.3759765625"/>
+				<maps2 x="0.626953125" y="0.3759765625"/>
+				<maps3 x="0.751953125" y="0.4072265625"/>
+			</item>
+			<item>
+				<maps0 x="0.126953125" y="0.3759765625"/>
+				<maps1 x="0.251953125" y="0.4072265625"/>
+				<maps2 x="0.001953125" y="0.4072265625"/>
+				<maps3 x="0.126953125" y="0.4384765625"/>
+			</item>
+			<item>
+				<maps0 x="0.376953125" y="0.3759765625"/>
+				<maps1 x="0.501953125" y="0.4072265625"/>
+				<maps2 x="0.251953125" y="0.4072265625"/>
+				<maps3 x="0.376953125" y="0.4384765625"/>
+			</item>
+			<item>
+				<maps0 x="0.626953125" y="0.3759765625"/>
+				<maps1 x="0.751953125" y="0.4072265625"/>
+				<maps2 x="0.501953125" y="0.4072265625"/>
+				<maps3 x="0.626953125" y="0.4384765625"/>
+			</item>
+			<item>
+				<maps0 x="0.876953125" y="0.3759765625"/>
+				<maps1 x="1.001953125" y="0.4072265625"/>
+				<maps2 x="0.751953125" y="0.4072265625"/>
+				<maps3 x="0.876953125" y="0.4384765625"/>
+			</item>
+			<item>
+				<maps0 x="0.251953125" y="0.4072265625"/>
+				<maps1 x="0.376953125" y="0.4384765625"/>
+				<maps2 x="0.126953125" y="0.4384765625"/>
+				<maps3 x="0.251953125" y="0.4697265625"/>
+			</item>
+			<item>
+				<maps0 x="0.501953125" y="0.4072265625"/>
+				<maps1 x="0.626953125" y="0.4384765625"/>
+				<maps2 x="0.376953125" y="0.4384765625"/>
+				<maps3 x="0.501953125" y="0.4697265625"/>
+			</item>
+			<item>
+				<maps0 x="0.751953125" y="0.4072265625"/>
+				<maps1 x="0.876953125" y="0.4384765625"/>
+				<maps2 x="0.626953125" y="0.4384765625"/>
+				<maps3 x="0.751953125" y="0.4697265625"/>
+			</item>
+			<item>
+				<maps0 x="0.126953125" y="0.4384765625"/>
+				<maps1 x="0.251953125" y="0.4697265625"/>
+				<maps2 x="0.001953125" y="0.4697265625"/>
+				<maps3 x="0.126953125" y="0.5009765625"/>
+			</item>
+			<item>
+				<maps0 x="0.376953125" y="0.4384765625"/>
+				<maps1 x="0.501953125" y="0.4697265625"/>
+				<maps2 x="0.251953125" y="0.4697265625"/>
+				<maps3 x="0.376953125" y="0.5009765625"/>
+			</item>
+			<item>
+				<maps0 x="0.626953125" y="0.4384765625"/>
+				<maps1 x="0.751953125" y="0.4697265625"/>
+				<maps2 x="0.501953125" y="0.4697265625"/>
+				<maps3 x="0.626953125" y="0.5009765625"/>
+			</item>
+			<item>
+				<maps0 x="0.876953125" y="0.4384765625"/>
+				<maps1 x="1.001953125" y="0.4697265625"/>
+				<maps2 x="0.751953125" y="0.4697265625"/>
+				<maps3 x="0.876953125" y="0.5009765625"/>
+			</item>
+			<item>
+				<maps0 x="0.251953125" y="0.4697265625"/>
+				<maps1 x="0.376953125" y="0.5009765625"/>
+				<maps2 x="0.126953125" y="0.5009765625"/>
+				<maps3 x="0.251953125" y="0.5322265625"/>
+			</item>
+			<item>
+				<maps0 x="0.501953125" y="0.4697265625"/>
+				<maps1 x="0.626953125" y="0.5009765625"/>
+				<maps2 x="0.376953125" y="0.5009765625"/>
+				<maps3 x="0.501953125" y="0.5322265625"/>
+			</item>
+			<item>
+				<maps0 x="0.751953125" y="0.4697265625"/>
+				<maps1 x="0.876953125" y="0.5009765625"/>
+				<maps2 x="0.626953125" y="0.5009765625"/>
+				<maps3 x="0.751953125" y="0.5322265625"/>
+			</item>
+			<item>
+				<maps0 x="0.126953125" y="0.5009765625"/>
+				<maps1 x="0.251953125" y="0.5322265625"/>
+				<maps2 x="0.001953125" y="0.5322265625"/>
+				<maps3 x="0.126953125" y="0.5634765625"/>
+			</item>
+			<item>
+				<maps0 x="0.376953125" y="0.5009765625"/>
+				<maps1 x="0.501953125" y="0.5322265625"/>
+				<maps2 x="0.251953125" y="0.5322265625"/>
+				<maps3 x="0.376953125" y="0.5634765625"/>
+			</item>
+			<item>
+				<maps0 x="0.626953125" y="0.5009765625"/>
+				<maps1 x="0.751953125" y="0.5322265625"/>
+				<maps2 x="0.501953125" y="0.5322265625"/>
+				<maps3 x="0.626953125" y="0.5634765625"/>
+			</item>
+			<item>
+				<maps0 x="0.876953125" y="0.5009765625"/>
+				<maps1 x="1.001953125" y="0.5322265625"/>
+				<maps2 x="0.751953125" y="0.5322265625"/>
+				<maps3 x="0.876953125" y="0.5634765625"/>
+			</item>
+			<item>
+				<maps0 x="0.251953125" y="0.5322265625"/>
+				<maps1 x="0.376953125" y="0.5634765625"/>
+				<maps2 x="0.126953125" y="0.5634765625"/>
+				<maps3 x="0.251953125" y="0.5947265625"/>
+			</item>
+			<item>
+				<maps0 x="0.501953125" y="0.5322265625"/>
+				<maps1 x="0.626953125" y="0.5634765625"/>
+				<maps2 x="0.376953125" y="0.5634765625"/>
+				<maps3 x="0.501953125" y="0.5947265625"/>
+			</item>
+			<item>
+				<maps0 x="0.751953125" y="0.5322265625"/>
+				<maps1 x="0.876953125" y="0.5634765625"/>
+				<maps2 x="0.626953125" y="0.5634765625"/>
+				<maps3 x="0.751953125" y="0.5947265625"/>
+			</item>
+			<item>
+				<maps0 x="0.126953125" y="0.5634765625"/>
+				<maps1 x="0.251953125" y="0.5947265625"/>
+				<maps2 x="0.001953125" y="0.5947265625"/>
+				<maps3 x="0.126953125" y="0.6259765625"/>
+			</item>
+			<item>
+				<maps0 x="0.376953125" y="0.5634765625"/>
+				<maps1 x="0.501953125" y="0.5947265625"/>
+				<maps2 x="0.251953125" y="0.5947265625"/>
+				<maps3 x="0.376953125" y="0.6259765625"/>
+			</item>
+			<item>
+				<maps0 x="0.626953125" y="0.5634765625"/>
+				<maps1 x="0.751953125" y="0.5947265625"/>
+				<maps2 x="0.501953125" y="0.5947265625"/>
+				<maps3 x="0.626953125" y="0.6259765625"/>
+			</item>
+			<item>
+				<maps0 x="0.876953125" y="0.5634765625"/>
+				<maps1 x="1.001953125" y="0.5947265625"/>
+				<maps2 x="0.751953125" y="0.5947265625"/>
+				<maps3 x="0.876953125" y="0.6259765625"/>
+			</item>
+			<item>
+				<maps0 x="0.251953125" y="0.5947265625"/>
+				<maps1 x="0.376953125" y="0.6259765625"/>
+				<maps2 x="0.126953125" y="0.6259765625"/>
+				<maps3 x="0.251953125" y="0.6572265625"/>
+			</item>
+			<item>
+				<maps0 x="0.501953125" y="0.5947265625"/>
+				<maps1 x="0.626953125" y="0.6259765625"/>
+				<maps2 x="0.376953125" y="0.6259765625"/>
+				<maps3 x="0.501953125" y="0.6572265625"/>
+			</item>
+			<item>
+				<maps0 x="0.751953125" y="0.5947265625"/>
+				<maps1 x="0.876953125" y="0.6259765625"/>
+				<maps2 x="0.626953125" y="0.6259765625"/>
+				<maps3 x="0.751953125" y="0.6572265625"/>
+			</item>
+			<item>
+				<maps0 x="0.126953125" y="0.6259765625"/>
+				<maps1 x="0.251953125" y="0.6572265625"/>
+				<maps2 x="0.001953125" y="0.6572265625"/>
+				<maps3 x="0.126953125" y="0.6884765625"/>
+			</item>
+			<item>
+				<maps0 x="0.376953125" y="0.6259765625"/>
+				<maps1 x="0.501953125" y="0.6572265625"/>
+				<maps2 x="0.251953125" y="0.6572265625"/>
+				<maps3 x="0.376953125" y="0.6884765625"/>
+			</item>
+			<item>
+				<maps0 x="0.626953125" y="0.6259765625"/>
+				<maps1 x="0.751953125" y="0.6572265625"/>
+				<maps2 x="0.501953125" y="0.6572265625"/>
+				<maps3 x="0.626953125" y="0.6884765625"/>
+			</item>
+			<item>
+				<maps0 x="0.876953125" y="0.6259765625"/>
+				<maps1 x="1.001953125" y="0.6572265625"/>
+				<maps2 x="0.751953125" y="0.6572265625"/>
+				<maps3 x="0.876953125" y="0.6884765625"/>
+			</item>
+			<item>
+				<maps0 x="0.251953125" y="0.6572265625"/>
+				<maps1 x="0.376953125" y="0.6884765625"/>
+				<maps2 x="0.126953125" y="0.6884765625"/>
+				<maps3 x="0.251953125" y="0.7197265625"/>
+			</item>
+			<item>
+				<maps0 x="0.501953125" y="0.6572265625"/>
+				<maps1 x="0.626953125" y="0.6884765625"/>
+				<maps2 x="0.376953125" y="0.6884765625"/>
+				<maps3 x="0.501953125" y="0.7197265625"/>
+			</item>
+			<item>
+				<maps0 x="0.751953125" y="0.6572265625"/>
+				<maps1 x="0.876953125" y="0.6884765625"/>
+				<maps2 x="0.626953125" y="0.6884765625"/>
+				<maps3 x="0.751953125" y="0.7197265625"/>
+			</item>
+			<item>
+				<maps0 x="0.126953125" y="0.6884765625"/>
+				<maps1 x="0.251953125" y="0.7197265625"/>
+				<maps2 x="0.001953125" y="0.7197265625"/>
+				<maps3 x="0.126953125" y="0.7509765625"/>
+			</item>
+			<item>
+				<maps0 x="0.376953125" y="0.6884765625"/>
+				<maps1 x="0.501953125" y="0.7197265625"/>
+				<maps2 x="0.251953125" y="0.7197265625"/>
+				<maps3 x="0.376953125" y="0.7509765625"/>
+			</item>
+			<item>
+				<maps0 x="0.626953125" y="0.6884765625"/>
+				<maps1 x="0.751953125" y="0.7197265625"/>
+				<maps2 x="0.501953125" y="0.7197265625"/>
+				<maps3 x="0.626953125" y="0.7509765625"/>
+			</item>
+			<item>
+				<maps0 x="0.876953125" y="0.6884765625"/>
+				<maps1 x="1.001953125" y="0.7197265625"/>
+				<maps2 x="0.751953125" y="0.7197265625"/>
+				<maps3 x="0.876953125" y="0.7509765625"/>
+			</item>
+			<item>
+				<maps0 x="0.251953125" y="0.7197265625"/>
+				<maps1 x="0.376953125" y="0.7509765625"/>
+				<maps2 x="0.126953125" y="0.7509765625"/>
+				<maps3 x="0.251953125" y="0.7822265625"/>
+			</item>
+			<item>
+				<maps0 x="0.501953125" y="0.7197265625"/>
+				<maps1 x="0.626953125" y="0.7509765625"/>
+				<maps2 x="0.376953125" y="0.7509765625"/>
+				<maps3 x="0.501953125" y="0.7822265625"/>
+			</item>
+			<item>
+				<maps0 x="0.751953125" y="0.7197265625"/>
+				<maps1 x="0.876953125" y="0.7509765625"/>
+				<maps2 x="0.626953125" y="0.7509765625"/>
+				<maps3 x="0.751953125" y="0.7822265625"/>
+			</item>
+			<item>
+				<maps0 x="0.126953125" y="0.7509765625"/>
+				<maps1 x="0.251953125" y="0.7822265625"/>
+				<maps2 x="0.001953125" y="0.7822265625"/>
+				<maps3 x="0.126953125" y="0.8134765625"/>
+			</item>
+			<item>
+				<maps0 x="0.376953125" y="0.7509765625"/>
+				<maps1 x="0.501953125" y="0.7822265625"/>
+				<maps2 x="0.251953125" y="0.7822265625"/>
+				<maps3 x="0.376953125" y="0.8134765625"/>
+			</item>
+			<item>
+				<maps0 x="0.626953125" y="0.7509765625"/>
+				<maps1 x="0.751953125" y="0.7822265625"/>
+				<maps2 x="0.501953125" y="0.7822265625"/>
+				<maps3 x="0.626953125" y="0.8134765625"/>
+			</item>
+			<item>
+				<maps0 x="0.876953125" y="0.7509765625"/>
+				<maps1 x="1.001953125" y="0.7822265625"/>
+				<maps2 x="0.751953125" y="0.7822265625"/>
+				<maps3 x="0.876953125" y="0.8134765625"/>
+			</item>
+			<item>
+				<maps0 x="0.251953125" y="0.7822265625"/>
+				<maps1 x="0.376953125" y="0.8134765625"/>
+				<maps2 x="0.126953125" y="0.8134765625"/>
+				<maps3 x="0.251953125" y="0.8447265625"/>
+			</item>
+			<item>
+				<maps0 x="0.501953125" y="0.7822265625"/>
+				<maps1 x="0.626953125" y="0.8134765625"/>
+				<maps2 x="0.376953125" y="0.8134765625"/>
+				<maps3 x="0.501953125" y="0.8447265625"/>
+			</item>
+			<item>
+				<maps0 x="0.751953125" y="0.7822265625"/>
+				<maps1 x="0.876953125" y="0.8134765625"/>
+				<maps2 x="0.626953125" y="0.8134765625"/>
+				<maps3 x="0.751953125" y="0.8447265625"/>
+			</item>
+			<item>
+				<maps0 x="0.126953125" y="0.8134765625"/>
+				<maps1 x="0.251953125" y="0.8447265625"/>
+				<maps2 x="0.001953125" y="0.8447265625"/>
+				<maps3 x="0.126953125" y="0.8759765625"/>
+			</item>
+			<item>
+				<maps0 x="0.376953125" y="0.8134765625"/>
+				<maps1 x="0.501953125" y="0.8447265625"/>
+				<maps2 x="0.251953125" y="0.8447265625"/>
+				<maps3 x="0.376953125" y="0.8759765625"/>
+			</item>
+			<item>
+				<maps0 x="0.626953125" y="0.8134765625"/>
+				<maps1 x="0.751953125" y="0.8447265625"/>
+				<maps2 x="0.501953125" y="0.8447265625"/>
+				<maps3 x="0.626953125" y="0.8759765625"/>
+			</item>
+			<item>
+				<maps0 x="0.876953125" y="0.8134765625"/>
+				<maps1 x="1.001953125" y="0.8447265625"/>
+				<maps2 x="0.751953125" y="0.8447265625"/>
+				<maps3 x="0.876953125" y="0.8759765625"/>
+			</item>
+			<item>
+				<maps0 x="0.251953125" y="0.8447265625"/>
+				<maps1 x="0.376953125" y="0.8759765625"/>
+				<maps2 x="0.126953125" y="0.8759765625"/>
+				<maps3 x="0.251953125" y="0.9072265625"/>
+			</item>
+			<item>
+				<maps0 x="0.501953125" y="0.8447265625"/>
+				<maps1 x="0.626953125" y="0.8759765625"/>
+				<maps2 x="0.376953125" y="0.8759765625"/>
+				<maps3 x="0.501953125" y="0.9072265625"/>
+			</item>
+			<item>
+				<maps0 x="0.751953125" y="0.8447265625"/>
+				<maps1 x="0.876953125" y="0.8759765625"/>
+				<maps2 x="0.626953125" y="0.8759765625"/>
+				<maps3 x="0.751953125" y="0.9072265625"/>
+			</item>
+			<item>
+				<maps0 x="0.126953125" y="0.8759765625"/>
+				<maps1 x="0.251953125" y="0.9072265625"/>
+				<maps2 x="0.001953125" y="0.9072265625"/>
+				<maps3 x="0.126953125" y="0.9384765625"/>
+			</item>
+			<item>
+				<maps0 x="0.376953125" y="0.8759765625"/>
+				<maps1 x="0.501953125" y="0.9072265625"/>
+				<maps2 x="0.251953125" y="0.9072265625"/>
+				<maps3 x="0.376953125" y="0.9384765625"/>
+			</item>
+			<item>
+				<maps0 x="0.626953125" y="0.8759765625"/>
+				<maps1 x="0.751953125" y="0.9072265625"/>
+				<maps2 x="0.501953125" y="0.9072265625"/>
+				<maps3 x="0.626953125" y="0.9384765625"/>
+			</item>
+			<item>
+				<maps0 x="0.876953125" y="0.8759765625"/>
+				<maps1 x="1.001953125" y="0.9072265625"/>
+				<maps2 x="0.751953125" y="0.9072265625"/>
+				<maps3 x="0.876953125" y="0.9384765625"/>
+			</item>
+			<item>
+				<maps0 x="0.251953125" y="0.9072265625"/>
+				<maps1 x="0.376953125" y="0.9384765625"/>
+				<maps2 x="0.126953125" y="0.9384765625"/>
+				<maps3 x="0.251953125" y="0.9697265625"/>
+			</item>
+			<item>
+				<maps0 x="0.501953125" y="0.9072265625"/>
+				<maps1 x="0.626953125" y="0.9384765625"/>
+				<maps2 x="0.376953125" y="0.9384765625"/>
+				<maps3 x="0.501953125" y="0.9697265625"/>
+			</item>
+			<item>
+				<maps0 x="0.751953125" y="0.9072265625"/>
+				<maps1 x="0.876953125" y="0.9384765625"/>
+				<maps2 x="0.626953125" y="0.9384765625"/>
+				<maps3 x="0.751953125" y="0.9697265625"/>
+			</item>
+			<item>
+				<maps0 x="0.126953125" y="0.9384765625"/>
+				<maps1 x="0.251953125" y="0.9697265625"/>
+				<maps2 x="0.001953125" y="0.9697265625"/>
+				<maps3 x="0.126953125" y="1.0009765625"/>
+			</item>
+			<item>
+				<maps0 x="0.376953125" y="0.9384765625"/>
+				<maps1 x="0.501953125" y="0.9697265625"/>
+				<maps2 x="0.251953125" y="0.9697265625"/>
+				<maps3 x="0.376953125" y="1.0009765625"/>
+			</item>
+			<item>
+				<maps0 x="0.626953125" y="0.9384765625"/>
+				<maps1 x="0.751953125" y="0.9697265625"/>
+				<maps2 x="0.501953125" y="0.9697265625"/>
+				<maps3 x="0.626953125" y="1.0009765625"/>
+			</item>
+			<item>
+				<maps0 x="0.876953125" y="0.9384765625"/>
+				<maps1 x="1.001953125" y="0.9697265625"/>
+				<maps2 x="0.751953125" y="0.9697265625"/>
+				<maps3 x="0.876953125" y="1.0009765625"/>
+			</item>
+		</tilemaps>
+	</roadset>
+</base>

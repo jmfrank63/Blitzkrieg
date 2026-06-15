@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>Ambient Swamp</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="15" MaxDist="25" Probability="25" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Swamp\1</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="25" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Swamp\2</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="25" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Swamp\3</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="25" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Swamp\4</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

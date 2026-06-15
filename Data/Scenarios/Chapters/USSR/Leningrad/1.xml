@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<base>
+	<History>
+		<PreviousPath>s:\complete\scenarios\chapters\USSR\Leningrad\current.chc</PreviousPath>
+		<PreviousDate>31.10.2002</PreviousDate>
+		<PreviousTime>12:39:37</PreviousTime>
+		<PreviousOwner>yaroslav.efremov</PreviousOwner>
+		<Action>Batch exported as</Action>
+		<CurrentPath>s:\versions\current\data\scenarios\chapters\ussr\leningrad\1.xml</CurrentPath>
+		<CurrentDate>12.12.2002</CurrentDate>
+		<CurrentTime>16:05:17</CurrentTime>
+		<CurrentOwner>elena.Sevostyanova</CurrentOwner>
+	</History>
+	<RPG Season="1">
+		<KeyName/>
+		<StatsType>Chapter</StatsType>
+		<HeaderText>scenarios\chapters\ussr\leningrad\header</HeaderText>
+		<SubheaderText>scenarios\chapters\ussr\leningrad\subheader</SubheaderText>
+		<DescriptionText>scenarios\chapters\ussr\leningrad\description</DescriptionText>
+		<MapImage>scenarios\chapters\ussr\leningrad\map</MapImage>
+		<MapImageRect x1="407" y1="422" x2="0.795898" y2="0.825195"/>
+		<InterfaceMusic>scenarios\chapters\ussr\leningrad\music\explore2</InterfaceMusic>
+		<Missions>
+			<item Difficulty="0">
+				<Mission>scenarios\scenariomissions\ussr\leningrad\1</Mission>
+				<PosOnMap x="292" y="184"/>
+				<MissionBonus/>
+				<AllBonuses/>
+			</item>
+		</Missions>
+		<PlaceHolders>
+			<item>
+				<Position x="276" y="220"/>
+			</item>
+			<item>
+				<Position x="258" y="129"/>
+			</item>
+			<item>
+				<Position x="83" y="178"/>
+			</item>
+			<item>
+				<Position x="163" y="207"/>
+			</item>
+			<item>
+				<Position x="214" y="250"/>
+			</item>
+			<item>
+				<Position x="278" y="378"/>
+			</item>
+			<item>
+				<Position x="325" y="365"/>
+			</item>
+			<item>
+				<Position x="205" y="336"/>
+			</item>
+			<item>
+				<Position x="275" y="303"/>
+			</item>
+			<item>
+				<Position x="220" y="157"/>
+			</item>
+		</PlaceHolders>
+		<Script>scenarios\chapters\ussr\leningrad\script</Script>
+		<SettingName>scenarios\settings\summer_russia</SettingName>
+		<ContextName>scenarios\chapters\ussr\leningrad\context</ContextName>
+		<PlayerSide/>
+		<MODName/>
+		<MODVersion/>
+	</RPG>
+</base>

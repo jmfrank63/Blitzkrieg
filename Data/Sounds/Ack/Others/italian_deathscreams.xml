@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>Italian death screams ack set 1</KeyName>
+		<StatsType>Ack</StatsType>
+		<Types>
+			<item Type="59">
+				<Acks>
+					<item Probability="7">
+						<Sound>ack_russian_infantry3-25-1</Sound>
+					</item>
+					<item Probability="7">
+						<Sound>ack_russian_infantry2-25-1</Sound>
+					</item>
+					<item Probability="7">
+						<Sound>ack_russian_infantry1-25-2</Sound>
+					</item>
+					<item Probability="7">
+						<Sound>ack_russian_infantry2-25-2</Sound>
+					</item>
+					<item Probability="7">
+						<Sound>ack_russian_infantry3-25-3</Sound>
+					</item>
+					<item Probability="7">
+						<Sound>ack_russian_infantry2-25-3</Sound>
+					</item>
+					<item Probability="7">
+						<Sound>ack_russian_infantry3-25-4</Sound>
+					</item>
+					<item Probability="7">
+						<Sound>ack_russian_infantry2-25-4</Sound>
+					</item>
+					<item Probability="7">
+						<Sound>ack_russian_infantry25-5</Sound>
+					</item>
+					<item Probability="7">
+						<Sound>ack_russian_infantry3-25-5</Sound>
+					</item>
+				</Acks>
+			</item>
+		</Types>
+	</RPG>
+</base>

@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<TankPits>
+		<SandBag>
+			<item>TankPit_Big_SandBag</item>
+			<item>TankPit_Middle_SandBag</item>
+			<item>TankPit_Small_SandBag</item>
+		</SandBag>
+		<Dig>
+			<item>TankPit_Big_Ground</item>
+			<item>TankPit_Middle_Ground</item>
+			<item>TankPit_Small_Ground</item>
+		</Dig>
+	</TankPits>
+</base>

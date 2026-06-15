@@ -1,0 +1,2 @@
+<?xml version="1.0"?>
+<effect><effect><sprites/><particles><item start="0" duration="15500"><path>Effects\particles\sparkonair</path><pos x="0" y="0" z="0"/></item><item start="50" duration="15100"><path>Effects\particles\flashonair</path><pos x="0" y="0" z="0"/></item><item start="135" duration="15500"><path>Effects\particles\smonair</path><pos x="0" y="0" z="0"/></item><item start="40" duration="15500"><path>Effects\particles\lumponair</path><pos x="0" y="0" z="0"/></item></particles></effect></effect>

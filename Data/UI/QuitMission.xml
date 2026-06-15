@@ -1,0 +1,1141 @@
+<!-- deleted comment here -->
+<base>
+	<Children>
+		<item ClassTypeID="0x10001107" ElementID="100" PositionFlag="0x0022" Background="1">
+			<Script>ui\quitmission</Script>
+			<WindowPos x="0" y="0"/>
+			<WindowSize x="384" y="210"/>
+			<Children>
+				<item ClassTypeID="268439811" PositionFlag="34" ElementID="10004" VisibleFlag="1" ActiveFlag="1" TextColor="0xffd8bd3e" CurrentState="0" Background="1" TextAlign="34">
+					<!--back-->
+					<WindowPos x="0" y="60"/>
+					<WindowSize x="320" y="34"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="2" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="36" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="73" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="2" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="36" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="73" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="107" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="141" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="178" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearancePushed>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey>back</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="268439811" PositionFlag="34" ElementID="10003" VisibleFlag="1" ActiveFlag="1" TextColor="0xffd8bd3e" CurrentState="0" Background="1" TextAlign="34">
+					<!--Exit to windows-->
+					<WindowPos x="0" y="20"/>
+					<WindowSize x="320" y="34"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="2" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="36" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="73" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="2" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="36" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="73" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="107" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="141" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="178" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearancePushed>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey>exittowindows</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="268439811" PositionFlag="34" ElementID="10002" VisibleFlag="1" ActiveFlag="1" TextColor="0xffd8bd3e" CurrentState="0" Background="1" TextAlign="34">
+					<!--Exit to main menu-->
+					<WindowPos x="0" y="-20"/>
+					<WindowSize x="320" y="34"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="2" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="36" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="73" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="2" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="36" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="73" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="107" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="141" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="178" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearancePushed>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey>mainmenu</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="268439811" PositionFlag="34" ElementID="10001" VisibleFlag="1" ActiveFlag="1" TextColor="0xffd8bd3e" CurrentState="0" Background="1" TextAlign="34">
+					<!--Restart mission-->
+					<WindowPos x="0" y="-60"/>
+					<WindowSize x="320" y="34"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="2" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="36" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="73" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="2" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="36" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="73" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="107" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="141" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="178" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearancePushed>
+							<AppearanceDisabled Color="-1" Specular="-16777216" TextColor="0xffa0a0a0">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="107" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="141" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="178" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearanceDisabled>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey>restartmission</TextKey>
+						</item>
+					</States>
+				</item>
+			</Children>
+			<States>
+				<item>
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<!--top left line-->
+								<rect x1="0" y1="0" x2="83" y2="3"/>
+								<size x="83" y="3"/>
+								<map x1="0" y1="129" x2="83" y2="3"/>
+							</item>
+							<item>
+								<!--top center line-->
+								<rect x1="83" y1="0" x2="293" y2="3"/>
+								<size x="16" y="3"/>
+								<map x1="83" y1="129" x2="16" y2="3"/>
+							</item>
+							<item>
+								<!--top right line-->
+								<rect x1="293" y1="0" x2="384" y2="3"/>
+								<size x="91" y="3"/>
+								<map x1="99" y1="129" x2="91" y2="3"/>
+							</item>
+							<item>
+								<!--left top line-->
+								<rect x1="0" y1="3" x2="3" y2="47"/>
+								<size x="3" y="44"/>
+								<map x1="0" y1="132" x2="3" y2="44"/>
+							</item>
+							<item>
+								<!--left center line-->
+								<rect x1="0" y1="47" x2="3" y2="156"/>
+								<size x="3" y="26"/>
+								<map x1="0" y1="176" x2="3" y2="26"/>
+							</item>
+							<item>
+								<!--left bottom line-->
+								<rect x1="0" y1="156" x2="3" y2="207"/>
+								<size x="3" y="51"/>
+								<map x1="0" y1="202" x2="3" y2="51"/>
+							</item>
+							<item>
+								<!--bottom left line-->
+								<rect x1="0" y1="207" x2="83" y2="210"/>
+								<size x="83" y="3"/>
+								<map x1="0" y1="253" x2="83" y2="3"/>
+							</item>
+							<item>
+								<!--bottom center line-->
+								<rect x1="83" y1="207" x2="293" y2="210"/>
+								<size x="16" y="3"/>
+								<map x1="83" y1="253" x2="16" y2="3"/>
+							</item>
+							<item>
+								<!--top right line-->
+								<rect x1="293" y1="207" x2="384" y2="210"/>
+								<size x="91" y="3"/>
+								<map x1="99" y1="253" x2="91" y2="3"/>
+							</item>
+							<item>
+								<!--right top line-->
+								<rect x1="381" y1="3" x2="384" y2="47"/>
+								<size x="3" y="44"/>
+								<map x1="187" y1="132" x2="3" y2="44"/>
+							</item>
+							<item>
+								<!--right center line-->
+								<rect x1="381" y1="47" x2="384" y2="156"/>
+								<size x="3" y="26"/>
+								<map x1="187" y1="176" x2="3" y2="26"/>
+							</item>
+							<item>
+								<!--right bottom line-->
+								<rect x1="381" y1="156" x2="384" y2="207"/>
+								<size x="3" y="51"/>
+								<map x1="187" y1="202" x2="3" y2="51"/>
+							</item>
+							<item>
+								<!--filling rect-->
+								<rect x1="3" y1="3" x2="381" y2="207"/>
+								<size x="16" y="16"/>
+								<map x1="3" y1="132" x2="16" y2="16"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<Texture>ui\mapping</Texture>
+						<TileRects>
+							<item>
+								<!--top left line-->
+								<rect x1="0" y1="0" x2="83" y2="3"/>
+								<size x="83" y="3"/>
+								<map x1="0" y1="129" x2="83" y2="3"/>
+							</item>
+							<item>
+								<!--top center line-->
+								<rect x1="83" y1="0" x2="293" y2="3"/>
+								<size x="16" y="3"/>
+								<map x1="83" y1="129" x2="16" y2="3"/>
+							</item>
+							<item>
+								<!--top right line-->
+								<rect x1="293" y1="0" x2="384" y2="3"/>
+								<size x="91" y="3"/>
+								<map x1="99" y1="129" x2="91" y2="3"/>
+							</item>
+							<item>
+								<!--left top line-->
+								<rect x1="0" y1="3" x2="3" y2="47"/>
+								<size x="3" y="44"/>
+								<map x1="0" y1="132" x2="3" y2="44"/>
+							</item>
+							<item>
+								<!--left center line-->
+								<rect x1="0" y1="47" x2="3" y2="156"/>
+								<size x="3" y="26"/>
+								<map x1="0" y1="176" x2="3" y2="26"/>
+							</item>
+							<item>
+								<!--left bottom line-->
+								<rect x1="0" y1="156" x2="3" y2="207"/>
+								<size x="3" y="51"/>
+								<map x1="0" y1="202" x2="3" y2="51"/>
+							</item>
+							<item>
+								<!--bottom left line-->
+								<rect x1="0" y1="207" x2="83" y2="210"/>
+								<size x="83" y="3"/>
+								<map x1="0" y1="253" x2="83" y2="3"/>
+							</item>
+							<item>
+								<!--bottom center line-->
+								<rect x1="83" y1="207" x2="293" y2="210"/>
+								<size x="16" y="3"/>
+								<map x1="83" y1="253" x2="16" y2="3"/>
+							</item>
+							<item>
+								<!--top right line-->
+								<rect x1="293" y1="207" x2="384" y2="210"/>
+								<size x="91" y="3"/>
+								<map x1="99" y1="253" x2="91" y2="3"/>
+							</item>
+							<item>
+								<!--right top line-->
+								<rect x1="381" y1="3" x2="384" y2="47"/>
+								<size x="3" y="44"/>
+								<map x1="187" y1="132" x2="3" y2="44"/>
+							</item>
+							<item>
+								<!--right center line-->
+								<rect x1="381" y1="47" x2="384" y2="156"/>
+								<size x="3" y="26"/>
+								<map x1="187" y1="176" x2="3" y2="26"/>
+							</item>
+							<item>
+								<!--right bottom line-->
+								<rect x1="381" y1="156" x2="384" y2="207"/>
+								<size x="3" y="51"/>
+								<map x1="187" y1="202" x2="3" y2="51"/>
+							</item>
+							<item>
+								<!--filling rect-->
+								<rect x1="3" y1="3" x2="381" y2="207"/>
+								<size x="16" y="16"/>
+								<map x1="3" y1="132" x2="16" y2="16"/>
+							</item>
+						</TileRects>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<Texture>ui\mapping</Texture>
+						<TileRects>
+							<item>
+								<!--top left line-->
+								<rect x1="0" y1="0" x2="83" y2="3"/>
+								<size x="83" y="3"/>
+								<map x1="0" y1="129" x2="83" y2="3"/>
+							</item>
+							<item>
+								<!--top center line-->
+								<rect x1="83" y1="0" x2="293" y2="3"/>
+								<size x="16" y="3"/>
+								<map x1="83" y1="129" x2="16" y2="3"/>
+							</item>
+							<item>
+								<!--top right line-->
+								<rect x1="293" y1="0" x2="384" y2="3"/>
+								<size x="91" y="3"/>
+								<map x1="99" y1="129" x2="91" y2="3"/>
+							</item>
+							<item>
+								<!--left top line-->
+								<rect x1="0" y1="3" x2="3" y2="47"/>
+								<size x="3" y="44"/>
+								<map x1="0" y1="132" x2="3" y2="44"/>
+							</item>
+							<item>
+								<!--left center line-->
+								<rect x1="0" y1="47" x2="3" y2="156"/>
+								<size x="3" y="26"/>
+								<map x1="0" y1="176" x2="3" y2="26"/>
+							</item>
+							<item>
+								<!--left bottom line-->
+								<rect x1="0" y1="156" x2="3" y2="207"/>
+								<size x="3" y="51"/>
+								<map x1="0" y1="202" x2="3" y2="51"/>
+							</item>
+							<item>
+								<!--bottom left line-->
+								<rect x1="0" y1="207" x2="83" y2="210"/>
+								<size x="83" y="3"/>
+								<map x1="0" y1="253" x2="83" y2="3"/>
+							</item>
+							<item>
+								<!--bottom center line-->
+								<rect x1="83" y1="207" x2="293" y2="210"/>
+								<size x="16" y="3"/>
+								<map x1="83" y1="253" x2="16" y2="3"/>
+							</item>
+							<item>
+								<!--top right line-->
+								<rect x1="293" y1="207" x2="384" y2="210"/>
+								<size x="91" y="3"/>
+								<map x1="99" y1="253" x2="91" y2="3"/>
+							</item>
+							<item>
+								<!--right top line-->
+								<rect x1="381" y1="3" x2="384" y2="47"/>
+								<size x="3" y="44"/>
+								<map x1="187" y1="132" x2="3" y2="44"/>
+							</item>
+							<item>
+								<!--right center line-->
+								<rect x1="381" y1="47" x2="384" y2="156"/>
+								<size x="3" y="26"/>
+								<map x1="187" y1="176" x2="3" y2="26"/>
+							</item>
+							<item>
+								<!--right bottom line-->
+								<rect x1="381" y1="156" x2="384" y2="207"/>
+								<size x="3" y="51"/>
+								<map x1="187" y1="202" x2="3" y2="51"/>
+							</item>
+							<item>
+								<!--filling rect-->
+								<rect x1="3" y1="3" x2="381" y2="207"/>
+								<size x="16" y="16"/>
+								<map x1="3" y1="132" x2="16" y2="16"/>
+							</item>
+						</TileRects>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001107" ElementID="100" PositionFlag="0x0022" Background="1">
+			<Script>ui\quitmission</Script>
+			<WindowPos x="0" y="0"/>
+			<WindowSize x="384" y="210"/>
+			<Children>
+				<item ClassTypeID="268439811" PositionFlag="34" ElementID="10004" VisibleFlag="1" ActiveFlag="1" TextColor="0xffd8bd3e" CurrentState="0" Background="1" TextAlign="34">
+					<!--back-->
+					<WindowPos x="0" y="60"/>
+					<WindowSize x="320" y="34"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="2" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="36" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="73" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="2" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="36" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="73" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="107" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="141" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="178" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearancePushed>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey>back</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="268439811" PositionFlag="34" ElementID="10003" VisibleFlag="1" ActiveFlag="1" TextColor="0xffd8bd3e" CurrentState="0" Background="1" TextAlign="34">
+					<!--Exit to windows-->
+					<WindowPos x="0" y="20"/>
+					<WindowSize x="320" y="34"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="2" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="36" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="73" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="2" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="36" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="73" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="107" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="141" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="178" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearancePushed>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey>exittowindows</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="268439811" PositionFlag="34" ElementID="10002" VisibleFlag="1" ActiveFlag="1" TextColor="0xffd8bd3e" CurrentState="0" Background="1" TextAlign="34">
+					<!--Exit to main menu-->
+					<WindowPos x="0" y="-20"/>
+					<WindowSize x="320" y="34"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="2" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="36" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="73" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="2" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="36" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="73" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="107" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="141" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="178" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearancePushed>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey>mainmenu</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="268439811" PositionFlag="34" ElementID="10001" VisibleFlag="1" ActiveFlag="1" TextColor="0xffd8bd3e" CurrentState="0" Background="1" TextAlign="34">
+					<!--Restart mission-->
+					<WindowPos x="0" y="-60"/>
+					<WindowSize x="320" y="34"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="2" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="36" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="73" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="2" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="36" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="73" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="107" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="141" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="178" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearancePushed>
+							<AppearanceDisabled Color="-1" Specular="-16777216" TextColor="0xffa0a0a0">
+								<Texture>UI\mapping</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="33" y2="34"/>
+										<size x="33" y="34"/>
+										<map x1="107" y1="95" x2="33" y2="34"/>
+									</item>
+									<item>
+										<rect x1="33" y1="0" x2="285" y2="34"/>
+										<size x="36" y="34"/>
+										<map x1="141" y1="95" x2="36" y2="34"/>
+									</item>
+									<item>
+										<rect x1="285" y1="0" x2="320" y2="34"/>
+										<size x="35" y="34"/>
+										<map x1="178" y1="95" x2="35" y2="34"/>
+									</item>
+								</TileRects>
+							</AppearanceDisabled>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey>restartmission</TextKey>
+						</item>
+					</States>
+				</item>
+			</Children>
+			<States>
+				<item>
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<!--top left line-->
+								<rect x1="0" y1="0" x2="83" y2="3"/>
+								<size x="83" y="3"/>
+								<map x1="0" y1="129" x2="83" y2="3"/>
+							</item>
+							<item>
+								<!--top center line-->
+								<rect x1="83" y1="0" x2="293" y2="3"/>
+								<size x="16" y="3"/>
+								<map x1="83" y1="129" x2="16" y2="3"/>
+							</item>
+							<item>
+								<!--top right line-->
+								<rect x1="293" y1="0" x2="384" y2="3"/>
+								<size x="91" y="3"/>
+								<map x1="99" y1="129" x2="91" y2="3"/>
+							</item>
+							<item>
+								<!--left top line-->
+								<rect x1="0" y1="3" x2="3" y2="47"/>
+								<size x="3" y="44"/>
+								<map x1="0" y1="132" x2="3" y2="44"/>
+							</item>
+							<item>
+								<!--left center line-->
+								<rect x1="0" y1="47" x2="3" y2="156"/>
+								<size x="3" y="26"/>
+								<map x1="0" y1="176" x2="3" y2="26"/>
+							</item>
+							<item>
+								<!--left bottom line-->
+								<rect x1="0" y1="156" x2="3" y2="207"/>
+								<size x="3" y="51"/>
+								<map x1="0" y1="202" x2="3" y2="51"/>
+							</item>
+							<item>
+								<!--bottom left line-->
+								<rect x1="0" y1="207" x2="83" y2="210"/>
+								<size x="83" y="3"/>
+								<map x1="0" y1="253" x2="83" y2="3"/>
+							</item>
+							<item>
+								<!--bottom center line-->
+								<rect x1="83" y1="207" x2="293" y2="210"/>
+								<size x="16" y="3"/>
+								<map x1="83" y1="253" x2="16" y2="3"/>
+							</item>
+							<item>
+								<!--top right line-->
+								<rect x1="293" y1="207" x2="384" y2="210"/>
+								<size x="91" y="3"/>
+								<map x1="99" y1="253" x2="91" y2="3"/>
+							</item>
+							<item>
+								<!--right top line-->
+								<rect x1="381" y1="3" x2="384" y2="47"/>
+								<size x="3" y="44"/>
+								<map x1="187" y1="132" x2="3" y2="44"/>
+							</item>
+							<item>
+								<!--right center line-->
+								<rect x1="381" y1="47" x2="384" y2="156"/>
+								<size x="3" y="26"/>
+								<map x1="187" y1="176" x2="3" y2="26"/>
+							</item>
+							<item>
+								<!--right bottom line-->
+								<rect x1="381" y1="156" x2="384" y2="207"/>
+								<size x="3" y="51"/>
+								<map x1="187" y1="202" x2="3" y2="51"/>
+							</item>
+							<item>
+								<!--filling rect-->
+								<rect x1="3" y1="3" x2="381" y2="207"/>
+								<size x="16" y="16"/>
+								<map x1="3" y1="132" x2="16" y2="16"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<Texture>ui\mapping</Texture>
+						<TileRects>
+							<item>
+								<!--top left line-->
+								<rect x1="0" y1="0" x2="83" y2="3"/>
+								<size x="83" y="3"/>
+								<map x1="0" y1="129" x2="83" y2="3"/>
+							</item>
+							<item>
+								<!--top center line-->
+								<rect x1="83" y1="0" x2="293" y2="3"/>
+								<size x="16" y="3"/>
+								<map x1="83" y1="129" x2="16" y2="3"/>
+							</item>
+							<item>
+								<!--top right line-->
+								<rect x1="293" y1="0" x2="384" y2="3"/>
+								<size x="91" y="3"/>
+								<map x1="99" y1="129" x2="91" y2="3"/>
+							</item>
+							<item>
+								<!--left top line-->
+								<rect x1="0" y1="3" x2="3" y2="47"/>
+								<size x="3" y="44"/>
+								<map x1="0" y1="132" x2="3" y2="44"/>
+							</item>
+							<item>
+								<!--left center line-->
+								<rect x1="0" y1="47" x2="3" y2="156"/>
+								<size x="3" y="26"/>
+								<map x1="0" y1="176" x2="3" y2="26"/>
+							</item>
+							<item>
+								<!--left bottom line-->
+								<rect x1="0" y1="156" x2="3" y2="207"/>
+								<size x="3" y="51"/>
+								<map x1="0" y1="202" x2="3" y2="51"/>
+							</item>
+							<item>
+								<!--bottom left line-->
+								<rect x1="0" y1="207" x2="83" y2="210"/>
+								<size x="83" y="3"/>
+								<map x1="0" y1="253" x2="83" y2="3"/>
+							</item>
+							<item>
+								<!--bottom center line-->
+								<rect x1="83" y1="207" x2="293" y2="210"/>
+								<size x="16" y="3"/>
+								<map x1="83" y1="253" x2="16" y2="3"/>
+							</item>
+							<item>
+								<!--top right line-->
+								<rect x1="293" y1="207" x2="384" y2="210"/>
+								<size x="91" y="3"/>
+								<map x1="99" y1="253" x2="91" y2="3"/>
+							</item>
+							<item>
+								<!--right top line-->
+								<rect x1="381" y1="3" x2="384" y2="47"/>
+								<size x="3" y="44"/>
+								<map x1="187" y1="132" x2="3" y2="44"/>
+							</item>
+							<item>
+								<!--right center line-->
+								<rect x1="381" y1="47" x2="384" y2="156"/>
+								<size x="3" y="26"/>
+								<map x1="187" y1="176" x2="3" y2="26"/>
+							</item>
+							<item>
+								<!--right bottom line-->
+								<rect x1="381" y1="156" x2="384" y2="207"/>
+								<size x="3" y="51"/>
+								<map x1="187" y1="202" x2="3" y2="51"/>
+							</item>
+							<item>
+								<!--filling rect-->
+								<rect x1="3" y1="3" x2="381" y2="207"/>
+								<size x="16" y="16"/>
+								<map x1="3" y1="132" x2="16" y2="16"/>
+							</item>
+						</TileRects>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<Texture>ui\mapping</Texture>
+						<TileRects>
+							<item>
+								<!--top left line-->
+								<rect x1="0" y1="0" x2="83" y2="3"/>
+								<size x="83" y="3"/>
+								<map x1="0" y1="129" x2="83" y2="3"/>
+							</item>
+							<item>
+								<!--top center line-->
+								<rect x1="83" y1="0" x2="293" y2="3"/>
+								<size x="16" y="3"/>
+								<map x1="83" y1="129" x2="16" y2="3"/>
+							</item>
+							<item>
+								<!--top right line-->
+								<rect x1="293" y1="0" x2="384" y2="3"/>
+								<size x="91" y="3"/>
+								<map x1="99" y1="129" x2="91" y2="3"/>
+							</item>
+							<item>
+								<!--left top line-->
+								<rect x1="0" y1="3" x2="3" y2="47"/>
+								<size x="3" y="44"/>
+								<map x1="0" y1="132" x2="3" y2="44"/>
+							</item>
+							<item>
+								<!--left center line-->
+								<rect x1="0" y1="47" x2="3" y2="156"/>
+								<size x="3" y="26"/>
+								<map x1="0" y1="176" x2="3" y2="26"/>
+							</item>
+							<item>
+								<!--left bottom line-->
+								<rect x1="0" y1="156" x2="3" y2="207"/>
+								<size x="3" y="51"/>
+								<map x1="0" y1="202" x2="3" y2="51"/>
+							</item>
+							<item>
+								<!--bottom left line-->
+								<rect x1="0" y1="207" x2="83" y2="210"/>
+								<size x="83" y="3"/>
+								<map x1="0" y1="253" x2="83" y2="3"/>
+							</item>
+							<item>
+								<!--bottom center line-->
+								<rect x1="83" y1="207" x2="293" y2="210"/>
+								<size x="16" y="3"/>
+								<map x1="83" y1="253" x2="16" y2="3"/>
+							</item>
+							<item>
+								<!--top right line-->
+								<rect x1="293" y1="207" x2="384" y2="210"/>
+								<size x="91" y="3"/>
+								<map x1="99" y1="253" x2="91" y2="3"/>
+							</item>
+							<item>
+								<!--right top line-->
+								<rect x1="381" y1="3" x2="384" y2="47"/>
+								<size x="3" y="44"/>
+								<map x1="187" y1="132" x2="3" y2="44"/>
+							</item>
+							<item>
+								<!--right center line-->
+								<rect x1="381" y1="47" x2="384" y2="156"/>
+								<size x="3" y="26"/>
+								<map x1="187" y1="176" x2="3" y2="26"/>
+							</item>
+							<item>
+								<!--right bottom line-->
+								<rect x1="381" y1="156" x2="384" y2="207"/>
+								<size x="3" y="51"/>
+								<map x1="187" y1="202" x2="3" y2="51"/>
+							</item>
+							<item>
+								<!--filling rect-->
+								<rect x1="3" y1="3" x2="381" y2="207"/>
+								<size x="16" y="16"/>
+								<map x1="3" y1="132" x2="16" y2="16"/>
+							</item>
+						</TileRects>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+	</Children>
+</base>

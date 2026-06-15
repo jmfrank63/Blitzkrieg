@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>Ambient WinterForest</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="15" MaxDist="25" Probability="7" Peacefull="1">
+				<SoundPath>Sounds\Ambient\WinterForest\1</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="7" Peacefull="1">
+				<SoundPath>Sounds\Ambient\WinterForest\2</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="7" Peacefull="1">
+				<SoundPath>Sounds\Ambient\WinterForest\3</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="7" Peacefull="0">
+				<SoundPath>Sounds\Ambient\WinterForest\4</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="7" Peacefull="1">
+				<SoundPath>Sounds\Ambient\WinterForest\5</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="7" Peacefull="1">
+				<SoundPath>Sounds\Ambient\WinterForest\6</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="7" Peacefull="1">
+				<SoundPath>Sounds\Ambient\WinterForest\7</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="7" Peacefull="1">
+				<SoundPath>Sounds\Ambient\WinterForest\8</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="7" Peacefull="1">
+				<SoundPath>Sounds\Ambient\WinterForest\9</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="7" Peacefull="1">
+				<SoundPath>Sounds\Ambient\WinterForest\10</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="7" Peacefull="1">
+				<SoundPath>Sounds\Ambient\WinterForest\11</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="7" Peacefull="1">
+				<SoundPath>Sounds\Ambient\WinterForest\12</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="7" Peacefull="1">
+				<SoundPath>Sounds\Ambient\WinterForest\13</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="7" Peacefull="1">
+				<SoundPath>Sounds\Ambient\WinterForest\14</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

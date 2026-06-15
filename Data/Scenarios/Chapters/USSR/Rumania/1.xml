@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<base>
+	<History>
+		<PreviousPath>s:\complete\scenarios\chapters\USSR\Rumania\current.chc</PreviousPath>
+		<PreviousDate>31.10.2002</PreviousDate>
+		<PreviousTime>12:39:39</PreviousTime>
+		<PreviousOwner>yaroslav.efremov</PreviousOwner>
+		<Action>Batch exported as</Action>
+		<CurrentPath>s:\versions\current\data\scenarios\chapters\ussr\rumania\1.xml</CurrentPath>
+		<CurrentDate>12.12.2002</CurrentDate>
+		<CurrentTime>16:05:24</CurrentTime>
+		<CurrentOwner>elena.Sevostyanova</CurrentOwner>
+	</History>
+	<RPG Season="0">
+		<KeyName/>
+		<StatsType>Chapter</StatsType>
+		<HeaderText>scenarios\chapters\ussr\rumania\header</HeaderText>
+		<SubheaderText>scenarios\chapters\ussr\rumania\subheader</SubheaderText>
+		<DescriptionText>scenarios\chapters\ussr\rumania\description</DescriptionText>
+		<MapImage>scenarios\chapters\ussr\rumania\map</MapImage>
+		<MapImageRect x1="407" y1="422" x2="0.795898" y2="0.825195"/>
+		<InterfaceMusic>scenarios\chapters\ussr\rumania\music\explore2</InterfaceMusic>
+		<Missions>
+			<item Difficulty="0">
+				<Mission>scenarios\scenariomissions\ussr\rumania\1</Mission>
+				<PosOnMap x="235" y="122"/>
+				<MissionBonus/>
+				<AllBonuses/>
+			</item>
+		</Missions>
+		<PlaceHolders>
+			<item>
+				<Position x="138" y="127"/>
+			</item>
+			<item>
+				<Position x="314" y="177"/>
+			</item>
+			<item>
+				<Position x="273" y="138"/>
+			</item>
+			<item>
+				<Position x="191" y="178"/>
+			</item>
+			<item>
+				<Position x="270" y="223"/>
+			</item>
+			<item>
+				<Position x="258" y="292"/>
+			</item>
+			<item>
+				<Position x="263" y="331"/>
+			</item>
+			<item>
+				<Position x="225" y="253"/>
+			</item>
+			<item>
+				<Position x="173" y="228"/>
+			</item>
+			<item>
+				<Position x="198" y="302"/>
+			</item>
+		</PlaceHolders>
+		<Script>scenarios\chapters\ussr\rumania\script</Script>
+		<SettingName>scenarios\settings\summer_ukraine</SettingName>
+		<ContextName>scenarios\chapters\ussr\rumania\context</ContextName>
+		<PlayerSide/>
+		<MODName/>
+		<MODVersion/>
+	</RPG>
+</base>

@@ -1,0 +1,2 @@
+<?xml version="1.0"?>
+<base><FieldSet Height="2" PositiveRatio="0.5" Season="2"><ObjectsShells><item Width="512" BetweenDistance="1" Ratio="1"><Objects><Elements/><Weights/></Objects></item></ObjectsShells><TilesShells><item Width="512"><Tiles><Elements><item data="12"/><item data="9"/></Elements><Weights><item data="1"/><item data="2"/></Weights></Tiles></item></TilesShells><ProfileFileName>\Scenarios\Profiles\Profile</ProfileFileName><PatternSize x="3" y="5"/><SeasonFolder>terrain\sets\3\</SeasonFolder></FieldSet></base>

@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>Ambient SummerForest</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="5" MaxDist="15" Probability="2" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SummerForest\1</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="15" Probability="5" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SummerForest\2</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="15" Probability="5" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SummerForest\3</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="15" Probability="5" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SummerForest\4</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="15" Probability="5" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SummerForest\5</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="15" Probability="2" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SummerForest\6</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="15" Probability="5" Peacefull="0">
+				<SoundPath>Sounds\Ambient\SummerForest\7</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="15" Probability="5" Peacefull="0">
+				<SoundPath>Sounds\Ambient\SummerForest\8</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="15" Probability="5" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SummerForest\9</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="15" Probability="5" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SummerForest\10</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="15" Probability="5" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SummerForest\11</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="15" Probability="2" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SummerForest\12</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="15" Probability="2" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SummerForest\13</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="15" Probability="5" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SummerForest\14</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="15" Probability="5" Peacefull="0">
+				<SoundPath>Sounds\Ambient\SummerForest\15</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="15" Probability="2" Peacefull="0">
+				<SoundPath>Sounds\Ambient\SummerForest\16</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="15" Probability="2" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SummerForest\17</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="15" Probability="5" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SummerForest\18</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="15" Probability="5" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SummerForest\19</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

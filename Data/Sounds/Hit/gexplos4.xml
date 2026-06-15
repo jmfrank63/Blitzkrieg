@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<!-- edited with XMLSPY v5 rel. 2 U (http://www.xmlspy.com) by Serge Orlovsky (Nival Interactive) -->
+<base>
+	<RPG>
+		<KeyName>Ground explosion4</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="15" MaxDist="30" Probability="17" Peacefull="0">
+				<SoundPath>Sounds\hit\gexplos3</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="30" Probability="17" Peacefull="0">
+				<SoundPath>Sounds\hit\gexplos3a</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="30" Probability="17" Peacefull="0">
+				<SoundPath>Sounds\hit\gexplos3b</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="30" Probability="17" Peacefull="0">
+				<SoundPath>Sounds\hit\gexplos3c</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="30" Probability="17" Peacefull="0">
+				<SoundPath>Sounds\hit\gexplos3d</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="30" Probability="17" Peacefull="0">
+				<SoundPath>Sounds\hit\gexplos3e</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

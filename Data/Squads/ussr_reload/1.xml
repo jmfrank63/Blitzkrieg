@@ -1,0 +1,2 @@
+<?xml version="1.0"?>
+<base><RPG><Icon></Icon><Type>01000000</Type><Members><item>USSR_SapperPPD</item><item>USSR_SapperPPD</item></Members><Formations><item><Order><item Dir="0"><Soldier>USSR_SapperPPD</Soldier><Pos x="-32.6683" y="10.8894"/></item><item Dir="0"><Soldier>USSR_SapperPPD</Soldier><Pos x="12.5866" y="10.8894"/></item></Order></item></Formations></RPG></base>

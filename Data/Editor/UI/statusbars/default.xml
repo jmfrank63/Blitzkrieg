@@ -1,0 +1,91 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base ClassTypeID="268439814" PositionFlag="17" ElementID="-1" VisibleFlag="1" ActiveFlag="1" CurrentState="0" Background="1">
+	<WindowPos x="0" y="0"/>
+	<WindowSize x="450" y="32"/>
+	<States>
+		<item EventID="-1">
+			<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Maps x1="0" y1="0" x2="384" y2="32"/>
+				<Texture>ui\ss_status_bar</Texture>
+			</AppearanceNormal>
+			<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Maps x1="0" y1="0" x2="384" y2="32"/>
+				<Texture>ui\ss_status_bar</Texture>
+			</AppearanceHighlighted>
+			<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Maps x1="0" y1="0" x2="384" y2="32"/>
+				<Texture>ui\ss_status_bar</Texture>
+			</AppearancePushed>
+		</item>
+	</States>
+	<Children>
+		<item ClassTypeID="0x10001105" ElementID="20001" CurrentState="0" PositionFlag="0x0011" Background="0">
+			<window_text>HP:</window_text>
+			<WindowPos x="10" y="5"/>
+			<WindowSize x="100" y="20"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<Placement Flags="0x1111">
+							<Pos x="200" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+						<Maps x1="0" y1="0" x2="1" y2="1"/>
+						<Texture/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<Placement Flags="0x1111">
+							<Pos x="200" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+						<Maps x1="0" y1="0" x2="1" y2="1"/>
+						<Texture/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<Placement Flags="0x1111">
+							<Pos x="200" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+						<Maps x1="0" y1="0" x2="1" y2="1"/>
+						<Texture/>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20002" CurrentState="0" PositionFlag="0x0011" Background="0">
+			<window_text>Name:</window_text>
+			<WindowPos x="130" y="5"/>
+			<WindowSize x="100" y="20"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<Placement Flags="0x1111">
+							<Pos x="200" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+						<Maps x1="0" y1="0" x2="1" y2="1"/>
+						<Texture/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<Placement Flags="0x1111">
+							<Pos x="200" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+						<Maps x1="0" y1="0" x2="1" y2="1"/>
+						<Texture/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<Placement Flags="0x1111">
+							<Pos x="200" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+						<Maps x1="0" y1="0" x2="1" y2="1"/>
+						<Texture/>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+	</Children>
+	<Script/>
+</base>

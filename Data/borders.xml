@@ -1,0 +1,13 @@
+<!-- deleted comment here -->
+<base B2FChange="135" F2BChange="315" BackWidth="4" FrontWidth="4">
+	<FrontElements>
+		<item>Coast_Thin_45_Degrees_01</item>
+		<item>Coast_Thin_45_Degrees_02</item>
+		<item>Coast_Thin_45_Degrees_03</item>
+	</FrontElements>
+	<BackElements>
+		<item>Coast_Thin_45_Degrees_04</item>
+		<item>Coast_Thin_45_Degrees_05</item>
+		<item>Coast_Thin_45_Degrees_06</item>
+	</BackElements>
+</base>

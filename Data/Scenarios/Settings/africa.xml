@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<ChapterSetting>
+		<Fields>
+			<Elements>
+				<item>scenarios\fieldsets\africa\field00</item>
+				<item>scenarios\fieldsets\africa\field01</item>
+				<item>scenarios\fieldsets\africa\field02</item>
+				<item>scenarios\fieldsets\africa\field03</item>
+			</Elements>
+			<Weights>
+				<item data="0"/>
+				<item data="1"/>
+				<item data="4"/>
+				<item data="2"/>
+			</Weights>
+		</Fields>
+	</ChapterSetting>
+</base>

@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<base>
+	<History>
+		<PreviousPath>s:\complete\terrain\sets\4\roads3d\road_asphalt_city\current.3rd</PreviousPath>
+		<PreviousDate>12.03.2003</PreviousDate>
+		<PreviousTime>11:47:57</PreviousTime>
+		<PreviousOwner>Alexander.Valencia</PreviousOwner>
+		<Action>Exported as</Action>
+		<CurrentPath>s:\versions\current\data\terrain\sets\4\roads3d\road_asphalt_city.xml</CurrentPath>
+		<CurrentDate>12.03.2003</CurrentDate>
+		<CurrentTime>11:47:56</CurrentTime>
+		<CurrentOwner>Alexander.Valencia</CurrentOwner>
+	</History>
+	<VSODescription Type="2" Priority="4" Passability="1" AIClasses="-16" SoilParams="0">
+		<Bottom OpacityCenter="255" OpacityBorder="255" StreamSpeed="0" TextureStep="0.1" NumCells="4" Animated="0" Disturbance="0" RelWidth="0.92">
+			<Texture>terrain\sets\4\roads3d\road_asphalt_city</Texture>
+		</Bottom>
+		<BottomBorders>
+			<item OpacityCenter="255" OpacityBorder="0" StreamSpeed="0" TextureStep="0.1" NumCells="1" Animated="0" Disturbance="0" RelWidth="0.08">
+				<Texture>terrain\sets\4\roads3d\road_asphalt_city</Texture>
+			</item>
+			<item OpacityCenter="255" OpacityBorder="0" StreamSpeed="0" TextureStep="0.1" NumCells="1" Animated="0" Disturbance="0" RelWidth="0.08">
+				<Texture>terrain\sets\4\roads3d\road_asphalt_city</Texture>
+			</item>
+		</BottomBorders>
+		<Layers/>
+		<MiniMapCenterColor>00000000</MiniMapCenterColor>
+		<MiniMapBorderColor>848b8bff</MiniMapBorderColor>
+		<AmbientSound/>
+	</VSODescription>
+</base>

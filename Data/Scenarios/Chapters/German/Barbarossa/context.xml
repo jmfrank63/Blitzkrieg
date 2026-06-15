@@ -1,0 +1,2237 @@
+<?xml version="1.0"?>
+<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by Nasdaq Boom (World of Cracking) -->
+<!-- deleted comment here -->
+<!-- deleted comment here -->
+<!--\German\Barbarossa\-->
+<base>
+	<ChapterUnitsTable>
+		<Levels>
+			<item>
+				<UnitCreation>
+					<Units>
+						<item>
+							<Aviation ParadropSoldierCount="3" RelaxTime="240">
+								<Aircrafts>
+									<item FormationSize="1" Planes="4">
+										<Name>FW_189</Name>
+									</item>
+									<item FormationSize="2" Planes="4">
+										<Name>Messer_Bf_109_F</Name>
+									</item>
+									<item FormationSize="1" Planes="4">
+										<Name>He-111Heinkel</Name>
+									</item>
+									<item FormationSize="4" Planes="8">
+										<Name>Junkers_Ju87D_1</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>IL_2</Name>
+									</item>
+								</Aircrafts>
+								<ParadropSoldierName>German_rifle_41</ParadropSoldierName>
+							</Aviation>
+							<PartyName>German</PartyName>
+						</item>
+						<item>
+							<Aviation ParadropSoldierCount="1" RelaxTime="360">
+								<Aircrafts>
+									<item FormationSize="1" Planes="1">
+										<Name>Po_2</Name>
+									</item>
+									<item FormationSize="2" Planes="2">
+										<Name>Yak-1</Name>
+									</item>
+									<item FormationSize="1" Planes="2">
+										<Name>Tb-3</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>Vickers_Wellington_GB</Name>
+									</item>
+									<item FormationSize="2" Planes="2">
+										<Name>IL_2</Name>
+									</item>
+								</Aircrafts>
+								<ParadropSoldierName>USSR_rifle_39</ParadropSoldierName>
+							</Aviation>
+							<PartyName>USSR</PartyName>
+						</item>
+					</Units>
+				</UnitCreation>
+				<PlaceHolders>
+					<item>
+						<data>
+							<item>
+								<key>squad riflemans</key>
+								<data>
+									<Elements>
+										<item>German_rifle_41</item>
+										<item>German_rifle_40</item>
+									</Elements>
+									<Weights>
+										<item data="10"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad infantry</key>
+								<data>
+									<Elements>
+										<item>German_rifle_41</item>
+										<item>German_rifle_40</item>
+									</Elements>
+									<Weights>
+										<item data="10"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad submachinegunners</key>
+								<data>
+									<Elements>
+										<item>German_rifle_41</item>
+										<item>German_rifle_40</item>
+									</Elements>
+									<Weights>
+										<item data="10"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad machinegunners</key>
+								<data>
+									<Elements>
+										<item>German_mg42</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad at team</key>
+								<data>
+									<Elements>
+										<item>German_mg42</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad snipers</key>
+								<data>
+									<Elements>
+										<item>German_sniper</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport carrier</key>
+								<data>
+									<Elements>
+										<item>Opel_Blitz_Cargo</item>
+										<item>Sdkfz_7</item>
+										<item>SdKfz_251_Ausf_A_C_Hanomag</item>
+										<item>Sdkfz_8</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport support</key>
+								<data>
+									<Elements>
+										<item>Opel_Blitz_Engineering</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport medicine</key>
+								<data>
+									<Elements>
+										<item>Opel_Blitz_Medicine</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport tractor</key>
+								<data>
+									<Elements>
+										<item>Opel_Blitz_Cargo</item>
+										<item>Sdkfz_7</item>
+										<item>SdKfz_251_Ausf_A_C_Hanomag</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport military auto</key>
+								<data>
+									<Elements>
+										<item>Opel_Kadett</item>
+										<item>Kdf82_KubelWagen</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport civilian auto</key>
+								<data>
+									<Elements>
+										<item>GAZ_61</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery gun</key>
+								<data>
+									<Elements>
+										<item>5_cm_Pak38</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery howitzer</key>
+								<data>
+									<Elements>
+										<item>10_5mmLeFh18</item>
+										<item>15_cm_sFH18</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy gun</key>
+								<data>
+									<Elements>
+										<item>10_cm_ K_18</item>
+										<item>15cmK39</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery aagun</key>
+								<data>
+									<Elements>
+										<item>8.8-cm FlaK18</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery rocket</key>
+								<data>
+									<Elements>
+										<item>6-barrel 15cm Nebelwerfer 41</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery super</key>
+								<data>
+									<Elements>
+										<item>60_cm_Morser_Karl_Gerat_040</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery mortar</key>
+								<data>
+									<Elements>
+										<item>8sm_Gr_Wr34</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy mg</key>
+								<data>
+									<Elements>
+										<item>7_92_mm_MG34</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg assault</key>
+								<data>
+									<Elements>
+										<item>Sturmgeschutz_III_Ausf_A_B_C</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg antitank</key>
+								<data>
+									<Elements>
+										<item>Sturmgeschutz_III_Ausf_A_B_C</item>
+										<item>SU_85</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg super</key>
+								<data>
+									<Elements>
+										<item>JSU_152</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg aagun</key>
+								<data>
+									<Elements>
+										<item>85-mm_52-K</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor light</key>
+								<data>
+									<Elements>
+										<item>BMW_R75</item>
+										<item>Sdkfz_231</item>
+										<item>Pz_Kpfw_III_Ausf_E</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="2"/>
+										<item data="6"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor medium</key>
+								<data>
+									<Elements>
+										<item>Pz_Kpfw_IV_Ausf_D</item>
+										<item>Pz_38t_Ausf_A</item>
+									</Elements>
+									<Weights>
+										<item data="3"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor super</key>
+								<data>
+									<Elements>
+										<item>Pz_Kpfw_IV_Ausf_D</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor heavy</key>
+								<data>
+									<Elements>
+										<item>Pz_Kpfw_IV_Ausf_D</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+						</data>
+					</item>
+					<item>
+						<data>
+							<item>
+								<key>squad riflemans</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+										<item>USSR_rifle_41</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="2"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad infantry</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+										<item>USSR_rifle_41</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="2"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad submachinegunners</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_43</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad machinegunners</key>
+								<data>
+									<Elements>
+										<item>USSR_rpd_43</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad at team</key>
+								<data>
+									<Elements>
+										<item>USSR_ptrs_43</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad snipers</key>
+								<data>
+									<Elements>
+										<item>USSR_sniper</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport carrier</key>
+								<data>
+									<Elements>
+										<item>ZIS_5_Cargo</item>
+										<item>Komintern</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport support</key>
+								<data>
+									<Elements>
+										<item>ZIS_5v_Engineering</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport medicine</key>
+								<data>
+									<Elements>
+										<item>ZIS_5v_Medicine</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport tractor</key>
+								<data>
+									<Elements>
+										<item>ZIS_5_Cargo</item>
+										<item>Komintern</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport military auto</key>
+								<data>
+									<Elements>
+										<item>GAZ_61</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport civilian auto</key>
+								<data>
+									<Elements>
+										<item>AEC_Matador_Cargo_GB</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery gun</key>
+								<data>
+									<Elements>
+										<item>45_mm_M_37</item>
+										<item>76_2mm_F22</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery howitzer</key>
+								<data>
+									<Elements>
+										<item>122-mm_M-30</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy gun</key>
+								<data>
+									<Elements>
+										<item>122-mm_A-19</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery aagun</key>
+								<data>
+									<Elements>
+										<item>37_mm_61_K</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery rocket</key>
+								<data>
+									<Elements>
+										<item>BM_13</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery super</key>
+								<data>
+									<Elements>
+										<item>BM_13</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery mortar</key>
+								<data>
+									<Elements>
+										<item>82-mm '37</item>
+										<item>120_mm_38</item>
+									</Elements>
+									<Weights>
+										<item data="3"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy mg</key>
+								<data>
+									<Elements>
+										<item>12_7_mm_DShK</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg assault</key>
+								<data>
+									<Elements>
+										<item>BT-5</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg antitank</key>
+								<data>
+									<Elements>
+										<item>BT-5</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg super</key>
+								<data>
+									<Elements>
+										<item>BT-5</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg aagun</key>
+								<data>
+									<Elements>
+										<item>BT-5</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor light</key>
+								<data>
+									<Elements>
+										<item>BA10</item>
+										<item>BA20</item>
+										<item>BT-5</item>
+										<item>BT-7</item>
+										<item>T-26</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+										<item data="3"/>
+										<item data="3"/>
+										<item data="2"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor medium</key>
+								<data>
+									<Elements>
+										<item>T_34_76</item>
+										<item>T-26</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="2"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor super</key>
+								<data>
+									<Elements>
+										<item>KV-1</item>
+										<item>KV-2</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor heavy</key>
+								<data>
+									<Elements>
+										<item>KV-1</item>
+										<item>KV-2</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+						</data>
+					</item>
+				</PlaceHolders>
+				<RandomMissionBonus>
+					<item Weight="1">
+						<RPGStats>7_62_cm_Pak36</RPGStats>
+					</item>
+				</RandomMissionBonus>
+			</item>
+			<item>
+				<UnitCreation>
+					<Units>
+						<item>
+							<Aviation ParadropSoldierCount="3" RelaxTime="300">
+								<Aircrafts>
+									<item FormationSize="1" Planes="2">
+										<Name>Fi-156 Storch</Name>
+									</item>
+									<item FormationSize="2" Planes="2">
+										<Name>Messer_Bf_109_E</Name>
+									</item>
+									<item FormationSize="1" Planes="4">
+										<Name>He-111Heinkel</Name>
+									</item>
+									<item FormationSize="4" Planes="4">
+										<Name>Junkers_Ju87D_1</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>Junkers_Ju87D_1</Name>
+									</item>
+								</Aircrafts>
+								<ParadropSoldierName>German_rifle_40</ParadropSoldierName>
+							</Aviation>
+							<PartyName>German</PartyName>
+						</item>
+						<item>
+							<Aviation ParadropSoldierCount="1" RelaxTime="300">
+								<Aircrafts>
+									<item FormationSize="1" Planes="2">
+										<Name>Po_2</Name>
+									</item>
+									<item FormationSize="2" Planes="4">
+										<Name>Yak-1</Name>
+									</item>
+									<item FormationSize="1" Planes="3">
+										<Name>Tb-3</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>Tb-3</Name>
+									</item>
+									<item FormationSize="2" Planes="4">
+										<Name>IL_2</Name>
+									</item>
+								</Aircrafts>
+								<ParadropSoldierName>USSR_rifle_41</ParadropSoldierName>
+							</Aviation>
+							<PartyName>USSR</PartyName>
+						</item>
+					</Units>
+				</UnitCreation>
+				<PlaceHolders>
+					<item>
+						<data>
+							<item>
+								<key>squad riflemans</key>
+								<data>
+									<Elements>
+										<item>German_rifle_41</item>
+										<item>German_rifle_40</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad infantry</key>
+								<data>
+									<Elements>
+										<item>German_rifle_41</item>
+										<item>German_rifle_40</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad submachinegunners</key>
+								<data>
+									<Elements>
+										<item>German_rifle_41</item>
+										<item>German_rifle_40</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad machinegunners</key>
+								<data>
+									<Elements>
+										<item>German_mg42</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad at team</key>
+								<data>
+									<Elements>
+										<item>German_mg42</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad snipers</key>
+								<data>
+									<Elements>
+										<item>German_sniper</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport carrier</key>
+								<data>
+									<Elements>
+										<item>Opel_Blitz_Cargo</item>
+										<item>Sdkfz_7</item>
+										<item>SdKfz_251_Ausf_A_C_Hanomag</item>
+										<item>Sdkfz_8</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport support</key>
+								<data>
+									<Elements>
+										<item>Opel_Blitz_Engineering</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport medicine</key>
+								<data>
+									<Elements>
+										<item>Opel_Blitz_Medicine</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport tractor</key>
+								<data>
+									<Elements>
+										<item>Opel_Blitz_Cargo</item>
+										<item>Sdkfz_7</item>
+										<item>SdKfz_251_Ausf_A_C_Hanomag</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport military auto</key>
+								<data>
+									<Elements>
+										<item>Opel_Kadett</item>
+										<item>Kdf82_KubelWagen</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport civilian auto</key>
+								<data>
+									<Elements>
+										<item>GAZ_61</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery gun</key>
+								<data>
+									<Elements>
+										<item>5_cm_Pak38</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery howitzer</key>
+								<data>
+									<Elements>
+										<item>10_5mmLeFh18</item>
+										<item>15_cm_sFH18</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy gun</key>
+								<data>
+									<Elements>
+										<item>10_cm_ K_18</item>
+										<item>15cmK39</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery aagun</key>
+								<data>
+									<Elements>
+										<item>8.8-cm FlaK18</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery rocket</key>
+								<data>
+									<Elements>
+										<item>6-barrel 15cm Nebelwerfer 41</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery super</key>
+								<data>
+									<Elements>
+										<item>60_cm_Morser_Karl_Gerat_040</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery mortar</key>
+								<data>
+									<Elements>
+										<item>8sm_Gr_Wr34</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy mg</key>
+								<data>
+									<Elements>
+										<item>7_92_mm_MG34</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg assault</key>
+								<data>
+									<Elements>
+										<item>Sturmgeschutz_III_Ausf_A_B_C</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg antitank</key>
+								<data>
+									<Elements>
+										<item>Sturmgeschutz_III_Ausf_A_B_C</item>
+										<item>SU_85</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg super</key>
+								<data>
+									<Elements>
+										<item>JSU_152</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg aagun</key>
+								<data>
+									<Elements>
+										<item>85-mm_52-K</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor light</key>
+								<data>
+									<Elements>
+										<item>BMW_R75</item>
+										<item>Sdkfz_231</item>
+										<item>Pz_Kpfw_III_Ausf_E</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="2"/>
+										<item data="3"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor medium</key>
+								<data>
+									<Elements>
+										<item>Pz_Kpfw_IV_Ausf_D</item>
+										<item>Pz_38t_Ausf_A</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor super</key>
+								<data>
+									<Elements>
+										<item>Pz_Kpfw_IV_Ausf_D</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor heavy</key>
+								<data>
+									<Elements>
+										<item>Pz_Kpfw_IV_Ausf_D</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+						</data>
+					</item>
+					<item>
+						<data>
+							<item>
+								<key>squad riflemans</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+										<item>USSR_rifle_41</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="3"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad infantry</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+										<item>USSR_rifle_41</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="3"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad submachinegunners</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_43</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad machinegunners</key>
+								<data>
+									<Elements>
+										<item>USSR_rpd_43</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad at team</key>
+								<data>
+									<Elements>
+										<item>USSR_ptrs_43</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad snipers</key>
+								<data>
+									<Elements>
+										<item>USSR_sniper</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport carrier</key>
+								<data>
+									<Elements>
+										<item>ZIS_5_Cargo</item>
+										<item>Komintern</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport support</key>
+								<data>
+									<Elements>
+										<item>ZIS_5v_Engineering</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport medicine</key>
+								<data>
+									<Elements>
+										<item>ZIS_5v_Medicine</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport tractor</key>
+								<data>
+									<Elements>
+										<item>ZIS_5_Cargo</item>
+										<item>Komintern</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport military auto</key>
+								<data>
+									<Elements>
+										<item>GAZ_61</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport civilian auto</key>
+								<data>
+									<Elements>
+										<item>AEC_Matador_Cargo_GB</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery gun</key>
+								<data>
+									<Elements>
+										<item>45_mm_M_37</item>
+										<item>76_2mm_F22</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery howitzer</key>
+								<data>
+									<Elements>
+										<item>122-mm_M-30</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy gun</key>
+								<data>
+									<Elements>
+										<item>122-mm_A-19</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery aagun</key>
+								<data>
+									<Elements>
+										<item>37_mm_61_K</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery rocket</key>
+								<data>
+									<Elements>
+										<item>BM_13</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery super</key>
+								<data>
+									<Elements>
+										<item>BM_13</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery mortar</key>
+								<data>
+									<Elements>
+										<item>82-mm '37</item>
+										<item>120_mm_38</item>
+									</Elements>
+									<Weights>
+										<item data="3"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy mg</key>
+								<data>
+									<Elements>
+										<item>12_7_mm_DShK</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg assault</key>
+								<data>
+									<Elements>
+										<item>BT-7</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg antitank</key>
+								<data>
+									<Elements>
+										<item>BT-7</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg super</key>
+								<data>
+									<Elements>
+										<item>BT-7</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg aagun</key>
+								<data>
+									<Elements>
+										<item>BT-7</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor light</key>
+								<data>
+									<Elements>
+										<item>BA10</item>
+										<item>BA20</item>
+										<item>BT-5</item>
+										<item>BT-7</item>
+										<item>T-26</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+										<item data="2"/>
+										<item data="2"/>
+										<item data="3"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor medium</key>
+								<data>
+									<Elements>
+										<item>T_34_76</item>
+										<item>T-26</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor super</key>
+								<data>
+									<Elements>
+										<item>KV-1</item>
+										<item>KV-2</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor heavy</key>
+								<data>
+									<Elements>
+										<item>KV-1</item>
+										<item>KV-2</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+						</data>
+					</item>
+				</PlaceHolders>
+				<RandomMissionBonus>
+					<item Weight="1">
+						<RPGStats>2_cm_FlaK30_38</RPGStats>
+					</item>
+				</RandomMissionBonus>
+			</item>
+			<item>
+				<UnitCreation>
+					<Units>
+						<item>
+							<Aviation ParadropSoldierCount="3" RelaxTime="360">
+								<Aircrafts>
+									<item FormationSize="1" Planes="2">
+										<Name>Fi-156 Storch</Name>
+									</item>
+									<item FormationSize="2" Planes="2">
+										<Name>Messer_Bf_109_E</Name>
+									</item>
+									<item FormationSize="1" Planes="2">
+										<Name>Junkers_Ju52</Name>
+									</item>
+									<item FormationSize="2" Planes="2">
+										<Name>Junkers_Ju87D_1</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>Junkers_Ju87D_1</Name>
+									</item>
+								</Aircrafts>
+								<ParadropSoldierName>German_rifle_39</ParadropSoldierName>
+							</Aviation>
+							<PartyName>German</PartyName>
+						</item>
+						<item>
+							<Aviation ParadropSoldierCount="1" RelaxTime="300">
+								<Aircrafts>
+									<item FormationSize="1" Planes="2">
+										<Name>Po_2</Name>
+									</item>
+									<item FormationSize="2" Planes="6">
+										<Name>Yak-1</Name>
+									</item>
+									<item FormationSize="1" Planes="4">
+										<Name>Tb-3</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>Tb-3</Name>
+									</item>
+									<item FormationSize="3" Planes="6">
+										<Name>IL_2</Name>
+									</item>
+								</Aircrafts>
+								<ParadropSoldierName>USSR_rifle_41</ParadropSoldierName>
+							</Aviation>
+							<PartyName>USSR</PartyName>
+						</item>
+					</Units>
+				</UnitCreation>
+				<PlaceHolders>
+					<item>
+						<data>
+							<item>
+								<key>squad riflemans</key>
+								<data>
+									<Elements>
+										<item>German_rifle_41</item>
+										<item>German_rifle_40</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="2"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad infantry</key>
+								<data>
+									<Elements>
+										<item>German_rifle_41</item>
+										<item>German_rifle_40</item>
+										<item>German_rifle_39</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="2"/>
+										<item data="3"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad submachinegunners</key>
+								<data>
+									<Elements>
+										<item>German_rifle_41</item>
+										<item>German_rifle_40</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad machinegunners</key>
+								<data>
+									<Elements>
+										<item>German_mg42</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad at team</key>
+								<data>
+									<Elements>
+										<item>German_mg42</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad snipers</key>
+								<data>
+									<Elements>
+										<item>German_officer</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport carrier</key>
+								<data>
+									<Elements>
+										<item>Opel_Blitz_Cargo</item>
+										<item>Sdkfz_7</item>
+										<item>SdKfz_251_Ausf_A_C_Hanomag</item>
+										<item>Sdkfz_8</item>
+									</Elements>
+									<Weights>
+										<item data="5"/>
+										<item data="1"/>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport support</key>
+								<data>
+									<Elements>
+										<item>Opel_Blitz_Engineering</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport medicine</key>
+								<data>
+									<Elements>
+										<item>Opel_Blitz_Medicine</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport tractor</key>
+								<data>
+									<Elements>
+										<item>Opel_Blitz_Cargo</item>
+										<item>Sdkfz_7</item>
+										<item>SdKfz_251_Ausf_A_C_Hanomag</item>
+									</Elements>
+									<Weights>
+										<item data="3"/>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport military auto</key>
+								<data>
+									<Elements>
+										<item>Opel_Kadett</item>
+										<item>Kdf82_KubelWagen</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport civilian auto</key>
+								<data>
+									<Elements>
+										<item>GAZ_61</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery gun</key>
+								<data>
+									<Elements>
+										<item>5_cm_Pak38</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery howitzer</key>
+								<data>
+									<Elements>
+										<item>10_5mmLeFh18</item>
+										<item>15_cm_sFH18</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy gun</key>
+								<data>
+									<Elements>
+										<item>10_5mmLeFh18</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery aagun</key>
+								<data>
+									<Elements>
+										<item>8.8-cm FlaK18</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery rocket</key>
+								<data>
+									<Elements>
+										<item>6-barrel 15cm Nebelwerfer 41</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery super</key>
+								<data>
+									<Elements>
+										<item>60_cm_Morser_Karl_Gerat_040</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery mortar</key>
+								<data>
+									<Elements>
+										<item>7_92_mm_MG34</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy mg</key>
+								<data>
+									<Elements>
+										<item>7_92_mm_MG34</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg assault</key>
+								<data>
+									<Elements>
+										<item>Sturmgeschutz_III_Ausf_A_B_C</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg antitank</key>
+								<data>
+									<Elements>
+										<item>Sturmgeschutz_III_Ausf_A_B_C</item>
+										<item>SU_85</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg super</key>
+								<data>
+									<Elements>
+										<item>JSU_152</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg aagun</key>
+								<data>
+									<Elements>
+										<item>85-mm_52-K</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor light</key>
+								<data>
+									<Elements>
+										<item>BMW_R75</item>
+										<item>Sdkfz_231</item>
+										<item>Pz_Kpfw_III_Ausf_E</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="2"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor medium</key>
+								<data>
+									<Elements>
+										<item>Pz_Kpfw_IV_Ausf_D</item>
+										<item>Pz_38t_Ausf_A</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor super</key>
+								<data>
+									<Elements>
+										<item>Pz_Kpfw_IV_Ausf_D</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor heavy</key>
+								<data>
+									<Elements>
+										<item>Pz_Kpfw_IV_Ausf_D</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+						</data>
+					</item>
+					<item>
+						<data>
+							<item>
+								<key>squad riflemans</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+										<item>USSR_rifle_41</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="3"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad infantry</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+										<item>USSR_rifle_41</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="3"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad submachinegunners</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_43</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad machinegunners</key>
+								<data>
+									<Elements>
+										<item>USSR_rpd_43</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad at team</key>
+								<data>
+									<Elements>
+										<item>USSR_ptrs_43</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad snipers</key>
+								<data>
+									<Elements>
+										<item>USSR_sniper</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport carrier</key>
+								<data>
+									<Elements>
+										<item>ZIS_5_Cargo</item>
+										<item>Komintern</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport support</key>
+								<data>
+									<Elements>
+										<item>ZIS_5v_Engineering</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport medicine</key>
+								<data>
+									<Elements>
+										<item>ZIS_5v_Medicine</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport tractor</key>
+								<data>
+									<Elements>
+										<item>ZIS_5_Cargo</item>
+										<item>Komintern</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport military auto</key>
+								<data>
+									<Elements>
+										<item>GAZ_61</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport civilian auto</key>
+								<data>
+									<Elements>
+										<item>AEC_Matador_Cargo_GB</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery gun</key>
+								<data>
+									<Elements>
+										<item>45_mm_M_37</item>
+										<item>76_2mm_F22</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="2"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery howitzer</key>
+								<data>
+									<Elements>
+										<item>122-mm_M-30</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy gun</key>
+								<data>
+									<Elements>
+										<item>122-mm_A-19</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery aagun</key>
+								<data>
+									<Elements>
+										<item>37_mm_61_K</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery rocket</key>
+								<data>
+									<Elements>
+										<item>BM_13</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery super</key>
+								<data>
+									<Elements>
+										<item>BM_13</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery mortar</key>
+								<data>
+									<Elements>
+										<item>82-mm '37</item>
+										<item>120_mm_38</item>
+									</Elements>
+									<Weights>
+										<item data="3"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy mg</key>
+								<data>
+									<Elements>
+										<item>12_7_mm_DShK</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg assault</key>
+								<data>
+									<Elements>
+										<item>T_34_76</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg antitank</key>
+								<data>
+									<Elements>
+										<item>T_34_76</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg super</key>
+								<data>
+									<Elements>
+										<item>T_34_76</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg aagun</key>
+								<data>
+									<Elements>
+										<item>T_34_76</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor light</key>
+								<data>
+									<Elements>
+										<item>BA10</item>
+										<item>BA20</item>
+										<item>BT-5</item>
+										<item>BT-7</item>
+										<item>T-26</item>
+										<item>T_34_76</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+										<item data="2"/>
+										<item data="2"/>
+										<item data="5"/>
+										<item data="2"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor medium</key>
+								<data>
+									<Elements>
+										<item>T_34_76</item>
+										<item>T-26</item>
+										<item>KV-1</item>
+										<item>KV-2</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor super</key>
+								<data>
+									<Elements>
+										<item>KV-1</item>
+										<item>KV-2</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor heavy</key>
+								<data>
+									<Elements>
+										<item>KV-1</item>
+										<item>KV-2</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+						</data>
+					</item>
+				</PlaceHolders>
+				<RandomMissionBonus>
+					<item Weight="1">
+						<RPGStats>15cmK39</RPGStats>
+					</item>
+					<item Weight="1">
+						<RPGStats>Sturmgeschutz_III_Ausf_D</RPGStats>
+					</item>
+				</RandomMissionBonus>
+			</item>
+		</Levels>
+	</ChapterUnitsTable>
+</base>

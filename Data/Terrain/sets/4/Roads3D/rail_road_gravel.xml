@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<VSODescription Type="3" Priority="5" Passability="1" AIClasses="0" SoilParams="0">
+		<Bottom OpacityCenter="255" OpacityBorder="255" StreamSpeed="0" TextureStep="0.1" NumCells="4" Animated="0" Disturbance="0" RelWidth="0.15">
+			<Texture>terrain\sets\4\roads3d\rail_road_gravel</Texture>
+		</Bottom>
+		<BottomBorders>
+			<item OpacityCenter="255" OpacityBorder="200" StreamSpeed="0" TextureStep="0.1" NumCells="1" Animated="0" Disturbance="0" RelWidth="0.85">
+				<Texture>terrain\sets\4\roads3d\rail_road_gravel</Texture>
+			</item>
+			<item OpacityCenter="255" OpacityBorder="200" StreamSpeed="0" TextureStep="0.1" NumCells="1" Animated="0" Disturbance="0" RelWidth="0.85">
+				<Texture>terrain\sets\4\roads3d\rail_road_gravel</Texture>
+			</item>
+		</BottomBorders>
+		<Layers/>
+		<MiniMapCenterColor>FFFFFFFF</MiniMapCenterColor>
+		<MiniMapBorderColor>00000000</MiniMapBorderColor>
+		<AmbientSound/>
+	</VSODescription>
+</base>

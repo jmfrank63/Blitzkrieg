@@ -1,0 +1,130 @@
+<?xml version="1.0"?>
+<!-- edited with XMLSPY v5 rel. 2 U (http://www.xmlspy.com) by Serge Orlovsky (Nival Interactive) -->
+<base>
+	<RPG>
+		<KeyName>Bullets_ricoshets_sound</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0">
+				<SoundPath>Sounds\hit\b_rico1</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0">
+				<SoundPath>Sounds\hit\b_rico12</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0">
+				<SoundPath>Sounds\hit\b_rico2</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0">
+				<SoundPath>Sounds\hit\b_rico13</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0">
+				<SoundPath>Sounds\hit\b_rico3</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0">
+				<SoundPath>Sounds\hit\b_rico14</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0">
+				<SoundPath>Sounds\hit\b_rico4</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0">
+				<SoundPath>Sounds\hit\b_rico15</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0">
+				<SoundPath>Sounds\hit\b_rico5</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0">
+				<SoundPath>Sounds\hit\b_rico6</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0">
+				<SoundPath>Sounds\hit\b_rico7</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0">
+				<SoundPath>Sounds\hit\b_rico16</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0">
+				<SoundPath>Sounds\hit\b_rico8</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0">
+				<SoundPath>Sounds\hit\b_rico9</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0">
+				<SoundPath>Sounds\hit\b_rico10</SoundPath>
+			</item>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+			<item MinDist="5" MaxDist="25" Probability="1" Peacefull="0"/>
+		</Sounds>
+	</RPG>
+</base>

@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<!-- deleted comment here -->
+<base>
+	<Element ClassTypeID="0x10001107" PositionFlag="0x0011" ElementID="-1" VisibleFlag="1" ActiveFlag="0" CurrentState="0" Background="0" TextAlign="0x0011" TextColor="0xff000000">
+		<TextPos x="10" y="0"/>
+		<Children>
+			<item ClassTypeID="0x10001105" ElementID="5" PositionFlag="0x0011" ActiveFlag="0" Background="0" VisibleFlag="1" TextColor="0xFFFDF2DB" TextAlign="0x0011">
+				<TextPos x="0" y="0"/>
+				<WindowPos x="0" y="0"/>
+				<WindowSize x="200" y="21"/>
+				<States>
+					<item>
+						<TextKey/>
+					</item>
+				</States>
+			</item>
+		</Children>
+		<WindowPos x="0" y="0"/>
+		<WindowSize x="200" y="21"/>
+		<States>
+			<item EventID="-1">
+				<AppearanceDisabled Color="0xffffffff" TextColor="0xff000000" Specular="0xff000000">
+					<Maps x1="579" y1="910" x2="19" y2="21"/>
+					<Texture>UI\IntermissionTextures\back-stats</Texture>
+				</AppearanceDisabled>
+				<TextKey/>
+			</item>
+		</States>
+	</Element>
+</base>

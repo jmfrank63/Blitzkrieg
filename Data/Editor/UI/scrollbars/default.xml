@@ -1,0 +1,120 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base ClassTypeID="268439817" PositionFlag="17" ElementID="-1" VisibleFlag="1" ActiveFlag="1" CurrentState="0" Background="1">
+	<WindowPos x="0" y="0"/>
+	<WindowSize x="300" y="50"/>
+	<States>
+		<item>
+			<AppearanceNormal Color="-1" Specular="-16777216">
+				<Maps x1="0" y1="0" x2="128" y2="128"/>
+			</AppearanceNormal>
+			<AppearanceHighlighted Color="-1" Specular="-16777216">
+				<Maps x1="0" y1="0" x2="128" y2="128"/>
+			</AppearanceHighlighted>
+			<AppearancePushed Color="-1" Specular="-16777216">
+				<Maps x1="0" y1="0" x2="128" y2="128"/>
+			</AppearancePushed>
+		</item>
+	</States>
+	<Children>
+		<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031">
+			<WindowPos x="0" y="0"/>
+			<WindowSize x="27" y="29"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<Placement Flags="0x1111">
+							<Pos x="100" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+						<Maps x1="0" y1="0" x2="27" y2="29"/>
+						<Texture>ui\slider</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<Placement Flags="0x1111">
+							<Pos x="100" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+						<Maps x1="0" y1="0" x2="27" y2="29"/>
+						<Texture>ui\slider</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<Placement Flags="0x1111">
+							<Pos x="100" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+						<Maps x1="27" y1="0" x2="27" y2="29"/>
+						<Texture>ui\slider</Texture>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031">
+			<WindowPos x="0" y="0"/>
+			<WindowSize x="27" y="29"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<Placement Flags="0x1111">
+							<Pos x="100" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+						<Maps x1="0" y1="29" x2="27" y2="29"/>
+						<Texture>ui\slider</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<Placement Flags="0x1111">
+							<Pos x="100" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+						<Maps x1="0" y1="29" x2="27" y2="29"/>
+						<Texture>ui\slider</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<Placement Flags="0x1111">
+							<Pos x="100" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+						<Maps x1="27" y1="29" x2="27" y2="29"/>
+						<Texture>ui\slider</Texture>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" Position="0" Elevator_Width="8" Width="20" Vertical="0">
+			<Elevator_Texture>ui\slider</Elevator_Texture>
+			<Elevator_Maps x1="28" y1="58" x2="25" y2="8"/>
+			<WindowPos x="0" y="0"/>
+			<WindowSize x="100" y="20"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<Placement Flags="0x1111">
+							<Pos x="100" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+						<Maps x1="108" y1="0" x2="25" y2="400"/>
+						<Texture>ui\slider</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<Placement Flags="0x1111">
+							<Pos x="100" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+						<Maps x1="108" y1="0" x2="25" y2="400"/>
+						<Texture>ui\slider</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<Placement Flags="0x1111">
+							<Pos x="100" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+						<Maps x1="108" y1="0" x2="25" y2="400"/>
+						<Texture>ui\slider</Texture>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+	</Children>
+	<Script/>
+</base>

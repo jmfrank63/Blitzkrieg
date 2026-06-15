@@ -1,0 +1,379 @@
+<!-- deleted comment here -->
+<base Background="1">
+	<States>
+		<item EventID="-1">
+			<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<SubRects>
+					<item>
+						<rect x1="0" y1="0" x2="1024" y2="768"/>
+						<map x1="0" y1="0" x2="1024" y2="768"/>
+					</item>
+				</SubRects>
+				<Texture>ui\intermissiontextures\back-hire</Texture>
+			</AppearanceNormal>
+			<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<SubRects>
+					<item>
+						<rect x1="0" y1="0" x2="1024" y2="768"/>
+						<map x1="0" y1="0" x2="1024" y2="768"/>
+					</item>
+				</SubRects>
+				<Texture>ui\intermissiontextures\back-hire</Texture>
+			</AppearanceHighlighted>
+			<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<SubRects>
+					<item>
+						<rect x1="0" y1="0" x2="1024" y2="768"/>
+						<map x1="0" y1="0" x2="1024" y2="768"/>
+					</item>
+				</SubRects>
+				<Texture>ui\intermissiontextures\back-hire</Texture>
+			</AppearancePushed>
+		</item>
+	</States>
+	<Script>ui\AddUnitToMission</Script>
+	<Children>
+		<item ClassTypeID="0x10001105" ElementID="20000" PositionFlag="0x0011" ActiveFlag="1" TextAlign="0x0021" FontSize="2" TextColor="0xFFFDF2DB">
+			<!--UnitsPool-->
+			<TextPos x="30" y="0"/>
+			<ShadowShift x="1" y="2"/>
+			<WindowPos x="30" y="30"/>
+			<WindowSize x="964" y="70"/>
+			<States>
+				<item FontSize="2">
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="0" x2="300" y2="32"/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="0" x2="300" y2="32"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="33" x2="300" y2="32"/>
+					</AppearancePushed>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey>addunitstomission</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10001" PositionFlag="0x0033" TextAlign="0x0022" FontSize="1" TextColor="0xFFFDF2DB">
+			<ToolTip>tt_ui_chapter_backward</ToolTip>
+			<!--button: ==>-->
+			<TextPos x="-15" y="0"/>
+			<ShiftText x="0" y="1"/>
+			<ShadowShift x="1" y="2"/>
+			<WindowPos x="42" y="36"/>
+			<WindowSize x="119" y="53"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xffffbe34">
+						<Maps x1="0" y1="769" x2="119" y2="53"/>
+						<Texture>ui\intermissiontextures\back-chapter</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xfffff799">
+						<Maps x1="0" y1="769" x2="119" y2="53"/>
+						<Texture>ui\intermissiontextures\back-chapter</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xffe19003">
+						<Maps x1="0" y1="822" x2="119" y2="53"/>
+						<Texture>ui\intermissiontextures\back-chapter</Texture>
+					</AppearancePushed>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+					<TextKey>imheader-button-left</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10003" PositionFlag="0x0031" TextAlign="0x0022" FontSize="1" TextColor="0xFFFDF2DB">
+			<ToolTip>tt_ui_hire_default</ToolTip>
+			<!--button: default-->
+			<TextPos x="-15" y="0"/>
+			<ShiftText x="0" y="1"/>
+			<ShadowShift x="1" y="2"/>
+			<WindowPos x="40" y="36"/>
+			<WindowSize x="119" y="53"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xffffbe34">
+						<Maps x1="0" y1="769" x2="119" y2="53"/>
+						<Texture>ui\intermissiontextures\back-chapter</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xfffff799">
+						<Maps x1="0" y1="769" x2="119" y2="53"/>
+						<Texture>ui\intermissiontextures\back-chapter</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xffe19003">
+						<Maps x1="0" y1="822" x2="119" y2="53"/>
+						<Texture>ui\intermissiontextures\back-chapter</Texture>
+					</AppearancePushed>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+					<TextKey>imheader-button-default</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20001" PositionFlag="0x0011" ActiveFlag="1" TextAlign="0x0021" TextColor="0xFFFDF2DB">
+			<ToolTip>header</ToolTip>
+			<!--Available slots-->
+			<TextPos x="30" y="15"/>
+			<ShadowShift x="1" y="2"/>
+			<WindowPos x="30" y="130"/>
+			<WindowSize x="410" y="30"/>
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="0" x2="300" y2="32"/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="0" x2="300" y2="32"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="33" x2="300" y2="32"/>
+					</AppearancePushed>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey>imheader-hire-slots</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001116" ElementID="100" PositionFlag="0x0011" ActiveFlag="1" Background="0" BarHeight="47" ItemHeight="108" VSubSpace="3" SBVisible="1" ItemLeftSpace="36" LeftSpace="0" TopSpace="61" BottomSpace="10">
+			<!--slots shortcut bar-->
+			<Script>ui\common\ForwardToEncyclopedia</Script>
+			<BarFile>ui\common\bar</BarFile>
+			<ItemFile>ui\common\UnitInfoItem</ItemFile>
+			<Selection_Texture>ui\intermissiontextures\tile-unitlist</Selection_Texture>
+			<SelTileRects>
+				<item>
+					<rect x1="10" y1="41" x2="34" y2="64"/>
+					<size x="24" y="23"/>
+					<map x1="394" y1="75" x2="24" y2="23"/>
+				</item>
+			</SelTileRects>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" CurrentState="0" ButtonStep="15" PositionFlag="0x0013">
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031">
+							<!--scrollbar upper button-->
+							<WindowSize x="45" y="58"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="827" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031">
+							<!--scrollbar lower button-->
+							<WindowSize x="45" y="58"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="827" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" Position="0" Width="41" Vertical="1" Elevator_Width="33">
+							<Elevator_Texture>ui\IntermissionTextures\back-chapter</Elevator_Texture>
+							<Elevator_Maps x1="681" y1="783" x2="45" y2="33"/>
+							<!--slider. elevator - button on scrollbar. states - elevator background. elevator_width - how long elevator is along scrollbar; elevator maps - texture of elevator-->
+							<WindowSize x="41" y="0"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="40" y2="33"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0"/>
+					<WindowSize x="45" y="0"/>
+				</item>
+			</Children>
+			<WindowPos x="38" y="130"/>
+			<WindowSize x="462" y="511"/>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20002" PositionFlag="0x0011" ActiveFlag="1" TextAlign="0x0021" TextColor="0xFFFDF2DB">
+			<!--Available units-->
+			<TextPos x="30" y="15"/>
+			<ShadowShift x="1" y="2"/>
+			<WindowPos x="527" y="130"/>
+			<WindowSize x="410" y="30"/>
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="0" x2="300" y2="32"/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="0" x2="300" y2="32"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="33" x2="300" y2="32"/>
+					</AppearancePushed>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey>imheader-hire-pool</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001116" ElementID="101" PositionFlag="0x0011" ActiveFlag="1" Background="0" BarHeight="0" ItemHeight="108" VSubSpace="3" SBVisible="1" ItemLeftSpace="36" LeftSpace="0" TopSpace="61" BottomSpace="10">
+			<!--units shortcut bar-->
+			<Script>ui\common\ForwardToEncyclopedia</Script>
+			<BarFile>ui\common\bar</BarFile>
+			<ItemFile>ui\common\UnitInfoItem</ItemFile>
+			<Selection_Texture>ui\intermissiontextures\tile-unitlist</Selection_Texture>
+			<SelTileRects>
+				<item>
+					<rect x1="10" y1="41" x2="34" y2="64"/>
+					<size x="24" y="23"/>
+					<map x1="394" y1="75" x2="24" y2="23"/>
+				</item>
+			</SelTileRects>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" CurrentState="0" ButtonStep="15" PositionFlag="0x0013">
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031">
+							<!--scrollbar upper button-->
+							<WindowSize x="45" y="58"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="827" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031">
+							<!--scrollbar lower button-->
+							<WindowSize x="45" y="58"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="827" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" Position="0" Width="41" Vertical="1" Elevator_Width="33">
+							<Elevator_Texture>ui\IntermissionTextures\back-chapter</Elevator_Texture>
+							<Elevator_Maps x1="681" y1="783" x2="45" y2="33"/>
+							<!--slider. elevator - button on scrollbar. states - elevator background. elevator_width - how long elevator is along scrollbar; elevator maps - texture of elevator-->
+							<WindowSize x="41" y="0"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="40" y2="33"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0"/>
+					<WindowSize x="45" y="0"/>
+				</item>
+			</Children>
+			<WindowPos x="528" y="130"/>
+			<WindowSize x="462" y="511"/>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="31415" PositionFlag="0x0022" Background="0" VisibleFlag="0">
+			<!--inter mission tutorial-->
+			<Script>ui\imtutorial</Script>
+			<WindowPos x="0" y="0"/>
+			<WindowSize x="576" y="420"/>
+			<States>
+				<item>
+					<TextKey>textes\imtutorial\addunittomission</TextKey>
+				</item>
+			</States>
+		</item>
+	</Children>
+</base>

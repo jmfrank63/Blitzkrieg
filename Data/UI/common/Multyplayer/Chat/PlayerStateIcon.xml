@@ -1,0 +1,208 @@
+<?xml version="1.0"?>
+<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by Alexander Veselov (NIVAL Interactive) -->
+<!-- deleted comment here -->
+<base>
+	<Element ClassTypeID="0x10001107" PositionFlag="17" ElementID="-1" VisibleFlag="1" Background="0">
+		<WindowPos x="0" y="0"/>
+		<Children>
+			<item ClassTypeID="0x10001105" ElementID="113" PositionFlag="0x0022" ActiveFlag="0" Background="1">
+				<WindowPos x="0" y="0"/>
+				<WindowSize x="30" y="20"/>
+				<States>
+					<item Background="1">
+						<ToolTip>Textes\UI\Intermission\Multiplayer\Chat\tt_icon_inchat</ToolTip>
+						<AppearanceDisabled Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="780" y1="859" x2="30" y2="20"/>
+							<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+						</AppearanceDisabled>
+					</item>
+					<item Background="1">
+						<ToolTip>Textes\UI\Intermission\Multiplayer\Chat\tt_icon_away</ToolTip>
+						<AppearanceDisabled Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="815" y1="780" x2="30" y2="20"/>
+							<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+						</AppearanceDisabled>
+					</item>
+					<item Background="1">
+						<ToolTip>Textes\UI\Intermission\Multiplayer\Chat\tt_icon_inserverlist</ToolTip>
+						<AppearanceDisabled Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="815" y1="806" x2="30" y2="20"/>
+							<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+						</AppearanceDisabled>
+					</item>
+					<item Background="1">
+						<ToolTip>Textes\UI\Intermission\Multiplayer\Chat\tt_icon_ingame</ToolTip>
+						<AppearanceDisabled Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="815" y1="832" x2="30" y2="20"/>
+							<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+						</AppearanceDisabled>
+					</item>
+					<item Background="1">
+						<ToolTip>Textes\UI\Intermission\Multiplayer\Chat\tt_icon_instagingroom</ToolTip>
+						<AppearanceDisabled Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="815" y1="858" x2="30" y2="20"/>
+							<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+						</AppearanceDisabled>
+					</item>
+				</States>
+			</item>
+		</Children>
+		<TextPos x="-5000" y="0"/>
+		<WindowSize x="30" y="20"/>
+		<States>
+			<item EventID="-1">
+				<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+					<TileRects>
+						<item>
+							<rect x1="64" y1="42" x2="896" y2="588"/>
+							<size x="64" y="42"/>
+							<map x1="15" y1="26" x2="64" y2="42"/>
+						</item>
+						<item>
+							<rect x1="64" y1="0" x2="896" y2="42"/>
+							<size x="64" y="42"/>
+							<map x1="15" y1="0" x2="64" y2="42"/>
+						</item>
+						<item>
+							<rect x1="896" y1="42" x2="936" y2="588"/>
+							<size x="40" y="42"/>
+							<map x1="4" y1="20" x2="40" y2="42"/>
+						</item>
+						<item>
+							<rect x1="64" y1="588" x2="896" y2="630"/>
+							<size x="64" y="42"/>
+							<map x1="15" y1="51" x2="64" y2="42"/>
+						</item>
+						<item>
+							<rect x1="0" y1="42" x2="64" y2="588"/>
+							<size x="64" y="42"/>
+							<map x1="0" y1="20" x2="64" y2="42"/>
+						</item>
+						<item>
+							<rect x1="0" y1="0" x2="64" y2="42"/>
+							<size x="64" y="42"/>
+							<map x1="0" y1="0" x2="64" y2="42"/>
+						</item>
+						<item>
+							<rect x1="896" y1="0" x2="936" y2="42"/>
+							<size x="40" y="42"/>
+							<map x1="4" y1="0" x2="40" y2="42"/>
+						</item>
+						<item>
+							<rect x1="896" y1="588" x2="936" y2="630"/>
+							<size x="64" y="42"/>
+							<map x1="4" y1="51" x2="40" y2="42"/>
+						</item>
+						<item>
+							<rect x1="0" y1="588" x2="64" y2="630"/>
+							<size x="64" y="42"/>
+							<map x1="0" y1="51" x2="64" y2="42"/>
+						</item>
+					</TileRects>
+					<Texture/>
+				</AppearanceNormal>
+				<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+					<TileRects>
+						<item>
+							<rect x1="64" y1="42" x2="896" y2="588"/>
+							<size x="64" y="42"/>
+							<map x1="15" y1="26" x2="64" y2="42"/>
+						</item>
+						<item>
+							<rect x1="64" y1="0" x2="896" y2="42"/>
+							<size x="64" y="42"/>
+							<map x1="15" y1="0" x2="64" y2="42"/>
+						</item>
+						<item>
+							<rect x1="896" y1="42" x2="936" y2="588"/>
+							<size x="40" y="42"/>
+							<map x1="4" y1="20" x2="40" y2="42"/>
+						</item>
+						<item>
+							<rect x1="64" y1="588" x2="896" y2="630"/>
+							<size x="64" y="42"/>
+							<map x1="15" y1="51" x2="64" y2="42"/>
+						</item>
+						<item>
+							<rect x1="0" y1="42" x2="64" y2="588"/>
+							<size x="64" y="42"/>
+							<map x1="0" y1="20" x2="64" y2="42"/>
+						</item>
+						<item>
+							<rect x1="0" y1="0" x2="64" y2="42"/>
+							<size x="64" y="42"/>
+							<map x1="0" y1="0" x2="64" y2="42"/>
+						</item>
+						<item>
+							<rect x1="896" y1="0" x2="936" y2="42"/>
+							<size x="40" y="42"/>
+							<map x1="4" y1="0" x2="40" y2="42"/>
+						</item>
+						<item>
+							<rect x1="896" y1="588" x2="936" y2="630"/>
+							<size x="64" y="42"/>
+							<map x1="4" y1="51" x2="40" y2="42"/>
+						</item>
+						<item>
+							<rect x1="0" y1="588" x2="64" y2="630"/>
+							<size x="64" y="42"/>
+							<map x1="0" y1="51" x2="64" y2="42"/>
+						</item>
+					</TileRects>
+					<Texture/>
+				</AppearanceHighlighted>
+				<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+					<TileRects>
+						<item>
+							<rect x1="64" y1="42" x2="896" y2="588"/>
+							<size x="64" y="42"/>
+							<map x1="15" y1="26" x2="64" y2="42"/>
+						</item>
+						<item>
+							<rect x1="64" y1="0" x2="896" y2="42"/>
+							<size x="64" y="42"/>
+							<map x1="15" y1="0" x2="64" y2="42"/>
+						</item>
+						<item>
+							<rect x1="896" y1="42" x2="936" y2="588"/>
+							<size x="40" y="42"/>
+							<map x1="4" y1="20" x2="40" y2="42"/>
+						</item>
+						<item>
+							<rect x1="64" y1="588" x2="896" y2="630"/>
+							<size x="64" y="42"/>
+							<map x1="15" y1="51" x2="64" y2="42"/>
+						</item>
+						<item>
+							<rect x1="0" y1="42" x2="64" y2="588"/>
+							<size x="64" y="42"/>
+							<map x1="0" y1="20" x2="64" y2="42"/>
+						</item>
+						<item>
+							<rect x1="0" y1="0" x2="64" y2="42"/>
+							<size x="64" y="42"/>
+							<map x1="0" y1="0" x2="64" y2="42"/>
+						</item>
+						<item>
+							<rect x1="896" y1="0" x2="936" y2="42"/>
+							<size x="40" y="42"/>
+							<map x1="4" y1="0" x2="40" y2="42"/>
+						</item>
+						<item>
+							<rect x1="896" y1="588" x2="936" y2="630"/>
+							<size x="64" y="42"/>
+							<map x1="4" y1="51" x2="40" y2="42"/>
+						</item>
+						<item>
+							<rect x1="0" y1="588" x2="64" y2="630"/>
+							<size x="64" y="42"/>
+							<map x1="0" y1="51" x2="64" y2="42"/>
+						</item>
+					</TileRects>
+					<Texture/>
+				</AppearancePushed>
+			</item>
+		</States>
+		<window_text/>
+	</Element>
+</base>

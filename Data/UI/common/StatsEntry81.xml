@@ -1,0 +1,66 @@
+<?xml version="1.0"?>
+<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by Alexander Veselov (NIVAL Interactive) -->
+<!-- deleted comment here -->
+<!-- deleted comment here -->
+<base>
+	<Element ClassTypeID="0x10001107" PositionFlag="0x0011" ElementID="-1" VisibleFlag="1" ActiveFlag="1" CurrentState="0" Background="1" TextAlign="0x0011" TextColor="0xff000000">
+		<TextPos x="-10000" y="-10000"/>
+		<WindowPos x="0" y="0"/>
+		<WindowSize x="19" y="21"/>
+		<Children>
+			<item ClassTypeID="0x10001105" ElementID="1" PositionFlag="0x0011" ActiveFlag="0" Background="1" VisibleFlag="0">
+				<!--star *-->
+				<WindowPos x="-3" y="0"/>
+				<WindowSize x="19" y="21"/>
+				<States>
+					<item EventID="-1">
+						<AppearanceDisabled Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="579" y1="910" x2="19" y2="21"/>
+							<Texture>UI\IntermissionTextures\back-stats</Texture>
+						</AppearanceDisabled>
+						<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="579" y1="910" x2="19" y2="21"/>
+							<Texture>UI\IntermissionTextures\back-stats</Texture>
+						</AppearanceNormal>
+						<TextKey/>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001105" ElementID="2" PositionFlag="0x0011" ActiveFlag="0" Background="0" VisibleFlag="1" SingleLine="0" TextAlign="0x0022" TextColor="0xff000000">
+				<!--text for digits-->
+				<TextPos x="-9" y="0"/>
+				<WindowPos x="10" y="0"/>
+				<WindowSize x="61" y="21"/>
+				<States>
+					<item EventID="-1">
+						<AppearanceDisabled Color="0xff000000" Specular="0xff000000">
+							<Maps x1="579" y1="910" x2="19" y2="21"/>
+							<Texture>UI\IntermissionTextures\back-stats</Texture>
+						</AppearanceDisabled>
+						<TextKey/>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001105" ElementID="3" PositionFlag="0x0011" ActiveFlag="0" Background="0" VisibleFlag="1" SingleLine="0" TextAlign="0x0022" TextColor="0xFFFDF2DB ">
+				<!--text for digits (party's)-->
+				<TextPos x="-9" y="0"/>
+				<WindowPos x="10" y="0"/>
+				<WindowSize x="61" y="21"/>
+				<States>
+					<item EventID="-1">
+						<AppearanceDisabled Color="0xff000000" Specular="0xff000000">
+							<Maps x1="579" y1="910" x2="19" y2="21"/>
+							<Texture>UI\IntermissionTextures\back-stats</Texture>
+						</AppearanceDisabled>
+						<TextKey/>
+					</item>
+				</States>
+			</item>
+		</Children>
+		<States>
+			<item>
+				<TextKey/>
+			</item>
+		</States>
+	</Element>
+</base>

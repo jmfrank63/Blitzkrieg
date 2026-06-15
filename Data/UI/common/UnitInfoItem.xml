@@ -1,0 +1,467 @@
+<?xml version="1.0"?>
+<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by Alexander Veselov (NIVAL Interactive) -->
+<!-- deleted comment here -->
+<!-- deleted comment here -->
+<base>
+	<Element ClassTypeID="0x10001107" PositionFlag="0x0011" ElementID="0" VisibleFlag="1" ActiveFlag="1" CurrentState="0" Background="1" TextAlign="0x0021" TextColor="0xFF000000">
+		<Script>ui\common\UnitInfoItem</Script>
+		<TextPos x="100" y="0"/>
+		<WindowPos x="0" y="0"/>
+		<WindowSize x="378" y="102"/>
+		<Children>
+			<item ClassTypeID="0x10001105" ElementID="11" PositionFlag="0x0021" Background="1">
+				<!--Unit icon-->
+				<WindowPos x="5" y="0"/>
+				<WindowSize x="90" y="90"/>
+				<States>
+					<item EventID="-1">
+						<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="0" y1="0" x2="0" y2="0"/>
+							<Texture/>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="0" y1="0" x2="0" y2="0"/>
+							<Texture/>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="0" y1="0" x2="0" y2="0"/>
+							<Texture/>
+						</AppearancePushed>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001105" ElementID="20" PositionFlag="0x0011" Background="0">
+				<!--Unit name-->
+				<WindowPos x="115" y="8"/>
+				<WindowSize x="190" y="36"/>
+				<States>
+					<item>
+						<AppearanceNormal Color="-1" Specular="-16777216" TextColor="0xFF000000">
+							<Maps x1="6" y1="7" x2="378" y2="102"/>
+							<Texture/>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="-1" Specular="-16777216" TextColor="0xFF000000">
+							<Maps x1="6" y1="7" x2="378" y2="102"/>
+							<Texture/>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="-1" Specular="-16777216" TextColor="0xFF000000">
+							<Maps x1="6" y1="7" x2="378" y2="102"/>
+							<Texture/>
+						</AppearancePushed>
+						<AppearanceDisabled Color="-1" Specular="-16777216" TextColor="0xFFABABAB">
+							<Maps x1="6" y1="7" x2="378" y2="102"/>
+							<Texture>ui\intermissiontextures\tile-unitlist</Texture>
+						</AppearanceDisabled>
+						<TextKey/>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001105" ElementID="21" PositionFlag="0x0011" Background="0">
+				<!--Commander name-->
+				<WindowPos x="115" y="50"/>
+				<WindowSize x="255" y="20"/>
+				<States>
+					<item>
+						<AppearanceNormal Color="-1" Specular="-16777216" TextColor="0xFF000000">
+							<Maps x1="6" y1="7" x2="378" y2="102"/>
+							<Texture/>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="-1" Specular="-16777216" TextColor="0xFF000000">
+							<Maps x1="6" y1="7" x2="378" y2="102"/>
+							<Texture/>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="-1" Specular="-16777216" TextColor="0xFF000000">
+							<Maps x1="6" y1="7" x2="378" y2="102"/>
+							<Texture/>
+						</AppearancePushed>
+						<AppearanceDisabled Color="-1" Specular="-16777216" TextColor="0xFFABABAB">
+							<Maps x1="6" y1="7" x2="378" y2="102"/>
+							<Texture>ui\intermissiontextures\tile-unitlist</Texture>
+						</AppearanceDisabled>
+						<TextKey/>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001105" ElementID="30" PositionFlag="0x0011" Background="1" VisibleFlag="0">
+				<!--recruit icon-->
+				<WindowPos x="99" y="54"/>
+				<WindowSize x="12" y="12"/>
+				<States>
+					<item>
+						<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="428" y1="14" x2="12" y2="12"/>
+							<Texture>ui\IntermissionTextures\tile-unitlist</Texture>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="428" y1="14" x2="12" y2="12"/>
+							<Texture>ui\IntermissionTextures\tile-unitlist</Texture>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="428" y1="14" x2="12" y2="12"/>
+							<Texture>ui\IntermissionTextures\tile-unitlist</Texture>
+						</AppearancePushed>
+						<TextKey/>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001105" ElementID="31" PositionFlag="0x0011" Background="1" VisibleFlag="0">
+				<!--normal icon-->
+				<WindowPos x="99" y="54"/>
+				<WindowSize x="12" y="12"/>
+				<States>
+					<item>
+						<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+							<Texture>ui\IntermissionTextures\tile-unitlist</Texture>
+							<Maps x1="428" y1="27" x2="12" y2="12"/>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+							<Texture>ui\IntermissionTextures\tile-unitlist</Texture>
+							<Maps x1="428" y1="27" x2="12" y2="12"/>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+							<Texture>ui\IntermissionTextures\tile-unitlist</Texture>
+							<Maps x1="428" y1="27" x2="12" y2="12"/>
+						</AppearancePushed>
+						<TextKey/>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001105" ElementID="32" PositionFlag="0x0011" Background="1" VisibleFlag="0">
+				<!--veteran icon-->
+				<WindowPos x="99" y="54"/>
+				<WindowSize x="12" y="12"/>
+				<States>
+					<item>
+						<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+							<Texture>ui\IntermissionTextures\tile-unitlist</Texture>
+							<Maps x1="416" y1="27" x2="12" y2="12"/>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+							<Texture>ui\IntermissionTextures\tile-unitlist</Texture>
+							<Maps x1="416" y1="27" x2="12" y2="12"/>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+							<Texture>ui\IntermissionTextures\tile-unitlist</Texture>
+							<Maps x1="416" y1="27" x2="12" y2="12"/>
+						</AppearancePushed>
+						<TextKey/>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001105" ElementID="33" PositionFlag="0x0011" Background="1" VisibleFlag="0">
+				<!--elite icon-->
+				<WindowPos x="99" y="54"/>
+				<WindowSize x="12" y="12"/>
+				<States>
+					<item>
+						<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+							<Texture>ui\IntermissionTextures\tile-unitlist</Texture>
+							<Maps x1="416" y1="14" x2="12" y2="12"/>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+							<Texture>ui\IntermissionTextures\tile-unitlist</Texture>
+							<Maps x1="416" y1="14" x2="12" y2="12"/>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+							<Texture>ui\IntermissionTextures\tile-unitlist</Texture>
+							<Maps x1="416" y1="14" x2="12" y2="12"/>
+						</AppearancePushed>
+						<TextKey/>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001105" ElementID="300" PositionFlag="0x0011" Background="1">
+				<!--Armor static icon-->
+				<ToolTip>armoricon</ToolTip>
+				<WindowPos x="99" y="74"/>
+				<WindowSize x="12" y="12"/>
+				<States>
+					<item>
+						<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+							<Texture>ui\IntermissionTextures\tile-unitlist</Texture>
+							<Maps x1="416" y1="1" x2="12" y2="12"/>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+							<Texture>ui\IntermissionTextures\tile-unitlist</Texture>
+							<Maps x1="416" y1="1" x2="12" y2="12"/>
+							<Texture>ui\missionpanels</Texture>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+							<Texture>ui\IntermissionTextures\tile-unitlist</Texture>
+							<Maps x1="416" y1="1" x2="12" y2="12"/>
+						</AppearancePushed>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001105" ElementID="101" PositionFlag="0x0011" Background="0">
+				<!--Front value-->
+				<ToolTip>frontarmor</ToolTip>
+				<WindowPos x="115" y="70"/>
+				<WindowSize x="40" y="20"/>
+				<States>
+					<item EventID="-1">
+						<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xFF000000">
+							<Maps x1="0" y1="0" x2="1" y2="1"/>
+							<Texture/>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xFF000000">
+							<Maps x1="0" y1="0" x2="1" y2="1"/>
+							<Texture/>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xFF000000">
+							<Maps x1="0" y1="0" x2="1" y2="1"/>
+							<Texture/>
+						</AppearancePushed>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001105" ElementID="102" PositionFlag="0x0011" Background="0">
+				<!--Side value-->
+				<ToolTip>sidearmor</ToolTip>
+				<WindowPos x="155" y="70"/>
+				<WindowSize x="40" y="20"/>
+				<States>
+					<item EventID="-1">
+						<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xFF000000">
+							<Maps x1="0" y1="0" x2="1" y2="1"/>
+							<Texture/>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xFF000000">
+							<Maps x1="0" y1="0" x2="1" y2="1"/>
+							<Texture/>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xFF000000">
+							<Maps x1="0" y1="0" x2="1" y2="1"/>
+							<Texture/>
+						</AppearancePushed>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001105" ElementID="103" PositionFlag="0x0011" Background="0">
+				<!--Back value-->
+				<ToolTip>backarmor</ToolTip>
+				<WindowPos x="195" y="70"/>
+				<WindowSize x="40" y="20"/>
+				<States>
+					<item EventID="-1">
+						<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xFF000000">
+							<Maps x1="0" y1="0" x2="1" y2="1"/>
+							<Texture/>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xFF000000">
+							<Maps x1="0" y1="0" x2="1" y2="1"/>
+							<Texture/>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xFF000000">
+							<Maps x1="0" y1="0" x2="1" y2="1"/>
+							<Texture/>
+						</AppearancePushed>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001105" ElementID="104" PositionFlag="0x0011" Background="0">
+				<!--Top value-->
+				<ToolTip>toparmor</ToolTip>
+				<WindowPos x="235" y="70"/>
+				<WindowSize x="40" y="20"/>
+				<States>
+					<item EventID="-1">
+						<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xFF000000">
+							<Maps x1="0" y1="0" x2="1" y2="1"/>
+							<Texture/>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xFF000000">
+							<Maps x1="0" y1="0" x2="1" y2="1"/>
+							<Texture/>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xFF000000">
+							<Maps x1="0" y1="0" x2="1" y2="1"/>
+							<Texture/>
+						</AppearancePushed>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001105" ElementID="310" PositionFlag="0x0011" Background="1">
+				<!--Weapon static icon-->
+				<ToolTip>weaponicon</ToolTip>
+				<WindowPos x="283" y="74"/>
+				<WindowSize x="12" y="12"/>
+				<States>
+					<item>
+						<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+							<Texture>ui\IntermissionTextures\tile-unitlist</Texture>
+							<Maps x1="427" y1="1" x2="12" y2="12"/>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+							<Texture>ui\IntermissionTextures\tile-unitlist</Texture>
+							<Maps x1="427" y1="1" x2="12" y2="12"/>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+							<Texture>ui\IntermissionTextures\tile-unitlist</Texture>
+							<Maps x1="427" y1="1" x2="12" y2="12"/>
+						</AppearancePushed>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001105" ElementID="111" PositionFlag="0x0011" Background="0">
+				<!--Damage value-->
+				<ToolTip>damage</ToolTip>
+				<WindowPos x="298" y="70"/>
+				<WindowSize x="40" y="20"/>
+				<States>
+					<item EventID="-1">
+						<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xFF000000">
+							<Maps x1="0" y1="0" x2="1" y2="1"/>
+							<Texture/>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xFF000000">
+							<Maps x1="0" y1="0" x2="1" y2="1"/>
+							<Texture/>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xFF000000">
+							<Maps x1="0" y1="0" x2="1" y2="1"/>
+							<Texture/>
+						</AppearancePushed>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001105" ElementID="112" PositionFlag="0x0011" Background="0">
+				<!--Penetration value-->
+				<ToolTip>penetration</ToolTip>
+				<WindowPos x="338" y="70"/>
+				<WindowSize x="40" y="20"/>
+				<States>
+					<item EventID="-1">
+						<AppearanceNormal Color="0xffffffff" Specular="0xff000000" TextColor="0xFF000000">
+							<Maps x1="0" y1="0" x2="1" y2="1"/>
+							<Texture/>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" TextColor="0xFF000000">
+							<Maps x1="0" y1="0" x2="1" y2="1"/>
+							<Texture/>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="0xffffffff" Specular="0xff000000" TextColor="0xFF000000">
+							<Maps x1="0" y1="0" x2="1" y2="1"/>
+							<Texture/>
+						</AppearancePushed>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001107" ElementID="115" PositionFlag="0x0011" Background="0" VisibleFlag="1">
+				<!--Stars (1)-->
+				<Children>
+					<item ClassTypeID="0x10001105" ElementID="1" PositionFlag="0x0022" VisibleFlag="0" Background="1">
+						<!--star 1-->
+						<WindowPos x="0" y="0"/>
+						<WindowSize x="11" y="11"/>
+						<States>
+							<item EventID="-1">
+								<AppearanceDisabled Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="582" y1="901" x2="11" y2="11"/>
+									<Texture>UI\IntermissionTextures\back-hire</Texture>
+								</AppearanceDisabled>
+								<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+									<Texture>UI\IntermissionTextures\back-hire</Texture>
+									<Maps x1="582" y1="901" x2="11" y2="11"/>
+								</AppearanceNormal>
+								<TextKey/>
+							</item>
+						</States>
+					</item>
+					<item ClassTypeID="0x10001105" ElementID="2" PositionFlag="0x0022" VisibleFlag="0" Background="1">
+						<!--star 2-->
+						<WindowPos x="0" y="0"/>
+						<WindowSize x="11" y="24"/>
+						<States>
+							<item EventID="-1">
+								<AppearanceDisabled Color="0xffffffff" Specular="0xff000000">
+									<Texture>UI\IntermissionTextures\back-hire</Texture>
+									<Maps x1="582" y1="901" x2="11" y2="24"/>
+								</AppearanceDisabled>
+								<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+									<Texture>UI\IntermissionTextures\back-hire</Texture>
+									<Maps x1="582" y1="901" x2="11" y2="24"/>
+								</AppearanceNormal>
+								<TextKey/>
+							</item>
+						</States>
+					</item>
+					<item ClassTypeID="0x10001105" ElementID="3" PositionFlag="0x0022" VisibleFlag="0" Background="1">
+						<!--star 3-->
+						<WindowPos x="0" y="0"/>
+						<WindowSize x="11" y="37"/>
+						<States>
+							<item EventID="-1">
+								<AppearanceDisabled Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="582" y1="901" x2="11" y2="37"/>
+									<Texture>UI\IntermissionTextures\back-hire</Texture>
+								</AppearanceDisabled>
+								<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="582" y1="901" x2="11" y2="37"/>
+									<Texture>UI\IntermissionTextures\back-hire</Texture>
+								</AppearanceNormal>
+								<TextKey/>
+							</item>
+						</States>
+					</item>
+				</Children>
+				<WindowPos x="-20" y="0"/>
+				<WindowSize x="20" y="100"/>
+				<States>
+					<item>
+						<TextKey/>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001105" ElementID="10000" PositionFlag="0x0013" Background="1">
+				<!--Encyclopedia reference-->
+				<ToolTip>tt_ui_encyclopedis_button</ToolTip>
+				<WindowPos x="5" y="5"/>
+				<WindowSize x="67" y="48"/>
+				<States>
+					<item>
+						<PushSound>sounds\buttons\select</PushSound>
+						<ClickSound>sounds\buttons\ok</ClickSound>
+						<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="444" y1="50" x2="67" y2="48"/>
+							<Texture>ui\intermissiontextures\tile-unitlist</Texture>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="444" y1="1" x2="67" y2="48"/>
+							<Texture>ui\intermissiontextures\tile-unitlist</Texture>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="444" y1="99" x2="67" y2="48"/>
+							<Texture>ui\intermissiontextures\tile-unitlist</Texture>
+						</AppearancePushed>
+						<AppearanceDisabled Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="444" y1="99" x2="67" y2="48"/>
+							<Texture>ui\intermissiontextures\tile-unitlist</Texture>
+						</AppearanceDisabled>
+					</item>
+				</States>
+			</item>
+		</Children>
+		<States>
+			<item>
+				<AppearanceNormal Color="-1" Specular="-16777216">
+					<Maps x1="6" y1="7" x2="378" y2="102"/>
+					<Texture>ui\intermissiontextures\tile-unitlist</Texture>
+				</AppearanceNormal>
+				<AppearanceHighlighted Color="-1" Specular="-16777216">
+					<Maps x1="6" y1="7" x2="378" y2="102"/>
+					<Texture>ui\intermissiontextures\tile-unitlist</Texture>
+				</AppearanceHighlighted>
+				<AppearancePushed Color="-1" Specular="-16777216">
+					<Maps x1="6" y1="7" x2="378" y2="102"/>
+					<Texture>ui\intermissiontextures\tile-unitlist</Texture>
+				</AppearancePushed>
+				<AppearanceDisabled Color="-1" Specular="-16777216">
+					<Maps x1="6" y1="7" x2="378" y2="102"/>
+					<Texture>ui\intermissiontextures\tile-unitlist</Texture>
+				</AppearanceDisabled>
+				<TextKey/>
+			</item>
+		</States>
+	</Element>
+</base>

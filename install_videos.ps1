@@ -67,14 +67,13 @@ $dataMoviesLink = Join-Path $PSScriptRoot 'Data\movies'
 function Ensure-DataMoviesJunction($linkPath, $targetPath) {
     if (-not (Test-Path $linkPath)) {
         Write-Status "Creating Data/movies junction: $linkPath -> $targetPath"
-        $arguments = @('/c', 'mklink /J "' + $linkPath + '" "' + $targetPath + '"')
-        $process = Start-Process -FilePath cmd -ArgumentList $arguments -NoNewWindow -PassThru -Wait
-        if ($process.ExitCode -ne 0) {
-            Write-Warning "Failed to create junction $linkPath. Please create it manually or ensure the script is running as an elevated user."
-        }
+        New-Item -ItemType Junction -Path $linkPath -Target $targetPath -Force | Out-Null
+        return
     }
-    elseif (-not ((Get-Item $linkPath).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
-        Write-Warning "$linkPath exists and is not a junction. Skipping junction creation."
+
+    if (-not ((Get-Item $linkPath).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        Write-Error "$linkPath exists and is not a junction. Remove or rename it, then rerun this script."
+        exit 1
     }
 }
 
@@ -101,4 +100,4 @@ if ($processInfo.ExitCode -ne 0) {
 Write-Status "Extraction complete."
 Ensure-DataMoviesJunction -linkPath $dataMoviesLink -targetPath $Destination
 Write-Host "Extracted files are written into $Destination."
-Write-Host "A local junction has been created at Data/movies so the game can see the videos through the normal runtime Data tree."
+Write-Host "Data/movies points at the extracted files so the game can see them through the normal runtime Data tree."

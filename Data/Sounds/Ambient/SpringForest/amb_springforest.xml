@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>Ambient SpringForest</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SpringForest\1</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SpringForest\2</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SpringForest\3</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SpringForest\4</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SpringForest\5</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SpringForest\6</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="0">
+				<SoundPath>Sounds\Ambient\SpringForest\7</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="0">
+				<SoundPath>Sounds\Ambient\SpringForest\8</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SpringForest\9</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SpringForest\10</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SpringForest\11</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="0">
+				<SoundPath>Sounds\Ambient\SpringForest\12</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SpringForest\13</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SpringForest\14</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SpringForest\15</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\SpringForest\16</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

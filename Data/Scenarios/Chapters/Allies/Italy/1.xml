@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<base>
+	<History>
+		<PreviousPath>s:\complete\scenarios\chapters\Allies\Italy\current.chc</PreviousPath>
+		<PreviousDate>31.10.2002</PreviousDate>
+		<PreviousTime>12:39:23</PreviousTime>
+		<PreviousOwner>yaroslav.efremov</PreviousOwner>
+		<Action>Batch exported as</Action>
+		<CurrentPath>s:\versions\current\data\scenarios\chapters\allies\italy\1.xml</CurrentPath>
+		<CurrentDate>12.12.2002</CurrentDate>
+		<CurrentTime>16:04:26</CurrentTime>
+		<CurrentOwner>elena.Sevostyanova</CurrentOwner>
+	</History>
+	<RPG Season="0">
+		<KeyName/>
+		<StatsType>Chapter</StatsType>
+		<HeaderText>scenarios\chapters\allies\italy\header</HeaderText>
+		<SubheaderText>scenarios\chapters\allies\italy\subheader</SubheaderText>
+		<DescriptionText>scenarios\chapters\allies\italy\description</DescriptionText>
+		<MapImage>scenarios\chapters\allies\italy\map</MapImage>
+		<MapImageRect x1="407" y1="422" x2="0.795898" y2="0.825195"/>
+		<InterfaceMusic>scenarios\chapters\allies\italy\music\explore2</InterfaceMusic>
+		<Missions>
+			<item Difficulty="0">
+				<Mission>scenarios\scenariomissions\allies\italy\1</Mission>
+				<PosOnMap x="119" y="224"/>
+				<MissionBonus/>
+				<AllBonuses/>
+			</item>
+		</Missions>
+		<PlaceHolders>
+			<item>
+				<Position x="177" y="325"/>
+			</item>
+			<item>
+				<Position x="223" y="213"/>
+			</item>
+			<item>
+				<Position x="175" y="220"/>
+			</item>
+			<item>
+				<Position x="229" y="276"/>
+			</item>
+			<item>
+				<Position x="287" y="256"/>
+			</item>
+			<item>
+				<Position x="101" y="266"/>
+			</item>
+			<item>
+				<Position x="183" y="270"/>
+			</item>
+			<item>
+				<Position x="258" y="343"/>
+			</item>
+			<item>
+				<Position x="275" y="306"/>
+			</item>
+			<item>
+				<Position x="328" y="210"/>
+			</item>
+		</PlaceHolders>
+		<Script>scenarios\chapters\allies\italy\script</Script>
+		<SettingName>scenarios\settings\summer_france</SettingName>
+		<ContextName>scenarios\chapters\allies\italy\context</ContextName>
+		<PlayerSide/>
+		<MODName/>
+		<MODVersion/>
+	</RPG>
+</base>

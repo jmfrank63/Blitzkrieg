@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<base>
+	<History>
+		<PreviousPath>s:\complete\scenarios\chapters\Allies\Tobruk\current.chc</PreviousPath>
+		<PreviousDate>10.11.2002</PreviousDate>
+		<PreviousTime>13:53:11</PreviousTime>
+		<PreviousOwner>Alexander.Valencia</PreviousOwner>
+		<Action>Batch exported as</Action>
+		<CurrentPath>s:\versions\current\data\scenarios\chapters\allies\tobruk\1.xml</CurrentPath>
+		<CurrentDate>12.12.2002</CurrentDate>
+		<CurrentTime>16:04:35</CurrentTime>
+		<CurrentOwner>elena.Sevostyanova</CurrentOwner>
+	</History>
+	<RPG Season="2">
+		<KeyName/>
+		<StatsType>Chapter</StatsType>
+		<HeaderText>scenarios\chapters\allies\tobruk\header</HeaderText>
+		<SubheaderText>scenarios\chapters\allies\tobruk\subheader</SubheaderText>
+		<DescriptionText>scenarios\chapters\allies\tobruk\description</DescriptionText>
+		<MapImage>scenarios\chapters\allies\tobruk\map</MapImage>
+		<MapImageRect x1="407" y1="422" x2="0.795898" y2="0.825195"/>
+		<InterfaceMusic>scenarios\chapters\allies\tobruk\music\explore2</InterfaceMusic>
+		<Missions>
+			<item Difficulty="0">
+				<Mission>scenarios\scenariomissions\allies\tobruk\1</Mission>
+				<PosOnMap x="305" y="149"/>
+				<MissionBonus/>
+				<AllBonuses/>
+			</item>
+		</Missions>
+		<PlaceHolders>
+			<item>
+				<Position x="254" y="108"/>
+			</item>
+			<item>
+				<Position x="180" y="86"/>
+			</item>
+			<item>
+				<Position x="235" y="147"/>
+			</item>
+			<item>
+				<Position x="55" y="231"/>
+			</item>
+			<item>
+				<Position x="107" y="280"/>
+			</item>
+			<item>
+				<Position x="212" y="322"/>
+			</item>
+			<item>
+				<Position x="178" y="134"/>
+			</item>
+			<item>
+				<Position x="323" y="216"/>
+			</item>
+			<item>
+				<Position x="308" y="313"/>
+			</item>
+			<item>
+				<Position x="110" y="147"/>
+			</item>
+		</PlaceHolders>
+		<Script>scenarios\chapters\allies\tobruk\script</Script>
+		<SettingName>scenarios\settings\africa</SettingName>
+		<ContextName>scenarios\chapters\allies\tobruk\context</ContextName>
+		<PlayerSide/>
+		<MODName/>
+		<MODVersion/>
+	</RPG>
+</base>

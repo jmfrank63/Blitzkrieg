@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<!-- edited with XMLSPY v5 rel. 2 U (http://www.xmlspy.com) by Serge Orlovsky (Nival Interactive) -->
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>Plane air explosion</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="45" MaxDist="80" Probability="100" Peacefull="0">
+				<SoundPath>Sounds\hit\planeexplos</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

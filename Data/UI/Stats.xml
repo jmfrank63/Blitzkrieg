@@ -1,0 +1,3696 @@
+<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by Alexander Veselov (NIVAL Interactive) -->
+<!-- deleted comment here -->
+<!-- deleted comment here -->
+<base Background="1">
+	<sample>
+		<rect x1="0" y1="0" x2="17" y2="41"/>
+		<size x="17" y="41"/>
+		<map x1="689" y1="844" x2="17" y2="41"/>
+	</sample>
+	<sample>
+		<rect x1="17" y1="0" x2="25" y2="41"/>
+		<size x="8" y="41"/>
+		<map x1="710" y1="844" x2="8" y2="41"/>
+	</sample>
+	<sample>
+		<rect x1="25" y1="0" x2="42" y2="41"/>
+		<size x="17" y="41"/>
+		<map x1="736" y1="844" x2="17" y2="41"/>
+	</sample>
+	<sample>
+		<rect x1="15" y1="15" x2="26" y2="26"/>
+		<size x="11" y="11"/>
+		<map x1="582" y1="914" x2="11" y2="11"/>
+	</sample>
+	<WindowSize x="1024" y="768"/>
+	<States>
+		<item EventID="-1">
+			<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Maps x1="0" y1="0" x2="1024" y2="768"/>
+				<Texture>ui\IntermissionTextures\back-stats</Texture>
+			</AppearanceNormal>
+			<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Maps x1="0" y1="0" x2="1024" y2="768"/>
+				<Texture>ui\IntermissionTextures\back-stats</Texture>
+			</AppearanceHighlighted>
+			<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Maps x1="0" y1="0" x2="1024" y2="768"/>
+				<Texture>ui\IntermissionTextures\back-stats</Texture>
+			</AppearancePushed>
+		</item>
+	</States>
+	<Script>ui\stats</Script>
+	<Children>
+		<item ClassTypeID="0x10001103" PositionFlag="0x0013" ActiveFlag="1" ElementID="31416" Background="1" VisibleFlag="1">
+			<WindowPos x="41" y="37"/>
+			<WindowSize x="76" y="59"/>
+			<!--tutorial BUTTON-->
+			<ToolTip>tt_ui_intermission_help_button</ToolTip>
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Maps x1="0" y1="383" x2="76" y2="59"/>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+						<Maps x1="0" y1="324" x2="76" y2="59"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+						<Maps x1="0" y1="442" x2="76" y2="59"/>
+					</AppearancePushed>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20000" PositionFlag="0x0011" TextAlign="0x0021" FontSize="2" TextColor="0xFFe29b00 " Background="0">
+			<TextPos x="30" y="0"/>
+			<WindowPos x="30" y="30"/>
+			<WindowSize x="850" y="70"/>
+			<ShadowShift x="1" y="2"/>
+			<!--text: title [static] [mission auto]. If statistics is for mission, then it will display imheader-stats-mission-header-->
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearancePushed>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey/>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20001" PositionFlag="0x0011" TextAlign="0x0021" FontSize="1" TextColor="0xFFFDF2DB " Background="0" VisibleFlag="1">
+			<TextPos x="30" y="15"/>
+			<WindowPos x="30" y="134"/>
+			<WindowSize x="410" y="30"/>
+			<ShadowShift x="1" y="2"/>
+			<!--text: header-description [static]-->
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearancePushed>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey>imheader-stats-desc</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10001" PositionFlag="0x0033" TextAlign="0x0022" FontSize="1">
+			<!--button: ==>-->
+			<TextPos x="-15" y="0"/>
+			<WindowPos x="42" y="30"/>
+			<WindowSize x="132" y="62"/>
+			<ShiftText x="0" y="1"/>
+			<ShadowShift x="1" y="2"/>
+			<ToolTip>tt_ui_stats_backward</ToolTip>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="36" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="0" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="66" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="36" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="72" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10003" PositionFlag="0x0031" TextAlign="0x0022" FontSize="1" VisibleFlag="0">
+			<!--button: save replay-->
+			<TextPos x="-15" y="0"/>
+			<WindowPos x="40" y="30"/>
+			<WindowSize x="132" y="62"/>
+			<ShadowShift x="1" y="2"/>
+			<ToolTip>Textes\UI\Intermission\popup\savereplay\ttsavereplay</ToolTip>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="0" y1="252" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="0" y1="216" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="66" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="0" y1="252" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="0" y1="288" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000110A" ActiveFlag="1" ElementID="1003" PositionFlag="0x0011" TextColor="0xff000000" Background="0" VisibleFlag="0" HSubSpace="5" VSubSpace="3" SBWidth="0" HeaderSize="0" SBVisible="1">
+			<!--1 party stats(MP)-->
+			<WindowPos x="35" y="360"/>
+			<ColumnProps>
+				<item Width="201" Sorter="0">
+					<FileName>ui\common\StatsPlayerName</FileName>
+				</item>
+				<item Width="142" Sorter="2">
+					<FileName>ui\common\StatsEntry142</FileName>
+				</item>
+				<item Width="142" Sorter="2">
+					<FileName>ui\common\StatsEntry142</FileName>
+				</item>
+				<item Width="66" Sorter="2">
+					<FileName>ui\common\StatsEntry66</FileName>
+				</item>
+				<item Width="66" Sorter="2">
+					<FileName>ui\common\StatsEntry66</FileName>
+				</item>
+				<item Width="66" Sorter="2">
+					<FileName>ui\common\StatsEntry66</FileName>
+				</item>
+				<item Width="66" Sorter="2">
+					<FileName>ui\common\StatsEntry66</FileName>
+				</item>
+				<item Width="66" Sorter="2">
+					<FileName>ui\common\StatsEntry66</FileName>
+				</item>
+				<item Width="77" Sorter="2">
+					<FileName>ui\common\StatsEntry81</FileName>
+				</item>
+			</ColumnProps>
+			<WindowSize x="963" y="143"/>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" PositionFlag="0x0013" ButtonStep="15" VisibleFlag="0">
+					<WindowSize x="30" y="0"/>
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031" VisibleFlag="0">
+							<!--scrollbar upper button-->
+							<WindowSize x="30" y="30"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="10" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="650" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="700" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031" VisibleFlag="0">
+							<!--scrollbar lower button-->
+							<WindowSize x="30" y="30"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="10" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="650" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="700" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" VisibleFlag="0" Position="0" Width="25" Vertical="1" Elevator_Width="30">
+							<Elevator_Texture>ui\IntermissionTextures\back-chapter</Elevator_Texture>
+							<Elevator_Maps x1="10" y1="810" x2="30" y2="30"/>
+							<!--slider. elevator - button on scrollbar. states - elevator background. elevator_width - how long elevator is along scrollbar; elevator maps - texture of elevator-->
+							<WindowSize x="0" y="0"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="10" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<!--Player Name-->
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="11" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>edestroyed</ToolTip>
+					<!--Frags( ai Price)-->
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="12" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>unitslost</ToolTip>
+					<!--Died (ai Price)-->
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="13" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>emachcaptured</ToolTip>
+					<!--Captured-->
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="14" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>aviacalled</ToolTip>
+					<!--Air calls-->
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="15" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>resused</ToolTip>
+					<!--Resource spent-->
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="16" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>hdestroyed</ToolTip>
+					<!--Buildings destroyed-->
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="17" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>flagscaptured</ToolTip>
+					<!--flags captured-->
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="18" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>flagpoints</ToolTip>
+					<!--Flagpoints-->
+					<WindowPos x="0" y="0"/>
+				</item>
+			</Children>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000110A" ElementID="1005" PositionFlag="0x0011" TextColor="0xff000000" Background="0" VisibleFlag="0" HSubSpace="5" VSubSpace="3" SBWidth="0" HeaderSize="0" SBVisible="1">
+			<!--1 party stats(SP)-->
+			<WindowPos x="35" y="343"/>
+			<ColumnProps>
+				<item Width="201" Sorter="0">
+					<FileName>ui\common\StatsPlayerName</FileName>
+				</item>
+				<item Width="142" Sorter="2">
+					<FileName>ui\common\StatsEntry142</FileName>
+				</item>
+				<item Width="142" Sorter="2">
+					<FileName>ui\common\StatsEntry142</FileName>
+				</item>
+				<item Width="81" Sorter="2">
+					<FileName>ui\common\StatsEntry81</FileName>
+				</item>
+				<item Width="81" Sorter="2">
+					<FileName>ui\common\StatsEntry81</FileName>
+				</item>
+				<item Width="81" Sorter="2">
+					<FileName>ui\common\StatsEntry81</FileName>
+				</item>
+				<item Width="81" Sorter="2">
+					<FileName>ui\common\StatsEntry81</FileName>
+				</item>
+				<item Width="81" Sorter="2">
+					<FileName>ui\common\StatsEntry81</FileName>
+				</item>
+			</ColumnProps>
+			<WindowSize x="963" y="116"/>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" PositionFlag="0x0013" ButtonStep="15" VisibleFlag="0">
+					<WindowSize x="30" y="0"/>
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031" VisibleFlag="0">
+							<!--scrollbar upper button-->
+							<WindowSize x="30" y="30"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="10" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="650" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="700" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031" VisibleFlag="0">
+							<!--scrollbar lower button-->
+							<WindowSize x="30" y="30"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="10" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="650" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="700" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" VisibleFlag="0" Position="0" Width="25" Vertical="1" Elevator_Width="30">
+							<Elevator_Texture>ui\IntermissionTextures\back-chapter</Elevator_Texture>
+							<Elevator_Maps x1="10" y1="810" x2="30" y2="30"/>
+							<!--slider. elevator - button on scrollbar. states - elevator background. elevator_width - how long elevator is along scrollbar; elevator maps - texture of elevator-->
+							<WindowSize x="0" y="0"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="10" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<!--Player Name-->
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="11" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>edestroyed</ToolTip>
+					<!--Frags( ai Price)-->
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="12" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>unitslost</ToolTip>
+					<!--Died (ai Price)-->
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="13" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>emachcaptured</ToolTip>
+					<!--Captured-->
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="14" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>aviacalled</ToolTip>
+					<!--Air calls-->
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="15" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>resused</ToolTip>
+					<!--Resource spent-->
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="16" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>hdestroyed</ToolTip>
+					<!--Buildings destroyed-->
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="17" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>unitslevelup</ToolTip>
+					<!--Units leveled up-->
+					<WindowPos x="0" y="0"/>
+				</item>
+			</Children>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000110A" ActiveFlag="1" ElementID="1002" PositionFlag="0x0011" TextColor="0xff000000" Background="0" VisibleFlag="0" HSubSpace="5" HeaderTopSpace="10" VSubSpace="3" SBWidth="0" HeaderSize="40" SBVisible="1">
+			<!--0 party stats (MP)-->
+			<WindowPos x="35" y="180"/>
+			<ColumnProps>
+				<item Width="201" Sorter="0">
+					<FileName>ui\common\StatsPlayerName</FileName>
+				</item>
+				<item Width="142" Sorter="2">
+					<FileName>ui\common\StatsEntry142</FileName>
+				</item>
+				<item Width="142" Sorter="2">
+					<FileName>ui\common\StatsEntry142</FileName>
+				</item>
+				<item Width="66" Sorter="2">
+					<FileName>ui\common\StatsEntry66</FileName>
+				</item>
+				<item Width="66" Sorter="2">
+					<FileName>ui\common\StatsEntry66</FileName>
+				</item>
+				<item Width="66" Sorter="2">
+					<FileName>ui\common\StatsEntry66</FileName>
+				</item>
+				<item Width="66" Sorter="2">
+					<FileName>ui\common\StatsEntry66</FileName>
+				</item>
+				<item Width="66" Sorter="2">
+					<FileName>ui\common\StatsEntry66</FileName>
+				</item>
+				<item Width="77" Sorter="2">
+					<FileName>ui\common\StatsEntry81</FileName>
+				</item>
+			</ColumnProps>
+			<WindowSize x="963" y="192"/>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" PositionFlag="0x0013" ButtonStep="15" VisibleFlag="0">
+					<WindowSize x="30" y="0"/>
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031" VisibleFlag="0">
+							<!--scrollbar upper button-->
+							<WindowSize x="30" y="30"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="10" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="650" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="700" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031" VisibleFlag="0">
+							<!--scrollbar lower button-->
+							<WindowSize x="30" y="30"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="10" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="650" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="700" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" VisibleFlag="0" Position="0" Width="25" Vertical="1" Elevator_Width="30">
+							<Elevator_Texture>ui\IntermissionTextures\back-chapter</Elevator_Texture>
+							<Elevator_Maps x1="10" y1="810" x2="30" y2="30"/>
+							<!--slider. elevator - button on scrollbar. states - elevator background. elevator_width - how long elevator is along scrollbar; elevator maps - texture of elevator-->
+							<WindowSize x="0" y="0"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="10" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0021" FontSize="1" TextColor="0xffffbe34">
+					<TextPos x="10" y="2"/>
+					<WindowSize x="30" y="20"/>
+					<ToolTip>partyname</ToolTip>
+					<!--Player Name-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="183" y2="41"/>
+										<size x="22" y="41"/>
+										<map x1="710" y1="844" x2="22" y2="41"/>
+									</item>
+									<item>
+										<rect x1="183" y1="0" x2="200" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="183" y2="41"/>
+										<size x="22" y="41"/>
+										<map x1="710" y1="844" x2="22" y2="41"/>
+									</item>
+									<item>
+										<rect x1="183" y1="0" x2="200" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="183" y2="41"/>
+										<size x="22" y="41"/>
+										<map x1="710" y1="844" x2="22" y2="41"/>
+									</item>
+									<item>
+										<rect x1="183" y1="0" x2="200" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+							<TextKey>Textes\UI\Intermission\Statistics\1st_column_caption</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="11" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>edestroyed</ToolTip>
+					<!--Frags( ai Price)-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="125" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="125" y1="0" x2="142" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="52" y1="5" x2="86" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="649" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="125" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="125" y1="0" x2="142" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="52" y1="5" x2="86" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="649" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="125" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="125" y1="0" x2="142" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="52" y1="5" x2="86" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="649" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="12" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>unitslost</ToolTip>
+					<!--Died (ai Price)-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="125" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="125" y1="0" x2="142" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="54" y1="3" x2="88" y2="35"/>
+										<size x="34" y="32"/>
+										<map x1="689" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="125" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="125" y1="0" x2="142" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="54" y1="3" x2="88" y2="35"/>
+										<size x="34" y="32"/>
+										<map x1="689" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="125" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="125" y1="0" x2="142" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="54" y1="3" x2="88" y2="35"/>
+										<size x="34" y="32"/>
+										<map x1="689" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="13" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>emachcaptured</ToolTip>
+					<!--Captured-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="49" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="49" y1="0" x2="66" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="16" y1="2" x2="50" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="609" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="49" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="49" y1="0" x2="66" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="16" y1="2" x2="50" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="609" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="49" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="49" y1="0" x2="66" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="16" y1="2" x2="50" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="609" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="14" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>aviacalled</ToolTip>
+					<!--Air calls-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="49" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="49" y1="0" x2="66" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="16" y1="2" x2="50" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="929" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="49" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="49" y1="0" x2="66" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="16" y1="2" x2="50" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="929" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="49" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="49" y1="0" x2="66" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="16" y1="2" x2="50" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="929" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="15" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>resused</ToolTip>
+					<!--Resource spent-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="49" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="49" y1="0" x2="66" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="16" y1="2" x2="50" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="889" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="49" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="49" y1="0" x2="66" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="16" y1="2" x2="50" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="889" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="49" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="49" y1="0" x2="66" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="16" y1="2" x2="50" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="889" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="16" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>hdestroyed</ToolTip>
+					<!--Buildings destroyed-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="49" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="49" y1="0" x2="66" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="16" y1="2" x2="49" y2="37"/>
+										<size x="33" y="32"/>
+										<map x1="810" y1="904" x2="33" y2="32"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="49" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="49" y1="0" x2="66" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="16" y1="2" x2="49" y2="37"/>
+										<size x="33" y="32"/>
+										<map x1="810" y1="904" x2="33" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="49" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="49" y1="0" x2="66" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="16" y1="2" x2="49" y2="37"/>
+										<size x="33" y="32"/>
+										<map x1="810" y1="904" x2="33" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="17" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>flagscaptured</ToolTip>
+					<!--flags captured-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="49" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="49" y1="0" x2="66" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="16" y1="2" x2="50" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="769" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="49" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="49" y1="0" x2="66" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="16" y1="2" x2="50" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="769" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="49" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="49" y1="0" x2="66" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="16" y1="2" x2="50" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="769" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="18" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>flagpoints</ToolTip>
+					<!--Flagpoints-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="60" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="60" y1="0" x2="77" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="20" y1="2" x2="54" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="849" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="60" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="60" y1="0" x2="77" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="20" y1="2" x2="54" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="849" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="60" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="60" y1="0" x2="77" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="20" y1="2" x2="54" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="849" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+						</item>
+					</States>
+				</item>
+			</Children>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000110A" ActiveFlag="1" ElementID="1004" PositionFlag="0x0011" TextColor="0xff000000" Background="0" VisibleFlag="0" HSubSpace="5" HeaderTopSpace="10" VSubSpace="3" SBWidth="0" HeaderSize="40" SBVisible="1">
+			<!--0 party stats (SP)-->
+			<WindowPos x="35" y="180"/>
+			<ColumnProps>
+				<item Width="200" Sorter="0">
+					<FileName>ui\common\StatsPlayerName</FileName>
+				</item>
+				<item Width="142" Sorter="2">
+					<FileName>ui\common\StatsEntry142</FileName>
+				</item>
+				<item Width="142" Sorter="2">
+					<FileName>ui\common\StatsEntry142</FileName>
+				</item>
+				<item Width="81" Sorter="2">
+					<FileName>ui\common\StatsEntry81</FileName>
+				</item>
+				<item Width="81" Sorter="2">
+					<FileName>ui\common\StatsEntry81</FileName>
+				</item>
+				<item Width="81" Sorter="2">
+					<FileName>ui\common\StatsEntry81</FileName>
+				</item>
+				<item Width="81" Sorter="2">
+					<FileName>ui\common\StatsEntry81</FileName>
+				</item>
+				<item Width="81" Sorter="2">
+					<FileName>ui\common\StatsEntry81</FileName>
+				</item>
+			</ColumnProps>
+			<WindowSize x="963" y="165"/>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" PositionFlag="0x0013" ButtonStep="15" VisibleFlag="0">
+					<WindowSize x="30" y="0"/>
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031" VisibleFlag="0">
+							<!--scrollbar upper button-->
+							<WindowSize x="30" y="30"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="10" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="650" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="700" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031" VisibleFlag="0">
+							<!--scrollbar lower button-->
+							<WindowSize x="30" y="30"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="10" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="650" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="700" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" VisibleFlag="0" Position="0" Width="25" Vertical="1" Elevator_Width="30">
+							<Elevator_Texture>ui\IntermissionTextures\back-chapter</Elevator_Texture>
+							<Elevator_Maps x1="10" y1="810" x2="30" y2="30"/>
+							<!--slider. elevator - button on scrollbar. states - elevator background. elevator_width - how long elevator is along scrollbar; elevator maps - texture of elevator-->
+							<WindowSize x="0" y="0"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="10" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0021" FontSize="1" TextColor="0xffffbe34">
+					<TextPos x="10" y="2"/>
+					<WindowSize x="30" y="20"/>
+					<ToolTip>partyname</ToolTip>
+					<!--Player Name-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="183" y2="41"/>
+										<size x="22" y="41"/>
+										<map x1="710" y1="844" x2="22" y2="41"/>
+									</item>
+									<item>
+										<rect x1="183" y1="0" x2="200" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="183" y2="41"/>
+										<size x="22" y="41"/>
+										<map x1="710" y1="844" x2="22" y2="41"/>
+									</item>
+									<item>
+										<rect x1="183" y1="0" x2="200" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="183" y2="41"/>
+										<size x="22" y="41"/>
+										<map x1="710" y1="844" x2="22" y2="41"/>
+									</item>
+									<item>
+										<rect x1="183" y1="0" x2="200" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+							<TextKey>Textes\UI\Intermission\Statistics\1st_column_caption</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="11" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>edestroyed</ToolTip>
+					<!--Frags( ai Price)-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="125" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="125" y1="0" x2="142" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="52" y1="5" x2="86" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="649" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="125" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="125" y1="0" x2="142" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="52" y1="5" x2="86" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="649" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="125" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="125" y1="0" x2="142" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="52" y1="5" x2="86" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="649" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="12" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>unitslost</ToolTip>
+					<!--Died (ai Price)-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="125" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="125" y1="0" x2="142" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="54" y1="3" x2="88" y2="35"/>
+										<size x="34" y="32"/>
+										<map x1="689" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="125" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="125" y1="0" x2="142" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="54" y1="3" x2="88" y2="35"/>
+										<size x="34" y="32"/>
+										<map x1="689" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="125" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="125" y1="0" x2="142" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="54" y1="3" x2="88" y2="35"/>
+										<size x="34" y="32"/>
+										<map x1="689" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="13" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>emachcaptured</ToolTip>
+					<!--Captured-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="64" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="64" y1="0" x2="81" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="21" y1="2" x2="55" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="609" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="64" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="64" y1="0" x2="81" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="21" y1="2" x2="55" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="609" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="64" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="64" y1="0" x2="81" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="21" y1="2" x2="55" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="609" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="14" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>aviacalled</ToolTip>
+					<!--Air calls-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="64" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="64" y1="0" x2="81" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="21" y1="2" x2="55" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="929" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="64" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="64" y1="0" x2="81" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="21" y1="2" x2="55" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="929" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="64" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="64" y1="0" x2="81" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="21" y1="2" x2="55" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="929" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="15" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>resused</ToolTip>
+					<!--Resource spent-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="64" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="64" y1="0" x2="81" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="21" y1="2" x2="55" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="889" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="64" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="64" y1="0" x2="81" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="21" y1="2" x2="55" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="889" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="64" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="64" y1="0" x2="81" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="21" y1="2" x2="55" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="889" y1="904" x2="34" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="16" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>hdestroyed</ToolTip>
+					<!--Buildings destroyed-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="64" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="64" y1="0" x2="81" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="21" y1="2" x2="55" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="810" y1="904" x2="33" y2="32"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="64" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="64" y1="0" x2="81" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="21" y1="2" x2="55" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="810" y1="904" x2="33" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="64" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="64" y1="0" x2="81" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="21" y1="2" x2="55" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="810" y1="904" x2="33" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="17" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<ToolTip>unitslevelup</ToolTip>
+					<!--Units leveled up-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="64" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="64" y1="0" x2="81" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="21" y1="2" x2="55" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="729" y1="904" x2="33" y2="32"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="64" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="64" y1="0" x2="81" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="21" y1="2" x2="55" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="729" y1="904" x2="33" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="64" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="64" y1="0" x2="81" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="21" y1="2" x2="55" y2="37"/>
+										<size x="34" y="32"/>
+										<map x1="729" y1="904" x2="33" y2="32"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+						</item>
+					</States>
+				</item>
+			</Children>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000110A" ElementID="1007" PositionFlag="0x0011" TextColor="0xff000000" Background="0" VisibleFlag="0" HSubSpace="5" VSubSpace="2" SBWidth="0" HeaderSize="41" SBVisible="0">
+			<!--Common stats (SP)-->
+			<WindowPos x="35" y="453"/>
+			<ColumnProps>
+				<item Width="201">
+					<FileName>ui\common\StatsPlayerName</FileName>
+				</item>
+				<item Width="142">
+					<FileName>ui\common\StatsEntry142</FileName>
+				</item>
+			</ColumnProps>
+			<WindowSize x="963" y="176"/>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" PositionFlag="0x0013" ButtonStep="15" VisibleFlag="0">
+					<WindowSize x="30" y="0"/>
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031" VisibleFlag="0">
+							<!--scrollbar upper button-->
+							<WindowSize x="30" y="30"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="10" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="650" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="700" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031" VisibleFlag="0">
+							<!--scrollbar lower button-->
+							<WindowSize x="30" y="30"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="10" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="650" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="700" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" VisibleFlag="0" Min="0" Max="20" Step="1" Position="0" Width="25" Vertical="1" Elevator_Width="30">
+							<Elevator_Texture>ui\IntermissionTextures\back-chapter</Elevator_Texture>
+							<Elevator_Maps x1="10" y1="810" x2="30" y2="30"/>
+							<!--slider. elevator - button on scrollbar. states - elevator background. elevator_width - how long elevator is along scrollbar; elevator maps - texture of elevator-->
+							<WindowSize x="0" y="0"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="10" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0021" FontSize="1" TextColor="0xFF000000">
+					<TextPos x="15" y="0"/>
+					<WindowSize x="30" y="20"/>
+					<!--stat name-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="184" y2="41"/>
+										<size x="22" y="41"/>
+										<map x1="710" y1="844" x2="22" y2="41"/>
+									</item>
+									<item>
+										<rect x1="184" y1="0" x2="201" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="184" y2="41"/>
+										<size x="22" y="41"/>
+										<map x1="710" y1="844" x2="22" y2="41"/>
+									</item>
+									<item>
+										<rect x1="184" y1="0" x2="201" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="184" y2="41"/>
+										<size x="22" y="41"/>
+										<map x1="710" y1="844" x2="22" y2="41"/>
+									</item>
+									<item>
+										<rect x1="184" y1="0" x2="201" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+							<TextKey>imheader-stats-common</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="11" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<!--stat value-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="672" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="672" y1="0" x2="689" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="672" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="672" y1="0" x2="689" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="672" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="672" y1="0" x2="689" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+							<TextKey/>
+						</item>
+					</States>
+				</item>
+			</Children>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000110A" ElementID="1008" PositionFlag="0x0011" TextColor="0xff000000" Background="0" VisibleFlag="0" HSubSpace="5" VSubSpace="2" SBWidth="0" HeaderSize="41" SBVisible="0">
+			<!--Common stats (MP)-->
+			<WindowPos x="35" y="505"/>
+			<ColumnProps>
+				<item Width="201">
+					<FileName>ui\common\StatsPlayerName</FileName>
+				</item>
+				<item Width="142">
+					<FileName>ui\common\StatsEntry142</FileName>
+				</item>
+			</ColumnProps>
+			<WindowSize x="963" y="76"/>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" PositionFlag="0x0013" ButtonStep="15" VisibleFlag="0">
+					<WindowSize x="30" y="0"/>
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031" VisibleFlag="0">
+							<!--scrollbar upper button-->
+							<WindowSize x="30" y="30"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="10" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="650" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="700" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031" VisibleFlag="0">
+							<!--scrollbar lower button-->
+							<WindowSize x="30" y="30"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="10" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="650" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="700" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" VisibleFlag="0" Min="0" Max="20" Step="1" Position="0" Width="25" Vertical="1" Elevator_Width="30">
+							<Elevator_Texture>ui\IntermissionTextures\back-chapter</Elevator_Texture>
+							<Elevator_Maps x1="10" y1="810" x2="30" y2="30"/>
+							<!--slider. elevator - button on scrollbar. states - elevator background. elevator_width - how long elevator is along scrollbar; elevator maps - texture of elevator-->
+							<WindowSize x="0" y="0"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="10" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0021" FontSize="1" TextColor="0xFF000000">
+					<TextPos x="15" y="0"/>
+					<WindowSize x="30" y="20"/>
+					<!--stat name-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="184" y2="41"/>
+										<size x="22" y="41"/>
+										<map x1="710" y1="844" x2="22" y2="41"/>
+									</item>
+									<item>
+										<rect x1="184" y1="0" x2="201" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="184" y2="41"/>
+										<size x="22" y="41"/>
+										<map x1="710" y1="844" x2="22" y2="41"/>
+									</item>
+									<item>
+										<rect x1="184" y1="0" x2="201" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="184" y2="41"/>
+										<size x="22" y="41"/>
+										<map x1="710" y1="844" x2="22" y2="41"/>
+									</item>
+									<item>
+										<rect x1="184" y1="0" x2="201" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+							<TextKey>imheader-stats-common</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" ElementID="11" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<WindowSize x="30" y="20"/>
+					<!--stat value-->
+					<WindowPos x="0" y="0"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="672" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="672" y1="0" x2="689" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+								</TileRects>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="672" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="672" y1="0" x2="689" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="17" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="689" y1="844" x2="17" y2="41"/>
+									</item>
+									<item>
+										<rect x1="17" y1="0" x2="672" y2="41"/>
+										<size x="8" y="41"/>
+										<map x1="710" y1="844" x2="8" y2="41"/>
+									</item>
+									<item>
+										<rect x1="672" y1="0" x2="689" y2="41"/>
+										<size x="17" y="41"/>
+										<map x1="736" y1="844" x2="17" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<PushSound/>
+							<ClickSound/>
+							<TextKey/>
+						</item>
+					</States>
+				</item>
+			</Children>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="31415" PositionFlag="0x0022" Background="0" VisibleFlag="0">
+			<WindowPos x="0" y="0"/>
+			<WindowSize x="576" y="420"/>
+			<!--inter mission tutorial-->
+			<Script>ui\imtutorial</Script>
+			<States>
+				<item>
+					<TextKey>textes\imtutorial\stats</TextKey>
+				</item>
+			</States>
+		</item>
+	</Children>
+</base>

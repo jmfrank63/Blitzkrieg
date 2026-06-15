@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<base>
+	<History>
+		<PreviousPath>s:\complete\scenarios\chapters\USSR\Ukraine\current.chc</PreviousPath>
+		<PreviousDate>31.10.2002</PreviousDate>
+		<PreviousTime>12:39:40</PreviousTime>
+		<PreviousOwner>yaroslav.efremov</PreviousOwner>
+		<Action>Batch exported as</Action>
+		<CurrentPath>s:\versions\current\data\scenarios\chapters\ussr\ukraine\1.xml</CurrentPath>
+		<CurrentDate>12.12.2002</CurrentDate>
+		<CurrentTime>16:05:30</CurrentTime>
+		<CurrentOwner>elena.Sevostyanova</CurrentOwner>
+	</History>
+	<RPG Season="1">
+		<KeyName/>
+		<StatsType>Chapter</StatsType>
+		<HeaderText>scenarios\chapters\ussr\ukraine\header</HeaderText>
+		<SubheaderText>scenarios\chapters\ussr\ukraine\subheader</SubheaderText>
+		<DescriptionText>scenarios\chapters\ussr\ukraine\description</DescriptionText>
+		<MapImage>scenarios\chapters\ussr\ukraine\map</MapImage>
+		<MapImageRect x1="407" y1="422" x2="0.795898" y2="0.825195"/>
+		<InterfaceMusic>scenarios\chapters\ussr\ukraine\music\explore2</InterfaceMusic>
+		<Missions>
+			<item Difficulty="0">
+				<Mission>scenarios\scenariomissions\ussr\ukraine\1</Mission>
+				<PosOnMap x="118" y="104"/>
+				<MissionBonus/>
+				<AllBonuses/>
+			</item>
+		</Missions>
+		<PlaceHolders>
+			<item>
+				<Position x="254" y="252"/>
+			</item>
+			<item>
+				<Position x="192" y="260"/>
+			</item>
+			<item>
+				<Position x="150" y="188"/>
+			</item>
+			<item>
+				<Position x="50" y="93"/>
+			</item>
+			<item>
+				<Position x="70" y="145"/>
+			</item>
+			<item>
+				<Position x="86" y="186"/>
+			</item>
+			<item>
+				<Position x="156" y="294"/>
+			</item>
+			<item>
+				<Position x="358" y="250"/>
+			</item>
+			<item>
+				<Position x="283" y="303"/>
+			</item>
+			<item>
+				<Position x="309" y="262"/>
+			</item>
+		</PlaceHolders>
+		<Script>scenarios\chapters\ussr\ukraine\script</Script>
+		<SettingName>scenarios\settings\spring_ukraine</SettingName>
+		<ContextName>scenarios\chapters\ussr\ukraine\context</ContextName>
+		<PlayerSide/>
+		<MODName/>
+		<MODVersion/>
+	</RPG>
+</base>

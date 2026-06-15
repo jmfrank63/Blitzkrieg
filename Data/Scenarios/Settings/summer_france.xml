@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<ChapterSetting>
+		<Fields>
+			<Elements>
+				<item>scenarios\fieldsets\summer\field04</item>
+				<item>scenarios\fieldsets\summer\field01</item>
+				<item>scenarios\fieldsets\summer\field06</item>
+				<item>scenarios\fieldsets\summer\field03</item>
+			</Elements>
+			<Weights>
+				<item data="2"/>
+				<item data="1"/>
+				<item data="8"/>
+				<item data="2"/>
+			</Weights>
+		</Fields>
+	</ChapterSetting>
+</base>

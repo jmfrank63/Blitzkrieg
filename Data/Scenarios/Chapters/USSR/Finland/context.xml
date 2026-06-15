@@ -1,0 +1,2112 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<!-- deleted comment here -->
+<!--\USSR\Finland\-->
+<base>
+	<ChapterUnitsTable>
+		<Levels>
+			<item>
+				<UnitCreation>
+					<Units>
+						<item>
+							<Aviation ParadropSoldierCount="3" RelaxTime="240">
+								<Aircrafts>
+									<item FormationSize="1" Planes="4">
+										<Name>Po_2</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>Gloster_Meteor_GB</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>DouglasC47_USA</Name>
+									</item>
+									<item FormationSize="4" Planes="8">
+										<Name>Tb-3</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>Thunderbolt_USA</Name>
+									</item>
+								</Aircrafts>
+								<ParadropSoldierName>USSR_rifle_39</ParadropSoldierName>
+							</Aviation>
+							<PartyName>USSR</PartyName>
+						</item>
+						<item>
+							<Aviation ParadropSoldierCount="1" RelaxTime="360">
+								<Aircrafts>
+									<item FormationSize="0" Planes="0">
+										<Name>FW_189</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>Messer_Bf_109_G</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>He-111Heinkel</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>Hs_129B</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>Hs_129B</Name>
+									</item>
+								</Aircrafts>
+								<ParadropSoldierName>Finnish_rifle</ParadropSoldierName>
+							</Aviation>
+							<PartyName>Finland</PartyName>
+						</item>
+					</Units>
+				</UnitCreation>
+				<PlaceHolders>
+					<item>
+						<data>
+							<item>
+								<key>squad riflemans</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad infantry</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad submachinegunners</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad machinegunners</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad at team</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad snipers</key>
+								<data>
+									<Elements>
+										<item>USSR_sniper</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport carrier</key>
+								<data>
+									<Elements>
+										<item>ZIS_5_Cargo</item>
+										<item>Komintern</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport support</key>
+								<data>
+									<Elements>
+										<item>ZIS_5v_Engineering</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport medicine</key>
+								<data>
+									<Elements>
+										<item>ZIS_5v_Medicine</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport tractor</key>
+								<data>
+									<Elements>
+										<item>Komintern</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport military auto</key>
+								<data>
+									<Elements>
+										<item>GAZ_61</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport civilian auto</key>
+								<data>
+									<Elements>
+										<item>GAZ_61</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery gun</key>
+								<data>
+									<Elements>
+										<item>45_mm_M_37</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery howitzer</key>
+								<data>
+									<Elements>
+										<item>122-mm_M-30</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy gun</key>
+								<data>
+									<Elements>
+										<item>122-mm_A-19</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery aagun</key>
+								<data>
+									<Elements>
+										<item>37_mm_61_K</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery rocket</key>
+								<data>
+									<Elements>
+										<item>37_mm_61_K</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery super</key>
+								<data>
+									<Elements>
+										<item>37_mm_61_K</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery mortar</key>
+								<data>
+									<Elements>
+										<item>82-mm '37</item>
+										<item>120_mm_38</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy mg</key>
+								<data>
+									<Elements>
+										<item>12_7_mm_DShK</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg assault</key>
+								<data>
+									<Elements>
+										<item>SU_76</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg antitank</key>
+								<data>
+									<Elements>
+										<item>T-26</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg super</key>
+								<data>
+									<Elements>
+										<item>T-26</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg aagun</key>
+								<data>
+									<Elements>
+										<item>T-26</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor light</key>
+								<data>
+									<Elements>
+										<item>BA10</item>
+										<item>BA20</item>
+										<item>BT-5</item>
+										<item>T-26</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+										<item data="2"/>
+										<item data="2"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor medium</key>
+								<data>
+									<Elements>
+										<item>T-26</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor super</key>
+								<data>
+									<Elements>
+										<item>KV-1</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor heavy</key>
+								<data>
+									<Elements>
+										<item>BT-5</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+						</data>
+					</item>
+					<item>
+						<data>
+							<item>
+								<key>squad riflemans</key>
+								<data>
+									<Elements>
+										<item>Finnish_rifle</item>
+										<item>Finnish_suomi</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad infantry</key>
+								<data>
+									<Elements>
+										<item>Finnish_rifle</item>
+										<item>Finnish_suomi</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad submachinegunners</key>
+								<data>
+									<Elements>
+										<item>Finnish_rifle</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad machinegunners</key>
+								<data>
+									<Elements>
+										<item>Finnish_rifle</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad at team</key>
+								<data>
+									<Elements>
+										<item>Finnish_rifle</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad snipers</key>
+								<data>
+									<Elements>
+										<item>German_sniper</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport carrier</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport support</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport medicine</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport tractor</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport military auto</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport civilian auto</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery gun</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery howitzer</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy gun</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery aagun</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery rocket</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery super</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery mortar</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy mg</key>
+								<data>
+									<Elements>
+										<item>7_92_mm_MG34</item>
+										<item>7_92_mm_MG42</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg assault</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg antitank</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg super</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg aagun</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor light</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor medium</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor super</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor heavy</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+						</data>
+					</item>
+				</PlaceHolders>
+				<RandomMissionBonus>
+					<item Weight="1">
+						<RPGStats>37_mm_61_K</RPGStats>
+					</item>
+				</RandomMissionBonus>
+			</item>
+			<item>
+				<UnitCreation>
+					<Units>
+						<item>
+							<Aviation ParadropSoldierCount="2" RelaxTime="300">
+								<Aircrafts>
+									<item FormationSize="1" Planes="2">
+										<Name>Po_2</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>Gloster_Meteor_GB</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>DouglasC47_USA</Name>
+									</item>
+									<item FormationSize="2" Planes="4">
+										<Name>Tb-3</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>Thunderbolt_USA</Name>
+									</item>
+								</Aircrafts>
+								<ParadropSoldierName>USSR_rifle_39</ParadropSoldierName>
+							</Aviation>
+							<PartyName>USSR</PartyName>
+						</item>
+						<item>
+							<Aviation ParadropSoldierCount="2" RelaxTime="300">
+								<Aircrafts>
+									<item FormationSize="0" Planes="0">
+										<Name>FW_189</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>Me_262_Schwable</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>He-111Heinkel</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>Me_262_Sturmvogel</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>Hs_129B</Name>
+									</item>
+								</Aircrafts>
+								<ParadropSoldierName>Finnish_suomi</ParadropSoldierName>
+							</Aviation>
+							<PartyName>Finland</PartyName>
+						</item>
+					</Units>
+				</UnitCreation>
+				<PlaceHolders>
+					<item>
+						<data>
+							<item>
+								<key>squad riflemans</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad infantry</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad submachinegunners</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad machinegunners</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad at team</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad snipers</key>
+								<data>
+									<Elements>
+										<item>USSR_sniper</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport carrier</key>
+								<data>
+									<Elements>
+										<item>ZIS_5_Cargo</item>
+										<item>Komintern</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport support</key>
+								<data>
+									<Elements>
+										<item>ZIS_5v_Engineering</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport medicine</key>
+								<data>
+									<Elements>
+										<item>ZIS_5v_Medicine</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport tractor</key>
+								<data>
+									<Elements>
+										<item>Komintern</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport military auto</key>
+								<data>
+									<Elements>
+										<item>GAZ_61</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport civilian auto</key>
+								<data>
+									<Elements>
+										<item>GAZ_61</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery gun</key>
+								<data>
+									<Elements>
+										<item>45_mm_M_37</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery howitzer</key>
+								<data>
+									<Elements>
+										<item>122-mm_M-30</item>
+										<item>45_mm_M_37</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy gun</key>
+								<data>
+									<Elements>
+										<item>122-mm_A-19</item>
+										<item>45_mm_M_37</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery aagun</key>
+								<data>
+									<Elements>
+										<item>37_mm_61_K</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery rocket</key>
+								<data>
+									<Elements>
+										<item>122-mm_M-30</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery super</key>
+								<data>
+									<Elements>
+										<item>122-mm_M-30</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery mortar</key>
+								<data>
+									<Elements>
+										<item>82-mm '37</item>
+										<item>120_mm_38</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy mg</key>
+								<data>
+									<Elements>
+										<item>12_7_mm_DShK</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg assault</key>
+								<data>
+									<Elements>
+										<item>T-26</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg antitank</key>
+								<data>
+									<Elements>
+										<item>T-26</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg super</key>
+								<data>
+									<Elements>
+										<item>KV-1</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg aagun</key>
+								<data>
+									<Elements>
+										<item>T-26</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor light</key>
+								<data>
+									<Elements>
+										<item>BA10</item>
+										<item>BA20</item>
+										<item>BT-5</item>
+										<item>T-26</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor medium</key>
+								<data>
+									<Elements>
+										<item>T-26</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor super</key>
+								<data>
+									<Elements>
+										<item>KV-1</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor heavy</key>
+								<data>
+									<Elements>
+										<item>BT-5</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+						</data>
+					</item>
+					<item>
+						<data>
+							<item>
+								<key>squad riflemans</key>
+								<data>
+									<Elements>
+										<item>Finnish_rifle</item>
+										<item>Finnish_suomi</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad infantry</key>
+								<data>
+									<Elements>
+										<item>Finnish_rifle</item>
+										<item>Finnish_suomi</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad submachinegunners</key>
+								<data>
+									<Elements>
+										<item>Finnish_suomi</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad machinegunners</key>
+								<data>
+									<Elements>
+										<item>Finnish_suomi</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad at team</key>
+								<data>
+									<Elements>
+										<item>Finnish_suomi</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad snipers</key>
+								<data>
+									<Elements>
+										<item>Finnish_suomi</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport carrier</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport support</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport medicine</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport tractor</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport military auto</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport civilian auto</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery gun</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery howitzer</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy gun</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery aagun</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery rocket</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery super</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery mortar</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy mg</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg assault</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg antitank</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg super</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg aagun</key>
+								<data>
+									<Elements>
+										<item>Wirbelwind</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor light</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor medium</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor super</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor heavy</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+						</data>
+					</item>
+				</PlaceHolders>
+				<RandomMissionBonus>
+					<item Weight="1">
+						<RPGStats>BT-5</RPGStats>
+					</item>
+				</RandomMissionBonus>
+			</item>
+			<item>
+				<UnitCreation>
+					<Units>
+						<item>
+							<Aviation ParadropSoldierCount="1" RelaxTime="360">
+								<Aircrafts>
+									<item FormationSize="1" Planes="2">
+										<Name>Po_2</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>P51_D_Mustang_USA</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>DouglasC47_USA</Name>
+									</item>
+									<item FormationSize="2" Planes="2">
+										<Name>Tb-3</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>Thunderbolt_USA</Name>
+									</item>
+								</Aircrafts>
+								<ParadropSoldierName>USSR_rifle_39</ParadropSoldierName>
+							</Aviation>
+							<PartyName>USSR</PartyName>
+						</item>
+						<item>
+							<Aviation ParadropSoldierCount="3" RelaxTime="300">
+								<Aircrafts>
+									<item FormationSize="0" Planes="0">
+										<Name>FW_189</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>Me_262_Schwable</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>He-111Heinkel</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>Me_262_Sturmvogel</Name>
+									</item>
+									<item FormationSize="0" Planes="0">
+										<Name>Hs_129B</Name>
+									</item>
+								</Aircrafts>
+								<ParadropSoldierName>Finnish_suomi</ParadropSoldierName>
+							</Aviation>
+							<PartyName>Finland</PartyName>
+						</item>
+					</Units>
+				</UnitCreation>
+				<PlaceHolders>
+					<item>
+						<data>
+							<item>
+								<key>squad riflemans</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad infantry</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad submachinegunners</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad machinegunners</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad at team</key>
+								<data>
+									<Elements>
+										<item>USSR_rifle_39</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad snipers</key>
+								<data>
+									<Elements>
+										<item>USSR_officer</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport carrier</key>
+								<data>
+									<Elements>
+										<item>ZIS_5_Cargo</item>
+										<item>Komintern</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport support</key>
+								<data>
+									<Elements>
+										<item>ZIS_5v_Engineering</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport medicine</key>
+								<data>
+									<Elements>
+										<item>ZIS_5v_Medicine</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport tractor</key>
+								<data>
+									<Elements>
+										<item>Komintern</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport military auto</key>
+								<data>
+									<Elements>
+										<item>GAZ_61</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport civilian auto</key>
+								<data>
+									<Elements>
+										<item>GAZ_61</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery gun</key>
+								<data>
+									<Elements>
+										<item>45_mm_M_37</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery howitzer</key>
+								<data>
+									<Elements>
+										<item>122-mm_M-30</item>
+										<item>45_mm_M_37</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+										<item data="2"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy gun</key>
+								<data>
+									<Elements>
+										<item>122-mm_A-19</item>
+										<item>45_mm_M_37</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery aagun</key>
+								<data>
+									<Elements>
+										<item>37_mm_61_K</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery rocket</key>
+								<data>
+									<Elements>
+										<item>122-mm_A-19</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery super</key>
+								<data>
+									<Elements>
+										<item>BM_13</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery mortar</key>
+								<data>
+									<Elements>
+										<item>82-mm '37</item>
+										<item>120_mm_38</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy mg</key>
+								<data>
+									<Elements>
+										<item>12_7_mm_DShK</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg assault</key>
+								<data>
+									<Elements>
+										<item>BT-5</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg antitank</key>
+								<data>
+									<Elements>
+										<item>BT-5</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg super</key>
+								<data>
+									<Elements>
+										<item>BT-5</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg aagun</key>
+								<data>
+									<Elements>
+										<item>BT-5</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor light</key>
+								<data>
+									<Elements>
+										<item>BA10</item>
+										<item>BA20</item>
+										<item>BT-5</item>
+										<item>T-26</item>
+									</Elements>
+									<Weights>
+										<item data="4"/>
+										<item data="1"/>
+										<item data="1"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor medium</key>
+								<data>
+									<Elements>
+										<item>BT-5</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor super</key>
+								<data>
+									<Elements>
+										<item>KV-1</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor heavy</key>
+								<data>
+									<Elements>
+										<item>BT-5</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+						</data>
+					</item>
+					<item>
+						<data>
+							<item>
+								<key>squad riflemans</key>
+								<data>
+									<Elements>
+										<item>Finnish_rifle</item>
+										<item>Finnish_suomi</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad infantry</key>
+								<data>
+									<Elements>
+										<item>Finnish_rifle</item>
+										<item>Finnish_suomi</item>
+									</Elements>
+									<Weights>
+										<item data="2"/>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad submachinegunners</key>
+								<data>
+									<Elements>
+										<item>Finnish_suomi</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad machinegunners</key>
+								<data>
+									<Elements>
+										<item>Finnish_suomi</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad at team</key>
+								<data>
+									<Elements>
+										<item>Finnish_suomi</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>squad snipers</key>
+								<data>
+									<Elements>
+										<item>German_sniper</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport carrier</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport support</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport medicine</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport tractor</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport military auto</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>transport civilian auto</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery gun</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery howitzer</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy gun</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery aagun</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery rocket</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery super</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery mortar</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>artillery heavy mg</key>
+								<data>
+									<Elements>
+										<item>25pdr_QFH_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg assault</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg antitank</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg super</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>spg aagun</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor light</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor medium</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor super</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="1"/>
+									</Weights>
+								</data>
+							</item>
+							<item>
+								<key>armor heavy</key>
+								<data>
+									<Elements>
+										<item>Vickers_6tonns_Finland</item>
+									</Elements>
+									<Weights>
+										<item data="0"/>
+									</Weights>
+								</data>
+							</item>
+						</data>
+					</item>
+				</PlaceHolders>
+				<RandomMissionBonus>
+					<item Weight="1">
+						<RPGStats>BT-7</RPGStats>
+					</item>
+				</RandomMissionBonus>
+			</item>
+		</Levels>
+	</ChapterUnitsTable>
+</base>

@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<!-- deleted comment here -->
+<base>
+	<Element ClassTypeID="0x10001105" PositionFlag="0x0011" ElementID="-1" VisibleFlag="1" ActiveFlag="1" CurrentState="0" Background="0" TextAlign="0x0011" TextColor="0xFF000000" RedLine="0" SingleLine="1">
+		<TextPos x="0" y="0"/>
+		<WindowPos x="0" y="0"/>
+		<WindowSize x="300" y="21"/>
+		<States>
+			<item EventID="-1">
+				<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+					<Maps x1="236" y1="90" x2="20" y2="22"/>
+					<Texture>ui\mapping</Texture>
+				</AppearanceNormal>
+				<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+					<Maps x1="236" y1="90" x2="20" y2="22"/>
+					<Texture>ui\mapping</Texture>
+				</AppearanceHighlighted>
+				<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+					<Maps x1="236" y1="90" x2="20" y2="22"/>
+					<Texture>ui\mapping</Texture>
+				</AppearancePushed>
+				<TextKey>medal</TextKey>
+			</item>
+		</States>
+	</Element>
+</base>

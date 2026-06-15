@@ -1,0 +1,2 @@
+<?xml version="1.0"?>
+<base><RPG><Icon></Icon><Type>08000000</Type><Members><item>USSR_Sapper</item><item>USSR_Sapper</item><item>USSR_Sapper</item><item>USSR_Sapper</item></Members><Formations><item><Order><item Dir="0"><Soldier>USSR_Sapper</Soldier><Pos x="-106.066" y="-21.2132"/></item><item Dir="0"><Soldier>USSR_Sapper</Soldier><Pos x="-41.7193" y="0.707092"/></item><item Dir="0"><Soldier>USSR_Sapper</Soldier><Pos x="43.8406" y="-32.5269"/></item><item Dir="0"><Soldier>USSR_Sapper</Soldier><Pos x="102.53" y="-7.77817"/></item></Order></item></Formations></RPG></base>

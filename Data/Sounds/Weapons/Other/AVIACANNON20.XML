@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<!-- edited with XMLSPY v5 rel. 2 U (http://www.xmlspy.com) by Serge Orlovsky (Nival Interactive) -->
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>aviacannon20mm </KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="25" MaxDist="40" Probability="100" Peacefull="0">
+				<SoundPath>Sounds\Weapons\other\aviacannon20</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

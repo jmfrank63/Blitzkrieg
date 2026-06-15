@@ -1,0 +1,1633 @@
+<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by Alexander Veselov (NIVAL Interactive) -->
+<!-- deleted comment here -->
+<!-- deleted comment here -->
+<base Background="1">
+	<WindowSize x="1024" y="768"/>
+	<item/>
+	<States>
+		<item EventID="-1">
+			<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Maps x1="0" y1="0" x2="1024" y2="768"/>
+				<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+			</AppearanceNormal>
+			<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Maps x1="0" y1="0" x2="1024" y2="768"/>
+				<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+			</AppearanceHighlighted>
+			<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Maps x1="0" y1="0" x2="1024" y2="768"/>
+				<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+			</AppearancePushed>
+		</item>
+	</States>
+	<Script>ui\MuptiplayerChat</Script>
+	<Children>
+		<item ClassTypeID="0x10001105" PositionFlag="0x0013" ActiveFlag="1" VisibleFlag="0" Background="1" ElementID="31418">
+			<!--GameSpy LOGO-->
+			<WindowPos x="120" y="50"/>
+			<WindowSize x="160" y="33"/>
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+						<Maps x1="344" y1="468" x2="160" y2="33"/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+						<Maps x1="344" y1="468" x2="160" y2="33"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+						<Maps x1="344" y1="468" x2="160" y2="33"/>
+					</AppearancePushed>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey/>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" PositionFlag="0x0011" ActiveFlag="1" TextAlign="0x0021" FontSize="2" TextColor="0xFFe29b00 " VisibleFlag="1" Background="0" ElementID="20000">
+			<!--text: header [static]-->
+			<ShadowShift x="1" y="2"/>
+			<TextPos x="30" y="0"/>
+			<WindowPos x="30" y="30"/>
+			<WindowSize x="850" y="70"/>
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearancePushed>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey>Textes\UI\Intermission\Multiplayer\Chat\caption</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" PositionFlag="0x0033" ActiveFlag="1" TextAlign="0x0022" FontSize="1" TextColor="0xFFFDF2DB " VisibleFlag="1" ElementID="10001">
+			<!--button: Back-->
+			<ShadowShift x="1" y="2"/>
+			<TextPos x="-15" y="0"/>
+			<ShiftText x="0" y="1"/>
+			<ToolTip>tt_ui_multyplayer_chat_back</ToolTip>
+			<WindowPos x="40" y="30"/>
+			<WindowSize x="132" y="62"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="126" y1="36" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="126" y1="0" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="66" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="126" y1="36" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="126" y1="72" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" PositionFlag="0x0031" ActiveFlag="1" TextAlign="0x0022" FontSize="1" VisibleFlag="1" ElementID="10004">
+			<!--button: INFO-->
+			<ShadowShift x="1" y="2"/>
+			<TextPos x="-15" y="0"/>
+			<ShiftText x="0" y="1"/>
+			<ToolTip>ui_tt_multiplayer_chat_playerinfo</ToolTip>
+			<WindowPos x="40" y="30"/>
+			<WindowSize x="132" y="62"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="252" y1="36" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="252" y1="0" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="66" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="252" y1="36" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="252" y1="72" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" PositionFlag="0x0031" ActiveFlag="1" TextAlign="0x0022" FontSize="1" VisibleFlag="1" ElementID="10006">
+			<!--switch button: AWAY-->
+			<ShadowShift x="1" y="2"/>
+			<TextPos x="-15" y="0"/>
+			<ShiftText x="0" y="1"/>
+			<ToolTip>tt_ui_multiplayer_chat_away</ToolTip>
+			<WindowPos x="175" y="30"/>
+			<WindowSize x="132" y="62"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="126" y1="252" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="126" y1="216" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="66" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="126" y1="252" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="126" y1="288" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="66" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="126" y1="252" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="126" y1="216" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="66" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="126" y1="252" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="126" y1="288" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" PositionFlag="0x0031" ActiveFlag="1" TextAlign="0x0022" FontSize="1" VisibleFlag="1" ElementID="10003">
+			<!--button: WHISPER-->
+			<ShadowShift x="1" y="2"/>
+			<TextPos x="-15" y="0"/>
+			<ShiftText x="0" y="1"/>
+			<ToolTip>tt_ui_multyplayer_chat_whisper</ToolTip>
+			<WindowPos x="310" y="30"/>
+			<WindowSize x="132" y="62"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="63" y1="252" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="63" y1="216" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="66" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="63" y1="252" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="63" y1="288" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000110A" PositionFlag="0x0011" ActiveFlag="1" FontSize="1" TextColor="0xffd8bd3e" VisibleFlag="1" Background="0" ElementID="1000" HSubSpace="5" VSubSpace="5" SBWidth="28" HeaderTopSpace="60" HeaderSize="41" SBVisible="1" TopSpace="0">
+			<!--players list-->
+			<Selection_Texture>UI\IntermissionTextures\tile-background</Selection_Texture>
+			<Script>UI\common\Options\OptionsList</Script>
+			<SelTileRects>
+				<item>
+					<!--Top left-->
+					<rect x1="0" y1="0" x2="4" y2="22"/>
+					<size x="4" y="22"/>
+					<map x1="206" y1="63" x2="4" y2="22"/>
+				</item>
+				<item>
+					<!--Top middle-->
+					<rect x1="4" y1="0" x2="404" y2="22"/>
+					<size x="26" y="22"/>
+					<map x1="210" y1="63" x2="26" y2="22"/>
+				</item>
+				<item>
+					<!--Top right-->
+					<rect x1="404" y1="0" x2="408" y2="22"/>
+					<size x="4" y="22"/>
+					<map x1="236" y1="63" x2="4" y2="22"/>
+				</item>
+				<item>
+					<!--Bottom left-->
+					<rect x1="0" y1="22" x2="4" y2="30"/>
+					<size x="4" y="8"/>
+					<map x1="206" y1="80" x2="4" y2="8"/>
+				</item>
+				<item>
+					<!--Bottom middle-->
+					<rect x1="4" y1="22" x2="404" y2="30"/>
+					<size x="26" y="8"/>
+					<map x1="210" y1="80" x2="26" y2="8"/>
+				</item>
+				<item>
+					<!--Bottom right-->
+					<rect x1="404" y1="22" x2="408" y2="30"/>
+					<size x="4" y="8"/>
+					<map x1="236" y1="80" x2="4" y2="8"/>
+				</item>
+			</SelTileRects>
+			<ColumnProps>
+				<item Width="50" Sorter="2">
+					<FileName>ui\common\Multyplayer\Chat\PlayerStateIcon</FileName>
+				</item>
+				<item Width="50" Sorter="2">
+					<FileName>ui\common\Multyplayer\Chat\PlayerRelationIcon</FileName>
+				</item>
+				<item Width="300" Sorter="1">
+					<FileName>ui\common\Multyplayer\PlayerName</FileName>
+				</item>
+			</ColumnProps>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" PositionFlag="0x0013" VisibleFlag="1" ButtonStep="15">
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031">
+							<!--scrollbar upper button-->
+							<WindowSize x="45" y="58"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="827" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031">
+							<!--scrollbar lower button-->
+							<WindowSize x="45" y="58"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="827" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" Position="0" Width="41" Vertical="1" Elevator_Width="33">
+							<Elevator_Texture>ui\IntermissionTextures\back-multiplayer-chat</Elevator_Texture>
+							<Elevator_Maps x1="681" y1="783" x2="45" y2="33"/>
+							<!--slider. elevator - button on scrollbar. states - elevator background. elevator_width - how long elevator is along scrollbar; elevator maps - texture of elevator-->
+							<WindowSize x="41" y="0"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="40" y2="33"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0"/>
+					<WindowSize x="45" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="10" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<ToolTip>ui_tt_multiplayer_chat_playerstate_icon</ToolTip>
+					<!--ICON (in chat, away, playing)-->
+					<TextPos x="10" y="8"/>
+					<WindowPos x="30" y="30"/>
+					<WindowSize x="30" y="30"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="40" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="40" y1="0" x2="50" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="40" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="40" y1="0" x2="50" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="40" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="40" y1="0" x2="50" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+							</AppearancePushed>
+							<TextKey>Textes\UI\Intermission\Multiplayer\Chat\player_state</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="11" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<ToolTip>ui_tt_multiplayer_chat_relation_icon</ToolTip>
+					<!--ICON : friend, ignored-->
+					<TextPos x="10" y="8"/>
+					<WindowPos x="82" y="30"/>
+					<WindowSize x="30" y="30"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="40" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="40" y1="0" x2="50" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="40" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="40" y1="0" x2="50" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="40" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="40" y1="0" x2="50" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+							</AppearancePushed>
+							<TextKey>Textes\UI\Intermission\Multiplayer\Chat\player_relation</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="12" PositionFlag="0x0011" Background="1" VisibleFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<ToolTip>ui_tt_multiplayer_playername</ToolTip>
+					<!--PLAYER NAME-->
+					<TextPos x="10" y="8"/>
+					<WindowPos x="82" y="30"/>
+					<WindowSize x="30" y="30"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="292" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="292" y1="0" x2="302" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="292" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="292" y1="0" x2="302" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="292" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="292" y1="0" x2="302" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+							</AppearancePushed>
+							<TextKey>Textes\UI\Intermission\Multiplayer\Chat\player_name</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="20000" PositionFlag="0x0011" Background="0" VisibleFlag="1" TextAlign="0x0021" FontSize="1" TextColor="0xFFFDF2DB ">
+					<!--text: title [auto]-->
+					<TextPos x="30" y="0"/>
+					<ShadowShift x="1" y="2"/>
+					<WindowPos x="5" y="16"/>
+					<WindowSize x="380" y="36"/>
+					<States>
+						<item>
+							<TextKey>Textes\UI\Intermission\Multiplayer\Chat\player_list</TextKey>
+						</item>
+					</States>
+				</item>
+			</Children>
+			<WindowPos x="527" y="130"/>
+			<WindowSize x="462" y="509"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000111A" PositionFlag="0x0011" ActiveFlag="1" TextColor="0xff000000" Background="0" ElementID="2001" LeftSpace="20" RightSpace="20" TopSpace="71" BottomSpace="15" RedLine="1">
+			<Colors>
+				<item first="0xff111111" second="0xff000000"/>
+				<item first="0xFFFDF2DB" second="0xFFe29b00 "/>
+			</Colors>
+			<!--scroll: chat text-->
+			<ToolTip>tt_ui_multyplayer_startinggame_chatwindow</ToolTip>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" CurrentState="0" PositionFlag="0x0013" ButtonStep="15">
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031">
+							<!--scrollbar upper button-->
+							<WindowSize x="45" y="58"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="827" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031">
+							<!--scrollbar lower button-->
+							<WindowSize x="45" y="58"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+										<Maps x1="591" y1="769" x2="45" y2="58"/>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="827" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-multiplayer-chat</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" Position="0" Width="41" Vertical="1" Elevator_Width="33">
+							<Elevator_Texture>ui\IntermissionTextures\back-multiplayer-creategame</Elevator_Texture>
+							<Elevator_Maps x1="681" y1="783" x2="45" y2="33"/>
+							<!--slider. elevator - button on scrollbar. states - elevator background. elevator_width - how long elevator is along scrollbar; elevator maps - texture of elevator-->
+							<WindowSize x="41" y="0"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="40" y2="33"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0"/>
+					<WindowSize x="45" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="20000" PositionFlag="0x0011" Background="0" VisibleFlag="1" TextAlign="0x0021" FontSize="1" TextColor="0xFFFDF2DB">
+					<!--text: title [auto]-->
+					<TextPos x="30" y="0"/>
+					<ShadowShift x="1" y="2"/>
+					<WindowPos x="5" y="16"/>
+					<WindowSize x="380" y="36"/>
+					<States>
+						<item>
+							<TextKey>Textes\UI\Intermission\Multiplayer\Chat\chat_window</TextKey>
+						</item>
+					</States>
+				</item>
+			</Children>
+			<WindowPos x="32" y="130"/>
+			<WindowSize x="468" y="442"/>
+			<States>
+				<item EventID="-1"/>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000110B" PositionFlag="0x0031" ActiveFlag="1" TextAlign="0x0021" TextColor="0xfff7c01f" VisibleFlag="1" Background="0" ElementID="2002">
+			<!--edit box : chat input-->
+			<TextPos x="15" y="0"/>
+			<ToolTip>Textes\UI\Intermission\Multiplayer\Chat\tt_chat_entry</ToolTip>
+			<WindowPos x="50" y="137"/>
+			<WindowSize x="420" y="45"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="33" y2="33"/>
+								<size x="33" y="33"/>
+								<map x1="0" y1="0" x2="33" y2="33"/>
+							</item>
+							<item>
+								<rect x1="33" y1="0" x2="285" y2="33"/>
+								<size x="36" y="33"/>
+								<map x1="35" y1="0" x2="36" y2="33"/>
+							</item>
+							<item>
+								<rect x1="285" y1="0" x2="320" y2="33"/>
+								<size x="35" y="33"/>
+								<map x1="57" y1="0" x2="35" y2="33"/>
+							</item>
+							<item>
+								<rect x1="0" y1="33" x2="33" y2="34"/>
+								<size x="33" y="1"/>
+								<map x1="0" y1="91" x2="33" y2="1"/>
+							</item>
+							<item>
+								<rect x1="33" y1="33" x2="285" y2="34"/>
+								<size x="36" y="1"/>
+								<map x1="35" y1="91" x2="36" y2="1"/>
+							</item>
+							<item>
+								<rect x1="285" y1="33" x2="320" y2="34"/>
+								<size x="35" y="1"/>
+								<map x1="57" y1="91" x2="35" y2="1"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="33" y2="33"/>
+								<size x="33" y="33"/>
+								<map x1="0" y1="0" x2="33" y2="33"/>
+							</item>
+							<item>
+								<rect x1="33" y1="0" x2="285" y2="33"/>
+								<size x="36" y="33"/>
+								<map x1="35" y1="0" x2="36" y2="33"/>
+							</item>
+							<item>
+								<rect x1="285" y1="0" x2="320" y2="33"/>
+								<size x="35" y="33"/>
+								<map x1="57" y1="0" x2="35" y2="33"/>
+							</item>
+							<item>
+								<rect x1="0" y1="33" x2="33" y2="34"/>
+								<size x="33" y="1"/>
+								<map x1="0" y1="91" x2="33" y2="1"/>
+							</item>
+							<item>
+								<rect x1="33" y1="33" x2="285" y2="34"/>
+								<size x="36" y="1"/>
+								<map x1="35" y1="91" x2="36" y2="1"/>
+							</item>
+							<item>
+								<rect x1="285" y1="33" x2="320" y2="34"/>
+								<size x="35" y="1"/>
+								<map x1="57" y1="91" x2="35" y2="1"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="33" y2="33"/>
+								<size x="33" y="33"/>
+								<map x1="0" y1="0" x2="33" y2="33"/>
+							</item>
+							<item>
+								<rect x1="33" y1="0" x2="285" y2="33"/>
+								<size x="36" y="33"/>
+								<map x1="35" y1="0" x2="36" y2="33"/>
+							</item>
+							<item>
+								<rect x1="285" y1="0" x2="320" y2="33"/>
+								<size x="35" y="33"/>
+								<map x1="57" y1="0" x2="35" y2="33"/>
+							</item>
+							<item>
+								<rect x1="0" y1="33" x2="33" y2="34"/>
+								<size x="33" y="1"/>
+								<map x1="0" y1="91" x2="33" y2="1"/>
+							</item>
+							<item>
+								<rect x1="33" y1="33" x2="285" y2="34"/>
+								<size x="36" y="1"/>
+								<map x1="35" y1="91" x2="36" y2="1"/>
+							</item>
+							<item>
+								<rect x1="285" y1="33" x2="320" y2="34"/>
+								<size x="35" y="1"/>
+								<map x1="57" y1="91" x2="35" y2="1"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearancePushed>
+					<TextKey>imheader-multiplayer-defaul-chatentry</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001107" PositionFlag="0x0022" ActiveFlag="1" VisibleFlag="0" ElementID="3000">
+			<!--dialog PLAYER'S INFO-->
+			<Script>ui\MultiplayerChatPlayerInfo</Script>
+			<Children>
+				<item ClassTypeID="0x10001103" PositionFlag="0x0031" ElementID="3006" Background="1" TextAlign="0x0022" TextColor="0xffffffff">
+					<TextPos x="-15" y="0"/>
+					<!--button: OK-->
+					<ShadowShift x="1" y="2"/>
+					<WindowPos x="42" y="11"/>
+					<WindowSize x="132" y="62"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="132" y2="62"/>
+										<size x="132" y="62"/>
+										<map x1="379" y1="2" x2="132" y2="62"/>
+									</item>
+									<item>
+										<rect x1="19" y1="13" x2="82" y2="49"/>
+										<size x="63" y="36"/>
+										<map x1="189" y1="36" x2="63" y2="36"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\Buttons</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="132" y2="62"/>
+										<size x="132" y="62"/>
+										<map x1="379" y1="2" x2="132" y2="62"/>
+									</item>
+									<item>
+										<rect x1="19" y1="13" x2="82" y2="49"/>
+										<size x="63" y="36"/>
+										<map x1="189" y1="0" x2="63" y2="36"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\Buttons</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="132" y2="62"/>
+										<size x="132" y="62"/>
+										<map x1="379" y1="66" x2="132" y2="62"/>
+									</item>
+									<item>
+										<rect x1="19" y1="13" x2="82" y2="49"/>
+										<size x="63" y="36"/>
+										<map x1="189" y1="36" x2="63" y2="36"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\Buttons</Texture>
+							</AppearancePushed>
+							<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="132" y2="62"/>
+										<size x="132" y="62"/>
+										<map x1="379" y1="2" x2="132" y2="62"/>
+									</item>
+									<item>
+										<rect x1="19" y1="13" x2="82" y2="49"/>
+										<size x="63" y="36"/>
+										<map x1="189" y1="72" x2="63" y2="36"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\Buttons</Texture>
+							</AppearanceDisabled>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" PositionFlag="0x0033" ElementID="3007" Background="1" TextAlign="0x0022" TextColor="0xffffffff">
+					<TextPos x="-15" y="0"/>
+					<!--button: Cancel-->
+					<ShadowShift x="1" y="2"/>
+					<WindowPos x="42" y="11"/>
+					<WindowSize x="132" y="62"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="132" y2="62"/>
+										<size x="132" y="62"/>
+										<map x1="379" y1="2" x2="132" y2="62"/>
+									</item>
+									<item>
+										<rect x1="19" y1="13" x2="82" y2="49"/>
+										<size x="63" y="36"/>
+										<map x1="126" y1="36" x2="63" y2="36"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\Buttons</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="132" y2="62"/>
+										<size x="132" y="62"/>
+										<map x1="379" y1="2" x2="132" y2="62"/>
+									</item>
+									<item>
+										<rect x1="19" y1="13" x2="82" y2="49"/>
+										<size x="63" y="36"/>
+										<map x1="126" y1="0" x2="63" y2="36"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\Buttons</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="132" y2="62"/>
+										<size x="132" y="62"/>
+										<map x1="379" y1="66" x2="132" y2="62"/>
+									</item>
+									<item>
+										<rect x1="19" y1="13" x2="82" y2="49"/>
+										<size x="63" y="36"/>
+										<map x1="126" y1="36" x2="63" y2="36"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\Buttons</Texture>
+							</AppearancePushed>
+							<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="132" y2="62"/>
+										<size x="132" y="62"/>
+										<map x1="379" y1="2" x2="132" y2="62"/>
+									</item>
+									<item>
+										<rect x1="19" y1="13" x2="82" y2="49"/>
+										<size x="63" y="36"/>
+										<map x1="126" y1="72" x2="63" y2="36"/>
+									</item>
+								</TileRects>
+								<Texture>UI\IntermissionTextures\Buttons</Texture>
+							</AppearanceDisabled>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001107" PositionFlag="0x0012" ElementID="101" Background="1">
+					<!--dialog-->
+					<WindowPos x="0" y="20"/>
+					<WindowSize x="464" y="238"/>
+					<Children>
+						<item ClassTypeID="0x10001105" PositionFlag="0x0011" FontSize="1" ElementID="20000" Background="0" TextAlign="0x0021" TextColor="0xFFFDF2DB">
+							<!--text: header [static]-->
+							<TextPos x="30" y="0"/>
+							<ShadowShift x="1" y="2"/>
+							<WindowPos x="0" y="4"/>
+							<WindowSize x="410" y="60"/>
+							<States>
+								<item>
+									<AppearanceNormal Color="-1" Specular="-16777216">
+										<Texture/>
+										<Maps x1="0" y1="768" x2="1000" y2="144"/>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="-1" Specular="-16777216">
+										<Texture/>
+										<Maps x1="0" y1="768" x2="1000" y2="144"/>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="-1" Specular="-16777216">
+										<Texture/>
+										<Maps x1="0" y1="768" x2="1000" y2="144"/>
+									</AppearancePushed>
+									<PushSound/>
+									<ClickSound/>
+									<TextKey/>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001105" PositionFlag="0x0011" ElementID="3001" Background="0" TextAlign="0x0011" TextColor="0xFF000000">
+							<!--STATIC: Relation-->
+							<WindowPos x="30" y="78"/>
+							<WindowSize x="300" y="30"/>
+							<States>
+								<item>
+									<PushSound>sounds\buttons\select</PushSound>
+									<ClickSound>sounds\buttons\ok</ClickSound>
+									<TextKey>Textes\UI\Intermission\Multiplayer\Chat\playerinfo_relation</TextKey>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" PositionFlag="0x0013" ElementID="3002" Background="0" TextAlign="0x0013" TextColor="0xffffffff">
+							<!--button: Relation-->
+							<ShadowShift x="1" y="2"/>
+							<WindowPos x="20" y="78"/>
+							<WindowSize x="464" y="30"/>
+							<States>
+								<item>
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xffffbe34"/>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xfffff799"/>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xffe19003"/>
+									<PushSound>sounds\buttons\select</PushSound>
+									<ClickSound>sounds\buttons\ok</ClickSound>
+									<TextKey>Textes\UI\Intermission\Multiplayer\Chat\relation_normal</TextKey>
+								</item>
+								<item>
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xffffbe34"/>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xfffff799"/>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xffe19003"/>
+									<PushSound>sounds\buttons\select</PushSound>
+									<ClickSound>sounds\buttons\ok</ClickSound>
+									<TextKey>Textes\UI\Intermission\Multiplayer\Chat\relation_friend</TextKey>
+								</item>
+								<item>
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xffffbe34"/>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xfffff799"/>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001" TextColor="0xffe19003"/>
+									<PushSound>sounds\buttons\select</PushSound>
+									<ClickSound>sounds\buttons\ok</ClickSound>
+									<TextKey>Textes\UI\Intermission\Multiplayer\Chat\relation_ignored</TextKey>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001105" PositionFlag="0x0011" ElementID="3005" Background="0" TextAlign="0x0013" TextColor="0xffffffff">
+							<!--static: AWAY CAUSE-->
+							<ShadowShift x="1" y="2"/>
+							<WindowPos x="20" y="142"/>
+							<WindowSize x="424" y="70"/>
+							<States>
+								<item>
+									<PushSound>sounds\buttons\select</PushSound>
+									<ClickSound>sounds\buttons\ok</ClickSound>
+									<TextKey/>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<States>
+						<item PushSound="0" ClickSound="0">
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Maps x1="0" y1="0" x2="464" y2="238"/>
+								<Texture>ui\intermissiontextures\PlayerProfile</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<Maps x1="236" y1="90" x2="20" y2="22"/>
+								<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<Maps x1="236" y1="90" x2="20" y2="22"/>
+								<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+							</AppearancePushed>
+						</item>
+					</States>
+				</item>
+			</Children>
+			<WindowPos x="0" y="0"/>
+			<WindowSize x="512" y="336"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="448" y2="294"/>
+								<size x="64" y="42"/>
+								<map x1="64" y1="171" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="448" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="64" y1="129" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="448" y1="42" x2="512" y2="294"/>
+								<size x="64" y="42"/>
+								<map x1="128" y1="171" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="294" x2="448" y2="336"/>
+								<size x="64" y="42"/>
+								<map x1="64" y1="214" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="294"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="171" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="129" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="448" y1="0" x2="512" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="128" y1="129" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="448" y1="294" x2="512" y2="336"/>
+								<size x="64" y="42"/>
+								<map x1="128" y1="214" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="294" x2="64" y2="336"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="214" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\tile-background</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="320" y2="252"/>
+								<size x="64" y="42"/>
+								<map x1="64" y1="171" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="320" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="64" y1="129" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="320" y1="42" x2="384" y2="252"/>
+								<size x="64" y="42"/>
+								<map x1="128" y1="171" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="252" x2="320" y2="294"/>
+								<size x="64" y="42"/>
+								<map x1="64" y1="214" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="252"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="171" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="129" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="320" y1="0" x2="384" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="128" y1="129" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="320" y1="252" x2="384" y2="294"/>
+								<size x="64" y="42"/>
+								<map x1="128" y1="214" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="252" x2="64" y2="294"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="214" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\tile-background</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="320" y2="252"/>
+								<size x="64" y="42"/>
+								<map x1="64" y1="171" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="320" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="64" y1="129" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="320" y1="42" x2="384" y2="252"/>
+								<size x="64" y="42"/>
+								<map x1="128" y1="171" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="252" x2="320" y2="294"/>
+								<size x="64" y="42"/>
+								<map x1="64" y1="214" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="252"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="171" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="129" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="320" y1="0" x2="384" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="128" y1="129" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="320" y1="252" x2="384" y2="294"/>
+								<size x="64" y="42"/>
+								<map x1="128" y1="214" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="252" x2="64" y2="294"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="214" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\tile-background</Texture>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" PositionFlag="0x0013" ActiveFlag="1" VisibleFlag="1" Background="1" ElementID="31416">
+			<!--tutorial BUTTON-->
+			<ToolTip>tt_ui_intermission_help_button</ToolTip>
+			<WindowPos x="41" y="37"/>
+			<WindowSize x="76" y="59"/>
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Maps x1="0" y1="383" x2="76" y2="59"/>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+						<Maps x1="0" y1="324" x2="76" y2="59"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+						<Maps x1="0" y1="442" x2="76" y2="59"/>
+					</AppearancePushed>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" PositionFlag="0x0022" ActiveFlag="1" VisibleFlag="0" Background="1" ElementID="31415">
+			<!--inter mission tutorial-->
+			<Script>ui\imtutorial</Script>
+			<WindowPos x="0" y="0"/>
+			<WindowSize x="576" y="420"/>
+			<States>
+				<item>
+					<TextKey>Textes\imtutorial\MultiplayerChat</TextKey>
+				</item>
+			</States>
+		</item>
+	</Children>
+</base>

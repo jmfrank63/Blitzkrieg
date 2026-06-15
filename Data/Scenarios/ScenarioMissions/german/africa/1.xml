@@ -1,0 +1,65 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<History>
+		<PreviousPath>s:\complete\scenarios\missions\german\africa\scenariomission\current.mip</PreviousPath>
+		<PreviousDate>15.07.2002</PreviousDate>
+		<PreviousTime>19:15:32</PreviousTime>
+		<PreviousOwner>Alexander.Vinnikov</PreviousOwner>
+		<Action>Exported as</Action>
+		<CurrentPath>c:\a7\data\scenarios\missions\german\africa\scenariomission\1.xml</CurrentPath>
+		<CurrentDate>15.07.2002</CurrentDate>
+		<CurrentTime>19:15:37</CurrentTime>
+		<CurrentOwner>Alexander.Vinnikov</CurrentOwner>
+	</History>
+	<RPG>
+		<KeyName/>
+		<StatsType>Mission</StatsType>
+		<HeaderText>scenarios\scenariomissions\german\africa\header</HeaderText>
+		<SubheaderText>scenarios\scenariomissions\german\africa\subheader</SubheaderText>
+		<DescriptionText>scenarios\scenariomissions\german\africa\description</DescriptionText>
+		<BGImage>scenarios\scenariomissions\german\africa\background</BGImage>
+		<MapImage>scenarios\scenariomissions\german\africa\map</MapImage>
+		<MapImageRect x1="512" y1="512" x2="1.00098" y2="1.00098"/>
+		<Script>scenarios\scenariomissions\german\africa\</Script>
+		<TemplateMap/>
+		<FinalMap>german\africa\tunis</FinalMap>
+		<CombatMusics>
+			<item>music\combat1</item>
+			<item>music\combat2</item>
+			<item>music\combat3</item>
+		</CombatMusics>
+		<ExplorMusics>
+			<item>music\explore1</item>
+			<item>music\explore2</item>
+			<item>music\explore3</item>
+		</ExplorMusics>
+		<Objectives>
+			<item Secret="0" AnchorScriptID="-1">
+				<Header>scenarios\scenariomissions\german\africa\0h</Header>
+				<DescriptionText>scenarios\scenariomissions\german\africa\0</DescriptionText>
+				<PosOnMap x="359" y="379"/>
+			</item>
+			<item Secret="1" AnchorScriptID="-1">
+				<Header>scenarios\scenariomissions\german\africa\1h</Header>
+				<DescriptionText>scenarios\scenariomissions\german\africa\1</DescriptionText>
+				<PosOnMap x="311" y="379"/>
+			</item>
+			<item Secret="0" AnchorScriptID="-1">
+				<Header>scenarios\scenariomissions\german\africa\2h</Header>
+				<DescriptionText>scenarios\scenariomissions\german\africa\2</DescriptionText>
+				<PosOnMap x="412" y="77"/>
+			</item>
+			<item Secret="1" AnchorScriptID="-1">
+				<Header>scenarios\scenariomissions\german\africa\3h</Header>
+				<DescriptionText>scenarios\scenariomissions\german\africa\3</DescriptionText>
+				<PosOnMap x="372" y="89"/>
+			</item>
+			<item Secret="1" AnchorScriptID="-1">
+				<Header>scenarios\scenariomissions\german\africa\4h</Header>
+				<DescriptionText>scenarios\scenariomissions\german\africa\4</DescriptionText>
+				<PosOnMap x="38" y="375"/>
+			</item>
+		</Objectives>
+	</RPG>
+</base>

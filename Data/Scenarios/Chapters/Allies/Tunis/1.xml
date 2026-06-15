@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<base>
+	<History>
+		<PreviousPath>s:\complete\scenarios\chapters\Allies\Tunis\current.chc</PreviousPath>
+		<PreviousDate>31.10.2002</PreviousDate>
+		<PreviousTime>12:39:27</PreviousTime>
+		<PreviousOwner>yaroslav.efremov</PreviousOwner>
+		<Action>Batch exported as</Action>
+		<CurrentPath>s:\versions\current\data\scenarios\chapters\allies\tunis\1.xml</CurrentPath>
+		<CurrentDate>12.12.2002</CurrentDate>
+		<CurrentTime>16:04:38</CurrentTime>
+		<CurrentOwner>elena.Sevostyanova</CurrentOwner>
+	</History>
+	<RPG Season="2">
+		<KeyName/>
+		<StatsType>Chapter</StatsType>
+		<HeaderText>scenarios\chapters\allies\tunis\header</HeaderText>
+		<SubheaderText>scenarios\chapters\allies\tunis\subheader</SubheaderText>
+		<DescriptionText>scenarios\chapters\allies\tunis\description</DescriptionText>
+		<MapImage>scenarios\chapters\allies\tunis\map</MapImage>
+		<MapImageRect x1="407" y1="422" x2="0.795898" y2="0.825195"/>
+		<InterfaceMusic>scenarios\chapters\allies\tunis\music\explore2</InterfaceMusic>
+		<Missions>
+			<item Difficulty="0">
+				<Mission>scenarios\scenariomissions\allies\tunis\1</Mission>
+				<PosOnMap x="294" y="129"/>
+				<MissionBonus/>
+				<AllBonuses/>
+			</item>
+		</Missions>
+		<PlaceHolders>
+			<item>
+				<Position x="297" y="225"/>
+			</item>
+			<item>
+				<Position x="218" y="242"/>
+			</item>
+			<item>
+				<Position x="271" y="185"/>
+			</item>
+			<item>
+				<Position x="139" y="211"/>
+			</item>
+			<item>
+				<Position x="211" y="290"/>
+			</item>
+			<item>
+				<Position x="268" y="267"/>
+			</item>
+			<item>
+				<Position x="192" y="354"/>
+			</item>
+			<item>
+				<Position x="239" y="69"/>
+			</item>
+			<item>
+				<Position x="278" y="83"/>
+			</item>
+			<item>
+				<Position x="152" y="257"/>
+			</item>
+		</PlaceHolders>
+		<Script>scenarios\chapters\allies\tunis\script</Script>
+		<SettingName>scenarios\settings\africa</SettingName>
+		<ContextName>scenarios\chapters\allies\tunis\context</ContextName>
+		<PlayerSide/>
+		<MODName/>
+		<MODVersion/>
+	</RPG>
+</base>

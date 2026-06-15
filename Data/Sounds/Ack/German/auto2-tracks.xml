@@ -1,0 +1,372 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>german auto (tracks units) ack set 2</KeyName>
+		<StatsType>Ack</StatsType>
+		<Types>
+			<item Type="0">
+				<Acks>
+					<item Probability="14">
+						<Sound>ack_german_truck2-1-1</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_german_truck2-1-2</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_german_truck2-1-3</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_german_truck2-1-4</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_german_truck2-1-5</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_german_truck2-1-6</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_german_truck2-1-7</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="1">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_german_truck2-2-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_german_truck2-2-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_german_truck2-2-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_german_truck2-2-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_german_truck2-2-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="2">
+				<Acks>
+					<item Probability="14">
+						<Sound>ack_german_truck2-3-1</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_german_truck2-3-2</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_german_truck2-3-3</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_german_truck2-3-4</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_german_truck2-3-5</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_german_truck2-3-6</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_german_truck2-3-7</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="5">
+				<Acks>
+					<item Probability="100">
+						<Sound>ack_german_truck2-4-1</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="12">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_german_truck2-9-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_german_truck2-9-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_german_truck2-9-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="15">
+				<Acks>
+					<item Probability="14">
+						<Sound>ack_german_truck2-10-1</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_german_truck2-10-2</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_german_truck2-10-3</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_german_truck2-10-4</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_german_truck2-10-5</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_german_truck2-10-6</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_german_truck2-10-7</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="16">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_german_truck2-11-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_german_truck2-11-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_german_truck2-11-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_german_truck2-11-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="17">
+				<Acks>
+					<item Probability="100">
+						<Sound>ack_german_truck2-12-1</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="18">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_german_truck2-13-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_german_truck2-13-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_german_truck2-13-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_german_truck2-13-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="19">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_german_truck2-14-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_german_truck2-14-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="20">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_german_truck2-15-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_german_truck2-15-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="21">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_german_truck2-16-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_german_truck2-16-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_german_truck2-16-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="22">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_german_truck2-17-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_german_truck2-17-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_german_truck2-17-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_german_truck2-17-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="27">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_german_truck2-18-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_german_truck2-18-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_german_truck2-18-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="29">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_german_truck2-19-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_german_truck2-19-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_german_truck2-19-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_german_truck2-19-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="30">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_german_truck2-20-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_german_truck2-20-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="40">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_german_truck2-24-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_german_truck2-24-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_german_truck2-24-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="42">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_german_truck2-25-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_german_truck2-25-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_german_truck2-25-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_german_truck2-25-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_german_truck2-25-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="43">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_german_truck2-26-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_german_truck2-26-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_german_truck2-26-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_german_truck2-26-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="48">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_german_truck2-29-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_german_truck2-29-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_german_truck2-29-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="49">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_german_truck2-30-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_german_truck2-30-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="50">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_german_truck2-31-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_german_truck2-31-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_german_truck2-31-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_german_truck2-31-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="53">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_german_truck2-36-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_german_truck2-36-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_german_truck2-36-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="54">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_german_truck2-37-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_german_truck2-37-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="55">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_german_truck2-38-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_german_truck2-38-2</Sound>
+					</item>
+				</Acks>
+			</item>
+		</Types>
+	</RPG>
+</base>

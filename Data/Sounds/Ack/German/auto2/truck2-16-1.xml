@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>German auto acks set 2 -16-1</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="5" MaxDist="35">
+				<SoundPath>Sounds\Ack\German\auto2\truck2-16-1</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

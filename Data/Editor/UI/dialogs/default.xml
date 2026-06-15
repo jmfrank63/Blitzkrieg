@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base ClassTypeID="268439815" PositionFlag="17" ElementID="-1" VisibleFlag="1" ActiveFlag="1" CurrentState="0" Background="1">
+	<WindowPos x="0" y="0"/>
+	<WindowSize x="450" y="400"/>
+	<States>
+		<item EventID="-1">
+			<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Placement Flags="0x1111">
+					<Pos x="200" y="100"/>
+					<Size x="64" y="32"/>
+				</Placement>
+				<Maps x1="0" y1="0" x2="400" y2="500"/>
+				<Texture>ui\dialog</Texture>
+			</AppearanceNormal>
+			<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Placement Flags="0x1111">
+					<Pos x="200" y="100"/>
+					<Size x="64" y="32"/>
+				</Placement>
+				<Maps x1="0" y1="0" x2="128" y2="128"/>
+				<Texture>ui\dialog</Texture>
+			</AppearanceHighlighted>
+			<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Placement Flags="0x1111">
+					<Pos x="200" y="100"/>
+					<Size x="64" y="32"/>
+				</Placement>
+				<Maps x1="0" y1="0" x2="128" y2="128"/>
+				<Texture>ui\dialog</Texture>
+			</AppearancePushed>
+		</item>
+	</States>
+	<Children/>
+	<Script/>
+</base>

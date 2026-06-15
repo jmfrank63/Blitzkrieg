@@ -1,0 +1,293 @@
+<?xml version="1.0"?>
+<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by Yuri V. Blazhevich (Nival Interactive) -->
+<base>
+	<CursorShapes>
+		<item>
+			<Mode>unknown</Mode>
+			<Texture>unknown</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--unknown-->
+		</item>
+		<item>
+			<Mode>move</Mode>
+			<Texture>move</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--move at point-->
+		</item>
+		<item>
+			<Mode>move to grid</Mode>
+			<Texture>move2grid</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--move to grid at point-->
+		</item>
+		<item>
+			<Mode>attack</Mode>
+			<Texture>attack</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--attack-->
+		</item>
+		<item>
+			<Mode>swarm</Mode>
+			<Texture>swarm</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--swarm-->
+		</item>
+		<item>
+			<Mode>board</Mode>
+			<Texture>board</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--board building / entrenchment / transport-->
+		</item>
+		<item>
+			<Mode>leave</Mode>
+			<Texture>leave</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--leave building / transport-->
+		</item>
+		<item>
+			<Mode>rotate</Mode>
+			<Texture>rotate</Texture>
+			<HotSpot x="16" y="16"/>
+			<Size x="32" y="32"/>
+			<!--rotate to-->
+		</item>
+		<item>
+			<Mode>guard</Mode>
+			<Texture>attack</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--guard-->
+		</item>
+		<item>
+			<Mode>ranging</Mode>
+			<Texture>ranging</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--ranging area-->
+		</item>
+		<item>
+			<Mode>suppress</Mode>
+			<Texture>supress</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--suppressing fire-->
+		</item>
+		<item>
+			<Mode>follow</Mode>
+			<Texture>follow</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--follow by the target-->
+		</item>
+		<item>
+			<Mode>entrench self</Mode>
+			<Texture>entrench_self</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--entrench self (for technics)-->
+		</item>
+		<item>
+			<Mode>capture artillery</Mode>
+			<Texture>capture_artillery</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--capture artillery by infantry-->
+		</item>
+		<item>
+			<Mode>hook artillery</Mode>
+			<Texture>hook_artillery</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--hook artillery for towing-->
+		</item>
+		<item>
+			<Mode>deploy artillery</Mode>
+			<Texture>deploy_artillery</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--deploy artillery after towing-->
+		</item>
+		<item>
+			<Mode>place ap mines</Mode>
+			<Texture>set_mines</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--place anti-personnel mines-->
+		</item>
+		<item>
+			<Mode>place at mines</Mode>
+			<Texture>set_mines</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--place anti-tank mines-->
+		</item>
+		<item>
+			<Mode>remove mines</Mode>
+			<Texture>clear_mines</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--remove mines-->
+		</item>
+		<item>
+			<Mode>build fence</Mode>
+			<Texture>build_wire_fence</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--build anti-personnel wire fence-->
+		</item>
+		<item>
+			<Mode>build antitank</Mode>
+			<Texture>build_antitank</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--build anti-tank defence-->
+		</item>
+		<item>
+			<Mode>build entrenchment</Mode>
+			<Texture>build_entrenchment</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--build personnel entrenchment-->
+		</item>
+		<item>
+			<Mode>build bridge</Mode>
+			<Texture>build_bridge</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--build engineering bridge-->
+		</item>
+		<item>
+			<Mode>repair object</Mode>
+			<Texture>repair</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--repair non-unit object-->
+		</item>
+		<item>
+			<Mode>repair</Mode>
+			<Texture>repair</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--set engineers to repair mode-->
+		</item>
+		<item>
+			<Mode>resupply</Mode>
+			<Texture>resupply</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--set cargo to resupply mode-->
+		</item>
+		<item>
+			<Mode>humans resupply</Mode>
+			<Texture>human_resupply</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--set cargo to humans resupply mode-->
+		</item>
+		<item>
+			<Mode>fill ru</Mode>
+			<Texture>fill_ru</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--forced fill of the RU units for supply trucks-->
+		</item>
+		<item>
+			<Mode>call bombers</Mode>
+			<Texture>aviation</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--call bombers to bomb area-->
+		</item>
+		<item>
+			<Mode>call fighters</Mode>
+			<Texture>aviation</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--call fighters to defend the area-->
+		</item>
+		<item>
+			<Mode>call scout</Mode>
+			<Texture>aviation</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--call scout plane to scout the area-->
+		</item>
+		<item>
+			<Mode>call paradropers</Mode>
+			<Texture>aviation</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--call paradropers-->
+		</item>
+		<item>
+			<Mode>call gunplane</Mode>
+			<Texture>aviation</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--call gunplanes to hunt in the area-->
+		</item>
+		<item>
+			<Mode>use spyglasses</Mode>
+			<Texture>use_spyglasses</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--use spyglasses by officer-->
+		</item>
+		<item>
+			<Mode>place marker</Mode>
+			<Texture>place_marker</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--place marker on minimap-->
+		</item>
+		<item>
+			<Mode>cancel</Mode>
+			<Texture>cancel</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--cancel-->
+		</item>
+		<item>
+			<Mode>select friend</Mode>
+			<Texture>select_friend</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--select friendly object-->
+		</item>
+		<item>
+			<Mode>select neutral</Mode>
+			<Texture>select_neutral</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--select neutral object-->
+		</item>
+		<item>
+			<Mode>select foe</Mode>
+			<Texture>select_enemy</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--select foe object-->
+		</item>
+		<item>
+			<Mode>do selfaction</Mode>
+			<Texture>self_actions</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--do self-action (specific for each object in the selection)-->
+		</item>
+		<item>
+			<Mode>hourglass</Mode>
+			<Texture>hourglass</Texture>
+			<HotSpot x="0" y="0"/>
+			<Size x="32" y="32"/>
+			<!--waiting for something-->
+		</item>
+	</CursorShapes>
+</base>

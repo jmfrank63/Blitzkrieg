@@ -1,0 +1,81 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<History>
+		<PreviousPath>s:\complete\scenarios\missions\ussr\kursk\scenariomission\current.mip</PreviousPath>
+		<PreviousDate>31.10.2002</PreviousDate>
+		<PreviousTime>13:15:05</PreviousTime>
+		<PreviousOwner>yaroslav.efremov</PreviousOwner>
+		<Action>Exported as</Action>
+		<CurrentPath>c:\a7\data\scenarios\custom\missions\kursk\1.xml</CurrentPath>
+		<CurrentDate>05.12.2002</CurrentDate>
+		<CurrentTime>17:49:45</CurrentTime>
+		<CurrentOwner>Alexander.Vinnikov</CurrentOwner>
+	</History>
+	<RPG>
+		<KeyName/>
+		<StatsType>Mission</StatsType>
+		<HeaderText>scenarios\custom\missions\kursk\header</HeaderText>
+		<SubheaderText>scenarios\custom\missions\kursk\subheader</SubheaderText>
+		<DescriptionText>scenarios\custom\missions\kursk\description</DescriptionText>
+		<MapImage>scenarios\custom\missions\kursk\map</MapImage>
+		<MapImageRect x1="512" y1="512" x2="1.00098" y2="1.00098"/>
+		<TemplateMap/>
+		<FinalMap>kursk</FinalMap>
+		<CombatMusics>
+			<item>music\combat1</item>
+			<item>music\combat2</item>
+			<item>music\combat3</item>
+		</CombatMusics>
+		<ExplorMusics>
+			<item>music\explore1</item>
+			<item>music\explore2</item>
+			<item>music\explore3</item>
+			<item>music\explore4</item>
+			<item>music\explore_russian</item>
+		</ExplorMusics>
+		<Objectives>
+			<item Secret="0" AnchorScriptID="-1">
+				<Header>scenarios\custom\missions\kursk\0h</Header>
+				<DescriptionText>scenarios\custom\missions\kursk\0</DescriptionText>
+				<PosOnMap x="249" y="43"/>
+			</item>
+			<item Secret="1" AnchorScriptID="-1">
+				<Header>scenarios\custom\missions\kursk\1h</Header>
+				<DescriptionText>scenarios\custom\missions\kursk\1</DescriptionText>
+				<PosOnMap x="0" y="0"/>
+			</item>
+			<item Secret="1" AnchorScriptID="-1">
+				<Header>scenarios\custom\missions\kursk\2h</Header>
+				<DescriptionText>scenarios\custom\missions\kursk\2</DescriptionText>
+				<PosOnMap x="0" y="0"/>
+			</item>
+			<item Secret="1" AnchorScriptID="-1">
+				<Header>scenarios\custom\missions\kursk\3h</Header>
+				<DescriptionText>scenarios\custom\missions\kursk\3</DescriptionText>
+				<PosOnMap x="0" y="0"/>
+			</item>
+			<item Secret="1" AnchorScriptID="-1">
+				<Header>scenarios\custom\missions\kursk\4h</Header>
+				<DescriptionText>scenarios\custom\missions\kursk\4</DescriptionText>
+				<PosOnMap x="0" y="0"/>
+			</item>
+			<item Secret="1" AnchorScriptID="-1">
+				<Header>scenarios\custom\missions\kursk\5h</Header>
+				<DescriptionText>scenarios\custom\missions\kursk\5</DescriptionText>
+				<PosOnMap x="0" y="0"/>
+			</item>
+			<item Secret="1" AnchorScriptID="-1">
+				<Header>scenarios\custom\missions\kursk\6h</Header>
+				<DescriptionText>scenarios\custom\missions\kursk\6</DescriptionText>
+				<PosOnMap x="273" y="394"/>
+			</item>
+			<item Secret="1" AnchorScriptID="-1">
+				<Header>scenarios\custom\missions\kursk\7h</Header>
+				<DescriptionText>scenarios\custom\missions\kursk\7</DescriptionText>
+				<PosOnMap x="0" y="0"/>
+			</item>
+		</Objectives>
+		<SettingName/>
+	</RPG>
+</base>

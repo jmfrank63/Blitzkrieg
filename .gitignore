@@ -2,6 +2,12 @@ Sources/src/A7.sdf
 Sources/src/.vs/
 Versions/
 **/Data
+!/Data/
+!/Data/**
+/Data/Configs/config.cfg
+/Data/objects.gdb
+/Data/Bugs/
+/Data/vssver.scc
 !Sources/src/data/consts.xml
 !Sources/src/data/vssver.scc
 VideoAssets/Movies/

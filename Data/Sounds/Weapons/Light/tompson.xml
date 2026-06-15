@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>tompson shot</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="5" MaxDist="20" Probability="100" Peacefull="0">
+				<SoundPath>Sounds\Weapons\light\tompson</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

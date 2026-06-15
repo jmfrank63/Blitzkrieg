@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>German aviation acks set -8-9</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="5" MaxDist="35">
+				<SoundPath>Sounds\Ack\German\aviation\aviation-8-9</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

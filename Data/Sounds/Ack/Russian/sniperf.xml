@@ -1,0 +1,339 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>Russian sniper ack set </KeyName>
+		<StatsType>Ack</StatsType>
+		<Types>
+			<item Type="0">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-1-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-1-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-1-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-1-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-1-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="1">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-2-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-2-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-2-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-2-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-2-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="2">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-3-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-3-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-3-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-3-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-3-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="6">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_sniper-4-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_sniper-4-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="8">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_russian_sniper-5-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_sniper-5-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_sniper-5-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_sniper-5-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="10">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_sniper-6-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_sniper-6-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_sniper-6-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="11">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_sniper-7-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_sniper-7-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="12">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_sniper-8-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_sniper-8-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="13">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_sniper-9-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_sniper-9-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_sniper-9-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="37">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-10-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-10-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-10-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-10-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-10-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="38">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_sniper-11-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_sniper-11-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="39">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_sniper-12-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_sniper-12-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="40">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_sniper-13-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_sniper-13-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_sniper-13-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="41">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-14-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-14-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-14-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-14-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-14-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="42">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_russian_sniper-15-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_sniper-15-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_sniper-15-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_sniper-15-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="43">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-16-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-16-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-16-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-16-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-16-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="44">
+				<Acks>
+					<item Probability="100">
+						<Sound>ack_russian_sniper-17-1</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="45">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_sniper-18-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_sniper-18-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_sniper-18-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="50">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_russian_sniper-20-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_sniper-20-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_sniper-20-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_sniper-20-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="52">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_sniper-21-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_sniper-21-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_sniper-21-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="56">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-22-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-21-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-21-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-21-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-22-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="59">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-24-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-24-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-24-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_sniper-24-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="58">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_sniper-23-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_sniper-23-2</Sound>
+					</item>
+				</Acks>
+			</item>
+		</Types>
+	</RPG>
+</base>

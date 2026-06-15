@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<base>
+	<History>
+		<PreviousPath>s:\complete\scenarios\chapters\USSR\Stalingrad\current.chc</PreviousPath>
+		<PreviousDate>31.10.2002</PreviousDate>
+		<PreviousTime>12:39:39</PreviousTime>
+		<PreviousOwner>yaroslav.efremov</PreviousOwner>
+		<Action>Batch exported as</Action>
+		<CurrentPath>s:\versions\current\data\scenarios\chapters\ussr\stalingrad\1.xml</CurrentPath>
+		<CurrentDate>12.12.2002</CurrentDate>
+		<CurrentTime>16:05:27</CurrentTime>
+		<CurrentOwner>elena.Sevostyanova</CurrentOwner>
+	</History>
+	<RPG Season="1">
+		<KeyName/>
+		<StatsType>Chapter</StatsType>
+		<HeaderText>scenarios\chapters\ussr\stalingrad\header</HeaderText>
+		<SubheaderText>scenarios\chapters\ussr\stalingrad\subheader</SubheaderText>
+		<DescriptionText>scenarios\chapters\ussr\stalingrad\description</DescriptionText>
+		<MapImage>scenarios\chapters\ussr\stalingrad\map</MapImage>
+		<MapImageRect x1="407" y1="422" x2="0.795898" y2="0.825195"/>
+		<InterfaceMusic>scenarios\chapters\ussr\stalingrad\music\explore2</InterfaceMusic>
+		<Missions>
+			<item Difficulty="0">
+				<Mission>scenarios\scenariomissions\ussr\stalingrad\1</Mission>
+				<PosOnMap x="322" y="175"/>
+				<MissionBonus/>
+				<AllBonuses/>
+			</item>
+		</Missions>
+		<PlaceHolders>
+			<item>
+				<Position x="224" y="142"/>
+			</item>
+			<item>
+				<Position x="341" y="312"/>
+			</item>
+			<item>
+				<Position x="265" y="293"/>
+			</item>
+			<item>
+				<Position x="180" y="107"/>
+			</item>
+			<item>
+				<Position x="129" y="87"/>
+			</item>
+			<item>
+				<Position x="74" y="93"/>
+			</item>
+			<item>
+				<Position x="116" y="142"/>
+			</item>
+			<item>
+				<Position x="162" y="150"/>
+			</item>
+			<item>
+				<Position x="192" y="188"/>
+			</item>
+			<item>
+				<Position x="283" y="249"/>
+			</item>
+		</PlaceHolders>
+		<Script>scenarios\chapters\ussr\stalingrad\script</Script>
+		<SettingName>scenarios\settings\winter_russia</SettingName>
+		<ContextName>scenarios\chapters\ussr\stalingrad\context</ContextName>
+		<PlayerSide/>
+		<MODName/>
+		<MODVersion/>
+	</RPG>
+</base>

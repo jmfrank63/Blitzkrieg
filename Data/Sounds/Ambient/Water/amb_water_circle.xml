@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG Looped="1">
+		<KeyName>Ambient river</KeyName>
+		<StatsType>sound</StatsType>
+		<Sounds>
+			<item MinDist="15" MaxDist="25" Probability="100" Peacefull="0">
+				<SoundPath>Sounds\Ambient\water\circle</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

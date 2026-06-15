@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<Objects>
+		<AntitankObjects>
+			<item>Antitank01</item>
+		</AntitankObjects>
+		<AntipersonFence>WireFence</AntipersonFence>
+		<AntiPersonMine>Mine_APers</AntiPersonMine>
+		<AntiTankMine>Mine_AT</AntiTankMine>
+		<Entrenchment>Entrenchment</Entrenchment>
+	</Objects>
+</base>

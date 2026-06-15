@@ -9,10 +9,15 @@
 *.rc text eol=crlf
 *.xml text eol=crlf
 *.lua text eol=crlf
+*.cfg text eol=crlf
 *.ps1 text eol=crlf
 *.bat text eol=crlf
 *.md text eol=crlf
 *.txt text eol=crlf
+
+# Legacy game data text is UTF-16LE; CRLF normalization corrupts the byte pairs.
+Data/**/*.txt -text -eol
+Sources/src/data/**/*.txt -text -eol
 
 # Visual Studio project files
 *.sln text eol=crlf
@@ -36,12 +41,14 @@
 *.jpeg binary
 *.tga binary
 *.dds binary
+*.bik binary -eol
 *.chm binary
 *.upd binary
 *.reg binary
 *.7z binary
 *.7z.* binary
 *.zip binary
+*.ZIP binary
 *.zst binary
 *.tar binary
 *.gz binary

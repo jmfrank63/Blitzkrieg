@@ -1,0 +1,65 @@
+<?xml version="1.0"?>
+<base>
+	<History>
+		<PreviousPath>s:\complete\scenarios\missions\german\typhoon\scenariomission\current.mip</PreviousPath>
+		<PreviousDate>27.09.2002</PreviousDate>
+		<PreviousTime>15:58:25</PreviousTime>
+		<PreviousOwner>Alexander.Vinnikov</PreviousOwner>
+		<Action>Exported as</Action>
+		<CurrentPath>c:\a7\data\scenarios\scenariomissions\german\typhoon\1.xml</CurrentPath>
+		<CurrentDate>27.09.2002</CurrentDate>
+		<CurrentTime>15:58:28</CurrentTime>
+		<CurrentOwner>Alexander.Vinnikov</CurrentOwner>
+	</History>
+	<RPG>
+		<KeyName/>
+		<StatsType>Mission</StatsType>
+		<HeaderText>scenarios\scenariomissions\german\typhoon\header</HeaderText>
+		<SubheaderText>scenarios\scenariomissions\german\typhoon\subheader</SubheaderText>
+		<DescriptionText>scenarios\scenariomissions\german\typhoon\description</DescriptionText>
+		<MapImage>scenarios\scenariomissions\german\typhoon\map</MapImage>
+		<MapImageRect x1="512" y1="512" x2="1.00098" y2="1.00098"/>
+		<TemplateMap/>
+		<FinalMap>german\typhoon\bryansk</FinalMap>
+		<CombatMusics>
+			<item>music\combat1</item>
+			<item>music\combat2</item>
+			<item>music\combat3</item>
+		</CombatMusics>
+		<ExplorMusics>
+			<item>music\explore1</item>
+			<item>music\explore2</item>
+			<item>music\explore3</item>
+			<item>music\explore4</item>
+			<item>music\explore_german</item>
+		</ExplorMusics>
+		<Objectives>
+			<item Secret="0" AnchorScriptID="-1">
+				<Header>scenarios\scenariomissions\german\typhoon\0h</Header>
+				<DescriptionText>scenarios\scenariomissions\german\typhoon\0</DescriptionText>
+				<PosOnMap x="217" y="74"/>
+			</item>
+			<item Secret="0" AnchorScriptID="-1">
+				<Header>scenarios\scenariomissions\german\typhoon\1h</Header>
+				<DescriptionText>scenarios\scenariomissions\german\typhoon\1</DescriptionText>
+				<PosOnMap x="275" y="426"/>
+			</item>
+			<item Secret="0" AnchorScriptID="-1">
+				<Header>scenarios\scenariomissions\german\typhoon\2h</Header>
+				<DescriptionText>scenarios\scenariomissions\german\typhoon\2</DescriptionText>
+				<PosOnMap x="418" y="290"/>
+			</item>
+			<item Secret="0" AnchorScriptID="-1">
+				<Header>scenarios\scenariomissions\german\typhoon\3h</Header>
+				<DescriptionText>scenarios\scenariomissions\german\typhoon\3</DescriptionText>
+				<PosOnMap x="413" y="97"/>
+			</item>
+			<item Secret="1" AnchorScriptID="-1">
+				<Header>scenarios\scenariomissions\german\typhoon\4h</Header>
+				<DescriptionText>scenarios\scenariomissions\german\typhoon\4</DescriptionText>
+				<PosOnMap x="274" y="80"/>
+			</item>
+		</Objectives>
+		<SettingName/>
+	</RPG>
+</base>

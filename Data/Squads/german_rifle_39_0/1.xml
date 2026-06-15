@@ -1,0 +1,224 @@
+<?xml version="1.0"?>
+<base>
+	<History>
+		<PreviousPath>s:\complete\squads\german_rifle_39_0\current.scp</PreviousPath>
+		<PreviousDate>19.11.2002</PreviousDate>
+		<PreviousTime>12:44:35</PreviousTime>
+		<PreviousOwner>Alexander.Valencia</PreviousOwner>
+		<Action>Exported as</Action>
+		<CurrentPath>s:\versions\current\data\squads\german_rifle_39_0\1.xml</CurrentPath>
+		<CurrentDate>19.11.2002</CurrentDate>
+		<CurrentTime>12:44:58</CurrentTime>
+		<CurrentOwner>Alexander.Valencia</CurrentOwner>
+	</History>
+	<RPG>
+		<Icon/>
+		<Type>01000000</Type>
+		<Members>
+			<item>German_Officer</item>
+			<item>German_Mauser_0</item>
+			<item>German_Mauser_0</item>
+			<item>German_Mauser_0</item>
+			<item>German_Mauser_0</item>
+			<item>German_Mauser_0</item>
+			<item>German_Mauser_0</item>
+			<item>German_Mauser_0</item>
+			<item>German_Mauser_0</item>
+			<item>German_Mauser_0</item>
+		</Members>
+		<Formations>
+			<item LieFlag="0" SpeedBonus="1" DispersionBonus="1" FireRateBonus="1" RelaxTimeBonus="1" CoverBonus="1" VisibleBonus="1">
+				<Type>00000000</Type>
+				<Order>
+					<item Dir="0">
+						<Soldier>German_Officer</Soldier>
+						<Pos x="4.94965" y="-77.0746"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="88.3887" y="-81.3166"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="15.5566" y="-4.24257"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="55.1547" y="1.41443"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="98.2877" y="-0.706573"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="-59.3964" y="-39.5976"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="62.2256" y="-36.7696"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="127.28" y="-42.4266"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="-33.9413" y="-2.82857"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="9.89966" y="-43.8406"/>
+					</item>
+				</Order>
+				<ChangesByEvent>
+					<item data="-1"/>
+				</ChangesByEvent>
+			</item>
+			<item LieFlag="0" SpeedBonus="1.5" DispersionBonus="1.5" FireRateBonus="1.5" RelaxTimeBonus="1.5" CoverBonus="1" VisibleBonus="1">
+				<Type>01000000</Type>
+				<Order>
+					<item Dir="0">
+						<Soldier>German_Officer</Soldier>
+						<Pos x="-17.6773" y="21.9204"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="16.9706" y="-70.7106"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="-15.5563" y="-24.0416"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="17.6777" y="-50.2046"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="-16.2633" y="-47.3756"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="16.9706" y="-25.4556"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="-15.5563" y="-69.2966"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="15.5566" y="1.41443"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="16.2637" y="21.9194"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="-14.8493" y="2.12143"/>
+					</item>
+				</Order>
+				<ChangesByEvent>
+					<item data="2"/>
+				</ChangesByEvent>
+			</item>
+			<item LieFlag="2" SpeedBonus="1" DispersionBonus="0.7" FireRateBonus="0.7" RelaxTimeBonus="0.7" CoverBonus="0.9" VisibleBonus="1">
+				<Type>02000000</Type>
+				<Order>
+					<item Dir="0">
+						<Soldier>German_Officer</Soldier>
+						<Pos x="-0.707336" y="2.12146"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="-44.5483" y="6.36444"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="-0.707336" y="53.0334"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="45.9617" y="74.2465"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="90.5097" y="53.7404"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="-112.43" y="6.36444"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="108.894" y="12.7285"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="-0.000305176" y="-39.5976"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="-89.0953" y="49.4974"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="-49.4973" y="77.7814"/>
+					</item>
+				</Order>
+				<ChangesByEvent>
+					<item data="-1"/>
+				</ChangesByEvent>
+			</item>
+			<item LieFlag="1" SpeedBonus="1.2" DispersionBonus="1.2" FireRateBonus="1" RelaxTimeBonus="1" CoverBonus="0.5" VisibleBonus="1">
+				<Type>03000000</Type>
+				<Order>
+					<item Dir="0">
+						<Soldier>German_Officer</Soldier>
+						<Pos x="2.82867" y="-45.2545"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="-0.707336" y="4.95044"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="91.2167" y="26.1635"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="-91.2163" y="27.5775"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="135.765" y="50.9114"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="177.484" y="30.4055"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="-176.776" y="26.8705"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="-136.471" y="50.2044"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="-46.6693" y="49.4974"/>
+					</item>
+					<item Dir="0">
+						<Soldier>German_Mauser_0</Soldier>
+						<Pos x="42.4266" y="50.9114"/>
+					</item>
+				</Order>
+				<ChangesByEvent>
+					<item data="-1"/>
+				</ChangesByEvent>
+			</item>
+		</Formations>
+	</RPG>
+</base>

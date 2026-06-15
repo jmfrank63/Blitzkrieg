@@ -1,0 +1,321 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>Russian artillery ack set 1</KeyName>
+		<StatsType>Ack</StatsType>
+		<Types>
+			<item Type="0">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_russian_artillery1-1-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_artillery1-1-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_artillery1-1-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_artillery1-1-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_artillery1-1-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="1">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_russian_artillery1-2-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_artillery1-2-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_artillery1-2-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_artillery1-2-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="2">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_russian_artillery1-3-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_artillery1-3-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_artillery1-3-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_artillery1-3-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="5">
+				<Acks>
+					<item Probability="100">
+						<Sound>ack_russian_artillery1-4-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="6">
+				<Acks>
+					<item Probability="100">
+						<Sound>ack_russian_artillery1-5-1</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="7">
+				<Acks>
+					<item Probability="100">
+						<Sound>ack_russian_artillery1-6-1</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="8">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-7-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-7-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-7-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="9">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_artillery1-8-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_artillery1-8-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="10">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-9-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-9-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-9-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="11">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-10-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-10-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-10-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="14">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_artillery1-11-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_artillery1-11-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="26">
+				<Acks>
+					<item Probability="100">
+						<Sound>ack_russian_artillery1-12-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="37">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_russian_artillery1-13-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_artillery1-13-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_artillery1-13-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_artillery1-13-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_artillery1-13-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="38">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_russian_artillery1-14-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_artillery1-14-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_artillery1-14-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_artillery1-14-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="39">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_russian_artillery1-15-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_artillery1-15-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_artillery1-15-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_artillery1-15-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="40">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-16-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-16-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-16-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="42">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-17-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-17-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-17-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="43">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_artillery1-18-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_artillery1-18-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="45">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_artillery1-19-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_artillery1-19-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="46">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_artillery1-20-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_artillery1-20-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="48">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_artillery1-21-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_artillery1-21-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="50">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_artillery1-22-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_artillery1-22-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="52">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-23-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-23-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-23-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="56">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-24-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-24-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_artillery1-24-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="57">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_artillery1-25-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_artillery1-25-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="58">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_artillery1-26-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_artillery1-26-3</Sound>
+					</item>
+				</Acks>
+			</item>
+		</Types>
+	</RPG>
+</base>

@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>tank13 stop</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="15" MaxDist="30" Probability="100" Peacefull="0">
+				<SoundPath>Sounds\units\ground\tank13\stop</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<base>
+	<filters>
+		<item>
+			<Name>Flora</Name>
+			<FilterStr>Flora</FilterStr>
+		</item>
+		<item>
+			<Name>Bld European</Name>
+			<FilterStr>Bld European</FilterStr>
+		</item>
+		<item>
+			<Name>Allied Units</Name>
+			<FilterStr>Allied Units</FilterStr>
+		</item>
+		<item>
+			<Name>Obj Simple</Name>
+			<FilterStr>Obj Simple</FilterStr>
+		</item>
+		<item>
+			<Name>Bld Russian</Name>
+			<FilterStr>Bld Russian</FilterStr>
+		</item>
+		<item>
+			<Name>Axis Units</Name>
+			<FilterStr>Axis Units</FilterStr>
+		</item>
+		<item>
+			<Name>Obj Terrain</Name>
+			<FilterStr>Obj Terrain</FilterStr>
+		</item>
+		<item>
+			<Name>Squads</Name>
+			<FilterStr>Squads</FilterStr>
+		</item>
+		<item>
+			<Name>Soviet Units</Name>
+			<FilterStr>Soviet Units</FilterStr>
+		</item>
+	</filters>
+</base>

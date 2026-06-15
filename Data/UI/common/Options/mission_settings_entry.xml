@@ -1,0 +1,171 @@
+<?xml version="1.0"?>
+<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by Alexander Veselov (NIVAL Interactive) -->
+<!-- deleted comment here -->
+<!-- deleted comment here -->
+<base>
+	<Element ClassTypeID="0x10001107" PositionFlag="0x0011" ElementID="-1" VisibleFlag="1" ActiveFlag="1" CurrentState="0" Background="0" TextAlign="0x0013" TextColor="0xFFFDF2DB" RedLine="0">
+		<Script>UI\common\Options\ForwardMouseClicks</Script>
+		<WindowSize x="129" y="30"/>
+		<WindowPos x="0" y="0"/>
+		<Children>
+			<item ClassTypeID="0x10001107" PositionFlag="0x0011" ActiveFlag="1" Background="0" VisibleFlag="0" ElementID="3000">
+				<Script>UI\common\Options\ForwardMouseClicks</Script>
+				<!--static. select from number of predefined items.-->
+				<Children>
+					<item ClassTypeID="0x10001105" PositionFlag="0x0011" ElementID="10003" TextAlign="0x0021" Background="0" VisibleFlag="1" TextColor="0xfff8c025">
+						<TextPos x="5" y="0"/>
+						<Script>UI\common\Options\ForwardMouseClicks</Script>
+						<!--value-->
+						<WindowPos x="0" y="-4"/>
+						<WindowSize x="130" y="30"/>
+						<States>
+							<item>
+								<AppearanceNormal Color="-1" Specular="-16777216" TextColor="0xfff8c025"/>
+								<AppearanceHighlighted Color="-1" TextColor="0xfff8c025" Specular="-16777216"/>
+								<AppearancePushed Color="-1" TextColor="0xfff8c025" Specular="-16777216"/>
+							</item>
+						</States>
+					</item>
+				</Children>
+				<WindowPos x="0" y="0"/>
+				<WindowSize x="130" y="30"/>
+				<States>
+					<item PushSound="0" ClickSound="0">
+						<AppearanceNormal Color="-1" Specular="-16777216"/>
+						<AppearanceHighlighted Color="-1" Specular="-16777216"/>
+						<AppearancePushed Color="-1" Specular="-16777216"/>
+					</item>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001107" PositionFlag="0x0011" ActiveFlag="1" Background="0" VisibleFlag="0" ElementID="3001">
+				<Script>UI\common\Options\ForwardMouseClicks</Script>
+				<!--slider control, select form range.-->
+				<Children>
+					<item ClassTypeID="0x10001108" ElementID="10003" PositionFlag="0x0011" Min="0" Max="100" Step="1" VisibleFlag="1" Position="0" Width="100" Vertical="0" Elevator_Width="14">
+						<Elevator_Texture>UI\Mapping</Elevator_Texture>
+						<Elevator_Maps x1="151" y1="181" x2="14" y2="27"/>
+						<!--slider. elevator - button on scrollbar. states - elevator background. elevator_width - how long elevator is along scrollbar; elevator maps - texture of elevator-->
+						<WindowPos x="0" y="-4"/>
+						<WindowSize x="129" y="30"/>
+						<States>
+							<item EventID="-1">
+								<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="22" y1="179" x2="120" y2="30"/>
+									<Texture>UI\Mapping</Texture>
+								</AppearanceNormal>
+								<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="22" y1="179" x2="120" y2="30"/>
+									<Texture>UI\Mapping</Texture>
+								</AppearanceHighlighted>
+								<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+									<Maps x1="22" y1="179" x2="120" y2="30"/>
+									<Texture>UI\Mapping</Texture>
+								</AppearancePushed>
+							</item>
+						</States>
+					</item>
+				</Children>
+				<WindowPos x="0" y="0"/>
+				<WindowSize x="130" y="30"/>
+				<States>
+					<item PushSound="0" ClickSound="0"/>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001107" PositionFlag="0x0011" ActiveFlag="1" Background="0" VisibleFlag="0" ElementID="3002">
+				<Script>UI\common\Options\ForwardMouseClicks</Script>
+				<!--edit box control, LocalPlayerName text input.-->
+				<Children>
+					<item ClassTypeID="0x1000110B" ElementID="10003" PositionFlag="0x0021" ActiveFlag="1" TextAlign="0x0021" TextColor="0xFFFDF2DB" LocalPlayerName="1" Background="0" MaxLength="12" VisibleFlag="1">
+						<!--edit box :  input-->
+						<TextPos x="5" y="0"/>
+						<ToolTip/>
+						<WindowPos x="0" y="-4"/>
+						<WindowSize x="130" y="30"/>
+						<States>
+							<item EventID="-1">
+								<AppearanceNormal Color="0xffffffff" Specular="0xff000000"/>
+								<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000"/>
+								<AppearancePushed Color="0xffffffff" Specular="0xff000000"/>
+								<TextKey/>
+							</item>
+						</States>
+					</item>
+				</Children>
+				<WindowPos x="0" y="0"/>
+				<WindowSize x="130" y="30"/>
+				<States>
+					<item PushSound="0" ClickSound="0"/>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001107" PositionFlag="0x0011" ActiveFlag="1" Background="0" VisibleFlag="0" ElementID="3003">
+				<Script>UI\common\Options\ForwardMouseClicks</Script>
+				<!--edit box control, numeric input only-->
+				<Children>
+					<item ClassTypeID="0x1000110B" ElementID="10003" PositionFlag="0x0021" ActiveFlag="1" TextAlign="0x0021" TextColor="0xFFFDF2DB" Background="0" VisibleFlag="1" NumericMode="1" MaxLength="8">
+						<!--edit box :  input-->
+						<TextPos x="5" y="0"/>
+						<ToolTip/>
+						<WindowPos x="0" y="-4"/>
+						<WindowSize x="130" y="30"/>
+						<States>
+							<item EventID="-1">
+								<AppearanceNormal Color="0xffffffff" Specular="0xff000000"/>
+								<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000"/>
+								<AppearancePushed Color="0xffffffff" Specular="0xff000000"/>
+								<TextKey/>
+							</item>
+						</States>
+					</item>
+				</Children>
+				<WindowPos x="0" y="0"/>
+				<WindowSize x="130" y="30"/>
+				<States>
+					<item PushSound="0" ClickSound="0"/>
+				</States>
+			</item>
+			<item ClassTypeID="0x10001107" PositionFlag="0x0011" ActiveFlag="1" Background="0" VisibleFlag="0" ElementID="3004">
+				<Script>UI\common\Options\ForwardMouseClicks</Script>
+				<!--edit box control, GameSpy allowed characters-->
+				<Children>
+					<item ClassTypeID="0x1000110B" ElementID="10003" PositionFlag="0x0021" ActiveFlag="1" TextAlign="0x0021" TextColor="0xFFFDF2DB" Background="0" MaxLength="12" VisibleFlag="1" GameSpySymbols="1">
+						<!--edit box :  input-->
+						<TextPos x="5" y="0"/>
+						<ToolTip/>
+						<WindowPos x="0" y="-4"/>
+						<WindowSize x="130" y="30"/>
+						<States>
+							<item EventID="-1">
+								<AppearanceNormal Color="0xffffffff" Specular="0xff000000"/>
+								<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000"/>
+								<AppearancePushed Color="0xffffffff" Specular="0xff000000"/>
+								<TextKey/>
+							</item>
+						</States>
+					</item>
+				</Children>
+				<WindowPos x="0" y="0"/>
+				<WindowSize x="130" y="30"/>
+				<States>
+					<item PushSound="0" ClickSound="0"/>
+				</States>
+			</item>
+		</Children>
+		<States>
+			<item EventID="-1">
+				<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+					<Maps x1="236" y1="90" x2="20" y2="22"/>
+					<Texture>ui\mapping</Texture>
+				</AppearanceNormal>
+				<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+					<Maps x1="236" y1="90" x2="20" y2="22"/>
+					<Texture>ui\mapping</Texture>
+				</AppearanceHighlighted>
+				<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+					<Maps x1="236" y1="90" x2="20" y2="22"/>
+					<Texture>ui\mapping</Texture>
+				</AppearancePushed>
+				<TextKey/>
+			</item>
+		</States>
+	</Element>
+</base>

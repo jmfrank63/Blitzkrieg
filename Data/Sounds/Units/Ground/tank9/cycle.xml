@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG Looped="1">
+		<KeyName>Tank9 cycle  sound</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="15" MaxDist="30" Probability="100" Peacefull="0">
+				<SoundPath>Sounds\Units\ground\tank9\cycle</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

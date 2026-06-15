@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName/>
+		<StatsType>Mission</StatsType>
+		<HeaderText>scenarios\descriptions\defend_area01\header</HeaderText>
+		<SubheaderText>scenarios\descriptions\defend_area01\subheader</SubheaderText>
+		<DescriptionText>scenarios\descriptions\defend_area01\description</DescriptionText>
+		<MapImage>scenarios\descriptions\defend_area01\</MapImage>
+		<MapImageRect x1="0" y1="0" x2="0" y2="0"/>
+		<TemplateMap>scenarios\templates\summer\template18</TemplateMap>
+		<FinalMap>templatemaps\summer_germany\defend01</FinalMap>
+		<CombatMusics>
+			<item>music\combat1</item>
+			<item>music\combat2</item>
+			<item>music\combat3</item>
+		</CombatMusics>
+		<ExplorMusics>
+			<item>music\explore1</item>
+			<item>music\explore2</item>
+			<item>music\explore3</item>
+			<item>music\explore4</item>
+		</ExplorMusics>
+		<Objectives>
+			<item Secret="0" AnchorScriptID="1011">
+				<Header>scenarios\descriptions\defend_area01\0h</Header>
+				<DescriptionText>scenarios\descriptions\defend_area01\0</DescriptionText>
+				<PosOnMap x="1" y="1"/>
+			</item>
+			<item Secret="0" AnchorScriptID="15">
+				<Header>scenarios\descriptions\defend_area01\1h</Header>
+				<DescriptionText>scenarios\descriptions\defend_area01\1</DescriptionText>
+				<PosOnMap x="27.424" y="88.0551"/>
+			</item>
+		</Objectives>
+		<SettingName>scenarios\settings\summer_germany</SettingName>
+	</RPG>
+</base>

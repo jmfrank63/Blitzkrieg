@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>allies tank acks set 2 -6-4</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="5" MaxDist="35">
+				<SoundPath>Sounds\Ack\allies\tank2\tank2-6-4</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

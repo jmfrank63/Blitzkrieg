@@ -1,0 +1,62 @@
+<?xml version="1.0"?>
+<!-- edited with XMLSPY v5 rel. 2 U (http://www.xmlspy.com) by Serge Orlovsky (Nival Interactive) -->
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>Ambient Village</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Village\1</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Village\2</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Village\3</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Village\4</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Village\5</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Village\6</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Village\7</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Village\8</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Village\9</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Village\10</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Village\11</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Village\12</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Village\13</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Village\14</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Village\15</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Village\16</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="6" Peacefull="1">
+				<SoundPath>Sounds\Ambient\Village\17</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

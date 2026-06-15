@@ -1,0 +1,132 @@
+<?xml version="1.0"?>
+<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by Nasdaq Boom (World of Cracking) -->
+<base>
+	<History>
+		<PreviousPath>s:\complete\units\technics\common\entrenchment\current.trc</PreviousPath>
+		<PreviousDate>20.12.2002</PreviousDate>
+		<PreviousTime>12:59:43</PreviousTime>
+		<PreviousOwner>Alexander.Valencia</PreviousOwner>
+		<Action>Exported as</Action>
+		<CurrentPath>s:\versions\current\data\units\technics\common\entrenchment\1.xml</CurrentPath>
+		<CurrentDate>20.12.2002</CurrentDate>
+		<CurrentTime>12:59:53</CurrentTime>
+		<CurrentOwner>Alexander.Valencia</CurrentOwner>
+	</History>
+	<RPG MaxHP="1000" RepairCost="1">
+		<KeyName/>
+		<StatsType>Entrenchment</StatsType>
+		<DamagedHPs/>
+		<Defence0 MinArmor="300" MaxArmor="300" Silhouette="1"/>
+		<Defence1 MinArmor="300" MaxArmor="300" Silhouette="1"/>
+		<Defence2 MinArmor="300" MaxArmor="300" Silhouette="1"/>
+		<Defence3 MinArmor="300" MaxArmor="300" Silhouette="1"/>
+		<Defence4 MinArmor="0" MaxArmor="0" Silhouette="1"/>
+		<Defence5 MinArmor="300" MaxArmor="300" Silhouette="1"/>
+		<Segments>
+			<item Coverage="1">
+				<Model>2</Model>
+				<FirePlace x="0" y="0"/>
+				<AABBCenter x="0" y="0"/>
+				<AABBHalfSize x="37.1722" y="14.7985" z="8.10787"/>
+				<SegmentType>01000000</SegmentType>
+				<FirePlaces>
+					<item x="-24.9213" y="0.986342"/>
+					<item x="26.9262" y="1.89752"/>
+					<item x="2.28113" y="13.9141"/>
+				</FirePlaces>
+			</item>
+			<item Coverage="1">
+				<Model>7</Model>
+				<FirePlace x="0" y="0"/>
+				<AABBCenter x="0" y="0"/>
+				<AABBHalfSize x="37.1722" y="14.7985" z="8.10787"/>
+				<SegmentType>01000000</SegmentType>
+				<FirePlaces>
+					<item x="-24.9213" y="0.28695"/>
+					<item x="26.2268" y="-0.550354"/>
+					<item x="-0.166739" y="13.2148"/>
+				</FirePlaces>
+			</item>
+			<item Coverage="1">
+				<Model>8</Model>
+				<FirePlace x="0" y="0"/>
+				<AABBCenter x="0" y="0"/>
+				<AABBHalfSize x="37.1722" y="14.7985" z="8.10787"/>
+				<SegmentType>01000000</SegmentType>
+				<FirePlaces>
+					<item x="-24.9213" y="0.636646"/>
+					<item x="26.2268" y="0.498734"/>
+					<item x="0.882349" y="15.3129"/>
+				</FirePlaces>
+			</item>
+			<item Coverage="1">
+				<Model>1</Model>
+				<FirePlace x="0" y="0"/>
+				<AABBCenter x="0" y="0"/>
+				<AABBHalfSize x="37.1722" y="14.7985" z="8.10787"/>
+				<SegmentType>00000000</SegmentType>
+				<FirePlaces>
+					<item x="-25.9409" y="1.75615"/>
+					<item x="25.9719" y="-2.81466"/>
+					<item x="0" y="-0.696556"/>
+				</FirePlaces>
+			</item>
+			<item Coverage="1">
+				<Model>5</Model>
+				<FirePlace x="0" y="0"/>
+				<AABBCenter x="0" y="0"/>
+				<AABBHalfSize x="37.1722" y="14.7985" z="8.10787"/>
+				<SegmentType>00000000</SegmentType>
+				<FirePlaces>
+					<item x="-25.9409" y="-1.76325"/>
+					<item x="25.9719" y="2.351"/>
+					<item x="0" y="-1.76325"/>
+				</FirePlaces>
+			</item>
+			<item Coverage="1">
+				<Model>6</Model>
+				<FirePlace x="0" y="0"/>
+				<AABBCenter x="0" y="0"/>
+				<AABBHalfSize x="37.1722" y="14.7985" z="8.10787"/>
+				<SegmentType>00000000</SegmentType>
+				<FirePlaces>
+					<item x="-25.9409" y="-2.51"/>
+					<item x="25.9719" y="4.07875"/>
+					<item x="0" y="1.8825"/>
+				</FirePlaces>
+			</item>
+			<item Coverage="1">
+				<Model>3</Model>
+				<FirePlace x="0" y="0"/>
+				<AABBCenter x="6.60375" y="0"/>
+				<AABBHalfSize x="6.91998" y="14.7347" z="7.5914"/>
+				<SegmentType>02000000</SegmentType>
+				<FirePlaces/>
+			</item>
+			<item Coverage="1">
+				<Model>4</Model>
+				<FirePlace x="0" y="0"/>
+				<AABBCenter x="0" y="-0.0482268"/>
+				<AABBHalfSize x="11.0562" y="14.2995" z="7.57782"/>
+				<SegmentType>03000000</SegmentType>
+				<FirePlaces/>
+			</item>
+		</Segments>
+		<Lines>
+			<item data="3"/>
+			<item data="4"/>
+			<item data="5"/>
+		</Lines>
+		<FirePlaces>
+			<item data="0"/>
+			<item data="1"/>
+			<item data="2"/>
+		</FirePlaces>
+		<Terminators>
+			<item data="6"/>
+		</Terminators>
+		<Arcs>
+			<item data="7"/>
+		</Arcs>
+	</RPG>
+</base>

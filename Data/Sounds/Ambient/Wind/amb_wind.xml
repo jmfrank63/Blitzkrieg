@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>Ambient Wind</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="15" MaxDist="25" Probability="16" Peacefull="0">
+				<SoundPath>Sounds\Ambient\wind\1</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="16" Peacefull="0">
+				<SoundPath>Sounds\Ambient\wind\2</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="16" Peacefull="0">
+				<SoundPath>Sounds\Ambient\wind\3</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="16" Peacefull="0">
+				<SoundPath>Sounds\Ambient\wind\4</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="16" Peacefull="0">
+				<SoundPath>Sounds\Ambient\wind\5</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="25" Probability="16" Peacefull="0">
+				<SoundPath>Sounds\Ambient\wind\6</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

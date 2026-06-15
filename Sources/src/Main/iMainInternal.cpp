@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 
 #include <mmsystem.h>
+#include <vector>
 
 #include "iMainInternal.h"
 #include "iMainCommands.h"
@@ -46,22 +47,44 @@ static const NInput::SRegisterCommandEntry stdCommands[] =
 	{ "switch_input"			, CMD_SWITCH_INPUT			 },
 	{ 0,						0								}
 };
+
+static std::string ResolveConfigFileName( const std::string &szFileName, const bool bMustExist )
+{
+	std::vector<std::string> candidates;
+	candidates.push_back( ".\\" + szFileName );
+	candidates.push_back( ".\\Data\\Configs\\" + szFileName );
+	candidates.push_back( "..\\Data\\Configs\\" + szFileName );
+	candidates.push_back( "..\\..\\Data\\Configs\\" + szFileName );
+	candidates.push_back( "..\\..\\..\\Data\\Configs\\" + szFileName );
+	candidates.push_back( "..\\..\\..\\..\\Data\\Configs\\" + szFileName );
+
+	for ( std::vector<std::string>::const_iterator it = candidates.begin(); it != candidates.end(); ++it )
+	{
+		if ( NFile::IsFileExist( it->c_str() ) )
+			return *it;
+	}
+
+	return bMustExist ? std::string() : candidates[0];
+}
+
 bool SerializeConfig( const bool bRead, const DWORD dwSerialize )
 {
 	if ( !bRead && !GetSingleton<IUserProfile>()->IsChanged() ) 
 		return true;
 
 	const std::string szConfigName = GetGlobalVar( "ConfigName", "config.cfg" );
-	const std::string szConfigFileName = ".\\" + szConfigName;
 	const std::string szDefaultValuesName = GetGlobalVar( "DefaultConfigName", "defconf.cfg" );
-	const std::string szDefaultValuesFileName = ".\\" + szDefaultValuesName;
-	const bool bConfigExists = NFile::IsFileExist( szConfigFileName.c_str() );
-	const bool bDefaultValuesExist = NFile::IsFileExist( szDefaultValuesFileName.c_str() );
+	const std::string szConfigFileName = ResolveConfigFileName( szConfigName, bRead );
+	const std::string szDefaultValuesFileName = ResolveConfigFileName( szDefaultValuesName, true );
+	const bool bConfigExists = !szConfigFileName.empty();
+	const bool bDefaultValuesExist = !szDefaultValuesFileName.empty();
 	
 	if ( bRead && !bConfigExists && !bDefaultValuesExist )
 		return false;
 
-	CPtr<IDataStream> pStream = OpenFileStream(szConfigFileName.c_str(), bRead ? STREAM_ACCESS_READ : STREAM_ACCESS_WRITE);
+	CPtr<IDataStream> pStream;
+	if ( bConfigExists )
+		pStream = OpenFileStream(szConfigFileName.c_str(), bRead ? STREAM_ACCESS_READ : STREAM_ACCESS_WRITE);
 	CPtr<IDataStream> pStreamToRepair;
 	CPtr<IDataTree> pTreeToRepair;
 	if( bRead && bDefaultValuesExist )

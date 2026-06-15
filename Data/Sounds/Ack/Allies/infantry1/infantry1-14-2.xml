@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>allies infantry acks set 1 -14-2</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="10" MaxDist="20">
+				<SoundPath>Sounds\Ack\allies\infantry1\infantry1-14-2</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

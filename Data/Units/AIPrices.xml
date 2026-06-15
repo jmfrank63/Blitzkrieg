@@ -1,0 +1,450 @@
+<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by Yuri V. Blazhevich (Nival Interactive) -->
+<!-- deleted comment here -->
+<!-- deleted comment here -->
+<base>
+	<Prices>
+		<item Type="0x00010001" Price="1">
+			<!--RPG_TYPE_SOLDIER-->
+		</item>
+		<item Type="0x00010002" Price="1">
+			<!--RPG_TYPE_ENGINEER-->
+		</item>
+		<item Type="0x00010003" Price="40">
+			<!--RPG_TYPE_SNIPER-->
+		</item>
+		<item Type="0x00010004" Price="5">
+			<!--RPG_TYPE_OFFICER-->
+		</item>
+		<item Type="0x00020001" Price="10">
+			<!--RPG_TYPE_TRN_CARRIER-->
+		</item>
+		<item Type="0x00020002" Price="10">
+			<!--RPG_TYPE_TRN_SUPPORT-->
+		</item>
+		<item Type="0x00020003" Price="10">
+			<!--RPG_TYPE_TRN_MEDICINE-->
+		</item>
+		<item Type="0x00020004" Price="10">
+			<!--RPG_TYPE_TRN_TRACTOR-->
+		</item>
+		<item Type="0x00020005" Price="20">
+			<!--RPG_TYPE_TRN_MILITARY_AUTO-->
+		</item>
+		<item Type="0x00020006" Price="1">
+			<!--RPG_TYPE_TRN_CIVILIAN_AUTO-->
+		</item>
+		<item Type="0x00040001" Price="20">
+			<!--RPG_TYPE_ART_GUN-->
+		</item>
+		<item Type="0x00040002" Price="60">
+			<!--RPG_TYPE_ART_HOWITZER-->
+		</item>
+		<item Type="0x00040003" Price="120">
+			<!--RPG_TYPE_ART_HEAVY_GUN-->
+		</item>
+		<item Type="0x00040004" Price="40">
+			<!--RPG_TYPE_ART_AAGUN-->
+		</item>
+		<item Type="0x00040005" Price="60">
+			<!--RPG_TYPE_ART_ROCKET-->
+		</item>
+		<item Type="0x00040006" Price="100">
+			<!--RPG_TYPE_ART_SUPER-->
+		</item>
+		<item Type="0x00040007" Price="20">
+			<!--RPG_TYPE_ART_MORTAR-->
+		</item>
+		<item Type="0x00040008" Price="20">
+			<!--RPG_TYPE_ART_HEAVY_MG-->
+		</item>
+		<item Type="0x00080001" Price="100">
+			<!--RPG_TYPE_SPG_ASSAULT-->
+		</item>
+		<item Type="0x00080002" Price="70">
+			<!--RPG_TYPE_SPG_ANTITANK-->
+		</item>
+		<item Type="0x00080003" Price="200">
+			<!--RPG_TYPE_SPG_SUPER-->
+		</item>
+		<item Type="0x00080004" Price="60">
+			<!--RPG_TYPE_SPG_AAGUN-->
+		</item>
+		<item Type="0x00100001" Price="50">
+			<!--RPG_TYPE_ARM_LIGHT-->
+		</item>
+		<item Type="0x00100002" Price="60">
+			<!--RPG_TYPE_ARM_MEDIUM-->
+		</item>
+		<item Type="0x00100003" Price="100">
+			<!--RPG_TYPE_ARM_HEAVY-->
+		</item>
+		<item Type="0x00100004" Price="200">
+			<!--RPG_TYPE_ARM_SUPER-->
+		</item>
+		<item Type="0x00200001" Price="30">
+			<!--RPG_TYPE_AVIA_SCOUT-->
+		</item>
+		<item Type="0x00200002" Price="100">
+			<!--RPG_TYPE_AVIA_BOMBER-->
+		</item>
+		<item Type="0x00200003" Price="100">
+			<!--RPG_TYPE_AVIA_ATTACK-->
+		</item>
+		<item Type="0x00200004" Price="100">
+			<!--RPG_TYPE_AVIA_FIGHTER-->
+		</item>
+		<item Type="0x00200005" Price="200">
+			<!--RPG_TYPE_AVIA_SUPER-->
+		</item>
+		<item Type="0x00200006" Price="50">
+			<!--RPG_TYPE_AVIA_LANDER-->
+		</item>
+		<item Type="0x00400001" Price="50">
+			<!--RPG_TYPE_TRAIN_LOCOMOTIVE-->
+		</item>
+		<item Type="0x00400002" Price="40">
+			<!--RPG_TYPE_TRAIN_CARGO-->
+		</item>
+		<item Type="0x00400003" Price="40">
+			<!--RPG_TYPE_TRAIN_CARRIER-->
+		</item>
+		<item Type="0x00400004" Price="200">
+			<!--RPG_TYPE_TRAIN_SUPER-->
+		</item>
+		<item Type="0x00400005" Price="100">
+			<!--RPG_TYPE_TRAIN_ARMOR-->
+		</item>
+	</Prices>
+	<ExpLevels>
+		<item>
+			<Type>trn_carrier</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1" BonusRelaxTime="1.1" BonusDispersion="1.1" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="300" BonusSpeed="1" BonusRelaxTime="1.3" BonusDispersion="1.3" BonusSight="1.3" BonusFireRange="1.3" BonusRotate="1.3"/>
+				<item Exp="700" BonusSpeed="1" BonusRelaxTime="1.7" BonusDispersion="1.7" BonusSight="1.7" BonusFireRange="1.7" BonusRotate="1.7"/>
+			</Levels>
+			<!--transport carrier-->
+		</item>
+		<item>
+			<Type>trn_support</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1" BonusRelaxTime="1.1" BonusDispersion="1.1" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="300" BonusSpeed="1" BonusRelaxTime="1.3" BonusDispersion="1.3" BonusSight="1.3" BonusFireRange="1.3" BonusRotate="1.3"/>
+				<item Exp="700" BonusSpeed="1" BonusRelaxTime="1.7" BonusDispersion="1.7" BonusSight="1.7" BonusFireRange="1.7" BonusRotate="1.7"/>
+			</Levels>
+			<!--transport support-->
+		</item>
+		<item>
+			<Type>trn_medicine</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1" BonusRelaxTime="1.1" BonusDispersion="1.1" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="300" BonusSpeed="1" BonusRelaxTime="1.3" BonusDispersion="1.3" BonusSight="1.3" BonusFireRange="1.3" BonusRotate="1.3"/>
+				<item Exp="700" BonusSpeed="1" BonusRelaxTime="1.7" BonusDispersion="1.7" BonusSight="1.7" BonusFireRange="1.7" BonusRotate="1.7"/>
+			</Levels>
+			<!--transport medicine-->
+		</item>
+		<item>
+			<Type>trn_tractor</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1" BonusRelaxTime="1.1" BonusDispersion="1.1" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="300" BonusSpeed="1" BonusRelaxTime="1.3" BonusDispersion="1.3" BonusSight="1.3" BonusFireRange="1.3" BonusRotate="1.3"/>
+				<item Exp="700" BonusSpeed="1" BonusRelaxTime="1.7" BonusDispersion="1.7" BonusSight="1.7" BonusFireRange="1.7" BonusRotate="1.7"/>
+			</Levels>
+			<!--transport tractor-->
+		</item>
+		<item>
+			<Type>trn_military_auto</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1" BonusRelaxTime="1.1" BonusDispersion="1.1" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="300" BonusSpeed="1" BonusRelaxTime="1.3" BonusDispersion="1.3" BonusSight="1.3" BonusFireRange="1.3" BonusRotate="1.3"/>
+				<item Exp="700" BonusSpeed="1" BonusRelaxTime="1.7" BonusDispersion="1.7" BonusSight="1.7" BonusFireRange="1.7" BonusRotate="1.7"/>
+			</Levels>
+			<!--transport military auto-->
+		</item>
+		<item>
+			<Type>trn_civilian_auto</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1" BonusRelaxTime="1.1" BonusDispersion="1.1" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="300" BonusSpeed="1" BonusRelaxTime="1.3" BonusDispersion="1.3" BonusSight="1.3" BonusFireRange="1.3" BonusRotate="1.3"/>
+				<item Exp="700" BonusSpeed="1" BonusRelaxTime="1.7" BonusDispersion="1.7" BonusSight="1.7" BonusFireRange="1.7" BonusRotate="1.7"/>
+			</Levels>
+			<!--transport civilian auto-->
+		</item>
+		<item>
+			<Type>art_gun</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="50" BonusSpeed="1" BonusRelaxTime="0.7" BonusDispersion="0.7" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="350" BonusSpeed="1" BonusRelaxTime="0.6" BonusDispersion="0.6" BonusSight="1.15" BonusFireRange="1.15" BonusRotate="1.3"/>
+				<item Exp="1500" BonusSpeed="1" BonusRelaxTime="0.5" BonusDispersion="0.5" BonusSight="1.2" BonusFireRange="1.2" BonusRotate="1.5"/>
+			</Levels>
+			<!--artillery gun-->
+		</item>
+		<item>
+			<Type>art_howitzer</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1" BonusRelaxTime="0.9" BonusDispersion="0.9" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="700" BonusSpeed="1" BonusRelaxTime="0.75" BonusDispersion="0.75" BonusSight="1.15" BonusFireRange="1.2" BonusRotate="1.3"/>
+				<item Exp="3500" BonusSpeed="1" BonusRelaxTime="0.6" BonusDispersion="0.6" BonusSight="1.2" BonusFireRange="1.3" BonusRotate="1.5"/>
+			</Levels>
+			<!--artillery howitzer-->
+		</item>
+		<item>
+			<Type>art_heavy_gun</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1" BonusRelaxTime="0.9" BonusDispersion="0.9" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="700" BonusSpeed="1" BonusRelaxTime="0.75" BonusDispersion="0.75" BonusSight="1.15" BonusFireRange="1.2" BonusRotate="1.3"/>
+				<item Exp="3500" BonusSpeed="1" BonusRelaxTime="0.6" BonusDispersion="0.6" BonusSight="1.2" BonusFireRange="1.3" BonusRotate="1.5"/>
+			</Levels>
+			<!--artillery heavy gun-->
+		</item>
+		<item>
+			<Type>art_aagun</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1" BonusRelaxTime="0.9" BonusDispersion="0.9" BonusSight="1.05" BonusFireRange="1.05" BonusRotate="1.1"/>
+				<item Exp="700" BonusSpeed="1" BonusRelaxTime="0.75" BonusDispersion="0.75" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.3"/>
+				<item Exp="3500" BonusSpeed="1" BonusRelaxTime="0.6" BonusDispersion="0.6" BonusSight="1.15" BonusFireRange="1.15" BonusRotate="1.5"/>
+			</Levels>
+			<!--artillery AA gun-->
+		</item>
+		<item>
+			<Type>art_rocket</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1" BonusRelaxTime="0.9" BonusDispersion="0.9" BonusSight="1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="700" BonusSpeed="1" BonusRelaxTime="0.75" BonusDispersion="0.75" BonusSight="1.1" BonusFireRange="1.2" BonusRotate="1.3"/>
+				<item Exp="3500" BonusSpeed="1" BonusRelaxTime="0.6" BonusDispersion="0.6" BonusSight="1.15" BonusFireRange="1.3" BonusRotate="1.5"/>
+			</Levels>
+			<!--artillery rocket-->
+		</item>
+		<item>
+			<Type>art_super</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1" BonusRelaxTime="0.9" BonusDispersion="0.9" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="700" BonusSpeed="1" BonusRelaxTime="0.75" BonusDispersion="0.75" BonusSight="1.15" BonusFireRange="1.15" BonusRotate="1.3"/>
+				<item Exp="3500" BonusSpeed="1" BonusRelaxTime="0.6" BonusDispersion="0.6" BonusSight="1.2" BonusFireRange="1.2" BonusRotate="1.5"/>
+			</Levels>
+			<!--artillery SUPER-->
+		</item>
+		<item>
+			<Type>art_mortar</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1" BonusRelaxTime="0.9" BonusDispersion="0.9" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="300" BonusSpeed="1" BonusRelaxTime="0.75" BonusDispersion="0.75" BonusSight="1.3" BonusFireRange="1.3" BonusRotate="1.3"/>
+				<item Exp="700" BonusSpeed="1" BonusRelaxTime="0.6" BonusDispersion="0.6" BonusSight="1.4" BonusFireRange="1.4" BonusRotate="1.5"/>
+			</Levels>
+			<!--artillery mortar-->
+		</item>
+		<item>
+			<Type>art_heavy_mg</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1" BonusRelaxTime="0.9" BonusDispersion="0.9" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="300" BonusSpeed="1" BonusRelaxTime="0.75" BonusDispersion="0.75" BonusSight="1.3" BonusFireRange="1.3" BonusRotate="1.3"/>
+				<item Exp="700" BonusSpeed="1" BonusRelaxTime="0.6" BonusDispersion="0.6" BonusSight="1.4" BonusFireRange="1.4" BonusRotate="1.5"/>
+			</Levels>
+			<!--artillery heavy MG-->
+		</item>
+		<item>
+			<Type>spg_assault</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="200" BonusSpeed="1" BonusRelaxTime="0.9" BonusDispersion="0.9" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="1300" BonusSpeed="1" BonusRelaxTime="0.75" BonusDispersion="0.75" BonusSight="1.15" BonusFireRange="1.15" BonusRotate="1.3"/>
+				<item Exp="4000" BonusSpeed="1" BonusRelaxTime="0.6" BonusDispersion="0.6" BonusSight="1.2" BonusFireRange="1.2" BonusRotate="1.5"/>
+			</Levels>
+			<!--Self Propelled Gun assault-->
+		</item>
+		<item>
+			<Type>spg_antitank</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="200" BonusSpeed="1.05" BonusRelaxTime="0.9" BonusDispersion="0.9" BonusSight="1.05" BonusFireRange="1.05" BonusRotate="1.1"/>
+				<item Exp="1300" BonusSpeed="1.1" BonusRelaxTime="0.75" BonusDispersion="0.75" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.3"/>
+				<item Exp="4000" BonusSpeed="1.2" BonusRelaxTime="0.6" BonusDispersion="0.6" BonusSight="1.15" BonusFireRange="1.15" BonusRotate="1.5"/>
+			</Levels>
+			<!--Self Propelled Gun anti-tank-->
+		</item>
+		<item>
+			<Type>spg_super</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="200" BonusSpeed="1.05" BonusRelaxTime="0.9" BonusDispersion="0.9" BonusSight="1.05" BonusFireRange="1.05" BonusRotate="1.1"/>
+				<item Exp="1300" BonusSpeed="1.1" BonusRelaxTime="0.75" BonusDispersion="0.75" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.3"/>
+				<item Exp="5000" BonusSpeed="1.2" BonusRelaxTime="0.6" BonusDispersion="0.6" BonusSight="1.15" BonusFireRange="1.15" BonusRotate="1.5"/>
+			</Levels>
+			<!--Self Propelled Gun SUPER-->
+		</item>
+		<item>
+			<Type>spg_aagun</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1" BonusRelaxTime="0.9" BonusDispersion="0.9" BonusSight="1.05" BonusFireRange="1.05" BonusRotate="1.1"/>
+				<item Exp="200" BonusSpeed="1" BonusRelaxTime="0.75" BonusDispersion="0.75" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.3"/>
+				<item Exp="1000" BonusSpeed="1" BonusRelaxTime="0.6" BonusDispersion="0.6" BonusSight="1.15" BonusFireRange="1.15" BonusRotate="1.5"/>
+			</Levels>
+			<!--Self Propelled Gun AA gun-->
+		</item>
+		<item>
+			<Type>arm_light</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="200" BonusSpeed="1" BonusRelaxTime="0.9" BonusDispersion="0.9" BonusSight="1.05" BonusFireRange="1.05" BonusRotate="1.1"/>
+				<item Exp="1300" BonusSpeed="1" BonusRelaxTime="0.75" BonusDispersion="0.75" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.3"/>
+				<item Exp="5000" BonusSpeed="1" BonusRelaxTime="0.6" BonusDispersion="0.6" BonusSight="1.15" BonusFireRange="1.15" BonusRotate="1.5"/>
+			</Levels>
+			<!--armor light-->
+		</item>
+		<item>
+			<Type>arm_medium</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="200" BonusSpeed="1" BonusRelaxTime="0.9" BonusDispersion="0.9" BonusSight="1.05" BonusFireRange="1.05" BonusRotate="1.1"/>
+				<item Exp="1300" BonusSpeed="1" BonusRelaxTime="0.75" BonusDispersion="0.75" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.3"/>
+				<item Exp="5000" BonusSpeed="1" BonusRelaxTime="0.6" BonusDispersion="0.6" BonusSight="1.15" BonusFireRange="1.15" BonusRotate="1.5"/>
+			</Levels>
+			<!--armor medium-->
+		</item>
+		<item>
+			<Type>arm_heavy</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="200" BonusSpeed="1.05" BonusRelaxTime="0.9" BonusDispersion="0.9" BonusSight="1.05" BonusFireRange="1.05" BonusRotate="1.1"/>
+				<item Exp="1300" BonusSpeed="1.1" BonusRelaxTime="0.75" BonusDispersion="0.75" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.3"/>
+				<item Exp="5000" BonusSpeed="1.2" BonusRelaxTime="0.6" BonusDispersion="0.6" BonusSight="1.15" BonusFireRange="1.15" BonusRotate="1.5"/>
+			</Levels>
+			<!--armor heavy-->
+		</item>
+		<item>
+			<Type>arm_super</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="200" BonusSpeed="1.05" BonusRelaxTime="0.9" BonusDispersion="0.9" BonusSight="1.05" BonusFireRange="1.05" BonusRotate="1.1"/>
+				<item Exp="1300" BonusSpeed="1.1" BonusRelaxTime="0.75" BonusDispersion="0.75" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.3"/>
+				<item Exp="5000" BonusSpeed="1.2" BonusRelaxTime="0.6" BonusDispersion="0.6" BonusSight="1.15" BonusFireRange="1.15" BonusRotate="1.5"/>
+			</Levels>
+			<!--armor SUPER-->
+		</item>
+		<item>
+			<Type>avia_scout</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1.1" BonusRelaxTime="1.1" BonusDispersion="1.1" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="300" BonusSpeed="1.2" BonusRelaxTime="1.3" BonusDispersion="1.3" BonusSight="1.3" BonusFireRange="1.3" BonusRotate="1.3"/>
+				<item Exp="700" BonusSpeed="1.3" BonusRelaxTime="1.7" BonusDispersion="1.7" BonusSight="1.7" BonusFireRange="1.4" BonusRotate="1.5"/>
+			</Levels>
+			<!--aviation scout-->
+		</item>
+		<item>
+			<Type>avia_bomber</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1.1" BonusRelaxTime="1.1" BonusDispersion="1.1" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="300" BonusSpeed="1.2" BonusRelaxTime="1.3" BonusDispersion="1.3" BonusSight="1.3" BonusFireRange="1.3" BonusRotate="1.3"/>
+				<item Exp="700" BonusSpeed="1.3" BonusRelaxTime="1.7" BonusDispersion="1.7" BonusSight="1.7" BonusFireRange="1.4" BonusRotate="1.5"/>
+			</Levels>
+			<!--aviation bomber-->
+		</item>
+		<item>
+			<Type>avia_attack</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1.1" BonusRelaxTime="1.1" BonusDispersion="1.1" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="300" BonusSpeed="1.2" BonusRelaxTime="1.3" BonusDispersion="1.3" BonusSight="1.3" BonusFireRange="1.3" BonusRotate="1.3"/>
+				<item Exp="700" BonusSpeed="1.3" BonusRelaxTime="1.7" BonusDispersion="1.7" BonusSight="1.7" BonusFireRange="1.4" BonusRotate="1.5"/>
+			</Levels>
+			<!--aviation attack plane-->
+		</item>
+		<item>
+			<Type>avia_fighter</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1.1" BonusRelaxTime="1.1" BonusDispersion="1.1" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="300" BonusSpeed="1.2" BonusRelaxTime="1.3" BonusDispersion="1.3" BonusSight="1.3" BonusFireRange="1.3" BonusRotate="1.3"/>
+				<item Exp="700" BonusSpeed="1.3" BonusRelaxTime="1.7" BonusDispersion="1.7" BonusSight="1.7" BonusFireRange="1.4" BonusRotate="1.5"/>
+			</Levels>
+			<!--aviation fighter-->
+		</item>
+		<item>
+			<Type>avia_super</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1.1" BonusRelaxTime="1.1" BonusDispersion="1.1" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="300" BonusSpeed="1.2" BonusRelaxTime="1.3" BonusDispersion="1.3" BonusSight="1.3" BonusFireRange="1.3" BonusRotate="1.3"/>
+				<item Exp="700" BonusSpeed="1.3" BonusRelaxTime="1.7" BonusDispersion="1.7" BonusSight="1.7" BonusFireRange="1.4" BonusRotate="1.5"/>
+			</Levels>
+			<!--aviation SUPER-->
+		</item>
+		<item>
+			<Type>avia_lander</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1.1" BonusRelaxTime="1.1" BonusDispersion="1.1" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="300" BonusSpeed="1.2" BonusRelaxTime="1.3" BonusDispersion="1.3" BonusSight="1.3" BonusFireRange="1.3" BonusRotate="1.3"/>
+				<item Exp="700" BonusSpeed="1.3" BonusRelaxTime="1.7" BonusDispersion="1.7" BonusSight="1.7" BonusFireRange="1.4" BonusRotate="1.5"/>
+			</Levels>
+			<!--aviation paradropper-->
+		</item>
+		<item>
+			<Type>train_locomotive</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1.1" BonusRelaxTime="1.1" BonusDispersion="1.1" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="300" BonusSpeed="1.2" BonusRelaxTime="1.3" BonusDispersion="1.3" BonusSight="1.3" BonusFireRange="1.3" BonusRotate="1.3"/>
+				<item Exp="700" BonusSpeed="1.3" BonusRelaxTime="1.7" BonusDispersion="1.7" BonusSight="1.7" BonusFireRange="1.4" BonusRotate="1.5"/>
+			</Levels>
+			<!--train locomotive-->
+		</item>
+		<item>
+			<Type>train_cargo</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1.1" BonusRelaxTime="1.1" BonusDispersion="1.1" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="300" BonusSpeed="1.2" BonusRelaxTime="1.3" BonusDispersion="1.3" BonusSight="1.3" BonusFireRange="1.3" BonusRotate="1.3"/>
+				<item Exp="700" BonusSpeed="1.3" BonusRelaxTime="1.7" BonusDispersion="1.7" BonusSight="1.7" BonusFireRange="1.4" BonusRotate="1.5"/>
+			</Levels>
+			<!--train cargo vagon-->
+		</item>
+		<item>
+			<Type>train_carrier</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1.1" BonusRelaxTime="1.1" BonusDispersion="1.1" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="300" BonusSpeed="1.2" BonusRelaxTime="1.3" BonusDispersion="1.3" BonusSight="1.3" BonusFireRange="1.3" BonusRotate="1.3"/>
+				<item Exp="700" BonusSpeed="1.3" BonusRelaxTime="1.7" BonusDispersion="1.7" BonusSight="1.7" BonusFireRange="1.4" BonusRotate="1.5"/>
+			</Levels>
+			<!--train carrier vagon-->
+		</item>
+		<item>
+			<Type>train_super</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1.1" BonusRelaxTime="0.9" BonusDispersion="0.9" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="300" BonusSpeed="1.2" BonusRelaxTime="0.75" BonusDispersion="0.75" BonusSight="1.3" BonusFireRange="1.3" BonusRotate="1.3"/>
+				<item Exp="700" BonusSpeed="1.3" BonusRelaxTime="0.6" BonusDispersion="0.6" BonusSight="1.4" BonusFireRange="1.4" BonusRotate="1.5"/>
+			</Levels>
+			<!--train SUPER-->
+		</item>
+		<item>
+			<Type>train_armor</Type>
+			<Levels>
+				<item Exp="0" BonusSpeed="1" BonusRelaxTime="1" BonusDispersion="1" BonusSight="1" BonusFireRange="1" BonusRotate="1"/>
+				<item Exp="100" BonusSpeed="1.1" BonusRelaxTime="0.9" BonusDispersion="0.9" BonusSight="1.1" BonusFireRange="1.1" BonusRotate="1.1"/>
+				<item Exp="300" BonusSpeed="1.2" BonusRelaxTime="0.75" BonusDispersion="0.75" BonusSight="1.3" BonusFireRange="1.3" BonusRotate="1.3"/>
+				<item Exp="700" BonusSpeed="1.3" BonusRelaxTime="0.6" BonusDispersion="0.6" BonusSight="1.4" BonusFireRange="1.4" BonusRotate="1.5"/>
+			</Levels>
+			<!--train armor vagon-->
+		</item>
+	</ExpLevels>
+</base>

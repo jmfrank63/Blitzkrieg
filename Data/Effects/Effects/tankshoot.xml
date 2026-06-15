@@ -1,0 +1,2 @@
+<?xml version="1.0"?>
+<effect><effect><sprites/><particles><item start="0" duration="3500"><path>Effects\particles\shootsmoke</path><pos x="0" y="0" z="19"/></item><item start="7" duration="3500"><path>Effects\particles\tankshoot</path><pos x="0" y="0" z="0"/></item><item start="0" duration="3500"><path>Effects\particles\sparkofshoot</path><pos x="0" y="0" z="15"/></item></particles></effect></effect>

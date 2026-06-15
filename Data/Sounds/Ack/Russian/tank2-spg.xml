@@ -1,0 +1,367 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>Russian tanks ack set 2</KeyName>
+		<StatsType>Ack</StatsType>
+		<Types>
+			<item Type="0">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-1-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-1-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-1-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-1-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-1-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="1">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-2-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-2-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-2-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-2-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-2-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="2">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-3-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-3-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-3-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="5">
+				<Acks>
+					<item Probability="100">
+						<Sound>ack_russian_tank2-4-1</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="6">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_tank2-5-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_tank2-5-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="8">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-2-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-2-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-2-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-2-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-2-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="8">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_russian_tank2-6-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_tank2-6-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_tank2-6-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_tank2-6-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="10">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-7-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-7-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-7-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-7-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-7-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="11">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-8-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-8-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-8-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-8-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-8-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="12">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-9-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-9-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-9-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="15">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-10-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-10-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-10-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-10-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-10-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="37">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-11-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-11-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-11-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-11-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_tank2-11-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="38">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-12-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-12-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-12-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="39">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-13-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-13-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-13-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="43">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-16-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-16-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-16-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="45">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_tank2-17-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_tank2-17-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="46">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-18-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-18-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-18-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="48">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-19-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-19-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-19-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="50">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-20-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-20-3</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-20-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="52">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_tank2-21-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_tank2-21-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="56">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_russian_tank2-22-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_tank2-22-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_tank2-22-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="57">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-23-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-23-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-23-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="58">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-24-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-24-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_tank2-24-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="53">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_tank2-25-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_tank2-25-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="54">
+				<Acks>
+					<item Probability="100">
+						<Sound>ack_russian_tank2-26-1</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="55">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_tank2-27-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_tank2-27-2</Sound>
+					</item>
+				</Acks>
+			</item>
+		</Types>
+	</RPG>
+</base>

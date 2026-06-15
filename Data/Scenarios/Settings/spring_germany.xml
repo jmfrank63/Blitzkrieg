@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<ChapterSetting>
+		<Fields>
+			<Elements>
+				<item>scenarios\fieldsets\spring\field04</item>
+				<item>scenarios\fieldsets\spring\field01</item>
+				<item>scenarios\fieldsets\spring\field06</item>
+				<item>scenarios\fieldsets\spring\field03</item>
+				<item>scenarios\fieldsets\spring\field02</item>
+			</Elements>
+			<Weights>
+				<item data="2"/>
+				<item data="1"/>
+				<item data="5"/>
+				<item data="2"/>
+				<item data="2"/>
+			</Weights>
+		</Fields>
+	</ChapterSetting>
+</base>

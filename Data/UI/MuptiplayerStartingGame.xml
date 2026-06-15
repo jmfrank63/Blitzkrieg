@@ -1,0 +1,1887 @@
+<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by Vitaly (Nival) -->
+<!-- deleted comment here -->
+<!-- deleted comment here -->
+<base Background="1">
+	<WindowSize x="1024" y="768"/>
+	<States>
+		<item EventID="-1">
+			<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Maps x1="0" y1="0" x2="1024" y2="768"/>
+				<Texture>ui\IntermissionTextures\back-multiplayer-startinggame</Texture>
+			</AppearanceNormal>
+			<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Maps x1="0" y1="0" x2="1024" y2="768"/>
+				<Texture>ui\IntermissionTextures\back-multiplayer-startinggame</Texture>
+			</AppearanceHighlighted>
+			<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Maps x1="0" y1="0" x2="1024" y2="768"/>
+				<Texture>ui\IntermissionTextures\back-multiplayer-startinggame</Texture>
+			</AppearancePushed>
+			<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Maps x1="0" y1="0" x2="1024" y2="768"/>
+				<Texture>ui\IntermissionTextures\back-multiplayer-startinggame</Texture>
+			</AppearanceDisabled>
+		</item>
+	</States>
+	<Script>ui\MuptiplayerStartingGame</Script>
+	<Children>
+		<item ClassTypeID="0x10001104" ElementID="0xAC07A918" PositionFlag="0x0011" Background="1">
+			<!--console-->
+			<WindowPos x="0" y="-500"/>
+			<WindowSize x="0" y="0"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="0" y1="0" x2="1024" y2="512"/>
+						<Texture>ui\console</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="0" y1="0" x2="1024" y2="512"/>
+						<Texture>ui\console</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="0" y1="0" x2="1024" y2="512"/>
+						<Texture>ui\console</Texture>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" PositionFlag="0x0013" ActiveFlag="1" VisibleFlag="0" Background="1" ElementID="31418">
+			<!--GameSpy LOGO-->
+			<WindowPos x="120" y="50"/>
+			<WindowSize x="160" y="33"/>
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+						<Maps x1="344" y1="468" x2="160" y2="33"/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+						<Maps x1="344" y1="468" x2="160" y2="33"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+						<Maps x1="344" y1="468" x2="160" y2="33"/>
+					</AppearancePushed>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey/>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" PositionFlag="0x0022" ActiveFlag="1" VisibleFlag="0" Background="1" ElementID="31415">
+			<!--inter mission tutorial-->
+			<Script>ui\imtutorial</Script>
+			<WindowPos x="0" y="0"/>
+			<WindowSize x="576" y="420"/>
+			<States>
+				<item>
+					<TextKey>Textes\imtutorial\MultiplayerStartingGame</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" PositionFlag="0x0013" ActiveFlag="1" VisibleFlag="1" Background="1" ElementID="31416">
+			<!--tutorial BUTTON-->
+			<ToolTip>tt_ui_intermission_help_button</ToolTip>
+			<WindowPos x="41" y="37"/>
+			<WindowSize x="76" y="59"/>
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Maps x1="0" y1="383" x2="76" y2="59"/>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+						<Maps x1="0" y1="324" x2="76" y2="59"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+						<Maps x1="0" y1="442" x2="76" y2="59"/>
+					</AppearancePushed>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20000" PositionFlag="0x0011" ActiveFlag="1" TextAlign="0x0021" FontSize="2" TextColor="0xFFe29b00 " VisibleFlag="1" Background="0">
+			<ShadowShift x="1" y="2"/>
+			<TextPos x="30" y="0"/>
+			<!--text: header [static]-->
+			<WindowPos x="30" y="30"/>
+			<WindowSize x="850" y="70"/>
+			<States>
+				<item>
+					<TextKey>Textes\UI\Intermission\Multiplayer\StagingRoom\caption</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20003" PositionFlag="0x0011" TextAlign="0x0021" FontSize="1" TextColor="0xFFFDF2DB" Background="0">
+			<ShadowShift x="1" y="2"/>
+			<TextPos x="30" y="15"/>
+			<!--text: header-players [static]-->
+			<WindowPos x="30" y="134"/>
+			<WindowSize x="410" y="30"/>
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearancePushed>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey>imheader-startinggame-players</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20004" PositionFlag="0x0011" TextAlign="0x0021" FontSize="1" TextColor="0xFFFDF2DB" VisibleFlag="0" Background="0">
+			<ShadowShift x="1" y="2"/>
+			<TextPos x="30" y="15"/>
+			<!--text: header-map [static]-->
+			<WindowPos x="527" y="134"/>
+			<WindowSize x="410" y="30"/>
+			<States>
+				<item>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey>imheader-startinggame-map</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20005" PositionFlag="0x0011" TextAlign="0x0021" FontSize="1" TextColor="0xFFFDF2DB" Background="0">
+			<ShadowShift x="1" y="2"/>
+			<TextPos x="30" y="15"/>
+			<!--text: header-chat [static]-->
+			<WindowPos x="528" y="415"/>
+			<WindowSize x="410" y="30"/>
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearancePushed>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey>imheader-startinggame-chat</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20006" PositionFlag="0x0011" TextAlign="0x0021" FontSize="1" TextColor="0xFFFDF2DB" Background="0">
+			<ShadowShift x="1" y="2"/>
+			<TextPos x="30" y="15"/>
+			<!--text: header-settings [static]-->
+			<WindowPos x="527" y="411"/>
+			<WindowSize x="410" y="30"/>
+			<States>
+				<item>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey/>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10001" PositionFlag="0x0033" ActiveFlag="1" TextAlign="0x0022" FontSize="1" VisibleFlag="1">
+			<ShadowShift x="1" y="2"/>
+			<!--button: Back-->
+			<ShiftText x="0" y="1"/>
+			<ToolTip>tt_ui_multyplayer_startinggame_back</ToolTip>
+			<WindowPos x="40" y="30"/>
+			<WindowSize x="132" y="62"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="126" y1="36" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="126" y1="0" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="66" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="126" y1="0" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="126" y1="72" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10002" PositionFlag="0x0031" ActiveFlag="1" TextAlign="0x0022" FontSize="1" VisibleFlag="1">
+			<ShadowShift x="1" y="2"/>
+			<!--button: JOIN-->
+			<ShiftText x="0" y="1"/>
+			<ToolTip>Textes\UI\Intermission\Multiplayer\StagingRoom\tt_button_join</ToolTip>
+			<WindowPos x="40" y="30"/>
+			<WindowSize x="132" y="62"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="36" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="0" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="66" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="36" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="72" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10004" PositionFlag="0x0033" ActiveFlag="1" TextAlign="0x0022" FontSize="1" VisibleFlag="1">
+			<ShadowShift x="1" y="2"/>
+			<!--switch button READY/NOT READY (active for client)-->
+			<ShiftText x="0" y="1"/>
+			<TextPos x="-15" y="0"/>
+			<ToolTip>ui_tt_button_multiplayer_startinggame_ready</ToolTip>
+			<WindowPos x="175" y="30"/>
+			<WindowSize x="132" y="62"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="36" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="0" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="66" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="36" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="72" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="66" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="36" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="0" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="66" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="36" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="72" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10005" PositionFlag="0x0033" ActiveFlag="1" TextAlign="0x0022" FontSize="1" VisibleFlag="1">
+			<ShadowShift x="1" y="2"/>
+			<!--button Launch(active for server)-->
+			<ShiftText x="0" y="1"/>
+			<TextPos x="-15" y="0"/>
+			<ToolTip>ui_tt_multiplayer_startinggame_launch</ToolTip>
+			<WindowPos x="175" y="30"/>
+			<WindowSize x="132" y="62"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="36" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="0" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="66" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="0" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="72" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10006" PositionFlag="0x0031" ActiveFlag="1" TextAlign="0x0022" FontSize="1" VisibleFlag="1">
+			<ShadowShift x="1" y="2"/>
+			<!--switch button: change side-->
+			<ShiftText x="0" y="1"/>
+			<TextPos x="-15" y="0"/>
+			<ToolTip>tt_ui_multiplayer_startinggame_changeside</ToolTip>
+			<WindowPos x="40" y="30"/>
+			<WindowSize x="132" y="62"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="144" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="108" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="66" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="144" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="180" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10003" PositionFlag="0x0031" ActiveFlag="1" TextAlign="0x0022" FontSize="1" VisibleFlag="1">
+			<TextPos x="-15" y="0"/>
+			<!--button: KickPlayer-->
+			<ToolTip>tt_ui_multyplayer_startinggame_kickplayer</ToolTip>
+			<WindowPos x="175" y="30"/>
+			<WindowSize x="132" y="62"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="315" y1="145" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="315" y1="109" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="66" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="315" y1="109" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="315" y1="181" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10008" PositionFlag="0x0031" ActiveFlag="1" TextAlign="0x0022" FontSize="1" VisibleFlag="1">
+			<ShadowShift x="1" y="2"/>
+			<!--button: Settings-->
+			<ShiftText x="0" y="1"/>
+			<TextPos x="-15" y="0"/>
+			<ToolTip>Textes\UI\Intermission\Multiplayer\StagingRoom\tt_button_settings</ToolTip>
+			<WindowPos x="310" y="30"/>
+			<WindowSize x="132" y="62"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="252" y1="36" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="252" y1="0" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="66" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="252" y1="36" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="252" y1="72" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000110A" ElementID="1000" PositionFlag="0x0011" ActiveFlag="1" FontSize="1" TextColor="0xffffffffff" VisibleFlag="1" Background="0" HSubSpace="5" VSubSpace="2" SBWidth="28" HeaderTopSpace="60" HeaderSize="50" SBVisible="1">
+			<!--players list-->
+			<Selection_Texture>UI\IntermissionTextures\tile-background</Selection_Texture>
+			<SelTileRects>
+				<item>
+					<!--Top left-->
+					<rect x1="0" y1="0" x2="4" y2="22"/>
+					<size x="4" y="22"/>
+					<map x1="206" y1="63" x2="4" y2="22"/>
+				</item>
+				<item>
+					<!--Top middle-->
+					<rect x1="4" y1="0" x2="408" y2="22"/>
+					<size x="26" y="22"/>
+					<map x1="210" y1="63" x2="26" y2="22"/>
+				</item>
+				<item>
+					<!--Top right-->
+					<rect x1="408" y1="0" x2="412" y2="22"/>
+					<size x="4" y="22"/>
+					<map x1="236" y1="63" x2="4" y2="22"/>
+				</item>
+				<item>
+					<!--Bottom left-->
+					<rect x1="0" y1="22" x2="4" y2="30"/>
+					<size x="4" y="8"/>
+					<map x1="206" y1="80" x2="4" y2="8"/>
+				</item>
+				<item>
+					<!--Bottom middle-->
+					<rect x1="4" y1="22" x2="408" y2="30"/>
+					<size x="26" y="8"/>
+					<map x1="210" y1="80" x2="26" y2="8"/>
+				</item>
+				<item>
+					<!--Bottom right-->
+					<rect x1="408" y1="22" x2="412" y2="30"/>
+					<size x="4" y="8"/>
+					<map x1="236" y1="80" x2="4" y2="8"/>
+				</item>
+			</SelTileRects>
+			<ColumnProps>
+				<item Width="50">
+					<FileName>ui\common\Multyplayer\StartingGame\ReadyIcon</FileName>
+				</item>
+				<item Width="190">
+					<FileName>ui\common\Multyplayer\PlayerName</FileName>
+				</item>
+				<item Width="90">
+					<FileName>ui\common\Multyplayer\StartingGame\Team</FileName>
+				</item>
+				<item Width="80">
+					<FileName>ui\common\Multyplayer\Ping</FileName>
+				</item>
+			</ColumnProps>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" PositionFlag="0x0013" ButtonStep="15" ActiveFlag="1" VisibleFlag="1">
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031">
+							<!--scrollbar upper button-->
+							<WindowSize x="45" y="58"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="827" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031">
+							<!--scrollbar lower button-->
+							<WindowSize x="45" y="58"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="827" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" Position="0" Width="41" Vertical="1" Elevator_Width="33">
+							<Elevator_Texture>ui\IntermissionTextures\back-chapter</Elevator_Texture>
+							<Elevator_Maps x1="681" y1="783" x2="45" y2="33"/>
+							<!--slider. elevator - button on scrollbar. states - elevator background. elevator_width - how long elevator is along scrollbar; elevator maps - texture of elevator-->
+							<WindowSize x="41" y="0"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="40" y2="33"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0"/>
+					<WindowSize x="45" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="10" PositionFlag="0x0011" Background="1" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0021" FontSize="2" TextColor="0xFF000000">
+					<TextPos x="10" y="8"/>
+					<ToolTip>ui_tt_multiplayer_startinggame_ready</ToolTip>
+					<!--redy icon-->
+					<WindowPos x="30" y="30"/>
+					<WindowSize x="30" y="30"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="40" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="40" y1="0" x2="50" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-startinggame</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="40" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="40" y1="0" x2="50" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-startinggame</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="40" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="40" y1="0" x2="50" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-startinggame</Texture>
+							</AppearancePushed>
+							<TextKey/>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="11" PositionFlag="0x0011" Background="1" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<TextPos x="10" y="8"/>
+					<ToolTip>ui_tt_multiplayer_startinggame_playername</ToolTip>
+					<!--player NAME-->
+					<WindowPos x="82" y="30"/>
+					<WindowSize x="30" y="30"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="180" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="180" y1="0" x2="190" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-startinggame</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="180" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="180" y1="0" x2="190" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-startinggame</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="180" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="180" y1="0" x2="190" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-startinggame</Texture>
+							</AppearancePushed>
+							<TextKey>imheader-listheader-multiplayer-startinggame-playername</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="12" PositionFlag="0x0011" Background="1" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<TextPos x="10" y="8"/>
+					<ToolTip>ui_tt_multiplayer_startinggame_team</ToolTip>
+					<!--team number-->
+					<WindowPos x="82" y="30"/>
+					<WindowSize x="30" y="30"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="80" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="80" y1="0" x2="90" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-startinggame</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="80" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="80" y1="0" x2="90" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-startinggame</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="80" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="80" y1="0" x2="90" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-startinggame</Texture>
+							</AppearancePushed>
+							<TextKey>imheader-listheader-multiplayer-startinggame-teamnumber</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="13" PositionFlag="0x0011" Background="1" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFF000000">
+					<TextPos x="10" y="8"/>
+					<ToolTip>ui_tt_multiplayer_startinggame_ping </ToolTip>
+					<!--PING-->
+					<WindowPos x="82" y="30"/>
+					<WindowSize x="30" y="30"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="70" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="70" y1="0" x2="80" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-startinggame</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="70" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="70" y1="0" x2="80" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-startinggame</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<TileRects>
+									<item>
+										<rect x1="0" y1="0" x2="10" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="689" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="10" y1="0" x2="70" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="710" y1="844" x2="10" y2="41"/>
+									</item>
+									<item>
+										<rect x1="70" y1="0" x2="80" y2="41"/>
+										<size x="10" y="41"/>
+										<map x1="743" y1="844" x2="10" y2="41"/>
+									</item>
+								</TileRects>
+								<Texture>ui\IntermissionTextures\back-multiplayer-startinggame</Texture>
+							</AppearancePushed>
+							<TextKey>imheader-listheader-multiplayer-startinggame-ping</TextKey>
+						</item>
+					</States>
+				</item>
+			</Children>
+			<WindowPos x="30" y="130"/>
+			<WindowSize x="470" y="512"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001113" ElementID="100" PositionFlag="0x0011" ActiveFlag="1" Background="0">
+			<!--minimap-->
+			<ToolTip>tt_ui_multyplayer_startinggame_minimap</ToolTip>
+			<WindowPos x="532" y="162"/>
+			<WindowSize x="452" y="225"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<Placement Flags="0x1111">
+							<Pos x="200" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+						<Maps x1="0" y1="0" x2="450" y2="450"/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<Placement Flags="0x1111">
+							<Pos x="200" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+						<Maps x1="0" y1="0" x2="450" y2="450"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<Placement Flags="0x1111">
+							<Pos x="200" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+						<Maps x1="0" y1="0" x2="450" y2="450"/>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000111A" ElementID="2001" PositionFlag="0x0011" ActiveFlag="1" TextColor="0xff000000" Background="0" LeftSpace="20" RightSpace="20" TopSpace="70" BottomSpace="15" TextScroll="1" RedLine="0">
+			<Colors>
+				<item first="0xff111111" second="0xff000000"/>
+				<item first="0xFFFDF2DB" second="0xFFe29b00 "/>
+			</Colors>
+			<!--scroll: chat text-->
+			<ToolTip>tt_ui_multyplayer_startinggame_chatwindow</ToolTip>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" CurrentState="0" PositionFlag="0x0013" ButtonStep="15">
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031">
+							<!--scrollbar upper button-->
+							<WindowSize x="45" y="58"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="827" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031">
+							<!--scrollbar lower button-->
+							<WindowSize x="45" y="58"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="827" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" Position="0" Width="41" Vertical="1" Elevator_Width="33">
+							<Elevator_Texture>ui\IntermissionTextures\back-chapter</Elevator_Texture>
+							<Elevator_Maps x1="681" y1="783" x2="45" y2="33"/>
+							<!--slider. elevator - button on scrollbar. states - elevator background. elevator_width - how long elevator is along scrollbar; elevator maps - texture of elevator-->
+							<WindowSize x="41" y="0"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="40" y2="33"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0"/>
+					<WindowSize x="45" y="0"/>
+				</item>
+			</Children>
+			<WindowPos x="527" y="410"/>
+			<WindowSize x="462" y="165"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<Placement Flags="0x1111">
+							<Pos x="200" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<Placement Flags="0x1111">
+							<Pos x="200" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<Placement Flags="0x1111">
+							<Pos x="200" y="100"/>
+							<Size x="64" y="32"/>
+						</Placement>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000110B" ElementID="2002" PositionFlag="0x0031" ActiveFlag="1" TextColor="0xfff7c01f" VisibleFlag="1" Background="0">
+			<TextPos x="5" y="0"/>
+			<!--edit box : chat input-->
+			<ToolTip>tt_ui_multiplayer_startinggame_chateditbox</ToolTip>
+			<WindowPos x="545" y="135"/>
+			<WindowSize x="420" y="34"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="33" y2="33"/>
+								<size x="33" y="33"/>
+								<map x1="0" y1="0" x2="33" y2="33"/>
+							</item>
+							<item>
+								<rect x1="33" y1="0" x2="285" y2="33"/>
+								<size x="36" y="33"/>
+								<map x1="35" y1="0" x2="36" y2="33"/>
+							</item>
+							<item>
+								<rect x1="285" y1="0" x2="320" y2="33"/>
+								<size x="35" y="33"/>
+								<map x1="57" y1="0" x2="35" y2="33"/>
+							</item>
+							<item>
+								<rect x1="0" y1="33" x2="33" y2="34"/>
+								<size x="33" y="1"/>
+								<map x1="0" y1="91" x2="33" y2="1"/>
+							</item>
+							<item>
+								<rect x1="33" y1="33" x2="285" y2="34"/>
+								<size x="36" y="1"/>
+								<map x1="35" y1="91" x2="36" y2="1"/>
+							</item>
+							<item>
+								<rect x1="285" y1="33" x2="320" y2="34"/>
+								<size x="35" y="1"/>
+								<map x1="57" y1="91" x2="35" y2="1"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="33" y2="33"/>
+								<size x="33" y="33"/>
+								<map x1="0" y1="0" x2="33" y2="33"/>
+							</item>
+							<item>
+								<rect x1="33" y1="0" x2="285" y2="33"/>
+								<size x="36" y="33"/>
+								<map x1="35" y1="0" x2="36" y2="33"/>
+							</item>
+							<item>
+								<rect x1="285" y1="0" x2="320" y2="33"/>
+								<size x="35" y="33"/>
+								<map x1="57" y1="0" x2="35" y2="33"/>
+							</item>
+							<item>
+								<rect x1="0" y1="33" x2="33" y2="34"/>
+								<size x="33" y="1"/>
+								<map x1="0" y1="91" x2="33" y2="1"/>
+							</item>
+							<item>
+								<rect x1="33" y1="33" x2="285" y2="34"/>
+								<size x="36" y="1"/>
+								<map x1="35" y1="91" x2="36" y2="1"/>
+							</item>
+							<item>
+								<rect x1="285" y1="33" x2="320" y2="34"/>
+								<size x="35" y="1"/>
+								<map x1="57" y1="91" x2="35" y2="1"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="33" y2="33"/>
+								<size x="33" y="33"/>
+								<map x1="0" y1="0" x2="33" y2="33"/>
+							</item>
+							<item>
+								<rect x1="33" y1="0" x2="285" y2="33"/>
+								<size x="36" y="33"/>
+								<map x1="35" y1="0" x2="36" y2="33"/>
+							</item>
+							<item>
+								<rect x1="285" y1="0" x2="320" y2="33"/>
+								<size x="35" y="33"/>
+								<map x1="57" y1="0" x2="35" y2="33"/>
+							</item>
+							<item>
+								<rect x1="0" y1="33" x2="33" y2="34"/>
+								<size x="33" y="1"/>
+								<map x1="0" y1="91" x2="33" y2="1"/>
+							</item>
+							<item>
+								<rect x1="33" y1="33" x2="285" y2="34"/>
+								<size x="36" y="1"/>
+								<map x1="35" y1="91" x2="36" y2="1"/>
+							</item>
+							<item>
+								<rect x1="285" y1="33" x2="320" y2="34"/>
+								<size x="35" y="1"/>
+								<map x1="57" y1="91" x2="35" y2="1"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearancePushed>
+					<TextKey>imheader-multiplayer-defaul-chatentry</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000110A" ElementID="1005" PositionFlag="0x0011" ActiveFlag="1" VisibleFlag="0" Background="0" HSubSpace="5" VSubSpace="2" SBWidth="28" HeaderTopSpace="60" HeaderSize="50" SBVisible="1">
+			<!--options list-->
+			<Selection_Texture>UI\IntermissionTextures\tile-background</Selection_Texture>
+			<Script>UI\common\Options\ForwardMouseClicks</Script>
+			<SelTileRects>
+				<item>
+					<!--Top left-->
+					<rect x1="0" y1="0" x2="4" y2="22"/>
+					<size x="4" y="22"/>
+					<map x1="206" y1="63" x2="4" y2="22"/>
+				</item>
+				<item>
+					<!--Top middle-->
+					<rect x1="4" y1="0" x2="408" y2="22"/>
+					<size x="26" y="22"/>
+					<map x1="210" y1="63" x2="26" y2="22"/>
+				</item>
+				<item>
+					<!--Top right-->
+					<rect x1="408" y1="0" x2="412" y2="22"/>
+					<size x="4" y="22"/>
+					<map x1="236" y1="63" x2="4" y2="22"/>
+				</item>
+				<item>
+					<!--Bottom left-->
+					<rect x1="0" y1="22" x2="4" y2="30"/>
+					<size x="4" y="8"/>
+					<map x1="206" y1="80" x2="4" y2="8"/>
+				</item>
+				<item>
+					<!--Bottom middle-->
+					<rect x1="4" y1="22" x2="408" y2="30"/>
+					<size x="26" y="8"/>
+					<map x1="210" y1="80" x2="26" y2="8"/>
+				</item>
+				<item>
+					<!--Bottom right-->
+					<rect x1="408" y1="22" x2="412" y2="30"/>
+					<size x="4" y="8"/>
+					<map x1="236" y1="80" x2="4" y2="8"/>
+				</item>
+			</SelTileRects>
+			<ColumnProps>
+				<item Width="280">
+					<FileName>UI\common\Options\settings_value_name</FileName>
+				</item>
+				<item Width="130">
+					<FileName>UI\common\Options\settings_entry</FileName>
+				</item>
+			</ColumnProps>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" PositionFlag="0x0013" ButtonStep="15" VisibleFlag="1">
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031">
+							<!--scrollbar upper button-->
+							<WindowSize x="45" y="58"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="636" y1="827" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031">
+							<!--scrollbar lower button-->
+							<WindowSize x="45" y="58"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="769" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="591" y1="827" x2="45" y2="58"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" Position="0" Width="41" Vertical="1" Elevator_Width="33">
+							<Elevator_Texture>ui\IntermissionTextures\back-chapter</Elevator_Texture>
+							<Elevator_Maps x1="681" y1="783" x2="45" y2="33"/>
+							<!--slider. elevator - button on scrollbar. states - elevator background. elevator_width - how long elevator is along scrollbar; elevator maps - texture of elevator-->
+							<WindowSize x="41" y="0"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="40" y2="33"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0"/>
+					<WindowSize x="45" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="10" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0021" FontSize="2" TextColor="0xFFFDF2DB">
+					<!--icon-->
+					<WindowPos x="0" y="0"/>
+					<WindowSize x="150" y="30"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Maps x1="595" y1="780" x2="30" y2="20"/>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Placement Flags="0x1111">
+									<Pos x="200" y="100"/>
+									<Size x="64" y="32"/>
+								</Placement>
+								<Maps x1="595" y1="780" x2="30" y2="20"/>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Placement Flags="0x1111">
+									<Pos x="200" y="100"/>
+									<Size x="64" y="32"/>
+								</Placement>
+								<Maps x1="595" y1="780" x2="30" y2="20"/>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<TextKey/>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="11" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFFFDF2DB">
+					<!--GAME NAME-->
+					<WindowPos x="150" y="0"/>
+					<WindowSize x="150" y="30"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Maps x1="595" y1="780" x2="30" y2="20"/>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Placement Flags="0x1111">
+									<Pos x="200" y="100"/>
+									<Size x="64" y="32"/>
+								</Placement>
+								<Maps x1="595" y1="780" x2="30" y2="20"/>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Placement Flags="0x1111">
+									<Pos x="200" y="100"/>
+									<Size x="64" y="32"/>
+								</Placement>
+								<Maps x1="595" y1="780" x2="30" y2="20"/>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<TextKey/>
+						</item>
+					</States>
+				</item>
+			</Children>
+			<WindowPos x="525" y="410"/>
+			<WindowSize x="463" y="230"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="864" y1="780" x2="100" y2="40"/>
+						<Texture>ui\mapping</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="864" y1="780" x2="100" y2="40"/>
+						<Texture>ui\mapping</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="864" y1="780" x2="100" y2="40"/>
+						<Texture>ui\mapping</Texture>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20001" PositionFlag="0x0011" ActiveFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xFFFDF2DB" VisibleFlag="1" Background="0">
+			<ShadowShift x="1" y="2"/>
+			<TextPos x="30" y="15"/>
+			<!--Game type caption-->
+			<WindowPos x="525" y="134"/>
+			<WindowSize x="463" y="50"/>
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearancePushed>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey>Textes\UI\Intermission\Multiplayer\CreateGame\game_type</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20002" PositionFlag="0x0011" ActiveFlag="1" TextAlign="0x0013" FontSize="1" TextColor="0xFFFDF2DB" VisibleFlag="1" Background="0">
+			<ShadowShift x="1" y="2"/>
+			<TextPos x="50" y="15"/>
+			<!--Game type entry-->
+			<WindowPos x="525" y="134"/>
+			<WindowSize x="463" y="50"/>
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearancePushed>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey/>
+				</item>
+			</States>
+		</item>
+	</Children>
+</base>

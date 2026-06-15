@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName/>
+		<StatsType>Mission</StatsType>
+		<HeaderText>scenarios\descriptions\sa_12_13_14_15\header</HeaderText>
+		<SubheaderText>scenarios\descriptions\sa_12_13_14_15\subheader</SubheaderText>
+		<DescriptionText>scenarios\descriptions\sa_12_13_14_15\description</DescriptionText>
+		<MapImage>scenarios\descriptions\sa_12_13_14_15\map</MapImage>
+		<MapImageRect x1="0" y1="0" x2="0" y2="0"/>
+		<TemplateMap>scenarios\templates\summer\template03</TemplateMap>
+		<FinalMap>templatemaps\summer_france\securearea02</FinalMap>
+		<CombatMusics>
+			<item>music\combat1</item>
+			<item>music\combat2</item>
+			<item>music\combat3</item>
+		</CombatMusics>
+		<ExplorMusics>
+			<item>music\explore1</item>
+			<item>music\explore2</item>
+			<item>music\explore3</item>
+			<item>music\explore4</item>
+		</ExplorMusics>
+		<Objectives>
+			<item Secret="0" AnchorScriptID="14">
+				<Header>scenarios\descriptions\sa_12_13_14_15\0h</Header>
+				<DescriptionText>scenarios\descriptions\sa_12_13_14_15\0</DescriptionText>
+				<PosOnMap x="246.369" y="276.412"/>
+			</item>
+			<item Secret="0" AnchorScriptID="12">
+				<Header>scenarios\descriptions\sa_12_13_14_15\1h</Header>
+				<DescriptionText>scenarios\descriptions\sa_12_13_14_15\1</DescriptionText>
+				<PosOnMap x="17.7108" y="249.04"/>
+			</item>
+			<item Secret="0" AnchorScriptID="13">
+				<Header>scenarios\descriptions\sa_12_13_14_15\2h</Header>
+				<DescriptionText>scenarios\descriptions\sa_12_13_14_15\2</DescriptionText>
+				<PosOnMap x="437.298" y="240.242"/>
+			</item>
+			<item Secret="0" AnchorScriptID="15">
+				<Header>scenarios\descriptions\sa_12_13_14_15\3h</Header>
+				<DescriptionText>scenarios\descriptions\sa_12_13_14_15\3</DescriptionText>
+				<PosOnMap x="381.978" y="44.5511"/>
+			</item>
+		</Objectives>
+		<SettingName>scenarios\settings\summer_france</SettingName>
+	</RPG>
+</base>

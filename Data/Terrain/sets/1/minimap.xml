@@ -1,0 +1,72 @@
+<?xml version="1.0"?>
+<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by High (Home) -->
+<!-- deleted comment here -->
+<base>
+	<!--1 Bridges-->
+	<!--2 Buildings-->
+	<!--3 Rivers-->
+	<!--4 RailRoads-->
+	<!--5 Roads-->
+	<!--6 Forests-->
+	<!--7 Terrain-->
+	<MiniMapCreationParameters WoodRadius="5" TerrainShadeRatio="1" ShowAllBuildingsPassability="1" ShowTerrainShades="0" MinAlpha="1" BridgeWidth="0">
+		<Layers>
+			<item EmbossFilterSize="3" EmbossType="0" ScaleNoise="0">
+				<Color>FFFFFFFF</Color>
+				<BorderColor>000000FF</BorderColor>
+				<ShadowPoint x="0" y="0"/>
+				<EmbossPoint x="-5" y="-5"/>
+				<NoiseImage/>
+				<ScaleMethod>06000000</ScaleMethod>
+			</item>
+			<item EmbossFilterSize="3" EmbossType="0" ScaleNoise="0">
+				<Color>FFFFFFFF</Color>
+				<BorderColor>000000FF</BorderColor>
+				<ShadowPoint x="0" y="0"/>
+				<EmbossPoint x="-3" y="-1"/>
+				<NoiseImage/>
+				<ScaleMethod>06000000</ScaleMethod>
+			</item>
+			<item EmbossFilterSize="5" EmbossType="0" ScaleNoise="0">
+				<Color>6C4D0BFF</Color>
+				<BorderColor>6E7235FF</BorderColor>
+				<ShadowPoint x="0" y="0"/>
+				<EmbossPoint x="4" y="1"/>
+				<NoiseImage>riverNoise</NoiseImage>
+				<ScaleMethod>06000000</ScaleMethod>
+			</item>
+			<item EmbossFilterSize="3" EmbossType="0" ScaleNoise="0">
+				<Color>FFFFFFFF</Color>
+				<BorderColor>000000FF</BorderColor>
+				<ShadowPoint x="0" y="0"/>
+				<EmbossPoint x="3" y="1"/>
+				<NoiseImage/>
+				<ScaleMethod>06000000</ScaleMethod>
+			</item>
+			<item EmbossFilterSize="3" EmbossType="0" ScaleNoise="0">
+				<Color>7FC7E8FF</Color>
+				<BorderColor>00000000</BorderColor>
+				<ShadowPoint x="0" y="0"/>
+				<EmbossPoint x="3" y="1"/>
+				<NoiseImage/>
+				<ScaleMethod>06000000</ScaleMethod>
+			</item>
+			<item EmbossFilterSize="5" EmbossType="0" ScaleNoise="1">
+				<Color>2D622FFF</Color>
+				<BorderColor>00000000</BorderColor>
+				<ShadowPoint x="3" y="1"/>
+				<EmbossPoint x="-5" y="1"/>
+				<NoiseImage>forestNoise</NoiseImage>
+				<ScaleMethod>06000000</ScaleMethod>
+			</item>
+			<item EmbossFilterSize="5" EmbossType="0" ScaleNoise="1">
+				<Color>00000000</Color>
+				<BorderColor>00000000</BorderColor>
+				<ShadowPoint x="0" y="0"/>
+				<EmbossPoint x="0" y="0"/>
+				<NoiseImage>terrainNoise</NoiseImage>
+				<ScaleMethod>06000000</ScaleMethod>
+			</item>
+		</Layers>
+	</MiniMapCreationParameters>
+</base>

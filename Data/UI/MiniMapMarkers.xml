@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by High (Home) -->
+<!-- deleted comment here -->
+<base>
+	<MiniMapMarkersTexture>UI\MiniMapMarkers</MiniMapMarkersTexture>
+	<MiniMapMarkers>
+		<item>
+			<key>ObjectiveReceived</key>
+			<data>
+				<Size x="128" y="16"/>
+				<Rect x1="0" y1="0" x2="16" y2="16"/>
+				<HotSpot x="8" y="15"/>
+			</data>
+		</item>
+		<item>
+			<key>ObjectiveFailed</key>
+			<data>
+				<Size x="128" y="16"/>
+				<Rect x1="16" y1="0" x2="32" y2="16"/>
+				<HotSpot x="24" y="15"/>
+			</data>
+		</item>
+		<item>
+			<key>germanFlag</key>
+			<data>
+				<Size x="128" y="16"/>
+				<Rect x1="32" y1="0" x2="48" y2="16"/>
+				<HotSpot x="39" y="7"/>
+			</data>
+		</item>
+		<item>
+			<key>ussrFlag</key>
+			<data>
+				<Size x="128" y="16"/>
+				<Rect x1="48" y1="0" x2="64" y2="16"/>
+				<HotSpot x="55" y="7"/>
+			</data>
+		</item>
+		<item>
+			<key>alliesFlag</key>
+			<data>
+				<Size x="128" y="16"/>
+				<Rect x1="64" y1="0" x2="80" y2="16"/>
+				<HotSpot x="71" y="7"/>
+			</data>
+		</item>
+		<item>
+			<key>neutralFlag</key>
+			<data>
+				<Size x="128" y="16"/>
+				<Rect x1="80" y1="0" x2="96" y2="16"/>
+				<HotSpot x="87" y="7"/>
+			</data>
+		</item>
+	</MiniMapMarkers>
+</base>

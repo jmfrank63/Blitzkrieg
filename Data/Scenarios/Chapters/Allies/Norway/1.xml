@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<base>
+	<History>
+		<PreviousPath>s:\complete\scenarios\chapters\Allies\Norway\current.chc</PreviousPath>
+		<PreviousDate>12.11.2002</PreviousDate>
+		<PreviousTime>13:32:38</PreviousTime>
+		<PreviousOwner>Alexander.Vinnikov</PreviousOwner>
+		<Action>Batch exported as</Action>
+		<CurrentPath>s:\versions\current\data\scenarios\chapters\allies\norway\1.xml</CurrentPath>
+		<CurrentDate>12.12.2002</CurrentDate>
+		<CurrentTime>16:04:32</CurrentTime>
+		<CurrentOwner>elena.Sevostyanova</CurrentOwner>
+	</History>
+	<RPG Season="0">
+		<KeyName/>
+		<StatsType>Chapter</StatsType>
+		<HeaderText>scenarios\chapters\allies\norway\header</HeaderText>
+		<SubheaderText>scenarios\chapters\allies\norway\subheader</SubheaderText>
+		<DescriptionText>scenarios\chapters\allies\norway\description</DescriptionText>
+		<MapImage>scenarios\chapters\allies\norway\map</MapImage>
+		<MapImageRect x1="407" y1="422" x2="0.795898" y2="0.825195"/>
+		<InterfaceMusic>scenarios\chapters\allies\norway\music\explore2</InterfaceMusic>
+		<Missions>
+			<item Difficulty="0">
+				<Mission>scenarios\scenariomissions\allies\norway\1</Mission>
+				<PosOnMap x="238" y="36"/>
+				<MissionBonus/>
+				<AllBonuses/>
+			</item>
+			<item Difficulty="0">
+				<Mission>scenarios\scenariomissions\allies\intro\1</Mission>
+				<PosOnMap x="113" y="293"/>
+				<MissionBonus/>
+				<AllBonuses/>
+			</item>
+		</Missions>
+		<PlaceHolders/>
+		<Script>scenarios\chapters\allies\norway\script</Script>
+		<SettingName>scenarios\settings\spring_germany</SettingName>
+		<ContextName>scenarios\chapters\allies\norway\context</ContextName>
+		<PlayerSide>GB</PlayerSide>
+		<MODName/>
+		<MODVersion/>
+	</RPG>
+</base>

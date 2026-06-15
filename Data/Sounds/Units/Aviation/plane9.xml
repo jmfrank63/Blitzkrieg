@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG Looped="1">
+		<KeyName> plane9 sound</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="25" MaxDist="100" Probability="100" Peacefull="0">
+				<SoundPath>Sounds\Units\Aviation\plane9</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

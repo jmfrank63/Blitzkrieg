@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>allies auto acks set 4 -32-5</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="5" MaxDist="35">
+				<SoundPath>Sounds\Ack\allies\auto4\truck4-32-5</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

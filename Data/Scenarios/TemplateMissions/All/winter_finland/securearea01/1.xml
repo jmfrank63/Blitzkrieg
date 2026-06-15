@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName/>
+		<StatsType>Mission</StatsType>
+		<HeaderText>scenarios\descriptions\sa_12_15\header</HeaderText>
+		<SubheaderText>scenarios\descriptions\sa_12_15\subheader</SubheaderText>
+		<DescriptionText>scenarios\descriptions\sa_12_15\description</DescriptionText>
+		<MapImage>scenarios\descriptions\sa_12_15\map</MapImage>
+		<MapImageRect x1="0" y1="0" x2="0" y2="0"/>
+		<TemplateMap>scenarios\templates\winter\template01</TemplateMap>
+		<FinalMap>templatemaps\winter_finland\securearea01</FinalMap>
+		<CombatMusics>
+			<item>music\combat1</item>
+			<item>music\combat2</item>
+			<item>music\combat3</item>
+		</CombatMusics>
+		<ExplorMusics>
+			<item>music\explore1</item>
+			<item>music\explore2</item>
+			<item>music\explore3</item>
+			<item>music\explore4</item>
+		</ExplorMusics>
+		<Objectives>
+			<item Secret="0" AnchorScriptID="12">
+				<Header>scenarios\descriptions\sa_12_15\0h</Header>
+				<DescriptionText>scenarios\descriptions\sa_12_15\0</DescriptionText>
+				<PosOnMap x="260.009" y="193.647"/>
+			</item>
+			<item Secret="0" AnchorScriptID="15">
+				<Header>scenarios\descriptions\sa_12_15\1h</Header>
+				<DescriptionText>scenarios\descriptions\sa_12_15\1</DescriptionText>
+				<PosOnMap x="112.983" y="293.568"/>
+			</item>
+		</Objectives>
+		<SettingName>scenarios\settings\winter_finland</SettingName>
+	</RPG>
+</base>

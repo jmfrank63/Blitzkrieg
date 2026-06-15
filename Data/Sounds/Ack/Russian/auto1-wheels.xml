@@ -1,0 +1,529 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>Russian auto ack set 1</KeyName>
+		<StatsType>Ack</StatsType>
+		<Types>
+			<item Type="0">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_russian_truck1-1-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_truck1-1-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_truck1-1-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_truck1-1-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_truck1-1-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="1">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_russian_truck1-2-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_truck1-2-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_truck1-2-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_truck1-2-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_truck1-2-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="2">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_russian_truck1-3-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_truck1-3-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_truck1-3-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_truck1-3-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_russian_truck1-3-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="5">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-4-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-4-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-4-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-4-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="6">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-5-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-5-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-5-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="8">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-6-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-6-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-6-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-6-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="10">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-7-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-7-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-7-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="11">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-8-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-8-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-8-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-8-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="12">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-9-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-9-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-9-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="15">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_truck1-10-3</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_truck1-10-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="16">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-11-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-11-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-11-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="17">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-12-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-12-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-12-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="18">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-13-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-13-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-13-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="19">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-14-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-14-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-14-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="20">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_truck1-15-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_truck1-15-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="21">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-16-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-16-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-16-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="22">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-17-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-17-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-17-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="27">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-18-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-18-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-18-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-18-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="29">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_truck1-19-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_truck1-19-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="30">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_truck1-20-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_truck1-20-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="37">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-21-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-21-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-21-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-21-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="38">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_truck1-22-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_truck1-22-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="39">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_truck1-23-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_truck1-23-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="40">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-24-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-24-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-24-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="42">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-25-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-25-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-25-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-25-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="43">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-26-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-26-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-26-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="45">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-27-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-27-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-27-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-27-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="46">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-28-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-28-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-28-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="48">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-29-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-29-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-29-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-29-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="49">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_truck1-30-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_truck1-30-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="50">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-31-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-31-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-31-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="52">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-32-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-32-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-32-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="56">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-33-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-33-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-33-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="57">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-34-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-34-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-34-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-34-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="58">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-35-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-35-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-35-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_russian_truck1-35-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="53">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-36-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-36-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-36-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="54">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-37-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-37-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_russian_truck1-37-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="55">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_russian_truck1-38-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_russian_truck1-38-2</Sound>
+					</item>
+				</Acks>
+			</item>
+		</Types>
+	</RPG>
+</base>

@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<base>
+	<History>
+		<PreviousPath>s:\complete\scenarios\chapters\German\Typhoon\current.chc</PreviousPath>
+		<PreviousDate>31.10.2002</PreviousDate>
+		<PreviousTime>12:39:34</PreviousTime>
+		<PreviousOwner>yaroslav.efremov</PreviousOwner>
+		<Action>Batch exported as</Action>
+		<CurrentPath>s:\versions\current\data\scenarios\chapters\german\typhoon\1.xml</CurrentPath>
+		<CurrentDate>12.12.2002</CurrentDate>
+		<CurrentTime>16:05:04</CurrentTime>
+		<CurrentOwner>elena.Sevostyanova</CurrentOwner>
+	</History>
+	<RPG Season="0">
+		<KeyName/>
+		<StatsType>Chapter</StatsType>
+		<HeaderText>scenarios\chapters\german\typhoon\header</HeaderText>
+		<SubheaderText>scenarios\chapters\german\typhoon\subheader</SubheaderText>
+		<DescriptionText>scenarios\chapters\german\typhoon\description</DescriptionText>
+		<MapImage>scenarios\chapters\german\typhoon\map</MapImage>
+		<MapImageRect x1="407" y1="422" x2="0.795898" y2="0.825195"/>
+		<InterfaceMusic>scenarios\chapters\german\typhoon\music\explore2</InterfaceMusic>
+		<Missions>
+			<item Difficulty="0">
+				<Mission>scenarios\scenariomissions\german\typhoon\1</Mission>
+				<PosOnMap x="132" y="324"/>
+				<MissionBonus/>
+				<AllBonuses/>
+			</item>
+		</Missions>
+		<PlaceHolders>
+			<item>
+				<Position x="96" y="196"/>
+			</item>
+			<item>
+				<Position x="89" y="127"/>
+			</item>
+			<item>
+				<Position x="103" y="70"/>
+			</item>
+			<item>
+				<Position x="95" y="285"/>
+			</item>
+			<item>
+				<Position x="122" y="384"/>
+			</item>
+			<item>
+				<Position x="173" y="350"/>
+			</item>
+			<item>
+				<Position x="231" y="370"/>
+			</item>
+			<item>
+				<Position x="147" y="134"/>
+			</item>
+			<item>
+				<Position x="162" y="211"/>
+			</item>
+			<item>
+				<Position x="236" y="268"/>
+			</item>
+		</PlaceHolders>
+		<Script>scenarios\chapters\german\typhoon\script</Script>
+		<SettingName>scenarios\settings\summer_russia</SettingName>
+		<ContextName>scenarios\chapters\german\typhoon\context</ContextName>
+		<PlayerSide/>
+		<MODName/>
+		<MODVersion/>
+	</RPG>
+</base>

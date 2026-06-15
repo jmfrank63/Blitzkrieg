@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<History>
+		<PreviousPath>s:\complete\scenarios\missions\ussr\finland\scenariomission\current.mip</PreviousPath>
+		<PreviousDate>27.09.2002</PreviousDate>
+		<PreviousTime>15:58:44</PreviousTime>
+		<PreviousOwner>Alexander.Vinnikov</PreviousOwner>
+		<Action>Exported as</Action>
+		<CurrentPath>c:\a7\data\scenarios\scenariomissions\ussr\finland\1.xml</CurrentPath>
+		<CurrentDate>27.09.2002</CurrentDate>
+		<CurrentTime>15:58:46</CurrentTime>
+		<CurrentOwner>Alexander.Vinnikov</CurrentOwner>
+	</History>
+	<RPG>
+		<KeyName/>
+		<StatsType>Mission</StatsType>
+		<HeaderText>scenarios\scenariomissions\ussr\finland\header</HeaderText>
+		<SubheaderText>scenarios\scenariomissions\ussr\finland\subheader</SubheaderText>
+		<DescriptionText>scenarios\scenariomissions\ussr\finland\description</DescriptionText>
+		<MapImage>scenarios\scenariomissions\ussr\finland\map</MapImage>
+		<MapImageRect x1="512" y1="512" x2="1.00098" y2="1.00098"/>
+		<TemplateMap/>
+		<FinalMap>ussr\finland\summa</FinalMap>
+		<CombatMusics>
+			<item>music\combat1</item>
+			<item>music\combat2</item>
+			<item>music\combat3</item>
+		</CombatMusics>
+		<ExplorMusics>
+			<item>music\explore1</item>
+			<item>music\explore2</item>
+			<item>music\explore3</item>
+			<item>music\explore4</item>
+			<item>music\explore_russian</item>
+		</ExplorMusics>
+		<Objectives>
+			<item Secret="1" AnchorScriptID="-1">
+				<Header>scenarios\scenariomissions\ussr\finland\0h</Header>
+				<DescriptionText>scenarios\scenariomissions\ussr\finland\0</DescriptionText>
+				<PosOnMap x="0" y="0"/>
+			</item>
+			<item Secret="0" AnchorScriptID="-1">
+				<Header>scenarios\scenariomissions\ussr\finland\1h</Header>
+				<DescriptionText>scenarios\scenariomissions\ussr\finland\1</DescriptionText>
+				<PosOnMap x="0" y="0"/>
+			</item>
+			<item Secret="0" AnchorScriptID="-1">
+				<Header>scenarios\scenariomissions\ussr\finland\2h</Header>
+				<DescriptionText>scenarios\scenariomissions\ussr\finland\2</DescriptionText>
+				<PosOnMap x="253" y="43"/>
+			</item>
+			<item Secret="1" AnchorScriptID="-1">
+				<Header>scenarios\scenariomissions\ussr\finland\3h</Header>
+				<DescriptionText>scenarios\scenariomissions\ussr\finland\3</DescriptionText>
+				<PosOnMap x="0" y="0"/>
+			</item>
+		</Objectives>
+		<SettingName/>
+	</RPG>
+</base>

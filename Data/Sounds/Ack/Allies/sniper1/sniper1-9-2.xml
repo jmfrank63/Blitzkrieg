@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by Den Borzenkov (Nival) -->
+<base>
+	<RPG>
+		<KeyName>allies sniper acks set 1-9-2</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="5" MaxDist="35">
+				<SoundPath>Sounds\Ack\allies\sniper1\sniper1-9-2</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

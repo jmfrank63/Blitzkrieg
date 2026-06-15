@@ -488,7 +488,4 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
   </Target>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
-  <Target Name="CreateDataDirectoryLink" AfterTargets="Build">
-    <Exec Command="if exist &quot;$(TargetDir)data&quot; rmdir &quot;$(TargetDir)data&quot; &amp;&amp; mklink /J &quot;$(TargetDir)data&quot; &quot;$(ProjectDir)..\data&quot;" />
-  </Target>
 </Project>

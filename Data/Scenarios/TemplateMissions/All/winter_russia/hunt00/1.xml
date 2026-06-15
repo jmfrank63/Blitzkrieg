@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName/>
+		<StatsType>Mission</StatsType>
+		<HeaderText>scenarios\descriptions\intercept00\header</HeaderText>
+		<SubheaderText>scenarios\descriptions\intercept00\subheader</SubheaderText>
+		<DescriptionText>scenarios\descriptions\intercept00\description</DescriptionText>
+		<MapImage>scenarios\descriptions\intercept00\map</MapImage>
+		<MapImageRect x1="0" y1="0" x2="0" y2="0"/>
+		<TemplateMap>scenarios\templates\winter\template05</TemplateMap>
+		<FinalMap>templatemaps\winter_russia\hunt00</FinalMap>
+		<CombatMusics>
+			<item>music\combat1</item>
+			<item>music\combat2</item>
+			<item>music\combat3</item>
+		</CombatMusics>
+		<ExplorMusics>
+			<item>music\explore1</item>
+			<item>music\explore2</item>
+			<item>music\explore3</item>
+			<item>music\explore4</item>
+		</ExplorMusics>
+		<Objectives>
+			<item Secret="0" AnchorScriptID="13">
+				<Header>scenarios\descriptions\intercept00\0h</Header>
+				<DescriptionText>scenarios\descriptions\intercept00\0</DescriptionText>
+				<PosOnMap x="350.381" y="196.473"/>
+			</item>
+			<item Secret="0" AnchorScriptID="18">
+				<Header>scenarios\descriptions\intercept00\1h</Header>
+				<DescriptionText>scenarios\descriptions\intercept00\1</DescriptionText>
+				<PosOnMap x="279.185" y="488.734"/>
+			</item>
+		</Objectives>
+		<SettingName>scenarios\settings\winter_russia</SettingName>
+	</RPG>
+</base>

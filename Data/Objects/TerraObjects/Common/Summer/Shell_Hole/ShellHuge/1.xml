@@ -1,0 +1,2 @@
+<?xml version="1.0"?>
+<base><desc MaxHP="100" RepairCost="1" AIClasses="0" Burn="91"><KeyName></KeyName><StatsType>ObjDesc</StatsType><DamagedHPs/><passability><item size_x="0" size_y="0"/></passability><origin x="0" y="0"/><VisOrigin x="0" y="0"/><visibility><item size_x="0" size_y="0"/></visibility></desc></base>

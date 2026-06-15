@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base ClassTypeID="268439813" PositionFlag="17" ElementID="-1" VisibleFlag="1" ActiveFlag="1" CurrentState="0" Background="0" text_type="2" text_align="17" text_color="-1">
+	<WindowPos x="0" y="0"/>
+	<WindowSize x="74" y="19"/>
+	<States>
+		<item>
+			<AppearanceNormal Color="-1" Specular="-16777216">
+				<Maps x1="0" y1="0" x2="128" y2="128"/>
+			</AppearanceNormal>
+			<AppearanceHighlighted Color="-1" Specular="-16777216">
+				<Maps x1="0" y1="0" x2="128" y2="128"/>
+			</AppearanceHighlighted>
+			<AppearancePushed Color="-1" Specular="-16777216">
+				<Maps x1="0" y1="0" x2="128" y2="128"/>
+			</AppearancePushed>
+		</item>
+	</States>
+	<window_text>static text</window_text>
+</base>

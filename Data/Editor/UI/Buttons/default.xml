@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base ClassTypeID="268439811" PositionFlag="17" ElementID="-1" VisibleFlag="1" ActiveFlag="1" CurrentState="0" Background="1" text_type="1" text_align="17" text_color="-1">
+	<WindowPos x="0" y="0"/>
+	<WindowSize x="71" y="39"/>
+	<States>
+		<item>
+			<AppearanceNormal Color="-1" Specular="-16777216">
+				<Texture>ui\slider</Texture>
+				<Maps x1="0" y1="66" x2="54" y2="29"/>
+			</AppearanceNormal>
+			<AppearanceHighlighted Color="-1" Specular="-16777216">
+				<Texture>ui\slider</Texture>
+				<Maps x1="0" y1="66" x2="54" y2="29"/>
+			</AppearanceHighlighted>
+			<AppearancePushed Color="-1" Specular="-16777216">
+				<Texture>ui\slider</Texture>
+				<Maps x1="0" y1="66" x2="54" y2="29"/>
+			</AppearancePushed>
+		</item>
+	</States>
+	<window_text/>
+</base>

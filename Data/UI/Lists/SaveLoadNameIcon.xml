@@ -1,0 +1,73 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<!-- deleted comment here -->
+<base>
+	<Element ClassTypeID="0x10001107" PositionFlag="0x0011" ElementID="0" VisibleFlag="1" ActiveFlag="1" TextColor="0xFF000000" CurrentState="0" Background="0" TextAlign="0x0021" SingleLine="1">
+		<TextPos x="24" y="0"/>
+		<WindowPos x="0" y="0"/>
+		<WindowSize x="300" y="21"/>
+		<States>
+			<item EventID="-1">
+				<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+					<Maps x1="192" y1="0" x2="19" y2="17"/>
+					<Texture/>
+				</AppearanceNormal>
+				<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+					<Maps x1="192" y1="0" x2="19" y2="17"/>
+					<Texture/>
+				</AppearanceHighlighted>
+				<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+					<Maps x1="192" y1="0" x2="19" y2="17"/>
+					<Texture/>
+				</AppearancePushed>
+			</item>
+		</States>
+		<Children>
+			<item ClassTypeID="0x10001105" PositionFlag="0x0021" ElementID="1" VisibleFlag="1" ActiveFlag="1" Background="1" Disabled="1">
+				<WindowPos x="0" y="0"/>
+				<WindowSize x="21" y="20"/>
+				<States>
+					<item>
+						<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="1" y1="8" x2="21" y2="20"/>
+							<Texture>ui\intermissiontextures\custom_game</Texture>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="1" y1="8" x2="21" y2="20"/>
+							<Texture>ui\intermissiontextures\custom_game</Texture>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="1" y1="8" x2="21" y2="20"/>
+							<Texture>ui\intermissiontextures\custom_game</Texture>
+						</AppearancePushed>
+						<AppearanceDisabled Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="1" y1="8" x2="21" y2="20"/>
+							<Texture>ui\intermissiontextures\custom_game</Texture>
+						</AppearanceDisabled>
+						<ToolTip>ttdirectory</ToolTip>
+					</item>
+					<item>
+						<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="1" y1="29" x2="21" y2="20"/>
+							<Texture>ui\intermissiontextures\custom_game</Texture>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="1" y1="29" x2="21" y2="20"/>
+							<Texture>ui\intermissiontextures\custom_game</Texture>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="1" y1="29" x2="21" y2="20"/>
+							<Texture>ui\intermissiontextures\custom_game</Texture>
+						</AppearancePushed>
+						<AppearanceDisabled Color="0xffffffff" Specular="0xff000000">
+							<Maps x1="1" y1="29" x2="21" y2="20"/>
+							<Texture>ui\intermissiontextures\custom_game</Texture>
+						</AppearanceDisabled>
+						<ToolTip>ttfile</ToolTip>
+					</item>
+				</States>
+				<window_text/>
+			</item>
+		</Children>
+	</Element>
+</base>

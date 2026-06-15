@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>Ambient rain</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="20" MaxDist="55" Probability="20" Peacefull="0">
+				<SoundPath>Sounds\Ambient\rain\1</SoundPath>
+			</item>
+			<item MinDist="20" MaxDist="55" Probability="20" Peacefull="0">
+				<SoundPath>Sounds\Ambient\rain\2</SoundPath>
+			</item>
+			<item MinDist="20" MaxDist="55" Probability="20" Peacefull="0">
+				<SoundPath>Sounds\Ambient\rain\3</SoundPath>
+			</item>
+			<item MinDist="20" MaxDist="55" Probability="20" Peacefull="0">
+				<SoundPath>Sounds\Ambient\rain\4</SoundPath>
+			</item>
+			<item MinDist="20" MaxDist="55" Probability="20" Peacefull="0">
+				<SoundPath>Sounds\Ambient\rain\5</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

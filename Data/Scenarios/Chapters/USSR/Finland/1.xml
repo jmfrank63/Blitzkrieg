@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<base>
+	<History>
+		<PreviousPath>s:\complete\scenarios\chapters\ussr\finland\current.chc</PreviousPath>
+		<PreviousDate>22.01.2003</PreviousDate>
+		<PreviousTime>14:36:13</PreviousTime>
+		<PreviousOwner>elena.Sevostyanova</PreviousOwner>
+		<Action>Exported as</Action>
+		<CurrentPath>s:\versions\current\data\scenarios\chapters\ussr\finland\1.xml</CurrentPath>
+		<CurrentDate>22.01.2003</CurrentDate>
+		<CurrentTime>14:49:56</CurrentTime>
+		<CurrentOwner>elena.Sevostyanova</CurrentOwner>
+	</History>
+	<RPG Season="1">
+		<KeyName/>
+		<StatsType>Chapter</StatsType>
+		<HeaderText>scenarios\chapters\ussr\finland\header</HeaderText>
+		<SubheaderText>scenarios\chapters\ussr\finland\subheader</SubheaderText>
+		<DescriptionText>scenarios\chapters\ussr\finland\description</DescriptionText>
+		<MapImage>scenarios\chapters\ussr\finland\map</MapImage>
+		<MapImageRect x1="407" y1="422" x2="0.795898" y2="0.825195"/>
+		<InterfaceMusic>scenarios\chapters\ussr\finland\music\explore2</InterfaceMusic>
+		<Missions>
+			<item Difficulty="0">
+				<Mission>scenarios\scenariomissions\ussr\finland\1</Mission>
+				<PosOnMap x="153" y="271"/>
+				<MissionBonus/>
+				<AllBonuses/>
+			</item>
+			<item Difficulty="0">
+				<Mission>scenarios\scenariomissions\ussr\intro\1</Mission>
+				<PosOnMap x="266" y="53"/>
+				<MissionBonus/>
+				<AllBonuses/>
+			</item>
+		</Missions>
+		<PlaceHolders/>
+		<Script>scenarios\chapters\ussr\finland\script</Script>
+		<SettingName>scenarios\settings\winter_finland</SettingName>
+		<ContextName>scenarios\chapters\ussr\finland\context</ContextName>
+		<PlayerSide>USSR</PlayerSide>
+		<MODName/>
+		<MODVersion/>
+	</RPG>
+</base>

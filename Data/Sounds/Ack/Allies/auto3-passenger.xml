@@ -1,0 +1,367 @@
+<?xml version="1.0"?>
+<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by Den Borzenkov (Nival) -->
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>allies auto (passenger) ack set 3</KeyName>
+		<StatsType>Ack</StatsType>
+		<Types>
+			<item Type="0">
+				<Acks>
+					<item Probability="14">
+						<Sound>ack_allies_truck3-1-1</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_allies_truck3-1-2</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_allies_truck3-1-3</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_allies_truck3-1-4</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_allies_truck3-1-5</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_allies_truck3-1-6</Sound>
+					</item>
+					<item Probability="14">
+						<Sound>ack_allies_truck3-1-7</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="1">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-2-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-2-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-2-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-2-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-2-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="2">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_allies_truck3-3-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_allies_truck3-3-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_allies_truck3-3-6</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_allies_truck3-3-7</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="5">
+				<Acks>
+					<item Probability="100">
+						<Sound>ack_allies_truck3-4-1</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="6">
+				<Acks>
+					<item Probability="100">
+						<Sound>ack_allies_truck3-5-1</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="9">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_allies_truck3-40-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_allies_truck3-40-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="8">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_allies_truck3-6-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_allies_truck3-6-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="10">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_allies_truck3-7-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_allies_truck3-7-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="11">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_allies_truck3-8-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_allies_truck3-8-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="12">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-9-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-9-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-9-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="15">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_allies_truck3-10-4</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_allies_truck3-10-5</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_allies_truck3-10-6</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_allies_truck3-10-7</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="37">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-21-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-21-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-21-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-21-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-21-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="38">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-22-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-22-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-22-6</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="39">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_allies_truck3-23-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_allies_truck3-23-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="40">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-24-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-24-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-24-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="42">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-25-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-25-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-25-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-25-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-25-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="43">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_allies_truck3-26-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_allies_truck3-26-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_allies_truck3-26-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_allies_truck3-26-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="45">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-27-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-27-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-27-6</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="46">
+				<Acks>
+					<item Probability="100">
+						<Sound>ack_allies_truck3-28-1</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="48">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-29-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-29-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-29-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="49">
+				<Acks>
+					<item Probability="50">
+						<Sound>ack_allies_truck3-30-1</Sound>
+					</item>
+					<item Probability="50">
+						<Sound>ack_allies_truck3-30-2</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="50">
+				<Acks>
+					<item Probability="25">
+						<Sound>ack_allies_truck3-31-1</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_allies_truck3-31-2</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_allies_truck3-31-3</Sound>
+					</item>
+					<item Probability="25">
+						<Sound>ack_allies_truck3-31-4</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="52">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-32-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-32-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-32-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-32-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-32-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="56">
+				<Acks>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-33-1</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-33-2</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-33-3</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-33-4</Sound>
+					</item>
+					<item Probability="20">
+						<Sound>ack_allies_truck3-33-5</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="57">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-34-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-34-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-34-3</Sound>
+					</item>
+				</Acks>
+			</item>
+			<item Type="58">
+				<Acks>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-35-1</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-35-2</Sound>
+					</item>
+					<item Probability="33">
+						<Sound>ack_allies_truck3-35-3</Sound>
+					</item>
+				</Acks>
+			</item>
+		</Types>
+	</RPG>
+</base>

@@ -1,0 +1,236 @@
+<!-- deleted comment here -->
+<base Background="1">
+	<States>
+		<item EventID="-1">
+			<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<SubRects>
+					<item>
+						<rect x1="0" y1="0" x2="1024" y2="768"/>
+						<map x1="0" y1="0" x2="1024" y2="768"/>
+					</item>
+				</SubRects>
+				<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+			</AppearanceNormal>
+			<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<SubRects>
+					<item>
+						<rect x1="0" y1="0" x2="1024" y2="768"/>
+						<map x1="0" y1="0" x2="1024" y2="768"/>
+					</item>
+				</SubRects>
+				<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+			</AppearanceHighlighted>
+			<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<SubRects>
+					<item>
+						<rect x1="0" y1="0" x2="1024" y2="768"/>
+						<map x1="0" y1="0" x2="1024" y2="768"/>
+					</item>
+				</SubRects>
+				<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+			</AppearancePushed>
+		</item>
+	</States>
+	<Script>ui\selectcampaign</Script>
+	<Children>
+		<item ClassTypeID="0x10001104" ElementID="0xAC07A918" PositionFlag="0x0011" Background="1">
+			<!--console-->
+			<WindowPos x="0" y="-500"/>
+			<WindowSize x="0" y="0"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="0" y1="0" x2="1024" y2="512"/>
+						<Texture>ui\console</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="0" y1="0" x2="1024" y2="512"/>
+						<Texture>ui\console</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="0" y1="0" x2="1024" y2="512"/>
+						<Texture>ui\console</Texture>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20000" PositionFlag="0x0011" TextAlign="0x0012" FontSize="2" TextColor="0xff000000" Background="0">
+			<!--text: header [static]-->
+			<TextPos x="0" y="30"/>
+			<WindowPos x="565" y="115"/>
+			<WindowSize x="370" y="100"/>
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearancePushed>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey>imheader-selectcampaign-header</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="268439815" ElementID="2000" PositionFlag="0x0011">
+			<Script>ui\selectcampaign</Script>
+			<Children>
+				<item ClassTypeID="268439811" PositionFlag="0x0012" ElementID="10004" TextAlign="34" TextColor="0xff000000">
+					<!--allies campaign-->
+					<WindowPos x="0" y="0"/>
+					<WindowSize x="320" y="50"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+								<Maps x1="40" y1="940" x2="320" y2="50"/>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+								<Maps x1="590" y1="800" x2="320" y2="50"/>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+								<Maps x1="590" y1="870" x2="320" y2="50"/>
+							</AppearancePushed>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey>allies-campaign</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="268439811" PositionFlag="0x0012" ElementID="10002" TextAlign="34" TextColor="0xff000000">
+					<!--german campaign-->
+					<WindowPos x="0" y="65"/>
+					<WindowSize x="320" y="50"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+								<Maps x1="40" y1="940" x2="320" y2="50"/>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+								<Maps x1="590" y1="800" x2="320" y2="50"/>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+								<Maps x1="590" y1="870" x2="320" y2="50"/>
+							</AppearancePushed>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey>german-campaign</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="268439811" PositionFlag="0x0012" ElementID="10003" TextAlign="34" TextColor="0xff000000">
+					<!--russian campaign-->
+					<WindowPos x="0" y="130"/>
+					<WindowSize x="320" y="50"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+								<Maps x1="40" y1="940" x2="320" y2="50"/>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+								<Maps x1="590" y1="800" x2="320" y2="50"/>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+								<Maps x1="590" y1="870" x2="320" y2="50"/>
+							</AppearancePushed>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey>russian-campaign</TextKey>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001103" PositionFlag="0x0012" ElementID="10001" TextAlign="34" TextColor="0xff000000" FontSize="1">
+					<ToolTip>tt_ui_selectcampaign_back</ToolTip>
+					<!--button: <==-->
+					<WindowPos x="0" y="195"/>
+					<WindowSize x="320" y="50"/>
+					<States>
+						<item>
+							<AppearanceNormal Color="-1" Specular="-16777216">
+								<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+								<Maps x1="40" y1="940" x2="320" y2="50"/>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="-1" Specular="-16777216">
+								<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+								<Maps x1="590" y1="800" x2="320" y2="50"/>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="-1" Specular="-16777216">
+								<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+								<Maps x1="590" y1="870" x2="320" y2="50"/>
+							</AppearancePushed>
+							<PushSound>sounds\buttons\select</PushSound>
+							<ClickSound>sounds\buttons\ok</ClickSound>
+							<TextKey>imheader-gbutton-back</TextKey>
+						</item>
+					</States>
+				</item>
+			</Children>
+			<WindowPos x="550" y="231"/>
+			<WindowSize x="400" y="263"/>
+			<States>
+				<item PushSound="0" ClickSound="0">
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="400" y2="260"/>
+								<size x="400" y="65"/>
+								<map x1="40" y1="823" x2="400" y2="65"/>
+							</item>
+							<item>
+								<rect x1="0" y1="260" x2="400" y2="263"/>
+								<size x="400" y="3"/>
+								<map x1="40" y1="888" x2="400" y2="3"/>
+							</item>
+						</TileRects>
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="400" y2="260"/>
+								<size x="400" y="65"/>
+								<map x1="40" y1="823" x2="400" y2="65"/>
+							</item>
+							<item>
+								<rect x1="0" y1="260" x2="400" y2="263"/>
+								<size x="400" y="3"/>
+								<map x1="40" y1="888" x2="400" y2="3"/>
+							</item>
+						</TileRects>
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="400" y2="260"/>
+								<size x="400" y="65"/>
+								<map x1="40" y1="823" x2="400" y2="65"/>
+							</item>
+							<item>
+								<rect x1="0" y1="260" x2="400" y2="263"/>
+								<size x="400" y="3"/>
+								<map x1="40" y1="888" x2="400" y2="3"/>
+							</item>
+						</TileRects>
+						<Texture>ui\intermissiontextures\back-mainmenu</Texture>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+	</Children>
+</base>

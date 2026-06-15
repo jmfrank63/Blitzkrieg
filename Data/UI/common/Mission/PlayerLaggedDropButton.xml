@@ -1,0 +1,123 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<Element ClassTypeID="0x10001107" PositionFlag="0x0011" ElementID="-1" VisibleFlag="1" ActiveFlag="1" CurrentState="0" Background="0" TextAlign="0x0013" RedLine="0">
+		<Script>UI\playerlagged</Script>
+		<WindowSize x="129" y="30"/>
+		<WindowPos x="0" y="0"/>
+		<Children>
+			<item ClassTypeID="0x10001103" ElementID="10001" PositionFlag="0x0011" ActiveFlag="1" TextAlign="0x0022" FontSize="1" VisibleFlag="1">
+				<Script>UI\playerlagged</Script>
+				<WindowPos x="0" y="-4"/>
+				<WindowSize x="140" y="34"/>
+				<States>
+					<item>
+						<AppearanceNormal Color="-1" TextColor="0xfff8c025" Specular="-16777216">
+							<Texture>UI\mapping</Texture>
+							<TileRects>
+								<item>
+									<rect x1="0" y1="0" x2="33" y2="34"/>
+									<size x="33" y="34"/>
+									<map x1="2" y1="95" x2="33" y2="34"/>
+								</item>
+								<item>
+									<rect x1="33" y1="0" x2="105" y2="34"/>
+									<size x="36" y="34"/>
+									<map x1="36" y1="95" x2="36" y2="34"/>
+								</item>
+								<item>
+									<rect x1="105" y1="0" x2="140" y2="34"/>
+									<size x="35" y="34"/>
+									<map x1="73" y1="95" x2="35" y2="34"/>
+								</item>
+							</TileRects>
+						</AppearanceNormal>
+						<AppearanceHighlighted Color="-1" TextColor="0xfff8c025" Specular="-16777216">
+							<Texture>UI\mapping</Texture>
+							<TileRects>
+								<item>
+									<rect x1="0" y1="0" x2="33" y2="34"/>
+									<size x="33" y="34"/>
+									<map x1="2" y1="95" x2="33" y2="34"/>
+								</item>
+								<item>
+									<rect x1="33" y1="0" x2="105" y2="34"/>
+									<size x="36" y="34"/>
+									<map x1="36" y1="95" x2="36" y2="34"/>
+								</item>
+								<item>
+									<rect x1="105" y1="0" x2="140" y2="34"/>
+									<size x="35" y="34"/>
+									<map x1="73" y1="95" x2="35" y2="34"/>
+								</item>
+							</TileRects>
+						</AppearanceHighlighted>
+						<AppearancePushed Color="-1" Specular="-16777216" TextColor="0xfff8c025">
+							<Texture>UI\mapping</Texture>
+							<TileRects>
+								<item>
+									<rect x1="0" y1="0" x2="33" y2="34"/>
+									<size x="33" y="34"/>
+									<map x1="107" y1="95" x2="33" y2="34"/>
+								</item>
+								<item>
+									<rect x1="33" y1="0" x2="105" y2="34"/>
+									<size x="36" y="34"/>
+									<map x1="141" y1="95" x2="36" y2="34"/>
+								</item>
+								<item>
+									<rect x1="105" y1="0" x2="140" y2="34"/>
+									<size x="35" y="34"/>
+									<map x1="178" y1="95" x2="35" y2="34"/>
+								</item>
+							</TileRects>
+						</AppearancePushed>
+						<AppearanceDisabled Color="-1" Specular="-16777216" TextColor="0xFFa0a0a0">
+							<Texture>UI\mapping</Texture>
+							<TileRects>
+								<item>
+									<rect x1="0" y1="0" x2="33" y2="34"/>
+									<size x="33" y="34"/>
+									<map x1="107" y1="95" x2="33" y2="34"/>
+								</item>
+								<item>
+									<rect x1="33" y1="0" x2="105" y2="34"/>
+									<size x="36" y="34"/>
+									<map x1="141" y1="95" x2="36" y2="34"/>
+								</item>
+								<item>
+									<rect x1="105" y1="0" x2="140" y2="34"/>
+									<size x="35" y="34"/>
+									<map x1="178" y1="95" x2="35" y2="34"/>
+								</item>
+							</TileRects>
+						</AppearanceDisabled>
+						<PushSound>sounds\buttons\select</PushSound>
+						<ClickSound>sounds\buttons\ok</ClickSound>
+					</item>
+				</States>
+			</item>
+		</Children>
+		<States>
+			<item EventID="-1">
+				<AppearanceNormal Color="0xffffffff" TextColor="0xFFFDF2DB" Specular="0xff000000">
+					<Maps x1="236" y1="90" x2="20" y2="22"/>
+					<Texture>ui\mapping</Texture>
+				</AppearanceNormal>
+				<AppearanceHighlighted Color="0xffffffff" TextColor="0xFFFDF2DB" Specular="0xff000000">
+					<Maps x1="236" y1="90" x2="20" y2="22"/>
+					<Texture>ui\mapping</Texture>
+				</AppearanceHighlighted>
+				<AppearancePushed Color="0xffffffff" TextColor="0xFFFDF2DB" Specular="0xff000000">
+					<Maps x1="236" y1="90" x2="20" y2="22"/>
+					<Texture>ui\mapping</Texture>
+				</AppearancePushed>
+				<AppearanceDisabled Color="0xffffffff" TextColor="0xFFa0a0a0" Specular="0xff000000">
+					<Maps x1="236" y1="90" x2="20" y2="22"/>
+					<Texture>ui\mapping</Texture>
+				</AppearanceDisabled>
+				<TextKey/>
+			</item>
+		</States>
+	</Element>
+</base>

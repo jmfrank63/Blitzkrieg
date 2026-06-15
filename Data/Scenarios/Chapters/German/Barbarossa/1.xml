@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<base>
+	<History>
+		<PreviousPath>s:\complete\scenarios\chapters\German\Barbarossa\current.chc</PreviousPath>
+		<PreviousDate>31.10.2002</PreviousDate>
+		<PreviousTime>12:39:30</PreviousTime>
+		<PreviousOwner>yaroslav.efremov</PreviousOwner>
+		<Action>Batch exported as</Action>
+		<CurrentPath>s:\versions\current\data\scenarios\chapters\german\barbarossa\1.xml</CurrentPath>
+		<CurrentDate>12.12.2002</CurrentDate>
+		<CurrentTime>16:04:48</CurrentTime>
+		<CurrentOwner>elena.Sevostyanova</CurrentOwner>
+	</History>
+	<RPG Season="0">
+		<KeyName/>
+		<StatsType>Chapter</StatsType>
+		<HeaderText>scenarios\chapters\german\barbarossa\header</HeaderText>
+		<SubheaderText>scenarios\chapters\german\barbarossa\subheader</SubheaderText>
+		<DescriptionText>scenarios\chapters\german\barbarossa\description</DescriptionText>
+		<MapImage>scenarios\chapters\german\barbarossa\map</MapImage>
+		<MapImageRect x1="407" y1="422" x2="0.795898" y2="0.825195"/>
+		<InterfaceMusic>scenarios\chapters\german\barbarossa\music\explore2</InterfaceMusic>
+		<Missions>
+			<item Difficulty="0">
+				<Mission>scenarios\scenariomissions\german\barbarossa\1</Mission>
+				<PosOnMap x="190" y="220"/>
+				<MissionBonus/>
+				<AllBonuses/>
+			</item>
+		</Missions>
+		<PlaceHolders>
+			<item>
+				<Position x="104" y="226"/>
+			</item>
+			<item>
+				<Position x="144" y="254"/>
+			</item>
+			<item>
+				<Position x="204" y="347"/>
+			</item>
+			<item>
+				<Position x="153" y="128"/>
+			</item>
+			<item>
+				<Position x="208" y="126"/>
+			</item>
+			<item>
+				<Position x="259" y="138"/>
+			</item>
+			<item>
+				<Position x="292" y="286"/>
+			</item>
+			<item>
+				<Position x="298" y="335"/>
+			</item>
+			<item>
+				<Position x="133" y="356"/>
+			</item>
+			<item>
+				<Position x="85" y="290"/>
+			</item>
+		</PlaceHolders>
+		<Script>scenarios\chapters\german\barbarossa\script</Script>
+		<SettingName>scenarios\settings\summer_germany</SettingName>
+		<ContextName>scenarios\chapters\german\barbarossa\context</ContextName>
+		<PlayerSide/>
+		<MODName/>
+		<MODVersion/>
+	</RPG>
+</base>

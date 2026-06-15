@@ -1,0 +1,2 @@
+<?xml version="1.0"?>
+<base><Container Season="2"><Patches><item><Size x="1" y="1"/><FileName>scenarios\patches\common\road_cross\africa\p_cross_1</FileName><Place></Place></item></Patches><North_0><item data="0"/></North_0><East_90><item data="0"/></East_90><South_180><item data="0"/></South_180><West_270><item data="0"/></West_270><Size x="1" y="1"/><SeasonFolder>terrain\sets\3\</SeasonFolder><UsedScriptIDs/><UsedScriptAreas/></Container></base>

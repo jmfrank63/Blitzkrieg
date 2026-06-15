@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName>Ambient catholic church</KeyName>
+		<StatsType>Sound</StatsType>
+		<Sounds>
+			<item MinDist="15" MaxDist="35" Probability="50" Peacefull="1">
+				<SoundPath>Sounds\Ambient\church\1</SoundPath>
+			</item>
+			<item MinDist="15" MaxDist="35" Probability="50" Peacefull="1">
+				<SoundPath>Sounds\Ambient\church\2</SoundPath>
+			</item>
+		</Sounds>
+	</RPG>
+</base>

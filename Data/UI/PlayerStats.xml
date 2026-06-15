@@ -1,0 +1,1080 @@
+<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by Alexander Veselov (NIVAL Interactive) -->
+<!-- deleted comment here -->
+<!-- deleted comment here -->
+<base Background="1">
+	<WindowSize x="1024" y="768"/>
+	<States>
+		<item EventID="-1">
+			<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Maps x1="0" y1="0" x2="1024" y2="768"/>
+				<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+			</AppearanceNormal>
+			<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Maps x1="0" y1="0" x2="1024" y2="768"/>
+				<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+			</AppearanceHighlighted>
+			<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+				<Maps x1="0" y1="0" x2="1024" y2="768"/>
+				<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+			</AppearancePushed>
+		</item>
+	</States>
+	<Script>ui\PlayersStats</Script>
+	<save ClassTypeID="0x10001103" ElementID="10006" PositionFlag="0x0031" TextAlign="0x0022" FontSize="1" TextColor="0xff000000">
+		<!--button: ENCyclopedia-->
+		<ToolTip>imheader-gbutton-encyclopedia</ToolTip>
+		<WindowPos x="220" y="45"/>
+		<WindowSize x="100" y="40"/>
+		<States>
+			<item EventID="-1">
+				<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+					<Maps x1="864" y1="683" x2="100" y2="40"/>
+					<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+				</AppearanceNormal>
+				<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+					<Maps x1="864" y1="780" x2="100" y2="40"/>
+					<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+				</AppearanceHighlighted>
+				<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+					<Maps x1="864" y1="835" x2="100" y2="40"/>
+					<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+				</AppearancePushed>
+				<PushSound>sounds\buttons\select</PushSound>
+				<ClickSound>sounds\buttons\ok</ClickSound>
+				<TextKey>tt_ui_encyclopedis_button</TextKey>
+			</item>
+		</States>
+	</save>
+	<Children>
+		<item ClassTypeID="0x10001105" PositionFlag="0x0022" ActiveFlag="1" VisibleFlag="0" Background="1" ElementID="31415">
+			<!--inter mission tutorial-->
+			<Script>ui\imtutorial</Script>
+			<WindowPos x="0" y="0"/>
+			<WindowSize x="576" y="420"/>
+			<States>
+				<item>
+					<TextKey>Textes\imtutorial\PlayerStats</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" PositionFlag="0x0013" ActiveFlag="1" VisibleFlag="1" Background="1" ElementID="31416">
+			<!--tutorial BUTTON-->
+			<ToolTip>tt_ui_intermission_help_button</ToolTip>
+			<WindowPos x="41" y="37"/>
+			<WindowSize x="76" y="59"/>
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Maps x1="0" y1="383" x2="76" y2="59"/>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+						<Maps x1="0" y1="324" x2="76" y2="59"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+						<Maps x1="0" y1="442" x2="76" y2="59"/>
+					</AppearancePushed>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20000" PositionFlag="0x0011" ActiveFlag="1" TextAlign="0x0021" FontSize="2" TextColor="0xFFe29b00 " Background="0">
+			<!--text: header [static]-->
+			<TextPos x="30" y="0"/>
+			<ShadowShift x="1" y="2"/>
+			<WindowPos x="30" y="30"/>
+			<WindowSize x="850" y="70"/>
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearancePushed>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey/>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20003" PositionFlag="0x0011" TextAlign="0x0021" FontSize="1" TextColor="0xFFFDF2DB " Background="0">
+			<!--text: header-skills [static]-->
+			<TextPos x="30" y="15"/>
+			<ShadowShift x="1" y="2"/>
+			<WindowPos x="30" y="134"/>
+			<WindowSize x="410" y="30"/>
+			<States>
+				<item>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey>Textes\UI\Intermission\PlayersInterface\caption_skills</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20004" PositionFlag="0x0011" TextAlign="0x0021" FontSize="1" TextColor="0xFFFDF2DB" Background="0">
+			<!--text: header-medals [static]-->
+			<TextPos x="30" y="15"/>
+			<ShadowShift x="1" y="2"/>
+			<WindowPos x="527" y="134"/>
+			<WindowSize x="410" y="30"/>
+			<States>
+				<item>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey>Textes\UI\Intermission\PlayersInterface\caption_medals</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20005" PositionFlag="0x0011" TextAlign="0x0021" FontSize="1" TextColor="0xFFFDF2DB" Background="0">
+			<!--text: header-experience [static]-->
+			<TextPos x="30" y="15"/>
+			<ShadowShift x="1" y="2"/>
+			<WindowPos x="30" y="411"/>
+			<WindowSize x="410" y="30"/>
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearancePushed>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey>Textes\UI\Intermission\PlayersInterface\caption_experience</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001107" ElementID="100" PositionFlag="0x0011" ActiveFlag="1">
+			<!--medals dialog-->
+			<Script>ui\medals</Script>
+			<Children>
+				<item ClassTypeID="0x10001107" ElementID="3000" PositionFlag="0x0011">
+					<!--medal 1 row 1 [static]-->
+					<Script>ui\medals</Script>
+					<Children>
+						<item ClassTypeID="0x10001105" ElementID="20010" PositionFlag="0x0011" Background="1" VisibleFlag="0">
+							<!--medal 1 row 1 [static]-->
+							<WindowPos x="0" y="0"/>
+							<WindowSize x="132" y="195"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+										<Maps x1="538" y1="208" x2="132" y2="195"/>
+										<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+										<Maps x1="538" y1="208" x2="132" y2="195"/>
+										<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+										<Maps x1="538" y1="208" x2="132" y2="195"/>
+										<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0"/>
+					<WindowSize x="132" y="195"/>
+					<States>
+						<item EventID="-1"/>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001107" ElementID="3001" PositionFlag="0x0011">
+					<!--medal 2 row 1 [static]-->
+					<Script>ui\medals</Script>
+					<Children>
+						<item ClassTypeID="0x10001105" ElementID="20011" PositionFlag="0x0011" Background="1" VisibleFlag="0">
+							<!--medal 1 row 1 [static]-->
+							<WindowPos x="0" y="0"/>
+							<WindowSize x="132" y="195"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+										<Maps x1="538" y1="208" x2="132" y2="195"/>
+										<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+										<Maps x1="538" y1="208" x2="132" y2="195"/>
+										<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+										<Maps x1="538" y1="208" x2="132" y2="195"/>
+										<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="150" y="0"/>
+					<WindowSize x="132" y="195"/>
+					<States>
+						<item EventID="-1"/>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001107" ElementID="3002" PositionFlag="0x0011">
+					<!--medal 3 row 1 [static]-->
+					<Script>ui\medals</Script>
+					<Children>
+						<item ClassTypeID="0x10001105" ElementID="20012" PositionFlag="0x0011" Background="1" VisibleFlag="0">
+							<!--medal 1 row 1 [static]-->
+							<WindowPos x="0" y="0"/>
+							<WindowSize x="132" y="195"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+										<Maps x1="538" y1="208" x2="132" y2="195"/>
+										<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+										<Maps x1="538" y1="208" x2="132" y2="195"/>
+										<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+										<Maps x1="538" y1="208" x2="132" y2="195"/>
+										<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="297" y="0"/>
+					<WindowSize x="132" y="195"/>
+					<States>
+						<item EventID="-1"/>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001107" ElementID="3003" PositionFlag="0x0011">
+					<!--medal 1 row 2 [static]-->
+					<Script>ui\medals</Script>
+					<Children>
+						<item ClassTypeID="0x10001105" ElementID="20013" PositionFlag="0x0011" Background="1" VisibleFlag="0">
+							<!--medal 1 row 1 [static]-->
+							<WindowPos x="0" y="0"/>
+							<WindowSize x="132" y="195"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+										<Maps x1="538" y1="208" x2="132" y2="195"/>
+										<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+										<Maps x1="538" y1="208" x2="132" y2="195"/>
+										<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+										<Maps x1="538" y1="208" x2="132" y2="195"/>
+										<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="213"/>
+					<WindowSize x="132" y="195"/>
+					<States>
+						<item EventID="-1"/>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001107" ElementID="3004" PositionFlag="0x0011">
+					<!--medal 2 row 2 [static]-->
+					<Script>ui\medals</Script>
+					<Children>
+						<item ClassTypeID="0x10001105" ElementID="20014" PositionFlag="0x0011" Background="1" VisibleFlag="0">
+							<!--medal 1 row 1 [static]-->
+							<WindowPos x="0" y="0"/>
+							<WindowSize x="132" y="195"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+										<Maps x1="538" y1="208" x2="132" y2="195"/>
+										<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+										<Maps x1="538" y1="208" x2="132" y2="195"/>
+										<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+										<Maps x1="538" y1="208" x2="132" y2="195"/>
+										<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="150" y="213"/>
+					<WindowSize x="132" y="195"/>
+					<States>
+						<item EventID="-1"/>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001107" ElementID="3005" PositionFlag="0x0011">
+					<!--medal 3 row 2 [static]-->
+					<Script>ui\medals</Script>
+					<Children>
+						<item ClassTypeID="0x10001105" ElementID="20015" PositionFlag="0x0011" Background="1" VisibleFlag="0">
+							<!--medal 1 row 1 [static]-->
+							<WindowPos x="0" y="0"/>
+							<WindowSize x="132" y="195"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+										<Maps x1="538" y1="208" x2="132" y2="195"/>
+										<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+										<Maps x1="538" y1="208" x2="132" y2="195"/>
+										<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+										<Maps x1="538" y1="208" x2="132" y2="195"/>
+										<Texture>ui\IntermissionTextures\back-playersstats</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="297" y="213"/>
+					<WindowSize x="132" y="195"/>
+					<States>
+						<item EventID="-1"/>
+					</States>
+				</item>
+			</Children>
+			<WindowPos x="546" y="206"/>
+			<WindowSize x="432" y="408"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<Texture>ui\mapping</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<Texture>ui\mapping</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<Texture>ui\mapping</Texture>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10005" PositionFlag="0x0031" TextAlign="0x0022" FontSize="1" TextColor="0xFFFDF2DB">
+			<!--button: stats-->
+			<TextPos x="-15" y="0"/>
+			<ShiftText x="0" y="1"/>
+			<ShadowShift x="1" y="2"/>
+			<ToolTip>Textes\UI\Intermission\PlayerStats\tt_campaign_stats</ToolTip>
+			<WindowPos x="40" y="30"/>
+			<WindowSize x="132" y="62"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="252" y1="36" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="252" y1="0" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="66" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="252" y1="36" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="252" y1="72" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001103" ElementID="10001" PositionFlag="0x0033" TextAlign="0x0022" FontSize="1" TextColor="0xFFFDF2DB">
+			<!--button: ==>-->
+			<TextPos x="-15" y="0"/>
+			<ShiftText x="0" y="1"/>
+			<ShadowShift x="1" y="2"/>
+			<ToolTip>Textes\UI\Intermission\UnitMissionPerformance\tt_exit_screen</ToolTip>
+			<WindowPos x="42" y="30"/>
+			<WindowSize x="132" y="62"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="36" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="0" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="66" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="36" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearancePushed>
+					<AppearanceDisabled Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+						<TileRects>
+							<item>
+								<rect x1="0" y1="0" x2="132" y2="62"/>
+								<size x="132" y="62"/>
+								<map x1="379" y1="2" x2="132" y2="62"/>
+							</item>
+							<item>
+								<rect x1="19" y1="13" x2="82" y2="49"/>
+								<size x="63" y="36"/>
+								<map x1="189" y1="72" x2="63" y2="36"/>
+							</item>
+						</TileRects>
+						<Texture>UI\IntermissionTextures\Buttons</Texture>
+					</AppearanceDisabled>
+					<PushSound>sounds\buttons\select</PushSound>
+					<ClickSound>sounds\buttons\ok</ClickSound>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000110A" ElementID="1000" PositionFlag="0x0011" FontSize="1" TextColor="0xffffffffff" Background="0" HSubSpace="5" VSubSpace="0" SBWidth="28" HeaderSize="0" SBVisible="0">
+			<!--Skills list-->
+			<ColumnProps>
+				<item Width="300">
+					<FileName>UI\common\PlayersInterface\skill_name</FileName>
+				</item>
+				<item Width="130">
+					<FileName>UI\common\PlayersInterface\skill_value</FileName>
+				</item>
+			</ColumnProps>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" PositionFlag="0x0013" ButtonStep="15" VisibleFlag="0">
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031">
+							<!--scrollbar upper button-->
+							<WindowSize x="30" y="30"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="10" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="650" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="700" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031">
+							<!--scrollbar lower button-->
+							<WindowSize x="30" y="30"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="10" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="650" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="700" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" Position="0" Width="25" Vertical="1" Elevator_Width="30">
+							<Elevator_Texture>ui\IntermissionTextures\back-chapter</Elevator_Texture>
+							<Elevator_Maps x1="10" y1="810" x2="30" y2="30"/>
+							<!--slider. elevator - button on scrollbar. states - elevator background. elevator_width - how long elevator is along scrollbar; elevator maps - texture of elevator-->
+							<WindowSize x="0" y="0"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0"/>
+					<WindowSize x="30" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="10" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0021" FontSize="2" TextColor="0xFFFDF2DB">
+					<!--skill name-->
+					<WindowPos x="0" y="0"/>
+					<WindowSize x="200" y="30"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Maps x1="595" y1="780" x2="30" y2="20"/>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Placement Flags="0x1111">
+									<Pos x="200" y="100"/>
+									<Size x="64" y="32"/>
+								</Placement>
+								<Maps x1="595" y1="780" x2="30" y2="20"/>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Placement Flags="0x1111">
+									<Pos x="200" y="100"/>
+									<Size x="64" y="32"/>
+								</Placement>
+								<Maps x1="595" y1="780" x2="30" y2="20"/>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<TextKey/>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="11" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0012" FontSize="1" TextColor="0xFFFDF2DB">
+					<ToolTip>ui_tt_player_skill_value</ToolTip>
+					<!--Skill value-->
+					<WindowPos x="200" y="-"/>
+					<WindowSize x="100" y="30"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Maps x1="595" y1="780" x2="30" y2="20"/>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Placement Flags="0x1111">
+									<Pos x="200" y="100"/>
+									<Size x="64" y="32"/>
+								</Placement>
+								<Maps x1="595" y1="780" x2="30" y2="20"/>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Placement Flags="0x1111">
+									<Pos x="200" y="100"/>
+									<Size x="64" y="32"/>
+								</Placement>
+								<Maps x1="595" y1="780" x2="30" y2="20"/>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<TextKey/>
+						</item>
+					</States>
+				</item>
+			</Children>
+			<WindowPos x="41" y="190"/>
+			<WindowSize x="450" y="200"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="0" y1="769" x2="119" y2="53"/>
+						<Texture>ui\IntermissionTextures\back-stats</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<Texture>ui\mapping</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<Texture>ui\mapping</Texture>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20001" PositionFlag="0x0011" ActiveFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xff000000" Background="0">
+			<!--text: RANK-->
+			<TextPos x="0" y="0"/>
+			<ToolTip>Textes\UI\Intermission\PlayerStats\tt_current_rank</ToolTip>
+			<WindowPos x="57" y="480"/>
+			<WindowSize x="200" y="30"/>
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearancePushed>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey>Textes\UI\Intermission\PlayerStats\current_rank</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20002" PositionFlag="0x0013" ActiveFlag="1" TextAlign="0x0013" FontSize="1" TextColor="0xff000000" Background="0">
+			<!--text: RANK value-->
+			<TextPos x="0" y="0"/>
+			<WindowPos x="555" y="480"/>
+			<WindowSize x="300" y="30"/>
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearancePushed>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey/>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20010" PositionFlag="0x0011" ActiveFlag="1" TextAlign="0x0011" FontSize="1" TextColor="0xff000000" Background="0">
+			<!--text: DIFFICULTY-->
+			<TextPos x="0" y="0"/>
+			<ToolTip>Textes\UI\Intermission\PlayerStats\tt_difficulty</ToolTip>
+			<WindowPos x="57" y="545"/>
+			<WindowSize x="200" y="30"/>
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearancePushed>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey>Textes\PlayerSkills\Rank\rank</TextKey>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" ElementID="20011" PositionFlag="0x0013" ActiveFlag="1" TextAlign="0x0013" FontSize="1" TextColor="0xff000000" Background="0">
+			<!--text: DIFFICULTY value-->
+			<TextPos x="0" y="0"/>
+			<ToolTip/>
+			<WindowPos x="555" y="545"/>
+			<WindowSize x="300" y="30"/>
+			<States>
+				<item>
+					<AppearanceNormal Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="-1" Specular="-16777216">
+						<Texture/>
+						<Maps x1="0" y1="768" x2="1000" y2="144"/>
+					</AppearancePushed>
+					<PushSound/>
+					<ClickSound/>
+					<TextKey/>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x1000110A" ElementID="1001" PositionFlag="0x0011" FontSize="1" TextColor="0xff000000" Background="0" HSubSpace="5" VSubSpace="5" SBWidth="0" HeaderSize="0" SBVisible="0">
+			<!--RANKS VALUE LIST-->
+			<ColumnProps>
+				<item Width="300">
+					<FileName>UI\common\PlayersInterface\skill_name</FileName>
+				</item>
+				<item Width="130">
+					<FileName>UI\common\PlayersInterface\skill_value</FileName>
+				</item>
+			</ColumnProps>
+			<Children>
+				<item ClassTypeID="0x10001109" ElementID="1" PositionFlag="0x0013" ButtonStep="15" VisibleFlag="0">
+					<Children>
+						<item ClassTypeID="0x10001103" ElementID="1" CurrentState="0" PositionFlag="0x0031">
+							<!--scrollbar upper button-->
+							<WindowSize x="30" y="30"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="10" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="650" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="700" y1="780" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001103" ElementID="2" CurrentState="0" PositionFlag="0x0031">
+							<!--scrollbar lower button-->
+							<WindowSize x="30" y="30"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="10" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="650" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Maps x1="700" y1="960" x2="30" y2="30"/>
+										<Texture>ui\IntermissionTextures\back-chapter</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+						<item ClassTypeID="0x10001108" ElementID="3" CurrentState="0" PositionFlag="0x0031" Min="0" Max="20" Step="1" Position="0" Width="25" Vertical="1" Elevator_Width="30">
+							<Elevator_Texture>ui\IntermissionTextures\back-chapter</Elevator_Texture>
+							<Elevator_Maps x1="10" y1="810" x2="30" y2="30"/>
+							<!--slider. elevator - button on scrollbar. states - elevator background. elevator_width - how long elevator is along scrollbar; elevator maps - texture of elevator-->
+							<WindowSize x="0" y="0"/>
+							<States>
+								<item EventID="-1">
+									<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceNormal>
+									<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearanceHighlighted>
+									<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+										<Placement Flags="0x1111">
+											<Pos x="100" y="100"/>
+											<Size x="64" y="32"/>
+										</Placement>
+										<Maps x1="108" y1="0" x2="27" y2="128"/>
+										<Texture>ui\slider</Texture>
+									</AppearancePushed>
+								</item>
+							</States>
+						</item>
+					</Children>
+					<WindowPos x="0" y="0"/>
+					<WindowSize x="30" y="0"/>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="10" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0021" FontSize="1" TextColor="0xFFFDF2DB">
+					<!--skill name-->
+					<WindowPos x="0" y="0"/>
+					<WindowSize x="200" y="30"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Maps x1="595" y1="780" x2="30" y2="20"/>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Placement Flags="0x1111">
+									<Pos x="200" y="100"/>
+									<Size x="64" y="32"/>
+								</Placement>
+								<Maps x1="595" y1="780" x2="30" y2="20"/>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Placement Flags="0x1111">
+									<Pos x="200" y="100"/>
+									<Size x="64" y="32"/>
+								</Placement>
+								<Maps x1="595" y1="780" x2="30" y2="20"/>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<TextKey/>
+						</item>
+					</States>
+				</item>
+				<item ClassTypeID="0x10001105" ElementID="11" PositionFlag="0x0011" Background="0" VisibleFlag="1" ActiveFlag="1" TextAlign="0x0012" FontSize="1" TextColor="0xFFFDF2DB">
+					<ToolTip>ui_tt_player_skill_value</ToolTip>
+					<!--Skill value-->
+					<WindowPos x="200" y="-"/>
+					<WindowSize x="100" y="30"/>
+					<States>
+						<item EventID="-1">
+							<AppearanceNormal Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Maps x1="595" y1="780" x2="30" y2="20"/>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceNormal>
+							<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Placement Flags="0x1111">
+									<Pos x="200" y="100"/>
+									<Size x="64" y="32"/>
+								</Placement>
+								<Maps x1="595" y1="780" x2="30" y2="20"/>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearanceHighlighted>
+							<AppearancePushed Color="0xffffffff" Specular="0xff000000" Depth="0.0001">
+								<Placement Flags="0x1111">
+									<Pos x="200" y="100"/>
+									<Size x="64" y="32"/>
+								</Placement>
+								<Maps x1="595" y1="780" x2="30" y2="20"/>
+								<Texture>ui\IntermissionTextures\back-stats</Texture>
+							</AppearancePushed>
+							<TextKey/>
+						</item>
+					</States>
+				</item>
+			</Children>
+			<ToolTip>Textes\UI\Intermission\PlayerStats\tt_next_rank</ToolTip>
+			<WindowPos x="41" y="500"/>
+			<WindowSize x="450" y="50"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xffffffff" Specular="0xff000000">
+						<Maps x1="0" y1="769" x2="119" y2="53"/>
+						<Texture>ui\intermissiontextures\back-mission</Texture>
+					</AppearanceNormal>
+					<AppearanceHighlighted Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearanceHighlighted>
+					<AppearancePushed Color="0xffffffff" Specular="0xff000000">
+						<TileRects>
+							<item>
+								<rect x1="64" y1="42" x2="896" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="26" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="0" x2="896" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="42" x2="936" y2="588"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="20" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="64" y1="588" x2="896" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="15" y1="51" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="42" x2="64" y2="588"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="20" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="0" x2="64" y2="42"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="0" x2="64" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="0" x2="936" y2="42"/>
+								<size x="40" y="42"/>
+								<map x1="4" y1="0" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="896" y1="588" x2="936" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="4" y1="51" x2="40" y2="42"/>
+							</item>
+							<item>
+								<rect x1="0" y1="588" x2="64" y2="630"/>
+								<size x="64" y="42"/>
+								<map x1="0" y1="51" x2="64" y2="42"/>
+							</item>
+						</TileRects>
+						<Texture>ui\mapping</Texture>
+					</AppearancePushed>
+				</item>
+			</States>
+		</item>
+		<item ClassTypeID="0x10001105" PositionFlag="0x0022" ActiveFlag="0" VisibleFlag="0" Background="1" ElementID="1003">
+			<!--darken screen-->
+			<Script/>
+			<WindowPos x="0" y="0"/>
+			<WindowSize x="2048" y="1536"/>
+			<States>
+				<item EventID="-1">
+					<AppearanceNormal Color="0xff000000" Specular="0xff000000" Depth="0.0001"/>
+					<AppearanceHighlighted Color="0xff000000" Specular="0xff000000" Depth="0.0001"/>
+					<AppearancePushed Color="0xff000000" Specular="0xff000000" Depth="0.0001"/>
+					<AppearanceDisabled Color="0xff000000" Specular="0xff000000" Depth="0.0001"/>
+				</item>
+			</States>
+		</item>
+	</Children>
+</base>

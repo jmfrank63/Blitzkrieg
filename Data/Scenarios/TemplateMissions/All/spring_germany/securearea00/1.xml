@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName/>
+		<StatsType>Mission</StatsType>
+		<HeaderText>scenarios\descriptions\sa_12_13_14_15\header</HeaderText>
+		<SubheaderText>scenarios\descriptions\sa_12_13_14_15\subheader</SubheaderText>
+		<DescriptionText>scenarios\descriptions\sa_12_13_14_15\description</DescriptionText>
+		<MapImage>scenarios\descriptions\sa_12_13_14_15\map</MapImage>
+		<MapImageRect x1="0" y1="0" x2="0" y2="0"/>
+		<TemplateMap>scenarios\templates\spring\template01</TemplateMap>
+		<FinalMap>templatemaps\spring_germany\securearea00</FinalMap>
+		<CombatMusics>
+			<item>music\combat1</item>
+			<item>music\combat2</item>
+			<item>music\combat3</item>
+		</CombatMusics>
+		<ExplorMusics>
+			<item>music\explore1</item>
+			<item>music\explore2</item>
+			<item>music\explore3</item>
+			<item>music\explore4</item>
+		</ExplorMusics>
+		<Objectives>
+			<item Secret="0" AnchorScriptID="14">
+				<Header>scenarios\descriptions\sa_12_13_14_15\0h</Header>
+				<DescriptionText>scenarios\descriptions\sa_12_13_14_15\0</DescriptionText>
+				<PosOnMap x="180.773" y="285.135"/>
+			</item>
+			<item Secret="0" AnchorScriptID="12">
+				<Header>scenarios\descriptions\sa_12_13_14_15\1h</Header>
+				<DescriptionText>scenarios\descriptions\sa_12_13_14_15\1</DescriptionText>
+				<PosOnMap x="398.772" y="283.814"/>
+			</item>
+			<item Secret="0" AnchorScriptID="13">
+				<Header>scenarios\descriptions\sa_12_13_14_15\2h</Header>
+				<DescriptionText>scenarios\descriptions\sa_12_13_14_15\2</DescriptionText>
+				<PosOnMap x="166.703" y="65.7552"/>
+			</item>
+			<item Secret="0" AnchorScriptID="15">
+				<Header>scenarios\descriptions\sa_12_13_14_15\3h</Header>
+				<DescriptionText>scenarios\descriptions\sa_12_13_14_15\3</DescriptionText>
+				<PosOnMap x="478.243" y="159.357"/>
+			</item>
+		</Objectives>
+		<SettingName>scenarios\settings\spring_germany</SettingName>
+	</RPG>
+</base>

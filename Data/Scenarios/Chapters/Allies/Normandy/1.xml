@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<base>
+	<History>
+		<PreviousPath>s:\complete\scenarios\chapters\Allies\Normandy\current.chc</PreviousPath>
+		<PreviousDate>31.10.2002</PreviousDate>
+		<PreviousTime>12:39:24</PreviousTime>
+		<PreviousOwner>yaroslav.efremov</PreviousOwner>
+		<Action>Batch exported as</Action>
+		<CurrentPath>s:\versions\current\data\scenarios\chapters\allies\normandy\1.xml</CurrentPath>
+		<CurrentDate>12.12.2002</CurrentDate>
+		<CurrentTime>16:04:29</CurrentTime>
+		<CurrentOwner>elena.Sevostyanova</CurrentOwner>
+	</History>
+	<RPG Season="0">
+		<KeyName/>
+		<StatsType>Chapter</StatsType>
+		<HeaderText>scenarios\chapters\allies\normandy\header</HeaderText>
+		<SubheaderText>scenarios\chapters\allies\normandy\subheader</SubheaderText>
+		<DescriptionText>scenarios\chapters\allies\normandy\description</DescriptionText>
+		<MapImage>scenarios\chapters\allies\normandy\map</MapImage>
+		<MapImageRect x1="407" y1="422" x2="0.795898" y2="0.825195"/>
+		<InterfaceMusic>scenarios\chapters\allies\normandy\music\explore2</InterfaceMusic>
+		<Missions>
+			<item Difficulty="0">
+				<Mission>scenarios\scenariomissions\allies\normandy\1</Mission>
+				<PosOnMap x="144" y="185"/>
+				<MissionBonus/>
+				<AllBonuses/>
+			</item>
+		</Missions>
+		<PlaceHolders>
+			<item>
+				<Position x="164" y="122"/>
+			</item>
+			<item>
+				<Position x="195" y="189"/>
+			</item>
+			<item>
+				<Position x="285" y="189"/>
+			</item>
+			<item>
+				<Position x="34" y="256"/>
+			</item>
+			<item>
+				<Position x="78" y="226"/>
+			</item>
+			<item>
+				<Position x="131" y="272"/>
+			</item>
+			<item>
+				<Position x="226" y="272"/>
+			</item>
+			<item>
+				<Position x="177" y="244"/>
+			</item>
+			<item>
+				<Position x="300" y="257"/>
+			</item>
+			<item>
+				<Position x="241" y="221"/>
+			</item>
+		</PlaceHolders>
+		<Script>scenarios\chapters\allies\normandy\script</Script>
+		<SettingName>scenarios\settings\summer_france</SettingName>
+		<ContextName>scenarios\chapters\allies\normandy\context</ContextName>
+		<PlayerSide/>
+		<MODName/>
+		<MODVersion/>
+	</RPG>
+</base>

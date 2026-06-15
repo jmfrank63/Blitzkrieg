@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<base>
+	<NewMission>
+		<item TextColor="0xffff8000" TextAlign="1" FontSize="2">
+			<MovieName>load0.bik</MovieName>
+			<TextSource>textes\progress\new_mission</TextSource>
+			<TextTop x="0.02" y="0.7"/>
+			<TextBottom x="1.0" y="0.8"/>
+		</item>
+	</NewMission>
+	<MapGen>
+		<item TextColor="0xffff8000" TextAlign="1" FontSize="2">
+			<MovieName>load0.bik</MovieName>
+			<TextSource>textes\progress\map_generating</TextSource>
+			<TextTop x="0.04" y="0.7"/>
+			<TextBottom x="1.0" y="0.8"/>
+		</item>
+	</MapGen>
+	<Load>
+		<item TextColor="0xffff8000" TextAlign="1" FontSize="2">
+			<MovieName>load0.bik</MovieName>
+			<TextSource>textes\progress\wait_loading</TextSource>
+			<TextTop x="0.04" y="0.7"/>
+			<TextBottom x="1.0" y="0.8"/>
+		</item>
+	</Load>
+	<Minimap>
+		<item TextColor="0xffff8000" TextAlign="1" FontSize="2">
+			<MovieName>load0.bik</MovieName>
+			<TextSource>textes\progress\minimap_generating</TextSource>
+			<TextTop x="0.04" y="0.7"/>
+			<TextBottom x="1.0" y="0.8"/>
+		</item>
+	</Minimap>
+	<EncyclopediaLoad>
+		<item TextColor="0xffff8000" TextAlign="1" FontSize="2">
+			<MovieName>load0.bik</MovieName>
+			<TextSource>textes\progress\encyclopedia_loading</TextSource>
+			<TextTop x="0.04" y="0.7"/>
+			<TextBottom x="1.0" y="0.8"/>
+		</item>
+	</EncyclopediaLoad>
+	<Connecting>
+		<item TextColor="0xffff8000" TextAlign="1" FontSize="2">
+			<MovieName>load0.bik</MovieName>
+			<TextSource>textes\progress\connecting</TextSource>
+			<TextTop x="0.04" y="0.7"/>
+			<TextBottom x="1.0" y="0.8"/>
+		</item>
+	</Connecting>
+</base>

@@ -1,0 +1,197 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<forests>
+		<item>
+			<key>Africa</key>
+			<data>
+				<item>
+					<data>
+						<item/>
+					</data>
+				</item>
+				<item>
+					<data>
+						<item Weight="1">
+							<Name>Palm01</Name>
+						</item>
+						<item Weight="1">
+							<Name>Palm02</Name>
+						</item>
+						<item Weight="1">
+							<Name>Palm03</Name>
+						</item>
+						<item Weight="1">
+							<Name>Palm04</Name>
+						</item>
+						<item Weight="2">
+							<Name>Saxaul01</Name>
+						</item>
+					</data>
+				</item>
+			</data>
+		</item>
+		<item>
+			<key>Summer</key>
+			<data>
+				<item>
+					<data>
+						<item Weight="1">
+							<Name>_Birch01</Name>
+						</item>
+						<item Weight="1">
+							<Name>_Birch02</Name>
+						</item>
+						<item Weight="2">
+							<Name>_Bush01</Name>
+						</item>
+						<item Weight="2">
+							<Name>_Bush02</Name>
+						</item>
+						<item Weight="2">
+							<Name>_Bush03</Name>
+						</item>
+						<item Weight="2">
+							<Name>_Bush04</Name>
+						</item>
+						<item Weight="1">
+							<Name>_DryTree</Name>
+						</item>
+						<item Weight="1">
+							<Name>_DryTree01</Name>
+						</item>
+					</data>
+				</item>
+				<item>
+					<data>
+						<item Weight="1">
+							<Name>_BigApple</Name>
+						</item>
+						<item Weight="1">
+							<Name>_Birch</Name>
+						</item>
+						<item Weight="1">
+							<Name>_Chestnut</Name>
+						</item>
+						<item Weight="1">
+							<Name>_Lilac</Name>
+						</item>
+						<item Weight="1">
+							<Name>_Lime</Name>
+						</item>
+						<item Weight="1">
+							<Name>_Poplar01</Name>
+						</item>
+					</data>
+				</item>
+			</data>
+		</item>
+		<item>
+			<key>Winter_Fur</key>
+			<data>
+				<item>
+					<data>
+						<item Weight="1">
+							<Name>W_BushBig</Name>
+						</item>
+						<item Weight="1">
+							<Name>W_BushLittle</Name>
+						</item>
+						<item Weight="1">
+							<Name>W_BushVeryBig</Name>
+						</item>
+						<item Weight="1">
+							<Name>W_DryTree</Name>
+						</item>
+						<item Weight="1">
+							<Name>W_DryTree2</Name>
+						</item>
+						<item Weight="2">
+							<Name>W_FurBig</Name>
+						</item>
+						<item Weight="2">
+							<Name>W_FurLittle</Name>
+						</item>
+						<item Weight="2">
+							<Name>W_FurMiddle</Name>
+						</item>
+					</data>
+				</item>
+				<item>
+					<data>
+						<item Weight="1">
+							<Name>W_BushBig</Name>
+						</item>
+						<item Weight="1">
+							<Name>W_BushLittle</Name>
+						</item>
+						<item Weight="1">
+							<Name>W_BushVeryBig</Name>
+						</item>
+						<item Weight="1">
+							<Name>W_DryTree</Name>
+						</item>
+						<item Weight="1">
+							<Name>W_DryTree2</Name>
+						</item>
+						<item Weight="2">
+							<Name>W_FurBig</Name>
+						</item>
+						<item Weight="2">
+							<Name>W_FurLittle</Name>
+						</item>
+						<item Weight="2">
+							<Name>W_FurMiddle</Name>
+						</item>
+					</data>
+				</item>
+			</data>
+		</item>
+		<item>
+			<key>Spring</key>
+			<data>
+				<item>
+					<data>
+						<item Weight="1">
+							<Name>S_Bush01</Name>
+						</item>
+						<item Weight="1">
+							<Name>S_Bush02</Name>
+						</item>
+						<item Weight="1">
+							<Name>S_DryTree</Name>
+						</item>
+					</data>
+				</item>
+				<item>
+					<data>
+						<item Weight="1">
+							<Name>S_Birch01</Name>
+						</item>
+						<item Weight="1">
+							<Name>S_Birch02</Name>
+						</item>
+						<item Weight="1">
+							<Name>S_Birch03</Name>
+						</item>
+						<item Weight="1">
+							<Name>S_Poplar01</Name>
+						</item>
+						<item Weight="1">
+							<Name>S_Poplar02</Name>
+						</item>
+						<item Weight="1">
+							<Name>S_Poplar03</Name>
+						</item>
+						<item Weight="1">
+							<Name>S_Poplar04</Name>
+						</item>
+						<item Weight="1">
+							<Name>S_Poplar05</Name>
+						</item>
+					</data>
+				</item>
+			</data>
+		</item>
+	</forests>
+</base>

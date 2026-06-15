@@ -2,7 +2,7 @@
   <PropertyGroup>
 	<BlitzkriegGameOutputDir>$(MSBuildThisFileDirectory)Game\$(Configuration)\</BlitzkriegGameOutputDir>
 	<BlitzkriegGamePdbPath>$(BlitzkriegGameOutputDir)$(TargetName).pdb</BlitzkriegGamePdbPath>
-	<BlitzkriegDataSourceDir>$(MSBuildThisFileDirectory)data</BlitzkriegDataSourceDir>
+	<BlitzkriegDataSourceDir>$(MSBuildThisFileDirectory)..\..\Data</BlitzkriegDataSourceDir>
 	<BlitzkriegGameDataLink>$(BlitzkriegGameOutputDir)Data</BlitzkriegGameDataLink>
   </PropertyGroup>
 
@@ -84,16 +84,4 @@
 		  ContinueOnError="WarnAndContinue" />
   </Target>
 
-  <Target Name="BlitzkriegCopyDataFilesToGameDataLink"
-		  AfterTargets="BlitzkriegEnsureDataMoviesLink"
-		  Condition="'$(MSBuildProjectName)' == 'Game' and Exists('$(BlitzkriegGameDataLink)')">
-	<ItemGroup>
-	  <BlitzkriegDataFile Include="$(MSBuildThisFileDirectory)data\consts.xml" Condition="Exists('$(MSBuildThisFileDirectory)data\consts.xml')" />
-	  <BlitzkriegDataFile Include="$(MSBuildThisFileDirectory)data\vssver.scc" Condition="Exists('$(MSBuildThisFileDirectory)data\vssver.scc')" />
-	</ItemGroup>
-	<Copy SourceFiles="@(BlitzkriegDataFile)"
-		  DestinationFolder="$(BlitzkriegGameDataLink)"
-		  SkipUnchangedFiles="true"
-		  Condition="'@(BlitzkriegDataFile)' != ''" />
-  </Target>
 </Project>

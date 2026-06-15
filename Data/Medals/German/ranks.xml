@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<!-- edited with XML Spy v4.3 U (http://www.xmlspy.com) by Nasdaq Boom (World of Cracking) -->
+<!-- deleted comment here -->
+<!-- deleted comment here -->
+<base>
+	<Ranks>
+		<item ExperienceNeeded="0">
+			<RankKey>Textes\PlayerRanks\German\major</RankKey>
+			<FullText>Textes\PlayerRanks\German\major_full</FullText>
+			<Picture>Medals\ranks\german\major\1</Picture>
+		</item>
+		<item ExperienceNeeded="10000">
+			<RankKey>Textes\PlayerRanks\German\oberstleutnant</RankKey>
+			<FullText>Textes\PlayerRanks\German\oberstleutnant_full</FullText>
+			<Picture>Medals\ranks\german\oberstleutnant\1</Picture>
+		</item>
+		<item ExperienceNeeded="25000">
+			<RankKey>Textes\PlayerRanks\German\oberst</RankKey>
+			<FullText>Textes\PlayerRanks\German\oberst_full</FullText>
+			<Picture>Medals\ranks\german\oberst\1</Picture>
+		</item>
+		<item ExperienceNeeded="55000">
+			<RankKey>Textes\PlayerRanks\German\general-major</RankKey>
+			<FullText>Textes\PlayerRanks\German\general-major_full</FullText>
+			<Picture>Medals\ranks\german\general-major\1</Picture>
+		</item>
+	</Ranks>
+</base>

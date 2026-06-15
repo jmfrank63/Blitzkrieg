@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<!-- deleted comment here -->
+<base>
+	<RPG>
+		<KeyName/>
+		<StatsType>Mission</StatsType>
+		<HeaderText>scenarios\descriptions\sa_10_12_13_15_16\header</HeaderText>
+		<SubheaderText>scenarios\descriptions\sa_10_12_13_15_16\subheader</SubheaderText>
+		<DescriptionText>scenarios\descriptions\sa_10_12_13_15_16\description</DescriptionText>
+		<MapImage>scenarios\descriptions\sa_10_12_13_15_16\map</MapImage>
+		<MapImageRect x1="0" y1="0" x2="0" y2="0"/>
+		<TemplateMap>scenarios\templates\winter\template07</TemplateMap>
+		<FinalMap>templatemaps\winter_russia\securearea04</FinalMap>
+		<CombatMusics>
+			<item>music\combat1</item>
+			<item>music\combat2</item>
+			<item>music\combat3</item>
+		</CombatMusics>
+		<ExplorMusics>
+			<item>music\explore1</item>
+			<item>music\explore2</item>
+			<item>music\explore3</item>
+			<item>music\explore4</item>
+		</ExplorMusics>
+		<Objectives>
+			<item Secret="0" AnchorScriptID="10">
+				<Header>scenarios\descriptions\sa_10_12_13_15_16\0h</Header>
+				<DescriptionText>scenarios\descriptions\sa_10_12_13_15_16\0</DescriptionText>
+				<PosOnMap x="359.592" y="201.785"/>
+			</item>
+			<item Secret="0" AnchorScriptID="13">
+				<Header>scenarios\descriptions\sa_10_12_13_15_16\1h</Header>
+				<DescriptionText>scenarios\descriptions\sa_10_12_13_15_16\1</DescriptionText>
+				<PosOnMap x="172.603" y="246.251"/>
+			</item>
+			<item Secret="0" AnchorScriptID="12">
+				<Header>scenarios\descriptions\sa_10_12_13_15_16\2h</Header>
+				<DescriptionText>scenarios\descriptions\sa_10_12_13_15_16\2</DescriptionText>
+				<PosOnMap x="55.4489" y="100.059"/>
+			</item>
+			<item Secret="0" AnchorScriptID="16">
+				<Header>scenarios\descriptions\sa_10_12_13_15_16\3h</Header>
+				<DescriptionText>scenarios\descriptions\sa_10_12_13_15_16\3</DescriptionText>
+				<PosOnMap x="384.594" y="53.7744"/>
+			</item>
+			<item Secret="0" AnchorScriptID="15">
+				<Header>scenarios\descriptions\sa_10_12_13_15_16\4h</Header>
+				<DescriptionText>scenarios\descriptions\sa_10_12_13_15_16\4</DescriptionText>
+				<PosOnMap x="232.263" y="46.2509"/>
+			</item>
+		</Objectives>
+		<SettingName>scenarios\settings\winter_russia</SettingName>
+	</RPG>
+</base>
