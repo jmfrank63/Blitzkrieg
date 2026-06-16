@@ -3,6 +3,7 @@
 	<BlitzkriegGameOutputDir>$(MSBuildThisFileDirectory)Game\$(Configuration)\</BlitzkriegGameOutputDir>
 	<BlitzkriegGamePdbPath>$(BlitzkriegGameOutputDir)$(TargetName).pdb</BlitzkriegGamePdbPath>
 	<BlitzkriegDataSourceDir>$(MSBuildThisFileDirectory)..\..\Data</BlitzkriegDataSourceDir>
+	<BlitzkriegDataRelativeSourceDir>..\..\..\..\Data</BlitzkriegDataRelativeSourceDir>
 	<BlitzkriegGameDataLink>$(BlitzkriegGameOutputDir)Data</BlitzkriegGameDataLink>
   </PropertyGroup>
 
@@ -70,8 +71,12 @@
 
   <Target Name="BlitzkriegEnsureDataLink"
           AfterTargets="Build"
-          Condition="'$(MSBuildProjectName)' == 'Game' and Exists('$(BlitzkriegDataSourceDir)') and !Exists('$(BlitzkriegGameDataLink)')">
-    <Exec Command="cmd /c mklink /J &quot;$(BlitzkriegGameDataLink)&quot; &quot;$(BlitzkriegDataSourceDir)&quot;"
+          Condition="'$(MSBuildProjectName)' == 'Game' and Exists('$(BlitzkriegDataSourceDir)')">
+    <Exec Command="cmd /c if exist &quot;Data&quot; if not exist &quot;Data\Cursor\1.xml&quot; rmdir &quot;Data&quot;"
+          WorkingDirectory="$(BlitzkriegGameOutputDir)"
+          ContinueOnError="WarnAndContinue" />
+    <Exec Command="cmd /c if not exist &quot;Data&quot; mklink /D &quot;Data&quot; &quot;$(BlitzkriegDataRelativeSourceDir)&quot; || if not exist &quot;Data&quot; mklink /J &quot;Data&quot; &quot;$(BlitzkriegDataSourceDir)&quot;"
+          WorkingDirectory="$(BlitzkriegGameOutputDir)"
           ContinueOnError="WarnAndContinue" />
   </Target>
 
