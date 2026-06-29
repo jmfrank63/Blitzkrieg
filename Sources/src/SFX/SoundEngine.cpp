@@ -1,5 +1,6 @@
 #include "StdAfx.h"
 
+#include "AudioFmodCompat.h"
 #include "SoundEngine.h"
 
 #include "SampleSounds.h"
@@ -7,6 +8,10 @@
 #include "..\Formats\fmtTerrain.h"
 #include "..\Misc\Win32Helper.h"
 static NWin32Helper::CCriticalSection critSection;
+static FSOUND_STREAM* AsFmodStream( void *pStream )
+{
+	return static_cast<FSOUND_STREAM*>( pStream );
+}
 class CPlayVisitor : public ISFXVisitor
 {
 	CSoundEngine *pSFX;
@@ -31,7 +36,7 @@ public:
 	void Init( class CSoundEngine *_pSFX ) { pSFX = _pSFX; }
 	virtual int STDCALL VisitSound2D( CSound2D *pSound )
 	{
-		FSOUND_SAMPLE *sample = pSound->GetSample()->GetInternalContainer();
+		FSOUND_SAMPLE *sample = static_cast<FSOUND_SAMPLE*>(pSound->GetSample()->GetInternalContainer());
 		if ( sample == 0 )
 			return -1;
 		const int nChannel = FSOUND_PlaySoundEx( FSOUND_FREE, sample, 0, true );
@@ -39,7 +44,7 @@ public:
 	}
 	virtual int STDCALL VisitSound3D( CSound3D *pSound, const CVec3 &vPos )
 	{
-		FSOUND_SAMPLE *sample = pSound->GetSample()->GetInternalContainer();
+		FSOUND_SAMPLE *sample = static_cast<FSOUND_SAMPLE*>(pSound->GetSample()->GetInternalContainer());
 		if ( sample == 0 )
 			return -1;
 		const int nChannel = FSOUND_PlaySoundEx( FSOUND_FREE, sample, 0,	true );
@@ -245,10 +250,10 @@ void CSoundEngine::CloseStreaming()
 {
 	if ( pStreamingSound )
 	{
-		FSOUND_Stream_SetEndCallback( pStreamingSound, 0, 0 );
-		FSOUND_Stream_SetSyncCallback( pStreamingSound, 0, 0 );
+		FSOUND_Stream_SetEndCallback( AsFmodStream(pStreamingSound), 0, 0 );
+		FSOUND_Stream_SetSyncCallback( AsFmodStream(pStreamingSound), 0, 0 );
 		FSOUND_StopSound( nStreamingChannel );
-		FSOUND_Stream_Close( pStreamingSound );
+		FSOUND_Stream_Close( AsFmodStream(pStreamingSound) );
 
 		pStreamingSound = 0;
 		bStreamPlaying = false;
@@ -335,10 +340,10 @@ void CSoundEngine::PlayStream( const char *pszFileName, bool bLooped, const unsi
 		
 		if ( pStreamingSound )
 		{
-			nStreamingChannel = FSOUND_Stream_Play( FSOUND_FREE, pStreamingSound );
+			nStreamingChannel = FSOUND_Stream_Play( FSOUND_FREE, AsFmodStream(pStreamingSound) );
 			FSOUND_SetPan( nStreamingChannel, FSOUND_STEREOPAN );
 			FSOUND_SetVolume( nStreamingChannel, cStreamMasterVolume );
-			FSOUND_Stream_SetEndCallback( pStreamingSound, NextMelodyCallback, this );
+			FSOUND_Stream_SetEndCallback( AsFmodStream(pStreamingSound), NextMelodyCallback, this );
 			if ( bStreamingPaused ) 
 				FSOUND_SetPaused( nStreamingChannel, bStreamingPaused );
 			NWin32Helper::CCriticalSectionLock lock( critSection );
@@ -505,10 +510,10 @@ void CSoundEngine::NotifyMelodyFinished()
 	}
 	else if ( curMelody.IsValid() && curMelody.bLooped ) // текущая защиклена
 	{
-		nStreamingChannel = FSOUND_Stream_Play( FSOUND_FREE, pStreamingSound );
+		nStreamingChannel = FSOUND_Stream_Play( FSOUND_FREE, AsFmodStream(pStreamingSound) );
 		FSOUND_SetPan( nStreamingChannel, FSOUND_STEREOPAN );
 		FSOUND_SetVolume( nStreamingChannel, cStreamMasterVolume );
-		FSOUND_Stream_SetEndCallback( pStreamingSound, NextMelodyCallback, this );
+		FSOUND_Stream_SetEndCallback( AsFmodStream(pStreamingSound), NextMelodyCallback, this );
 		if ( bStreamingPaused ) 
 			FSOUND_SetPaused( nStreamingChannel, bStreamingPaused );
 	}

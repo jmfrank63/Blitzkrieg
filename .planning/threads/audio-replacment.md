@@ -40,6 +40,15 @@ Plan document:
 
 - `docs/superpowers/plans/2026-06-29-open-audio-layer.md`
 
+First implementation slice:
+
+- Added `tools/audio/check_sfx_public_headers.ps1`.
+- Moved direct FMOD exposure out of public SFX headers.
+- Added private compatibility include `Sources/src/SFX/AudioFmodCompat.h`.
+- Kept existing FMOD runtime behavior in `SampleSounds.cpp` and `SoundEngine.cpp`.
+- Added `docs/audio/fmod-replacement-inventory.md`.
+- Verified SFX and Game Debug Win32 builds after the boundary change.
+
 ## References
 
 - `Sources/src/SFX/Specific.h`
@@ -55,12 +64,15 @@ Plan document:
 - `Sources/src/SFX/SoundManager.cpp`
 - `Sources/src/SFX/SoundObjectFactory.cpp`
 - `Sources/src/SFX/SFX.vcxproj`
+- `Sources/src/SFX/AudioFmodCompat.h`
 - `Sources/src/data/Sounds`
 - `Sources/src/data/Music`
+- `docs/audio/fmod-replacement-inventory.md`
+- `tools/audio/check_sfx_public_headers.ps1`
 
 ## Next Steps
 
-- Approve the first design slice: keep public SFX interfaces stable, add a private open-audio backend boundary, and initially keep FMOD available only as a comparison path.
-- Inventory FMOD references in source/project files with a narrower search than a full repository scan.
-- Inventory audio asset formats and representative XML references.
-- Add the backend boundary headers/classes before changing playback behavior.
+- Add internal open-audio backend interfaces below `Sources/src/SFX`.
+- Move sample playback operations behind that backend while preserving current FMOD behavior.
+- Keep `tools/audio/check_sfx_public_headers.ps1` green.
+- Continue to build `SFX.vcxproj` and `Game.vcxproj` after each small slice.

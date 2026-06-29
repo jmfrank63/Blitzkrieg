@@ -31,7 +31,7 @@ class CSoundEngine : public ISFX
 	NTimer::STime timeLastUpdate;
 	SMelodyInfo curMelody;
 	SMelodyInfo nextMelody;								// to fade melodies
-	FSOUND_STREAM *pStreamingSound;				// current streaming sound
+	void *pStreamingSound;								// current streaming sound
 	int nStreamingChannel;								// channel of this streaming sound
 	NTimer::STime timeStreamFinished;			// time, last stream finished
 	CSoundChannelMap channelsMap;					// sound => channel map

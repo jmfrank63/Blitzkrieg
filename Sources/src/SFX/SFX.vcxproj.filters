@@ -48,6 +48,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AudioFmodCompat.h">
+      <Filter>Sound</Filter>
+    </ClInclude>
     <ClInclude Include="Specific.h">
       <Filter>Common</Filter>
     </ClInclude>

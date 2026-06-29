@@ -382,6 +382,7 @@
     <ClCompile Include="StreamFadeOff.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AudioFmodCompat.h" />
     <ClInclude Include="Specific.h" />
     <ClInclude Include="StdAfx.h" />
     <ClInclude Include="stl_user_config.h" />
