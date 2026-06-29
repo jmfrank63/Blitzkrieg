@@ -10,6 +10,7 @@ The first boundary step has started:
 
 - Public SFX headers no longer include `fmod.h`.
 - Public SFX headers no longer expose `FMOD` or `FSOUND` symbols.
+- Sample-level FMOD operations now go through `Sources/src/SFX/AudioBackend.cpp`.
 - The existing FMOD implementation is still active behind private SFX implementation files.
 - `Sources/src/SFX/AudioFmodCompat.h` is the current private compatibility include.
 
@@ -19,8 +20,8 @@ This is not the open backend yet. It is the seam that lets the open backend repl
 
 Primary files still using FMOD directly:
 
+- `Sources/src/SFX/AudioBackend.cpp`
 - `Sources/src/SFX/AudioFmodCompat.h`
-- `Sources/src/SFX/SampleSounds.cpp`
 - `Sources/src/SFX/SoundEngine.cpp`
 - `Sources/src/SFX/SoundObjectFactory.cpp`
 - `Sources/src/SFX/SFX.vcxproj`
@@ -39,7 +40,7 @@ Important FMOD responsibilities currently in `SoundEngine.cpp`:
 - current playback position
 - channel cleanup
 
-Important FMOD responsibilities currently in `SampleSounds.cpp`:
+Important FMOD responsibilities currently isolated in `AudioBackend.cpp`:
 
 - sample loading from in-memory data
 - sample free
@@ -113,10 +114,11 @@ Phase 1, backend boundary:
 - Keep public SFX interfaces free of FMOD symbols.
 - Add internal backend interfaces.
 - Keep FMOD behind private compatibility implementation while behavior remains unchanged.
+- Keep `SampleSounds.cpp` free of direct FMOD calls.
 
 Phase 2, samples:
 
-- Replace sample loading/playback calls in `SampleSounds.cpp`.
+- Replace the FMOD implementation inside `AudioBackend.cpp`.
 - Replace one-shot channel ownership checks.
 - Preserve weapon, UI, unit acknowledgement, movement, and explosion sounds.
 

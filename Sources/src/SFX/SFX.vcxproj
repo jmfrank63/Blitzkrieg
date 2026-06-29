@@ -360,6 +360,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AudioBackend.cpp" />
     <ClCompile Include="GlobalsLoader.cpp" />
     <ClCompile Include="StdAfx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -382,6 +383,7 @@
     <ClCompile Include="StreamFadeOff.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AudioBackend.h" />
     <ClInclude Include="AudioFmodCompat.h" />
     <ClInclude Include="Specific.h" />
     <ClInclude Include="StdAfx.h" />

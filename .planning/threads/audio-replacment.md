@@ -49,6 +49,12 @@ First implementation slice:
 - Added `docs/audio/fmod-replacement-inventory.md`.
 - Verified SFX and Game Debug Win32 builds after the boundary change.
 
+Second implementation slice:
+
+- Added `Sources/src/SFX/AudioBackend.h` and `Sources/src/SFX/AudioBackend.cpp`.
+- Moved sample-level FMOD calls out of `SampleSounds.cpp`.
+- Added `tools/audio/check_sfx_sample_backend.ps1` to keep sample code behind the backend boundary.
+
 ## References
 
 - `Sources/src/SFX/Specific.h`
@@ -64,15 +70,18 @@ First implementation slice:
 - `Sources/src/SFX/SoundManager.cpp`
 - `Sources/src/SFX/SoundObjectFactory.cpp`
 - `Sources/src/SFX/SFX.vcxproj`
+- `Sources/src/SFX/AudioBackend.h`
+- `Sources/src/SFX/AudioBackend.cpp`
 - `Sources/src/SFX/AudioFmodCompat.h`
 - `Sources/src/data/Sounds`
 - `Sources/src/data/Music`
 - `docs/audio/fmod-replacement-inventory.md`
 - `tools/audio/check_sfx_public_headers.ps1`
+- `tools/audio/check_sfx_sample_backend.ps1`
 
 ## Next Steps
 
-- Add internal open-audio backend interfaces below `Sources/src/SFX`.
-- Move sample playback operations behind that backend while preserving current FMOD behavior.
+- Move `SoundEngine.cpp` playback and stream operations behind backend functions while preserving current FMOD behavior.
 - Keep `tools/audio/check_sfx_public_headers.ps1` green.
+- Keep `tools/audio/check_sfx_sample_backend.ps1` green.
 - Continue to build `SFX.vcxproj` and `Game.vcxproj` after each small slice.
