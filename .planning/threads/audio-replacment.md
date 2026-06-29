@@ -1,12 +1,12 @@
 ---
-slug: open-audio-layer
-title: Open audio layer replacing FMOD
+slug: audio-replacment
+title: Audio replacement: open layer replacing FMOD
 status: open
 created: 2026-06-29
 updated: 2026-06-29
 ---
 
-# Thread: Open audio layer replacing FMOD
+# Thread: Audio replacement: open layer replacing FMOD
 
 ## Goal
 
