@@ -1290,6 +1290,20 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 		return false;
 
 	const bool bInterfaceActive = pScene->GetMissionScreen() == pScene->GetUIScreen();
+	static bool bWasSpeedUpDown = false;
+	static bool bWasSpeedDownDown = false;
+	const bool bCanUseSpeedFallback = bInterfaceActive && ( pInput->GetTextMode() == INPUT_TEXT_MODE_NOTEXT );
+	const bool bSpeedUpDown = bCanUseSpeedFallback && 
+		( ( GetAsyncKeyState( VK_OEM_PLUS ) & 0x8000 ) != 0 );
+	const bool bSpeedDownDown = bCanUseSpeedFallback &&
+		( ( GetAsyncKeyState( VK_OEM_MINUS ) & 0x8000 ) != 0 );
+	if ( bSpeedUpDown && !bWasSpeedUpDown )
+		GetSingleton<ITransceiver>()->CommandClientSpeed( +1 );
+	if ( bSpeedDownDown && !bWasSpeedDownDown )
+		GetSingleton<ITransceiver>()->CommandClientSpeed( -1 );
+	bWasSpeedUpDown = bSpeedUpDown;
+	bWasSpeedDownDown = bSpeedDownDown;
+
 	++nStartPauseCounter;
 	if ( nStartPauseCounter == 2 )
 		GetSingleton<IMainLoop>()->Pause( false, PAUSE_TYPE_PREMISSION );
