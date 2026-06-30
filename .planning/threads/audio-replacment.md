@@ -67,6 +67,12 @@ Fourth implementation slice:
 - Added `tools/audio/check_sfx_soundengine_stream_backend.ps1`.
 - Left FMOD device initialization and listener/rolloff calls in `SoundEngine.cpp` for later slices.
 
+Fifth implementation slice:
+
+- Routed `SoundEngine.cpp` device initialization, shutdown, output handle, distance, and rolloff operations through `AudioBackend`.
+- Added `tools/audio/check_sfx_soundengine_device_backend.ps1`.
+- Active direct FMOD calls are now concentrated behind `AudioBackend` plus other non-SFX projects/tools still listed in the inventory.
+
 ## References
 
 - `Sources/src/SFX/Specific.h`
@@ -92,12 +98,15 @@ Fourth implementation slice:
 - `tools/audio/check_sfx_sample_backend.ps1`
 - `tools/audio/check_sfx_soundengine_sample_backend.ps1`
 - `tools/audio/check_sfx_soundengine_stream_backend.ps1`
+- `tools/audio/check_sfx_soundengine_device_backend.ps1`
 
 ## Next Steps
 
-- Move `SoundEngine.cpp` device initialization, shutdown, listener, distance, and rolloff operations behind backend functions.
+- Audit remaining SFX direct FMOD references and decide whether `SoundObjectFactory.cpp` module label should be renamed now or when the open backend lands.
+- Start replacing `AudioBackend.cpp` FMOD internals with an open backend in small pieces.
 - Keep `tools/audio/check_sfx_public_headers.ps1` green.
 - Keep `tools/audio/check_sfx_sample_backend.ps1` green.
 - Keep `tools/audio/check_sfx_soundengine_sample_backend.ps1` green.
 - Keep `tools/audio/check_sfx_soundengine_stream_backend.ps1` green.
+- Keep `tools/audio/check_sfx_soundengine_device_backend.ps1` green.
 - Continue to build `SFX.vcxproj` and `Game.vcxproj` after each small slice.

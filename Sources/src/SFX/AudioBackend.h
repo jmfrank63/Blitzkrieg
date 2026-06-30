@@ -5,6 +5,27 @@ namespace NAudioBackend
 {
 	typedef signed char (STDCALL *TStreamCallback)( void *pStream, void *pBuffer, int nLength, void *pUserData );
 
+	struct SDriverInfo
+	{
+		std::string szDriverName;
+		bool isHardware3DAccelerated;
+		bool supportEAXReverb;
+		bool supportA3DOcclusions;
+		bool supportA3DReflections;
+		bool supportReverb;
+	};
+
+	bool IsVersionSupported();
+	void PrepareDeviceSearch();
+	int GetNumDrivers();
+	SDriverInfo GetDriverInfo( int nDriver );
+	IRefCount* GetOutputHandle();
+	void SetDriver( int nDriver );
+	bool InitDevice( HWND hWnd, ESFXOutputType output, int nMixRate, int nMaxChannels, const SDriverInfo &driverInfo, bool *pSoundCardPresent );
+	void CloseDevice();
+	void DebugTraceMixer();
+	void SetDistanceFactor( float fFactor );
+	void SetRolloffFactor( float fFactor );
 	void FreeSample( void *pSample );
 	void* LoadSampleFromMemory( const char *pData, int nSize, int nMode );
 	void SetSampleMinDistance( void *pSample, float fMinDistance );

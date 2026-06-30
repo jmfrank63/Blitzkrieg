@@ -1,5 +1,6 @@
 #ifndef __SOUNDENGINE_H__
 #define __SOUNDENGINE_H__
+#include "AudioBackend.h"
 #include "SampleSounds.h"
 #include "StreamFadeOff.h"
 typedef std::unordered_map<ISound*, int, SDefaultPtrHash> CSoundChannelMap;
@@ -8,15 +9,7 @@ class CSoundEngine : public ISFX
 {
 	OBJECT_NORMAL_METHODS( CSoundEngine );
 	DECLARE_SERIALIZE;
-	struct SDriverInfo
-	{
-		std::string szDriverName;
-		bool isHardware3DAccelerated;				// this driver supports hardware accelerated 3d sound.
-		bool supportEAXReverb;							// this driver supports EAX reverb
-		bool supportA3DOcclusions;					// this driver supports (A3D) geometry occlusions
-		bool supportA3DReflections;					// this driver supports (A3D) geometry reflections
-		bool supportReverb;									// this driver supports EAX2/A3D3 reverb  
-	};
+	typedef NAudioBackend::SDriverInfo SDriverInfo;
 	struct SMelodyInfo
 	{
 		DECLARE_SERIALIZE;

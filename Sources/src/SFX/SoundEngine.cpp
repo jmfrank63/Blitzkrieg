@@ -1,6 +1,5 @@
 #include "StdAfx.h"
 
-#include "AudioFmodCompat.h"
 #include "AudioBackend.h"
 #include "SoundEngine.h"
 
@@ -59,25 +58,17 @@ CSoundEngine::CSoundEngine()
 }
 bool CSoundEngine::SearchDevices()
 {
-	if ( FSOUND_GetVersion() < FMOD_VERSION )
+	if ( !NAudioBackend::IsVersionSupported() )
 	{
 		OutputDebugString( "Error : You are using the wrong DLL version!\n" );
 		return false;
 	}
-	FSOUND_SetOutput( FSOUND_OUTPUT_DSOUND );
-	int nNumDrivers = FSOUND_GetNumDrivers();
+	NAudioBackend::PrepareDeviceSearch();
+	int nNumDrivers = NAudioBackend::GetNumDrivers();
 	drivers.resize( nNumDrivers );
 	for ( int i = 0; i < nNumDrivers; ++i )
 	{
-		SDriverInfo &dr = drivers[i];
-		dr.szDriverName = (const char *) FSOUND_GetDriverName( i );
-		unsigned int nCaps;
-		FSOUND_GetDriverCaps( i, &nCaps );
-		dr.isHardware3DAccelerated = nCaps & FSOUND_CAPS_HARDWARE;
-		dr.supportEAXReverb = nCaps & FSOUND_CAPS_EAX2;//FSOUND_CAPS_EAX;
-		dr.supportA3DOcclusions = false; // FSOUND_CAPS_GEOMETRY_OCCLUSIONS not in FMOD 3.75
-		dr.supportA3DReflections = false; // FSOUND_CAPS_GEOMETRY_REFLECTIONS not in FMOD 3.75
-		dr.supportReverb = nCaps & FSOUND_CAPS_EAX2;
+		drivers[i] = NAudioBackend::GetDriverInfo( i );
 	}
 	return true;
 }
@@ -88,7 +79,7 @@ bool CSoundEngine::IsInitialized()
 IRefCount* CSoundEngine::QI( int nInterfaceTypeID )
 {
 	if ( nInterfaceTypeID == 0 ) 
-		return reinterpret_cast<IRefCount*>( FSOUND_GetOutputHandle() );
+		return NAudioBackend::GetOutputHandle();
 	return 0;
 }
 bool CSoundEngine::Init( HWND hWnd, int nDriver, ESFXOutputType output, int nMixRate, int nMaxChannels )
@@ -98,45 +89,9 @@ bool CSoundEngine::Init( HWND hWnd, int nDriver, ESFXOutputType output, int nMix
 
 	
 	NI_ASSERT_T( nDriver < drivers.size(), NStr::Format("Can't find driver %d (max found %d)", nDriver, drivers.size()) );
-	FSOUND_SetDriver( nDriver );
+	NAudioBackend::SetDriver( nDriver );
 	NI_ASSERT_T( !(output == SFX_OUTPUT_A3D && !drivers[nDriver].supportA3DOcclusions), "Can't set output as A3D with unsupported feature" );
-	FSOUND_OUTPUTTYPES eOut;
-	bSoundCardPresent = true;
-	switch ( output )
-	{
-		case SFX_OUTPUT_NO: 
-			bSoundCardPresent = false;
-			eOut = FSOUND_OUTPUT_NOSOUND;
-			OutputDebugString("FSOUND_OUTPUT_NOSOUND\n"); 
-			break;
-		case SFX_OUTPUT_WINMM: 
-			eOut = FSOUND_OUTPUT_WINMM; 
-			OutputDebugString("FSOUND_OUTPUT_WINMM\n"); 
-			break;
-		case SFX_OUTPUT_DSOUND: 
-			eOut = FSOUND_OUTPUT_DSOUND; 
-			OutputDebugString("FSOUND_OUTPUT_DSOUND\n"); 
-			break;
-		case SFX_OUTPUT_A3D: 
-			if ( !drivers[nDriver].supportA3DOcclusions )
-			{
-				eOut = FSOUND_OUTPUT_DSOUND;
-				OutputDebugString("FSOUND_OUTPUT_DSOUND(1)\n"); 
-			}
-			else
-			{
-				OutputDebugString("FSOUND_OUTPUT_A3D\n"); 
-				eOut = FSOUND_OUTPUT_A3D; 
-			}
-			break;
-		default: 
-			NI_ASSERT_T( 0, NStr::Format("Unknown output %d", output) );
-	}
-
-	FSOUND_SetOutput( eOut );
-	FSOUND_SetHWND( hWnd );
-	
-	if ( !FSOUND_Init( nMixRate, nMaxChannels, FSOUND_INIT_USEDEFAULTMIDISYNTH ) )
+	if ( !NAudioBackend::InitDevice( hWnd, output, nMixRate, nMaxChannels, drivers[nDriver], &bSoundCardPresent ) )
 	{
 		OutputDebugString( "NFMSound::Start():error!\n" );
 		bSoundCardPresent = false;
@@ -158,28 +113,8 @@ bool CSoundEngine::Init( HWND hWnd, int nDriver, ESFXOutputType output, int nMix
 	if ( drivers[nDriver].supportReverb )
 		OutputDebugString("- Driver supports EAX 2.0 reverb!\n" );
 	
-	OutputDebugString("Mixer = ");
-	switch ( FSOUND_GetMixer() )
-	{
-		case FSOUND_MIXER_BLENDMODE:	
-			OutputDebugString("FSOUND_MIXER_BLENDMODE\n"); 
-			break;
-		case FSOUND_MIXER_MMXP5:		
-			OutputDebugString("FSOUND_MIXER_MMXP5\n"); 
-			break;
-		case FSOUND_MIXER_MMXP6:		
-			OutputDebugString("FSOUND_MIXER_MMXP6\n"); 
-			break;
-		case FSOUND_MIXER_QUALITY_FPU:	
-			OutputDebugString("FSOUND_MIXER_QUALITY_FPU\n"); 
-			break;
-		case FSOUND_MIXER_QUALITY_MMXP5:
-			OutputDebugString("FSOUND_MIXER_QUALITY_MMXP5\n"); 
-			break;
-		case FSOUND_MIXER_QUALITY_MMXP6:
-			OutputDebugString("FSOUND_MIXER_QUALITY_MMXP6\n"); 
-			break;
-	};
+	OutputDebugString( "Mixer = " );
+	NAudioBackend::DebugTraceMixer();
 #endif
 
 	fListenerDistance = GetGlobalVar( "Sound.Listener.Distance", 0.0f ) * fWorldCellSize/2.0f;
@@ -203,29 +138,19 @@ void CSoundEngine::Done()
 	CloseStreaming();
 	channelsMap.clear();
 	soundsMap.clear();
-	FSOUND_Close();
+	NAudioBackend::CloseDevice();
 }
 void CSoundEngine::SetDistanceFactor( float fFactor )
 {
-	FSOUND_3D_SetDistanceFactor( fFactor );
+	NAudioBackend::SetDistanceFactor( fFactor );
 }
 void CSoundEngine::SetRolloffFactor( float fFactor )
 {
 	NI_ASSERT_TF( (fFactor >= 0) && (fFactor <= 10), NStr::Format("Rolloff factor (%g) must be in range [0..10]", fFactor), return );
-	FSOUND_3D_SetRolloffFactor( fFactor );
+	NAudioBackend::SetRolloffFactor( fFactor );
 }
 void CSoundEngine::Update( interface ICamera *pCamera )
 {
-	/*
-	CVec3 vPos = pCamera->GetAnchor();
-
-	vPos.Set( vPos.x, fListenerDistance, vPos.y );
-	CVec3 vFwd( -1, 0, 1 ), vTop( 0, 1, 0 );
-	Normalize( &vFwd );
-
-	FSOUND_3D_Listener_SetAttributes( vPos.m, 0, vFwd.x, vFwd.y, vFwd.z, vTop.x, vTop.y, vTop.z );
-	FSOUND_3D_Update();
-	*/
 
 	timeLastUpdate = GetSingleton<IGameTimer>()->GetAbsTime();
 	if ( (timeStreamFinished != -1) && (timeStreamFinished < timeLastUpdate) && (timeLastUpdate - timeStreamFinished > 15000) )

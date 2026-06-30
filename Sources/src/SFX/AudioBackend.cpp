@@ -5,6 +5,126 @@
 
 namespace NAudioBackend
 {
+	bool IsVersionSupported()
+	{
+		return FSOUND_GetVersion() >= FMOD_VERSION;
+	}
+
+	void PrepareDeviceSearch()
+	{
+		FSOUND_SetOutput( FSOUND_OUTPUT_DSOUND );
+	}
+
+	int GetNumDrivers()
+	{
+		return FSOUND_GetNumDrivers();
+	}
+
+	SDriverInfo GetDriverInfo( int nDriver )
+	{
+		SDriverInfo driverInfo;
+		unsigned int nCaps = 0;
+		driverInfo.szDriverName = (const char *) FSOUND_GetDriverName( nDriver );
+		FSOUND_GetDriverCaps( nDriver, &nCaps );
+		driverInfo.isHardware3DAccelerated = nCaps & FSOUND_CAPS_HARDWARE;
+		driverInfo.supportEAXReverb = nCaps & FSOUND_CAPS_EAX2;
+		driverInfo.supportA3DOcclusions = false;
+		driverInfo.supportA3DReflections = false;
+		driverInfo.supportReverb = nCaps & FSOUND_CAPS_EAX2;
+		return driverInfo;
+	}
+
+	IRefCount* GetOutputHandle()
+	{
+		return reinterpret_cast<IRefCount*>( FSOUND_GetOutputHandle() );
+	}
+
+	void SetDriver( int nDriver )
+	{
+		FSOUND_SetDriver( nDriver );
+	}
+
+	bool InitDevice( HWND hWnd, ESFXOutputType output, int nMixRate, int nMaxChannels, const SDriverInfo &driverInfo, bool *pSoundCardPresent )
+	{
+		FSOUND_OUTPUTTYPES eOutput;
+		*pSoundCardPresent = true;
+		switch ( output )
+		{
+			case SFX_OUTPUT_NO:
+				*pSoundCardPresent = false;
+				eOutput = FSOUND_OUTPUT_NOSOUND;
+				OutputDebugString("FSOUND_OUTPUT_NOSOUND\n");
+				break;
+			case SFX_OUTPUT_WINMM:
+				eOutput = FSOUND_OUTPUT_WINMM;
+				OutputDebugString("FSOUND_OUTPUT_WINMM\n");
+				break;
+			case SFX_OUTPUT_DSOUND:
+				eOutput = FSOUND_OUTPUT_DSOUND;
+				OutputDebugString("FSOUND_OUTPUT_DSOUND\n");
+				break;
+			case SFX_OUTPUT_A3D:
+				if ( !driverInfo.supportA3DOcclusions )
+				{
+					eOutput = FSOUND_OUTPUT_DSOUND;
+					OutputDebugString("FSOUND_OUTPUT_DSOUND(1)\n");
+				}
+				else
+				{
+					OutputDebugString("FSOUND_OUTPUT_A3D\n");
+					eOutput = FSOUND_OUTPUT_A3D;
+				}
+				break;
+			default:
+				eOutput = FSOUND_OUTPUT_NOSOUND;
+				break;
+		}
+
+		FSOUND_SetOutput( eOutput );
+		FSOUND_SetHWND( hWnd );
+		return FSOUND_Init( nMixRate, nMaxChannels, FSOUND_INIT_USEDEFAULTMIDISYNTH ) != 0;
+	}
+
+	void CloseDevice()
+	{
+		FSOUND_Close();
+	}
+
+	void DebugTraceMixer()
+	{
+		switch ( FSOUND_GetMixer() )
+		{
+			case FSOUND_MIXER_BLENDMODE:
+				OutputDebugString("FSOUND_MIXER_BLENDMODE\n");
+				break;
+			case FSOUND_MIXER_MMXP5:
+				OutputDebugString("FSOUND_MIXER_MMXP5\n");
+				break;
+			case FSOUND_MIXER_MMXP6:
+				OutputDebugString("FSOUND_MIXER_MMXP6\n");
+				break;
+			case FSOUND_MIXER_QUALITY_FPU:
+				OutputDebugString("FSOUND_MIXER_QUALITY_FPU\n");
+				break;
+			case FSOUND_MIXER_QUALITY_MMXP5:
+				OutputDebugString("FSOUND_MIXER_QUALITY_MMXP5\n");
+				break;
+			case FSOUND_MIXER_QUALITY_MMXP6:
+				OutputDebugString("FSOUND_MIXER_QUALITY_MMXP6\n");
+				break;
+		};
+	}
+
+	void SetDistanceFactor( float fFactor )
+	{
+		FSOUND_3D_SetDistanceFactor( fFactor );
+	}
+
+	void SetRolloffFactor( float fFactor )
+	{
+		FSOUND_3D_SetRolloffFactor( fFactor );
+	}
+
 	static FSOUND_STREAM* AsFmodStream( void *pStream )
 	{
 		return static_cast<FSOUND_STREAM*>( pStream );
