@@ -7,6 +7,7 @@ typedef std::unordered_map<ISound*, int, SDefaultPtrHash> CSoundChannelMap;
 typedef std::unordered_map<int, CPtr<ISound> > CChannelSoundMap;
 class CSoundEngine : public ISFX
 {
+	friend class CPlayVisitor;
 	OBJECT_NORMAL_METHODS( CSoundEngine );
 	DECLARE_SERIALIZE;
 	typedef NAudioBackend::SDriverInfo SDriverInfo;
@@ -51,6 +52,7 @@ class CSoundEngine : public ISFX
 	virtual ~CSoundEngine() { Done(); }
 	
 	void UpdateCameraPos( const CVec3 &vPos );
+	void Update3DChannel( class CSound3D *pSound, int nChannel );
 
 public:
 	bool PlayNextMelody();

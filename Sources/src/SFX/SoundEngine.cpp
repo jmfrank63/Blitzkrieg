@@ -44,8 +44,10 @@ public:
 		if ( sample == 0 )
 			return -1;
 		const int nChannel = NAudioBackend::PlaySamplePaused( sample );
-		NAudioBackend::SetChannel3DAttributes( nChannel, vPos );
-		return RegisterSound( pSound, nChannel );
+		const int nRegisteredChannel = RegisterSound( pSound, nChannel );
+		if ( nRegisteredChannel != -1 )
+			pSFX->Update3DChannel( pSound, nRegisteredChannel );
+		return nRegisteredChannel;
 	}
 };
 static CPlayVisitor thePlayVisitor;
@@ -53,7 +55,7 @@ CSoundEngine::CSoundEngine()
 : bInited( false ), pStreamingSound( 0 ), bPaused( false ), bStreamingPaused( false ),
 	cSFXMasterVolume( 255 ), cStreamMasterVolume( 255 ), bEnableSFX( true ), bEnableStreaming( true ),
 	timeLastUpdate( -1 ), timeStreamFinished( -1 ), fStreamCurrentVolume( 1.0f ),
-	bStreamPlaying( false ), nStreamingChannel( -1 )
+	bStreamPlaying( false ), nStreamingChannel( -1 ), vLastListenerPos( VNULL3 )
 {  
 }
 bool CSoundEngine::SearchDevices()
@@ -153,6 +155,8 @@ void CSoundEngine::Update( interface ICamera *pCamera )
 {
 
 	timeLastUpdate = GetSingleton<IGameTimer>()->GetAbsTime();
+	if ( pCamera )
+		UpdateCameraPos( pCamera->GetAnchor() );
 	if ( (timeStreamFinished != -1) && (timeStreamFinished < timeLastUpdate) && (timeLastUpdate - timeStreamFinished > 15000) )
 		PlayNextMelody();
 	
@@ -167,6 +171,22 @@ void CSoundEngine::Update( interface ICamera *pCamera )
 
 	if ( nNumChannels > 0 )
 		ClearChannels();
+}
+void CSoundEngine::Update3DChannel( CSound3D *pSound, int nChannel )
+{
+	if ( pSound == 0 || nChannel == -1 )
+		return;
+
+	NAudioBackend::SetChannel3DAttributes( nChannel, pSound->GetPosition() - vLastListenerPos );
+}
+void CSoundEngine::UpdateCameraPos( const CVec3 &vPos )
+{
+	vLastListenerPos.Set( vPos.x, vPos.z, vPos.y );
+	for ( CChannelSoundMap::iterator it = soundsMap.begin(); it != soundsMap.end(); ++it )
+	{
+		if ( CSound3D *pSound3D = dynamic_cast<CSound3D*>( it->second.GetPtr() ) )
+			Update3DChannel( pSound3D, it->first );
+	}
 }
 void CSoundEngine::CloseStreaming()
 {
@@ -425,11 +445,11 @@ void CSoundEngine::ReEnableSounds()
 void CSoundEngine::NotifyMelodyFinished()
 {
 	NWin32Helper::CCriticalSectionLock lock( critSection );
-	if ( nextMelody.IsValid() ) // нужно играть следующую
+	if ( nextMelody.IsValid() )
 	{
 		PlayNextMelody();
 	}
-	else if ( curMelody.IsValid() && curMelody.bLooped ) // текущая защиклена
+	else if ( curMelody.IsValid() && curMelody.bLooped )
 	{
 		nStreamingChannel = NAudioBackend::PlayStream( pStreamingSound );
 		NAudioBackend::SetStreamChannelPan( nStreamingChannel );

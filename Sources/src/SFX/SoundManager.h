@@ -6,6 +6,19 @@ class CSoundShare : public CBasicShare<std::string, CSoundSample, SFX_SAMPLE>
 {
 	bool b3D;
 	float fDefaultMinDistance;
+protected:
+	virtual CSoundSample* Create( const std::string &key )
+	{
+		CSoundSample *pObj = CreateObject<CSoundSample>( SFX_SAMPLE );
+		pObj->SetSharedResourceName( key );
+		pObj->Set3D( b3D );
+		pObj->SetMinDistance( fDefaultMinDistance );
+		if ( pObj->Load(true) ) 
+			return pObj;
+		pObj->AddRef();
+		pObj->Release();
+		return 0;
+	}
 public:
 	CSoundShare( int _nID, bool _b3D ) 
 		: CBasicShare<std::string, CSoundSample, SFX_SAMPLE>( _nID, ".wav" ), b3D( _b3D ), fDefaultMinDistance( 45 ) {  }
@@ -17,7 +30,7 @@ class CSoundManager : public ISoundManager
 	DECLARE_SERIALIZE;
 	CSoundShare share2;										// 2D sounds share
 	CSoundShare share3;										// 3D sounds share
-	CObj<ISFX> pSFX;											// lock для звуковой системы
+	CObj<ISFX> pSFX;
 public:	
 	CSoundManager() : share2( 109, false ), share3( 110, true ) {  }
 	virtual ~CSoundManager();

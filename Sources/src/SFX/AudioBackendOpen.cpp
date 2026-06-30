@@ -63,7 +63,9 @@ namespace
 		SOpenStream *pStream;
 		float fBaseVolume;
 		float fDistanceVolume;
-		float fPan;
+		float fUserPan;
+		float f3DPan;
+		bool bUse3DPan;
 	};
 
 	struct SOpenStream
@@ -207,7 +209,9 @@ namespace
 		g_channels[nChannel].pStream = 0;
 		g_channels[nChannel].fBaseVolume = 1.0f;
 		g_channels[nChannel].fDistanceVolume = 1.0f;
-		g_channels[nChannel].fPan = 0.0f;
+		g_channels[nChannel].fUserPan = 0.0f;
+		g_channels[nChannel].f3DPan = 0.0f;
+		g_channels[nChannel].bUse3DPan = false;
 	}
 
 	void ApplyChannelMix( int nChannel )
@@ -216,7 +220,7 @@ namespace
 			return;
 
 		ma_sound_set_volume( &g_channels[nChannel].sound, g_channels[nChannel].fBaseVolume * g_channels[nChannel].fDistanceVolume );
-		ma_sound_set_pan( &g_channels[nChannel].sound, g_channels[nChannel].fPan );
+		ma_sound_set_pan( &g_channels[nChannel].sound, g_channels[nChannel].bUse3DPan ? g_channels[nChannel].f3DPan : g_channels[nChannel].fUserPan );
 	}
 
 	float CalculateDistanceVolume( const SOpenSample *pSample, const CVec3 &vPos )
@@ -680,7 +684,9 @@ namespace NAudioBackendImpl
 		g_channels[nChannel].pSample = pOpenSample;
 		g_channels[nChannel].fBaseVolume = 1.0f;
 		g_channels[nChannel].fDistanceVolume = 1.0f;
-		g_channels[nChannel].fPan = 0.0f;
+		g_channels[nChannel].fUserPan = 0.0f;
+		g_channels[nChannel].f3DPan = 0.0f;
+		g_channels[nChannel].bUse3DPan = pOpenSample->nMode == GetSampleMode3D();
 		ma_sound_set_looping( &g_channels[nChannel].sound, pOpenSample->bLooped ? MA_TRUE : MA_FALSE );
 		ApplyChannelMix( nChannel );
 		return nChannel;
@@ -699,7 +705,7 @@ namespace NAudioBackendImpl
 	{
 		if ( nChannel >= 0 && nChannel < cMaxOpenChannels && g_channels[nChannel].bSoundInitialized )
 		{
-			g_channels[nChannel].fPan = ClampFloat( (static_cast<float>( nPan ) - 128.0f) / 128.0f, -1.0f, 1.0f );
+			g_channels[nChannel].fUserPan = ClampFloat( (static_cast<float>( nPan ) - 128.0f) / 128.0f, -1.0f, 1.0f );
 			ApplyChannelMix( nChannel );
 		}
 	}
@@ -763,7 +769,8 @@ namespace NAudioBackendImpl
 		if ( nChannel >= 0 && nChannel < cMaxOpenChannels && g_channels[nChannel].bSoundInitialized )
 		{
 			g_channels[nChannel].fDistanceVolume = CalculateDistanceVolume( g_channels[nChannel].pSample, vPos );
-			g_channels[nChannel].fPan = CalculatePan( vPos );
+			g_channels[nChannel].f3DPan = CalculatePan( vPos );
+			g_channels[nChannel].bUse3DPan = true;
 			ApplyChannelMix( nChannel );
 		}
 	}
@@ -900,7 +907,9 @@ namespace NAudioBackendImpl
 		g_channels[nChannel].pStream = pOpenStream;
 		g_channels[nChannel].fBaseVolume = 1.0f;
 		g_channels[nChannel].fDistanceVolume = 1.0f;
-		g_channels[nChannel].fPan = 0.0f;
+		g_channels[nChannel].fUserPan = 0.0f;
+		g_channels[nChannel].f3DPan = 0.0f;
+		g_channels[nChannel].bUse3DPan = false;
 		ma_sound_set_looping( &g_channels[nChannel].sound, pOpenStream->bLooped ? MA_TRUE : MA_FALSE );
 		ApplyChannelMix( nChannel );
 		ma_sound_set_end_callback( &g_channels[nChannel].sound, OpenStreamEndCallback, pOpenStream );
