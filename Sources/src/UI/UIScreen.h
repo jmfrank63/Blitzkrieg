@@ -28,6 +28,7 @@ private:
 
 	CPtr<IInputSlider> pMouseWheelSlider;
 	bool bScaleLayoutToScreen;
+	bool bRestoredScaledLayout;
 	CVec2 vLayoutScale;
 
 	typedef std::list<SAcknowledgment> CListOfAcks;

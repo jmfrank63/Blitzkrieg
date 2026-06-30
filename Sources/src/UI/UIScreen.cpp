@@ -103,6 +103,8 @@ int CUIScreen::operator&( interface IStructureSaver &ss )
 	if ( saver.IsReading() )
 	{
 		pMouseWheelSlider = GetSingleton<IInput>()->CreateSlider( "mouse_wheel" );
+		bScaleLayoutToScreen = ShouldScaleLegacyLayout( szResourceName.c_str() );
+		bRestoredScaledLayout = bScaleLayoutToScreen;
 	}
 	return 0;
 }
@@ -121,7 +123,7 @@ int CUIScreen::SAcknowledgment::operator&( interface IStructureSaver &ss )
 	return 0;
 }
 CUIScreen::CUIScreen() : m_mouseState( E_MOUSE_FREE ), m_keyboardState( E_KEYBOARD_FREE ), bChatMode( false ), nCursorPos( 0 ),
-	bScaleLayoutToScreen( false ), vLayoutScale( 1.0f, 1.0f )
+	bScaleLayoutToScreen( false ), bRestoredScaledLayout( false ), vLayoutScale( 1.0f, 1.0f )
 {
 	SetShowBackgroundFlag( false );
 	szLastChatMessage = L"";
@@ -146,6 +148,7 @@ int CUIScreen::Load( const char *pszResourceName, bool bRelative )
 		CPtr<IDataTree> pDT = bRelative ? CreateDataTreeSaver( pStream, IDataTree::READ ) : CreateDataTreeSaver( pStream, IDataTree::READ, "GUI_Composer_Project" );
 		this->operator&( *pDT );
 		bScaleLayoutToScreen = bRelative && ShouldScaleLegacyLayout( szResourceName.c_str() );
+		bRestoredScaledLayout = false;
 		vLayoutScale = CVec2( 1.0f, 1.0f );
 		IUIElement *pElement = GetChildByIndex( 0 );
 		return pElement == 0 ? 0 : pElement->GetWindowID();
@@ -163,6 +166,12 @@ void CUIScreen::Reposition( const CTRect<float> &rcParent )
 	if ( bScaleLayoutToScreen )
 	{
 		CVec2 vNewScale( rcParent.Width() / LEGACY_UI_WIDTH, rcParent.Height() / LEGACY_UI_HEIGHT );
+		if ( bRestoredScaledLayout )
+		{
+			vLayoutScale = vNewScale;
+			ApplyTextLayoutScale( vNewScale );
+			bRestoredScaledLayout = false;
+		}
 		CVec2 vDeltaScale( vNewScale.x / vLayoutScale.x, vNewScale.y / vLayoutScale.y );
 		if ( fabs( vDeltaScale.x - 1.0f ) > 0.001f || fabs( vDeltaScale.y - 1.0f ) > 0.001f )
 		{

@@ -714,7 +714,8 @@ CSoundScene::CSound::CSound(	const WORD wID,
 {
 	nMaxRadius = nMaxRadius == 0 ? 1 : nMaxRadius;
 	nMinRadius = nMinRadius == 0 ? 1 : nMinRadius;
-	timeToPlay = pSample == 0 ? 0 : 1000 * pSample->GetLenght() / pSample->GetSampleRate();
+	const unsigned int nSampleRate = pSample == 0 ? 0 : pSample->GetSampleRate();
+	timeToPlay = (pSample == 0 || nSampleRate == 0) ? 0 : 1000 * pSample->GetLenght() / nSampleRate;
 }
 bool CSoundScene::CSound::IsTimeToFinish()
 {
@@ -722,7 +723,10 @@ bool CSoundScene::CSound::IsTimeToFinish()
 }
 unsigned int CSoundScene::CSound::GetSamplesPassed()
 {
-	return ( CSoundScene::GetCurTime() - GetBeginTime() ) * GetSound()->GetSampleRate() / 1000;
+	const unsigned int nSampleRate = GetSound()->GetSampleRate();
+	if ( nSampleRate == 0 )
+		return 0;
+	return ( CSoundScene::GetCurTime() - GetBeginTime() ) * nSampleRate / 1000;
 }
 CSoundScene::CSound::~CSound()
 {
@@ -756,15 +760,16 @@ const std::string& CSoundScene::CSound::GetName() const
 void CSoundScene::CSound::UnSubstitute()
 {
 	pSubstitute =0;
-	timeToPlay = pSample== 0 ? 0 : 1000 * pSample->GetLenght() / pSample->GetSampleRate();
+	const unsigned int nSampleRate = pSample == 0 ? 0 : pSample->GetSampleRate();
+	timeToPlay = (pSample == 0 || nSampleRate == 0) ? 0 : 1000 * pSample->GetLenght() / nSampleRate;
 }
 void CSoundScene::CSound::Substitute( CSoundScene::CSubstSound *_pSubstitute, NTimer::STime nStartTime )
 {
 	pSubstitute = _pSubstitute;
 	ISound * pSound = pSubstitute->GetSound();
-	int nSampleRate = pSound->GetSampleRate();
+	const unsigned int nSampleRate = pSound == 0 ? 0 : pSound->GetSampleRate();
 	timeBegin = nStartTime;
-	timeToPlay = pSound == 0 ? 0 : 1000 * pSound->GetLenght() / nSampleRate;
+	timeToPlay = (pSound == 0 || nSampleRate == 0) ? 0 : 1000 * pSound->GetLenght() / nSampleRate;
 }
 int CSoundScene::CSound::GetRadiusMax() const
 {
@@ -1097,7 +1102,7 @@ WORD CSoundScene::AddSound( const char *pszName, const CVec3 &vPos,
 	if ( !pszSoundPath )
 		pszSoundPath = pszName;
 
-	if ( pszSoundPath[0] == 0 ) // empty sound rolled, don't add it to SoundScene
+	if ( pszSoundPath[0] == 0 || (pszSoundPath[0] == '0' && pszSoundPath[1] == 0) ) // empty sound rolled, don't add it to SoundScene
 		return 0;
 
 	

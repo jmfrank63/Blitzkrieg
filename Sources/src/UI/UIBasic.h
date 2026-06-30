@@ -111,6 +111,7 @@ public:
 	virtual void STDCALL SetWindowMap( const CTRect<float> &maps );
 	virtual void STDCALL SetWindowPlacement( const CVec2 *_vPos, const CVec2 *_vSize );		//require to call Reposition() next
 	virtual void ScaleLayout( const CVec2 &vScale );
+	virtual void ApplyTextLayoutScale( const CVec2 &vScale );
 	virtual void STDCALL SetWindowID( int _nID );
 	virtual void STDCALL SetBoundRect( const CTRect<float> &rc ) { bBounded = true; rcBound = rc; }
 	
@@ -231,6 +232,7 @@ public:
 	virtual void STDCALL SetFocusedWindow( IUIElement *pNewFocusWindow );
 	virtual void STDCALL Reposition( const CTRect<float> &rcParent );
 	virtual void ScaleLayout( const CVec2 &vScale );
+	virtual void ApplyTextLayoutScale( const CVec2 &vScale );
 	virtual void STDCALL EnableWindow( bool bEnable );
 	
 	virtual IText* STDCALL GetHelpContext( const CVec2 &vPos, CTRect<float> *pRect );

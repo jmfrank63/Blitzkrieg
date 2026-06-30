@@ -247,6 +247,8 @@ namespace
 			pSample->nSampleRate > 0 &&
 			pSample->nChannels > 0 &&
 			pSample->nBlockAlign > 0 &&
+			pSample->nPcmBytes > 0 &&
+			(pSample->nPcmBytes % pSample->nBlockAlign) == 0 &&
 			pSample->nBitsPerSample > 0) )
 		{
 			return false;
@@ -254,6 +256,8 @@ namespace
 
 		pSample->format = GetSampleFormat( pSample->nBitsPerSample );
 		if ( pSample->format == ma_format_unknown )
+			return false;
+		if ( pSample->pcmData.empty() )
 			return false;
 
 		ma_audio_buffer_config bufferConfig = ma_audio_buffer_config_init(
@@ -373,7 +377,11 @@ namespace NAudioBackendImpl
 	{
 		SOpenSample *pSample = new SOpenSample;
 		InitializeEmptySample( pSample, nMode );
-		ParseWaveSample( pData, nSize, pSample );
+		if ( !ParseWaveSample( pData, nSize, pSample ) )
+		{
+			delete pSample;
+			return 0;
+		}
 		return pSample;
 	}
 

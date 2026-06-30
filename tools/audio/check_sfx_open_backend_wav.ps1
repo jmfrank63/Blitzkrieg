@@ -11,6 +11,18 @@ foreach ($required in @('ParseWaveSample', 'RIFF', 'WAVE', 'fmt ', 'data', 'nSam
     }
 }
 
+if ($source -notmatch 'if\s*\(\s*!ParseWaveSample\(\s*pData,\s*nSize,\s*pSample\s*\)\s*\)[\s\S]*delete\s+pSample;[\s\S]*return\s+0;') {
+    $failures += 'LoadSampleFromMemory must return 0 when WAV parsing fails.'
+}
+
+if ($source -notmatch 'pSample->nPcmBytes\s*>\s*0') {
+    $failures += 'ParseWaveSample must reject WAV files with an empty data chunk.'
+}
+
+if ($source -notmatch 'pSample->pcmData\.empty\(\)') {
+    $failures += 'ParseWaveSample must guard against indexing an empty PCM buffer.'
+}
+
 if ($source -match 'GetSampleRate\([^\)]*\)\s*\{[^}]*return 44100;') {
     $failures += 'GetSampleRate still returns a hardcoded 44100 value.'
 }

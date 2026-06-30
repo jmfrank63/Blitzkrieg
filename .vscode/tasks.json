@@ -54,6 +54,35 @@
       "problemMatcher": "$msCompile"
     },
     {
+      "label": "Build SFX (Debug, Open Audio)",
+      "type": "shell",
+      "command": "msbuild",
+      "args": [
+        "${workspaceFolder}/Sources/src/SFX/SFX.vcxproj",
+        "/p:Configuration=Debug",
+        "/p:Platform=Win32",
+        "/p:AudioBackend=Open",
+        "/m",
+        "/v:minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Build Game (Debug, Open Audio)",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Build Game (Debug)",
+        "Build SFX (Debug, Open Audio)"
+      ],
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
       "label": "Build ELK Editor (Debug)",
       "type": "shell",
       "command": "msbuild",

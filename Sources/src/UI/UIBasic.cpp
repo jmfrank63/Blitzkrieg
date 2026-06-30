@@ -279,6 +279,7 @@ int CSimpleWindow::operator&( IStructureSaver &ss )
 	saver.Add( 32, &bSingleLine );
 	saver.Add( 33, &dwBlinkTime );
 	saver.Add( 34, &nBlinkColorIndex );
+	saver.Add( 35, &vAppliedLayoutScale );
 	
 	return 0;
 }
@@ -402,6 +403,16 @@ void CSimpleWindow::ScaleLayout( const CVec2 &vScale )
 			states[i].pGfxText->SetWidth( vSize.x );
 			states[i].pGfxText->SetScale( states[i].pGfxText->GetScale() * fTextScale );
 		}
+	}
+}
+void CSimpleWindow::ApplyTextLayoutScale( const CVec2 &vScale )
+{
+	const float fTextScale = Min( vScale.x, vScale.y );
+	vAppliedLayoutScale = vScale;
+	for ( int i = 0; i < states.size(); ++i )
+	{
+		if ( states[i].pGfxText )
+			states[i].pGfxText->SetScale( fTextScale );
 	}
 }
 void CSimpleWindow::SetWindowID( int _nID )
@@ -1734,6 +1745,16 @@ void CMultipleWindow::ScaleLayout( const CVec2 &vScale )
 		CSimpleWindow *pWindow = dynamic_cast<CSimpleWindow *>( it->GetPtr() );
 		if ( pWindow )
 			pWindow->ScaleLayout( vScale );
+	}
+}
+void CMultipleWindow::ApplyTextLayoutScale( const CVec2 &vScale )
+{
+	CSimpleWindow::ApplyTextLayoutScale( vScale );
+	for ( CWindowList::iterator it = childList.begin(); it != childList.end(); ++it )
+	{
+		CSimpleWindow *pWindow = dynamic_cast<CSimpleWindow *>( it->GetPtr() );
+		if ( pWindow )
+			pWindow->ApplyTextLayoutScale( vScale );
 	}
 }
 void CMultipleWindow::Visit( interface ISceneVisitor *pVisitor )
