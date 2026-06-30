@@ -95,9 +95,10 @@ int CBinkVideoPlayer::Play( const char *pszFileName, DWORD dwFlags, IGFX *pGFX, 
 	if ( pSFX ) 
 	{
 		LPDIRECTSOUND pDS = reinterpret_cast<LPDIRECTSOUND>( pSFX->QI(0) );
-		if ( pDS != 0 ) 
-			BinkSoundUseDirectSound( pDS );
+		BinkSoundUseDirectSound( pDS );
 	}
+	else
+		BinkSoundUseDirectSound( 0 );
 	szFileName = pszFileName;
 	DWORD dwOpenFlags = 0;
 	if ( images.size() == 1 )							// if we have set 'external' render target
