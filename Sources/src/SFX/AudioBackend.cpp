@@ -5,6 +5,11 @@
 
 namespace NAudioBackend
 {
+	static FSOUND_STREAM* AsFmodStream( void *pStream )
+	{
+		return static_cast<FSOUND_STREAM*>( pStream );
+	}
+
 	void FreeSample( void *pSample )
 	{
 		if ( pSample )
@@ -120,5 +125,41 @@ namespace NAudioBackend
 	void SetChannel3DAttributes( int nChannel, const CVec3 &vPos )
 	{
 		FSOUND_3D_SetAttributes( nChannel, const_cast<float*>(vPos.m), 0 );
+	}
+
+	void* OpenStream( const char *pszFileName, bool bLooped )
+	{
+		return FSOUND_Stream_Open( pszFileName, FSOUND_2D | (bLooped ? FSOUND_LOOP_NORMAL : FSOUND_LOOP_OFF), 0, 0 );
+	}
+
+	void CloseStream( void *pStream )
+	{
+		if ( pStream )
+			FSOUND_Stream_Close( AsFmodStream(pStream) );
+	}
+
+	void ClearStreamCallbacks( void *pStream )
+	{
+		if ( pStream )
+		{
+			FSOUND_Stream_SetEndCallback( AsFmodStream(pStream), 0, 0 );
+			FSOUND_Stream_SetSyncCallback( AsFmodStream(pStream), 0, 0 );
+		}
+	}
+
+	void SetStreamEndCallback( void *pStream, TStreamCallback pCallback, void *pUserData )
+	{
+		if ( pStream )
+			FSOUND_Stream_SetEndCallback( AsFmodStream(pStream), reinterpret_cast<FSOUND_STREAMCALLBACK>(pCallback), pUserData );
+	}
+
+	int PlayStream( void *pStream )
+	{
+		return FSOUND_Stream_Play( FSOUND_FREE, AsFmodStream(pStream) );
+	}
+
+	void SetStreamChannelPan( int nChannel )
+	{
+		FSOUND_SetPan( nChannel, FSOUND_STEREOPAN );
 	}
 }

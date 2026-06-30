@@ -3,6 +3,8 @@
 
 namespace NAudioBackend
 {
+	typedef signed char (STDCALL *TStreamCallback)( void *pStream, void *pBuffer, int nLength, void *pUserData );
+
 	void FreeSample( void *pSample );
 	void* LoadSampleFromMemory( const char *pData, int nSize, int nMode );
 	void SetSampleMinDistance( void *pSample, float fMinDistance );
@@ -25,6 +27,12 @@ namespace NAudioBackend
 	void SetChannelPosition( int nChannel, unsigned int nPosition );
 	int GetLastError();
 	void SetChannel3DAttributes( int nChannel, const CVec3 &vPos );
+	void* OpenStream( const char *pszFileName, bool bLooped );
+	void CloseStream( void *pStream );
+	void ClearStreamCallbacks( void *pStream );
+	void SetStreamEndCallback( void *pStream, TStreamCallback pCallback, void *pUserData );
+	int PlayStream( void *pStream );
+	void SetStreamChannelPan( int nChannel );
 }
 
 #endif // __AUDIOBACKEND_H__
