@@ -30,6 +30,8 @@ namespace
 		bool bBufferInitialized;
 	};
 
+	struct SOpenStream;
+
 	struct SOpenChannel
 	{
 		ma_audio_buffer buffer;
@@ -37,6 +39,7 @@ namespace
 		bool bBufferInitialized;
 		bool bSoundInitialized;
 		SOpenSample *pSample;
+		SOpenStream *pStream;
 	};
 
 	struct SOpenStream
@@ -67,6 +70,14 @@ namespace
 			g_channels[nChannel].bBufferInitialized = false;
 		}
 		g_channels[nChannel].pSample = 0;
+		g_channels[nChannel].pStream = 0;
+	}
+
+	void OpenStreamEndCallback( void *pUserData, ma_sound *pSound )
+	{
+		SOpenStream *pStream = static_cast<SOpenStream*>( pUserData );
+		if ( pStream && pStream->pEndCallback )
+			pStream->pEndCallback( pStream, 0, 0, pStream->pUserData );
 	}
 
 	int FindFreeChannel()
@@ -489,7 +500,14 @@ namespace NAudioBackendImpl
 
 	void CloseStream( void *pStream )
 	{
-		delete static_cast<SOpenStream*>( pStream );
+		SOpenStream *pOpenStream = static_cast<SOpenStream*>( pStream );
+		if ( pOpenStream )
+		{
+			for ( int i = 0; i < cMaxOpenChannels; ++i )
+				if ( g_channels[i].pStream == pOpenStream )
+					ResetChannel( i );
+			delete pOpenStream;
+		}
 	}
 
 	void ClearStreamCallbacks( void *pStream )
@@ -514,11 +532,28 @@ namespace NAudioBackendImpl
 
 	int PlayStream( void *pStream )
 	{
-		return -1;
+		SOpenStream *pOpenStream = static_cast<SOpenStream*>( pStream );
+		if ( !g_bEngineInitialized || !pOpenStream )
+			return -1;
+
+		const int nChannel = FindFreeChannel();
+		if ( nChannel == -1 )
+			return -1;
+
+		const ma_uint32 nFlags = pOpenStream->bLooped ? MA_SOUND_FLAG_STREAM | MA_SOUND_FLAG_LOOPING : MA_SOUND_FLAG_STREAM;
+		if ( ma_sound_init_from_file( &g_engine, pOpenStream->szFileName.c_str(), nFlags, 0, 0, &g_channels[nChannel].sound ) != MA_SUCCESS )
+			return -1;
+
+		g_channels[nChannel].bSoundInitialized = true;
+		g_channels[nChannel].pStream = pOpenStream;
+		ma_sound_set_end_callback( &g_channels[nChannel].sound, OpenStreamEndCallback, pOpenStream );
+		ma_sound_start( &g_channels[nChannel].sound );
+		return nChannel;
 	}
 
 	void SetStreamChannelPan( int nChannel )
 	{
+		SetChannelPan( nChannel, 128 );
 	}
 }
 

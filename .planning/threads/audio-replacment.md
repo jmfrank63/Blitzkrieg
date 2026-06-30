@@ -111,6 +111,14 @@ Tenth implementation slice:
 - Added `tools/audio/check_sfx_open_backend_miniaudio.ps1`.
 - Default builds still select FMOD; the open backend can now be copied to `Game\Debug` by building SFX with `/p:AudioBackend=Open`.
 
+Eleventh implementation slice:
+
+- `AudioBackendOpen.cpp` now opens stream files as miniaudio file-backed sounds.
+- Stream playback now returns normal open backend channel ids.
+- Stream volume, pause, stop, pan, and end callback behavior route through the shared channel implementation.
+- Added `tools/audio/check_sfx_open_backend_stream.ps1`.
+- Existing OGG music may still require an explicit Vorbis/Opus decoder layer if miniaudio cannot decode it in this build.
+
 ## References
 
 - `Sources/src/SFX/Specific.h`
@@ -146,11 +154,12 @@ Tenth implementation slice:
 - `tools/audio/check_sfx_open_backend_scaffold.ps1`
 - `tools/audio/check_sfx_open_backend_wav.ps1`
 - `tools/audio/check_sfx_open_backend_miniaudio.ps1`
+- `tools/audio/check_sfx_open_backend_stream.ps1`
 
 ## Next Steps
 
 - Audit remaining SFX project-file FMOD references before removing the compatibility backend.
-- Runtime-test `/p:AudioBackend=Open` in tutorial and inspect missing behavior, especially looping movement sounds, streaming music, and 3D attenuation.
+- Runtime-test `/p:AudioBackend=Open` in tutorial and inspect missing behavior, especially OGG music decoding and 3D attenuation.
 - Keep `tools/audio/check_sfx_public_headers.ps1` green.
 - Keep `tools/audio/check_sfx_sample_backend.ps1` green.
 - Keep `tools/audio/check_sfx_soundengine_sample_backend.ps1` green.
@@ -161,4 +170,5 @@ Tenth implementation slice:
 - Keep `tools/audio/check_sfx_open_backend_scaffold.ps1` green.
 - Keep `tools/audio/check_sfx_open_backend_wav.ps1` green.
 - Keep `tools/audio/check_sfx_open_backend_miniaudio.ps1` green.
+- Keep `tools/audio/check_sfx_open_backend_stream.ps1` green.
 - Continue to build `SFX.vcxproj` and `Game.vcxproj` after each small slice.

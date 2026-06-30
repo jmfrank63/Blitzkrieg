@@ -20,6 +20,7 @@ The first boundary step has started:
 - `Sources/src/SFX/AudioBackendOpen.cpp` exists as an opt-in silent open backend scaffold selected with `/p:AudioBackend=Open`.
 - The opt-in open backend uses miniaudio for device output and simple WAV sample playback.
 - The opt-in open backend parses PCM WAV sample metadata, stores PCM bytes, and creates per-channel miniaudio sounds.
+- The opt-in open backend opens streams as miniaudio file-backed sounds and routes stream channels through the same channel controls.
 - The existing FMOD implementation is still active behind private SFX implementation files.
 - `Sources/src/SFX/AudioFmodCompat.h` is the current private compatibility include.
 
@@ -134,6 +135,7 @@ Phase 2, samples:
 
 Phase 3, streaming:
 
+- Keep open backend stream channel playback buildable with miniaudio file-backed sounds.
 - Replace the FMOD stream implementation currently in `AudioBackendFmod.cpp` with an open implementation.
 - Add Opus support for long-form audio.
 - Preserve existing OGG music while conversion policy is decided.
