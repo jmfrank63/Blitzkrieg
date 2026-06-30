@@ -102,6 +102,15 @@ Ninth implementation slice:
 - Added `tools/audio/check_sfx_open_backend_wav.ps1`.
 - Playback remains silent; default runtime remains FMOD.
 
+Tenth implementation slice:
+
+- Vendored miniaudio under `Sources/sdk/miniaudio/miniaudio.h`.
+- `AudioBackendOpen.cpp` now initializes a miniaudio engine for `/p:AudioBackend=Open`.
+- Open backend WAV samples now play through per-channel `ma_sound` instances.
+- Added basic open backend channel state for play, pause, stop, volume, pan, cursor, and channel ownership checks.
+- Added `tools/audio/check_sfx_open_backend_miniaudio.ps1`.
+- Default builds still select FMOD; the open backend can now be copied to `Game\Debug` by building SFX with `/p:AudioBackend=Open`.
+
 ## References
 
 - `Sources/src/SFX/Specific.h`
@@ -123,6 +132,7 @@ Ninth implementation slice:
 - `Sources/src/SFX/AudioBackendFmod.cpp`
 - `Sources/src/SFX/AudioBackendOpen.cpp`
 - `Sources/src/SFX/AudioFmodCompat.h`
+- `Sources/sdk/miniaudio/miniaudio.h`
 - `Sources/src/data/Sounds`
 - `Sources/src/data/Music`
 - `docs/audio/fmod-replacement-inventory.md`
@@ -135,11 +145,12 @@ Ninth implementation slice:
 - `tools/audio/check_sfx_backend_scaffold.ps1`
 - `tools/audio/check_sfx_open_backend_scaffold.ps1`
 - `tools/audio/check_sfx_open_backend_wav.ps1`
+- `tools/audio/check_sfx_open_backend_miniaudio.ps1`
 
 ## Next Steps
 
 - Audit remaining SFX project-file FMOD references before removing the compatibility backend.
-- Add the first open backend channel state for simple 2D sample playback, still silent if device output is not ready.
+- Runtime-test `/p:AudioBackend=Open` in tutorial and inspect missing behavior, especially looping movement sounds, streaming music, and 3D attenuation.
 - Keep `tools/audio/check_sfx_public_headers.ps1` green.
 - Keep `tools/audio/check_sfx_sample_backend.ps1` green.
 - Keep `tools/audio/check_sfx_soundengine_sample_backend.ps1` green.
@@ -149,4 +160,5 @@ Ninth implementation slice:
 - Keep `tools/audio/check_sfx_backend_scaffold.ps1` green.
 - Keep `tools/audio/check_sfx_open_backend_scaffold.ps1` green.
 - Keep `tools/audio/check_sfx_open_backend_wav.ps1` green.
+- Keep `tools/audio/check_sfx_open_backend_miniaudio.ps1` green.
 - Continue to build `SFX.vcxproj` and `Game.vcxproj` after each small slice.

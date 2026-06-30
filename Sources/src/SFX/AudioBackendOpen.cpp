@@ -4,8 +4,14 @@
 
 #if defined(SFX_USE_OPEN_AUDIO_BACKEND)
 
+#define MINIAUDIO_IMPLEMENTATION
+#include "../../sdk/miniaudio/miniaudio.h"
+
 namespace
 {
+	ma_engine g_engine;
+	bool g_bEngineInitialized = false;
+
 	struct SOpenSample
 	{
 		int nMode;
@@ -19,6 +25,18 @@ namespace
 		unsigned int nBlockAlign;
 		unsigned int nPcmBytes;
 		std::vector<char> pcmData;
+		ma_format format;
+		ma_audio_buffer buffer;
+		bool bBufferInitialized;
+	};
+
+	struct SOpenChannel
+	{
+		ma_audio_buffer buffer;
+		ma_sound sound;
+		bool bBufferInitialized;
+		bool bSoundInitialized;
+		SOpenSample *pSample;
 	};
 
 	struct SOpenStream
@@ -28,6 +46,43 @@ namespace
 		NAudioBackend::TStreamCallback pEndCallback;
 		void *pUserData;
 	};
+
+	const int cMaxOpenChannels = 128;
+	SOpenChannel g_channels[cMaxOpenChannels];
+	int g_nNextChannel = 0;
+
+	void ResetChannel( int nChannel )
+	{
+		if ( nChannel < 0 || nChannel >= cMaxOpenChannels )
+			return;
+
+		if ( g_channels[nChannel].bSoundInitialized )
+		{
+			ma_sound_uninit( &g_channels[nChannel].sound );
+			g_channels[nChannel].bSoundInitialized = false;
+		}
+		if ( g_channels[nChannel].bBufferInitialized )
+		{
+			ma_audio_buffer_uninit( &g_channels[nChannel].buffer );
+			g_channels[nChannel].bBufferInitialized = false;
+		}
+		g_channels[nChannel].pSample = 0;
+	}
+
+	int FindFreeChannel()
+	{
+		for ( int i = 0; i < cMaxOpenChannels; ++i )
+		{
+			const int nChannel = (g_nNextChannel + i) % cMaxOpenChannels;
+			if ( !g_channels[nChannel].bSoundInitialized || ma_sound_at_end( &g_channels[nChannel].sound ) )
+			{
+				ResetChannel( nChannel );
+				g_nNextChannel = (nChannel + 1) % cMaxOpenChannels;
+				return nChannel;
+			}
+		}
+		return -1;
+	}
 
 	bool HasBytes( const char *pData, int nSize, int nOffset, int nBytes )
 	{
@@ -69,6 +124,23 @@ namespace
 		pSample->nBitsPerSample = 0;
 		pSample->nBlockAlign = 0;
 		pSample->nPcmBytes = 0;
+		pSample->format = ma_format_unknown;
+		pSample->bBufferInitialized = false;
+	}
+
+	ma_format GetSampleFormat( unsigned int nBitsPerSample )
+	{
+		switch ( nBitsPerSample )
+		{
+			case 8:
+				return ma_format_u8;
+			case 16:
+				return ma_format_s16;
+			case 32:
+				return ma_format_s32;
+			default:
+				return ma_format_unknown;
+		}
 	}
 
 	bool ParseWaveSample( const char *pData, int nSize, SOpenSample *pSample )
@@ -110,11 +182,27 @@ namespace
 			nOffset = nChunkDataOffset + nChunkSize + (nChunkSize & 1);
 		}
 
-		return bHaveFormat && bHaveData && nAudioFormat == 1 &&
+		if ( !(bHaveFormat && bHaveData && nAudioFormat == 1 &&
 			pSample->nSampleRate > 0 &&
 			pSample->nChannels > 0 &&
 			pSample->nBlockAlign > 0 &&
-			pSample->nBitsPerSample > 0;
+			pSample->nBitsPerSample > 0) )
+		{
+			return false;
+		}
+
+		pSample->format = GetSampleFormat( pSample->nBitsPerSample );
+		if ( pSample->format == ma_format_unknown )
+			return false;
+
+		ma_audio_buffer_config bufferConfig = ma_audio_buffer_config_init(
+			pSample->format,
+			pSample->nChannels,
+			pSample->nPcmBytes / pSample->nBlockAlign,
+			&pSample->pcmData[0],
+			0 );
+		pSample->bBufferInitialized = ma_audio_buffer_init( &bufferConfig, &pSample->buffer ) == MA_SUCCESS;
+		return pSample->bBufferInitialized;
 	}
 }
 
@@ -162,17 +250,41 @@ namespace NAudioBackendImpl
 	{
 		if ( pSoundCardPresent )
 			*pSoundCardPresent = output != SFX_OUTPUT_NO;
-		OutputDebugString( "SFX open audio silent backend initialized\n" );
+
+		if ( output == SFX_OUTPUT_NO )
+			return true;
+
+		if ( g_bEngineInitialized )
+			return true;
+
+		ma_engine_config engineConfig = ma_engine_config_init();
+		engineConfig.sampleRate = nMixRate > 0 ? nMixRate : 0;
+		if ( ma_engine_init( &engineConfig, &g_engine ) != MA_SUCCESS )
+		{
+			OutputDebugString( "SFX open audio backend failed to initialize miniaudio\n" );
+			return false;
+		}
+
+		g_bEngineInitialized = true;
+		OutputDebugString( "SFX open audio backend initialized miniaudio\n" );
 		return true;
 	}
 
 	void CloseDevice()
 	{
+		for ( int i = 0; i < cMaxOpenChannels; ++i )
+			ResetChannel( i );
+
+		if ( g_bEngineInitialized )
+		{
+			ma_engine_uninit( &g_engine );
+			g_bEngineInitialized = false;
+		}
 	}
 
 	void DebugTraceMixer()
 	{
-		OutputDebugString( "SFX open audio silent backend\n" );
+		OutputDebugString( "SFX open audio miniaudio backend\n" );
 	}
 
 	void SetDistanceFactor( float fFactor )
@@ -185,7 +297,13 @@ namespace NAudioBackendImpl
 
 	void FreeSample( void *pSample )
 	{
-		delete static_cast<SOpenSample*>( pSample );
+		SOpenSample *pOpenSample = static_cast<SOpenSample*>( pSample );
+		if ( pOpenSample )
+		{
+			if ( pOpenSample->bBufferInitialized )
+				ma_audio_buffer_uninit( &pOpenSample->buffer );
+			delete pOpenSample;
+		}
 	}
 
 	void* LoadSampleFromMemory( const char *pData, int nSize, int nMode )
@@ -243,52 +361,111 @@ namespace NAudioBackendImpl
 
 	bool IsChannelPlayingSample( int nChannel, void *pSample )
 	{
-		return false;
+		return nChannel >= 0 && nChannel < cMaxOpenChannels &&
+			g_channels[nChannel].bSoundInitialized &&
+			g_channels[nChannel].pSample == pSample &&
+			ma_sound_is_playing( &g_channels[nChannel].sound ) != 0;
 	}
 
 	int PlaySample( void *pSample )
 	{
-		return -1;
+		const int nChannel = PlaySamplePaused( pSample );
+		if ( nChannel != -1 )
+			SetChannelPaused( nChannel, false );
+		return nChannel;
 	}
 
 	int PlaySamplePaused( void *pSample )
 	{
-		return -1;
+		SOpenSample *pOpenSample = static_cast<SOpenSample*>( pSample );
+		if ( !g_bEngineInitialized || !pOpenSample || !pOpenSample->bBufferInitialized )
+			return -1;
+
+		const int nChannel = FindFreeChannel();
+		if ( nChannel == -1 )
+			return -1;
+
+		ma_audio_buffer_config bufferConfig = ma_audio_buffer_config_init(
+			pOpenSample->format,
+			pOpenSample->nChannels,
+			pOpenSample->nPcmBytes / pOpenSample->nBlockAlign,
+			&pOpenSample->pcmData[0],
+			0 );
+		if ( ma_audio_buffer_init( &bufferConfig, &g_channels[nChannel].buffer ) != MA_SUCCESS )
+			return -1;
+		g_channels[nChannel].bBufferInitialized = true;
+
+		if ( ma_sound_init_from_data_source( &g_engine, &g_channels[nChannel].buffer, 0, 0, &g_channels[nChannel].sound ) != MA_SUCCESS )
+		{
+			ResetChannel( nChannel );
+			return -1;
+		}
+
+		g_channels[nChannel].bSoundInitialized = true;
+		g_channels[nChannel].pSample = pOpenSample;
+		ma_sound_set_looping( &g_channels[nChannel].sound, pOpenSample->bLooped ? MA_TRUE : MA_FALSE );
+		return nChannel;
 	}
 
 	void SetChannelVolume( int nChannel, int nVolume )
 	{
+		if ( nChannel >= 0 && nChannel < cMaxOpenChannels && g_channels[nChannel].bSoundInitialized )
+			ma_sound_set_volume( &g_channels[nChannel].sound, static_cast<float>( nVolume ) / 255.0f );
 	}
 
 	void SetChannelPan( int nChannel, int nPan )
 	{
+		if ( nChannel >= 0 && nChannel < cMaxOpenChannels && g_channels[nChannel].bSoundInitialized )
+			ma_sound_set_pan( &g_channels[nChannel].sound, (static_cast<float>( nPan ) - 128.0f) / 128.0f );
 	}
 
 	void SetChannelPaused( int nChannel, bool bPaused )
 	{
+		if ( nChannel >= 0 && nChannel < cMaxOpenChannels && g_channels[nChannel].bSoundInitialized )
+		{
+			if ( bPaused )
+				ma_sound_stop( &g_channels[nChannel].sound );
+			else
+				ma_sound_start( &g_channels[nChannel].sound );
+		}
 	}
 
 	void StopChannel( int nChannel )
 	{
+		ResetChannel( nChannel );
 	}
 
 	bool IsChannelPlaying( int nChannel )
 	{
-		return false;
+		return nChannel >= 0 && nChannel < cMaxOpenChannels &&
+			g_channels[nChannel].bSoundInitialized &&
+			ma_sound_is_playing( &g_channels[nChannel].sound ) != 0;
 	}
 
 	int GetChannelsPlaying()
 	{
-		return 0;
+		int nPlaying = 0;
+		for ( int i = 0; i < cMaxOpenChannels; ++i )
+			if ( IsChannelPlaying( i ) )
+				++nPlaying;
+		return nPlaying;
 	}
 
 	unsigned int GetChannelPosition( int nChannel )
 	{
+		if ( nChannel >= 0 && nChannel < cMaxOpenChannels && g_channels[nChannel].bSoundInitialized )
+		{
+			ma_uint64 nCursor = 0;
+			if ( ma_sound_get_cursor_in_pcm_frames( &g_channels[nChannel].sound, &nCursor ) == MA_SUCCESS )
+				return static_cast<unsigned int>( nCursor );
+		}
 		return 0;
 	}
 
 	void SetChannelPosition( int nChannel, unsigned int nPosition )
 	{
+		if ( nChannel >= 0 && nChannel < cMaxOpenChannels && g_channels[nChannel].bSoundInitialized )
+			ma_sound_seek_to_pcm_frame( &g_channels[nChannel].sound, nPosition );
 	}
 
 	int GetLastError()
