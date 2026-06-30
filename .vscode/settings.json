@@ -35,7 +35,6 @@
   "C_Cpp.default.cppStandard": "c++23",
   "C_Cpp.default.windowsSdkVersion": "10.0.26100.0",
   "C_Cpp.default.includePath": [
-    "${workspaceFolder}/Sources/sdk/FMOD/api/inc",
     "${workspaceFolder}/Sources/sdk/BINK",
     "${workspaceFolder}/Sources/sdk/STINGRAY/Include",
     "${workspaceFolder}/Sources/sdk/STINGRAY/Include/Toolkit",

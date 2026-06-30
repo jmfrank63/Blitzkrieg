@@ -22,9 +22,6 @@
     <ClCompile Include="AudioBackend.cpp">
       <Filter>Sound</Filter>
     </ClCompile>
-    <ClCompile Include="AudioBackendFmod.cpp">
-      <Filter>Sound</Filter>
-    </ClCompile>
     <ClCompile Include="AudioBackendOpen.cpp">
       <Filter>Sound</Filter>
     </ClCompile>
@@ -61,9 +58,6 @@
       <Filter>Sound</Filter>
     </ClInclude>
     <ClInclude Include="AudioBackendImpl.h">
-      <Filter>Sound</Filter>
-    </ClInclude>
-    <ClInclude Include="AudioFmodCompat.h">
       <Filter>Sound</Filter>
     </ClInclude>
     <ClInclude Include="Specific.h">

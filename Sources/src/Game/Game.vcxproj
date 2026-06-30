@@ -139,8 +139,6 @@
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
 if exist "..\..\sdk\BINK\binkw32.dll" copy /Y "..\..\sdk\BINK\binkw32.dll" "$(TargetDir)"
 if exist "..\..\sdk\BINK\binkw32.dll" copy /Y "..\..\sdk\BINK\binkw32.dll" "$(SolutionDir)bin\\"
-if exist "..\..\sdk\FMOD\api\fmod.dll" copy /Y "..\..\sdk\FMOD\api\fmod.dll" "$(TargetDir)"
-if exist "..\..\sdk\FMOD\api\fmod.dll" copy /Y "..\..\sdk\FMOD\api\fmod.dll" "$(SolutionDir)bin\\"
 if exist "..\..\autorun\mfc42.dll" copy /Y "..\..\autorun\mfc42.dll" "$(TargetDir)"
 if exist "..\..\autorun\mfc42.dll" copy /Y "..\..\autorun\mfc42.dll" "$(SolutionDir)bin\\"
 if exist "..\..\autorun\msvcp60.dll" copy /Y "..\..\autorun\msvcp60.dll" "$(TargetDir)"
@@ -197,8 +195,6 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
 if exist "..\..\sdk\BINK\binkw32.dll" copy /Y "..\..\sdk\BINK\binkw32.dll" "$(TargetDir)"
 if exist "..\..\sdk\BINK\binkw32.dll" copy /Y "..\..\sdk\BINK\binkw32.dll" "$(SolutionDir)bin\\"
-if exist "..\..\sdk\FMOD\api\fmod.dll" copy /Y "..\..\sdk\FMOD\api\fmod.dll" "$(TargetDir)"
-if exist "..\..\sdk\FMOD\api\fmod.dll" copy /Y "..\..\sdk\FMOD\api\fmod.dll" "$(SolutionDir)bin\\"
 if exist "..\..\autorun\mfc42.dll" copy /Y "..\..\autorun\mfc42.dll" "$(TargetDir)"
 if exist "..\..\autorun\mfc42.dll" copy /Y "..\..\autorun\mfc42.dll" "$(SolutionDir)bin\\"
 if exist "..\..\autorun\msvcp60.dll" copy /Y "..\..\autorun\msvcp60.dll" "$(TargetDir)"
@@ -254,8 +250,6 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
 if exist "..\..\sdk\BINK\binkw32.dll" copy /Y "..\..\sdk\BINK\binkw32.dll" "$(TargetDir)"
 if exist "..\..\sdk\BINK\binkw32.dll" copy /Y "..\..\sdk\BINK\binkw32.dll" "$(SolutionDir)bin\\"
-if exist "..\..\sdk\FMOD\api\fmod.dll" copy /Y "..\..\sdk\FMOD\api\fmod.dll" "$(TargetDir)"
-if exist "..\..\sdk\FMOD\api\fmod.dll" copy /Y "..\..\sdk\FMOD\api\fmod.dll" "$(SolutionDir)bin\\"
 if exist "..\..\autorun\mfc42.dll" copy /Y "..\..\autorun\mfc42.dll" "$(TargetDir)"
 if exist "..\..\autorun\mfc42.dll" copy /Y "..\..\autorun\mfc42.dll" "$(SolutionDir)bin\\"
 if exist "..\..\autorun\msvcp60.dll" copy /Y "..\..\autorun\msvcp60.dll" "$(TargetDir)"
@@ -311,8 +305,6 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
 if exist "..\..\sdk\BINK\binkw32.dll" copy /Y "..\..\sdk\BINK\binkw32.dll" "$(TargetDir)"
 if exist "..\..\sdk\BINK\binkw32.dll" copy /Y "..\..\sdk\BINK\binkw32.dll" "$(SolutionDir)bin\\"
-if exist "..\..\sdk\FMOD\api\fmod.dll" copy /Y "..\..\sdk\FMOD\api\fmod.dll" "$(TargetDir)"
-if exist "..\..\sdk\FMOD\api\fmod.dll" copy /Y "..\..\sdk\FMOD\api\fmod.dll" "$(SolutionDir)bin\\"
 if exist "..\..\autorun\mfc42.dll" copy /Y "..\..\autorun\mfc42.dll" "$(TargetDir)"
 if exist "..\..\autorun\mfc42.dll" copy /Y "..\..\autorun\mfc42.dll" "$(SolutionDir)bin\\"
 if exist "..\..\autorun\msvcp60.dll" copy /Y "..\..\autorun\msvcp60.dll" "$(TargetDir)"
@@ -370,8 +362,6 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
 if exist "..\..\sdk\BINK\binkw32.dll" copy /Y "..\..\sdk\BINK\binkw32.dll" "$(TargetDir)"
 if exist "..\..\sdk\BINK\binkw32.dll" copy /Y "..\..\sdk\BINK\binkw32.dll" "$(SolutionDir)bin\\"
-if exist "..\..\sdk\FMOD\api\fmod.dll" copy /Y "..\..\sdk\FMOD\api\fmod.dll" "$(TargetDir)"
-if exist "..\..\sdk\FMOD\api\fmod.dll" copy /Y "..\..\sdk\FMOD\api\fmod.dll" "$(SolutionDir)bin\\"
 if exist "..\..\autorun\mfc42.dll" copy /Y "..\..\autorun\mfc42.dll" "$(TargetDir)"
 if exist "..\..\autorun\mfc42.dll" copy /Y "..\..\autorun\mfc42.dll" "$(SolutionDir)bin\\"
 if exist "..\..\autorun\msvcp60.dll" copy /Y "..\..\autorun\msvcp60.dll" "$(TargetDir)"
@@ -478,7 +468,6 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Target Name="CopyBlitzkriegRuntimeDlls" AfterTargets="Build" Condition="'$(Configuration)|$(Platform)' == 'Debug|Win32' Or '$(Configuration)|$(Platform)' == 'Release|Win32' Or '$(Configuration)|$(Platform)' == 'FastDebug|Win32' Or '$(Configuration)|$(Platform)' == 'Profiler|Win32' Or '$(Configuration)|$(Platform)' == 'BetaRelease|Win32'">
     <ItemGroup>
-      <BlitzkriegRuntimeDll Include="$(ProjectDir)..\..\sdk\FMOD\api\fmod.dll" Condition="Exists('$(ProjectDir)..\..\sdk\FMOD\api\fmod.dll')" />
       <BlitzkriegRuntimeDll Include="$(ProjectDir)..\..\sdk\BINK\binkw32.dll" Condition="Exists('$(ProjectDir)..\..\sdk\BINK\binkw32.dll')" />
       <BlitzkriegRuntimeDll Include="$(ProjectDir)..\..\autorun\mfc42.dll" Condition="Exists('$(ProjectDir)..\..\autorun\mfc42.dll')" />
       <BlitzkriegRuntimeDll Include="$(ProjectDir)..\..\autorun\msvcp60.dll" Condition="Exists('$(ProjectDir)..\..\autorun\msvcp60.dll')" />

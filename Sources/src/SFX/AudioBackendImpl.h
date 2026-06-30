@@ -3,8 +3,8 @@
 
 #include "AudioBackend.h"
 
-#if !defined(SFX_USE_FMOD_BACKEND) && !defined(SFX_USE_OPEN_AUDIO_BACKEND)
-#define SFX_USE_FMOD_BACKEND 1
+#if !defined(SFX_USE_OPEN_AUDIO_BACKEND)
+#define SFX_USE_OPEN_AUDIO_BACKEND 1
 #endif
 
 namespace NAudioBackendImpl

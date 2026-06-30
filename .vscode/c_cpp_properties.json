@@ -3,7 +3,6 @@
     {
       "name": "Win32-Debug",
       "includePath": [
-        "${workspaceFolder}/Sources/sdk/FMOD/api/inc",
         "${workspaceFolder}/Sources/sdk/BINK",
         "${workspaceFolder}/Sources/sdk/STINGRAY/Include",
         "${workspaceFolder}/Sources/sdk/STINGRAY/Include/Toolkit",
@@ -66,7 +65,6 @@
     {
       "name": "Win32-Release",
       "includePath": [
-        "${workspaceFolder}/Sources/sdk/FMOD/api/inc",
         "${workspaceFolder}/Sources/sdk/BINK",
         "${workspaceFolder}/Sources/sdk/STINGRAY/Include",
         "${workspaceFolder}/Sources/sdk/STINGRAY/Include/Toolkit",
