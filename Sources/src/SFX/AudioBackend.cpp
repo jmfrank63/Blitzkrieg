@@ -67,6 +67,56 @@ namespace NAudioBackend
 		return FSOUND_PlaySound( FSOUND_FREE, static_cast<FSOUND_SAMPLE*>(pSample) );
 	}
 
+	int PlaySamplePaused( void *pSample )
+	{
+		return FSOUND_PlaySoundEx( FSOUND_FREE, static_cast<FSOUND_SAMPLE*>(pSample), 0, true );
+	}
+
+	void SetChannelVolume( int nChannel, int nVolume )
+	{
+		FSOUND_SetVolume( nChannel, nVolume );
+	}
+
+	void SetChannelPan( int nChannel, int nPan )
+	{
+		FSOUND_SetPan( nChannel, nPan );
+	}
+
+	void SetChannelPaused( int nChannel, bool bPaused )
+	{
+		FSOUND_SetPaused( nChannel, bPaused );
+	}
+
+	void StopChannel( int nChannel )
+	{
+		FSOUND_StopSound( nChannel );
+	}
+
+	bool IsChannelPlaying( int nChannel )
+	{
+		return FSOUND_IsPlaying( nChannel ) != 0;
+	}
+
+	int GetChannelsPlaying()
+	{
+		return FSOUND_GetChannelsPlaying();
+	}
+
+	unsigned int GetChannelPosition( int nChannel )
+	{
+		return FSOUND_GetCurrentPosition( nChannel );
+	}
+
+	void SetChannelPosition( int nChannel, unsigned int nPosition )
+	{
+		FSOUND_SetCurrentPosition( nChannel, nPosition );
+	}
+
+	int GetLastError()
+	{
+		return FSOUND_GetError();
+	}
+
 	void SetChannel3DAttributes( int nChannel, const CVec3 &vPos )
 	{
 		FSOUND_3D_SetAttributes( nChannel, const_cast<float*>(vPos.m), 0 );

@@ -55,6 +55,12 @@ Second implementation slice:
 - Moved sample-level FMOD calls out of `SampleSounds.cpp`.
 - Added `tools/audio/check_sfx_sample_backend.ps1` to keep sample code behind the backend boundary.
 
+Third implementation slice:
+
+- Routed `SoundEngine.cpp` sample/channel operations through `AudioBackend`.
+- Added `tools/audio/check_sfx_soundengine_sample_backend.ps1`.
+- Left stream and device FMOD calls in `SoundEngine.cpp` for the next slice.
+
 ## References
 
 - `Sources/src/SFX/Specific.h`
@@ -78,10 +84,12 @@ Second implementation slice:
 - `docs/audio/fmod-replacement-inventory.md`
 - `tools/audio/check_sfx_public_headers.ps1`
 - `tools/audio/check_sfx_sample_backend.ps1`
+- `tools/audio/check_sfx_soundengine_sample_backend.ps1`
 
 ## Next Steps
 
-- Move `SoundEngine.cpp` playback and stream operations behind backend functions while preserving current FMOD behavior.
+- Move `SoundEngine.cpp` stream operations behind backend functions while preserving current FMOD behavior.
 - Keep `tools/audio/check_sfx_public_headers.ps1` green.
 - Keep `tools/audio/check_sfx_sample_backend.ps1` green.
+- Keep `tools/audio/check_sfx_soundengine_sample_backend.ps1` green.
 - Continue to build `SFX.vcxproj` and `Game.vcxproj` after each small slice.

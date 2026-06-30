@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 
 #include "AudioFmodCompat.h"
+#include "AudioBackend.h"
 #include "SoundEngine.h"
 
 #include "SampleSounds.h"
@@ -20,14 +21,14 @@ class CPlayVisitor : public ISFXVisitor
 		if ( nChannel != -1 )
 		{
 			const int nVolume = pSound->GetVolume() >= 0 ? pSound->GetVolume() * pSFX->GetSFXMasterVolume() : pSFX->GetSFXMasterVolume();
-			FSOUND_SetVolume( nChannel, nVolume );
+			NAudioBackend::SetChannelVolume( nChannel, nVolume );
 			const int nPan = 128 + 127 * pSound->GetPan();
-			FSOUND_SetPan( nChannel, nPan );
+			NAudioBackend::SetChannelPan( nChannel, nPan );
 			pSFX->MapSound( pSound, nChannel );
 		}
 		else
 		{
-			NStr::DebugTrace( "Sound error %d\n", FSOUND_GetError() );
+			NStr::DebugTrace( "Sound error %d\n", NAudioBackend::GetLastError() );
 		}
 		pSound->SetChannel( nChannel );
 		return nChannel;
@@ -36,19 +37,19 @@ public:
 	void Init( class CSoundEngine *_pSFX ) { pSFX = _pSFX; }
 	virtual int STDCALL VisitSound2D( CSound2D *pSound )
 	{
-		FSOUND_SAMPLE *sample = static_cast<FSOUND_SAMPLE*>(pSound->GetSample()->GetInternalContainer());
+		void *sample = pSound->GetSample()->GetInternalContainer();
 		if ( sample == 0 )
 			return -1;
-		const int nChannel = FSOUND_PlaySoundEx( FSOUND_FREE, sample, 0, true );
+		const int nChannel = NAudioBackend::PlaySamplePaused( sample );
 		return RegisterSound( pSound, nChannel );
 	}
 	virtual int STDCALL VisitSound3D( CSound3D *pSound, const CVec3 &vPos )
 	{
-		FSOUND_SAMPLE *sample = static_cast<FSOUND_SAMPLE*>(pSound->GetSample()->GetInternalContainer());
+		void *sample = pSound->GetSample()->GetInternalContainer();
 		if ( sample == 0 )
 			return -1;
-		const int nChannel = FSOUND_PlaySoundEx( FSOUND_FREE, sample, 0,	true );
-		FSOUND_3D_SetAttributes( nChannel, const_cast<float*>(vPos.m), 0 );
+		const int nChannel = NAudioBackend::PlaySamplePaused( sample );
+		NAudioBackend::SetChannel3DAttributes( nChannel, vPos );
 		return RegisterSound( pSound, nChannel );
 	}
 };
@@ -234,7 +235,7 @@ void CSoundEngine::Update( interface ICamera *pCamera )
 	if ( (timeStreamFinished != -1) && (timeStreamFinished < timeLastUpdate) && (timeLastUpdate - timeStreamFinished > 15000) )
 		PlayNextMelody();
 	
-	const int nNumChannels = FSOUND_GetChannelsPlaying();
+	const int nNumChannels = NAudioBackend::GetChannelsPlaying();
 	
 	{
 		IScene * pScene = GetSingleton<IScene>();
@@ -379,7 +380,7 @@ bool CSoundEngine::Pause( bool bPause )
 		{
 			if ( nStreamingChannel != it->first )
 			{
-				FSOUND_SetPaused( it->first, bPause );
+				NAudioBackend::SetChannelPaused( it->first, bPause );
 			}
 		}
 		bPaused = bPause;
@@ -395,12 +396,12 @@ void CSoundEngine::ClearChannels()
 	{
 		if ( !it->second->IsValid() )
 		{
-			FSOUND_StopSound( it->first );
+			NAudioBackend::StopChannel( it->first );
 		}
-		if ( FSOUND_IsPlaying( it->first ) == 0 )
+		if ( !NAudioBackend::IsChannelPlaying( it->first ) )
 		{
 			channels.push_back( it->first );
-			FSOUND_StopSound( it->first );
+			NAudioBackend::StopChannel( it->first );
 		}
 	}
 	for ( std::list<int>::iterator it = channels.begin(); it != channels.end(); ++it )
@@ -423,8 +424,8 @@ int CSoundEngine::PlaySample( ISound *pSound, bool bLooped, unsigned int nStartP
 	pSample->SetLoop( bLooped );
 	const int nChannel = pSound->Visit( &thePlayVisitor );
 	if ( 0 != nStartPos )
-		FSOUND_SetCurrentPosition( nChannel, nStartPos );
-	FSOUND_SetPaused( nChannel, false );
+		NAudioBackend::SetChannelPosition( nChannel, nStartPos );
+	NAudioBackend::SetChannelPaused( nChannel, false );
 	return nChannel;
 }
 void CSoundEngine::UpdateSample( ISound *pSound )
@@ -434,9 +435,9 @@ void CSoundEngine::UpdateSample( ISound *pSound )
 	{
 		const int nChannel = pos->second;
 		const int nPan = Clamp( int(128 + pSound->GetPan() * 127), 0, 255 );
-		FSOUND_SetPan( nChannel, nPan );
+		NAudioBackend::SetChannelPan( nChannel, nPan );
 		const int nVolume = Clamp( int(pSound->GetVolume() >= 0 ? pSound->GetVolume() * GetSFXMasterVolume() : GetSFXMasterVolume()), 0, 255 );
-		FSOUND_SetVolume( nChannel, nVolume );
+		NAudioBackend::SetChannelVolume( nChannel, nVolume );
 	}
 }
 void CSoundEngine::StopSample( ISound *pSound )
@@ -458,7 +459,7 @@ void CSoundEngine::StopChannel( int nChannel )
 {
  	if ( nChannel == -1 )
 		return;
-	FSOUND_StopSound( nChannel );
+	NAudioBackend::StopChannel( nChannel );
 	CChannelSoundMap::iterator pos = soundsMap.find( nChannel );
 	if ( pos != soundsMap.end() )
 	{
@@ -473,7 +474,7 @@ unsigned int CSoundEngine::GetCurrentPosition( ISound * pSound )
 	if ( pos != channelsMap.end() )
 	{
 		int nChannel = (*pos).second;
-		return FSOUND_GetCurrentPosition( nChannel );
+		return NAudioBackend::GetChannelPosition( nChannel );
 	}
 	return 0;
 }
@@ -483,7 +484,7 @@ void CSoundEngine::SetCurrentPosition( ISound * pSound, unsigned int pos )
 	if ( it != channelsMap.end() )
 	{
 		int nChannel = (*it).second;
-		FSOUND_SetCurrentPosition( nChannel, pos );
+		NAudioBackend::SetChannelPosition( nChannel, pos );
 	}
 }
 void CSoundEngine::ReEnableSounds()
@@ -492,8 +493,8 @@ void CSoundEngine::ReEnableSounds()
 	{
 		for ( CChannelSoundMap::iterator it = soundsMap.begin(); it != soundsMap.end(); ++it )
 		{
-			if ( FSOUND_IsPlaying(it->first) )
-				FSOUND_StopSound( it->first );
+			if ( NAudioBackend::IsChannelPlaying( it->first ) )
+				NAudioBackend::StopChannel( it->first );
 		}
 		soundsMap.clear();
 		channelsMap.clear();

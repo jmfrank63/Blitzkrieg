@@ -14,6 +14,16 @@ namespace NAudioBackend
 	int GetSampleMode3D();
 	bool IsChannelPlayingSample( int nChannel, void *pSample );
 	int PlaySample( void *pSample );
+	int PlaySamplePaused( void *pSample );
+	void SetChannelVolume( int nChannel, int nVolume );
+	void SetChannelPan( int nChannel, int nPan );
+	void SetChannelPaused( int nChannel, bool bPaused );
+	void StopChannel( int nChannel );
+	bool IsChannelPlaying( int nChannel );
+	int GetChannelsPlaying();
+	unsigned int GetChannelPosition( int nChannel );
+	void SetChannelPosition( int nChannel, unsigned int nPosition );
+	int GetLastError();
 	void SetChannel3DAttributes( int nChannel, const CVec3 &vPos );
 }
 
