@@ -15,6 +15,8 @@ The first boundary step has started:
 - `SoundEngine.cpp` stream operations now go through `Sources/src/SFX/AudioBackend.cpp`.
 - `SoundEngine.cpp` device/control operations now go through `Sources/src/SFX/AudioBackend.cpp`.
 - Upper-layer SFX source files are guarded against direct FMOD symbols and naming.
+- `Sources/src/SFX/AudioBackend.cpp` is now a public wrapper over an internal backend implementation.
+- The current FMOD implementation lives in `Sources/src/SFX/AudioBackendFmod.cpp` behind the default `SFX_USE_FMOD_BACKEND` selection.
 - The existing FMOD implementation is still active behind private SFX implementation files.
 - `Sources/src/SFX/AudioFmodCompat.h` is the current private compatibility include.
 
@@ -24,13 +26,11 @@ This is not the open backend yet. It is the seam that lets the open backend repl
 
 Primary files still using FMOD directly:
 
-- `Sources/src/SFX/AudioBackend.cpp`
+- `Sources/src/SFX/AudioBackendFmod.cpp`
 - `Sources/src/SFX/AudioFmodCompat.h`
-- `Sources/src/SFX/SoundEngine.cpp`
-- `Sources/src/SFX/SoundObjectFactory.cpp`
 - `Sources/src/SFX/SFX.vcxproj`
 
-Important FMOD responsibilities currently isolated in `AudioBackend.cpp`:
+Important FMOD responsibilities currently isolated behind the backend implementation boundary:
 
 - device enumeration and initialization
 - output selection
@@ -39,7 +39,7 @@ Important FMOD responsibilities currently isolated in `AudioBackend.cpp`:
 - 3D listener updates
 - 3D distance and rolloff factors
 
-Important FMOD responsibilities currently isolated in `AudioBackend.cpp`:
+Important FMOD responsibilities currently isolated behind the backend implementation boundary:
 
 - sample loading from in-memory data
 - sample free
@@ -117,17 +117,18 @@ Phase 1, backend boundary:
 - Keep `SoundEngine.cpp` sample/channel regions free of direct FMOD calls.
 - Keep `SoundEngine.cpp` stream regions free of direct FMOD calls.
 - Keep `SoundEngine.cpp` device/control regions free of direct FMOD calls.
-- Keep upper-layer SFX source free of FMOD naming outside `AudioBackend.cpp` and `AudioFmodCompat.h`.
+- Keep upper-layer SFX source free of FMOD naming outside backend implementation files.
+- Keep `AudioBackend.cpp` free of direct FMOD references; FMOD compatibility belongs in `AudioBackendFmod.cpp`.
 
 Phase 2, samples:
 
-- Replace the FMOD implementation inside `AudioBackend.cpp`.
+- Replace the FMOD implementation currently in `AudioBackendFmod.cpp` with an open implementation.
 - Replace one-shot channel ownership checks.
 - Preserve weapon, UI, unit acknowledgement, movement, and explosion sounds.
 
 Phase 3, streaming:
 
-- Replace the FMOD stream implementation inside `AudioBackend.cpp`.
+- Replace the FMOD stream implementation currently in `AudioBackendFmod.cpp` with an open implementation.
 - Add Opus support for long-form audio.
 - Preserve existing OGG music while conversion policy is decided.
 

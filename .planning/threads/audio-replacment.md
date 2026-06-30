@@ -79,6 +79,14 @@ Sixth implementation slice:
 - Added `tools/audio/check_sfx_upper_layer_fmod.ps1`.
 - SFX upper-layer source is guarded so FMOD naming/symbols stay in backend files only.
 
+Seventh implementation slice:
+
+- Added `Sources/src/SFX/AudioBackendImpl.h` as the internal backend implementation contract.
+- Moved the current FMOD implementation into `Sources/src/SFX/AudioBackendFmod.cpp`.
+- Replaced `Sources/src/SFX/AudioBackend.cpp` with a clean delegating wrapper.
+- Added `tools/audio/check_sfx_backend_scaffold.ps1`.
+- FMOD remains the default active backend through `SFX_USE_FMOD_BACKEND`.
+
 ## References
 
 - `Sources/src/SFX/Specific.h`
@@ -96,6 +104,8 @@ Sixth implementation slice:
 - `Sources/src/SFX/SFX.vcxproj`
 - `Sources/src/SFX/AudioBackend.h`
 - `Sources/src/SFX/AudioBackend.cpp`
+- `Sources/src/SFX/AudioBackendImpl.h`
+- `Sources/src/SFX/AudioBackendFmod.cpp`
 - `Sources/src/SFX/AudioFmodCompat.h`
 - `Sources/src/data/Sounds`
 - `Sources/src/data/Music`
@@ -106,15 +116,17 @@ Sixth implementation slice:
 - `tools/audio/check_sfx_soundengine_stream_backend.ps1`
 - `tools/audio/check_sfx_soundengine_device_backend.ps1`
 - `tools/audio/check_sfx_upper_layer_fmod.ps1`
+- `tools/audio/check_sfx_backend_scaffold.ps1`
 
 ## Next Steps
 
 - Audit remaining SFX project-file FMOD references before removing the compatibility backend.
-- Start replacing `AudioBackend.cpp` FMOD internals with an open backend in small pieces.
+- Add the first `AudioBackendOpen.cpp` scaffold and move device/no-sound behavior behind it.
 - Keep `tools/audio/check_sfx_public_headers.ps1` green.
 - Keep `tools/audio/check_sfx_sample_backend.ps1` green.
 - Keep `tools/audio/check_sfx_soundengine_sample_backend.ps1` green.
 - Keep `tools/audio/check_sfx_soundengine_stream_backend.ps1` green.
 - Keep `tools/audio/check_sfx_soundengine_device_backend.ps1` green.
 - Keep `tools/audio/check_sfx_upper_layer_fmod.ps1` green.
+- Keep `tools/audio/check_sfx_backend_scaffold.ps1` green.
 - Continue to build `SFX.vcxproj` and `Game.vcxproj` after each small slice.

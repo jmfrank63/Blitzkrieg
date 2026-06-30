@@ -4,6 +4,8 @@ $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..')
 $sfxRoot = Join-Path $repoRoot 'Sources/src/SFX'
 $allowed = @(
     'AudioBackend.cpp',
+    'AudioBackendFmod.cpp',
+    'AudioBackendImpl.h',
     'AudioFmodCompat.h',
     'SFX.vcxproj'
 )
