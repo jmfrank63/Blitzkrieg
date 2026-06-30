@@ -21,6 +21,7 @@ The first boundary step has started:
 - The opt-in open backend uses miniaudio for device output and simple WAV sample playback.
 - The opt-in open backend parses PCM WAV sample metadata, stores PCM bytes, and creates per-channel miniaudio sounds.
 - The opt-in open backend opens streams as miniaudio file-backed sounds and routes stream channels through the same channel controls.
+- The opt-in open backend applies basic positional sample volume and pan from 3D channel attributes.
 - The existing FMOD implementation is still active behind private SFX implementation files.
 - `Sources/src/SFX/AudioFmodCompat.h` is the current private compatibility include.
 
@@ -142,6 +143,7 @@ Phase 3, streaming:
 
 Phase 4, 3D parity:
 
+- Keep open backend distance, rolloff, positional attenuation, and positional pan buildable.
 - Replace listener, distance, rolloff, and positional channel behavior.
 - Verify camera movement, weapon fire, movement loops, and explosions.
 

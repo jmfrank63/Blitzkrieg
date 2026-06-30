@@ -119,6 +119,14 @@ Eleventh implementation slice:
 - Added `tools/audio/check_sfx_open_backend_stream.ps1`.
 - Existing OGG music may still require an explicit Vorbis/Opus decoder layer if miniaudio cannot decode it in this build.
 
+Twelfth implementation slice:
+
+- `AudioBackendOpen.cpp` now stores per-channel base volume, distance attenuation, and pan state.
+- `SetDistanceFactor`, `SetRolloffFactor`, and `SetChannel3DAttributes` now affect open backend sample playback.
+- 3D sample channels now get simple distance-based volume attenuation and x-axis stereo pan.
+- Added `tools/audio/check_sfx_open_backend_3d.ps1`.
+- This is basic positional mixing, not final FMOD listener parity.
+
 ## References
 
 - `Sources/src/SFX/Specific.h`
@@ -155,6 +163,7 @@ Eleventh implementation slice:
 - `tools/audio/check_sfx_open_backend_wav.ps1`
 - `tools/audio/check_sfx_open_backend_miniaudio.ps1`
 - `tools/audio/check_sfx_open_backend_stream.ps1`
+- `tools/audio/check_sfx_open_backend_3d.ps1`
 
 ## Next Steps
 
@@ -171,4 +180,5 @@ Eleventh implementation slice:
 - Keep `tools/audio/check_sfx_open_backend_wav.ps1` green.
 - Keep `tools/audio/check_sfx_open_backend_miniaudio.ps1` green.
 - Keep `tools/audio/check_sfx_open_backend_stream.ps1` green.
+- Keep `tools/audio/check_sfx_open_backend_3d.ps1` green.
 - Continue to build `SFX.vcxproj` and `Game.vcxproj` after each small slice.

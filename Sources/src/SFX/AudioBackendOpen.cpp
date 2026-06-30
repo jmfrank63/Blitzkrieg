@@ -40,6 +40,9 @@ namespace
 		bool bSoundInitialized;
 		SOpenSample *pSample;
 		SOpenStream *pStream;
+		float fBaseVolume;
+		float fDistanceVolume;
+		float fPan;
 	};
 
 	struct SOpenStream
@@ -53,6 +56,17 @@ namespace
 	const int cMaxOpenChannels = 128;
 	SOpenChannel g_channels[cMaxOpenChannels];
 	int g_nNextChannel = 0;
+	float g_fDistanceFactor = 1.0f;
+	float g_fRolloffFactor = 1.0f;
+
+	float ClampFloat( float fValue, float fMin, float fMax )
+	{
+		if ( fValue < fMin )
+			return fMin;
+		if ( fValue > fMax )
+			return fMax;
+		return fValue;
+	}
 
 	void ResetChannel( int nChannel )
 	{
@@ -71,6 +85,42 @@ namespace
 		}
 		g_channels[nChannel].pSample = 0;
 		g_channels[nChannel].pStream = 0;
+		g_channels[nChannel].fBaseVolume = 1.0f;
+		g_channels[nChannel].fDistanceVolume = 1.0f;
+		g_channels[nChannel].fPan = 0.0f;
+	}
+
+	void ApplyChannelMix( int nChannel )
+	{
+		if ( nChannel < 0 || nChannel >= cMaxOpenChannels || !g_channels[nChannel].bSoundInitialized )
+			return;
+
+		ma_sound_set_volume( &g_channels[nChannel].sound, g_channels[nChannel].fBaseVolume * g_channels[nChannel].fDistanceVolume );
+		ma_sound_set_pan( &g_channels[nChannel].sound, g_channels[nChannel].fPan );
+	}
+
+	float CalculateDistanceVolume( const SOpenSample *pSample, const CVec3 &vPos )
+	{
+		if ( !pSample )
+			return 1.0f;
+
+		const float fMinDistance = Max( pSample->fMinDistance, 1.0f );
+		const float fDistance = fabs( vPos ) * Max( g_fDistanceFactor, 0.0f );
+		if ( fDistance <= fMinDistance )
+			return 1.0f;
+
+		const float fRolloff = Max( g_fRolloffFactor, 0.01f );
+		const float fAttenuatedDistance = fMinDistance + (fDistance - fMinDistance) * fRolloff;
+		return ClampFloat( fMinDistance / fAttenuatedDistance, 0.0f, 1.0f );
+	}
+
+	float CalculatePan( const CVec3 &vPos )
+	{
+		const float fDistance = fabsxy( vPos );
+		if ( fDistance <= 0.001f )
+			return 0.0f;
+
+		return ClampFloat( vPos.x / fDistance, -1.0f, 1.0f );
 	}
 
 	void OpenStreamEndCallback( void *pUserData, ma_sound *pSound )
@@ -300,10 +350,12 @@ namespace NAudioBackendImpl
 
 	void SetDistanceFactor( float fFactor )
 	{
+		g_fDistanceFactor = Max( fFactor, 0.0f );
 	}
 
 	void SetRolloffFactor( float fFactor )
 	{
+		g_fRolloffFactor = ClampFloat( fFactor, 0.0f, 10.0f );
 	}
 
 	void FreeSample( void *pSample )
@@ -414,20 +466,30 @@ namespace NAudioBackendImpl
 
 		g_channels[nChannel].bSoundInitialized = true;
 		g_channels[nChannel].pSample = pOpenSample;
+		g_channels[nChannel].fBaseVolume = 1.0f;
+		g_channels[nChannel].fDistanceVolume = 1.0f;
+		g_channels[nChannel].fPan = 0.0f;
 		ma_sound_set_looping( &g_channels[nChannel].sound, pOpenSample->bLooped ? MA_TRUE : MA_FALSE );
+		ApplyChannelMix( nChannel );
 		return nChannel;
 	}
 
 	void SetChannelVolume( int nChannel, int nVolume )
 	{
 		if ( nChannel >= 0 && nChannel < cMaxOpenChannels && g_channels[nChannel].bSoundInitialized )
-			ma_sound_set_volume( &g_channels[nChannel].sound, static_cast<float>( nVolume ) / 255.0f );
+		{
+			g_channels[nChannel].fBaseVolume = ClampFloat( static_cast<float>( nVolume ) / 255.0f, 0.0f, 1.0f );
+			ApplyChannelMix( nChannel );
+		}
 	}
 
 	void SetChannelPan( int nChannel, int nPan )
 	{
 		if ( nChannel >= 0 && nChannel < cMaxOpenChannels && g_channels[nChannel].bSoundInitialized )
-			ma_sound_set_pan( &g_channels[nChannel].sound, (static_cast<float>( nPan ) - 128.0f) / 128.0f );
+		{
+			g_channels[nChannel].fPan = ClampFloat( (static_cast<float>( nPan ) - 128.0f) / 128.0f, -1.0f, 1.0f );
+			ApplyChannelMix( nChannel );
+		}
 	}
 
 	void SetChannelPaused( int nChannel, bool bPaused )
@@ -486,6 +548,12 @@ namespace NAudioBackendImpl
 
 	void SetChannel3DAttributes( int nChannel, const CVec3 &vPos )
 	{
+		if ( nChannel >= 0 && nChannel < cMaxOpenChannels && g_channels[nChannel].bSoundInitialized )
+		{
+			g_channels[nChannel].fDistanceVolume = CalculateDistanceVolume( g_channels[nChannel].pSample, vPos );
+			g_channels[nChannel].fPan = CalculatePan( vPos );
+			ApplyChannelMix( nChannel );
+		}
 	}
 
 	void* OpenStream( const char *pszFileName, bool bLooped )
@@ -546,6 +614,10 @@ namespace NAudioBackendImpl
 
 		g_channels[nChannel].bSoundInitialized = true;
 		g_channels[nChannel].pStream = pOpenStream;
+		g_channels[nChannel].fBaseVolume = 1.0f;
+		g_channels[nChannel].fDistanceVolume = 1.0f;
+		g_channels[nChannel].fPan = 0.0f;
+		ApplyChannelMix( nChannel );
 		ma_sound_set_end_callback( &g_channels[nChannel].sound, OpenStreamEndCallback, pOpenStream );
 		ma_sound_start( &g_channels[nChannel].sound );
 		return nChannel;
