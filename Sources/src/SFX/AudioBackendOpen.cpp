@@ -1,16 +1,33 @@
 #include "StdAfx.h"
 
 #include "AudioBackendImpl.h"
+#include "AudioBackendXiphVorbis.h"
 
 #if defined(SFX_USE_OPEN_AUDIO_BACKEND)
 
+#define STB_VORBIS_HEADER_ONLY
+#include "../../sdk/stb/stb_vorbis.c"
+
 #define MINIAUDIO_IMPLEMENTATION
 #include "../../sdk/miniaudio/miniaudio.h"
+
+#undef STB_VORBIS_HEADER_ONLY
+#include "../../sdk/stb/stb_vorbis.c"
 
 namespace
 {
 	ma_engine g_engine;
 	bool g_bEngineInitialized = false;
+
+	struct SXiphStreamDataSource
+	{
+		ma_data_source_base base;
+		SXiphVorbisStream *pVorbisStream;
+		unsigned int nSampleRate;
+		unsigned int nChannels;
+		unsigned int nBlockAlign;
+		unsigned long long nTotalFrames;
+	};
 
 	struct SOpenSample
 	{
@@ -35,8 +52,12 @@ namespace
 	struct SOpenChannel
 	{
 		ma_audio_buffer buffer;
+		ma_decoder decoder;
+		SXiphStreamDataSource xiphDataSource;
 		ma_sound sound;
 		bool bBufferInitialized;
+		bool bDecoderInitialized;
+		bool bXiphDataSourceInitialized;
 		bool bSoundInitialized;
 		SOpenSample *pSample;
 		SOpenStream *pStream;
@@ -51,6 +72,11 @@ namespace
 		bool bLooped;
 		NAudioBackend::TStreamCallback pEndCallback;
 		void *pUserData;
+		std::vector<char> encodedData;
+		unsigned int nSampleRate;
+		unsigned int nChannels;
+		unsigned int nBlockAlign;
+		bool bUseXiphDecoder;
 	};
 
 	const int cMaxOpenChannels = 128;
@@ -68,6 +94,88 @@ namespace
 		return fValue;
 	}
 
+	ma_result XiphDataSourceRead( ma_data_source *pDataSource, void *pFramesOut, ma_uint64 nFrameCount, ma_uint64 *pFramesRead )
+	{
+		SXiphStreamDataSource *pXiph = static_cast<SXiphStreamDataSource*>( pDataSource );
+		if ( pFramesRead )
+			*pFramesRead = 0;
+		if ( !pXiph || !pXiph->pVorbisStream || pXiph->nBlockAlign == 0 )
+			return MA_INVALID_ARGS;
+
+		const ma_uint64 nBytesToRead = nFrameCount * pXiph->nBlockAlign;
+		if ( nBytesToRead == 0 )
+			return MA_SUCCESS;
+
+		if ( !pFramesOut )
+		{
+			const unsigned long long nTargetFrame = TellXiphVorbisStream( pXiph->pVorbisStream ) + nFrameCount;
+			if ( !SeekXiphVorbisStream( pXiph->pVorbisStream, nTargetFrame ) )
+				return MA_ERROR;
+			if ( pFramesRead )
+				*pFramesRead = nFrameCount;
+			return MA_SUCCESS;
+		}
+
+		const long nBytesRead = ReadXiphVorbisStream( pXiph->pVorbisStream, static_cast<char*>( pFramesOut ), static_cast<long>( nBytesToRead ) );
+		if ( nBytesRead < 0 )
+			return MA_ERROR;
+		if ( pFramesRead )
+			*pFramesRead = nBytesRead / pXiph->nBlockAlign;
+		return nBytesRead > 0 ? MA_SUCCESS : MA_AT_END;
+	}
+
+	ma_result XiphDataSourceSeek( ma_data_source *pDataSource, ma_uint64 nFrameIndex )
+	{
+		SXiphStreamDataSource *pXiph = static_cast<SXiphStreamDataSource*>( pDataSource );
+		if ( !pXiph || !pXiph->pVorbisStream )
+			return MA_INVALID_ARGS;
+		return SeekXiphVorbisStream( pXiph->pVorbisStream, nFrameIndex ) ? MA_SUCCESS : MA_ERROR;
+	}
+
+	ma_result XiphDataSourceGetDataFormat( ma_data_source *pDataSource, ma_format *pFormat, ma_uint32 *pChannels, ma_uint32 *pSampleRate, ma_channel *pChannelMap, size_t nChannelMapCap )
+	{
+		SXiphStreamDataSource *pXiph = static_cast<SXiphStreamDataSource*>( pDataSource );
+		if ( !pXiph )
+			return MA_INVALID_ARGS;
+		if ( pFormat )
+			*pFormat = ma_format_s16;
+		if ( pChannels )
+			*pChannels = pXiph->nChannels;
+		if ( pSampleRate )
+			*pSampleRate = pXiph->nSampleRate;
+		if ( pChannelMap && nChannelMapCap > 0 )
+			ma_channel_map_init_standard( ma_standard_channel_map_default, pChannelMap, nChannelMapCap, pXiph->nChannels );
+		return MA_SUCCESS;
+	}
+
+	ma_result XiphDataSourceGetCursor( ma_data_source *pDataSource, ma_uint64 *pCursor )
+	{
+		SXiphStreamDataSource *pXiph = static_cast<SXiphStreamDataSource*>( pDataSource );
+		if ( !pXiph || !pXiph->pVorbisStream || !pCursor )
+			return MA_INVALID_ARGS;
+		*pCursor = TellXiphVorbisStream( pXiph->pVorbisStream );
+		return MA_SUCCESS;
+	}
+
+	ma_result XiphDataSourceGetLength( ma_data_source *pDataSource, ma_uint64 *pLength )
+	{
+		SXiphStreamDataSource *pXiph = static_cast<SXiphStreamDataSource*>( pDataSource );
+		if ( !pXiph || !pLength )
+			return MA_INVALID_ARGS;
+		*pLength = pXiph->nTotalFrames;
+		return MA_SUCCESS;
+	}
+
+	ma_data_source_vtable g_xiphDataSourceVTable =
+	{
+		XiphDataSourceRead,
+		XiphDataSourceSeek,
+		XiphDataSourceGetDataFormat,
+		XiphDataSourceGetCursor,
+		XiphDataSourceGetLength,
+		0
+	};
+
 	void ResetChannel( int nChannel )
 	{
 		if ( nChannel < 0 || nChannel >= cMaxOpenChannels )
@@ -82,6 +190,18 @@ namespace
 		{
 			ma_audio_buffer_uninit( &g_channels[nChannel].buffer );
 			g_channels[nChannel].bBufferInitialized = false;
+		}
+		if ( g_channels[nChannel].bDecoderInitialized )
+		{
+			ma_decoder_uninit( &g_channels[nChannel].decoder );
+			g_channels[nChannel].bDecoderInitialized = false;
+		}
+		if ( g_channels[nChannel].bXiphDataSourceInitialized )
+		{
+			ma_data_source_uninit( &g_channels[nChannel].xiphDataSource.base );
+			CloseXiphVorbisStream( g_channels[nChannel].xiphDataSource.pVorbisStream );
+			memset( &g_channels[nChannel].xiphDataSource, 0, sizeof( g_channels[nChannel].xiphDataSource ) );
+			g_channels[nChannel].bXiphDataSourceInitialized = false;
 		}
 		g_channels[nChannel].pSample = 0;
 		g_channels[nChannel].pStream = 0;
@@ -268,6 +388,90 @@ namespace
 			0 );
 		pSample->bBufferInitialized = ma_audio_buffer_init( &bufferConfig, &pSample->buffer ) == MA_SUCCESS;
 		return pSample->bBufferInitialized;
+	}
+
+	bool ReadWholeStream( IDataStream *pDataStream, std::vector<char> *pData )
+	{
+		if ( !pDataStream || !pData )
+			return false;
+
+		const int nSize = pDataStream->GetSize();
+		if ( nSize <= 0 )
+			return false;
+
+		pData->resize( nSize );
+		return pDataStream->Read( &(*pData)[0], nSize ) == nSize;
+	}
+
+	bool LoadStreamData( SOpenStream *pOpenStream )
+	{
+		if ( !pOpenStream )
+			return false;
+
+		IDataStorage *pStorage = GetSingleton<IDataStorage>();
+		if ( !pStorage )
+			return false;
+
+		if ( CPtr<IDataStream> pDataStream = pStorage->OpenStream( pOpenStream->szFileName.c_str(), STREAM_ACCESS_READ ) )
+			return ReadWholeStream( pDataStream, &pOpenStream->encodedData );
+
+		const char *pszStorageName = pStorage->GetName();
+		if ( pszStorageName && *pszStorageName )
+		{
+			const std::string szStorageName = pszStorageName;
+			if ( pOpenStream->szFileName.size() > szStorageName.size() &&
+				_strnicmp( pOpenStream->szFileName.c_str(), szStorageName.c_str(), szStorageName.size() ) == 0 )
+			{
+				const std::string szRelativeName = pOpenStream->szFileName.substr( szStorageName.size() );
+				if ( CPtr<IDataStream> pRelativeStream = pStorage->OpenStream( szRelativeName.c_str(), STREAM_ACCESS_READ ) )
+					return ReadWholeStream( pRelativeStream, &pOpenStream->encodedData );
+			}
+		}
+
+		return false;
+	}
+
+	bool CanDecodeStreamData( const std::vector<char> &encodedData )
+	{
+		if ( encodedData.empty() )
+			return false;
+
+		ma_decoder decoder;
+		if ( ma_decoder_init_memory( &encodedData[0], encodedData.size(), 0, &decoder ) != MA_SUCCESS )
+			return false;
+
+		ma_decoder_uninit( &decoder );
+		return true;
+	}
+
+	bool CanDecodeStreamWithXiph( SOpenStream *pOpenStream )
+	{
+		if ( !pOpenStream || pOpenStream->encodedData.empty() )
+			return false;
+
+		SXiphVorbisStream *pVorbisStream = 0;
+		if ( !OpenXiphVorbisStreamMemory( &pOpenStream->encodedData[0], static_cast<int>( pOpenStream->encodedData.size() ), &pVorbisStream ) )
+			return false;
+
+		pOpenStream->nSampleRate = GetXiphVorbisStreamSampleRate( pVorbisStream );
+		pOpenStream->nChannels = GetXiphVorbisStreamChannels( pVorbisStream );
+		pOpenStream->nBlockAlign = GetXiphVorbisStreamBlockAlign( pVorbisStream );
+		pOpenStream->bUseXiphDecoder = pOpenStream->nSampleRate > 0 && pOpenStream->nChannels > 0 && pOpenStream->nBlockAlign > 0;
+		CloseXiphVorbisStream( pVorbisStream );
+		if ( !pOpenStream->bUseXiphDecoder )
+		{
+			return false;
+		}
+		return true;
+	}
+
+	void TraceOpenStream( const char *pszStatus, const SOpenStream *pOpenStream )
+	{
+		const int nBytes = pOpenStream ? static_cast<int>( pOpenStream->encodedData.size() ) : 0;
+		OutputDebugString( NStr::Format( "Open audio stream %s: %s (%d bytes)\n",
+																		 pszStatus,
+																		 pOpenStream ? pOpenStream->szFileName.c_str() : "",
+																		 nBytes ) );
 	}
 }
 
@@ -571,6 +775,28 @@ namespace NAudioBackendImpl
 		pStream->bLooped = bLooped;
 		pStream->pEndCallback = 0;
 		pStream->pUserData = 0;
+		pStream->nSampleRate = 0;
+		pStream->nChannels = 0;
+		pStream->nBlockAlign = 0;
+		pStream->bUseXiphDecoder = false;
+		if ( !LoadStreamData( pStream ) )
+		{
+			TraceOpenStream( "open failed", pStream );
+			delete pStream;
+			return 0;
+		}
+		if ( !CanDecodeStreamData( pStream->encodedData ) )
+		{
+			if ( !CanDecodeStreamWithXiph( pStream ) )
+			{
+				TraceOpenStream( "decode failed", pStream );
+				delete pStream;
+				return 0;
+			}
+			TraceOpenStream( "opened xiph", pStream );
+			return pStream;
+		}
+		TraceOpenStream( "opened", pStream );
 		return pStream;
 	}
 
@@ -616,18 +842,70 @@ namespace NAudioBackendImpl
 		if ( nChannel == -1 )
 			return -1;
 
-		const ma_uint32 nFlags = pOpenStream->bLooped ? MA_SOUND_FLAG_STREAM | MA_SOUND_FLAG_LOOPING : MA_SOUND_FLAG_STREAM;
-		if ( ma_sound_init_from_file( &g_engine, pOpenStream->szFileName.c_str(), nFlags, 0, 0, &g_channels[nChannel].sound ) != MA_SUCCESS )
+		if ( pOpenStream->encodedData.empty() )
 			return -1;
+
+		if ( pOpenStream->bUseXiphDecoder )
+		{
+			if ( pOpenStream->nBlockAlign == 0 )
+				return -1;
+
+			SXiphVorbisStream *pVorbisStream = 0;
+			if ( !OpenXiphVorbisStreamMemory( &pOpenStream->encodedData[0], static_cast<int>( pOpenStream->encodedData.size() ), &pVorbisStream ) )
+				return -1;
+
+			ma_data_source_config dataSourceConfig = ma_data_source_config_init();
+			dataSourceConfig.vtable = &g_xiphDataSourceVTable;
+			memset( &g_channels[nChannel].xiphDataSource, 0, sizeof( g_channels[nChannel].xiphDataSource ) );
+			g_channels[nChannel].xiphDataSource.pVorbisStream = pVorbisStream;
+			g_channels[nChannel].xiphDataSource.nSampleRate = GetXiphVorbisStreamSampleRate( pVorbisStream );
+			g_channels[nChannel].xiphDataSource.nChannels = GetXiphVorbisStreamChannels( pVorbisStream );
+			g_channels[nChannel].xiphDataSource.nBlockAlign = GetXiphVorbisStreamBlockAlign( pVorbisStream );
+			g_channels[nChannel].xiphDataSource.nTotalFrames = GetXiphVorbisStreamLength( pVorbisStream );
+			if ( ma_data_source_init( &dataSourceConfig, &g_channels[nChannel].xiphDataSource.base ) != MA_SUCCESS )
+			{
+				CloseXiphVorbisStream( pVorbisStream );
+				memset( &g_channels[nChannel].xiphDataSource, 0, sizeof( g_channels[nChannel].xiphDataSource ) );
+				return -1;
+			}
+			g_channels[nChannel].bXiphDataSourceInitialized = true;
+
+			const ma_uint32 nFlags = pOpenStream->bLooped ? MA_SOUND_FLAG_STREAM | MA_SOUND_FLAG_LOOPING : MA_SOUND_FLAG_STREAM;
+			if ( ma_sound_init_from_data_source( &g_engine, &g_channels[nChannel].xiphDataSource.base, nFlags, 0, &g_channels[nChannel].sound ) != MA_SUCCESS )
+			{
+				TraceOpenStream( "sound init failed", pOpenStream );
+				ResetChannel( nChannel );
+				return -1;
+			}
+		}
+		else
+		{
+			const ma_uint32 nFlags = pOpenStream->bLooped ? MA_SOUND_FLAG_STREAM | MA_SOUND_FLAG_LOOPING : MA_SOUND_FLAG_STREAM;
+			if ( ma_decoder_init_memory( &pOpenStream->encodedData[0], pOpenStream->encodedData.size(), 0, &g_channels[nChannel].decoder ) != MA_SUCCESS )
+			{
+				TraceOpenStream( "decode failed", pOpenStream );
+				return -1;
+			}
+			g_channels[nChannel].bDecoderInitialized = true;
+
+			if ( ma_sound_init_from_data_source( &g_engine, &g_channels[nChannel].decoder, nFlags, 0, &g_channels[nChannel].sound ) != MA_SUCCESS )
+			{
+				TraceOpenStream( "sound init failed", pOpenStream );
+				ResetChannel( nChannel );
+				return -1;
+			}
+		}
 
 		g_channels[nChannel].bSoundInitialized = true;
 		g_channels[nChannel].pStream = pOpenStream;
 		g_channels[nChannel].fBaseVolume = 1.0f;
 		g_channels[nChannel].fDistanceVolume = 1.0f;
 		g_channels[nChannel].fPan = 0.0f;
+		ma_sound_set_looping( &g_channels[nChannel].sound, pOpenStream->bLooped ? MA_TRUE : MA_FALSE );
 		ApplyChannelMix( nChannel );
 		ma_sound_set_end_callback( &g_channels[nChannel].sound, OpenStreamEndCallback, pOpenStream );
 		ma_sound_start( &g_channels[nChannel].sound );
+		TraceOpenStream( "started", pOpenStream );
 		return nChannel;
 	}
 

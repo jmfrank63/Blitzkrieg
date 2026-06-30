@@ -364,6 +364,8 @@
   <ItemDefinitionGroup Condition="'$(AudioBackend)'=='Open'">
     <ClCompile>
       <PreprocessorDefinitions>SFX_USE_OPEN_AUDIO_BACKEND;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\sdk\xiph\ogg-1.3.5\include;$(ProjectDir)..\..\sdk\xiph\vorbis-1.3.7\include;$(ProjectDir)..\..\sdk\xiph\vorbis-1.3.7\lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244;4305;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(AudioBackend)'=='FMOD'">
@@ -375,6 +377,11 @@
     <ClCompile Include="AudioBackend.cpp" />
     <ClCompile Include="AudioBackendFmod.cpp" />
     <ClCompile Include="AudioBackendOpen.cpp" />
+    <ClCompile Include="AudioBackendXiphVorbis.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
     <ClCompile Include="GlobalsLoader.cpp" />
     <ClCompile Include="StdAfx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -395,10 +402,126 @@
     <ClCompile Include="SoundManager.cpp" />
     <ClCompile Include="SoundObjectFactory.cpp" />
     <ClCompile Include="StreamFadeOff.cpp" />
+    <ClCompile Include="..\..\sdk\xiph\ogg-1.3.5\src\bitwise.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\ogg-1.3.5\src\framing.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\analysis.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\bitrate.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\block.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\codebook.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\envelope.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\floor0.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\floor1.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\info.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\lookup.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\lpc.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\lsp.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\mapping0.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\mdct.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\psy.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\registry.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\res0.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\sharedbook.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\smallft.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\synthesis.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\vorbisfile.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\vorbis-1.3.7\lib\window.c">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AudioBackend.h" />
     <ClInclude Include="AudioBackendImpl.h" />
+    <ClInclude Include="AudioBackendXiphVorbis.h" />
     <ClInclude Include="AudioFmodCompat.h" />
     <ClInclude Include="Specific.h" />
     <ClInclude Include="StdAfx.h" />
