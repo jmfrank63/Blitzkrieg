@@ -14,6 +14,7 @@ The first boundary step has started:
 - `SoundEngine.cpp` sample/channel operations now go through `Sources/src/SFX/AudioBackend.cpp`.
 - `SoundEngine.cpp` stream operations now go through `Sources/src/SFX/AudioBackend.cpp`.
 - `SoundEngine.cpp` device/control operations now go through `Sources/src/SFX/AudioBackend.cpp`.
+- Upper-layer SFX source files are guarded against direct FMOD symbols and naming.
 - The existing FMOD implementation is still active behind private SFX implementation files.
 - `Sources/src/SFX/AudioFmodCompat.h` is the current private compatibility include.
 
@@ -116,6 +117,7 @@ Phase 1, backend boundary:
 - Keep `SoundEngine.cpp` sample/channel regions free of direct FMOD calls.
 - Keep `SoundEngine.cpp` stream regions free of direct FMOD calls.
 - Keep `SoundEngine.cpp` device/control regions free of direct FMOD calls.
+- Keep upper-layer SFX source free of FMOD naming outside `AudioBackend.cpp` and `AudioFmodCompat.h`.
 
 Phase 2, samples:
 

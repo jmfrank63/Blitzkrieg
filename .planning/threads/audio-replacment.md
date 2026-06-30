@@ -73,6 +73,12 @@ Fifth implementation slice:
 - Added `tools/audio/check_sfx_soundengine_device_backend.ps1`.
 - Active direct FMOD calls are now concentrated behind `AudioBackend` plus other non-SFX projects/tools still listed in the inventory.
 
+Sixth implementation slice:
+
+- Renamed the module descriptor from `Sound (FMOD)` to `Sound`.
+- Added `tools/audio/check_sfx_upper_layer_fmod.ps1`.
+- SFX upper-layer source is guarded so FMOD naming/symbols stay in backend files only.
+
 ## References
 
 - `Sources/src/SFX/Specific.h`
@@ -99,14 +105,16 @@ Fifth implementation slice:
 - `tools/audio/check_sfx_soundengine_sample_backend.ps1`
 - `tools/audio/check_sfx_soundengine_stream_backend.ps1`
 - `tools/audio/check_sfx_soundengine_device_backend.ps1`
+- `tools/audio/check_sfx_upper_layer_fmod.ps1`
 
 ## Next Steps
 
-- Audit remaining SFX direct FMOD references and decide whether `SoundObjectFactory.cpp` module label should be renamed now or when the open backend lands.
+- Audit remaining SFX project-file FMOD references before removing the compatibility backend.
 - Start replacing `AudioBackend.cpp` FMOD internals with an open backend in small pieces.
 - Keep `tools/audio/check_sfx_public_headers.ps1` green.
 - Keep `tools/audio/check_sfx_sample_backend.ps1` green.
 - Keep `tools/audio/check_sfx_soundengine_sample_backend.ps1` green.
 - Keep `tools/audio/check_sfx_soundengine_stream_backend.ps1` green.
 - Keep `tools/audio/check_sfx_soundengine_device_backend.ps1` green.
+- Keep `tools/audio/check_sfx_upper_layer_fmod.ps1` green.
 - Continue to build `SFX.vcxproj` and `Game.vcxproj` after each small slice.
