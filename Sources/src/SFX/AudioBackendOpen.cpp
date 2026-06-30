@@ -66,6 +66,8 @@ namespace
 		float fUserPan;
 		float f3DPan;
 		bool bUse3DPan;
+		bool bPaused;
+		unsigned int nPausedPosition;
 	};
 
 	struct SOpenStream
@@ -212,6 +214,8 @@ namespace
 		g_channels[nChannel].fUserPan = 0.0f;
 		g_channels[nChannel].f3DPan = 0.0f;
 		g_channels[nChannel].bUse3DPan = false;
+		g_channels[nChannel].bPaused = false;
+		g_channels[nChannel].nPausedPosition = 0;
 	}
 
 	void ApplyChannelMix( int nChannel )
@@ -245,6 +249,30 @@ namespace
 			return 0.0f;
 
 		return ClampFloat( vPos.x / fDistance, -1.0f, 1.0f );
+	}
+
+	unsigned int GetSampleFrameCount( const SOpenSample *pSample )
+	{
+		if ( !pSample || pSample->nBlockAlign == 0 )
+			return 0;
+		return pSample->nPcmBytes / pSample->nBlockAlign;
+	}
+
+	void ApplySampleLoopPoints( SOpenChannel *pChannel, const SOpenSample *pSample )
+	{
+		if ( !pChannel || !pSample || !pChannel->bSoundInitialized )
+			return;
+
+		if ( pSample->nLoopEnd <= pSample->nLoopStart )
+			return;
+
+		const unsigned int nLength = GetSampleFrameCount( pSample );
+		if ( nLength == 0 )
+			return;
+
+		const unsigned int nLoopStart = Clamp( pSample->nLoopStart, 0, static_cast<int>( nLength - 1 ) );
+		const unsigned int nLoopEnd = Clamp( pSample->nLoopEnd, static_cast<int>( nLoopStart + 1 ), static_cast<int>( nLength ) );
+		ma_data_source_set_loop_point_in_pcm_frames( ma_sound_get_data_source( &pChannel->sound ), nLoopStart, nLoopEnd );
 	}
 
 	void OpenStreamEndCallback( void *pUserData, ma_sound *pSound )
@@ -601,26 +629,34 @@ namespace NAudioBackendImpl
 
 	void SetSampleLoop( void *pSample, bool bEnable )
 	{
-		if ( pSample )
-			static_cast<SOpenSample*>( pSample )->bLooped = bEnable;
+		if ( !pSample )
+			return;
+
+		SOpenSample *pOpenSample = static_cast<SOpenSample*>( pSample );
+		pOpenSample->bLooped = bEnable;
+		for ( int i = 0; i < cMaxOpenChannels; ++i )
+			if ( g_channels[i].bSoundInitialized && g_channels[i].pSample == pOpenSample )
+				ma_sound_set_looping( &g_channels[i].sound, bEnable ? MA_TRUE : MA_FALSE );
 	}
 
 	void SetSampleLoopPoints( void *pSample, int nStart, int nEnd )
 	{
-		if ( pSample )
-		{
-			SOpenSample *pOpenSample = static_cast<SOpenSample*>( pSample );
-			pOpenSample->nLoopStart = nStart;
-			pOpenSample->nLoopEnd = nEnd;
-		}
+		if ( !pSample )
+			return;
+
+		SOpenSample *pOpenSample = static_cast<SOpenSample*>( pSample );
+		pOpenSample->nLoopStart = nStart;
+		pOpenSample->nLoopEnd = nEnd;
+		for ( int i = 0; i < cMaxOpenChannels; ++i )
+			if ( g_channels[i].bSoundInitialized && g_channels[i].pSample == pOpenSample )
+				ApplySampleLoopPoints( &g_channels[i], pOpenSample );
 	}
 
 	unsigned int GetSampleLength( void *pSample )
 	{
 		if ( !pSample )
 			return 0;
-		const SOpenSample *pOpenSample = static_cast<SOpenSample*>( pSample );
-		return pOpenSample->nBlockAlign == 0 ? 0 : pOpenSample->nPcmBytes / pOpenSample->nBlockAlign;
+		return GetSampleFrameCount( static_cast<SOpenSample*>( pSample ) );
 	}
 
 	unsigned int GetSampleRate( void *pSample )
@@ -687,6 +723,9 @@ namespace NAudioBackendImpl
 		g_channels[nChannel].fUserPan = 0.0f;
 		g_channels[nChannel].f3DPan = 0.0f;
 		g_channels[nChannel].bUse3DPan = pOpenSample->nMode == GetSampleMode3D();
+		g_channels[nChannel].bPaused = true;
+		g_channels[nChannel].nPausedPosition = 0;
+		ApplySampleLoopPoints( &g_channels[nChannel], pOpenSample );
 		ma_sound_set_looping( &g_channels[nChannel].sound, pOpenSample->bLooped ? MA_TRUE : MA_FALSE );
 		ApplyChannelMix( nChannel );
 		return nChannel;
@@ -715,9 +754,18 @@ namespace NAudioBackendImpl
 		if ( nChannel >= 0 && nChannel < cMaxOpenChannels && g_channels[nChannel].bSoundInitialized )
 		{
 			if ( bPaused )
+			{
+				g_channels[nChannel].nPausedPosition = GetChannelPosition( nChannel );
+				g_channels[nChannel].bPaused = true;
 				ma_sound_stop( &g_channels[nChannel].sound );
+			}
 			else
+			{
+				if ( g_channels[nChannel].bPaused )
+					ma_sound_seek_to_pcm_frame( &g_channels[nChannel].sound, g_channels[nChannel].nPausedPosition );
+				g_channels[nChannel].bPaused = false;
 				ma_sound_start( &g_channels[nChannel].sound );
+			}
 		}
 	}
 
@@ -730,7 +778,7 @@ namespace NAudioBackendImpl
 	{
 		return nChannel >= 0 && nChannel < cMaxOpenChannels &&
 			g_channels[nChannel].bSoundInitialized &&
-			ma_sound_is_playing( &g_channels[nChannel].sound ) != 0;
+			(g_channels[nChannel].bPaused || ma_sound_is_playing( &g_channels[nChannel].sound ) != 0);
 	}
 
 	int GetChannelsPlaying()
@@ -756,7 +804,11 @@ namespace NAudioBackendImpl
 	void SetChannelPosition( int nChannel, unsigned int nPosition )
 	{
 		if ( nChannel >= 0 && nChannel < cMaxOpenChannels && g_channels[nChannel].bSoundInitialized )
+		{
 			ma_sound_seek_to_pcm_frame( &g_channels[nChannel].sound, nPosition );
+			if ( g_channels[nChannel].bPaused )
+				g_channels[nChannel].nPausedPosition = nPosition;
+		}
 	}
 
 	int GetLastError()
@@ -910,6 +962,8 @@ namespace NAudioBackendImpl
 		g_channels[nChannel].fUserPan = 0.0f;
 		g_channels[nChannel].f3DPan = 0.0f;
 		g_channels[nChannel].bUse3DPan = false;
+		g_channels[nChannel].bPaused = false;
+		g_channels[nChannel].nPausedPosition = 0;
 		ma_sound_set_looping( &g_channels[nChannel].sound, pOpenStream->bLooped ? MA_TRUE : MA_FALSE );
 		ApplyChannelMix( nChannel );
 		ma_sound_set_end_callback( &g_channels[nChannel].sound, OpenStreamEndCallback, pOpenStream );

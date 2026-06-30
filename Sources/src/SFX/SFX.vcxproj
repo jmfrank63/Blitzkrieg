@@ -83,15 +83,16 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros">
     <AudioBackend Condition="'$(AudioBackend)'==''">FMOD</AudioBackend>
+    <SFXBackendAdditionalDependencies Condition="'$(AudioBackend)'=='FMOD'">fmodvc.lib;</SFXBackendAdditionalDependencies>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>.\Release\</OutDir>
     <IntDir>.\Release\</IntDir>
     <LinkIncremental>false</LinkIncremental>
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
-    <ExternalIncludePath>C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\sdk\FMOD\api\inc;$(ExternalIncludePath)</ExternalIncludePath>
-    <LibraryPath>$(ProjectDir)..\..\sdk\FMOD\api\lib;$(LibraryPath)</LibraryPath>
-    <IncludePath>$(ProjectDir)..\sdk\FMOD\api\inc;$(IncludePath)</IncludePath>
+    <ExternalIncludePath Condition="'$(AudioBackend)'=='FMOD'">C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\Sources\sdk\FMOD\api\inc;$(ExternalIncludePath)</ExternalIncludePath>
+    <LibraryPath Condition="'$(AudioBackend)'=='FMOD'">$(ProjectDir)..\..\sdk\FMOD\api\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath Condition="'$(AudioBackend)'=='FMOD'">$(ProjectDir)..\sdk\FMOD\api\inc;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='FastDebug|Win32'">
     <OutDir>.\FastDebug\</OutDir>
@@ -112,8 +113,8 @@
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <ExternalIncludePath>$(ProjectDir)..\..\sdk\FMOD\api\inc;$(ExternalIncludePath)</ExternalIncludePath>
-    <LibraryPath>$(ProjectDir)..\..\sdk\FMOD\api\lib;$(LibraryPath)</LibraryPath>
+    <ExternalIncludePath Condition="'$(AudioBackend)'=='FMOD'">$(ProjectDir)..\..\sdk\FMOD\api\inc;$(ExternalIncludePath)</ExternalIncludePath>
+    <LibraryPath Condition="'$(AudioBackend)'=='FMOD'">$(ProjectDir)..\..\sdk\FMOD\api\lib;$(LibraryPath)</LibraryPath>
     <OutDir>.\Debug\</OutDir>
     <IntDir>.\Debug\</IntDir>
     <LinkIncremental>true</LinkIncremental>
@@ -162,7 +163,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Release\SFX.dll</OutputFile>
       <ImportLibrary>.\Release\SFX.lib</ImportLibrary>
-      <AdditionalDependencies>..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;fmodvc.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;$(SFXBackendAdditionalDependencies)odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Sound.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -183,7 +184,7 @@
       <ObjectFileName>.\FastDebug\</ObjectFileName>
       <ProgramDataBaseFileName>.\FastDebug\</ProgramDataBaseFileName>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\sdk\FMOD\api\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(AudioBackend)'=='FMOD'">$(ProjectDir)..\..\sdk\FMOD\api\inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin\$(Configuration)" mkdir "$(SolutionDir)bin\$(Configuration)" &amp;&amp; copy /Y $(OutDir)*.dll "$(SolutionDir)bin\$(Configuration)\*.*"</Command>
@@ -210,7 +211,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\FastDebug\SFX.dll</OutputFile>
       <ImportLibrary>.\FastDebug\SFX.lib</ImportLibrary>
-      <AdditionalDependencies>..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;fmodvc.lib;odbc32.lib;odbccp32.lib;comsupp.lib;Winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;$(SFXBackendAdditionalDependencies)odbc32.lib;odbccp32.lib;comsupp.lib;Winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Sound.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -261,7 +262,7 @@
       <OutputFile>.\BetaRelease\SFX.dll</OutputFile>
       <ImportLibrary>.\BetaRelease\SFX.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;fmodvc.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;$(SFXBackendAdditionalDependencies)odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profiler|Win32'">
@@ -309,7 +310,7 @@
       <OutputFile>.\Profiler\SFX.dll</OutputFile>
       <ImportLibrary>.\Profiler\SFX.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;fmodvc.lib;odbc32.lib;odbccp32.lib;comsupp.lib;Winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;$(SFXBackendAdditionalDependencies)odbc32.lib;odbccp32.lib;comsupp.lib;Winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -357,7 +358,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\SFX.dll</OutputFile>
       <ImportLibrary>.\Debug\SFX.lib</ImportLibrary>
-      <AdditionalDependencies>..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;fmodvc.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\\Misc\\$(Configuration)\\Misc.lib;..\\Common\\$(Configuration)\\Common.lib;$(SFXBackendAdditionalDependencies)odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Sound.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -375,8 +376,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AudioBackend.cpp" />
-    <ClCompile Include="AudioBackendFmod.cpp" />
-    <ClCompile Include="AudioBackendOpen.cpp" />
+    <ClCompile Include="AudioBackendFmod.cpp">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='FMOD'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="AudioBackendOpen.cpp">
+      <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="AudioBackendXiphVorbis.c">
       <ExcludedFromBuild Condition="'$(AudioBackend)'!='Open'">true</ExcludedFromBuild>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
