@@ -81,7 +81,9 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Label="UserMacros">
+    <AudioBackend Condition="'$(AudioBackend)'==''">FMOD</AudioBackend>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>.\Release\</OutDir>
     <IntDir>.\Release\</IntDir>
@@ -359,9 +361,20 @@
       <ModuleDefinitionFile>.\Sound.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(AudioBackend)'=='Open'">
+    <ClCompile>
+      <PreprocessorDefinitions>SFX_USE_OPEN_AUDIO_BACKEND;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(AudioBackend)'=='FMOD'">
+    <ClCompile>
+      <PreprocessorDefinitions>SFX_USE_FMOD_BACKEND;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AudioBackend.cpp" />
     <ClCompile Include="AudioBackendFmod.cpp" />
+    <ClCompile Include="AudioBackendOpen.cpp" />
     <ClCompile Include="GlobalsLoader.cpp" />
     <ClCompile Include="StdAfx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>

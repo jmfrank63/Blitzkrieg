@@ -25,6 +25,9 @@
     <ClCompile Include="AudioBackendFmod.cpp">
       <Filter>Sound</Filter>
     </ClCompile>
+    <ClCompile Include="AudioBackendOpen.cpp">
+      <Filter>Sound</Filter>
+    </ClCompile>
     <ClCompile Include="GlobalsLoader.cpp">
       <Filter>Common</Filter>
     </ClCompile>

@@ -17,6 +17,7 @@ The first boundary step has started:
 - Upper-layer SFX source files are guarded against direct FMOD symbols and naming.
 - `Sources/src/SFX/AudioBackend.cpp` is now a public wrapper over an internal backend implementation.
 - The current FMOD implementation lives in `Sources/src/SFX/AudioBackendFmod.cpp` behind the default `SFX_USE_FMOD_BACKEND` selection.
+- `Sources/src/SFX/AudioBackendOpen.cpp` exists as an opt-in silent open backend scaffold selected with `/p:AudioBackend=Open`.
 - The existing FMOD implementation is still active behind private SFX implementation files.
 - `Sources/src/SFX/AudioFmodCompat.h` is the current private compatibility include.
 
@@ -122,6 +123,7 @@ Phase 1, backend boundary:
 
 Phase 2, samples:
 
+- Keep the opt-in open backend compiling while FMOD remains the default runtime backend.
 - Replace the FMOD implementation currently in `AudioBackendFmod.cpp` with an open implementation.
 - Replace one-shot channel ownership checks.
 - Preserve weapon, UI, unit acknowledgement, movement, and explosion sounds.

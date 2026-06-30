@@ -87,6 +87,13 @@ Seventh implementation slice:
 - Added `tools/audio/check_sfx_backend_scaffold.ps1`.
 - FMOD remains the default active backend through `SFX_USE_FMOD_BACKEND`.
 
+Eighth implementation slice:
+
+- Added `Sources/src/SFX/AudioBackendOpen.cpp` as an opt-in silent open backend scaffold.
+- Added `/p:AudioBackend=Open` selection in `Sources/src/SFX/SFX.vcxproj`.
+- Added `tools/audio/check_sfx_open_backend_scaffold.ps1`.
+- Default builds still select the FMOD backend; the open backend is compile-tested only.
+
 ## References
 
 - `Sources/src/SFX/Specific.h`
@@ -106,6 +113,7 @@ Seventh implementation slice:
 - `Sources/src/SFX/AudioBackend.cpp`
 - `Sources/src/SFX/AudioBackendImpl.h`
 - `Sources/src/SFX/AudioBackendFmod.cpp`
+- `Sources/src/SFX/AudioBackendOpen.cpp`
 - `Sources/src/SFX/AudioFmodCompat.h`
 - `Sources/src/data/Sounds`
 - `Sources/src/data/Music`
@@ -117,11 +125,12 @@ Seventh implementation slice:
 - `tools/audio/check_sfx_soundengine_device_backend.ps1`
 - `tools/audio/check_sfx_upper_layer_fmod.ps1`
 - `tools/audio/check_sfx_backend_scaffold.ps1`
+- `tools/audio/check_sfx_open_backend_scaffold.ps1`
 
 ## Next Steps
 
 - Audit remaining SFX project-file FMOD references before removing the compatibility backend.
-- Add the first `AudioBackendOpen.cpp` scaffold and move device/no-sound behavior behind it.
+- Start replacing open backend sample loading with real WAV decode/storage while keeping `/p:AudioBackend=Open` buildable.
 - Keep `tools/audio/check_sfx_public_headers.ps1` green.
 - Keep `tools/audio/check_sfx_sample_backend.ps1` green.
 - Keep `tools/audio/check_sfx_soundengine_sample_backend.ps1` green.
@@ -129,4 +138,5 @@ Seventh implementation slice:
 - Keep `tools/audio/check_sfx_soundengine_device_backend.ps1` green.
 - Keep `tools/audio/check_sfx_upper_layer_fmod.ps1` green.
 - Keep `tools/audio/check_sfx_backend_scaffold.ps1` green.
+- Keep `tools/audio/check_sfx_open_backend_scaffold.ps1` green.
 - Continue to build `SFX.vcxproj` and `Game.vcxproj` after each small slice.
