@@ -8,12 +8,17 @@ namespace
 {
 	struct SOpenSample
 	{
-		int nSize;
 		int nMode;
 		bool bLooped;
 		float fMinDistance;
 		int nLoopStart;
 		int nLoopEnd;
+		unsigned int nSampleRate;
+		unsigned int nChannels;
+		unsigned int nBitsPerSample;
+		unsigned int nBlockAlign;
+		unsigned int nPcmBytes;
+		std::vector<char> pcmData;
 	};
 
 	struct SOpenStream
@@ -23,6 +28,94 @@ namespace
 		NAudioBackend::TStreamCallback pEndCallback;
 		void *pUserData;
 	};
+
+	bool HasBytes( const char *pData, int nSize, int nOffset, int nBytes )
+	{
+		return pData && nOffset >= 0 && nBytes >= 0 && nOffset <= nSize && nBytes <= nSize - nOffset;
+	}
+
+	bool IsChunkId( const char *pData, int nSize, int nOffset, const char *pId )
+	{
+		return HasBytes( pData, nSize, nOffset, 4 ) &&
+			pData[nOffset + 0] == pId[0] &&
+			pData[nOffset + 1] == pId[1] &&
+			pData[nOffset + 2] == pId[2] &&
+			pData[nOffset + 3] == pId[3];
+	}
+
+	unsigned int ReadU16LE( const char *pData, int nOffset )
+	{
+		return static_cast<unsigned char>( pData[nOffset] ) |
+			(static_cast<unsigned char>( pData[nOffset + 1] ) << 8);
+	}
+
+	unsigned int ReadU32LE( const char *pData, int nOffset )
+	{
+		return static_cast<unsigned char>( pData[nOffset] ) |
+			(static_cast<unsigned char>( pData[nOffset + 1] ) << 8) |
+			(static_cast<unsigned char>( pData[nOffset + 2] ) << 16) |
+			(static_cast<unsigned char>( pData[nOffset + 3] ) << 24);
+	}
+
+	void InitializeEmptySample( SOpenSample *pSample, int nMode )
+	{
+		pSample->nMode = nMode;
+		pSample->bLooped = false;
+		pSample->fMinDistance = 0.0f;
+		pSample->nLoopStart = 0;
+		pSample->nLoopEnd = 0;
+		pSample->nSampleRate = 0;
+		pSample->nChannels = 0;
+		pSample->nBitsPerSample = 0;
+		pSample->nBlockAlign = 0;
+		pSample->nPcmBytes = 0;
+	}
+
+	bool ParseWaveSample( const char *pData, int nSize, SOpenSample *pSample )
+	{
+		if ( !HasBytes( pData, nSize, 0, 12 ) ||
+			!IsChunkId( pData, nSize, 0, "RIFF" ) ||
+			!IsChunkId( pData, nSize, 8, "WAVE" ) )
+		{
+			return false;
+		}
+
+		bool bHaveFormat = false;
+		bool bHaveData = false;
+		unsigned int nAudioFormat = 0;
+		int nOffset = 12;
+		while ( HasBytes( pData, nSize, nOffset, 8 ) )
+		{
+			const unsigned int nChunkSize = ReadU32LE( pData, nOffset + 4 );
+			const int nChunkDataOffset = nOffset + 8;
+			if ( nChunkSize > static_cast<unsigned int>( nSize - nChunkDataOffset ) )
+				break;
+
+			if ( IsChunkId( pData, nSize, nOffset, "fmt " ) && nChunkSize >= 16 )
+			{
+				nAudioFormat = ReadU16LE( pData, nChunkDataOffset );
+				pSample->nChannels = ReadU16LE( pData, nChunkDataOffset + 2 );
+				pSample->nSampleRate = ReadU32LE( pData, nChunkDataOffset + 4 );
+				pSample->nBlockAlign = ReadU16LE( pData, nChunkDataOffset + 12 );
+				pSample->nBitsPerSample = ReadU16LE( pData, nChunkDataOffset + 14 );
+				bHaveFormat = true;
+			}
+			else if ( IsChunkId( pData, nSize, nOffset, "data" ) )
+			{
+				pSample->nPcmBytes = nChunkSize;
+				pSample->pcmData.assign( pData + nChunkDataOffset, pData + nChunkDataOffset + nChunkSize );
+				bHaveData = true;
+			}
+
+			nOffset = nChunkDataOffset + nChunkSize + (nChunkSize & 1);
+		}
+
+		return bHaveFormat && bHaveData && nAudioFormat == 1 &&
+			pSample->nSampleRate > 0 &&
+			pSample->nChannels > 0 &&
+			pSample->nBlockAlign > 0 &&
+			pSample->nBitsPerSample > 0;
+	}
 }
 
 namespace NAudioBackendImpl
@@ -98,12 +191,8 @@ namespace NAudioBackendImpl
 	void* LoadSampleFromMemory( const char *pData, int nSize, int nMode )
 	{
 		SOpenSample *pSample = new SOpenSample;
-		pSample->nSize = nSize;
-		pSample->nMode = nMode;
-		pSample->bLooped = false;
-		pSample->fMinDistance = 0.0f;
-		pSample->nLoopStart = 0;
-		pSample->nLoopEnd = 0;
+		InitializeEmptySample( pSample, nMode );
+		ParseWaveSample( pData, nSize, pSample );
 		return pSample;
 	}
 
@@ -131,12 +220,15 @@ namespace NAudioBackendImpl
 
 	unsigned int GetSampleLength( void *pSample )
 	{
-		return pSample ? static_cast<SOpenSample*>( pSample )->nSize : 0;
+		if ( !pSample )
+			return 0;
+		const SOpenSample *pOpenSample = static_cast<SOpenSample*>( pSample );
+		return pOpenSample->nBlockAlign == 0 ? 0 : pOpenSample->nPcmBytes / pOpenSample->nBlockAlign;
 	}
 
 	unsigned int GetSampleRate( void *pSample )
 	{
-		return 44100;
+		return pSample ? static_cast<SOpenSample*>( pSample )->nSampleRate : 0;
 	}
 
 	int GetSampleMode2D()

@@ -94,6 +94,14 @@ Eighth implementation slice:
 - Added `tools/audio/check_sfx_open_backend_scaffold.ps1`.
 - Default builds still select the FMOD backend; the open backend is compile-tested only.
 
+Ninth implementation slice:
+
+- Added PCM WAV parsing to the opt-in open backend.
+- `AudioBackendOpen.cpp` now extracts `RIFF/WAVE`, `fmt `, and `data` chunks.
+- Open backend sample length now reports decoded PCM frame count and sample rate comes from the WAV format chunk.
+- Added `tools/audio/check_sfx_open_backend_wav.ps1`.
+- Playback remains silent; default runtime remains FMOD.
+
 ## References
 
 - `Sources/src/SFX/Specific.h`
@@ -126,11 +134,12 @@ Eighth implementation slice:
 - `tools/audio/check_sfx_upper_layer_fmod.ps1`
 - `tools/audio/check_sfx_backend_scaffold.ps1`
 - `tools/audio/check_sfx_open_backend_scaffold.ps1`
+- `tools/audio/check_sfx_open_backend_wav.ps1`
 
 ## Next Steps
 
 - Audit remaining SFX project-file FMOD references before removing the compatibility backend.
-- Start replacing open backend sample loading with real WAV decode/storage while keeping `/p:AudioBackend=Open` buildable.
+- Add the first open backend channel state for simple 2D sample playback, still silent if device output is not ready.
 - Keep `tools/audio/check_sfx_public_headers.ps1` green.
 - Keep `tools/audio/check_sfx_sample_backend.ps1` green.
 - Keep `tools/audio/check_sfx_soundengine_sample_backend.ps1` green.
@@ -139,4 +148,5 @@ Eighth implementation slice:
 - Keep `tools/audio/check_sfx_upper_layer_fmod.ps1` green.
 - Keep `tools/audio/check_sfx_backend_scaffold.ps1` green.
 - Keep `tools/audio/check_sfx_open_backend_scaffold.ps1` green.
+- Keep `tools/audio/check_sfx_open_backend_wav.ps1` green.
 - Continue to build `SFX.vcxproj` and `Game.vcxproj` after each small slice.
