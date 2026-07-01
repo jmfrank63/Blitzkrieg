@@ -54,14 +54,13 @@
       "problemMatcher": "$msCompile"
     },
     {
-      "label": "Build SFX (Debug, Open Audio)",
+      "label": "Build Scene (Debug, Open Video)",
       "type": "shell",
       "command": "msbuild",
       "args": [
-        "${workspaceFolder}/Sources/src/SFX/SFX.vcxproj",
+        "${workspaceFolder}/Sources/src/Scene/Scene.vcxproj",
         "/p:Configuration=Debug",
         "/p:Platform=Win32",
-        "/p:AudioBackend=Open",
         "/m",
         "/v:minimal"
       ],
@@ -73,11 +72,11 @@
       "problemMatcher": "$msCompile"
     },
     {
-      "label": "Build Game (Debug, Open Audio)",
+      "label": "Build Game (Debug, Open Video)",
       "dependsOrder": "sequence",
       "dependsOn": [
         "Build Game (Debug)",
-        "Build SFX (Debug, Open Audio)"
+        "Build Scene (Debug, Open Video)"
       ],
       "group": "build",
       "problemMatcher": []

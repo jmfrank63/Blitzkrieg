@@ -19,7 +19,7 @@
 #include "MaterialEffector.h"
 #include "SquadVisObj.h"
 #include "SoundScene.h"
-#include "BinkVideoPlayer.h"
+#include "VideoPlayer.h"
 #include "Transition.h"
 #include "ParticleManager.h"
 #include "KeyBasedParticleSource.h"
@@ -57,7 +57,7 @@ CSceneObjectFactory::CSceneObjectFactory()
 	REGISTER_CLASS( this, SCENE_SOUNDSCENE_SUBSTSOUND, CSoundScene::CSubstSound );
 	REGISTER_CLASS( this, SCENE_SOUNDSCENE_PLAYLIST, CSoundScene::CPlayList );
 	REGISTER_CLASS( this, SCENE_SOUNDSCENE_SOUNDCELL, CSoundScene::CSoundCell );
-	REGISTER_CLASS( this, SCENE_VIDEO_PLAYER, CBinkVideoPlayer );
+	REGISTER_CLASS( this, SCENE_VIDEO_PLAYER, CVideoPlayer );
 	REGISTER_CLASS( this, SCENE_TRANSITION, CTransition );
 	REGISTER_CLASS( this, SCENE_GAMMA_EFFECT, CGammaEffect );
 	REGISTER_CLASS( this, SCENE_GAMMA_FADER, CGammaFader );

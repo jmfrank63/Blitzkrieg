@@ -11,13 +11,13 @@
       "preLaunchTask": "Build Game (Debug)"
     },
     {
-      "name": "WinDbg: Debug Game.exe (Open Audio)",
+      "name": "WinDbg: Debug Game.exe (Open Video)",
       "type": "windbg",
       "request": "launch",
       "target": "${workspaceFolder}/Sources/src/Game/Debug/Game.exe",
       "stopOnEntry": false,
       "symbolSearchPath": "${workspaceFolder}/Sources/src/Game/Debug;${workspaceFolder}/Sources/src/**/Debug",
-      "preLaunchTask": "Build Game (Debug, Open Audio)"
+      "preLaunchTask": "Build Game (Debug, Open Video)"
     },
     {
       "name": "WinDbg: Debug Game.exe (No Build)",
@@ -56,7 +56,7 @@
       }
     },
     {
-      "name": "Debug Game.exe (Open Audio)",
+      "name": "Debug Game.exe (Open Video)",
       "type": "cppvsdbg",
       "request": "launch",
       "program": "${workspaceFolder}/Sources/src/Game/Debug/Game.exe",
@@ -65,7 +65,7 @@
       "cwd": "${workspaceFolder}/Sources/src/Game/Debug",
       "environment": [],
       "console": "integratedTerminal",
-      "preLaunchTask": "Build Game (Debug, Open Audio)",
+      "preLaunchTask": "Build Game (Debug, Open Video)",
       "symbolOptions": {
         "searchPaths": [
           "${workspaceFolder}/Sources/src/Game/Debug",

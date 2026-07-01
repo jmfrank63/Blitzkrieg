@@ -160,6 +160,12 @@
     <ClCompile Include="BinkVideoPlayer.cpp">
       <Filter>VideoPlayer</Filter>
     </ClCompile>
+    <ClCompile Include="VideoPlayer.cpp">
+      <Filter>VideoPlayer</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenVideoPlayer.cpp">
+      <Filter>VideoPlayer</Filter>
+    </ClCompile>
     <ClCompile Include="KeyBasedParticleSource.cpp">
       <Filter>Particles</Filter>
     </ClCompile>
@@ -316,6 +322,12 @@
       <Filter>Resource</Filter>
     </ClInclude>
     <ClInclude Include="BinkVideoPlayer.h">
+      <Filter>VideoPlayer</Filter>
+    </ClInclude>
+    <ClInclude Include="VideoPlayer.h">
+      <Filter>VideoPlayer</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenVideoPlayer.h">
       <Filter>VideoPlayer</Filter>
     </ClInclude>
     <ClInclude Include="KeyBasedParticleSource.h">

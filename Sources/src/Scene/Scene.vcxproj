@@ -638,6 +638,20 @@
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'"> /Zm200   /Zm200 </AdditionalOptions>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='BetaRelease|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="VideoPlayer.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Profiler|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='FastDebug|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'"> /Zm200   /Zm200 </AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='BetaRelease|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="OpenVideoPlayer.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Profiler|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='FastDebug|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'"> /Zm200   /Zm200 </AdditionalOptions>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='BetaRelease|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
+    </ClCompile>
     <ClCompile Include="KeyBasedParticleSource.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Profiler|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
@@ -806,6 +820,8 @@
     <ClInclude Include="SoundScene.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="BinkVideoPlayer.h" />
+    <ClInclude Include="VideoPlayer.h" />
+    <ClInclude Include="OpenVideoPlayer.h" />
     <ClInclude Include="KeyBasedParticleSource.h" />
     <ClInclude Include="ParticleManager.h" />
     <ClInclude Include="ParticleSourceData.h" />
