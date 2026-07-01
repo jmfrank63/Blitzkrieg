@@ -14,6 +14,12 @@ class COpenVideoPlayer : public CTRefCount<IVideoPlayer>
 	int nShadingEffectFinish;
 	std::string szFileName;
 	DWORD dwPlayFlags;
+	bool bHasMovieInfo;
+	CVec2 vMovieSize;
+	int nFrameRateNumerator;
+	int nFrameRateDenominator;
+
+	bool ProbeOpenVideo( const char *pszFileName );
 public:
 	COpenVideoPlayer();
 	virtual void STDCALL SetTarget( interface IGFXTexture *pTexture, interface IGFX *pGFX );
