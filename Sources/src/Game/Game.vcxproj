@@ -137,12 +137,6 @@
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
-if exist "..\..\autorun\mfc42.dll" copy /Y "..\..\autorun\mfc42.dll" "$(TargetDir)"
-if exist "..\..\autorun\mfc42.dll" copy /Y "..\..\autorun\mfc42.dll" "$(SolutionDir)bin\\"
-if exist "..\..\autorun\msvcp60.dll" copy /Y "..\..\autorun\msvcp60.dll" "$(TargetDir)"
-if exist "..\..\autorun\msvcp60.dll" copy /Y "..\..\autorun\msvcp60.dll" "$(SolutionDir)bin\\"
-if exist "..\..\autorun\msvcrt.dll" copy /Y "..\..\autorun\msvcrt.dll" "$(TargetDir)"
-if exist "..\..\autorun\msvcrt.dll" copy /Y "..\..\autorun\msvcrt.dll" "$(SolutionDir)bin\\"
 copy /Y "$(TargetPath)" "$(SolutionDir)bin\\"
 if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools\copydll.bat" $(SolutionDir) Release</Command>
     </PostBuildEvent>
@@ -191,12 +185,6 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
-if exist "..\..\autorun\mfc42.dll" copy /Y "..\..\autorun\mfc42.dll" "$(TargetDir)"
-if exist "..\..\autorun\mfc42.dll" copy /Y "..\..\autorun\mfc42.dll" "$(SolutionDir)bin\\"
-if exist "..\..\autorun\msvcp60.dll" copy /Y "..\..\autorun\msvcp60.dll" "$(TargetDir)"
-if exist "..\..\autorun\msvcp60.dll" copy /Y "..\..\autorun\msvcp60.dll" "$(SolutionDir)bin\\"
-if exist "..\..\autorun\msvcrt.dll" copy /Y "..\..\autorun\msvcrt.dll" "$(TargetDir)"
-if exist "..\..\autorun\msvcrt.dll" copy /Y "..\..\autorun\msvcrt.dll" "$(SolutionDir)bin\\"
 copy /Y "$(TargetPath)" "$(SolutionDir)bin\\"
 if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools\copydll.bat" $(SolutionDir) Debug</Command>
     </PostBuildEvent>
@@ -244,12 +232,6 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
-if exist "..\..\autorun\mfc42.dll" copy /Y "..\..\autorun\mfc42.dll" "$(TargetDir)"
-if exist "..\..\autorun\mfc42.dll" copy /Y "..\..\autorun\mfc42.dll" "$(SolutionDir)bin\\"
-if exist "..\..\autorun\msvcp60.dll" copy /Y "..\..\autorun\msvcp60.dll" "$(TargetDir)"
-if exist "..\..\autorun\msvcp60.dll" copy /Y "..\..\autorun\msvcp60.dll" "$(SolutionDir)bin\\"
-if exist "..\..\autorun\msvcrt.dll" copy /Y "..\..\autorun\msvcrt.dll" "$(TargetDir)"
-if exist "..\..\autorun\msvcrt.dll" copy /Y "..\..\autorun\msvcrt.dll" "$(SolutionDir)bin\\"
 copy /Y "$(TargetPath)" "$(SolutionDir)bin\\"
 if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools\copydll.bat" $(SolutionDir) FastDebug</Command>
     </PostBuildEvent>
@@ -297,12 +279,6 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
-if exist "..\..\autorun\mfc42.dll" copy /Y "..\..\autorun\mfc42.dll" "$(TargetDir)"
-if exist "..\..\autorun\mfc42.dll" copy /Y "..\..\autorun\mfc42.dll" "$(SolutionDir)bin\\"
-if exist "..\..\autorun\msvcp60.dll" copy /Y "..\..\autorun\msvcp60.dll" "$(TargetDir)"
-if exist "..\..\autorun\msvcp60.dll" copy /Y "..\..\autorun\msvcp60.dll" "$(SolutionDir)bin\\"
-if exist "..\..\autorun\msvcrt.dll" copy /Y "..\..\autorun\msvcrt.dll" "$(TargetDir)"
-if exist "..\..\autorun\msvcrt.dll" copy /Y "..\..\autorun\msvcrt.dll" "$(SolutionDir)bin\\"
 copy /Y "$(TargetPath)" "$(SolutionDir)bin\\"
 if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools\copydll.bat" $(SolutionDir) Profiler</Command>
     </PostBuildEvent>
@@ -352,12 +328,6 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
-if exist "..\..\autorun\mfc42.dll" copy /Y "..\..\autorun\mfc42.dll" "$(TargetDir)"
-if exist "..\..\autorun\mfc42.dll" copy /Y "..\..\autorun\mfc42.dll" "$(SolutionDir)bin\\"
-if exist "..\..\autorun\msvcp60.dll" copy /Y "..\..\autorun\msvcp60.dll" "$(TargetDir)"
-if exist "..\..\autorun\msvcp60.dll" copy /Y "..\..\autorun\msvcp60.dll" "$(SolutionDir)bin\\"
-if exist "..\..\autorun\msvcrt.dll" copy /Y "..\..\autorun\msvcrt.dll" "$(TargetDir)"
-if exist "..\..\autorun\msvcrt.dll" copy /Y "..\..\autorun\msvcrt.dll" "$(SolutionDir)bin\\"
 copy /Y "$(TargetPath)" "$(SolutionDir)bin\\"
 if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools\copydll.bat" $(SolutionDir) BetaRelease</Command>
     </PostBuildEvent>
@@ -455,14 +425,6 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <Target Name="CopyBlitzkriegRuntimeDlls" AfterTargets="Build" Condition="'$(Configuration)|$(Platform)' == 'Debug|Win32' Or '$(Configuration)|$(Platform)' == 'Release|Win32' Or '$(Configuration)|$(Platform)' == 'FastDebug|Win32' Or '$(Configuration)|$(Platform)' == 'Profiler|Win32' Or '$(Configuration)|$(Platform)' == 'BetaRelease|Win32'">
-    <ItemGroup>
-      <BlitzkriegRuntimeDll Include="$(ProjectDir)..\..\autorun\mfc42.dll" Condition="Exists('$(ProjectDir)..\..\autorun\mfc42.dll')" />
-      <BlitzkriegRuntimeDll Include="$(ProjectDir)..\..\autorun\msvcp60.dll" Condition="Exists('$(ProjectDir)..\..\autorun\msvcp60.dll')" />
-      <BlitzkriegRuntimeDll Include="$(ProjectDir)..\..\autorun\msvcrt.dll" Condition="Exists('$(ProjectDir)..\..\autorun\msvcrt.dll')" />
-    </ItemGroup>
-    <Copy SourceFiles="@(BlitzkriegRuntimeDll)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
-  </Target>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
