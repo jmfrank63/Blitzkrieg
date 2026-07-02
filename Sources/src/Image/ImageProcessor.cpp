@@ -6,9 +6,52 @@
 #include "ImagePNG.h"
 #include "ImageTGA.h"
 #include "ImageMMP.h"
+#include "DxtCodec.h"
 
-extern "C" {
-#include "S3TC.h"
+namespace
+{
+	NDxt::Format GetDxtFormat( EGFXPixelFormat format )
+	{
+		switch ( format )
+		{
+			case GFXPF_DXT1:
+				return NDxt::Format::DXT1;
+			case GFXPF_DXT2:
+				return NDxt::Format::DXT2;
+			case GFXPF_DXT3:
+				return NDxt::Format::DXT3;
+			case GFXPF_DXT4:
+				return NDxt::Format::DXT4;
+			case GFXPF_DXT5:
+				return NDxt::Format::DXT5;
+		}
+		return NDxt::Format::DXT1;
+	}
+
+	bool IsDxtFormat( EGFXPixelFormat format )
+	{
+		return ( format >= GFXPF_DXT1 ) && ( format <= GFXPF_DXT5 );
+	}
+
+	bool InitRawPixelConvertInfo( EGFXPixelFormat format, SPixelConvertInfo *pInfo )
+	{
+		switch ( format )
+		{
+			case GFXPF_ARGB8888:
+				pInfo->InitMaskInfo( 0xff000000, 0x00ff0000, 0x0000ff00, 0x000000ff );
+				return true;
+			case GFXPF_ARGB1555:
+				pInfo->InitMaskInfo( 0x00008000, 0x00007c00, 0x000003e0, 0x0000001f );
+				return true;
+			case GFXPF_ARGB4444:
+				pInfo->InitMaskInfo( 0x0000f000, 0x00000f00, 0x000000f0, 0x0000000f );
+				return true;
+			case GFXPF_ARGB0565:
+				pInfo->InitMaskInfo( 0x00000000, 0x0000f800, 0x000007e0, 0x0000001f );
+				return true;
+		}
+		return false;
+	}
 }
 IImage* CImageProcessor::LoadImage( IDataStream *pStream ) const
 {
@@ -63,54 +106,15 @@ IImage* CImageProcessor::CreateMip( const IImage *pImage, int nLevel ) const
 }
 IDDSImage* CompressDXTN( const IImage *pImage, EGFXPixelFormat format )
 {
-	float fWeights[] = { 0.309f, 0.609f, 0.082f, 0, 0, 0, 0, 0 };
-	DWORD dwEncodeType = 0;
 	SDDSPixelFormat ddsformat;
 	GetDDSPixelFormat( format, &ddsformat );
-	switch ( format )
-	{
-		case GFXPF_DXT1:
-			dwEncodeType = S3TC_ENCODE_RGB_COLOR_KEY;
-			break;
-		case GFXPF_DXT2:
-			dwEncodeType = S3TC_ENCODE_RGB_ALPHA_COMPARE | S3TC_ENCODE_ALPHA_EXPLICIT;
-			break;
-		case GFXPF_DXT3:
-			dwEncodeType = S3TC_ENCODE_RGB_FULL | S3TC_ENCODE_ALPHA_EXPLICIT;
-			break;
-		case GFXPF_DXT4:
-			dwEncodeType = S3TC_ENCODE_RGB_ALPHA_COMPARE | S3TC_ENCODE_ALPHA_INTERPOLATED;
-			break;
-		case GFXPF_DXT5:
-			dwEncodeType = S3TC_ENCODE_RGB_FULL | S3TC_ENCODE_ALPHA_INTERPOLATED;
-			break;
-	}
-	DDSURFACEDESC ddsdIn;
-	Zero( ddsdIn );
-	ddsdIn.dwSize = sizeof( DDSURFACEDESC );
-
-	ddsdIn.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_LINEARSIZE | DDSD_PIXELFORMAT | DDSD_LPSURFACE;
-	ddsdIn.dwWidth = pImage->GetSizeX();
-	ddsdIn.dwHeight = pImage->GetSizeY();
-	ddsdIn.lPitch = pImage->GetSizeX() * 4;
-	ddsdIn.lpSurface = const_cast<SColor*>( pImage->GetLFB() );
-
-	ddsdIn.ddpfPixelFormat.dwSize = sizeof( DDPIXELFORMAT );
-	ddsdIn.ddpfPixelFormat.dwRGBBitCount = 32;
-	ddsdIn.ddpfPixelFormat.dwFlags = DDPF_ALPHAPIXELS | DDPF_RGB;
-	ddsdIn.ddpfPixelFormat.dwRBitMask = 0x00FF0000;
-	ddsdIn.ddpfPixelFormat.dwGBitMask = 0x0000FF00;
-	ddsdIn.ddpfPixelFormat.dwBBitMask = 0x000000FF;
-	ddsdIn.ddpfPixelFormat.dwRGBAlphaBitMask = 0xFF000000;
-	DDSURFACEDESC ddsdOut;
-	Zero( ddsdOut );
-	ddsdOut.dwSize = sizeof( DDSURFACEDESC );
-	int nNumCompressedBytes = S3TCgetEncodeSize( &ddsdIn, dwEncodeType );
+	const NDxt::Format dxtFormat = GetDxtFormat( format );
+	int nNumCompressedBytes = NDxt::GetEncodedSize( pImage->GetSizeX(), pImage->GetSizeY(), dxtFormat );
 	CImageDDS *pImageMMP = new CImageDDS( pImage->GetSizeX(), pImage->GetSizeY(), ddsformat );
 	std::vector<BYTE> &outdata = pImageMMP->AddEmptyMipLevel();
 	outdata.resize( nNumCompressedBytes );
-	S3TCsetAlphaReference( 0 );
-	S3TCencode( &ddsdIn, 0, &ddsdOut, &(outdata[0]), dwEncodeType, fWeights );
+	NDxt::DxtSurfaceDesc input = { pImage->GetSizeX(), pImage->GetSizeY(), pImage->GetSizeX() * 4, pImage->GetLFB() };
+	NDxt::Encode( input, dxtFormat, &( outdata[0] ) );
 	return pImageMMP;
 }
 IDDSImage* CompressRGBA( const IImage *pImage, EGFXPixelFormat format )
@@ -118,23 +122,8 @@ IDDSImage* CompressRGBA( const IImage *pImage, EGFXPixelFormat format )
 	SPixelConvertInfo pci;
 	SDDSPixelFormat ddsformat;
 	GetDDSPixelFormat( format, &ddsformat );
-	switch ( format )
-	{
-		case GFXPF_ARGB8888:
-			pci.InitMaskInfo( 0xff000000, 0x00ff0000, 0x0000ff00, 0x000000ff );
-			break;
-		case GFXPF_ARGB1555:
-			pci.InitMaskInfo( 0x00008000, 0x00007c00, 0x000003e0, 0x0000001f );
-			break;
-		case GFXPF_ARGB4444:
-			pci.InitMaskInfo( 0x0000f000, 0x00000f00, 0x000000f0, 0x0000000f );
-			break;
-		case GFXPF_ARGB0565:
-			pci.InitMaskInfo( 0x00000000, 0x0000f800, 0x000007e0, 0x0000001f );
-			break;
-		default:
-			return false;
-	}
+	if ( !InitRawPixelConvertInfo( format, &pci ) )
+		return false;
 	int nSizeX = pImage->GetSizeX();
 	int nSizeY = pImage->GetSizeY();
 	int nBPP = ::GetBPP( format );
@@ -164,7 +153,7 @@ IDDSImage* CImageProcessor::Compress( const IImage *pImage, EGFXPixelFormat form
 {
 	if ( (format >= GFXPF_DXT1) && (format <= GFXPF_DXT5) )
 		return CompressDXTN( pImage, format );
-	else if ( (format >= GFXPF_ARGB8888) || (format <= GFXPF_ARGB0565) )
+	else if ( (format >= GFXPF_ARGB8888) && (format <= GFXPF_ARGB0565) )
 		return CompressRGBA( pImage, format );
 	else
 		return 0;
@@ -177,53 +166,38 @@ IImage* CImageProcessor::Decompress( const IDDSImage *pImage ) const
 		memcpy( pDstImage->GetLFB(), pImage->GetLFB(), pImage->GetSizeX(0)*pImage->GetSizeY(0)*sizeof(SColor) );
 		return pDstImage;
 	}
-	DDSURFACEDESC ddsdIn;
-	Zero( ddsdIn );
-	ddsdIn.dwSize = sizeof( DDSURFACEDESC );
-	ddsdIn.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_LPSURFACE;
-	ddsdIn.dwWidth = pImage->GetSizeX( 0 );
-	ddsdIn.dwHeight = pImage->GetSizeY( 0 );
-	ddsdIn.lpSurface = const_cast<void*>( pImage->GetLFB(0) );
-	ddsdIn.ddpfPixelFormat.dwSize = sizeof( DDPIXELFORMAT );
-	switch ( pImage->GetGFXFormat() ) 
+	if ( IsDxtFormat( pImage->GetGFXFormat() ) )
 	{
-		case GFXPF_DXT1:
-		case GFXPF_DXT2:
-		case GFXPF_DXT3:
-		case GFXPF_DXT4:
-		case GFXPF_DXT5:
-			ddsdIn.ddpfPixelFormat.dwRGBBitCount = 0;
-			ddsdIn.dwFlags |= DDSD_LINEARSIZE;
-			ddsdIn.lPitch = pImage->GetSizeX( 0 ) * pImage->GetSizeY( 0 ) * pImage->GetBPP() / 8;
-			ddsdIn.ddpfPixelFormat.dwRGBBitCount = 0;
-			ddsdIn.ddpfPixelFormat.dwFlags = DDPF_FOURCC;
-			ddsdIn.ddpfPixelFormat.dwRBitMask = 0;
-			ddsdIn.ddpfPixelFormat.dwGBitMask = 0;
-			ddsdIn.ddpfPixelFormat.dwBBitMask = 0;
-			ddsdIn.ddpfPixelFormat.dwRGBAlphaBitMask = 0;
-			ddsdIn.ddpfPixelFormat.dwFourCC = pImage->GetDDSFormat()->dwFourCC;
-			break;
-		case GFXPF_ARGB8888:
-		case GFXPF_ARGB4444:
-		case GFXPF_ARGB1555:
-		case GFXPF_ARGB0565:
-			ddsdIn.ddpfPixelFormat.dwRGBBitCount = pImage->GetBPP();
-			ddsdIn.dwFlags |= DDSD_PITCH;
-			ddsdIn.lPitch = pImage->GetSizeX( 0 ) * pImage->GetBPP() / 8;
-			ddsdIn.ddpfPixelFormat.dwRGBBitCount = 32;
-			ddsdIn.ddpfPixelFormat.dwFlags = DDPF_ALPHAPIXELS | DDPF_RGB;
-			ddsdIn.ddpfPixelFormat.dwRBitMask = 0x00FF0000;
-			ddsdIn.ddpfPixelFormat.dwGBitMask = 0x0000FF00;
-			ddsdIn.ddpfPixelFormat.dwBBitMask = 0x000000FF;
-			ddsdIn.ddpfPixelFormat.dwRGBAlphaBitMask = 0xFF000000;
-			break;
+		std::vector<DWORD> outdata( NDxt::GetDecodedSize( pImage->GetSizeX( 0 ), pImage->GetSizeY( 0 ) ) / 4 );
+		const int blockSize = pImage->GetBPP() == 4 ? 8 : 16;
+		const int nPitch = ( pImage->GetSizeX( 0 ) + 3 ) / 4 * blockSize;
+		NDxt::DxtSurfaceDesc input = { pImage->GetSizeX( 0 ), pImage->GetSizeY( 0 ), nPitch, pImage->GetLFB( 0 ) };
+		NDxt::Decode( input, GetDxtFormat( pImage->GetGFXFormat() ), &( outdata[0] ) );
+		return new CImage( pImage->GetSizeX(0), pImage->GetSizeY(0), outdata );
 	}
-	DDSURFACEDESC ddsdOut;
-	Zero( ddsdOut );
-	ddsdOut.dwSize = sizeof( DDSURFACEDESC );
-	const int nNumUncompressedBytes = S3TCgetDecodeSize( &ddsdIn );
-	std::vector<DWORD> outdata( nNumUncompressedBytes / 4 );
-	S3TCdecode( &ddsdIn, &ddsdOut, &(outdata[0]) );
+
+	SPixelConvertInfo pci;
+	if ( !InitRawPixelConvertInfo( pImage->GetGFXFormat(), &pci ) )
+		return 0;
+	const int nNumPixels = pImage->GetSizeX(0) * pImage->GetSizeY(0);
+	std::vector<DWORD> outdata( nNumPixels );
+	const int nBPP = pImage->GetBPP();
+	if ( nBPP == 16 )
+	{
+		const WORD *pSrc = reinterpret_cast<const WORD*>( pImage->GetLFB( 0 ) );
+		for ( int i = 0; i != nNumPixels; ++i )
+		{
+			outdata[i] = pci.DecompColor( pSrc[i] );
+			if ( pImage->GetGFXFormat() == GFXPF_ARGB0565 )
+				outdata[i] |= 0xff000000;
+		}
+	}
+	else if ( nBPP == 32 )
+	{
+		memcpy( &( outdata[0] ), pImage->GetLFB( 0 ), nNumPixels * sizeof( DWORD ) );
+	}
+	else
+		return 0;
 	CImage *pDstImage = new CImage( pImage->GetSizeX(0), pImage->GetSizeY(0), outdata );
 	return pDstImage;
 }

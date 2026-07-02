@@ -365,7 +365,7 @@
     <ClInclude Include="ImagePNG.h" />
     <ClInclude Include="ImageProcessor.h" />
     <ClInclude Include="ImageReal.h" />
-    <ClInclude Include="S3TC.h" />
+    <ClInclude Include="DxtCodec.h" />
     <ClInclude Include="ImageTGA.h" />
     <ClInclude Include="Specific.h" />
     <ClInclude Include="StdAfx.h" />
@@ -379,7 +379,7 @@
     <ClCompile Include="ImagePNG.cpp" />
     <ClCompile Include="ImageProcessor.cpp" />
     <ClCompile Include="ImageReal.cpp" />
-    <ClCompile Include="S3TC.cpp" />
+    <ClCompile Include="DxtCodec.cpp" />
     <ClCompile Include="ImageScale.cpp" />
     <ClCompile Include="ImageTGA.cpp" />
     <ClCompile Include="RectsComposition.cpp" />

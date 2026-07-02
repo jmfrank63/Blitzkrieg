@@ -37,6 +37,9 @@
     <ClInclude Include="ImageReal.h">
       <Filter>Image</Filter>
     </ClInclude>
+    <ClInclude Include="DxtCodec.h">
+      <Filter>Image</Filter>
+    </ClInclude>
     <ClInclude Include="ImageTGA.h">
       <Filter>Image</Filter>
     </ClInclude>
@@ -67,6 +70,9 @@
       <Filter>Image</Filter>
     </ClCompile>
     <ClCompile Include="ImageReal.cpp">
+      <Filter>Image</Filter>
+    </ClCompile>
+    <ClCompile Include="DxtCodec.cpp">
       <Filter>Image</Filter>
     </ClCompile>
     <ClCompile Include="ImageScale.cpp">
