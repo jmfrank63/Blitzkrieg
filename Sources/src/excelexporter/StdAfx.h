@@ -8,12 +8,8 @@
 #endif // _MSC_VER > 1000
 
 #define _NOTHREADS 1
-#define _STLP_DEBUG_TERMINATE 1
-#define _STLP_DEBUG_MESSAGE 1
 #ifndef __AFX__
 #define WIN32_LEAN_AND_MEAN							// Exclude rarely-used stuff from Windows headers
-#include "stl_user_config.h"
-
 #include <comutil.h>
 #include <assert.h>
 #ifdef GetObject
@@ -23,9 +19,6 @@
 #undef CreateObject
 #endif // CreateObject
 #else
-#define _STLP_USE_MFC 1
-#include "stl_user_config.h"
-
 #include <afxwin.h>											// MFC core and standard components
 #include <afxext.h>											// MFC extensions
 #include <afxdtctl.h>										// MFC support for Internet Explorer 4 Common Controls

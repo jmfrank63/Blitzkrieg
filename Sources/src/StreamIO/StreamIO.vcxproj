@@ -440,7 +440,6 @@
   <ItemGroup>
     <ClInclude Include="Specific.h" />
     <ClInclude Include="StdAfx.h" />
-    <ClInclude Include="stl_user_config.h" />
     <ClInclude Include="ZipFile.h" />
     <ClInclude Include="ZipFileSystem.h" />
     <ClInclude Include="CommonFileSystem.h" />

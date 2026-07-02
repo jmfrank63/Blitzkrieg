@@ -286,7 +286,6 @@
     <ClInclude Include="Win32Random.h" />
     <ClInclude Include="Specific.h" />
     <ClInclude Include="StdAfx.h" />
-    <ClInclude Include="stl_user_config.h" />
     <ClInclude Include="TimeMeter.h" />
     <ClInclude Include="VarSystem.h" />
     <ClInclude Include="VarSystemInternal.h" />

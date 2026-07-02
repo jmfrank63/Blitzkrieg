@@ -369,7 +369,6 @@
     <ClInclude Include="ImageTGA.h" />
     <ClInclude Include="Specific.h" />
     <ClInclude Include="StdAfx.h" />
-    <ClInclude Include="stl_user_config.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>

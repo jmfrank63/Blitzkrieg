@@ -8,9 +8,6 @@
 #endif // _MSC_VER > 1000
 
 #define _NOTHREADS 1
-#define _STLP_DEBUG_TERMINATE 1
-#define _STLP_DEBUG_MESSAGE 1
-
 #include <comutil.h>
 #include <assert.h>
 #ifdef GetObject

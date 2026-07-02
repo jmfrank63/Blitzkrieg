@@ -212,7 +212,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="StdAfx.h" />
-    <ClInclude Include="stl_user_config.h" />
     <ClInclude Include="A7ExportModel.h" />
     <ClInclude Include="Data.h" />
     <ClInclude Include="MiniBall\BoundingSphere.h" />
