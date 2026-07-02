@@ -92,6 +92,31 @@ void CMainFrame::UpdateRecentList()
 {
 }
 
+void CMainFrame::LayoutClientWindows()
+{
+	if ( wndInputView.GetSafeHwnd() == 0 || wndBaseTree.GetSafeHwnd() == 0 )
+	{
+		return;
+	}
+
+	CRect clientRect;
+	GetClientRect( &clientRect );
+
+	const int nTreeWidth = min( 300, max( 120, clientRect.Width() / 3 ) );
+	wndBaseTree.SetWindowPos( &CWnd::wndTop,
+														clientRect.left,
+														clientRect.top,
+														nTreeWidth,
+														clientRect.Height(),
+														SWP_SHOWWINDOW | SWP_NOACTIVATE );
+	wndInputView.SetWindowPos( &CWnd::wndBottom,
+														 clientRect.left + nTreeWidth,
+														 clientRect.top,
+														 max( 0, clientRect.Width() - nTreeWidth ),
+														 clientRect.Height(),
+														 SWP_SHOWWINDOW | SWP_NOACTIVATE );
+}
+
 IMPLEMENT_DYNAMIC(CMainFrame, SECFrameWnd)
 
 int wmAppToolBarWndNotify = RegisterWindowMessage( _T( "WM_SECTOOLBARWNDNOTIFY" ) );
@@ -99,6 +124,7 @@ static UINT WM_FINDREPLACE = ::RegisterWindowMessage( FINDMSGSTRING );
 
 BEGIN_MESSAGE_MAP(CMainFrame, SECFrameWnd)
 	ON_WM_CREATE()
+	ON_WM_SIZE()
 	ON_COMMAND(ID_TOOLS_CUSTOMIZE, OnToolsCustomize)
 	ON_WM_CLOSE()
 	ON_COMMAND(ID_VIEW_STATISTIC, OnViewStatistic)
@@ -409,6 +435,7 @@ int CMainFrame::OnCreate( LPCREATESTRUCT lpCreateStruct )
 
 	wndBaseTree.EnableDocking( CBRS_ALIGN_ANY );
 	DockControlBarEx( &wndBaseTree, AFX_IDW_DOCKBAR_LEFT, 0, 0, 1.0f, 300 );
+	LayoutClientWindows();
 	
 	wndInputView.SetMainFrameWindow( this );
 	wndBaseTree.SetMainFrameWindow( this );
@@ -449,6 +476,12 @@ int CMainFrame::OnCreate( LPCREATESTRUCT lpCreateStruct )
 		}
 	}
 	return 0;
+}
+
+void CMainFrame::OnSize( UINT nType, int cx, int cy )
+{
+	SECFrameWnd::OnSize( nType, cx, cy );
+	LayoutClientWindows();
 }
 
 BOOL CMainFrame::PreCreateWindow( CREATESTRUCT& cs )
@@ -770,9 +803,13 @@ void CMainFrame::OnImportFromPak()
 			std::string szMessage = NStr::Format( _T( "Can't find PAK or UPD file: %s." ), szPAKPath.c_str() );
 			::MessageBox( GetSafeHwnd(), szMessage.c_str(), strProgramTitle, MB_OK | MB_ICONSTOP );
 		}
-		if ( !szLastELKPath.empty() )
+		if ( bUpdated )
 		{
-			OpenELK( szLastELKPath );
+			if ( elk.IsOpened() )
+			{
+				CloseELK();
+			}
+			OpenELK( szELKPath );
 		}
 	}
 }
@@ -847,6 +884,19 @@ void CMainFrame::OnFileOpen()
 		{
 			strFileName += _T( ".xml" );
 		}
+		else
+		{
+			CString strExtension = strFileName.Mid( nSlashPos );
+			strExtension.MakeLower();
+			if ( strExtension != _T( ".xml" ) )
+			{
+				CString strProgramTitle;
+				strProgramTitle.LoadString( AFX_IDS_APP_TITLE );
+				std::string szMessage = NStr::Format( _T( "File > Open expects an ELK XML file. Use Import From PAK for PAK or UPD files: %s." ), LPCTSTR( strFileName ) );
+				::MessageBox( GetSafeHwnd(), szMessage.c_str(), strProgramTitle, MB_OK | MB_ICONWARNING );
+				return;
+			}
+		}
 	
 		CloseELK();
 		OpenELK( std::string( strFileName ) );
@@ -897,6 +947,21 @@ bool CMainFrame::CloseELK()
 
 bool CMainFrame::OpenELK( const std::string &rszELKFileName )
 {
+	const std::string::size_type nExtensionPos = rszELKFileName.rfind( '.' );
+	std::string szExtension = nExtensionPos != std::string::npos ? rszELKFileName.substr( nExtensionPos ) : "";
+	NStr::ToLower( szExtension );
+	if ( szExtension != CELK::XML_EXTENTION )
+	{
+		CString strProgramTitle;
+		strProgramTitle.LoadString( AFX_IDS_APP_TITLE );
+
+		std::string szMessage = NStr::Format( _T( "ELK can open only XML files. Use Import From PAK for PAK or UPD files: %s." ), rszELKFileName.c_str() );
+		::MessageBox( GetSafeHwnd(), szMessage.c_str(), strProgramTitle, MB_OK | MB_ICONWARNING );
+		RemoveFromRecentList( rszELKFileName );
+		params.szLastOpenedELKName.clear();
+		return false;
+	}
+
 	if ( !NFile::IsFileExist( rszELKFileName.c_str() ) )
 	{
 		CString strProgramTitle;
@@ -927,6 +992,22 @@ bool CMainFrame::OpenELK( const std::string &rszELKFileName )
 	SetWindowText( szTitle.c_str() );
 	
 	wndBaseTree.FillTree( elk, params.szLastPath, params.nLastELKElement, &progressDialog );
+	if ( HTREEITEM rootItem = wndBaseTree.wndTree.GetRootItem() )
+	{
+		if ( wndBaseTree.wndTree.GetChildCount( rootItem, false, false ) == 0 )
+		{
+			std::string szDataBaseFolder;
+			if ( !elk.elements.empty() )
+			{
+				elk.elements[0].GetDataBaseFolder( &szDataBaseFolder );
+			}
+
+			CString strProgramTitle;
+			strProgramTitle.LoadString( AFX_IDS_APP_TITLE );
+			std::string szMessage = NStr::Format( _T( "ELK project opened, but no child text nodes were added to the tree.\n\nProject: %s\nDatabase folder: %s" ), rszELKFileName.c_str(), szDataBaseFolder.c_str() );
+			::MessageBox( GetSafeHwnd(), szMessage.c_str(), strProgramTitle, MB_OK | MB_ICONWARNING );
+		}
+	}
 	if ( progressDialog.GetSafeHwnd() != 0 )
 	{
 		progressDialog.DestroyWindow();
@@ -965,9 +1046,8 @@ bool CMainFrame::OpenLastELK()
 		strProgramTitle.LoadString( AFX_IDS_APP_TITLE );
 		
 		std::string szMessage = NStr::Format( _T( "Can't find any UPD file in ELK work directory: %s. " ), params.szCurrentFolder.c_str() );
-		::MessageBox( GetSafeHwnd(), szMessage.c_str(), strProgramTitle, MB_OK | MB_ICONSTOP );
-		
-		OnClose();
+		::MessageBox( GetSafeHwnd(), szMessage.c_str(), strProgramTitle, MB_OK | MB_ICONWARNING );
+		params.szLastOpenedELKName.clear();
 		return false;
 	}
 	OpenELK( params.szLastOpenedELKName );
@@ -1103,14 +1183,14 @@ int CMainFrame::OnETNTextSelected( int nState )
 			wndInputView.LoadGameImage( szGameImagePath );
 		}
 
-		CString strText;
-		CELK::GetOriginalText( szPath, &strText, params.nCodePage, false );
+		std::wstring strText;
+		CELK::GetOriginalText( szPath, &strText, false );
 		wndInputView.SetOriginalText( strText );
 		
-		CELK::GetTranslatedText( szPath, &strText, params.nCodePage, false );
+		CELK::GetTranslatedText( szPath, &strText, false );
 		wndInputView.SetTranslatedText( strText );
 		
-		CELK::GetDescription( szPath, &strText, params.nCodePage, false );
+		CELK::GetDescription( szPath, &strText, false );
 		wndInputView.SetDescription( strText );
 		
 		wndInputView.SetState( nState );
@@ -1150,8 +1230,8 @@ int CMainFrame::OnETNFolderSelected( int nState )
 		wndBaseTree.GetItemPath( &szPath, true );
 		szPath += CELK::FOLDER_DESC_FILE_NAME;
 
-		CString strText;
-		CELK::GetDescription( szPath, &strText, false, params.nCodePage );
+		std::wstring strText;
+		CELK::GetDescription( szPath, &strText, false );
 		wndInputView.SetDescription( strText );
 
 		spellChecker.nCharIndex = 0;
@@ -1461,9 +1541,9 @@ void CMainFrame::OnFileSave()
 {
 	if ( !params.szPreviousPath.empty() && wndInputView.IsTranslatedTextChanged() )
 	{
-		CString strText;
+		std::wstring strText;
 		wndInputView.GetTranslatedText( &strText );
-		CELK::SetTranslatedText( params.szPreviousPath, strText, params.nCodePage );
+		CELK::SetTranslatedText( params.szPreviousPath, strText );
 	}
 	params.szPreviousPath.clear();
 }

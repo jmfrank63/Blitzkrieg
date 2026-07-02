@@ -1,4 +1,4 @@
-<base Fonts="1">
+<base>
 	<Name>Game Resources</Name>
 	<PAK>texts.pak</PAK>
 	<UPD>elk</UPD>

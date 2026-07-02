@@ -102,12 +102,71 @@
       "type": "cppvsdbg",
       "request": "launch",
       "program": "${workspaceFolder}/Sources/src/ELK/Debug/ELK.exe",
-      "args": [],
+      "args": [
+        "-developer"
+      ],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}/Sources/src/ELK/Debug",
-      "environment": [],
+      "environment": [
+        {
+          "name": "PATH",
+          "value": "${workspaceFolder}/Sources/src/StreamIO/Debug;${env:PATH}"
+        }
+      ],
       "console": "integratedTerminal",
       "preLaunchTask": "Build ELK Editor (Debug)"
+    },
+    {
+      "name": "Debug ELK.exe (Level Editor, No Build)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/Sources/src/ELK/Debug/ELK.exe",
+      "args": [
+        "-developer"
+      ],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/Sources/src/ELK/Debug",
+      "environment": [
+        {
+          "name": "PATH",
+          "value": "${workspaceFolder}/Sources/src/StreamIO/Debug;${env:PATH}"
+        }
+      ],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Debug editor.exe (Object Editor)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/Sources/src/editor/Debug/editor.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/Sources/src/editor/Debug",
+      "environment": [
+        {
+          "name": "PATH",
+          "value": "${workspaceFolder}/Sources/src/StreamIO/Debug;${env:PATH}"
+        }
+      ],
+      "console": "integratedTerminal",
+      "preLaunchTask": "Build Object Editor (Debug)"
+    },
+    {
+      "name": "Debug MapEditor.exe",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/Sources/src/MapEditor/Debug/MapEditor.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/Sources/src/MapEditor/Debug",
+      "environment": [
+        {
+          "name": "PATH",
+          "value": "${workspaceFolder}/Sources/src/StreamIO/Debug;${env:PATH}"
+        }
+      ],
+      "console": "integratedTerminal",
+      "preLaunchTask": "Build MapEditor (Debug)"
     },
     {
       "name": "Attach to Process",

@@ -37,6 +37,7 @@ protected:
 
 
 	afx_msg int OnCreate( LPCREATESTRUCT lpCreateStruct );
+	afx_msg void OnSize( UINT nType, int cx, int cy );
 	afx_msg void OnToolsCustomize();
 	afx_msg void OnClose();
 	afx_msg void OnViewStatistic();
@@ -116,6 +117,7 @@ protected:
 	int OnTENKeyDown( UINT nChar );
 
 	void OnExportToPAKInternal( bool bUseFilter = false );
+	void LayoutClientWindows();
 public:
 	CMainFrame();
 	virtual ~CMainFrame();

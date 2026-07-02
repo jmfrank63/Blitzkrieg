@@ -37,12 +37,11 @@ BOOL CELKApp::InitInstance()
 		std::string szZIPToolPath = std::string( pBuffer ) + std::string( "\\" ) + std::string( CELK::ZIP_EXE );
 		if ( !NFile::IsFileExist( szZIPToolPath.c_str() ) )
 		{
-			szMessage = NStr::Format( _T( "Can't find file \"%s\" in ELK work directory: %s\\." ), CELK::ZIP_EXE, pBuffer );
+			szMessage = NStr::Format( _T( "Can't find file \"%s\" in ELK work directory: %s\\. PAK export will be unavailable." ), CELK::ZIP_EXE, pBuffer );
 		}
 		if ( !szMessage.empty() )
 		{
-			::MessageBox( ::GetDesktopWindow(), szMessage.c_str(), strProgramTitle, MB_OK | MB_ICONSTOP );
-			return false;
+			::MessageBox( ::GetDesktopWindow(), szMessage.c_str(), strProgramTitle, MB_OK | MB_ICONWARNING );
 		}
 
 		HMODULE hImage = LoadLibrary( ( std::string( pBuffer ) + _T( "\\image.dll" ) ).c_str() );
@@ -88,7 +87,7 @@ BOOL CELKApp::InitInstance()
 	{
 		std::string szCommandLine( m_lpCmdLine );
 		NStr::ToLower( szCommandLine );
-		pFrame->bShortApperence = ( szCommandLine != std::string( _T( "-developer") ) );
+		pFrame->bShortApperence = ( szCommandLine == std::string( _T( "-short" ) ) );
 	}
 	{
 		std::string szGameFolder;

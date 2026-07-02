@@ -33,10 +33,14 @@ public:
 	void SetOriginalText( const CString &rstrText );
 	void SetTranslatedText( const CString &rstrText );
 	void SetDescription( const CString &rstrText );
+	void SetOriginalText( const std::wstring &rText );
+	void SetTranslatedText( const std::wstring &rText );
+	void SetDescription( const std::wstring &rText );
 	void SetState( int nState );
 	bool IsTranslatedTextChanged() { return wndForm.bTranslatedTextChanged; }
 
 	void GetTranslatedText( CString *pstrText );
+	void GetTranslatedText( std::wstring *pText );
 	int GetState();
 
 	void SetMainFrameWindow( CWnd *_pwndMainFrame );

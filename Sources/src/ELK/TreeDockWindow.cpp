@@ -65,6 +65,6 @@ void CTreeDockWindow::OnSize( UINT nType, int cx, int cy )
 	{
 		CRect insideRect;
 		GetInsideRect( insideRect );
-		wndTree.SetWindowPos( 0, insideRect.left, insideRect.top, insideRect.Width(), insideRect.Height(), SWP_NOZORDER | SWP_NOACTIVATE );
+		wndTree.SetWindowPos( &CWnd::wndTop, insideRect.left, insideRect.top, insideRect.Width(), insideRect.Height(), SWP_NOACTIVATE | SWP_SHOWWINDOW );
 	}
 }

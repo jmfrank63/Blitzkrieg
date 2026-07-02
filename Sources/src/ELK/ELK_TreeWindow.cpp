@@ -60,13 +60,12 @@ int CELKTreeWindow::FillFolder( HTREEITEM parentItem, const std::string &rszFold
 {
 	int nTextState = SELKTextProperty::STATE_APPROVED;
 	
-	HTREEITEM folderItem = 0;
-	HTREEITEM fileItem = 0;
 	for ( NFile::CFileIterator fileIterator( ( rszFolderName + std::string( "*.*" ) ).c_str() ); !fileIterator.IsEnd(); ++fileIterator )
 	{
 		if ( fileIterator.IsDirectory() && !fileIterator.IsDots() )
 		{
-			if ( folderItem = wndTree.InsertItem( fileIterator.GetFileName().c_str(), IMAGE_FOLDER_NOT_TRANSLATED, IMAGE_FOLDER_NOT_TRANSLATED, parentItem, folderItem ) )
+			HTREEITEM folderItem = wndTree.InsertItem( fileIterator.GetFileName().c_str(), IMAGE_FOLDER_NOT_TRANSLATED, IMAGE_FOLDER_NOT_TRANSLATED, parentItem, TVI_LAST );
+			if ( folderItem )
 			{
 				int nLocalTextState = FillFolder( folderItem, fileIterator.GetFilePath() + std::string ( "\\" ), rszInitialItemPath, nInitialELKElement, pwndProgressDialog );
 				if ( wndTree.GetChildCount( folderItem, false, false ) == 0 )
@@ -100,7 +99,8 @@ int CELKTreeWindow::FillFolder( HTREEITEM parentItem, const std::string &rszFold
 			NStr::ToLower( szFileExt );
 			if ( szFileExt == _T( "elk" ) )
 			{
-				if ( fileItem = wndTree.InsertItem( fileIterator.GetFileTitle().c_str(), IMAGE_TEXT_NOT_TRANSLATED, IMAGE_TEXT_NOT_TRANSLATED, parentItem, fileItem ) )
+				HTREEITEM fileItem = wndTree.InsertItem( fileIterator.GetFileTitle().c_str(), IMAGE_TEXT_NOT_TRANSLATED, IMAGE_TEXT_NOT_TRANSLATED, parentItem, TVI_LAST );
+				if ( fileItem )
 				{
 					std::string szFileName = fileIterator.GetFilePath().substr( 0, fileIterator.GetFilePath().rfind( '.' ) );
 					bool bTranslated = false;
@@ -190,6 +190,10 @@ void CELKTreeWindow::FillTree( const class CELK &rELK, const std::string &rszIni
 			rootNumbers[reinterpret_cast<LONG>( baseItem )] = nElementIndex;
 			int nTextState = FillFolder( baseItem, szDataBaseFolder, rszInitialItemPath, nInitialELKElement, pwndProgressDialog );
 			wndTree.SetItemImage( baseItem, IMAGE_ROOT_NOT_TRANSLATED_EXPANDED + nTextState, IMAGE_ROOT_NOT_TRANSLATED_EXPANDED + nTextState );
+			if ( wndTree.GetChildCount( baseItem, false, false ) > 0 )
+			{
+				wndTree.Expand( baseItem, TVE_EXPAND );
+			}
 			if ( ( !rszInitialItemPath.empty() ) && ( nInitialELKElement >= 0 ) )
 			{
 				std::string szPath;

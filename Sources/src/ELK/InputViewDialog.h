@@ -52,8 +52,11 @@ protected:
 	bool bTranslatedTextChanged;
 	bool bManualState;
 	CString strInitialTranslatedText;
+	std::wstring strInitialTranslatedWideText;
 	int nInitialState;
 
+	void RecreateUnicodeEditControl( int nControlID, CEdit *pEdit );
+	void RecreateUnicodeEditControls();
 	void LoadGameImage( const std::string &rszGameImagePath );
 };
 #endif // !defined(__ELK_INPUT_VIEW_DIALOG__)

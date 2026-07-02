@@ -74,36 +74,47 @@ void CELK::ToText( const std::vector<BYTE> &rBuffer, CString *pstrText, int nCod
 	{
 		pstrText->Empty();
 		std::wstring wszText;
-		wszText.resize( ( rBuffer.size() - 2 ) / sizeof( wchar_t ) );
-		memcpy( &( wszText[0] ), &( rBuffer[0] ) + 2, wszText.size() * sizeof( wchar_t ) );
+		ToWideText( rBuffer, &wszText, bRemove_0D );
+
+		const int nBufferLength = ::WideCharToMultiByte( nCodePage, 0, wszText.c_str(), wszText.length(), 0, 0, 0, 0 );
+		LPTSTR lptStr = pstrText->GetBuffer( nBufferLength );
+		::WideCharToMultiByte( nCodePage, 0, wszText.c_str(), wszText.length(), lptStr, nBufferLength, 0, 0 );
+		pstrText->ReleaseBuffer();
+	}
+}
+
+void CELK::ToWideText( const std::vector<BYTE> &rBuffer, std::wstring *pText, bool bRemove_0D )
+{
+	NI_ASSERT_T( pText != 0, NStr::Format( _T( "CELK::ToWideText() wrong parameter: pText %x" ), pText ) );
+	NI_ASSERT_T( ( rBuffer.size() > 3 ) && ( rBuffer[0] == 0xFF ) && ( rBuffer[1] == 0xFE ), NStr::Format( _T( "CELK::ToWideText() wrong parameter: rBuffer" ) ) );
+	if ( ( pText != 0 ) && ( rBuffer.size() > 3 ) && ( rBuffer[0] == 0xFF ) && ( rBuffer[1] == 0xFE ) )
+	{
+		pText->clear();
+		pText->resize( ( rBuffer.size() - 2 ) / sizeof( wchar_t ) );
+		memcpy( &( ( *pText )[0] ), &( rBuffer[0] ) + 2, pText->size() * sizeof( wchar_t ) );
 
 		if ( bRemove_0D )
 		{
-			wszText.erase( std::remove_if( wszText.begin(), wszText.end(), [](wchar_t c) { return c == 0x0D; } ),
-										 wszText.end() );
+			pText->erase( std::remove_if( pText->begin(), pText->end(), []( wchar_t c ) { return c == 0x0D; } ),
+										pText->end() );
 		}
-		
+
 		int nLastIndex = 0;
-		for ( nLastIndex = ( wszText.size() - 1 ); nLastIndex >= 0; --nLastIndex )
+		for ( nLastIndex = ( pText->size() - 1 ); nLastIndex >= 0; --nLastIndex )
 		{
-			if ( ( wszText[nLastIndex] != 0x0A ) && ( wszText[nLastIndex] != 0x0D ) )
+			if ( ( ( *pText )[nLastIndex] != 0x0A ) && ( ( *pText )[nLastIndex] != 0x0D ) && ( ( *pText )[nLastIndex] != 0x00 ) )
 			{
 				break;
 			}
 		}
 		if ( nLastIndex < 0 )
 		{
-			wszText.clear();
+			pText->clear();
 		}
-		else if ( nLastIndex < ( wszText.size() - 1 ) )
+		else if ( nLastIndex < ( pText->size() - 1 ) )
 		{
-			wszText = wszText.substr( 0, nLastIndex + 1 );
+			( *pText ) = pText->substr( 0, nLastIndex + 1 );
 		}
-
-		const int nBufferLength = ::WideCharToMultiByte( nCodePage, 0, wszText.c_str(), wszText.length(), 0, 0, 0, 0 );
-		LPTSTR lptStr = pstrText->GetBuffer( nBufferLength );
-		::WideCharToMultiByte( nCodePage, 0, wszText.c_str(), wszText.length(), lptStr, nBufferLength, 0, 0 );
-		pstrText->ReleaseBuffer();
 	}
 }
 
@@ -155,6 +166,53 @@ void CELK::FromText( const CString &rstrText, std::vector<BYTE> *pBuffer, int nC
 	memcpy( &( ( *pBuffer )[2] ), &( wszText[0] ), ( wszText.size() - 1 ) * sizeof( wchar_t ) );
 }
 
+void CELK::FromWideText( const std::wstring &rText, std::vector<BYTE> *pBuffer, bool bAdd_0D )
+{
+	NI_ASSERT_T( pBuffer != 0, NStr::Format( _T( "CELK::FromWideText() wrong parameter: pBuffer %x" ), pBuffer ) );
+	if ( pBuffer )
+	{
+		std::wstring text = rText;
+		if ( bAdd_0D )
+		{
+			for ( int nIndex = 0; nIndex < text.size(); ++nIndex )
+			{
+				if ( text[nIndex] == 0x0A )
+				{
+					if ( ( nIndex == 0 ) || ( text[nIndex - 1] != 0x0D ) )
+					{
+						text.insert( text.begin() + nIndex, 0x0D );
+					}
+				}
+			}
+		}
+
+		int nLastIndex = 0;
+		for ( nLastIndex = ( text.size() - 1 ); nLastIndex >= 0; --nLastIndex )
+		{
+			if ( ( text[nLastIndex] != 0x0A ) && ( text[nLastIndex] != 0x0D ) && ( text[nLastIndex] != 0x00 ) )
+			{
+				break;
+			}
+		}
+		if ( nLastIndex < 0 )
+		{
+			text.clear();
+		}
+		else if ( nLastIndex < ( text.size() - 1 ) )
+		{
+			text = text.substr( 0, nLastIndex + 1 );
+		}
+
+		pBuffer->resize( 2 + text.size() * sizeof( wchar_t ) );
+		( *pBuffer )[0] = 0xFF;
+		( *pBuffer )[1] = 0xFE;
+		if ( !text.empty() )
+		{
+			memcpy( &( ( *pBuffer )[2] ), &( text[0] ), text.size() * sizeof( wchar_t ) );
+		}
+	}
+}
+
 void CELK::GetOriginalText( const std::string &rszTextPath, CString *pstrText, int nCodePage, bool bRemove_0D )
 {
 	NI_ASSERT_T( pstrText != 0, NStr::Format( _T( "CELK::GetOriginalText() wrong parameter: pstrText %x" ), pstrText ) );
@@ -173,6 +231,24 @@ void CELK::GetOriginalText( const std::string &rszTextPath, CString *pstrText, i
 	}	
 }
 
+void CELK::GetOriginalText( const std::string &rszTextPath, std::wstring *pText, bool bRemove_0D )
+{
+	NI_ASSERT_T( pText != 0, NStr::Format( _T( "CELK::GetOriginalText() wrong parameter: pText %x" ), pText ) );
+	if ( pText )
+	{
+		pText->clear();
+		CPtr<IDataStream> pFileStream = 0;
+		if ( pFileStream = CreateFileStream( NStr::Format( _T( "%s%s" ), rszTextPath.c_str(), ELK_EXTENTION ), STREAM_ACCESS_READ ) )
+		{
+			std::vector<BYTE> fileBuffer;
+			fileBuffer.resize( pFileStream->GetSize() );
+			pFileStream->Read( &( fileBuffer[0] ), fileBuffer.size() );
+
+			ToWideText( fileBuffer, pText, bRemove_0D );
+		}
+	}
+}
+
 void CELK::GetTranslatedText( const std::string &rszTextPath, CString *pstrText,  int nCodePage, bool bRemove_0D )
 {
 	NI_ASSERT_T( pstrText != 0, NStr::Format( _T( "CELK::GetTranslatedText() wrong parameter: pstrText %x" ), pstrText ) );
@@ -189,6 +265,24 @@ void CELK::GetTranslatedText( const std::string &rszTextPath, CString *pstrText,
 			ToText( fileBuffer, pstrText, nCodePage, bRemove_0D );
 		}
 	}	
+}
+
+void CELK::GetTranslatedText( const std::string &rszTextPath, std::wstring *pText, bool bRemove_0D )
+{
+	NI_ASSERT_T( pText != 0, NStr::Format( _T( "CELK::GetTranslatedText() wrong parameter: pText %x" ), pText ) );
+	if ( pText )
+	{
+		pText->clear();
+		CPtr<IDataStream> pFileStream = 0;
+		if ( pFileStream = CreateFileStream( NStr::Format( _T( "%s%s" ), rszTextPath.c_str(), TXT_EXTENTION ), STREAM_ACCESS_READ ) )
+		{
+			std::vector<BYTE> fileBuffer;
+			fileBuffer.resize( pFileStream->GetSize() );
+			pFileStream->Read( &( fileBuffer[0] ), fileBuffer.size() );
+
+			ToWideText( fileBuffer, pText, bRemove_0D );
+		}
+	}
 }
 
 void CELK::GetDescription( const std::string &rszTextPath, CString *pstrText, int nCodePage, bool bRemove_0D )
@@ -225,6 +319,40 @@ void CELK::GetDescription( const std::string &rszTextPath, CString *pstrText, in
 	}	
 }
 
+void CELK::GetDescription( const std::string &rszTextPath, std::wstring *pText, bool bRemove_0D )
+{
+	NI_ASSERT_T( pText != 0, NStr::Format( _T( "CELK::GetDescription() wrong parameter: pText %x" ), pText ) );
+	if ( pText )
+	{
+		pText->clear();
+		std::string szFileName = NStr::Format( _T( "%s%s" ), rszTextPath.c_str(), DSC_EXTENTION );
+		std::string szFileFolder = szFileName.substr( 0, szFileName.rfind( '\\' ) );
+		while ( !NFile::IsFileExist( szFileName.c_str() ) )
+		{
+			int nPosition = szFileFolder.rfind( '\\' );
+			if ( nPosition == std::string::npos )
+			{
+				szFileName.clear();
+				break;
+			}
+			szFileFolder = szFileFolder.substr( 0, nPosition );
+			szFileName = szFileFolder + std::string( _T( "\\" ) ) + std::string( FOLDER_DESC_FILE_NAME ) + DSC_EXTENTION;
+		}
+		if ( !szFileName.empty() )
+		{
+			CPtr<IDataStream> pFileStream = 0;
+			if ( pFileStream = CreateFileStream( szFileName.c_str(), STREAM_ACCESS_READ ) )
+			{
+				std::vector<BYTE> fileBuffer;
+				fileBuffer.resize( pFileStream->GetSize() );
+				pFileStream->Read( &( fileBuffer[0] ), fileBuffer.size() );
+
+				ToWideText( fileBuffer, pText, bRemove_0D );
+			}
+		}
+	}
+}
+
 int CELK::GetState( const std::string &rszTextPath, bool *pbTranslated )
 {
 	SELKTextProperty textProperty;
@@ -251,6 +379,17 @@ void CELK::SetTranslatedText( const std::string &rszTextPath, const CString &rst
 	{
 		std::vector<BYTE> fileBuffer;
 		FromText( rstrText, &fileBuffer, nCodePage, bAdd_0D );
+		pFileStream->Write( &( fileBuffer[0] ), fileBuffer.size() );
+	}
+}
+
+void CELK::SetTranslatedText( const std::string &rszTextPath, const std::wstring &rText, bool bAdd_0D )
+{
+	CPtr<IDataStream> pFileStream = 0;
+	if ( pFileStream = CreateFileStream( NStr::Format( _T( "%s%s" ), rszTextPath.c_str(), TXT_EXTENTION ), STREAM_ACCESS_WRITE ) )
+	{
+		std::vector<BYTE> fileBuffer;
+		FromWideText( rText, &fileBuffer, bAdd_0D );
 		pFileStream->Write( &( fileBuffer[0] ), fileBuffer.size() );
 	}
 }
@@ -1544,8 +1683,13 @@ void CFontGen::LoadFont( HWND hWnd,
     DeleteObject( fi.hFont ); 
     fi.hFont = 0;
   }
+	CHARSETINFO cs;
+	if ( !TranslateCharsetInfo( (DWORD*)nCodePage, &cs, TCI_SRCCODEPAGE ) )
+	{
+		cs.ciCharset = DEFAULT_CHARSET;
+	}
   fi.hFont = ::CreateFont( nHeight, 0, 0, 0, nWeight, bItalic, FALSE, FALSE, 
-                           DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, 
+                           cs.ciCharset, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                            bAntialias ? ANTIALIASED_QUALITY : NONANTIALIASED_QUALITY,
                            dwPitch, LPCTSTR( strFaceName ) );
   HDC hdc = GetDC( hWnd );

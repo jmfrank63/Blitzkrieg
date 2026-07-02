@@ -117,19 +117,29 @@ public:
 	};
 };
 
-class SECControlBar : public CDockablePane
+class SECControlBar : public CWnd
 {
 public:
 virtual BOOL Create(CWnd* pParentWnd, LPCTSTR lpszWindowName, DWORD dwStyle, DWORD dwStyleEx, UINT nID, CCreateContext* pContext = NULL)
 {
 UNREFERENCED_PARAMETER(dwStyleEx);
 UNREFERENCED_PARAMETER(pContext);
-return CDockablePane::Create(lpszWindowName, pParentWnd, CRect(0, 0, 0, 0), TRUE, nID, dwStyle);
+LPCTSTR pszClassName = AfxRegisterWndClass(CS_DBLCLKS, ::LoadCursor(NULL, IDC_ARROW), reinterpret_cast<HBRUSH>(COLOR_BTNFACE + 1), NULL);
+return CWnd::Create(pszClassName, lpszWindowName, dwStyle, CRect(0, 0, 0, 0), pParentWnd, nID);
 }
 
 void GetInsideRect(CRect& rect) const
 {
 GetClientRect(&rect);
+}
+
+void EnableDocking(DWORD)
+{
+}
+
+BOOL IsVisible() const
+{
+return (GetSafeHwnd() != NULL) && IsWindowVisible();
 }
 
 static UINT GetUniqueBarID(CFrameWnd* pFrameWnd, UINT nBase)
@@ -138,6 +148,37 @@ UNREFERENCED_PARAMETER(pFrameWnd);
 return nBase;
 }
 };
+
+inline void SECPositionControlBar(CWnd* pParentWnd, CWnd* pControlBar, UINT nDockBarID, int nWidth)
+{
+if (pParentWnd == NULL || pControlBar == NULL || pControlBar->GetSafeHwnd() == NULL)
+{
+return;
+}
+
+CRect rect;
+pParentWnd->GetClientRect(&rect);
+
+int nBarWidth = nWidth > 0 ? nWidth : 240;
+int nBarHeight = rect.Height() > 0 ? rect.Height() : 240;
+
+switch (nDockBarID)
+{
+case AFX_IDW_DOCKBAR_RIGHT:
+	pControlBar->MoveWindow(max(0, rect.right - nBarWidth), rect.top, nBarWidth, nBarHeight);
+	break;
+case AFX_IDW_DOCKBAR_BOTTOM:
+	pControlBar->MoveWindow(rect.left, max(0, rect.bottom - nBarWidth), rect.Width(), nBarWidth);
+	break;
+case AFX_IDW_DOCKBAR_TOP:
+	pControlBar->MoveWindow(rect.left, rect.top, rect.Width(), nBarWidth);
+	break;
+case AFX_IDW_DOCKBAR_LEFT:
+default:
+	pControlBar->MoveWindow(rect.left, rect.top, nBarWidth, nBarHeight);
+	break;
+}
+}
 
 class SECCustomToolBar : public SECControlBar
 {
@@ -212,7 +253,7 @@ void SetTitle(LPCTSTR pszTitle) { CFrameWnd::SetWindowText(pszTitle); }
 		UNREFERENCED_PARAMETER(bDelay);
 		if (pControlBar != NULL)
 		{
-			pControlBar->ShowPane(bShow, FALSE, TRUE);
+			pControlBar->ShowWindow(bShow ? SW_SHOW : SW_HIDE);
 		}
 	}
 	void ShowControlBar(CControlBar* pControlBar, BOOL bShow, BOOL bDelay)
@@ -220,18 +261,20 @@ void SetTitle(LPCTSTR pszTitle) { CFrameWnd::SetWindowText(pszTitle); }
 		UNREFERENCED_PARAMETER(bDelay);
 		CFrameWnd::ShowControlBar(pControlBar, bShow, FALSE);
 	}
-	void DockControlBarEx(SECControlBar* pControlBar, UINT, int, int, float, int)
+	void DockControlBarEx(SECControlBar* pControlBar, UINT nDockBarID, int, int, float, int nWidth)
 	{
 		if (pControlBar != NULL)
 		{
-			pControlBar->ShowPane(TRUE, FALSE, TRUE);
+			SECPositionControlBar(this, pControlBar, nDockBarID, nWidth);
+			pControlBar->ShowWindow(SW_SHOW);
 		}
 	}
-	void DockControlBar(SECCustomToolBar* pBar, UINT, LPCRECT)
+	void DockControlBar(SECCustomToolBar* pBar, UINT nDockBarID, LPCRECT)
 	{
 		if (pBar != NULL)
 		{
-			pBar->ShowPane(TRUE, FALSE, TRUE);
+			SECPositionControlBar(this, pBar, nDockBarID, 0);
+			pBar->ShowWindow(SW_SHOW);
 		}
 	}
 
@@ -259,7 +302,7 @@ void SetTitle(LPCTSTR pszTitle) { CMDIFrameWnd::SetWindowText(pszTitle); }
 		UNREFERENCED_PARAMETER(bDelay);
 		if (pControlBar != NULL)
 		{
-			pControlBar->ShowPane(bShow, FALSE, TRUE);
+			pControlBar->ShowWindow(bShow ? SW_SHOW : SW_HIDE);
 		}
 	}
 	void ShowControlBar(CControlBar* pControlBar, BOOL bShow, BOOL bDelay)
@@ -267,18 +310,20 @@ void SetTitle(LPCTSTR pszTitle) { CMDIFrameWnd::SetWindowText(pszTitle); }
 		UNREFERENCED_PARAMETER(bDelay);
 		CMDIFrameWnd::ShowControlBar(pControlBar, bShow, FALSE);
 	}
-	void DockControlBarEx(SECControlBar* pControlBar, UINT, int, int, float, int)
+	void DockControlBarEx(SECControlBar* pControlBar, UINT nDockBarID, int, int, float, int nWidth)
 	{
 		if (pControlBar != NULL)
 		{
-			pControlBar->ShowPane(TRUE, FALSE, TRUE);
+			SECPositionControlBar(this, pControlBar, nDockBarID, nWidth);
+			pControlBar->ShowWindow(SW_SHOW);
 		}
 	}
-	void DockControlBar(SECCustomToolBar* pBar, UINT, LPCRECT)
+	void DockControlBar(SECCustomToolBar* pBar, UINT nDockBarID, LPCRECT)
 	{
 		if (pBar != NULL)
 		{
-			pBar->ShowPane(TRUE, FALSE, TRUE);
+			SECPositionControlBar(this, pBar, nDockBarID, 0);
+			pBar->ShowWindow(SW_SHOW);
 		}
 	}
 	CMDIChildWnd* CreateNewChild(CRuntimeClass* pClass, UINT nResourceID, HMENU hMenu, HACCEL hAccel);
@@ -345,6 +390,36 @@ BOOL Create(DWORD dwStyle, DWORD dwStyleEx, const RECT& rect, CWnd* pParentWnd, 
 UNREFERENCED_PARAMETER(dwStyleEx);
 return CTreeCtrl::Create(dwStyle, rect, pParentWnd, nID);
 }
+
+	HTREEITEM InsertItem(LPCTSTR lpszItem, HTREEITEM hParent = TVI_ROOT, HTREEITEM hInsertAfter = TVI_LAST)
+	{
+		return CTreeCtrl::InsertItem(lpszItem, NormalizeParent(hParent), NormalizeInsertAfter(hInsertAfter));
+	}
+
+	HTREEITEM InsertItem(LPCTSTR lpszItem, int nImage, int nSelectedImage, HTREEITEM hParent = TVI_ROOT, HTREEITEM hInsertAfter = TVI_LAST)
+	{
+		return CTreeCtrl::InsertItem(lpszItem, nImage, nSelectedImage, NormalizeParent(hParent), NormalizeInsertAfter(hInsertAfter));
+	}
+
+	HTREEITEM InsertItem(UINT nMask, LPCTSTR lpszItem, int nImage, int nSelectedImage, UINT nState, UINT nStateMask, LPARAM lParam, HTREEITEM hParent, HTREEITEM hInsertAfter)
+	{
+		return CTreeCtrl::InsertItem(nMask, lpszItem, nImage, nSelectedImage, nState, nStateMask, lParam, NormalizeParent(hParent), NormalizeInsertAfter(hInsertAfter));
+	}
+
+	HTREEITEM InsertItem(LPTVINSERTSTRUCT lpInsertStruct)
+	{
+		if ( lpInsertStruct != NULL )
+		{
+			lpInsertStruct->hParent = NormalizeParent( lpInsertStruct->hParent );
+			lpInsertStruct->hInsertAfter = NormalizeInsertAfter( lpInsertStruct->hInsertAfter );
+		}
+		return CTreeCtrl::InsertItem( lpInsertStruct );
+	}
+
+	HTREEITEM InsertItem(TVINSERTSTRUCT *lpInsertStruct)
+	{
+		return InsertItem( reinterpret_cast<LPTVINSERTSTRUCT>( lpInsertStruct ) );
+	}
 
 	BOOL SubclassTreeCtrlId(UINT nID, CWnd* pParentWnd)
 	{
@@ -447,6 +522,11 @@ return CTreeCtrl::Create(dwStyle, rect, pParentWnd, nID);
 		return NULL;
 	}
 
+	HTREEITEM GetRootItem() const
+	{
+		return CTreeCtrl::GetRootItem();
+	}
+
 	void DeselectAllItems()
 	{
 		SelectItem(NULL);
@@ -467,6 +547,16 @@ return CTreeCtrl::Create(dwStyle, rect, pParentWnd, nID);
 	}
 
 private:
+	static HTREEITEM NormalizeParent(HTREEITEM hParent)
+	{
+		return hParent != NULL ? hParent : TVI_ROOT;
+	}
+
+	static HTREEITEM NormalizeInsertAfter(HTREEITEM hInsertAfter)
+	{
+		return hInsertAfter != NULL ? hInsertAfter : TVI_LAST;
+	}
+
 	std::map<int, CString> m_columnHeadings;
 	std::map<int, int> m_columnWidths;
 	std::map<int, int> m_columnFormats;
@@ -697,23 +787,3 @@ public:
 		}
 
 		TCHAR szPath[MAX_PATH] = { 0 };
-		if (!SHGetPathFromIDList(pItemIdList, szPath))
-		{
-			CoTaskMemFree(pItemIdList);
-			return IDCANCEL;
-		}
-
-		m_strSelectedPath = szPath;
-		m_ofn.lpstrFile = m_strSelectedPath.GetBuffer(MAX_PATH);
-		m_ofn.lpstrFile[0] = 0;
-		m_strSelectedPath.ReleaseBuffer();
-		CoTaskMemFree(pItemIdList);
-		return IDOK;
-	}
-
-protected:
-	CString m_strCaption;
-	CString m_strInitialDir;
-	CString m_strSelectedPath;
-	CWnd* m_pParentWnd = NULL;
-};

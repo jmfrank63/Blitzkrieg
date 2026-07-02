@@ -183,6 +183,8 @@ class CELK
 public:
 	static void ToText( const std::vector<BYTE> &rBuffer, CString *pstrText, int nCodePage, bool bRemove_0D = false );
 	static void FromText( const CString &rstrText, std::vector<BYTE> *pBuffer, int nCodePage, bool bAdd_0D = false );
+	static void ToWideText( const std::vector<BYTE> &rBuffer, std::wstring *pText, bool bRemove_0D = false );
+	static void FromWideText( const std::wstring &rText, std::vector<BYTE> *pBuffer, bool bAdd_0D = false );
 
 public:
 	static const int DEFAULT_CODE_PAGE;
@@ -228,9 +230,13 @@ public:
 	static void GetOriginalText  ( const std::string &rszTextPath, CString *pstrText, int nCodePage, bool bRemove_0D = false );
 	static void GetTranslatedText( const std::string &rszTextPath, CString *pstrText, int nCodePage, bool bRemove_0D = false );
 	static void GetDescription   ( const std::string &rszTextPath, CString *pstrText, int nCodePage, bool bRemove_0D = false );
+	static void GetOriginalText  ( const std::string &rszTextPath, std::wstring *pText, bool bRemove_0D = false );
+	static void GetTranslatedText( const std::string &rszTextPath, std::wstring *pText, bool bRemove_0D = false );
+	static void GetDescription   ( const std::string &rszTextPath, std::wstring *pText, bool bRemove_0D = false );
 	static int GetState( const std::string &rszTextPath, bool *pbTranslated );
 
 	static void SetTranslatedText( const std::string &rszTextPath, const CString &rstrText, int nCodePage, bool bAdd_0D = false );
+	static void SetTranslatedText( const std::string &rszTextPath, const std::wstring &rText, bool bAdd_0D = false );
 	static int SetState( const std::string &rszTextPath, int nState, bool *pbTranslated ); //���������� ���������� �����
 	
 	static bool CreatePAK( const std::string &rszGamePath, const std::string &rszFilePath, const std::string &rszZIPToolPath, class CProgressDialog* pwndProgressDialog = 0 );

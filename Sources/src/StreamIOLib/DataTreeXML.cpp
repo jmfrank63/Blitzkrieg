@@ -148,6 +148,10 @@ int CDataTreeXML::StartContainerChunk( DTChunkID idChunk )
 	const std::string szChunkName = idChunk[0] == '\0' ? "data" : idChunk;
 	if ( IsReading() )
 	{
+		if ( xmlCurrNode == 0 )
+		{
+			return 0;
+		}
 		if ( xmlCurrNode->selectSingleNode(_bstr_t(szChunkName.c_str())) != 0 ) 
 		{
 			nodes.push_back( SCOMPtr<MSXML2::IXMLDOMNodePtr>() );

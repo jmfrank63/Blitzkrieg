@@ -8,7 +8,6 @@
 // Generated from the TEXTINCLUDE 2 resource.
 //
 #include "afxres.h"
-#include "secres.h"          // Objective Toolkit Resource Symbols
 
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
@@ -36,7 +35,6 @@ END
 2 TEXTINCLUDE DISCARDABLE 
 BEGIN
     "#include ""afxres.h""\r\n"
-    "#include ""secres.h""          // Objective Toolkit Resource Symbols\r\n"
     "\0"
 END
 
@@ -55,7 +53,6 @@ BEGIN
     "#include ""afxres.rc""         // Standard components\r\n"
     "#endif\r\n"
     "\r\n"
-    "#include ""secres.rc""    // Objective Toolkit Resources\r\n"
     "\0"
 END
 
@@ -1109,7 +1106,6 @@ LANGUAGE 9, 1
 #include "afxres.rc"         // Standard components
 #endif
 
-#include "secres.rc"    // Objective Toolkit Resources
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED

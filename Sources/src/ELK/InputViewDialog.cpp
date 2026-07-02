@@ -98,6 +98,7 @@ END_MESSAGE_MAP()
 BOOL CInputViewDialog::OnInitDialog() 
 {
 	CResizeDialog::OnInitDialog();
+	RecreateUnicodeEditControls();
 	
 	hBackIcon = AfxGetApp()->LoadIcon( IDI_IV_BACK );
 	m_BackButton.SetIcon( hBackIcon );
@@ -106,6 +107,59 @@ BOOL CInputViewDialog::OnInitDialog()
 	m_NextButton.SetIcon( hNextIcon );
 
 	return true;
+}
+
+void CInputViewDialog::RecreateUnicodeEditControl( int nControlID, CEdit *pEdit )
+{
+	NI_ASSERT_T( pEdit != 0, NStr::Format( _T( "CInputViewDialog::RecreateUnicodeEditControl() wrong parameter: pEdit %x" ), pEdit ) );
+	if ( pEdit == 0 )
+	{
+		return;
+	}
+
+	HWND hOldWnd = pEdit->GetSafeHwnd();
+	if ( hOldWnd == 0 )
+	{
+		return;
+	}
+
+	CRect rect;
+	::GetWindowRect( hOldWnd, &rect );
+	ScreenToClient( &rect );
+
+	const DWORD dwStyle = ::GetWindowLong( hOldWnd, GWL_STYLE );
+	const DWORD dwExStyle = ::GetWindowLong( hOldWnd, GWL_EXSTYLE );
+	HFONT hFont = reinterpret_cast<HFONT>( ::SendMessage( hOldWnd, WM_GETFONT, 0, 0 ) );
+
+	pEdit->UnsubclassWindow();
+	::DestroyWindow( hOldWnd );
+
+	HWND hNewWnd = ::CreateWindowExW( dwExStyle,
+																		L"EDIT",
+																		L"",
+																		dwStyle,
+																		rect.left,
+																		rect.top,
+																		rect.Width(),
+																		rect.Height(),
+																		GetSafeHwnd(),
+																		reinterpret_cast<HMENU>( nControlID ),
+																		AfxGetInstanceHandle(),
+																		0 );
+	if ( hNewWnd != 0 )
+	{
+		if ( hFont != 0 )
+		{
+			::SendMessage( hNewWnd, WM_SETFONT, reinterpret_cast<WPARAM>( hFont ), TRUE );
+		}
+	}
+}
+
+void CInputViewDialog::RecreateUnicodeEditControls()
+{
+	RecreateUnicodeEditControl( IDC_IV_ORIGINAL_EDIT, &m_OriginalEdit );
+	RecreateUnicodeEditControl( IDC_IV_TRANSLATE_EDIT, &m_TranslateEdit );
+	RecreateUnicodeEditControl( IDC_IV_ORIGINAL_DESCRIPTION_EDIT, &m_DescriptionEdit );
 }
 
 void CInputViewDialog::OnNotTranslatedRadioButton() 
@@ -146,12 +200,18 @@ void CInputViewDialog::OnChangeTranslateEdit()
 	}
 
 	bool bPreviousTranslatedTextChanged = bTranslatedTextChanged;
-	CString strActualText;
+	std::wstring strActualText;
 	if ( CWnd *pWnd = GetDlgItem( IDC_IV_TRANSLATE_EDIT ) )
 	{
-		pWnd->GetWindowText( strActualText );
+		const int nTextLength = ::GetWindowTextLengthW( pWnd->GetSafeHwnd() );
+		strActualText.resize( nTextLength + 1 );
+		if ( nTextLength > 0 )
+		{
+			::GetWindowTextW( pWnd->GetSafeHwnd(), &( strActualText[0] ), nTextLength + 1 );
+		}
+		strActualText.resize( nTextLength );
 	}
-	bTranslatedTextChanged = ( strInitialTranslatedText != strActualText );
+	bTranslatedTextChanged = ( strInitialTranslatedWideText != strActualText );
 
 	if ( ( bTranslatedTextChanged != bPreviousTranslatedTextChanged ) && ( !bManualState ) )
 	{

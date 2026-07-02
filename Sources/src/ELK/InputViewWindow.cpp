@@ -173,6 +173,14 @@ void CInputViewWindow::SetOriginalText( const CString &rstrText )
 	}
 }
 
+void CInputViewWindow::SetOriginalText( const std::wstring &rText )
+{
+	if ( CWnd *pWnd = wndForm.GetDlgItem( IDC_IV_ORIGINAL_EDIT ) )
+	{
+		::SetWindowTextW( pWnd->GetSafeHwnd(), rText.c_str() );
+	}
+}
+
 void CInputViewWindow::SetTranslatedText( const CString &rstrText )
 {
 	if ( CEdit *pWnd = static_cast<CEdit*>( wndForm.GetDlgItem( IDC_IV_TRANSLATE_EDIT ) ) )
@@ -184,11 +192,31 @@ void CInputViewWindow::SetTranslatedText( const CString &rstrText )
 	}
 }
 
+void CInputViewWindow::SetTranslatedText( const std::wstring &rText )
+{
+	if ( CEdit *pWnd = static_cast<CEdit*>( wndForm.GetDlgItem( IDC_IV_TRANSLATE_EDIT ) ) )
+	{
+		::SetWindowTextW( pWnd->GetSafeHwnd(), rText.c_str() );
+		wndForm.bTranslatedTextChanged = false;
+		wndForm.bManualState = false;
+		wndForm.strInitialTranslatedText.Empty();
+		wndForm.strInitialTranslatedWideText = rText;
+	}
+}
+
 void CInputViewWindow::SetDescription( const CString &rstrText )
 {
 	if ( CWnd *pWnd = wndForm.GetDlgItem( IDC_IV_ORIGINAL_DESCRIPTION_EDIT ) )
 	{
 		pWnd->SetWindowText( rstrText );
+	}
+}
+
+void CInputViewWindow::SetDescription( const std::wstring &rText )
+{
+	if ( CWnd *pWnd = wndForm.GetDlgItem( IDC_IV_ORIGINAL_DESCRIPTION_EDIT ) )
+	{
+		::SetWindowTextW( pWnd->GetSafeHwnd(), rText.c_str() );
 	}
 }
 
@@ -207,6 +235,25 @@ void CInputViewWindow::GetTranslatedText( CString *pstrText )
 		if ( CWnd *pWnd = wndForm.GetDlgItem( IDC_IV_TRANSLATE_EDIT ) )
 		{
 			pWnd->GetWindowText( ( *pstrText ) );
+		}
+	}
+}
+
+void CInputViewWindow::GetTranslatedText( std::wstring *pText )
+{
+	NI_ASSERT_T( pText != 0, NStr::Format( _T( "CInputViewWindow::GetTranslatedText() wrong parameter: pText %x" ), pText ) );
+	if ( pText )
+	{
+		pText->clear();
+		if ( CWnd *pWnd = wndForm.GetDlgItem( IDC_IV_TRANSLATE_EDIT ) )
+		{
+			const int nTextLength = ::GetWindowTextLengthW( pWnd->GetSafeHwnd() );
+			pText->resize( nTextLength + 1 );
+			if ( nTextLength > 0 )
+			{
+				::GetWindowTextW( pWnd->GetSafeHwnd(), &( ( *pText )[0] ), nTextLength + 1 );
+			}
+			pText->resize( nTextLength );
 		}
 	}
 }

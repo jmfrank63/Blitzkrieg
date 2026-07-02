@@ -54,15 +54,95 @@
       "problemMatcher": "$msCompile"
     },
     {
-      "label": "Build ELK Editor (Debug)",
+      "label": "Build StreamIO (Debug)",
       "type": "shell",
       "command": "msbuild",
       "args": [
-        "${workspaceFolder}/Sources/src/A7.sln",
-        "/t:ELK",
+        "${workspaceFolder}/Sources/src/StreamIO/StreamIO.vcxproj",
         "/p:Configuration=Debug",
         "/p:Platform=Win32",
-        "/m",
+        "/m:1",
+        "/v:minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Build ELK Editor (Debug)",
+      "type": "shell",
+      "command": "msbuild",
+      "dependsOn": "Build StreamIO (Debug)",
+      "dependsOrder": "sequence",
+      "args": [
+        "${workspaceFolder}/Sources/src/ELK/ELK.vcxproj",
+        "/p:Configuration=Debug",
+        "/p:Platform=Win32",
+        "/m:1",
+        "/v:minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Rebuild ELK Editor (Debug)",
+      "type": "shell",
+      "command": "msbuild",
+      "dependsOn": "Build StreamIO (Debug)",
+      "dependsOrder": "sequence",
+      "args": [
+        "${workspaceFolder}/Sources/src/ELK/ELK.vcxproj",
+        "/t:Rebuild",
+        "/p:Configuration=Debug",
+        "/p:Platform=Win32",
+        "/m:1",
+        "/v:minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Build Object Editor (Debug)",
+      "type": "shell",
+      "command": "msbuild",
+      "dependsOn": "Build StreamIO (Debug)",
+      "dependsOrder": "sequence",
+      "args": [
+        "${workspaceFolder}/Sources/src/editor/editor.vcxproj",
+        "/p:Configuration=Debug",
+        "/p:Platform=Win32",
+        "/m:1",
+        "/v:minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Build MapEditor (Debug)",
+      "type": "shell",
+      "command": "msbuild",
+      "dependsOn": "Build StreamIO (Debug)",
+      "dependsOrder": "sequence",
+      "args": [
+        "${workspaceFolder}/Sources/src/MapEditor/MapEditor.vcxproj",
+        "/p:Configuration=Debug",
+        "/p:Platform=Win32",
+        "/m:1",
         "/v:minimal"
       ],
       "group": "build",
