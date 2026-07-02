@@ -274,7 +274,6 @@ copy $(OutDir)*.exe "$(SolutionDir)bin\\"</Command>
   <ItemGroup>
     <ClInclude Include="Specific.h" />
     <ClInclude Include="StdAfx.h" />
-    <ClInclude Include="stl_user_config.h" />
     <ClInclude Include="ExcelExporter.h" />
     <ClInclude Include="XmlReader.h" />
   </ItemGroup>

@@ -788,7 +788,6 @@
   <ItemGroup>
     <ClInclude Include="Specific.h" />
     <ClInclude Include="StdAfx.h" />
-    <ClInclude Include="stl_user_config.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="SceneInternal.h" />
     <ClInclude Include="SceneScreenScale.h" />

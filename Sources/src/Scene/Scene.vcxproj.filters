@@ -228,10 +228,7 @@
     <ClInclude Include="StdAfx.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="stl_user_config.h">
-      <Filter>Common</Filter>
-    </ClInclude>
-    <ClInclude Include="Scene.h">
+<ClInclude Include="Scene.h">
       <Filter>Scene</Filter>
     </ClInclude>
     <ClInclude Include="SceneInternal.h">

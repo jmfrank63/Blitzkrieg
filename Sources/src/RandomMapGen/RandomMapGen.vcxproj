@@ -271,7 +271,6 @@
   <ItemGroup>
     <ClInclude Include="Specific.h" />
     <ClInclude Include="StdAfx.h" />
-    <ClInclude Include="stl_user_config.h" />
     <ClInclude Include="BetaSpline.h" />
     <ClInclude Include="Builders.h" />
     <ClInclude Include="PNoise.h" />

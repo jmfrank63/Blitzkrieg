@@ -486,7 +486,6 @@
     <ClInclude Include="AudioBackendXiphVorbis.h" />
     <ClInclude Include="Specific.h" />
     <ClInclude Include="StdAfx.h" />
-    <ClInclude Include="stl_user_config.h" />
     <ClInclude Include="SampleSounds.h" />
     <ClInclude Include="StreamingSound.h" />
     <ClInclude Include="CommonStructs.h" />

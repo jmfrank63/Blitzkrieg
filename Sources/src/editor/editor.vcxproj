@@ -1423,7 +1423,6 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     <ClInclude Include="Resource.h" />
     <ClInclude Include="Specific.h" />
     <ClInclude Include="StdAfx.h" />
-    <ClInclude Include="stl_user_config.h" />
     <ClInclude Include="COI\CtrlObjectInspector.h" />
     <ClInclude Include="COI\OIBrowEdit.h" />
     <ClInclude Include="COI\OIColorEdit.h" />

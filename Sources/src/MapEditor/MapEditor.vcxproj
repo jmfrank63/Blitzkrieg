@@ -1152,7 +1152,6 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     <ClInclude Include="htmlhelp.h" />
     <ClInclude Include="Specific.h" />
     <ClInclude Include="StdAfx.h" />
-    <ClInclude Include="stl_user_config.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="editor.rc" />

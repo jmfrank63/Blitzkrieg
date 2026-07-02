@@ -420,7 +420,6 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
   <ItemGroup>
     <ClInclude Include="Specific.h" />
     <ClInclude Include="StdAfx.h" />
-    <ClInclude Include="stl_user_config.h" />
     <ClInclude Include="SysKeys.h" />
     <ClInclude Include="WinFrame.h" />
     <ClInclude Include="resource.h" />

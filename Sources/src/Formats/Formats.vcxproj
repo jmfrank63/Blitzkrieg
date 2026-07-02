@@ -270,7 +270,6 @@
     <ClInclude Include="fmtShader.h" />
     <ClInclude Include="Specific.h" />
     <ClInclude Include="StdAfx.h" />
-    <ClInclude Include="stl_user_config.h" />
     <ClInclude Include="fmtAIGeneral.h" />
     <ClInclude Include="fmtAnimation.h" />
     <ClInclude Include="fmtEffect.h" />
