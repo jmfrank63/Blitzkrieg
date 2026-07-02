@@ -8,6 +8,18 @@
 
 namespace
 {
+	void AppendOpenVideoTrace( const char *pszFormat, ... )
+	{
+		FILE *pFile = fopen( "open_video_trace.log", "ab" );
+		if ( pFile == 0 )
+			return;
+		va_list args;
+		va_start( args, pszFormat );
+		vfprintf( pFile, pszFormat, args );
+		va_end( args );
+		fclose( pFile );
+	}
+
 	bool HasExtension( const char *pszFileName, const char *pszExtension )
 	{
 		if ( (pszFileName == 0) || (pszExtension == 0) )
@@ -48,9 +60,11 @@ namespace
 
 	std::string ResolveOpenVideoName( const std::string &szOriginalFileName )
 	{
+		AppendOpenVideoTrace( "resolver requested \"%s\"\n", szOriginalFileName.c_str() );
 		NStr::DebugTrace( "Open video resolver: requested \"%s\".\n", szOriginalFileName.c_str() );
 		if ( !IsBinkVideoFile( szOriginalFileName.c_str() ) )
 		{
+			AppendOpenVideoTrace( "resolver non-bink \"%s\"\n", szOriginalFileName.c_str() );
 			NStr::DebugTrace( "Open video resolver: \"%s\" is already an open/non-Bink name.\n", szOriginalFileName.c_str() );
 			return szOriginalFileName;
 		}
@@ -59,13 +73,16 @@ namespace
 		for ( int i = 0; i < sizeof(pszExtensions) / sizeof(pszExtensions[0]); ++i )
 		{
 			const std::string szCandidate = szBaseName + pszExtensions[i];
+			AppendOpenVideoTrace( "resolver checking \"%s\"\n", szCandidate.c_str() );
 			NStr::DebugTrace( "Open video resolver: checking \"%s\".\n", szCandidate.c_str() );
 			if ( DataStreamExists(szCandidate) )
 			{
+				AppendOpenVideoTrace( "resolver using \"%s\" for \"%s\"\n", szCandidate.c_str(), szOriginalFileName.c_str() );
 				NStr::DebugTrace( "Open video resolver: using replacement \"%s\" for \"%s\".\n", szCandidate.c_str(), szOriginalFileName.c_str() );
 				return szCandidate;
 			}
 		}
+		AppendOpenVideoTrace( "resolver no replacement for \"%s\"\n", szOriginalFileName.c_str() );
 		NStr::DebugTrace( "Open video resolver: no open replacement for \"%s\".\n", szOriginalFileName.c_str() );
 		return szOriginalFileName;
 	}
@@ -157,19 +174,13 @@ int CVideoPlayer::Play( const char *pszFileName, DWORD dwFlags, IGFX *pGFX, ISFX
 {
 	Stop();
 	const std::string szOriginalFileName = pszFileName == 0 ? "" : pszFileName;
+	AppendOpenVideoTrace( "player play \"%s\" flags 0x%x\n", szOriginalFileName.c_str(), dwFlags );
 	const std::string szResolvedFileName = ResolveOpenVideoName( szOriginalFileName );
 	szFileName = szResolvedFileName;
 	dwPlayFlags = dwFlags;
 	CreateBackend( szResolvedFileName.c_str() );
 	int nMovieLength = pPlayer == 0 ? 0 : pPlayer->Play( szResolvedFileName.c_str(), dwFlags, pGFX, pSFX );
-	if ( (nMovieLength == 0) && (szResolvedFileName != szOriginalFileName) )
-	{
-		NStr::DebugTrace( "Open video resolver: fallback to Bink \"%s\" after open backend returned 0.\n", szOriginalFileName.c_str() );
-		szFileName = szOriginalFileName;
-		pPlayer = static_cast<IVideoPlayer*>( new CBinkVideoPlayer );
-		ApplyState();
-		nMovieLength = pPlayer->Play( szOriginalFileName.c_str(), dwFlags, pGFX, pSFX );
-	}
+	AppendOpenVideoTrace( "player result \"%s\" -> \"%s\" length %d\n", szOriginalFileName.c_str(), szResolvedFileName.c_str(), nMovieLength );
 	return nMovieLength;
 }
 

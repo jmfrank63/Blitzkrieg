@@ -17,6 +17,21 @@
 #include "..\Main\GameStats.h"
 #include "..\Scene\PFX.h"
 #include "..\Input\InputTypes.h"
+namespace
+{
+	void AppendOpenVideoTrace( const char *pszFormat, ... )
+	{
+		FILE *pFile = fopen( "open_video_trace.log", "ab" );
+		if ( pFile == 0 )
+			return;
+		va_list args;
+		va_start( args, pszFormat );
+		vfprintf( pFile, pszFormat, args );
+		va_end( args );
+		fclose( pFile );
+	}
+}
+
 static const NInput::SRegisterCommandEntry stdCommands[] = 
 {
 	{ "save"			,	CMD_SAVE				},
@@ -576,6 +591,11 @@ void CMainLoop::Command( int nCommandID, const char *pszConfiguration )
 {
 	if ( nCommandID != -1 ) 
 	{
+		if ( nCommandID == MISSION_COMMAND_VIDEO )
+		{
+			AppendOpenVideoTrace( "mainloop queue video command 0x%x config \"%s\"\n", nCommandID, pszConfiguration ? pszConfiguration : "" );
+			NStr::DebugTrace( "Open video command: queue id 0x%x config \"%s\".\n", nCommandID, pszConfiguration ? pszConfiguration : "" );
+		}
 		IInterfaceCommand *pCmd = CreateObject<IInterfaceCommand>( nCommandID );
 		NI_ASSERT_TF( pCmd != 0, NStr::Format("Can't create command 0x%x", nCommandID), return );
 		pCmd->Configure( pszConfiguration );
@@ -849,6 +869,7 @@ void CProgressScreen::Init( const std::string &szMovieName )
 {
 	pGFX = GetSingleton<IGFX>();
 	pVP = CreateObject<IVideoPlayer>( SCENE_VIDEO_PLAYER );
+	AppendOpenVideoTrace( "progress movie init \"%s\"\n", szMovieName.c_str() );
 	pVP->Play( szMovieName.c_str(), IVideoPlayer::PLAY_FROM_MEMORY, pGFX, GetSingleton<ISFX>() );
 	nNumFrames = pVP->GetNumFrames();
 	CTRect<long> rcScreenRect = pGFX->GetScreenRect();

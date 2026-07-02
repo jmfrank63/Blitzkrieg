@@ -4,6 +4,22 @@
 
 #include "iMission.h"
 #include "..\Misc\HPTimer.h"
+
+namespace
+{
+	void AppendOpenVideoTrace( const char *pszFormat, ... )
+	{
+		FILE *pFile = fopen( "open_video_trace.log", "ab" );
+		if ( pFile == 0 )
+			return;
+		va_list args;
+		va_start( args, pszFormat );
+		vfprintf( pFile, pszFormat, args );
+		va_end( args );
+		fclose( pFile );
+	}
+}
+
 int CICPlayMovie::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
@@ -15,6 +31,8 @@ int CICPlayMovie::operator&( IStructureSaver &ss )
 void CICPlayMovie::Configure( const char *pszConfig )
 {
 	if ( !pszConfig ) return;
+	AppendOpenVideoTrace( "command configure \"%s\"\n", pszConfig );
+	NStr::DebugTrace( "Open video command: configure \"%s\".\n", pszConfig );
 	std::vector<std::string> szStrings;
 	NStr::SplitString( pszConfig, szStrings, ';' );
 	if ( szStrings.size() >= 1 ) 
@@ -32,9 +50,13 @@ void CICPlayMovie::Configure( const char *pszConfig )
 	}
 	else
 		szNextICConfig.clear();
+	AppendOpenVideoTrace( "command parsed sequence \"%s\" next %d config \"%s\"\n", szSequenceName.c_str(), nNextICTypeID, szNextICConfig.c_str() );
+	NStr::DebugTrace( "Open video command: sequence \"%s\", next %d, config \"%s\".\n", szSequenceName.c_str(), nNextICTypeID, szNextICConfig.c_str() );
 }
 void CICPlayMovie::PostCreate( IMainLoop *pML, CPlayMovieInterface *pInterface ) 
 { 
+	AppendOpenVideoTrace( "command post create sequence \"%s\" novideo=%d\n", szSequenceName.c_str(), GetGlobalVar("novideo", 0) );
+	NStr::DebugTrace( "Open video command: post create sequence \"%s\", novideo=%d.\n", szSequenceName.c_str(), GetGlobalVar("novideo", 0) );
 	if ( GetGlobalVar("novideo", 0) != 0 )
 	{
 		CPtr<CPlayMovieInterface> pInt = pInterface;
@@ -70,9 +92,13 @@ CPlayMovieInterface::~CPlayMovieInterface()
 void CPlayMovieInterface::LoadMovieSequence( const std::string &szFileName )
 {
 	movies.clear();
+	AppendOpenVideoTrace( "sequence loading \"%s\"\n", szFileName.c_str() );
+	NStr::DebugTrace( "Open video sequence: loading \"%s\".\n", szFileName.c_str() );
 	if ( GetGlobalVar("novideo", 0) != 0 )
 	{
 		nCurrMovie = 1000000000;
+		AppendOpenVideoTrace( "sequence skipped by novideo\n" );
+		NStr::DebugTrace( "Open video sequence: skipped by novideo.\n" );
 		return;
 	}
 	if ( CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream(szFileName.c_str(), STREAM_ACCESS_READ) )
@@ -83,7 +109,14 @@ void CPlayMovieInterface::LoadMovieSequence( const std::string &szFileName )
 		for ( std::vector<SMovie>::iterator it = movies.begin(); it != movies.end(); ++it )
 			it->szFileName = szBaseDirName + it->szFileName;
 	}
+	else
+	{
+		AppendOpenVideoTrace( "sequence failed to open \"%s\"\n", szFileName.c_str() );
+		NStr::DebugTrace( "Open video sequence: failed to open \"%s\".\n", szFileName.c_str() );
+	}
 	nCurrMovie = movies.empty() ? -1 : 0;
+	AppendOpenVideoTrace( "sequence loaded %d movie(s), current %d\n", movies.size(), nCurrMovie );
+	NStr::DebugTrace( "Open video sequence: loaded %d movie(s), current %d.\n", movies.size(), nCurrMovie );
 }
 void CPlayMovieInterface::SetNextInterface( const int nTypeID, const std::string &szConfig )
 {
@@ -170,9 +203,19 @@ bool CPlayMovieInterface::PlayMovie()
 	pPlayer->SetDstRect( rcScreen, true );
 	const double fClockRate = NHPTimer::GetClockRate();
 	const std::string szMovieName = movies[nCurrMovie].szFileName + ( fClockRate > 900000000 ? ".bik" : "_l.bik" );
+	AppendOpenVideoTrace( "playmovie trying \"%s\"\n", szMovieName.c_str() );
+	NStr::DebugTrace( "Open video playmovie: trying \"%s\".\n", szMovieName.c_str() );
 	int nMovieLength = pPlayer->Play( szMovieName.c_str(), 0, pGFX, GetSingleton<ISFX>() );
+	AppendOpenVideoTrace( "playmovie result \"%s\" length %d\n", szMovieName.c_str(), nMovieLength );
+	NStr::DebugTrace( "Open video playmovie: \"%s\" returned length %d.\n", szMovieName.c_str(), nMovieLength );
 	if ( nMovieLength == 0 ) 
+	{
+		AppendOpenVideoTrace( "playmovie trying fallback \"%s\"\n", (movies[nCurrMovie].szFileName + ".bik").c_str() );
+		NStr::DebugTrace( "Open video playmovie: trying fallback \"%s\".\n", (movies[nCurrMovie].szFileName + ".bik").c_str() );
 		nMovieLength = pPlayer->Play( (movies[nCurrMovie].szFileName + ".bik").c_str(), 0, pGFX, GetSingleton<ISFX>() );
+		AppendOpenVideoTrace( "playmovie fallback result length %d\n", nMovieLength );
+		NStr::DebugTrace( "Open video playmovie: fallback returned length %d.\n", nMovieLength );
+	}
 	if ( nMovieLength == 0 ) 
 	{
 		pPlayer = 0;

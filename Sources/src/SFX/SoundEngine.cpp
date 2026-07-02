@@ -268,6 +268,7 @@ void CSoundEngine::PlayStream( const char *pszFileName, bool bLooped, const unsi
 	}
 	else
 	{
+		streamFadeOff.Clear();
 		SetStreamVolume( 1.0f );
 		CloseStreaming();
 		curMelody.szName = pszFileName;

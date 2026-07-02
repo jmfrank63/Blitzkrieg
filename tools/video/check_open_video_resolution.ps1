@@ -9,6 +9,12 @@ function Assert-Contains($Text, $Pattern, $Message) {
 	}
 }
 
+function Assert-NotContains($Text, $Pattern, $Message) {
+	if ($Text -match $Pattern) {
+		throw $Message
+	}
+}
+
 Assert-Contains $videoPlayer 'ResolveOpenVideoName' "CVideoPlayer must resolve open video replacement names."
 Assert-Contains $videoPlayer '\.ogv' "Open video resolution must check .ogv replacements."
 Assert-Contains $videoPlayer '\.ogg' "Open video resolution must check .ogg replacements."
@@ -17,6 +23,6 @@ Assert-Contains $videoPlayer 'OpenFileStream\([^;]+STREAM_ACCESS_READ' "Open vid
 Assert-Contains $videoPlayer 'szResolvedFileName' "CVideoPlayer::Play must track the resolved video file name."
 Assert-Contains $videoPlayer 'szOriginalFileName' "CVideoPlayer::Play must preserve the original requested Bink file."
 Assert-Contains $videoPlayer 'Open video resolver' "CVideoPlayer must trace video resolution decisions for manual testing."
-Assert-Contains $videoPlayer 'nMovieLength\s*==\s*0[\s\S]+szResolvedFileName\s*!=\s*szOriginalFileName[\s\S]+CBinkVideoPlayer' "CVideoPlayer::Play must fall back to Bink if an open replacement cannot play."
+Assert-NotContains $videoPlayer 'fallback to Bink' "Open video replacements must not silently fall back to Bink."
 
 Write-Host "Open video resolution checks passed."

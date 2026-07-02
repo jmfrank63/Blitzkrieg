@@ -2,11 +2,25 @@
 #define __OPENVIDEOPLAYER_H__
 #pragma ONCE
 
+struct SOpenVideoImagePart
+{
+	CPtr<IGFXTexture> pTexture;
+	CTRect<long> rcSrcRect;
+	CTRect<long> rcDstRect;
+	CTRect<float> rcMaps;
+	CTRect<float> rcRect;
+	SOpenVideoImagePart() : rcSrcRect( 0, 0, 0, 0 ), rcDstRect( 0, 0, 0, 0 ), rcMaps( 0, 0, 0, 0 ), rcRect( 0, 0, 0, 0 ) {  }
+};
+typedef std::vector<SOpenVideoImagePart> COpenVideoImagesList;
+
+struct SOpenVideoDecoderState;
+
 class COpenVideoPlayer : public CTRefCount<IVideoPlayer>
 {
 	OBJECT_SERVICE_METHODS( COpenVideoPlayer );
 	DECLARE_SERIALIZE;
 
+	COpenVideoImagesList images;
 	CTRect<float> rcDstRect;
 	bool bMaintainAspect;
 	bool bLooped;
@@ -18,10 +32,31 @@ class COpenVideoPlayer : public CTRefCount<IVideoPlayer>
 	CVec2 vMovieSize;
 	int nFrameRateNumerator;
 	int nFrameRateDenominator;
+	int nGranuleShift;
+	int nMovieLength;
+	int nNumFrames;
+	DWORD dwStartTime;
+	bool bPlaying;
+	bool bPaused;
+	CPtr<IGFX> pRenderGFX;
+	CPtr<ISFX> pVideoSFX;
+	SOpenVideoDecoderState *pDecoderState;
+	int nDecodedFrame;
+	std::string szAudioStreamName;
+	bool bAudioStreamPlaying;
 
 	bool ProbeOpenVideo( const char *pszFileName );
+	bool DecodeFirstFrame( const char *pszFileName, interface IGFX *pGFX );
+	bool OpenDecoder( const char *pszFileName, interface IGFX *pGFX );
+	bool DecodeNextFrame();
+	void DestroyDecoder();
+	bool FindOpenVideoAudioStreamName( const char *pszFileName, std::string *pAudioStreamName ) const;
+	void PlayVideoAudioStream( interface ISFX *pSFX );
+	void StopVideoAudioStream();
+	void SetupRects();
 public:
 	COpenVideoPlayer();
+	virtual ~COpenVideoPlayer();
 	virtual void STDCALL SetTarget( interface IGFXTexture *pTexture, interface IGFX *pGFX );
 	virtual void STDCALL SetDstRect( const RECT &_rcDstRect, bool _bMaintainAspect );
 	virtual void STDCALL SetLoopMode( bool _bLooped ) { bLooped = _bLooped; }

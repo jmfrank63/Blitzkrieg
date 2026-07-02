@@ -134,7 +134,7 @@
       <PrecompiledHeaderOutputFile>.\Profiler\Scene.pch</PrecompiledHeaderOutputFile>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>StdAfx.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\StreamIO;$(ProjectDir)..\Common;$(ProjectDir)..\Formats;$(ProjectDir)..\Input;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\StreamIO;$(ProjectDir)..\Common;$(ProjectDir)..\Formats;$(ProjectDir)..\Input;$(ProjectDir)..\..\sdk\xiph\ogg-1.3.5\include;$(ProjectDir)..\..\sdk\xiph\libtheora-1.2.0\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ObjectFileName>.\Profiler\</ObjectFileName>
       <ProgramDataBaseFileName>.\Profiler\</ProgramDataBaseFileName>
       <AdditionalOptions> /Zm150 </AdditionalOptions>
@@ -184,7 +184,7 @@
       <PrecompiledHeaderOutputFile>.\Release\Scene.pch</PrecompiledHeaderOutputFile>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>StdAfx.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\StreamIO;$(ProjectDir)..\Common;$(ProjectDir)..\Formats;$(ProjectDir)..\Input;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\StreamIO;$(ProjectDir)..\Common;$(ProjectDir)..\Formats;$(ProjectDir)..\Input;$(ProjectDir)..\..\sdk\xiph\ogg-1.3.5\include;$(ProjectDir)..\..\sdk\xiph\libtheora-1.2.0\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ObjectFileName>.\Release\</ObjectFileName>
       <ProgramDataBaseFileName>.\Release\</ProgramDataBaseFileName>
       <AdditionalOptions> /Zm150 </AdditionalOptions>
@@ -232,7 +232,7 @@
       <PrecompiledHeaderOutputFile>.\FastDebug\Scene.pch</PrecompiledHeaderOutputFile>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>StdAfx.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\StreamIO;$(ProjectDir)..\Common;$(ProjectDir)..\Formats;$(ProjectDir)..\Input;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\StreamIO;$(ProjectDir)..\Common;$(ProjectDir)..\Formats;$(ProjectDir)..\Input;$(ProjectDir)..\..\sdk\xiph\ogg-1.3.5\include;$(ProjectDir)..\..\sdk\xiph\libtheora-1.2.0\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ObjectFileName>.\FastDebug\</ObjectFileName>
       <ProgramDataBaseFileName>.\FastDebug\</ProgramDataBaseFileName>
       <AdditionalOptions> /Zm150 </AdditionalOptions>
@@ -283,7 +283,7 @@
       <PrecompiledHeaderOutputFile>.\Debug\Scene.pch</PrecompiledHeaderOutputFile>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>StdAfx.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\StreamIO;$(ProjectDir)..\Common;$(ProjectDir)..\Formats;$(ProjectDir)..\Input;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\StreamIO;$(ProjectDir)..\Common;$(ProjectDir)..\Formats;$(ProjectDir)..\Input;$(ProjectDir)..\..\sdk\xiph\ogg-1.3.5\include;$(ProjectDir)..\..\sdk\xiph\libtheora-1.2.0\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ObjectFileName>.\Debug\</ObjectFileName>
       <ProgramDataBaseFileName>.\Debug\</ProgramDataBaseFileName>
       <AdditionalOptions> /Zm200 </AdditionalOptions>
@@ -314,7 +314,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\Scene.dll</OutputFile>
       <ImportLibrary>.\Debug\Scene.lib</ImportLibrary>
-      <AdditionalDependencies>..\Misc\Debug\Misc.lib;..\Formats\Debug\Formats.lib;winmm.lib;binkw32.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Debug\Misc.lib;..\Formats\Debug\Formats.lib;..\..\sdk\xiph\libtheora-1.2.0\win32\VS2010\libtheora\Win32\Debug\libtheora_static.lib;winmm.lib;binkw32.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Scene.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -335,7 +335,7 @@
       <PrecompiledHeaderOutputFile>.\BetaRelease\Scene.pch</PrecompiledHeaderOutputFile>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>StdAfx.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\StreamIO;$(ProjectDir)..\Common;$(ProjectDir)..\Formats;$(ProjectDir)..\Input;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\StreamIO;$(ProjectDir)..\Common;$(ProjectDir)..\Formats;$(ProjectDir)..\Input;$(ProjectDir)..\..\sdk\xiph\ogg-1.3.5\include;$(ProjectDir)..\..\sdk\xiph\libtheora-1.2.0\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ObjectFileName>.\BetaRelease\</ObjectFileName>
       <ProgramDataBaseFileName>.\BetaRelease\</ProgramDataBaseFileName>
       <AdditionalOptions> /Zm150 </AdditionalOptions>
@@ -651,6 +651,16 @@
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='FastDebug|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'"> /Zm200   /Zm200 </AdditionalOptions>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='BetaRelease|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\ogg-1.3.5\src\bitwise.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <ObjectFileName>$(IntDir)scene_ogg_bitwise.obj</ObjectFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\ogg-1.3.5\src\framing.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <ObjectFileName>$(IntDir)scene_ogg_framing.obj</ObjectFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="KeyBasedParticleSource.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Profiler|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
