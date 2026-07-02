@@ -6,7 +6,7 @@
 class CUIVideoButton : public CSimpleWindow
 {
 	DECLARE_SERIALIZE;
-	std::string szBinkFile;
+	std::string szVideoFile;
 	CPtr<IVideoPlayer> pVideoPlayer;
 
 	void InitVideoPlayer();

@@ -96,8 +96,6 @@
     <IntDir>.\Release\</IntDir>
     <LinkIncremental>false</LinkIncremental>
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
-    <ExternalIncludePath>$(ProjectDir)..\sdk\BINK;$(ExternalIncludePath)</ExternalIncludePath>
-    <LibraryPath>$(ProjectDir)..\sdk\BINK;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='FastDebug|Win32'">
     <OutDir>.\FastDebug\</OutDir>
@@ -106,8 +104,6 @@
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <ExternalIncludePath>$(ProjectDir)..\..\sdk\BINK;$(ExternalIncludePath)</ExternalIncludePath>
-    <LibraryPath>$(ProjectDir)..\..\sdk\BINK;$(LibraryPath)</LibraryPath>
     <OutDir>.\Debug\</OutDir>
     <IntDir>.\Debug\</IntDir>
     <LinkIncremental>true</LinkIncremental>
@@ -166,7 +162,7 @@
       <OutputFile>.\Profiler\Scene.dll</OutputFile>
       <ImportLibrary>.\Profiler\Scene.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>..\Misc\Profiler\Misc.lib;..\Formats\Profiler\Formats.lib;winmm.lib;binkw32.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Profiler\Misc.lib;..\Formats\Profiler\Formats.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -214,7 +210,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Release\Scene.dll</OutputFile>
       <ImportLibrary>.\Release\Scene.lib</ImportLibrary>
-      <AdditionalDependencies>..\Misc\Release\Misc.lib;..\Formats\Release\Formats.lib;winmm.lib;binkw32.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Release\Misc.lib;..\Formats\Release\Formats.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Scene.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -263,7 +259,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\FastDebug\Scene.dll</OutputFile>
       <ImportLibrary>.\FastDebug\Scene.lib</ImportLibrary>
-      <AdditionalDependencies>..\Misc\FastDebug\Misc.lib;..\Formats\FastDebug\Formats.lib;winmm.lib;binkw32.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\FastDebug\Misc.lib;..\Formats\FastDebug\Formats.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Scene.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -314,7 +310,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\Scene.dll</OutputFile>
       <ImportLibrary>.\Debug\Scene.lib</ImportLibrary>
-      <AdditionalDependencies>..\Misc\Debug\Misc.lib;..\Formats\Debug\Formats.lib;..\..\sdk\xiph\libtheora-1.2.0\win32\VS2010\libtheora\Win32\Debug\libtheora_static.lib;winmm.lib;binkw32.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Debug\Misc.lib;..\Formats\Debug\Formats.lib;..\..\sdk\xiph\libtheora-1.2.0\win32\VS2010\libtheora\Win32\Debug\libtheora_static.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Scene.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -367,7 +363,7 @@
       <OutputFile>.\BetaRelease\Scene.dll</OutputFile>
       <ImportLibrary>.\BetaRelease\Scene.lib</ImportLibrary>
       <AdditionalOptions> /FIXED:NO</AdditionalOptions>
-      <AdditionalDependencies>..\Misc\BetaRelease\Misc.lib;..\Formats\BetaRelease\Formats.lib;winmm.lib;binkw32.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\BetaRelease\Misc.lib;..\Formats\BetaRelease\Formats.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -631,13 +627,6 @@
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'"> /Zm200   /Zm200 </AdditionalOptions>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='BetaRelease|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
     </ClCompile>
-    <ClCompile Include="BinkVideoPlayer.cpp">
-      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Profiler|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
-      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
-      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='FastDebug|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
-      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'"> /Zm200   /Zm200 </AdditionalOptions>
-      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='BetaRelease|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
-    </ClCompile>
     <ClCompile Include="VideoPlayer.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Profiler|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
@@ -829,7 +818,6 @@
     <ClInclude Include="CellsConglomerateContainer.h" />
     <ClInclude Include="SoundScene.h" />
     <ClInclude Include="resource.h" />
-    <ClInclude Include="BinkVideoPlayer.h" />
     <ClInclude Include="VideoPlayer.h" />
     <ClInclude Include="OpenVideoPlayer.h" />
     <ClInclude Include="KeyBasedParticleSource.h" />

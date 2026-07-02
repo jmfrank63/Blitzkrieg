@@ -6,7 +6,7 @@ int CUIVideoButton::operator&( IStructureSaver &ss )
 {
 	CSaverAccessor saver = &ss;
 	saver.AddTypedSuper( 1, static_cast<CSimpleWindow*>(this) );
-	saver.Add( 2, &szBinkFile );
+	saver.Add( 2, &szVideoFile );
 	saver.Add( 3, &pVideoPlayer );
 
 	if ( saver.IsReading() )
@@ -17,7 +17,7 @@ int CUIVideoButton::operator&( IDataTree &ss )
 {
 	CTreeAccessor saver = &ss;
 	saver.AddTypedSuper( static_cast<CSimpleWindow*>(this) );
-	saver.Add( "BinkFile", &szBinkFile );
+	saver.Add( "VideoFile", &szVideoFile );
 
 	if ( saver.IsReading() )
 		InitVideoPlayer();
@@ -50,13 +50,7 @@ bool CUIVideoButton::Update( const NTimer::STime &currTime )
 }
 void CUIVideoButton::Play()
 {
-/*
-	std::string szFullName = GetSingleton<IDataStorage>()->GetName();
-	szFullName += szBinkFile.c_str();
-	szFullName += ".bik";
-	pVideoPlayer->Play( szFullName.c_str(), 0, GetSingleton<IGFX>(), GetSingleton<ISFX>() );
-*/
-	pVideoPlayer->Play( (szBinkFile + ".bik").c_str(), IVideoPlayer::PLAY_FROM_MEMORY, GetSingleton<IGFX>(), GetSingleton<ISFX>() );
+	pVideoPlayer->Play( (szVideoFile + ".ogv").c_str(), IVideoPlayer::PLAY_FROM_MEMORY, GetSingleton<IGFX>(), GetSingleton<ISFX>() );
 }
 int CUIVideoButton::GetCurrentFrame()
 {

@@ -22,7 +22,7 @@ Assert-Contains $source 'DestroyDecoder\(\)' "Open video Stop must release decod
 Assert-Contains $source 'nLumaBaseX\s*=\s*ti\.pic_x\s*&\s*~hdec' "Open video upload must align Theora luma crop to chroma boundaries."
 Assert-Contains $source 'nChromaBaseX\s*=\s*ti\.pic_x\s*>>\s*hdec' "Open video upload must compute chroma crop from the original Theora crop."
 if ($router -match 'fallback to Bink') {
-	throw "Open video testing must not silently fall back to Bink when an open replacement is selected."
+	throw "Open video testing must not silently fall back to the removed backend when an open replacement is selected."
 }
 
 Write-Host "Open video frame-advance checks passed."

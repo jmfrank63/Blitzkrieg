@@ -21,8 +21,8 @@ Assert-Contains $videoPlayer '\.ogg' "Open video resolution must check .ogg repl
 Assert-Contains $videoPlayer 'OpenStream\([^;]+STREAM_ACCESS_READ' "Open video resolution must check Data storage for candidate files."
 Assert-Contains $videoPlayer 'OpenFileStream\([^;]+STREAM_ACCESS_READ' "Open video resolution must also support absolute filesystem candidates."
 Assert-Contains $videoPlayer 'szResolvedFileName' "CVideoPlayer::Play must track the resolved video file name."
-Assert-Contains $videoPlayer 'szOriginalFileName' "CVideoPlayer::Play must preserve the original requested Bink file."
+Assert-Contains $videoPlayer 'szOriginalFileName' "CVideoPlayer::Play must preserve the original requested legacy video file."
 Assert-Contains $videoPlayer 'Open video resolver' "CVideoPlayer must trace video resolution decisions for manual testing."
-Assert-NotContains $videoPlayer 'fallback to Bink' "Open video replacements must not silently fall back to Bink."
+Assert-NotContains $videoPlayer 'fallback to Bink' "Open video replacements must not silently fall back to the removed backend."
 
 Write-Host "Open video resolution checks passed."

@@ -1,7 +1,6 @@
 #include "StdAfx.h"
 
 #include "VideoPlayer.h"
-#include "BinkVideoPlayer.h"
 #include "OpenVideoPlayer.h"
 
 #include "..\SFX\SFX.h"
@@ -28,14 +27,7 @@ namespace
 		return (pszDot != 0) && (_stricmp( pszDot, pszExtension ) == 0);
 	}
 
-	bool IsOpenVideoFile( const char *pszFileName )
-	{
-		return HasExtension( pszFileName, ".ogv" ) ||
-					 HasExtension( pszFileName, ".ogg" ) ||
-					 HasExtension( pszFileName, ".theora" );
-	}
-
-	bool IsBinkVideoFile( const char *pszFileName )
+	bool IsLegacyBikVideoFile( const char *pszFileName )
 	{
 		return HasExtension( pszFileName, ".bik" );
 	}
@@ -62,10 +54,10 @@ namespace
 	{
 		AppendOpenVideoTrace( "resolver requested \"%s\"\n", szOriginalFileName.c_str() );
 		NStr::DebugTrace( "Open video resolver: requested \"%s\".\n", szOriginalFileName.c_str() );
-		if ( !IsBinkVideoFile( szOriginalFileName.c_str() ) )
+		if ( !IsLegacyBikVideoFile( szOriginalFileName.c_str() ) )
 		{
-			AppendOpenVideoTrace( "resolver non-bink \"%s\"\n", szOriginalFileName.c_str() );
-			NStr::DebugTrace( "Open video resolver: \"%s\" is already an open/non-Bink name.\n", szOriginalFileName.c_str() );
+			AppendOpenVideoTrace( "resolver non-bik \"%s\"\n", szOriginalFileName.c_str() );
+			NStr::DebugTrace( "Open video resolver: \"%s\" is already an open/non-bik name.\n", szOriginalFileName.c_str() );
 			return szOriginalFileName;
 		}
 		const std::string szBaseName = RemoveExtension( szOriginalFileName );
@@ -103,7 +95,7 @@ CVideoPlayer::CVideoPlayer()
 
 void CVideoPlayer::CreateBackend( const char *pszFileName )
 {
-	pPlayer = IsOpenVideoFile( pszFileName ) ? static_cast<IVideoPlayer*>( new COpenVideoPlayer ) : static_cast<IVideoPlayer*>( new CBinkVideoPlayer );
+	pPlayer = static_cast<IVideoPlayer*>( new COpenVideoPlayer );
 	ApplyState();
 }
 

@@ -34,7 +34,7 @@ class CPlayMovieInterface : public CInterfaceScreenBase
 		}
 	};
 	NInput::CCommandRegistrator movieMsgs;
-	CPtr<IVideoPlayer> pPlayer;						// video player with current bink video
+	CPtr<IVideoPlayer> pPlayer;						// video player with current movie
 	std::vector<SMovie> movies;						// all movies to play
 	int nCurrMovie;												// current movie to play
 	int nNextInterfaceCommandTypeID;

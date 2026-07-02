@@ -3,7 +3,6 @@
     {
       "name": "Win32-Debug",
       "includePath": [
-        "${workspaceFolder}/Sources/sdk/BINK",
         "${workspaceFolder}/Sources/sdk/STINGRAY/Include",
         "${workspaceFolder}/Sources/sdk/STINGRAY/Include/Toolkit",
         "${workspaceFolder}/Sources/sdk/STINGRAY/Regex/Include",
@@ -65,7 +64,6 @@
     {
       "name": "Win32-Release",
       "includePath": [
-        "${workspaceFolder}/Sources/sdk/BINK",
         "${workspaceFolder}/Sources/sdk/STINGRAY/Include",
         "${workspaceFolder}/Sources/sdk/STINGRAY/Include/Toolkit",
         "${workspaceFolder}/Sources/sdk/STINGRAY/Regex/Include",
