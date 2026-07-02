@@ -570,6 +570,17 @@ bool COpenVideoPlayer::SetCurrentFrame( const int nFrame )
 		return false;
 	const int nClampedFrame = Min( nFrame, nNumFrames );
 	dwStartTime = GetTickCount() - DWORD((__int64)nClampedFrame * nMovieLength / nNumFrames);
+	const int nTargetFrame = Min( nClampedFrame, nNumFrames - 1 );
+	if ( nDecodedFrame > nTargetFrame )
+	{
+		if ( !OpenDecoder(szFileName.c_str(), pRenderGFX) || !DecodeNextFrame() )
+			return false;
+	}
+	while ( nDecodedFrame < nTargetFrame )
+	{
+		if ( !DecodeNextFrame() )
+			return false;
+	}
 	return true;
 }
 
