@@ -43,7 +43,7 @@ bool LoadMipLevel( const SSurfaceLockInfo &lockinfo, IDataStream *pStream,
 	else
 	{
 		const int nDataSize = nLineModifier * nSizeX * nBPP / 8;
-		DWORD *pDstData = (DWORD*)lockinfo.pData;
+		BYTE *pDstData = (BYTE*)lockinfo.pData;
 		for ( int j = 0; j < nSizeY/nLineModifier; ++j )
 		{
 			const int nCheck = pStream->Read( pDstData, nDataSize );

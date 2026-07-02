@@ -29,7 +29,7 @@ private:
 	
 	OBJECT_NORMAL_METHODS( CFenceCommonPropsItem );
 public:
-	CFenceCommonPropsItem() { nItemType = E_FENCE_COMMON_PROPS_ITEM; InitDefaultValues(); nImageIndex = 0; imageList.Create(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, ILC_COLOR24, 0, 1); }
+	CFenceCommonPropsItem() { nItemType = E_FENCE_COMMON_PROPS_ITEM; InitDefaultValues(); nImageIndex = 0; imageList.Create(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, ILC_COLOR32, 0, 1); }
 	~CFenceCommonPropsItem() {};
 	
 	SThumbItems* GetThumbItems() { return &m_thumbItems; }

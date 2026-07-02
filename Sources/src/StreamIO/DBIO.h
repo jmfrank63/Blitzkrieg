@@ -51,11 +51,15 @@ class CTableAccessor
 	template <class TFunc, class TYPE>
 		TYPE GetVal( TFunc func, const char *pszRow, const char *pszEntry, TYPE defval )
 	{
+		if ( !pTable )
+			return defval;
 		return (TYPE)(pTable->*func)( pszRow, pszEntry, defval );
 	}
 	template <class TFunc, class TYPE>
 		void SetVal( TFunc func, const char *pszRow, const char *pszEntry, TYPE val )
 	{
+		if ( !pTable )
+			return;
 		(pTable->*func)( pszRow, pszEntry, val );
 	}
 	template <class TFunc, class TYPE>
@@ -104,6 +108,8 @@ public:
 	{
 		char buffer[65536];
 		szNames.clear();
+		if ( !pTable )
+			return false;
 		int nSize = pTable->GetRowNames( buffer, 65536 );
 		if ( nSize <= 1 )
 			return false;
@@ -114,6 +120,8 @@ public:
 	{
 		char buffer[65536];
 		szNames.clear();
+		if ( !pTable )
+			return false;
 		int nSize = pTable->GetEntryNames( pszRow, buffer, 65536 );
 		if ( nSize <= 1 )
 			return false;
@@ -209,12 +217,19 @@ inline double CTableAccessor::GetDouble( const char *pszRow, const char *pszEntr
 }
 inline std::string CTableAccessor::GetString( const char *pszRow, const char *pszEntry, const char *defval )
 {
+	if ( !pTable )
+		return ( defval != 0 ? defval : "" );
 	char buff[1024];
 	pTable->GetString( pszRow, pszEntry, defval, buff, 1024 );
 	return buff;
 }
 inline void CTableAccessor::GetString( const char *pszRow, const char *pszEntry, const char *defval, std::string &szString )
 {
+	if ( !pTable )
+	{
+		szString = ( defval != 0 ? defval : "" );
+		return;
+	}
 	char buff[1024];
 	pTable->GetString( pszRow, pszEntry, defval, buff, 1024 );
 	szString = buff;

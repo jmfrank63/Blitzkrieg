@@ -36,8 +36,8 @@ void CTemplateTreeDockBar::OnSize(UINT nType, int cx, int cy)
 
   CRect rectInside;
 	GetInsideRect(rectInside);
-	pTemplateTree->SetWindowPos( NULL, rectInside.left, rectInside.top,
-		rectInside.Width(), rectInside.Height(), SWP_NOZORDER|SWP_NOACTIVATE );
+	pTemplateTree->SetWindowPos( &CWnd::wndTop, rectInside.left, rectInside.top,
+		rectInside.Width(), rectInside.Height(), SWP_NOACTIVATE|SWP_SHOWWINDOW );
 }
 
 BOOL CTemplateTreeDockBar::PreTranslateMessage(MSG* pMsg) 

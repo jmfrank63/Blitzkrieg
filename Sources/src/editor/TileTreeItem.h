@@ -37,7 +37,7 @@ class CTileSetTerrainsItem : public CTreeItem
 
 	OBJECT_NORMAL_METHODS( CTileSetTerrainsItem );
 public:
-	CTileSetTerrainsItem() { nItemType = E_TILESET_TERRAINS_ITEM; InitDefaultValues(); nImageIndex = 7; imageList.Create(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, ILC_COLOR24, 0, 1); }
+	CTileSetTerrainsItem() { nItemType = E_TILESET_TERRAINS_ITEM; InitDefaultValues(); nImageIndex = 7; imageList.Create(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, ILC_COLOR32, 0, 1); }
 	~CTileSetTerrainsItem() {};
 	
 	SThumbItems* GetThumbItems() { return &m_thumbItems; }
@@ -222,7 +222,7 @@ class CCrossetsItem : public CTreeItem
 	
 	OBJECT_NORMAL_METHODS( CCrossetsItem );
 public:
-	CCrossetsItem() { bLoaded = 0; nItemType = E_CROSSETS_ITEM; InitDefaultValues(); nImageIndex = 7; imageList.Create(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, ILC_COLOR24, 0, 1); }
+	CCrossetsItem() { bLoaded = 0; nItemType = E_CROSSETS_ITEM; InitDefaultValues(); nImageIndex = 7; imageList.Create(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, ILC_COLOR32, 0, 1); }
 	~CCrossetsItem() {};
 	
 	SThumbItems* GetThumbItems() { return &m_thumbItems; }

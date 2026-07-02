@@ -58,7 +58,7 @@ bool MakeSubRelativePath( const char *pszSrcName, const char *pszDstName, string
 		if ( szResult.size() == 0 )
 			return true;
 
-		if ( szResult[0] == '.' )		//тогда не внутри src директории
+		if ( szResult[0] == '.' )		//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ src пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		{
 			szResult = "";
 			return false;
@@ -247,6 +247,8 @@ void MyCopyDir( const string szSrc, const string szDest )
 void SetDefaultCamera()
 {
 	ICamera *pCamera = GetSingleton<ICamera>();
+	if ( pCamera == 0 )
+		return;
 	pCamera->SetPlacement( VNULL3, 700, -ToRadian(90.0f + 30.0f), ToRadian(45.0f) );
 }
 
@@ -286,7 +288,7 @@ void CFrameManager::SetActiveFrame( CParentFrame *pNewActiveFrame )
 
 	if ( activeFrameType != pActiveFrame->GetFrameType() && theApp.IsInitFinished() )
 	{
-		theApp.SaveNewFrameTypeToRegister();			//сразу сохраним инфу в реестре
+		theApp.SaveNewFrameTypeToRegister();			//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	}
 	activeFrameType = ( CFrameManager::EFrameType ) pActiveFrame->GetFrameType();
 	

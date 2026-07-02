@@ -77,9 +77,10 @@ public:
 protected:
 	CWnd *pWndView;											//view ������ ��� �����������
 	CPtr<IGFX> pGFX;										//��� ��������� ������� � GFX, ������ �������
-	CTreeDockWnd *pTreeDockBar;					//������ ��� ������ �������������� item
+	CTreeDockWnd *pTreeDockBar;				//������ ��� ������ �������������� item
 	CPropView *pOIDockBar;							//object inspector, ���� ��������������
 	SECCustomToolBar *pToolBar;					//toolbar ��� ������� ������
+	void HookViewMouseMessages();
 
 	string szProjectFileName;						//��� ��������� �������
 	string szPrevExportFileName;				//����� ���������������� ��� ��� �������, ������������ szSourceDir

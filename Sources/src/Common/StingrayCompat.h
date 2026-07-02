@@ -178,6 +178,8 @@ default:
 	pControlBar->MoveWindow(rect.left, rect.top, nBarWidth, nBarHeight);
 	break;
 }
+
+pControlBar->SetWindowPos(&CWnd::wndTop, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 }
 
 class SECCustomToolBar : public SECControlBar
@@ -253,7 +255,11 @@ void SetTitle(LPCTSTR pszTitle) { CFrameWnd::SetWindowText(pszTitle); }
 		UNREFERENCED_PARAMETER(bDelay);
 		if (pControlBar != NULL)
 		{
+			if (!::IsWindow(pControlBar->GetSafeHwnd()))
+				return;
 			pControlBar->ShowWindow(bShow ? SW_SHOW : SW_HIDE);
+			if (bShow)
+				pControlBar->SetWindowPos(&CWnd::wndTop, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 		}
 	}
 	void ShowControlBar(CControlBar* pControlBar, BOOL bShow, BOOL bDelay)
@@ -265,16 +271,22 @@ void SetTitle(LPCTSTR pszTitle) { CFrameWnd::SetWindowText(pszTitle); }
 	{
 		if (pControlBar != NULL)
 		{
+			if (!::IsWindow(pControlBar->GetSafeHwnd()))
+				return;
 			SECPositionControlBar(this, pControlBar, nDockBarID, nWidth);
 			pControlBar->ShowWindow(SW_SHOW);
+			pControlBar->SetWindowPos(&CWnd::wndTop, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 		}
 	}
 	void DockControlBar(SECCustomToolBar* pBar, UINT nDockBarID, LPCRECT)
 	{
 		if (pBar != NULL)
 		{
+			if (!::IsWindow(pBar->GetSafeHwnd()))
+				return;
 			SECPositionControlBar(this, pBar, nDockBarID, 0);
 			pBar->ShowWindow(SW_SHOW);
+			pBar->SetWindowPos(&CWnd::wndTop, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 		}
 	}
 
@@ -302,7 +314,11 @@ void SetTitle(LPCTSTR pszTitle) { CMDIFrameWnd::SetWindowText(pszTitle); }
 		UNREFERENCED_PARAMETER(bDelay);
 		if (pControlBar != NULL)
 		{
+			if (!::IsWindow(pControlBar->GetSafeHwnd()))
+				return;
 			pControlBar->ShowWindow(bShow ? SW_SHOW : SW_HIDE);
+			if (bShow)
+				pControlBar->SetWindowPos(&CWnd::wndTop, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 		}
 	}
 	void ShowControlBar(CControlBar* pControlBar, BOOL bShow, BOOL bDelay)
@@ -314,16 +330,22 @@ void SetTitle(LPCTSTR pszTitle) { CMDIFrameWnd::SetWindowText(pszTitle); }
 	{
 		if (pControlBar != NULL)
 		{
+			if (!::IsWindow(pControlBar->GetSafeHwnd()))
+				return;
 			SECPositionControlBar(this, pControlBar, nDockBarID, nWidth);
 			pControlBar->ShowWindow(SW_SHOW);
+			pControlBar->SetWindowPos(&CWnd::wndTop, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 		}
 	}
 	void DockControlBar(SECCustomToolBar* pBar, UINT nDockBarID, LPCRECT)
 	{
 		if (pBar != NULL)
 		{
+			if (!::IsWindow(pBar->GetSafeHwnd()))
+				return;
 			SECPositionControlBar(this, pBar, nDockBarID, 0);
 			pBar->ShowWindow(SW_SHOW);
+			pBar->SetWindowPos(&CWnd::wndTop, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 		}
 	}
 	CMDIChildWnd* CreateNewChild(CRuntimeClass* pClass, UINT nResourceID, HMENU hMenu, HACCEL hAccel);
@@ -414,11 +436,6 @@ return CTreeCtrl::Create(dwStyle, rect, pParentWnd, nID);
 			lpInsertStruct->hInsertAfter = NormalizeInsertAfter( lpInsertStruct->hInsertAfter );
 		}
 		return CTreeCtrl::InsertItem( lpInsertStruct );
-	}
-
-	HTREEITEM InsertItem(TVINSERTSTRUCT *lpInsertStruct)
-	{
-		return InsertItem( reinterpret_cast<LPTVINSERTSTRUCT>( lpInsertStruct ) );
 	}
 
 	BOOL SubclassTreeCtrlId(UINT nID, CWnd* pParentWnd)
@@ -787,3 +804,23 @@ public:
 		}
 
 		TCHAR szPath[MAX_PATH] = { 0 };
+		if (!SHGetPathFromIDList(pItemIdList, szPath))
+		{
+			CoTaskMemFree(pItemIdList);
+			return IDCANCEL;
+		}
+
+		m_strSelectedPath = szPath;
+		m_ofn.lpstrFile = m_strSelectedPath.GetBuffer(MAX_PATH);
+		m_ofn.lpstrFile[0] = 0;
+		m_strSelectedPath.ReleaseBuffer();
+		CoTaskMemFree(pItemIdList);
+		return IDOK;
+	}
+
+protected:
+	CString m_strCaption;
+	CString m_strInitialDir;
+	CString m_strSelectedPath;
+	CWnd* m_pParentWnd = NULL;
+};

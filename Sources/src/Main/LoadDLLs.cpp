@@ -8,6 +8,35 @@ using namespace NWin32Helper;
 extern "C" WINBASEAPI BOOL WINAPI IsDebuggerPresent(void);
 namespace NMain
 {
+	typedef ISaveLoadSystem* (STDCALL *GETSLS_HOOK)();
+	typedef ISingleton* (STDCALL *GETSINGLETONGLOBAL_HOOK)();
+	typedef void* (STDCALL *GETTEMPRAWBUFFER_HOOK)( int nAmount, int nBufferIndex );
+
+	static void EnsureGlobalHooks()
+	{
+		if ( GetSLS() != 0 && GetSingletonGlobal() != 0 && g_pfnGlobalGetTempRawBuffer != 0 )
+			return;
+
+		HMODULE hStreamIO = ::GetModuleHandleA( "StreamIO.dll" );
+		if ( hStreamIO == 0 )
+			hStreamIO = ::LoadLibraryA( "StreamIO.dll" );
+		if ( hStreamIO == 0 )
+			return;
+
+		if ( GetSLS() == 0 )
+		{
+			if ( GETSLS_HOOK pfnGetSLS = (GETSLS_HOOK)::GetProcAddress( hStreamIO, "GetSLS_Hook" ) )
+				g_pGlobalSaveLoadSystem = (*pfnGetSLS)();
+		}
+		if ( GetSingletonGlobal() == 0 )
+		{
+			if ( GETSINGLETONGLOBAL_HOOK pfnGetSingleton = (GETSINGLETONGLOBAL_HOOK)::GetProcAddress( hStreamIO, "GetSingletonGlobal_Hook" ) )
+				g_pGlobalSingleton = (*pfnGetSingleton)();
+		}
+		if ( g_pfnGlobalGetTempRawBuffer == 0 )
+			g_pfnGlobalGetTempRawBuffer = (GETTEMPRAWBUFFER_HOOK)::GetProcAddress( hStreamIO, "GetTempRawBuffer_Hook" );
+	}
+
 	static const char GAME_REGISTRY_FOLDER[] = "Software\\Nival Interactive\\Blitzkrieg";
 	static const char GAME_REGISTRY_KEY[] = "InstallFolder";
 	static std::string GetModuleDirectory()
@@ -44,7 +73,7 @@ namespace NMain
 			if ( it->pDesc->nType == nType )
 				return it->pDesc;
 		}
-		NI_ASSERT_T( false, NStr::Format("can't find module of type 0x%.8x", nType) );
+		NStr::DebugTrace( "can't find module of type 0x%.8x\n", nType );
 		return 0;
 	}
 	int STDCALL LoadAllModules( const char *pszPath )
@@ -56,9 +85,22 @@ namespace NMain
 			szPath += "\\";
 		for ( NFile::CFileIterator it( (szPath + "*.dll").c_str() ); !it.IsEnd(); ++it )
 		{
+			std::string szDLLPath = it.GetFilePath();
+			std::string szDLLName = szDLLPath;
+			const size_t nSlashPos = szDLLName.find_last_of( "\\/" );
+			if ( nSlashPos != std::string::npos )
+				szDLLName = szDLLName.substr( nSlashPos + 1 );
+			NStr::ToLower( szDLLName );
+			if ( szDLLName == "streamio.dll" && ::GetModuleHandleA( "streamio.dll" ) != 0 )
+			{
+				NStr::DebugTrace( "Skipping duplicate StreamIO module \"%s\"\n", it.GetFilePath().c_str() );
+				continue;
+			}
+
 			CDLLHandle *pDLL = new CDLLHandle( it.GetFilePath() );
 			if ( !pDLL->IsLoaded() )
 			{
+				NStr::DebugTrace( "Failed to load module \"%s\" (error=%d)\n", it.GetFilePath().c_str(), int(::GetLastError()) );
 				delete pDLL;
 				continue;
 			}
@@ -165,13 +207,41 @@ class CModuleLoadAutoMagic
 public:
 	CModuleLoadAutoMagic()
 	{
+		auto AddPathEntry = []( const std::string &szPath )
+		{
+			DWORD nLength = ::GetEnvironmentVariableA( "PATH", 0, 0 );
+			std::vector<char> buffer( nLength + 1, 0 );
+			if ( nLength > 0 )
+				::GetEnvironmentVariableA( "PATH", &buffer[0], nLength + 1 );
+			std::string szCurrentPath = &buffer[0];
+			if ( !szCurrentPath.empty() && szCurrentPath[szCurrentPath.size() - 1] != ';' )
+				szCurrentPath += ';';
+			szCurrentPath += szPath;
+			::SetEnvironmentVariableA( "PATH", szCurrentPath.c_str() );
+		};
+
 		NMain::SetGameDirectory();
 		const std::string szModuleDirectory = NMain::GetModuleDirectory();
+		const std::string szGameDebugDirectory = szModuleDirectory + "..\\..\\Game\\Debug\\";
+		AddPathEntry( szModuleDirectory );
+		AddPathEntry( szGameDebugDirectory );
+
 		NMain::LoadAllModules( szModuleDirectory.c_str() );
+		std::string szModuleDirectoryLower = szModuleDirectory;
+		NStr::ToLower( szModuleDirectoryLower );
+		if ( szModuleDirectoryLower.find( "\\game\\debug\\" ) == std::string::npos )
+			NMain::LoadAllModules( szGameDebugDirectory.c_str() );
+		NMain::EnsureGlobalHooks();
+
+		ISaveLoadSystem *pSLS = GetSLS();
+		if ( pSLS == 0 )
+			NStr::DebugTrace( "LoadDLLs: GetSLS() is null during module auto-registration\n" );
 		for ( NMain::CModulesList::iterator it = NMain::modules.begin(); it != NMain::modules.end(); ++it )
 		{
-			if ( it->pDesc->pFactory )
-				GetSLS()->AddFactory( it->pDesc->pFactory );
+			if ( it->pDesc == 0 )
+				continue;
+			if ( pSLS != 0 && it->pDesc->pFactory )
+				pSLS->AddFactory( it->pDesc->pFactory );
 			if ( it->pDesc->pChecker ) 
 				it->pDesc->pChecker->SetModuleFunctionalityLimits();
 		}

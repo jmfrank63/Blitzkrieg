@@ -101,6 +101,7 @@ BEGIN_MESSAGE_MAP(CETreeCtrl, CWnd)
 	ON_NOTIFY(TVN_SELCHANGED, IDC_TREE_CONTROL, OnSelect)
 	ON_NOTIFY(NM_RCLICK, IDC_TREE_CONTROL, OnRButtonClick)
 	ON_NOTIFY(TVN_KEYDOWN, IDC_TREE_CONTROL, OnKeyDown)
+	ON_WM_MOUSEWHEEL()
 END_MESSAGE_MAP()
 
 
@@ -341,10 +342,16 @@ void CETreeCtrl::OnSize(UINT nType, int cx, int cy)
 	CWnd::OnSize(nType, cx, cy);
 
 	if ( ::IsWindow(m_treeCtrl) )
-		m_treeCtrl.SetWindowPos( NULL, 0, 0, cx, cy,
-		SWP_NOMOVE |
+		m_treeCtrl.SetWindowPos( &CWnd::wndTop, 0, 0, cx, cy,
 		SWP_NOACTIVATE |
-		SWP_NOZORDER );
+		SWP_SHOWWINDOW );
+}
+
+BOOL CETreeCtrl::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
+{
+	if ( ::IsWindow( m_treeCtrl.GetSafeHwnd() ) )
+		return m_treeCtrl.SendMessage( WM_MOUSEWHEEL, MAKEWPARAM( nFlags, zDelta ), MAKELPARAM( pt.x, pt.y ) ) != 0;
+	return CWnd::OnMouseWheel( nFlags, zDelta, pt );
 }
 
 void CETreeCtrl::OnSelect(NMHDR* pNMHDR, LRESULT* pResult)

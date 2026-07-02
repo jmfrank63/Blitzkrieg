@@ -144,6 +144,7 @@ BEGIN_MESSAGE_MAP(CCtrlObjectInspector, CWnd)
 	ON_WM_KILLFOCUS()
 	ON_WM_SETFOCUS()
 	ON_WM_VSCROLL()
+	ON_WM_MOUSEWHEEL()
 END_MESSAGE_MAP()
 
 
@@ -770,7 +771,7 @@ void CCtrlObjectInspector::Init()
 	ReleaseDC(pDC);
 */
 	bDraggingSplitter = false;
-	m_nLineHeight = 15;
+	m_nLineHeight = 18;
 	LOGFONT lf;
 	memset(&lf, 0, sizeof(LOGFONT));			// zero out structure
 	lf.lfHeight = 15;							// request a ?-pixel-height font
@@ -963,6 +964,33 @@ BOOL CCtrlObjectInspector::PreCreateWindow(CREATESTRUCT& cs)
 	cs.lpszClass = AfxRegisterWndClass(CS_HREDRAW|CS_VREDRAW|CS_DBLCLKS, 
 		::LoadCursor(NULL, IDC_ARROW), 0, NULL);
 	
+	return TRUE;
+}
+
+BOOL CCtrlObjectInspector::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
+{
+	UNREFERENCED_PARAMETER(nFlags);
+	UNREFERENCED_PARAMETER(pt);
+
+	UINT nScrollLines = 3;
+	::SystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, &nScrollLines, 0);
+	if ( nScrollLines == WHEEL_PAGESCROLL )
+	{
+		SCROLLINFO yScroll;
+		memset( &yScroll, 0, sizeof(yScroll) );
+		yScroll.cbSize = sizeof(yScroll);
+		yScroll.fMask = SIF_PAGE;
+		GetScrollInfo( SB_VERT, &yScroll );
+		nScrollLines = yScroll.nPage > 0 ? yScroll.nPage : 1;
+	}
+	if ( nScrollLines == 0 )
+		return TRUE;
+
+	const int nDirection = zDelta > 0 ? -1 : 1;
+	const int nSteps = max( 1, abs( zDelta ) / WHEEL_DELTA );
+	UpdateScrollers( m_nFirstElem + nDirection * nSteps * int(nScrollLines) );
+	SelectRow( m_nCurVirtualLine );
+	Invalidate( FALSE );
 	return TRUE;
 }
 

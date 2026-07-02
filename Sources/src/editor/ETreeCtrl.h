@@ -78,6 +78,7 @@ protected:
 	afx_msg void OnSelect(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnRButtonClick(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnKeyDown(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg BOOL OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);
 
 	DECLARE_MESSAGE_MAP()
 };

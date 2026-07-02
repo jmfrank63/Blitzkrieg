@@ -32,6 +32,19 @@
 
 
 static const int TRANSACTION_LIMIT = 100;
+static const char kViewMouseOldProcProp[] = "BK_ViewMouseOldProc";
+static void AppendEditorInputTrace( const char *pszText )
+{
+	char szTempPath[MAX_PATH] = { 0 };
+	GetTempPathA( MAX_PATH, szTempPath );
+	std::string szTraceFile = std::string( szTempPath ) + "blitzkrieg_editor_input_trace.txt";
+	FILE *pFile = fopen( szTraceFile.c_str(), "a" );
+	if ( pFile )
+	{
+		fputs( pszText, pFile );
+		fclose( pFile );
+	}
+}
 static char BASED_CODE szComposerFilter[] =
 "Resource editor files|*.unt;*.gui;*.spt;*.eff;*.obt;*.msh;*.wpn;*.bld;*.til"
 ";*.rdc;*.fnc;*.pcp;*.trc;*.scp;*.mcp;*.bdg;*.mip;*.chc;*.cgc;*.3rd;*.3rv;*.mdc|"
@@ -183,6 +196,81 @@ CParentFrame::~CParentFrame()
 	}
 }
 
+static void ShrinkForVisibleBar( CWnd *pBar, CRect &rcClient )
+{
+	if ( pBar == 0 || !::IsWindow( pBar->GetSafeHwnd() ) || !pBar->IsWindowVisible() )
+		return;
+
+	CRect rcBar;
+	pBar->GetWindowRect( &rcBar );
+	pBar->GetParent()->ScreenToClient( &rcBar );
+
+	if ( rcBar.left <= rcClient.left + 2 )
+		rcClient.left = max( rcClient.left, rcBar.right );
+	if ( rcBar.right >= rcClient.right - 2 )
+		rcClient.right = min( rcClient.right, rcBar.left );
+	if ( rcBar.top <= rcClient.top + 2 )
+		rcClient.top = max( rcClient.top, rcBar.bottom );
+	if ( rcBar.bottom >= rcClient.bottom - 2 )
+		rcClient.bottom = min( rcClient.bottom, rcBar.top );
+}
+
+static LRESULT CALLBACK ForwardViewMouseToFrameProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
+{
+	WNDPROC pOldProc = reinterpret_cast<WNDPROC>( ::GetPropA( hWnd, kViewMouseOldProcProp ) );
+	HWND hParent = ::GetParent( hWnd );
+	switch ( uMsg )
+	{
+		case WM_MOUSEMOVE:
+		case WM_LBUTTONDOWN:
+		case WM_LBUTTONUP:
+		case WM_LBUTTONDBLCLK:
+		case WM_RBUTTONDOWN:
+		case WM_RBUTTONUP:
+		case WM_RBUTTONDBLCLK:
+		case WM_MBUTTONDOWN:
+		case WM_MBUTTONUP:
+		case WM_MBUTTONDBLCLK:
+			if ( hParent )
+			{
+				if ( uMsg != WM_MOUSEMOVE )
+				{
+					NStr::DebugTrace( "EDITOR_INPUT ViewHook msg=0x%x hwnd=0x%p parent=0x%p raw=(%d,%d)\n", uMsg, hWnd, hParent, GET_X_LPARAM( lParam ), GET_Y_LPARAM( lParam ) );
+					AppendEditorInputTrace( NStr::Format( "ViewHook msg=0x%x hwnd=0x%p parent=0x%p raw=(%d,%d)\n", uMsg, hWnd, hParent, GET_X_LPARAM( lParam ), GET_Y_LPARAM( lParam ) ) );
+				}
+				POINT pt = { GET_X_LPARAM( lParam ), GET_Y_LPARAM( lParam ) };
+				::MapWindowPoints( hWnd, hParent, &pt, 1 );
+				::SendMessage( hParent, uMsg, wParam, MAKELPARAM( pt.x, pt.y ) );
+				return 0;
+			}
+			break;
+		case WM_MOUSEWHEEL:
+			if ( hParent )
+			{
+				NStr::DebugTrace( "EDITOR_INPUT ViewHook wheel hwnd=0x%p parent=0x%p wParam=0x%Ix lParam=0x%Ix\n", hWnd, hParent, (size_t)wParam, (size_t)lParam );
+				AppendEditorInputTrace( NStr::Format( "ViewHook wheel hwnd=0x%p parent=0x%p wParam=0x%Ix lParam=0x%Ix\n", hWnd, hParent, (size_t)wParam, (size_t)lParam ) );
+				::SendMessage( hParent, uMsg, wParam, lParam );
+				return 0;
+			}
+			break;
+	}
+	return pOldProc ? ::CallWindowProc( pOldProc, hWnd, uMsg, wParam, lParam ) : ::DefWindowProc( hWnd, uMsg, wParam, lParam );
+}
+
+void CParentFrame::HookViewMouseMessages()
+{
+	if ( pWndView == 0 )
+		return;
+	HWND hView = pWndView->GetSafeHwnd();
+	if ( !::IsWindow( hView ) )
+		return;
+	if ( ::GetPropA( hView, kViewMouseOldProcProp ) != 0 )
+		return;
+	WNDPROC pOldProc = reinterpret_cast<WNDPROC>( ::SetWindowLongPtr( hView, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>( ForwardViewMouseToFrameProc ) ) );
+	if ( pOldProc )
+		::SetPropA( hView, kViewMouseOldProcProp, reinterpret_cast<HANDLE>( pOldProc ) );
+}
+
 void CParentFrame::SaveRegisterData()
 {
 	std::string szVar;
@@ -221,18 +309,67 @@ void CParentFrame::LoadRegisterData()
 
 void CParentFrame::ShowFrameWindows( int nCommand )
 {
+	if ( nCommand == SW_SHOW )
+		HookViewMouseMessages();
+
+	CETreeCtrl *pVisibleTree = pTreeDockBar ? pTreeDockBar->GetTreeWithIndex( 0 ) : 0;
+	const bool bShowEditorDocks = ( nCommand == SW_SHOW ) && ( pVisibleTree != 0 );
+
 	pWndView->ShowWindow( nCommand );
 	if ( pTreeDockBar )
-		theApp.ShowSECControlBar( pTreeDockBar, nCommand );
+		theApp.ShowSECControlBar( pTreeDockBar, bShowEditorDocks ? SW_SHOW : SW_HIDE );
 	if ( pOIDockBar )
-		theApp.ShowSECControlBar( pOIDockBar, nCommand );
+		theApp.ShowSECControlBar( pOIDockBar, bShowEditorDocks ? SW_SHOW : SW_HIDE );
 	if ( pToolBar )
 		theApp.ShowSECToolBar( pToolBar, nCommand );
 	
 	if ( nCommand == SW_SHOW )
 	{
+		RECT r;
+		GetClientRect( &r );
+		int nSidebarWidth = bShowEditorDocks ? 170 : 0;
+		if ( bShowEditorDocks )
+		{
+			if ( pTreeDockBar && ::IsWindow( pTreeDockBar->GetSafeHwnd() ) )
+			{
+				CRect rcTree;
+				pTreeDockBar->GetWindowRect( &rcTree );
+				ScreenToClient( &rcTree );
+				nSidebarWidth = max( nSidebarWidth, rcTree.Width() );
+			}
+			if ( pOIDockBar && ::IsWindow( pOIDockBar->GetSafeHwnd() ) )
+			{
+				CRect rcInspector;
+				pOIDockBar->GetWindowRect( &rcInspector );
+				ScreenToClient( &rcInspector );
+				nSidebarWidth = max( nSidebarWidth, rcInspector.Width() );
+			}
+			const int nMaxSidebarWidth = max( 120, ( r.right - r.left ) - 220 );
+			nSidebarWidth = min( nSidebarWidth, nMaxSidebarWidth );
+		}
+		const int nTreeHeight = bShowEditorDocks ? ( ( r.bottom - r.top ) * 3 ) / 4 : 0;
+		const int nInspectorHeight = bShowEditorDocks ? ( r.bottom - r.top ) - nTreeHeight : 0;
+		const int nContentLeft = nSidebarWidth;
+		const int nContentWidth = ( r.right - r.left ) - nContentLeft;
+		if ( bShowEditorDocks && pTreeDockBar && ::IsWindow( pTreeDockBar->GetSafeHwnd() ) )
+		{
+			pTreeDockBar->SetWindowPos( &wndTop, 0, 0, nSidebarWidth, nTreeHeight, SWP_NOACTIVATE | SWP_SHOWWINDOW );
+		}
+		if ( bShowEditorDocks && pOIDockBar && ::IsWindow( pOIDockBar->GetSafeHwnd() ) )
+		{
+			pOIDockBar->SetWindowPos( &wndTop, 0, nTreeHeight, nSidebarWidth, nInspectorHeight, SWP_NOACTIVATE | SWP_SHOWWINDOW );
+		}
 		g_frameManager.GetGameWnd()->SetParent( this );
-		g_frameManager.GetGameWnd()->SetWindowPos( &wndTop, 0, 0, GAME_SIZE_X, GAME_SIZE_Y, SWP_HIDEWINDOW );
+		pWndView->SetWindowPos( &wndTop, nContentLeft, 0, nContentWidth, r.bottom - r.top, SWP_NOACTIVATE | SWP_SHOWWINDOW );
+		g_frameManager.GetGameWnd()->SetWindowPos( &wndTop, nContentLeft, 0, nContentWidth, r.bottom - r.top, SWP_SHOWWINDOW );
+		if ( bShowEditorDocks && pTreeDockBar && ::IsWindow( pTreeDockBar->GetSafeHwnd() ) )
+		{
+			pTreeDockBar->SetWindowPos( &wndTop, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW );
+		}
+		if ( bShowEditorDocks && pOIDockBar && ::IsWindow( pOIDockBar->GetSafeHwnd() ) )
+		{
+			pOIDockBar->SetWindowPos( &wndTop, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW );
+		}
 	}
 	else
 		g_frameManager.GetGameWnd()->ShowWindow( nCommand );
@@ -490,10 +627,10 @@ void CParentFrame::OnSetFocus(CWnd* pOldWnd)
 void CParentFrame::OnFileCreateNewProject() 
 {
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
-	if ( pTree != 0 )			//Если уже был создан проект
+	if ( pTree != 0 )			//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	{
 		if ( SaveFrame( true ) )
-			return;						//нажали cancel
+			return;						//пїЅпїЅпїЅпїЅпїЅпїЅ cancel
 	}
 	
 	GenerateProjectName();
@@ -518,7 +655,7 @@ void CParentFrame::OnFileCreateNewProject()
 	pTree = CreateTrees();
 	
 	bNewProjectJustCreated = true;
-	OnFileSave();				//сразу сохраняем проект
+	OnFileSave();				//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	bNewProjectJustCreated = false;
 	SetChangedFlag( false );
 	ComputeCaption();
@@ -527,15 +664,17 @@ void CParentFrame::OnFileCreateNewProject()
 	pOIDockBar->ClearControl();
 	SpecificInit();
 	::ShowFirstChildElementInPropertyView( pTree, pOIDockBar );
+	if ( g_frameManager.GetActiveWnd() == this )
+		ShowFrameWindows( SW_SHOW );
 }
 
 void CParentFrame::OnFileOpen() 
 {
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
-	if ( pTree != 0 )			//Если уже был создан проект
+	if ( pTree != 0 )			//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	{
 		if ( SaveFrame( true ) )
-			return;						//нажали cancel
+			return;						//пїЅпїЅпїЅпїЅпїЅпїЅ cancel
 		pOIDockBar->ClearControl();
 	}
 	
@@ -607,6 +746,8 @@ void CParentFrame::LoadComposerFile( const char *pszFileName )
 	SetChangedFlag( false );
 	ComputeCaption();
 	::ShowFirstChildElementInPropertyView( pTree, pOIDockBar );
+	if ( g_frameManager.GetActiveWnd() == this )
+		ShowFrameWindows( SW_SHOW );
 }
 
 void CParentFrame::OnFileSave()
@@ -859,7 +1000,7 @@ void CParentFrame::OnFileExportFiles()
 		{
 			szRelFileName = szExportFileName;
 			int nBox = AfxMessageBox( "This project is exporting to incorrect directory.\nThe export directory should be sub path relative to 'Export Directory' settings\nDo you want to continue export to that file?\n\n"
-				"Задаваемая Export директория для проекта должна быть вложенной\nотносительно настроек редактора. Иначе будут баги при batch mode\nПродолжить экспорт в эту директорию?", MB_OKCANCEL );
+				"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ Export пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ\nпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ batch mode\nпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ?", MB_OKCANCEL );
 			if ( nBox == IDOK )
 				break;
 		}
@@ -918,7 +1059,7 @@ void CParentFrame::OnFileExportFiles()
 void CParentFrame::OnUpdateFileExportFiles(CCmdUI* pCmdUI) 
 {
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
-	if ( pTree != 0 )			//Если уже был создан проект
+	if ( pTree != 0 )			//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		pCmdUI->Enable( true );
 	else
 		pCmdUI->Enable( false );
@@ -927,7 +1068,7 @@ void CParentFrame::OnUpdateFileExportFiles(CCmdUI* pCmdUI)
 void CParentFrame::OnUpdateFileSave(CCmdUI* pCmdUI) 
 {
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
-	if ( pTree != 0 )			//Если уже был создан проект
+	if ( pTree != 0 )			//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		pCmdUI->Enable( true );
 	else
 		pCmdUI->Enable( false );
@@ -936,7 +1077,7 @@ void CParentFrame::OnUpdateFileSave(CCmdUI* pCmdUI)
 void CParentFrame::OnUpdateSaveProjectAs(CCmdUI* pCmdUI) 
 {
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
-	if ( pTree != 0 )			//Если уже был создан проект
+	if ( pTree != 0 )			//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		pCmdUI->Enable( true );
 	else
 		pCmdUI->Enable( false );
@@ -945,7 +1086,7 @@ void CParentFrame::OnUpdateSaveProjectAs(CCmdUI* pCmdUI)
 void CParentFrame::OnUpdateCloseFile(CCmdUI* pCmdUI) 
 {
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
-	if ( pTree != 0 )			//Если уже был создан проект
+	if ( pTree != 0 )			//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		pCmdUI->Enable( true );
 	else
 		pCmdUI->Enable( false );
@@ -981,7 +1122,7 @@ void CParentFrame::OnFileClose()
 	if ( pTree )
 	{
 		if ( SaveFrame( true ) )
-			return;						//нажали cancel
+			return;						//пїЅпїЅпїЅпїЅпїЅпїЅ cancel
 
 		pTreeDockBar->DeleteTree( 0 );
 		pOIDockBar->ClearControl();
@@ -1318,7 +1459,7 @@ bool CParentFrame::LockFile()
 			string szTemp = files[0].c_str();
 			szTemp = szTemp.substr( szTemp.rfind('\\') + 8 );
 			if ( szUserName == szTemp )
-				return true;			//файл уже залочен этим же юзером
+				return true;			//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 			int nRes = AfxMessageBox( NStr::Format("The file %s is locked by %s, do you want to open it?", szProjectFileName.c_str(), szTemp.c_str() ), MB_YESNO );
 			if ( nRes == IDNO )
 				return false;

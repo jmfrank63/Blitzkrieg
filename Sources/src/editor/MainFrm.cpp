@@ -205,6 +205,23 @@ static UINT indicators[] =
 
 };
 
+static void SetStatusPaneInfoIfPresent( CStatusBar &rStatusBar, UINT nID, UINT nStyle, int nWidth )
+{
+	int nIndex = rStatusBar.CommandToIndex( nID );
+	if ( nIndex >= 0 )
+		rStatusBar.SetPaneInfo( nIndex, nID, nStyle, nWidth );
+}
+
+static void SetStatusPaneTextIfPresent( CStatusBar &rStatusBar, UINT nID, LPCTSTR pszText )
+{
+	if ( !::IsWindow( rStatusBar.GetSafeHwnd() ) )
+		return;
+
+	int nIndex = rStatusBar.CommandToIndex( nID );
+	if ( nIndex >= 0 )
+		rStatusBar.SetPaneText( nIndex, pszText );
+}
+
 
 CMainFrame::CMainFrame() : m_pFenceCombo( 0 ), m_pObjectCombo( 0 ), m_pBuildingCombo( 0 ), m_pBridgeCombo( 0 ), m_fireRangeFilterComboBox ( 0 ), m_fireRangePressed( false ), m_nFireRangeRegisterGroup( -1 )
 {
@@ -622,24 +639,21 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 
 	pToolBarMgr->EnableCoolLook(TRUE);
-	if (!m_wndStatusBar.CreateEx(this, SBARS_SIZEGRIP | SBT_TOOLTIPS, WS_CHILD | WS_VISIBLE | CBRS_BOTTOM ) ||
-		!m_wndStatusBar.SetIndicators(indicators,
-		  sizeof(indicators)/sizeof(UINT)))
+	if ( !m_wndStatusBar.CreateEx(this, SBARS_SIZEGRIP | SBT_TOOLTIPS, WS_CHILD | WS_VISIBLE | CBRS_BOTTOM ) )
 	{
 		TRACE0("Failed to create status bar\n");
-		return -1;      // fail to create
 	}
-	int nCoordsIndex = m_wndStatusBar.CommandToIndex( ID_INDICATOR_COORDS );
-	m_wndStatusBar.SetPaneInfo( nCoordsIndex, ID_INDICATOR_COORDS, SBPS_NORMAL, 70 );
-	
-	nCoordsIndex = m_wndStatusBar.CommandToIndex( ID_INDICATOR_CONTROL );
-	m_wndStatusBar.SetPaneInfo( nCoordsIndex, ID_INDICATOR_CONTROL, SBPS_NORMAL, 100 );
-	
-	nCoordsIndex = m_wndStatusBar.CommandToIndex( ID_INDICATOR_TILEPOS );
-	m_wndStatusBar.SetPaneInfo( nCoordsIndex, ID_INDICATOR_TILEPOS, SBPS_NORMAL, 400 );
-	
-	nCoordsIndex = m_wndStatusBar.CommandToIndex( ID_INDICATOR_OBJECTTYPE );
-	m_wndStatusBar.SetPaneInfo( nCoordsIndex, ID_INDICATOR_OBJECTTYPE, SBPS_NORMAL, 450 );
+	else if ( !m_wndStatusBar.SetIndicators(indicators, sizeof(indicators)/sizeof(UINT)) )
+	{
+		static UINT fallbackIndicators[] = { ID_SEPARATOR };
+		TRACE0("Failed to create full status bar indicators\n");
+		m_wndStatusBar.SetIndicators(fallbackIndicators, sizeof(fallbackIndicators)/sizeof(UINT));
+	}
+
+	SetStatusPaneInfoIfPresent( m_wndStatusBar, ID_INDICATOR_COORDS, SBPS_NORMAL, 70 );
+	SetStatusPaneInfoIfPresent( m_wndStatusBar, ID_INDICATOR_CONTROL, SBPS_NORMAL, 100 );
+	SetStatusPaneInfoIfPresent( m_wndStatusBar, ID_INDICATOR_TILEPOS, SBPS_NORMAL, 400 );
+	SetStatusPaneInfoIfPresent( m_wndStatusBar, ID_INDICATOR_OBJECTTYPE, SBPS_NORMAL, 450 );
 	
 	pToolBarMgr->SetMenuInfo( 1, IDR_EDITORTYPE );
 	EnableDocking( CBRS_ALIGN_ANY );
@@ -653,7 +667,8 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		return -1;
 	}
 	
-	InitGameWindow();
+	if ( InitGameWindow() != 0 )
+		return -1;
 	g_frameManager.SetGameWnd( &m_gameWnd );
 	m_gameWnd.ShowWindow( SW_HIDE );
 	
@@ -721,27 +736,20 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	if ( CreateMedalFrame() )
 		return -1;
 	
-	if ( !theApp.IsVersionIncreased() )
-	{
-		LoadBarState( REG_BARSLAYOUT );
-	}
-	else
-	{
-		DockControlToLeft( pObjectToolBar );
-		DockControlToLeft( pTileToolBar );
-		DockControlToLeft( pBuildingToolBar );
-		DockControlToLeft( pFenceToolBar );
-		DockControlToLeft( pBridgeToolBar );
-		DockControlToLeft( pMissionToolBar );
-		DockControlToLeft( pMeshToolBar );
-		DockControlToLeft( pParticleToolBar );
-		DockControlToLeft( pSquadToolBar );
-		DockControlToLeft( p3DRoadToolBar );
-		DockControlToLeft( pChapterToolBar );
-		DockControlToLeft( pEffectToolBar );
-		DockControlToLeft( pInfantryToolBar );
-	}
-	pCommonToolBar->DestroyWindow();		//как мне надоел этот тулбар
+	DockControlToLeft( pObjectToolBar );
+	DockControlToLeft( pTileToolBar );
+	DockControlToLeft( pBuildingToolBar );
+	DockControlToLeft( pFenceToolBar );
+	DockControlToLeft( pBridgeToolBar );
+	DockControlToLeft( pMissionToolBar );
+	DockControlToLeft( pMeshToolBar );
+	DockControlToLeft( pParticleToolBar );
+	DockControlToLeft( pSquadToolBar );
+	DockControlToLeft( p3DRoadToolBar );
+	DockControlToLeft( pChapterToolBar );
+	DockControlToLeft( pEffectToolBar );
+	DockControlToLeft( pInfantryToolBar );
+	pCommonToolBar->DestroyWindow();		//пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 
 	GetSingleton<ICursor>()->Show( false );
 	GetSingleton<ICursor>()->SetMode( 2 );
@@ -752,6 +760,9 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 void CMainFrame::DockControlToLeft(SECCustomToolBar *pBar)
 {
+	if ( pBar == 0 || !::IsWindow(pBar->GetSafeHwnd()) )
+		return;
+
 	CRect rect;
 	
 	RecalcLayout();
@@ -759,11 +770,10 @@ void CMainFrame::DockControlToLeft(SECCustomToolBar *pBar)
 	rect.right = rect.Width();
 	rect.left = 0;
 /*
-	rect.bottom = rect.Height();			//не надо поднимать, иначе будет выше чем меню
+	rect.bottom = rect.Height();			//пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 	rect.top = 0;
 */
 
-	DWORD dw = pBar->GetBarStyle();
 	UINT n = AFX_IDW_DOCKBAR_TOP;
 	
 	DockControlBar( pBar, n, &rect );
@@ -1654,9 +1664,20 @@ int CMainFrame::InitGameWindow()
 	int nSizeX = GAME_SIZE_X;
 	int nSizeY = GAME_SIZE_Y;
 
+	if ( GetFileAttributesA( ".\\Data\\consts.xml" ) == INVALID_FILE_ATTRIBUTES &&
+		 GetFileAttributesA( ".\\data\\consts.xml" ) == INVALID_FILE_ATTRIBUTES &&
+		 GetFileAttributesA( "..\\..\\..\\..\\Data\\consts.xml" ) != INVALID_FILE_ATTRIBUTES )
+	{
+		SetCurrentDirectoryA( "..\\..\\..\\..\\" );
+	}
+
 	CPtr<IDataStorage> pStorage = OpenStorage( ".\\data\\*.pak", STREAM_ACCESS_READ, STORAGE_TYPE_MOD );
 	if ( CPtr<IDataStorage> pMODStorage = OpenStorage( (theApp.GetDestDir() + "*.pak").c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_COMMON ) )
 		pStorage->AddStorage( pMODStorage, "MOD" );
+	if ( CPtr<IDataStorage> pDataStorage = OpenStorage( "..\\..\\..\\..\\Data\\", STREAM_ACCESS_READ, STORAGE_TYPE_FILE ) )
+		pStorage->AddStorage( pDataStorage, "WORKSPACE_DATA" );
+	if ( CPtr<IDataStorage> pSourceDataStorage = OpenStorage( "..\\..\\data\\", STREAM_ACCESS_READ, STORAGE_TYPE_FILE ) )
+		pStorage->AddStorage( pSourceDataStorage, "SOURCE_DATA" );
 	RegisterSingleton( IDataStorage::tidTypeID, pStorage );
 	{
 		CPtr<IObjectsDB> pODB = CreateObjectsDB();
@@ -1668,7 +1689,12 @@ int CMainFrame::InitGameWindow()
 		CTableAccessor table = NDB::OpenDataTable( "consts.xml" );
 		NMain::SetupGlobalVarConsts( table );
 	}
-	NMain::Initialize( m_gameWnd.GetSafeHwnd(), AfxGetMainWnd()->GetSafeHwnd(), AfxGetMainWnd()->GetSafeHwnd(), false );
+	if ( NMain::Initialize( m_gameWnd.GetSafeHwnd(), AfxGetMainWnd()->GetSafeHwnd(), AfxGetMainWnd()->GetSafeHwnd(), false ) != true )
+	{
+		TRACE0( "Failed to initialize game modules\n" );
+		AfxMessageBox( "Failed to initialize game modules. Check that required DLLs are available in the editor output folder.", MB_OK | MB_ICONEXCLAMATION );
+		return -1;
+	}
 	GetSLS()->AddFactory( GetTreeItemObjectFactory() );
 	
 	{
@@ -1731,32 +1757,28 @@ void CMainFrame::UpdateStatusBarIndicators()
 
 void CMainFrame::UpdateStatusBarCoordsIndicator( const POINT &pt )
 {
-	int nCoordsIndex = m_wndStatusBar.CommandToIndex( ID_INDICATOR_COORDS );
 	CString szText;
 	szText.Format("x=%d, y=%d", pt.x, pt.y);
-	m_wndStatusBar.SetPaneText( nCoordsIndex, szText );
+	SetStatusPaneTextIfPresent( m_wndStatusBar, ID_INDICATOR_COORDS, szText );
 }
 
 void CMainFrame::UpdateStatusBarControlIndicator( const RECT &rc )
 {
-	int nControlIndex = m_wndStatusBar.CommandToIndex( ID_INDICATOR_CONTROL );
 	CString szText;
 	szText.Format("(%d,%d)x(%d,%d)", rc.left, rc.top, rc.right, rc.bottom);
-	m_wndStatusBar.SetPaneText( nControlIndex, szText );
+	SetStatusPaneTextIfPresent( m_wndStatusBar, ID_INDICATOR_CONTROL, szText );
 }
 
 void CMainFrame::UpdateStatusBarControlIndicator( const CTRect<float> &rc )
 {
-	int nControlIndex = m_wndStatusBar.CommandToIndex( ID_INDICATOR_CONTROL );
 	CString szText;
 	szText.Format("(%d,%d)x(%d,%d)", (int)rc.left, (int)rc.top, (int)rc.right, (int)rc.bottom);
-	m_wndStatusBar.SetPaneText( nControlIndex, szText );
+	SetStatusPaneTextIfPresent( m_wndStatusBar, ID_INDICATOR_CONTROL, szText );
 }
 
 void CMainFrame::ClearStatusBarControlIndicator()
 {
-	int nControlIndex = m_wndStatusBar.CommandToIndex( ID_INDICATOR_CONTROL );
-	m_wndStatusBar.SetPaneText( nControlIndex, "" );
+	SetStatusPaneTextIfPresent( m_wndStatusBar, ID_INDICATOR_CONTROL, "" );
 }
 
 void CMainFrame::ShowSECControlBar( SECControlBar *pControlBar, int nCommand )

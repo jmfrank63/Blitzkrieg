@@ -71,6 +71,8 @@ private:
 
 protected:
 	bool ComposeAnimations();
+	bool CopyRuntimeAnimationsToTemp();
+	bool LoadRuntimePreviewThumbnails( CDirectoryPropsItem *pDirPropsItem );
 	void ClickOnThumbList( int nID );
 	void DoubleClickOnThumbList( int nID );
 	void DeleteFrameInTree( int nID );

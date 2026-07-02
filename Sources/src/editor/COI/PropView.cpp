@@ -8,6 +8,7 @@
 BEGIN_MESSAGE_MAP(CPropView, SECControlBar)
 	ON_WM_CREATE()
 	ON_WM_SIZE()
+	ON_WM_MOUSEWHEEL()
 END_MESSAGE_MAP()
 
 
@@ -43,6 +44,13 @@ BOOL CPropView::PreTranslateMessage( MSG* pMsg )
 	}
 
   return SECControlBar::PreTranslateMessage( pMsg );
+}
+
+BOOL CPropView::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
+{
+	if ( ::IsWindow( m_wndOI.GetSafeHwnd() ) )
+		return m_wndOI.SendMessage( WM_MOUSEWHEEL, MAKEWPARAM( nFlags, zDelta ), MAKELPARAM( pt.x, pt.y ) ) != 0;
+	return SECControlBar::OnMouseWheel( nFlags, zDelta, pt );
 }
 
 void CPropView::OnSize(UINT nType, int cx, int cy) 

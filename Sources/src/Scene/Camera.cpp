@@ -26,6 +26,11 @@ void CCamera::Init( ISingleton *pSingleton )
 	ISingleTimer *pTimer = GetSingleton<IGameTimer>()->GetAbsTimer();
 	pTimeSlider = pTimer->CreateSlider();
 	CTableAccessor table = NDB::OpenDataTable( "consts.xml" );
+	if ( (IDataTable*)table == 0 )
+	{
+		NStr::DebugTrace( "Camera: failed to open consts.xml, using default earthquake constants\n" );
+		return;
+	}
 	fEQAttenuation = table.GetFloat( "Scene", "Camera.Earthquake.Attenuation", 5 );
 	fEQPeriod = table.GetFloat( "Scene", "Camera.Earthquake.Period", 8 );
 	timeEQDuration = table.GetInt( "Scene", "Camera.Earthquake.Duration", 5000 );

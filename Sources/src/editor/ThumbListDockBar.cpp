@@ -45,6 +45,6 @@ void CThumbListDockBar::OnSize(UINT nType, int cx, int cy)
 	{
 		CRect r;
 		GetInsideRect(r);
-		m_wndThumbList.SetWindowPos( NULL, r.left, r.top, r.Width(), r.Height(), SWP_NOZORDER|SWP_NOACTIVATE );
+		m_wndThumbList.SetWindowPos( &CWnd::wndTop, r.left, r.top, r.Width(), r.Height(), SWP_NOACTIVATE|SWP_SHOWWINDOW );
 	}
 }

@@ -218,12 +218,12 @@ int CThumbList::LoadImageToImageList( CImageList *pIML, char *szFileName, const 
 			}
 		}
 	}
-	
+
 	if ( nSizeY < THUMBNAIL_HEIGHT )
 	{
 		int nUp = (THUMBNAIL_HEIGHT - nSizeY)/2;
 		CPtr<IImage> pCenteredImage = pImageProcessor->CreateImage( THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT );
-		pCenteredImage->Set( 0 );
+		pCenteredImage->Set( 0xff000000 );
 		RECT rc = { 0, 0, nSizeX, nSizeY };
 		pCenteredImage->CopyFrom( pScaleImage, &rc, 0, nUp );
 		pScaleImage = pCenteredImage;
@@ -232,7 +232,7 @@ int CThumbList::LoadImageToImageList( CImageList *pIML, char *szFileName, const 
 	{
 		int nLeft = (THUMBNAIL_WIDTH - nSizeX)/2;
 		CPtr<IImage> pCenteredImage = pImageProcessor->CreateImage( THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT );
-		pCenteredImage->Set( 0 );
+		pCenteredImage->Set( 0xff000000 );
 		RECT rc = { 0, 0, nSizeX, nSizeY };
 		pCenteredImage->CopyFrom( pScaleImage, &rc, nLeft, 0 );
 		pScaleImage = pCenteredImage;
@@ -243,6 +243,21 @@ int CThumbList::LoadImageToImageList( CImageList *pIML, char *szFileName, const 
 	NI_ASSERT( nSizeX == 100 );
 	NI_ASSERT( nSizeY == 100 );
 
+	{
+		SColor *p = pScaleImage->GetLFB();
+		for ( int y=0; y<nSizeY; y++ )
+		{
+			for ( int x=0; x<nSizeX; x++ )
+			{
+				SColor &color = p[y*nSizeX + x];
+				const int nAlpha = color.a;
+				color.r = BYTE( color.r * nAlpha / 255 );
+				color.g = BYTE( color.g * nAlpha / 255 );
+				color.b = BYTE( color.b * nAlpha / 255 );
+				color.a = 255;
+			}
+		}
+	}
 	CBitmap bitmap;
 	BITMAPINFO bmi;
 	bmi.bmiHeader.biSize  = sizeof( bmi.bmiHeader );

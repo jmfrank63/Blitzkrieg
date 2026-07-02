@@ -157,7 +157,7 @@ public:
 		bComplexItem = true;
 		nSelImage = 8;
 		bLoaded = false;
-		imageList.Create(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, ILC_COLOR24, 0, 1);
+		imageList.Create(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, ILC_COLOR32, 0, 1);
 	}
 	~CDirectoryPropsItem() {};
 

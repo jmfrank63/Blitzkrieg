@@ -70,6 +70,8 @@ bool STDCALL NMain::Initialize( HWND hWnd3D, HWND nWndInput, HWND hWndSound, boo
 	}
 	{
 		const SModuleDescriptor *pDesc = NMain::GetModuleDesc( IMAGE_IMAGE );
+		if ( pDesc == 0 || pDesc->pFactory == 0 )
+			return false;
 		CPtr<IImageProcessor> pIP = CreateObject<IImageProcessor>( pDesc->pFactory, IMAGE_PROCESSOR );
 		RegisterSingleton( IImageProcessor::tidTypeID, pIP );
 	}
@@ -80,12 +82,16 @@ bool STDCALL NMain::Initialize( HWND hWnd3D, HWND nWndInput, HWND hWndSound, boo
 	}
 	{
 		const SModuleDescriptor *pDesc = NMain::GetModuleDesc( INPUT_INPUT );
+		if ( pDesc == 0 || pDesc->pFactory == 0 )
+			return false;
 		CPtr<IInput> pInput = CreateObject<IInput>( pDesc->pFactory, INPUT_INPUT );
 		RegisterSingleton( IInput::tidTypeID, pInput );
 		pInput->Init( nWndInput );
 	}
 	{
 		const SModuleDescriptor *pDesc = NMain::GetModuleDesc( GFX_GFX );
+		if ( pDesc == 0 || pDesc->pFactory == 0 )
+			return false;
 		IObjectFactory *pFactory = pDesc->pFactory;
 		CPtr<IGFX> pGFX = CreateObject<IGFX>( pFactory, GFX_GFX );
 		if ( pGFX->Init(0, hWnd3D) != true )
@@ -103,6 +109,8 @@ bool STDCALL NMain::Initialize( HWND hWnd3D, HWND nWndInput, HWND hWndSound, boo
 	}
 	{
 		const SModuleDescriptor *pDesc = NMain::GetModuleDesc( SFX_SFX );
+		if ( pDesc == 0 || pDesc->pFactory == 0 )
+			return false;
 		IObjectFactory *pFactory = pDesc->pFactory;
 		CPtr<ISFX> pSFX = CreateObject<ISFX>( pFactory, SFX_SFX );
 		RegisterSingleton( ISFX::tidTypeID, pSFX );	// register GFX to singleton
@@ -115,6 +123,8 @@ bool STDCALL NMain::Initialize( HWND hWnd3D, HWND nWndInput, HWND hWndSound, boo
 	}
 	{
 		const SModuleDescriptor *pDesc = NMain::GetModuleDesc( ANIM_ANIM );
+		if ( pDesc == 0 || pDesc->pFactory == 0 )
+			return false;
 		IObjectFactory *pFactory = pDesc->pFactory;
 		CPtr<IAnimationManager> pAM = CreateObject<IAnimationManager>( pFactory, ANIM_ANIMATION_MANAGER );
 		RegisterSingleton( IAnimationManager::tidTypeID, pAM ); // register animation manager to singleton
@@ -122,9 +132,15 @@ bool STDCALL NMain::Initialize( HWND hWnd3D, HWND nWndInput, HWND hWndSound, boo
 	}
 	{
 		const SModuleDescriptor *pDesc = NMain::GetModuleDesc( SCENE_SCENE );
+		if ( pDesc == 0 || pDesc->pFactory == 0 )
+			return false;
 		IObjectFactory *pFactory = pDesc->pFactory;
 		CPtr<ICamera> pCamera = CreateObject<ICamera>( pFactory, SCENE_CAMERA );
-		pCamera->Init( GetSingletonGlobal() );
+		CTableAccessor constsTable = NDB::OpenDataTable( "consts.xml" );
+		if ( (IDataTable*)constsTable != 0 )
+			pCamera->Init( GetSingletonGlobal() );
+		else
+			NStr::DebugTrace( "Initialize: consts.xml is unavailable, camera uses default constants\n" );
 		RegisterSingleton( ICamera::tidTypeID, pCamera ); // register camera to singleton
 		CPtr<ICursor> pCursor = CreateObject<ICursor>( pFactory, SCENE_CURSOR );
 		RegisterSingleton( ICursor::tidTypeID, pCursor ); // register cursor to singleton
@@ -136,6 +152,8 @@ bool STDCALL NMain::Initialize( HWND hWnd3D, HWND nWndInput, HWND hWndSound, boo
 	}
 	{
 		const SModuleDescriptor *pDesc = NMain::GetModuleDesc( AI_AI );
+		if ( pDesc == 0 || pDesc->pFactory == 0 )
+			return false;
 		IObjectFactory *pFactory = pDesc->pFactory;
 		CPtr<IAILogic> pAILogic = CreateObject<IAILogic>( pFactory, AI_LOGIC );
 		RegisterSingleton( IAILogic::tidTypeID, pAILogic );
@@ -154,6 +172,8 @@ bool STDCALL NMain::Initialize( HWND hWnd3D, HWND nWndInput, HWND hWndSound, boo
 	}
 	{
 		const SModuleDescriptor *pDesc = NMain::GetModuleDesc( SCENE_SCENE );
+		if ( pDesc == 0 || pDesc->pFactory == 0 )
+			return false;
 		IObjectFactory *pFactory = pDesc->pFactory;
 		CPtr<IScene> pScene = CreateObject<IScene>( pFactory, SCENE_SCENE );
 		pScene->Init( GetSingletonGlobal() );
@@ -164,6 +184,8 @@ bool STDCALL NMain::Initialize( HWND hWnd3D, HWND nWndInput, HWND hWndSound, boo
 	}
 	{
 		const SModuleDescriptor *pDesc = NMain::GetModuleDesc( UI_BASE_VALUE );
+		if ( pDesc == 0 || pDesc->pFactory == 0 )
+			return false;
 		CPtr<IMaskManager> pMM = CreateObject<IMaskManager>( MASK_MANAGER );
 		RegisterSingleton( IMaskManager::tidTypeID, pMM );
 		pMM->Init();
@@ -204,8 +226,14 @@ bool STDCALL NMain::IsInitialized()
 }
 bool STDCALL NMain::Finalize()
 {
-	GetSingleton<ISFX>()->Done();
-	GetSingleton<ITransceiver>()->Done();
+	ISingleton *pSingleton = GetSingletonGlobal();
+	if ( pSingleton )
+	{
+		if ( ISFX *pSFX = GetSingleton<ISFX>( pSingleton ) )
+			pSFX->Done();
+		if ( ITransceiver *pTransceiver = GetSingleton<ITransceiver>( pSingleton ) )
+			pTransceiver->Done();
+	}
 
 	UnloadAllModules();
 	return false;

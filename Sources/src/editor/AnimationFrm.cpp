@@ -3,6 +3,7 @@
 #include "..\GFX\GFX.h"
 #include "..\Scene\Scene.h"
 #include "..\Anim\Animation.h"
+#include "..\Formats\fmtAnimation.h"
 
 #include "editor.h"
 #include "PropView.h"
@@ -773,6 +774,53 @@ void CAnimationFrame::OnUpdateStopButton(CCmdUI* pCmdUI)
 		pCmdUI->Enable( false );
 }
 
+bool CAnimationFrame::CopyRuntimeAnimationsToTemp()
+{
+	if ( szPrevExportFileName.empty() )
+		return false;
+
+	string szExportFileName;
+	if ( IsRelatedPath( szPrevExportFileName.c_str() ) )
+		MakeFullPath( (theApp.GetDestDir() + szAddDir).c_str(), szPrevExportFileName.c_str(), szExportFileName );
+	else
+		szExportFileName = szPrevExportFileName;
+
+	string szSourceDir = GetDirectory( szExportFileName.c_str() );
+	if ( szSourceDir.empty() )
+		return false;
+
+	string szDestDir = theApp.GetEditorTempDir();
+	string szPattern = szSourceDir + "*.*";
+	WIN32_FIND_DATA ffData;
+	HANDLE hFind = ::FindFirstFile( szPattern.c_str(), &ffData );
+	if ( hFind == INVALID_HANDLE_VALUE )
+		return false;
+
+	bool bCopied = false;
+	do
+	{
+		if ( ffData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY )
+			continue;
+
+		string szFileName = ffData.cFileName;
+		string szLowerName = szFileName;
+		NStr::ToLower( szLowerName );
+		const bool bSpriteFile =
+			(szLowerName.size() >= 4 && szLowerName.substr( szLowerName.size() - 4 ) == ".san") ||
+			(szLowerName.size() >= 6 && szLowerName.substr( szLowerName.size() - 6 ) == "_h.dds") ||
+			(szLowerName.size() >= 6 && szLowerName.substr( szLowerName.size() - 6 ) == "_l.dds") ||
+			(szLowerName.size() >= 6 && szLowerName.substr( szLowerName.size() - 6 ) == "_c.dds");
+		if ( !bSpriteFile )
+			continue;
+
+		if ( MyCopyFile( (szSourceDir + szFileName).c_str(), (szDestDir + szFileName).c_str() ) )
+			bCopied = true;
+	}
+	while ( ::FindNextFile( hFind, &ffData ) );
+
+	::FindClose( hFind );
+	return bCopied;
+}
 bool CAnimationFrame::ComposeAnimations()
 {
 	
@@ -788,11 +836,117 @@ bool CAnimationFrame::ComposeAnimations()
 	CAnimationTreeRootItem *pAnimRoot = (CAnimationTreeRootItem *) pRootItem;
 	string szTempDir = theApp.GetEditorTempDir();
 	bool result = pAnimRoot->ComposeAnimations( szProjectFileName.c_str(), szTempDir.c_str(), true, true );
+	if ( !result )
+		result = CopyRuntimeAnimationsToTemp();
 	bComposed = result;
 	EndWaitCursor();
 	return result;
 }
 
+bool CAnimationFrame::LoadRuntimePreviewThumbnails( CDirectoryPropsItem *pDirPropsItem )
+{
+	if ( pDirPropsItem == 0 || szPrevExportFileName.empty() )
+		return false;
+
+	string szExportFileName;
+	if ( IsRelatedPath( szPrevExportFileName.c_str() ) )
+		MakeFullPath( (theApp.GetDestDir() + szAddDir).c_str(), szPrevExportFileName.c_str(), szExportFileName );
+	else
+		szExportFileName = szPrevExportFileName;
+
+	string szRuntimeDir = GetDirectory( szExportFileName.c_str() );
+	string szDDSName = szRuntimeDir + "1_h.dds";
+	string szSANName = szRuntimeDir + "1.san";
+	if ( _access( szDDSName.c_str(), 04 ) != 0 || _access( szSANName.c_str(), 04 ) != 0 )
+		return false;
+
+	IImageProcessor *pIP = GetSingleton<IImageProcessor>();
+	CPtr<IDataStream> pDDSStream = OpenFileStream( szDDSName.c_str(), STREAM_ACCESS_READ );
+	if ( pDDSStream == 0 )
+		return false;
+
+	CPtr<IDDSImage> pDDSImage = pIP->LoadDDSImage( pDDSStream );
+	if ( pDDSImage == 0 )
+		return false;
+
+	CPtr<IImage> pTextureImage = pIP->Decompress( pDDSImage );
+	if ( pTextureImage == 0 )
+		return false;
+
+	CPtr<IDataStream> pSANStream = OpenFileStream( szSANName.c_str(), STREAM_ACCESS_READ );
+	if ( pSANStream == 0 )
+		return false;
+
+	SSpriteAnimationFormat animFormat;
+	CPtr<IStructureSaver> pSaver = CreateStructureSaver( pSANStream, IStructureSaver::READ );
+	CSaverAccessor saver = pSaver;
+	DWORD dwSignature = 0;
+	saver.Add( 127, &dwSignature );
+	if ( dwSignature != 0 )
+		return false;
+	saver.Add( 1, &animFormat );
+
+	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
+	if ( pTree == 0 || pTree->GetRootItem() == 0 )
+		return false;
+
+	CTreeItem *pAnimsItem = pTree->GetRootItem()->GetChildItem( E_UNIT_ANIMATIONS_ITEM );
+	if ( pAnimsItem == 0 )
+		return false;
+
+	string szPreviewDir = theApp.GetEditorTempDir();
+	const int nTextureX = pTextureImage->GetSizeX();
+	const int nTextureY = pTextureImage->GetSizeY();
+	int nAnimIndex = 0;
+	bool bSavedAny = false;
+	for ( CTreeItem::CTreeItemList::const_iterator animIt=pAnimsItem->GetBegin(); animIt!=pAnimsItem->GetEnd(); ++animIt, ++nAnimIndex )
+	{
+		if ( nAnimIndex >= animFormat.animations.size() )
+			break;
+
+		const SSpriteAnimationFormat::SSpriteAnimation &animation = animFormat.animations[nAnimIndex];
+		if ( animation.dirs.empty() )
+			continue;
+
+		const SSpriteAnimationFormat::SSpriteAnimation::SDir &dir = animation.dirs[0];
+		int nFrameIndex = 0;
+		for ( CTreeItem::CTreeItemList::const_iterator frameIt=(*animIt)->GetBegin(); frameIt!=(*animIt)->GetEnd(); ++frameIt, ++nFrameIndex )
+		{
+			if ( nFrameIndex >= dir.frames.size() )
+				break;
+			const int nRectIndex = dir.frames[nFrameIndex];
+			if ( nRectIndex < 0 || nRectIndex >= animation.rects.size() )
+				continue;
+
+			const SSpriteRect &spriteRect = animation.rects[nRectIndex];
+			int nLeft = int( min( spriteRect.maps.x1, spriteRect.maps.x2 ) * nTextureX );
+			int nRight = int( max( spriteRect.maps.x1, spriteRect.maps.x2 ) * nTextureX );
+			int nTop = int( min( spriteRect.maps.y1, spriteRect.maps.y2 ) * nTextureY );
+			int nBottom = int( max( spriteRect.maps.y1, spriteRect.maps.y2 ) * nTextureY );
+			nLeft = max( 0, min( nLeft, nTextureX - 1 ) );
+			nRight = max( nLeft + 1, min( nRight, nTextureX ) );
+			nTop = max( 0, min( nTop, nTextureY - 1 ) );
+			nBottom = max( nTop + 1, min( nBottom, nTextureY ) );
+
+			RECT rc = { nLeft, nTop, nRight, nBottom };
+			CPtr<IImage> pFrameImage = pIP->CreateImage( nRight - nLeft, nBottom - nTop );
+			pFrameImage->Set( 0xff000000 );
+			pFrameImage->CopyFrom( pTextureImage, &rc, 0, 0 );
+
+			string szFrameFileName = (*frameIt)->GetItemName();
+			szFrameFileName += ".tga";
+			CPtr<IDataStream> pFrameStream = CreateFileStream( (szPreviewDir + szFrameFileName).c_str(), STREAM_ACCESS_WRITE );
+			if ( pFrameStream != 0 && pIP->SaveImageAsTGA( pFrameStream, pFrameImage ) )
+				bSavedAny = true;
+		}
+	}
+
+	if ( !bSavedAny )
+		return false;
+
+	m_wndAllDirThumbItems.LoadAllImagesFromDir( pDirPropsItem->GetThumbItems(), pDirPropsItem->GetImageList(), szPreviewDir.c_str() );
+	return !pDirPropsItem->GetThumbItems()->thumbDataList.empty();
+}
 void CAnimationFrame::SetActiveDirTreeItem( CDirectoryPropsItem *pDirPropsItem )
 {
 	m_pActiveDirTreeItem = pDirPropsItem;
@@ -806,6 +960,8 @@ void CAnimationFrame::SetActiveDirTreeItem( CDirectoryPropsItem *pDirPropsItem )
 			m_wndAllDirThumbItems.LoadImageToImageList( m_pActiveDirTreeItem->GetImageList(), "invalid.tga", szEditorDataDir.c_str() );
 			MakeFullPath( GetDirectory(szProjectFileName.c_str()).c_str(), m_pActiveDirTreeItem->GetDirName(), szEditorDataDir );
 			m_wndAllDirThumbItems.LoadAllImagesFromDir( m_pActiveDirTreeItem->GetThumbItems(), m_pActiveDirTreeItem->GetImageList(), szEditorDataDir.c_str() );
+			if ( m_pActiveDirTreeItem->GetThumbItems()->thumbDataList.empty() )
+				LoadRuntimePreviewThumbnails( m_pActiveDirTreeItem );
 			m_pActiveDirTreeItem->SetLoadedFlag( true );
 		}
 		

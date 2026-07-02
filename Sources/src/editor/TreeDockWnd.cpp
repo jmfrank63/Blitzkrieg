@@ -53,9 +53,9 @@ CETreeCtrl* CTreeDockWnd::AddTree( const char *szName, int nID, bool bViz )
 
 	CRect rectInside;
 	GetInsideRect(rectInside);
-	pTree->SetWindowPos( this, rectInside.left, rectInside.top,
+	pTree->SetWindowPos( &CWnd::wndTop, rectInside.left, rectInside.top,
 		rectInside.Width(), rectInside.Height(),
-		SWP_NOZORDER|SWP_NOACTIVATE);
+		SWP_NOACTIVATE|SWP_SHOWWINDOW);
 
 	return pTree;			//Элементы дерева будут заполняться извне
 }
@@ -84,9 +84,9 @@ void CTreeDockWnd::OnSize(UINT nType, int cx, int cy)
 
   CRect rectInside;
 	GetInsideRect(rectInside);
-	pTree->SetWindowPos( this, rectInside.left, rectInside.top,
+	pTree->SetWindowPos( &CWnd::wndTop, rectInside.left, rectInside.top,
 		rectInside.Width(), rectInside.Height(),
-		SWP_NOZORDER|SWP_NOACTIVATE);
+		SWP_NOACTIVATE|SWP_SHOWWINDOW);
 }
 
 BOOL CTreeDockWnd::PreTranslateMessage(MSG* pMsg) 
