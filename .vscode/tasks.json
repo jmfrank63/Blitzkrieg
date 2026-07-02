@@ -54,34 +54,6 @@
       "problemMatcher": "$msCompile"
     },
     {
-      "label": "Build Scene (Debug, Open Video)",
-      "type": "shell",
-      "command": "msbuild",
-      "args": [
-        "${workspaceFolder}/Sources/src/Scene/Scene.vcxproj",
-        "/p:Configuration=Debug",
-        "/p:Platform=Win32",
-        "/m",
-        "/v:minimal"
-      ],
-      "group": "build",
-      "presentation": {
-        "reveal": "always",
-        "panel": "shared"
-      },
-      "problemMatcher": "$msCompile"
-    },
-    {
-      "label": "Build Game (Debug, Open Video)",
-      "dependsOrder": "sequence",
-      "dependsOn": [
-        "Build Game (Debug)",
-        "Build Scene (Debug, Open Video)"
-      ],
-      "group": "build",
-      "problemMatcher": []
-    },
-    {
       "label": "Build ELK Editor (Debug)",
       "type": "shell",
       "command": "msbuild",

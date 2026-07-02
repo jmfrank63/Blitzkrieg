@@ -11,15 +11,6 @@
       "preLaunchTask": "Build Game (Debug)"
     },
     {
-      "name": "WinDbg: Debug Game.exe (Open Video)",
-      "type": "windbg",
-      "request": "launch",
-      "target": "${workspaceFolder}/Sources/src/Game/Debug/Game.exe",
-      "stopOnEntry": false,
-      "symbolSearchPath": "${workspaceFolder}/Sources/src/Game/Debug;${workspaceFolder}/Sources/src/**/Debug",
-      "preLaunchTask": "Build Game (Debug, Open Video)"
-    },
-    {
       "name": "WinDbg: Debug Game.exe (No Build)",
       "type": "windbg",
       "request": "launch",
@@ -38,34 +29,6 @@
       "environment": [],
       "console": "integratedTerminal",
       "preLaunchTask": "Build Game (Debug)",
-      "symbolOptions": {
-        "searchPaths": [
-          "${workspaceFolder}/Sources/src/Game/Debug",
-          "${workspaceFolder}/Sources/src/**/Debug"
-        ],
-        "searchMicrosoftSymbolServer": false,
-        "cachePath": "${workspaceFolder}/.vscode/symbolcache"
-      },
-      "sourceFileMap": {},
-      "logging": {
-        "moduleLoad": false,
-        "trace": false,
-        "engineLogging": false,
-        "programOutput": true,
-        "exceptions": true
-      }
-    },
-    {
-      "name": "Debug Game.exe (Open Video)",
-      "type": "cppvsdbg",
-      "request": "launch",
-      "program": "${workspaceFolder}/Sources/src/Game/Debug/Game.exe",
-      "args": [],
-      "stopAtEntry": false,
-      "cwd": "${workspaceFolder}/Sources/src/Game/Debug",
-      "environment": [],
-      "console": "integratedTerminal",
-      "preLaunchTask": "Build Game (Debug, Open Video)",
       "symbolOptions": {
         "searchPaths": [
           "${workspaceFolder}/Sources/src/Game/Debug",
