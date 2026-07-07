@@ -81,6 +81,8 @@ protected:
 	CPropView *pOIDockBar;							//object inspector, ���� ��������������
 	SECCustomToolBar *pToolBar;					//toolbar ��� ������� ������
 	void HookViewMouseMessages();
+	bool HitDockSplitter( CPoint point ) const;
+	void RepositionFrameWindows();
 
 	string szProjectFileName;						//��� ��������� �������
 	string szPrevExportFileName;				//����� ���������������� ��� ��� �������, ������������ szSourceDir
@@ -130,6 +132,8 @@ protected:
 	float m_fContrast;
 	float m_fGamma;
 	bool bTreeExpand;
+	bool m_bDraggingDockSplitter;
+	int m_nDockSplitterY;
 
 protected:
 	void ComputeCaption();							//��������� title ������
@@ -199,6 +203,9 @@ protected:
 	afx_msg void OnUpdateSaveProjectAs(CCmdUI* pCmdUI);
 	afx_msg void OnUpdateCloseFile(CCmdUI* pCmdUI);
 	afx_msg BOOL OnSetCursor(CWnd* pWnd, UINT nHitTest, UINT message);
+	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
+	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
+	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
 	afx_msg void OnFileSetdirectories();
 	afx_msg void OnSetPictureOptions();
 	afx_msg void OnFileBatchMode();

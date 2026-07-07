@@ -4,6 +4,7 @@
 #include "..\Scene\Scene.h"
 #include "..\Anim\Animation.h"
 #include "..\Formats\fmtAnimation.h"
+#include "..\Misc\FileUtils.h"
 
 #include "editor.h"
 #include "PropView.h"
@@ -854,13 +855,79 @@ bool CAnimationFrame::LoadRuntimePreviewThumbnails( CDirectoryPropsItem *pDirPro
 	else
 		szExportFileName = szPrevExportFileName;
 
-	string szRuntimeDir = GetDirectory( szExportFileName.c_str() );
+	string szRuntimeDir = szExportFileName;
+	if ( !szRuntimeDir.empty() )
+	{
+		const char cLast = szRuntimeDir[szRuntimeDir.size() - 1];
+		if ( cLast != '\\' && cLast != '/' )
+			szRuntimeDir = GetDirectory( szExportFileName.c_str() );
+	}
 	string szDDSName = szRuntimeDir + "1_h.dds";
 	string szSANName = szRuntimeDir + "1.san";
 	if ( _access( szDDSName.c_str(), 04 ) != 0 || _access( szSANName.c_str(), 04 ) != 0 )
-		return false;
+	{
+		string szRelativeDir = szPrevExportFileName;
+		for ( int i=0; i<szRelativeDir.size(); ++i )
+		{
+			if ( szRelativeDir[i] == '/' )
+				szRelativeDir[i] = '\\';
+		}
+		if ( !szRelativeDir.empty() )
+		{
+			const char cLast = szRelativeDir[szRelativeDir.size() - 1];
+			if ( cLast != '\\' )
+				szRelativeDir = GetDirectory( szRelativeDir.c_str() );
+		}
+		while ( !szRelativeDir.empty() && szRelativeDir[szRelativeDir.size() - 1] == '\\' )
+			szRelativeDir.resize( szRelativeDir.size() - 1 );
+
+		const int nSlash = szRelativeDir.find_last_of( '\\' );
+		const string szParentDir = nSlash == string::npos ? "" : szRelativeDir.substr( 0, nSlash + 1 );
+		string szLeafDir = nSlash == string::npos ? szRelativeDir : szRelativeDir.substr( nSlash + 1 );
+		if ( szLeafDir.size() > 3 && _strnicmp( szLeafDir.c_str(), "win", 3 ) == 0 )
+		{
+			szLeafDir.erase( 0, 3 );
+			szRuntimeDir = theApp.GetDestDir() + szAddDir + szParentDir + szLeafDir + "\\";
+			szDDSName = szRuntimeDir + "1_h.dds";
+			szSANName = szRuntimeDir + "1.san";
+		}
+		if ( _access( szDDSName.c_str(), 04 ) != 0 || _access( szSANName.c_str(), 04 ) != 0 )
+		{
+			string szRootDir = theApp.GetEditorDir();
+			for ( int i=0; i<szRootDir.size(); ++i )
+			{
+				if ( szRootDir[i] == '/' )
+					szRootDir[i] = '\\';
+			}
+			while ( !szRootDir.empty() && szRootDir[szRootDir.size() - 1] == '\\' )
+				szRootDir.resize( szRootDir.size() - 1 );
+			for ( int nParent=0; nParent<8; ++nParent )
+			{
+				string szCandidateDir = szRootDir + "\\Data\\" + szAddDir + szParentDir + szLeafDir + "\\";
+				string szCandidateDDSName = szCandidateDir + "1_h.dds";
+				string szCandidateSANName = szCandidateDir + "1.san";
+				if ( _access( szCandidateDDSName.c_str(), 04 ) == 0 && _access( szCandidateSANName.c_str(), 04 ) == 0 )
+				{
+					szRuntimeDir = szCandidateDir;
+					szDDSName = szCandidateDDSName;
+					szSANName = szCandidateSANName;
+					break;
+				}
+				const int nRootSlash = szRootDir.find_last_of( '\\' );
+				if ( nRootSlash == string::npos )
+					break;
+				szRootDir.resize( nRootSlash );
+			}
+		}
+		if ( _access( szDDSName.c_str(), 04 ) != 0 || _access( szSANName.c_str(), 04 ) != 0 )
+		{
+			NStr::DebugTrace( "ANIM_PREVIEW missing files dds=%s san=%s\n", szDDSName.c_str(), szSANName.c_str() );
+			return false;
+		}
+	}
 
 	IImageProcessor *pIP = GetSingleton<IImageProcessor>();
+	NStr::DebugTrace( "ANIM_PREVIEW source dds=%s san=%s temp=%s\n", szDDSName.c_str(), szSANName.c_str(), theApp.GetEditorTempDir().c_str() );
 	CPtr<IDataStream> pDDSStream = OpenFileStream( szDDSName.c_str(), STREAM_ACCESS_READ );
 	if ( pDDSStream == 0 )
 		return false;
@@ -895,14 +962,30 @@ bool CAnimationFrame::LoadRuntimePreviewThumbnails( CDirectoryPropsItem *pDirPro
 		return false;
 
 	string szPreviewDir = theApp.GetEditorTempDir();
+	string szPreviewPath = szPreviewDir;
+	while ( !szPreviewPath.empty() && ( szPreviewPath[szPreviewPath.size() - 1] == '\\' || szPreviewPath[szPreviewPath.size() - 1] == '/' ) )
+		szPreviewPath.resize( szPreviewPath.size() - 1 );
+	NFile::CreatePath( szPreviewPath.c_str() );
+	WIN32_FIND_DATA findData;
+	HANDLE hFind = FindFirstFile( (szPreviewDir + "*.tga").c_str(), &findData );
+	if ( hFind != INVALID_HANDLE_VALUE )
+	{
+		do
+		{
+			if ( !(findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) )
+				DeleteFile( (szPreviewDir + findData.cFileName).c_str() );
+		} while ( FindNextFile( hFind, &findData ) );
+		FindClose( hFind );
+	}
 	const int nTextureX = pTextureImage->GetSizeX();
 	const int nTextureY = pTextureImage->GetSizeY();
-	int nAnimIndex = 0;
 	bool bSavedAny = false;
-	for ( CTreeItem::CTreeItemList::const_iterator animIt=pAnimsItem->GetBegin(); animIt!=pAnimsItem->GetEnd(); ++animIt, ++nAnimIndex )
+	int nSavedFrames = 0;
+	for ( CTreeItem::CTreeItemList::const_iterator animIt=pAnimsItem->GetBegin(); animIt!=pAnimsItem->GetEnd(); ++animIt )
 	{
-		if ( nAnimIndex >= animFormat.animations.size() )
-			break;
+		const int nAnimIndex = GetActionFromName( (*animIt)->GetItemName() );
+		if ( nAnimIndex < 0 || nAnimIndex >= animFormat.animations.size() )
+			continue;
 
 		const SSpriteAnimationFormat::SSpriteAnimation &animation = animFormat.animations[nAnimIndex];
 		if ( animation.dirs.empty() )
@@ -937,13 +1020,20 @@ bool CAnimationFrame::LoadRuntimePreviewThumbnails( CDirectoryPropsItem *pDirPro
 			szFrameFileName += ".tga";
 			CPtr<IDataStream> pFrameStream = CreateFileStream( (szPreviewDir + szFrameFileName).c_str(), STREAM_ACCESS_WRITE );
 			if ( pFrameStream != 0 && pIP->SaveImageAsTGA( pFrameStream, pFrameImage ) )
+			{
 				bSavedAny = true;
+				++nSavedFrames;
+			}
 		}
 	}
 
 	if ( !bSavedAny )
+	{
+		NStr::DebugTrace( "ANIM_PREVIEW saved no frames\n" );
 		return false;
+	}
 
+	NStr::DebugTrace( "ANIM_PREVIEW saved %d frames, loading temp thumbnails from %s\n", nSavedFrames, szPreviewDir.c_str() );
 	m_wndAllDirThumbItems.LoadAllImagesFromDir( pDirPropsItem->GetThumbItems(), pDirPropsItem->GetImageList(), szPreviewDir.c_str() );
 	return !pDirPropsItem->GetThumbItems()->thumbDataList.empty();
 }
@@ -961,8 +1051,14 @@ void CAnimationFrame::SetActiveDirTreeItem( CDirectoryPropsItem *pDirPropsItem )
 			MakeFullPath( GetDirectory(szProjectFileName.c_str()).c_str(), m_pActiveDirTreeItem->GetDirName(), szEditorDataDir );
 			m_wndAllDirThumbItems.LoadAllImagesFromDir( m_pActiveDirTreeItem->GetThumbItems(), m_pActiveDirTreeItem->GetImageList(), szEditorDataDir.c_str() );
 			if ( m_pActiveDirTreeItem->GetThumbItems()->thumbDataList.empty() )
-				LoadRuntimePreviewThumbnails( m_pActiveDirTreeItem );
-			m_pActiveDirTreeItem->SetLoadedFlag( true );
+			{
+				if ( LoadRuntimePreviewThumbnails( m_pActiveDirTreeItem ) )
+					m_pActiveDirTreeItem->SetLoadedFlag( true );
+				else
+					m_pActiveDirTreeItem->SetLoadedFlag( false );
+			}
+			else
+				m_pActiveDirTreeItem->SetLoadedFlag( true );
 		}
 		
 		m_wndAllDirThumbItems.SetActiveThumbItems( m_pActiveDirTreeItem->GetThumbItems(), m_pActiveDirTreeItem->GetImageList() );
@@ -995,6 +1091,23 @@ void CAnimationFrame::ActiveDirNameChanged()
 	}
 }
 
+static CDirectoryPropsItem *GetFirstAnimationDirectory( CETreeCtrl *pTree )
+{
+	if ( pTree == 0 || pTree->GetRootItem() == 0 )
+		return 0;
+	CTreeItem *pDirsItem = pTree->GetRootItem()->GetChildItem( E_UNIT_DIRECTORIES_ITEM );
+	if ( pDirsItem == 0 )
+		return 0;
+	for ( CTreeItem::CTreeItemList::const_iterator seasonIt=pDirsItem->GetBegin(); seasonIt!=pDirsItem->GetEnd(); ++seasonIt )
+	{
+		for ( CTreeItem::CTreeItemList::const_iterator dirIt=(*seasonIt)->GetBegin(); dirIt!=(*seasonIt)->GetEnd(); ++dirIt )
+		{
+			if ( (*dirIt)->GetItemType() == E_UNIT_DIRECTORY_PROPS_ITEM )
+				return static_cast<CDirectoryPropsItem *>( dirIt->GetPtr() );
+		}
+	}
+	return 0;
+}
 void CAnimationFrame::SetActiveAnimItem( CUnitAnimationPropsItem *pAnimation )
 {
 	if ( pAnimation == m_pActiveAnimation )
@@ -1003,6 +1116,13 @@ void CAnimationFrame::SetActiveAnimItem( CUnitAnimationPropsItem *pAnimation )
 	m_pActiveAnimation = pAnimation;
 	if ( m_pActiveAnimation )
 	{
+		if ( m_pActiveDirTreeItem == 0 )
+		{
+			CETreeCtrl *pTree = pTreeDockBar != 0 ? pTreeDockBar->GetTreeWithIndex( 0 ) : 0;
+			CDirectoryPropsItem *pDefaultDir = GetFirstAnimationDirectory( pTree );
+			if ( pDefaultDir != 0 )
+				SetActiveDirTreeItem( pDefaultDir );
+		}
 		m_wndSelectedThumbItems.SetActiveThumbItems( m_pActiveAnimation->GetThumbItems(), 0 );
 		if ( m_pActiveDirTreeItem )
 			m_wndSelectedThumbItems.LoadImageIndexFromThumbs( m_pActiveDirTreeItem->GetThumbItems(), m_pActiveDirTreeItem->GetImageList() );

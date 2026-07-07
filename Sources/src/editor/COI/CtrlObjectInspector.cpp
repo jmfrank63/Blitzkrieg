@@ -650,7 +650,13 @@ void CCtrlObjectInspector::ProcessKeyInput( UINT nChar )
 void CCtrlObjectInspector::OnLButtonDown( UINT nFlags, CPoint point )
 {
 	SetFocus();
-	bDraggingSplitter = ( point.x >= m_nSplitterPos - 2 && point.x <= m_nSplitterPos + 2 && point.y >= 0 && point.y <= 15 );
+	bDraggingSplitter = ( point.x >= m_nSplitterPos - 3 && point.x <= m_nSplitterPos + 3 && point.y >= 0 && point.y <= m_sizeClient.cy );
+	if ( bDraggingSplitter )
+	{
+		SetCapture();
+		SetCursor( LoadCursor(0, IDC_SIZEWE) );
+		return;
+	}
 	int nPaintLine = GetPaintLine(point);
 	int nVirtualLine = PaintLineToVirtual(nPaintLine);
 	int nCol = GetCol(point);
@@ -671,19 +677,32 @@ void CCtrlObjectInspector::OnLButtonDown( UINT nFlags, CPoint point )
 
 void CCtrlObjectInspector::OnLButtonUp( UINT nFlags, CPoint point )
 {
+	if ( bDraggingSplitter && GetCapture() == this )
+		ReleaseCapture();
 	bDraggingSplitter = false;
 	CWnd::OnLButtonUp(nFlags, point);
 }
 
 void CCtrlObjectInspector::OnMouseMove(UINT nFlags, CPoint point) 
 {
-	if ( (point.x >= m_nSplitterPos - 2 && point.x <= m_nSplitterPos + 2 &&
-		point.y >= 0 && point.y <= 15) || bDraggingSplitter )
+	if ( (point.x >= m_nSplitterPos - 3 && point.x <= m_nSplitterPos + 3 &&
+		point.y >= 0 && point.y <= m_sizeClient.cy) || bDraggingSplitter )
 	{
 		SetCursor( LoadCursor(0, IDC_SIZEWE) );
 		if ( bDraggingSplitter )
 		{
-			m_nSplitterPos = Clamp( point.x, 0l, m_sizeClient.cx );
+			const int nMinSplitterPos = m_nLineHeight + 20;
+			const int nMaxSplitterPos = max( nMinSplitterPos, m_sizeClient.cx - 30 );
+			m_nSplitterPos = Clamp( int(point.x), nMinSplitterPos, nMaxSplitterPos );
+			if ( pActiveWnd )
+			{
+				CRect rect;
+				pActiveWnd->GetWindowRect( &rect );
+				ScreenToClient( &rect );
+				rect.left = m_nSplitterPos;
+				rect.right = m_sizeClient.cx;
+				pActiveWnd->MoveWindow( &rect );
+			}
 			MakePaintList();
 			Invalidate( FALSE );
 		}
@@ -693,7 +712,6 @@ void CCtrlObjectInspector::OnMouseMove(UINT nFlags, CPoint point)
 	
 	CWnd::OnMouseMove(nFlags, point);
 }
-
 BOOL CCtrlObjectInspector::PreTranslateMessage( MSG* pMsg )
 {
 	if ( pMsg->message == WM_USER + 1 )

@@ -33,6 +33,7 @@
 
 static const int TRANSACTION_LIMIT = 100;
 static const char kViewMouseOldProcProp[] = "BK_ViewMouseOldProc";
+static const char kForwardMouseTargetProp[] = "BK_ForwardMouseTarget";
 static void AppendEditorInputTrace( const char *pszText )
 {
 	char szTempPath[MAX_PATH] = { 0 };
@@ -92,6 +93,9 @@ BEGIN_MESSAGE_MAP(CParentFrame, SECWorksheet)
 	ON_UPDATE_COMMAND_UI(ID_FILE_SAVE_PROJECT_AS, OnUpdateSaveProjectAs)
 	ON_UPDATE_COMMAND_UI(ID_FILE_CLOSE, OnUpdateCloseFile)
 	ON_WM_SETCURSOR()
+	ON_WM_LBUTTONDOWN()
+	ON_WM_LBUTTONUP()
+	ON_WM_MOUSEMOVE()
 	ON_COMMAND(ID_FILE_SETDIRECTORIES, OnFileSetdirectories)
 	ON_COMMAND(ID_SET_PICTURE_OPTIONS, OnSetPictureOptions)
 	ON_COMMAND(ID_FILE_BATCH_MODE, OnFileBatchMode)
@@ -185,6 +189,8 @@ CParentFrame::CParentFrame()
 	m_nLowShadowFormat = GFXPF_ARGB4444;
 	m_nHighShadowFormat = GFXPF_ARGB8888;
 	bTreeExpand = true;
+	m_bDraggingDockSplitter = false;
+	m_nDockSplitterY = 0;
 }
 
 CParentFrame::~CParentFrame()
@@ -218,7 +224,9 @@ static void ShrinkForVisibleBar( CWnd *pBar, CRect &rcClient )
 static LRESULT CALLBACK ForwardViewMouseToFrameProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
 	WNDPROC pOldProc = reinterpret_cast<WNDPROC>( ::GetPropA( hWnd, kViewMouseOldProcProp ) );
-	HWND hParent = ::GetParent( hWnd );
+	HWND hParent = reinterpret_cast<HWND>( ::GetPropA( hWnd, kForwardMouseTargetProp ) );
+	if ( hParent == 0 )
+		hParent = ::GetParent( hWnd );
 	switch ( uMsg )
 	{
 		case WM_MOUSEMOVE:
@@ -233,15 +241,12 @@ static LRESULT CALLBACK ForwardViewMouseToFrameProc( HWND hWnd, UINT uMsg, WPARA
 		case WM_MBUTTONDBLCLK:
 			if ( hParent )
 			{
-				if ( uMsg != WM_MOUSEMOVE )
-				{
-					NStr::DebugTrace( "EDITOR_INPUT ViewHook msg=0x%x hwnd=0x%p parent=0x%p raw=(%d,%d)\n", uMsg, hWnd, hParent, GET_X_LPARAM( lParam ), GET_Y_LPARAM( lParam ) );
-					AppendEditorInputTrace( NStr::Format( "ViewHook msg=0x%x hwnd=0x%p parent=0x%p raw=(%d,%d)\n", uMsg, hWnd, hParent, GET_X_LPARAM( lParam ), GET_Y_LPARAM( lParam ) ) );
-				}
+				const bool bCapturedByFrame = ( ::GetCapture() == hParent );
 				POINT pt = { GET_X_LPARAM( lParam ), GET_Y_LPARAM( lParam ) };
 				::MapWindowPoints( hWnd, hParent, &pt, 1 );
 				::SendMessage( hParent, uMsg, wParam, MAKELPARAM( pt.x, pt.y ) );
-				return 0;
+				if ( bCapturedByFrame || ::GetCapture() == hParent )
+					return 0;
 			}
 			break;
 		case WM_MOUSEWHEEL:
@@ -257,18 +262,41 @@ static LRESULT CALLBACK ForwardViewMouseToFrameProc( HWND hWnd, UINT uMsg, WPARA
 	return pOldProc ? ::CallWindowProc( pOldProc, hWnd, uMsg, wParam, lParam ) : ::DefWindowProc( hWnd, uMsg, wParam, lParam );
 }
 
+static void HookMouseMessagesForWindow( HWND hWnd, HWND hTarget )
+{
+	if ( !::IsWindow( hWnd ) )
+		return;
+	if ( ::GetPropA( hWnd, kViewMouseOldProcProp ) == 0 )
+	{
+		WNDPROC pOldProc = reinterpret_cast<WNDPROC>( ::SetWindowLongPtr( hWnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>( ForwardViewMouseToFrameProc ) ) );
+		if ( pOldProc )
+			::SetPropA( hWnd, kViewMouseOldProcProp, reinterpret_cast<HANDLE>( pOldProc ) );
+	}
+	::SetPropA( hWnd, kForwardMouseTargetProp, hTarget );
+}
+
+static BOOL CALLBACK HookMouseMessagesForChildProc( HWND hWnd, LPARAM lParam )
+{
+	HookMouseMessagesForWindow( hWnd, reinterpret_cast<HWND>( lParam ) );
+	return TRUE;
+}
+
+static void HookMouseMessagesForWindowTree( HWND hWnd, HWND hTarget )
+{
+	HookMouseMessagesForWindow( hWnd, hTarget );
+	::EnumChildWindows( hWnd, HookMouseMessagesForChildProc, reinterpret_cast<LPARAM>( hTarget ) );
+}
 void CParentFrame::HookViewMouseMessages()
 {
-	if ( pWndView == 0 )
+	HWND hFrame = GetSafeHwnd();
+	if ( !::IsWindow( hFrame ) )
 		return;
-	HWND hView = pWndView->GetSafeHwnd();
-	if ( !::IsWindow( hView ) )
-		return;
-	if ( ::GetPropA( hView, kViewMouseOldProcProp ) != 0 )
-		return;
-	WNDPROC pOldProc = reinterpret_cast<WNDPROC>( ::SetWindowLongPtr( hView, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>( ForwardViewMouseToFrameProc ) ) );
-	if ( pOldProc )
-		::SetPropA( hView, kViewMouseOldProcProp, reinterpret_cast<HANDLE>( pOldProc ) );
+	if ( pWndView != 0 )
+		HookMouseMessagesForWindowTree( pWndView->GetSafeHwnd(), hFrame );
+	if ( pTreeDockBar != 0 )
+		HookMouseMessagesForWindowTree( pTreeDockBar->GetSafeHwnd(), hFrame );
+	if ( pOIDockBar != 0 )
+		HookMouseMessagesForWindowTree( pOIDockBar->GetSafeHwnd(), hFrame );
 }
 
 void CParentFrame::SaveRegisterData()
@@ -327,7 +355,7 @@ void CParentFrame::ShowFrameWindows( int nCommand )
 	{
 		RECT r;
 		GetClientRect( &r );
-		int nSidebarWidth = bShowEditorDocks ? 170 : 0;
+		int nSidebarWidth = bShowEditorDocks ? 300 : 0;
 		if ( bShowEditorDocks )
 		{
 			if ( pTreeDockBar && ::IsWindow( pTreeDockBar->GetSafeHwnd() ) )
@@ -347,8 +375,13 @@ void CParentFrame::ShowFrameWindows( int nCommand )
 			const int nMaxSidebarWidth = max( 120, ( r.right - r.left ) - 220 );
 			nSidebarWidth = min( nSidebarWidth, nMaxSidebarWidth );
 		}
-		const int nTreeHeight = bShowEditorDocks ? ( ( r.bottom - r.top ) * 3 ) / 4 : 0;
-		const int nInspectorHeight = bShowEditorDocks ? ( r.bottom - r.top ) - nTreeHeight : 0;
+		const int nClientHeight = r.bottom - r.top;
+		if ( bShowEditorDocks && m_nDockSplitterY == 0 )
+			m_nDockSplitterY = ( nClientHeight * 3 ) / 4;
+		if ( bShowEditorDocks )
+			m_nDockSplitterY = Clamp( m_nDockSplitterY, 80, max( 80, nClientHeight - 80 ) );
+		const int nTreeHeight = bShowEditorDocks ? m_nDockSplitterY : 0;
+		const int nInspectorHeight = bShowEditorDocks ? nClientHeight - nTreeHeight : 0;
 		const int nContentLeft = nSidebarWidth;
 		const int nContentWidth = ( r.right - r.left ) - nContentLeft;
 		if ( bShowEditorDocks && pTreeDockBar && ::IsWindow( pTreeDockBar->GetSafeHwnd() ) )
@@ -1132,8 +1165,82 @@ void CParentFrame::OnFileClose()
 	}
 }
 
+
+bool CParentFrame::HitDockSplitter( CPoint point ) const
+{
+	if ( pTreeDockBar == 0 || pOIDockBar == 0 )
+		return false;
+	if ( !::IsWindow( pTreeDockBar->GetSafeHwnd() ) || !::IsWindow( pOIDockBar->GetSafeHwnd() ) )
+		return false;
+	if ( !pTreeDockBar->IsWindowVisible() || !pOIDockBar->IsWindowVisible() )
+		return false;
+	CRect rcTree;
+	pTreeDockBar->GetWindowRect( &rcTree );
+	ScreenToClient( &rcTree );
+	return point.x >= rcTree.left && point.x <= rcTree.right && point.y >= rcTree.bottom - 4 && point.y <= rcTree.bottom + 4;
+}
+
+void CParentFrame::RepositionFrameWindows()
+{
+	ShowFrameWindows( SW_SHOW );
+	RedrawWindow( 0, 0, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN );
+	if ( pWndView != 0 )
+		pWndView->RedrawWindow( 0, 0, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN );
+	if ( pTreeDockBar != 0 )
+		pTreeDockBar->RedrawWindow( 0, 0, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN );
+	if ( pOIDockBar != 0 )
+		pOIDockBar->RedrawWindow( 0, 0, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN );
+}
+
+void CParentFrame::OnLButtonDown(UINT nFlags, CPoint point)
+{
+	if ( HitDockSplitter( point ) )
+	{
+		m_bDraggingDockSplitter = true;
+		SetCapture();
+		SetCursor( LoadCursor( 0, IDC_SIZENS ) );
+		return;
+	}
+	SECWorksheet::OnLButtonDown( nFlags, point );
+}
+
+void CParentFrame::OnLButtonUp(UINT nFlags, CPoint point)
+{
+	if ( m_bDraggingDockSplitter )
+	{
+		if ( GetCapture() == this )
+			ReleaseCapture();
+		m_bDraggingDockSplitter = false;
+		return;
+	}
+	SECWorksheet::OnLButtonUp( nFlags, point );
+}
+
+void CParentFrame::OnMouseMove(UINT nFlags, CPoint point)
+{
+	if ( m_bDraggingDockSplitter )
+	{
+		CRect rc;
+		GetClientRect( &rc );
+		m_nDockSplitterY = Clamp( int(point.y), 80, max( 80, rc.Height() - 80 ) );
+		RepositionFrameWindows();
+		SetCursor( LoadCursor( 0, IDC_SIZENS ) );
+		return;
+	}
+	if ( HitDockSplitter( point ) )
+		SetCursor( LoadCursor( 0, IDC_SIZENS ) );
+	SECWorksheet::OnMouseMove( nFlags, point );
+}
 BOOL CParentFrame::OnSetCursor(CWnd* pWnd, UINT nHitTest, UINT message) 
 {
+	CPoint point;
+	GetCursorPos( &point );
+	ScreenToClient( &point );
+	if ( m_bDraggingDockSplitter || HitDockSplitter( point ) )
+	{
+		SetCursor( LoadCursor(0, IDC_SIZENS ) );
+		return TRUE;
+	}
 	SetCursor( LoadCursor(0, IDC_ARROW ) );
 	return SECWorksheet::OnSetCursor(pWnd, nHitTest, message);
 }

@@ -98,6 +98,38 @@ void CThumbList::OnClickListThumb(NMHDR* pNMHDR, LRESULT* pResult)
 		*pResult = 0;
 		return;
 	}
+
+	NMITEMACTIVATE *pActivate = (NMITEMACTIVATE*)pNMHDR;
+	if ( pActivate->iItem < 0 )
+	{
+		CRect rcClient;
+		m_ListThumbnail.GetClientRect( &rcClient );
+		const int nItemCount = m_ListThumbnail.GetItemCount();
+		for ( int i=0; i<nItemCount; ++i )
+		{
+			CRect rcItem;
+			if ( m_ListThumbnail.GetItemRect( i, &rcItem, LVIR_BOUNDS ) )
+			{
+				if ( bHorizontal )
+				{
+					rcItem.top = rcClient.top;
+					rcItem.bottom = rcClient.bottom;
+				}
+				else
+				{
+					rcItem.left = rcClient.left;
+					rcItem.right = rcClient.right;
+				}
+				if ( rcItem.PtInRect( pActivate->ptAction ) )
+				{
+					SelectItem( i );
+					GetParent()->PostMessage( WM_THUMB_LIST_SELECT, GetDlgCtrlID() );
+					break;
+				}
+			}
+		}
+	}
+	*pResult = 0;
 }
 
 void CThumbList::OnDblClickListThumb(NMHDR* pNMHDR, LRESULT* pResult)
@@ -192,15 +224,13 @@ int CThumbList::LoadImageToImageList( CImageList *pIML, char *szFileName, const 
 	if ( !pImage )
 		return -1;
 	
-	int nImageCount = pIML->GetImageCount();
-	pIML->SetImageCount( nImageCount + 1 );
 	
 	int nSizeX = pImage->GetSizeX();
 	int nSizeY = pImage->GetSizeY();
 	double fRateX = (double) THUMBNAIL_WIDTH/nSizeX;
 	double fRateY = (double) THUMBNAIL_HEIGHT/nSizeY;
 	double fRate = min( fRateX, fRateY );
-	CPtr<IImage> pScaleImage = pImageProcessor->CreateScale( pImage, fRate, ISM_LANCZOS3 /* ISM_LANCZOS3 */ );
+	CPtr<IImage> pScaleImage = pImageProcessor->CreateScale( pImage, fRate, ISM_BOX );
 	NI_ASSERT( pScaleImage != 0 );
 	
 	nSizeX = pScaleImage->GetSizeX();
@@ -250,7 +280,8 @@ int CThumbList::LoadImageToImageList( CImageList *pIML, char *szFileName, const 
 			for ( int x=0; x<nSizeX; x++ )
 			{
 				SColor &color = p[y*nSizeX + x];
-				const int nAlpha = color.a;
+				int nAlpha = color.a;
+
 				color.r = BYTE( color.r * nAlpha / 255 );
 				color.g = BYTE( color.g * nAlpha / 255 );
 				color.b = BYTE( color.b * nAlpha / 255 );
@@ -260,24 +291,23 @@ int CThumbList::LoadImageToImageList( CImageList *pIML, char *szFileName, const 
 	}
 	CBitmap bitmap;
 	BITMAPINFO bmi;
+	memset( &bmi, 0, sizeof(bmi) );
 	bmi.bmiHeader.biSize  = sizeof( bmi.bmiHeader );
 	bmi.bmiHeader.biWidth  = nSizeX;
 	bmi.bmiHeader.biHeight = -THUMBNAIL_HEIGHT;
 	bmi.bmiHeader.biPlanes = 1;
 	bmi.bmiHeader.biBitCount = 32;
 	bmi.bmiHeader.biCompression = BI_RGB;
-	bmi.bmiHeader.biSizeImage = 0;
-	bmi.bmiHeader.biClrUsed = 0;
 	
-	CDC *pDC = GetDC();
-	HBITMAP hbm = CreateCompatibleBitmap( pDC->m_hDC, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT );
-	SetDIBits( pDC->m_hDC, hbm, 0, THUMBNAIL_HEIGHT, pScaleImage->GetLFB(), &bmi, DIB_RGB_COLORS );
-	
-	ReleaseDC( pDC );
+	void *pBitmapBits = 0;
+	HBITMAP hbm = CreateDIBSection( 0, &bmi, DIB_RGB_COLORS, &pBitmapBits, 0, 0 );
+	if ( hbm == 0 || pBitmapBits == 0 )
+		return -1;
+	memcpy( pBitmapBits, pScaleImage->GetLFB(), THUMBNAIL_WIDTH * THUMBNAIL_HEIGHT * sizeof(SColor) );
 	bitmap.Attach( hbm );
 	
-	pIML->Replace( nImageCount, &bitmap, NULL );
-	return nImageCount;
+	const int nAddedImage = pIML->Add( &bitmap, RGB(255,0,255) );
+	return nAddedImage;
 }
 
 void CThumbList::LoadAllImagesFromDir( SThumbItems *pThumbItems, CImageList *pIML, const char *szDir,  bool bShowAlpha )
