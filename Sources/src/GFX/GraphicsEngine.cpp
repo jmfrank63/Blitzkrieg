@@ -101,6 +101,49 @@ static DWORD GetDeviceWindowedStyle()
 {
 	return WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
 }
+struct SSelectedMonitorContext
+{
+	int nDesiredMonitor;
+	int nCurrentMonitor;
+	RECT rcWork;
+	bool bFound;
+};
+static BOOL CALLBACK FindSelectedMonitorProc( HMONITOR hMonitor, HDC, LPRECT, LPARAM lParam )
+{
+	SSelectedMonitorContext *pContext = reinterpret_cast<SSelectedMonitorContext*>( lParam );
+	if ( pContext->nCurrentMonitor == pContext->nDesiredMonitor )
+	{
+		MONITORINFO monitorInfo;
+		Zero( monitorInfo );
+		monitorInfo.cbSize = sizeof( monitorInfo );
+		if ( GetMonitorInfo( hMonitor, &monitorInfo ) )
+		{
+			pContext->rcWork = monitorInfo.rcWork;
+			pContext->bFound = true;
+			return FALSE;
+		}
+	}
+	++pContext->nCurrentMonitor;
+	return TRUE;
+}
+static bool GetSelectedMonitorWorkArea( RECT *pWorkArea )
+{
+	if ( pWorkArea == 0 )
+		return false;
+
+	SSelectedMonitorContext context;
+	context.nDesiredMonitor = Max( 0, GetGlobalVar( "GFX.Monitor.Index", 0 ) );
+	context.nCurrentMonitor = 0;
+	context.rcWork.left = context.rcWork.top = context.rcWork.right = context.rcWork.bottom = 0;
+	context.bFound = false;
+	EnumDisplayMonitors( 0, 0, FindSelectedMonitorProc, reinterpret_cast<LPARAM>( &context ) );
+	if ( context.bFound )
+	{
+		*pWorkArea = context.rcWork;
+		return true;
+	}
+	return SystemParametersInfo( SPI_GETWORKAREA, 0, pWorkArea, 0 ) != 0;
+}
 static void FitClientSizeToBounds( int nRequestedWidth, int nRequestedHeight, int nMaxWidth, int nMaxHeight, int *pWidth, int *pHeight )
 {
 	*pWidth = nRequestedWidth;
@@ -134,7 +177,7 @@ static void FitWindowedBackBufferToWorkArea( HWND hWindow, int nRequestedWidth, 
 		return;
 
 	RECT rcWork = { 0, 0, 0, 0 };
-	if ( !SystemParametersInfo( SPI_GETWORKAREA, 0, &rcWork, 0 ) )
+	if ( !GetSelectedMonitorWorkArea( &rcWork ) )
 		return;
 
 	const DWORD dwStyle = GetDeviceWindowedStyle();
@@ -169,7 +212,7 @@ static void ResizeDeviceWindow( HWND hWindow, bool bWindowed, int nClientWidth, 
 	if ( bWindowed && nX == 0 && nY == 0 )
 	{
 		RECT rcWork = { 0, 0, 0, 0 };
-		if ( SystemParametersInfo( SPI_GETWORKAREA, 0, &rcWork, 0 ) )
+		if ( GetSelectedMonitorWorkArea( &rcWork ) )
 		{
 			nX = rcWork.left + Max( 0, int( rcWork.right - rcWork.left - nWindowWidth ) / 2 );
 			nY = rcWork.top + Max( 0, int( rcWork.bottom - rcWork.top - nWindowHeight ) / 2 );
@@ -217,6 +260,11 @@ bool EnumAdapters( std::list<SAdapterDesc> *pAdapters )
 			modes.remove_if( CD3DDisplayModeMatchFunctional(displayMode) );
 			modes.push_back( displayMode );
     }
+		if ( (adapterDisplayMode.Width >= 640) && (adapterDisplayMode.Height >= 400) && !dispfilter(adapterDisplayMode) )
+		{
+			modes.remove_if( CD3DDisplayModeMatchFunctional(adapterDisplayMode) );
+			modes.push_back( adapterDisplayMode );
+		}
 		DWORD dwBehavior = 0;
 		if ( capsDevice.DevCaps & D3DDEVCAPS_HWTRANSFORMANDLIGHT )
 			dwBehavior = D3DCREATE_HARDWARE_VERTEXPROCESSING;
@@ -604,6 +652,39 @@ inline bool operator<( const SGFXDisplayMode &m1, const SGFXDisplayMode &m2 )
 	else
 		return m1.nWidth < m2.nWidth;
 }
+static void AddDisplayMode( std::vector<SGFXDisplayMode> *pModes, int nWidth, int nHeight, int nBPP, int nMaxModeSizeX, int nMaxModeSizeY, int nMaxModeBPP )
+{
+	if ( (nWidth < 640) || (nHeight < 480) || (nWidth > nMaxModeSizeX) || (nHeight > nMaxModeSizeY) || (nBPP > nMaxModeBPP) )
+		return;
+
+	SGFXDisplayMode enumode;
+	enumode.nWidth = nWidth;
+	enumode.nHeight = nHeight;
+	enumode.nBPP = nBPP;
+	pModes->erase( std::remove( pModes->begin(), pModes->end(), enumode ), pModes->end() );
+	pModes->push_back( enumode );
+}
+struct SDisplayModeMonitorContext
+{
+	std::vector<SGFXDisplayMode> *pModes;
+	int nMaxModeSizeX;
+	int nMaxModeSizeY;
+	int nMaxModeBPP;
+};
+static BOOL CALLBACK AddMonitorDisplayModeProc( HMONITOR hMonitor, HDC, LPRECT, LPARAM lParam )
+{
+	SDisplayModeMonitorContext *pContext = reinterpret_cast<SDisplayModeMonitorContext*>( lParam );
+	MONITORINFO monitorInfo;
+	Zero( monitorInfo );
+	monitorInfo.cbSize = sizeof( monitorInfo );
+	if ( GetMonitorInfo( hMonitor, &monitorInfo ) )
+	{
+		const int nWidth = monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left;
+		const int nHeight = monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top;
+		AddDisplayMode( pContext->pModes, nWidth, nHeight, 32, pContext->nMaxModeSizeX, pContext->nMaxModeSizeY, pContext->nMaxModeBPP );
+	}
+	return TRUE;
+}
 const SGFXDisplayMode* CGraphicsEngine::GetDisplayModes() const
 {
 	const int nMaxModeSizeX = GetGlobalVar( "GFX.Limit.Mode.SizeX", 1000000 );
@@ -613,7 +694,7 @@ const SGFXDisplayMode* CGraphicsEngine::GetDisplayModes() const
 	adapter.extmodes.reserve( adapter.modes.size() );
 	for ( std::list<D3DDISPLAYMODE>::const_iterator it = adapter.modes.begin(); it != adapter.modes.end(); ++it )
 	{
-		if ( (it->Width >= 640) && (it->Height >= 480) && (it->Width <= nMaxModeSizeX) && (it->Height <= nMaxModeSizeY) && (it->Height * 4 == it->Width * 3) )
+		if ( (it->Width >= 640) && (it->Height >= 480) && (it->Width <= nMaxModeSizeX) && (it->Height <= nMaxModeSizeY) )
 		{
 			SGFXDisplayMode enumode;
 			enumode.nWidth = it->Width;
@@ -624,11 +705,16 @@ const SGFXDisplayMode* CGraphicsEngine::GetDisplayModes() const
 				enumode.nBPP = 16;
 			if ( enumode.nBPP <= nMaxModeBPP )
 			{
-				adapter.extmodes.erase( std::remove( adapter.extmodes.begin(), adapter.extmodes.end(), enumode ), adapter.extmodes.end() );
-				adapter.extmodes.push_back( enumode );
+				AddDisplayMode( &adapter.extmodes, enumode.nWidth, enumode.nHeight, enumode.nBPP, nMaxModeSizeX, nMaxModeSizeY, nMaxModeBPP );
 			}
 		}
 	}
+	SDisplayModeMonitorContext monitorContext;
+	monitorContext.pModes = &adapter.extmodes;
+	monitorContext.nMaxModeSizeX = nMaxModeSizeX;
+	monitorContext.nMaxModeSizeY = nMaxModeSizeY;
+	monitorContext.nMaxModeBPP = nMaxModeBPP;
+	EnumDisplayMonitors( 0, 0, AddMonitorDisplayModeProc, reinterpret_cast<LPARAM>( &monitorContext ) );
 	SGFXDisplayMode enumode;
 	std::sort( adapter.extmodes.begin(), adapter.extmodes.end() );
 	enumode.nWidth = enumode.nHeight = enumode.nBPP = 0;

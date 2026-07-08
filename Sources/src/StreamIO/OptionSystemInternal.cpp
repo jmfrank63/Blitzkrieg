@@ -45,6 +45,47 @@ void FillDifficulty( std::vector<SOptionDropListValue> *pDroplist )
 	val.szProgName = "Ironman";
 	pDroplist->push_back( val );
 }
+struct SMonitorDropListContext
+{
+	std::vector<SOptionDropListValue> *pDroplist;
+	int nMonitor;
+};
+static BOOL CALLBACK FillMonitorDropListProc( HMONITOR hMonitor, HDC, LPRECT, LPARAM lParam )
+{
+	SMonitorDropListContext *pContext = reinterpret_cast<SMonitorDropListContext*>( lParam );
+	MONITORINFO monitorInfo;
+	Zero( monitorInfo );
+	monitorInfo.cbSize = sizeof( monitorInfo );
+	if ( !GetMonitorInfo( hMonitor, &monitorInfo ) )
+		return TRUE;
+
+	SOptionDropListValue val;
+	val.szProgName = (monitorInfo.dwFlags & MONITORINFOF_PRIMARY) != 0 ? "Primary" : NStr::Format( "Monitor%d", pContext->nMonitor + 1 );
+	pContext->pDroplist->push_back( val );
+	++pContext->nMonitor;
+	return TRUE;
+}
+void FillMonitors( std::vector<SOptionDropListValue> *pDroplist )
+{
+	SMonitorDropListContext context;
+	context.pDroplist = pDroplist;
+	context.nMonitor = 0;
+	EnumDisplayMonitors( 0, 0, FillMonitorDropListProc, reinterpret_cast<LPARAM>( &context ) );
+	if ( pDroplist->empty() )
+	{
+		SOptionDropListValue val;
+		val.szProgName = "Primary";
+		pDroplist->push_back( val );
+	}
+}
+int GetMonitorIndex( const std::string &szProgName )
+{
+	if ( (szProgName == "Primary") || (szProgName == "Monitor1") )
+		return 0;
+	if ( szProgName.find( "Monitor" ) == 0 )
+		return Max( 0, NStr::ToInt( szProgName.substr( 7 ) ) - 1 );
+	return 0;
+}
 void SetWeather( const variant_t &var )
 {
 	const std::string szOnOff = (const char*)bstr_t(var);
@@ -141,7 +182,9 @@ bool COptionSystem::Set( const std::string &szVarName, const variant_t &_var )
 	if ( var.vt == VT_BSTR )
 	{
 		std::wstring szStr = (const wchar_t*)bstr_t(var);
-		if ( szStr.size() > 12 )
+		const SOption *pOpt = GetVar( szVarName );
+		const bool bCanUseLongString = (pOpt != 0) && (pOpt->szAction == "SetVideoMode");
+		if ( (szStr.size() > 12) && !bCanUseLongString )
 		{
 			szStr.resize( 8 );
 			var = bstr_t(szStr.c_str());
@@ -240,6 +283,10 @@ void COptionSystem::InnerSet( const std::string &szVarName, const variant_t &var
 				SetGlobalVar( "GFX.Mode.Mission.BPP", NStr::ToInt(strings[2]) );
 			}
 		}
+		else if ( pOpt->szAction == "SetMonitor" )
+		{
+			SetGlobalVar( "GFX.Monitor.Index", GetMonitorIndex( (const char*)bstr_t(var) ) );
+		}
 		else if ( pOpt->szAction == "SetGammaCorrection" )
 		{
 			variant_t var;
@@ -315,6 +362,10 @@ const std::vector<SOptionDropListValue>& COptionSystem::GetDropValues( const std
 
 						++pMode;
 					}
+				}
+				else if ( pOpt->szActionFill == "GetMonitors" )
+				{
+					FillMonitors( &droplist );
 				}
 				else if ( pOpt->szActionFill == "GetTextureQuality" ) 
 				{
