@@ -310,7 +310,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>.\Debug\Scene.dll</OutputFile>
       <ImportLibrary>.\Debug\Scene.lib</ImportLibrary>
-      <AdditionalDependencies>..\Misc\Debug\Misc.lib;..\Formats\Debug\Formats.lib;..\..\sdk\xiph\libtheora-1.2.0\win32\VS2010\libtheora\Win32\Debug\libtheora_static.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>..\Misc\Debug\Misc.lib;..\Formats\Debug\Formats.lib;winmm.lib;odbc32.lib;odbccp32.lib;comsupp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Scene.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -649,6 +649,71 @@
     <ClCompile Include="..\..\sdk\xiph\ogg-1.3.5\src\framing.c">
       <CompileAs>CompileAsC</CompileAs>
       <ObjectFileName>$(IntDir)scene_ogg_framing.obj</ObjectFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\libtheora-1.2.0\lib\apiwrapper.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <ObjectFileName>$(IntDir)scene_theora_apiwrapper.obj</ObjectFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\libtheora-1.2.0\lib\bitpack.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <ObjectFileName>$(IntDir)scene_theora_bitpack.obj</ObjectFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\libtheora-1.2.0\lib\decapiwrapper.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <ObjectFileName>$(IntDir)scene_theora_decapiwrapper.obj</ObjectFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\libtheora-1.2.0\lib\decinfo.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <ObjectFileName>$(IntDir)scene_theora_decinfo.obj</ObjectFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\libtheora-1.2.0\lib\decode.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <ObjectFileName>$(IntDir)scene_theora_decode.obj</ObjectFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\libtheora-1.2.0\lib\dequant.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <ObjectFileName>$(IntDir)scene_theora_dequant.obj</ObjectFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\libtheora-1.2.0\lib\fragment.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <ObjectFileName>$(IntDir)scene_theora_fragment.obj</ObjectFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\libtheora-1.2.0\lib\huffdec.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <ObjectFileName>$(IntDir)scene_theora_huffdec.obj</ObjectFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\libtheora-1.2.0\lib\idct.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <ObjectFileName>$(IntDir)scene_theora_idct.obj</ObjectFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\libtheora-1.2.0\lib\info.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <ObjectFileName>$(IntDir)scene_theora_info.obj</ObjectFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\libtheora-1.2.0\lib\internal.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <ObjectFileName>$(IntDir)scene_theora_internal.obj</ObjectFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\libtheora-1.2.0\lib\quant.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <ObjectFileName>$(IntDir)scene_theora_quant.obj</ObjectFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\sdk\xiph\libtheora-1.2.0\lib\state.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <ObjectFileName>$(IntDir)scene_theora_state.obj</ObjectFileName>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="KeyBasedParticleSource.cpp">

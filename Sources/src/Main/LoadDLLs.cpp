@@ -66,6 +66,37 @@ namespace NMain
 	};
 	typedef std::list<SDllModule> CModulesList;
 	CModulesList modules;
+	static bool HasModuleType( int nType )
+	{
+		for ( CModulesList::const_iterator it = modules.begin(); it != modules.end(); ++it )
+		{
+			if ( it->pDesc && it->pDesc->nType == nType )
+				return true;
+		}
+		return false;
+	}
+	static bool AddAlreadyLoadedModule( HMODULE hModule, const char *pszModuleName )
+	{
+		if ( hModule == 0 )
+			return false;
+
+		GETMODULEDESCRIPTOR pfnGetModuleDescriptor = reinterpret_cast<GETMODULEDESCRIPTOR>( ::GetProcAddress( hModule, "GetModuleDescriptor" ) );
+		if ( pfnGetModuleDescriptor == 0 )
+			return false;
+
+		const SModuleDescriptor *pDesc = (*pfnGetModuleDescriptor)();
+		if ( pDesc == 0 || pDesc->pFactory == 0 )
+			return false;
+		if ( HasModuleType( pDesc->nType ) )
+			return true;
+
+		modules.push_back( SDllModule() );
+		SDllModule &module = modules.back();
+		module.pDLLHandle = 0;
+		module.pDesc = pDesc;
+		NStr::DebugTrace( "Using already loaded module \"%s\" of version 0x%x from %s\n", pDesc->pszName, pDesc->nVersion, pszModuleName );
+		return true;
+	}
 	const SModuleDescriptor* STDCALL GetModuleDesc( int nType )
 	{
 		for ( CModulesList::const_iterator it = modules.begin(); it != modules.end(); ++it )
@@ -94,6 +125,7 @@ namespace NMain
 			if ( szDLLName == "streamio.dll" && ::GetModuleHandleA( "streamio.dll" ) != 0 )
 			{
 				NStr::DebugTrace( "Skipping duplicate StreamIO module \"%s\"\n", it.GetFilePath().c_str() );
+				AddAlreadyLoadedModule( ::GetModuleHandleA( "streamio.dll" ), it.GetFilePath().c_str() );
 				continue;
 			}
 

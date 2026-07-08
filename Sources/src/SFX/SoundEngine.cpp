@@ -8,6 +8,39 @@
 #include "..\Formats\fmtTerrain.h"
 #include "..\Misc\Win32Helper.h"
 static NWin32Helper::CCriticalSection critSection;
+
+namespace
+{
+	bool IsAbsoluteStreamName( const char *pszFileName )
+	{
+		if ( pszFileName == 0 )
+			return false;
+		if ( pszFileName[0] == '\\' || pszFileName[0] == '/' )
+			return true;
+		return isalpha( static_cast<unsigned char>(pszFileName[0]) ) && pszFileName[1] == ':';
+	}
+
+	std::string MakeStreamFileName( const char *pszFileName, const char *pszExtension )
+	{
+		const std::string szBaseName = pszFileName == 0 ? "" : pszFileName;
+		if ( IsAbsoluteStreamName( pszFileName ) )
+			return szBaseName + pszExtension;
+		return std::string( GetSingleton<IDataStorage>()->GetName() ) + szBaseName + pszExtension;
+	}
+
+	BYTE MasterVolumeToByte( float fVolume )
+	{
+		const float fClampedVolume = Clamp( fVolume, 0.0f, 1.0f );
+		if ( fClampedVolume <= 0.0f )
+			return 0;
+
+		const float fDecibels = ( fClampedVolume - 1.0f ) * 60.0f;
+		const float fAmplitude = pow( 10.0f, fDecibels / 20.0f );
+		const int nVolume = Clamp( int( fAmplitude * 255.0f + 0.999f ), 1, 255 );
+		return BYTE( nVolume );
+	}
+}
+
 class CPlayVisitor : public ISFXVisitor
 {
 	CSoundEngine *pSFX;
@@ -122,8 +155,8 @@ bool CSoundEngine::Init( HWND hWnd, int nDriver, ESFXOutputType output, int nMix
 	fListenerDistance = GetGlobalVar( "Sound.Listener.Distance", 0.0f ) * fWorldCellSize/2.0f;
 	
 
-	cSFXMasterVolume = GetGlobalVar( "Sound.SFXVolume", 100.0f ) / 100.0f * 255;
-	cStreamMasterVolume = GetGlobalVar( "Sound.MusicVolume", 100.0f ) / 100.0f * 255;
+	cSFXMasterVolume = MasterVolumeToByte( GetGlobalVar( "Sound.SFXVolume", 100.0f ) / 100.0f );
+	cStreamMasterVolume = MasterVolumeToByte( GetGlobalVar( "Sound.MusicVolume", 100.0f ) / 100.0f );
 
 	streamFadeOff.Init();
 	bInited = true;
@@ -242,10 +275,13 @@ float CSoundEngine::GetStreamVolume() const
 {
 	return fStreamCurrentVolume;
 }
+void CSoundEngine::SetSFXMasterVolume( float fVolume )
+{
+	cSFXMasterVolume = MasterVolumeToByte( fVolume );
+}
 void CSoundEngine::SetStreamMasterVolume( float fVolume )
 {
-	Clamp( fVolume, 0.0f, 1.0f );
-	cStreamMasterVolume = BYTE( fVolume * 255.0f );
+	cStreamMasterVolume = MasterVolumeToByte( fVolume );
 	if ( bStreamPlaying && nStreamingChannel != -1 )
 	{
 		NAudioBackend::SetChannelVolume( nStreamingChannel, fStreamCurrentVolume *cStreamMasterVolume );
@@ -273,8 +309,8 @@ void CSoundEngine::PlayStream( const char *pszFileName, bool bLooped, const unsi
 		CloseStreaming();
 		curMelody.szName = pszFileName;
 		curMelody.bLooped = bLooped;
-		std::string szFileName = std::string( GetSingleton<IDataStorage>()->GetName() ) + pszFileName + ".mp3";
-		std::string szFileName1 = std::string( GetSingleton<IDataStorage>()->GetName() ) + pszFileName + ".ogg";
+		std::string szFileName = MakeStreamFileName( pszFileName, ".mp3" );
+		std::string szFileName1 = MakeStreamFileName( pszFileName, ".ogg" );
 		
 		pStreamingSound = NAudioBackend::OpenStream( szFileName.c_str(), bLooped );
 		if ( !pStreamingSound )

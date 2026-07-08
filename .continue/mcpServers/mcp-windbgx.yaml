@@ -1,0 +1,10 @@
+name: MCP WindbgX
+version: 0.0.1
+schema: v1
+mcpServers:
+  - name: mcp-windbgx
+    command: node
+    args:
+      - "c:\\Users\\jmfra\\AppData\\Roaming\\Code - Insiders\\User\\globalStorage\\johannesmariafrank.vscode-mcp-windbgx\\mcp-windbgx\\0.2.7\\build\\index.js"
+    env: 
+      NT_SYMBOL_PATH: "SRV*C:\\Symbols*https://msdl.microsoft.com/download/symbols"

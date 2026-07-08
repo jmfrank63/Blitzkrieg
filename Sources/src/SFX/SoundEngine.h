@@ -70,11 +70,7 @@ public:
 	virtual bool STDCALL IsStreamingEnabled()const { return bEnableStreaming && bSoundCardPresent; }
 	virtual void STDCALL SetDistanceFactor( float fFactor );
 	virtual void STDCALL SetRolloffFactor( float fFactor );
-	virtual void STDCALL SetSFXMasterVolume( float fVolume )
-	{
-		Clamp( fVolume, 0.0f, 1.0f );
-		cSFXMasterVolume = BYTE( fVolume * 255.0f );
-	}
+	virtual void STDCALL SetSFXMasterVolume( float fVolume );
 	virtual void STDCALL SetStreamMasterVolume( float fVolume );
 	virtual void STDCALL PlayStream( const char *pszFileName, bool bLooped = false, const unsigned int nTimeToFadePrevious = 0 );
 	virtual void STDCALL StopStream( const unsigned int nTimeToFade = 0 );

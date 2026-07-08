@@ -20,6 +20,7 @@
 #include "SquadVisObj.h"
 #include "SoundScene.h"
 #include "VideoPlayer.h"
+#include "OpenVideoPlayer.h"
 #include "Transition.h"
 #include "ParticleManager.h"
 #include "KeyBasedParticleSource.h"
@@ -58,6 +59,7 @@ CSceneObjectFactory::CSceneObjectFactory()
 	REGISTER_CLASS( this, SCENE_SOUNDSCENE_PLAYLIST, CSoundScene::CPlayList );
 	REGISTER_CLASS( this, SCENE_SOUNDSCENE_SOUNDCELL, CSoundScene::CSoundCell );
 	REGISTER_CLASS( this, SCENE_VIDEO_PLAYER, CVideoPlayer );
+	REGISTER_CLASS( this, SCENE_OPEN_VIDEO_PLAYER, COpenVideoPlayer );
 	REGISTER_CLASS( this, SCENE_TRANSITION, CTransition );
 	REGISTER_CLASS( this, SCENE_GAMMA_EFFECT, CGammaEffect );
 	REGISTER_CLASS( this, SCENE_GAMMA_FADER, CGammaFader );
