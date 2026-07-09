@@ -242,10 +242,15 @@ signed char STDCALL NextMelodyCallback( void *stream, void *buff, int len, void 
 }
 bool CSoundEngine::PlayNextMelody()
 {
-	if ( !bEnableStreaming || nextMelody.szName.empty() )
-		return false;
-	PlayStream( nextMelody.szName.c_str(), nextMelody.bLooped, 0 );
-	nextMelody.Clear();
+	SMelodyInfo melodyToPlay;
+	{
+		NWin32Helper::CCriticalSectionLock lock( critSection );
+		if ( !bEnableStreaming || nextMelody.szName.empty() )
+			return false;
+		melodyToPlay = nextMelody;
+		nextMelody.Clear();
+	}
+	PlayStream( melodyToPlay.szName.c_str(), melodyToPlay.bLooped, 0 );
 	return true;
 }
 void CSoundEngine::StopStream( const unsigned int nTimeToFade )
@@ -490,12 +495,36 @@ void CSoundEngine::ReEnableSounds()
 }
 void CSoundEngine::NotifyMelodyFinished()
 {
-	NWin32Helper::CCriticalSectionLock lock( critSection );
-	if ( nextMelody.IsValid() )
+	SMelodyInfo melodyToPlay;
+	bool bRestartLoopedMelody = false;
+
 	{
-		PlayNextMelody();
+		NWin32Helper::CCriticalSectionLock lock( critSection );
+		if ( nextMelody.IsValid() )
+		{
+			melodyToPlay = nextMelody;
+			nextMelody.Clear();
+		}
+		else if ( curMelody.IsValid() && curMelody.bLooped )
+		{
+			bRestartLoopedMelody = true;
+		}
+		else
+		{
+			curMelody.Clear();
+			timeStreamFinished = timeLastUpdate;
+			bStreamPlaying = false;
+			return;
+		}
 	}
-	else if ( curMelody.IsValid() && curMelody.bLooped )
+
+	if ( !melodyToPlay.szName.empty() )
+	{
+		PlayStream( melodyToPlay.szName.c_str(), melodyToPlay.bLooped, 0 );
+		return;
+	}
+
+	if ( bRestartLoopedMelody && pStreamingSound )
 	{
 		nStreamingChannel = NAudioBackend::PlayStream( pStreamingSound );
 		NAudioBackend::SetStreamChannelPan( nStreamingChannel );
@@ -503,12 +532,10 @@ void CSoundEngine::NotifyMelodyFinished()
 		NAudioBackend::SetStreamEndCallback( pStreamingSound, NextMelodyCallback, this );
 		if ( bStreamingPaused ) 
 			NAudioBackend::SetChannelPaused( nStreamingChannel, bStreamingPaused );
-	}
-	else
-	{
-		curMelody.Clear();
-		timeStreamFinished = timeLastUpdate;
-		bStreamPlaying = false;
+
+		NWin32Helper::CCriticalSectionLock lock( critSection );
+		timeStreamFinished = -1;
+		bStreamPlaying = true;
 	}
 }
 bool CSoundEngine::IsStreamPlaying()const
