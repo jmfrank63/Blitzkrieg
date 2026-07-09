@@ -413,9 +413,6 @@
     <ClCompile Include="Text.cpp">
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
     </ClCompile>
-    <ClCompile Include="Shader.cpp">
-      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'"> /Zm150   /Zm150 </AdditionalOptions>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Specific.h" />

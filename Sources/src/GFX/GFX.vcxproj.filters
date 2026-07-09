@@ -73,9 +73,6 @@
     <ClCompile Include="Text.cpp">
       <Filter>Font</Filter>
     </ClCompile>
-    <ClCompile Include="Shader.cpp">
-      <Filter>Shader</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Specific.h">

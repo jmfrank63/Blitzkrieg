@@ -16,6 +16,10 @@ $runtimeFiles = @(
     "Sources/src/Scene/Scene.vcxproj"
 )
 
+$blockedPaths = @(
+    "Sources/src/GFX/shader.grm"
+)
+
 $blockedPatterns = @(
     "FMOD",
     "FSOUND",
@@ -32,7 +36,11 @@ $blockedPatterns = @(
     "GSQueryReportingDriver\.(cpp|h)",
     "GSServersList\.(cpp|h)",
     "GSConsts\.h",
+    "GOLDParser",
     "cpp-gpengine",
+    "fmtShader",
+    "shader\.grm",
+    "scl\\scl\.vcxproj",
     "mfc42\.dll",
     "msvcp60\.dll",
     "msvcrt\.dll"
@@ -51,6 +59,13 @@ foreach ($relativePath in $runtimeFiles) {
         if ($content -match $pattern) {
             $failures.Add("$relativePath matches $pattern")
         }
+    }
+}
+
+foreach ($relativePath in $blockedPaths) {
+    $path = Join-Path $Root $relativePath
+    if (Test-Path $path) {
+        $failures.Add("$relativePath exists")
     }
 }
 
