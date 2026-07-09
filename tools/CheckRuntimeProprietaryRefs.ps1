@@ -30,10 +30,7 @@ $blockedPatterns = @(
     "GSQueryReportingDriver\.(cpp|h)",
     "GSServersList\.(cpp|h)",
     "GSConsts\.h",
-    "GOLDParser",
     "cpp-gpengine",
-    "fmtShader",
-    "scl\\scl\.vcxproj",
     "mfc42\.dll",
     "msvcp60\.dll",
     "msvcrt\.dll"

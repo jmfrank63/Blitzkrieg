@@ -137,8 +137,7 @@
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
-copy /Y "$(TargetPath)" "$(SolutionDir)bin\\"
-if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools\copydll.bat" $(SolutionDir) Release</Command>
+copy /Y "$(TargetPath)" "$(SolutionDir)bin\\"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -185,8 +184,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
-copy /Y "$(TargetPath)" "$(SolutionDir)bin\\"
-if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools\copydll.bat" $(SolutionDir) Debug</Command>
+copy /Y "$(TargetPath)" "$(SolutionDir)bin\\"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -232,8 +230,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
-copy /Y "$(TargetPath)" "$(SolutionDir)bin\\"
-if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools\copydll.bat" $(SolutionDir) FastDebug</Command>
+copy /Y "$(TargetPath)" "$(SolutionDir)bin\\"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -279,8 +276,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
-copy /Y "$(TargetPath)" "$(SolutionDir)bin\\"
-if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools\copydll.bat" $(SolutionDir) Profiler</Command>
+copy /Y "$(TargetPath)" "$(SolutionDir)bin\\"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -328,8 +324,7 @@ if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools
     </ClCompile>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)bin" mkdir "$(SolutionDir)bin"
-copy /Y "$(TargetPath)" "$(SolutionDir)bin\\"
-if exist "$(SolutionDir)..\..\tools\copydll.bat" call "$(SolutionDir)..\..\tools\copydll.bat" $(SolutionDir) BetaRelease</Command>
+copy /Y "$(TargetPath)" "$(SolutionDir)bin\\"</Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
