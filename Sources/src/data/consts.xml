@@ -294,7 +294,7 @@ fTimeToGo - = абсолютная величина((направление са
 	<Scenario Reincarnation="0.7">
 		<ScenarioTrackerSave>ScenarioTracker.sav</ScenarioTrackerSave>
 	</Scenario>
-	<Sound SFXMasterVolume="0.8" StreamMasterVolume="0.7" EnableSFX="1" EnableStream="1" TimeToFade="1000"/>
+	<Sound SFXMasterVolume="1.0" StreamMasterVolume="0.7" EnableSFX="1" EnableStream="1" TimeToFade="1000"/>
 	<Scene FadeOutTime="1000">
 		<Weather MaxCalmInterval="3600" MinChangeInterval="120" MaxStormInterval="600">
 			<Rain Density="1000" Height="300.0">

@@ -345,6 +345,7 @@ namespace
 
 		if ( g_channels[nChannel].bSoundInitialized )
 		{
+			ma_sound_stop( &g_channels[nChannel].sound );
 			ma_sound_uninit( &g_channels[nChannel].sound );
 			g_channels[nChannel].bSoundInitialized = false;
 		}
@@ -514,6 +515,28 @@ namespace
 		}
 	}
 
+	bool InitializeSampleBuffer( SOpenSample *pSample )
+	{
+		if ( !pSample || pSample->format == ma_format_unknown ||
+			pSample->nChannels == 0 ||
+			pSample->nBlockAlign == 0 ||
+			pSample->nPcmBytes == 0 ||
+			(pSample->nPcmBytes % pSample->nBlockAlign) != 0 ||
+			pSample->pcmData.empty() )
+		{
+			return false;
+		}
+
+		ma_audio_buffer_config bufferConfig = ma_audio_buffer_config_init(
+			pSample->format,
+			pSample->nChannels,
+			pSample->nPcmBytes / pSample->nBlockAlign,
+			&pSample->pcmData[0],
+			0 );
+		pSample->bBufferInitialized = ma_audio_buffer_init( &bufferConfig, &pSample->buffer ) == MA_SUCCESS;
+		return pSample->bBufferInitialized;
+	}
+
 	bool ParseWaveSample( const char *pData, int nSize, SOpenSample *pSample )
 	{
 		if ( !HasBytes( pData, nSize, 0, 12 ) ||
@@ -567,17 +590,62 @@ namespace
 		pSample->format = GetSampleFormat( pSample->nBitsPerSample );
 		if ( pSample->format == ma_format_unknown )
 			return false;
-		if ( pSample->pcmData.empty() )
+
+		return InitializeSampleBuffer( pSample );
+	}
+
+	bool DecodeSampleWithMiniAudio( const char *pData, int nSize, SOpenSample *pSample )
+	{
+		if ( !pData || nSize <= 0 || !pSample )
 			return false;
 
-		ma_audio_buffer_config bufferConfig = ma_audio_buffer_config_init(
-			pSample->format,
-			pSample->nChannels,
-			pSample->nPcmBytes / pSample->nBlockAlign,
-			&pSample->pcmData[0],
-			0 );
-		pSample->bBufferInitialized = ma_audio_buffer_init( &bufferConfig, &pSample->buffer ) == MA_SUCCESS;
-		return pSample->bBufferInitialized;
+		ma_decoder_config decoderConfig = ma_decoder_config_init( ma_format_s16, 0, 0 );
+		ma_decoder decoder;
+		if ( ma_decoder_init_memory( pData, static_cast<size_t>( nSize ), &decoderConfig, &decoder ) != MA_SUCCESS )
+			return false;
+
+		ma_uint64 nFrames = 0;
+		if ( ma_decoder_get_length_in_pcm_frames( &decoder, &nFrames ) != MA_SUCCESS ||
+			nFrames == 0 ||
+			decoder.outputChannels == 0 ||
+			decoder.outputSampleRate == 0 )
+		{
+			ma_decoder_uninit( &decoder );
+			return false;
+		}
+
+		const unsigned int nDecodedChannels = decoder.outputChannels;
+		const unsigned int nDecodedSampleRate = decoder.outputSampleRate;
+		const unsigned int nBlockAlign = nDecodedChannels * sizeof( ma_int16 );
+		if ( nBlockAlign == 0 || nFrames > (0xFFFFFFFFull / nBlockAlign) )
+		{
+			ma_decoder_uninit( &decoder );
+			return false;
+		}
+
+		const unsigned int nPcmBytes = static_cast<unsigned int>( nFrames * nBlockAlign );
+		pSample->pcmData.resize( nPcmBytes );
+
+		ma_uint64 nFramesRead = 0;
+		const ma_result readResult = ma_decoder_read_pcm_frames( &decoder, &pSample->pcmData[0], nFrames, &nFramesRead );
+		ma_decoder_uninit( &decoder );
+		if ( readResult != MA_SUCCESS && readResult != MA_AT_END )
+			return false;
+		if ( nFramesRead == 0 )
+			return false;
+
+		if ( nFramesRead < nFrames )
+		{
+			pSample->pcmData.resize( static_cast<size_t>( nFramesRead * nBlockAlign ) );
+		}
+
+		pSample->format = ma_format_s16;
+		pSample->nSampleRate = nDecodedSampleRate;
+		pSample->nChannels = nDecodedChannels;
+		pSample->nBitsPerSample = 16;
+		pSample->nBlockAlign = nBlockAlign;
+		pSample->nPcmBytes = static_cast<unsigned int>( pSample->pcmData.size() );
+		return InitializeSampleBuffer( pSample );
 	}
 
 	bool ReadWholeStream( IDataStream *pDataStream, std::vector<char> *pData )
@@ -767,6 +835,9 @@ namespace NAudioBackendImpl
 
 	void CloseDevice()
 	{
+		if ( g_bEngineInitialized )
+			ma_engine_stop( &g_engine );
+
 		for ( int i = 0; i < cMaxOpenChannels; ++i )
 			ResetChannel( i );
 
@@ -802,6 +873,10 @@ namespace NAudioBackendImpl
 		SOpenSample *pOpenSample = static_cast<SOpenSample*>( pSample );
 		if ( pOpenSample )
 		{
+			for ( int i = 0; i < cMaxOpenChannels; ++i )
+				if ( g_channels[i].pSample == pOpenSample )
+					ResetChannel( i );
+
 			if ( pOpenSample->bBufferInitialized )
 				ma_audio_buffer_uninit( &pOpenSample->buffer );
 			delete pOpenSample;
@@ -812,7 +887,11 @@ namespace NAudioBackendImpl
 	{
 		SOpenSample *pSample = new SOpenSample;
 		InitializeEmptySample( pSample, nMode );
-		if ( !ParseWaveSample( pData, nSize, pSample ) )
+		if ( ParseWaveSample( pData, nSize, pSample ) )
+			return pSample;
+
+		InitializeEmptySample( pSample, nMode );
+		if ( !DecodeSampleWithMiniAudio( pData, nSize, pSample ) )
 		{
 			delete pSample;
 			return 0;

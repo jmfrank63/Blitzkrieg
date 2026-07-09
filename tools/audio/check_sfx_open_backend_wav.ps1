@@ -11,8 +11,49 @@ foreach ($required in @('ParseWaveSample', 'RIFF', 'WAVE', 'fmt ', 'data', 'nSam
     }
 }
 
-if ($source -notmatch 'if\s*\(\s*!ParseWaveSample\(\s*pData,\s*nSize,\s*pSample\s*\)\s*\)[\s\S]*delete\s+pSample;[\s\S]*return\s+0;') {
-    $failures += 'LoadSampleFromMemory must return 0 when WAV parsing fails.'
+if ($source -notmatch 'DecodeSampleWithMiniAudio') {
+    $failures += 'LoadSampleFromMemory must fall back to miniaudio decoding for compressed WAV samples.'
+}
+
+if ($source -notmatch 'ma_decoder_init_memory\(\s*pData,\s*static_cast<size_t>\(\s*nSize\s*\)') {
+    $failures += 'Compressed sample fallback must decode from the in-memory sample buffer.'
+}
+
+if ($source -notmatch 'ma_format_s16') {
+    $failures += 'Compressed sample fallback must produce a stable PCM sample format.'
+}
+
+$buttonSelect = Join-Path $repoRoot 'Data/Sounds/Buttons/select.wav'
+$buttonOk = Join-Path $repoRoot 'Data/Sounds/Buttons/ok.wav'
+foreach ($buttonSound in @($buttonSelect, $buttonOk)) {
+    $bytes = [System.IO.File]::ReadAllBytes($buttonSound)
+    if ($bytes.Length -lt 24 -or
+        [System.Text.Encoding]::ASCII.GetString($bytes, 0, 4) -ne 'RIFF' -or
+        [System.Text.Encoding]::ASCII.GetString($bytes, 8, 4) -ne 'WAVE') {
+        $failures += "$buttonSound is not a WAV file."
+        continue
+    }
+
+    $fmtOffset = -1
+    for ($i = 12; $i -le $bytes.Length - 8; ) {
+        $chunkName = [System.Text.Encoding]::ASCII.GetString($bytes, $i, 4)
+        $chunkSize = [System.BitConverter]::ToUInt32($bytes, $i + 4)
+        if ($chunkName -eq 'fmt ') {
+            $fmtOffset = $i + 8
+            break
+        }
+        $i += 8 + [int]$chunkSize + ([int]$chunkSize -band 1)
+    }
+
+    if ($fmtOffset -lt 0) {
+        $failures += "$buttonSound is missing its fmt chunk."
+        continue
+    }
+
+    $audioFormat = [System.BitConverter]::ToUInt16($bytes, $fmtOffset)
+    if ($audioFormat -eq 1) {
+        $failures += "$buttonSound is plain PCM; this guard expects the menu click assets to exercise compressed WAV fallback."
+    }
 }
 
 if ($source -notmatch 'pSample->nPcmBytes\s*>\s*0') {

@@ -345,7 +345,7 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 	}
 	{
 		ISFX *pSFX = GetSingleton<ISFX>();
-		pSFX->SetSFXMasterVolume( 1.0f );
+		pSFX->SetSFXMasterVolume( GetGlobalVar( "Sound.SFXMasterVolume", 1.0f ) );
 		pSFX->SetStreamMasterVolume( GetGlobalVar( "Sound.StreamMasterVolume", 1.0f ) );
 		pSFX->EnableSFX( GetGlobalVar( "Sound.EnableSFX", 1 ) );
 		pSFX->EnableStreaming( GetGlobalVar( "Sound.EnableStream", 1 ) );
