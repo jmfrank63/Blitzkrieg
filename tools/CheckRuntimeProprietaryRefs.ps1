@@ -17,7 +17,9 @@ $runtimeFiles = @(
 )
 
 $blockedPaths = @(
-    "Sources/src/GFX/shader.grm"
+    "Sources/src/GFX/shader.grm",
+    "Sources/src/a7exportmodel",
+    "Sources/sdk/MAYA40"
 )
 
 $blockedPatterns = @(

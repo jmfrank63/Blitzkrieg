@@ -3,34 +3,6 @@ Microsoft Developer Studio Workspace File, Format Version 6.00
 
 ###############################################################################
 
-Project: "A7ExportModel"=.\a7exportmodel\A7ExportModel.dsp - Package Owner=<4>
-
-Package=<5>
-{{{
-    begin source code control
-    "$/A7/Tools/A7ExportModel", RTKAAAAA
-    .\a7exportmodel
-    end source code control
-}}}
-
-Package=<4>
-{{{
-    Begin Project Dependency
-    Project_Dep_Name Formats
-    End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name Misc
-    End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name StreamIOLib
-    End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name zlib
-    End Project Dependency
-}}}
-
-###############################################################################
-
 Project: "AILogic"=.\ailogic\AILogic.dsp - Package Owner=<4>
 
 Package=<5>
