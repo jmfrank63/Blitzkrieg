@@ -34,6 +34,18 @@ Warning: this project is a work in progress.
 
 
 
+# Blender asset conversion and validation
+
+The Maya40 replacement pipeline is documented in `docs/blender-replacement.md`.
+
+Quick commands:
+
+- Convert: `BZMConvertor.exe -obj2mod <input.obj> <output.mod> [skeleton.txt] [animation.txt]`
+
+- Validate only: `BZMConvertor.exe -validateobj2mod <input.obj> [skeleton.txt] [animation.txt]`
+
+
+
 # Running the game with Visual Studio 2026 Insiders
 
 1. Clone the repository with submodules, or run `git submodule update --init --recursive` in an existing checkout.

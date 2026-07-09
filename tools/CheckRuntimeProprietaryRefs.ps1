@@ -21,6 +21,8 @@ $blockedPatterns = @(
     "FSOUND",
     "Bink",
     "BINK",
+    "A7ExportModel\.vcxproj",
+    "a7exportmodel\\A7ExportModel\.vcxproj",
     "MAYA40",
     "OpenMaya",
     "GameSpy\.lib",
