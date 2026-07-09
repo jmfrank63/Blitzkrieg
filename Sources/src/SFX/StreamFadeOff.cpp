@@ -41,7 +41,7 @@ int CStreamFadeOff::operator&( IStructureSaver &ss )
 	}
 	else
 	{
-		if ( hThread && WAIT_OBJECT_0 != WaitForSingleObject( hFinishReport,0 ) ) // нить сама не завершилась
+		if ( hThread && WAIT_OBJECT_0 != WaitForSingleObject( hFinishReport,0 ) ) // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		{
 			bool bRun = true;
 			saver.Add( 4, &bRun );
@@ -57,6 +57,7 @@ void CStreamFadeOff::InitConsts()
 	hThread = 0;
 	hFinishReport = CreateEvent( 0, true, false, 0 );
 	hStopCommand = CreateEvent( 0, true, false, 0 );
+	bStopping = false;
 }
 CStreamFadeOff::~CStreamFadeOff() 
 { 
@@ -83,9 +84,12 @@ bool CStreamFadeOff::Segment( const int nTimeDelta )
 }
 void CStreamFadeOff::Clear()
 {
+	if ( bStopping )
+		return;
+
 	if ( hThread )
 	{
-		if ( WAIT_OBJECT_0 != WaitForSingleObject( hFinishReport,0 ) ) // нить сама не завершилась
+		if ( WAIT_OBJECT_0 != WaitForSingleObject( hFinishReport,0 ) ) // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		{
 			SetEvent( hStopCommand );
 			WaitForSingleObject( hFinishReport, INFINITE );
@@ -125,6 +129,8 @@ bool CStreamFadeOff::HaveToRun()
 void CStreamFadeOff::Stop()
 {
 	if ( !pSFX ) return;
+	bStopping = true;
 	pSFX->StopStream( 0 );
+	bStopping = false;
 	SetEvent( hFinishReport );
 }

@@ -7,6 +7,7 @@ class CStreamFadeOff
 	
 	HANDLE hThread;
 	interface ISFX * pSFX;													//
+	bool bStopping; // Added to guard against re-entrant Clear() calls
 	
 	float fVolume;
 
@@ -25,7 +26,7 @@ class CStreamFadeOff
 	void InitConsts();
 public:
 
-	CStreamFadeOff() : timeAccumulator( 0 ), pSFX( 0 ), hThread( 0 ), hFinishReport( 0 ), hStopCommand( 0 ) {}
+	CStreamFadeOff() : timeAccumulator( 0 ), pSFX( 0 ), hThread( 0 ), hFinishReport( 0 ), hStopCommand( 0 ), bStopping( false ) {}
 	~CStreamFadeOff();
 	void Fade( const unsigned int nTimeToFade );		// time is in millisecond
 	
