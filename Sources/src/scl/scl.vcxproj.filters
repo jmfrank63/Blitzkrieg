@@ -37,6 +37,9 @@
     <ClCompile Include="Parser.cpp">
       <Filter>Shader Compiler</Filter>
     </ClCompile>
+    <ClCompile Include="NativeGoldEngine.cpp">
+      <Filter>Shader Compiler</Filter>
+    </ClCompile>
     <ClCompile Include="scl.cpp">
       <Filter>Shader Compiler</Filter>
     </ClCompile>
@@ -49,3 +52,4 @@
     <CustomBuild Include="shader2.grm" />
   </ItemGroup>
 </Project>
+
