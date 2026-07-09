@@ -10,7 +10,14 @@
 #include "..\StreamIO\StreamIOTypes.h"
 
 #include "..\Net\NetDriver.h"
+
+#ifndef BK_ENABLE_GAMESPY
+#define BK_ENABLE_GAMESPY 0
+#endif
+
+#if BK_ENABLE_GAMESPY
 #include "GameSpyPeerChat.h"
+#endif
 BASIC_REGISTER_CLASS( IServersList );
 void CServersList::Init( INetDriver *_pNetDriver )
 {
@@ -251,13 +258,18 @@ void CLanServersList::CreateInGameChat( CPtr<IChat> *pChat, INetDriver *pNetDriv
 }
 void CGameSpyServersList::Init()
 {
+#if BK_ENABLE_GAMESPY
 	INetDriver *pNetDriver = CreateObject<INetDriver>( NET_GS_SERVERS_LIST_DIRVER );
 	pNetDriver->Init( GetGlobalVar("NetGameVersion", 1), SMultiplayerConsts::GS_NET_PORT, true );
 
 	CServersList::Init( pNetDriver );
+#else
+	CServersList::Init( 0 );
+#endif
 }
 void CGameSpyServersList::CreateInGameChat( CPtr<IChat> *pChat, INetDriver *pInGameNetDriver )
 {
+#if BK_ENABLE_GAMESPY
 	if ( (*pChat) == 0 )
 	{
 		*pChat = new CGameSpyPeerChat();
@@ -270,6 +282,11 @@ void CGameSpyServersList::CreateInGameChat( CPtr<IChat> *pChat, INetDriver *pInG
 	}
 
 	(*pChat)->InitInGameChat( pInGameNetDriver );
+#else
+	CLanChat *pCreatedChat = new CLanChat();
+	pCreatedChat->InitInGameChat( pInGameNetDriver );
+	*pChat = pCreatedChat;
+#endif
 }
 IGameCreation* CGameSpyServersList::CreateServer( const struct SGameInfo &gameInfo, const struct SQuickLoadMapInfo &mapInfo, CPtr<IChat> *pChat )
 {
@@ -278,8 +295,12 @@ IGameCreation* CGameSpyServersList::CreateServer( const struct SGameInfo &gameIn
 	INetDriver *pInGameNetDriver = CreateObject<INetDriver>( INetDriver::tidTypeID );
 	pInGameNetDriver->Init( GetGlobalVar("NetGameVersion", 1), SMultiplayerConsts::NET_PORT, false );
 
+#if BK_ENABLE_GAMESPY
 	INetDriver *pOutGameNetDriver = CreateObject<INetDriver>( NET_GS_QUERY_REPORTING_DRIVER );
 	pOutGameNetDriver->Init( GetGlobalVar("NetGameVersion", 1), SMultiplayerConsts::GS_NET_PORT, false );
+#else
+	INetDriver *pOutGameNetDriver = pInGameNetDriver;
+#endif
 
 	CServerGameCreation *pGameCreation = new CServerGameCreation();
 	pGameCreation->Init( pInGameNetDriver, pOutGameNetDriver, gameInfo, mapInfo );

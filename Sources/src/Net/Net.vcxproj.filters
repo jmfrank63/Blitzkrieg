@@ -14,15 +14,6 @@
     <Filter Include="A5 streams">
       <UniqueIdentifier>{1b9f13d7-1771-434e-9644-7ce35ce44f57}</UniqueIdentifier>
     </Filter>
-    <Filter Include="GameSpy">
-      <UniqueIdentifier>{3df32193-fc38-4ed8-9466-2fd235b566a6}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="GameSpy\QueryReporting">
-      <UniqueIdentifier>{b80acace-1d2f-48d7-8261-0f759739b490}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="GameSpy\ServersList">
-      <UniqueIdentifier>{481cd9f7-2432-4f0e-ba58-403c0de195d1}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Resource">
       <UniqueIdentifier>{b39edb1c-1e90-47ee-bb79-5bd40fd0a061}</UniqueIdentifier>
     </Filter>
@@ -67,12 +58,6 @@
     <ClCompile Include="Streams.cpp">
       <Filter>A5 streams</Filter>
     </ClCompile>
-    <ClCompile Include="GSQueryReportingDriver.cpp">
-      <Filter>GameSpy\QueryReporting</Filter>
-    </ClCompile>
-    <ClCompile Include="GSServersList.cpp">
-      <Filter>GameSpy\ServersList</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Specific.h">
@@ -113,15 +98,6 @@
     </ClInclude>
     <ClInclude Include="Streams.h">
       <Filter>A5 streams</Filter>
-    </ClInclude>
-    <ClInclude Include="GSQueryReportingDriver.h">
-      <Filter>GameSpy\QueryReporting</Filter>
-    </ClInclude>
-    <ClInclude Include="GSServersList.h">
-      <Filter>GameSpy\ServersList</Filter>
-    </ClInclude>
-    <ClInclude Include="GSConsts.h">
-      <Filter>GameSpy</Filter>
     </ClInclude>
     <ClInclude Include="resource.h">
       <Filter>Resource</Filter>

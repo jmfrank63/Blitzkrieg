@@ -11,7 +11,7 @@ This is the **Blitzkrieg** game source code - a legacy Visual Studio C++ project
 - **Main Solution:** `Sources/src/A7.sln` (35+ projects)
 - **Main Executable:** `Sources/src/Game/Game.vcxproj` → builds `Game.exe`
 - **Editor:** `Sources/src/ELK/ELK.vcxproj` → builds the level editor
-- **SDKs:** `Sources/sdk/` contains third-party libraries (FMOD, BINK, STINGRAY, Maya, stlport, etc.)
+- **SDKs:** `Sources/sdk/` contains third-party libraries and codec/runtime support used by the project.
 - **Game Data:** `Data/` directory (linked to build output via junction)
 
 ## Build System
@@ -33,18 +33,11 @@ This is the **Blitzkrieg** game source code - a legacy Visual Studio C++ project
 
 ## Dependencies
 
-### External SDKs (Require Separate Licensing)
-Per [README.md](../README.md), these are **not included** in the repository:
-- **FMOD** (audio library) - `Sources/sdk/FMOD/`
-- **BINK** (video codec) - `Sources/sdk/BINK/`
-- **STINGRAY Studio 2003** (UI library) - `Sources/sdk/STINGRAY/`
-
-All external SDKs are available in separate GitHub repositories under this organization.
-
 ### Included SDKs
-- **stlport** - Custom STL implementation (must be first in include paths!)
-- **S3TC** - Texture compression
-- **Maya 4.0** - 3D model export tools
+- **miniaudio** - Open audio backend
+- **stb** - Public-domain single-header utility libraries
+- **xiph** - Ogg/Vorbis/Theora codec libraries
+- **Maya 4.0** - Legacy 3D model export tooling SDK
 
 ### System Requirements
 - **Windows 10 SDK** (WINVER=0x0A00, _WIN32_WINNT=0x0A00)
@@ -89,10 +82,8 @@ This prevents git from auto-converting line endings.
 
 **"Cannot find include file"**
 - Verify SDK paths are correct in include directories
-- Check that `stlport` is **first** in the include path order (critical!)
 
 **"Unresolved external symbols"**
-- Check that external SDKs (FMOD, BINK, STINGRAY) are available
 - Verify library paths are configured correctly
 
 **"PrecompiledHeader: StdAfx.h not found"**

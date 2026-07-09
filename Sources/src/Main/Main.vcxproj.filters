@@ -136,12 +136,6 @@
     <ClInclude Include="GamePlaying.h">
       <Filter>Multiplayer</Filter>
     </ClInclude>
-    <ClInclude Include="GameSpyChat.h">
-      <Filter>Multiplayer</Filter>
-    </ClInclude>
-    <ClInclude Include="GameSpyPeerChat.h">
-      <Filter>Multiplayer</Filter>
-    </ClInclude>
     <ClInclude Include="LanChat.h">
       <Filter>Multiplayer</Filter>
     </ClInclude>
@@ -271,12 +265,6 @@
       <Filter>Multiplayer</Filter>
     </ClCompile>
     <ClCompile Include="GamePlaying.cpp">
-      <Filter>Multiplayer</Filter>
-    </ClCompile>
-    <ClCompile Include="GameSpyChat.cpp">
-      <Filter>Multiplayer</Filter>
-    </ClCompile>
-    <ClCompile Include="GameSpyPeerChat.cpp">
       <Filter>Multiplayer</Filter>
     </ClCompile>
     <ClCompile Include="LanChat.cpp">

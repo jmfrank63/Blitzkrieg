@@ -10,14 +10,11 @@
 
 ## User Preferences
 ### Technical Preferences
-- **FMOD**: v3.75f - may need adapter layer or migration to miniaudio
+- **Audio**: FMOD was replaced by the open miniaudio/Xiph-based backend.
 - **DirectX**: Keeping D3D9 enums for now (plan to migrate to Vulkan later, no intermediate D3D11 migration)
 
 ## Key Decisions Log
 - **2024-05-18**: Fixed SceneDraw.cpp template - added `typename` keyword for dependent type `TContainer::value_type` in Resize2Fit function
-- **2024-05-18**: Fixed FMOD 3.75 API calls - replaced non-existent `FSOUND_Sample_SetLoopMode` with correct `FSOUND_Sample_SetMode` function
-- **2024-05-18**: Fixed multiple FMOD 3.75 API issues in SoundEngine.cpp - removed non-existent GEOMETRY caps, fixed listener functions (removed Listener_ prefix), changed Stream_OpenFile to Stream_Open with 4 params, fixed SetSynchCallback typo to SetSyncCallback, fixed callback signature (userdata is void* not int)
-, added F_CALLBACKAPI calling convention to callback function
 - **2024-05-18**: Fixed Cursor.cpp narrowing conversions - cast float to LONG in RECT initialization
 - **2024-05-18**: Fixed SceneDraw.cpp CRawBuffer - changed from new TYPE[] to ::operator new for raw memory allocation (no default construction required), added destructor with ::operator delete
 - **2024-05-18**: Fixed RiverBuilder.cpp - changed push_back() to emplace_back() for deque

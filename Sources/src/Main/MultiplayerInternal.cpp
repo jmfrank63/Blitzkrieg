@@ -6,7 +6,6 @@
 #include "Messages.h"
 #include "ChatMessages.h"
 #include "MultiplayerConsts.h"
-#include "GameSpyPeerChat.h"
 #include "ScenarioTracker.h"
 
 #include "..\GameTT\MultiplayerCommandManager.h"
@@ -14,6 +13,14 @@
 #include "..\GameTT\WorldClient.h"
 
 #include "..\Net\NetDriver.h"
+
+#ifndef BK_ENABLE_GAMESPY
+#define BK_ENABLE_GAMESPY 0
+#endif
+
+#if BK_ENABLE_GAMESPY
+#include "GameSpyPeerChat.h"
+#endif
 BASIC_REGISTER_CLASS( IChat );
 BASIC_REGISTER_CLASS( IMultiplayer::CCommand );
 void CMultiplayer::InitServersList()
@@ -573,6 +580,7 @@ CGameSpyMultiplayer::CGameSpyMultiplayer()
 }
 void CGameSpyMultiplayer::Init()
 {
+#if BK_ENABLE_GAMESPY
 	SetChat( new CGameSpyPeerChat() );
 
 	std::wstring wszUserName = MakeWideStringFromWordString( GetGlobalWVar( "Options.Multiplayer.GameSpyPlayerName", reinterpret_cast<const WORD*>( L"Noname" ) ) );
@@ -581,18 +589,27 @@ void CGameSpyMultiplayer::Init()
 	
 	GetChat()->InitGSChat( ToWordString( wszUserName ) );
 	GetChat()->UserModeChanged( IChat::EUM_IN_SERVERS_LIST );
+#endif
 	SetState( EMS_NONE );
 }
 IServersList* CGameSpyMultiplayer::CreateServersList()
 {
+#if BK_ENABLE_GAMESPY
 	CGameSpyServersList *pServersList = new CGameSpyServersList();
+#else
+	CInternetServersList *pServersList = new CInternetServersList();
+#endif
 	pServersList->Init();
 
 	return pServersList;
 }
 bool CGameSpyMultiplayer::InitJoinToServer( const char *pszIPAddress, const int nHostPort, bool bPasswordRequired, const char* pszPassword )
 {
+#if BK_ENABLE_GAMESPY
 	CGameSpyServersList *pServersList = new CGameSpyServersList();
+#else
+	CInternetServersList *pServersList = new CInternetServersList();
+#endif
 
 	INetNodeAddress *pAddress = CreateObject<INetNodeAddress>( NET_NODE_ADDRESS );
 	const int nPort = nHostPort == -1 ? SMultiplayerConsts::NET_PORT : nHostPort;
@@ -620,8 +637,10 @@ void CGameSpyMultiplayer::InitServersList()
 {
 	SetState( EMS_SERVERS_LIST );	
 	SetServersList( CreateServersList() );
+#if BK_ENABLE_GAMESPY
 	GetChat()->DestroyInGameChat();
 	GetChat()->UserModeChanged( IChat::EUM_IN_SERVERS_LIST );
+#endif
 }
 IServersList* CInternetMultiplayer::CreateServersList()
 {
