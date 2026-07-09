@@ -59,11 +59,11 @@ typedef unsigned __int64 QWORD;					// quadra word
 #include "..\Misc\StrProc.h"						// string processing functions
 
 #include "..\StreamIO\Globals.h"				// globals - singleton, global var system, temp buffers, console, etc.
-#include "..\StreamIO\StreamIO.h"				// stream I/O base interfaces
+#include "StreamIO.h"									// stream I/O base interfaces
 #include "..\StreamIO\DBIO.h"						// database I/O base interfaces
-#include "..\StreamIO\StructureSaver.h"	// strucutre saver base interfaces
-#include "..\StreamIO\SSHelper.h"				// strucutre saver helper classes
-#include "..\StreamIO\DTHelper.h"				// data tree helper classes
+#include "StructureSaver.h"					// strucutre saver base interfaces
+#include "SSHelper.h"								// strucutre saver helper classes
+#include "DTHelper.h"								// data tree helper classes
 
 #include "..\Main\GameTimer.h"
 #include "..\Main\GameDB.h"

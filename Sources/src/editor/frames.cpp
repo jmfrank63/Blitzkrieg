@@ -247,7 +247,7 @@ void MyCopyDir( const string szSrc, const string szDest )
 void SetDefaultCamera()
 {
 	ICamera *pCamera = GetSingleton<ICamera>();
-	if ( pCamera == 0 )
+x	if ( pCamera == 0 )
 		return;
 	pCamera->SetPlacement( VNULL3, 700, -ToRadian(90.0f + 30.0f), ToRadian(45.0f) );
 }

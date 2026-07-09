@@ -1,6 +1,6 @@
-"Name" = Nival A7 Shader Script
-"Author" = Yuri V. Blazhevich
-"Version" = 1.0.0.0
+"Name" = 'Nival A7 Shader Script'
+"Author" = 'Yuri V. Blazhevich'
+"Version" = '1.0.0.0'
 
 "Case Sensitive" = False
 "Start Symbol" = <Declarations>
@@ -121,7 +121,7 @@ HexLiteral      = 0x{Hex Digit}+
 
 <Prop Clipping>			::= clipping '=' <Bool Val> ';'
 
-<Prop TFactor>			::= tfactor = <Int Val> ';'
+<Prop TFactor>			::= tfactor '=' <Int Val> ';'
 
 <Prop Stencil>			::= stencil '=' <Stencil Args> do '(' <Stencil Actions> ')' ';'
 						| stencil '=' <Stencil Args> ';'
