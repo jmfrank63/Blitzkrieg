@@ -1,5 +1,5 @@
 #define SEC_NO_NAMESPACE_USING 1
-#include "..\\Common\\StingrayCompat.h"
+#include "..\\Common\\LegacyUiCompat.h"
 
 #include "..\Formats\fmtTerrain.h"
 inline bool IsShiftKeyDown()

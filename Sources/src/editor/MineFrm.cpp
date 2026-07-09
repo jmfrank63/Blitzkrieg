@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include <io.h>
-#include "..\Common\StingrayCompat.h"
+#include "..\Common\LegacyUiCompat.h"
 
 #include "..\GFX\GFX.h"
 #include "..\Scene\Scene.h"
@@ -100,7 +100,7 @@ void CMineFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 {
 	NI_ASSERT( pRootItem != 0 );
 	SMineRPGStats rpgStats;
-	FillRPGStats( rpgStats, pRootItem );			//перед загрузкой инициализирую значениями по умолчанию
+	FillRPGStats( rpgStats, pRootItem );			//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
 	CTreeAccessor tree = pDT;
 	tree.Add( "RPG", &rpgStats );

@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include <io.h>
-#include "..\Common\StingrayCompat.h"
+#include "..\Common\LegacyUiCompat.h"
 
 #include "..\GFX\GFX.h"
 #include "..\GFX\GFXHelper.h"
@@ -8,7 +8,7 @@
 #include "..\Anim\Animation.h"
 
 #include "editor.h"
-#include "MainFrm.h"			//для работы с тулбаром
+#include "MainFrm.h"			//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 #include "SpriteCompose.h"
 #include "BuildCompose.h"
 #include "PropView.h"
@@ -19,8 +19,8 @@
 #include "frames.h"
 
 
-static const float fOX = -622;			//не менять эти значения, подсчитанны экспериментально для совместимости со старыми проектами.
-static const float fOY = 296;				//иначе съедет сетка залоченных AI тайлов
+static const float fOX = -622;			//пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
+static const float fOY = 296;				//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ AI пїЅпїЅпїЅпїЅпїЅпїЅ
 
 static int zeroSizeX = 32;
 static int zeroSizeY = 32;
@@ -30,8 +30,8 @@ static float zeroShiftY = 15.4f;
 static const int MIN_OPACITY = 120;
 static const int MAX_OPACITY = 255;
 
-const CVec3 vCenterPosition( 628.357f, 730.381f, 0 );	//это специальная константа, чтобы центральная часть моста находилась на перекрестии тайлов
-const CVec3 vCenterKrest( 596.657f, 742.038f, 0 );		//это координата центра картинки для нулевой точки центральной части
+const CVec3 vCenterPosition( 628.357f, 730.381f, 0 );	//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+const CVec3 vCenterKrest( 596.657f, 742.038f, 0 );		//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 
 
 #ifdef _DEBUG
@@ -601,14 +601,14 @@ void CBridgeFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 		int nPrev = -1;
 		for ( std::set<int>::iterator it=indexSet.begin(); it!=indexSet.end(); ++it )
 		{
-			if ( *it != nPrev + 1 )				//если есть пустые индексы
+			if ( *it != nPrev + 1 )				//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 			{
 				for ( int i=nPrev+1; i!=*it; i++ )
 					freeSpanIndexes[nDamageIndex].push_back( i );
 			}
 			nPrev = *it;
 		}
-		freeSpanIndexes[nDamageIndex].push_back( nPrev + 1 );			//это самый последний индекс
+		freeSpanIndexes[nDamageIndex].push_back( nPrev + 1 );			//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	}
 	
 	ASSERT( pDT->IsReading() );
@@ -792,7 +792,7 @@ bool CBridgeFrame::ExportFrameData( IDataTree *pDT, const char *pszProjectName, 
 				AddSpriteAndShadow( pszProjectName, &packs, &shadowPacks, pBottom, vPapa );
 				segment.nFrameIndex = nPackSegmentIndex++;
 				
-				int nUMinX = 0, nUMaxX = 0, nUMinY = 0, nUMaxY = 0;		//unlocked min max для вычисления длины и ширины моста
+				int nUMinX = 0, nUMaxX = 0, nUMinY = 0, nUMaxY = 0;		//unlocked min max пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 				if ( nActiveDamage == 0 && nActiveBridgePart == 0 )
 				{
 					SaveSegmentInformation( segment, pBridgeSpansItem, &packs, vPapa, nUMinX, nUMaxX, nUMinY, nUMaxY );
@@ -905,7 +905,7 @@ bool CBridgeFrame::ExportFrameData( IDataTree *pDT, const char *pszProjectName, 
 				for ( int z=0; z<3; z++ )
 				{
 					if ( nActiveDamage == 0 && z == 0 )
-						continue;		//slab в неразрушенном состоянии уже заполнен
+						continue;		//slab пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
 					int nSegmentIndex = 0;
 					switch ( z )
@@ -940,7 +940,7 @@ bool CBridgeFrame::ExportFrameData( IDataTree *pDT, const char *pszProjectName, 
 				for ( int z=0; z<3; z++ )
 				{
 					if ( nActiveDamage == 0 && z == 0 )
-						continue;		//slab в неразрушенном состоянии уже заполнен
+						continue;		//slab пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 					
 					int nSegmentIndex = 0;
 					switch ( z )
@@ -975,7 +975,7 @@ bool CBridgeFrame::ExportFrameData( IDataTree *pDT, const char *pszProjectName, 
 				for ( int z=0; z<3; z++ )
 				{
 					if ( nActiveDamage == 0 && z == 0 )
-						continue;		//slab в неразрушенном состоянии уже заполнен
+						continue;		//slab пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 					
 					int nSegmentIndex = 0;
 					switch ( z )
@@ -1736,7 +1736,7 @@ void CBridgeFrame::SetZeroCoordinate( POINT point )
 void CBridgeFrame::OnLButtonDown(UINT nFlags, CPoint point) 
 {
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
-	if ( pTree == 0 )			//Если проект не был создан
+	if ( pTree == 0 )			//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		return;
 
 	if ( tbStyle == E_DRAW_GRID && m_drawMode == E_DRAW_SPANS && pActiveSpansItem != 0 )
@@ -1813,7 +1813,7 @@ void CBridgeFrame::OnLButtonUp(UINT nFlags, CPoint point)
 void CBridgeFrame::OnRButtonDown(UINT nFlags, CPoint point) 
 {
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
-	if ( pTree == 0 )			//Если проект не был создан
+	if ( pTree == 0 )			//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		return;
 	SetChangedFlag( true );
 	
@@ -1850,7 +1850,7 @@ void CBridgeFrame::OnRButtonDown(UINT nFlags, CPoint point)
 void CBridgeFrame::OnMouseMove(UINT nFlags, CPoint point) 
 {
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
-	if ( pTree == 0 )			//Если проект не был создан
+	if ( pTree == 0 )			//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		return;
 
 	if ( tbStyle == E_DRAW_GRID && nFlags & MK_RBUTTON && m_drawMode == E_DRAW_SPANS && pActiveSpansItem != 0 )

@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include <io.h>
-#include "..\Common\StingrayCompat.h"
+#include "..\Common\LegacyUiCompat.h"
 
 #include "..\GFX\GFX.h"
 #include "..\GFX\GFXHelper.h"
@@ -747,7 +747,7 @@ void CMeshFrame::FillRPGStats( SMechUnitRPGStats &rpgStats, CTreeItem *pRootItem
 		}
 	}
 
-	rpgStats.guns.clear();					//очищаем пушки
+	rpgStats.guns.clear();					//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	CMeshPlatformsItem *pPlatforms = static_cast<CMeshPlatformsItem *> ( pRootItem->GetChildItem( E_MESH_PLATFORMS_ITEM ) );
 	rpgStats.platforms.resize( pPlatforms->GetChildsCount() );
 	int nPlatformIndex = 0;
@@ -1075,7 +1075,7 @@ void CMeshFrame::FillRPGStats( SMechUnitRPGStats &rpgStats, CTreeItem *pRootItem
 	{
 		SMechUnitRPGStats::SPlatform &platform = rpgStats.platforms[p];
 		if ( platform.nModelPart == -1 )
-			continue;		//не найден локатор
+			continue;		//пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		if ( platform.constraintVertical.fMax != 0 )
 			continue;
 

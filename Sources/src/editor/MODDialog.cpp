@@ -1,7 +1,7 @@
 
 #include "stdafx.h"
 #include "editor.h"
-#include "..\Common\StingrayCompat.h"
+#include "..\Common\LegacyUiCompat.h"
 #include "MODDialog.h"
 #include "NewDirDialog.h"
 

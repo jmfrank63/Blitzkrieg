@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include <io.h>
-#include "..\Common\StingrayCompat.h"
+#include "..\Common\LegacyUiCompat.h"
 
 #include "..\Scene\Scene.h"
 #include "..\Formats\fmtEffect.h"
@@ -116,7 +116,7 @@ void CEffectFrame::UpdateEffectAngle()
 		return;
 
 	float fAlpha = -pDirectionButtonDockBar->GetAngle();
-	fAlpha += ToRadian( 45.0f );			//вычитаем 45 градусов
+	fAlpha += ToRadian( 45.0f );			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ 45 пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	if ( fAlpha >= FP_2PI )
 		fAlpha -= FP_2PI;
 	float fTemp = 1.0/sqrt(2);
@@ -155,7 +155,7 @@ void CEffectFrame::GFXDraw()
 
 struct SSourceType
 {
-	bool bComplexParticleSource;			//тип источника, если true, то сложный particle source
+	bool bComplexParticleSource;			//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ true, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ particle source
 	SSourceType() : bComplexParticleSource( false ) {}
 	virtual int STDCALL operator&( IDataTree &ss );
 };
@@ -183,7 +183,7 @@ void CEffectFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const cha
 	pFuncParticles = pTreeItem;
 
 /*
-	if ( pAnimsItem->GetChildsCount() + pFuncParticles->GetChildsCount() == 0 )			//временно, ничего нету в спрайт и func эффектах
+	if ( pAnimsItem->GetChildsCount() + pFuncParticles->GetChildsCount() == 0 )			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ func пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		return;			//x3
 */
 
@@ -315,7 +315,7 @@ void CEffectFrame::OnStopButton()
 void CEffectFrame::OnUpdateRunButton(CCmdUI* pCmdUI) 
 {
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
-	if ( pTree == 0 )			//Если проект не был создан
+	if ( pTree == 0 )			//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	{
 		pCmdUI->Enable( false );
 		return;

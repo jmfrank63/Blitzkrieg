@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include <io.h>
-#include "..\Common\StingrayCompat.h"
+#include "..\Common\LegacyUiCompat.h"
 
 #include "..\GFX\GFX.h"
 #include "..\Scene\Scene.h"
@@ -462,7 +462,7 @@ void CParticleFrame::GetRPGStats2( const SSmokinParticleSourceData &particleSetu
 
 struct SSourceType
 {
-	bool bComplexParticleSource;			//тип источника, если true, то сложный particle source
+	bool bComplexParticleSource;			//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ true, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ particle source
 	SSourceType() : bComplexParticleSource( false ) {}
 	virtual int STDCALL operator&( IDataTree &ss );
 };
@@ -605,7 +605,7 @@ void CParticleFrame::OnStopButton()
 void CParticleFrame::OnUpdateRunButton(CCmdUI* pCmdUI) 
 {
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
-	if ( pTree == 0 )			//Если проект не был создан
+	if ( pTree == 0 )			//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	{
 		pCmdUI->Enable( false );
 		return;

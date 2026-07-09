@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "..\Common\StingrayCompat.h"
+#include "..\Common\LegacyUiCompat.h"
 
 #include "..\GFX\GFX.h"
 #include "..\GFX\GFXHelper.h"
@@ -8,7 +8,7 @@
 
 #include "common.h"
 #include "editor.h"
-#include "MainFrm.h"			//для работы с тулбаром
+#include "MainFrm.h"			//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 #include "SpriteCompose.h"
 #include "PropView.h"
 #include "TreeItem.h"
@@ -369,14 +369,14 @@ void CFenceFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 	int nPrev = -1;
 	for ( std::set<int>::iterator it=indexSet.begin(); it!=indexSet.end(); ++it )
 	{
-		if ( *it != nPrev + 1 )				//если есть пустые индексы
+		if ( *it != nPrev + 1 )				//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		{
 			for ( int i=nPrev+1; i!=*it; i++ )
 				freeIndexes.push_back( i );
 		}
 		nPrev = *it;
 	}
-	freeIndexes.push_back( nPrev + 1 );			//это самый последний индекс
+	freeIndexes.push_back( nPrev + 1 );			//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 }
 
 void CFenceFrame::RemoveFenceIndex( int nIndex )
@@ -674,7 +674,7 @@ void CFenceFrame::EditFence( CFencePropsItem *pFencePropsItem )
 
 	if ( !pFencePropsItem->bLoaded )
 	{
-		CenterSpriteAboutTile();			//если был создан новый проект, то автоматом центрирую тайлы
+		CenterSpriteAboutTile();			//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		pFencePropsItem->bLoaded = true;
 	}
 	
@@ -693,7 +693,7 @@ void CFenceFrame::CenterSpriteAboutTile()
 	pt.x = currentPos2.x;
 	pt.y = currentPos2.y;
 
-	float ftX, ftY;			//тайловые координаты в моей координатной системе
+	float ftX, ftY;			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	ComputeGameTileCoordinates( pt, ftX, ftY );
 	float fX1, fY1, fX2, fY2, fX3, fY3, fX4, fY4;
 	GetGameTileCoordinates( ftX, ftY, fX1, fY1, fX2, fY2, fX3, fY3, fX4, fY4 );
@@ -799,7 +799,7 @@ void CFenceFrame::OnUpdateCenterFenceAboutTile(CCmdUI* pCmdUI)
 void CFenceFrame::OnLButtonDown(UINT nFlags, CPoint point) 
 {
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
-	if ( pTree == 0 )			//Если проект не был создан
+	if ( pTree == 0 )			//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		return;
 	if ( !bEditPassabilityMode )
 		return;
@@ -850,7 +850,7 @@ void CFenceFrame::OnLButtonUp(UINT nFlags, CPoint point)
 void CFenceFrame::OnRButtonDown(UINT nFlags, CPoint point) 
 {
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
-	if ( pTree == 0 )			//Если проект не был создан
+	if ( pTree == 0 )			//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		return;
 	SetChangedFlag( true );
 	
@@ -878,7 +878,7 @@ void CFenceFrame::OnRButtonDown(UINT nFlags, CPoint point)
 void CFenceFrame::OnMouseMove(UINT nFlags, CPoint point) 
 {
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
-	if ( pTree == 0 )			//Если проект не был создан
+	if ( pTree == 0 )			//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		return;
 	
 	if ( tbStyle == E_DRAW_GRID && nFlags & MK_RBUTTON )

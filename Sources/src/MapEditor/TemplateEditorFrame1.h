@@ -8,7 +8,7 @@
 #include "..\RandomMapGen\MapInfo_Types.h"
 #include "..\RandomMapGen\Resource_Types.h"
 
-#include "..\\Common\\StingrayCompat.h"
+#include "..\\Common\\LegacyUiCompat.h"
 #include "..\GFX\GFX.h"
 #include "..\Formats\fmtMap.h"
 #include "..\AILogic\AILogic.h"

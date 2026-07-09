@@ -2,7 +2,7 @@
 #define AFX_TREEDOCKWND_H__B6F638DA_2DBC_11D1_A86B_0060977B4135__INCLUDED_
 
 using namespace std;
-#include "..\\Common\\StingrayCompat.h"
+#include "..\\Common\\LegacyUiCompat.h"
 #include "ETreeCtrl.h"
 
 class CPropView;

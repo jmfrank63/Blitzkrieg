@@ -17,7 +17,7 @@
 #include "frames.h"
 #include "GameWnd.h"
 #include "MainFrm.h"
-#include "..\Common\StingrayCompat.h"
+#include "..\Common\LegacyUiCompat.h"
 
 #include "TabTileEditDialog.h"
 #include "TemplateEditorFrame1.h"

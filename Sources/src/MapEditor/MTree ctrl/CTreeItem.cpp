@@ -5,7 +5,7 @@
 #include "MultiTreeEditBox.h"
 #include "TreeItemComboBox.h"
 #include "PercentDialog.h"
-#include "..\..\Common\StingrayCompat.h"
+#include "..\..\Common\LegacyUiCompat.h"
 
 #include "MultiTreeSlider.h"
 
@@ -43,7 +43,7 @@ bool CSTreeItem::KillEditor()
 		var = GetOleData();
 		try
 		{
-			tmp.ChangeType( var.vt, NULL) ; //если не получилочь сконвертить
+			tmp.ChangeType( var.vt, NULL) ; //пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		}
 		catch(...)
 		{	
@@ -326,7 +326,7 @@ bool CComboBoxTreeItemPropertieTreeItem::KillEditor()
 		var = var_t;
 		try
 		{
-			tmp.ChangeType( var.vt, NULL ); //если не получилочь сконвертить
+			tmp.ChangeType( var.vt, NULL ); //пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		}
 		catch(...)
 		{	
@@ -358,7 +358,7 @@ bool CFileChosePropertieTreeItem::BuildEditor( HTREEITEM *item , CMultiTree *tre
 		var = var_t;
 		try
 		{
-			tmp.ChangeType( var.vt, NULL) ; //если не получилочь сконвертить
+			tmp.ChangeType( var.vt, NULL) ; //пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		}
 		catch(...)
 		{	
@@ -387,7 +387,7 @@ bool CDirChosePropertieTreeItem::BuildEditor( HTREEITEM *item , CMultiTree *tree
 		var = var_t;
 		try
 		{
-			tmp.ChangeType( var.vt, NULL) ; //если не получилочь сконвертить
+			tmp.ChangeType( var.vt, NULL) ; //пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		}
 		catch(...)
 		{	
@@ -417,7 +417,7 @@ bool CUnitsPropertieTreeItem::BuildEditor( HTREEITEM *item , CMultiTree *treePtr
 		m_pManipulator->GetValue( m_propName.c_str(), &var );
 		try
 		{
-			tmp.ChangeType( var.vt, NULL) ; //если не получилочь сконвертить
+			tmp.ChangeType( var.vt, NULL) ; //пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		}
 		catch(...)
 		{	

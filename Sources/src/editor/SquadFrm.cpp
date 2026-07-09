@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include <io.h>
-#include "..\Common\StingrayCompat.h"
+#include "..\Common\LegacyUiCompat.h"
 
 #include "..\GFX\GFX.h"
 #include "..\Scene\Scene.h"
@@ -289,7 +289,7 @@ void CSquadFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 {
 	/*	
 	SSquadRPGStats rpgStats;
-	FillRPGStats( rpgStats, pRootItem );			//перед загрузкой инициализирую значениями по умолчанию
+	FillRPGStats( rpgStats, pRootItem );			//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	
 		CTreeAccessor tree = pDT;
 		tree.Add( "RPG", &rpgStats );
@@ -392,7 +392,7 @@ void CSquadFrame::DeleteUnitFromScene( CTreeItem *pUnit, CSquadFormationPropsIte
 		}
 	}
 	
-	NI_ASSERT( 0 );			//не нашла, что за фигня?
+	NI_ASSERT( 0 );			//пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ?
 }
 
 void CSquadFrame::SelectActiveUnit( CTreeItem *pUnit )

@@ -269,7 +269,7 @@
   <ItemGroup>
     <ClInclude Include="Specific.h" />
     <ClInclude Include="StdAfx.h" />
-    <ClInclude Include="StingrayCompat.h" />
+    <ClInclude Include="LegacyUiCompat.h" />
     <ClInclude Include="MapObject.h" />
     <ClInclude Include="MOBridge.h" />
     <ClInclude Include="MOBuilding.h" />

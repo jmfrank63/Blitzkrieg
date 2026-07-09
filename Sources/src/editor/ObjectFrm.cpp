@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include <io.h>
-#include "..\Common\StingrayCompat.h"
+#include "..\Common\LegacyUiCompat.h"
 
 #include "..\GFX\GFX.h"
 #include "..\GFX\GFXHelper.h"
@@ -371,7 +371,7 @@ BOOL CObjectFrame::SpecificTranslateMessage( MSG *pMsg )
 				for ( it=transLines.begin(); it!=transLines.end(); ++it )
 				{
 					currentLine = *it;
-					int nRes = UpdateNormalForSelectedLine();		//обновляем нормаль
+					int nRes = UpdateNormalForSelectedLine();		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 					std::list<CVec2> coords;
 					float ftx1, fty1, ftx2, fty2;
 					POINT pt;
@@ -757,13 +757,13 @@ void CObjectFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 	pEffects->SetEffectExplosion( objectRPGStats.szEffectExplosion.c_str() );
 	pEffects->SetEffectDeath( objectRPGStats.szEffectDeath.c_str() );
 
-	CVec3 beginPos3;						//координаты самого левого тайла, который связан с vOrigin
+	CVec3 beginPos3;						//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ vOrigin
 	beginPos3.x = 16*fWorldCellSize;
 	beginPos3.y = 16*fWorldCellSize;
 	beginPos3.z = 0;
 	
 	CVec2 realZeroPos2;
-	CVec3 realZeroPos3;				//тут будет точная координата перекрестия
+	CVec3 realZeroPos3;				//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	{
 		pSG->GetPos2( &realZeroPos2, m_zeroPos );
 		realZeroPos2.x += zeroShiftX;
@@ -800,7 +800,7 @@ void CObjectFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 	}
 	
 	{
-		CVec3 beginVis3;						//координаты самого левого тайла, который связан с vVisOrigin
+		CVec3 beginVis3;						//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ vVisOrigin
 		beginVis3.x = realZeroPos3.x - objectRPGStats.vVisOrigin.x;
 		beginVis3.y = realZeroPos3.y - objectRPGStats.vVisOrigin.y;
 		beginVis3.z = 0;
@@ -911,7 +911,7 @@ int CObjectFrame::UpdateNormalForSelectedLine()
 	NI_ASSERT( bDragging == true );
 
 	IScene *pSG = GetSingleton<IScene>();
-	CVec3 v1, v2, r;												//r это вторая точка нормали
+	CVec3 v1, v2, r;												//r пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	r.z = 0;
 	pSG->GetPos3( &v1, currentLine.p1 );
 	pSG->GetPos3( &v2, currentLine.p2 );
@@ -921,10 +921,10 @@ int CObjectFrame::UpdateNormalForSelectedLine()
 	float fcy = (v1.y + v2.y) / 2;
 	float alpha = atan2( v2.y - v1.y, v2.x - v1.x );
 	alpha += FP_PI / 16.0f;
-	if ( alpha > FP_PI )								//от -PI до PI
+	if ( alpha > FP_PI )								//пїЅпїЅ -PI пїЅпїЅ PI
 		alpha -= FP_2PI;
 
-	int nRes = (float) ( FP_PI + alpha ) * 8 / FP_PI;				//угол в единицах 0..15
+	int nRes = (float) ( FP_PI + alpha ) * 8 / FP_PI;				//пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ 0..15
 	nRes = ( nRes + 8 ) % 16;
 	NI_ASSERT( nRes >= 0 && nRes <= 15 );
 	alpha = (float) nRes * FP_PI8;
@@ -953,7 +953,7 @@ void CObjectFrame::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	SetFocus();
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
-	if ( pTree == 0 )			//Если проект не был создан
+	if ( pTree == 0 )			//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		return;
 	
 	if ( tbStyle == E_DRAW_GRID )
@@ -1011,7 +1011,7 @@ void CObjectFrame::OnLButtonDown(UINT nFlags, CPoint point)
 				CVerticesLock<SGFXTLVertex> vertices( currentLine.pVertices );
 				vertices[1].Setup( point.x, point.y, 1, 1, 0xff0000ff, 0xff000000, 0, 0 );
 			}
-			int nRes = UpdateNormalForSelectedLine();		//обновляем нормаль
+			int nRes = UpdateNormalForSelectedLine();		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
 			float ftx1, fty1, ftx2, fty2;
 			POINT pt;
@@ -1044,7 +1044,7 @@ void CObjectFrame::OnLButtonDown(UINT nFlags, CPoint point)
 				{
 					{
 						if ( m_nSelected == i )
-							break;		//выделена опять та же самая линия
+							break;		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 						
 						int k = 0;
 						for ( CTransLineList::iterator it=transLines.begin(); it!=transLines.end(); ++it )
@@ -1120,7 +1120,7 @@ void CObjectFrame::OnRButtonDown(UINT nFlags, CPoint point)
 {
 	SetFocus();
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
-	if ( pTree == 0 )			//Если проект не был создан
+	if ( pTree == 0 )			//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		return;
 	SetChangedFlag( true );
 	
@@ -1154,7 +1154,7 @@ void CObjectFrame::OnRButtonDown(UINT nFlags, CPoint point)
 void CObjectFrame::OnMouseMove(UINT nFlags, CPoint point) 
 {
 	CETreeCtrl *pTree = pTreeDockBar->GetTreeWithIndex( 0 );
-	if ( pTree == 0 )			//Если проект не был создан
+	if ( pTree == 0 )			//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		return;
 	
 	if ( tbStyle == E_DRAW_GRID && nFlags & MK_RBUTTON )
@@ -1228,7 +1228,7 @@ void CObjectFrame::OnMouseMove(UINT nFlags, CPoint point)
 			currentLine.p2.y = point.y;
 			CVerticesLock<SGFXTLVertex> vertices( currentLine.pVertices );
 			vertices[1].Setup( point.x, point.y, 1, 1, 0xff0000ff, 0xff000000, 0, 0 );
-			UpdateNormalForSelectedLine();		//обновляем нормаль
+			UpdateNormalForSelectedLine();		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		}
 		else
 		{

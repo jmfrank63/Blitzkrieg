@@ -1,7 +1,7 @@
 #ifndef __PARENT_FRAME_H__
 #define __PARENT_FRAME_H__
 
-#include "..\\Common\\StingrayCompat.h"
+#include "..\\Common\\LegacyUiCompat.h"
 #include "..\GFX\GFX.h"
 
 using std::string;

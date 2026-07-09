@@ -1,5 +1,5 @@
 #include "StdAfx.h"
-#include "..\Common\StingrayCompat.h"
+#include "..\Common\LegacyUiCompat.h"
 
 #include "resource.h"
 #include "ImportFromPAKDialog.h"

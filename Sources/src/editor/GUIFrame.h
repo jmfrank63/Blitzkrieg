@@ -5,7 +5,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "..\\Common\\StingrayCompat.h"
+#include "..\\Common\\LegacyUiCompat.h"
 #include "..\UI\UI.h"
 #include "..\GFX\GFX.h"
 #include "..\Input\Input.h"

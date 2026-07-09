@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include <io.h>
-#include "..\Common\StingrayCompat.h"
+#include "..\Common\LegacyUiCompat.h"
 
 #include "..\GFX\GFX.h"
 #include "..\Scene\Scene.h"
@@ -353,14 +353,14 @@ void CTileSetFrame::InitFreeTerrainIndexes( CTreeItem *pRootItem )
 	int nPrev = -1;
 	for ( std::set<int>::iterator it=indexSet.begin(); it!=indexSet.end(); ++it )
 	{
-		if ( *it != nPrev + 1 )				//если есть пустые индексы
+		if ( *it != nPrev + 1 )				//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		{
 			for ( int i=nPrev+1; i!=*it; i++ )
 				freeTerrainIndexes.push_back( i );
 		}
 		nPrev = *it;
 	}
-	freeTerrainIndexes.push_back( nPrev + 1 );			//это самый последний индекс
+	freeTerrainIndexes.push_back( nPrev + 1 );			//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 }
 
 void CTileSetFrame::InitFreeCrossetIndexes( CTreeItem *pRootItem )
@@ -389,14 +389,14 @@ void CTileSetFrame::InitFreeCrossetIndexes( CTreeItem *pRootItem )
 	int nPrev = -1;
 	for ( std::set<int>::iterator it=indexSet.begin(); it!=indexSet.end(); ++it )
 	{
-		if ( *it != nPrev + 1 )				//если есть пустые индексы
+		if ( *it != nPrev + 1 )				//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		{
 			for ( int i=nPrev+1; i!=*it; i++ )
 				freeCrossetIndexes.push_back( i );
 		}
 		nPrev = *it;
 	}
-	freeCrossetIndexes.push_back( nPrev + 1 );			//это самый последний индекс
+	freeCrossetIndexes.push_back( nPrev + 1 );			//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 }
 
 void CTileSetFrame::SwitchToEditCrossetsMode( bool bMode )
@@ -723,7 +723,7 @@ void CTileSetFrame::OnImportTerrains()
 
 			int nSizeX = 64, nSizeY = 32;
 			pTileImage = pIP->CreateImage( nSizeX, nSizeY );
-			pTileImage->Set( SColor( 255, 0, 0, 0 ) );		//argb, хотя позже сверху пишется инфа из основной картинки
+			pTileImage->Set( SColor( 255, 0, 0, 0 ) );		//argb, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 			SColor *pRes = pTileImage->GetLFB();
 			
 			int nBeginX, nBeginY;
@@ -746,7 +746,7 @@ void CTileSetFrame::OnImportTerrains()
 					pRes[(y - nBeginY)*nSizeX + x - nBeginX].r = pSrc[y*256 + x].r;
 					pRes[(y - nBeginY)*nSizeX + x - nBeginX].g = pSrc[y*256 + x].g;
 					pRes[(y - nBeginY)*nSizeX + x - nBeginX].b = pSrc[y*256 + x].b;
-					pRes[(y - nBeginY)*nSizeX + x - nBeginX].a = 255;		//альфу устанавливаю всегда максимальной
+					pRes[(y - nBeginY)*nSizeX + x - nBeginX].a = 255;		//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 				}
 			}
 			RECT rc;

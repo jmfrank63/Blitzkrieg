@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include <io.h>
-#include "..\Common\StingrayCompat.h"
+#include "..\Common\LegacyUiCompat.h"
 
 #include "..\GFX\GFX.h"
 #include "..\GFX\GFXHelper.h"
@@ -153,7 +153,7 @@ void CTrenchFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const cha
 		rpgStats.defences[ nIndex ].fSilhouette = pCommonProps->GetTrenchCover();
 	}
 
-	std::list<SMySegment> segmentsToSort;		//вспомогательный список, сюда помещаю все сегменты
+	std::list<SMySegment> segmentsToSort;		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
 	for ( int nTrenchIndex=0; nTrenchIndex<4; nTrenchIndex++ )
 	{
@@ -415,14 +415,14 @@ void CTrenchFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 	int nPrev = -1;
 	for ( std::set<int>::iterator it=indexSet.begin(); it!=indexSet.end(); ++it )
 	{
-		if ( *it != nPrev + 1 )				//если есть пустые индексы
+		if ( *it != nPrev + 1 )				//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		{
 			for ( int i=nPrev+1; i!=*it; i++ )
 				freeIndexes.push_back( i );
 		}
 		nPrev = *it;
 	}
-	freeIndexes.push_back( nPrev + 1 );			//это самый последний индекс
+	freeIndexes.push_back( nPrev + 1 );			//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 }
 
 void CTrenchFrame::RemoveTrenchIndex( int nIndex )

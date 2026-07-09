@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include <io.h>
-#include "..\Common\StingrayCompat.h"
+#include "..\Common\LegacyUiCompat.h"
 
 #include "..\Scene\Scene.h"
 #include "..\Anim\Animation.h"
@@ -29,8 +29,8 @@ static const float zeroShiftY = 15.4f;
 static const int MIN_OPACITY = 120;
 static const int MAX_OPACITY = 255;
 
-static const int LINE_LENGTH = 100;			//длина линии, используемой для задания конуса стрельбы
-static const int EDGE_LENGTH = 200;			//длина ребра конуса
+static const int LINE_LENGTH = 100;			//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+static const int EDGE_LENGTH = 200;			//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 
 static const int SHOOT_PICTURE_SIZE = 8;
 
@@ -735,7 +735,7 @@ void CBuildingFrame::SaveRPGStats( IDataTree *pDT, CTreeItem *pRootItem, const c
 		entrancePoint.bStormable = false;
 		float fx1, fy1, fx2, fy2, fx3, fy3, fx4, fy4;
 		CGridFrame::GetGameTileCoordinates( it->nTileX, it->nTileY, fx1, fy1, fx2, fy2, fx3, fy3, fx4, fy4 );
-		CVec2 vCenter2((fx2 + fx4)/2, (fy1+fy3)/2);			//центра тайла
+		CVec2 vCenter2((fx2 + fx4)/2, (fy1+fy3)/2);			//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		CVec3 vCenter3;
 		pSG->GetPos3( &vCenter3, vCenter2 );
 		
@@ -967,13 +967,13 @@ void CBuildingFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 	}
 	
 
-	CVec3 beginPos3;						//координаты самого левого тайла, который связан с vOrigin
+	CVec3 beginPos3;						//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ vOrigin
 	beginPos3.x = 16*fWorldCellSize;
 	beginPos3.y = 16*fWorldCellSize;
 	beginPos3.z = 0;
 
 	CVec2 realZeroPos2;
-	CVec3 realZeroPos3;				//тут будет точная координата перекрестия
+	CVec3 realZeroPos3;				//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	{
 		pSG->GetPos2( &realZeroPos2, m_zeroPos );
 		realZeroPos2.x += zeroShiftX;
@@ -1009,7 +1009,7 @@ void CBuildingFrame::LoadRPGStats( IDataTree *pDT, CTreeItem *pRootItem )
 	}
 
 	{
-		CVec3 beginVis3;						//координаты самого левого тайла, который связан с vVisOrigin
+		CVec3 beginVis3;						//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ vVisOrigin
 		beginVis3.x = realZeroPos3.x - buildingRPGStats.vVisOrigin.x;
 		beginVis3.y = realZeroPos3.y - buildingRPGStats.vVisOrigin.y;
 		beginVis3.z = 0;
