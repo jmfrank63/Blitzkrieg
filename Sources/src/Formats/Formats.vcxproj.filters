@@ -10,9 +10,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="fmtShader.h">
-      <Filter>Common</Filter>
-    </ClInclude>
     <ClInclude Include="Specific.h">
       <Filter>Common</Filter>
     </ClInclude>

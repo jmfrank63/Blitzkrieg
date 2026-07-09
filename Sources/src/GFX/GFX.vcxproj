@@ -439,6 +439,7 @@
     <ClInclude Include="GFXTextVisitors.h" />
     <ClInclude Include="Text.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="RenderPipelineState.h" />
     <ClInclude Include="Shader.h" />
   </ItemGroup>
   <ItemGroup>

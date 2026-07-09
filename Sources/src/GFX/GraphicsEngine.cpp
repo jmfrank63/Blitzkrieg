@@ -1898,17 +1898,17 @@ bool CGraphicsEngine::SetShadingEffect( int nEffect )
 	CShadersMap::const_iterator pos = shaders.find( nEffect );
 	if ( pos != shaders.end() ) 
 	{
-		const CShader::SShadeValues &shadevals = pos->second.GetSetValues();
-		for ( CShader::CShadesList::const_iterator it = shadevals.rses.begin(); it != shadevals.rses.end(); ++it )
+		const CRenderPipelineState::SStateValues &shadevals = pos->second.GetSetValues();
+		for ( CRenderPipelineState::CStateValuesList::const_iterator it = shadevals.rses.begin(); it != shadevals.rses.end(); ++it )
 			SetRenderState( D3DRENDERSTATETYPE(it->first), it->second );
 		for ( int i = 0; i < shadevals.tsses.size(); ++i )
 		{
-			for ( CShader::CShadesList::const_iterator it = shadevals.tsses[i].begin(); it != shadevals.tsses[i].end(); ++it )
+			for ( CRenderPipelineState::CStateValuesList::const_iterator it = shadevals.tsses[i].begin(); it != shadevals.tsses[i].end(); ++it )
 				SetTextureStageState( i, D3DTEXTURESTAGESTATETYPE(it->first), it->second );
 		}
 		for ( int i = 0; i < shadevals.samplers.size(); ++i )
 		{
-			for ( CShader::CShadesList::const_iterator it = shadevals.samplers[i].begin(); it != shadevals.samplers[i].end(); ++it )
+			for ( CRenderPipelineState::CStateValuesList::const_iterator it = shadevals.samplers[i].begin(); it != shadevals.samplers[i].end(); ++it )
 				pD3DDevice->SetSamplerState( i, D3DSAMPLERSTATETYPE(it->first), it->second );
 		}
 		return true;

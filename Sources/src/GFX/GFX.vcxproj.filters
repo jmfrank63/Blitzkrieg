@@ -141,6 +141,9 @@
     <ClInclude Include="resource.h">
       <Filter>Resource</Filter>
     </ClInclude>
+    <ClInclude Include="RenderPipelineState.h">
+      <Filter>Shader</Filter>
+    </ClInclude>
     <ClInclude Include="Shader.h">
       <Filter>Shader</Filter>
     </ClInclude>

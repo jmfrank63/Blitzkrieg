@@ -44,7 +44,6 @@ All external SDKs are available in separate GitHub repositories under this organ
 ### Included SDKs
 - **stlport** - Custom STL implementation (must be first in include paths!)
 - **S3TC** - Texture compression
-- **GOLDParser** - Parser framework
 - **Maya 4.0** - 3D model export tools
 
 ### System Requirements
