@@ -69,6 +69,7 @@ void SetupGlobalVarConsts( CTableAccessor &table )
 	SetGlobalVar( "Sound.MinDistance", table.GetFloat("Sound", "MinDistance", 1.0f) );
 	SetGlobalVar( "Sound.SFXMasterVolume", table.GetFloat("Sound", "SFXMasterVolume", 1.0f) );
 	SetGlobalVar( "Sound.StreamMasterVolume", table.GetFloat("Sound", "StreamMasterVolume", 1.0f) );
+	SetGlobalVar( "Sound.VideoStreamMasterVolume", table.GetFloat("Sound", "VideoStreamMasterVolume", 1.0f) );
 	SetGlobalVar( "Sound.EnableSFX", table.GetInt("Sound", "EnableSFX", 1) );
 	SetGlobalVar( "Sound.EnableStream", table.GetFloat("Sound", "EnableStream", 1) );
 	SetGlobalVar( "Sound.TimeToFade", table.GetInt("Sound", "TimeToFade", 5000) );

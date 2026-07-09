@@ -335,6 +335,15 @@ void CSoundEngine::PlayStream( const char *pszFileName, bool bLooped, const unsi
 		}
 	}
 }
+void CSoundEngine::PlayVideoStream( const char *pszFileName, bool bLooped )
+{
+	PlayStream( pszFileName, bLooped, 0 );
+	if ( bStreamPlaying && nStreamingChannel != -1 )
+	{
+		const BYTE cVideoMasterVolume = MasterVolumeToByte( GetGlobalVar( "Sound.VideoStreamMasterVolume", 1.0f ) );
+		NAudioBackend::SetChannelVolume( nStreamingChannel, cVideoMasterVolume );
+	}
+}
 bool CSoundEngine::IsPaused()
 {
 	return bPaused;

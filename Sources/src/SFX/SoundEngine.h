@@ -73,6 +73,7 @@ public:
 	virtual void STDCALL SetSFXMasterVolume( float fVolume );
 	virtual void STDCALL SetStreamMasterVolume( float fVolume );
 	virtual void STDCALL PlayStream( const char *pszFileName, bool bLooped = false, const unsigned int nTimeToFadePrevious = 0 );
+	virtual void STDCALL PlayVideoStream( const char *pszFileName, bool bLooped = false );
 	virtual void STDCALL StopStream( const unsigned int nTimeToFade = 0 );
 	virtual bool STDCALL IsStreamPlaying() const;
 	virtual void STDCALL SetStreamVolume( const float fVolume );

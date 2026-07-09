@@ -526,7 +526,7 @@ void COpenVideoPlayer::PlayVideoAudioStream( ISFX *pSFX )
 	szAudioStreamName.clear();
 	if ( (pVideoSFX == 0) || !FindOpenVideoAudioStreamName(szFileName.c_str(), &szAudioStreamName) )
 		return;
-	pVideoSFX->PlayStream( szAudioStreamName.c_str(), bLooped, 0 );
+	pVideoSFX->PlayVideoStream( szAudioStreamName.c_str(), bLooped );
 	bAudioStreamPlaying = true;
 	NStr::DebugTrace( "Open video audio stream started: \"%s\".\n", szAudioStreamName.c_str() );
 }

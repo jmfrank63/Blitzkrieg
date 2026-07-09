@@ -68,6 +68,7 @@ interface ISFX : public IRefCount
 	virtual BYTE STDCALL GetSFXMasterVolume() const = 0;
 	virtual void STDCALL SetStreamMasterVolume( float fVolume ) = 0;
 	virtual void STDCALL PlayStream( const char *pszFileName, bool bLooped = false, const unsigned int nTimeToFadePrevious = 0 ) = 0;
+	virtual void STDCALL PlayVideoStream( const char *pszFileName, bool bLooped = false ) = 0;
 	virtual void STDCALL StopStream( const unsigned int nTimeToFade = 0 ) = 0;
 	virtual bool STDCALL IsStreamPlaying() const =0;
 	virtual void STDCALL SetStreamVolume( const float fVolume ) = 0;
