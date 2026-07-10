@@ -141,6 +141,22 @@ const lualib_cpp_sources = &.{
     "Sources/src/LuaLib/Script.cpp",
 };
 
+const net_sources = &.{
+    "Sources/src/Net/GlobalsLoader.cpp",
+    "Sources/src/Net/StdAfx.cpp",
+    "Sources/src/Net/NetA4.cpp",
+    "Sources/src/Net/NetAcks.cpp",
+    "Sources/src/Net/NetConnection.cpp",
+    "Sources/src/Net/NetDriverConsts.cpp",
+    "Sources/src/Net/NetLogin.cpp",
+    "Sources/src/Net/NetLowest.cpp",
+    "Sources/src/Net/NetPeer2Peer.cpp",
+    "Sources/src/Net/NetServerInfo.cpp",
+    "Sources/src/Net/NetStream.cpp",
+    "Sources/src/Net/NetObjectFactory.cpp",
+    "Sources/src/Net/Streams.cpp",
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{
         .default_target = .{
@@ -162,12 +178,14 @@ pub fn build(b: *std.Build) void {
     const misc = addMisc(b, target, optimize, toolchain);
     const image = addImage(b, target, optimize, toolchain, zlib, libpng, misc);
     const lualib = addLuaLib(b, target, optimize, toolchain);
+    const net = addNet(b, target, optimize, toolchain, misc);
 
     b.installArtifact(zlib);
     b.installArtifact(libpng);
     b.installArtifact(misc);
     b.installArtifact(image);
     b.installArtifact(lualib);
+    b.installArtifact(net);
 
     const zlib_step = b.step("zlib", "Build the zlib static library");
     zlib_step.dependOn(&b.addInstallArtifact(zlib, .{}).step);
@@ -183,6 +201,9 @@ pub fn build(b: *std.Build) void {
 
     const lualib_step = b.step("lualib", "Build the LuaLib static library");
     lualib_step.dependOn(&b.addInstallArtifact(lualib, .{}).step);
+
+    const net_step = b.step("net", "Build the Net dynamic library");
+    net_step.dependOn(&b.addInstallArtifact(net, .{}).step);
 }
 
 fn addZlib(
@@ -330,6 +351,39 @@ fn addLuaLib(
     });
 }
 
+fn addNet(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    misc: *std.Build.Step.Compile,
+) *std.Build.Step.Compile {
+    const net_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, net_module);
+    addMsvcIncludePaths(b, net_module, toolchain);
+    addMsvcLibraryPaths(b, net_module, toolchain);
+    net_module.addIncludePath(b.path("Sources/src/Net"));
+    net_module.addCSourceFiles(.{
+        .files = net_sources,
+        .flags = cppflagsForOptimize(optimize),
+    });
+    net_module.linkLibrary(misc);
+    linkMsvcRuntime(net_module, optimize);
+    net_module.linkSystemLibrary("ws2_32", .{});
+    net_module.linkSystemLibrary("odbc32", .{});
+    net_module.linkSystemLibrary("odbccp32", .{});
+
+    return b.addLibrary(.{
+        .name = "Net",
+        .linkage = .dynamic,
+        .root_module = net_module,
+        .win32_module_definition = b.path("Sources/src/Net/net.def"),
+    });
+}
+
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     return switch (optimize) {
         .Debug => cflags_debug,
@@ -376,13 +430,17 @@ fn linkMsvcRuntime(module: *std.Build.Module, optimize: std.builtin.OptimizeMode
         .Debug => {
             module.linkSystemLibrary("ucrtd", .{});
             module.linkSystemLibrary("msvcrtd", .{});
+            module.linkSystemLibrary("msvcprtd", .{});
             module.linkSystemLibrary("vcruntimed", .{});
         },
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => {
             module.linkSystemLibrary("ucrt", .{});
             module.linkSystemLibrary("msvcrt", .{});
+            module.linkSystemLibrary("msvcprt", .{});
             module.linkSystemLibrary("vcruntime", .{});
         },
     }
     module.linkSystemLibrary("oldnames", .{});
+    module.linkSystemLibrary("kernel32", .{});
+    module.linkSystemLibrary("ntdll", .{});
 }
