@@ -115,6 +115,79 @@ const cppflags_beta_release = &.{
     "-Wno-unused-command-line-argument",
 };
 
+const cflags_sfx_debug = &.{
+    "-D_WINDOWS",
+    "-DWIN32",
+    "-D_DEBUG",
+    "-D_DO_CHECKED_CAST",
+    "-D_STL_RANGE_CHECK",
+    "-D_MT",
+    "-D_DLL",
+    "-DSFX_USE_OPEN_AUDIO_BACKEND",
+    "-Wno-deprecated-non-prototype",
+};
+
+const cflags_sfx_release = &.{
+    "-D_WINDOWS",
+    "-DWIN32",
+    "-DNDEBUG",
+    "-D_FINALRELEASE",
+    "-D_MT",
+    "-D_DLL",
+    "-DSFX_USE_OPEN_AUDIO_BACKEND",
+    "-Wno-deprecated-non-prototype",
+};
+
+const cppflags_sfx_debug = &.{
+    "-D_WINDOWS",
+    "-DWIN32",
+    "-D_DEBUG",
+    "-D_DO_ASSERT_SLOW",
+    "-D_DO_CHECKED_CAST",
+    "-D_STL_RANGE_CHECK",
+    "-D_MT",
+    "-D_DLL",
+    "-DSFX_USE_OPEN_AUDIO_BACKEND",
+    "-fms-extensions",
+    "-fdelayed-template-parsing",
+    "-Wno-deprecated-declarations",
+    "-Wno-microsoft-template",
+    "-Wno-nonportable-include-path",
+    "-Wno-reserved-user-defined-literal",
+    "-Wno-comment",
+    "-Wno-enum-compare",
+    "-Wno-microsoft-enum-forward-reference",
+    "-Wno-return-type",
+    "-Wno-address-of-temporary",
+    "-Wno-microsoft-cast",
+    "-Wno-switch",
+    "-Wno-unused-command-line-argument",
+};
+
+const cppflags_sfx_release = &.{
+    "-D_WINDOWS",
+    "-DWIN32",
+    "-DNDEBUG",
+    "-D_FINALRELEASE",
+    "-D_MT",
+    "-D_DLL",
+    "-DSFX_USE_OPEN_AUDIO_BACKEND",
+    "-fms-extensions",
+    "-fdelayed-template-parsing",
+    "-Wno-deprecated-declarations",
+    "-Wno-microsoft-template",
+    "-Wno-nonportable-include-path",
+    "-Wno-reserved-user-defined-literal",
+    "-Wno-comment",
+    "-Wno-enum-compare",
+    "-Wno-microsoft-enum-forward-reference",
+    "-Wno-return-type",
+    "-Wno-address-of-temporary",
+    "-Wno-microsoft-cast",
+    "-Wno-switch",
+    "-Wno-unused-command-line-argument",
+};
+
 const zlib_sources = &.{
     "Sources/src/zlib/adler32.c",
     "Sources/src/zlib/compress.c",
@@ -332,6 +405,47 @@ const fontgen_sources = &.{
     "Sources/src/FontGen/FontGen.cpp",
 };
 
+const sfx_cpp_sources = &.{
+    "Sources/src/SFX/AudioBackend.cpp",
+    "Sources/src/SFX/AudioBackendOpen.cpp",
+    "Sources/src/SFX/GlobalsLoader.cpp",
+    "Sources/src/SFX/StdAfx.cpp",
+    "Sources/src/SFX/SampleSounds.cpp",
+    "Sources/src/SFX/SoundsSerialize.cpp",
+    "Sources/src/SFX/StreamingSound.cpp",
+    "Sources/src/SFX/SoundEngine.cpp",
+    "Sources/src/SFX/SoundManager.cpp",
+    "Sources/src/SFX/SoundObjectFactory.cpp",
+    "Sources/src/SFX/StreamFadeOff.cpp",
+};
+
+const sfx_c_sources = &.{
+    "Sources/src/SFX/AudioBackendXiphVorbis.c",
+    "Sources/sdk/xiph/ogg-1.3.5/src/bitwise.c",
+    "Sources/sdk/xiph/ogg-1.3.5/src/framing.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/analysis.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/bitrate.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/block.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/codebook.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/envelope.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/floor0.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/floor1.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/info.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/lookup.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/lpc.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/lsp.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/mapping0.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/mdct.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/psy.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/registry.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/res0.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/sharedbook.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/smallft.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/synthesis.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/vorbisfile.c",
+    "Sources/sdk/xiph/vorbis-1.3.7/lib/window.c",
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{
         .default_target = .{
@@ -362,6 +476,7 @@ pub fn build(b: *std.Build) void {
     const common = addCommon(b, target, optimize, toolchain);
     const ui = addUI(b, target, optimize, toolchain, misc, common, lualib);
     const fontgen = addFontGen(b, target, optimize, toolchain, image, common, formats, misc);
+    const sfx = addSFX(b, target, optimize, toolchain, misc, common);
 
     b.installArtifact(zlib);
     b.installArtifact(libpng);
@@ -377,6 +492,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(common);
     b.installArtifact(ui);
     b.installArtifact(fontgen);
+    b.installArtifact(sfx);
 
     const zlib_step = b.step("zlib", "Build the zlib static library");
     zlib_step.dependOn(&b.addInstallArtifact(zlib, .{}).step);
@@ -419,6 +535,9 @@ pub fn build(b: *std.Build) void {
 
     const fontgen_step = b.step("fontgen", "Build the FontGen console utility");
     fontgen_step.dependOn(&b.addInstallArtifact(fontgen, .{}).step);
+
+    const sfx_step = b.step("sfx", "Build the SFX dynamic library");
+    sfx_step.dependOn(&b.addInstallArtifact(sfx, .{}).step);
 }
 
 fn addZlib(
@@ -895,6 +1014,53 @@ fn addFontGen(
     return fontgen;
 }
 
+fn addSFX(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    misc: *std.Build.Step.Compile,
+    common: *std.Build.Step.Compile,
+) *std.Build.Step.Compile {
+    const sfx_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, sfx_module);
+    addMsvcIncludePaths(b, sfx_module, toolchain);
+    addMsvcLibraryPaths(b, sfx_module, toolchain);
+    sfx_module.addIncludePath(b.path("Sources/src/SFX"));
+    sfx_module.addIncludePath(b.path("Sources/src/Common"));
+    sfx_module.addIncludePath(b.path("Sources/src/StreamIO"));
+    sfx_module.addIncludePath(b.path("Sources/src/Main"));
+    sfx_module.addIncludePath(b.path("Sources/sdk/miniaudio"));
+    sfx_module.addIncludePath(b.path("Sources/sdk/xiph/ogg-1.3.5/include"));
+    sfx_module.addIncludePath(b.path("Sources/sdk/xiph/vorbis-1.3.7/include"));
+    sfx_module.addIncludePath(b.path("Sources/sdk/xiph/vorbis-1.3.7/lib"));
+    sfx_module.addCSourceFiles(.{
+        .files = sfx_cpp_sources,
+        .flags = cppflagsSfxForOptimize(optimize),
+    });
+    sfx_module.addCSourceFiles(.{
+        .files = sfx_c_sources,
+        .flags = cflagsSfxForOptimize(optimize),
+    });
+    sfx_module.linkLibrary(misc);
+    sfx_module.linkLibrary(common);
+    linkMsvcRuntime(sfx_module, optimize);
+    sfx_module.linkSystemLibrary("winmm", .{});
+    sfx_module.linkSystemLibrary("odbc32", .{});
+    sfx_module.linkSystemLibrary("odbccp32", .{});
+    linkComSupport(sfx_module, optimize);
+
+    return b.addLibrary(.{
+        .name = "SFX",
+        .linkage = .dynamic,
+        .root_module = sfx_module,
+        .win32_module_definition = b.path("Sources/src/SFX/Sound.def"),
+    });
+}
+
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     return switch (optimize) {
         .Debug => cflags_debug,
@@ -913,6 +1079,20 @@ fn cppflagsBetaForOptimize(optimize: std.builtin.OptimizeMode) []const []const u
     return switch (optimize) {
         .Debug => cppflags_beta_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_beta_release,
+    };
+}
+
+fn cflagsSfxForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
+    return switch (optimize) {
+        .Debug => cflags_sfx_debug,
+        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cflags_sfx_release,
+    };
+}
+
+fn cppflagsSfxForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
+    return switch (optimize) {
+        .Debug => cppflags_sfx_debug,
+        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_sfx_release,
     };
 }
 
