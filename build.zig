@@ -57,6 +57,44 @@ const cppflags_release = &.{
     "-Wno-unused-command-line-argument",
 };
 
+const cppflags_beta_debug = &.{
+    "-D_WINDOWS",
+    "-DWIN32",
+    "-D_DEBUG",
+    "-D_DO_ASSERT_SLOW",
+    "-D_DO_CHECKED_CAST",
+    "-D_STL_RANGE_CHECK",
+    "-D_MT",
+    "-D_DLL",
+    "-D_DO_BETA_CHECK",
+    "-fms-extensions",
+    "-fdelayed-template-parsing",
+    "-Wno-deprecated-declarations",
+    "-Wno-microsoft-template",
+    "-Wno-nonportable-include-path",
+    "-Wno-reserved-user-defined-literal",
+    "-Wno-switch",
+    "-Wno-unused-command-line-argument",
+};
+
+const cppflags_beta_release = &.{
+    "-D_WINDOWS",
+    "-DWIN32",
+    "-DNDEBUG",
+    "-D_FINALRELEASE",
+    "-D_MT",
+    "-D_DLL",
+    "-D_DO_BETA_CHECK",
+    "-fms-extensions",
+    "-fdelayed-template-parsing",
+    "-Wno-deprecated-declarations",
+    "-Wno-microsoft-template",
+    "-Wno-nonportable-include-path",
+    "-Wno-reserved-user-defined-literal",
+    "-Wno-switch",
+    "-Wno-unused-command-line-argument",
+};
+
 const zlib_sources = &.{
     "Sources/src/zlib/adler32.c",
     "Sources/src/zlib/compress.c",
@@ -172,6 +210,12 @@ const buildversion_sources = &.{
     "Sources/src/buildversion/StringTokenizer.cpp",
 };
 
+const betakeygen_sources = &.{
+    "Sources/src/betakeygen/StdAfx.cpp",
+    "Sources/src/betakeygen/BetaKey.cpp",
+    "Sources/src/betakeygen/main.cpp",
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{
         .default_target = .{
@@ -188,13 +232,14 @@ pub fn build(b: *std.Build) void {
         .windows_sdk_lib = b.option([]const u8, "windows-sdk-lib", "Windows SDK library version directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0",
     };
 
-    const zlib = addZlib(b, target, optimize);
-    const libpng = addLibpng(b, target, optimize, zlib);
+    const zlib = addZlib(b, target, optimize, toolchain);
+    const libpng = addLibpng(b, target, optimize, toolchain, zlib);
     const misc = addMisc(b, target, optimize, toolchain);
     const image = addImage(b, target, optimize, toolchain, zlib, libpng, misc);
     const lualib = addLuaLib(b, target, optimize, toolchain);
     const net = addNet(b, target, optimize, toolchain, misc);
     const buildversion = addBuildVersion(b, target, optimize, toolchain, misc);
+    const betakeygen = addBetaKeyGen(b, target, optimize, toolchain, zlib, misc);
 
     b.installArtifact(zlib);
     b.installArtifact(libpng);
@@ -203,6 +248,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(lualib);
     b.installArtifact(net);
     b.installArtifact(buildversion);
+    b.installArtifact(betakeygen);
 
     const zlib_step = b.step("zlib", "Build the zlib static library");
     zlib_step.dependOn(&b.addInstallArtifact(zlib, .{}).step);
@@ -224,18 +270,22 @@ pub fn build(b: *std.Build) void {
 
     const buildversion_step = b.step("buildversion", "Build the BuildVersion console utility");
     buildversion_step.dependOn(&b.addInstallArtifact(buildversion, .{}).step);
+
+    const betakeygen_step = b.step("betakeygen", "Build the BetaKeyGen console utility");
+    betakeygen_step.dependOn(&b.addInstallArtifact(betakeygen, .{}).step);
 }
 
 fn addZlib(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
 ) *std.Build.Step.Compile {
     const zlib_module = b.createModule(.{
         .target = target,
         .optimize = optimize,
-        .link_libc = true,
     });
+    addMsvcIncludePaths(b, zlib_module, toolchain);
     zlib_module.addIncludePath(b.path("Sources/src/zlib"));
     zlib_module.addCSourceFiles(.{
         .files = zlib_sources,
@@ -255,13 +305,14 @@ fn addLibpng(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
     zlib: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
     const libpng_module = b.createModule(.{
         .target = target,
         .optimize = optimize,
-        .link_libc = true,
     });
+    addMsvcIncludePaths(b, libpng_module, toolchain);
     libpng_module.addIncludePath(b.path("Sources/src/libpng"));
     libpng_module.addIncludePath(b.path("Sources/src/zlib"));
     libpng_module.addCSourceFiles(.{
@@ -349,7 +400,6 @@ fn addLuaLib(
     const lualib_module = b.createModule(.{
         .target = target,
         .optimize = optimize,
-        .link_libc = true,
     });
     addProjectIncludePaths(b, lualib_module);
     addMsvcIncludePaths(b, lualib_module, toolchain);
@@ -437,6 +487,42 @@ fn addBuildVersion(
     return buildversion;
 }
 
+fn addBetaKeyGen(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    zlib: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+) *std.Build.Step.Compile {
+    const betakeygen_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, betakeygen_module);
+    addMsvcIncludePaths(b, betakeygen_module, toolchain);
+    addMsvcLibraryPaths(b, betakeygen_module, toolchain);
+    betakeygen_module.addIncludePath(b.path("Sources/src/betakeygen"));
+    betakeygen_module.addIncludePath(b.path("Sources/src/zlib"));
+    betakeygen_module.addCSourceFiles(.{
+        .files = betakeygen_sources,
+        .flags = cppflagsBetaForOptimize(optimize),
+    });
+    betakeygen_module.linkLibrary(misc);
+    betakeygen_module.linkLibrary(zlib);
+    linkMsvcRuntime(betakeygen_module, optimize);
+    betakeygen_module.linkSystemLibrary("odbc32", .{});
+    betakeygen_module.linkSystemLibrary("odbccp32", .{});
+
+    const betakeygen = b.addExecutable(.{
+        .name = "BetaKeyGen",
+        .root_module = betakeygen_module,
+    });
+    betakeygen.subsystem = .console;
+    betakeygen.entry = .{ .symbol_name = "mainCRTStartup" };
+    return betakeygen;
+}
+
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     return switch (optimize) {
         .Debug => cflags_debug,
@@ -448,6 +534,13 @@ fn cppflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     return switch (optimize) {
         .Debug => cppflags_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_release,
+    };
+}
+
+fn cppflagsBetaForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
+    return switch (optimize) {
+        .Debug => cppflags_beta_debug,
+        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_beta_release,
     };
 }
 
