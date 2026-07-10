@@ -120,7 +120,7 @@ public:
     float m[4];
     struct { float x, y, z, w; };
     struct { float a, r, g, b; };				// for color components
-    struct { float u, v, q, w; };				// for texture coord
+    struct { float u, v, q; };					// for texture coord; w is shared with the vector view
   };
 public:
 	CVec4() : x( 0.0f ), y( 0.0f ), z( 0.0f ), w( 0.0f ) {  }
@@ -224,12 +224,12 @@ public:
   union
   {
     struct { CVec3 n; float d; };
-    struct { float a, b, c, d; };
+    struct { float a, b, c; };			// d is shared with the normal/distance view
 		struct { CVec4 vec4; };
   };
 public:
 	SPlane() : vec4( VNULL4 ) {  }
-	SPlane( float _a, float _b, float _c, float _d ) : a( _a ), b( _b ), c( _c ), d( _d ) {  }
+	SPlane( float _a, float _b, float _c, float _d ) { Set( _a, _b, _c, _d ); }
   SPlane( const CVec3 &vNormale, const float fDist ) : n( vNormale ), d( fDist ) {  }
   SPlane( const CVec4 &v ) : vec4( v ) {  }
 	SPlane( const SPlane &plane ) : vec4( plane.vec4 ) {  }
