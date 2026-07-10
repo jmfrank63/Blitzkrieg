@@ -4,6 +4,7 @@
 #include "LanChat.h"
 #include "ChatMessages.h"
 
+#include "..\GameSpy\GameSpyConfig.h"
 #include "..\Main\GameTimer.h"
 chatGlobalCallbacks CGameSpyChat::globalCallbacks;
 chatChannelCallbacks CGameSpyChat::channelCallbacks;
@@ -22,6 +23,7 @@ void CGameSpyChat::InitGSChat( const char *pszRealUserName, const char *pszNick 
 {
 	szRealUserName = pszRealUserName;
 	szNick = pszNick;
+	SyncGameSpyEndpointConfig();
 	
 	std::string szSecretKey;
 	szSecretKey.resize( 6 );
@@ -42,7 +44,7 @@ void CGameSpyChat::InitGSChat( const char *pszRealUserName, const char *pszNick 
 	
 	eInitState = EIS_INITIALIZING;	
 	chat = chatConnectSecure(
-		"peerchat.gamespy.com", 6667, szNick.c_str(), szNick.c_str(),
+		pi_chat_server_address, 6667, szNick.c_str(), szNick.c_str(),
 		GetGlobalVar("GameSpyGameName"), szSecretKey.c_str(), 
 		&globalCallbacks,
 		nickErrorCallback, fillInUserCallback, connectCallback,

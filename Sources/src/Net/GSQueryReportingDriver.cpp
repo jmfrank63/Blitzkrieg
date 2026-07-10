@@ -5,6 +5,7 @@
 
 #include "stdio.h"
 
+#include "..\GameSpy\GameSpyConfig.h"
 #include "..\Main\MultiplayerConsts.h"
 #include "..\GameTT\MultiplayerCommandManager.h"
 using namespace NWin32Helper;
@@ -27,6 +28,7 @@ CGSQueryReportingDriver::~CGSQueryReportingDriver()
 bool CGSQueryReportingDriver::Init( const APPLICATION_ID _nApplicationID, int _nGamePort, bool _bClientOnly )
 {
 	nGamePort = _nGamePort;
+	SyncGameSpyEndpointConfig();
 
 	std::string szSecretKey;
 	szSecretKey.resize( 6 );

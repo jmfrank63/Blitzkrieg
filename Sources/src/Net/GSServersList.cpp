@@ -3,6 +3,7 @@
 #include "GSServersList.h"
 #include "GSConsts.h"
 
+#include "..\GameSpy\GameSpyConfig.h"
 #include "..\Main\MultiplayerConsts.h"
 #include "..\GameTT\MultiplayerCommandManager.h"
 #include "..\StreamIO\StreamIOTypes.h"
@@ -20,6 +21,7 @@ CGSServersListDriver::~CGSServersListDriver()
 bool CGSServersListDriver::Init( const APPLICATION_ID nApplicationID, int _nGamePort, bool _bClientOnly )
 {
 	nNetVersion = nApplicationID;
+	SyncGameSpyEndpointConfig();
 	
 	std::string szSecretKey;
 	szSecretKey.resize( 6 );

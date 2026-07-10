@@ -254,6 +254,7 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="GameSpyConfig.h" />
     <ClInclude Include="chat\chat.h" />
     <ClInclude Include="chat\chatCallbacks.h" />
     <ClInclude Include="chat\chatChannel.h" />

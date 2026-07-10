@@ -3,6 +3,7 @@
 #include "GameSpyPeerChat.h"
 #include "LanChat.h"
 #include "ChatMessages.h"
+#include "..\GameSpy\GameSpyConfig.h"
 PEERCallbacks CGameSpyPeerChat::callBacks;
 const std::string CGameSpyPeerChat::szRoomKeyName = "b_player_flag";
 CGameSpyPeerChat::CGameSpyPeerChat()
@@ -31,6 +32,7 @@ void CGameSpyPeerChat::InitGSChat( const char *pszRealUserName, const char *pszN
 {
 	szRealUserName = pszRealUserName;
 	szNick = pszNick;
+	SyncGameSpyEndpointConfig();
 	
 	std::string szSecretKey;
 	szSecretKey.resize( 6 );

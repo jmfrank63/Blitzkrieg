@@ -36,8 +36,9 @@ devsupport@gamespy.com
 /************
 ** DEFINES **
 ************/
-#define PI_CHAT_SERVER_ADDRESS    "peerchat.gamespy.com"
 #define PI_CHAT_SERVER_PORT       6667
+
+char pi_chat_server_address[64] = "peerchat.gamespy.com";
 
 #define PEER_CONNECTION_OP        piConnection * connection;\
                                   PEER peer;\
@@ -379,7 +380,7 @@ PEERBool piNewConnectOperation
 	// Connect to chat.
 	///////////////////
 	connection->chat = chatConnectSecure(
-		PI_CHAT_SERVER_ADDRESS,
+		pi_chat_server_address,
 		PI_CHAT_SERVER_PORT,
 		nick,
 		encodedUniqueID, //"me@fake-email.com",

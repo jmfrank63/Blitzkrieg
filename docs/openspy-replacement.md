@@ -35,3 +35,31 @@ OpenSpy services that matter first for Blitzkrieg are:
 `openspy-web-backend`. We prefer native builds over Docker for this project, so
 the first backend spike should document a direct Windows or Linux build/run
 path and only use Docker documentation as protocol/runtime reference.
+
+## Client Endpoint Configuration
+
+The game now reads optional OpenSpy endpoint overrides from the normal config
+globals:
+
+- `Options.Multiplayer.OpenSpyHost`
+- `Options.Multiplayer.OpenSpyMasterHost`
+- `Options.Multiplayer.OpenSpyPeerchatHost`
+
+The corresponding editable config keys live in `Data/Configs/defconf.cfg` and
+`Data/Configs/config.cfg` as `Multiplayer.OpenSpyHost`,
+`Multiplayer.OpenSpyMasterHost`, and `Multiplayer.OpenSpyPeerchatHost`.
+
+`Multiplayer.OpenSpyHost` is the common override for all GameSpy/OpenSpy
+endpoints. The master and peerchat keys are more specific overrides. Empty
+values keep the original legacy hostnames, so normal single-player startup is
+unchanged.
+
+For a local OpenSpy test run, set:
+
+```xml
+<KeyName>Multiplayer.OpenSpyHost</KeyName>
+<Var>127.0.0.1</Var>
+```
+
+Use the specific master or peerchat keys only when those services need different
+hosts.
