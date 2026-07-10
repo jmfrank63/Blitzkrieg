@@ -27,6 +27,7 @@ zig build common
 zig build ui
 zig build fontgen
 zig build sfx
+zig build gfx
 ```
 
 By default the build targets Win32/MSVC (`x86-windows-msvc`) because that matches the current game build. Other targets can be explored explicitly with Zig's normal `-Dtarget=...` option once the graph is less dependent on Win32 APIs.
@@ -64,3 +65,5 @@ zig build misc -Dmsvc-include="C:\Path\To\VC\Tools\MSVC\<version>\include" -Dwin
 `FontGen` is mirrored as a console utility. It links the Zig-built `Image`, `Common`, `Formats`, and `Misc` artifacts plus the Win32 GDI/User libraries used by the font atlas generator.
 
 `SFX` is mirrored as a DLL using `Sources/src/SFX/Sound.def`. It builds the open-audio backend and the embedded Xiph Ogg/Vorbis C sources with `SFX_USE_OPEN_AUDIO_BACKEND`.
+
+`GFX` is mirrored as a DLL using `Sources/src/GFX/GFX.def`. It links the Zig-built `Misc` and `Formats` artifacts plus the Direct3D, User/GDI, and COM libraries used by the DirectX 9 renderer.

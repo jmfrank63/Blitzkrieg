@@ -514,7 +514,7 @@ bool CGraphicsEngine::FillPresentationParams( int nWidth, int nHeight, int nBPP,
 			nStencilBPP >>= 1;
 			FindDepthStencilFormat( nRenderSurfaceBPP, nStencilBPP );
 		} while ( (pp.AutoDepthStencilFormat == D3DFORMAT(-1)) && (nStencilBPP != 0) );
-		NI_ASSERT_TF( pp.AutoDepthStencilFormat != -1, NStr::Format("Can't find appropriate depth buffer format with stencil = %d", nStencilBPP), return false );
+		NI_ASSERT_TF( pp.AutoDepthStencilFormat != D3DFORMAT(-1), NStr::Format("Can't find appropriate depth buffer format with stencil = %d", nStencilBPP), return false );
 		this->nStencilBPP = 0;
 		switch ( pp.AutoDepthStencilFormat )
 		{

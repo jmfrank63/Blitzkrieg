@@ -446,6 +446,25 @@ const sfx_c_sources = &.{
     "Sources/sdk/xiph/vorbis-1.3.7/lib/window.c",
 };
 
+const gfx_sources = &.{
+    "Sources/src/GFX/GlobalsLoader.cpp",
+    "Sources/src/GFX/StdAfx.cpp",
+    "Sources/src/GFX/GFXObjectFactory.cpp",
+    "Sources/src/GFX/GraphicsEngine.cpp",
+    "Sources/src/GFX/VideoCheck.cpp",
+    "Sources/src/GFX/Texture.cpp",
+    "Sources/src/GFX/TextureManager.cpp",
+    "Sources/src/GFX/GeometryBuffer.cpp",
+    "Sources/src/GFX/GeometryManager.cpp",
+    "Sources/src/GFX/GeometryMesh.cpp",
+    "Sources/src/GFX/RangeAllocs.cpp",
+    "Sources/src/GFX/Clipping.cpp",
+    "Sources/src/GFX/Font.cpp",
+    "Sources/src/GFX/FontManager.cpp",
+    "Sources/src/GFX/GFXTextVisitors.cpp",
+    "Sources/src/GFX/Text.cpp",
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{
         .default_target = .{
@@ -477,6 +496,7 @@ pub fn build(b: *std.Build) void {
     const ui = addUI(b, target, optimize, toolchain, misc, common, lualib);
     const fontgen = addFontGen(b, target, optimize, toolchain, image, common, formats, misc);
     const sfx = addSFX(b, target, optimize, toolchain, misc, common);
+    const gfx = addGFX(b, target, optimize, toolchain, misc, formats);
 
     b.installArtifact(zlib);
     b.installArtifact(libpng);
@@ -493,6 +513,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(ui);
     b.installArtifact(fontgen);
     b.installArtifact(sfx);
+    b.installArtifact(gfx);
 
     const zlib_step = b.step("zlib", "Build the zlib static library");
     zlib_step.dependOn(&b.addInstallArtifact(zlib, .{}).step);
@@ -538,6 +559,9 @@ pub fn build(b: *std.Build) void {
 
     const sfx_step = b.step("sfx", "Build the SFX dynamic library");
     sfx_step.dependOn(&b.addInstallArtifact(sfx, .{}).step);
+
+    const gfx_step = b.step("gfx", "Build the GFX dynamic library");
+    gfx_step.dependOn(&b.addInstallArtifact(gfx, .{}).step);
 }
 
 fn addZlib(
@@ -1061,6 +1085,47 @@ fn addSFX(
     });
 }
 
+fn addGFX(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    misc: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+) *std.Build.Step.Compile {
+    const gfx_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, gfx_module);
+    addMsvcIncludePaths(b, gfx_module, toolchain);
+    addMsvcLibraryPaths(b, gfx_module, toolchain);
+    gfx_module.addIncludePath(b.path("Sources/src/GFX"));
+    gfx_module.addIncludePath(b.path("Sources/src/Image"));
+    gfx_module.addIncludePath(b.path("Sources/src/Anim"));
+    gfx_module.addCSourceFiles(.{
+        .files = gfx_sources,
+        .flags = cppflagsForOptimize(optimize),
+    });
+    gfx_module.linkLibrary(misc);
+    gfx_module.linkLibrary(formats);
+    linkMsvcRuntime(gfx_module, optimize);
+    gfx_module.linkSystemLibrary("d3d9", .{});
+    gfx_module.linkSystemLibrary("dxguid", .{});
+    gfx_module.linkSystemLibrary("user32", .{});
+    gfx_module.linkSystemLibrary("gdi32", .{});
+    gfx_module.linkSystemLibrary("odbc32", .{});
+    gfx_module.linkSystemLibrary("odbccp32", .{});
+    linkComSupport(gfx_module, optimize);
+
+    return b.addLibrary(.{
+        .name = "GFX",
+        .linkage = .dynamic,
+        .root_module = gfx_module,
+        .win32_module_definition = b.path("Sources/src/GFX/GFX.def"),
+    });
+}
+
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     return switch (optimize) {
         .Debug => cflags_debug,
@@ -1149,4 +1214,6 @@ fn linkComSupport(module: *std.Build.Module, optimize: std.builtin.OptimizeMode)
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => module.linkSystemLibrary("comsuppw", .{}),
     }
     module.linkSystemLibrary("oleaut32", .{});
+    module.linkSystemLibrary("ole32", .{});
+    module.linkSystemLibrary("uuid", .{});
 }

@@ -91,7 +91,7 @@ public:
 			if ( eSerialMode == SDSM_REPLACE )
 			{
 				saver.Add( GetID(), &data );
-				for ( CDataHash::const_iterator i = data.begin(); i != data.end(); ++i )
+				for ( typename CDataHash::const_iterator i = data.begin(); i != data.end(); ++i )
 				{
 					if ( i->second == 0 )
 						continue;
@@ -103,11 +103,11 @@ public:
 			{
 				CDataHash holder = data;
 				saver.Add( GetID(), &data );
-				for ( CDataHash::const_iterator i = data.begin(); i != data.end(); ++i )
+				for ( typename CDataHash::const_iterator i = data.begin(); i != data.end(); ++i )
 				{
 					if ( i->second == 0 )
 						continue;
-					CDataHash::iterator pos = holder.find( i->first );
+					typename CDataHash::iterator pos = holder.find( i->first );
 					if ( pos == holder.end() )
 					{
 						i->second->SetSharedResourceName( i->first );
@@ -124,11 +124,11 @@ public:
 			{
 				CDataHash holder;
 				saver.Add( GetID(), &holder );
-				for ( CDataHash::const_iterator i = holder.begin(); i != holder.end(); ++i )
+				for ( typename CDataHash::const_iterator i = holder.begin(); i != holder.end(); ++i )
 				{
 					if ( i->second == 0 )
 						continue;
-					CDataHash::iterator pos = data.find( i->first );
+					typename CDataHash::iterator pos = data.find( i->first );
 					if ( pos == data.end() )			// load new data
 					{
 						i->second->SetSharedResourceName( i->first );
@@ -155,25 +155,25 @@ public:
 	void ClearUnreferencedResources()
 	{
 		std::list<TKey> keys;
-		for ( CDataHash::const_iterator it = data.begin(); it != data.end(); ++it )
+		for ( typename CDataHash::const_iterator it = data.begin(); it != data.end(); ++it )
 		{
 			if ( (it->second->GetRefCounter() & 0x00ffffff) == NRefCount::REF_ADD_OBJ )
 				keys.push_back( it->first );
 		}
-		for ( std::list<TKey>::const_iterator it = keys.begin(); it != keys.end(); ++it )
+		for ( typename std::list<TKey>::const_iterator it = keys.begin(); it != keys.end(); ++it )
 			data.erase( *it );
 	}
 	int ClearLRUResources( const int nUsage, const int nAmount )
 	{
 		std::multimap<int, TValue*> keys;
-		for ( CDataHash::const_iterator it = data.begin(); it != data.end(); ++it )
+		for ( typename CDataHash::const_iterator it = data.begin(); it != data.end(); ++it )
 		{
 			const int nLastUsage = it->second->GetSharedResourceLastUsage();
 			if ( (nLastUsage < nUsage) && (it->second->GetResourceConsumption() > 0) ) 
-				keys.insert( std::multimap<int, TValue*>::value_type(nLastUsage, it->second) );
+				keys.insert( typename std::multimap<int, TValue*>::value_type(nLastUsage, it->second) );
 		}
 		int nFreedResources = 0;
-		for ( std::multimap<int, TValue*>::const_iterator it = keys.begin(); it != keys.end() && nFreedResources < nAmount; ++it )
+		for ( typename std::multimap<int, TValue*>::const_iterator it = keys.begin(); it != keys.end() && nFreedResources < nAmount; ++it )
 		{
 			nFreedResources += it->second->GetResourceConsumption();
 			it->second->ClearInternalContainer();
@@ -182,7 +182,7 @@ public:
 	}
 	void ClearContainers()
 	{
-		for ( CDataHash::const_iterator i = data.begin(); i != data.end(); ++i )
+		for ( typename CDataHash::const_iterator i = data.begin(); i != data.end(); ++i )
 		{
 			if ( i->second != 0 )
 				i->second->ClearInternalContainer();
@@ -190,7 +190,7 @@ public:
 	}
 	void ReloadAllData()
 	{
-		for ( CDataHash::const_iterator i = data.begin(); i != data.end(); ++i )
+		for ( typename CDataHash::const_iterator i = data.begin(); i != data.end(); ++i )
 		{
 			if ( i->second == 0 )
 				continue;

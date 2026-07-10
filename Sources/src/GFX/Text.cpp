@@ -39,7 +39,8 @@ int CGFXText::GetWidth( int nNumCharacters ) const
 	if ( nStrLen == 0 ) 
 		return 1;
 	nNumCharacters = nNumCharacters < 0 ? nStrLen : Min( nNumCharacters, nStrLen );
-	return VisitText( pszStringBegin, pszStringBegin + nNumCharacters, 0, 0, CTextWidthVisitor() );
+	CTextWidthVisitor visitor;
+	return VisitText( pszStringBegin, pszStringBegin + nNumCharacters, 0, 0, visitor );
 }
 inline const bool IsEOL( const wchar_t chr ) { return (chr == '\n') || (chr == '\r'); }
 inline const bool IsSPC( const wchar_t chr ) { return chr == L' '; }
