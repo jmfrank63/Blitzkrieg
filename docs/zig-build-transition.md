@@ -1,0 +1,20 @@
+# Zig Build Transition
+
+This branch starts the move from the Visual Studio solution to `build.zig` using Zig 0.16.
+
+The migration is intentionally incremental:
+
+1. Keep `Sources/src/A7.sln` as the reference build while each project is mirrored in Zig.
+2. Start with leaf/static libraries whose inputs are simple and easy to compare.
+3. Move upward through dependent libraries, then DLLs, then `Game.exe`.
+4. Only remove MSBuild project files once the matching Zig target is verified.
+
+Current Zig target:
+
+```powershell
+zig build zlib
+```
+
+By default the build targets Win32/MSVC (`x86-windows-msvc`) because that matches the current game build. Other targets can be explored explicitly with Zig's normal `-Dtarget=...` option once the graph is less dependent on Win32 APIs.
+
+The first target omits `Sources/src/zlib/minigzip.c` because it is a sample executable with its own `main`, not part of the zlib library surface used by the game.
