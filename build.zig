@@ -216,6 +216,16 @@ const betakeygen_sources = &.{
     "Sources/src/betakeygen/main.cpp",
 };
 
+const input_sources = &.{
+    "Sources/src/Input/GlobalsLoader.cpp",
+    "Sources/src/Input/StdAfx.cpp",
+    "Sources/src/Input/InputAPI.cpp",
+    "Sources/src/Input/InputBinder.cpp",
+    "Sources/src/Input/InputObjectFactory.cpp",
+    "Sources/src/Input/InputSlider.cpp",
+    "Sources/src/Input/Visitors.cpp",
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{
         .default_target = .{
@@ -240,6 +250,7 @@ pub fn build(b: *std.Build) void {
     const net = addNet(b, target, optimize, toolchain, misc);
     const buildversion = addBuildVersion(b, target, optimize, toolchain, misc);
     const betakeygen = addBetaKeyGen(b, target, optimize, toolchain, zlib, misc);
+    const input = addInput(b, target, optimize, toolchain, misc);
 
     b.installArtifact(zlib);
     b.installArtifact(libpng);
@@ -249,6 +260,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(net);
     b.installArtifact(buildversion);
     b.installArtifact(betakeygen);
+    b.installArtifact(input);
 
     const zlib_step = b.step("zlib", "Build the zlib static library");
     zlib_step.dependOn(&b.addInstallArtifact(zlib, .{}).step);
@@ -273,6 +285,9 @@ pub fn build(b: *std.Build) void {
 
     const betakeygen_step = b.step("betakeygen", "Build the BetaKeyGen console utility");
     betakeygen_step.dependOn(&b.addInstallArtifact(betakeygen, .{}).step);
+
+    const input_step = b.step("input", "Build the Input dynamic library");
+    input_step.dependOn(&b.addInstallArtifact(input, .{}).step);
 }
 
 fn addZlib(
@@ -523,6 +538,43 @@ fn addBetaKeyGen(
     return betakeygen;
 }
 
+fn addInput(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    misc: *std.Build.Step.Compile,
+) *std.Build.Step.Compile {
+    const input_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, input_module);
+    addMsvcIncludePaths(b, input_module, toolchain);
+    addMsvcLibraryPaths(b, input_module, toolchain);
+    input_module.addIncludePath(b.path("Sources/src/Input"));
+    input_module.addCSourceFiles(.{
+        .files = input_sources,
+        .flags = cppflagsForOptimize(optimize),
+    });
+    input_module.linkLibrary(misc);
+    linkMsvcRuntime(input_module, optimize);
+    input_module.linkSystemLibrary("winmm", .{});
+    input_module.linkSystemLibrary("dinput8", .{});
+    input_module.linkSystemLibrary("dxguid", .{});
+    input_module.linkSystemLibrary("user32", .{});
+    input_module.linkSystemLibrary("odbc32", .{});
+    input_module.linkSystemLibrary("odbccp32", .{});
+    linkComSupport(input_module, optimize);
+
+    return b.addLibrary(.{
+        .name = "Input",
+        .linkage = .dynamic,
+        .root_module = input_module,
+        .win32_module_definition = b.path("Sources/src/Input/Input.def"),
+    });
+}
+
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     return switch (optimize) {
         .Debug => cflags_debug,
@@ -589,4 +641,11 @@ fn linkMsvcRuntime(module: *std.Build.Module, optimize: std.builtin.OptimizeMode
     module.linkSystemLibrary("oldnames", .{});
     module.linkSystemLibrary("kernel32", .{});
     module.linkSystemLibrary("ntdll", .{});
+}
+
+fn linkComSupport(module: *std.Build.Module, optimize: std.builtin.OptimizeMode) void {
+    switch (optimize) {
+        .Debug => module.linkSystemLibrary("comsuppwd", .{}),
+        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => module.linkSystemLibrary("comsuppw", .{}),
+    }
 }

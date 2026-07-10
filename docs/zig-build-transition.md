@@ -20,6 +20,7 @@ zig build lualib
 zig build net
 zig build buildversion
 zig build betakeygen
+zig build input
 ```
 
 By default the build targets Win32/MSVC (`x86-windows-msvc`) because that matches the current game build. Other targets can be explored explicitly with Zig's normal `-Dtarget=...` option once the graph is less dependent on Win32 APIs.
@@ -43,3 +44,5 @@ zig build misc -Dmsvc-include="C:\Path\To\VC\Tools\MSVC\<version>\include" -Dwin
 `BuildVersion` is the first Zig-built executable target. It mirrors the legacy console utility and uses an explicit `mainCRTStartup` entry point so the MSVC CRT calls the existing `main` function.
 
 `BetaKeyGen` mirrors the legacy beta key console utility. It links the Zig-built `Misc` and `zlib` artifacts and enables the `_DO_BETA_CHECK` define used by the Visual Studio project.
+
+`Input` is mirrored as a DLL using `Sources/src/Input/Input.def`. It links the Zig-built `Misc` artifact plus the DirectInput, WinMM, COM support, and ODBC system libraries used by the Visual Studio project.
