@@ -15,6 +15,7 @@ Current Zig targets:
 zig build zlib
 zig build libpng
 zig build misc
+zig build image
 ```
 
 By default the build targets Win32/MSVC (`x86-windows-msvc`) because that matches the current game build. Other targets can be explored explicitly with Zig's normal `-Dtarget=...` option once the graph is less dependent on Win32 APIs.
@@ -28,3 +29,5 @@ The first target omits `Sources/src/zlib/minigzip.c` because it is a sample exec
 ```powershell
 zig build misc -Dmsvc-include="C:\Path\To\VC\Tools\MSVC\<version>\include" -Dwindows-sdk-include="C:\Program Files (x86)\Windows Kits\10\Include\<version>"
 ```
+
+`Image` is the first Zig-built DLL. It uses `Sources/src/Image/Image.def` for exports and links the Zig-built `Misc`, `libpng`, and `zlib` artifacts. The resource script is not mirrored yet; the current slice proves code compilation, export definition handling, and DLL linking first.

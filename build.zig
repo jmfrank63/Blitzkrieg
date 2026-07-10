@@ -30,6 +30,7 @@ const cppflags_debug = &.{
     "-Wno-microsoft-template",
     "-Wno-nonportable-include-path",
     "-Wno-reserved-user-defined-literal",
+    "-Wno-switch",
     "-Wno-unused-command-line-argument",
 };
 
@@ -44,6 +45,7 @@ const cppflags_release = &.{
     "-Wno-microsoft-template",
     "-Wno-nonportable-include-path",
     "-Wno-reserved-user-defined-literal",
+    "-Wno-switch",
     "-Wno-unused-command-line-argument",
 };
 
@@ -100,6 +102,21 @@ const misc_sources = &.{
     "Sources/src/Misc/Thread.cpp",
 };
 
+const image_sources = &.{
+    "Sources/src/Image/ImageBMP.cpp",
+    "Sources/src/Image/ImageMMP.cpp",
+    "Sources/src/Image/ImageObjectFactory.cpp",
+    "Sources/src/Image/ImagePNG.cpp",
+    "Sources/src/Image/ImageProcessor.cpp",
+    "Sources/src/Image/ImageReal.cpp",
+    "Sources/src/Image/DxtCodec.cpp",
+    "Sources/src/Image/ImageScale.cpp",
+    "Sources/src/Image/ImageTGA.cpp",
+    "Sources/src/Image/RectsComposition.cpp",
+    "Sources/src/Image/GlobalsLoader.cpp",
+    "Sources/src/Image/StdAfx.cpp",
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{
         .default_target = .{
@@ -112,15 +129,19 @@ pub fn build(b: *std.Build) void {
     const toolchain = ToolchainIncludes{
         .msvc_include = b.option([]const u8, "msvc-include", "MSVC C/C++ include directory") orelse "C:\\Program Files\\Microsoft Visual Studio\\18\\Insiders\\VC\\Tools\\MSVC\\14.51.36231\\include",
         .windows_sdk_include = b.option([]const u8, "windows-sdk-include", "Windows SDK include version directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.26100.0",
+        .msvc_lib = b.option([]const u8, "msvc-lib", "MSVC x86 library directory") orelse "C:\\Program Files\\Microsoft Visual Studio\\18\\Insiders\\VC\\Tools\\MSVC\\14.51.36231\\lib\\x86",
+        .windows_sdk_lib = b.option([]const u8, "windows-sdk-lib", "Windows SDK library version directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0",
     };
 
     const zlib = addZlib(b, target, optimize);
     const libpng = addLibpng(b, target, optimize, zlib);
     const misc = addMisc(b, target, optimize, toolchain);
+    const image = addImage(b, target, optimize, toolchain, zlib, libpng, misc);
 
     b.installArtifact(zlib);
     b.installArtifact(libpng);
     b.installArtifact(misc);
+    b.installArtifact(image);
 
     const zlib_step = b.step("zlib", "Build the zlib static library");
     zlib_step.dependOn(&b.addInstallArtifact(zlib, .{}).step);
@@ -130,6 +151,9 @@ pub fn build(b: *std.Build) void {
 
     const misc_step = b.step("misc", "Build the Misc static library");
     misc_step.dependOn(&b.addInstallArtifact(misc, .{}).step);
+
+    const image_step = b.step("image", "Build the Image dynamic library");
+    image_step.dependOn(&b.addInstallArtifact(image, .{}).step);
 }
 
 fn addZlib(
@@ -209,6 +233,43 @@ fn addMisc(
     });
 }
 
+fn addImage(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    zlib: *std.Build.Step.Compile,
+    libpng: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+) *std.Build.Step.Compile {
+    const image_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, image_module);
+    addMsvcIncludePaths(b, image_module, toolchain);
+    addMsvcLibraryPaths(b, image_module, toolchain);
+    image_module.addIncludePath(b.path("Sources/src/Image"));
+    image_module.addIncludePath(b.path("Sources/src/zlib"));
+    image_module.addIncludePath(b.path("Sources/src/libpng"));
+    image_module.addCSourceFiles(.{
+        .files = image_sources,
+        .flags = cppflagsForOptimize(optimize),
+    });
+    image_module.linkLibrary(misc);
+    image_module.linkLibrary(libpng);
+    image_module.linkLibrary(zlib);
+    linkMsvcRuntime(image_module, optimize);
+    image_module.linkSystemLibrary("user32", .{});
+
+    return b.addLibrary(.{
+        .name = "Image",
+        .linkage = .dynamic,
+        .root_module = image_module,
+        .win32_module_definition = b.path("Sources/src/Image/Image.def"),
+    });
+}
+
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     return switch (optimize) {
         .Debug => cflags_debug,
@@ -232,6 +293,8 @@ fn addProjectIncludePaths(b: *std.Build, module: *std.Build.Module) void {
 const ToolchainIncludes = struct {
     msvc_include: []const u8,
     windows_sdk_include: []const u8,
+    msvc_lib: []const u8,
+    windows_sdk_lib: []const u8,
 };
 
 fn addMsvcIncludePaths(b: *std.Build, module: *std.Build.Module, toolchain: ToolchainIncludes) void {
@@ -240,4 +303,26 @@ fn addMsvcIncludePaths(b: *std.Build, module: *std.Build.Module, toolchain: Tool
     module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}\\shared", .{toolchain.windows_sdk_include}) });
     module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}\\um", .{toolchain.windows_sdk_include}) });
     module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}\\winrt", .{toolchain.windows_sdk_include}) });
+}
+
+fn addMsvcLibraryPaths(b: *std.Build, module: *std.Build.Module, toolchain: ToolchainIncludes) void {
+    module.addLibraryPath(.{ .cwd_relative = toolchain.msvc_lib });
+    module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\ucrt\\x86", .{toolchain.windows_sdk_lib}) });
+    module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\um\\x86", .{toolchain.windows_sdk_lib}) });
+}
+
+fn linkMsvcRuntime(module: *std.Build.Module, optimize: std.builtin.OptimizeMode) void {
+    switch (optimize) {
+        .Debug => {
+            module.linkSystemLibrary("ucrtd", .{});
+            module.linkSystemLibrary("msvcrtd", .{});
+            module.linkSystemLibrary("vcruntimed", .{});
+        },
+        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => {
+            module.linkSystemLibrary("ucrt", .{});
+            module.linkSystemLibrary("msvcrt", .{});
+            module.linkSystemLibrary("vcruntime", .{});
+        },
+    }
+    module.linkSystemLibrary("oldnames", .{});
 }
