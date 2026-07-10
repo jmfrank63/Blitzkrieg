@@ -1214,7 +1214,7 @@ static int GetUserProfileVar( struct lua_State *state )
 {
 	Script script(state);
 	NI_ASSERT_T( script.GetTop() == 2, "Script function must have 2 arguments on the stack" );			//��� ���������
-	const std::string szStr = script.GetObject( -2 );
+	const std::string szStr = static_cast<const char*>( script.GetObject( -2 ) );
 	const int nValue = script.GetObject( -1 );
 	script.PushNumber( GetSingleton<IUserProfile>()->GetVar( szStr.c_str(), nValue ) );
 	return 1;
@@ -1223,7 +1223,7 @@ static int SetUserProfileVar( struct lua_State *state )
 {
 	Script script(state);
 	NI_ASSERT_T( script.GetTop() == 2, "Script function must have 2 arguments on the stack" );			//��� ���������
-	const std::string szStr = script.GetObject( -2 );
+	const std::string szStr = static_cast<const char*>( script.GetObject( -2 ) );
 	const int nValue = script.GetObject( -1 );
 	GetSingleton<IUserProfile>()->AddVar( szStr.c_str(), nValue );
 	return 0;
@@ -1232,7 +1232,7 @@ static int OutputValue( struct lua_State *state )
 {
 	Script script(state);
 	NI_ASSERT_T( script.GetTop() == 2, "Script function must have 2 arguments on the stack" );			//��� ���������
-	std::string szStr = script.GetObject( -2 );
+	std::string szStr = static_cast<const char*>( script.GetObject( -2 ) );
 	int nValue = script.GetObject( -1 );
 	NStr::DebugTrace( "****Debug LUA script: %s %d\n", szStr.c_str(), nValue );
 	return 0;

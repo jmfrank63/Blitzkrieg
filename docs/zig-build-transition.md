@@ -24,6 +24,7 @@ zig build input
 zig build formats
 zig build anim
 zig build common
+zig build ui
 ```
 
 By default the build targets Win32/MSVC (`x86-windows-msvc`) because that matches the current game build. Other targets can be explored explicitly with Zig's normal `-Dtarget=...` option once the graph is less dependent on Win32 APIs.
@@ -55,3 +56,5 @@ zig build misc -Dmsvc-include="C:\Path\To\VC\Tools\MSVC\<version>\include" -Dwin
 `Anim` is mirrored as a DLL using `Sources/src/Anim/Animation.def`. It links the Zig-built `Misc` and `Formats` artifacts plus the same ODBC and COM support libraries as the Visual Studio project.
 
 `Common` is mirrored as a static library. This target keeps the broad legacy include surface used by the gameplay/shared headers while preserving the Visual Studio source list.
+
+`UI` is mirrored as a DLL using `Sources/src/UI/UI.def`. This slice adds narrowly scoped Clang/MSVC compatibility fixes in shared UI/GFX helper code and links the Zig-built `Misc`, `Common`, and `LuaLib` artifacts.

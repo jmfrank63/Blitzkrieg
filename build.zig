@@ -38,6 +38,9 @@ const cppflags_debug = &.{
     "-Wno-reserved-user-defined-literal",
     "-Wno-comment",
     "-Wno-enum-compare",
+    "-Wno-microsoft-enum-forward-reference",
+    "-Wno-return-type",
+    "-Wno-address-of-temporary",
     "-Wno-switch",
     "-Wno-unused-command-line-argument",
 };
@@ -57,6 +60,9 @@ const cppflags_release = &.{
     "-Wno-reserved-user-defined-literal",
     "-Wno-comment",
     "-Wno-enum-compare",
+    "-Wno-microsoft-enum-forward-reference",
+    "-Wno-return-type",
+    "-Wno-address-of-temporary",
     "-Wno-switch",
     "-Wno-unused-command-line-argument",
 };
@@ -79,6 +85,9 @@ const cppflags_beta_debug = &.{
     "-Wno-reserved-user-defined-literal",
     "-Wno-comment",
     "-Wno-enum-compare",
+    "-Wno-microsoft-enum-forward-reference",
+    "-Wno-return-type",
+    "-Wno-address-of-temporary",
     "-Wno-switch",
     "-Wno-unused-command-line-argument",
 };
@@ -99,6 +108,9 @@ const cppflags_beta_release = &.{
     "-Wno-reserved-user-defined-literal",
     "-Wno-comment",
     "-Wno-enum-compare",
+    "-Wno-microsoft-enum-forward-reference",
+    "-Wno-return-type",
+    "-Wno-address-of-temporary",
     "-Wno-switch",
     "-Wno-unused-command-line-argument",
 };
@@ -278,6 +290,42 @@ const common_sources = &.{
     "Sources/src/Common/InterfaceScreenBase.cpp",
 };
 
+const ui_sources = &.{
+    "Sources/src/UI/GlobalsLoader.cpp",
+    "Sources/src/UI/StdAfx.cpp",
+    "Sources/src/UI/UIBasic.cpp",
+    "Sources/src/UI/UIBasicM.cpp",
+    "Sources/src/UI/UIInternal.cpp",
+    "Sources/src/UI/UIInternalM.cpp",
+    "Sources/src/UI/UIColorTextScroll.cpp",
+    "Sources/src/UI/UIButton.cpp",
+    "Sources/src/UI/UIConsole.cpp",
+    "Sources/src/UI/UICreditsScroller.cpp",
+    "Sources/src/UI/UIDialog.cpp",
+    "Sources/src/UI/UIEdit.cpp",
+    "Sources/src/UI/UIMessageBox.cpp",
+    "Sources/src/UI/UIMiniMap.cpp",
+    "Sources/src/UI/UINumberIndicator.cpp",
+    "Sources/src/UI/UIScreen.cpp",
+    "Sources/src/UI/UIScrollText.cpp",
+    "Sources/src/UI/UISlider.cpp",
+    "Sources/src/UI/UIStatusBar.cpp",
+    "Sources/src/UI/UITimeCounter.cpp",
+    "Sources/src/UI/UIVideoButton.cpp",
+    "Sources/src/UI/UIComplexScroll.cpp",
+    "Sources/src/UI/UIComboBox.cpp",
+    "Sources/src/UI/UIList.cpp",
+    "Sources/src/UI/UIListSorter.cpp",
+    "Sources/src/UI/UIMedals.cpp",
+    "Sources/src/UI/UIObjectiveScreen.cpp",
+    "Sources/src/UI/UIObjMap.cpp",
+    "Sources/src/UI/UIShortcutBar.cpp",
+    "Sources/src/UI/UITree.cpp",
+    "Sources/src/UI/MaskManager.cpp",
+    "Sources/src/UI/UIMask.cpp",
+    "Sources/src/UI/UIObjectFactory.cpp",
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{
         .default_target = .{
@@ -306,6 +354,7 @@ pub fn build(b: *std.Build) void {
     const formats = addFormats(b, target, optimize, toolchain);
     const anim = addAnim(b, target, optimize, toolchain, misc, formats);
     const common = addCommon(b, target, optimize, toolchain);
+    const ui = addUI(b, target, optimize, toolchain, misc, common, lualib);
 
     b.installArtifact(zlib);
     b.installArtifact(libpng);
@@ -319,6 +368,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(formats);
     b.installArtifact(anim);
     b.installArtifact(common);
+    b.installArtifact(ui);
 
     const zlib_step = b.step("zlib", "Build the zlib static library");
     zlib_step.dependOn(&b.addInstallArtifact(zlib, .{}).step);
@@ -355,6 +405,9 @@ pub fn build(b: *std.Build) void {
 
     const common_step = b.step("common", "Build the Common static library");
     common_step.dependOn(&b.addInstallArtifact(common, .{}).step);
+
+    const ui_step = b.step("ui", "Build the UI dynamic library");
+    ui_step.dependOn(&b.addInstallArtifact(ui, .{}).step);
 }
 
 fn addZlib(
@@ -742,6 +795,51 @@ fn addCommon(
     });
 }
 
+fn addUI(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    misc: *std.Build.Step.Compile,
+    common: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+) *std.Build.Step.Compile {
+    const ui_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, ui_module);
+    addMsvcIncludePaths(b, ui_module, toolchain);
+    addMsvcLibraryPaths(b, ui_module, toolchain);
+    ui_module.addIncludePath(b.path("Sources/src/UI"));
+    ui_module.addIncludePath(b.path("Sources/src/Common"));
+    ui_module.addIncludePath(b.path("Sources/src/LuaLib"));
+    ui_module.addIncludePath(b.path("Sources/src/LuaLib/LuaSrc"));
+    ui_module.addIncludePath(b.path("Sources/src/Image"));
+    ui_module.addIncludePath(b.path("Sources/src/Input"));
+    ui_module.addIncludePath(b.path("Sources/src/GFX"));
+    ui_module.addIncludePath(b.path("Sources/src/SFX"));
+    ui_module.addIncludePath(b.path("Sources/src/Scene"));
+    ui_module.addCSourceFiles(.{
+        .files = ui_sources,
+        .flags = cppflagsForOptimize(optimize),
+    });
+    ui_module.linkLibrary(misc);
+    ui_module.linkLibrary(common);
+    ui_module.linkLibrary(lualib);
+    linkMsvcRuntime(ui_module, optimize);
+    ui_module.linkSystemLibrary("odbc32", .{});
+    ui_module.linkSystemLibrary("odbccp32", .{});
+    linkComSupport(ui_module, optimize);
+
+    return b.addLibrary(.{
+        .name = "UI",
+        .linkage = .dynamic,
+        .root_module = ui_module,
+        .win32_module_definition = b.path("Sources/src/UI/UI.def"),
+    });
+}
+
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     return switch (optimize) {
         .Debug => cflags_debug,
@@ -815,4 +913,5 @@ fn linkComSupport(module: *std.Build.Module, optimize: std.builtin.OptimizeMode)
         .Debug => module.linkSystemLibrary("comsuppwd", .{}),
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => module.linkSystemLibrary("comsuppw", .{}),
     }
+    module.linkSystemLibrary("oleaut32", .{});
 }

@@ -386,7 +386,8 @@ void CUIShortcutBar::Reposition( const CTRect<float> &rcParent )
 {
 	CVec2 size;
 	pScrollBar->GetWindowPlacement( 0, &size, 0 );
-	pScrollBar->SetWindowPlacement( 0, &CVec2(size.x, wndRect.Height() ) );
+	CVec2 vScrollSize( size.x, wndRect.Height() );
+	pScrollBar->SetWindowPlacement( 0, &vScrollSize );
 	CMultipleWindow::Reposition( rcParent );
 }
 void CUIShortcutBar::ScaleLayout( const CVec2 &vScale )

@@ -55,7 +55,7 @@ public:
 	}
 	TValue* Get( const TKey &key )
 	{
-		CDataHash::iterator pos = data.find( key );
+		typename CDataHash::iterator pos = data.find( key );
 		if ( (pos == data.end()) || (pos->second == 0) )
 		{
 			TValue *pRes = Create( key );
@@ -73,7 +73,7 @@ public:
 	
 	bool Remove( const TKey &key )
 	{
-		CDataHash::iterator pos = data.find( key );
+		typename CDataHash::iterator pos = data.find( key );
 		if ( pos != data.end() ) 
 		{
 			data.erase( pos );

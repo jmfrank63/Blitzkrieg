@@ -185,7 +185,7 @@ struct SGFXLVertex
 		struct
 		{
 			CVec3 pos;
-			DWORD color, specular;
+			DWORD color_as_vec, specular_as_vec;
 			CVec2 tex;
 		};
 	};
@@ -240,7 +240,7 @@ struct SGFXLVertex2
 		struct
 		{
 			CVec3 pos;
-			DWORD color, specular;
+			DWORD color_as_vec, specular_as_vec;
 			CVec2 tex, tex1;
 		};
 	};
@@ -299,7 +299,7 @@ struct SGFXTLVertex
 		struct
 		{
 			CVec4 pos;
-			DWORD color, specular;
+			DWORD color_as_vec, specular_as_vec;
 			CVec2 tex;
 		};
 	};
@@ -338,7 +338,7 @@ struct SGFXTLVertex2
 		struct
 		{
 			CVec4 pos;
-			DWORD color, specular;
+			DWORD color_as_vec, specular_as_vec;
 			CVec2 tex;
 			CVec2 tex1;
 		};
@@ -378,7 +378,7 @@ struct SGFXTLPoint
 		struct
 		{
 			CVec4 pos;
-			DWORD color;
+			DWORD color_as_vec;
 		};
 	};
 	void Setup( float _sx, float _sy, float _sz, float _rhw, DWORD _color )
@@ -408,7 +408,7 @@ struct SGFXLineVertex
 		struct
 		{
 			CVec3 pos;
-			DWORD color;
+			DWORD color_as_vec;
 		};
 	};
 	SGFXLineVertex() {}  // Default constructor

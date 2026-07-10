@@ -658,7 +658,7 @@ int Exec( struct lua_State *state )
 	nPos = szFileName.rfind( '\\' );
 	if ( nPos != std::string::npos )
 		szFileName = szFileName.substr( 0, nPos + 1 );
-	szFileName += script.GetObject( 1 );
+	szFileName += static_cast<const char*>( script.GetObject( 1 ) );
 	
 	FILE *pFile = nullptr;
 	if ( fopen_s( &pFile, szFileName.c_str(), "r" ) != 0 || !pFile )

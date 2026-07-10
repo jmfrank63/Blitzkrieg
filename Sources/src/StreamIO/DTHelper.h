@@ -628,6 +628,8 @@ public:
 		: pSS( accessor.pSS ) {  }
 	CTreeAccessor( IDataTree *_pSS ) 
 		: pSS( _pSS ) {  }
+	CTreeAccessor( const CPtr<IDataTree> &_pSS )
+		: pSS( _pSS ) {  }
 	const CTreeAccessor& operator=( IDataTree *_pSS ) { pSS = _pSS; return *this; }
 	const CTreeAccessor& operator=( const CTreeAccessor &accessor ) { pSS = accessor.pSS; return *this; }
 	operator IDataTree*() const { return pSS; }

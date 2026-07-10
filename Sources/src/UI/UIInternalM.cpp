@@ -27,7 +27,7 @@ CUIWindowSubStateManipulator::CUIWindowSubStateManipulator()
 void CUIWindowSubStateManipulator::SetTexture( const variant_t &value )
 {
 	bstr_t bstrVal = value.bstrVal;
-	std::string szName = bstrVal;
+	std::string szName = static_cast<const char*>( bstrVal );
 	szName = szName.substr( strlen("c:\\a7\\data\\" ) );
 	/*
 	std::string szRel;
@@ -139,7 +139,7 @@ CWindowStateManipulator::CWindowStateManipulator()
 void CWindowStateManipulator::SetPushSound( const variant_t &value )
 {
 	bstr_t bstrVal = value.bstrVal;
-	std::string szName = bstrVal;
+	std::string szName = static_cast<const char*>( bstrVal );
 	szName = szName.substr( strlen("c:\\a7\\data\\" ) );
 
 	pState->szPushSound = szName;
@@ -148,7 +148,7 @@ void CWindowStateManipulator::SetPushSound( const variant_t &value )
 void CWindowStateManipulator::SetClickSound( const variant_t &value )
 {
 	bstr_t bstrVal = value.bstrVal;
-	std::string szName = bstrVal;
+	std::string szName = static_cast<const char*>( bstrVal );
 	szName = szName.substr( strlen("c:\\a7\\data\\" ) );
 	pState->szClickSound = szName;
 }

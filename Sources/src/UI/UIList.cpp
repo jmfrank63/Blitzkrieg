@@ -374,7 +374,9 @@ void CUIList::Reposition( const CTRect<float> &rcParent )
 	{
 		CVec2 size;
 		pScrollBar->GetWindowPlacement( 0, &size, 0 );
-		pScrollBar->SetWindowPlacement( &CVec2(0, 0), &CVec2(size.x, rect.Height()) );
+		CVec2 vScrollPos( 0, 0 );
+		CVec2 vScrollSize( size.x, rect.Height() );
+		pScrollBar->SetWindowPlacement( &vScrollPos, &vScrollSize );
 	}
 
 	int left = nLeftSpace;

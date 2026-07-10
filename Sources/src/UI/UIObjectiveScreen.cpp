@@ -140,7 +140,7 @@ void CUIObjectiveScreen::ShowWindow( int _nCmdShow )
 		pDialog->SetWindowID( i );
 
 		CPtr<IText> p2 = pTM->GetDialog( pStats->objectives[i].szDescriptionText.c_str() );
-		NI_ASSERT_TF( p2 != 0, NStr::Format( "There is no file %s", pStats->objectives[i].szDescriptionText ), continue );		//�� ����� ������
+		NI_ASSERT_TF( p2 != 0, NStr::Format( "There is no file %s", pStats->objectives[i].szDescriptionText.c_str() ), continue );		//�� ����� ������
 		pSB->AddTextItem( p2->GetString() );
 	}
 	pSB->InitialUpdate();
