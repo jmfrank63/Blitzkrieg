@@ -6,6 +6,8 @@ const cflags_debug = &.{
     "-D_DEBUG",
     "-D_DO_CHECKED_CAST",
     "-D_STL_RANGE_CHECK",
+    "-D_MT",
+    "-D_DLL",
     "-Wno-deprecated-non-prototype",
 };
 
@@ -14,6 +16,8 @@ const cflags_release = &.{
     "-DWIN32",
     "-DNDEBUG",
     "-D_FINALRELEASE",
+    "-D_MT",
+    "-D_DLL",
     "-Wno-deprecated-non-prototype",
 };
 
@@ -24,6 +28,8 @@ const cppflags_debug = &.{
     "-D_DO_ASSERT_SLOW",
     "-D_DO_CHECKED_CAST",
     "-D_STL_RANGE_CHECK",
+    "-D_MT",
+    "-D_DLL",
     "-fms-extensions",
     "-fdelayed-template-parsing",
     "-Wno-deprecated-declarations",
@@ -39,6 +45,8 @@ const cppflags_release = &.{
     "-DWIN32",
     "-DNDEBUG",
     "-D_FINALRELEASE",
+    "-D_MT",
+    "-D_DLL",
     "-fms-extensions",
     "-fdelayed-template-parsing",
     "-Wno-deprecated-declarations",
@@ -157,6 +165,13 @@ const net_sources = &.{
     "Sources/src/Net/Streams.cpp",
 };
 
+const buildversion_sources = &.{
+    "Sources/src/buildversion/StdAfx.cpp",
+    "Sources/src/buildversion/BuildVersion.cpp",
+    "Sources/src/buildversion/main.cpp",
+    "Sources/src/buildversion/StringTokenizer.cpp",
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{
         .default_target = .{
@@ -179,6 +194,7 @@ pub fn build(b: *std.Build) void {
     const image = addImage(b, target, optimize, toolchain, zlib, libpng, misc);
     const lualib = addLuaLib(b, target, optimize, toolchain);
     const net = addNet(b, target, optimize, toolchain, misc);
+    const buildversion = addBuildVersion(b, target, optimize, toolchain, misc);
 
     b.installArtifact(zlib);
     b.installArtifact(libpng);
@@ -186,6 +202,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(image);
     b.installArtifact(lualib);
     b.installArtifact(net);
+    b.installArtifact(buildversion);
 
     const zlib_step = b.step("zlib", "Build the zlib static library");
     zlib_step.dependOn(&b.addInstallArtifact(zlib, .{}).step);
@@ -204,6 +221,9 @@ pub fn build(b: *std.Build) void {
 
     const net_step = b.step("net", "Build the Net dynamic library");
     net_step.dependOn(&b.addInstallArtifact(net, .{}).step);
+
+    const buildversion_step = b.step("buildversion", "Build the BuildVersion console utility");
+    buildversion_step.dependOn(&b.addInstallArtifact(buildversion, .{}).step);
 }
 
 fn addZlib(
@@ -382,6 +402,39 @@ fn addNet(
         .root_module = net_module,
         .win32_module_definition = b.path("Sources/src/Net/net.def"),
     });
+}
+
+fn addBuildVersion(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    misc: *std.Build.Step.Compile,
+) *std.Build.Step.Compile {
+    const buildversion_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, buildversion_module);
+    addMsvcIncludePaths(b, buildversion_module, toolchain);
+    addMsvcLibraryPaths(b, buildversion_module, toolchain);
+    buildversion_module.addIncludePath(b.path("Sources/src/buildversion"));
+    buildversion_module.addCSourceFiles(.{
+        .files = buildversion_sources,
+        .flags = cppflagsForOptimize(optimize),
+    });
+    buildversion_module.linkLibrary(misc);
+    linkMsvcRuntime(buildversion_module, optimize);
+    buildversion_module.linkSystemLibrary("odbc32", .{});
+    buildversion_module.linkSystemLibrary("odbccp32", .{});
+
+    const buildversion = b.addExecutable(.{
+        .name = "BuildVersion",
+        .root_module = buildversion_module,
+    });
+    buildversion.subsystem = .console;
+    buildversion.entry = .{ .symbol_name = "mainCRTStartup" };
+    return buildversion;
 }
 
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
