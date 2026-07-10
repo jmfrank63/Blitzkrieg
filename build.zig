@@ -260,6 +260,24 @@ const anim_sources = &.{
     "Sources/src/Anim/MatrixEffectorLeveling.cpp",
 };
 
+const common_sources = &.{
+    "Sources/src/Common/StdAfx.cpp",
+    "Sources/src/Common/MapObject.cpp",
+    "Sources/src/Common/MOBridge.cpp",
+    "Sources/src/Common/MOBuilding.cpp",
+    "Sources/src/Common/MOEntrenchment.cpp",
+    "Sources/src/Common/MOObject.cpp",
+    "Sources/src/Common/MOProjectile.cpp",
+    "Sources/src/Common/MOSquad.cpp",
+    "Sources/src/Common/MOUnit.cpp",
+    "Sources/src/Common/MOUnitInfantry.cpp",
+    "Sources/src/Common/MOUnitMechanical.cpp",
+    "Sources/src/Common/Passangers.cpp",
+    "Sources/src/Common/UISquadElement.cpp",
+    "Sources/src/Common/WorldBase.cpp",
+    "Sources/src/Common/InterfaceScreenBase.cpp",
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{
         .default_target = .{
@@ -287,6 +305,7 @@ pub fn build(b: *std.Build) void {
     const input = addInput(b, target, optimize, toolchain, misc);
     const formats = addFormats(b, target, optimize, toolchain);
     const anim = addAnim(b, target, optimize, toolchain, misc, formats);
+    const common = addCommon(b, target, optimize, toolchain);
 
     b.installArtifact(zlib);
     b.installArtifact(libpng);
@@ -299,6 +318,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(input);
     b.installArtifact(formats);
     b.installArtifact(anim);
+    b.installArtifact(common);
 
     const zlib_step = b.step("zlib", "Build the zlib static library");
     zlib_step.dependOn(&b.addInstallArtifact(zlib, .{}).step);
@@ -332,6 +352,9 @@ pub fn build(b: *std.Build) void {
 
     const anim_step = b.step("anim", "Build the Anim dynamic library");
     anim_step.dependOn(&b.addInstallArtifact(anim, .{}).step);
+
+    const common_step = b.step("common", "Build the Common static library");
+    common_step.dependOn(&b.addInstallArtifact(common, .{}).step);
 }
 
 fn addZlib(
@@ -680,6 +703,42 @@ fn addAnim(
         .linkage = .dynamic,
         .root_module = anim_module,
         .win32_module_definition = b.path("Sources/src/Anim/Animation.def"),
+    });
+}
+
+fn addCommon(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+) *std.Build.Step.Compile {
+    const common_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, common_module);
+    addMsvcIncludePaths(b, common_module, toolchain);
+    common_module.addIncludePath(b.path("Sources/src/Common"));
+    common_module.addIncludePath(b.path("Sources/src/AILogic"));
+    common_module.addIncludePath(b.path("Sources/src/GameTT"));
+    common_module.addIncludePath(b.path("Sources/src/Main"));
+    common_module.addIncludePath(b.path("Sources/src/GFX"));
+    common_module.addIncludePath(b.path("Sources/src/SFX"));
+    common_module.addIncludePath(b.path("Sources/src/Input"));
+    common_module.addIncludePath(b.path("Sources/src/Scene"));
+    common_module.addIncludePath(b.path("Sources/src/UI"));
+    common_module.addIncludePath(b.path("Sources/src/Anim"));
+    common_module.addIncludePath(b.path("Sources/src/Image"));
+    common_module.addIncludePath(b.path("Sources/src/StreamIO"));
+    common_module.addCSourceFiles(.{
+        .files = common_sources,
+        .flags = cppflagsForOptimize(optimize),
+    });
+
+    return b.addLibrary(.{
+        .name = "Common",
+        .linkage = .static,
+        .root_module = common_module,
     });
 }
 
