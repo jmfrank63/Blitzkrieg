@@ -249,6 +249,17 @@ const formats_sources = &.{
     "Sources/src/Formats/fmtVSO.cpp",
 };
 
+const anim_sources = &.{
+    "Sources/src/Anim/GlobalsLoader.cpp",
+    "Sources/src/Anim/StdAfx.cpp",
+    "Sources/src/Anim/MeshAnimation.cpp",
+    "Sources/src/Anim/SpriteAnimation.cpp",
+    "Sources/src/Anim/AnimationManager.cpp",
+    "Sources/src/Anim/AnimObjectFactory.cpp",
+    "Sources/src/Anim/MatrixEffectorJogging.cpp",
+    "Sources/src/Anim/MatrixEffectorLeveling.cpp",
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{
         .default_target = .{
@@ -275,6 +286,7 @@ pub fn build(b: *std.Build) void {
     const betakeygen = addBetaKeyGen(b, target, optimize, toolchain, zlib, misc);
     const input = addInput(b, target, optimize, toolchain, misc);
     const formats = addFormats(b, target, optimize, toolchain);
+    const anim = addAnim(b, target, optimize, toolchain, misc, formats);
 
     b.installArtifact(zlib);
     b.installArtifact(libpng);
@@ -286,6 +298,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(betakeygen);
     b.installArtifact(input);
     b.installArtifact(formats);
+    b.installArtifact(anim);
 
     const zlib_step = b.step("zlib", "Build the zlib static library");
     zlib_step.dependOn(&b.addInstallArtifact(zlib, .{}).step);
@@ -316,6 +329,9 @@ pub fn build(b: *std.Build) void {
 
     const formats_step = b.step("formats", "Build the Formats static library");
     formats_step.dependOn(&b.addInstallArtifact(formats, .{}).step);
+
+    const anim_step = b.step("anim", "Build the Anim dynamic library");
+    anim_step.dependOn(&b.addInstallArtifact(anim, .{}).step);
 }
 
 fn addZlib(
@@ -628,6 +644,42 @@ fn addFormats(
         .name = "Formats",
         .linkage = .static,
         .root_module = formats_module,
+    });
+}
+
+fn addAnim(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    misc: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+) *std.Build.Step.Compile {
+    const anim_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, anim_module);
+    addMsvcIncludePaths(b, anim_module, toolchain);
+    addMsvcLibraryPaths(b, anim_module, toolchain);
+    anim_module.addIncludePath(b.path("Sources/src/Anim"));
+    anim_module.addIncludePath(b.path("Sources/src/Formats"));
+    anim_module.addCSourceFiles(.{
+        .files = anim_sources,
+        .flags = cppflagsForOptimize(optimize),
+    });
+    anim_module.linkLibrary(misc);
+    anim_module.linkLibrary(formats);
+    linkMsvcRuntime(anim_module, optimize);
+    anim_module.linkSystemLibrary("odbc32", .{});
+    anim_module.linkSystemLibrary("odbccp32", .{});
+    linkComSupport(anim_module, optimize);
+
+    return b.addLibrary(.{
+        .name = "Anim",
+        .linkage = .dynamic,
+        .root_module = anim_module,
+        .win32_module_definition = b.path("Sources/src/Anim/Animation.def"),
     });
 }
 
