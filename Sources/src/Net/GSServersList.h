@@ -2,47 +2,11 @@
 #define __GS_SERVERS_LIST_H__
 #pragma ONCE
 #include "NetDriver.h"
-#include "..\GameSpy\cengine\goaceng.h"
 
-#include "..\Misc\Thread.h"
-#include "..\Misc\Win32Helper.h"
-class CGSServersListDriver : public INetDriver, public CThread
+class CGSServersListDriver : public INetDriver
 {
 	OBJECT_NORMAL_METHODS( CGSServersListDriver );
 
-	NWin32Helper::CCriticalSection criticalSection;
-	
-	GServerList serverList;
-	static const int SERVER_LIST_UPDATE_PERIOD;
-	NTimer::STime endOfLastUpdate;
-	bool bUpdating;
-
-	struct SServerInfo
-	{
-		INetDriver::SGameInfo gameInfo;
-		CPtr<INetNodeAddress> pAddr;
-		float fPing;
-		std::string szIP;
-		int nNetVersion;
-
-		SServerInfo() : fPing( 0.0f ) { }
-
-		bool operator==( const SServerInfo &serverInfo )
-		{
-			return 
-				gameInfo == serverInfo.gameInfo && pAddr->IsSameIP( serverInfo.pAddr ) && fPing == serverInfo.fPing;
-		}
-	};
-
-	std::list<SServerInfo> servers;
-	int nNetVersion;
-
-	static void ListCallBack( GServerList serverList, int nMsg, void *pInstance, void *pParam1, void *pParam2 );
-	void List( GServerList ServerList, int nMsg, void *pParam1, void *pParam2 );
-
-	void AddServer( GServer server );
-protected:
-	virtual void Step();
 public:
 	CGSServersListDriver();
 	virtual ~CGSServersListDriver();

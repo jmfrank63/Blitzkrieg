@@ -2,33 +2,13 @@
 #define __GS_QUERY_REPORTING_DRIVER__
 #pragma ONCE
 #include "NetDriver.h"
-#include "..\GameSpy\QueryReporting\gqueryreporting.h"
 
-#include "..\Misc\Thread.h"
-#include "..\Misc\Win32Helper.h"
-class CGSQueryReportingDriver : public INetDriver, public CThread
+class CGSQueryReportingDriver : public INetDriver
 {
 	OBJECT_NORMAL_METHODS( CGSQueryReportingDriver );
 
-	NWin32Helper::CCriticalSection criticalSection;
-	bool bInitialized;
-
-	static void qr_basic_callback( char *pszOutBuf, int nMaxLen, void *pUserData );
-	static void qr_info_callback( char *pszOutBuf, int nMaxLen, void *pUserData );
-	static void qr_rules_callback( char *pszOutBuf, int nMaxLen, void *pUserData );
-	static void qr_players_callback( char *pszOutBuf, int nMaxLen, void *pUserData );
-	void QRBasicCallBack( char *pszOutBuf, int nMaxLen );
-	void QRInfoCallBack( char *pszOutBuf, int nMaxLen );
-	void QRRulesCallBack( char *pszOutBuf, int nMaxLen );
-	void QRPlayersCallBack( char *pszOutBuf, int nMaxLen );
-	
 	SGameInfo gameInfo;
-	int nGamePort;
-	
-	qr_t gsHandler;
 
-protected:
-	virtual void Step();
 public:
 	CGSQueryReportingDriver();
 	virtual ~CGSQueryReportingDriver();
@@ -60,4 +40,4 @@ public:
 	virtual void STDCALL RemoveChannel( const int nChannelID ) { NI_ASSERT_T( false, "wrong call" ); }
 	virtual bool STDCALL GetChannelMessage( EMessage *pMsg, int *pClientID, int *received, IDataStream *pPkt, const int nChannel ) { NI_ASSERT_T( false, "wrong call" ); return false; }
 };
-#endif __GS_QUERY_REPORTING_DRIVER__
+#endif // __GS_QUERY_REPORTING_DRIVER__
