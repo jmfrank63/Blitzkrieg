@@ -326,6 +326,12 @@ const ui_sources = &.{
     "Sources/src/UI/UIObjectFactory.cpp",
 };
 
+const fontgen_sources = &.{
+    "Sources/src/FontGen/GlobalsLoader.cpp",
+    "Sources/src/FontGen/StdAfx.cpp",
+    "Sources/src/FontGen/FontGen.cpp",
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{
         .default_target = .{
@@ -355,6 +361,7 @@ pub fn build(b: *std.Build) void {
     const anim = addAnim(b, target, optimize, toolchain, misc, formats);
     const common = addCommon(b, target, optimize, toolchain);
     const ui = addUI(b, target, optimize, toolchain, misc, common, lualib);
+    const fontgen = addFontGen(b, target, optimize, toolchain, image, common, formats, misc);
 
     b.installArtifact(zlib);
     b.installArtifact(libpng);
@@ -369,6 +376,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(anim);
     b.installArtifact(common);
     b.installArtifact(ui);
+    b.installArtifact(fontgen);
 
     const zlib_step = b.step("zlib", "Build the zlib static library");
     zlib_step.dependOn(&b.addInstallArtifact(zlib, .{}).step);
@@ -408,6 +416,9 @@ pub fn build(b: *std.Build) void {
 
     const ui_step = b.step("ui", "Build the UI dynamic library");
     ui_step.dependOn(&b.addInstallArtifact(ui, .{}).step);
+
+    const fontgen_step = b.step("fontgen", "Build the FontGen console utility");
+    fontgen_step.dependOn(&b.addInstallArtifact(fontgen, .{}).step);
 }
 
 fn addZlib(
@@ -838,6 +849,50 @@ fn addUI(
         .root_module = ui_module,
         .win32_module_definition = b.path("Sources/src/UI/UI.def"),
     });
+}
+
+fn addFontGen(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    image: *std.Build.Step.Compile,
+    common: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+) *std.Build.Step.Compile {
+    const fontgen_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, fontgen_module);
+    addMsvcIncludePaths(b, fontgen_module, toolchain);
+    addMsvcLibraryPaths(b, fontgen_module, toolchain);
+    fontgen_module.addIncludePath(b.path("Sources/src/FontGen"));
+    fontgen_module.addIncludePath(b.path("Sources/src/Image"));
+    fontgen_module.addIncludePath(b.path("Sources/src/Common"));
+    fontgen_module.addIncludePath(b.path("Sources/src/Formats"));
+    fontgen_module.addCSourceFiles(.{
+        .files = fontgen_sources,
+        .flags = cppflagsForOptimize(optimize),
+    });
+    fontgen_module.linkLibrary(image);
+    fontgen_module.linkLibrary(common);
+    fontgen_module.linkLibrary(formats);
+    fontgen_module.linkLibrary(misc);
+    linkMsvcRuntime(fontgen_module, optimize);
+    fontgen_module.linkSystemLibrary("user32", .{});
+    fontgen_module.linkSystemLibrary("gdi32", .{});
+    fontgen_module.linkSystemLibrary("odbc32", .{});
+    fontgen_module.linkSystemLibrary("odbccp32", .{});
+
+    const fontgen = b.addExecutable(.{
+        .name = "FontGen",
+        .root_module = fontgen_module,
+    });
+    fontgen.subsystem = .console;
+    fontgen.entry = .{ .symbol_name = "mainCRTStartup" };
+    return fontgen;
 }
 
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
