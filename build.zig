@@ -117,6 +117,30 @@ const image_sources = &.{
     "Sources/src/Image/StdAfx.cpp",
 };
 
+const lualib_c_sources = &.{
+    "Sources/src/LuaLib/LuaSrc/lapi.c",
+    "Sources/src/LuaLib/LuaSrc/lcode.c",
+    "Sources/src/LuaLib/LuaSrc/ldebug.c",
+    "Sources/src/LuaLib/LuaSrc/ldo.c",
+    "Sources/src/LuaLib/LuaSrc/lfunc.c",
+    "Sources/src/LuaLib/LuaSrc/lgc.c",
+    "Sources/src/LuaLib/LuaSrc/llex.c",
+    "Sources/src/LuaLib/LuaSrc/lmem.c",
+    "Sources/src/LuaLib/LuaSrc/lobject.c",
+    "Sources/src/LuaLib/LuaSrc/lparser.c",
+    "Sources/src/LuaLib/LuaSrc/lstate.c",
+    "Sources/src/LuaLib/LuaSrc/lstring.c",
+    "Sources/src/LuaLib/LuaSrc/ltable.c",
+    "Sources/src/LuaLib/LuaSrc/ltm.c",
+    "Sources/src/LuaLib/LuaSrc/lundump.c",
+    "Sources/src/LuaLib/LuaSrc/lvm.c",
+    "Sources/src/LuaLib/LuaSrc/lzio.c",
+};
+
+const lualib_cpp_sources = &.{
+    "Sources/src/LuaLib/Script.cpp",
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{
         .default_target = .{
@@ -137,11 +161,13 @@ pub fn build(b: *std.Build) void {
     const libpng = addLibpng(b, target, optimize, zlib);
     const misc = addMisc(b, target, optimize, toolchain);
     const image = addImage(b, target, optimize, toolchain, zlib, libpng, misc);
+    const lualib = addLuaLib(b, target, optimize, toolchain);
 
     b.installArtifact(zlib);
     b.installArtifact(libpng);
     b.installArtifact(misc);
     b.installArtifact(image);
+    b.installArtifact(lualib);
 
     const zlib_step = b.step("zlib", "Build the zlib static library");
     zlib_step.dependOn(&b.addInstallArtifact(zlib, .{}).step);
@@ -154,6 +180,9 @@ pub fn build(b: *std.Build) void {
 
     const image_step = b.step("image", "Build the Image dynamic library");
     image_step.dependOn(&b.addInstallArtifact(image, .{}).step);
+
+    const lualib_step = b.step("lualib", "Build the LuaLib static library");
+    lualib_step.dependOn(&b.addInstallArtifact(lualib, .{}).step);
 }
 
 fn addZlib(
@@ -267,6 +296,37 @@ fn addImage(
         .linkage = .dynamic,
         .root_module = image_module,
         .win32_module_definition = b.path("Sources/src/Image/Image.def"),
+    });
+}
+
+fn addLuaLib(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+) *std.Build.Step.Compile {
+    const lualib_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    addProjectIncludePaths(b, lualib_module);
+    addMsvcIncludePaths(b, lualib_module, toolchain);
+    lualib_module.addIncludePath(b.path("Sources/src/LuaLib"));
+    lualib_module.addIncludePath(b.path("Sources/src/LuaLib/LuaSrc"));
+    lualib_module.addCSourceFiles(.{
+        .files = lualib_c_sources,
+        .flags = cflagsForOptimize(optimize),
+    });
+    lualib_module.addCSourceFiles(.{
+        .files = lualib_cpp_sources,
+        .flags = cppflagsForOptimize(optimize),
+    });
+
+    return b.addLibrary(.{
+        .name = "LuaLib",
+        .linkage = .static,
+        .root_module = lualib_module,
     });
 }
 
