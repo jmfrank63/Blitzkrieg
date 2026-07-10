@@ -119,7 +119,7 @@ class CSaverAccessor
 				data.insert( data.begin(), pSS->CountChunks( 1 ), T1() );
 			}
 			int i = 1;
-			for ( std::list<T1, T2>::iterator k = data.begin(); k != data.end(); ++k, ++i )
+			for ( typename std::list<T1, T2>::iterator k = data.begin(); k != data.end(); ++k, ++i )
 			{
 				pSS->SetChunkCounter( i );
 				Add( 1, &(*k) );
@@ -288,7 +288,7 @@ class CSaverAccessor
 			}
 			else
 			{
-				for ( std::unordered_map<T1, T2, T3, T4, T5>::iterator pos = data.begin(); pos != data.end(); ++pos )
+				for ( typename std::unordered_map<T1, T2, T3, T4, T5>::iterator pos = data.begin(); pos != data.end(); ++pos )
 				{
 					T1 idx = pos->first;
 					Add( 1, &idx );
@@ -379,6 +379,8 @@ public:
 	CSaverAccessor( const CSaverAccessor &accessor ) 
 		: pSS( accessor.pSS ) {  }
 	CSaverAccessor( IStructureSaver *_pSS ) 
+		: pSS( _pSS ) {  }
+	CSaverAccessor( const CPtr<IStructureSaver> &_pSS )
 		: pSS( _pSS ) {  }
 	const CSaverAccessor& operator=( IStructureSaver *_pSS ) { pSS = _pSS; return *this; }
 	const CSaverAccessor& operator=( const CSaverAccessor &accessor ) { pSS = accessor.pSS; return *this; }

@@ -21,6 +21,7 @@ zig build net
 zig build buildversion
 zig build betakeygen
 zig build input
+zig build formats
 ```
 
 By default the build targets Win32/MSVC (`x86-windows-msvc`) because that matches the current game build. Other targets can be explored explicitly with Zig's normal `-Dtarget=...` option once the graph is less dependent on Win32 APIs.
@@ -46,3 +47,5 @@ zig build misc -Dmsvc-include="C:\Path\To\VC\Tools\MSVC\<version>\include" -Dwin
 `BetaKeyGen` mirrors the legacy beta key console utility. It links the Zig-built `Misc` and `zlib` artifacts and enables the `_DO_BETA_CHECK` define used by the Visual Studio project.
 
 `Input` is mirrored as a DLL using `Sources/src/Input/Input.def`. It links the Zig-built `Misc` artifact plus the DirectInput, WinMM, COM support, and ODBC system libraries used by the Visual Studio project.
+
+`Formats` is mirrored as a static library. This slice also tightens a few shared headers for Clang compatibility while preserving MSVC builds: dependent iterator types now use `typename`, `CSaverAccessor` accepts `CPtr<IStructureSaver>` directly, and an old unsigned fill cast is now standard C++.

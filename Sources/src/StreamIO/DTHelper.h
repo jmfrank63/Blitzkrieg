@@ -237,7 +237,7 @@ class CTreeAccessor
 				pData->insert( pData->begin(), nSize, T1() );
 			}
 			int i = 0;
-			for ( std::list<T1, T2>::iterator it = pData->begin(); it != pData->end(); ++it, ++i )
+			for ( typename std::list<T1, T2>::iterator it = pData->begin(); it != pData->end(); ++it, ++i )
 			{
 				pSS->SetChunkCounter( i );
 				Add( "", &(*it) );
@@ -517,7 +517,7 @@ class CTreeAccessor
 			else
 			{
 				int i = 0;
-			for ( std::unordered_map<T1, T2, T3, T4, T5>::iterator it = data.begin(); it != data.end(); ++it, ++i )
+			for ( typename std::unordered_map<T1, T2, T3, T4, T5>::iterator it = data.begin(); it != data.end(); ++it, ++i )
 				{
 					pSS->SetChunkCounter( i );
 					T1 idx = it->first;

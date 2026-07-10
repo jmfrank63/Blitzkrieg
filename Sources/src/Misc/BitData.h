@@ -98,7 +98,7 @@ public:
 	}
 	void Set1() 
 	{ 
-		memset( array.GetBuffer(), unsigned int(-1), array.GetSizeX() * array.GetSizeY());
+		memset( array.GetBuffer(), static_cast<unsigned int>(-1), array.GetSizeX() * array.GetSizeY());
 	};
 
 	int GetSizeX() const { return xSize; }

@@ -36,6 +36,8 @@ const cppflags_debug = &.{
     "-Wno-microsoft-template",
     "-Wno-nonportable-include-path",
     "-Wno-reserved-user-defined-literal",
+    "-Wno-comment",
+    "-Wno-enum-compare",
     "-Wno-switch",
     "-Wno-unused-command-line-argument",
 };
@@ -53,6 +55,8 @@ const cppflags_release = &.{
     "-Wno-microsoft-template",
     "-Wno-nonportable-include-path",
     "-Wno-reserved-user-defined-literal",
+    "-Wno-comment",
+    "-Wno-enum-compare",
     "-Wno-switch",
     "-Wno-unused-command-line-argument",
 };
@@ -73,6 +77,8 @@ const cppflags_beta_debug = &.{
     "-Wno-microsoft-template",
     "-Wno-nonportable-include-path",
     "-Wno-reserved-user-defined-literal",
+    "-Wno-comment",
+    "-Wno-enum-compare",
     "-Wno-switch",
     "-Wno-unused-command-line-argument",
 };
@@ -91,6 +97,8 @@ const cppflags_beta_release = &.{
     "-Wno-microsoft-template",
     "-Wno-nonportable-include-path",
     "-Wno-reserved-user-defined-literal",
+    "-Wno-comment",
+    "-Wno-enum-compare",
     "-Wno-switch",
     "-Wno-unused-command-line-argument",
 };
@@ -226,6 +234,21 @@ const input_sources = &.{
     "Sources/src/Input/Visitors.cpp",
 };
 
+const formats_sources = &.{
+    "Sources/src/Formats/StdAfx.cpp",
+    "Sources/src/Formats/fmtAIGeneral.cpp",
+    "Sources/src/Formats/fmtAnimation.cpp",
+    "Sources/src/Formats/fmtEffect.cpp",
+    "Sources/src/Formats/fmtFont.cpp",
+    "Sources/src/Formats/fmtMap.cpp",
+    "Sources/src/Formats/fmtMesh.cpp",
+    "Sources/src/Formats/fmtSound.cpp",
+    "Sources/src/Formats/fmtSprite.cpp",
+    "Sources/src/Formats/fmtTerrain.cpp",
+    "Sources/src/Formats/fmtUnitCreation.cpp",
+    "Sources/src/Formats/fmtVSO.cpp",
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{
         .default_target = .{
@@ -251,6 +274,7 @@ pub fn build(b: *std.Build) void {
     const buildversion = addBuildVersion(b, target, optimize, toolchain, misc);
     const betakeygen = addBetaKeyGen(b, target, optimize, toolchain, zlib, misc);
     const input = addInput(b, target, optimize, toolchain, misc);
+    const formats = addFormats(b, target, optimize, toolchain);
 
     b.installArtifact(zlib);
     b.installArtifact(libpng);
@@ -261,6 +285,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(buildversion);
     b.installArtifact(betakeygen);
     b.installArtifact(input);
+    b.installArtifact(formats);
 
     const zlib_step = b.step("zlib", "Build the zlib static library");
     zlib_step.dependOn(&b.addInstallArtifact(zlib, .{}).step);
@@ -288,6 +313,9 @@ pub fn build(b: *std.Build) void {
 
     const input_step = b.step("input", "Build the Input dynamic library");
     input_step.dependOn(&b.addInstallArtifact(input, .{}).step);
+
+    const formats_step = b.step("formats", "Build the Formats static library");
+    formats_step.dependOn(&b.addInstallArtifact(formats, .{}).step);
 }
 
 fn addZlib(
@@ -572,6 +600,34 @@ fn addInput(
         .linkage = .dynamic,
         .root_module = input_module,
         .win32_module_definition = b.path("Sources/src/Input/Input.def"),
+    });
+}
+
+fn addFormats(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+) *std.Build.Step.Compile {
+    const formats_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, formats_module);
+    addMsvcIncludePaths(b, formats_module, toolchain);
+    formats_module.addIncludePath(b.path("Sources/src/Formats"));
+    formats_module.addIncludePath(b.path("Sources/src/Image"));
+    formats_module.addIncludePath(b.path("Sources/src/Anim"));
+    formats_module.addIncludePath(b.path("Sources/src/Common"));
+    formats_module.addCSourceFiles(.{
+        .files = formats_sources,
+        .flags = cppflagsForOptimize(optimize),
+    });
+
+    return b.addLibrary(.{
+        .name = "Formats",
+        .linkage = .static,
+        .root_module = formats_module,
     });
 }
 
