@@ -765,6 +765,9 @@ pub fn build(b: *std.Build) void {
     const install_game_cmd = b.addRunArtifact(stage_tool);
     install_game_cmd.addArg(".");
     install_game_cmd.addArg(install_dir);
+    if (target.result.cpu.arch == .x86_64) {
+        install_game_cmd.addArg("--exclude-x86-runtime");
+    }
     if (copy_data) {
         install_game_cmd.addArg("--copy-data");
     }
@@ -775,6 +778,7 @@ pub fn build(b: *std.Build) void {
 
     const run_game_cmd = b.addSystemCommand(&.{"Game.exe"});
     run_game_cmd.setCwd(b.path(install_dir));
+    run_game_cmd.step.dependOn(install_game_step);
     if (b.args) |args| {
         run_game_cmd.addArgs(args);
     }

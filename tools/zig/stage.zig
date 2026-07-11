@@ -8,6 +8,7 @@ const Options = struct {
     data_mode: DataMode = .link,
     include_editors: bool = false,
     editors_only: bool = false,
+    exclude_x86_runtime: bool = false,
 };
 
 pub fn main(init: std.process.Init) !void {
@@ -31,6 +32,8 @@ fn parseArgs(args: *std.process.Args.Iterator) !Options {
             options.include_editors = true;
         } else if (std.mem.eql(u8, arg, "--editors-only")) {
             options.editors_only = true;
+        } else if (std.mem.eql(u8, arg, "--exclude-x86-runtime")) {
+            options.exclude_x86_runtime = true;
         } else {
             return error.InvalidArguments;
         }
@@ -50,6 +53,7 @@ fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
         var binaries = try repo.openDir(io, "zig-out/bin", .{ .iterate = true });
         defer binaries.close(io);
         try copyTree(io, allocator, binaries, destination);
+        if (options.exclude_x86_runtime) try removeLegacyX86Runtime(io, destination);
         try copyFile(io, repo, "Data/Configs/config.cfg", destination, "config.cfg");
         try copyFile(io, repo, "Data/Configs/defconf.cfg", destination, "defconf.cfg");
         try removeTreeIfPresent(io, destination, "Data");
@@ -64,6 +68,19 @@ fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
 
     try removeTreeIfPresent(io, destination, "Editors");
     if (options.include_editors) try copyEditors(io, repo, destination);
+}
+
+fn removeLegacyX86Runtime(io: std.Io, destination: std.Io.Dir) !void {
+    const legacy_dlls = [_][]const u8{
+        "A7ExportModel.dll", "AILogic.dll", "GameTT.dll", "Scene.dll",
+        "mfc42.dll", "msvcp60.dll", "msvcrt.dll",
+    };
+    for (legacy_dlls) |name| {
+        destination.deleteFile(io, name) catch |err| switch (err) {
+            error.FileNotFound => {},
+            else => return err,
+        };
+    }
 }
 
 fn copyData(io: std.Io, allocator: std.mem.Allocator, repo: std.Io.Dir, destination: std.Io.Dir) !void {
