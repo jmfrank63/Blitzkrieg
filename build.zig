@@ -787,6 +787,14 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(install_game_step);
     run_step.dependOn(&run_game_cmd.step);
 
+    const verify_x64_cmd = b.addSystemCommand(&.{
+        "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+        "tools/zig/verify_x64_runtime.ps1", install_dir,
+    });
+    verify_x64_cmd.step.dependOn(install_game_step);
+    const verify_x64_step = b.step("verify-x64-runtime", "Validate the staged Windows x64 runtime");
+    verify_x64_step.dependOn(&verify_x64_cmd.step);
+
     const stage_package_game_cmd = b.addRunArtifact(stage_tool);
     stage_package_game_cmd.addArg(".");
     stage_package_game_cmd.addArg("zig-out/package-staging/game");
@@ -860,6 +868,7 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run Zig unit tests and the Blitz64 ABI smoke test");
     test_step.dependOn(&run_blitz64_unit_tests.step);
     test_step.dependOn(&run_abi_test.step);
+    if (target.result.cpu.arch == .x86_64) test_step.dependOn(&verify_x64_cmd.step);
 
     b.default_step = game_all_step;
 }
