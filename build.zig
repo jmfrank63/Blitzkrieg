@@ -617,6 +617,7 @@ pub fn build(b: *std.Build) void {
         },
     });
     const optimize = b.standardOptimizeOption(.{});
+    const blitz64 = addBlitz64(b, target, optimize);
     const toolchain = ToolchainIncludes{
         .msvc_include = b.option([]const u8, "msvc-include", "MSVC C/C++ include directory") orelse "C:\\Program Files\\Microsoft Visual Studio\\18\\Insiders\\VC\\Tools\\MSVC\\14.51.36231\\include",
         .windows_sdk_include = b.option([]const u8, "windows-sdk-include", "Windows SDK include version directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.26100.0",
@@ -645,7 +646,7 @@ pub fn build(b: *std.Build) void {
     const gfx = addGFX(b, target, optimize, toolchain, misc, formats);
     const randommapgen = addRandomMapGen(b, target, optimize, toolchain);
     const main = addMain(b, target, optimize, toolchain);
-    const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats);
+    const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats, blitz64);
     const package_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/package.zig"),
         .target = target,
@@ -808,6 +809,42 @@ pub fn build(b: *std.Build) void {
     package_step.dependOn(package_game_step);
     package_step.dependOn(package_game_editors_step);
 
+    const abi_test_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    abi_test_module.addIncludePath(b.path("Sources/src/Blitz64"));
+    abi_test_module.addCSourceFiles(.{
+        .files = &.{"tools/zig/blitz64_abi_test.cpp"},
+        .flags = &.{"-std=c++17"},
+    });
+    addMsvcIncludePaths(b, abi_test_module, toolchain);
+    addMsvcLibraryPaths(b, abi_test_module, toolchain);
+    abi_test_module.linkLibrary(blitz64);
+    linkMsvcRuntime(abi_test_module, optimize);
+    const abi_test = b.addExecutable(.{
+        .name = "blitz64-abi-test",
+        .root_module = abi_test_module,
+    });
+    abi_test.subsystem = .console;
+    abi_test.entry = .{ .symbol_name = "main" };
+    const run_abi_test = b.addRunArtifact(abi_test);
+    const abi_test_step = b.step("blitz64-abi-test", "Run the Blitz64 C++ ABI smoke test");
+    abi_test_step.dependOn(&run_abi_test.step);
+
+    const blitz64_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/Blitz64/blitz64.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const blitz64_unit_tests = b.addTest(.{
+        .root_module = blitz64_test_module,
+    });
+    const run_blitz64_unit_tests = b.addRunArtifact(blitz64_unit_tests);
+    const test_step = b.step("test", "Run Zig unit tests and the Blitz64 ABI smoke test");
+    test_step.dependOn(&run_blitz64_unit_tests.step);
+    test_step.dependOn(&run_abi_test.step);
+
     b.default_step = game_all_step;
 }
 
@@ -836,6 +873,23 @@ fn addRandomMapGen(
         .name = "RandomMapGen",
         .linkage = .static,
         .root_module = randommapgen_module,
+    });
+}
+
+fn addBlitz64(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+) *std.Build.Step.Compile {
+    const blitz64_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/Blitz64/blitz64.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    return b.addLibrary(.{
+        .name = "Blitz64",
+        .linkage = .static,
+        .root_module = blitz64_module,
     });
 }
 
@@ -884,6 +938,7 @@ fn addGame(
     zlib: *std.Build.Step.Compile,
     randommapgen: *std.Build.Step.Compile,
     formats: *std.Build.Step.Compile,
+    blitz64: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
     const game_module = b.createModule(.{
         .target = target,
@@ -905,6 +960,7 @@ fn addGame(
     game_module.linkLibrary(zlib);
     game_module.linkLibrary(randommapgen);
     game_module.linkLibrary(formats);
+    game_module.linkLibrary(blitz64);
     linkMsvcRuntime(game_module, optimize);
     game_module.linkSystemLibrary("version", .{});
     game_module.linkSystemLibrary("winmm", .{});
