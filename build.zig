@@ -618,6 +618,7 @@ pub fn build(b: *std.Build) void {
     });
     const optimize = b.standardOptimizeOption(.{});
     const blitz64 = addBlitz64(b, target, optimize);
+    const streamio_zig = addStreamIOZig(b, target, optimize);
     const library_arch = switch (target.result.cpu.arch) {
         .x86 => "x86",
         .x86_64 => "x64",
@@ -682,6 +683,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(gfx);
     b.installArtifact(randommapgen);
     b.installArtifact(main);
+    b.installArtifact(streamio_zig);
     b.installArtifact(game);
 
     const zlib_step = b.step("zlib", "Build the zlib static library");
@@ -737,6 +739,9 @@ pub fn build(b: *std.Build) void {
 
     const main_step = b.step("main", "Build the Main static library");
     main_step.dependOn(&b.addInstallArtifact(main, .{}).step);
+
+    const streamio_step = b.step("streamio", "Build the Zig StreamIO dynamic library");
+    streamio_step.dependOn(&b.addInstallArtifact(streamio_zig, .{}).step);
 
     const game_step = b.step("game", "Build the Game executable");
     game_step.dependOn(&b.addInstallArtifact(game, .{}).step);
@@ -896,6 +901,23 @@ fn addBlitz64(
         .name = "Blitz64",
         .linkage = .static,
         .root_module = blitz64_module,
+    });
+}
+
+fn addStreamIOZig(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+) *std.Build.Step.Compile {
+    const streamio_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/StreamIOZig/streamio.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    return b.addLibrary(.{
+        .name = "StreamIO",
+        .linkage = .dynamic,
+        .root_module = streamio_module,
     });
 }
 
