@@ -236,8 +236,11 @@ static const SNameID kbdKeyMaps[] =
 };
 inline const char* GetKeyName( int nID )
 {
-	if ( kbdKeyMaps[nID].dwID == nID )
-		return kbdKeyMaps[nID].pszName;
+	if ( nID >= 0 && nID < (sizeof( kbdKeyMaps ) / sizeof( kbdKeyMaps[0] )) )
+	{
+		if ( kbdKeyMaps[nID].dwID == nID )
+			return kbdKeyMaps[nID].pszName;
+	}
 	for ( const SNameID *pDesc = kbdKeyMaps; pDesc->pszName != 0; ++pDesc )
 	{
 		if ( pDesc->dwID == nID ) 
@@ -465,6 +468,9 @@ bool CInputAPI::Done()
 	hWindow = 0;
 	return true;
 }
+#if defined(__clang__)
+__attribute__((no_sanitize("alignment")))
+#endif
 void CInputAPI::AddDevice( SDeviceEnumDesc *pDesc, const int nID )
 {
 	IDirectInputDevice8 *pTempDevice = 0;

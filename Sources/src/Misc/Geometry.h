@@ -108,7 +108,7 @@ inline float fabsxy2( const CVec3 &a ) { return fabs2( a.x, a.y ); }
 inline float fabsxy( const CVec3 &a ) { return fabs( a.x, a.y ); }
 inline bool Normalize( CVec3 *pVec ) { return Normalize(pVec->x, pVec->y, pVec->z); }
 
-inline BYTE floatToByte( const float fNumber ) { return BYTE( fNumber * 127.0f ); }
+inline BYTE floatToByte( const float fNumber ) { return static_cast<BYTE>( static_cast<signed char>( fNumber * 127.0f ) ); }
 inline float byteToFloat( const BYTE cNumber ) { return float( char( cNumber ) ) / 127.0f; }
 inline DWORD Vec3ToDWORD( const CVec3 &v ) { return DWORD( floatToByte( v.x ) ) | ( DWORD( floatToByte( v.y ) ) << 8 ) | ( DWORD( floatToByte( v.z ) ) << 16 ); }
 inline const CVec3 DWORDToVec3( DWORD dwVector ) { return CVec3( byteToFloat( dwVector & 0xff ), byteToFloat( (dwVector >> 8) & 0xff ), byteToFloat( (dwVector >> 16) & 0xff ) ); }

@@ -42,27 +42,18 @@ pub fn main(init: std.process.Init) !void {
         const rel_name = try init.gpa.dupe(u8, entry.path);
         std.mem.replaceScalar(u8, rel_name, '\\', '/');
 
-        var file = try entry.dir.openFile(init.io, entry.basename, .{});
-        defer file.close(init.io);
-
-        var read_buffer: [64 * 1024]u8 = undefined;
-        var reader = file.reader(init.io, &read_buffer);
-        const data = try reader.interface.allocRemaining(init.gpa, .unlimited);
-        defer init.gpa.free(data);
-
-        const crc = std.hash.Crc32.hash(data);
-        const size: u32 = @intCast(data.len);
+        const file_info = try crcAndSize(init.io, entry.dir, entry.basename);
 
         const local_header_offset: u32 = @intCast(writer.logicalPos());
-        try writeLocalHeader(&writer.interface, rel_name, crc, size);
+        try writeLocalHeader(&writer.interface, rel_name, file_info.crc32, file_info.size);
         try writer.interface.writeAll(rel_name);
-        try writer.interface.writeAll(data);
+        try streamFile(init.io, entry.dir, entry.basename, &writer.interface);
 
         try entries.append(init.gpa, .{
             .name = rel_name,
             .local_header_offset = local_header_offset,
-            .crc32 = crc,
-            .size = size,
+            .crc32 = file_info.crc32,
+            .size = file_info.size,
         });
     }
 
@@ -82,6 +73,37 @@ pub fn main(init: std.process.Init) !void {
     try writer.interface.writeInt(u32, central_dir_offset, .little);
     try writer.interface.writeInt(u16, 0, .little);
     try writer.interface.flush();
+}
+
+const FileInfo = struct {
+    crc32: u32,
+    size: u32,
+};
+
+fn crcAndSize(io: std.Io, dir: std.Io.Dir, path: []const u8) !FileInfo {
+    var file = try dir.openFile(io, path, .{});
+    defer file.close(io);
+    const stat = try file.stat(io);
+    const size: u32 = @intCast(stat.size);
+
+    var read_buffer: [64 * 1024]u8 = undefined;
+    var reader = file.reader(io, &read_buffer);
+    var crc = std.hash.Crc32.init();
+    var chunk: [64 * 1024]u8 = undefined;
+    while (true) {
+        const n = try reader.interface.readSliceShort(&chunk);
+        if (n == 0) break;
+        crc.update(chunk[0..n]);
+    }
+    return .{ .crc32 = crc.final(), .size = size };
+}
+
+fn streamFile(io: std.Io, dir: std.Io.Dir, path: []const u8, writer: *std.Io.Writer) !void {
+    var file = try dir.openFile(io, path, .{});
+    defer file.close(io);
+    var read_buffer: [64 * 1024]u8 = undefined;
+    var reader = file.reader(io, &read_buffer);
+    _ = try reader.interface.streamRemaining(writer);
 }
 
 fn ensureParentDir(io: std.Io, path: []const u8) !void {

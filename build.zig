@@ -651,6 +651,11 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = .ReleaseFast,
     });
+    const stage_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/stage.zig"),
+        .target = target,
+        .optimize = .ReleaseFast,
+    });
 
     b.installArtifact(zlib);
     b.installArtifact(libpng);
@@ -739,26 +744,24 @@ pub fn build(b: *std.Build) void {
     game_all_step.dependOn(&b.addInstallArtifact(sfx, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(ui, .{}).step);
 
-    const install_game_cmd = b.addSystemCommand(&.{ "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File" });
-    install_game_cmd.addFileArg(b.path("tools/zig/game_install.ps1"));
-    install_game_cmd.addArg("-InstallDir");
+    const stage_tool = b.addExecutable(.{
+        .name = "stage-game",
+        .root_module = stage_module,
+    });
+
+    const install_game_cmd = b.addRunArtifact(stage_tool);
+    install_game_cmd.addArg(".");
     install_game_cmd.addArg(install_dir);
     if (copy_data) {
-        install_game_cmd.addArg("-CopyData");
+        install_game_cmd.addArg("--copy-data");
     }
 
     const install_game_step = b.step("install-game", "Create runnable game install layout with binaries and Data");
     install_game_step.dependOn(game_all_step);
     install_game_step.dependOn(&install_game_cmd.step);
 
-    const run_game_cmd = b.addSystemCommand(&.{ "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File" });
-    run_game_cmd.addFileArg(b.path("tools/zig/game_install.ps1"));
-    run_game_cmd.addArg("-InstallDir");
-    run_game_cmd.addArg(install_dir);
-    if (copy_data) {
-        run_game_cmd.addArg("-CopyData");
-    }
-    run_game_cmd.addArg("-Run");
+    const run_game_cmd = b.addSystemCommand(&.{"Game.exe"});
+    run_game_cmd.setCwd(b.path(install_dir));
     if (b.args) |args| {
         run_game_cmd.addArgs(args);
     }
@@ -767,11 +770,10 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(install_game_step);
     run_step.dependOn(&run_game_cmd.step);
 
-    const stage_package_game_cmd = b.addSystemCommand(&.{ "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File" });
-    stage_package_game_cmd.addFileArg(b.path("tools/zig/game_install.ps1"));
-    stage_package_game_cmd.addArg("-InstallDir");
+    const stage_package_game_cmd = b.addRunArtifact(stage_tool);
+    stage_package_game_cmd.addArg(".");
     stage_package_game_cmd.addArg("zig-out/package-staging/game");
-    stage_package_game_cmd.addArg("-CopyData");
+    stage_package_game_cmd.addArg("--copy-data");
 
     const package_tool = b.addExecutable(.{
         .name = "package",
@@ -786,20 +788,20 @@ pub fn build(b: *std.Build) void {
     package_game_step.dependOn(&stage_package_game_cmd.step);
     package_game_step.dependOn(&package_tool_run.step);
 
-    const stage_package_game_editors_cmd = b.addSystemCommand(&.{ "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File" });
-    stage_package_game_editors_cmd.addFileArg(b.path("tools/zig/game_install.ps1"));
-    stage_package_game_editors_cmd.addArg("-InstallDir");
-    stage_package_game_editors_cmd.addArg("zig-out/package-staging/game-with-editors");
-    stage_package_game_editors_cmd.addArg("-CopyData");
-    stage_package_game_editors_cmd.addArg("-IncludeEditors");
+    const stage_package_game_editors_cmd = b.addRunArtifact(stage_tool);
+    stage_package_game_editors_cmd.addArg(".");
+    stage_package_game_editors_cmd.addArg("zig-out/package-staging/game");
+    stage_package_game_editors_cmd.addArg("--include-editors");
+    stage_package_game_editors_cmd.addArg("--editors-only");
+    stage_package_game_editors_cmd.step.dependOn(&package_tool_run.step);
 
     const package_tool_editors = b.addRunArtifact(package_tool);
-    package_tool_editors.addArg("zig-out/package-staging/game-with-editors");
+    package_tool_editors.step.dependOn(&stage_package_game_editors_cmd.step);
+    package_tool_editors.addArg("zig-out/package-staging/game");
     package_tool_editors.addArg(b.fmt("{s}/Blitzkrieg-game-with-editors.zip", .{package_dir}));
 
     const package_game_editors_step = b.step("package-game-editors", "Create installation zip package with editor tools");
     package_game_editors_step.dependOn(game_all_step);
-    package_game_editors_step.dependOn(&stage_package_game_editors_cmd.step);
     package_game_editors_step.dependOn(&package_tool_editors.step);
 
     const package_step = b.step("package", "Create both game-only and with-editors installation zip packages");
