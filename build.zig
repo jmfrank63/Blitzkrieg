@@ -618,11 +618,17 @@ pub fn build(b: *std.Build) void {
     });
     const optimize = b.standardOptimizeOption(.{});
     const blitz64 = addBlitz64(b, target, optimize);
+    const library_arch = switch (target.result.cpu.arch) {
+        .x86 => "x86",
+        .x86_64 => "x64",
+        else => @panic("The Windows runtime build supports only x86 and x86_64 targets"),
+    };
     const toolchain = ToolchainIncludes{
         .msvc_include = b.option([]const u8, "msvc-include", "MSVC C/C++ include directory") orelse "C:\\Program Files\\Microsoft Visual Studio\\18\\Insiders\\VC\\Tools\\MSVC\\14.51.36231\\include",
         .windows_sdk_include = b.option([]const u8, "windows-sdk-include", "Windows SDK include version directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.26100.0",
-        .msvc_lib = b.option([]const u8, "msvc-lib", "MSVC x86 library directory") orelse "C:\\Program Files\\Microsoft Visual Studio\\18\\Insiders\\VC\\Tools\\MSVC\\14.51.36231\\lib\\x86",
+        .msvc_lib = b.option([]const u8, "msvc-lib", "MSVC library directory") orelse "C:\\Program Files\\Microsoft Visual Studio\\18\\Insiders\\VC\\Tools\\MSVC\\14.51.36231\\lib",
         .windows_sdk_lib = b.option([]const u8, "windows-sdk-lib", "Windows SDK library version directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0",
+        .library_arch = library_arch,
     };
     const install_dir = b.option([]const u8, "install-dir", "Relative install layout path (default: zig-out/game)") orelse "zig-out/game";
     const copy_data = b.option(bool, "copy-data", "Copy Data into install layout instead of creating a junction") orelse false;
@@ -1596,6 +1602,7 @@ const ToolchainIncludes = struct {
     windows_sdk_include: []const u8,
     msvc_lib: []const u8,
     windows_sdk_lib: []const u8,
+    library_arch: []const u8,
 };
 
 fn addMsvcIncludePaths(b: *std.Build, module: *std.Build.Module, toolchain: ToolchainIncludes) void {
@@ -1607,9 +1614,9 @@ fn addMsvcIncludePaths(b: *std.Build, module: *std.Build.Module, toolchain: Tool
 }
 
 fn addMsvcLibraryPaths(b: *std.Build, module: *std.Build.Module, toolchain: ToolchainIncludes) void {
-    module.addLibraryPath(.{ .cwd_relative = toolchain.msvc_lib });
-    module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\ucrt\\x86", .{toolchain.windows_sdk_lib}) });
-    module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\um\\x86", .{toolchain.windows_sdk_lib}) });
+    module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\{s}", .{ toolchain.msvc_lib, toolchain.library_arch }) });
+    module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\ucrt\\{s}", .{ toolchain.windows_sdk_lib, toolchain.library_arch }) });
+    module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}\\um\\{s}", .{ toolchain.windows_sdk_lib, toolchain.library_arch }) });
 }
 
 fn linkMsvcRuntime(module: *std.Build.Module, optimize: std.builtin.OptimizeMode) void {
