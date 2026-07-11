@@ -61,3 +61,6 @@ ReleaseDll/
 # Zig build artifacts
 .zig-cache/
 zig-out/
+
+# Local Git worktrees
+.worktrees/
