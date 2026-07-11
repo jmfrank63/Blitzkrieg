@@ -86,9 +86,9 @@ private:
 	bool bCheckSumInitialized;
 	uLong checkSum;												// stats checksum
 public:
-	std::string szKeyName;								// ключевое имя данного объекта - в основном используется в редакторе
-	std::string szParentName;							// parent object key name. заполняется динамически при загрузке объекта
-	std::string szStatsType;							// тип статсов - "crap", "mech", "infantry", "building", "weapon"
+	std::string szKeyName;								// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ - пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	std::string szParentName;							// parent object key name. пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	std::string szStatsType;							// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ - "crap", "mech", "infantry", "building", "weapon"
 	SCommonRPGStats() : bCheckSumInitialized( false ), checkSum( 0 ) {}
 	SCommonRPGStats( const char *pszStatsType ) : checkSum( 0 ), szStatsType( pszStatsType ), bCheckSumInitialized( false ) {}
 	SCommonRPGStats( const std::string &_szStatsType ) : checkSum( 0 ), szStatsType( _szStatsType ), bCheckSumInitialized( false ) {}
@@ -139,8 +139,8 @@ struct SDefenseRPGStats
 };
 struct SHPObjectRPGStats : public SCommonRPGStats
 {
-	float fMaxHP;													// максимальное здоровье объекта
-	std::vector<float> damagedHPs;				// последовательность процентов здоровья, при которых происходит смена состояния объекта
+	float fMaxHP;													// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	std::vector<float> damagedHPs;				// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	float fRepairCost;										// repair cost (in RU) to repair ONE hit point!!!
 	SDefenseRPGStats defences[6];					// defense stats for each direction
 	SHPObjectRPGStats( const char *pszType ) : 
@@ -185,7 +185,7 @@ enum EAIClass
 struct SStaticObjectRPGStats : public SHPObjectRPGStats
 {
 	DWORD dwAIClasses;										// AI classes, which cannot go through this object
-	bool bBurn;														// горит ли здание после достижения 50% hp
+	bool bBurn;														// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ 50% hp
 	std::string szEffectExplosion;				// death with explosion (projectile hit)
 	std::string szEffectDeath;						// "silent" death - squshed by tank
 
@@ -220,34 +220,34 @@ struct SWeaponRPGStats : public SCommonRPGStats
 			DAMAGE_FOG		= 2,								// fog screen shell
 		};
 		EDamageType eDamageType;
-		int nPiercing;											// (огурцы) бронепробиваемость
-		int nPiercingRandom;								// (огурцы) random на бронепробиваемость
-		float fDamagePower;									// (HP <=> HP) собственно, вред...
-		int	nDamageRandom;									// (HP <=> HP) random на вред
-		float fArea, fArea2;								// (метры <=> AI точки) радиус зоны покрытия от одного снаряда
-		float fSpeed;												// (метры/секунду <=> AI точки/тик) скорость полёта снаряда
-		float fTraceSpeedCoeff;             // коэфф. скорости трассера относительно скорости полета снаряда
-		float fTraceProbability;            // вероятность появления трассера при выстреле [0;1]
-		float fDetonationPower;							// степень дрожания камеры при разрыве снаряда
-		ETrajectoryType trajectory;					// тип траектории
-		float fBrokeTrackProbability;				// вероятность разбить трак
-		std::string szFireSound;						// звук при выстреле пехотинца
-		std::string szEffectGunFire;				// выстрел из пушки этим снарядом
-		std::string szEffectTrajectory;			// полёт снаряда (дым и т.д.)
-		std::string szEffectHitDirect;			// прямое попадание
-		std::string szEffectHitMiss;				// попали визуально, но промазали по combat system
-		std::string szEffectHitReflect;			// попали, но броню не пробили
-		std::string szEffectHitGround;			// попали в землю
-		std::string szEffectHitWater;				// попали в воду
-		std::string szEffectHitAir;					// попали в воздух - для зенитной артиллерии при заградительном огне
+		int nPiercing;											// (пїЅпїЅпїЅпїЅпїЅпїЅ) пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		int nPiercingRandom;								// (пїЅпїЅпїЅпїЅпїЅпїЅ) random пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		float fDamagePower;									// (HP <=> HP) пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ...
+		int	nDamageRandom;									// (HP <=> HP) random пїЅпїЅ пїЅпїЅпїЅпїЅ
+		float fArea, fArea2;								// (пїЅпїЅпїЅпїЅпїЅ <=> AI пїЅпїЅпїЅпїЅпїЅ) пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		float fSpeed;												// (пїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅпїЅпїЅ <=> AI пїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅ) пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		float fTraceSpeedCoeff;             // пїЅпїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		float fTraceProbability;            // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ [0;1]
+		float fDetonationPower;							// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		ETrajectoryType trajectory;					// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		float fBrokeTrackProbability;				// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+		std::string szFireSound;						// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		std::string szEffectGunFire;				// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		std::string szEffectTrajectory;			// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ пїЅ пїЅ.пїЅ.)
+		std::string szEffectHitDirect;			// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		std::string szEffectHitMiss;				// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ combat system
+		std::string szEffectHitReflect;			// пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		std::string szEffectHitGround;			// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ
+		std::string szEffectHitWater;				// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ
+		std::string szEffectHitAir;					// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ - пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 		std::vector<std::string> szCraters;	// craters after explosion
 		SFlashEffect flashFire;							// flash on firing
 		SFlashEffect flashExplosion;				// flash on explosion
 
-		union { float fFireRate; int nFireRate; };		// (пули/минуту <=> ticks между вылетами пуль в очереди) скорострельность
-		union { float fRelaxTime; int nRelaxTime; };	// (секунды <=> ticks) время на отходняк после выстрела
+		union { float fFireRate; int nFireRate; };		// (пїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅпїЅ <=> ticks пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ) пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		union { float fRelaxTime; int nRelaxTime; };	// (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ <=> ticks) пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		
-		CArray1Bit specials;								// спец. эффекты
+		CArray1Bit specials;								// пїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		SShell();
 		float GetRandomDamage() const { return GetPositiveRandom( fDamagePower, nDamageRandom ); }
 		int GetRandomPiercing() const { return GetPositiveRandom( nPiercing, nPiercingRandom ); }
@@ -260,17 +260,17 @@ struct SWeaponRPGStats : public SCommonRPGStats
 
 		const uLong CalculateCheckSum() const;
 	};
-	float fDispersion;										// (метры <=> AI точки) "попадучесть" (со слов Толстого)
-	union { float fAimingTime; int nAimingTime; };// (секунды <=> ticks) время на прицеливание
-	int nAmmoPerBurst;										// (штуки <=> штуки) сколько потронов уходит на очередь
-	float fRangeMax;											// (метры <=> AI точки) как далеко бъёт
-	float fRangeMin;											// (метры <=> AI точки) ближе не может стрелять
+	float fDispersion;										// (пїЅпїЅпїЅпїЅпїЅ <=> AI пїЅпїЅпїЅпїЅпїЅ) "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ" (пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
+	union { float fAimingTime; int nAimingTime; };// (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ <=> ticks) пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	int nAmmoPerBurst;										// (пїЅпїЅпїЅпїЅпїЅ <=> пїЅпїЅпїЅпїЅпїЅ) пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	float fRangeMax;											// (пїЅпїЅпїЅпїЅпїЅ <=> AI пїЅпїЅпїЅпїЅпїЅ) пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+	float fRangeMin;											// (пїЅпїЅпїЅпїЅпїЅ <=> AI пїЅпїЅпїЅпїЅпїЅ) пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
-	int nCeiling;													// (уровни <=> уровни) на сколько пушка бъёт вверх
-	float fRevealRadius;									// радиус обнаружения для антиартиллерийной борьбы ( ??? <=> AI точки )
+	int nCeiling;													// (пїЅпїЅпїЅпїЅпїЅпїЅ <=> пїЅпїЅпїЅпїЅпїЅпїЅ) пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	float fRevealRadius;									// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ ( ??? <=> AI пїЅпїЅпїЅпїЅпїЅ )
 
-	WORD wDeltaAngle;											// (градусы <=> градусы65535) на сколько наводчик может искривить пушку силой своей воли. половина угла
-	std::vector<SShell> shells;						// все возможные типы снарядов для этой пушки
+	WORD wDeltaAngle;											// (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ <=> пїЅпїЅпїЅпїЅпїЅпїЅпїЅ65535) пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+	std::vector<SShell> shells;						// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	SWeaponRPGStats();
 	virtual ~SWeaponRPGStats() {  }
 
@@ -281,9 +281,9 @@ struct SWeaponRPGStats : public SCommonRPGStats
 };
 struct SBaseGunRPGStats
 {
-	std::string szWeapon;									// собственно пушка (ссылка)
+	std::string szWeapon;									// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅ)
 	int nPriority;												// priority of this gun
-	bool bPrimary;												// primary or secondary gun (для отображения снарядов)
+	bool bPrimary;												// primary or secondary gun (пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
 	const SWeaponRPGStats *pWeapon;				// weapon shortcut
 	int nAmmo;														// max amount of ammo in this gun
 	WORD wDirection;											// this gun direction
@@ -297,10 +297,10 @@ struct SBaseGunRPGStats
 };
 struct SObjectBaseRPGStats : public SStaticObjectRPGStats
 {
-	CArray2D<BYTE> passability;						// проходимость AI тайлов этого объекта
-	CVec2 vOrigin;												// нулевая точка объекта для passability
-	CArray2D<BYTE> visibility;						// степень поглощения силы взгляда
-	CVec2 vVisOrigin;											// нулевая точка объекта по visibility
+	CArray2D<BYTE> passability;						// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ AI пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	CVec2 vOrigin;												// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ passability
+	CArray2D<BYTE> visibility;						// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	CVec2 vVisOrigin;											// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ visibility
 	std::string szAmbientSound;						// ambient sounds set
 	std::string szCycledSound;						// cycled sounds set
 
@@ -320,10 +320,10 @@ struct STerraObjSetRPGStats : public SStaticObjectRPGStats
 {
 	struct SSegment
 	{
-		CArray2D<BYTE> passability;						// проходимость AI тайлов этого объекта
-		CVec2 vOrigin;												// нулевая точка объекта для passability
-		CArray2D<BYTE> visibility;						// степень поглощения силы взгляда
-		CVec2 vVisOrigin;											// нулевая точка объекта по visibility
+		CArray2D<BYTE> passability;						// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ AI пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		CVec2 vOrigin;												// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ passability
+		CArray2D<BYTE> visibility;						// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		CVec2 vVisOrigin;											// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ visibility
 		bool ToAIUnits();
 		int operator&( IDataTree &ss );
 
@@ -372,13 +372,13 @@ struct SBuildingRPGStats : public SObjectBaseRPGStats
 	struct SSlot
 	{
 		CVec3 vPos;													// position
-		union { float fDirection; WORD wDirection; };	// (угол <=> угол65536) fire/sight direction
-		union { float fAngle; WORD wAngle; };					// (угол <=> угол65536) fire/sight angle
+		union { float fDirection; WORD wDirection; };	// (пїЅпїЅпїЅпїЅ <=> пїЅпїЅпїЅпїЅ65536) fire/sight direction
+		union { float fAngle; WORD wAngle; };					// (пїЅпїЅпїЅпїЅ <=> пїЅпїЅпїЅпїЅ65536) fire/sight angle
 		SHMatrix matDirection;							// direction (as wDirection), but ready for visualization purposes
 		float fSightMultiplier;							// sight multiplier
 		float fCoverage;										// coverage for the unit in this slot [0..1]
 		SBaseGunRPGStats gun;								// mounted gun
-		union { float fRotationSpeed; WORD wRotationSpeed; };				// (секунды на полный оборот <=> градусы65535/тик) vertical rotation speed
+		union { float fRotationSpeed; WORD wRotationSpeed; };				// (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ <=> пїЅпїЅпїЅпїЅпїЅпїЅпїЅ65535/пїЅпїЅпїЅ) vertical rotation speed
 		bool bBeforeSprite;									// is this slot before main sprite?
 		bool bShowFlashes;									// do we need to show flashes from this position?
 		CVec2 vPicturePosition;							// 2D picture position
@@ -395,8 +395,8 @@ struct SBuildingRPGStats : public SObjectBaseRPGStats
 	struct SFirePoint
 	{
 		CVec3 vPos;													// position
-		float fDirection;										// (угол <=> угол в радианах) direction
-		float fVerticalAngle;								// (угол <=> угол в радианах) angle from horizontal plane in the vertical plane, which crosses 'fDirection'
+		float fDirection;										// (пїЅпїЅпїЅпїЅ <=> пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ) direction
+		float fVerticalAngle;								// (пїЅпїЅпїЅпїЅ <=> пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ) angle from horizontal plane in the vertical plane, which crosses 'fDirection'
 		std::string szFireEffect;						// particle fire effect
 		CVec2 vPicturePosition;							// 2D picture position
 		CVec3 vWorldPosition;								// 3D position, calculated from picture one
@@ -411,8 +411,8 @@ struct SBuildingRPGStats : public SObjectBaseRPGStats
 	struct SDirectionExplosion
 	{
 		CVec3 vPos;													// position
-		float fDirection;										// (угол <=> угол в радианах) direction
-		float fVerticalAngle;								// (угол <=> угол в радианах) angle from horizontal plane in the vertical plane, which crosses 'fDirection'
+		float fDirection;										// (пїЅпїЅпїЅпїЅ <=> пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ) direction
+		float fVerticalAngle;								// (пїЅпїЅпїЅпїЅ <=> пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ) angle from horizontal plane in the vertical plane, which crosses 'fDirection'
 		CVec2 vPicturePosition;							// 2D picture position
 		CVec3 vWorldPosition;								// 3D position, calculated from picture one
 		SDirectionExplosion();
@@ -427,8 +427,8 @@ struct SBuildingRPGStats : public SObjectBaseRPGStats
 	std::vector<SSlot> slots;							// shoot slots...
 	std::vector<SEntrance> entrances;			// entrances
 	std::vector<SFirePoint> firePoints;		// fire points...
-	std::vector<SFirePoint> smokePoints;	// smoke points, при разрушении здания
-	std::string szSmokeEffect;						// smoke effect, один на всех
+	std::vector<SFirePoint> smokePoints;	// smoke points, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	std::string szSmokeEffect;						// smoke effect, пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ
 	enum EDirectionExplosionType
 	{
 		E_FRONT_LEFT,
@@ -437,8 +437,8 @@ struct SBuildingRPGStats : public SObjectBaseRPGStats
 		E_BACK_LEFT,
 		E_TOP_CENTER,
 	};
-	std::vector<SDirectionExplosion> dirExplosions;		// direction explosions, всего 5 штук, смотри EDirectionExplosionType
-	std::string szDirExplosionEffect;			// direction explosion effect, один на всех
+	std::vector<SDirectionExplosion> dirExplosions;		// direction explosions, пїЅпїЅпїЅпїЅпїЅ 5 пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅ EDirectionExplosionType
+	std::string szDirExplosionEffect;			// direction explosion effect, пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ
 	SBuildingRPGStats();
 	virtual ~SBuildingRPGStats() {  }
 	virtual void STDCALL ToAIUnits();
@@ -612,7 +612,7 @@ enum EUnitAckType
 
 	
 	_ACK_BORED_BEGIN											= 36,
-	ACK_BORED_RUSH												= _ACK_BORED_BEGIN,// в агресивной формации атака. враг виден.
+	ACK_BORED_RUSH												= _ACK_BORED_BEGIN,// пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ.
 	ACK_BORED_ATTACK											= 37,
 	ACK_BORED_LOW_AMMO										= 38,
 	ACK_BORED_NO_AMMO											=	39,
@@ -711,22 +711,22 @@ struct SUnitBaseRPGStats : public SHPObjectRPGStats
 	std::vector<const SAckRPGStats *> pAcksSets;	// shortcuts 
 	const SBaseGunRPGStats *pPrimaryGun;	// primary gun for data extracting for stats
 	int nAmmos[2];												// primary and secondary max ammo counts (for visualization)
-	float fSight;													// (метры <=> AI тайлы) sight range
+	float fSight;													// (пїЅпїЅпїЅпїЅпїЅ <=> AI пїЅпїЅпїЅпїЅпїЅ) sight range
 	float fSightPower;										// sight power
-	float fSpeed;													// (киломерты/час <=> точки/тик) speed on the road
-	float fRotateSpeed;										// (градусы/сек <=> угол 65536/тик) speed of rotation (in direction units (2pi = 65536))
-	float fPassability;										// (огурцы) проходимость
-	int nPriority;												// приоритет для "уступания" дороги
-	float fCamouflage;										// (% от метров) способность к маскировке - множитель чужое зрение
+	float fSpeed;													// (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅ <=> пїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅ) speed on the road
+	float fRotateSpeed;										// (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅ <=> пїЅпїЅпїЅпїЅ 65536/пїЅпїЅпїЅ) speed of rotation (in direction units (2pi = 65536))
+	float fPassability;										// (пїЅпїЅпїЅпїЅпїЅпїЅ) пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	int nPriority;												// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ" пїЅпїЅпїЅпїЅпїЅпїЅ
+	float fCamouflage;										// (% пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ) пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	int nMaxArmor;											// maximum armor \| these two parameters make sense only for non-inf units,
 	int nMinArmor;											// minimum armor /| in other case they are equal
 	union { float fUninstallRotate; int nUninstallRotate; };				// uninstall for rotation and install from it
 	union { float fUninstallTransport; int nUninstallTransport; };	// uninstall for transporting and install from it
 
-	int nBoundTileRadius;									// (AI tiles) радиус, ограничивающий физический объект в тайлах
+	int nBoundTileRadius;									// (AI tiles) пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 
-	float fWeight;												// (килограмы <=> килограмы) вес
-	float fPrice;													// (огурцы) ценность юнита
+	float fWeight;												// (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ <=> пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ) пїЅпїЅпїЅ
+	float fPrice;													// (пїЅпїЅпїЅпїЅпїЅпїЅ) пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 
 	CVec2 vAABBCenter;										// aabb center
 	CVec2 vAABBHalfSize;									// aabb half size
@@ -765,13 +765,13 @@ struct SUnitBaseRPGStats : public SHPObjectRPGStats
 		void CountPrimaryGuns( std::vector<TGun> &guns )
 		{
 			int nMin = 1000000000, nMax = -1000000000;
-			for ( std::vector<TGun>::const_iterator it = guns.begin(); it != guns.end(); ++it )
+			for ( typename std::vector<TGun>::const_iterator it = guns.begin(); it != guns.end(); ++it )
 			{
 				nMin = Min( nMin, it->nPriority );
 				nMax = Max( nMax, it->nPriority );
 			}
 			Zero( nAmmos );
-			for ( std::vector<TGun>::iterator it = guns.begin(); it != guns.end(); ++it )
+			for ( typename std::vector<TGun>::iterator it = guns.begin(); it != guns.end(); ++it )
 			{
 				if ( (pPrimaryGun == 0) && (it->nPriority == nMin) )
 					pPrimaryGun = &( *it );
@@ -783,7 +783,7 @@ struct SUnitBaseRPGStats : public SHPObjectRPGStats
 		void CountShellTypes( std::vector<TGun> &guns )
 		{
 			int nDamageTypes[3] = { 0, 0, 0 };
-			for ( std::vector<TGun>::const_iterator it = guns.begin(); it != guns.end(); ++it )
+			for ( typename std::vector<TGun>::const_iterator it = guns.begin(); it != guns.end(); ++it )
 			{
 				for ( std::vector<SWeaponRPGStats::SShell>::const_iterator shell = it->pWeapon->shells.begin(); shell != it->pWeapon->shells.end(); ++shell )
 					nDamageTypes[shell->eDamageType] = 1;
@@ -844,13 +844,13 @@ struct SMechUnitRPGStats : public SUnitBaseRPGStats
 	};
 	struct SGun : public SBaseGunRPGStats
 	{
-		int nShootPoint;									// индекс точки выстрела
-		bool bRecoil;											// есть ли отдача при выстреле
-		float fRecoilLength;							// длина отката при отдаче
-		DWORD recoilTime;									// время отката при отдаче
-		int nModelPart;										// часть модели, которая представляет эту пушку (индекс).
-		int nRecoilShakeTime;							// время на вздрагивание (msec)
-		float fRecoilShakeAngle;					// угол поворота при вздрагивании (radian)
+		int nShootPoint;									// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		bool bRecoil;											// пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		float fRecoilLength;							// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+		DWORD recoilTime;									// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+		int nModelPart;										// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅ).
+		int nRecoilShakeTime;							// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (msec)
+		float fRecoilShakeAngle;					// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (radian)
 		SGun();
 		virtual int STDCALL operator&( IDataTree &ss );
 
@@ -858,12 +858,12 @@ struct SMechUnitRPGStats : public SUnitBaseRPGStats
 	};
 	struct SPlatform
 	{
-		union { float fHorizontalRotationSpeed; WORD wHorizontalRotationSpeed; };		// (секунды на полный оборот (360 градусов) <=> градусы65535/тик) horizontal rotation speed
-		union { float fVerticalRotationSpeed; WORD wVerticalRotationSpeed; };				// (секунды на полный оборот <=> градусы65535/тик) vertical rotation speed
-		int nModelPart;											// часть модели, которая представляет эту платформу (индекс)
+		union { float fHorizontalRotationSpeed; WORD wHorizontalRotationSpeed; };		// (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ (360 пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ) <=> пїЅпїЅпїЅпїЅпїЅпїЅпїЅ65535/пїЅпїЅпїЅ) horizontal rotation speed
+		union { float fVerticalRotationSpeed; WORD wVerticalRotationSpeed; };				// (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ <=> пїЅпїЅпїЅпїЅпїЅпїЅпїЅ65535/пїЅпїЅпїЅ) vertical rotation speed
+		int nModelPart;											// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅ)
 		SConstraint constraint;							// constraint for procedural animation
-		DWORD dwGunCarriageParts; 					// "станок" ствола - для всех стволов, которые могут наводиться вертикально
-		SConstraint constraintVertical;			// ограничение на вертикальную наводку ствола
+		DWORD dwGunCarriageParts; 					// "пїЅпїЅпїЅпїЅпїЅпїЅ" пїЅпїЅпїЅпїЅпїЅпїЅ - пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		SConstraint constraintVertical;			// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		int nFirstGun;											// first platform gun index in the 'guns' array
 		int nNumGuns;												// number of guns on this platform
 		SPlatform();
@@ -890,41 +890,41 @@ struct SMechUnitRPGStats : public SUnitBaseRPGStats
 	};
 	std::vector<SGun> guns;								// all guns in the next order: all guns on the base platform, all guns on the turret
 	std::vector<SPlatform> platforms;			// all platforms. [0] - base, [1] - turret
-	SArmor armors[6];											// (огурцы) armor from 6 directions (see EDirection)
-	float fTowingForce;										// (килограммы <=> килограммы) тяговое усилие
+	SArmor armors[6];											// (пїЅпїЅпїЅпїЅпїЅпїЅ) armor from 6 directions (see EDirection)
+	float fTowingForce;										// (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ <=> пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ) пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	int nCrew;														// number of crew members, required to operate
 	int nPassangers;											// number of possible passangers to carry
-	float fTurnRadius;										// (метры <=> AI точки) радиус разворота
-	std::vector<int> exhaustPoints;				// точки выхлопа
-	std::vector<int> damagePoints;				// точки взрыва при смерти
-	int nTowPoint;												// точка буксировки
-	int nEntrancePoint;										// точка входа в машинку
-	std::vector<int> peoplePointIndices;	// точки расположения людей при этой машинке
-	int nFatalitySmokePoint;							// точка для выброса эффекта при fatality
-	int nShootDustPoint;									// точка для выброса пыли при выстреле из РСЗО/гаубиц. если -1, то брать центр юнита
-	CVec2 vTowPoint;											// 2D положение точки буксировки
-	CVec2 vEntrancePoint;									// 2D положение точки входа
-	std::vector<CVec2> vPeoplePoints;			// 2D положения точек расположения людей при этой машинке
+	float fTurnRadius;										// (пїЅпїЅпїЅпїЅпїЅ <=> AI пїЅпїЅпїЅпїЅпїЅ) пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	std::vector<int> exhaustPoints;				// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	std::vector<int> damagePoints;				// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	int nTowPoint;												// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	int nEntrancePoint;										// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	std::vector<int> peoplePointIndices;	// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	int nFatalitySmokePoint;							// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ fatality
+	int nShootDustPoint;									// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅ -1, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	CVec2 vTowPoint;											// 2D пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	CVec2 vEntrancePoint;									// 2D пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	std::vector<CVec2> vPeoplePoints;			// 2D пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	CVec2 vAmmoPoint;											// 2D point for ammo box
 	std::vector< std::vector<CVec2> > vGunners;	// gunners information in the different modes: operate, rotate, move
-	CVec2 vHookPoint;											// 2D точка подцепления вагона (только для вагонов)
-	CVec2 vFrontWheel;										// 2D точка передних колёс у вагона (только для вагонов)
-	CVec2 vBackWheel;											// 2D точка задних колёс у вагона (только для вагонов)
+	CVec2 vHookPoint;											// 2D пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
+	CVec2 vFrontWheel;										// 2D пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
+	CVec2 vBackWheel;											// 2D пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
 	std::string szEffectDiesel;						// diesel smoke effect
 	std::string szEffectSmoke;						// smoke effect
-	std::string szEffectWheelDust;				// пыль из под колес
-	std::string szEffectShootDust;				// пыль при выстреле
+	std::string szEffectWheelDust;				// пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	std::string szEffectShootDust;				// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	std::string szEffectFatality;					// fatality effect
 	std::string szEffectEntrenching;			// entrenching for technics
-	std::string szEffectDisappear;				// эффект при исчезании 'трупа' техники
+	std::string szEffectDisappear;				// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ 'пїЅпїЅпїЅпїЅпїЅ' пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	SJoggingParams jx, jy, jz;						// jogging in 3 axises
-	bool bLeavesTracks;										// оставляет ли следы
-	float fTrackWidth;										// ширина одного трека в процентах от ширины AABB
-	float fTrackOffset;										// отступ от края AABB
-	float fTrackStart;										// отступ начала трека от начала AABB
-	float fTrackEnd;											// отступ конца трека от конца AABB
-	float fTrackIntensity;								// интенсивность трека (1 - alpha)
-	int nTrackLifetime;										// время жизни трека
+	bool bLeavesTracks;										// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	float fTrackWidth;										// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ AABB
+	float fTrackOffset;										// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ AABB
+	float fTrackStart;										// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ AABB
+	float fTrackEnd;											// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ AABB
+	float fTrackIntensity;								// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (1 - alpha)
+	int nTrackLifetime;										// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	std::string szSoundMoveStart;					// start movement
 	std::string szSoundMoveCycle;					// cycle movement sound
 	std::string szSoundMoveStop;					// stop movement
@@ -961,15 +961,15 @@ struct SInfantryRPGStats : public SUnitBaseRPGStats
 		virtual int STDCALL operator&( IDataTree &ss );
 	};
 	std::vector<SGun> guns;								// guns[0] - main gun (rifle, machinegun, etc.), guns[1] - (if it is) secondary weapon - grenade
-	bool bCanAttackUp;										// может атаковать сто
-	bool bCanAttackDown;									// может атаковать лёжа
+	bool bCanAttackUp;										// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ
+	bool bCanAttackDown;									// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ
 	float fRunSpeed;											// runing speed
 	float fCrawlSpeed;										// crawling speed
 	std::vector<int> animtimes;						// length of all animations in msec (0 if no such animation)
 	/*
-	std::vector<int> commands;						// доступные команды
-	std::vector<int> targets;							// предпочитаемые цели (в порядке предпочтения)
-	std::vector<int> behavior;						// поведенческие установки...
+	std::vector<int> commands;						// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	std::vector<int> targets;							// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ (пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
+	std::vector<int> behavior;						// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ...
 	*/
 	SInfantryRPGStats();
 	virtual ~SInfantryRPGStats() {  }
@@ -1080,10 +1080,10 @@ struct SFenceRPGStats : public SStaticObjectRPGStats
 	};
 	struct SSegmentRPGStats
 	{
-		CArray2D<BYTE> passability;					// проходимость AI тайлов этого сегмента
-		CVec2 vOrigin;											// нулевая точка сегмента для passability
-		CArray2D<BYTE> visibility;					// степень поглощения силы взгляда
-		CVec2 vVisOrigin;										// нулевая точка сегмента для visibility
+		CArray2D<BYTE> passability;					// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ AI пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		CVec2 vOrigin;											// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ passability
+		CArray2D<BYTE> visibility;					// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		CVec2 vVisOrigin;										// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ visibility
 		int nIndex;													// sprite index
 		bool ToAIUnits();
 		int operator&( IDataTree &ss );
@@ -1208,7 +1208,7 @@ struct SSquadRPGStats : public SHPObjectRPGStats
 	};
 	enum EEVents
 	{
-		HIT_NEAR = 0,												// взвод обстрелян
+		HIT_NEAR = 0,												// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	};
 	struct SFormation
 	{
@@ -1234,7 +1234,7 @@ struct SSquadRPGStats : public SHPObjectRPGStats
 		};
 		EType type;													// formation type
 		std::vector<SEntry> order;					// all soldiers in this formation
-		BYTE cLieFlag;	// 0 - стандартное поведение, 1 - всегда стоять, 2 - всегда лежать
+		BYTE cLieFlag;	// 0 - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, 1 - пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, 2 - пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		float fSpeedBonus;
 		float fDispersionBonus;
 		float fFireRateBonus;
@@ -1242,7 +1242,7 @@ struct SSquadRPGStats : public SHPObjectRPGStats
 		float fCoverBonus;
 		float fVisibleBonus;
 		
-		std::vector<int> changesByEvent;			// в какую формацию перейти по событию, -1 - никуда не переходить
+		std::vector<int> changesByEvent;			// пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, -1 - пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		int operator&( IDataTree &ss );
 		void RetrieveShortcuts( IObjectsDB *pGDB );
 		bool ToAIUnits();
@@ -1278,8 +1278,8 @@ struct SMineRPGStats : public SObjectBaseRPGStats
 	std::string szWeapon;									// weapon name
 	const SWeaponRPGStats *pWeapon;				// weapon shortcut
 	EType type;														// anti-infantry or anti-tank
-	float fWeight;												// вес, необходимый для срабатывани
-	std::string szFlagModel;							// флажок над обнаруженой миной
+	float fWeight;												// пїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	std::string szFlagModel;							// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	SMineRPGStats();
 	virtual ~SMineRPGStats() {  }
 	virtual void STDCALL RetrieveShortcuts( IObjectsDB *pGDB );
@@ -1311,10 +1311,10 @@ public:
 			GIRDER = 1
 		};
 		EType eType;												// segment type - slab or girder
-		CArray2D<BYTE> passability;					// проходимость AI тайлов этого сегмента
-		CVec2 vOrigin;											// нулевая точка сегмента для passability
-		CArray2D<BYTE> visibility;					// степень поглощения силы взгляда
-		CVec2 vVisOrigin;										// нулевая точка сегмента для visibility
+		CArray2D<BYTE> passability;					// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ AI пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		CVec2 vOrigin;											// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ passability
+		CArray2D<BYTE> visibility;					// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		CVec2 vVisOrigin;										// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ visibility
 		CVec3 vRelPos;											// part relative position with respect to the span center
 		std::string szModel;								// model name
 		int nFrameIndex;										// index of the sprite inside packed model
@@ -1344,8 +1344,8 @@ public:
 	struct SFirePoint
 	{
 		CVec3 vPos;													// position
-		float fDirection;										// (угол <=> угол в радианах) direction
-		float fVerticalAngle;								// (угол <=> угол в радианах) angle from horizontal plane in the vertical plane, which crosses 'fDirection'
+		float fDirection;										// (пїЅпїЅпїЅпїЅ <=> пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ) direction
+		float fVerticalAngle;								// (пїЅпїЅпїЅпїЅ <=> пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ) angle from horizontal plane in the vertical plane, which crosses 'fDirection'
 		std::string szFireEffect;						// particle fire effect
 		CVec2 vPicturePosition;							// 2D picture position
 		CVec3 vWorldPosition;								// 3D position, calculated from picture one
@@ -1358,8 +1358,8 @@ public:
 	struct SDirectionExplosion
 	{
 		CVec3 vPos;													// position
-		float fDirection;										// (угол <=> угол в радианах) direction
-		float fVerticalAngle;								// (угол <=> угол в радианах) angle from horizontal plane in the vertical plane, which crosses 'fDirection'
+		float fDirection;										// (пїЅпїЅпїЅпїЅ <=> пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ) direction
+		float fVerticalAngle;								// (пїЅпїЅпїЅпїЅ <=> пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ) angle from horizontal plane in the vertical plane, which crosses 'fDirection'
 		CVec2 vPicturePosition;							// 2D picture position
 		CVec3 vWorldPosition;								// 3D position, calculated from picture one
 		SDirectionExplosion();
@@ -1371,8 +1371,8 @@ public:
 	std::vector<SSegmentRPGStats> segments;	// all segments
 	SDamageState states[3];								// alive, damaged and completelly destroyed bridge stats
 	std::vector<SFirePoint> firePoints;		// fire points...
-	std::vector<SFirePoint> smokePoints;	// smoke points, при разрушении моста
-	std::string szSmokeEffect;						// smoke effect, один на всех
+	std::vector<SFirePoint> smokePoints;	// smoke points, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	std::string szSmokeEffect;						// smoke effect, пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ
 	enum EDirectionExplosionType
 	{
 		E_FRONT_LEFT,
@@ -1381,8 +1381,8 @@ public:
 		E_BACK_LEFT,
 		E_TOP_CENTER,
 	};
-	std::vector<SDirectionExplosion> dirExplosions;		// direction explosions, всего 5 штук, смотри EDirectionExplosionType
-	std::string szDirExplosionEffect;			// direction explosion effect, один на всех
+	std::vector<SDirectionExplosion> dirExplosions;		// direction explosions, пїЅпїЅпїЅпїЅпїЅ 5 пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅ EDirectionExplosionType
+	std::string szDirExplosionEffect;			// direction explosion effect, пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ
 	SBridgeRPGStats();
 	virtual ~SBridgeRPGStats() { }
 	int GetIndexLocal( int nIndex, const std::vector<int> &indices, const char *pszName, int *pRandomSeed = 0 ) const

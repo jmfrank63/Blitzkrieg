@@ -323,8 +323,8 @@ static int IsBitSet( struct lua_State *pState )
 static int GetUserProfileVar( struct lua_State *state )
 {
 	Script script(state);
-	NI_ASSERT_T( script.GetTop() == 2, "Script function must have 2 arguments on the stack" );			//два аргумента
-	const std::string szStr = script.GetObject( -2 );
+	NI_ASSERT_T( script.GetTop() == 2, "Script function must have 2 arguments on the stack" );			//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	const std::string szStr = static_cast<const char*>( script.GetObject( -2 ) );
 	const int nValue = script.GetObject( -1 );
 	script.PushNumber( GetSingleton<IUserProfile>()->GetVar( szStr.c_str(), nValue ) );
 	return 1;
@@ -332,8 +332,8 @@ static int GetUserProfileVar( struct lua_State *state )
 static int SetUserProfileVar( struct lua_State *state )
 {
 	Script script(state);
-	NI_ASSERT_T( script.GetTop() == 2, "Script function must have 2 arguments on the stack" );			//два аргумента
-	const std::string szStr = script.GetObject( -2 );
+	NI_ASSERT_T( script.GetTop() == 2, "Script function must have 2 arguments on the stack" );			//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	const std::string szStr = static_cast<const char*>( script.GetObject( -2 ) );
 	const int nValue = script.GetObject( -1 );
 	GetSingleton<IUserProfile>()->AddVar( szStr.c_str(), nValue );
 	return 0;
@@ -341,8 +341,8 @@ static int SetUserProfileVar( struct lua_State *state )
 static int OutputStringValue( struct lua_State *state )
 {
 	Script script(state);
-	NI_ASSERT_T( script.GetTop() == 2, "Script function must have 2 arguments on the stack" );			//два аргумента
-	std::string szStr = script.GetObject( -2 );
+	NI_ASSERT_T( script.GetTop() == 2, "Script function must have 2 arguments on the stack" );			//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	std::string szStr = static_cast<const char*>( script.GetObject( -2 ) );
 	int nValue = script.GetObject( -1 );
 	NStr::DebugTrace( "****Debug LUA script: %s %s\n", szStr.c_str(), nValue );
 	return 0;
@@ -600,7 +600,7 @@ CScenarioTracker2::CScenarioTracker2()
 bool CScenarioTracker2::Init( ISingleton *pSingleton )
 {
 	Zero( guidMission );
-	randomBonuses.resize( 3 ); //по количеству сложностей рандомных миссий
+	randomBonuses.resize( 3 ); //пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	return true;
 }
 IPlayerScenarioInfo* CScenarioTracker2::AddPlayer( const int nPlayerID )

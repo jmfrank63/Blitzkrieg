@@ -9,6 +9,17 @@ The migration is intentionally incremental:
 3. Move upward through dependent libraries, then DLLs, then `Game.exe`.
 4. Only remove MSBuild project files once the matching Zig target is verified.
 
+Default behavior:
+
+- `zig build` now runs the `game-all` default step, which builds and installs the playable runtime set (`Game.exe` plus required game DLLs) into `zig-out/bin`.
+- `zig build install-game` now creates a runnable layout in `zig-out/game` by copying `zig-out/bin` artifacts and creating a `Data` junction to the repository `Data` folder.
+- The staged game root now also includes `config.cfg` and `defconf.cfg` copied from `Data/Configs`.
+- `zig build run` now builds and stages the runnable layout, then launches `Game.exe` from that install directory.
+- Use `-Dinstall-dir=...` to change the staging path and `-Dcopy-data=true` to copy `Data` instead of creating a junction.
+- `zig build package` now creates two zip installers in `zig-out/packages`: `Blitzkrieg-game.zip` and `Blitzkrieg-game-with-editors.zip`.
+- You can also build each variant separately with `zig build package-game` and `zig build package-game-editors`.
+- Use `-Dpackage-dir=...` to change where zip installers are written.
+
 Current Zig targets:
 
 ```powershell
@@ -28,6 +39,9 @@ zig build ui
 zig build fontgen
 zig build sfx
 zig build gfx
+zig build randommapgen
+zig build main
+zig build game
 ```
 
 By default the build targets Win32/MSVC (`x86-windows-msvc`) because that matches the current game build. Other targets can be explored explicitly with Zig's normal `-Dtarget=...` option once the graph is less dependent on Win32 APIs.
@@ -67,3 +81,9 @@ zig build misc -Dmsvc-include="C:\Path\To\VC\Tools\MSVC\<version>\include" -Dwin
 `SFX` is mirrored as a DLL using `Sources/src/SFX/Sound.def`. It builds the open-audio backend and the embedded Xiph Ogg/Vorbis C sources with `SFX_USE_OPEN_AUDIO_BACKEND`.
 
 `GFX` is mirrored as a DLL using `Sources/src/GFX/GFX.def`. It links the Zig-built `Misc` and `Formats` artifacts plus the Direct3D, User/GDI, and COM libraries used by the DirectX 9 renderer.
+
+`RandomMapGen` is mirrored as a static library. This slice includes small compatibility updates in shared accessor/helper headers so legacy smart-pointer copy-initialization patterns build under Zig/Clang while preserving MSVC behavior.
+
+`Main` is mirrored as a static library. This target required narrowly scoped compatibility updates in multiplayer command plumbing, script string conversions, and RPG stats templates to match modern C++ parsing rules without changing runtime flow.
+
+`Game` is now mirrored as a Win32 executable target. It links the Zig-built `Main`, `Misc`, `LuaLib`, `zlib`, `RandomMapGen`, and `Formats` artifacts, uses `WinMainCRTStartup`, and links the same core Win32/user/system libraries as the Visual Studio build path.

@@ -32,7 +32,7 @@ class CMPToUICommandManager : public IMPToUICommandManager
 	}
 
 public:
-	virtual void STDCALL AddCommandToUI( SToUICommand & cmd );
+	virtual void STDCALL AddCommandToUI( const SToUICommand & cmd );
 	virtual void STDCALL AddNotificationFromUI( SFromUINotification & notify ) ;
 	
 	virtual bool STDCALL GetCommandToUI( SToUICommand *pCmd );

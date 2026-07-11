@@ -1923,12 +1923,12 @@ bool SSquadRPGStats::Validate()
 		std::sort( formation.begin(), formation.end() );
 		NI_ASSERT_TF( squad == formation, "formation doen't contain all squad members!", return false );
 
-		NI_ASSERT_TF( it->fSpeedBonus >= 0, NStr::Format( "Wrong formation (squad %s) speed bonus (%g)", szKeyName, it->fSpeedBonus ), return false );
-		NI_ASSERT_TF( it->fDispersionBonus >= 0, NStr::Format( "Wrong formation (squad %s) fDispersionBonus bonus (%g)", szKeyName, it->fDispersionBonus ), return false );
-		NI_ASSERT_TF( it->fFireRateBonus >= 0, NStr::Format( "Wrong formation (squad %s) fFireRateBonus bonus (%g)", szKeyName, it->fFireRateBonus ), return false );
-		NI_ASSERT_TF( it->fRelaxTimeBonus >= 0, NStr::Format( "Wrong formation (squad %s) fRelaxTimeBonus bonus (%g)", szKeyName, it->fRelaxTimeBonus ), return false );
-		NI_ASSERT_TF( it->fCoverBonus >= 0, NStr::Format( "Wrong formation (squad %s) fCoverBonus bonus (%g)", szKeyName, it->fCoverBonus ), return false );
-		NI_ASSERT_TF( it->fVisibleBonus >= 0, NStr::Format( "Wrong formation (squad %s) fVisibleBonus bonus (%g)", szKeyName, it->fVisibleBonus ), return false );
+		NI_ASSERT_TF( it->fSpeedBonus >= 0, NStr::Format( "Wrong formation (squad %s) speed bonus (%g)", szKeyName.c_str(), it->fSpeedBonus ), return false );
+		NI_ASSERT_TF( it->fDispersionBonus >= 0, NStr::Format( "Wrong formation (squad %s) fDispersionBonus bonus (%g)", szKeyName.c_str(), it->fDispersionBonus ), return false );
+		NI_ASSERT_TF( it->fFireRateBonus >= 0, NStr::Format( "Wrong formation (squad %s) fFireRateBonus bonus (%g)", szKeyName.c_str(), it->fFireRateBonus ), return false );
+		NI_ASSERT_TF( it->fRelaxTimeBonus >= 0, NStr::Format( "Wrong formation (squad %s) fRelaxTimeBonus bonus (%g)", szKeyName.c_str(), it->fRelaxTimeBonus ), return false );
+		NI_ASSERT_TF( it->fCoverBonus >= 0, NStr::Format( "Wrong formation (squad %s) fCoverBonus bonus (%g)", szKeyName.c_str(), it->fCoverBonus ), return false );
+		NI_ASSERT_TF( it->fVisibleBonus >= 0, NStr::Format( "Wrong formation (squad %s) fVisibleBonus bonus (%g)", szKeyName.c_str(), it->fVisibleBonus ), return false );
 	}
 	return true;
 }

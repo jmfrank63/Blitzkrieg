@@ -37,7 +37,9 @@ class CUnsafeImageAccessor
 	}
 public:
 	CUnsafeImageAccessor() {  }
+	CUnsafeImageAccessor( const CPtr<IImage> &_pImage ) { Set( _pImage.GetPtr() ); }
 	CUnsafeImageAccessor( IImage *_pImage ) { Set( _pImage ); }
+	const CUnsafeImageAccessor& operator=( const CPtr<IImage> &_pImage ) { Set( _pImage.GetPtr() ); return *this; }
 	const CUnsafeImageAccessor& operator=( IImage *_pImage ) { Set( _pImage ); return *this; }
 	const CUnsafeImageAccessor& operator=( const CUnsafeImageAccessor &accessor ) { Set( accessor.pImage ); return *this; }
 	operator IImage*() const { return pImage; }

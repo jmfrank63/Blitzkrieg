@@ -131,7 +131,9 @@ class CTImageAccessor
 	}
 public:
 	CTImageAccessor() {  }
+	CTImageAccessor( const TImagePtr &_pImage ) { Set( _pImage ); }
 	CTImageAccessor( TImage *_pImage ) { Set(_pImage); }
+	const CTImageAccessor& operator=( const TImagePtr &_pImage ) { Set( _pImage ); return *this; }
 	const CTImageAccessor& operator=( TImage *_pImage ) { Set( _pImage ); return *this; }
 	const CTImageAccessor& operator=( const CTImageAccessor &accessor ) { Set( accessor.pImage ); return *this; }
 	operator TImage*() const { return pImage; }

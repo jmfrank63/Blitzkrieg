@@ -31,6 +31,7 @@ const cppflags_debug = &.{
     "-D_MT",
     "-D_DLL",
     "-fms-extensions",
+    "-fms-compatibility",
     "-fdelayed-template-parsing",
     "-Wno-deprecated-declarations",
     "-Wno-microsoft-template",
@@ -41,6 +42,9 @@ const cppflags_debug = &.{
     "-Wno-microsoft-enum-forward-reference",
     "-Wno-return-type",
     "-Wno-address-of-temporary",
+    "-Wno-non-pod-varargs",
+    "-Wno-extra-tokens",
+    "-Wno-parentheses-equality",
     "-Wno-switch",
     "-Wno-unused-command-line-argument",
 };
@@ -53,6 +57,7 @@ const cppflags_release = &.{
     "-D_MT",
     "-D_DLL",
     "-fms-extensions",
+    "-fms-compatibility",
     "-fdelayed-template-parsing",
     "-Wno-deprecated-declarations",
     "-Wno-microsoft-template",
@@ -63,6 +68,9 @@ const cppflags_release = &.{
     "-Wno-microsoft-enum-forward-reference",
     "-Wno-return-type",
     "-Wno-address-of-temporary",
+    "-Wno-non-pod-varargs",
+    "-Wno-extra-tokens",
+    "-Wno-parentheses-equality",
     "-Wno-switch",
     "-Wno-unused-command-line-argument",
 };
@@ -78,6 +86,7 @@ const cppflags_beta_debug = &.{
     "-D_DLL",
     "-D_DO_BETA_CHECK",
     "-fms-extensions",
+    "-fms-compatibility",
     "-fdelayed-template-parsing",
     "-Wno-deprecated-declarations",
     "-Wno-microsoft-template",
@@ -88,6 +97,9 @@ const cppflags_beta_debug = &.{
     "-Wno-microsoft-enum-forward-reference",
     "-Wno-return-type",
     "-Wno-address-of-temporary",
+    "-Wno-non-pod-varargs",
+    "-Wno-extra-tokens",
+    "-Wno-parentheses-equality",
     "-Wno-switch",
     "-Wno-unused-command-line-argument",
 };
@@ -101,6 +113,7 @@ const cppflags_beta_release = &.{
     "-D_DLL",
     "-D_DO_BETA_CHECK",
     "-fms-extensions",
+    "-fms-compatibility",
     "-fdelayed-template-parsing",
     "-Wno-deprecated-declarations",
     "-Wno-microsoft-template",
@@ -111,6 +124,9 @@ const cppflags_beta_release = &.{
     "-Wno-microsoft-enum-forward-reference",
     "-Wno-return-type",
     "-Wno-address-of-temporary",
+    "-Wno-non-pod-varargs",
+    "-Wno-extra-tokens",
+    "-Wno-parentheses-equality",
     "-Wno-switch",
     "-Wno-unused-command-line-argument",
 };
@@ -465,6 +481,133 @@ const gfx_sources = &.{
     "Sources/src/GFX/Text.cpp",
 };
 
+const randommapgen_sources = &.{
+    "Sources/src/RandomMapGen/StdAfx.cpp",
+    "Sources/src/RandomMapGen/BetaSpline.cpp",
+    "Sources/src/RandomMapGen/PNoise.cpp",
+    "Sources/src/RandomMapGen/TerrainBuilder.cpp",
+    "Sources/src/RandomMapGen/TerrainGenerator.cpp",
+    "Sources/src/RandomMapGen/IB_Methods.cpp",
+    "Sources/src/RandomMapGen/IB_StaticMethods.cpp",
+    "Sources/src/RandomMapGen/LA_Methods.cpp",
+    "Sources/src/RandomMapGen/MapInfo_CheckSums.cpp",
+    "Sources/src/RandomMapGen/MapInfo_Consts.cpp",
+    "Sources/src/RandomMapGen/MapInfo_Methods.cpp",
+    "Sources/src/RandomMapGen/MapInfo_StaticMethods.cpp",
+    "Sources/src/RandomMapGen/MapInfo_StaticMethods_MiniMapCreation.cpp",
+    "Sources/src/RandomMapGen/MapInfo_StaticMethods_RMGeneration.cpp",
+    "Sources/src/RandomMapGen/MapInfo_StaticMethods_SoundsCreation.cpp",
+    "Sources/src/RandomMapGen/MiniMap_Methods.cpp",
+    "Sources/src/RandomMapGen/Polygons_Methods.cpp",
+    "Sources/src/RandomMapGen/Registry_Sources.cpp",
+    "Sources/src/RandomMapGen/Resource_Functions.cpp",
+    "Sources/src/RandomMapGen/Resource_Methods.cpp",
+    "Sources/src/RandomMapGen/Resource_StaticMethods.cpp",
+    "Sources/src/RandomMapGen/RMG_Consts.cpp",
+    "Sources/src/RandomMapGen/RMG_Methods.cpp",
+    "Sources/src/RandomMapGen/RMG_StaticMethods.cpp",
+    "Sources/src/RandomMapGen/RP_Methods.cpp",
+    "Sources/src/RandomMapGen/VA_Methods.cpp",
+    "Sources/src/RandomMapGen/VA_StaticMethods.cpp",
+    "Sources/src/RandomMapGen/VSO_Methods.cpp",
+    "Sources/src/RandomMapGen/VSO_StaticMethods.cpp",
+};
+
+const main_sources = &.{
+    "Sources/src/Main/StdAfx.cpp",
+    "Sources/src/Main/iMainInternal.cpp",
+    "Sources/src/Main/MainLoopCommands.cpp",
+    "Sources/src/Main/MainObjectFactory.cpp",
+    "Sources/src/Main/RandomMapHelper.cpp",
+    "Sources/src/Main/GameTimerInternal.cpp",
+    "Sources/src/Main/GameDB.cpp",
+    "Sources/src/Main/GameStats.cpp",
+    "Sources/src/Main/RPGStats.cpp",
+    "Sources/src/Main/FilesInspector.cpp",
+    "Sources/src/Main/InitGlobalVarConsts.cpp",
+    "Sources/src/Main/Initialization.cpp",
+    "Sources/src/Main/LoadDLLs.cpp",
+    "Sources/src/Main/TextManager.cpp",
+    "Sources/src/Main/TextObject.cpp",
+    "Sources/src/Main/AILogicCommand.cpp",
+    "Sources/src/Main/AILogicCommandInternal.cpp",
+    "Sources/src/Main/MultiPlayerTransceiver.cpp",
+    "Sources/src/Main/SinglePlayerTransceiver.cpp",
+    "Sources/src/Main/ChatMessages.cpp",
+    "Sources/src/Main/GameCreationMessages.cpp",
+    "Sources/src/Main/MessagesStore.cpp",
+    "Sources/src/Main/ServersListMessages.cpp",
+    "Sources/src/Main/assert.cpp",
+    "Sources/src/Main/GameCreation.cpp",
+    "Sources/src/Main/GamePlaying.cpp",
+    "Sources/src/Main/LanChat.cpp",
+    "Sources/src/Main/MultiplayerInternal.cpp",
+    "Sources/src/Main/ServerInfo.cpp",
+    "Sources/src/Main/ServersList.cpp",
+    "Sources/src/Main/CommandsHistory.cpp",
+    "Sources/src/Main/PlayerScenarioInfo.cpp",
+    "Sources/src/Main/PlayerSkill.cpp",
+    "Sources/src/Main/ScenarioStatistics.cpp",
+    "Sources/src/Main/ScenarioTracker2Internal.cpp",
+    "Sources/src/Main/UserProfile.cpp",
+    "Sources/src/Main/BetaKey.cpp",
+};
+
+const game_sources = &.{
+    "Sources/src/Game/GlobalsLoader.cpp",
+    "Sources/src/Game/StdAfx.cpp",
+    "Sources/src/Game/main.cpp",
+    "Sources/src/Game/SysKeys.cpp",
+    "Sources/src/Game/WinFrame.cpp",
+};
+
+const cppflags_game_debug = &.{
+    "-D_WINDOWS",
+    "-DWIN32",
+    "-D_DEBUG",
+    "-D_DO_ASSERT_SLOW",
+    "-D_DO_SEH",
+    "-D_DO_CHECKED_CAST",
+    "-D_STL_RANGE_CHECK",
+    "-D_MT",
+    "-D_DLL",
+    "-fms-extensions",
+    "-fdelayed-template-parsing",
+    "-Wno-deprecated-declarations",
+    "-Wno-microsoft-template",
+    "-Wno-nonportable-include-path",
+    "-Wno-reserved-user-defined-literal",
+    "-Wno-comment",
+    "-Wno-enum-compare",
+    "-Wno-microsoft-enum-forward-reference",
+    "-Wno-return-type",
+    "-Wno-address-of-temporary",
+    "-Wno-switch",
+    "-Wno-unused-command-line-argument",
+};
+
+const cppflags_game_release = &.{
+    "-D_WINDOWS",
+    "-DWIN32",
+    "-DNDEBUG",
+    "-D_FINALRELEASE",
+    "-D_MT",
+    "-D_DLL",
+    "-fms-extensions",
+    "-fdelayed-template-parsing",
+    "-Wno-deprecated-declarations",
+    "-Wno-microsoft-template",
+    "-Wno-nonportable-include-path",
+    "-Wno-reserved-user-defined-literal",
+    "-Wno-comment",
+    "-Wno-enum-compare",
+    "-Wno-microsoft-enum-forward-reference",
+    "-Wno-return-type",
+    "-Wno-address-of-temporary",
+    "-Wno-switch",
+    "-Wno-unused-command-line-argument",
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{
         .default_target = .{
@@ -480,6 +623,9 @@ pub fn build(b: *std.Build) void {
         .msvc_lib = b.option([]const u8, "msvc-lib", "MSVC x86 library directory") orelse "C:\\Program Files\\Microsoft Visual Studio\\18\\Insiders\\VC\\Tools\\MSVC\\14.51.36231\\lib\\x86",
         .windows_sdk_lib = b.option([]const u8, "windows-sdk-lib", "Windows SDK library version directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0",
     };
+    const install_dir = b.option([]const u8, "install-dir", "Relative install layout path (default: zig-out/game)") orelse "zig-out/game";
+    const copy_data = b.option(bool, "copy-data", "Copy Data into install layout instead of creating a junction") orelse false;
+    const package_dir = b.option([]const u8, "package-dir", "Relative output directory for zip installers (default: zig-out/packages)") orelse "zig-out/packages";
 
     const zlib = addZlib(b, target, optimize, toolchain);
     const libpng = addLibpng(b, target, optimize, toolchain, zlib);
@@ -497,6 +643,14 @@ pub fn build(b: *std.Build) void {
     const fontgen = addFontGen(b, target, optimize, toolchain, image, common, formats, misc);
     const sfx = addSFX(b, target, optimize, toolchain, misc, common);
     const gfx = addGFX(b, target, optimize, toolchain, misc, formats);
+    const randommapgen = addRandomMapGen(b, target, optimize, toolchain);
+    const main = addMain(b, target, optimize, toolchain);
+    const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats);
+    const package_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/package.zig"),
+        .target = target,
+        .optimize = .ReleaseFast,
+    });
 
     b.installArtifact(zlib);
     b.installArtifact(libpng);
@@ -514,6 +668,9 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(fontgen);
     b.installArtifact(sfx);
     b.installArtifact(gfx);
+    b.installArtifact(randommapgen);
+    b.installArtifact(main);
+    b.installArtifact(game);
 
     const zlib_step = b.step("zlib", "Build the zlib static library");
     zlib_step.dependOn(&b.addInstallArtifact(zlib, .{}).step);
@@ -562,6 +719,208 @@ pub fn build(b: *std.Build) void {
 
     const gfx_step = b.step("gfx", "Build the GFX dynamic library");
     gfx_step.dependOn(&b.addInstallArtifact(gfx, .{}).step);
+
+    const randommapgen_step = b.step("randommapgen", "Build the RandomMapGen static library");
+    randommapgen_step.dependOn(&b.addInstallArtifact(randommapgen, .{}).step);
+
+    const main_step = b.step("main", "Build the Main static library");
+    main_step.dependOn(&b.addInstallArtifact(main, .{}).step);
+
+    const game_step = b.step("game", "Build the Game executable");
+    game_step.dependOn(&b.addInstallArtifact(game, .{}).step);
+
+    const game_all_step = b.step("game-all", "Build and install the playable game runtime set");
+    game_all_step.dependOn(&b.addInstallArtifact(game, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(anim, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(gfx, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(image, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(input, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(net, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(sfx, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(ui, .{}).step);
+
+    const install_game_cmd = b.addSystemCommand(&.{ "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File" });
+    install_game_cmd.addFileArg(b.path("tools/zig/game_install.ps1"));
+    install_game_cmd.addArg("-InstallDir");
+    install_game_cmd.addArg(install_dir);
+    if (copy_data) {
+        install_game_cmd.addArg("-CopyData");
+    }
+
+    const install_game_step = b.step("install-game", "Create runnable game install layout with binaries and Data");
+    install_game_step.dependOn(game_all_step);
+    install_game_step.dependOn(&install_game_cmd.step);
+
+    const run_game_cmd = b.addSystemCommand(&.{ "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File" });
+    run_game_cmd.addFileArg(b.path("tools/zig/game_install.ps1"));
+    run_game_cmd.addArg("-InstallDir");
+    run_game_cmd.addArg(install_dir);
+    if (copy_data) {
+        run_game_cmd.addArg("-CopyData");
+    }
+    run_game_cmd.addArg("-Run");
+    if (b.args) |args| {
+        run_game_cmd.addArgs(args);
+    }
+
+    const run_step = b.step("run", "Build, install, and run Game.exe from install layout");
+    run_step.dependOn(install_game_step);
+    run_step.dependOn(&run_game_cmd.step);
+
+    const stage_package_game_cmd = b.addSystemCommand(&.{ "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File" });
+    stage_package_game_cmd.addFileArg(b.path("tools/zig/game_install.ps1"));
+    stage_package_game_cmd.addArg("-InstallDir");
+    stage_package_game_cmd.addArg("zig-out/package-staging/game");
+    stage_package_game_cmd.addArg("-CopyData");
+
+    const package_tool = b.addExecutable(.{
+        .name = "package",
+        .root_module = package_module,
+    });
+    const package_tool_run = b.addRunArtifact(package_tool);
+    package_tool_run.addArg("zig-out/package-staging/game");
+    package_tool_run.addArg(b.fmt("{s}/Blitzkrieg-game.zip", .{package_dir}));
+
+    const package_game_step = b.step("package-game", "Create game-only installation zip package");
+    package_game_step.dependOn(game_all_step);
+    package_game_step.dependOn(&stage_package_game_cmd.step);
+    package_game_step.dependOn(&package_tool_run.step);
+
+    const stage_package_game_editors_cmd = b.addSystemCommand(&.{ "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File" });
+    stage_package_game_editors_cmd.addFileArg(b.path("tools/zig/game_install.ps1"));
+    stage_package_game_editors_cmd.addArg("-InstallDir");
+    stage_package_game_editors_cmd.addArg("zig-out/package-staging/game-with-editors");
+    stage_package_game_editors_cmd.addArg("-CopyData");
+    stage_package_game_editors_cmd.addArg("-IncludeEditors");
+
+    const package_tool_editors = b.addRunArtifact(package_tool);
+    package_tool_editors.addArg("zig-out/package-staging/game-with-editors");
+    package_tool_editors.addArg(b.fmt("{s}/Blitzkrieg-game-with-editors.zip", .{package_dir}));
+
+    const package_game_editors_step = b.step("package-game-editors", "Create installation zip package with editor tools");
+    package_game_editors_step.dependOn(game_all_step);
+    package_game_editors_step.dependOn(&stage_package_game_editors_cmd.step);
+    package_game_editors_step.dependOn(&package_tool_editors.step);
+
+    const package_step = b.step("package", "Create both game-only and with-editors installation zip packages");
+    package_step.dependOn(package_game_step);
+    package_step.dependOn(package_game_editors_step);
+
+    b.default_step = game_all_step;
+}
+
+fn addRandomMapGen(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+) *std.Build.Step.Compile {
+    const randommapgen_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, randommapgen_module);
+    addMsvcIncludePaths(b, randommapgen_module, toolchain);
+    randommapgen_module.addIncludePath(b.path("Sources/src/RandomMapGen"));
+    randommapgen_module.addIncludePath(b.path("Sources/src/Main"));
+    randommapgen_module.addIncludePath(b.path("Sources/src/Common"));
+    randommapgen_module.addIncludePath(b.path("Sources/src/Image"));
+    randommapgen_module.addCSourceFiles(.{
+        .files = randommapgen_sources,
+        .flags = cppflagsForOptimize(optimize),
+    });
+
+    return b.addLibrary(.{
+        .name = "RandomMapGen",
+        .linkage = .static,
+        .root_module = randommapgen_module,
+    });
+}
+
+fn addMain(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+) *std.Build.Step.Compile {
+    const main_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, main_module);
+    addMsvcIncludePaths(b, main_module, toolchain);
+    main_module.addIncludePath(b.path("Sources/src/Main"));
+    main_module.addIncludePath(b.path("Sources/src/RandomMapGen"));
+    main_module.addIncludePath(b.path("Sources/src/Common"));
+    main_module.addIncludePath(b.path("Sources/src/UI"));
+    main_module.addIncludePath(b.path("Sources/src/GFX"));
+    main_module.addIncludePath(b.path("Sources/src/SFX"));
+    main_module.addIncludePath(b.path("Sources/src/Net"));
+    main_module.addIncludePath(b.path("Sources/src/Input"));
+    main_module.addIncludePath(b.path("Sources/src/Anim"));
+    main_module.addIncludePath(b.path("Sources/src/Image"));
+    main_module.addCSourceFiles(.{
+        .files = main_sources,
+        .flags = cppflagsForOptimize(optimize),
+    });
+
+    return b.addLibrary(.{
+        .name = "Main",
+        .linkage = .static,
+        .root_module = main_module,
+    });
+}
+
+fn addGame(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    main: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+) *std.Build.Step.Compile {
+    const game_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, game_module);
+    addMsvcIncludePaths(b, game_module, toolchain);
+    addMsvcLibraryPaths(b, game_module, toolchain);
+    game_module.addIncludePath(b.path("Sources/src/Game"));
+    game_module.addIncludePath(b.path("Sources/src/Main"));
+    game_module.addIncludePath(b.path("Sources/src/RandomMapGen"));
+    game_module.addCSourceFiles(.{
+        .files = game_sources,
+        .flags = cppflagsGameForOptimize(optimize),
+    });
+    game_module.linkLibrary(main);
+    game_module.linkLibrary(misc);
+    game_module.linkLibrary(lualib);
+    game_module.linkLibrary(zlib);
+    game_module.linkLibrary(randommapgen);
+    game_module.linkLibrary(formats);
+    linkMsvcRuntime(game_module, optimize);
+    game_module.linkSystemLibrary("version", .{});
+    game_module.linkSystemLibrary("winmm", .{});
+    game_module.linkSystemLibrary("odbc32", .{});
+    game_module.linkSystemLibrary("odbccp32", .{});
+    game_module.linkSystemLibrary("d3d9", .{});
+    game_module.linkSystemLibrary("shlwapi", .{});
+    game_module.linkSystemLibrary("user32", .{});
+    game_module.linkSystemLibrary("gdi32", .{});
+    linkComSupport(game_module, optimize);
+
+    const game = b.addExecutable(.{
+        .name = "Game",
+        .root_module = game_module,
+    });
+    game.subsystem = .windows;
+    game.entry = .{ .symbol_name = "WinMainCRTStartup" };
+    return game;
 }
 
 fn addZlib(
@@ -1158,6 +1517,13 @@ fn cppflagsSfxForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8
     return switch (optimize) {
         .Debug => cppflags_sfx_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_sfx_release,
+    };
+}
+
+fn cppflagsGameForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
+    return switch (optimize) {
+        .Debug => cppflags_game_debug,
+        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_game_release,
     };
 }
 

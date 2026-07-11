@@ -3,7 +3,6 @@
 #pragma ONCE
 #include "GameCreationInterfaces.h"
 interface INetDriver;
-class IMultiplayer::CCommand;
 class CGamePlaying : public IGamePlaying
 {
 	OBJECT_COMPLETE_METHODS( CGamePlaying );

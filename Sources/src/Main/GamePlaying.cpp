@@ -346,7 +346,7 @@ void CGamePlaying::TogglePause()
 void CGamePlaying::GameSpeed( const int nChange )
 {
 	CStreamAccessor pkt = CreateObject<IDataStream>( STREAMIO_MEMORY_STREAM );
-	pkt << BYTE( NGM_GAME_SPEED ) << short int( nChange );
+	pkt << BYTE( NGM_GAME_SPEED ) << static_cast<short>( nChange );
 	pInGameNetDriver->SendBroadcast( pkt );
 
 	commands.push_back( new IMultiplayer::CCommand( IMultiplayer::GPC_GAME_SPEED, nOurID, nChange, 0 ) );

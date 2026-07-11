@@ -31,6 +31,7 @@ class CStreamAccessor : public CPtr<IDataStream>
 public:
 	CStreamAccessor() {  }
 	CStreamAccessor( const CStreamAccessor &accessor ) : CPtr<IDataStream>( accessor ) {  }
+	CStreamAccessor( const CPtr<IDataStream> &stream ) : CPtr<IDataStream>( stream ) {  }
 	CStreamAccessor( IDataStream *_pStream ) : CPtr<IDataStream>( _pStream ) {  }
 	template<class T>
 		CStreamAccessor& operator>>( T &res )

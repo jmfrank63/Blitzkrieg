@@ -66,4 +66,4 @@ public:
 	virtual const char* STDCALL GetModName() const { return szModName.c_str(); }
 	virtual const char* STDCALL GetModVersion() const { return szModVersion.c_str(); }
 };
-#endif __COMMANDS_HISTORY_H__
+#endif // __COMMANDS_HISTORY_H__

@@ -31,29 +31,16 @@ inline void GetSecondaryMaps( int nX, int nY, bool bFlipY, CVec2 *maps, const fl
 struct STerrainTLVertex
 {
 	enum { format = GFXFVF_XYZRHW | GFXFVF_DIFFUSE | GFXFVF_TEX2 };
+	float x, y, z, rhw;
+	DWORD color;
+	float tu, tv;
+	float tu1, tv1;
 	STerrainTLVertex()
 	{
 		x = y = z = rhw = 0.0f;
 		color = 0;
 		tu = tv = tu1 = tv1 = 0.0f;
 	}
-	union
-	{
-		struct
-		{
-			float x, y, z, rhw;
-			DWORD color;
-			float tu, tv;
-			float tu1, tv1;
-		};
-		struct
-		{
-			CVec4 pos;
-			DWORD color;
-			CVec2 tex;
-			CVec2 tex1;
-		};
-	};
 	void Setup( float _sx, float _sy, float _sz, float _rhw, DWORD _color, float _tu, float _tv, float _tu1, float _tv1 )
 	{
 		x = _sx;
@@ -70,29 +57,16 @@ struct STerrainTLVertex
 struct STerrainLVertex
 {
 	enum { format = GFXFVF_XYZ | GFXFVF_DIFFUSE | GFXFVF_TEX2 };
+	float x, y, z;
+	DWORD color;
+	float tu, tv;
+	float tu1, tv1;
 	STerrainLVertex()
 	{
 		x = y = z = 0.0f;
 		color = 0;
 		tu = tv = tu1 = tv1 = 0.0f;
 	}
-	union
-	{
-		struct
-		{
-			float x, y, z;
-			DWORD color;
-			float tu, tv;
-			float tu1, tv1;
-		};
-		struct
-		{
-			CVec3 pos;
-			DWORD color;
-			CVec2 tex;
-			CVec2 tex1;
-		};
-	};
 	void Setup( float _sx, float _sy, float _sz, float _rhw, DWORD _color, float _tu, float _tv, float _tu1, float _tv1 )
 	{
 		x = _sx;
