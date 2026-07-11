@@ -76,10 +76,7 @@ fn removeLegacyX86Runtime(io: std.Io, destination: std.Io.Dir) !void {
         "mfc42.dll", "msvcp60.dll", "msvcrt.dll",
     };
     for (legacy_dlls) |name| {
-        destination.deleteFile(io, name) catch |err| switch (err) {
-            error.FileNotFound => {},
-            else => return err,
-        };
+        destination.deleteFile(io, name) catch {};
     }
 }
 

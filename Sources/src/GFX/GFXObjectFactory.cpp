@@ -35,6 +35,8 @@ int STDCALL CGFXModuleChecker::CheckFunctionality() const
 }
 void STDCALL CGFXModuleChecker::SetModuleFunctionalityLimits() const
 {
+	if ( GetSingleton<IGlobalVars>() == 0 )
+		return;
 	NVideoCheck::SVideoMemory memory;
 	NVideoCheck::GetVideoMemory( &memory );
 	const int MB = 1024*1024;

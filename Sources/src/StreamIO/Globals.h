@@ -33,18 +33,18 @@ interface IGlobalVars : public IRefCount
 	
 	virtual void STDCALL SerializeVarsByMatch( interface IDataTree *pSS, const char *pszValueMatch ) = 0;
 };
-inline const char* GetGlobalVar( const char *pszValueName, const char *defval = "" ) { const char *pszVal = GetSingleton<IGlobalVars>()->GetVar( pszValueName ); return pszVal == 0 ? defval : pszVal; }
-inline int GetGlobalVar( const char *pszValueName, int defval ) { const char *pszVal = GetSingleton<IGlobalVars>()->GetVar( pszValueName ); return pszVal == 0 ? defval : NStr::ToInt( pszVal ); }
-inline float GetGlobalVar( const char *pszValueName, float defval ) { const char *pszVal = GetSingleton<IGlobalVars>()->GetVar( pszValueName ); return pszVal == 0 ? defval : NStr::ToFloat( pszVal ); }
-inline unsigned long GetGlobalVar( const char *pszValueName, unsigned long defval ) { const char *pszVal = GetSingleton<IGlobalVars>()->GetVar( pszValueName ); return pszVal == 0 ? defval : NStr::ToULong( pszVal ); }
-inline void SetGlobalVar( const char *pszValueName, const char *pszValue ) { GetSingleton<IGlobalVars>()->SetVar( pszValueName, pszValue ); }
-inline void SetGlobalVar( const char *pszValueName, int value ) { GetSingleton<IGlobalVars>()->SetVar( pszValueName, NStr::Format("%d", value) ); }
-inline void SetGlobalVar( const char *pszValueName, float value ) { GetSingleton<IGlobalVars>()->SetVar( pszValueName, NStr::Format("%g", value) ); }
-inline void SetGlobalVar( const char *pszValueName, unsigned long value ) { GetSingleton<IGlobalVars>()->SetVar( pszValueName, NStr::Format("%ul", value) ); }
-inline void RemoveGlobalVar( const char *pszValueName ) { GetSingleton<IGlobalVars>()->RemoveVar( pszValueName ); }
-inline const WORD* GetGlobalWVar( const char *pszValueName, const WORD *defval = 0 ) { const WORD *pszVal = GetSingleton<IGlobalVars>()->GetWVar( pszValueName ); return pszVal == 0 ? defval : pszVal; }
-inline void SetGlobalVar( const char *pszValueName, const WORD *pszValue ) { GetSingleton<IGlobalVars>()->SetVar( pszValueName, pszValue ); }
-inline void RemoveGlobalWVar( const char *pszValueName ) { GetSingleton<IGlobalVars>()->RemoveWVar( pszValueName ); }
+inline const char* GetGlobalVar( const char *pszValueName, const char *defval = "" ) { IGlobalVars *pVars = GetSingleton<IGlobalVars>(); const char *pszVal = pVars == 0 ? 0 : pVars->GetVar( pszValueName ); return pszVal == 0 ? defval : pszVal; }
+inline int GetGlobalVar( const char *pszValueName, int defval ) { IGlobalVars *pVars = GetSingleton<IGlobalVars>(); const char *pszVal = pVars == 0 ? 0 : pVars->GetVar( pszValueName ); return pszVal == 0 ? defval : NStr::ToInt( pszVal ); }
+inline float GetGlobalVar( const char *pszValueName, float defval ) { IGlobalVars *pVars = GetSingleton<IGlobalVars>(); const char *pszVal = pVars == 0 ? 0 : pVars->GetVar( pszValueName ); return pszVal == 0 ? defval : NStr::ToFloat( pszVal ); }
+inline unsigned long GetGlobalVar( const char *pszValueName, unsigned long defval ) { IGlobalVars *pVars = GetSingleton<IGlobalVars>(); const char *pszVal = pVars == 0 ? 0 : pVars->GetVar( pszValueName ); return pszVal == 0 ? defval : NStr::ToULong( pszVal ); }
+inline void SetGlobalVar( const char *pszValueName, const char *pszValue ) { IGlobalVars *pVars = GetSingleton<IGlobalVars>(); if ( pVars ) pVars->SetVar( pszValueName, pszValue ); }
+inline void SetGlobalVar( const char *pszValueName, int value ) { IGlobalVars *pVars = GetSingleton<IGlobalVars>(); if ( pVars ) pVars->SetVar( pszValueName, NStr::Format("%d", value) ); }
+inline void SetGlobalVar( const char *pszValueName, float value ) { IGlobalVars *pVars = GetSingleton<IGlobalVars>(); if ( pVars ) pVars->SetVar( pszValueName, NStr::Format("%g", value) ); }
+inline void SetGlobalVar( const char *pszValueName, unsigned long value ) { IGlobalVars *pVars = GetSingleton<IGlobalVars>(); if ( pVars ) pVars->SetVar( pszValueName, NStr::Format("%ul", value) ); }
+inline void RemoveGlobalVar( const char *pszValueName ) { IGlobalVars *pVars = GetSingleton<IGlobalVars>(); if ( pVars ) pVars->RemoveVar( pszValueName ); }
+inline const WORD* GetGlobalWVar( const char *pszValueName, const WORD *defval = 0 ) { IGlobalVars *pVars = GetSingleton<IGlobalVars>(); const WORD *pszVal = pVars == 0 ? 0 : pVars->GetWVar( pszValueName ); return pszVal == 0 ? defval : pszVal; }
+inline void SetGlobalVar( const char *pszValueName, const WORD *pszValue ) { IGlobalVars *pVars = GetSingleton<IGlobalVars>(); if ( pVars ) pVars->SetVar( pszValueName, pszValue ); }
+inline void RemoveGlobalWVar( const char *pszValueName ) { IGlobalVars *pVars = GetSingleton<IGlobalVars>(); if ( pVars ) pVars->RemoveWVar( pszValueName ); }
 enum
 {
 	CONSOLE_STREAM_WORLD		= 0,					// command to world

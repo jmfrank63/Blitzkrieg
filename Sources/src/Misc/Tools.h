@@ -178,34 +178,12 @@ inline TYPE Sign( const TYPE x )
 template <>
 inline int Sign<int>( const int nVal )
 {
-	int nRes;
-	_asm
-	{
-		xor ecx, ecx
-		mov eax, nVal
-		test eax, 0x7FFFFFFF
-		setne cl
-		sar eax, 31
-		or eax, ecx
-		mov nRes, eax
-	}
-	return nRes;
+	return (nVal > 0) - (nVal < 0);
 }
 template <>
 inline short int Sign<short int>( const short int nVal )
 {
-	short int nRes;
-	_asm
-	{
-		xor ecx,ecx
-		mov ax, nVal
-		test ax, 0x7FFF
-		setne cl
-		sar ax, 15
-		or ax, cx
-		mov nRes, ax
-	}
-	return nRes;
+	return (short int)((nVal > 0) - (nVal < 0));
 }
 template <class TYPE>
 inline TYPE ToRadian( const TYPE angle )
@@ -239,24 +217,14 @@ inline float SignumNormalizeAngleInRadian( const float angle )
 }
 inline void MemSetDWord( DWORD* lpData, const DWORD value, const int nCount )
 {
-	_asm
-	{
-		mov ecx, nCount
-		mov edi, lpData
-		mov eax, value
-		rep stosd
-	}
+	for ( int i = 0; i < nCount; ++i )
+		lpData[i] = value;
 }
 
 inline void MemSetInt( int* lpData, const int value, const int nCount )
 {
-	_asm
-	{
-		mov ecx, nCount
-		mov edi, lpData
-		mov eax, value
-		rep stosd
-	}
+	for ( int i = 0; i < nCount; ++i )
+		lpData[i] = value;
 }
 
 int __forceinline Float2Int( const float fpVar )
