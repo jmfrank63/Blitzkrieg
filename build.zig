@@ -974,6 +974,7 @@ fn addGame(
     game_module.linkSystemLibrary("odbccp32", .{});
     game_module.linkSystemLibrary("d3d9", .{});
     game_module.linkSystemLibrary("shlwapi", .{});
+    game_module.linkSystemLibrary("advapi32", .{});
     game_module.linkSystemLibrary("user32", .{});
     game_module.linkSystemLibrary("gdi32", .{});
     linkComSupport(game_module, optimize);

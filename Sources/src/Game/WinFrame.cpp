@@ -244,7 +244,7 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 				CHARSETINFO csi;
 				Zero( csi );
 				DWORD dwCharSet = wParam;
-				BOOL bSuccess = TranslateCharsetInfo( (DWORD*)dwCharSet, &csi, TCI_SRCCHARSET );
+				BOOL bSuccess = TranslateCharsetInfo( &dwCharSet, &csi, TCI_SRCCHARSET );
 				if ( bSuccess )
 				{
 					if ( IInput *pInput = GetSingleton<IInput>() )
@@ -378,7 +378,7 @@ static void PreCreateWindow( CREATESTRUCT& cs )
   cs.y = 0;
   cs.style = IsWindowedMode() ? GetWindowedStyle() : WS_POPUP;// | WS_CLIPSIBLINGS;
   cs.lpszName = szAppTitleName.c_str();
-  cs.lpszClass = LPCSTR( atomWndClassName );
+  cs.lpszClass = MAKEINTATOM( atomWndClassName );
   cs.dwExStyle = 0;
 }
 static bool InitInstance( HINSTANCE hInst, int nCmdShow, int nWidth, int nHeight )
@@ -491,7 +491,7 @@ void Exit( int nExitCode )
 {
 	PostQuitMessage( nExitCode );
 }
-BOOL CALLBACK SplashScreenDialogProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
+INT_PTR CALLBACK SplashScreenDialogProc( HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
 	switch ( uMsg ) 
 	{
