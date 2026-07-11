@@ -231,10 +231,75 @@ pub export fn bk_stream_flush(handle: ?*anyopaque) callconv(.c) bool {
     return true;
 }
 
+fn lastPathSegment(path: []const u8) []const u8 {
+    var start: usize = 0;
+    for (path, 0..) |byte, index| {
+        if (byte == '/' or byte == '\\') start = index + 1;
+    }
+    return path[start..];
+}
+
+fn isXmlNameByte(byte: u8) bool {
+    return std.ascii.isAlphanumeric(byte) or byte == '_' or byte == '-' or byte == ':';
+}
+
+fn xmlAttribute(bytes: []const u8, row: []const u8, entry: []const u8) ?[]const u8 {
+    const tag = lastPathSegment(row);
+    var cursor: usize = 0;
+    while (std.mem.indexOfPos(u8, bytes, cursor, "<")) |open| {
+        cursor = open + 1;
+        if (cursor >= bytes.len or bytes[cursor] == '/' or bytes[cursor] == '!' or bytes[cursor] == '?') continue;
+        const name_start = cursor;
+        while (cursor < bytes.len and isXmlNameByte(bytes[cursor])) : (cursor += 1) {}
+        if (!std.mem.eql(u8, bytes[name_start..cursor], tag)) continue;
+        const end = std.mem.indexOfPos(u8, bytes, cursor, ">") orelse return null;
+        var attribute_cursor = cursor;
+        while (attribute_cursor < end) {
+            while (attribute_cursor < end and (bytes[attribute_cursor] == ' ' or bytes[attribute_cursor] == '\t' or bytes[attribute_cursor] == '\r' or bytes[attribute_cursor] == '\n')) : (attribute_cursor += 1) {}
+            const attribute_start = attribute_cursor;
+            while (attribute_cursor < end and isXmlNameByte(bytes[attribute_cursor])) : (attribute_cursor += 1) {}
+            if (attribute_start == attribute_cursor) { attribute_cursor += 1; continue; }
+            const attribute_name = bytes[attribute_start..attribute_cursor];
+            while (attribute_cursor < end and bytes[attribute_cursor] != '=') : (attribute_cursor += 1) {}
+            if (attribute_cursor >= end) break;
+            attribute_cursor += 1;
+            while (attribute_cursor < end and (bytes[attribute_cursor] == ' ' or bytes[attribute_cursor] == '\t')) : (attribute_cursor += 1) {}
+            if (attribute_cursor >= end or (bytes[attribute_cursor] != '\'' and bytes[attribute_cursor] != '"')) continue;
+            const quote = bytes[attribute_cursor];
+            attribute_cursor += 1;
+            const value_start = attribute_cursor;
+            while (attribute_cursor < end and bytes[attribute_cursor] != quote) : (attribute_cursor += 1) {}
+            if (attribute_cursor >= end) return null;
+            if (std.mem.eql(u8, attribute_name, entry)) return bytes[value_start..attribute_cursor];
+            attribute_cursor += 1;
+        }
+        cursor = end + 1;
+    }
+    return null;
+}
+
+pub export fn bk_table_get_int(stream_handle: ?*anyopaque, row: [*:0]const u8, entry: [*:0]const u8, fallback: c_int) callconv(.c) c_int {
+    const stream = fromHandle(Stream, stream_handle) orelse return fallback;
+    const value = xmlAttribute(stream.bytes, std.mem.span(row), std.mem.span(entry)) orelse return fallback;
+    return std.fmt.parseInt(c_int, value, 10) catch fallback;
+}
+
+pub export fn bk_table_get_double(stream_handle: ?*anyopaque, row: [*:0]const u8, entry: [*:0]const u8, fallback: f64) callconv(.c) f64 {
+    const stream = fromHandle(Stream, stream_handle) orelse return fallback;
+    const value = xmlAttribute(stream.bytes, std.mem.span(row), std.mem.span(entry)) orelse return fallback;
+    return std.fmt.parseFloat(f64, value) catch fallback;
+}
+
 test "storage base keeps the directory portion of game archive masks" {
     try std.testing.expectEqualStrings(".\\data\\", pathBase(".\\data\\*.pak"));
     try std.testing.expectEqualStrings("C:\\Blitzkrieg\\Data\\", pathBase("C:\\Blitzkrieg\\Data\\*.pak"));
     try std.testing.expectEqualStrings(".\\", pathBase("*.pak"));
+}
+
+test "XML table lookup reads startup attributes" {
+    const fixture = "<base><Net GameVersion=\"7\"/><Sound SFXMasterVolume=\"0.9\"/></base>";
+    try std.testing.expectEqualStrings("7", xmlAttribute(fixture, "Net", "GameVersion").?);
+    try std.testing.expectEqualStrings("0.9", xmlAttribute(fixture, "Sound", "SFXMasterVolume").?);
 }
 
 pub export fn bk_streamio_temp_buffer(size: c_int, index: c_int) callconv(.c) ?*anyopaque {

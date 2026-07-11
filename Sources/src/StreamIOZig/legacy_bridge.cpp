@@ -19,6 +19,8 @@ extern "C" void bk_global_set(const char *key, const char *value);
 extern "C" void bk_global_remove(const char *key);
 extern "C" void bk_random_init();
 extern "C" unsigned int bk_random_get();
+extern "C" int bk_table_get_int(void *stream, const char *row, const char *entry, int fallback);
+extern "C" double bk_table_get_double(void *stream, const char *row, const char *entry, double fallback);
 
 #if defined(_MSC_VER)
 #define BK_STDCALL __stdcall
@@ -104,6 +106,60 @@ struct IDataStream : public IRefCount {
     virtual void BK_STDCALL GetStats(void *) = 0;
 };
 
+struct IDataTable : public IRefCount {
+    virtual int BK_STDCALL GetRowNames(char *, int) = 0;
+    virtual int BK_STDCALL GetEntryNames(const char *, char *, int) = 0;
+    virtual void BK_STDCALL ClearRow(const char *) = 0;
+    virtual int BK_STDCALL GetInt(const char *, const char *, int) = 0;
+    virtual double BK_STDCALL GetDouble(const char *, const char *, double) = 0;
+    virtual const char *BK_STDCALL GetString(const char *, const char *, const char *, char *, int) = 0;
+    virtual int BK_STDCALL GetRawData(const char *, const char *, void *, int) = 0;
+    virtual void BK_STDCALL SetInt(const char *, const char *, int) = 0;
+    virtual void BK_STDCALL SetDouble(const char *, const char *, double) = 0;
+    virtual void BK_STDCALL SetString(const char *, const char *, const char *) = 0;
+    virtual void BK_STDCALL SetRawData(const char *, const char *, const void *, int) = 0;
+};
+
+typedef IRefCount *(BK_STDCALL *ObjectFactoryNewFunc)();
+struct SObjectFactoryTypeInfo { int nTypeID; const void *pTypeInfo; ObjectFactoryNewFunc newFunc; };
+struct IObjectFactory {
+    virtual IRefCount *BK_STDCALL CreateObject(int) = 0;
+    virtual void BK_STDCALL RegisterType(int, ObjectFactoryNewFunc) = 0;
+    virtual void BK_STDCALL Aggregate(IObjectFactory *) = 0;
+    virtual int BK_STDCALL GetNumKnownTypes() = 0;
+    virtual void BK_STDCALL GetKnownTypes(SObjectFactoryTypeInfo *, int) = 0;
+    virtual int BK_STDCALL GetObjectTypeID(IRefCount *) const = 0;
+};
+
+class FactoryAggregate final : public IObjectFactory {
+    SObjectFactoryTypeInfo types_[2048] = {};
+    int count_ = 0;
+public:
+    IRefCount *BK_STDCALL CreateObject(int id) override {
+        for (int i = 0; i != count_; ++i) if (types_[i].nTypeID == id) return types_[i].newFunc ? types_[i].newFunc() : 0;
+        return 0;
+    }
+    void BK_STDCALL RegisterType(int id, ObjectFactoryNewFunc create) override {
+        for (int i = 0; i != count_; ++i) if (types_[i].nTypeID == id) { types_[i].newFunc = create; return; }
+        if (count_ < 2048) types_[count_++] = { id, 0, create };
+    }
+    void BK_STDCALL Aggregate(IObjectFactory *factory) override {
+        if (!factory) return;
+        const int count = factory->GetNumKnownTypes();
+        if (count <= 0 || count > 2048) return;
+        SObjectFactoryTypeInfo incoming[2048];
+        factory->GetKnownTypes(incoming, count);
+        for (int i = 0; i != count; ++i) {
+            bool replaced = false;
+            for (int own = 0; own != count_; ++own) if (types_[own].nTypeID == incoming[i].nTypeID) { types_[own] = incoming[i]; replaced = true; break; }
+            if (!replaced && count_ < 2048) types_[count_++] = incoming[i];
+        }
+    }
+    int BK_STDCALL GetNumKnownTypes() override { return count_; }
+    void BK_STDCALL GetKnownTypes(SObjectFactoryTypeInfo *out, int capacity) override { for (int i = 0; out && i < count_ && i < capacity; ++i) out[i] = types_[i]; }
+    int BK_STDCALL GetObjectTypeID(IRefCount *) const override { return -1; }
+};
+
 class Singleton final : public ISingleton {
     struct Entry { int id; IRefCount *object; } entries[512] = {};
 public:
@@ -126,17 +182,17 @@ public:
 };
 
 class SaveLoadSystem final : public ISaveLoadSystem {
-    void *factory_ = 0; void *gdb_ = 0;
+    FactoryAggregate factory_; void *gdb_ = 0;
 public:
-    void BK_STDCALL AddFactory(void *factory) override { if (!factory_) factory_ = factory; }
-    void *BK_STDCALL GetCommonFactory() override { return factory_; }
+    void BK_STDCALL AddFactory(void *factory) override { factory_.Aggregate(static_cast<IObjectFactory *>(factory)); }
+    void *BK_STDCALL GetCommonFactory() override { return &factory_; }
     void BK_STDCALL SetGDB(void *gdb) override { gdb_ = gdb; }
     void *BK_STDCALL CreateStructureSaver(void *, int, void *) override { return 0; }
     void *BK_STDCALL CreateDataTreeSaver(void *, int, const char *) override { return 0; }
     void *BK_STDCALL OpenStorage(const char *, unsigned long, unsigned long) override;
     void *BK_STDCALL CreateStorage(const char *, unsigned long, unsigned long) override;
     void *BK_STDCALL OpenDataBase(const char *, unsigned long, unsigned long) override { return 0; }
-    void *BK_STDCALL OpenDataTable(void *, const char *) override { return 0; }
+    void *BK_STDCALL OpenDataTable(void *, const char *) override;
     void *BK_STDCALL OpenIniDataTable(void *) override { return 0; }
 };
 
@@ -144,6 +200,7 @@ class ZigDataStream final : public IDataStream {
     void *stream_;
 public:
     explicit ZigDataStream(void *stream) : stream_(stream) {}
+    void *Native() const { return stream_; }
     void BK_STDCALL AddRef(int, int) override {}
     void BK_STDCALL Release(int, int) override {}
     bool BK_STDCALL IsValid() const override { return stream_ != 0; }
@@ -163,6 +220,33 @@ public:
     void BK_STDCALL Flush() override { bk_stream_flush(stream_); }
     void BK_STDCALL GetStats(void *) override {}
 };
+
+class ZigDataTable final : public IDataTable {
+    void *stream_;
+public:
+    explicit ZigDataTable(void *stream) : stream_(stream) {}
+    void BK_STDCALL AddRef(int, int) override {}
+    void BK_STDCALL Release(int, int) override {}
+    bool BK_STDCALL IsValid() const override { return stream_ != 0; }
+    int BK_STDCALL GetRowNames(char *, int) override { return 0; }
+    int BK_STDCALL GetEntryNames(const char *, char *, int) override { return 0; }
+    void BK_STDCALL ClearRow(const char *) override {}
+    int BK_STDCALL GetInt(const char *row, const char *entry, int fallback) override { return (row && entry) ? bk_table_get_int(stream_, row, entry, fallback) : fallback; }
+    double BK_STDCALL GetDouble(const char *row, const char *entry, double fallback) override { return (row && entry) ? bk_table_get_double(stream_, row, entry, fallback) : fallback; }
+    const char *BK_STDCALL GetString(const char *, const char *, const char *fallback, char *buffer, int size) override {
+        if (!buffer || size <= 0) return fallback ? fallback : "";
+        const char *value = fallback ? fallback : ""; int i = 0;
+        for (; value[i] && i + 1 < size; ++i) buffer[i] = value[i];
+        buffer[i] = 0; return buffer;
+    }
+    int BK_STDCALL GetRawData(const char *, const char *, void *, int) override { return 0; }
+    void BK_STDCALL SetInt(const char *, const char *, int) override {}
+    void BK_STDCALL SetDouble(const char *, const char *, double) override {}
+    void BK_STDCALL SetString(const char *, const char *, const char *) override {}
+    void BK_STDCALL SetRawData(const char *, const char *, const void *, int) override {}
+};
+
+void *BK_STDCALL SaveLoadSystem::OpenDataTable(void *stream, const char *) { ZigDataStream *zig_stream = static_cast<ZigDataStream *>(stream); return zig_stream ? new ZigDataTable(zig_stream->Native()) : 0; }
 
 class DataStorage final : public IDataStorage {
     void *storage_;
