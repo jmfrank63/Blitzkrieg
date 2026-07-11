@@ -748,6 +748,7 @@ pub fn build(b: *std.Build) void {
 
     const game_all_step = b.step("game-all", "Build and install the playable game runtime set");
     game_all_step.dependOn(&b.addInstallArtifact(game, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(streamio_zig, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(anim, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(gfx, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(image, .{}).step);
