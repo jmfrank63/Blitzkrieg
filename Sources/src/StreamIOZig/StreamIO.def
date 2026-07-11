@@ -1,0 +1,6 @@
+LIBRARY "StreamIO"
+EXPORTS
+    GetModuleDescriptor @1
+    GetTempRawBuffer_Hook @2
+    GetSLS_Hook @3
+    GetSingletonGlobal_Hook @4

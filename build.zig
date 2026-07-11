@@ -618,7 +618,6 @@ pub fn build(b: *std.Build) void {
     });
     const optimize = b.standardOptimizeOption(.{});
     const blitz64 = addBlitz64(b, target, optimize);
-    const streamio_zig = addStreamIOZig(b, target, optimize);
     const library_arch = switch (target.result.cpu.arch) {
         .x86 => "x86",
         .x86_64 => "x64",
@@ -631,6 +630,7 @@ pub fn build(b: *std.Build) void {
         .windows_sdk_lib = b.option([]const u8, "windows-sdk-lib", "Windows SDK library version directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0",
         .library_arch = library_arch,
     };
+    const streamio_zig = addStreamIOZig(b, target, optimize, toolchain);
     const install_dir = b.option([]const u8, "install-dir", "Relative install layout path (default: zig-out/game)") orelse "zig-out/game";
     const copy_data = b.option(bool, "copy-data", "Copy Data into install layout instead of creating a junction") orelse false;
     const package_dir = b.option([]const u8, "package-dir", "Relative output directory for zip installers (default: zig-out/packages)") orelse "zig-out/packages";
@@ -909,16 +909,24 @@ fn addStreamIOZig(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
 ) *std.Build.Step.Compile {
     const streamio_module = b.createModule(.{
         .root_source_file = b.path("Sources/src/StreamIOZig/streamio.zig"),
         .target = target,
         .optimize = optimize,
     });
+    streamio_module.addCSourceFile(.{
+        .file = b.path("Sources/src/StreamIOZig/legacy_bridge.cpp"),
+        .flags = &.{"-std=c++17"},
+    });
+    addMsvcLibraryPaths(b, streamio_module, toolchain);
+    linkMsvcRuntime(streamio_module, optimize);
     return b.addLibrary(.{
         .name = "StreamIO",
         .linkage = .dynamic,
         .root_module = streamio_module,
+        .win32_module_definition = b.path("Sources/src/StreamIOZig/StreamIO.def"),
     });
 }
 
