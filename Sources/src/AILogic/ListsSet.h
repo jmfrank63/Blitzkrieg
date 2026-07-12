@@ -293,7 +293,7 @@ void CQueuesSet<T>::Clear()
 template< class T >
 inline int CQueuesSet<T>::Push( const int queueNum, const T &el )
 {
-	CListsSet<T>::tEnumerator pos = cListsSet.Add( queueNum, el );
+	typename CListsSet<T>::tEnumerator pos = cListsSet.Add( queueNum, el );
 
 	if ( cListsSet.GetNext( pos ) == cListsSet.end() )
 		currentPos[queueNum] = pos;

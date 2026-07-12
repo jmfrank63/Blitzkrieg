@@ -655,6 +655,7 @@ pub fn build(b: *std.Build) void {
     const sfx = addSFX(b, target, optimize, toolchain, misc, common);
     const gfx = addGFX(b, target, optimize, toolchain, misc, formats);
     const randommapgen = addRandomMapGen(b, target, optimize, toolchain);
+    const ailogic = addLegacyProjectDll(b, target, optimize, toolchain, "AILogic", "Sources/src/AILogic/AILogic.vcxproj", "Sources/src/AILogic/AILogic.def", &.{ "Sources/src/AILogic", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/GameTT", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/vorbis-1.3.7/include" }, &.{ misc, lualib, formats, randommapgen, zlib });
     const main = addMain(b, target, optimize, toolchain);
     const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats, blitz64);
     const package_module = b.createModule(.{
@@ -686,6 +687,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(gfx);
     b.installArtifact(randommapgen);
     b.installArtifact(main);
+    b.installArtifact(ailogic);
     b.installArtifact(streamio_zig);
     b.installArtifact(game);
 
@@ -749,6 +751,9 @@ pub fn build(b: *std.Build) void {
     const scene_step = b.step("scene", "Build the Scene x64 dynamic library");
     scene_step.dependOn(&b.addInstallArtifact(scene, .{}).step);
 
+    const ailogic_step = b.step("ailogic", "Build the AILogic x64 dynamic library");
+    ailogic_step.dependOn(&b.addInstallArtifact(ailogic, .{}).step);
+
     const game_step = b.step("game", "Build the Game executable");
     game_step.dependOn(&b.addInstallArtifact(game, .{}).step);
 
@@ -756,6 +761,7 @@ pub fn build(b: *std.Build) void {
     game_all_step.dependOn(&b.addInstallArtifact(game, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(streamio_zig, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(scene, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(ailogic, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(anim, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(gfx, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(image, .{}).step);
@@ -979,7 +985,13 @@ fn addLegacyProjectDll(
     addMsvcIncludePaths(b, module, toolchain);
     addMsvcLibraryPaths(b, module, toolchain);
     for (includes) |include| module.addIncludePath(b.path(include));
-    module.addCSourceFiles(.{ .files = files.items, .flags = cppflagsForOptimize(optimize) });
+    if (std.mem.eql(u8, name, "AILogic")) {
+        var flags: std.ArrayListUnmanaged([]const u8) = .empty;
+        flags.appendSlice(b.allocator, cppflagsForOptimize(optimize)) catch @panic("OOM");
+        flags.append(b.allocator, "-include") catch @panic("OOM");
+        flags.append(b.allocator, "Sources/src/AILogic/StdAfx.h") catch @panic("OOM");
+        module.addCSourceFiles(.{ .files = files.items, .flags = flags.items });
+    } else module.addCSourceFiles(.{ .files = files.items, .flags = cppflagsForOptimize(optimize) });
     for (libraries) |library| module.linkLibrary(library);
     linkMsvcRuntime(module, optimize);
     module.linkSystemLibrary("winmm", .{});

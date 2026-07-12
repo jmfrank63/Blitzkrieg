@@ -72,7 +72,7 @@ fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
 
 fn removeLegacyX86Runtime(io: std.Io, destination: std.Io.Dir) !void {
     const legacy_dlls = [_][]const u8{
-        "A7ExportModel.dll", "AILogic.dll", "GameTT.dll",
+        "A7ExportModel.dll", "GameTT.dll",
         "mfc42.dll", "msvcp60.dll", "msvcrt.dll",
     };
     for (legacy_dlls) |name| {

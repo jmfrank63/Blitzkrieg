@@ -63,7 +63,7 @@ inline int CContainer<TPObj>::operator&( IStructureSaver &ss )
 	return 0;
 }
 template< class TContainer, class TSegments>
-inline void Segment<TContainer, TSegments>( const NTimer::STime lastSegmTime, const NTimer::STime roundedCurTime, TContainer &container, TSegments* )
+inline void Segment( const NTimer::STime lastSegmTime, const NTimer::STime roundedCurTime, TContainer &container, TSegments* )
 {
 	for ( NTimer::STime time = lastSegmTime; time <= roundedCurTime; time += SConsts::AI_SEGMENT_DURATION )
 	{
@@ -72,7 +72,7 @@ inline void Segment<TContainer, TSegments>( const NTimer::STime lastSegmTime, co
 		int nPredValue = 0;			
 		for ( int iter = container.begin( nIndex ); iter != container.end(); iter = container.GetNext( iter ) )
 		{
-			TSegments::TObjType pObj = container.GetEl( iter );
+			typename TSegments::TObjType pObj = container.GetEl( iter );
 
 			static TSegments check;			
 			check.SetSegmentObject( pObj );
@@ -97,7 +97,7 @@ inline void Segment<TContainer, TSegments>( const NTimer::STime lastSegmTime, co
 	}
 }
 template< class TContainer, class TSegments>
-inline void SegmentWOMove<TContainer, TSegments>( const NTimer::STime lastSegmTime, const NTimer::STime roundedCurTime, TContainer &container, TSegments* )
+inline void SegmentWOMove( const NTimer::STime lastSegmTime, const NTimer::STime roundedCurTime, TContainer &container, TSegments* )
 {
 	for ( NTimer::STime time = lastSegmTime; time <= roundedCurTime; time += SConsts::AI_SEGMENT_DURATION )
 	{
