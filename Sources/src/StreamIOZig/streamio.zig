@@ -143,7 +143,7 @@ fn shortChunkAt(bytes: []const u8, level: StructureLevel, wanted_id: u8, wanted_
 }
 
 pub export fn bk_structure_create(stream_handle: ?*anyopaque, mode: c_int) callconv(.c) ?*anyopaque {
-    if (mode != 1) return null;
+    if (mode != 1 and mode != 2) return null;
     const stream = fromHandle(Stream, stream_handle) orelse return null;
     const file_level = StructureLevel{ .start = 0, .len = stream.bytes.len };
     const data_level = shortChunkAt(stream.bytes, file_level, 1, 1) orelse return null;
@@ -832,11 +832,11 @@ pub export fn bk_tree_create(stream_handle: ?*anyopaque, mode: c_int, base: [*:0
     const document = xml.parse(allocator, stream.bytes) catch return null;
     var current = document.root;
     const base_name = std.mem.span(base);
-    if (!std.mem.eql(u8, current.name, base_name)) current = xml.child(current, base_name) orelse {
-        var owned = document;
-        owned.deinit();
-        return null;
-    };
+    if (!std.mem.eql(u8, current.name, base_name)) {
+        if (xml.child(current, base_name)) |matched| {
+            current = matched;
+        }
+    }
     const tree = allocator.create(Tree) catch {
         var owned = document;
         owned.deinit();
