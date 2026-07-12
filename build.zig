@@ -889,8 +889,17 @@ pub fn build(b: *std.Build) void {
         .root_module = blitz64_test_module,
     });
     const run_blitz64_unit_tests = b.addRunArtifact(blitz64_unit_tests);
+    const streamio_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/StreamIOZig/streamio.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const streamio_unit_tests = b.addTest(.{ .root_module = streamio_test_module });
+    const run_streamio_unit_tests = b.addRunArtifact(streamio_unit_tests);
     const test_step = b.step("test", "Run Zig unit tests and the Blitz64 ABI smoke test");
     test_step.dependOn(&run_blitz64_unit_tests.step);
+    test_step.dependOn(&run_streamio_unit_tests.step);
     test_step.dependOn(&run_abi_test.step);
     if (target.result.cpu.arch == .x86_64) test_step.dependOn(&verify_x64_cmd.step);
 

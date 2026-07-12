@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@cline/sdk": "^0.0.59"
+  }
+}

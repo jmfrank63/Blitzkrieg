@@ -2,6 +2,7 @@ const std = @import("std");
 const xml = @import("xml.zig");
 const options = @import("options.zig");
 const console = @import("console.zig");
+const zip = @import("zip.zig");
 
 var buffers: [10]std.ArrayListUnmanaged(u8) = [_]std.ArrayListUnmanaged(u8){.empty} ** 10;
 
@@ -41,9 +42,20 @@ extern fn FindClose(handle: *anyopaque) callconv(.winapi) bool;
 
 const allocator = std.heap.page_allocator;
 
+const LoadedArchive = struct {
+    bytes: []u8,
+    path: [:0]u8,
+    archive: zip.Archive,
+    modified: u32,
+};
+const ArchiveMatch = struct { archive: *const LoadedArchive, entry: *const zip.Entry };
+const StorageOverlay = struct { name: [:0]u8, storage: *Storage };
+
 const Storage = struct {
     base: []u8,
     access: u32,
+    archives: std.ArrayListUnmanaged(LoadedArchive) = .empty,
+    overlays: std.ArrayListUnmanaged(StorageOverlay) = .empty,
 };
 
 const Stream = struct {
@@ -322,6 +334,103 @@ fn makePath(storage: *const Storage, name: []const u8) ?[]u8 {
     return path;
 }
 
+fn readFileOwned(path: [*:0]const u8) ?[]u8 {
+    const file = fopen(path, "rb") orelse return null;
+    defer _ = fclose(file);
+    if (fseek(file, 0, 2) != 0) return null;
+    const end = ftell(file);
+    if (end < 0 or fseek(file, 0, 0) != 0) return null;
+    const bytes = allocator.alloc(u8, @intCast(end)) catch return null;
+    if (bytes.len != 0 and fread(bytes.ptr, 1, bytes.len, file) != bytes.len) {
+        allocator.free(bytes);
+        return null;
+    }
+    return bytes;
+}
+
+fn dosModified(data: *const FindData) u32 {
+    const write_time = FileTime{ .low = data.write_low, .high = data.write_high };
+    var date: u16 = 0;
+    var time: u16 = 0;
+    return if (FileTimeToDosDateTime(&write_time, &date, &time))
+        @as(u32, time) | (@as(u32, date) << 16)
+    else
+        0;
+}
+
+fn loadArchives(storage: *Storage) void {
+    const pattern_bytes = std.fmt.allocPrint(allocator, "{s}*.pak", .{storage.base}) catch return;
+    defer allocator.free(pattern_bytes);
+    const pattern = allocator.dupeZ(u8, pattern_bytes) catch return;
+    defer allocator.free(pattern);
+    var find_data: FindData = undefined;
+    const find = FindFirstFileA(pattern.ptr, &find_data) orelse return;
+    defer _ = FindClose(find);
+    while (true) {
+        if ((find_data.attributes & 0x10) == 0) {
+            const file_name = std.mem.sliceTo(&find_data.file_name, 0);
+            const path_bytes = std.fmt.allocPrint(allocator, "{s}{s}", .{ storage.base, file_name }) catch null;
+            if (path_bytes) |owned_path_bytes| {
+                defer allocator.free(owned_path_bytes);
+                const path = allocator.dupeZ(u8, owned_path_bytes) catch null;
+                if (path) |owned_path| {
+                    if (readFileOwned(owned_path.ptr)) |bytes| {
+                        if (zip.Archive.parse(allocator, bytes)) |archive| {
+                            storage.archives.append(allocator, .{
+                                .bytes = bytes,
+                                .path = owned_path,
+                                .archive = archive,
+                                .modified = dosModified(&find_data),
+                            }) catch {
+                                var owned_archive = archive;
+                                owned_archive.deinit();
+                                allocator.free(bytes);
+                                allocator.free(owned_path);
+                            };
+                        } else |_| {
+                            allocator.free(bytes);
+                            allocator.free(owned_path);
+                        }
+                    } else allocator.free(owned_path);
+                }
+            }
+        }
+        if (!FindNextFileA(find, &find_data)) break;
+    }
+}
+
+fn archiveEntry(storage: *const Storage, name: []const u8) ?ArchiveMatch {
+    var best: ?ArchiveMatch = null;
+    for (storage.archives.items) |*loaded| {
+        const entry = loaded.archive.find(name) orelse continue;
+        if (best == null or loaded.modified >= best.?.archive.modified) best = .{ .archive = loaded, .entry = entry };
+    }
+    return best;
+}
+
+fn overlayStream(storage: *Storage, name: []const u8, access: u32) ?*Stream {
+    var index = storage.overlays.items.len;
+    while (index > 0) {
+        index -= 1;
+        const child = storage.overlays.items[index].storage;
+        if (openStream(child, name, access, false) orelse archiveStream(child, name, access)) |stream| return stream;
+    }
+    return null;
+}
+
+fn overlayExists(storage: *const Storage, name: []const u8) bool {
+    var index = storage.overlays.items.len;
+    while (index > 0) {
+        index -= 1;
+        const child = storage.overlays.items[index].storage;
+        const path = makePath(child, name) orelse continue;
+        defer allocator.free(path);
+        if (fopen(@ptrCast(path.ptr), "rb")) |file| { _ = fclose(file); return true; }
+        if (archiveEntry(child, name) != null or overlayExists(child, name)) return true;
+    }
+    return false;
+}
+
 fn isStructureCache(name: []const u8) bool {
     return name.len >= 4 and std.ascii.eqlIgnoreCase(name[name.len - 4 ..], ".gdb");
 }
@@ -381,6 +490,26 @@ fn openStream(storage: *Storage, name: []const u8, access: u32, create: bool) ?*
     return stream;
 }
 
+fn archiveStream(storage: *Storage, name: []const u8, access: u32) ?*Stream {
+    if ((access & 0x2) != 0) return null;
+    const match = archiveEntry(storage, name) orelse return null;
+    const bytes = match.archive.archive.extract(allocator, match.entry) catch return null;
+    const name_copy = allocator.dupeZ(u8, name) catch { allocator.free(bytes); return null; };
+    const path = allocator.dupeZ(u8, match.archive.path) catch {
+        allocator.free(name_copy);
+        allocator.free(bytes);
+        return null;
+    };
+    const stream = allocator.create(Stream) catch {
+        allocator.free(path);
+        allocator.free(name_copy);
+        allocator.free(bytes);
+        return null;
+    };
+    stream.* = .{ .bytes = bytes, .name = name_copy, .path = path, .access = access };
+    return stream;
+}
+
 pub export fn bk_storage_create(name: [*:0]const u8, access: c_ulong, _: c_ulong) callconv(.c) ?*anyopaque {
     const source = std.mem.span(name);
     const base = pathBase(source);
@@ -390,7 +519,22 @@ pub export fn bk_storage_create(name: [*:0]const u8, access: c_ulong, _: c_ulong
         return null;
     };
     storage.* = .{ .base = owned_base, .access = @truncate(access) };
+    loadArchives(storage);
     return storage;
+}
+
+pub export fn bk_storage_destroy(handle: ?*anyopaque) callconv(.c) void {
+    const storage = fromHandle(Storage, handle) orelse return;
+    for (storage.archives.items) |*loaded| {
+        loaded.archive.deinit();
+        allocator.free(loaded.bytes);
+        allocator.free(loaded.path);
+    }
+    storage.archives.deinit(allocator);
+    for (storage.overlays.items) |overlay| allocator.free(overlay.name);
+    storage.overlays.deinit(allocator);
+    allocator.free(storage.base);
+    allocator.destroy(storage);
 }
 
 pub export fn bk_global_get(key: [*:0]const u8) callconv(.c) ?[*:0]const u8 {
@@ -460,14 +604,38 @@ pub export fn bk_storage_exists(handle: ?*anyopaque, name: [*:0]const u8) callco
     const storage = fromHandle(Storage, handle) orelse return false;
     const path = makePath(storage, std.mem.span(name)) orelse return false;
     defer allocator.free(path);
-    const file = fopen(@ptrCast(path.ptr), "rb") orelse return false;
+    const file = fopen(@ptrCast(path.ptr), "rb") orelse return archiveEntry(storage, std.mem.span(name)) != null or overlayExists(storage, std.mem.span(name));
     _ = fclose(file);
     return true;
 }
 
 pub export fn bk_storage_open(handle: ?*anyopaque, name: [*:0]const u8, access: c_ulong) callconv(.c) ?*anyopaque {
     const storage = fromHandle(Storage, handle) orelse return null;
-    return openStream(storage, std.mem.span(name), @truncate(access), false);
+    const stream_name = std.mem.span(name);
+    return overlayStream(storage, stream_name, @truncate(access)) orelse openStream(storage, stream_name, @truncate(access), false) orelse archiveStream(storage, stream_name, @truncate(access));
+}
+
+pub export fn bk_storage_add(handle: ?*anyopaque, child_handle: ?*anyopaque, name: [*:0]const u8) callconv(.c) bool {
+    const storage = fromHandle(Storage, handle) orelse return false;
+    const child = fromHandle(Storage, child_handle) orelse return false;
+    if (storage == child) return false;
+    const owned_name = allocator.dupeZ(u8, std.mem.span(name)) catch return false;
+    storage.overlays.append(allocator, .{ .name = owned_name, .storage = child }) catch {
+        allocator.free(owned_name);
+        return false;
+    };
+    return true;
+}
+
+pub export fn bk_storage_remove(handle: ?*anyopaque, name: [*:0]const u8) callconv(.c) ?*anyopaque {
+    const storage = fromHandle(Storage, handle) orelse return null;
+    for (storage.overlays.items, 0..) |overlay, index| {
+        if (!std.ascii.eqlIgnoreCase(overlay.name, std.mem.span(name))) continue;
+        const removed = storage.overlays.orderedRemove(index);
+        allocator.free(removed.name);
+        return removed.storage;
+    }
+    return null;
 }
 
 pub export fn bk_storage_create_stream(handle: ?*anyopaque, name: [*:0]const u8, access: c_ulong) callconv(.c) ?*anyopaque {
@@ -630,6 +798,14 @@ pub export fn bk_stream_flush(handle: ?*anyopaque) callconv(.c) bool {
     defer _ = fclose(file);
     if (stream.bytes.len != 0 and fwrite(stream.bytes.ptr, 1, stream.bytes.len, file) != stream.bytes.len) return false;
     return fflush(file) == 0;
+}
+
+pub export fn bk_stream_destroy(handle: ?*anyopaque) callconv(.c) void {
+    const stream = fromHandle(Stream, handle) orelse return;
+    allocator.free(stream.bytes);
+    allocator.free(stream.name);
+    allocator.free(stream.path);
+    allocator.destroy(stream);
 }
 
 fn lastPathSegment(path: []const u8) []const u8 {
@@ -847,6 +1023,35 @@ test "storage base keeps the directory portion of game archive masks" {
     try std.testing.expectEqualStrings(".\\data\\", pathBase(".\\data\\*.pak"));
     try std.testing.expectEqualStrings("C:\\Blitzkrieg\\Data\\", pathBase("C:\\Blitzkrieg\\Data\\*.pak"));
     try std.testing.expectEqualStrings(".\\", pathBase("*.pak"));
+}
+
+test "storage opens an entry from a repository PAK" {
+    const handle = bk_storage_create("Data\\ELK\\*.pak", 1, 0) orelse return error.TestUnexpectedResult;
+    defer bk_storage_destroy(handle);
+    const storage = fromHandle(Storage, handle).?;
+    try std.testing.expect(storage.archives.items.len > 0);
+    const first_entry = storage.archives.items[0].archive.entries[0];
+    const entry_name = try allocator.dupeZ(u8, first_entry.name);
+    defer allocator.free(entry_name);
+    const stream_handle = bk_storage_open(handle, entry_name.ptr, 1) orelse return error.TestUnexpectedResult;
+    defer bk_stream_destroy(stream_handle);
+    try std.testing.expectEqual(@as(c_int, @intCast(first_entry.uncompressed_size)), bk_stream_size(stream_handle));
+}
+
+test "storage overlay exposes child archive entries" {
+    const base_handle = bk_storage_create("Data\\*.pak", 1, 0) orelse return error.TestUnexpectedResult;
+    defer bk_storage_destroy(base_handle);
+    const child_handle = bk_storage_create("Data\\ELK\\*.pak", 1, 0) orelse return error.TestUnexpectedResult;
+    defer bk_storage_destroy(child_handle);
+    const child = fromHandle(Storage, child_handle).?;
+    const entry_name = try allocator.dupeZ(u8, child.archives.items[0].archive.entries[0].name);
+    defer allocator.free(entry_name);
+    try std.testing.expect(!bk_storage_exists(base_handle, entry_name.ptr));
+    try std.testing.expect(bk_storage_add(base_handle, child_handle, "elk"));
+    try std.testing.expect(bk_storage_exists(base_handle, entry_name.ptr));
+    const stream_handle = bk_storage_open(base_handle, entry_name.ptr, 1) orelse return error.TestUnexpectedResult;
+    bk_stream_destroy(stream_handle);
+    try std.testing.expect(bk_storage_remove(base_handle, "elk") == child_handle);
 }
 
 test "XML table lookup reads startup attributes" {

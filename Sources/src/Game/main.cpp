@@ -133,9 +133,12 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 	ProcessCommandLine( lpCmdLine, &cmdp );
 	GetSingleton<IRandomGen>()->Init();
 	timeMeter.Sample( "random & cmd line" );
+	BK_STARTUP_MARKER("before InitApplication");
 	if ( !NWinFrame::InitApplication( hInstance, " Blitzkrieg Game", "A7_ENGINE", cmdp.nScreenSizeX, cmdp.nScreenSizeY ) )
 		return 0xDEAD;
+	BK_STARTUP_MARKER("after InitApplication");
 	timeMeter.Reset();
+	BK_STARTUP_MARKER("before OpenStorage");
 	{
 		CPtr<IDataStorage> pStorage;
 
@@ -145,7 +148,7 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 			NStr::ToLower( szDataDir );
 			if ( szDataDir == "s:\\versions\\current" )
 			{
-				::MessageBox( 0, "������� ��, ��� ������ ������������ ������� � \"s:\\versions\\current\"!", "ERROR", MB_OK | MB_ICONEXCLAMATION );
+				::MessageBox( 0, "Can't use \"s:\\versions\\current\" as data directory!", "ERROR", MB_OK | MB_ICONEXCLAMATION );
 				return 0xDEAD;
 			}
 			else
@@ -154,36 +157,10 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		else
 			pStorage = OpenStorage( ".\\data\\*.pak", STREAM_ACCESS_READ, STORAGE_TYPE_MOD );
 		RegisterSingleton( IDataStorage::tidTypeID, pStorage );
-		/*
-		if ( !cmdp.szModName.empty() ) 
-		{
-			CPtr<IDataStorage> pMod = OpenStorage( (cmdp.szModName + "*.pak").c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_COMMON );
-			if ( pMod == 0 ) 
-			{
-				::MessageBox( 0, NStr::Format("Can't open mod storage \"%s\" to use with game", cmdp.szModName.c_str()), "ERROR", MB_OK | MB_ICONEXCLAMATION );
-				return 0xDEAD;
-			}
-			pStorage->AddStorage( pMod, cmdp.szModName.c_str() );
-			CPtr<IDataStream> pXMLStream = pStorage->OpenStream( "mod.xml", STREAM_ACCESS_READ );
-			if ( pXMLStream )
-			{
-				CPtr<IDataTree> pDT = CreateDataTreeSaver( pXMLStream, IDataTree::READ );
-				if ( pDT )
-				{
-					CTreeAccessor saver = pDT;
-					std::string szName = "MyMOD";
-					std::string szVersion = "1.0";
-					saver.Add( "MODName", &szName );
-					saver.Add( "MODVersion", &szVersion );
-					SetGlobalVar( "MOD.Active", 1 );
-					SetGlobalVar( "MOD.Name", szName.c_str() );
-					SetGlobalVar( "MOD.Version", szVersion.c_str() );
-				}
-			}
-		}
-		*/
 	}
+	BK_STARTUP_MARKER("after OpenStorage");
 	timeMeter.Sample( "resource system" );
+	BK_STARTUP_MARKER("before demo.xml");
 	if ( CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream("demo\\demo.xml", STREAM_ACCESS_READ) ) 
 	{
 		CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::READ );
@@ -200,7 +177,9 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 			}
 		}
 	}
+	BK_STARTUP_MARKER("after demo.xml");
 	timeMeter.Reset();
+	BK_STARTUP_MARKER("before consts.xml");
 	{
 		CTableAccessor table = NDB::OpenDataTable( "consts.xml" );
 		NMain::SetupGlobalVarConsts( table );
@@ -223,12 +202,15 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		SetGlobalVar( "GFX.Mode.Current.FullScreen", GetGlobalVar( "GFX.Mode.InterMission.FullScreen", int(cmdp.eFullscreenMode) ) );
 		SetGlobalVar( "GFX.Mode.Current.Frequency", GetGlobalVar( "GFX.Mode.InterMission.Frequency", cmdp.nFreq ) );
 	}
+	BK_STARTUP_MARKER("after consts.xml");
 	timeMeter.Sample( "consts table" );
+	BK_STARTUP_MARKER("before CreateObjectsDB");
 	{
 		CPtr<IObjectsDB> pGDB = CreateObjectsDB();
 		RegisterSingleton( IObjectsDB::tidTypeID, pGDB );
 		GetSLS()->SetGDB( pGDB );
 	}
+	BK_STARTUP_MARKER("after CreateObjectsDB");
 	{
 		SetGlobalVar( "GameSpyGameName", "blitzkrieg" );
 		SetGlobalVar( "GameSpyEngineName", "blitzkrieg" );

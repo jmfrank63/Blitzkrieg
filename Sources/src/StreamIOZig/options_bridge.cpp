@@ -12,7 +12,7 @@ struct IRefCount {
     virtual void BK_STDCALL Release(int = 1, int = 0x7fffffff) = 0;
     virtual bool BK_STDCALL IsValid() const = 0;
     virtual IRefCount *BK_STDCALL QI(int) { return 0; }
-    virtual int BK_STDCALL And(void *) { return 0; }
+    virtual int BK_STDCALL operator&(void *) { return 0; }
 };
 struct IDataTree;
 struct IVarIterator : public IRefCount {
@@ -70,6 +70,7 @@ struct CoreApi {
     bool (__cdecl *metadata)(void *, int, int *, unsigned long *, int *, bool *, const char **, const char **, const char **, unsigned short *) = 0;
     int (BK_STDCALL *load_tree)(void *, void *, bool) = 0;
     void *(__cdecl *console_create)() = 0;
+    void (__cdecl *console_destroy)(void *) = 0;
     bool (__cdecl *console_configure)(void *, const char *) = 0;
     void (__cdecl *console_write)(void *, int, const unsigned short *, unsigned long, bool) = 0;
     void (__cdecl *console_write_ascii)(void *, int, const char *, unsigned long, bool) = 0;
@@ -94,12 +95,13 @@ static bool ResolveCore() {
     api.metadata = Resolve<decltype(api.metadata)>(module, "bk_options_metadata");
     api.load_tree = Resolve<decltype(api.load_tree)>(module, "bk_options_load_legacy_tree");
     api.console_create = Resolve<decltype(api.console_create)>(module, "bk_console_create");
+    api.console_destroy = Resolve<decltype(api.console_destroy)>(module, "bk_console_destroy");
     api.console_configure = Resolve<decltype(api.console_configure)>(module, "bk_console_configure");
     api.console_write = Resolve<decltype(api.console_write)>(module, "bk_console_write");
     api.console_write_ascii = Resolve<decltype(api.console_write_ascii)>(module, "bk_console_write_ascii");
     api.console_read = Resolve<decltype(api.console_read)>(module, "bk_console_read");
     api.console_read_ascii = Resolve<decltype(api.console_read_ascii)>(module, "bk_console_read_ascii");
-    return api.create && api.destroy && api.count && api.name_at && api.value && api.set && api.remove && api.remove_prefix && api.changed && api.metadata && api.load_tree && api.console_create && api.console_configure && api.console_write && api.console_write_ascii && api.console_read && api.console_read_ascii;
+    return api.create && api.destroy && api.count && api.name_at && api.value && api.set && api.remove && api.remove_prefix && api.changed && api.metadata && api.load_tree && api.console_create && api.console_destroy && api.console_configure && api.console_write && api.console_write_ascii && api.console_read && api.console_read_ascii;
 }
 
 static BSTR AnsiToBstr(const char *value) {
@@ -148,7 +150,7 @@ static std::string VariantText(const VARIANT &value) {
 
 class OptionSystem;
 class OptionIterator final : public IOptionSystemIterator {
-    OptionSystem *owner_; unsigned long mask_; int index_ = 0, refs_ = 1;
+    OptionSystem *owner_; unsigned long mask_; int index_ = 0, refs_ = 0;
     void Advance();
 public:
     OptionIterator(OptionSystem *owner, unsigned long mask) : owner_(owner), mask_(mask) { Advance(); }
@@ -163,7 +165,7 @@ public:
 };
 
 class OptionSystem final : public IOptionSystem {
-    void *state_; int refs_ = 1;
+    void *state_; int refs_ = 0;
     mutable OptionDesc desc_; mutable std::vector<OptionDropValue> drops_;
 public:
     OptionSystem() : state_(api.create()) {}
@@ -173,7 +175,7 @@ public:
     int Find(const std::string &name) const { for (int i = 0; i < Count(); ++i) if (_stricmp(NameAt(i), name.c_str()) == 0) return i; return -1; }
     bool Metadata(int index, int *editor, unsigned long *flags, int *order, bool *instant, const char **action, const char **fill, const char **fallback, unsigned short *type) const { return api.metadata(state_, index, editor, flags, order, instant, action, fill, fallback, type); }
     void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
-    void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; }
+    void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { if ((refs_ -= count) <= 0) delete this; }
     bool BK_STDCALL IsValid() const override { return state_ != 0; }
     bool BK_STDCALL Get(const std::string &name, VARIANT *value) const override { unsigned short type = VT_EMPTY; const char *text = api.value(state_, name.c_str(), &type); return text && AssignVariant(value, type, text); }
     bool BK_STDCALL Set(const std::string &name, const VARIANT &value) override { const std::string text = VariantText(value); return api.set(state_, name.c_str(), text.c_str(), value.vt); }
@@ -211,11 +213,12 @@ const OptionDesc *BK_STDCALL OptionIterator::GetDesc() const { const char *key=I
 const std::vector<OptionDropValue> &BK_STDCALL OptionIterator::GetDropValues() const { static const std::vector<OptionDropValue> empty; const char *key=IsEnd()?0:owner_->NameAt(index_); return key?owner_->GetDropValues(key):empty; }
 
 class ConsoleBuffer final : public IConsoleBuffer {
-    void *state_; int refs_ = 1;
+    void *state_; int refs_ = 0;
 public:
     ConsoleBuffer() : state_(api.console_create()) {}
+    ~ConsoleBuffer() { api.console_destroy(state_); }
     void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
-    void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; }
+    void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { if ((refs_ -= count) <= 0) delete this; }
     bool BK_STDCALL IsValid() const override { return state_ != 0; }
     bool BK_STDCALL Configure(const char *config) override { return config && api.console_configure(state_, config); }
     void BK_STDCALL Write(int channel, const unsigned short *text, unsigned long color, bool backup) override { if (text) api.console_write(state_, channel, text, color, backup); }

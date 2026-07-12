@@ -2,6 +2,9 @@
 // vtable order used by the old headers without importing their MSXML/MFC stack.
 extern "C" void *bk_streamio_temp_buffer(int size, int index);
 extern "C" void *bk_storage_create(const char *name, unsigned long access, unsigned long type);
+extern "C" void bk_storage_destroy(void *storage);
+extern "C" bool bk_storage_add(void *storage, void *child, const char *name);
+extern "C" void *bk_storage_remove(void *storage, const char *name);
 extern "C" const char *bk_storage_name(void *storage);
 extern "C" bool bk_storage_exists(void *storage, const char *name);
 extern "C" void *bk_storage_open(void *storage, const char *name, unsigned long access);
@@ -22,6 +25,7 @@ extern "C" int bk_stream_lock_begin(void *stream);
 extern "C" int bk_stream_unlock_begin(void *stream);
 extern "C" bool bk_stream_flush(void *stream);
 extern "C" bool bk_stream_stats(void *stream, void *stats);
+extern "C" void bk_stream_destroy(void *stream);
 extern "C" void *bk_structure_create(void *stream, int mode);
 extern "C" void bk_structure_destroy(void *saver);
 extern "C" bool bk_structure_start(void *saver, unsigned char id);
@@ -332,11 +336,13 @@ public:
 
 class ZigDataStream final : public IDataStream {
     void *stream_;
+    int refs_ = 0;
 public:
     explicit ZigDataStream(void *stream) : stream_(stream) {}
+    ~ZigDataStream() { bk_stream_destroy(stream_); }
     void *Native() const { return stream_; }
-    void BK_STDCALL AddRef(int, int) override {}
-    void BK_STDCALL Release(int, int) override {}
+    void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
+    void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
     bool BK_STDCALL IsValid() const override { return stream_ != 0; }
     int BK_STDCALL Read(void *buffer, int length) override { return bk_stream_read(stream_, buffer, length); }
     int BK_STDCALL Write(const void *buffer, int length) override { return bk_stream_write(stream_, buffer, length); }
@@ -356,17 +362,19 @@ public:
 };
 
 class ZigDataTable final : public IDataTable {
-    void *stream_;
+    ZigDataStream *source_;
+    int refs_ = 0;
 public:
-    explicit ZigDataTable(void *stream) : stream_(stream) {}
-    void BK_STDCALL AddRef(int, int) override {}
-    void BK_STDCALL Release(int, int) override {}
-    bool BK_STDCALL IsValid() const override { return stream_ != 0; }
+    explicit ZigDataTable(ZigDataStream *stream) : source_(stream) { source_->AddRef(); }
+    ~ZigDataTable() { source_->Release(); }
+    void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
+    void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
+    bool BK_STDCALL IsValid() const override { return source_ != 0; }
     int BK_STDCALL GetRowNames(char *, int) override { return 0; }
     int BK_STDCALL GetEntryNames(const char *, char *, int) override { return 0; }
     void BK_STDCALL ClearRow(const char *) override {}
-    int BK_STDCALL GetInt(const char *row, const char *entry, int fallback) override { return (row && entry) ? bk_table_get_int(stream_, row, entry, fallback) : fallback; }
-    double BK_STDCALL GetDouble(const char *row, const char *entry, double fallback) override { return (row && entry) ? bk_table_get_double(stream_, row, entry, fallback) : fallback; }
+    int BK_STDCALL GetInt(const char *row, const char *entry, int fallback) override { return (row && entry) ? bk_table_get_int(source_->Native(), row, entry, fallback) : fallback; }
+    double BK_STDCALL GetDouble(const char *row, const char *entry, double fallback) override { return (row && entry) ? bk_table_get_double(source_->Native(), row, entry, fallback) : fallback; }
     const char *BK_STDCALL GetString(const char *, const char *, const char *fallback, char *buffer, int size) override {
         if (!buffer || size <= 0) return fallback ? fallback : "";
         const char *value = fallback ? fallback : ""; int i = 0;
@@ -383,7 +391,7 @@ public:
 class StorageEnumerator final : public IStorageEnumerator {
     void *enumerator_;
     mutable struct { const char *name; int type; int size; unsigned int ctime, mtime, atime; } stats_ = {};
-    int refs_ = 1;
+    int refs_ = 0;
 public:
     explicit StorageEnumerator(void *enumerator) : enumerator_(enumerator) {}
     ~StorageEnumerator() { bk_enumerator_destroy(enumerator_); }
@@ -397,12 +405,13 @@ public:
 
 class ZigDataTree final : public IDataTree {
     void *tree_;
+    ZigDataStream *source_;
     int mode_;
-    int refs_ = 1;
+    int refs_ = 0;
 public:
-    ZigDataTree(void *tree, int mode) : tree_(tree), mode_(mode) {}
+    ZigDataTree(void *tree, ZigDataStream *source, int mode) : tree_(tree), source_(source), mode_(mode) { source_->AddRef(); }
     void *Native() const { return tree_; }
-    ~ZigDataTree() { bk_tree_destroy(tree_); }
+    ~ZigDataTree() { bk_tree_destroy(tree_); source_->Release(); }
     void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
     void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
     bool BK_STDCALL IsValid() const override { return tree_ != 0; }
@@ -429,11 +438,12 @@ public:
 
 class ZigStructureSaver final : public IStructureSaver {
     void *saver_;
+    ZigDataStream *source_;
     void *gdb_;
-    int refs_ = 1;
+    int refs_ = 0;
 public:
-    ZigStructureSaver(void *saver, void *gdb) : saver_(saver), gdb_(gdb) {}
-    ~ZigStructureSaver() { bk_structure_destroy(saver_); }
+    ZigStructureSaver(void *saver, ZigDataStream *source, void *gdb) : saver_(saver), source_(source), gdb_(gdb) { source_->AddRef(); }
+    ~ZigStructureSaver() { bk_structure_destroy(saver_); source_->Release(); }
     void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
     void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
     bool BK_STDCALL IsValid() const override { return saver_ != 0; }
@@ -603,26 +613,33 @@ extern "C" __declspec(dllexport) int BK_STDCALL bk_options_load_legacy_tree(void
     return zig_tree ? bk_options_load_tree(options, zig_tree->Native(), only_missing) : 0;
 }
 
-void *BK_STDCALL SaveLoadSystem::OpenDataTable(void *stream, const char *) { ZigDataStream *zig_stream = static_cast<ZigDataStream *>(stream); return zig_stream ? new ZigDataTable(zig_stream->Native()) : 0; }
+void *BK_STDCALL SaveLoadSystem::OpenDataTable(void *stream, const char *) { ZigDataStream *zig_stream = static_cast<ZigDataStream *>(stream); return zig_stream ? new ZigDataTable(zig_stream) : 0; }
 void *BK_STDCALL SaveLoadSystem::CreateDataTreeSaver(void *stream, int mode, const char *base) {
     ZigDataStream *zig_stream = static_cast<ZigDataStream *>(stream);
     void *tree = zig_stream ? bk_tree_create(zig_stream->Native(), mode, base ? base : "base") : 0;
-    return tree ? new ZigDataTree(tree, mode) : 0;
+    return tree ? new ZigDataTree(tree, zig_stream, mode) : 0;
 }
 
 void *BK_STDCALL SaveLoadSystem::CreateStructureSaver(void *stream, int mode, void *) {
     ZigDataStream *zig_stream = static_cast<ZigDataStream *>(stream);
     void *saver = zig_stream ? bk_structure_create(zig_stream->Native(), mode) : 0;
-    return saver ? new ZigStructureSaver(saver, gdb_) : 0;
+    return saver ? new ZigStructureSaver(saver, zig_stream, gdb_) : 0;
 }
 
 
 class DataStorage final : public IDataStorage {
     void *storage_;
+    int refs_ = 0;
+    DataStorage *attached_[64] = {};
 public:
     explicit DataStorage(void *storage) : storage_(storage) {}
-    void BK_STDCALL AddRef(int, int) override {}
-    void BK_STDCALL Release(int, int) override {}
+    ~DataStorage() {
+        for (int i = 0; i < 64; ++i) if (attached_[i]) attached_[i]->Release();
+        bk_storage_destroy(storage_);
+    }
+    void *Native() const { return storage_; }
+    void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
+    void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
     bool BK_STDCALL IsValid() const override { return storage_ != 0; }
     bool BK_STDCALL IsStreamExist(const char *name) override { return bk_storage_exists(storage_, name); }
     void *BK_STDCALL CreateStream(const char *name, unsigned long access) override { void *stream = bk_storage_create_stream(storage_, name, access); return stream ? new ZigDataStream(stream) : 0; }
@@ -640,8 +657,19 @@ public:
     bool BK_STDCALL RenameElement(const char *, const char *) override { return false; }
     void *BK_STDCALL CreateEnumerator() override { void *enumerator = bk_storage_enumerator_create(storage_); return enumerator ? new StorageEnumerator(enumerator) : 0; }
     const char *BK_STDCALL GetName() const override { const char *name = bk_storage_name(storage_); return name ? name : ""; }
-    bool BK_STDCALL AddStorage(IDataStorage *, const char *) override { return true; }
-    bool BK_STDCALL RemoveStorage(const char *) override { return true; }
+    bool BK_STDCALL AddStorage(IDataStorage *storage, const char *name) override {
+        DataStorage *child = static_cast<DataStorage *>(storage);
+        if (!child || !name || !bk_storage_add(storage_, child->Native(), name)) return false;
+        for (int i = 0; i < 64; ++i) if (!attached_[i]) { attached_[i] = child; child->AddRef(); return true; }
+        bk_storage_remove(storage_, name);
+        return false;
+    }
+    bool BK_STDCALL RemoveStorage(const char *name) override {
+        void *removed = name ? bk_storage_remove(storage_, name) : 0;
+        if (!removed) return false;
+        for (int i = 0; i < 64; ++i) if (attached_[i] && attached_[i]->Native() == removed) { attached_[i]->Release(); attached_[i] = 0; return true; }
+        return true;
+    }
 };
 
 class GlobalVars final : public IGlobalVars {
