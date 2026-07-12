@@ -219,6 +219,11 @@ void CInterfaceMainMenu::Create( int nState )
 		return;
 	}
 	SetActiveState( nState );
+	if ( GetGlobalVar( "X64.StartupSmoke", 0 ) != 0 )
+	{
+		SetGlobalVar( "X64.StartupSmoke.MainMenu", 1 );
+		::OutputDebugStringA( "BK_STARTUP: main menu created\n" );
+	}
 }
 bool CInterfaceMainMenu::ProcessMessage( const SGameMessage &msg )
 {

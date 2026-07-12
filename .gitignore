@@ -64,3 +64,4 @@ zig-out/
 
 # Local Git worktrees
 .worktrees/
+node_modules/

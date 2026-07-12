@@ -62,6 +62,7 @@ struct SCmdParams
 	std::string szIPToGameSpyConnect;
 	int nGameSpyHostPort;
 	bool bGameSpyPasswordRequired;
+	bool bStartupSmoke;
 	std::string szGameSpyPassword;
 
 	ITextureManager::ETextureQuality eTextureQuality;
@@ -70,7 +71,7 @@ struct SCmdParams
 	std::string szSaveFile;								// save file name - for direct save launch
 	std::string szModName;								// mod file name - to lauch game with particular mod added
 
-	SCmdParams() : nGameSpyHostPort( 0 ), bGameSpyPasswordRequired( false ) { }
+	SCmdParams() : nGameSpyHostPort( 0 ), bGameSpyPasswordRequired( false ), bStartupSmoke( false ) { }
 };
 void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams );
 void ReadAndSetSunlight( CTableAccessor &table, const std::string &szSeason );
@@ -394,6 +395,10 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		}
 		else if ( !cmdp.szSaveFile.empty() ) 
 			pMainLoop->Command( MAIN_COMMAND_LOAD, cmdp.szSaveFile.c_str() );
+		else if ( cmdp.bStartupSmoke )
+		{
+			pMainLoop->Command( MISSION_COMMAND_MAIN_MENU, "0" );
+		}
 		else if ( cmdp.szMapName.empty() || cmdp.bMultiplayer )
 		{
 			pMainLoop->Command( MISSION_COMMAND_VIDEO, NStr::Format("%s;%d", "movies\\intro", MISSION_COMMAND_MAIN_MENU) );
@@ -419,6 +424,11 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 			}
 			if ( !pMainLoop->StepApp( bActive ) )
 				break;
+			if ( cmdp.bStartupSmoke && GetGlobalVar( "X64.StartupSmoke.MainMenu", 0 ) != 0 )
+			{
+				::OutputDebugStringA( "BK_STARTUP: C6 main menu smoke checkpoint passed\n" );
+				break;
+			}
 			if ( !bActive )
 				Sleep( 40 );
 		}
@@ -488,6 +498,7 @@ void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams )
 	pCmdParams->nAutoSavePeriod = 0;
 	pCmdParams->eTextureQuality = ITextureManager::TEXTURE_QUALITY_HIGH;
 	pCmdParams->szMapName = "";
+	pCmdParams->bStartupSmoke = false;
 	std::vector<std::string> szParams;
 	NStr::SplitStringWithMultipleBrackets( lpCmdLine, szParams, ' ' );
 	for ( int i=0; i<szParams.size(); ++i )
@@ -511,6 +522,12 @@ void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams )
 		else if ( szParams[i] == "-mp" )
 		{
 			pCmdParams->bMultiplayer = true;
+		}
+		else if ( szParams[i] == "-x64-startup-smoke" )
+		{
+			pCmdParams->bStartupSmoke = true;
+			SetGlobalVar( "X64.StartupSmoke", 1 );
+			SetGlobalVar( "novideo", 1 );
 		}
 		else if ( szParams[i].compare(0, 4, "-mod") == 0 )
 		{

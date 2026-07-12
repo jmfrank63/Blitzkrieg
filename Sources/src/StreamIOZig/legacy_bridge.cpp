@@ -22,6 +22,13 @@ extern "C" int bk_stream_lock_begin(void *stream);
 extern "C" int bk_stream_unlock_begin(void *stream);
 extern "C" bool bk_stream_flush(void *stream);
 extern "C" bool bk_stream_stats(void *stream, void *stats);
+extern "C" void *bk_structure_create(void *stream, int mode);
+extern "C" void bk_structure_destroy(void *saver);
+extern "C" bool bk_structure_start(void *saver, unsigned char id);
+extern "C" void bk_structure_finish(void *saver);
+extern "C" void bk_structure_data(void *saver, unsigned char id, void *output, int size);
+extern "C" int bk_structure_count(void *saver, unsigned char id);
+extern "C" void bk_structure_set_counter(void *saver, int counter);
 extern "C" const char *bk_global_get(const char *key);
 extern "C" void bk_global_set(const char *key, const char *value);
 extern "C" void bk_global_remove(const char *key);
@@ -29,6 +36,26 @@ extern "C" void bk_random_init();
 extern "C" unsigned int bk_random_get();
 extern "C" int bk_table_get_int(void *stream, const char *row, const char *entry, int fallback);
 extern "C" double bk_table_get_double(void *stream, const char *row, const char *entry, double fallback);
+extern "C" void *bk_options_create();
+extern "C" void bk_options_destroy(void *options);
+extern "C" int bk_options_load_tree(void *options, void *tree, bool only_missing);
+extern "C" int bk_options_count(void *options);
+extern "C" const char *bk_options_name_at(void *options, int index);
+extern "C" const char *bk_options_value(void *options, const char *name, unsigned short *value_type);
+extern "C" bool bk_options_set(void *options, const char *name, const char *value, unsigned short value_type);
+extern "C" bool bk_options_remove(void *options, const char *name);
+extern "C" void bk_options_remove_prefix(void *options, const char *prefix);
+extern "C" bool bk_options_changed(void *options);
+extern "C" bool bk_options_metadata(void *options, int index, int *editor, unsigned long *flags, int *order, bool *instant, const char **action, const char **action_fill, const char **default_value, unsigned short *value_type);
+extern "C" void *bk_option_bridge_create();
+extern "C" void *bk_console_bridge_create();
+extern "C" void *bk_console_create();
+extern "C" void bk_console_destroy(void *console);
+extern "C" bool bk_console_configure(void *console, const char *config);
+extern "C" void bk_console_write(void *console, int channel, const unsigned short *text, unsigned long color, bool backup);
+extern "C" void bk_console_write_ascii(void *console, int channel, const char *text, unsigned long color, bool backup);
+extern "C" const unsigned short *bk_console_read(void *console, int channel, unsigned long *color);
+extern "C" const char *bk_console_read_ascii(void *console, int channel, unsigned long *color);
 extern "C" void *bk_tree_create(void *stream, int mode, const char *base);
 extern "C" void bk_tree_destroy(void *tree);
 extern "C" int bk_tree_start(void *tree, const char *name);
@@ -53,8 +80,51 @@ struct IRefCount {
     virtual void BK_STDCALL Release(int = 1, int = 0x7fffffff) = 0;
     virtual bool BK_STDCALL IsValid() const = 0;
     virtual IRefCount *BK_STDCALL QI(int) { return 0; }
-    virtual int BK_STDCALL And(void *) { return 0; }
+    virtual int BK_STDCALL operator&(void *) { return 0; }
 };
+
+#if 0
+struct IDataTree;
+struct IVarIterator : public IRefCount {
+    virtual bool BK_STDCALL Next() = 0;
+    virtual bool BK_STDCALL IsEnd() const = 0;
+    virtual bool BK_STDCALL Get(VARIANT *, VARIANT *) const = 0;
+};
+
+struct OptionDesc {
+    std::string division;
+    std::string name;
+    int data_type;
+    int editor_type;
+    unsigned long flags;
+    VARIANT default_value;
+    bool instant_apply;
+    OptionDesc() { VariantInit(&default_value); }
+    ~OptionDesc() { VariantClear(&default_value); }
+};
+
+struct OptionDropValue { std::string program_name; };
+
+struct IOptionSystemIterator : public IVarIterator {
+    virtual const OptionDesc *BK_STDCALL GetDesc() const = 0;
+    virtual const std::vector<OptionDropValue> &BK_STDCALL GetDropValues() const = 0;
+};
+
+struct IOptionSystem : public IRefCount {
+    virtual bool BK_STDCALL Get(const std::string &, VARIANT *) const = 0;
+    virtual bool BK_STDCALL Set(const std::string &, const VARIANT &) = 0;
+    virtual bool BK_STDCALL Remove(const std::string &) = 0;
+    virtual bool BK_STDCALL RemoveByMatch(const std::string &) = 0;
+    virtual bool BK_STDCALL ChangeSerialize(const std::string &, bool) = 0;
+    virtual bool BK_STDCALL IsChanged() const = 0;
+    virtual const OptionDesc *BK_STDCALL GetDesc(const std::string &) const = 0;
+    virtual const std::vector<OptionDropValue> &BK_STDCALL GetDropValues(const std::string &) const = 0;
+    virtual IOptionSystemIterator *BK_STDCALL CreateIterator(unsigned long = 0xffffffff) = 0;
+    virtual bool BK_STDCALL SerializeConfig(IDataTree *) = 0;
+    virtual void BK_STDCALL Init() = 0;
+    virtual void BK_STDCALL Repair(IDataTree *, bool) = 0;
+};
+#endif
 
 struct ISingleton {
     virtual bool BK_STDCALL Register(int, IRefCount *) = 0;
@@ -84,10 +154,19 @@ struct IGlobalVars : public IRefCount {
     virtual void BK_STDCALL RemoveVar(const char *) = 0;
     virtual void BK_STDCALL RemoveVarsByMatch(const char *) = 0;
     virtual const unsigned short *BK_STDCALL GetWVar(const char *) const = 0;
-    virtual void BK_STDCALL SetWVar(const char *, const unsigned short *) = 0;
+    virtual void BK_STDCALL SetVar(const char *, const unsigned short *) = 0;
     virtual void BK_STDCALL RemoveWVar(const char *) = 0;
     virtual bool BK_STDCALL DumpVars(const char *) = 0;
     virtual void BK_STDCALL SerializeVarsByMatch(void *, const char *) = 0;
+};
+
+struct IConsoleBuffer : public IRefCount {
+    virtual bool BK_STDCALL Configure(const char *) = 0;
+    virtual void BK_STDCALL Write(int, const unsigned short *, unsigned long, bool) = 0;
+    virtual void BK_STDCALL WriteASCII(int, const char *, unsigned long, bool) = 0;
+    virtual const unsigned short *BK_STDCALL Read(int, unsigned long *) = 0;
+    virtual const char *BK_STDCALL ReadASCII(int, unsigned long *) = 0;
+    virtual bool BK_STDCALL DumpLog(int) = 0;
 };
 
 struct IRandomGen : public IRefCount {
@@ -162,6 +241,19 @@ struct IDataTree : public IRefCount {
     virtual void BK_STDCALL FinishContainerChunk() = 0;
 };
 
+struct IStructureSaver : public IRefCount {
+    virtual bool BK_STDCALL StartChunk(char) = 0;
+    virtual void BK_STDCALL FinishChunk() = 0;
+    virtual void BK_STDCALL DataChunk(char, void *, int) = 0;
+    virtual void BK_STDCALL DataChunk(IDataStream *) = 0;
+    virtual int BK_STDCALL CountChunks(char) = 0;
+    virtual void BK_STDCALL SetChunkCounter(int) = 0;
+    virtual bool BK_STDCALL IsReading() const = 0;
+    virtual IRefCount *BK_STDCALL LoadObject() = 0;
+    virtual void BK_STDCALL StoreObject(IRefCount *) = 0;
+    virtual void *BK_STDCALL GetGDB() = 0;
+};
+
 typedef IRefCount *(BK_STDCALL *ObjectFactoryNewFunc)();
 struct SObjectFactoryTypeInfo { int nTypeID; const void *pTypeInfo; ObjectFactoryNewFunc newFunc; };
 struct IObjectFactory {
@@ -229,7 +321,7 @@ public:
     void BK_STDCALL AddFactory(void *factory) override { factory_.Aggregate(static_cast<IObjectFactory *>(factory)); }
     void *BK_STDCALL GetCommonFactory() override { return &factory_; }
     void BK_STDCALL SetGDB(void *gdb) override { gdb_ = gdb; }
-    void *BK_STDCALL CreateStructureSaver(void *, int, void *) override { return 0; }
+    void *BK_STDCALL CreateStructureSaver(void *, int, void *) override;
     void *BK_STDCALL CreateDataTreeSaver(void *, int, const char *) override;
     void *BK_STDCALL OpenStorage(const char *, unsigned long, unsigned long) override;
     void *BK_STDCALL CreateStorage(const char *, unsigned long, unsigned long) override;
@@ -309,6 +401,7 @@ class ZigDataTree final : public IDataTree {
     int refs_ = 1;
 public:
     ZigDataTree(void *tree, int mode) : tree_(tree), mode_(mode) {}
+    void *Native() const { return tree_; }
     ~ZigDataTree() { bk_tree_destroy(tree_); }
     void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
     void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
@@ -334,12 +427,195 @@ public:
     void BK_STDCALL FinishContainerChunk() override { bk_tree_finish_container(tree_); }
 };
 
+class ZigStructureSaver final : public IStructureSaver {
+    void *saver_;
+    void *gdb_;
+    int refs_ = 1;
+public:
+    ZigStructureSaver(void *saver, void *gdb) : saver_(saver), gdb_(gdb) {}
+    ~ZigStructureSaver() { bk_structure_destroy(saver_); }
+    void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
+    void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
+    bool BK_STDCALL IsValid() const override { return saver_ != 0; }
+    bool BK_STDCALL StartChunk(char id) override { return bk_structure_start(saver_, static_cast<unsigned char>(id)); }
+    void BK_STDCALL FinishChunk() override { bk_structure_finish(saver_); }
+    void BK_STDCALL DataChunk(char id, void *data, int size) override { bk_structure_data(saver_, static_cast<unsigned char>(id), data, size); }
+    void BK_STDCALL DataChunk(IDataStream *) override {}
+    int BK_STDCALL CountChunks(char id) override { return bk_structure_count(saver_, static_cast<unsigned char>(id)); }
+    void BK_STDCALL SetChunkCounter(int counter) override { bk_structure_set_counter(saver_, counter); }
+    bool BK_STDCALL IsReading() const override { return true; }
+    IRefCount *BK_STDCALL LoadObject() override { return 0; }
+    void BK_STDCALL StoreObject(IRefCount *) override {}
+    void *BK_STDCALL GetGDB() override { return gdb_; }
+};
+
+#if 0
+static BSTR AnsiToBstr(const char *value) {
+    if (!value) return 0;
+    const int length = MultiByteToWideChar(CP_ACP, 0, value, -1, 0, 0);
+    if (length <= 0) return 0;
+    BSTR result = SysAllocStringLen(0, static_cast<unsigned int>(length - 1));
+    if (!result) return 0;
+    MultiByteToWideChar(CP_ACP, 0, value, -1, result, length);
+    return result;
+}
+
+static bool AssignVariant(VARIANT *out, unsigned short type, const char *value) {
+    if (!out || !value) return false;
+    VariantClear(out);
+    VariantInit(out);
+    out->vt = type;
+    switch (type) {
+        case VT_BSTR: out->bstrVal = AnsiToBstr(value); return out->bstrVal != 0;
+        case VT_UI1: out->bVal = static_cast<unsigned char>(std::strtoul(value, 0, 10)); break;
+        case VT_I2: out->iVal = static_cast<short>(std::strtol(value, 0, 10)); break;
+        case VT_I4: out->lVal = static_cast<long>(std::strtol(value, 0, 10)); break;
+        case VT_R4: out->fltVal = static_cast<float>(std::strtod(value, 0)); break;
+        case VT_R8: out->dblVal = std::strtod(value, 0); break;
+        case VT_BOOL: out->boolVal = std::strtol(value, 0, 10) != 0 ? VARIANT_TRUE : VARIANT_FALSE; break;
+        default: out->vt = VT_BSTR; out->bstrVal = AnsiToBstr(value); return out->bstrVal != 0;
+    }
+    return true;
+}
+
+static std::string VariantText(const VARIANT &value) {
+    char buffer[96] = {};
+    switch (value.vt) {
+        case VT_BSTR: {
+            if (!value.bstrVal) return std::string();
+            const int length = WideCharToMultiByte(CP_ACP, 0, value.bstrVal, -1, 0, 0, 0, 0);
+            if (length <= 1) return std::string();
+            std::string result(static_cast<size_t>(length - 1), '\0');
+            WideCharToMultiByte(CP_ACP, 0, value.bstrVal, -1, &result[0], length, 0, 0);
+            return result;
+        }
+        case VT_UI1: std::snprintf(buffer, sizeof(buffer), "%u", unsigned(value.bVal)); break;
+        case VT_I2: std::snprintf(buffer, sizeof(buffer), "%d", int(value.iVal)); break;
+        case VT_I4: std::snprintf(buffer, sizeof(buffer), "%ld", value.lVal); break;
+        case VT_R4: std::snprintf(buffer, sizeof(buffer), "%.9g", double(value.fltVal)); break;
+        case VT_R8: std::snprintf(buffer, sizeof(buffer), "%.17g", value.dblVal); break;
+        case VT_BOOL: std::snprintf(buffer, sizeof(buffer), "%d", value.boolVal != VARIANT_FALSE); break;
+        default: return std::string();
+    }
+    return buffer;
+}
+
+class ZigOptionSystem;
+
+class ZigOptionIterator final : public IOptionSystemIterator {
+    ZigOptionSystem *owner_;
+    unsigned long mask_;
+    int index_ = 0;
+    int refs_ = 1;
+    void Advance();
+public:
+    ZigOptionIterator(ZigOptionSystem *owner, unsigned long mask) : owner_(owner), mask_(mask) { Advance(); }
+    void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
+    void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
+    bool BK_STDCALL IsValid() const override { return owner_ != 0; }
+    bool BK_STDCALL Next() override;
+    bool BK_STDCALL IsEnd() const override;
+    bool BK_STDCALL Get(VARIANT *name, VARIANT *value) const override;
+    const OptionDesc *BK_STDCALL GetDesc() const override;
+    const std::vector<OptionDropValue> &BK_STDCALL GetDropValues() const override;
+};
+
+class ZigOptionSystem final : public IOptionSystem {
+    void *options_ = bk_options_create();
+    int refs_ = 1;
+    mutable OptionDesc descriptor_;
+    mutable std::vector<OptionDropValue> drop_values_;
+public:
+    ~ZigOptionSystem() { bk_options_destroy(options_); }
+    void *Native() const { return options_; }
+    int Count() const { return bk_options_count(options_); }
+    const char *NameAt(int index) const { return bk_options_name_at(options_, index); }
+    bool Metadata(int index, int *editor, unsigned long *flags, int *order, bool *instant, const char **action, const char **fill, const char **fallback, unsigned short *type) const {
+        return bk_options_metadata(options_, index, editor, flags, order, instant, action, fill, fallback, type);
+    }
+    int FindIndex(const std::string &name) const {
+        for (int index = 0; index < Count(); ++index) { const char *candidate = NameAt(index); if (candidate && _stricmp(candidate, name.c_str()) == 0) return index; }
+        return -1;
+    }
+    void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
+    void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; }
+    bool BK_STDCALL IsValid() const override { return options_ != 0; }
+    bool BK_STDCALL Get(const std::string &name, VARIANT *value) const override {
+        unsigned short type = VT_EMPTY; const char *text = bk_options_value(options_, name.c_str(), &type);
+        return text && AssignVariant(value, type, text);
+    }
+    bool BK_STDCALL Set(const std::string &name, const VARIANT &value) override {
+        const std::string text = VariantText(value);
+        return bk_options_set(options_, name.c_str(), text.c_str(), value.vt);
+    }
+    bool BK_STDCALL Remove(const std::string &name) override { return bk_options_remove(options_, name.c_str()); }
+    bool BK_STDCALL RemoveByMatch(const std::string &prefix) override { bk_options_remove_prefix(options_, prefix.c_str()); return true; }
+    bool BK_STDCALL ChangeSerialize(const std::string &, bool) override { return true; }
+    bool BK_STDCALL IsChanged() const override { return bk_options_changed(options_); }
+    const OptionDesc *BK_STDCALL GetDesc(const std::string &name) const override {
+        const int index = FindIndex(name); if (index < 0) return 0;
+        int editor = 0, order = 0; unsigned long flags = 0; bool instant = false; unsigned short type = VT_EMPTY;
+        const char *action = 0, *fill = 0, *fallback = 0;
+        if (!Metadata(index, &editor, &flags, &order, &instant, &action, &fill, &fallback, &type)) return 0;
+        descriptor_.name = name;
+        const std::string::size_type dot = name.find('.'); descriptor_.division = name.substr(0, dot);
+        descriptor_.data_type = type; descriptor_.editor_type = editor; descriptor_.flags = flags; descriptor_.instant_apply = instant;
+        AssignVariant(&descriptor_.default_value, type, fallback ? fallback : "");
+        return &descriptor_;
+    }
+    const std::vector<OptionDropValue> &BK_STDCALL GetDropValues(const std::string &name) const override {
+        drop_values_.clear();
+        const int index = FindIndex(name); const char *fill = 0;
+        if (index >= 0) Metadata(index, 0, 0, 0, 0, 0, &fill, 0, 0);
+        const char *values[5] = {};
+        int count = 0;
+        if (fill && std::string(fill) == "GetOnOff") { values[0] = "ON"; values[1] = "OFF"; count = 2; }
+        else if (fill && std::string(fill) == "GetDifficulty") { values[0] = "Easy"; values[1] = "Normal"; values[2] = "Hard"; values[3] = "Ironman"; count = 4; }
+        else if (fill && std::string(fill) == "GetGameSpeed") { values[0] = "VerySlow"; values[1] = "Slow"; values[2] = "Normal"; values[3] = "Fast"; values[4] = "VeryFast"; count = 5; }
+        else if (fill && std::string(fill) == "GetTextureQuality") { values[0] = "Low"; values[1] = "Compressed"; values[2] = "High"; count = 3; }
+        for (int i = 0; i < count; ++i) { OptionDropValue value; value.program_name = values[i]; drop_values_.push_back(value); }
+        return drop_values_;
+    }
+    IOptionSystemIterator *BK_STDCALL CreateIterator(unsigned long mask) override { return new ZigOptionIterator(this, mask); }
+    bool BK_STDCALL SerializeConfig(IDataTree *tree) override {
+        ZigDataTree *zig_tree = static_cast<ZigDataTree *>(tree);
+        return zig_tree && bk_options_load_tree(options_, zig_tree->Native(), false) >= 0;
+    }
+    void BK_STDCALL Init() override {}
+    void BK_STDCALL Repair(IDataTree *tree, bool to_default) override {
+        ZigDataTree *zig_tree = static_cast<ZigDataTree *>(tree);
+        if (zig_tree) bk_options_load_tree(options_, zig_tree->Native(), !to_default);
+    }
+};
+
+void ZigOptionIterator::Advance() {
+    while (owner_ && index_ < owner_->Count()) { unsigned long flags = 0; owner_->Metadata(index_, 0, &flags, 0, 0, 0, 0, 0, 0); if (mask_ == 0xffffffff || (flags & mask_) != 0) break; ++index_; }
+}
+bool BK_STDCALL ZigOptionIterator::Next() { if (!IsEnd()) ++index_; Advance(); return !IsEnd(); }
+bool BK_STDCALL ZigOptionIterator::IsEnd() const { return !owner_ || index_ >= owner_->Count(); }
+bool BK_STDCALL ZigOptionIterator::Get(VARIANT *name, VARIANT *value) const { const char *key = IsEnd() ? 0 : owner_->NameAt(index_); return key && AssignVariant(name, VT_BSTR, key) && owner_->Get(key, value); }
+const OptionDesc *BK_STDCALL ZigOptionIterator::GetDesc() const { const char *key = IsEnd() ? 0 : owner_->NameAt(index_); return key ? owner_->GetDesc(key) : 0; }
+const std::vector<OptionDropValue> &BK_STDCALL ZigOptionIterator::GetDropValues() const { static const std::vector<OptionDropValue> empty; const char *key = IsEnd() ? 0 : owner_->NameAt(index_); return key ? owner_->GetDropValues(key) : empty; }
+#endif
+
+extern "C" __declspec(dllexport) int BK_STDCALL bk_options_load_legacy_tree(void *options, void *tree, bool only_missing) {
+    ZigDataTree *zig_tree = static_cast<ZigDataTree *>(tree);
+    return zig_tree ? bk_options_load_tree(options, zig_tree->Native(), only_missing) : 0;
+}
+
 void *BK_STDCALL SaveLoadSystem::OpenDataTable(void *stream, const char *) { ZigDataStream *zig_stream = static_cast<ZigDataStream *>(stream); return zig_stream ? new ZigDataTable(zig_stream->Native()) : 0; }
 void *BK_STDCALL SaveLoadSystem::CreateDataTreeSaver(void *stream, int mode, const char *base) {
     ZigDataStream *zig_stream = static_cast<ZigDataStream *>(stream);
     void *tree = zig_stream ? bk_tree_create(zig_stream->Native(), mode, base ? base : "base") : 0;
     return tree ? new ZigDataTree(tree, mode) : 0;
 }
+
+void *BK_STDCALL SaveLoadSystem::CreateStructureSaver(void *stream, int mode, void *) {
+    ZigDataStream *zig_stream = static_cast<ZigDataStream *>(stream);
+    void *saver = zig_stream ? bk_structure_create(zig_stream->Native(), mode) : 0;
+    return saver ? new ZigStructureSaver(saver, gdb_) : 0;
+}
+
 
 class DataStorage final : public IDataStorage {
     void *storage_;
@@ -378,11 +654,27 @@ public:
     void BK_STDCALL RemoveVar(const char *key) override { if (key) bk_global_remove(key); }
     void BK_STDCALL RemoveVarsByMatch(const char *) override {}
     const unsigned short *BK_STDCALL GetWVar(const char *) const override { return 0; }
-    void BK_STDCALL SetWVar(const char *, const unsigned short *) override {}
+    void BK_STDCALL SetVar(const char *, const unsigned short *) override {}
     void BK_STDCALL RemoveWVar(const char *) override {}
     bool BK_STDCALL DumpVars(const char *) override { return false; }
     void BK_STDCALL SerializeVarsByMatch(void *, const char *) override {}
 };
+
+#if 0
+class ConsoleBuffer final : public IConsoleBuffer {
+    void *console_ = bk_console_create();
+public:
+    void BK_STDCALL AddRef(int, int) override {}
+    void BK_STDCALL Release(int, int) override {}
+    bool BK_STDCALL IsValid() const override { return console_ != 0; }
+    bool BK_STDCALL Configure(const char *config) override { return config && bk_console_configure(console_, config); }
+    void BK_STDCALL Write(int channel, const unsigned short *text, unsigned long color, bool backup) override { if (text) bk_console_write(console_, channel, text, color, backup); }
+    void BK_STDCALL WriteASCII(int channel, const char *text, unsigned long color, bool backup) override { if (text) bk_console_write_ascii(console_, channel, text, color, backup); }
+    const unsigned short *BK_STDCALL Read(int channel, unsigned long *color) override { return bk_console_read(console_, channel, color); }
+    const char *BK_STDCALL ReadASCII(int channel, unsigned long *color) override { return bk_console_read_ascii(console_, channel, color); }
+    bool BK_STDCALL DumpLog(int) override { return true; }
+};
+#endif
 
 class RandomGen final : public IRandomGen {
 public:
@@ -400,7 +692,9 @@ public:
 static Singleton singleton;
 static SaveLoadSystem save_load_system;
 static GlobalVars global_vars;
+static IRefCount *console_buffer = 0;
 static RandomGen random_gen;
+static IRefCount *option_system = 0;
 void *BK_STDCALL SaveLoadSystem::OpenStorage(const char *name, unsigned long access, unsigned long type) { void *storage = bk_storage_create(name, access, type); return storage ? new DataStorage(storage) : 0; }
 void *BK_STDCALL SaveLoadSystem::CreateStorage(const char *name, unsigned long access, unsigned long type) { void *storage = bk_storage_create(name, access, type); return storage ? new DataStorage(storage) : 0; }
 
@@ -409,7 +703,11 @@ static void EnsureCoreServices()
     static bool initialized = false;
     if ( initialized ) return;
     singleton.Register(-1, &global_vars);
+    console_buffer = static_cast<IRefCount *>(bk_console_bridge_create());
+    if (console_buffer) singleton.Register(-2, console_buffer);
     singleton.Register(-3, &random_gen);
+    option_system = static_cast<IRefCount *>(bk_option_bridge_create());
+    if (option_system) singleton.Register(-4, option_system);
     initialized = true;
 }
 

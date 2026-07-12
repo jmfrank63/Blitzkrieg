@@ -632,7 +632,8 @@ pub fn build(b: *std.Build) void {
         .windows_sdk_lib = b.option([]const u8, "windows-sdk-lib", "Windows SDK library version directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0",
         .library_arch = library_arch,
     };
-    const streamio_zig = addStreamIOZig(b, target, optimize, toolchain);
+    const options_bridge = addOptionsBridge(b, target, optimize, toolchain);
+    const streamio_zig = addStreamIOZig(b, target, optimize, toolchain, options_bridge);
     const install_dir = b.option([]const u8, "install-dir", "Relative install layout path (default: zig-out/game)") orelse "zig-out/game";
     const copy_data = b.option(bool, "copy-data", "Copy Data into install layout instead of creating a junction") orelse false;
     const startup_trace = b.option(bool, "startup-trace", "Emit Windows startup checkpoint markers to the debugger") orelse false;
@@ -659,6 +660,7 @@ pub fn build(b: *std.Build) void {
     const ailogic = addLegacyProjectDll(b, target, optimize, toolchain, "AILogic", "Sources/src/AILogic/AILogic.vcxproj", "Sources/src/AILogic/AILogic.def", &.{ "Sources/src/AILogic", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/GameTT", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/vorbis-1.3.7/include" }, &.{ misc, lualib, formats, randommapgen, zlib });
     const gamett = addLegacyProjectDll(b, target, optimize, toolchain, "GameTT", "Sources/src/GameTT/GameTT.vcxproj", "Sources/src/GameTT/GameTT.def", &.{ "Sources/src/GameTT", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/AILogic" }, &.{ misc, formats, common, randommapgen });
     const main = addMain(b, target, optimize, toolchain);
+    if (startup_trace) main.root_module.addCMacro("BK_STARTUP_TRACE", "1");
     const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats, blitz64, startup_trace);
     const package_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/package.zig"),
@@ -689,6 +691,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(gfx);
     b.installArtifact(randommapgen);
     b.installArtifact(main);
+    b.installArtifact(options_bridge);
     b.installArtifact(ailogic);
     b.installArtifact(gamett);
     b.installArtifact(streamio_zig);
@@ -766,6 +769,7 @@ pub fn build(b: *std.Build) void {
     const game_all_step = b.step("game-all", "Build and install the playable game runtime set");
     game_all_step.dependOn(&b.addInstallArtifact(game, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(streamio_zig, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(options_bridge, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(scene, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(ailogic, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(gamett, .{}).step);
@@ -785,20 +789,20 @@ pub fn build(b: *std.Build) void {
     const install_game_cmd = b.addRunArtifact(stage_tool);
     install_game_cmd.addArg(".");
     install_game_cmd.addArg(install_dir);
-    if (target.result.cpu.arch == .x86_64) {
-        install_game_cmd.addArg("--exclude-x86-runtime");
-    }
     if (copy_data) {
         install_game_cmd.addArg("--copy-data");
     }
 
     const install_game_step = b.step("install-game", "Create runnable game install layout with binaries and Data");
-    install_game_step.dependOn(game_all_step);
+    install_game_cmd.step.dependOn(game_all_step);
     install_game_step.dependOn(&install_game_cmd.step);
 
     const run_game_cmd = b.addSystemCommand(&.{"Game.exe"});
     run_game_cmd.setCwd(b.path(install_dir));
     run_game_cmd.step.dependOn(install_game_step);
+    if (target.result.cpu.arch == .x86_64 and target.result.os.tag == .windows) {
+        run_game_cmd.addArg("-x64-startup-smoke");
+    }
     if (b.args) |args| {
         run_game_cmd.addArgs(args);
     }
@@ -938,11 +942,27 @@ fn addBlitz64(
     });
 }
 
+fn addOptionsBridge(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+) *std.Build.Step.Compile {
+    const module = b.createModule(.{ .target = target, .optimize = optimize });
+    module.addCSourceFile(.{ .file = b.path("Sources/src/StreamIOZig/options_bridge.cpp"), .flags = &.{"-std=c++17"} });
+    addMsvcIncludePaths(b, module, toolchain);
+    addMsvcLibraryPaths(b, module, toolchain);
+    linkMsvcRuntime(module, optimize);
+    module.linkSystemLibrary("oleaut32", .{});
+    return b.addLibrary(.{ .name = "StreamIOOptionsAbi", .linkage = .dynamic, .root_module = module });
+}
+
 fn addStreamIOZig(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
+    options_bridge: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
     const streamio_module = b.createModule(.{
         .root_source_file = b.path("Sources/src/StreamIOZig/streamio.zig"),
@@ -953,8 +973,11 @@ fn addStreamIOZig(
         .file = b.path("Sources/src/StreamIOZig/legacy_bridge.cpp"),
         .flags = &.{"-std=c++17"},
     });
+    addMsvcIncludePaths(b, streamio_module, toolchain);
     addMsvcLibraryPaths(b, streamio_module, toolchain);
+    streamio_module.linkLibrary(options_bridge);
     linkMsvcRuntime(streamio_module, optimize);
+    streamio_module.linkSystemLibrary("oleaut32", .{});
     return b.addLibrary(.{
         .name = "StreamIO",
         .linkage = .dynamic,
@@ -1069,6 +1092,8 @@ fn addGame(
     game_module.addIncludePath(b.path("Sources/src/Main"));
     game_module.addIncludePath(b.path("Sources/src/RandomMapGen"));
     if (startup_trace) game_module.addCMacro("BK_STARTUP_TRACE", "1");
+    game_module.addCMacro("_DONT_LOAD_STREAMIO", "1");
+    game_module.addCMacro("_DONT_LOAD_SINGLETONS", "1");
     game_module.addCSourceFiles(.{
         .files = game_sources,
         .flags = cppflagsGameForOptimize(optimize),

@@ -32,15 +32,25 @@ class CGlobalsLoader
 public:
 	CGlobalsLoader()
 	{
+#ifdef BK_STARTUP_TRACE
+		::OutputDebugStringA( "BK_STARTUP: CGlobalsLoader constructor enter\n" );
+#endif
 #ifndef _DONT_LOAD_STREAMIO
 		NWin32Helper::CDLLHandle *pStreamIO = LoadModule( "streamio.dll" );
-		if ( GETSLS_HOOK pfnGetSLS_Hook = pStreamIO->GetProcAddress( "GetSLS_Hook", (GETSLS_HOOK)0 ) ) 
-			g_pGlobalSaveLoadSystem = (*pfnGetSLS_Hook)();
-		if ( GETSINGLETONGLOBAL_HOOK pfnGetSingletonGlobal_Hook = pStreamIO->GetProcAddress( "GetSingletonGlobal_Hook", (GETSINGLETONGLOBAL_HOOK)0 ) ) 
-			g_pGlobalSingleton = (*pfnGetSingletonGlobal_Hook)();
-		g_pfnGlobalGetTempRawBuffer = pStreamIO->GetProcAddress( "GetTempRawBuffer_Hook", (GETTEMPRAWBUFFER_HOOK)0 );
+		if ( pStreamIO == 0 )
+		{
+			NStr::DebugTrace( "GlobalsLoader: Failed to load streamio.dll (error=%d)\n", int(::GetLastError()) );
+		}
+		else
+		{
+			if ( GETSLS_HOOK pfnGetSLS_Hook = pStreamIO->GetProcAddress( "GetSLS_Hook", (GETSLS_HOOK)0 ) )
+				g_pGlobalSaveLoadSystem = (*pfnGetSLS_Hook)();
+			if ( GETSINGLETONGLOBAL_HOOK pfnGetSingletonGlobal_Hook = pStreamIO->GetProcAddress( "GetSingletonGlobal_Hook", (GETSINGLETONGLOBAL_HOOK)0 ) )
+				g_pGlobalSingleton = (*pfnGetSingletonGlobal_Hook)();
+			g_pfnGlobalGetTempRawBuffer = pStreamIO->GetProcAddress( "GetTempRawBuffer_Hook", (GETTEMPRAWBUFFER_HOOK)0 );
 
-		dllhandles.push_back( pStreamIO );
+			dllhandles.push_back( pStreamIO );
+		}
 #endif // _DONT_LOAD_STREAMIO
 #ifdef _STREAMIO_DLL
 		g_pGlobalSaveLoadSystem = GetSLS_Hook();

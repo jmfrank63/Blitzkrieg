@@ -8,7 +8,6 @@ const Options = struct {
     data_mode: DataMode = .link,
     include_editors: bool = false,
     editors_only: bool = false,
-    exclude_x86_runtime: bool = false,
 };
 
 pub fn main(init: std.process.Init) !void {
@@ -32,8 +31,6 @@ fn parseArgs(args: *std.process.Args.Iterator) !Options {
             options.include_editors = true;
         } else if (std.mem.eql(u8, arg, "--editors-only")) {
             options.editors_only = true;
-        } else if (std.mem.eql(u8, arg, "--exclude-x86-runtime")) {
-            options.exclude_x86_runtime = true;
         } else {
             return error.InvalidArguments;
         }
@@ -52,8 +49,7 @@ fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
     if (!options.editors_only) {
         var binaries = try repo.openDir(io, "zig-out/bin", .{ .iterate = true });
         defer binaries.close(io);
-        try copyTree(io, allocator, binaries, destination);
-        if (options.exclude_x86_runtime) try removeLegacyX86Runtime(io, destination);
+        try copyGameRuntime(io, binaries, destination);
         try copyFile(io, repo, "Data/Configs/config.cfg", destination, "config.cfg");
         try copyFile(io, repo, "Data/Configs/defconf.cfg", destination, "defconf.cfg");
         try removeTreeIfPresent(io, destination, "Data");
@@ -70,14 +66,16 @@ fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
     if (options.include_editors) try copyEditors(io, repo, destination);
 }
 
-fn removeLegacyX86Runtime(io: std.Io, destination: std.Io.Dir) !void {
-    const legacy_dlls = [_][]const u8{
-        "A7ExportModel.dll",
-        "mfc42.dll", "msvcp60.dll", "msvcrt.dll",
+fn copyGameRuntime(io: std.Io, binaries: std.Io.Dir, destination: std.Io.Dir) !void {
+    const non_runtime_tools = [_][]const u8{ "BetaKeyGen.exe", "BuildVersion.exe", "FontGen.exe" };
+    for (non_runtime_tools) |name| destination.deleteFile(io, name) catch {};
+    const runtime_files = [_][]const u8{
+        "Game.exe",
+        "StreamIO.dll", "StreamIOOptionsAbi.dll",
+        "Anim.dll", "GFX.dll", "Image.dll", "Input.dll", "Net.dll",
+        "SFX.dll", "UI.dll", "Scene.dll", "AILogic.dll", "GameTT.dll",
     };
-    for (legacy_dlls) |name| {
-        destination.deleteFile(io, name) catch {};
-    }
+    for (runtime_files) |name| try copyFile(io, binaries, name, destination, name);
 }
 
 fn copyData(io: std.Io, allocator: std.mem.Allocator, repo: std.Io.Dir, destination: std.Io.Dir) !void {

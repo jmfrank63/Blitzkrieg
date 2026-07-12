@@ -164,7 +164,13 @@ namespace NMain
 	}
 	void STDCALL UnloadAllModules()
 	{
-		GetSingletonGlobal()->Done();
+		// Finalize calls this explicitly and the static module loader calls it
+		// again during CRT teardown.  Once the provider DLLs are gone the global
+		// singleton pointer belongs to an unloaded StreamIO image.
+		if ( modules.empty() )
+			return;
+		if ( GetSingletonGlobal() != 0 )
+			GetSingletonGlobal()->Done();
 		modules.clear();
 	}
 	static const SModuleDescriptor* GetModuleByIndex( const int nIndex )
@@ -239,6 +245,9 @@ class CModuleLoadAutoMagic
 public:
 	CModuleLoadAutoMagic()
 	{
+#ifdef BK_STARTUP_TRACE
+		::OutputDebugStringA( "BK_STARTUP: CModuleLoadAutoMagic constructor enter\n" );
+#endif
 		auto AddPathEntry = []( const std::string &szPath )
 		{
 			DWORD nLength = ::GetEnvironmentVariableA( "PATH", 0, 0 );
@@ -252,17 +261,35 @@ public:
 			::SetEnvironmentVariableA( "PATH", szCurrentPath.c_str() );
 		};
 
+#ifdef BK_STARTUP_TRACE
+		::OutputDebugStringA( "BK_STARTUP: CModuleLoadAutoMagic - SetGameDirectory\n" );
+#endif
 		NMain::SetGameDirectory();
+#ifdef BK_STARTUP_TRACE
+		::OutputDebugStringA( "BK_STARTUP: CModuleLoadAutoMagic - GetModuleDirectory\n" );
+#endif
 		const std::string szModuleDirectory = NMain::GetModuleDirectory();
+#ifdef BK_STARTUP_TRACE
+		::OutputDebugStringA( "BK_STARTUP: CModuleLoadAutoMagic - GameDebugDirectory\n" );
+#endif
 		const std::string szGameDebugDirectory = szModuleDirectory + "..\\..\\Game\\Debug\\";
 		AddPathEntry( szModuleDirectory );
 		AddPathEntry( szGameDebugDirectory );
+#ifdef BK_STARTUP_TRACE
+		::OutputDebugStringA( "BK_STARTUP: CModuleLoadAutoMagic - LoadAllModules(module)\n" );
+#endif
 
 		NMain::LoadAllModules( szModuleDirectory.c_str() );
+#ifdef BK_STARTUP_TRACE
+		::OutputDebugStringA( "BK_STARTUP: CModuleLoadAutoMagic - LoadAllModules(debug)\n" );
+#endif
 		std::string szModuleDirectoryLower = szModuleDirectory;
 		NStr::ToLower( szModuleDirectoryLower );
 		if ( szModuleDirectoryLower.find( "\\game\\debug\\" ) == std::string::npos )
 			NMain::LoadAllModules( szGameDebugDirectory.c_str() );
+#ifdef BK_STARTUP_TRACE
+		::OutputDebugStringA( "BK_STARTUP: CModuleLoadAutoMagic - EnsureGlobalHooks\n" );
+#endif
 		NMain::EnsureGlobalHooks();
 
 		ISaveLoadSystem *pSLS = GetSLS();

@@ -1,5 +1,7 @@
 const std = @import("std");
 const xml = @import("xml.zig");
+const options = @import("options.zig");
+const console = @import("console.zig");
 
 var buffers: [10]std.ArrayListUnmanaged(u8) = [_]std.ArrayListUnmanaged(u8){.empty} ** 10;
 
@@ -66,8 +68,19 @@ const Tree = struct {
     document: xml.Document,
     current: *xml.Node,
     stack: std.ArrayListUnmanaged(*xml.Node) = .empty,
-    container: ?*xml.Node = null,
+    containers: std.ArrayListUnmanaged(*xml.Node) = .empty,
     mode: c_int,
+};
+
+const StructureLevel = struct {
+    start: usize,
+    len: usize,
+    counter: usize = 1,
+};
+
+const StructureSaver = struct {
+    stream: *Stream,
+    levels: std.ArrayListUnmanaged(StructureLevel) = .empty,
 };
 
 const Enumerator = struct {
@@ -76,21 +89,220 @@ const Enumerator = struct {
 };
 
 const GlobalEntry = struct { key: []u8, value: [:0]u8 };
-var globals: [512]?GlobalEntry = [_]?GlobalEntry{null} ** 512;
+var globals: std.ArrayListUnmanaged(GlobalEntry) = .empty;
 var random_state: u32 = 0x9e3779b9;
 
-fn globalEntry(key: []const u8) ?*?GlobalEntry {
-    var free_slot: ?*?GlobalEntry = null;
-    for (&globals) |*entry| {
-        if (entry.*) |*value| {
-            if (std.ascii.eqlIgnoreCase(value.key, key)) return entry;
-        } else if (free_slot == null) free_slot = entry;
+fn globalIndex(key: []const u8) ?usize {
+    for (globals.items, 0..) |entry, index| {
+        if (std.ascii.eqlIgnoreCase(entry.key, key)) return index;
     }
-    return free_slot;
+    return null;
 }
 
 fn fromHandle(comptime T: type, handle: ?*anyopaque) ?*T {
     return if (handle) |value| @ptrCast(@alignCast(value)) else null;
+}
+
+fn shortChunkAt(bytes: []const u8, level: StructureLevel, wanted_id: u8, wanted_number: usize) ?StructureLevel {
+    var position = level.start;
+    const end = level.start + level.len;
+    var match_number: usize = 0;
+    while (position + 2 <= end) {
+        const id = bytes[position];
+        position += 1;
+        var encoded: u32 = bytes[position];
+        position += 1;
+        if ((encoded & 1) != 0) {
+            if (position + 3 > end) return null;
+            encoded |= @as(u32, bytes[position]) << 8;
+            encoded |= @as(u32, bytes[position + 1]) << 16;
+            encoded |= @as(u32, bytes[position + 2]) << 24;
+            position += 3;
+        }
+        const length: usize = @intCast(encoded >> 1);
+        if (position + length > end) return null;
+        if (id == wanted_id) {
+            match_number += 1;
+            if (match_number == wanted_number) return .{ .start = position, .len = length };
+        }
+        position += length;
+    }
+    return null;
+}
+
+pub export fn bk_structure_create(stream_handle: ?*anyopaque, mode: c_int) callconv(.c) ?*anyopaque {
+    if (mode != 1) return null;
+    const stream = fromHandle(Stream, stream_handle) orelse return null;
+    const file_level = StructureLevel{ .start = 0, .len = stream.bytes.len };
+    const data_level = shortChunkAt(stream.bytes, file_level, 1, 1) orelse return null;
+    const saver = allocator.create(StructureSaver) catch return null;
+    saver.* = .{ .stream = stream };
+    saver.levels.append(allocator, data_level) catch {
+        allocator.destroy(saver);
+        return null;
+    };
+    return saver;
+}
+
+pub export fn bk_structure_destroy(handle: ?*anyopaque) callconv(.c) void {
+    const saver = fromHandle(StructureSaver, handle) orelse return;
+    saver.levels.deinit(allocator);
+    allocator.destroy(saver);
+}
+
+pub export fn bk_structure_start(handle: ?*anyopaque, id: u8) callconv(.c) bool {
+    const saver = fromHandle(StructureSaver, handle) orelse return false;
+    const current = saver.levels.getLastOrNull() orelse return false;
+    const child_level = shortChunkAt(saver.stream.bytes, current, id, current.counter) orelse return false;
+    saver.levels.append(allocator, child_level) catch return false;
+    return true;
+}
+
+pub export fn bk_structure_finish(handle: ?*anyopaque) callconv(.c) void {
+    const saver = fromHandle(StructureSaver, handle) orelse return;
+    if (saver.levels.items.len > 1) _ = saver.levels.pop();
+}
+
+pub export fn bk_structure_data(handle: ?*anyopaque, id: u8, output: ?*anyopaque, size: c_int) callconv(.c) void {
+    if (size <= 0 or output == null) return;
+    const destination = @as([*]u8, @ptrCast(output.?))[0..@intCast(size)];
+    const saver = fromHandle(StructureSaver, handle) orelse { @memset(destination, 0); return; };
+    const current = saver.levels.getLastOrNull() orelse { @memset(destination, 0); return; };
+    const chunk = shortChunkAt(saver.stream.bytes, current, id, current.counter) orelse { @memset(destination, 0); return; };
+    if (chunk.len != destination.len) { @memset(destination, 0); return; }
+    @memcpy(destination, saver.stream.bytes[chunk.start .. chunk.start + chunk.len]);
+}
+
+pub export fn bk_structure_count(handle: ?*anyopaque, id: u8) callconv(.c) c_int {
+    const saver = fromHandle(StructureSaver, handle) orelse return 0;
+    const current = saver.levels.getLastOrNull() orelse return 0;
+    var count: usize = 0;
+    while (shortChunkAt(saver.stream.bytes, current, id, count + 1) != null) count += 1;
+    return @intCast(count);
+}
+
+pub export fn bk_structure_set_counter(handle: ?*anyopaque, counter: c_int) callconv(.c) void {
+    const saver = fromHandle(StructureSaver, handle) orelse return;
+    if (counter <= 0 or saver.levels.items.len == 0) return;
+    saver.levels.items[saver.levels.items.len - 1].counter = @intCast(counter);
+}
+
+test "structure saver decodes nested compact chunks" {
+    const fixture = [_]u8{ 1, 12, 2, 8, 0x78, 0x56, 0x34, 0x12 };
+    const file = StructureLevel{ .start = 0, .len = fixture.len };
+    const root = shortChunkAt(&fixture, file, 1, 1).?;
+    try std.testing.expectEqual(@as(usize, 2), root.start);
+    try std.testing.expectEqual(@as(usize, 6), root.len);
+    const value = shortChunkAt(&fixture, root, 2, 1).?;
+    try std.testing.expectEqualSlices(u8, &.{ 0x78, 0x56, 0x34, 0x12 }, fixture[value.start .. value.start + value.len]);
+}
+
+pub export fn bk_options_create() callconv(.c) ?*anyopaque {
+    const system = allocator.create(options.System) catch return null;
+    system.* = options.System.init(allocator);
+    return system;
+}
+
+pub export fn bk_console_create() callconv(.c) ?*anyopaque {
+    const value = allocator.create(console.Console) catch return null;
+    value.* = console.Console.init(allocator);
+    return value;
+}
+
+pub export fn bk_console_destroy(handle: ?*anyopaque) callconv(.c) void {
+    const value = fromHandle(console.Console, handle) orelse return;
+    value.deinit(); allocator.destroy(value);
+}
+
+pub export fn bk_console_configure(handle: ?*anyopaque, config: [*:0]const u8) callconv(.c) bool {
+    const value = fromHandle(console.Console, handle) orelse return false;
+    return value.configure(std.mem.span(config));
+}
+
+pub export fn bk_console_write(handle: ?*anyopaque, channel: c_int, text: [*:0]const u16, color: u32, backup: bool) callconv(.c) void {
+    const value = fromHandle(console.Console, handle) orelse return;
+    value.writeWide(channel, text, color, backup);
+}
+
+pub export fn bk_console_write_ascii(handle: ?*anyopaque, channel: c_int, value_text: [*:0]const u8, color: u32, backup: bool) callconv(.c) void {
+    const value = fromHandle(console.Console, handle) orelse return;
+    value.writeAscii(channel, value_text, color, backup);
+}
+
+pub export fn bk_console_read(handle: ?*anyopaque, channel: c_int, color: ?*u32) callconv(.c) ?[*:0]const u16 {
+    const value = fromHandle(console.Console, handle) orelse return null;
+    return value.readWide(channel, color);
+}
+
+pub export fn bk_console_read_ascii(handle: ?*anyopaque, channel: c_int, color: ?*u32) callconv(.c) ?[*:0]const u8 {
+    const value = fromHandle(console.Console, handle) orelse return null;
+    return value.readAscii(channel, color);
+}
+
+pub export fn bk_options_destroy(handle: ?*anyopaque) callconv(.c) void {
+    const system = fromHandle(options.System, handle) orelse return;
+    system.deinit();
+    allocator.destroy(system);
+}
+
+pub export fn bk_options_load_tree(options_handle: ?*anyopaque, tree_handle: ?*anyopaque, only_missing: bool) callconv(.c) c_int {
+    const system = fromHandle(options.System, options_handle) orelse return 0;
+    const tree = fromHandle(Tree, tree_handle) orelse return 0;
+    return @intCast(system.loadXml(tree.current, only_missing) catch 0);
+}
+
+pub export fn bk_options_count(handle: ?*anyopaque) callconv(.c) c_int {
+    const system = fromHandle(options.System, handle) orelse return 0;
+    return @intCast(system.entries.items.len);
+}
+
+pub export fn bk_options_name_at(handle: ?*anyopaque, index: c_int) callconv(.c) ?[*:0]const u8 {
+    const system = fromHandle(options.System, handle) orelse return null;
+    if (index < 0 or index >= system.entries.items.len) return null;
+    return system.entries.items[@intCast(index)].name.ptr;
+}
+
+pub export fn bk_options_value(handle: ?*anyopaque, name: [*:0]const u8, value_type: ?*u16) callconv(.c) ?[*:0]const u8 {
+    const system = fromHandle(options.System, handle) orelse return null;
+    const entry = system.get(std.mem.span(name)) orelse return null;
+    if (value_type) |result| result.* = entry.value_type;
+    return entry.value.ptr;
+}
+
+pub export fn bk_options_set(handle: ?*anyopaque, name: [*:0]const u8, value: [*:0]const u8, value_type: u16) callconv(.c) bool {
+    const system = fromHandle(options.System, handle) orelse return false;
+    system.set(std.mem.span(name), std.mem.span(value), value_type) catch return false;
+    return true;
+}
+
+pub export fn bk_options_remove(handle: ?*anyopaque, name: [*:0]const u8) callconv(.c) bool {
+    const system = fromHandle(options.System, handle) orelse return false;
+    return system.remove(std.mem.span(name));
+}
+
+pub export fn bk_options_remove_prefix(handle: ?*anyopaque, prefix: [*:0]const u8) callconv(.c) void {
+    const system = fromHandle(options.System, handle) orelse return;
+    system.removePrefix(std.mem.span(prefix));
+}
+
+pub export fn bk_options_changed(handle: ?*anyopaque) callconv(.c) bool {
+    const system = fromHandle(options.System, handle) orelse return false;
+    return system.changed;
+}
+
+pub export fn bk_options_metadata(handle: ?*anyopaque, index: c_int, editor: ?*i32, flags: ?*u32, order: ?*i32, instant: ?*bool, action: ?*?[*:0]const u8, action_fill: ?*?[*:0]const u8, default_value: ?*?[*:0]const u8, value_type: ?*u16) callconv(.c) bool {
+    const system = fromHandle(options.System, handle) orelse return false;
+    if (index < 0 or index >= system.entries.items.len) return false;
+    const entry = &system.entries.items[@intCast(index)];
+    if (editor) |result| result.* = entry.editor_type;
+    if (flags) |result| result.* = entry.flags;
+    if (order) |result| result.* = entry.order;
+    if (instant) |result| result.* = entry.instant_apply;
+    if (action) |result| result.* = entry.action.ptr;
+    if (action_fill) |result| result.* = entry.action_fill.ptr;
+    if (default_value) |result| result.* = entry.default_value.ptr;
+    if (value_type) |result| result.* = entry.value_type;
+    return true;
 }
 
 fn pathBase(name: []const u8) []const u8 {
@@ -182,32 +394,51 @@ pub export fn bk_storage_create(name: [*:0]const u8, access: c_ulong, _: c_ulong
 }
 
 pub export fn bk_global_get(key: [*:0]const u8) callconv(.c) ?[*:0]const u8 {
-    const slot = globalEntry(std.mem.span(key)) orelse return null;
-    if (slot.*) |entry| return entry.value.ptr;
-    return null;
+    const index = globalIndex(std.mem.span(key)) orelse return null;
+    return globals.items[index].value.ptr;
 }
 
 pub export fn bk_global_set(key: [*:0]const u8, value: [*:0]const u8) callconv(.c) void {
-    const slot = globalEntry(std.mem.span(key)) orelse return;
-    const copied_key = allocator.dupe(u8, std.mem.span(key)) catch return;
     const copied_value = allocator.dupeZ(u8, std.mem.span(value)) catch {
-        allocator.free(copied_key);
         return;
     };
-    if (slot.*) |old| {
-        allocator.free(old.key);
-        allocator.free(old.value);
+    if (globalIndex(std.mem.span(key))) |index| {
+        allocator.free(globals.items[index].value);
+        globals.items[index].value = copied_value;
+        return;
     }
-    slot.* = .{ .key = copied_key, .value = copied_value };
+    const copied_key = allocator.dupe(u8, std.mem.span(key)) catch {
+        allocator.free(copied_value);
+        return;
+    };
+    globals.append(allocator, .{ .key = copied_key, .value = copied_value }) catch {
+        allocator.free(copied_key);
+        allocator.free(copied_value);
+    };
 }
 
 pub export fn bk_global_remove(key: [*:0]const u8) callconv(.c) void {
-    const slot = globalEntry(std.mem.span(key)) orelse return;
-    if (slot.*) |entry| {
-        allocator.free(entry.key);
-        allocator.free(entry.value);
-        slot.* = null;
+    const index = globalIndex(std.mem.span(key)) orelse return;
+    const entry = globals.swapRemove(index);
+    allocator.free(entry.key);
+    allocator.free(entry.value);
+}
+
+test "global store grows beyond the legacy startup working set" {
+    var key_buffer: [64]u8 = undefined;
+    var value_buffer: [64]u8 = undefined;
+    for (0..700) |index| {
+        const key = try std.fmt.bufPrintZ(&key_buffer, "test.global.{d}", .{index});
+        const value = try std.fmt.bufPrintZ(&value_buffer, "value-{d}", .{index});
+        bk_global_set(key, value);
     }
+    bk_global_set("SharedResource.Text.Dialog.Ext", ".txt");
+    try std.testing.expectEqualStrings(".txt", std.mem.span(bk_global_get("SharedResource.Text.Dialog.Ext").?));
+    for (0..700) |index| {
+        const key = try std.fmt.bufPrintZ(&key_buffer, "test.global.{d}", .{index});
+        bk_global_remove(key);
+    }
+    bk_global_remove("SharedResource.Text.Dialog.Ext");
 }
 
 pub export fn bk_random_init() callconv(.c) void { random_state = 0x9e3779b9; }
@@ -441,6 +672,7 @@ pub export fn bk_tree_create(stream_handle: ?*anyopaque, mode: c_int, base: [*:0
 
 pub export fn bk_tree_destroy(handle: ?*anyopaque) callconv(.c) void {
     const tree = fromHandle(Tree, handle) orelse return;
+    tree.containers.deinit(allocator);
     tree.stack.deinit(allocator);
     tree.document.deinit();
     allocator.destroy(tree);
@@ -496,14 +728,17 @@ pub export fn bk_tree_start_container(handle: ?*anyopaque, name: [*:0]const u8) 
     const chunk = std.mem.span(name);
     const container = treeNode(tree, if (chunk.len == 0) "data" else chunk) orelse return 0;
     tree.stack.append(allocator, tree.current) catch return 0;
+    tree.containers.append(allocator, container) catch {
+        _ = tree.stack.pop();
+        return 0;
+    };
     tree.current = container;
-    tree.container = container;
     return 1;
 }
 
 pub export fn bk_tree_count(handle: ?*anyopaque, _: [*:0]const u8) callconv(.c) c_int {
     const tree = fromHandle(Tree, handle) orelse return 0;
-    const container = tree.container orelse return 0;
+    const container = tree.containers.getLastOrNull() orelse return 0;
     var count: c_int = 0;
     for (container.children.items) |item| {
         if (std.mem.eql(u8, item.name, "item")) count += 1;
@@ -513,7 +748,7 @@ pub export fn bk_tree_count(handle: ?*anyopaque, _: [*:0]const u8) callconv(.c) 
 
 pub export fn bk_tree_set_counter(handle: ?*anyopaque, index: c_int) callconv(.c) bool {
     const tree = fromHandle(Tree, handle) orelse return false;
-    const container = tree.container orelse return false;
+    const container = tree.containers.getLastOrNull() orelse return false;
     if (index < 0) return false;
     var found: c_int = 0;
     for (container.children.items) |item| {
@@ -526,8 +761,35 @@ pub export fn bk_tree_set_counter(handle: ?*anyopaque, index: c_int) callconv(.c
 
 pub export fn bk_tree_finish_container(handle: ?*anyopaque) callconv(.c) void {
     const tree = fromHandle(Tree, handle) orelse return;
-    tree.container = null;
+    _ = tree.containers.pop();
     bk_tree_finish(handle);
+}
+
+test "nested data-tree containers restore the outer item enumerator" {
+    const source = "<base><Children><item id=\"1\"><States><item value=\"10\"/></States></item><item id=\"2\"/></Children></base>";
+    const bytes = try allocator.dupe(u8, source);
+    const name = try allocator.dupeZ(u8, "fixture.xml");
+    const path = try allocator.dupeZ(u8, "fixture.xml");
+    var stream = Stream{ .bytes = bytes, .name = name, .path = path, .access = 1 };
+    defer {
+        allocator.free(stream.bytes);
+        allocator.free(stream.name);
+        allocator.free(stream.path);
+    }
+
+    const handle = bk_tree_create(&stream, 2, "base") orelse return error.TestUnexpectedResult;
+    defer bk_tree_destroy(handle);
+    try std.testing.expectEqual(@as(c_int, 1), bk_tree_start_container(handle, "Children"));
+    try std.testing.expectEqual(@as(c_int, 2), bk_tree_count(handle, "Children"));
+    try std.testing.expect(bk_tree_set_counter(handle, 0));
+    try std.testing.expectEqual(@as(c_int, 1), bk_tree_start_container(handle, "States"));
+    try std.testing.expectEqual(@as(c_int, 1), bk_tree_count(handle, "States"));
+    bk_tree_finish_container(handle);
+    try std.testing.expect(bk_tree_set_counter(handle, 1));
+    var id: c_int = 0;
+    try std.testing.expect(bk_tree_int(handle, "id", &id));
+    try std.testing.expectEqual(@as(c_int, 2), id);
+    bk_tree_finish_container(handle);
 }
 
 fn isXmlNameByte(byte: u8) bool {
