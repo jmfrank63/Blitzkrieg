@@ -1,5 +1,8 @@
 #include "StdAfx.h"
 #include "HPTimer.h"
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
 using namespace NHPTimer;
 static double fProcFreq1 = 1;
 double NHPTimer::GetSeconds( const NHPTimer::STime &a )
@@ -8,7 +11,11 @@ double NHPTimer::GetSeconds( const NHPTimer::STime &a )
 }
 static inline void GetCounter( int64 *pTime )
 {
+	#if defined(_MSC_VER)
+	*pTime = static_cast<int64>( __rdtsc() );
+	#else
 	*pTime = static_cast<int64>( __builtin_readcyclecounter() );
+	#endif
 }
 double NHPTimer::GetClockRate()
 {

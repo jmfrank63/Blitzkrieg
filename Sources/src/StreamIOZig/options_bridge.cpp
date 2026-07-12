@@ -228,13 +228,13 @@ public:
     bool BK_STDCALL DumpLog(int) override { return true; }
 };
 
-extern "C" __declspec(dllexport) void *BK_STDCALL bk_option_bridge_create() {
+extern "C" __declspec(dllexport) void *bk_option_bridge_create() {
     if (!ResolveCore()) return 0;
     return new OptionSystem();
 }
-extern "C" __declspec(dllexport) void *BK_STDCALL bk_console_bridge_create() {
+extern "C" __declspec(dllexport) void *bk_console_bridge_create() {
     if (!ResolveCore()) return 0;
     return new ConsoleBuffer();
 }
 
-extern "C" __declspec(dllexport) const void *BK_STDCALL GetModuleDescriptor() { return 0; }
+extern "C" __declspec(dllexport) const void *GetModuleDescriptor() { return 0; }

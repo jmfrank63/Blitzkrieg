@@ -67,13 +67,34 @@ fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
 }
 
 fn copyGameRuntime(io: std.Io, binaries: std.Io.Dir, destination: std.Io.Dir) !void {
-    const non_runtime_tools = [_][]const u8{ "BetaKeyGen.exe", "BuildVersion.exe", "FontGen.exe" };
-    for (non_runtime_tools) |name| destination.deleteFile(io, name) catch {};
+    const stale_root_files = [_][]const u8{
+        "BetaKeyGen.exe",    "BuildVersion.exe",       "FontGen.exe",
+        // Legacy x86-only payloads must never survive a target switch into an
+        // x64 staged runtime.
+        "A7ExportModel.dll", "fmod.dll",               "mfc42.dll",
+        "msvcp60.dll",       "msvcrt.dll",
+        // Clear prior runtime outputs so staging is deterministic.
+                    "Game.exe",
+        "StreamIO.dll",      "StreamIOOptionsAbi.dll", "Anim.dll",
+        "GFX.dll",           "Image.dll",              "Input.dll",
+        "Net.dll",           "SFX.dll",                "UI.dll",
+        "Scene.dll",         "AILogic.dll",            "GameTT.dll",
+    };
+    for (stale_root_files) |name| destination.deleteFile(io, name) catch {};
     const runtime_files = [_][]const u8{
         "Game.exe",
-        "StreamIO.dll", "StreamIOOptionsAbi.dll",
-        "Anim.dll", "GFX.dll", "Image.dll", "Input.dll", "Net.dll",
-        "SFX.dll", "UI.dll", "Scene.dll", "AILogic.dll", "GameTT.dll",
+        "StreamIO.dll",
+        "StreamIOOptionsAbi.dll",
+        "Anim.dll",
+        "GFX.dll",
+        "Image.dll",
+        "Input.dll",
+        "Net.dll",
+        "SFX.dll",
+        "UI.dll",
+        "Scene.dll",
+        "AILogic.dll",
+        "GameTT.dll",
     };
     for (runtime_files) |name| try copyFile(io, binaries, name, destination, name);
 }

@@ -50,6 +50,7 @@ int CInterfaceChapter::operator &( interface IStructureSaver &ss )
 const SChapterStats *CInterfaceChapter::ReadChapterStats()
 {
 	std::string szChapterName = GetGlobalVar( "Chapter.Current.Name" );
+	NStr::ToLower( szChapterName );
 	const SChapterStats *pStats = NGDB::GetGameStats<SChapterStats>( szChapterName.c_str(), IObjectsDB::CHAPTER );
 	return pStats;
 }
@@ -98,6 +99,22 @@ void CInterfaceChapter::IncrementChapterVisited()
 	{
 		return;
 	}
+	bool bHasScenarioMission = false;
+	for ( std::vector<SChapterStats::SMission>::const_iterator it = pChapterStats->missions.begin(); it != pChapterStats->missions.end(); ++it )
+	{
+		if ( it->pMission && !it->pMission->IsTemplate() )
+		{
+			bHasScenarioMission = true;
+			break;
+		}
+	}
+	if ( !bHasScenarioMission )
+	{
+		NStr::DebugTrace( "CInterfaceChapter::IncrementChapterVisited(), chapter \"%s\" has only template missions, skip regeneration\n", szChapterName.c_str() );
+		return;
+	}
+	const std::vector<SChapterStats::SMission> oldMissions = pChapterStats->missions;
+	bool bGeneratedTemplateMission = false;
 	pChapterStats->RemoveTemplateMissions();
 
 	/**
@@ -160,9 +177,11 @@ void CInterfaceChapter::IncrementChapterVisited()
 			templates.push_back( temp );
 		}
 		
-		NI_ASSERT_T( nTotalProbability != 0, "Error while randomization template mission, nTotalProbability is 0" );
 		if ( nTotalProbability == 0 )
+		{
+			NStr::DebugTrace( "CInterfaceChapter::IncrementChapterVisited(), no template missions for chapter \"%s\" (setting \"%s\")\n", szChapterName.c_str(), pChapterStats->szSettingName.c_str() );
 			break;
+		}
 		
 		srand( timeGetTime() );
 		SRMContext chapterContext;
@@ -217,6 +236,7 @@ void CInterfaceChapter::IncrementChapterVisited()
 
 				chapterContext.GetAllRandomBonuses( nDifficulty, mission.szAllBonuses );
 				pChapterStats->AddMission( mission );
+				bGeneratedTemplateMission = true;
 
 				nTotalProbability -= templates[nCurrentTemplateMission].nProbability;
 				std::vector<STemplateMission>::iterator it = templates.begin() + nCurrentTemplateMission;
@@ -227,6 +247,12 @@ void CInterfaceChapter::IncrementChapterVisited()
 			}
 		}
 	} while ( 0 );
+
+	if ( !bGeneratedTemplateMission && pChapterStats->missions.empty() && !oldMissions.empty() )
+	{
+		NStr::DebugTrace( "CInterfaceChapter::IncrementChapterVisited(), restoring previous mission set for chapter \"%s\"\n", szChapterName.c_str() );
+		pChapterStats->missions = oldMissions;
+	}
 
 	IDataStorage *pStorage = GetSingleton<IDataStorage>();
 	const std::string szChapterFileName = pStorage->GetName() + szChapterName + ".xml";
@@ -362,6 +388,32 @@ void CInterfaceChapter::InitWindow()
 		pMap->AddChild( pMissionButton );
 		missionIndeces.push_back( i );
 	}
+
+	if ( missionIndeces.empty() )
+	{
+		NStr::DebugTrace( "CInterfaceChapter::InitWindow(), no enabled scenario missions for chapter \"%s\", using fallback list\n", GetGlobalVar( "Chapter.Current.Name", "" ) );
+		for ( int i = 0; i < pStats->missions.size(); ++i )
+		{
+			std::string szMissionName = pStats->missions[i].szMission;
+			NStr::ToLower( szMissionName );
+			const SMissionStats *pMissionStats = NGDB::GetGameStats<SMissionStats>( szMissionName.c_str(), IObjectsDB::MISSION );
+			if ( pMissionStats == 0 || pMissionStats->IsTemplate() )
+				continue;
+
+			CPtr<IUIElement> pMissionButton;
+			missionButtonSaver.Add( "Element", &pMissionButton );
+			CVec2 size;
+			pMissionButton->GetWindowPlacement( 0, &size, 0 );
+
+			CVec2 vPos = pStats->missions[i].vPosOnMap;
+			vPos.x -= size.x / 2;
+			vPos.y -= size.y / 2;
+			pMissionButton->SetWindowPlacement( &vPos, 0 );
+			pMissionButton->SetWindowID( 1000 + missionIndeces.size() );
+			pMap->AddChild( pMissionButton );
+			missionIndeces.push_back( i );
+		}
+	}
 	nNumberOfScenarioMissions = missionIndeces.size();
 	
 	for ( int i = 0; i < pStats->missions.size(); ++i )
@@ -415,36 +467,47 @@ void CInterfaceChapter::InitWindow()
 			}
 			
 			int nNumberOfTemplateMissions = missionIndeces.size() - nNumberOfScenarioMissions;
-			NI_ASSERT_T( nNumberOfTemplateMissions > 0, "Can not select active missions. Possibly chapter script has error" );
 			if ( nNumberOfTemplateMissions > 0 )
 			{
 				int nRandom = rand() % nNumberOfTemplateMissions;
 				nMission = nNumberOfScenarioMissions + nRandom;
 				break;
 			}
+			NStr::DebugTrace( "CInterfaceChapter::InitWindow(), no active missions to select for chapter \"%s\"\n", GetGlobalVar( "Chapter.Current.Name", "" ) );
 		} while ( 0 );
 	}
 	else
 	{
+		bool bMissionFound = false;
 		for ( int i=0; i<missionIndeces.size(); i++ )
 		{
 			if ( missionIndeces[i] == nMission )
 			{
+				bMissionFound = true;
 				nMission = i;
 				break;
 			}
 		}
+		if ( !bMissionFound && !missionIndeces.empty() )
+		{
+			NStr::DebugTrace( "CInterfaceChapter::InitWindow(), stale mission index %d for chapter \"%s\", using first mission\n", nMission, GetGlobalVar( "Chapter.Current.Name", "" ) );
+			nMission = 0;
+		}
 	}
 
-	NI_ASSERT_T( missionIndeces.size() > 0, "Error: There is no template or scenario missions" );
-	if ( !missionIndeces.empty() )
+	if ( missionIndeces.empty() )
 	{
-		SetMissionDescription( nMission );
-		int nActiveMissionId = 1000 + nMission;
-		IUIElement *pMissionButton = pMap->GetChildByID( nActiveMissionId );
-		if ( pMissionButton )
-			pMissionButton->SetState( 1 );
+		SetGlobalVar( "NumberOfButtons", 0 );
+		NStr::DebugTrace( "CInterfaceChapter::InitWindow(), chapter has no missions after initialization\n" );
+		GetSingleton<IMainLoop>()->Command( MISSION_COMMAND_CAMPAIGN, 0 );
+		return;
 	}
+
+	SetMissionDescription( nMission );
+	int nActiveMissionId = 1000 + nMission;
+	IUIElement *pMissionButton = pMap->GetChildByID( nActiveMissionId );
+	if ( pMissionButton )
+		pMissionButton->SetState( 1 );
 
 	const bool bFirstChapter = GetGlobalVar( "Chapter.IsFirst", 0 );
 	

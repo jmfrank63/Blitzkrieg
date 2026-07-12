@@ -38,7 +38,7 @@ bool CMessageAtomReactionSetWindowTextFromGlobalVar::Execute()
 	NStr::DebugTrace( "\t\t SetWindowTextFromGlobalVar \twnd =\t\"%s\"\t(%d), \ttext =\t\"%s\"\n", 
 										szWindowID.c_str(), 
 										nWindowID, 
-										NStr::ToAscii(GetGlobalWVar(szTextKey.c_str(), L"")).c_str() );
+										NStr::ToAscii( std::wstring( reinterpret_cast<const wchar_t*>( GetGlobalWVar( szTextKey.c_str(), reinterpret_cast<const WORD*>( L"" ) ) ) ) ).c_str() );
 #endif // #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
 	
 	GetSingleton<IMessageLinkContainer>()->SetWindowText( nWindowID, GetGlobalWVar(szTextKey.c_str(), reinterpret_cast<const WORD*>( L"" )) );

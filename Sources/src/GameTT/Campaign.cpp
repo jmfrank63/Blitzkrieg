@@ -234,14 +234,26 @@ void CInterfaceCampaign::SetDescriptionText( const SChapterStats *pStats )
 	IUIElement *pDesc = checked_cast<IUIElement *> ( pUIScreen->GetChildByID( 2000 ) );
 	ITextManager *pTM = GetSingleton<ITextManager>();
 	NI_ASSERT_T( pDesc != 0, "Invalid mission text description control" );
-	CPtr<IText> pText = pTM->GetDialog( pStats->szDescriptionText.c_str() );
-	NI_ASSERT_T( pText != 0, NStr::Format("Can't find description text \"%s\"", pStats->szDescriptionText.c_str()) );
+	if ( pStats == 0 )
+	{
+		NStr::DebugTrace( "CInterfaceCampaign::SetDescriptionText(), Invalid chapter stats\n" );
+		return;
+	}
+	CPtr<IText> pText;
+	if ( !pStats->szDescriptionText.empty() )
+		pText = pTM->GetDialog( pStats->szDescriptionText.c_str() );
 	if ( pText )
 		pDesc->SetWindowText( 0, pText->GetString() );
+	else
+		NStr::DebugTrace( "CInterfaceCampaign::SetDescriptionText(), Missing description text: %s\n", pStats->szDescriptionText.c_str() );
 	IUIElement *pChapterHeader = checked_cast<IUIElement*>( pUIScreen->GetChildByID( 20001 ) );
-	CPtr<IText> pHeaderText = pTM->GetDialog( pStats->szHeaderText.c_str() );
-	if ( pHeaderText )
+	CPtr<IText> pHeaderText;
+	if ( !pStats->szHeaderText.empty() )
+		pHeaderText = pTM->GetDialog( pStats->szHeaderText.c_str() );
+	if ( pHeaderText && pChapterHeader )
 		pChapterHeader->SetWindowText( 0, pHeaderText->GetString() );
+	else if ( !pStats->szHeaderText.empty() )
+		NStr::DebugTrace( "CInterfaceCampaign::SetDescriptionText(), Missing header text: %s\n", pStats->szHeaderText.c_str() );
 }
 void CInterfaceCampaign::OnGetFocus( bool bFocus )
 {
@@ -307,7 +319,7 @@ bool CInterfaceCampaign::ProcessMessage( const SGameMessage &msg )
 				{
 					pButton = pChapters->GetChildByID( nButton );
 					if ( pButton->GetState() == 1 )
-						break;			//выделенная
+						break;			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 					nButton++;
 				} while ( pButton != 0 );
 				NI_ASSERT_T( pButton != 0, "Can't find selected chapter" );

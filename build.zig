@@ -800,9 +800,6 @@ pub fn build(b: *std.Build) void {
     const run_game_cmd = b.addSystemCommand(&.{"Game.exe"});
     run_game_cmd.setCwd(b.path(install_dir));
     run_game_cmd.step.dependOn(install_game_step);
-    if (target.result.cpu.arch == .x86_64 and target.result.os.tag == .windows) {
-        run_game_cmd.addArg("-x64-startup-smoke");
-    }
     if (b.args) |args| {
         run_game_cmd.addArgs(args);
     }
@@ -812,7 +809,7 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(&run_game_cmd.step);
 
     const verify_x64_cmd = b.addSystemCommand(&.{
-        "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+        "powershell.exe",                   "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
         "tools/zig/verify_x64_runtime.ps1", install_dir,
     });
     verify_x64_cmd.step.dependOn(install_game_step);

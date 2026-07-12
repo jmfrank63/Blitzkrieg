@@ -32,9 +32,19 @@ const FileTime = extern struct { low: u32, high: u32 };
 extern fn GetFileAttributesExA(path: [*:0]const u8, info_level: u32, attributes: *FileAttributes) callconv(.winapi) bool;
 extern fn FileTimeToDosDateTime(file_time: *const FileTime, date: *u16, time: *u16) callconv(.winapi) bool;
 const FindData = extern struct {
-    attributes: u32, creation_low: u32, creation_high: u32, access_low: u32, access_high: u32,
-    write_low: u32, write_high: u32, size_high: u32, size_low: u32, reserved0: u32, reserved1: u32,
-    file_name: [260]u8, alternate_name: [14]u8,
+    attributes: u32,
+    creation_low: u32,
+    creation_high: u32,
+    access_low: u32,
+    access_high: u32,
+    write_low: u32,
+    write_high: u32,
+    size_high: u32,
+    size_low: u32,
+    reserved0: u32,
+    reserved1: u32,
+    file_name: [260]u8,
+    alternate_name: [14]u8,
 };
 extern fn FindFirstFileA(pattern: [*:0]const u8, data: *FindData) callconv(.winapi) ?*anyopaque;
 extern fn FindNextFileA(handle: *anyopaque, data: *FindData) callconv(.winapi) bool;
@@ -178,10 +188,22 @@ pub export fn bk_structure_finish(handle: ?*anyopaque) callconv(.c) void {
 pub export fn bk_structure_data(handle: ?*anyopaque, id: u8, output: ?*anyopaque, size: c_int) callconv(.c) void {
     if (size <= 0 or output == null) return;
     const destination = @as([*]u8, @ptrCast(output.?))[0..@intCast(size)];
-    const saver = fromHandle(StructureSaver, handle) orelse { @memset(destination, 0); return; };
-    const current = saver.levels.getLastOrNull() orelse { @memset(destination, 0); return; };
-    const chunk = shortChunkAt(saver.stream.bytes, current, id, current.counter) orelse { @memset(destination, 0); return; };
-    if (chunk.len != destination.len) { @memset(destination, 0); return; }
+    const saver = fromHandle(StructureSaver, handle) orelse {
+        @memset(destination, 0);
+        return;
+    };
+    const current = saver.levels.getLastOrNull() orelse {
+        @memset(destination, 0);
+        return;
+    };
+    const chunk = shortChunkAt(saver.stream.bytes, current, id, current.counter) orelse {
+        @memset(destination, 0);
+        return;
+    };
+    if (chunk.len != destination.len) {
+        @memset(destination, 0);
+        return;
+    }
     @memcpy(destination, saver.stream.bytes[chunk.start .. chunk.start + chunk.len]);
 }
 
@@ -223,7 +245,8 @@ pub export fn bk_console_create() callconv(.c) ?*anyopaque {
 
 pub export fn bk_console_destroy(handle: ?*anyopaque) callconv(.c) void {
     const value = fromHandle(console.Console, handle) orelse return;
-    value.deinit(); allocator.destroy(value);
+    value.deinit();
+    allocator.destroy(value);
 }
 
 pub export fn bk_console_configure(handle: ?*anyopaque, config: [*:0]const u8) callconv(.c) bool {
@@ -425,7 +448,10 @@ fn overlayExists(storage: *const Storage, name: []const u8) bool {
         const child = storage.overlays.items[index].storage;
         const path = makePath(child, name) orelse continue;
         defer allocator.free(path);
-        if (fopen(@ptrCast(path.ptr), "rb")) |file| { _ = fclose(file); return true; }
+        if (fopen(@ptrCast(path.ptr), "rb")) |file| {
+            _ = fclose(file);
+            return true;
+        }
         if (archiveEntry(child, name) != null or overlayExists(child, name)) return true;
     }
     return false;
@@ -465,23 +491,46 @@ fn openStream(storage: *Storage, name: []const u8, access: u32, create: bool) ?*
     const raw_path = makePath(storage, name) orelse return null;
     defer allocator.free(raw_path);
     const path = allocator.dupeZ(u8, raw_path[0 .. raw_path.len - 1]) catch return null;
-    const mode: [*:0]const u8 = if (create or (access & 0x2) != 0) "wb+" else "rb";
-    const file = fopen(path.ptr, mode) orelse { allocator.free(path); return null; };
-    defer _ = fclose(file);
-    if (fseek(file, 0, 2) != 0) return null;
-    const end = ftell(file);
-    if (end < 0 or fseek(file, 0, 0) != 0) return null;
+    _ = create; // Legacy file storage uses access flags to decide create/truncate behavior.
+    const can_read = (access & 0x1) != 0;
+    const can_write = (access & 0x2) != 0;
+    const append_only = (access & 0x4) != 0 and !can_read;
+    var file: ?*File = null;
+
+    if (can_write and !can_read and !append_only) {
+        // STREAM_ACCESS_WRITE maps to CREATE_ALWAYS in the original implementation.
+        file = fopen(path.ptr, "wb+");
+    } else {
+        const mode: [*:0]const u8 = if (can_read and !can_write) "rb" else "rb+";
+        file = fopen(path.ptr, mode);
+        if (file == null and can_write) {
+            // OPEN_ALWAYS behavior for RW/RWA/WA combinations.
+            file = fopen(path.ptr, "wb+");
+        }
+    }
+    if (file == null) {
+        allocator.free(path);
+        return null;
+    }
+    const opened = file.?;
+    defer _ = fclose(opened);
+    if (fseek(opened, 0, 2) != 0) return null;
+    const end = ftell(opened);
+    if (end < 0 or fseek(opened, 0, 0) != 0) return null;
     const bytes = allocator.alloc(u8, @intCast(end)) catch return null;
-    if (bytes.len != 0 and fread(bytes.ptr, 1, bytes.len, file) != bytes.len) {
-        allocator.free(bytes); allocator.free(path);
+    if (bytes.len != 0 and fread(bytes.ptr, 1, bytes.len, opened) != bytes.len) {
+        allocator.free(bytes);
+        allocator.free(path);
         return null;
     }
     const name_copy = allocator.dupeZ(u8, name) catch {
-        allocator.free(bytes); allocator.free(path);
+        allocator.free(bytes);
+        allocator.free(path);
         return null;
     };
     const stream = allocator.create(Stream) catch {
-        allocator.free(name_copy); allocator.free(path);
+        allocator.free(name_copy);
+        allocator.free(path);
         allocator.free(bytes);
         return null;
     };
@@ -494,7 +543,10 @@ fn archiveStream(storage: *Storage, name: []const u8, access: u32) ?*Stream {
     if ((access & 0x2) != 0) return null;
     const match = archiveEntry(storage, name) orelse return null;
     const bytes = match.archive.archive.extract(allocator, match.entry) catch return null;
-    const name_copy = allocator.dupeZ(u8, name) catch { allocator.free(bytes); return null; };
+    const name_copy = allocator.dupeZ(u8, name) catch {
+        allocator.free(bytes);
+        return null;
+    };
     const path = allocator.dupeZ(u8, match.archive.path) catch {
         allocator.free(name_copy);
         allocator.free(bytes);
@@ -585,7 +637,9 @@ test "global store grows beyond the legacy startup working set" {
     bk_global_remove("SharedResource.Text.Dialog.Ext");
 }
 
-pub export fn bk_random_init() callconv(.c) void { random_state = 0x9e3779b9; }
+pub export fn bk_random_init() callconv(.c) void {
+    random_state = 0x9e3779b9;
+}
 pub export fn bk_random_get() callconv(.c) c_uint {
     random_state = random_state *% 1664525 +% 1013904223;
     return random_state;
@@ -761,7 +815,12 @@ pub export fn bk_stream_write(handle: ?*anyopaque, source: ?*const anyopaque, le
 
 pub export fn bk_stream_seek(handle: ?*anyopaque, offset: c_int, origin: c_int) callconv(.c) c_int {
     const stream = fromHandle(Stream, handle) orelse return 0;
-    const base: i64 = switch (origin) { 0 => @intCast(stream.begin), 1 => @intCast(stream.position), 2 => @intCast(stream.bytes.len), else => return @intCast(stream.position - stream.begin) };
+    const base: i64 = switch (origin) {
+        0 => @intCast(stream.begin),
+        1 => @intCast(stream.position),
+        2 => @intCast(stream.bytes.len),
+        else => return @intCast(stream.position - stream.begin),
+    };
     const target = base + offset;
     if (target < 0) return @intCast(stream.position - stream.begin);
     stream.position = @intCast(@min(target, @as(i64, @intCast(stream.bytes.len))));
@@ -944,7 +1003,10 @@ pub export fn bk_tree_set_counter(handle: ?*anyopaque, index: c_int) callconv(.c
     var found: c_int = 0;
     for (container.children.items) |item| {
         if (!std.mem.eql(u8, item.name, "item")) continue;
-        if (found == index) { tree.current = item; return true; }
+        if (found == index) {
+            tree.current = item;
+            return true;
+        }
         found += 1;
     }
     return false;
@@ -1002,7 +1064,10 @@ fn xmlAttribute(bytes: []const u8, row: []const u8, entry: []const u8) ?[]const 
             while (attribute_cursor < end and (bytes[attribute_cursor] == ' ' or bytes[attribute_cursor] == '\t' or bytes[attribute_cursor] == '\r' or bytes[attribute_cursor] == '\n')) : (attribute_cursor += 1) {}
             const attribute_start = attribute_cursor;
             while (attribute_cursor < end and isXmlNameByte(bytes[attribute_cursor])) : (attribute_cursor += 1) {}
-            if (attribute_start == attribute_cursor) { attribute_cursor += 1; continue; }
+            if (attribute_start == attribute_cursor) {
+                attribute_cursor += 1;
+                continue;
+            }
             const attribute_name = bytes[attribute_start..attribute_cursor];
             while (attribute_cursor < end and bytes[attribute_cursor] != '=') : (attribute_cursor += 1) {}
             if (attribute_cursor >= end) break;

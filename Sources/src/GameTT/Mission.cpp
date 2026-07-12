@@ -29,6 +29,7 @@ CInterfaceAboutMission::~CInterfaceAboutMission()
 const SMissionStats *CInterfaceAboutMission::ReadMissionStats()
 {
 	std::string szMissionName = GetGlobalVar( "Mission.Current.Name" );
+	NStr::ToLower( szMissionName );
 	const SMissionStats *pStats = NGDB::GetGameStats<SMissionStats>( szMissionName.c_str(), IObjectsDB::MISSION );
 	return pStats;
 }
@@ -50,12 +51,20 @@ void CInterfaceAboutMission::StartInterface()
 	const std::string szVarName = "Mission." + pStats->szParentName + ".Random.Generated";
 
 	const SChapterStats *pChapterStats = CInterfaceChapter::ReadChapterStats();
+	NI_ASSERT_T( pChapterStats != 0, "Invalid chapter stats" );
+	if ( pChapterStats == 0 )
+		return;
 	
 	std::string szChapterUnitsTableFileName = pChapterStats->szContextName;
 	int nLevel = 0;
 
 	int nMissionIndex = GetGlobalVar( "Mission.Current.Index", -1 );
 	NI_ASSERT_T( nMissionIndex != -1, "Invalid mission index in CInterfaceAboutMission::Init()" );
+	if ( nMissionIndex < 0 || nMissionIndex >= static_cast<int>( pChapterStats->missions.size() ) )
+	{
+		NStr::DebugTrace( "CInterfaceAboutMission::StartInterface(), stale mission index %d for chapter %s, using first mission\n", nMissionIndex, GetGlobalVar( "Chapter.Current.Name", "" ) );
+		nMissionIndex = 0;
+	}
 	nLevel = pChapterStats->missions[nMissionIndex].nMissionDifficulty;
 
 	if ( pStats->IsTemplate() && ( GetGlobalVar( szVarName.c_str(), 0 ) != 1 ) )
@@ -212,7 +221,7 @@ void CInterfaceAboutMission::StartInterface()
 	pDesc->SetWindowText( 0, reinterpret_cast<const WORD*>( szDescription.c_str() ) );
 	
 	IUIElement *pObjectivesScreen = pUIScreen->GetChildByID( 4000 );
-	pObjectivesScreen->ShowWindow( UI_SW_SHOW );		//здесь произойдет авто загрузка objectives
+	pObjectivesScreen->ShowWindow( UI_SW_SHOW );		//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ objectives
 
 	CPtr<IDataStorage> pStorage = GetSingleton<IDataStorage>();
 	CPtr<IDataStream> pStream = pStorage->OpenStream( "ui\\common\\objective_flag.xml", STREAM_ACCESS_READ );
@@ -241,7 +250,7 @@ void CInterfaceAboutMission::StartInterface()
 		
 		nObjectiveState = GetGlobalVar( szObjName.c_str(), nDefault );
 		if ( nObjectiveState == -1 )
-			continue;		//objective не виден
+			continue;		//objective пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		
 		const CVec2 &v = pStats->objectives[i].vPosOnMap;
 
@@ -304,7 +313,11 @@ bool CInterfaceAboutMission::ProcessMessage( const SGameMessage &msg )
 			GetSingleton<ISFX>()->StopStream( nTimeToFade );
 
 			const SMissionStats *pStats = ReadMissionStats();
+			NI_ASSERT_T( pStats != 0, "Invalid mission stats" );
+			if ( pStats == 0 )
+				return true;
 			FinishInterface( MISSION_COMMAND_MISSION, (pStats->szFinalMap + ".xml").c_str() );
+			return true;
 		}
 
 		case UI_NOTIFY_SELECTION_CHANGED:

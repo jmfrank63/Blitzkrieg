@@ -218,7 +218,7 @@ void CInterfaceScreenBase::Step( bool bAppActive )
 					fclose( pFile );
 				}
 			}
-			NStr::DebugTrace( "LOADTRACE: CInterfaceScreenBase::Step skipped draw app=%d local=%d gfx=%d\n", bAppActive, bStepLocalResult, bGFXActive );
+			// Keep diagnostics in load_trace.log only to avoid debugger output stalls while recovering from draw-skip states.
 		}
 		Sleep( 10 );
 		return;
