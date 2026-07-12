@@ -635,6 +635,7 @@ pub fn build(b: *std.Build) void {
     const streamio_zig = addStreamIOZig(b, target, optimize, toolchain);
     const install_dir = b.option([]const u8, "install-dir", "Relative install layout path (default: zig-out/game)") orelse "zig-out/game";
     const copy_data = b.option(bool, "copy-data", "Copy Data into install layout instead of creating a junction") orelse false;
+    const startup_trace = b.option(bool, "startup-trace", "Emit Windows startup checkpoint markers to the debugger") orelse false;
     const package_dir = b.option([]const u8, "package-dir", "Relative output directory for zip installers (default: zig-out/packages)") orelse "zig-out/packages";
 
     const zlib = addZlib(b, target, optimize, toolchain);
@@ -658,7 +659,7 @@ pub fn build(b: *std.Build) void {
     const ailogic = addLegacyProjectDll(b, target, optimize, toolchain, "AILogic", "Sources/src/AILogic/AILogic.vcxproj", "Sources/src/AILogic/AILogic.def", &.{ "Sources/src/AILogic", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/GameTT", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/vorbis-1.3.7/include" }, &.{ misc, lualib, formats, randommapgen, zlib });
     const gamett = addLegacyProjectDll(b, target, optimize, toolchain, "GameTT", "Sources/src/GameTT/GameTT.vcxproj", "Sources/src/GameTT/GameTT.def", &.{ "Sources/src/GameTT", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/AILogic" }, &.{ misc, formats, common, randommapgen });
     const main = addMain(b, target, optimize, toolchain);
-    const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats, blitz64);
+    const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats, blitz64, startup_trace);
     const package_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/package.zig"),
         .target = target,
@@ -1055,6 +1056,7 @@ fn addGame(
     randommapgen: *std.Build.Step.Compile,
     formats: *std.Build.Step.Compile,
     blitz64: *std.Build.Step.Compile,
+    startup_trace: bool,
 ) *std.Build.Step.Compile {
     const game_module = b.createModule(.{
         .target = target,
@@ -1066,6 +1068,7 @@ fn addGame(
     game_module.addIncludePath(b.path("Sources/src/Game"));
     game_module.addIncludePath(b.path("Sources/src/Main"));
     game_module.addIncludePath(b.path("Sources/src/RandomMapGen"));
+    if (startup_trace) game_module.addCMacro("BK_STARTUP_TRACE", "1");
     game_module.addCSourceFiles(.{
         .files = game_sources,
         .flags = cppflagsGameForOptimize(optimize),

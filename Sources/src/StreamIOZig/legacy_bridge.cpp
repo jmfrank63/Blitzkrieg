@@ -6,6 +6,12 @@ extern "C" const char *bk_storage_name(void *storage);
 extern "C" bool bk_storage_exists(void *storage, const char *name);
 extern "C" void *bk_storage_open(void *storage, const char *name, unsigned long access);
 extern "C" void *bk_storage_create_stream(void *storage, const char *name, unsigned long access);
+extern "C" bool bk_storage_stats(void *storage, const char *name, void *stats);
+extern "C" void *bk_storage_enumerator_create(void *storage);
+extern "C" void bk_enumerator_destroy(void *enumerator);
+extern "C" void bk_enumerator_reset(void *enumerator);
+extern "C" bool bk_enumerator_next(void *enumerator);
+extern "C" bool bk_enumerator_stats(void *enumerator, void *stats);
 extern "C" int bk_stream_read(void *stream, void *destination, int length);
 extern "C" int bk_stream_write(void *stream, const void *source, int length);
 extern "C" int bk_stream_seek(void *stream, int offset, int origin);
@@ -15,6 +21,7 @@ extern "C" bool bk_stream_set_size(void *stream, int size);
 extern "C" int bk_stream_lock_begin(void *stream);
 extern "C" int bk_stream_unlock_begin(void *stream);
 extern "C" bool bk_stream_flush(void *stream);
+extern "C" bool bk_stream_stats(void *stream, void *stats);
 extern "C" const char *bk_global_get(const char *key);
 extern "C" void bk_global_set(const char *key, const char *value);
 extern "C" void bk_global_remove(const char *key);
@@ -22,6 +29,18 @@ extern "C" void bk_random_init();
 extern "C" unsigned int bk_random_get();
 extern "C" int bk_table_get_int(void *stream, const char *row, const char *entry, int fallback);
 extern "C" double bk_table_get_double(void *stream, const char *row, const char *entry, double fallback);
+extern "C" void *bk_tree_create(void *stream, int mode, const char *base);
+extern "C" void bk_tree_destroy(void *tree);
+extern "C" int bk_tree_start(void *tree, const char *name);
+extern "C" void bk_tree_finish(void *tree);
+extern "C" int bk_tree_size(void *tree);
+extern "C" bool bk_tree_string(void *tree, void *destination);
+extern "C" bool bk_tree_int(void *tree, const char *name, int *value);
+extern "C" bool bk_tree_double(void *tree, const char *name, double *value);
+extern "C" int bk_tree_start_container(void *tree, const char *name);
+extern "C" int bk_tree_count(void *tree, const char *name);
+extern "C" bool bk_tree_set_counter(void *tree, int index);
+extern "C" void bk_tree_finish_container(void *tree);
 
 #if defined(_MSC_VER)
 #define BK_STDCALL __stdcall
@@ -93,6 +112,12 @@ struct IDataStorage : public IRefCount {
     virtual bool BK_STDCALL RemoveStorage(const char *) = 0;
 };
 
+struct IStorageEnumerator : public IRefCount {
+    virtual void BK_STDCALL Reset(const char *) = 0;
+    virtual bool BK_STDCALL Next() = 0;
+    virtual const void *BK_STDCALL GetStats() const = 0;
+};
+
 struct IDataStream : public IRefCount {
     virtual int BK_STDCALL Read(void *, int) = 0;
     virtual int BK_STDCALL Write(const void *, int) = 0;
@@ -119,6 +144,22 @@ struct IDataTable : public IRefCount {
     virtual void BK_STDCALL SetDouble(const char *, const char *, double) = 0;
     virtual void BK_STDCALL SetString(const char *, const char *, const char *) = 0;
     virtual void BK_STDCALL SetRawData(const char *, const char *, const void *, int) = 0;
+};
+
+struct IDataTree : public IRefCount {
+    virtual bool BK_STDCALL IsReading() const = 0;
+    virtual int BK_STDCALL StartChunk(const char *) = 0;
+    virtual void BK_STDCALL FinishChunk() = 0;
+    virtual int BK_STDCALL GetChunkSize() = 0;
+    virtual bool BK_STDCALL RawData(void *, int) = 0;
+    virtual bool BK_STDCALL StringData(char *) = 0;
+    virtual bool BK_STDCALL StringData(unsigned short *) = 0;
+    virtual bool BK_STDCALL DataChunk(const char *, int *) = 0;
+    virtual bool BK_STDCALL DataChunk(const char *, double *) = 0;
+    virtual int BK_STDCALL CountChunks(const char *) = 0;
+    virtual bool BK_STDCALL SetChunkCounter(int) = 0;
+    virtual int BK_STDCALL StartContainerChunk(const char *) = 0;
+    virtual void BK_STDCALL FinishContainerChunk() = 0;
 };
 
 typedef IRefCount *(BK_STDCALL *ObjectFactoryNewFunc)();
@@ -189,7 +230,7 @@ public:
     void *BK_STDCALL GetCommonFactory() override { return &factory_; }
     void BK_STDCALL SetGDB(void *gdb) override { gdb_ = gdb; }
     void *BK_STDCALL CreateStructureSaver(void *, int, void *) override { return 0; }
-    void *BK_STDCALL CreateDataTreeSaver(void *, int, const char *) override { return 0; }
+    void *BK_STDCALL CreateDataTreeSaver(void *, int, const char *) override;
     void *BK_STDCALL OpenStorage(const char *, unsigned long, unsigned long) override;
     void *BK_STDCALL CreateStorage(const char *, unsigned long, unsigned long) override;
     void *BK_STDCALL OpenDataBase(const char *, unsigned long, unsigned long) override { return 0; }
@@ -219,7 +260,7 @@ public:
         return total;
     }
     void BK_STDCALL Flush() override { bk_stream_flush(stream_); }
-    void BK_STDCALL GetStats(void *) override {}
+    void BK_STDCALL GetStats(void *stats) override { if (stats) bk_stream_stats(stream_, stats); }
 };
 
 class ZigDataTable final : public IDataTable {
@@ -247,7 +288,58 @@ public:
     void BK_STDCALL SetRawData(const char *, const char *, const void *, int) override {}
 };
 
+class StorageEnumerator final : public IStorageEnumerator {
+    void *enumerator_;
+    mutable struct { const char *name; int type; int size; unsigned int ctime, mtime, atime; } stats_ = {};
+    int refs_ = 1;
+public:
+    explicit StorageEnumerator(void *enumerator) : enumerator_(enumerator) {}
+    ~StorageEnumerator() { bk_enumerator_destroy(enumerator_); }
+    void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
+    void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
+    bool BK_STDCALL IsValid() const override { return enumerator_ != 0; }
+    void BK_STDCALL Reset(const char *) override { bk_enumerator_reset(enumerator_); }
+    bool BK_STDCALL Next() override { return bk_enumerator_next(enumerator_); }
+    const void *BK_STDCALL GetStats() const override { return bk_enumerator_stats(enumerator_, &stats_) ? &stats_ : 0; }
+};
+
+class ZigDataTree final : public IDataTree {
+    void *tree_;
+    int mode_;
+    int refs_ = 1;
+public:
+    ZigDataTree(void *tree, int mode) : tree_(tree), mode_(mode) {}
+    ~ZigDataTree() { bk_tree_destroy(tree_); }
+    void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
+    void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
+    bool BK_STDCALL IsValid() const override { return tree_ != 0; }
+    bool BK_STDCALL IsReading() const override { return mode_ == 2; }
+    int BK_STDCALL StartChunk(const char *name) override { return name ? bk_tree_start(tree_, name) : 0; }
+    void BK_STDCALL FinishChunk() override { bk_tree_finish(tree_); }
+    int BK_STDCALL GetChunkSize() override { return bk_tree_size(tree_); }
+    bool BK_STDCALL RawData(void *, int) override { return false; }
+    bool BK_STDCALL StringData(char *data) override { return data && bk_tree_string(tree_, data); }
+    bool BK_STDCALL StringData(unsigned short *data) override {
+        if (!data) return false;
+        const int size = bk_tree_size(tree_); char buffer[4096];
+        if (size < 0 || size >= int(sizeof(buffer)) || !bk_tree_string(tree_, buffer)) return false;
+        for (int i = 0; i <= size; ++i) data[i] = static_cast<unsigned char>(buffer[i]);
+        return true;
+    }
+    bool BK_STDCALL DataChunk(const char *name, int *data) override { return name && data && bk_tree_int(tree_, name, data); }
+    bool BK_STDCALL DataChunk(const char *name, double *data) override { return name && data && bk_tree_double(tree_, name, data); }
+    int BK_STDCALL CountChunks(const char *name) override { return bk_tree_count(tree_, name ? name : ""); }
+    bool BK_STDCALL SetChunkCounter(int index) override { return bk_tree_set_counter(tree_, index); }
+    int BK_STDCALL StartContainerChunk(const char *name) override { return bk_tree_start_container(tree_, name ? name : ""); }
+    void BK_STDCALL FinishContainerChunk() override { bk_tree_finish_container(tree_); }
+};
+
 void *BK_STDCALL SaveLoadSystem::OpenDataTable(void *stream, const char *) { ZigDataStream *zig_stream = static_cast<ZigDataStream *>(stream); return zig_stream ? new ZigDataTable(zig_stream->Native()) : 0; }
+void *BK_STDCALL SaveLoadSystem::CreateDataTreeSaver(void *stream, int mode, const char *base) {
+    ZigDataStream *zig_stream = static_cast<ZigDataStream *>(stream);
+    void *tree = zig_stream ? bk_tree_create(zig_stream->Native(), mode, base ? base : "base") : 0;
+    return tree ? new ZigDataTree(tree, mode) : 0;
+}
 
 class DataStorage final : public IDataStorage {
     void *storage_;
@@ -259,10 +351,18 @@ public:
     bool BK_STDCALL IsStreamExist(const char *name) override { return bk_storage_exists(storage_, name); }
     void *BK_STDCALL CreateStream(const char *name, unsigned long access) override { void *stream = bk_storage_create_stream(storage_, name, access); return stream ? new ZigDataStream(stream) : 0; }
     void *BK_STDCALL OpenStream(const char *name, unsigned long access) override { void *stream = bk_storage_open(storage_, name, access); return stream ? new ZigDataStream(stream) : 0; }
-    bool BK_STDCALL GetStreamStats(const char *, void *) override { return false; }
+    bool BK_STDCALL GetStreamStats(const char *name, void *stats) override {
+        // Binary .gdb files are an optional cache.  Until the Zig structure
+        // serializer can validate and decode that format, expose the XML
+        // source of truth rather than claiming a readable cache.
+        const char *extension = 0;
+        for (const char *p = name; p && *p; ++p) if (*p == '.') extension = p;
+        if (extension && extension[1] == 'g' && extension[2] == 'd' && extension[3] == 'b' && extension[4] == 0) return false;
+        return name && stats && bk_storage_stats(storage_, name, stats);
+    }
     bool BK_STDCALL DestroyElement(const char *) override { return false; }
     bool BK_STDCALL RenameElement(const char *, const char *) override { return false; }
-    void *BK_STDCALL CreateEnumerator() override { return 0; }
+    void *BK_STDCALL CreateEnumerator() override { void *enumerator = bk_storage_enumerator_create(storage_); return enumerator ? new StorageEnumerator(enumerator) : 0; }
     const char *BK_STDCALL GetName() const override { const char *name = bk_storage_name(storage_); return name ? name : ""; }
     bool BK_STDCALL AddStorage(IDataStorage *, const char *) override { return true; }
     bool BK_STDCALL RemoveStorage(const char *) override { return true; }

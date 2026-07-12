@@ -1,4 +1,5 @@
 const std = @import("std");
+const xml = @import("xml.zig");
 
 var buffers: [10]std.ArrayListUnmanaged(u8) = [_]std.ArrayListUnmanaged(u8){.empty} ** 10;
 
@@ -13,6 +14,28 @@ extern fn ftell(file: *File) c_long;
 extern fn fread(buffer: ?*anyopaque, size: usize, count: usize, file: *File) usize;
 extern fn fwrite(buffer: ?*const anyopaque, size: usize, count: usize, file: *File) usize;
 extern fn fflush(file: *File) c_int;
+const FileAttributes = extern struct {
+    attributes: u32,
+    creation_low: u32,
+    creation_high: u32,
+    access_low: u32,
+    access_high: u32,
+    write_low: u32,
+    write_high: u32,
+    size_high: u32,
+    size_low: u32,
+};
+const FileTime = extern struct { low: u32, high: u32 };
+extern fn GetFileAttributesExA(path: [*:0]const u8, info_level: u32, attributes: *FileAttributes) callconv(.winapi) bool;
+extern fn FileTimeToDosDateTime(file_time: *const FileTime, date: *u16, time: *u16) callconv(.winapi) bool;
+const FindData = extern struct {
+    attributes: u32, creation_low: u32, creation_high: u32, access_low: u32, access_high: u32,
+    write_low: u32, write_high: u32, size_high: u32, size_low: u32, reserved0: u32, reserved1: u32,
+    file_name: [260]u8, alternate_name: [14]u8,
+};
+extern fn FindFirstFileA(pattern: [*:0]const u8, data: *FindData) callconv(.winapi) ?*anyopaque;
+extern fn FindNextFileA(handle: *anyopaque, data: *FindData) callconv(.winapi) bool;
+extern fn FindClose(handle: *anyopaque) callconv(.winapi) bool;
 
 const allocator = std.heap.page_allocator;
 
@@ -23,11 +46,33 @@ const Storage = struct {
 
 const Stream = struct {
     bytes: []u8,
-    name: []u8,
+    name: [:0]u8,
     path: [:0]u8,
     position: usize = 0,
     begin: usize = 0,
     access: u32,
+};
+
+const StorageStats = extern struct {
+    name: ?[*:0]const u8,
+    element_type: c_int,
+    size: c_int,
+    creation_time: u32,
+    modification_time: u32,
+    access_time: u32,
+};
+
+const Tree = struct {
+    document: xml.Document,
+    current: *xml.Node,
+    stack: std.ArrayListUnmanaged(*xml.Node) = .empty,
+    container: ?*xml.Node = null,
+    mode: c_int,
+};
+
+const Enumerator = struct {
+    names: std.ArrayListUnmanaged([:0]u8) = .empty,
+    index: usize = 0,
 };
 
 const GlobalEntry = struct { key: []u8, value: [:0]u8 };
@@ -65,6 +110,36 @@ fn makePath(storage: *const Storage, name: []const u8) ?[]u8 {
     return path;
 }
 
+fn isStructureCache(name: []const u8) bool {
+    return name.len >= 4 and std.ascii.eqlIgnoreCase(name[name.len - 4 ..], ".gdb");
+}
+
+fn collectFiles(storage: *const Storage, enumerator: *Enumerator, relative: []const u8) void {
+    const pattern_bytes = std.fmt.allocPrint(allocator, "{s}{s}*", .{ storage.base, relative }) catch return;
+    defer allocator.free(pattern_bytes);
+    const pattern = allocator.dupeZ(u8, pattern_bytes) catch return;
+    defer allocator.free(pattern);
+    var data: FindData = undefined;
+    const handle = FindFirstFileA(pattern.ptr, &data) orelse return;
+    defer _ = FindClose(handle);
+    while (true) {
+        const name = std.mem.sliceTo(&data.file_name, 0);
+        if (!std.mem.eql(u8, name, ".") and !std.mem.eql(u8, name, "..")) {
+            if ((data.attributes & 0x10) != 0) {
+                const child = std.fmt.allocPrint(allocator, "{s}{s}\\", .{ relative, name }) catch "";
+                defer if (child.len != 0) allocator.free(child);
+                if (child.len != 0) collectFiles(storage, enumerator, child);
+            } else {
+                const full_name_bytes = std.fmt.allocPrint(allocator, "{s}{s}", .{ relative, name }) catch continue;
+                defer allocator.free(full_name_bytes);
+                const full_name = allocator.dupeZ(u8, full_name_bytes) catch continue;
+                enumerator.names.append(allocator, full_name) catch allocator.free(full_name);
+            }
+        }
+        if (!FindNextFileA(handle, &data)) break;
+    }
+}
+
 fn openStream(storage: *Storage, name: []const u8, access: u32, create: bool) ?*Stream {
     const raw_path = makePath(storage, name) orelse return null;
     defer allocator.free(raw_path);
@@ -80,7 +155,7 @@ fn openStream(storage: *Storage, name: []const u8, access: u32, create: bool) ?*
         allocator.free(bytes); allocator.free(path);
         return null;
     }
-    const name_copy = allocator.dupe(u8, name) catch {
+    const name_copy = allocator.dupeZ(u8, name) catch {
         allocator.free(bytes); allocator.free(path);
         return null;
     };
@@ -166,7 +241,84 @@ pub export fn bk_storage_open(handle: ?*anyopaque, name: [*:0]const u8, access: 
 
 pub export fn bk_storage_create_stream(handle: ?*anyopaque, name: [*:0]const u8, access: c_ulong) callconv(.c) ?*anyopaque {
     const storage = fromHandle(Storage, handle) orelse return null;
-    return openStream(storage, std.mem.span(name), @truncate(access), true);
+    const stream_name = std.mem.span(name);
+    // .gdb is a derived binary cache.  Do not create a cache that this Zig
+    // runtime cannot yet serialize; callers continue with the XML source.
+    if (isStructureCache(stream_name)) return null;
+    return openStream(storage, stream_name, @truncate(access), true);
+}
+
+pub export fn bk_storage_stats(handle: ?*anyopaque, name: [*:0]const u8, output: ?*StorageStats) callconv(.c) bool {
+    const storage = fromHandle(Storage, handle) orelse return false;
+    const stats = output orelse return false;
+    const path = makePath(storage, std.mem.span(name)) orelse return false;
+    defer allocator.free(path);
+    const file = fopen(@ptrCast(path.ptr), "rb") orelse return false;
+    defer _ = fclose(file);
+    if (fseek(file, 0, 2) != 0) return false;
+    const end = ftell(file);
+    if (end < 0 or end > std.math.maxInt(c_int)) return false;
+    var attributes: FileAttributes = undefined;
+    const have_attributes = GetFileAttributesExA(@ptrCast(path.ptr), 0, &attributes);
+    var date: u16 = 0;
+    var time: u16 = 0;
+    var modification_time: u32 = 0;
+    if (have_attributes) {
+        const write_time = FileTime{ .low = attributes.write_low, .high = attributes.write_high };
+        if (FileTimeToDosDateTime(&write_time, &date, &time)) modification_time = @as(u32, time) | (@as(u32, date) << 16);
+    }
+    stats.* = .{
+        .name = name,
+        .element_type = 2,
+        .size = @intCast(end),
+        .creation_time = 0,
+        .modification_time = modification_time,
+        .access_time = 0,
+    };
+    return true;
+}
+
+pub export fn bk_stream_stats(handle: ?*anyopaque, output: ?*StorageStats) callconv(.c) bool {
+    const stream = fromHandle(Stream, handle) orelse return false;
+    const stats = output orelse return false;
+    if (stream.bytes.len > std.math.maxInt(c_int)) return false;
+    stats.* = .{ .name = stream.name.ptr, .element_type = 2, .size = @intCast(stream.bytes.len), .creation_time = 0, .modification_time = 0, .access_time = 0 };
+    return true;
+}
+
+pub export fn bk_storage_enumerator_create(handle: ?*anyopaque) callconv(.c) ?*anyopaque {
+    const storage = fromHandle(Storage, handle) orelse return null;
+    const enumerator = allocator.create(Enumerator) catch return null;
+    enumerator.* = .{};
+    collectFiles(storage, enumerator, "");
+    return enumerator;
+}
+
+pub export fn bk_enumerator_destroy(handle: ?*anyopaque) callconv(.c) void {
+    const enumerator = fromHandle(Enumerator, handle) orelse return;
+    for (enumerator.names.items) |name| allocator.free(name);
+    enumerator.names.deinit(allocator);
+    allocator.destroy(enumerator);
+}
+
+pub export fn bk_enumerator_reset(handle: ?*anyopaque) callconv(.c) void {
+    const enumerator = fromHandle(Enumerator, handle) orelse return;
+    enumerator.index = 0;
+}
+
+pub export fn bk_enumerator_next(handle: ?*anyopaque) callconv(.c) bool {
+    const enumerator = fromHandle(Enumerator, handle) orelse return false;
+    if (enumerator.index >= enumerator.names.items.len) return false;
+    enumerator.index += 1;
+    return true;
+}
+
+pub export fn bk_enumerator_stats(handle: ?*anyopaque, output: ?*StorageStats) callconv(.c) bool {
+    const enumerator = fromHandle(Enumerator, handle) orelse return false;
+    const stats = output orelse return false;
+    if (enumerator.index == 0 or enumerator.index > enumerator.names.items.len) return false;
+    stats.* = .{ .name = enumerator.names.items[enumerator.index - 1].ptr, .element_type = 2, .size = 0, .creation_time = 0, .modification_time = 0, .access_time = 0 };
+    return true;
 }
 
 pub export fn bk_stream_read(handle: ?*anyopaque, destination: ?*anyopaque, length: c_int) callconv(.c) c_int {
@@ -255,6 +407,127 @@ fn lastPathSegment(path: []const u8) []const u8 {
         if (byte == '/' or byte == '\\') start = index + 1;
     }
     return path[start..];
+}
+
+fn treeNode(tree: *Tree, path: []const u8) ?*xml.Node {
+    var node = tree.current;
+    var parts = std.mem.splitScalar(u8, path, '/');
+    while (parts.next()) |part| {
+        if (part.len == 0 or std.mem.eql(u8, part, ".")) continue;
+        node = xml.child(node, part) orelse return null;
+    }
+    return node;
+}
+
+pub export fn bk_tree_create(stream_handle: ?*anyopaque, mode: c_int, base: [*:0]const u8) callconv(.c) ?*anyopaque {
+    const stream = fromHandle(Stream, stream_handle) orelse return null;
+    if (mode != 2) return null; // Write support is added only after a complete XML writer exists.
+    const document = xml.parse(allocator, stream.bytes) catch return null;
+    var current = document.root;
+    const base_name = std.mem.span(base);
+    if (!std.mem.eql(u8, current.name, base_name)) current = xml.child(current, base_name) orelse {
+        var owned = document;
+        owned.deinit();
+        return null;
+    };
+    const tree = allocator.create(Tree) catch {
+        var owned = document;
+        owned.deinit();
+        return null;
+    };
+    tree.* = .{ .document = document, .current = current, .mode = mode };
+    return tree;
+}
+
+pub export fn bk_tree_destroy(handle: ?*anyopaque) callconv(.c) void {
+    const tree = fromHandle(Tree, handle) orelse return;
+    tree.stack.deinit(allocator);
+    tree.document.deinit();
+    allocator.destroy(tree);
+}
+
+pub export fn bk_tree_start(handle: ?*anyopaque, name: [*:0]const u8) callconv(.c) c_int {
+    const tree = fromHandle(Tree, handle) orelse return 0;
+    const path = std.mem.span(name);
+    if (path.len == 0) return -1;
+    const next = treeNode(tree, path) orelse return 0;
+    tree.stack.append(allocator, tree.current) catch return 0;
+    tree.current = next;
+    return 1;
+}
+
+pub export fn bk_tree_finish(handle: ?*anyopaque) callconv(.c) void {
+    const tree = fromHandle(Tree, handle) orelse return;
+    if (tree.stack.pop()) |previous| tree.current = previous;
+}
+
+pub export fn bk_tree_size(handle: ?*anyopaque) callconv(.c) c_int {
+    const tree = fromHandle(Tree, handle) orelse return 0;
+    return @intCast(tree.current.text.len);
+}
+
+pub export fn bk_tree_string(handle: ?*anyopaque, destination: ?*anyopaque) callconv(.c) bool {
+    const tree = fromHandle(Tree, handle) orelse return false;
+    const output = destination orelse return false;
+    const bytes = @as([*]u8, @ptrCast(output));
+    @memcpy(bytes[0..tree.current.text.len], tree.current.text);
+    bytes[tree.current.text.len] = 0;
+    return true;
+}
+
+pub export fn bk_tree_int(handle: ?*anyopaque, name: [*:0]const u8, value: ?*c_int) callconv(.c) bool {
+    const tree = fromHandle(Tree, handle) orelse return false;
+    const result = value orelse return false;
+    const text = xml.attribute(tree.current, std.mem.span(name)) orelse return false;
+    result.* = std.fmt.parseInt(c_int, text, 0) catch return false;
+    return true;
+}
+
+pub export fn bk_tree_double(handle: ?*anyopaque, name: [*:0]const u8, value: ?*f64) callconv(.c) bool {
+    const tree = fromHandle(Tree, handle) orelse return false;
+    const result = value orelse return false;
+    const text = xml.attribute(tree.current, std.mem.span(name)) orelse return false;
+    result.* = std.fmt.parseFloat(f64, text) catch return false;
+    return true;
+}
+
+pub export fn bk_tree_start_container(handle: ?*anyopaque, name: [*:0]const u8) callconv(.c) c_int {
+    const tree = fromHandle(Tree, handle) orelse return 0;
+    const chunk = std.mem.span(name);
+    const container = treeNode(tree, if (chunk.len == 0) "data" else chunk) orelse return 0;
+    tree.stack.append(allocator, tree.current) catch return 0;
+    tree.current = container;
+    tree.container = container;
+    return 1;
+}
+
+pub export fn bk_tree_count(handle: ?*anyopaque, _: [*:0]const u8) callconv(.c) c_int {
+    const tree = fromHandle(Tree, handle) orelse return 0;
+    const container = tree.container orelse return 0;
+    var count: c_int = 0;
+    for (container.children.items) |item| {
+        if (std.mem.eql(u8, item.name, "item")) count += 1;
+    }
+    return count;
+}
+
+pub export fn bk_tree_set_counter(handle: ?*anyopaque, index: c_int) callconv(.c) bool {
+    const tree = fromHandle(Tree, handle) orelse return false;
+    const container = tree.container orelse return false;
+    if (index < 0) return false;
+    var found: c_int = 0;
+    for (container.children.items) |item| {
+        if (!std.mem.eql(u8, item.name, "item")) continue;
+        if (found == index) { tree.current = item; return true; }
+        found += 1;
+    }
+    return false;
+}
+
+pub export fn bk_tree_finish_container(handle: ?*anyopaque) callconv(.c) void {
+    const tree = fromHandle(Tree, handle) orelse return;
+    tree.container = null;
+    bk_tree_finish(handle);
 }
 
 fn isXmlNameByte(byte: u8) bool {

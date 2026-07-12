@@ -29,6 +29,11 @@
 
 #include "..\GameTT\CutScenesHelper.h"
 #include "..\Misc\TimeMeter.h"
+#ifdef BK_STARTUP_TRACE
+#define BK_STARTUP_MARKER(name) ::OutputDebugStringA("BK_STARTUP: " name "\n")
+#else
+#define BK_STARTUP_MARKER(name) ((void)0)
+#endif
 float Clamp1( float fVal, float fMin, float fMax )
 {
 	union { float f; int hex; };
@@ -237,17 +242,21 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 	}
 	timeMeter.Reset();
 	NWinFrame::ShowAppWindow( true );
+	BK_STARTUP_MARKER("before NMain::Initialize");
 	if ( NMain::Initialize(NWinFrame::GetHWnd(), NWinFrame::GetHWnd(), NWinFrame::GetHWnd(), true) != true )
 	{
 		::MessageBox( 0, "Can't initialize game...", "ERROR", MB_OK | MB_ICONEXCLAMATION );
 		return 0xDEAD;
 	}
+	BK_STARTUP_MARKER("after NMain::Initialize");
 	timeMeter.Sample( "game system init" );
+	BK_STARTUP_MARKER("before IObjectsDB::LoadDB");
 	if ( GetSingleton<IObjectsDB>()->LoadDB() == false )
 	{
 		NI_ASSERT_T( false, "Can't opent objects.xml to load game database" );
 		return 0xDEAD;
 	}
+	BK_STARTUP_MARKER("after IObjectsDB::LoadDB");
 	timeMeter.Reset();
 	{
 		IFilesInspector *pInspector = GetSingleton<IFilesInspector>();
