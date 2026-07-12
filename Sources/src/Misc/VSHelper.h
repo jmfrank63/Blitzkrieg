@@ -59,7 +59,7 @@ inline const double GetVar( IVarSystem *pVS, const std::string &szVarName, const
 template <class TYPE>
 	inline void SetTypedVar( IVarSystem *pVS, const std::string &szVarName, const TYPE &value )
 	{
-		pVS->Set( szVarName, &value );
+		pVS->Set( szVarName, variant_t( value ) );
 	}
 inline void SetVar( IVarSystem *pVS, const std::string &szVarName, const std::string &defval ) 
 { 

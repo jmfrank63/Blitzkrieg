@@ -47,7 +47,7 @@ CUIOption::CUIOption( IUIStatic *_pOptionName, IUIDialog *_pDialog, IOption *_pO
 		GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format( "cannot find localized string %s", szKeyName.c_str() ) );
 #endif // _FINALRELEASE
 		const std::wstring szFallbackName = NStr::ToUnicode( pOption->GetName() );
-		pOptionName->SetWindowText( 0, szFallbackName.c_str() );
+		pOptionName->SetWindowText( 0, reinterpret_cast<const WORD *>( szFallbackName.c_str() ) );
 	}
 	pText = pTM->GetString( szKeyTooltip.c_str() );
 	if ( pText )
@@ -114,7 +114,7 @@ void CUIOption::ChangeSelection( const int nCurSelection )
 		if ( !bGeneratedSelectionText )
 			GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_CHAT, NStr::Format( "cannot find localized string %s", szKeyName.c_str() ) );
 #endif // _FINALRELEASE
-		pStatic->SetWindowText( 0, NStr::ToUnicode( szSelections[nCurSelection].szProgName ).c_str() );
+		pStatic->SetWindowText( 0, reinterpret_cast<const WORD *>( NStr::ToUnicode( szSelections[nCurSelection].szProgName ).c_str() ) );
 	}
 
 	pText = pTM->GetString( szKeyTooltip.c_str() );
@@ -218,7 +218,7 @@ void CUIOption::SetTextNumericOption( const int nEntry )
 void CUIOption::ResetTextEntry()
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX ) );
-	pStatic->SetWindowText( 0, szInitialText.c_str() );
+	pStatic->SetWindowText( 0, reinterpret_cast<const WORD *>( szInitialText.c_str() ) );
 	pSubDialog->ShowWindow( UI_SW_SHOW );
 	IText * pHelpContext = pOptionName->GetHelpContext( VNULL2, 0 );
 	if ( pHelpContext )
@@ -227,7 +227,7 @@ void CUIOption::ResetTextEntry()
 void CUIOption::ResetTextGameSpyEntry()
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX_GAMESPY) );
-	pStatic->SetWindowText( 0, szInitialText.c_str() );
+	pStatic->SetWindowText( 0, reinterpret_cast<const WORD *>( szInitialText.c_str() ) );
 	pSubDialog->ShowWindow( UI_SW_SHOW );
 	
 	IText * pHelpContext = pOptionName->GetHelpContext( VNULL2, 0 );
@@ -237,7 +237,7 @@ void CUIOption::ResetTextGameSpyEntry()
 void CUIOption::ResetNumericEntry()
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX_NUMERIC ) );
-	pStatic->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%d", nInitialNumericEntry ) ).c_str() );
+	pStatic->SetWindowText( 0, reinterpret_cast<const WORD *>( NStr::ToUnicode( NStr::Format( "%d", nInitialNumericEntry ) ).c_str() ) );
 	pSubDialog->ShowWindow( UI_SW_SHOW );
 	IText * pHelpContext = pOptionName->GetHelpContext( VNULL2, 0 );
 	if ( pHelpContext )
@@ -261,12 +261,12 @@ const int CUIOption::GetTextNumericOption() const
 const wchar_t * CUIOption::GetTextGameSpyOption() const
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX ) );
-	return pStatic->GetWindowText( 0 );
+	return reinterpret_cast<const wchar_t*>( pStatic->GetWindowText( 0 ) );
 }
 const wchar_t * CUIOption::GetTextOption () const
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX ) );
-	return pStatic->GetWindowText( 0 );
+	return reinterpret_cast<const wchar_t*>( pStatic->GetWindowText( 0 ) );
 }
 COptionsListWrapper::COptionsListWrapper( const DWORD _dwFlags, IUIListControl * _pList, const int _nIDToStartFrom, IOptionSystem * pSystem, const bool _bDisableChange )
 	: pList( _pList ), nIDToStartFrom( _nIDToStartFrom ), dwFlags( _dwFlags ), bDisableChange( _bDisableChange ), pSetOptionSystem( pSystem )
@@ -286,7 +286,7 @@ COptionsListWrapper::COptionsListWrapper( IUIListControl * _pList, OptionDescs &
 void COptionsListWrapper::InitList( const bool bDefault )
 {
 	std::vector< CPtr<IOption> > optionsToGive;
-	IOptionSystem * pSystem = pSetOptionSystem ? pSetOptionSystem : GetSingleton<IOptionSystem>();
+	IOptionSystem * pSystem = pSetOptionSystem ? pSetOptionSystem.GetPtr() : GetSingleton<IOptionSystem>();
 
 	for ( OptionDescs::const_iterator it = optionsDescs.begin(); it != optionsDescs.end(); ++it )
 	{

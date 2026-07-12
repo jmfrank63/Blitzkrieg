@@ -41,7 +41,7 @@ bool CMessageAtomReactionSetWindowTextFromGlobalVar::Execute()
 										NStr::ToAscii(GetGlobalWVar(szTextKey.c_str(), L"")).c_str() );
 #endif // #if !defined(_FINALRELEASE) && !defined(_BETARELEASE)
 	
-	GetSingleton<IMessageLinkContainer>()->SetWindowText( nWindowID, GetGlobalWVar(szTextKey.c_str(), L"") );
+	GetSingleton<IMessageLinkContainer>()->SetWindowText( nWindowID, GetGlobalWVar(szTextKey.c_str(), reinterpret_cast<const WORD*>( L"" )) );
 	return true;
 }
 bool CMessageAtomReactionSetWindowText::Execute() 

@@ -130,7 +130,7 @@ void CInterfacePlayerProfile::StartInterface()
 	IOptionSystem * pOptionsSystem = GetSingleton<IOptionSystem>();
 	variant_t var;
 	pOptionsSystem->Get( "GamePlay.PlayerName", &var );
-	const std::wstring szName = bstr_t(var);
+	const std::wstring szName = static_cast<const wchar_t*>( bstr_t(var) );
 	
 	pEdit->SetWindowText( 0, reinterpret_cast<const WORD*>( szName.c_str() ) );
 	

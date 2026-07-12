@@ -150,7 +150,8 @@ void CInterfaceSwitchModeTo::OnOk()
 	IMainLoop * pML = GetSingleton<IMainLoop>();
 	pML->Command( MAIN_COMMAND_CHANGE_MOD, szDirName.c_str() );
 	pML->Command( nCommandOnOk, szCommandParams.c_str() );
-	GetSingleton<IMPToUICommandManager>()->AddNotificationFromUI( SFromUINotification(EUTMN_SWITCH_MOD_OK,0) );
+	SFromUINotification notification( EUTMN_SWITCH_MOD_OK, 0 );
+	GetSingleton<IMPToUICommandManager>()->AddNotificationFromUI( notification );
 }
 bool CInterfaceSwitchModeTo::ProcessMessage( const SGameMessage &msg )
 {
@@ -172,7 +173,8 @@ bool CInterfaceSwitchModeTo::ProcessMessage( const SGameMessage &msg )
 			else
 			{
 				CloseInterface();
-				GetSingleton<IMPToUICommandManager>()->AddNotificationFromUI( SFromUINotification(EUTMN_CANCEL_CONNECT_TO_SERVER,0) );
+				SFromUINotification notification( EUTMN_CANCEL_CONNECT_TO_SERVER, 0 );
+				GetSingleton<IMPToUICommandManager>()->AddNotificationFromUI( notification );
 			}
 			return true;
 			

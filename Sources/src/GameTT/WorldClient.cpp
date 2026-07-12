@@ -668,7 +668,7 @@ void CWorldClient::Update( const NTimer::STime &currTime )
 				std::string szCmd = "ReturnScriptIDs( ";
 
 				for ( CMapObjectsList::const_iterator it = selList.begin(); it != selList.end(); ++it )
-					szCmd += NStr::Format( "%d,", reinterpret_cast<int>((*it)->pAIObj.GetPtr()) );
+					szCmd += NStr::Format( "%llu,", static_cast<unsigned long long>( reinterpret_cast<uintptr_t>( (*it)->pAIObj.GetPtr() ) ) );
 				szCmd.resize( szCmd.size() - 1 );
 				szCmd += " )";
 
@@ -1015,9 +1015,11 @@ void CWorldClient::ResetPreSelection( IVisObj *pObj )
 								bResetSelection = bResetSelection && ( pos == preselectedObjects.end() || *it == pUnit );
 							}
 							if ( bResetSelection )
+							{
 								for ( std::vector<IMOUnit*>::iterator it = units.begin(); it != units.end(); ++it )
 									if ( (*it)->pVisObj.IsValid() )
 										(*it)->pVisObj->SetSpecular( 0x00000000 );
+							}
 						}
 				}
 				else if ( pUnit->pVisObj.IsValid() )
@@ -1234,14 +1236,14 @@ void DisplayObjective( IUIContainer *pDialog, IText *pHeader, IText *pBody )
 		pTextHeader->SetWindowText( 0, pHeader->GetString() );
 	}
 	else
-		pTextHeader->SetWindowText( 0, L"" );
+		pTextHeader->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
 	
 	if ( pBody ) 
 	{
 		pTextBody->SetWindowText( 0, pBody->GetString() );
 	}
 	else
-		pTextBody->SetWindowText( 0, L"" );
+		pTextBody->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
 	
 	if ( !pHeader && !pBody )
 		pDialog->ShowWindow( UI_SW_HIDE );

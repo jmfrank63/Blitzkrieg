@@ -358,7 +358,7 @@ void CInterfaceMPGamesList::AskPassword()
 
 	pDialogEnterPassword = checked_cast<IUIDialog *>( pUIScreen->GetChildByID( E_DIALOG_PASSWORD ) );
 	IUIElement *pElement = pDialogEnterPassword->GetChildByID( E_PASSWORD_ENTRY_FEILD );
-	pElement->SetWindowText( 0, L"" );
+	pElement->SetWindowText( 0, reinterpret_cast<const WORD*>( L"" ) );
 	pElement->SetFocus( true );
 	pDialogEnterPassword->ShowWindow( UI_SW_SHOW_MODAL );
 }
@@ -426,30 +426,30 @@ void CInterfaceMPGamesList::UpdateServerInfo( SUIServerInfo * pServerInfo )
 	else if ( pServerInfo->bPassword )
 		nState = E_SERVER_STATE_PASSWORD;
 	
-	pPasswordDialog->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%i", nState ) ).c_str() );
+	pPasswordDialog->SetWindowText( 0, reinterpret_cast<const WORD*>( NStr::ToUnicode( NStr::Format( "%i", nState ) ).c_str() ) );
 	pPasswordIcon->SetState( nState );
 	pPasswordIcon->EnableWindow( false );
 
 	IUIStatic * pElementServerName = checked_cast<IUIStatic*>( pRow->GetElement( 1 ) );
-	pElementServerName->SetWindowText( 0, pServerInfo->szName.c_str() );
+	pElementServerName->SetWindowText( 0, reinterpret_cast<const WORD*>( pServerInfo->szName.c_str() ) );
 
 	IUIStatic * pElementModName = checked_cast<IUIStatic*>( pRow->GetElement( 2 ) );
-	pElementModName->SetWindowText( 0, NStr::ToUnicode( pServerInfo->szModName ).c_str() );
+	pElementModName->SetWindowText( 0, reinterpret_cast<const WORD*>( NStr::ToUnicode( pServerInfo->szModName ).c_str() ) );
 	
 	IUIStatic * pElementModVersion = checked_cast<IUIStatic*>( pRow->GetElement( 3 ) );
-	pElementModVersion->SetWindowText( 0, NStr::ToUnicode( pServerInfo->szModVersion ).c_str()  );
+	pElementModVersion->SetWindowText( 0, reinterpret_cast<const WORD*>( NStr::ToUnicode( pServerInfo->szModVersion ).c_str() )  );
 
 	IUIStatic *pMapName = checked_cast<IUIStatic*>( pRow->GetElement( 4 ) );
-	pMapName->SetWindowText( 0, SUIMapInfo::GetVisualName( pServerInfo->szMapName ) );
+	pMapName->SetWindowText( 0, reinterpret_cast<const WORD*>( SUIMapInfo::GetVisualName( pServerInfo->szMapName ) ) );
 	
 	IUIStatic *pGameType = checked_cast<IUIStatic*>( pRow->GetElement( 5 ) );
-	pGameType->SetWindowText( 0, CUIConsts::GetMapTypeString( pServerInfo->eGameType ) );
+	pGameType->SetWindowText( 0, reinterpret_cast<const WORD*>( CUIConsts::GetMapTypeString( pServerInfo->eGameType ) ) );
 
 	IUIStatic *pPlayersNum = checked_cast<IUIStatic*>( pRow->GetElement( 6 ) );
-	pPlayersNum->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%d/%d", pServerInfo->nPlayers, pServerInfo->nPlayersMax ) ).c_str() );
+	pPlayersNum->SetWindowText( 0, reinterpret_cast<const WORD*>( NStr::ToUnicode( NStr::Format( "%d/%d", pServerInfo->nPlayers, pServerInfo->nPlayersMax ) ).c_str() ) );
 
 	IUIStatic * pPing = checked_cast<IUIStatic*>( pRow->GetElement( 7 ) );
-	pPing->SetWindowText( 0, NStr::ToUnicode( NStr::Format( "%d", int(pServerInfo->fPing * 1000) ) ).c_str() );
+	pPing->SetWindowText( 0, reinterpret_cast<const WORD*>( NStr::ToUnicode( NStr::Format( "%d", int(pServerInfo->fPing * 1000) ) ).c_str() ) );
 
 	const SUIServerInfo * pInfo = serversList.GetCurInfo();
 	if ( pInfo && pInfo->GetID() == pServerInfo->GetID() )

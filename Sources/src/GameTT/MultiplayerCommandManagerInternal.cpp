@@ -16,7 +16,7 @@ void CMPToUICommandManager::AddCommandToUI( const SToUICommand &cmd )
 {
 	commandsToUI.push_back( cmd );
 }
-void CMPToUICommandManager::AddNotificationFromUI( SFromUINotification &notify )
+void CMPToUICommandManager::AddNotificationFromUI( const SFromUINotification &notify )
 {
 	notificationsFromUI.push_back( notify );
 }

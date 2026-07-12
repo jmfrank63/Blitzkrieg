@@ -656,6 +656,7 @@ pub fn build(b: *std.Build) void {
     const gfx = addGFX(b, target, optimize, toolchain, misc, formats);
     const randommapgen = addRandomMapGen(b, target, optimize, toolchain);
     const ailogic = addLegacyProjectDll(b, target, optimize, toolchain, "AILogic", "Sources/src/AILogic/AILogic.vcxproj", "Sources/src/AILogic/AILogic.def", &.{ "Sources/src/AILogic", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/GameTT", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/vorbis-1.3.7/include" }, &.{ misc, lualib, formats, randommapgen, zlib });
+    const gamett = addLegacyProjectDll(b, target, optimize, toolchain, "GameTT", "Sources/src/GameTT/GameTT.vcxproj", "Sources/src/GameTT/GameTT.def", &.{ "Sources/src/GameTT", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/AILogic" }, &.{ misc, formats, common, randommapgen });
     const main = addMain(b, target, optimize, toolchain);
     const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats, blitz64);
     const package_module = b.createModule(.{
@@ -688,6 +689,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(randommapgen);
     b.installArtifact(main);
     b.installArtifact(ailogic);
+    b.installArtifact(gamett);
     b.installArtifact(streamio_zig);
     b.installArtifact(game);
 
@@ -754,6 +756,9 @@ pub fn build(b: *std.Build) void {
     const ailogic_step = b.step("ailogic", "Build the AILogic x64 dynamic library");
     ailogic_step.dependOn(&b.addInstallArtifact(ailogic, .{}).step);
 
+    const gamett_step = b.step("gamett", "Build the GameTT x64 dynamic library");
+    gamett_step.dependOn(&b.addInstallArtifact(gamett, .{}).step);
+
     const game_step = b.step("game", "Build the Game executable");
     game_step.dependOn(&b.addInstallArtifact(game, .{}).step);
 
@@ -762,6 +767,7 @@ pub fn build(b: *std.Build) void {
     game_all_step.dependOn(&b.addInstallArtifact(streamio_zig, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(scene, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(ailogic, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(gamett, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(anim, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(gfx, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(image, .{}).step);
@@ -994,6 +1000,7 @@ fn addLegacyProjectDll(
     } else module.addCSourceFiles(.{ .files = files.items, .flags = cppflagsForOptimize(optimize) });
     for (libraries) |library| module.linkLibrary(library);
     linkMsvcRuntime(module, optimize);
+    module.linkSystemLibrary("version", .{});
     module.linkSystemLibrary("winmm", .{});
     module.linkSystemLibrary("user32", .{});
     module.linkSystemLibrary("odbc32", .{});

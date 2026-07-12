@@ -7,7 +7,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $install = (Resolve-Path -LiteralPath $InstallDir).Path
 $dumpbin = (Get-Command dumpbin.exe -ErrorAction Stop).Source
-$required = @('StreamIO.dll', 'Anim.dll', 'GFX.dll', 'Image.dll', 'Input.dll', 'Net.dll', 'SFX.dll', 'UI.dll', 'Scene.dll', 'AILogic.dll')
+$required = @('StreamIO.dll', 'Anim.dll', 'GFX.dll', 'Image.dll', 'Input.dll', 'Net.dll', 'SFX.dll', 'UI.dll', 'Scene.dll', 'AILogic.dll', 'GameTT.dll')
 $log = Join-Path $install 'x64-runtime-validation.log'
 
 Remove-Item -LiteralPath $log -Force -ErrorAction SilentlyContinue
