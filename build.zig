@@ -31,6 +31,8 @@ const cppflags_debug = &.{
     "-D_MT",
     "-D_DLL",
     "-fms-extensions",
+
+    "-fms-compatibility",
     "-fms-compatibility",
     "-fdelayed-template-parsing",
     "-Wno-deprecated-declarations",
@@ -753,6 +755,7 @@ pub fn build(b: *std.Build) void {
     const game_all_step = b.step("game-all", "Build and install the playable game runtime set");
     game_all_step.dependOn(&b.addInstallArtifact(game, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(streamio_zig, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(scene, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(anim, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(gfx, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(image, .{}).step);
@@ -980,6 +983,7 @@ fn addLegacyProjectDll(
     for (libraries) |library| module.linkLibrary(library);
     linkMsvcRuntime(module, optimize);
     module.linkSystemLibrary("winmm", .{});
+    module.linkSystemLibrary("user32", .{});
     module.linkSystemLibrary("odbc32", .{});
     module.linkSystemLibrary("odbccp32", .{});
     linkComSupport(module, optimize);

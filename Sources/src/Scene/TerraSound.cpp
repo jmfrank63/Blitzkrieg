@@ -34,7 +34,7 @@ void CTerrain::GetTerrainMassData( SSoundTerrainInfo **ppData, int *pnSize )
 	std::sort( collectedInfo.begin(), collectedInfo.end(), prMassSort );
 	SSoundTerrainInfo::PrZeroMass prZeroMass;
 	std::vector<SSoundTerrainInfo>::iterator firstZeromass = std::find_if( collectedInfo.begin(), collectedInfo.end(), prZeroMass );
-	*pnSize = Min( *pnSize, firstZeromass-collectedInfo.begin() );
+	*pnSize = Min( *pnSize, int(firstZeromass - collectedInfo.begin()) );
 	collectedInfo.resize( *pnSize );
 	SSoundTerrainInfo::PrTerrainTypeSort prTerrainType;
 	std::sort( collectedInfo.begin(), collectedInfo.end(), prTerrainType );

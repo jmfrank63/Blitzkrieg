@@ -1,5 +1,5 @@
 #ifndef __SMOKIN_PARTICLESOURCEDATA_H__
-#define __SMIKIN_PARTICLESOURCEDATA_H__
+#define __SMOKIN_PARTICLESOURCEDATA_H__
 #pragma ONCE
 #include "Track.h"
 struct SSmokinParticleSourceData : public CTRefCount<ISharedResource>
