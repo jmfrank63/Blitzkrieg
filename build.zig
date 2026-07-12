@@ -645,6 +645,7 @@ pub fn build(b: *std.Build) void {
     const betakeygen = addBetaKeyGen(b, target, optimize, toolchain, zlib, misc);
     const input = addInput(b, target, optimize, toolchain, misc);
     const formats = addFormats(b, target, optimize, toolchain);
+    const scene = addLegacyProjectDll(b, target, optimize, toolchain, "Scene", "Sources/src/Scene/Scene.vcxproj", "Sources/src/Scene/Scene.def", &.{ "Sources/src/Scene", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/libtheora-1.2.0/include" }, &.{ misc, formats });
     const anim = addAnim(b, target, optimize, toolchain, misc, formats);
     const common = addCommon(b, target, optimize, toolchain);
     const ui = addUI(b, target, optimize, toolchain, misc, common, lualib);
@@ -742,6 +743,9 @@ pub fn build(b: *std.Build) void {
 
     const streamio_step = b.step("streamio", "Build the Zig StreamIO dynamic library");
     streamio_step.dependOn(&b.addInstallArtifact(streamio_zig, .{}).step);
+
+    const scene_step = b.step("scene", "Build the Scene x64 dynamic library");
+    scene_step.dependOn(&b.addInstallArtifact(scene, .{}).step);
 
     const game_step = b.step("game", "Build the Game executable");
     game_step.dependOn(&b.addInstallArtifact(game, .{}).step);
@@ -941,6 +945,45 @@ fn addStreamIOZig(
         .root_module = streamio_module,
         .win32_module_definition = b.path("Sources/src/StreamIOZig/StreamIO.def"),
     });
+}
+
+fn addLegacyProjectDll(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    name: []const u8,
+    project: []const u8,
+    definition: []const u8,
+    includes: []const []const u8,
+    libraries: []const *std.Build.Step.Compile,
+) *std.Build.Step.Compile {
+    const contents = std.Io.Dir.cwd().readFileAlloc(b.graph.io, project, b.allocator, .limited(8 * 1024 * 1024)) catch |err| @panic(@errorName(err));
+    var files: std.ArrayListUnmanaged([]const u8) = .empty;
+    var offset: usize = 0;
+    const marker = "<ClCompile Include=\"";
+    while (std.mem.indexOfPos(u8, contents, offset, marker)) |start| {
+        const path_start = start + marker.len;
+        const path_end = std.mem.indexOfPos(u8, contents, path_start, "\"") orelse break;
+        const source = contents[path_start..path_end];
+        if (std.mem.endsWith(u8, source, ".cpp") or std.mem.endsWith(u8, source, ".c")) {
+            files.append(b.allocator, b.fmt("Sources/src/{s}/{s}", .{ name, source })) catch @panic("OOM");
+        }
+        offset = path_end + 1;
+    }
+    const module = b.createModule(.{ .target = target, .optimize = optimize });
+    addProjectIncludePaths(b, module);
+    addMsvcIncludePaths(b, module, toolchain);
+    addMsvcLibraryPaths(b, module, toolchain);
+    for (includes) |include| module.addIncludePath(b.path(include));
+    module.addCSourceFiles(.{ .files = files.items, .flags = cppflagsForOptimize(optimize) });
+    for (libraries) |library| module.linkLibrary(library);
+    linkMsvcRuntime(module, optimize);
+    module.linkSystemLibrary("winmm", .{});
+    module.linkSystemLibrary("odbc32", .{});
+    module.linkSystemLibrary("odbccp32", .{});
+    linkComSupport(module, optimize);
+    return b.addLibrary(.{ .name = name, .linkage = .dynamic, .root_module = module, .win32_module_definition = b.path(definition) });
 }
 
 fn addMain(

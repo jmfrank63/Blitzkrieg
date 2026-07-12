@@ -35,7 +35,7 @@ public:
 	int GetFreeId();
 	void AddToFreeId( int id );
 
-	inline int CFreeIds::operator&( IStructureSaver &ss )
+	inline int operator&( IStructureSaver &ss )
 	{
 		CSaverAccessor saver = &ss;
 		
