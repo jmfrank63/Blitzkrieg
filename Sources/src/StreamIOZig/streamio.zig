@@ -24,6 +24,7 @@ const Storage = struct {
 const Stream = struct {
     bytes: []u8,
     name: []u8,
+    path: [:0]u8,
     position: usize = 0,
     begin: usize = 0,
     access: u32,
@@ -65,29 +66,30 @@ fn makePath(storage: *const Storage, name: []const u8) ?[]u8 {
 }
 
 fn openStream(storage: *Storage, name: []const u8, access: u32, create: bool) ?*Stream {
-    const path = makePath(storage, name) orelse return null;
-    defer allocator.free(path);
+    const raw_path = makePath(storage, name) orelse return null;
+    defer allocator.free(raw_path);
+    const path = allocator.dupeZ(u8, raw_path[0 .. raw_path.len - 1]) catch return null;
     const mode: [*:0]const u8 = if (create or (access & 0x2) != 0) "wb+" else "rb";
-    const file = fopen(@ptrCast(path.ptr), mode) orelse return null;
+    const file = fopen(path.ptr, mode) orelse { allocator.free(path); return null; };
     defer _ = fclose(file);
     if (fseek(file, 0, 2) != 0) return null;
     const end = ftell(file);
     if (end < 0 or fseek(file, 0, 0) != 0) return null;
     const bytes = allocator.alloc(u8, @intCast(end)) catch return null;
     if (bytes.len != 0 and fread(bytes.ptr, 1, bytes.len, file) != bytes.len) {
-        allocator.free(bytes);
+        allocator.free(bytes); allocator.free(path);
         return null;
     }
     const name_copy = allocator.dupe(u8, name) catch {
-        allocator.free(bytes);
+        allocator.free(bytes); allocator.free(path);
         return null;
     };
     const stream = allocator.create(Stream) catch {
-        allocator.free(name_copy);
+        allocator.free(name_copy); allocator.free(path);
         allocator.free(bytes);
         return null;
     };
-    stream.* = .{ .bytes = bytes, .name = name_copy, .access = access };
+    stream.* = .{ .bytes = bytes, .name = name_copy, .path = path, .access = access };
     if ((access & 0x4) != 0) stream.position = bytes.len;
     return stream;
 }
@@ -210,6 +212,21 @@ pub export fn bk_stream_size(handle: ?*anyopaque) callconv(.c) c_int {
     return @intCast(stream.bytes.len - stream.begin);
 }
 
+pub export fn bk_stream_set_size(handle: ?*anyopaque, size: c_int) callconv(.c) bool {
+    const stream = fromHandle(Stream, handle) orelse return false;
+    if (size < 0 or (stream.access & 0x2) == 0) return false;
+    const target: usize = @intCast(size);
+    if (target != stream.bytes.len) {
+        const previous = stream.bytes.len;
+        const resized = allocator.realloc(stream.bytes, target) catch return false;
+        if (target > previous) @memset(resized[previous..], 0);
+        stream.bytes = resized;
+    }
+    if (stream.position > target) stream.position = target;
+    if (stream.begin > target) stream.begin = target;
+    return true;
+}
+
 pub export fn bk_stream_lock_begin(handle: ?*anyopaque) callconv(.c) c_int {
     const stream = fromHandle(Stream, handle) orelse return 0;
     stream.begin = stream.position;
@@ -226,9 +243,10 @@ pub export fn bk_stream_unlock_begin(handle: ?*anyopaque) callconv(.c) c_int {
 pub export fn bk_stream_flush(handle: ?*anyopaque) callconv(.c) bool {
     const stream = fromHandle(Stream, handle) orelse return false;
     if ((stream.access & 0x2) == 0) return true;
-    // Writable streams are materialized by the adapter's storage path. Read
-    // streams never reach this branch during game startup.
-    return true;
+    const file = fopen(stream.path.ptr, "wb") orelse return false;
+    defer _ = fclose(file);
+    if (stream.bytes.len != 0 and fwrite(stream.bytes.ptr, 1, stream.bytes.len, file) != stream.bytes.len) return false;
+    return fflush(file) == 0;
 }
 
 fn lastPathSegment(path: []const u8) []const u8 {

@@ -11,6 +11,7 @@ extern "C" int bk_stream_write(void *stream, const void *source, int length);
 extern "C" int bk_stream_seek(void *stream, int offset, int origin);
 extern "C" int bk_stream_position(void *stream);
 extern "C" int bk_stream_size(void *stream);
+extern "C" bool bk_stream_set_size(void *stream, int size);
 extern "C" int bk_stream_lock_begin(void *stream);
 extern "C" int bk_stream_unlock_begin(void *stream);
 extern "C" bool bk_stream_flush(void *stream);
@@ -211,7 +212,7 @@ public:
     int BK_STDCALL GetPos() const override { return bk_stream_position(stream_); }
     int BK_STDCALL Seek(int offset, int from) override { return bk_stream_seek(stream_, offset, from); }
     int BK_STDCALL GetSize() const override { return bk_stream_size(stream_); }
-    bool BK_STDCALL SetSize(int) override { return false; }
+    bool BK_STDCALL SetSize(int size) override { return bk_stream_set_size(stream_, size); }
     int BK_STDCALL CopyTo(IDataStream *destination, int length) override {
         char buffer[4096]; int total = 0;
         while (length > 0) { const int count = Read(buffer, length < 4096 ? length : 4096); if (!count) break; total += destination->Write(buffer, count); length -= count; }
