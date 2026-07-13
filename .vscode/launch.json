@@ -2,6 +2,61 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Debug Game.exe (Zig, x86)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/zig-out/game-x86-debug/Game.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/zig-out/game-x86-debug",
+      "environment": [],
+      "console": "integratedTerminal",
+      "preLaunchTask": "Zig Build Game (Debug, x86)",
+      "symbolOptions": {
+        "searchPaths": [
+          "${workspaceFolder}/zig-out/game-x86-debug",
+          "${workspaceFolder}/zig-out/bin"
+        ],
+        "searchMicrosoftSymbolServer": false,
+        "cachePath": "${workspaceFolder}/.vscode/symbolcache"
+      },
+      "sourceFileMap": {},
+      "logging": {
+        "moduleLoad": false,
+        "trace": false,
+        "engineLogging": false,
+        "programOutput": true,
+        "exceptions": true
+      }
+    },
+    {
+      "name": "Debug Game.exe (Zig, x86, No Build)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/zig-out/game-x86-debug/Game.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/zig-out/game-x86-debug",
+      "environment": [],
+      "console": "integratedTerminal",
+      "symbolOptions": {
+        "searchPaths": [
+          "${workspaceFolder}/zig-out/game-x86-debug",
+          "${workspaceFolder}/zig-out/bin"
+        ],
+        "searchMicrosoftSymbolServer": false,
+        "cachePath": "${workspaceFolder}/.vscode/symbolcache"
+      },
+      "sourceFileMap": {},
+      "logging": {
+        "moduleLoad": false,
+        "trace": false,
+        "engineLogging": false,
+        "programOutput": true,
+        "exceptions": true
+      }
+    },
+    {
       "name": "WinDbg: Debug Game.exe",
       "type": "windbg",
       "request": "launch",
@@ -19,7 +74,7 @@
       "symbolSearchPath": "${workspaceFolder}/Sources/src/Game/Debug;${workspaceFolder}/Sources/src/**/Debug"
     },
     {
-      "name": "Debug Game.exe",
+      "name": "Debug Game.exe (MSBuild)",
       "type": "cppvsdbg",
       "request": "launch",
       "program": "${workspaceFolder}/Sources/src/Game/Debug/Game.exe",
@@ -47,7 +102,7 @@
       }
     },
     {
-      "name": "Debug Game.exe (No Build)",
+      "name": "Debug Game.exe (MSBuild, No Build)",
       "type": "cppvsdbg",
       "request": "launch",
       "program": "${workspaceFolder}/Sources/src/Game/Debug/Game.exe",

@@ -307,12 +307,12 @@ namespace NDxt
 {
 	int GetEncodedSize( int width, int height, Format format )
 	{
-		return Blocks( width ) * Blocks( height ) * BlockSize( format );
+		return static_cast<int>( static_cast<size_t>( Blocks( width ) ) * Blocks( height ) * BlockSize( format ) );
 	}
 
 	int GetDecodedSize( int width, int height )
 	{
-		return width * height * 4;
+		return static_cast<int>( static_cast<size_t>( width ) * height * 4 );
 	}
 
 	void Encode( const DxtSurfaceDesc &input, Format format, void *output )

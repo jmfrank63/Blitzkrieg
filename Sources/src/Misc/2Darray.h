@@ -19,9 +19,9 @@ class CArray2D
 	T *data;															// main data pointer
 	T **pData;														// row pointers
 	int nSizeX, nSizeY;										// array size
-	void Copy( const CArray2D &a ) { nSizeX = a.nSizeX; nSizeY = a.nSizeY; Create(); for ( int i=0; i<nSizeX*nSizeY; ++i ) data[i] = a.data[i]; }
+	void Copy( const CArray2D &a ) { nSizeX = a.nSizeX; nSizeY = a.nSizeY; Create(); for ( int i=0; i<static_cast<int>(static_cast<size_t>(nSizeX) * static_cast<size_t>(nSizeY)); ++i ) data[i] = a.data[i]; }
 	void Destroy() { if ( data ) delete []data; if ( pData ) delete []pData; data = 0; pData = 0; nSizeX = nSizeY = 0; }
-	void Create() { data = new T[nSizeX*nSizeY]; pData = new PT[nSizeY]; for ( int i=0; i<nSizeY; ++i ) pData[i] = data + i*nSizeX; }
+	void Create() { data = new T[static_cast<size_t>(nSizeX) * static_cast<size_t>(nSizeY)]; pData = new PT[nSizeY]; for ( int i=0; i<nSizeY; ++i ) pData[i] = data + static_cast<size_t>(i) * static_cast<size_t>(nSizeX); }
 public:
 	CArray2D() : data( 0 ), pData( 0 ), nSizeX( 0 ), nSizeY( 0 ) {  }
 	CArray2D( int xsize, int ysize ) : nSizeX( xsize ), nSizeY( ysize ) { Create(); }
@@ -30,8 +30,8 @@ public:
 	const CArray2D& operator=( const CArray2D &a ) { Destroy(); Copy( a ); return *this; }
 	void SetSizes( int xsize, int ysize ) { if ( nSizeX == xsize && nSizeY == ysize ) return; Destroy(); nSizeX = xsize; nSizeY = ysize; Create(); }
 	void Clear() { Destroy(); }
-	void SetZero() { memset( data, 0, sizeof(T) * nSizeX * nSizeY ); }
-	void Set( const T &a ) { for ( int i=0; i<nSizeX*nSizeY; ++i ) data[i] = a; }
+	void SetZero() { memset( data, 0, sizeof(T) * static_cast<size_t>(nSizeX) * static_cast<size_t>(nSizeY) ); }
+	void Set( const T &a ) { for ( int i=0; i<static_cast<int>(static_cast<size_t>(nSizeX) * static_cast<size_t>(nSizeY)); ++i ) data[i] = a; }
 #ifdef _DEBUG
 	CBoundCheck operator[]( int i ) const { NI_ASSERT_SLOW_T( i>=0 && i<nSizeY, NStr::Format("Y size (%d) miss in 2D array (%d)", nSizeY, i) ); return CBoundCheck( pData[i], nSizeX ); }
 #else

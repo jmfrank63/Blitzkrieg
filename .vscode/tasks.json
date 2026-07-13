@@ -242,6 +242,60 @@
         "panel": "shared"
       },
       "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Zig Build Game (Debug, x86)",
+      "type": "process",
+      "command": "zig",
+      "args": [
+        "build",
+        "--build-file",
+        "${workspaceFolder}/build.zig",
+        "install-game",
+        "-Dtarget=x86-windows-msvc",
+        "-Doptimize=Debug",
+        "-Dinstall-dir=zig-out/game-x86-debug"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Zig Build Game (Release, x86)",
+      "type": "process",
+      "command": "zig",
+      "args": [
+        "build",
+        "--build-file",
+        "${workspaceFolder}/build.zig",
+        "install-game",
+        "-Dtarget=x86-windows-msvc",
+        "-Doptimize=ReleaseFast",
+        "-Dinstall-dir=zig-out/game-x86"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Zig Run Game (Debug, x86)",
+      "type": "process",
+      "command": "${workspaceFolder}/zig-out/game-x86-debug/Game.exe",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
     }
   ]
 }

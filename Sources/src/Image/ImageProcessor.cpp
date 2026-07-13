@@ -113,7 +113,7 @@ IDDSImage* CompressDXTN( const IImage *pImage, EGFXPixelFormat format )
 	CImageDDS *pImageMMP = new CImageDDS( pImage->GetSizeX(), pImage->GetSizeY(), ddsformat );
 	std::vector<BYTE> &outdata = pImageMMP->AddEmptyMipLevel();
 	outdata.resize( nNumCompressedBytes );
-	NDxt::DxtSurfaceDesc input = { pImage->GetSizeX(), pImage->GetSizeY(), pImage->GetSizeX() * 4, pImage->GetLFB() };
+	NDxt::DxtSurfaceDesc input = { pImage->GetSizeX(), pImage->GetSizeY(), static_cast<int>(static_cast<size_t>(pImage->GetSizeX()) * 4), pImage->GetLFB() };
 	NDxt::Encode( input, dxtFormat, &( outdata[0] ) );
 	return pImageMMP;
 }

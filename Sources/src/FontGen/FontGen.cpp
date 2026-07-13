@@ -186,8 +186,8 @@ IImage* CreateFontImage( const SFontInfo &fi, const std::vector<WORD> &chars )
   DrawFont( hDC, fi, chars );
   SelectObject( hDC, hOldFont );
   SelectObject( hDC, hOldBmp );
-  std::vector<DWORD> imagedata( fi.nTextureSizeX * fi.nTextureSizeY );
-  for ( int i=0, j=0; i<fi.nTextureSizeX * fi.nTextureSizeY * 3; i+=3, ++j )
+  std::vector<DWORD> imagedata( static_cast<size_t>(fi.nTextureSizeX) * fi.nTextureSizeY );
+  for ( int i=0, j=0; i<static_cast<int>(static_cast<size_t>(fi.nTextureSizeX) * fi.nTextureSizeY * 3); i+=3, ++j )
   {
 		DWORD a = pBitmapBits[i];
     DWORD c = pBitmapBits[i];//( a != 0 ? 255 : pBitmapBits[i] );
