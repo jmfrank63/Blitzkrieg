@@ -960,9 +960,39 @@ pub export fn bk_tree_string(handle: ?*anyopaque, destination: ?*anyopaque) call
 pub export fn bk_tree_int(handle: ?*anyopaque, name: [*:0]const u8, value: ?*c_int) callconv(.c) bool {
     const tree = fromHandle(Tree, handle) orelse return false;
     const result = value orelse return false;
-    const text = xml.attribute(tree.current, std.mem.span(name)) orelse return false;
-    result.* = std.fmt.parseInt(c_int, text, 0) catch return false;
+    // Navigate to the named child element; fall back to an attribute on the
+    // current node so both storage styles work.
+    const node = treeNode(tree, std.mem.span(name)) orelse {
+        const attr = xml.attribute(tree.current, std.mem.span(name)) orelse return false;
+        result.* = parseTreeInt(attr) catch return false;
+        return true;
+    };
+    result.* = parseTreeInt(node.text) catch return false;
     return true;
+}
+
+/// Parse a legacy data-tree integer value.
+/// The XML serialiser historically stored ints as 8 lower-case hex digits in
+/// little-endian byte order ("01000000" = LE bytes 01 00 00 00 = int 1).
+/// Plain decimal strings are also accepted for forward compatibility.
+fn parseTreeInt(text: []const u8) !c_int {
+    if (text.len == 8) {
+        // Check whether all eight characters are hex digits.
+        var all_hex = true;
+        for (text) |c| {
+            if (!std.ascii.isHex(c)) { all_hex = false; break; }
+        }
+        if (all_hex) {
+            // Decode as four little-endian bytes.
+            var bytes: [4]u8 = undefined;
+            bytes[0] = try std.fmt.parseInt(u8, text[0..2], 16);
+            bytes[1] = try std.fmt.parseInt(u8, text[2..4], 16);
+            bytes[2] = try std.fmt.parseInt(u8, text[4..6], 16);
+            bytes[3] = try std.fmt.parseInt(u8, text[6..8], 16);
+            return @bitCast(std.mem.readInt(u32, &bytes, .little));
+        }
+    }
+    return std.fmt.parseInt(c_int, text, 0);
 }
 
 pub export fn bk_tree_double(handle: ?*anyopaque, name: [*:0]const u8, value: ?*f64) callconv(.c) bool {

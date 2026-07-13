@@ -11,7 +11,7 @@ class CImage : public IImage
 	int nSizeY;
 public:
 	CImage( int _nSizeX, int _nSizeY, const std::vector<DWORD> &_data );
-	CImage( int _nSizeX, int _nSizeY ) : nSizeX( _nSizeX ), nSizeY( _nSizeY ), data( _nSizeX*_nSizeY ) {  }
+	CImage( int _nSizeX, int _nSizeY ) : nSizeX( _nSizeX ), nSizeY( _nSizeY ), data( static_cast<size_t>(_nSizeX) * static_cast<size_t>(_nSizeY) ) {  }
 	virtual int STDCALL GetSizeX() const { return nSizeX; }
 	virtual int STDCALL GetSizeY() const { return nSizeY; }
 	virtual void STDCALL Set( SColor color );
@@ -20,14 +20,14 @@ public:
 	virtual void STDCALL SetColor( DWORD color );
 	virtual bool STDCALL SetColor( const IImage *pColor );
 
-	SColor Get( int nX, int nY ) const { return data[nY*nSizeX + nX]; }
-	void Set( int nX, int nY, DWORD dwColor ) { data[nY*nSizeX + nX].color = dwColor; }
+	SColor Get( int nX, int nY ) const { return data[static_cast<size_t>(nY)*nSizeX + nX]; }
+	void Set( int nX, int nY, DWORD dwColor ) { data[static_cast<size_t>(nY)*nSizeX + nX].color = dwColor; }
 	void Set( DWORD dwColor ) { std::fill(data.begin(), data.end(), dwColor); }
-	void SetAlpha( int nX, int nY, DWORD dwColor ) { data[nY*nSizeX + nX] = (data[nY*nSizeX + nX].color & 0x00FFFFFF) | (dwColor & 0xFF000000); }
-	const SColor& operator()( int nX, int nY ) const { return data[nY*nSizeX + nX]; }
-	SColor& operator()( int nX, int nY ) { return data[nY*nSizeX + nX]; }
-	const SColor* operator[]( int nY ) const { return &( data[nY*nSizeX] ); }
-	SColor* operator[]( int nY ) { return &( data[nY*nSizeX] ); }
+	void SetAlpha( int nX, int nY, DWORD dwColor ) { size_t idx = static_cast<size_t>(nY)*nSizeX + nX; data[idx] = (data[idx].color & 0x00FFFFFF) | (dwColor & 0xFF000000); }
+	const SColor& operator()( int nX, int nY ) const { return data[static_cast<size_t>(nY)*nSizeX + nX]; }
+	SColor& operator()( int nX, int nY ) { return data[static_cast<size_t>(nY)*nSizeX + nX]; }
+	const SColor* operator[]( int nY ) const { return &( data[static_cast<size_t>(nY)*nSizeX] ); }
+	SColor* operator[]( int nY ) { return &( data[static_cast<size_t>(nY)*nSizeX] ); }
 	virtual const SColor* STDCALL GetLFB() const { return &( data[0] ); }
 	virtual SColor* STDCALL GetLFB() { return &( data[0] ); }
 	virtual const SColor* STDCALL GetLine( int nLine ) const { return &( data[nLine*nSizeX] ); }

@@ -204,10 +204,10 @@ int CScene::operator&( IStructureSaver &ss )
 				}
 			}
 		}
-		if ( ( areaCraters.GetSizeX() != areaUnits.GetSizeX() * AREA_MAP_CELL_SIZE_IN_TILES ) ||
-			   ( areaCraters.GetSizeY() != areaUnits.GetSizeY() * AREA_MAP_CELL_SIZE_IN_TILES ) ) 
-			areaCraters.SetSizes( areaUnits.GetSizeX() * AREA_MAP_CELL_SIZE_IN_TILES, 
-			                      areaUnits.GetSizeY() * AREA_MAP_CELL_SIZE_IN_TILES );
+		if ( ( areaCraters.GetSizeX() != static_cast<int>(static_cast<size_t>(areaUnits.GetSizeX()) * AREA_MAP_CELL_SIZE_IN_TILES) ) ||
+			   ( areaCraters.GetSizeY() != static_cast<int>(static_cast<size_t>(areaUnits.GetSizeY()) * AREA_MAP_CELL_SIZE_IN_TILES) ) ) 
+			areaCraters.SetSizes( static_cast<int>(static_cast<size_t>(areaUnits.GetSizeX()) * AREA_MAP_CELL_SIZE_IN_TILES), 
+			                      static_cast<int>(static_cast<size_t>(areaUnits.GetSizeY()) * AREA_MAP_CELL_SIZE_IN_TILES) );
 	}
 	return 0;
 }

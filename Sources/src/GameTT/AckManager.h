@@ -64,11 +64,11 @@ private:
 
 	struct SUnitAckInfo
 	{
-		EAcknowledgementType eType;
+		EAcknowledgementType eType = ACKT_VOID;
 		std::string szTextKey;
-		EAcknowledgementColor eColor;
-		EAcknowledgementAdditionalSound eSound;
-		ESoundPosition ePosition;
+		EAcknowledgementColor eColor = ACOL_INFORMATION;
+		EAcknowledgementAdditionalSound eSound = AAS_NONE;
+		ESoundPosition ePosition = ESP_FROM_INTERFACE;
 		int nTimeAfterPrevious;
 		
 		SUnitAckInfo() {  }
@@ -87,10 +87,10 @@ private:
 		std::string szAckName;
 		std::string szTextKey;
 		
-		EAcknowledgementType eType;
-		EAcknowledgementColor eColor;
-		EAcknowledgementAdditionalSound eSound;
-		ESoundPosition ePosition;
+		int eType = ACKT_VOID;
+		int eColor = ACOL_INFORMATION;
+		int eSound = AAS_NONE;
+		int ePosition = ESP_FROM_INTERFACE;
 		int nTimeAfterPrevious;
 		SUnitAckInfoForLoad() {  }
 		SUnitAckInfoForLoad( const std::string &_szAckName,

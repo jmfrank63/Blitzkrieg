@@ -168,7 +168,7 @@ void CWarFog::AddUnit( const SFogInfo &fogInfo )
 }
 void CWarFog::GetVisibilities( SAIVisInfo **pVisBuffer, int *pnLen )
 {
-	*pVisBuffer = GetTempBuffer<SAIVisInfo>( sizeSum*sizeDiff );	
+	*pVisBuffer = GetTempBuffer<SAIVisInfo>( static_cast<size_t>(sizeSum)*sizeDiff );	
 	*pnLen = 0;
 
 	for ( int diff = ( minDiff + minDiff % 2 ) / 2; diff <= ( maxDiff - maxDiff % 2 ) / 2; ++diff )

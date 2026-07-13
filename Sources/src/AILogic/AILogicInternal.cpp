@@ -1038,7 +1038,7 @@ void GetWarfogVisibilities( const T &warFog, const CVec2 &upLeft, const CVec2 &d
 	const int minDiff = upLeft.x - upLeft.y;
 	const int maxDiff = downLeft.x - downLeft.y;
 
-	*pVisBuffer = GetTempBuffer<SAIVisInfo>( ( maxSum - minSum + 1 )*( maxDiff - minDiff + 1 ) );
+	*pVisBuffer = GetTempBuffer<SAIVisInfo>( static_cast<size_t>( maxSum - minSum + 1 )*( maxDiff - minDiff + 1 ) );
 	*pnLen = 0;
 
 	for ( int diff = ( minDiff + minDiff % 2 ) / 2; diff <= ( maxDiff - maxDiff % 2 ) / 2; ++diff )
@@ -1112,7 +1112,7 @@ void CAILogic::CheckDiplomacy( const IRefCount **pUnitsBuffer, BYTE **pResults, 
 }
 void CAILogic::GetGlobalPassability( BYTE **pMapBuffer, int *pnLen )
 {
-	*pMapBuffer = GetTempBuffer<BYTE>( theStaticMap.GetSizeX() * theStaticMap.GetSizeY() );
+	*pMapBuffer = GetTempBuffer<BYTE>( static_cast<size_t>(theStaticMap.GetSizeX()) * theStaticMap.GetSizeY() );
 	*pnLen = 0;
 
 	for ( int i = 0; i < theStaticMap.GetSizeY(); ++i )
@@ -1143,7 +1143,7 @@ void CAILogic::GetDisplayPassability( const class CVec2 &upLeft, const class CVe
 	const int sizeSum = maxSum - minSum + 1;
 	const int sizeDiff = maxDiff - minDiff + 1;
 	
-	*pPassBuffer = GetTempBuffer<SAIPassabilityInfo>( sizeSum * sizeDiff );
+	*pPassBuffer = GetTempBuffer<SAIPassabilityInfo>( static_cast<size_t>(sizeSum) * sizeDiff );
 	*pnLen = 0;
 	
 	for ( int diff = minDiff; diff <= maxDiff; ++diff )

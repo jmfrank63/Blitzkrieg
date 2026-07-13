@@ -231,8 +231,8 @@ void CClientAckManager::InitConsts()
 	for ( int i = 0; i < forLoad.size(); ++i )
 	{
 		const SUnitAckInfoForLoad &load = forLoad[i];
-		const EAcknowledgementType eType = static_cast<EAcknowledgementType>(loadHelper[load.szAckName]);
-		acksInfo[eType] = SUnitAckInfo( load.eType, load.szTextKey.c_str(), load.eColor, load.eSound, load.ePosition, load.nTimeAfterPrevious );
+		const int eType = loadHelper[load.szAckName];
+		acksInfo[eType] = SUnitAckInfo( static_cast<EAcknowledgementType>(load.eType), load.szTextKey.c_str(), static_cast<EAcknowledgementColor>(load.eColor), static_cast<EAcknowledgementAdditionalSound>(load.eSound), static_cast<ESoundPosition>(load.ePosition), load.nTimeAfterPrevious );
 	}
 }
 void CClientAckManager::Init()

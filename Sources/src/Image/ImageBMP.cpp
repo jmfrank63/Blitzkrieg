@@ -47,7 +47,7 @@ CImage* NImage::LoadImageBMP( IDataStream *pStream )
 	DWORD dwNumColors = GetDWord( 46, header );
 	DWORD dwWidth = GetDWord( 18, header );
 	DWORD dwHeight = GetDWord( 22, header );
-	std::vector<DWORD> image( dwWidth * dwHeight );
+	std::vector<DWORD> image( static_cast<size_t>(dwWidth) * static_cast<size_t>(dwHeight) );
 	if ( wNumPlanes != 1 )
 		return 0;
 	DWORD *pImageData = 0;

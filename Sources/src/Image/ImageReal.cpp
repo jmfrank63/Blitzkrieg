@@ -17,7 +17,7 @@ bool CImage::SetAlpha( const IImage *pAlpha )
   if ( (nSizeX != pAlpha->GetSizeX()) || (nSizeY != pAlpha->GetSizeY()) )
     return false;
 	const SColor *pAlphaColors = pAlpha->GetLFB();
-  for ( int i=0; i<nSizeX*nSizeY; ++i )
+  for ( size_t i=0; i<static_cast<size_t>(nSizeX)*static_cast<size_t>(nSizeY); ++i )
     data[i].color = (data[i].color & 0x00ffffff) | (pAlphaColors[i].color & 0xff000000);
   return true;
 }
@@ -38,7 +38,7 @@ bool CImage::SetColor( const IImage *pColor )
   if ( (nSizeX != pColor->GetSizeX()) || (nSizeY != pColor->GetSizeY()) )
     return false;
 	const SColor *pColors = pColor->GetLFB();
-  for ( int i=0; i<nSizeX*nSizeY; ++i )
+  for ( size_t i=0; i<static_cast<size_t>(nSizeX)*static_cast<size_t>(nSizeY); ++i )
     data[i].color = (data[i].color & 0xff000000) | (pColors[i].color & 0x00ffffff);
   return true;
 }
@@ -47,14 +47,16 @@ void CImage::FlipY()
   CImageData dataline( nSizeX );
   for ( int i=0; i<nSizeY/2; ++i )
   {
-    memcpy( &(dataline[0]), &(data[i*nSizeX]), nSizeX*sizeof(DWORD) );
-    memcpy( &(data[i*nSizeX]), &(data[(nSizeY - i - 1)*nSizeX]), nSizeX*sizeof(DWORD) );
-    memcpy( &(data[(nSizeY - i - 1)*nSizeX]), &(dataline[0]), nSizeX*sizeof(DWORD) );
+    size_t idx1 = static_cast<size_t>(i)*nSizeX;
+    size_t idx2 = static_cast<size_t>(nSizeY - i - 1)*nSizeX;
+    memcpy( &(dataline[0]), &(data[idx1]), nSizeX*sizeof(DWORD) );
+    memcpy( &(data[idx1]), &(data[idx2]), nSizeX*sizeof(DWORD) );
+    memcpy( &(data[idx2]), &(dataline[0]), nSizeX*sizeof(DWORD) );
   }
 }
 void CImage::Invert()
 {
-  for ( int i=0; i<nSizeX*nSizeY; ++i )
+  for ( size_t i=0; i<static_cast<size_t>(nSizeX)*static_cast<size_t>(nSizeY); ++i )
 	{
 		data[i].r = 255 - data[i].r;
 		data[i].g = 255 - data[i].g;
@@ -64,18 +66,18 @@ void CImage::Invert()
 }
 void CImage::InvertAlpha()
 {
-  for ( int i=0; i<nSizeX*nSizeY; ++i )
+  for ( size_t i=0; i<static_cast<size_t>(nSizeX)*static_cast<size_t>(nSizeY); ++i )
 		data[i].a = 255 - data[i].a;
 }
 void CImage::SharpenAlpha( BYTE ref )
 {
-  for ( int i=0; i<nSizeX*nSizeY; ++i )
+  for ( size_t i=0; i<static_cast<size_t>(nSizeX)*static_cast<size_t>(nSizeY); ++i )
 		data[i].a = data[i].a >= ref ? 255 : 0;
 }
 IImage* CImage::Duplicate() const
 {
 	CImage *pImage = new CImage( nSizeX, nSizeY );
-	memcpy( &(pImage->data[0]), &(data[0]), nSizeX * nSizeY * sizeof(SColor) );
+	memcpy( &(pImage->data[0]), &(data[0]), static_cast<size_t>(nSizeX) * static_cast<size_t>(nSizeY) * sizeof(SColor) );
 	return pImage;
 }
 inline int Width( const RECT &rect ) { return rect.right - rect.left; }

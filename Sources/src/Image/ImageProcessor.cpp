@@ -163,7 +163,7 @@ IImage* CImageProcessor::Decompress( const IDDSImage *pImage ) const
 	if ( pImage->GetGFXFormat() == GFXPF_ARGB8888 ) 
 	{
 		CImage *pDstImage = new CImage( pImage->GetSizeX(0), pImage->GetSizeY(0) );
-		memcpy( pDstImage->GetLFB(), pImage->GetLFB(), pImage->GetSizeX(0)*pImage->GetSizeY(0)*sizeof(SColor) );
+		memcpy( pDstImage->GetLFB(), pImage->GetLFB(), static_cast<size_t>(pImage->GetSizeX(0))*pImage->GetSizeY(0)*sizeof(SColor) );
 		return pDstImage;
 	}
 	if ( IsDxtFormat( pImage->GetGFXFormat() ) )
@@ -179,7 +179,7 @@ IImage* CImageProcessor::Decompress( const IDDSImage *pImage ) const
 	SPixelConvertInfo pci;
 	if ( !InitRawPixelConvertInfo( pImage->GetGFXFormat(), &pci ) )
 		return 0;
-	const int nNumPixels = pImage->GetSizeX(0) * pImage->GetSizeY(0);
+	const int nNumPixels = static_cast<int>(static_cast<size_t>(pImage->GetSizeX(0)) * pImage->GetSizeY(0));
 	std::vector<DWORD> outdata( nNumPixels );
 	const int nBPP = pImage->GetBPP();
 	if ( nBPP == 16 )
@@ -224,14 +224,14 @@ IImage* CImageProcessor::CreateImage( int nSizeX, int nSizeY )
 IImage* CImageProcessor::CreateImage( int nSizeX, int nSizeY, void *pData )
 {
 	CImage *pImage = new CImage( nSizeX, nSizeY );
-	memcpy( pImage->GetLFB(), pData, nSizeX*nSizeY*4 );
+	memcpy( pImage->GetLFB(), pData, static_cast<size_t>(nSizeX)*nSizeY*4 );
 	return pImage;
 }
 void CImageProcessor::RestoreImage( IImage *pImage, const SColor &bg )
 {
 	SColor *pColors = pImage->GetLFB();
 	float fBGr = float( bg.r ), fBGg = float( bg.g ), fBGb = float( bg.b );
-	for ( int i=0; i<pImage->GetSizeX()*pImage->GetSizeY(); ++i )
+	for ( int i=0; i<static_cast<int>(static_cast<size_t>(pImage->GetSizeX())*pImage->GetSizeY()); ++i )
 	{
 		if ( pColors[i].a != 0 )
 		{

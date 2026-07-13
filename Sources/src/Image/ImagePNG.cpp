@@ -65,7 +65,7 @@ CImage* NImage::LoadImagePNG( IDataStream *pStream )
 	png_read_info( png, info );
 	DWORD dwWidth = info->width;
 	DWORD dwHeight = info->height;
-	std::vector<DWORD> image( dwWidth * dwHeight );
+	std::vector<DWORD> image( static_cast<size_t>(dwWidth) * static_cast<size_t>(dwHeight) );
 
 
 	if ( ( info->color_type == PNG_COLOR_TYPE_PALETTE && info->bit_depth < 8 ) ||
