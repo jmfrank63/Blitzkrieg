@@ -992,6 +992,7 @@ fn addStreamIOZig(
         .name = "StreamIO",
         .linkage = .dynamic,
         .root_module = streamio_module,
+        .win32_module_definition = b.path("Sources/src/StreamIOZig/StreamIO.def"),
     });
 }
 
@@ -1024,8 +1025,6 @@ fn addLegacyProjectDll(
     addMsvcIncludePaths(b, module, toolchain);
     addMsvcLibraryPaths(b, module, toolchain);
     for (includes) |include| module.addIncludePath(b.path(include));
-    module.addCMacro("_DONT_LOAD_STREAMIO", "1");
-    module.addCMacro("_DONT_LOAD_SINGLETONS", "1");
     if (std.mem.eql(u8, name, "AILogic")) {
         var flags: std.ArrayListUnmanaged([]const u8) = .empty;
         flags.appendSlice(b.allocator, cppflagsForOptimize(optimize)) catch @panic("OOM");
@@ -1103,8 +1102,6 @@ fn addGame(
     game_module.addIncludePath(b.path("Sources/src/Main"));
     game_module.addIncludePath(b.path("Sources/src/RandomMapGen"));
     if (startup_trace) game_module.addCMacro("BK_STARTUP_TRACE", "1");
-    game_module.addCMacro("_DONT_LOAD_STREAMIO", "1");
-    game_module.addCMacro("_DONT_LOAD_SINGLETONS", "1");
     game_module.addCSourceFiles(.{
         .files = game_sources,
         .flags = cppflagsGameForOptimize(optimize),

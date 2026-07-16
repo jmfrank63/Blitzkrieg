@@ -243,7 +243,7 @@
       },
       "problemMatcher": "$msCompile"
     },
-    {
+{
       "label": "Zig Build Game (Debug, x86)",
       "type": "process",
       "command": "zig",
@@ -253,8 +253,7 @@
         "${workspaceFolder}/build.zig",
         "install-game",
         "-Dtarget=x86-windows-msvc",
-        "-Doptimize=Debug",
-        "-Dinstall-dir=zig-out/game-x86-debug"
+        "-Doptimize=Debug"
       ],
       "group": {
         "kind": "build",
@@ -289,7 +288,7 @@
     {
       "label": "Zig Run Game (Debug, x86)",
       "type": "process",
-      "command": "${workspaceFolder}/zig-out/game-x86-debug/Game.exe",
+      "command": "${workspaceFolder}/zig-out/Game/x86/Debug/Game.exe",
       "group": "build",
       "presentation": {
         "reveal": "always",

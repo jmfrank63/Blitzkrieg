@@ -2,19 +2,19 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug Game.exe (Zig, x86)",
+      "name": "Zig: Debug Game.exe (x86, VSDBG)",
       "type": "cppvsdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/zig-out/game/x86/debug/Game.exe",
+      "program": "${workspaceFolder}/zig-out/Game/x86/Debug/Game.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceFolder}/zig-out/game/x86/debug",
+      "cwd": "${workspaceFolder}/zig-out/Game/x86/Debug",
       "environment": [],
       "console": "integratedTerminal",
       "preLaunchTask": "Zig Build Game (Debug, x86)",
       "symbolOptions": {
         "searchPaths": [
-          "${workspaceFolder}/zig-out/game/x86/debug",
+          "${workspaceFolder}/zig-out/Game/x86/Debug",
           "${workspaceFolder}/zig-out/bin"
         ],
         "searchMicrosoftSymbolServer": false,
@@ -30,18 +30,18 @@
       }
     },
     {
-      "name": "Debug Game.exe (Zig, x86, No Build)",
+      "name": "Zig: Debug Game.exe (x86, VSDBG, No Build)",
       "type": "cppvsdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/zig-out/game/x86/debug/Game.exe",
+      "program": "${workspaceFolder}/zig-out/Game/x86/Debug/Game.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceFolder}/zig-out/game/x86/debug",
+      "cwd": "${workspaceFolder}/zig-out/Game/x86/Debug",
       "environment": [],
       "console": "integratedTerminal",
       "symbolOptions": {
         "searchPaths": [
-          "${workspaceFolder}/zig-out/game/x86/debug",
+          "${workspaceFolder}/zig-out/Game/x86/Debug",
           "${workspaceFolder}/zig-out/bin"
         ],
         "searchMicrosoftSymbolServer": false,
@@ -57,22 +57,98 @@
       }
     },
     {
-      "name": "WinDbg: Debug Game.exe",
-      "type": "windbg",
+      "name": "Zig: Debug Game.exe (x86, LLDB)",
+      "type": "cppdbg",
       "request": "launch",
-      "windbgpath": "C:/Program Files (x86)/Windows Kits/10/Debuggers/x64/dbgeng.dll",
-      "target": "${workspaceFolder}/Sources/src/Game/Debug/Game.exe",
-      "preLaunchTask": "Build Game (Debug)"
+      "program": "${workspaceFolder}/zig-out/Game/x86/Debug/Game.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/zig-out/Game/x86/Debug",
+      "environment": [],
+      "console": "integratedTerminal",
+      "MIMode": "lldb",
+      "miDebuggerPath": "C:/Program Files/LLVM/bin/lldb.exe",
+      "preLaunchTask": "Zig Build Game (Debug, x86)",
+      "sourceFileMap": {},
+      "logging": {
+        "moduleLoad": false,
+        "trace": false,
+        "engineLogging": false,
+        "programOutput": true,
+        "exceptions": true
+      }
     },
     {
-      "name": "WinDbg: Debug Game.exe (No Build)",
-      "type": "windbg",
+      "name": "Zig: Debug Game.exe (x86, LLDB, No Build)",
+      "type": "cppdbg",
       "request": "launch",
-      "windbgpath": "C:/Program Files (x86)/Windows Kits/10/Debuggers/x64/dbgeng.dll",
-      "target": "${workspaceFolder}/Sources/src/Game/Debug/Game.exe",
+      "program": "${workspaceFolder}/zig-out/Game/x86/Debug/Game.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/zig-out/Game/x86/Debug",
+      "environment": [],
+      "console": "integratedTerminal",
+      "MIMode": "lldb",
+      "miDebuggerPath": "C:/Program Files/LLVM/bin/lldb.exe",
+      "sourceFileMap": {},
+      "logging": {
+        "moduleLoad": false,
+        "trace": false,
+        "engineLogging": false,
+        "programOutput": true,
+        "exceptions": true
+      }
     },
     {
-      "name": "Debug Game.exe (MSBuild)",
+      "name": "Zig: Debug Game.exe (x64, VSDBG)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/zig-out/Game/x64/Debug/Game.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/zig-out/Game/x64/Debug",
+      "environment": [],
+      "console": "integratedTerminal",
+      "symbolOptions": {
+        "searchPaths": [
+          "${workspaceFolder}/zig-out/Game/x64/Debug",
+          "${workspaceFolder}/zig-out/bin"
+        ],
+        "searchMicrosoftSymbolServer": false,
+        "cachePath": "${workspaceFolder}/.vscode/symbolcache"
+      },
+      "sourceFileMap": {},
+      "logging": {
+        "moduleLoad": false,
+        "trace": false,
+        "engineLogging": false,
+        "programOutput": true,
+        "exceptions": true
+      }
+    },
+    {
+      "name": "Zig: Debug Game.exe (x64, LLDB)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/zig-out/Game/x64/Debug/Game.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/zig-out/Game/x64/Debug",
+      "environment": [],
+      "console": "integratedTerminal",
+      "MIMode": "lldb",
+      "miDebuggerPath": "C:/Program Files/LLVM/bin/lldb.exe",
+      "sourceFileMap": {},
+      "logging": {
+        "moduleLoad": false,
+        "trace": false,
+        "engineLogging": false,
+        "programOutput": true,
+        "exceptions": true
+      }
+    },
+    {
+      "name": "MSBuild: Debug Game.exe (x86)",
       "type": "cppvsdbg",
       "request": "launch",
       "program": "${workspaceFolder}/Sources/src/Game/Debug/Game.exe",
@@ -100,7 +176,7 @@
       }
     },
     {
-      "name": "Debug Game.exe (MSBuild, No Build)",
+      "name": "MSBuild: Debug Game.exe (x86, No Build)",
       "type": "cppvsdbg",
       "request": "launch",
       "program": "${workspaceFolder}/Sources/src/Game/Debug/Game.exe",
@@ -127,7 +203,7 @@
       }
     },
     {
-      "name": "Debug Game.exe (FastDebug)",
+      "name": "MSBuild: Debug Game.exe (FastDebug)",
       "type": "cppvsdbg",
       "request": "launch",
       "program": "${workspaceFolder}/Sources/src/Game/FastDebug/Game.exe",
@@ -139,7 +215,7 @@
       "preLaunchTask": "Build Game (FastDebug)"
     },
     {
-      "name": "Debug Game.exe (Release)",
+      "name": "MSBuild: Debug Game.exe (Release)",
       "type": "cppvsdbg",
       "request": "launch",
       "program": "${workspaceFolder}/Sources/src/Game/Release/Game.exe",
@@ -149,6 +225,22 @@
       "environment": [],
       "console": "integratedTerminal",
       "preLaunchTask": "Build Game (Release)"
+    },
+    {
+      "name": "WinDbg: Debug Game.exe (Zig x86)",
+      "type": "windbg",
+      "request": "launch",
+      "windbgpath": "C:/Program Files (x86)/Windows Kits/10/Debuggers/x64/dbgeng.dll",
+      "target": "${workspaceFolder}/zig-out/Game/x86/Debug/Game.exe",
+      "preLaunchTask": "Zig Build Game (Debug, x86)"
+    },
+    {
+      "name": "WinDbg: Debug Game.exe (MSBuild x86)",
+      "type": "windbg",
+      "request": "launch",
+      "windbgpath": "C:/Program Files (x86)/Windows Kits/10/Debuggers/x64/dbgeng.dll",
+      "target": "${workspaceFolder}/Sources/src/Game/Debug/Game.exe",
+      "preLaunchTask": "Build Game (Debug)"
     },
     {
       "name": "Debug ELK.exe (Level Editor)",
@@ -222,10 +314,18 @@
       "preLaunchTask": "Build MapEditor (Debug)"
     },
     {
-      "name": "Attach to Process",
+      "name": "Attach to Process (VSDBG)",
       "type": "cppvsdbg",
       "request": "attach",
       "processId": "${command:pickProcess}"
+    },
+    {
+      "name": "Attach to Process (LLDB)",
+      "type": "cppdbg",
+      "request": "attach",
+      "processId": "${command:pickProcess}",
+      "MIMode": "lldb",
+      "miDebuggerPath": "C:/Program Files/LLVM/bin/lldb.exe"
     }
   ]
 }
