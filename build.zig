@@ -634,7 +634,11 @@ pub fn build(b: *std.Build) void {
     };
     const options_bridge = addOptionsBridge(b, target, optimize, toolchain);
     const streamio_zig = addStreamIOZig(b, target, optimize, toolchain, options_bridge);
-    const install_dir = b.option([]const u8, "install-dir", "Relative install layout path (default: zig-out/game)") orelse "zig-out/game";
+    const config_dir = switch (optimize) {
+        .Debug => "Debug",
+        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => "Release",
+    };
+    const install_dir = b.option([]const u8, "install-dir", "Relative install layout path") orelse b.fmt("zig-out/Game/{s}/{s}", .{ library_arch, config_dir });
     const copy_data = b.option(bool, "copy-data", "Copy Data into install layout instead of creating a junction") orelse false;
     const startup_trace = b.option(bool, "startup-trace", "Emit Windows startup checkpoint markers to the debugger") orelse false;
     const package_dir = b.option([]const u8, "package-dir", "Relative output directory for zip installers (default: zig-out/packages)") orelse "zig-out/packages";
@@ -988,7 +992,6 @@ fn addStreamIOZig(
         .name = "StreamIO",
         .linkage = .dynamic,
         .root_module = streamio_module,
-        .win32_module_definition = b.path("Sources/src/StreamIOZig/StreamIO.def"),
     });
 }
 
@@ -1021,6 +1024,8 @@ fn addLegacyProjectDll(
     addMsvcIncludePaths(b, module, toolchain);
     addMsvcLibraryPaths(b, module, toolchain);
     for (includes) |include| module.addIncludePath(b.path(include));
+    module.addCMacro("_DONT_LOAD_STREAMIO", "1");
+    module.addCMacro("_DONT_LOAD_SINGLETONS", "1");
     if (std.mem.eql(u8, name, "AILogic")) {
         var flags: std.ArrayListUnmanaged([]const u8) = .empty;
         flags.appendSlice(b.allocator, cppflagsForOptimize(optimize)) catch @panic("OOM");

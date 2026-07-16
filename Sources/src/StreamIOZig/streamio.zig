@@ -88,6 +88,7 @@ const StorageStats = extern struct {
 
 const Tree = struct {
     document: xml.Document,
+    arena: std.heap.ArenaAllocator,
     current: *xml.Node,
     stack: std.ArrayListUnmanaged(*xml.Node) = .empty,
     containers: std.ArrayListUnmanaged(*xml.Node) = .empty,
@@ -903,7 +904,11 @@ fn treeNode(tree: *Tree, path: []const u8) ?*xml.Node {
 pub export fn bk_tree_create(stream_handle: ?*anyopaque, mode: c_int, base: [*:0]const u8) callconv(.c) ?*anyopaque {
     const stream = fromHandle(Stream, stream_handle) orelse return null;
     if (mode != 2) return null; // Write support is added only after a complete XML writer exists.
-    const document = xml.parse(allocator, stream.bytes) catch return null;
+    var arena = std.heap.ArenaAllocator.init(allocator);
+    const document = xml.parse(arena.allocator(), stream.bytes) catch {
+        arena.deinit();
+        return null;
+    };
     var current = document.root;
     const base_name = std.mem.span(base);
     if (!std.mem.eql(u8, current.name, base_name)) {
@@ -912,11 +917,10 @@ pub export fn bk_tree_create(stream_handle: ?*anyopaque, mode: c_int, base: [*:0
         }
     }
     const tree = allocator.create(Tree) catch {
-        var owned = document;
-        owned.deinit();
+        arena.deinit();
         return null;
     };
-    tree.* = .{ .document = document, .current = current, .mode = mode };
+    tree.* = .{ .document = document, .arena = arena, .current = current, .mode = mode };
     return tree;
 }
 
@@ -924,7 +928,7 @@ pub export fn bk_tree_destroy(handle: ?*anyopaque) callconv(.c) void {
     const tree = fromHandle(Tree, handle) orelse return;
     tree.containers.deinit(allocator);
     tree.stack.deinit(allocator);
-    tree.document.deinit();
+    tree.arena.deinit();
     allocator.destroy(tree);
 }
 

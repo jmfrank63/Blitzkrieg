@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 const DataMode = enum { link, copy };
 
@@ -120,14 +121,28 @@ fn linkData(io: std.Io, allocator: std.mem.Allocator, repo: std.Io.Dir, cwd: std
 }
 
 fn createDirectoryJunction(io: std.Io, allocator: std.mem.Allocator, target_path: []const u8, link_path: []const u8) !void {
-    const result = try std.process.run(allocator, io, .{
-        .argv = &.{ "cmd.exe", "/d", "/c", "mklink", "/J", link_path, target_path },
-    });
-    defer allocator.free(result.stdout);
-    defer allocator.free(result.stderr);
-    switch (result.term) {
-        .exited => |code| if (code != 0) return error.CreateJunctionFailed,
-        else => return error.CreateJunctionFailed,
+    if (builtin.os.tag == .windows) {
+        const cmd = try std.fmt.allocPrint(allocator, "New-Item -ItemType Junction -Path '{s}' -Target '{s}'", .{ link_path, target_path });
+        defer allocator.free(cmd);
+        const result = try std.process.run(allocator, io, .{
+            .argv = &.{ "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", cmd },
+        });
+        defer allocator.free(result.stdout);
+        defer allocator.free(result.stderr);
+        switch (result.term) {
+            .exited => |code| if (code != 0) return error.CreateJunctionFailed,
+            else => return error.CreateJunctionFailed,
+        }
+    } else {
+        const result = try std.process.run(allocator, io, .{
+            .argv = &.{ "ln", "-s", target_path, link_path },
+        });
+        defer allocator.free(result.stdout);
+        defer allocator.free(result.stderr);
+        switch (result.term) {
+            .exited => |code| if (code != 0) return error.CreateJunctionFailed,
+            else => return error.CreateJunctionFailed,
+        }
     }
 }
 

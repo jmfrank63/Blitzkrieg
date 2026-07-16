@@ -1,2 +1,0 @@
-thread 48108 panic: integer overflow
-aborting due to recursive panic

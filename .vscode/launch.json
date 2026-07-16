@@ -5,16 +5,16 @@
       "name": "Debug Game.exe (Zig, x86)",
       "type": "cppvsdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/zig-out/game-x86-debug/Game.exe",
+      "program": "${workspaceFolder}/zig-out/game/x86/debug/Game.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceFolder}/zig-out/game-x86-debug",
+      "cwd": "${workspaceFolder}/zig-out/game/x86/debug",
       "environment": [],
       "console": "integratedTerminal",
       "preLaunchTask": "Zig Build Game (Debug, x86)",
       "symbolOptions": {
         "searchPaths": [
-          "${workspaceFolder}/zig-out/game-x86-debug",
+          "${workspaceFolder}/zig-out/game/x86/debug",
           "${workspaceFolder}/zig-out/bin"
         ],
         "searchMicrosoftSymbolServer": false,
@@ -33,15 +33,15 @@
       "name": "Debug Game.exe (Zig, x86, No Build)",
       "type": "cppvsdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/zig-out/game-x86-debug/Game.exe",
+      "program": "${workspaceFolder}/zig-out/game/x86/debug/Game.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceFolder}/zig-out/game-x86-debug",
+      "cwd": "${workspaceFolder}/zig-out/game/x86/debug",
       "environment": [],
       "console": "integratedTerminal",
       "symbolOptions": {
         "searchPaths": [
-          "${workspaceFolder}/zig-out/game-x86-debug",
+          "${workspaceFolder}/zig-out/game/x86/debug",
           "${workspaceFolder}/zig-out/bin"
         ],
         "searchMicrosoftSymbolServer": false,
@@ -60,18 +60,16 @@
       "name": "WinDbg: Debug Game.exe",
       "type": "windbg",
       "request": "launch",
+      "windbgpath": "C:/Program Files (x86)/Windows Kits/10/Debuggers/x64/dbgeng.dll",
       "target": "${workspaceFolder}/Sources/src/Game/Debug/Game.exe",
-      "stopOnEntry": false,
-      "symbolSearchPath": "${workspaceFolder}/Sources/src/Game/Debug;${workspaceFolder}/Sources/src/**/Debug",
       "preLaunchTask": "Build Game (Debug)"
     },
     {
       "name": "WinDbg: Debug Game.exe (No Build)",
       "type": "windbg",
       "request": "launch",
+      "windbgpath": "C:/Program Files (x86)/Windows Kits/10/Debuggers/x64/dbgeng.dll",
       "target": "${workspaceFolder}/Sources/src/Game/Debug/Game.exe",
-      "stopOnEntry": false,
-      "symbolSearchPath": "${workspaceFolder}/Sources/src/Game/Debug;${workspaceFolder}/Sources/src/**/Debug"
     },
     {
       "name": "Debug Game.exe (MSBuild)",

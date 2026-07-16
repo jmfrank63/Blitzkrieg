@@ -36,17 +36,17 @@ bool LoadMipLevel( const SSurfaceLockInfo &lockinfo, IDataStream *pStream,
 {
 	if ( (nLineModifier * nSizeX * nBPP / 8) == lockinfo.nPitch )
 	{
-		const int nDataSize = nSizeX * nSizeY * nBPP / 8;
-		const int nCheck = pStream->Read( lockinfo.pData, nDataSize );
+	const size_t nDataSize = static_cast<size_t>(nSizeX) * static_cast<size_t>(nSizeY) * nBPP / 8;
+		const int nCheck = pStream->Read( lockinfo.pData, static_cast<int>(nDataSize) );
 		NI_ASSERT_SLOW_TF( nCheck == nDataSize, NStr::Format("Wrong texture read - read %d bytes instead of %d in %d mip level", nCheck, nDataSize, nCurrMipLevel), return false );
 	}
 	else
 	{
-		const int nDataSize = nLineModifier * nSizeX * nBPP / 8;
+		const size_t nDataSize = static_cast<size_t>(nLineModifier) * static_cast<size_t>(nSizeX) * nBPP / 8;
 		BYTE *pDstData = (BYTE*)lockinfo.pData;
 		for ( int j = 0; j < nSizeY/nLineModifier; ++j )
 		{
-			const int nCheck = pStream->Read( pDstData, nDataSize );
+		const int nCheck = pStream->Read( pDstData, static_cast<int>(nDataSize) );
 			NI_ASSERT_SLOW_TF( nCheck == nDataSize, NStr::Format("Wrong texture read - read %d bytes instead of %d in %d mip level in line %d", nCheck, nDataSize, nCurrMipLevel, j), return false );
 			pDstData += lockinfo.nPitch;
 		}
@@ -82,7 +82,7 @@ bool CTexture::Load( const bool bPreLoad )
 		{
 			int nToSeek = 0;
 			for ( int i = 0; i < nStartMipLevel; ++i )
-				nToSeek += (hdr.dwWidth >> i) * (hdr.dwHeight >> i) * nBPP / 8;
+		nToSeek += static_cast<int>(static_cast<size_t>(hdr.dwWidth >> i) * static_cast<size_t>(hdr.dwHeight >> i) * nBPP / 8);
 			pStream->Seek( nToSeek, STREAM_SEEK_CUR );
 		}
 		const int nLineModifier = (format >= GFXPF_DXT1) && (format <= GFXPF_DXT5) ? 4 : 1;
@@ -109,7 +109,7 @@ bool CTexture::Load( const bool bPreLoad )
 		const SColor *pData = pImage->GetLFB();
 		if ( (nSizeX * sizeof(SColor)) == lockinfo.nPitch )
 		{
-			const int nCopySize = nSizeX * nSizeY * sizeof( SColor );
+			const size_t nCopySize = static_cast<size_t>(nSizeX) * static_cast<size_t>(nSizeY) * sizeof( SColor );
 			memcpy( lockinfo.pData, pData, nCopySize );
 			pData += nCopySize / sizeof( SColor );
 		}
