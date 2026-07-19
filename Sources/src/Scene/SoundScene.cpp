@@ -1036,7 +1036,7 @@ void CSoundScene::Init( const int nMaxX, const int nMaxY )
 	}*/
 }
 CSoundScene::CSoundScene()
-: pSFX( 0 ), pSoundManager( 0 ), pGameTimer( 0 )
+: pSFX( 0 ), pSoundManager( 0 ), pGameTimer( 0 ), eSoundSceneMode( ESSM_INTERMISSION_INTERFACE )
 {
 	mapSounds.SetSoundScene( this );
 }

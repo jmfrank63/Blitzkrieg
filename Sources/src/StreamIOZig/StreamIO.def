@@ -4,3 +4,4 @@ EXPORTS
     GetTempRawBuffer_Hook @2
     GetSLS_Hook @3
     GetSingletonGlobal_Hook @4
+    bk_options_load_legacy_tree = _bk_options_load_legacy_tree@12 @5

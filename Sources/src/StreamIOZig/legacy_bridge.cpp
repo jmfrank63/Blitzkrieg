@@ -315,7 +315,21 @@ public:
         return false;
     }
     IRefCount *BK_STDCALL Get(int id) override { for (auto &entry : entries) if (entry.object && entry.id == id) return entry.object; return 0; }
-    int BK_STDCALL GetAllObjects(IRefCount ***out, int *count) override { if (!out || !count) return -1; *count = 0; *out = 0; return 0; }
+    int BK_STDCALL GetAllObjects(IRefCount ***out, int *count) override {
+        if (!out || !count) return -1;
+        int n = 0;
+        for (auto &entry : entries) if (entry.object) ++n;
+        // Mirror the legacy implementation: the object list lives in temp
+        // buffer 0 and is valid even when empty.
+        const int request = (n > 0 ? n : 1) * static_cast<int>(sizeof(IRefCount *));
+        IRefCount **buffer = static_cast<IRefCount **>(bk_streamio_temp_buffer(request, 0));
+        if (!buffer) { *count = 0; *out = 0; return -1; }
+        int i = 0;
+        for (auto &entry : entries) if (entry.object) buffer[i++] = entry.object;
+        *count = n;
+        *out = buffer;
+        return n;
+    }
     void BK_STDCALL Done() override { for (auto &entry : entries) if (entry.object) { entry.object->Release(); entry.object = 0; } }
 };
 
@@ -608,7 +622,7 @@ const OptionDesc *BK_STDCALL ZigOptionIterator::GetDesc() const { const char *ke
 const std::vector<OptionDropValue> &BK_STDCALL ZigOptionIterator::GetDropValues() const { static const std::vector<OptionDropValue> empty; const char *key = IsEnd() ? 0 : owner_->NameAt(index_); return key ? owner_->GetDropValues(key) : empty; }
 #endif
 
-extern "C" __declspec(dllexport) int BK_STDCALL bk_options_load_legacy_tree(void *options, void *tree, bool only_missing) {
+extern "C" int BK_STDCALL bk_options_load_legacy_tree(void *options, void *tree, bool only_missing) {
     ZigDataTree *zig_tree = static_cast<ZigDataTree *>(tree);
     return zig_tree ? bk_options_load_tree(options, zig_tree->Native(), only_missing) : 0;
 }

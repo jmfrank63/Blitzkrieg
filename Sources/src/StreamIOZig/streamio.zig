@@ -50,7 +50,8 @@ extern fn FindFirstFileA(pattern: [*:0]const u8, data: *FindData) callconv(.wina
 extern fn FindNextFileA(handle: *anyopaque, data: *FindData) callconv(.winapi) bool;
 extern fn FindClose(handle: *anyopaque) callconv(.winapi) bool;
 
-const allocator = std.heap.page_allocator;
+var arena_state = std.heap.ArenaAllocator.init(std.heap.c_allocator);
+const allocator = arena_state.allocator();
 
 const LoadedArchive = struct {
     bytes: []u8,
@@ -1178,7 +1179,7 @@ pub export fn bk_streamio_temp_buffer(size: c_int, index: c_int) callconv(.c) ?*
     if (size <= 0 or index < 0 or index >= buffers.len) return null;
 
     const buffer = &buffers[@intCast(index)];
-    buffer.ensureTotalCapacity(std.heap.page_allocator, @intCast(size)) catch return null;
+    buffer.ensureTotalCapacity(allocator, @intCast(size)) catch return null;
     buffer.items.len = @intCast(size);
     return @ptrCast(buffer.items.ptr);
 }

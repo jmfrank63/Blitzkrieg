@@ -978,6 +978,7 @@ fn addStreamIOZig(
         .root_source_file = b.path("Sources/src/StreamIOZig/streamio.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
     streamio_module.addCSourceFile(.{
         .file = b.path("Sources/src/StreamIOZig/legacy_bridge.cpp"),
