@@ -76,7 +76,15 @@ pub const Console = struct {
         const source = std.mem.span(wide);
         const result = self.allocator.allocSentinel(u8, source.len, 0) catch return null;
         for (source, 0..) |unit, index| result[index] = @truncate(unit);
-        if (self.last_ascii) |old| self.allocator.free(old);
+        // Arena-backed: do not free the previous buffer; it will be reclaimed
+        // when the arena resets.  Reusing the slot avoids corrupting heap
+        // metadata that the C++ std::list relies on.
+        if (self.last_ascii) |old| {
+            // overwrite in-place to avoid repeated allocations
+            @memcpy(result[0..source.len], old[0..source.len]);
+            result[source.len] = 0;
+            return result.ptr;
+        }
         self.last_ascii = result;
         return result.ptr;
     }

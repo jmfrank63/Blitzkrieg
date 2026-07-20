@@ -463,6 +463,14 @@ fn isStructureCache(name: []const u8) bool {
     return name.len >= 4 and std.ascii.eqlIgnoreCase(name[name.len - 4 ..], ".gdb");
 }
 
+fn normalizedStorageName(name: []const u8) ?[:0]u8 {
+    const normalized = allocator.allocSentinel(u8, name.len, 0) catch return null;
+    for (name, 0..) |byte, index| {
+        normalized[index] = if (byte == '/') '\\' else std.ascii.toLower(byte);
+    }
+    return normalized;
+}
+
 fn collectFiles(storage: *const Storage, enumerator: *Enumerator, relative: []const u8) void {
     const pattern_bytes = std.fmt.allocPrint(allocator, "{s}{s}*", .{ storage.base, relative }) catch return;
     defer allocator.free(pattern_bytes);
@@ -481,7 +489,7 @@ fn collectFiles(storage: *const Storage, enumerator: *Enumerator, relative: []co
             } else {
                 const full_name_bytes = std.fmt.allocPrint(allocator, "{s}{s}", .{ relative, name }) catch continue;
                 defer allocator.free(full_name_bytes);
-                const full_name = allocator.dupeZ(u8, full_name_bytes) catch continue;
+                const full_name = normalizedStorageName(full_name_bytes) orelse continue;
                 enumerator.names.append(allocator, full_name) catch allocator.free(full_name);
             }
         }
@@ -744,7 +752,7 @@ pub export fn bk_stream_stats(handle: ?*anyopaque, output: ?*StorageStats) callc
 fn collectArchiveFiles(storage: *const Storage, enumerator: *Enumerator) void {
     for (storage.archives.items) |*loaded| {
         for (loaded.archive.entries) |*entry| {
-            const name_copy = allocator.dupeZ(u8, entry.name) catch continue;
+            const name_copy = normalizedStorageName(entry.name) orelse continue;
             enumerator.names.append(allocator, name_copy) catch allocator.free(name_copy);
         }
     }
@@ -981,23 +989,30 @@ pub export fn bk_tree_int(handle: ?*anyopaque, name: [*:0]const u8, value: ?*c_i
 /// little-endian byte order ("01000000" = LE bytes 01 00 00 00 = int 1).
 /// Plain decimal strings are also accepted for forward compatibility.
 fn parseTreeInt(text: []const u8) !c_int {
-    if (text.len == 8) {
+    const trimmed = std.mem.trim(u8, text, " \t\r\n");
+    if (trimmed.len == 8) {
         // Check whether all eight characters are hex digits.
         var all_hex = true;
-        for (text) |c| {
+        for (trimmed) |c| {
             if (!std.ascii.isHex(c)) { all_hex = false; break; }
         }
         if (all_hex) {
             // Decode as four little-endian bytes.
             var bytes: [4]u8 = undefined;
-            bytes[0] = try std.fmt.parseInt(u8, text[0..2], 16);
-            bytes[1] = try std.fmt.parseInt(u8, text[2..4], 16);
-            bytes[2] = try std.fmt.parseInt(u8, text[4..6], 16);
-            bytes[3] = try std.fmt.parseInt(u8, text[6..8], 16);
+            bytes[0] = try std.fmt.parseInt(u8, trimmed[0..2], 16);
+            bytes[1] = try std.fmt.parseInt(u8, trimmed[2..4], 16);
+            bytes[2] = try std.fmt.parseInt(u8, trimmed[4..6], 16);
+            bytes[3] = try std.fmt.parseInt(u8, trimmed[6..8], 16);
             return @bitCast(std.mem.readInt(u32, &bytes, .little));
         }
     }
-    return std.fmt.parseInt(c_int, text, 0);
+    // Try unsigned 32-bit first so hex values like 0xffffbe34 (which exceed
+    // i32 max) parse correctly.  Fall back to signed parsing for negative
+    // decimal strings such as "-1".
+    if (std.fmt.parseInt(u32, trimmed, 0)) |unsigned| {
+        return @bitCast(unsigned);
+    } else |_| {}
+    return std.fmt.parseInt(c_int, trimmed, 0);
 }
 
 pub export fn bk_tree_double(handle: ?*anyopaque, name: [*:0]const u8, value: ?*f64) callconv(.c) bool {
@@ -1053,6 +1068,17 @@ pub export fn bk_tree_finish_container(handle: ?*anyopaque) callconv(.c) void {
     bk_tree_finish(handle);
 }
 
+test "parseTreeInt handles 10-character hex color values (0x prefix)" {
+    // UI colors from XML are stored as 0x-prefixed hex like 0xffffbe34 (yellow).
+    // These exceed i32 max, so they must parse via u32 -> bitCast.
+    try std.testing.expectEqual(@as(c_int, @bitCast(@as(u32, 0xffffbe34))), parseTreeInt("0xffffbe34") catch unreachable);
+    try std.testing.expectEqual(@as(c_int, @bitCast(@as(u32, 0xff000000))), parseTreeInt("0xff000000") catch unreachable);
+    // Negative decimal strings must still work.
+    try std.testing.expectEqual(@as(c_int, -1), parseTreeInt("-1") catch unreachable);
+    // Legacy 8-hex-digit LE format must still work.
+    try std.testing.expectEqual(@as(c_int, 1), parseTreeInt("01000000") catch unreachable);
+}
+
 test "nested data-tree containers restore the outer item enumerator" {
     const source = "<base><Children><item id=\"1\"><States><item value=\"10\"/></States></item><item id=\"2\"/></Children></base>";
     const bytes = try allocator.dupe(u8, source);
@@ -1084,6 +1110,81 @@ fn isXmlNameByte(byte: u8) bool {
     return std.ascii.isAlphanumeric(byte) or byte == '_' or byte == '-' or byte == ':';
 }
 
+/// Scan the opening tag starting at `pos` (just past the tag name) for an
+/// attribute named `name`.  Returns the attribute value without modifying `pos`.
+/// `candidate_end` is the position of the `>` (or the `>` in `/>`) that closes
+/// the opening tag.
+fn scanAttr(bytes: []const u8, pos: usize, name: []const u8) ?[]const u8 {
+    // Find the `>` that closes this opening tag.
+    const end = std.mem.indexOfPos(u8, bytes, pos, ">") orelse return null;
+    var p = pos;
+    while (p < end) {
+        while (p < end and (bytes[p] == ' ' or bytes[p] == '\t' or bytes[p] == '\r' or bytes[p] == '\n')) : (p += 1) {}
+        const a_start = p;
+        while (p < end and isXmlNameByte(bytes[p])) : (p += 1) {}
+        if (a_start == p) { p += 1; continue; }
+        const a_name = bytes[a_start..p];
+        while (p < end and bytes[p] != '=') : (p += 1) {}
+        if (p >= end) break;
+        p += 1; // '='
+        while (p < end and (bytes[p] == ' ' or bytes[p] == '\t')) : (p += 1) {}
+        if (p >= end or (bytes[p] != '\'' and bytes[p] != '"')) continue;
+        const quote = bytes[p];
+        p += 1;
+        const v_start = p;
+        while (p < end and bytes[p] != quote) : (p += 1) {}
+        if (p >= end) return null;
+        if (std.mem.eql(u8, a_name, name)) return bytes[v_start..p];
+        p += 1;
+    }
+    return null;
+}
+
+/// Given `pos` which is just past the tag name of an element's opening tag,
+/// find and return the position just past the `>` that closes that opening tag.
+/// Works for both `<el ...>` and `<el ... />`.
+fn skipTag(bytes: []const u8, pos: usize) ?usize {
+    const end = std.mem.indexOfPos(u8, bytes, pos, ">") orelse return null;
+    return end + 1;
+}
+
+/// Navigate from `start` to find a child opening-tag named `tag`.
+/// Returns the position just past the tag name on success, null on failure.
+/// The caller can then use `scanAttr` at this position to read attributes,
+/// or `skipTag` to skip past the `>` to the element content.
+fn findChild(bytes: []const u8, start: usize, tag: []const u8) ?usize {
+    var pos = start;
+    var depth: usize = 0;
+    const len = bytes.len;
+    while (pos < len) {
+        const open = std.mem.indexOfPos(u8, bytes, pos, "<") orelse return null;
+        pos = open + 1;
+        if (pos >= len) return null;
+        if (bytes[pos] == '/') {
+            // Closing tag – skip its name
+            pos += 1;
+            while (pos < len and isXmlNameByte(bytes[pos])) : (pos += 1) {}
+            if (depth > 0) depth -= 1;
+            continue;
+        }
+        if (bytes[pos] == '!' or bytes[pos] == '?') { pos += 1; continue; }
+        const n_start = pos;
+        while (pos < len and isXmlNameByte(bytes[pos])) : (pos += 1) {}
+        const el = bytes[n_start..pos];
+        if (depth == 0 and std.mem.eql(u8, el, tag)) {
+            // Found it – return position just past the tag name.
+            return pos;
+        }
+        depth += 1;
+        // Skip past this element's opening tag
+        const tag_end = std.mem.indexOfPos(u8, bytes, pos, ">") orelse return null;
+        const self_close = tag_end > 0 and bytes[tag_end - 1] == '/';
+        if (self_close) depth -= 1;
+        pos = tag_end + 1;
+    }
+    return null;
+}
+
 fn xmlAttribute(bytes: []const u8, row: []const u8, entry: []const u8) ?[]const u8 {
     const tag = lastPathSegment(row);
     var cursor: usize = 0;
@@ -1093,31 +1194,46 @@ fn xmlAttribute(bytes: []const u8, row: []const u8, entry: []const u8) ?[]const 
         const name_start = cursor;
         while (cursor < bytes.len and isXmlNameByte(bytes[cursor])) : (cursor += 1) {}
         if (!std.mem.eql(u8, bytes[name_start..cursor], tag)) continue;
-        const end = std.mem.indexOfPos(u8, bytes, cursor, ">") orelse return null;
-        var attribute_cursor = cursor;
-        while (attribute_cursor < end) {
-            while (attribute_cursor < end and (bytes[attribute_cursor] == ' ' or bytes[attribute_cursor] == '\t' or bytes[attribute_cursor] == '\r' or bytes[attribute_cursor] == '\n')) : (attribute_cursor += 1) {}
-            const attribute_start = attribute_cursor;
-            while (attribute_cursor < end and isXmlNameByte(bytes[attribute_cursor])) : (attribute_cursor += 1) {}
-            if (attribute_start == attribute_cursor) {
-                attribute_cursor += 1;
-                continue;
-            }
-            const attribute_name = bytes[attribute_start..attribute_cursor];
-            while (attribute_cursor < end and bytes[attribute_cursor] != '=') : (attribute_cursor += 1) {}
-            if (attribute_cursor >= end) break;
-            attribute_cursor += 1;
-            while (attribute_cursor < end and (bytes[attribute_cursor] == ' ' or bytes[attribute_cursor] == '\t')) : (attribute_cursor += 1) {}
-            if (attribute_cursor >= end or (bytes[attribute_cursor] != '\'' and bytes[attribute_cursor] != '"')) continue;
-            const quote = bytes[attribute_cursor];
-            attribute_cursor += 1;
-            const value_start = attribute_cursor;
-            while (attribute_cursor < end and bytes[attribute_cursor] != quote) : (attribute_cursor += 1) {}
-            if (attribute_cursor >= end) return null;
-            if (std.mem.eql(u8, attribute_name, entry)) return bytes[value_start..attribute_cursor];
-            attribute_cursor += 1;
+
+        // Check whether entry is a simple attribute name or a dot-separated
+        // path through child elements (e.g. "Colors.Summer.Text.Default.A").
+        var has_dot = false;
+        for (entry) |c| if (c == '.') { has_dot = true; break; };
+        if (!has_dot) {
+            // Flat attribute lookup on the row element itself.
+            return scanAttr(bytes, cursor, entry);
         }
-        cursor = end + 1;
+
+        // Hierarchical path: split entry on '.' and navigate child elements.
+        var path_seg: [16][]const u8 = undefined;
+        var path_idx: usize = 0;
+        {
+            var start: usize = 0;
+            for (entry, 0..) |c, i| {
+                if (c == '.') {
+                    path_seg[path_idx] = entry[start..i];
+                    path_idx += 1;
+                    start = i + 1;
+                }
+            }
+            path_seg[path_idx] = entry[start..];
+            path_idx += 1;
+        }
+
+        // cursor is just past the tag name of the row element.
+        // Navigate child-element segments: for the (path_idx - 2) middle
+        // segments we both find the element AND skip to its content; for
+        // the final element (path_idx - 1) we only find it, because the
+        // attribute lives on its own opening tag.
+        var pos = cursor;
+
+        for (path_seg[0 .. path_idx - 1]) |seg| {
+            pos = findChild(bytes, pos, seg) orelse return null;
+        }
+
+        // The last path segment (path_idx - 1) is the attribute name on the
+        // final element we just found.  pos is just past the tag name.
+        return scanAttr(bytes, pos, path_seg[path_idx - 1]);
     }
     return null;
 }
@@ -1138,6 +1254,27 @@ test "storage base keeps the directory portion of game archive masks" {
     try std.testing.expectEqualStrings(".\\data\\", pathBase(".\\data\\*.pak"));
     try std.testing.expectEqualStrings("C:\\Blitzkrieg\\Data\\", pathBase("C:\\Blitzkrieg\\Data\\*.pak"));
     try std.testing.expectEqualStrings(".\\", pathBase("*.pak"));
+}
+
+test "storage enumeration normalizes the six tutorial mission paths" {
+    const handle = bk_storage_create("Data\\*.pak", 1, 0) orelse return error.TestUnexpectedResult;
+    defer bk_storage_destroy(handle);
+    const enumerator_handle = bk_storage_enumerator_create(handle) orelse return error.TestUnexpectedResult;
+    defer bk_enumerator_destroy(enumerator_handle);
+
+    var tutorial_count: usize = 0;
+    while (bk_enumerator_next(enumerator_handle)) {
+        var stats: StorageStats = undefined;
+        try std.testing.expect(bk_enumerator_stats(enumerator_handle, &stats));
+        const name = std.mem.span(stats.name orelse return error.TestUnexpectedResult);
+        if (std.mem.startsWith(u8, name, "scenarios\\tutorials\\") and
+            std.mem.endsWith(u8, name, "\\1.xml"))
+        {
+            tutorial_count += 1;
+        }
+    }
+
+    try std.testing.expectEqual(@as(usize, 6), tutorial_count);
 }
 
 test "storage opens an entry from a repository PAK" {
@@ -1173,6 +1310,68 @@ test "XML table lookup reads startup attributes" {
     const fixture = "<base><Net GameVersion=\"7\"/><Sound SFXMasterVolume=\"0.9\"/></base>";
     try std.testing.expectEqualStrings("7", xmlAttribute(fixture, "Net", "GameVersion").?);
     try std.testing.expectEqualStrings("0.9", xmlAttribute(fixture, "Sound", "SFXMasterVolume").?);
+}
+
+test "XML table lookup reads hierarchical color attributes" {
+    const fixture = "<base><Scene><PlayerColors><Allied4 A=\"255\" R=\"0\" G=\"255\" B=\"255\"/></PlayerColors></Scene></base>";
+    const value = xmlAttribute(fixture, "Scene", "PlayerColors.Allied4.A").?;
+    try std.testing.expectEqualStrings("255", value);
+    const value_r = xmlAttribute(fixture, "Scene", "PlayerColors.Allied4.R").?;
+    try std.testing.expectEqualStrings("0", value_r);
+    const value_g = xmlAttribute(fixture, "Scene", "PlayerColors.Allied4.G").?;
+    try std.testing.expectEqualStrings("255", value_g);
+    const value_b = xmlAttribute(fixture, "Scene", "PlayerColors.Allied4.B").?;
+    try std.testing.expectEqualStrings("255", value_b);
+}
+
+test "XML table lookup reads real consts.xml color paths" {
+    // Fixture matching the actual consts.xml structure for colors
+    const fixture = 
+        "<base>" ++
+        "<Scene>" ++
+        "<Colors>" ++
+        "<Summer>" ++
+        "<Text>" ++
+        "<Chat A=\"255\" R=\"255\" G=\"255\" B=\"90\"/>" ++
+        "<Default A=\"255\" R=\"216\" G=\"189\" B=\"62\"/>" ++
+        "</Text>" ++
+        "</Summer>" ++
+        "</Colors>" ++
+        "<PlayerColors>" ++
+        "<Allied4 A=\"255\" R=\"0\" G=\"255\" B=\"255\"/>" ++
+        "</PlayerColors>" ++
+        "</Scene>" ++
+        "</base>";
+    
+    // Test text color: Scene.Colors.Summer.Text.Chat.A
+    const chat_a = xmlAttribute(fixture, "Scene", "Colors.Summer.Text.Chat.A").?;
+    try std.testing.expectEqualStrings("255", chat_a);
+    const chat_r = xmlAttribute(fixture, "Scene", "Colors.Summer.Text.Chat.R").?;
+    try std.testing.expectEqualStrings("255", chat_r);
+    const chat_g = xmlAttribute(fixture, "Scene", "Colors.Summer.Text.Chat.G").?;
+    try std.testing.expectEqualStrings("255", chat_g);
+    const chat_b = xmlAttribute(fixture, "Scene", "Colors.Summer.Text.Chat.B").?;
+    try std.testing.expectEqualStrings("90", chat_b);
+    
+    // Test default color: Scene.Colors.Summer.Text.Default.A
+    const def_a = xmlAttribute(fixture, "Scene", "Colors.Summer.Text.Default.A").?;
+    try std.testing.expectEqualStrings("255", def_a);
+    const def_r = xmlAttribute(fixture, "Scene", "Colors.Summer.Text.Default.R").?;
+    try std.testing.expectEqualStrings("216", def_r);
+    const def_g = xmlAttribute(fixture, "Scene", "Colors.Summer.Text.Default.G").?;
+    try std.testing.expectEqualStrings("189", def_g);
+    const def_b = xmlAttribute(fixture, "Scene", "Colors.Summer.Text.Default.B").?;
+    try std.testing.expectEqualStrings("62", def_b);
+    
+    // Test player color: Scene.PlayerColors.Allied4.A
+    const allied_a = xmlAttribute(fixture, "Scene", "PlayerColors.Allied4.A").?;
+    try std.testing.expectEqualStrings("255", allied_a);
+    const allied_r = xmlAttribute(fixture, "Scene", "PlayerColors.Allied4.R").?;
+    try std.testing.expectEqualStrings("0", allied_r);
+    const allied_g = xmlAttribute(fixture, "Scene", "PlayerColors.Allied4.G").?;
+    try std.testing.expectEqualStrings("255", allied_g);
+    const allied_b = xmlAttribute(fixture, "Scene", "PlayerColors.Allied4.B").?;
+    try std.testing.expectEqualStrings("255", allied_b);
 }
 
 pub export fn bk_streamio_temp_buffer(size: c_int, index: c_int) callconv(.c) ?*anyopaque {
