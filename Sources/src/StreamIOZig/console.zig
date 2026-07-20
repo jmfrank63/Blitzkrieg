@@ -1,7 +1,7 @@
 const std = @import("std");
 
 const channel_count = 32;
-const Line = struct { text: [:0]u16, color: u32, backup: bool };
+const Line = struct { text: [:0]u16, ascii: [:0]u8, color: u32, backup: bool };
 const Channel = struct { lines: std.ArrayListUnmanaged(Line) = .empty, read_index: usize = 0 };
 
 pub const Console = struct {
@@ -9,16 +9,17 @@ pub const Console = struct {
     channels: [channel_count]Channel = [_]Channel{.{}} ** channel_count,
     duplicates: [channel_count]u32 = [_]u32{0} ** channel_count,
     log_path: ?[:0]u8 = null,
-    last_ascii: ?[:0]u8 = null,
 
     pub fn init(allocator: std.mem.Allocator) Console { return .{ .allocator = allocator }; }
     pub fn deinit(self: *Console) void {
         for (&self.channels) |*channel| {
-            for (channel.lines.items) |line| self.allocator.free(line.text);
+            for (channel.lines.items) |line| {
+                self.allocator.free(line.text);
+                self.allocator.free(line.ascii);
+            }
             channel.lines.deinit(self.allocator);
         }
         if (self.log_path) |path| self.allocator.free(path);
-        if (self.last_ascii) |text| self.allocator.free(text);
     }
 
     pub fn configure(self: *Console, config: []const u8) bool {
@@ -58,7 +59,15 @@ pub const Console = struct {
 
     fn append(self: *Console, channel: usize, text: []const u16, color: u32, backup: bool) void {
         const copy = self.allocator.dupeZ(u16, text) catch return;
-        self.channels[channel].lines.append(self.allocator, .{ .text = copy, .color = color, .backup = backup }) catch self.allocator.free(copy);
+        const ascii = self.allocator.allocSentinel(u8, text.len, 0) catch {
+            self.allocator.free(copy);
+            return;
+        };
+        for (text, 0..) |unit, index| ascii[index] = @truncate(unit);
+        self.channels[channel].lines.append(self.allocator, .{ .text = copy, .ascii = ascii, .color = color, .backup = backup }) catch {
+            self.allocator.free(ascii);
+            self.allocator.free(copy);
+        };
     }
 
     pub fn readWide(self: *Console, channel: i32, color: ?*u32) ?[*:0]const u16 {
@@ -72,21 +81,13 @@ pub const Console = struct {
     }
 
     pub fn readAscii(self: *Console, channel: i32, color: ?*u32) ?[*:0]const u8 {
-        const wide = self.readWide(channel, color) orelse return null;
-        const source = std.mem.span(wide);
-        const result = self.allocator.allocSentinel(u8, source.len, 0) catch return null;
-        for (source, 0..) |unit, index| result[index] = @truncate(unit);
-        // Arena-backed: do not free the previous buffer; it will be reclaimed
-        // when the arena resets.  Reusing the slot avoids corrupting heap
-        // metadata that the C++ std::list relies on.
-        if (self.last_ascii) |old| {
-            // overwrite in-place to avoid repeated allocations
-            @memcpy(result[0..source.len], old[0..source.len]);
-            result[source.len] = 0;
-            return result.ptr;
-        }
-        self.last_ascii = result;
-        return result.ptr;
+        if (channel < 0 or channel >= channel_count) return null;
+        const queue = &self.channels[@intCast(channel)];
+        if (queue.read_index >= queue.lines.items.len) return null;
+        const line = &queue.lines.items[queue.read_index];
+        queue.read_index += 1;
+        if (color) |result| result.* = line.color;
+        return line.ascii.ptr;
     }
 };
 
@@ -102,4 +103,17 @@ test "console queues ASCII commands and duplicates channels" {
     console.writeAscii(3, "Exec", 0xff00ff00, true);
     try std.testing.expectEqualStrings("Exec", std.mem.span(console.readAscii(3, null).?));
     try std.testing.expectEqualStrings("Exec", std.mem.span(console.readAscii(2, null).?));
+}
+
+test "ASCII read results remain valid across differently sized lines" {
+    var console = Console.init(std.testing.allocator);
+    defer console.deinit();
+    console.writeAscii(1, "A", 0, false);
+    console.writeAscii(1, "second command", 0, false);
+
+    const first = console.readAscii(1, null).?;
+    const second = console.readAscii(1, null).?;
+
+    try std.testing.expectEqualStrings("A", std.mem.span(first));
+    try std.testing.expectEqualStrings("second command", std.mem.span(second));
 }

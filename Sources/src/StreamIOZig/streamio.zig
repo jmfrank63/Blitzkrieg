@@ -1296,8 +1296,8 @@ test "storage overlay exposes child archive entries" {
     const child_handle = bk_storage_create("Data\\ELK\\*.pak", 1, 0) orelse return error.TestUnexpectedResult;
     defer bk_storage_destroy(child_handle);
     const child = fromHandle(Storage, child_handle).?;
-    const entry_name = try allocator.dupeZ(u8, child.archives.items[0].archive.entries[0].name);
-    defer allocator.free(entry_name);
+    const entry_name: [:0]const u8 = "movies\\intro.txt";
+    try std.testing.expect(archiveEntry(child, entry_name) != null);
     try std.testing.expect(!bk_storage_exists(base_handle, entry_name.ptr));
     try std.testing.expect(bk_storage_add(base_handle, child_handle, "elk"));
     try std.testing.expect(bk_storage_exists(base_handle, entry_name.ptr));
