@@ -1,0 +1,20 @@
+// Splash, icon and bitmap resources extracted from Game.rc. The zig resource
+// compiler cannot process the original file (windows-1251 #pragma code_page in
+// its string tables), and these are the only resources the game uses at
+// runtime: WinFrame.cpp creates the splash via the NAMED dialog resource
+// "IDD_SPLASH_SCREEN" (deliberately not #defined in resource.h).
+#include <winres.h>
+#include "resource.h"
+
+IDI_MAIN                ICON    DISCARDABLE     "main.ico"
+
+IDB_SPLASH              BITMAP  DISCARDABLE     "splash.bmp"
+
+IDD_SPLASH_SCREEN DIALOG DISCARDABLE  0, 0, 400, 217
+STYLE DS_ABSALIGN | DS_SETFOREGROUND | DS_CENTER | WS_POPUP
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,7,7,50,14,NOT WS_VISIBLE | WS_DISABLED
+    PUSHBUTTON      "Cancel",IDCANCEL,7,30,50,14,NOT WS_VISIBLE | WS_DISABLED
+    CONTROL         103,IDC_PICTURE,"Static",SS_BITMAP | SS_CENTERIMAGE | SS_REALSIZEIMAGE,0,0,400,217
+END

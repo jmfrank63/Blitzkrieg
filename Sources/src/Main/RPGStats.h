@@ -566,7 +566,8 @@ public:
 	virtual const char* STDCALL GetNextStr( const char* pszVal );
 	virtual const int STDCALL GetNextInt( const int nVal );
 };
-enum EUnitAckType
+// fixed underlying type: crosses the AILogic boundary via shared temp buffers
+enum EUnitAckType : unsigned int
 {
 	ACK_POSITIVE			= 0,
 	ACK_NEGATIVE			= 1,

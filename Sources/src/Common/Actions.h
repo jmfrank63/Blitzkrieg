@@ -5,7 +5,11 @@
 #include "..\AILogic\AITypes.h"
 #include "..\Anim\Animation.h"
 #include "..\StreamIO\StreamIOHelper.h"
-enum EActionNotify
+// Fixed underlying type: action codes are synthesized arithmetically (e.g.
+// EActionNotify((i<<4)|1) in CUpdater) and serialized as raw ints, so values
+// outside the declared enumerators must remain valid (UBSan traps otherwise).
+// unsigned because ACTION_NOTIFY_NONE and friends use the full 32-bit range.
+enum EActionNotify : unsigned int
 {
 
 	ACTION_NOTIFY_IDLE								= 0x001,
@@ -18,27 +22,27 @@ enum EActionNotify
 	ACTION_NOTIFY_INFANTRY_SHOOT			= 0x170,
 
 	ACTION_NOTIFY_RPG_CHANGED					= 0x030,
-	ACTION_NOTIFY_DIE									= 0x0e1, // умер, update на исчезновение не будет
+	ACTION_NOTIFY_DIE									= 0x0e1, // пїЅпїЅпїЅпїЅ, update пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 
 	ACTION_NOTIFY_CRAWL								= 0x031,
 	ACTION_NOTIFY_IDLE_LYING					= 0x041,
 	ACTION_NOTIFY_AIM_LYING						= 0x051,
-	ACTION_NOTIFY_SHOOT_LYING					= 0x050, // только солдаты такое могут
+	ACTION_NOTIFY_SHOOT_LYING					= 0x050, // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	ACTION_NOTIFY_THROW								= 0x060,
-	ACTION_NOTIFY_DIE_LYING						= 0x061, // умер, update на исчезновение не будет
+	ACTION_NOTIFY_DIE_LYING						= 0x061, // пїЅпїЅпїЅпїЅ, update пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 
 	ACTION_NOTIFY_IDLE_TRENCH					= 0x071,
 	ACTION_NOTIFY_AIM_TRENCH					= 0x081,
-	ACTION_NOTIFY_SHOOT_TRENCH				= 0x070, // только солдаты такое могут
-	ACTION_NOTIFY_THROW_TRENCH				= 0x080, // только солдаты такое могут
-	ACTION_NOTIFY_DIE_TRENCH					= 0x090, // умер, update на исчезновение не будет
+	ACTION_NOTIFY_SHOOT_TRENCH				= 0x070, // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	ACTION_NOTIFY_THROW_TRENCH				= 0x080, // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	ACTION_NOTIFY_DIE_TRENCH					= 0x090, // пїЅпїЅпїЅпїЅ, update пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 
-	ACTION_NOTIFY_SHOOT_BUILDING			=	0x0a0, // только солдаты такое могут
-	ACTION_NOTIFY_THROW_BUILDING			= 0x160, // только солдаты такое могут
-	ACTION_NOTIFY_DIE_BUILDING				=	0x0b0, // умер, update на исчезновение не будет
+	ACTION_NOTIFY_SHOOT_BUILDING			=	0x0a0, // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	ACTION_NOTIFY_THROW_BUILDING			= 0x160, // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	ACTION_NOTIFY_DIE_BUILDING				=	0x0b0, // пїЅпїЅпїЅпїЅ, update пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 
 	ACTION_NOTIFY_IDLE_TRANSPORT			= 0x0c1,
-	ACTION_NOTIFY_DIE_TRANSPORT				= 0x0d1, // умер, update на исчезновение не будет
+	ACTION_NOTIFY_DIE_TRANSPORT				= 0x0d1, // пїЅпїЅпїЅпїЅ, update пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 
 	ACTION_NOTIFY_INSTALL_ROTATE			= 0x0181,
 	ACTION_NOTIFY_UNINSTALL_ROTATE		= 0x0191,
@@ -58,7 +62,7 @@ enum EActionNotify
 	ACTION_NOTIFY_NEW_ENTRENCHMENT		= 0x1a0,
 	ACTION_NOTIFY_NEW_FORMATION				= 0x1b0,
 
-	ACTION_NOTIFY_ENTRANCE_STATE			= 0x190,	// войти куда-либо
+	ACTION_NOTIFY_ENTRANCE_STATE			= 0x190,	// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ-пїЅпїЅпїЅпїЅ
 	ACTION_NOTIFY_USE_UP							= 0x091,
 	ACTION_NOTIFY_USE_DOWN						= 0x0a1,
 
@@ -138,7 +142,7 @@ enum EActionNotify
 };
 enum EMovingType
 {
-	MOVE_TYPE_MOVE = 0,										// на самом деле либо Move либо Turn
+	MOVE_TYPE_MOVE = 0,										// пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ Move пїЅпїЅпїЅпїЅ Turn
 	MOVE_TYPE_DIVE = 1,										//for dive bombers
 };
 inline bool IsDyingAction( const EActionNotify eAction )
@@ -186,7 +190,7 @@ struct SAINotifyAction : public SSuspendedUpdate
 
 struct SAINotifyDeadAtAll : public SSuspendedUpdate
 {
-	bool bRot;															// true - если потом придёт update на исчезновение
+	bool bRot;															// true - пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ update пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
 	virtual void Pack( IDataStream *pStream ) const
 	{
@@ -205,7 +209,7 @@ struct SAINotifyRPGStats : public SSuspendedUpdate
 {
 	float fHitPoints;											// hit points
 	float fMorale;
-	int nMainAmmo, nSecondaryAmmo;				// патроны главной пушки и всего остального
+	int nMainAmmo, nSecondaryAmmo;				// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	NTimer::STime time;
 
 	SAINotifyRPGStats() : fHitPoints( 0.0f ), fMorale( 0.0f ), nMainAmmo( 0 ), nSecondaryAmmo( 0 ), time() { }
@@ -248,9 +252,9 @@ struct SAINotifyDiplomacy : public SSuspendedUpdate
 };
 struct SAINotifyEntranceState
 {
-	IRefCount *pInfantry;										// кто входит
-	IRefCount *pTarget;											// куда входит
-	bool bEnter;														// true - входит, false - выходит
+	IRefCount *pInfantry;										// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	IRefCount *pTarget;											// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	bool bEnter;														// true - пїЅпїЅпїЅпїЅпїЅпїЅ, false - пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
 	SAINotifyEntranceState() : pInfantry( 0 ), pTarget( 0 ), bEnter( false ) { }
 	SAINotifyEntranceState( IRefCount *_pInfantry, IRefCount *_pTarget, const bool _bEnter ) : pInfantry( _pInfantry ), pTarget( _pTarget ), bEnter( _bEnter ) { }
@@ -260,9 +264,9 @@ struct SAINotifyPlacement : public SSuspendedUpdate
 	CVec2 center;													// (x, y)
 	float z;															// height (mostly for planes)
 	WORD dir;															// direction [0..65535) => [0..2pi), only for units
-	DWORD dwNormal;												// нормаль
+	DWORD dwNormal;												// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	float fSpeed;
-	BYTE cSoil;														// параметры почвы: дым из-под колёс, следы и т.д.
+	BYTE cSoil;														// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅ пїЅпїЅ-пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅ.пїЅ.
 
 	SAINotifyPlacement() : center( VNULL2 ), z( 0.0f ), dir( 0 ), dwNormal( 0 ), fSpeed( 0.0f ), cSoil( 0 ) { }
 	SAINotifyPlacement(	IRefCount *pObj, const CVec2 &_center, const short _z, const WORD _dir, const float _fSpeed )
@@ -327,8 +331,9 @@ struct SAINotifyHitInfo
 	WORD wShell;														// shell index in the weapon
 	WORD wDir;															// direction hit was from
 
-	enum EHitType { EHT_NONE, EHT_HIT, EHT_MISS, EHT_REFLECT, EHT_GROUND, EHT_WATER, EHT_AIR };
-	EHitType eHitType;											// тип попадани
+	// fixed underlying type: crosses the AILogic boundary via shared temp buffers
+	enum EHitType : unsigned int { EHT_NONE, EHT_HIT, EHT_MISS, EHT_REFLECT, EHT_GROUND, EHT_WATER, EHT_AIR };
+	EHitType eHitType;											// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
 	IRefCount *pVictim;											// if unit was hit
 	CVec3 explCoord;
@@ -354,7 +359,7 @@ struct SAINotifyTurretTurn
 struct SAINotifyBaseShot
 {
 	int typeID;														// shot type
-	IRefCount *pObj;											// юнит, который стрелял либо объект, из которого он стрелял
+	IRefCount *pObj;											// пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	BYTE cShell;													// shell number
 	NTimer::STime time;										// time, this shot was...
 	CVec3 vDestPos;												// destination point of this shot
@@ -371,8 +376,8 @@ struct SAINotifyMechShot : public SAINotifyBaseShot
 };
 struct SAINotifyInfantryShot : public SAINotifyBaseShot
 {
-	const SWeaponRPGStats *pWeapon;				// оружие
-	short int nSlot;											// номер слота
+	const SWeaponRPGStats *pWeapon;				// пїЅпїЅпїЅпїЅпїЅпїЅ
+	short int nSlot;											// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	SAINotifyInfantryShot() : pWeapon( 0 ), nSlot( -1 ) {  }
 	SAINotifyInfantryShot( const BYTE _typeID, IRefCount *_pObj, const short int _nSlot, const BYTE _cShell, const NTimer::STime &_time, const CVec3 &_vDestPos )
 		: SAINotifyBaseShot( _typeID, _pObj, _cShell, _time, _vDestPos ), nSlot( _nSlot ) {  }
@@ -400,7 +405,8 @@ struct SAINotifyNewProjectile
 
 
 
-enum EActionCommand
+// fixed underlying type: crosses the AILogic boundary via shared temp buffers
+enum EActionCommand : unsigned int
 {
 	ACTION_COMMAND_MOVE_TO					= 0,		// move to location
 	ACTION_COMMAND_ATTACK_UNIT			= 1,		// attack unit
@@ -412,7 +418,7 @@ enum EActionCommand
 	ACTION_COMMAND_LEAVE						= 7,		// leave building/trench
 	ACTION_COMMAND_ROTATE_TO				= 8,		// rotate to point
 	ACTION_COMMAND_STOP							= 9,		// stop all actions
-	ACTION_COMMAND_PARADE						= 10,		// выстроиться в формацию
+	ACTION_COMMAND_PARADE						= 10,		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	ACTION_COMMAND_DIE											= 1000,	// (AI only)
 	ACTION_COMMAND_LOAD_NOW									= 1001,	// (AI only)
 	ACTION_COMMAND_UNLOAD_NOW								= 1002,	// (AI only)
@@ -483,7 +489,7 @@ enum EActionCommand
 	ACTION_COMMAND_DISBAND_FORMATION= 34,		// disband squad
 	ACTION_COMMAND_FORM_FORMATION		= 35,		// form squad (after disbanding)
 
-	ACTION_COMMAND_WAIT_TO_FORM							= 1033, // (AI only) - ждать, пока другие юниты не придут в нужное состояние, чтобы организовать формацию
+	ACTION_COMMAND_WAIT_TO_FORM							= 1033, // (AI only) - пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
 	ACTION_COMMAND_CALL_SHTURMOVIKS		= 36,
 
@@ -491,18 +497,18 @@ enum EActionCommand
 	ACTION_COMMAND_SNEAK_OFF								= 1035,
 
 	ACTION_COMMAND_FOLLOW							= 39,
-	ACTION_COMMAND_FOLLOW_NOW								= 1037, // (AI only) ехать за ведущим
+	ACTION_COMMAND_FOLLOW_NOW								= 1037, // (AI only) пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	
 	ACTION_COMMAND_PLANE_ADD_POINT		= 41,						// before plane leave target points are added
 	ACTION_COMMAND_PLANE_TAKEOFF_NOW	= 42,					// commands plane to take off
 	
-	ACTION_COMMAND_CATCH_FORMATION					= 1038, // (AI only) присоединиться к формации
+	ACTION_COMMAND_CATCH_FORMATION					= 1038, // (AI only) пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	ACTION_MOVE_PLANE_SCOUT_POINT						= 1039,	//(AI only) recon plane start scouting
 
 	ACTION_COMMAND_RESUPPLY_HR				= 43,
 	
-	ACTION_COMMAND_SWARM_ATTACK_UNIT				= 1040, // (AI only) атака с самостоятельным перевыбором цели (например, при swarm)
-	ACTION_MOVE_SWARM_ATTACK_FORMATION			= 1041, // (AI only) атака с самостоятельным перевыбором цели (например, при swarm)
+	ACTION_COMMAND_SWARM_ATTACK_UNIT				= 1040, // (AI only) пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ swarm)
+	ACTION_MOVE_SWARM_ATTACK_FORMATION			= 1041, // (AI only) пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ swarm)
 
 	ACTION_COMMAND_ENTRENCH_SELF			= 45,
 	ACTION_COMMAND_SWARM_ATTACK_OBJECT			= 1042,
@@ -534,7 +540,7 @@ enum EActionCommand
 
 	ACTION_COMMAND_CHANGE_MOVEMENT		= 53,					// change movement order - move to point or mode parallel
 	
-	ACTION_COMMAND_ROTATE_TO_DIR						= 1055,	// повернуться в направлении, vPos задаёт вектор направления
+	ACTION_COMMAND_ROTATE_TO_DIR						= 1055,	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, vPos пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	ACTION_COMMAND_USE											= 1056,
 	ACTION_MOVE_ENTER_TRANSPORT_CHEAT_PATH	= 1057, // enter transport ignore locked tiles
 
@@ -552,7 +558,7 @@ struct SAIUnitCmd
 	CPtr<IRefCount> pObject;							// for object pointing commands
 	bool fromExplosion;										// for death from explosion
 	float fNumber;
-	bool bFromAI;			// если true, то команда пришла от клиента или от генерала
+	bool bFromAI;			// пїЅпїЅпїЅпїЅ true, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	SAIUnitCmd() : cmdType( ACTION_COMMAND_MOVE_TO ), vPos( -1, -1 ), fromExplosion( false ), fNumber( 0 ), bFromAI( true ) { }
 	explicit SAIUnitCmd( const EActionCommand &_cmdType )
 		: cmdType( _cmdType ), vPos( -1, -1 ), fNumber( 0 ), fromExplosion( false ), bFromAI(true) { }
@@ -617,9 +623,9 @@ enum EUserAction
 	USER_ACTION_GUARD			= 9,						// assign guard logic
 	USER_ACTION_AMBUSH		= 10,						// assign ambush logic
 	USER_ACTION_FORMATION	= 11,						// change formation
-	USER_ACTION_RANGING		= 12,						// пристрелка области
-	USER_ACTION_SUPPRESS	= 13,						// огонь на подавление (suppressing fire)
-	USER_ACTION_FOLLOW		= 14,						// следовать за
+	USER_ACTION_RANGING		= 12,						// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	USER_ACTION_SUPPRESS	= 13,						// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (suppressing fire)
+	USER_ACTION_FOLLOW		= 14,						// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ
 	USER_ACTION_CHANGE_SHELL	= 15,				// change shell to fire
 	USER_ACTION_ENTRENCH_SELF	= 16,				// entrench himself
 	USER_ACTION_STAND_GROUND	= 17,				// stand ground - defence
@@ -640,7 +646,7 @@ enum EUserAction
 	USER_ACTION_OFFICER_CALL_SPY				= 32,	// call spy plane to scout the area
 	USER_ACTION_OFFICER_CALL_PARADROPERS= 33,	// call paradropper plane to drop paratroopers
 	USER_ACTION_OFFICER_BINOCULARS			= 34,	// look at the binoculars
-	USER_ACTION_OFFICER_CALL_GUNPLANES	= 35,	// call gunplane (штурмовик) to hunt in the area
+	USER_ACTION_OFFICER_CALL_GUNPLANES	= 35,	// call gunplane (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ) to hunt in the area
 	USER_ACTION_HUMAN_RESUPPLY					= 36,	// resupply by humans
 	USER_ACTION_FILL_RU									= 37,	// fill resource units
 	USER_ACTION_HOOK_ARTILLERY					= 41,	// hook artillery for towing
@@ -654,7 +660,7 @@ enum EUserAction
 	USER_ACTION_USE_SHELL_AGIT		= 56,		// use agitation shell
 	USER_ACTION_USE_SHELL_SMOKE		= 57,		// use smoke shell
 	USER_ACTION_PLACE_MARKER			= 59,		// place marker on minimap
-	USER_ACTION_CHANGE_MOVEMENT_ORDER	= 60,	// идти в точку или параллельно
+	USER_ACTION_CHANGE_MOVEMENT_ORDER	= 60,	// пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	USER_ACTION_DISBAND_SQUAD			= 61,		// disband squad
 	USER_ACTION_FORM_SQUAD				= 62,		// form squad again (after disbanding)
 	USER_ACTION_STOP							= 63,		// stop all actions
@@ -804,7 +810,11 @@ inline bool IsMovingAction( const EActionNotify updateType )
 {
 	return updateType == ACTION_NOTIFY_MOVE || updateType == ACTION_NOTIFY_CRAWL || updateType == ACTION_COMMAND_ROTATE_TO;
 }
-enum EFeedBack
+// Fixed underlying type (same treatment as EActionNotify): feedback entries
+// cross the AILogic/GameTT boundary through the shared index-0 temp buffer and
+// can carry values outside the enumerator range (the original build silently
+// dropped them in the switch default); without this UBSan traps the load.
+enum EFeedBack : unsigned int
 {
 	EFB_WIN		= 0,
 	EFB_LOOSE = 1,
@@ -869,7 +879,7 @@ struct SAIFeedBack
 struct SAIAcknowledgment
 {
 	EUnitAckType            eAck;
-	IRefCount								*pObj; // кто звучит
+	IRefCount								*pObj; // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	int nSet;								// number of acknowledgement set
 
 	SAIAcknowledgment() : eAck( EUnitAckType( 0 ) ), pObj( 0 ), nSet( 0 ) { }
@@ -883,8 +893,8 @@ struct SAIAcknowledgment
 struct SAIBoredAcknowledgement
 {
 	EUnitAckType            eAck;
-	IRefCount								*pObj;				// кто звучит
-	bool										bPresent;			// новое состояние
+	IRefCount								*pObj;				// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	bool										bPresent;			// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
 	SAIBoredAcknowledgement() : eAck( EUnitAckType( 0 ) ), pObj( 0 ), bPresent( false ) { }
 	SAIBoredAcknowledgement( 	EUnitAckType eAck,

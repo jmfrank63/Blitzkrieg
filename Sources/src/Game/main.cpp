@@ -95,8 +95,36 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		}
 	}
 	NWinFrame::ShowSplashScreen( hInstance, true );
-	_CrtSetDbgFlag( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
+	// no _CRTDBG_LEAK_CHECK_DF: refcounted objects still alive when process
+	// teardown begins are leaked on purpose (see NRefCount::LeakObjectsOnExit),
+	// so an exit-time leak dump would only flood the debugger output
+	_CrtSetDbgFlag( _CRTDBG_ALLOC_MEM_DF );
 	_CrtSetReportMode( _CRT_ERROR, _CRTDBG_MODE_DEBUG );
+	_CrtSetReportMode( _CRT_ASSERT, _CRTDBG_MODE_DEBUG );
+	// registered after static init, so this runs before Game.exe static
+	// destructors at exit (atexit is LIFO) — from then on every module leaks
+	// refcounted objects instead of running destruction cascades. The DLL flags
+	// must be armed here too: modules detach one after another at exit, so e.g.
+	// GameTT's static teardown can release AILogic-compiled objects before
+	// AILogic's own DllMain(DETACH) has armed its flag.
+	atexit( []{
+		NRefCount::LeakObjectsOnExit() = true;
+		const char *pszModules[] = { "AILogic.dll", "GameTT.dll", "UI.dll", "Scene.dll" };
+		for ( const char *pszModule : pszModules )
+		{
+			if ( HMODULE hModule = ::GetModuleHandleA( pszModule ) )
+			{
+				typedef void (*ArmFunc)();
+				if ( ArmFunc pfnArm = reinterpret_cast<ArmFunc>( ::GetProcAddress( hModule, "ArmRefCountLeakOnExit" ) ) )
+					pfnArm();
+			}
+		}
+	} );
+	// CRT assert/abort dialogs open behind the fullscreen game window; route
+	// asserts to stderr and let abort() raise a fail-fast exception so an
+	// attached debugger breaks instead of the process exiting with code 3.
+	_set_error_mode( _OUT_TO_STDERR );
+	_set_abort_behavior( _CALL_REPORTFAULT, _WRITE_ABORT_MSG | _CALL_REPORTFAULT );
 	
 	int nLeakId = -1;
 	_CrtSetBreakAlloc( nLeakId );
@@ -414,6 +442,10 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 			if ( !bActive )
 				Sleep( 40 );
 		}
+		// Catch-all: any exit path that bypassed CICExitGame (e.g. smoke-test
+		// break) still tears the world down here. Leak refcounted objects from
+		// now on — see ArmAllModulesLeakOnExit / CICExitGame::Exec.
+		NRefCount::LeakObjectsOnExit() = true;
 		pMainLoop->ResetStack();
 		UnRegisterSingleton( IMainLoop::tidTypeID );
 		SerializeConfig( false, SERIALIZE_CONFIG_OPTIONS | SERIALIZE_CONFIG_BINDS | SERIALIZE_CONFIG_HELPCALLS );

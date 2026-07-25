@@ -3,6 +3,22 @@
 #include "UIInternal.h"
 #include "UIInternalM.h"
 
+BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved )
+{
+	// process termination (lpvReserved != 0): stop destroying refcounted objects,
+	// static destructor order across translation units is undefined and release
+	// cascades re-enter destructors / double-free
+	if ( fdwReason == DLL_PROCESS_DETACH && lpvReserved != 0 )
+		NRefCount::LeakObjectsOnExit() = true;
+	return TRUE;
+}
+// Called by Game.exe's atexit hook BEFORE any module destroys statics — see
+// AILogicInternal.cpp for the unload-order rationale.
+extern "C" __declspec(dllexport) void ArmRefCountLeakOnExit()
+{
+	NRefCount::LeakObjectsOnExit() = true;
+}
+
 IManipulator *CUIWindowSubState::GetManipulator()
 {
 	if ( !pManipulator )

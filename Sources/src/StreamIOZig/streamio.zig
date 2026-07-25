@@ -4,7 +4,12 @@ const options = @import("options.zig");
 const console = @import("console.zig");
 const zip = @import("zip.zig");
 
-var buffers: [10]std.ArrayListUnmanaged(u8) = [_]std.ArrayListUnmanaged(u8){.empty} ** 10;
+// Callers store pointer and struct arrays in these scratch buffers
+// (Singleton::GetAllObjects, updater notify batches...), so the memory must be
+// strongly aligned — a plain u8 list may come back byte-aligned and UBSan
+// traps the misaligned stores. 16 matches what the original got from malloc.
+const TempBuffer = std.ArrayListAlignedUnmanaged(u8, .@"16");
+var buffers: [10]TempBuffer = [_]TempBuffer{.empty} ** 10;
 
 // The legacy game reaches this implementation through a small C++ vtable
 // adapter.  Storage state itself lives here: the adapter has no file or buffer
@@ -92,14 +97,36 @@ const Tree = struct {
     arena: std.heap.ArenaAllocator,
     current: *xml.Node,
     stack: std.ArrayListUnmanaged(*xml.Node) = .empty,
-    containers: std.ArrayListUnmanaged(*xml.Node) = .empty,
+    // MSXML CountChunks/SetChunkCounter evaluate the XPath "<name>/item" from
+    // the container's PARENT, spanning ALL same-named sibling nodes (reaction
+    // data relies on repeated <second> blocks). Track (parent, name) so the
+    // item enumeration can concatenate the siblings in document order.
+    containers: std.ArrayListUnmanaged(TreeContainer) = .empty,
     mode: c_int,
+};
+
+const TreeContainer = struct {
+    parent: *xml.Node,
+    name: []const u8,
 };
 
 const StructureLevel = struct {
     start: usize,
     len: usize,
-    counter: usize = 1,
+    // SetChunkCounter value; 0 means "sequential mode" where repeated lookups
+    // of the same id walk forward through successive occurrences, mirroring
+    // CStructureSaver2::GetShortChunk in the original StreamIO.
+    number: usize = 0,
+    // Cache of the last successful lookup (relative position past the found
+    // chunk, its id, and the number it was found as).
+    last_id: u16 = 0xffff,
+    last_pos: usize = 0,
+    last_number: usize = 0,
+
+    fn clearCache(level: *StructureLevel) void {
+        level.last_id = 0xffff;
+        level.last_pos = 0;
+    }
 };
 
 const StructureSaver = struct {
@@ -112,46 +139,99 @@ const Enumerator = struct {
     index: usize = 0,
 };
 
-const GlobalEntry = struct { key: []u8, value: [:0]u8 };
-var globals: std.ArrayListUnmanaged(GlobalEntry) = .empty;
+// Case-insensitive global-variable store. The original CGlobalVars used an
+// std::unordered_map (O(1)); GetGlobalVar/SetGlobalVar are called hundreds of
+// times per frame across the game loop, so the previous linear scan made the
+// whole main loop — and thus video frame advancement — run slower than the
+// realtime audio track. Keys are stored lowercased for case-insensitive O(1)
+// lookup (matches the prior eqlIgnoreCase behavior).
+var globals: std.StringHashMapUnmanaged([:0]u8) = .empty;
 var random_state: u32 = 0x9e3779b9;
 
-fn globalIndex(key: []const u8) ?usize {
-    for (globals.items, 0..) |entry, index| {
-        if (std.ascii.eqlIgnoreCase(entry.key, key)) return index;
-    }
-    return null;
+fn lowerKey(buf: *[256]u8, key: []const u8) []const u8 {
+    const len = @min(key.len, buf.len);
+    for (key[0..len], 0..) |c, i| buf[i] = std.ascii.toLower(c);
+    return buf[0..len];
 }
 
 fn fromHandle(comptime T: type, handle: ?*anyopaque) ?*T {
     return if (handle) |value| @ptrCast(@alignCast(value)) else null;
 }
 
-fn shortChunkAt(bytes: []const u8, level: StructureLevel, wanted_id: u8, wanted_number: usize) ?StructureLevel {
-    var position = level.start;
+const ShortChunk = struct { id: u8, start: usize, len: usize };
+
+// Decode one [id][len][payload] chunk at *relative* position `position` inside
+// the level; advances position past the chunk.
+fn readShortChunk(bytes: []const u8, level: StructureLevel, position: *usize) ?ShortChunk {
+    var pos = level.start + position.*;
     const end = level.start + level.len;
+    if (pos + 2 > end) return null;
+    const id = bytes[pos];
+    pos += 1;
+    var encoded: u32 = bytes[pos];
+    pos += 1;
+    if ((encoded & 1) != 0) {
+        if (pos + 3 > end) return null;
+        encoded |= @as(u32, bytes[pos]) << 8;
+        encoded |= @as(u32, bytes[pos + 1]) << 16;
+        encoded |= @as(u32, bytes[pos + 2]) << 24;
+        pos += 3;
+    }
+    const length: usize = @intCast(encoded >> 1);
+    if (pos + length > end) return null;
+    position.* = pos + length - level.start;
+    return .{ .id = id, .start = pos, .len = length };
+}
+
+// Stateless occurrence lookup (used for counting and level bootstrap).
+fn shortChunkAt(bytes: []const u8, level: StructureLevel, wanted_id: u8, wanted_number: usize) ?StructureLevel {
+    var position: usize = 0;
     var match_number: usize = 0;
-    while (position + 2 <= end) {
-        const id = bytes[position];
-        position += 1;
-        var encoded: u32 = bytes[position];
-        position += 1;
-        if ((encoded & 1) != 0) {
-            if (position + 3 > end) return null;
-            encoded |= @as(u32, bytes[position]) << 8;
-            encoded |= @as(u32, bytes[position + 1]) << 16;
-            encoded |= @as(u32, bytes[position + 2]) << 24;
-            position += 3;
-        }
-        const length: usize = @intCast(encoded >> 1);
-        if (position + length > end) return null;
-        if (id == wanted_id) {
+    while (readShortChunk(bytes, level, &position)) |chunk| {
+        if (chunk.id == wanted_id) {
             match_number += 1;
-            if (match_number == wanted_number) return .{ .start = position, .len = length };
+            if (match_number == wanted_number) return .{ .start = chunk.start, .len = chunk.len };
         }
-        position += length;
     }
     return null;
+}
+
+// Faithful port of CStructureSaver2::GetShortChunk: cached, and sequential
+// when wanted_number is 0 (SetChunkCounter never called on this level).
+fn getShortChunk(bytes: []const u8, level: *StructureLevel, wanted_id: u8, wanted_number: usize) ?StructureLevel {
+    var position = level.last_pos;
+    var counter = wanted_number;
+    if (level.last_id != 0xffff and level.last_id == wanted_id) {
+        if (wanted_number == level.last_number + 1) {
+            counter = 1;
+        } else {
+            level.clearCache();
+            return getShortChunk(bytes, level, wanted_id, wanted_number);
+        }
+    } else {
+        if (wanted_number != 0) {
+            if (level.last_pos != 0) {
+                level.clearCache();
+                return getShortChunk(bytes, level, wanted_id, wanted_number);
+            }
+        } else {
+            counter = 1;
+        }
+    }
+    while (readShortChunk(bytes, level.*, &position)) |chunk| {
+        if (chunk.id == wanted_id) {
+            if (counter == 1) {
+                level.last_id = wanted_id;
+                level.last_pos = position;
+                level.last_number = wanted_number;
+                return .{ .start = chunk.start, .len = chunk.len };
+            }
+            counter -= 1;
+        }
+    }
+    if (level.last_pos == 0) return null;
+    level.clearCache();
+    return getShortChunk(bytes, level, wanted_id, wanted_number);
 }
 
 pub export fn bk_structure_create(stream_handle: ?*anyopaque, mode: c_int) callconv(.c) ?*anyopaque {
@@ -176,8 +256,9 @@ pub export fn bk_structure_destroy(handle: ?*anyopaque) callconv(.c) void {
 
 pub export fn bk_structure_start(handle: ?*anyopaque, id: u8) callconv(.c) bool {
     const saver = fromHandle(StructureSaver, handle) orelse return false;
-    const current = saver.levels.getLastOrNull() orelse return false;
-    const child_level = shortChunkAt(saver.stream.bytes, current, id, current.counter) orelse return false;
+    if (saver.levels.items.len == 0) return false;
+    const current = &saver.levels.items[saver.levels.items.len - 1];
+    const child_level = getShortChunk(saver.stream.bytes, current, id, current.number) orelse return false;
     saver.levels.append(allocator, child_level) catch return false;
     return true;
 }
@@ -194,11 +275,12 @@ pub export fn bk_structure_data(handle: ?*anyopaque, id: u8, output: ?*anyopaque
         @memset(destination, 0);
         return;
     };
-    const current = saver.levels.getLastOrNull() orelse {
+    if (saver.levels.items.len == 0) {
         @memset(destination, 0);
         return;
-    };
-    const chunk = shortChunkAt(saver.stream.bytes, current, id, current.counter) orelse {
+    }
+    const current = &saver.levels.items[saver.levels.items.len - 1];
+    const chunk = getShortChunk(saver.stream.bytes, current, id, current.number) orelse {
         @memset(destination, 0);
         return;
     };
@@ -220,7 +302,75 @@ pub export fn bk_structure_count(handle: ?*anyopaque, id: u8) callconv(.c) c_int
 pub export fn bk_structure_set_counter(handle: ?*anyopaque, counter: c_int) callconv(.c) void {
     const saver = fromHandle(StructureSaver, handle) orelse return;
     if (counter <= 0 or saver.levels.items.len == 0) return;
-    saver.levels.items[saver.levels.items.len - 1].counter = @intCast(counter);
+    saver.levels.items[saver.levels.items.len - 1].number = @intCast(counter);
+}
+
+// Object-graph support. A save stream may hold, at the file root, a directory
+// (chunk id 0) and per-object content (chunk id 2) alongside the main data
+// (chunk id 1). These helpers read that graph without disturbing the main-data
+// level stack that StartChunk/DataChunk use. The C++ bridge orchestrates the
+// object lifecycle (factory creation, ptrID map); this layer only locates the
+// chunks. Format mirrors CStructureSaver2: directory = N records of
+// [typeID:u32 LE][ptrID:u32 LE][valid:u8]; content = N chunk-id-1 children,
+// each [ptrID:u32][operator& output].
+fn fileLevel(saver: *StructureSaver) StructureLevel {
+    return .{ .start = 0, .len = saver.stream.bytes.len };
+}
+
+const DIR_ENTRY_SIZE: usize = 9;
+
+pub export fn bk_structure_has_directory(handle: ?*anyopaque) callconv(.c) bool {
+    const saver = fromHandle(StructureSaver, handle) orelse return false;
+    return shortChunkAt(saver.stream.bytes, fileLevel(saver), 0, 1) != null;
+}
+
+pub export fn bk_structure_directory_entry(handle: ?*anyopaque, index: c_int, out_type: ?*c_int, out_ptr: ?*c_int, out_valid: ?*u8) callconv(.c) bool {
+    const saver = fromHandle(StructureSaver, handle) orelse return false;
+    const dir = shortChunkAt(saver.stream.bytes, fileLevel(saver), 0, 1) orelse return false;
+    const idx: usize = @intCast(@max(@as(c_int, 0), index));
+    const start = dir.start + idx * DIR_ENTRY_SIZE;
+    if (start + DIR_ENTRY_SIZE > dir.start + dir.len) return false;
+    const bytes = saver.stream.bytes;
+    const type_id = std.mem.readInt(u32, bytes[start..][0..4], .little);
+    const ptr_id = std.mem.readInt(u32, bytes[start + 4 ..][0..4], .little);
+    if (out_type) |p| p.* = @bitCast(type_id);
+    if (out_ptr) |p| p.* = @bitCast(ptr_id);
+    if (out_valid) |p| p.* = bytes[start + 8];
+    return true;
+}
+
+pub export fn bk_structure_object_count(handle: ?*anyopaque) callconv(.c) c_int {
+    const saver = fromHandle(StructureSaver, handle) orelse return 0;
+    const content = shortChunkAt(saver.stream.bytes, fileLevel(saver), 2, 1) orelse return 0;
+    var count: usize = 0;
+    while (shortChunkAt(saver.stream.bytes, content, 1, count + 1) != null) count += 1;
+    return @intCast(count);
+}
+
+// Push object `index`'s content chunk (chunk-id-1 child of file-level chunk 2)
+// onto the level stack so the bridge can read its ptrID (sub-chunk 0) and run
+// the object's operator& (sub-chunk 1). Pair with bk_structure_finish.
+pub export fn bk_structure_enter_object(handle: ?*anyopaque, index: c_int) callconv(.c) bool {
+    const saver = fromHandle(StructureSaver, handle) orelse return false;
+    const content = shortChunkAt(saver.stream.bytes, fileLevel(saver), 2, 1) orelse return false;
+    const obj = shortChunkAt(saver.stream.bytes, content, 1, @intCast(@max(@as(c_int, 0), index) + 1)) orelse return false;
+    saver.levels.append(allocator, obj) catch return false;
+    return true;
+}
+
+// Read `size` raw bytes from the CURRENT level's payload. Object references
+// (StoreObject/LoadObject) are wrapped by AddInternal as a leaf sub-chunk whose
+// payload is exactly the 4-byte ptrID; LoadObject reads it via this primitive
+// rather than as a sub-chunk lookup.
+pub export fn bk_structure_read_raw(handle: ?*anyopaque, output: ?*anyopaque, size: c_int) callconv(.c) bool {
+    if (size <= 0 or output == null) return false;
+    const saver = fromHandle(StructureSaver, handle) orelse return false;
+    const current = saver.levels.getLastOrNull() orelse return false;
+    const want: usize = @intCast(size);
+    if (current.len < want) return false;
+    const dst = @as([*]u8, @ptrCast(output.?))[0..want];
+    @memcpy(dst, saver.stream.bytes[current.start .. current.start + want]);
+    return true;
 }
 
 test "structure saver decodes nested compact chunks" {
@@ -288,6 +438,68 @@ pub export fn bk_options_load_tree(options_handle: ?*anyopaque, tree_handle: ?*a
     return @intCast(system.loadXml(tree.current, only_missing) catch 0);
 }
 
+pub export fn bk_options_save_tree(options_handle: ?*anyopaque, tree_handle: ?*anyopaque) callconv(.c) c_int {
+    const system = fromHandle(options.System, options_handle) orelse return 0;
+    const tree = fromHandle(Tree, tree_handle) orelse return 0;
+    if (tree.mode != 1) return 0;
+    return @intCast(saveOptionsTree(system, tree) catch 0);
+}
+
+// COptionSystem::SerializeConfig write direction: an <Options><Vars> block with
+// one <item> per option, sorted by key name (the original copies the map into a
+// vector and std::sorts by szKeyName). CDataTreeXML stores numeric leaves as
+// ATTRIBUTES and string leaves as CHILD ELEMENTS, which is exactly the shape
+// options.System.loadXml reads back.
+fn saveOptionsTree(system: *const options.System, tree: *Tree) !usize {
+    const arena = tree.arena.allocator();
+    const options_node = createTreeChild(tree, tree.current, "Options") orelse return error.OutOfMemory;
+    const vars_node = createTreeChild(tree, options_node, "Vars") orelse return error.OutOfMemory;
+
+    const sorted = try arena.alloc(*const options.Option, system.entries.items.len);
+    for (system.entries.items, 0..) |*entry, index| sorted[index] = entry;
+    std.mem.sort(*const options.Option, sorted, {}, optionNameLess);
+
+    var buffer: [16]u8 = undefined;
+    for (sorted) |entry| {
+        const item = createTreeChild(tree, vars_node, "item") orelse return error.OutOfMemory;
+        if (!setTreeAttribute(tree, item, "EditorType", try std.fmt.bufPrint(&buffer, "{d}", .{entry.editor_type}))) return error.OutOfMemory;
+        // Flags go through the int DataChunk ("%d"), so big flag masks print
+        // negative; parseU32Compat on the read side bit-casts them back.
+        if (!setTreeAttribute(tree, item, "Flags", try std.fmt.bufPrint(&buffer, "{d}", .{@as(i32, @bitCast(entry.flags))}))) return error.OutOfMemory;
+        if (!setTreeAttribute(tree, item, "Order", try std.fmt.bufPrint(&buffer, "{d}", .{entry.order}))) return error.OutOfMemory;
+        try writeOptionVariant(tree, item, entry.value_type, entry.value);
+        try setChildText(tree, item, "Action", entry.action);
+        try setChildText(tree, item, "ActionFill", entry.action_fill);
+        const default_node = createTreeChild(tree, item, "Default") orelse return error.OutOfMemory;
+        try writeOptionVariant(tree, default_node, entry.value_type, entry.default_value);
+        if (!setTreeAttribute(tree, item, "InstantApply", if (entry.instant_apply) "1" else "0")) return error.OutOfMemory;
+        try setChildText(tree, item, "KeyName", entry.name);
+    }
+    return sorted.len;
+}
+
+fn optionNameLess(_: void, a: *const options.Option, b: *const options.Option) bool {
+    return std.mem.order(u8, a.name, b.name) == .lt;
+}
+
+// SSerialVariantT::operator&(IDataTree): a Type attribute plus a "Var" leaf —
+// an attribute for numeric types, a child element's text for VT_BSTR (8),
+// nothing for VT_EMPTY (0).
+fn writeOptionVariant(tree: *Tree, node: *xml.Node, value_type: u16, value: []const u8) !void {
+    var buffer: [8]u8 = undefined;
+    if (!setTreeAttribute(tree, node, "Type", try std.fmt.bufPrint(&buffer, "{d}", .{value_type}))) return error.OutOfMemory;
+    switch (value_type) {
+        0 => {},
+        8 => try setChildText(tree, node, "Var", value),
+        else => if (!setTreeAttribute(tree, node, "Var", value)) return error.OutOfMemory,
+    }
+}
+
+fn setChildText(tree: *Tree, parent: *xml.Node, name: []const u8, text: []const u8) !void {
+    const node = createTreeChild(tree, parent, name) orelse return error.OutOfMemory;
+    node.text = try tree.arena.allocator().dupe(u8, text);
+}
+
 pub export fn bk_options_count(handle: ?*anyopaque) callconv(.c) c_int {
     const system = fromHandle(options.System, handle) orelse return 0;
     return @intCast(system.entries.items.len);
@@ -295,8 +507,8 @@ pub export fn bk_options_count(handle: ?*anyopaque) callconv(.c) c_int {
 
 pub export fn bk_options_name_at(handle: ?*anyopaque, index: c_int) callconv(.c) ?[*:0]const u8 {
     const system = fromHandle(options.System, handle) orelse return null;
-    if (index < 0 or index >= system.entries.items.len) return null;
-    return system.entries.items[@intCast(index)].name.ptr;
+    const entry_index = optionIndex(system, index) orelse return null;
+    return system.entries.items[entry_index].name.ptr;
 }
 
 pub export fn bk_options_value(handle: ?*anyopaque, name: [*:0]const u8, value_type: ?*u16) callconv(.c) ?[*:0]const u8 {
@@ -329,8 +541,8 @@ pub export fn bk_options_changed(handle: ?*anyopaque) callconv(.c) bool {
 
 pub export fn bk_options_metadata(handle: ?*anyopaque, index: c_int, editor: ?*i32, flags: ?*u32, order: ?*i32, instant: ?*bool, action: ?*?[*:0]const u8, action_fill: ?*?[*:0]const u8, default_value: ?*?[*:0]const u8, value_type: ?*u16) callconv(.c) bool {
     const system = fromHandle(options.System, handle) orelse return false;
-    if (index < 0 or index >= system.entries.items.len) return false;
-    const entry = &system.entries.items[@intCast(index)];
+    const entry_index = optionIndex(system, index) orelse return false;
+    const entry = &system.entries.items[entry_index];
     if (editor) |result| result.* = entry.editor_type;
     if (flags) |result| result.* = entry.flags;
     if (order) |result| result.* = entry.order;
@@ -340,6 +552,13 @@ pub export fn bk_options_metadata(handle: ?*anyopaque, index: c_int, editor: ?*i
     if (default_value) |result| result.* = entry.default_value.ptr;
     if (value_type) |result| result.* = entry.value_type;
     return true;
+}
+
+fn optionIndex(system: *const options.System, index: c_int) ?usize {
+    if (index < 0) return null;
+    const entry_index: usize = @intCast(index);
+    if (entry_index >= system.entries.items.len) return null;
+    return entry_index;
 }
 
 fn pathBase(name: []const u8) []const u8 {
@@ -600,34 +819,37 @@ pub export fn bk_storage_destroy(handle: ?*anyopaque) callconv(.c) void {
 }
 
 pub export fn bk_global_get(key: [*:0]const u8) callconv(.c) ?[*:0]const u8 {
-    const index = globalIndex(std.mem.span(key)) orelse return null;
-    return globals.items[index].value.ptr;
+    var buf: [256]u8 = undefined;
+    const lk = lowerKey(&buf, std.mem.span(key));
+    if (globals.get(lk)) |value| return value.ptr;
+    return null;
 }
 
 pub export fn bk_global_set(key: [*:0]const u8, value: [*:0]const u8) callconv(.c) void {
-    const copied_value = allocator.dupeZ(u8, std.mem.span(value)) catch {
-        return;
-    };
-    if (globalIndex(std.mem.span(key))) |index| {
-        allocator.free(globals.items[index].value);
-        globals.items[index].value = copied_value;
+    const copied_value = allocator.dupeZ(u8, std.mem.span(value)) catch return;
+    var buf: [256]u8 = undefined;
+    const lk = lowerKey(&buf, std.mem.span(key));
+    if (globals.getEntry(lk)) |entry| {
+        allocator.free(entry.value_ptr.*);
+        entry.value_ptr.* = copied_value;
         return;
     }
-    const copied_key = allocator.dupe(u8, std.mem.span(key)) catch {
+    const owned_key = allocator.dupe(u8, lk) catch {
         allocator.free(copied_value);
         return;
     };
-    globals.append(allocator, .{ .key = copied_key, .value = copied_value }) catch {
-        allocator.free(copied_key);
+    globals.put(allocator, owned_key, copied_value) catch {
+        allocator.free(owned_key);
         allocator.free(copied_value);
     };
 }
 
 pub export fn bk_global_remove(key: [*:0]const u8) callconv(.c) void {
-    const index = globalIndex(std.mem.span(key)) orelse return;
-    const entry = globals.swapRemove(index);
-    allocator.free(entry.key);
-    allocator.free(entry.value);
+    var buf: [256]u8 = undefined;
+    const lk = lowerKey(&buf, std.mem.span(key));
+    const removed = globals.fetchRemove(lk) orelse return;
+    allocator.free(removed.key);
+    allocator.free(removed.value);
 }
 
 test "global store grows beyond the legacy startup working set" {
@@ -878,6 +1100,7 @@ pub export fn bk_stream_unlock_begin(handle: ?*anyopaque) callconv(.c) c_int {
 pub export fn bk_stream_flush(handle: ?*anyopaque) callconv(.c) bool {
     const stream = fromHandle(Stream, handle) orelse return false;
     if ((stream.access & 0x2) == 0) return true;
+    if (stream.path.len == 0) return true; // memory-only stream, nothing to persist
     const file = fopen(stream.path.ptr, "wb") orelse return false;
     defer _ = fclose(file);
     if (stream.bytes.len != 0 and fwrite(stream.bytes.ptr, 1, stream.bytes.len, file) != stream.bytes.len) return false;
@@ -886,10 +1109,31 @@ pub export fn bk_stream_flush(handle: ?*anyopaque) callconv(.c) bool {
 
 pub export fn bk_stream_destroy(handle: ?*anyopaque) callconv(.c) void {
     const stream = fromHandle(Stream, handle) orelse return;
+    // The original CFileStream wrote through to the file during Write; this
+    // implementation buffers in memory, so persist writable streams on close.
+    if ((stream.access & 0x2) != 0 and stream.path.len != 0) _ = bk_stream_flush(handle);
     allocator.free(stream.bytes);
     allocator.free(stream.name);
     allocator.free(stream.path);
     allocator.destroy(stream);
+}
+
+// Create an in-memory Stream owning a copy of the given bytes. Used when a
+// structure saver must be built over an arbitrary IDataStream whose bytes are
+// already in C++ memory (e.g. a CStreamRangeAdaptor wrapping a save file) —
+// bk_structure_create needs a Stream handle, so we snapshot the bytes here.
+pub export fn bk_stream_create_memory(src: ?*const anyopaque, len: c_int) callconv(.c) ?*anyopaque {
+    const n: usize = if (len > 0) @intCast(len) else 0;
+    const bytes = allocator.alloc(u8, n) catch return null;
+    if (n > 0 and src != null) {
+        const src_bytes = @as([*]const u8, @ptrCast(src.?))[0..n];
+        @memcpy(bytes, src_bytes);
+    }
+    const name = allocator.dupeZ(u8, "memory") catch { allocator.free(bytes); return null; };
+    const path = allocator.dupeZ(u8, "") catch { allocator.free(bytes); allocator.free(name); return null; };
+    const stream = allocator.create(Stream) catch { allocator.free(bytes); allocator.free(name); allocator.free(path); return null; };
+    stream.* = .{ .bytes = bytes, .name = name, .path = path, .access = 1 };
+    return stream;
 }
 
 fn lastPathSegment(path: []const u8) []const u8 {
@@ -910,16 +1154,87 @@ fn treeNode(tree: *Tree, path: []const u8) ?*xml.Node {
     return node;
 }
 
+// Write-mode node construction. All memory comes from the tree's arena, so
+// bk_tree_destroy releases everything at once.
+fn createTreeChild(tree: *Tree, parent: *xml.Node, name: []const u8) ?*xml.Node {
+    const arena = tree.arena.allocator();
+    const node = arena.create(xml.Node) catch return null;
+    node.* = .{ .name = arena.dupe(u8, name) catch return null };
+    parent.children.append(arena, node) catch return null;
+    return node;
+}
+
+fn setTreeAttribute(tree: *Tree, node: *xml.Node, name: []const u8, value: []const u8) bool {
+    const arena = tree.arena.allocator();
+    const owned = arena.dupe(u8, value) catch return false;
+    for (node.attributes.items) |*existing| {
+        if (std.mem.eql(u8, existing.name, name)) {
+            existing.value = owned;
+            return true;
+        }
+    }
+    const owned_name = arena.dupe(u8, name) catch return false;
+    node.attributes.append(arena, .{ .name = owned_name, .value = owned }) catch return false;
+    return true;
+}
+
 pub export fn bk_tree_create(stream_handle: ?*anyopaque, mode: c_int, base: [*:0]const u8) callconv(.c) ?*anyopaque {
     const stream = fromHandle(Stream, stream_handle) orelse return null;
-    if (mode != 2) return null; // Write support is added only after a complete XML writer exists.
-    var arena = std.heap.ArenaAllocator.init(allocator);
-    const document = xml.parse(arena.allocator(), stream.bytes) catch {
-        arena.deinit();
+    if (mode == 1) {
+        // Write mode, mirroring CDataTreeXML::Open(WRITE): an empty document
+        // whose root element is the base chunk; bk_tree_flush serializes it.
+        var arena = std.heap.ArenaAllocator.init(allocator);
+        const tree = allocator.create(Tree) catch {
+            arena.deinit();
+            return null;
+        };
+        tree.* = .{ .document = undefined, .arena = arena, .current = undefined, .mode = mode };
+        const arena_allocator = tree.arena.allocator();
+        const root = arena_allocator.create(xml.Node) catch {
+            tree.arena.deinit();
+            allocator.destroy(tree);
+            return null;
+        };
+        const base_span = std.mem.span(base);
+        root.* = .{ .name = arena_allocator.dupe(u8, if (base_span.len == 0) "base" else base_span) catch {
+            tree.arena.deinit();
+            allocator.destroy(tree);
+            return null;
+        } };
+        tree.document = .{ .root = root, .allocator = arena_allocator };
+        tree.current = root;
+        return tree;
+    }
+    if (mode != 2) {
+        std.debug.print("bk_tree_create: unsupported mode {d} for \"{s}\"\n", .{ mode, stream.name });
         return null;
+    }
+    var arena = std.heap.ArenaAllocator.init(allocator);
+    const base_name = std.mem.span(base);
+    const trimmed = std.mem.trim(u8, stream.bytes, " \t\r\n\x00");
+    const document = blk: {
+        if (trimmed.len == 0) {
+            // The not-yet-implemented XML write path truncates state files to
+            // 0 bytes (config.cfg, profile chapter states); reading them back
+            // must behave like an empty document — a null tree crashes callers
+            // that never check (e.g. GetGameStatsLocal).
+            const synthetic = std.fmt.allocPrint(arena.allocator(), "<{s}/>", .{base_name}) catch {
+                arena.deinit();
+                return null;
+            };
+            break :blk xml.parse(arena.allocator(), synthetic) catch {
+                arena.deinit();
+                return null;
+            };
+        }
+        break :blk xml.parse(arena.allocator(), stream.bytes) catch |err| {
+            // Always leave a trace naming the offending file.
+            std.debug.print("bk_tree_create: XML parse failed for \"{s}\" ({s}, {d} bytes)\n", .{ stream.name, @errorName(err), stream.bytes.len });
+            arena.deinit();
+            return null;
+        };
     };
     var current = document.root;
-    const base_name = std.mem.span(base);
     if (!std.mem.eql(u8, current.name, base_name)) {
         if (xml.child(current, base_name)) |matched| {
             current = matched;
@@ -945,10 +1260,68 @@ pub export fn bk_tree_start(handle: ?*anyopaque, name: [*:0]const u8) callconv(.
     const tree = fromHandle(Tree, handle) orelse return 0;
     const path = std.mem.span(name);
     if (path.len == 0) return -1;
+    if (tree.mode == 1) {
+        // CDataTreeXML write mode: StartChunk always CREATES a child element.
+        const next = createTreeChild(tree, tree.current, path) orelse return 0;
+        tree.stack.append(allocator, tree.current) catch return 0;
+        tree.current = next;
+        return 1;
+    }
     const next = treeNode(tree, path) orelse return 0;
     tree.stack.append(allocator, tree.current) catch return 0;
     tree.current = next;
     return 1;
+}
+
+pub export fn bk_tree_write_int(handle: ?*anyopaque, name: [*:0]const u8, value: c_int) callconv(.c) bool {
+    const tree = fromHandle(Tree, handle) orelse return false;
+    var buffer: [16]u8 = undefined;
+    const text = std.fmt.bufPrint(&buffer, "{d}", .{value}) catch return false;
+    return setTreeAttribute(tree, tree.current, std.mem.span(name), text);
+}
+
+pub export fn bk_tree_write_double(handle: ?*anyopaque, name: [*:0]const u8, value: f64) callconv(.c) bool {
+    const tree = fromHandle(Tree, handle) orelse return false;
+    var buffer: [48]u8 = undefined;
+    const text = std.fmt.bufPrint(&buffer, "{d}", .{value}) catch return false;
+    return setTreeAttribute(tree, tree.current, std.mem.span(name), text);
+}
+
+pub export fn bk_tree_write_string(handle: ?*anyopaque, text: [*:0]const u8) callconv(.c) bool {
+    const tree = fromHandle(Tree, handle) orelse return false;
+    const arena = tree.arena.allocator();
+    const addition = std.mem.span(text);
+    // CDataTreeXML appends a text node; repeated writes concatenate.
+    tree.current.text = std.mem.concat(arena, u8, &.{ tree.current.text, addition }) catch return false;
+    return true;
+}
+
+pub export fn bk_tree_write_wstring(handle: ?*anyopaque, text: [*:0]const u16) callconv(.c) bool {
+    const tree = fromHandle(Tree, handle) orelse return false;
+    const arena = tree.arena.allocator();
+    const wide = std.mem.span(text);
+    // The read bridge widens stored bytes one-to-one (StringData(WORD*)), so
+    // store the low bytes for a faithful round-trip of the legacy code pages.
+    const bytes = arena.alloc(u8, wide.len) catch return false;
+    for (wide, 0..) |unit, index| bytes[index] = @truncate(unit);
+    tree.current.text = std.mem.concat(arena, u8, &.{ tree.current.text, bytes }) catch return false;
+    return true;
+}
+
+pub export fn bk_tree_write_raw(handle: ?*anyopaque, data: ?*const anyopaque, size: c_int) callconv(.c) bool {
+    const tree = fromHandle(Tree, handle) orelse return false;
+    const source = data orelse return false;
+    if (size < 0) return false;
+    const arena = tree.arena.allocator();
+    const bytes = @as([*]const u8, @ptrCast(source))[0..@intCast(size)];
+    const encoded = arena.alloc(u8, bytes.len * 2) catch return false;
+    const digits = "0123456789abcdef";
+    for (bytes, 0..) |byte, index| {
+        encoded[index * 2] = digits[byte >> 4];
+        encoded[index * 2 + 1] = digits[byte & 0xf];
+    }
+    tree.current.text = std.mem.concat(arena, u8, &.{ tree.current.text, encoded }) catch return false;
+    return true;
 }
 
 pub export fn bk_tree_finish(handle: ?*anyopaque) callconv(.c) void {
@@ -970,16 +1343,32 @@ pub export fn bk_tree_string(handle: ?*anyopaque, destination: ?*anyopaque) call
     return true;
 }
 
+pub export fn bk_tree_raw(handle: ?*anyopaque, destination: ?*anyopaque, length: c_int) callconv(.c) bool {
+    const tree = fromHandle(Tree, handle) orelse return false;
+    const output = destination orelse return false;
+    if (length < 0) return false;
+    const bytes = std.mem.trim(u8, tree.current.text, " \t\r\n");
+    const output_length: usize = @intCast(length);
+    if (bytes.len != output_length * 2) return false;
+    const result = @as([*]u8, @ptrCast(output))[0..output_length];
+    for (result, 0..) |*byte, index| {
+        byte.* = std.fmt.parseInt(u8, bytes[index * 2 .. index * 2 + 2], 16) catch return false;
+    }
+    return true;
+}
+
 pub export fn bk_tree_int(handle: ?*anyopaque, name: [*:0]const u8, value: ?*c_int) callconv(.c) bool {
     const tree = fromHandle(Tree, handle) orelse return false;
     const result = value orelse return false;
-    // Navigate to the named child element; fall back to an attribute on the
-    // current node so both storage styles work.
-    const node = treeNode(tree, std.mem.span(name)) orelse {
-        const attr = xml.attribute(tree.current, std.mem.span(name)) orelse return false;
+    // MSXML GetTextNode order: attribute on the current node FIRST, then the
+    // named child element. Matching it matters when a node carries both an
+    // attribute and a child with the same name (attribute names never contain
+    // '/', so path lookups fall through naturally).
+    if (xml.attribute(tree.current, std.mem.span(name))) |attr| {
         result.* = parseTreeInt(attr) catch return false;
         return true;
-    };
+    }
+    const node = treeNode(tree, std.mem.span(name)) orelse return false;
     result.* = parseTreeInt(node.text) catch return false;
     return true;
 }
@@ -994,7 +1383,10 @@ fn parseTreeInt(text: []const u8) !c_int {
         // Check whether all eight characters are hex digits.
         var all_hex = true;
         for (trimmed) |c| {
-            if (!std.ascii.isHex(c)) { all_hex = false; break; }
+            if (!std.ascii.isHex(c)) {
+                all_hex = false;
+                break;
+            }
         }
         if (all_hex) {
             // Decode as four little-endian bytes.
@@ -1018,30 +1410,65 @@ fn parseTreeInt(text: []const u8) !c_int {
 pub export fn bk_tree_double(handle: ?*anyopaque, name: [*:0]const u8, value: ?*f64) callconv(.c) bool {
     const tree = fromHandle(Tree, handle) orelse return false;
     const result = value orelse return false;
-    const text = xml.attribute(tree.current, std.mem.span(name)) orelse return false;
-    result.* = std.fmt.parseFloat(f64, text) catch return false;
+    // Same MSXML order as bk_tree_int: attribute first, then child element
+    // text (previously the child fallback was missing entirely, so floats
+    // stored as <Name>1.5</Name> silently kept their defaults).
+    const text = xml.attribute(tree.current, std.mem.span(name)) orelse blk: {
+        const node = treeNode(tree, std.mem.span(name)) orelse return false;
+        break :blk node.text;
+    };
+    result.* = std.fmt.parseFloat(f64, std.mem.trim(u8, text, " \t\r\n")) catch return false;
     return true;
 }
 
 pub export fn bk_tree_start_container(handle: ?*anyopaque, name: [*:0]const u8) callconv(.c) c_int {
     const tree = fromHandle(Tree, handle) orelse return 0;
     const chunk = std.mem.span(name);
-    const container = treeNode(tree, if (chunk.len == 0) "data" else chunk) orelse return 0;
+    const path = if (chunk.len == 0) "data" else chunk;
+
+    if (tree.mode == 1) {
+        // CDataTreeXML write mode: create the container element but leave the
+        // current element untouched — SetChunkCounter descends into new items,
+        // and FinishContainerChunk pops back to the pre-container element.
+        const container = createTreeChild(tree, tree.current, path) orelse return 0;
+        tree.stack.append(allocator, tree.current) catch return 0;
+        tree.containers.append(allocator, .{ .parent = container, .name = "item" }) catch {
+            _ = tree.stack.pop();
+            return 0;
+        };
+        return 1;
+    }
+
+    // Split an optional "a/b/name" path: siblings are enumerated among the
+    // children of the node the PREFIX resolves to.
+    var parent = tree.current;
+    var container_name = path;
+    if (std.mem.lastIndexOfScalar(u8, path, '/')) |slash| {
+        parent = treeNode(tree, path[0..slash]) orelse return 0;
+        container_name = path[slash + 1 ..];
+    }
+    const first = xml.child(parent, container_name) orelse return 0;
+
+    const stored_name = tree.arena.allocator().dupe(u8, container_name) catch return 0;
     tree.stack.append(allocator, tree.current) catch return 0;
-    tree.containers.append(allocator, container) catch {
+    tree.containers.append(allocator, .{ .parent = parent, .name = stored_name }) catch {
         _ = tree.stack.pop();
         return 0;
     };
-    tree.current = container;
+    tree.current = first;
     return 1;
 }
 
 pub export fn bk_tree_count(handle: ?*anyopaque, _: [*:0]const u8) callconv(.c) c_int {
     const tree = fromHandle(Tree, handle) orelse return 0;
+    if (tree.mode == 1) return 0; // matches CDataTreeXML::CountChunks in write mode
     const container = tree.containers.getLastOrNull() orelse return 0;
     var count: c_int = 0;
-    for (container.children.items) |item| {
-        if (std.mem.eql(u8, item.name, "item")) count += 1;
+    for (container.parent.children.items) |sibling| {
+        if (!std.mem.eql(u8, sibling.name, container.name)) continue;
+        for (sibling.children.items) |item| {
+            if (std.mem.eql(u8, item.name, "item")) count += 1;
+        }
     }
     return count;
 }
@@ -1049,15 +1476,24 @@ pub export fn bk_tree_count(handle: ?*anyopaque, _: [*:0]const u8) callconv(.c) 
 pub export fn bk_tree_set_counter(handle: ?*anyopaque, index: c_int) callconv(.c) bool {
     const tree = fromHandle(Tree, handle) orelse return false;
     const container = tree.containers.getLastOrNull() orelse return false;
+    if (tree.mode == 1) {
+        // Write mode appends a fresh <item> and makes it current.
+        const item = createTreeChild(tree, container.parent, "item") orelse return false;
+        tree.current = item;
+        return true;
+    }
     if (index < 0) return false;
     var found: c_int = 0;
-    for (container.children.items) |item| {
-        if (!std.mem.eql(u8, item.name, "item")) continue;
-        if (found == index) {
-            tree.current = item;
-            return true;
+    for (container.parent.children.items) |sibling| {
+        if (!std.mem.eql(u8, sibling.name, container.name)) continue;
+        for (sibling.children.items) |item| {
+            if (!std.mem.eql(u8, item.name, "item")) continue;
+            if (found == index) {
+                tree.current = item;
+                return true;
+            }
+            found += 1;
         }
-        found += 1;
     }
     return false;
 }
@@ -1066,6 +1502,59 @@ pub export fn bk_tree_finish_container(handle: ?*anyopaque) callconv(.c) void {
     const tree = fromHandle(Tree, handle) orelse return;
     _ = tree.containers.pop();
     bk_tree_finish(handle);
+}
+
+fn writeXmlEscaped(output: *std.ArrayListUnmanaged(u8), arena: std.mem.Allocator, text: []const u8, escape_quotes: bool) !void {
+    for (text) |byte| {
+        switch (byte) {
+            '&' => try output.appendSlice(arena, "&amp;"),
+            '<' => try output.appendSlice(arena, "&lt;"),
+            '>' => try output.appendSlice(arena, "&gt;"),
+            '"' => if (escape_quotes) try output.appendSlice(arena, "&quot;") else try output.append(arena, byte),
+            else => try output.append(arena, byte),
+        }
+    }
+}
+
+fn serializeNode(output: *std.ArrayListUnmanaged(u8), arena: std.mem.Allocator, node: *const xml.Node) !void {
+    try output.append(arena, '<');
+    try output.appendSlice(arena, node.name);
+    for (node.attributes.items) |attr| {
+        try output.append(arena, ' ');
+        try output.appendSlice(arena, attr.name);
+        try output.appendSlice(arena, "=\"");
+        try writeXmlEscaped(output, arena, attr.value, true);
+        try output.append(arena, '"');
+    }
+    if (node.children.items.len == 0 and node.text.len == 0) {
+        try output.appendSlice(arena, "/>");
+        return;
+    }
+    try output.append(arena, '>');
+    try writeXmlEscaped(output, arena, node.text, false);
+    for (node.children.items) |child_node| try serializeNode(output, arena, child_node);
+    try output.appendSlice(arena, "</");
+    try output.appendSlice(arena, node.name);
+    try output.append(arena, '>');
+}
+
+pub export fn bk_tree_flush(handle: ?*anyopaque, stream_handle: ?*anyopaque) callconv(.c) bool {
+    const tree = fromHandle(Tree, handle) orelse return false;
+    const stream = fromHandle(Stream, stream_handle) orelse return false;
+    if (tree.mode != 1) return false;
+    const arena = tree.arena.allocator();
+    var output: std.ArrayListUnmanaged(u8) = .empty;
+    output.appendSlice(arena, "<?xml version=\"1.0\"?>\r\n") catch return false;
+    serializeNode(&output, arena, tree.document.root) catch return false;
+    output.appendSlice(arena, "\r\n") catch return false;
+
+    // Replace the stream contents wholesale, like MSXML's save into the
+    // freshly truncated write stream.
+    const grown = allocator.realloc(stream.bytes, output.items.len) catch return false;
+    stream.bytes = grown;
+    @memcpy(stream.bytes, output.items);
+    stream.position = stream.bytes.len;
+    return bk_stream_flush(stream_handle);
 }
 
 test "parseTreeInt handles 10-character hex color values (0x prefix)" {
@@ -1106,6 +1595,246 @@ test "nested data-tree containers restore the outer item enumerator" {
     bk_tree_finish_container(handle);
 }
 
+test "write-mode tree round-trips through the reader" {
+    var stream = Stream{
+        .bytes = try allocator.alloc(u8, 0),
+        .name = try allocator.dupeZ(u8, "state.xml"),
+        .path = try allocator.dupeZ(u8, ""),
+        .access = 2,
+    };
+    defer {
+        allocator.free(stream.bytes);
+        allocator.free(stream.name);
+        allocator.free(stream.path);
+    }
+
+    const writer = bk_tree_create(&stream, 1, "base") orelse return error.TestUnexpectedResult;
+    try std.testing.expectEqual(@as(c_int, 1), bk_tree_start(writer, "Options"));
+    try std.testing.expect(bk_tree_write_int(writer, "State", 3));
+    try std.testing.expect(bk_tree_write_string(writer, "hello & <world>"));
+    try std.testing.expectEqual(@as(c_int, 1), bk_tree_start_container(writer, "Items"));
+    try std.testing.expect(bk_tree_set_counter(writer, 0));
+    try std.testing.expect(bk_tree_write_int(writer, "id", 7));
+    try std.testing.expect(bk_tree_set_counter(writer, 1));
+    try std.testing.expect(bk_tree_write_int(writer, "id", 9));
+    bk_tree_finish_container(writer);
+    const raw_bytes = [_]u8{ 0x01, 0x00, 0xff };
+    try std.testing.expectEqual(@as(c_int, 1), bk_tree_start(writer, "Blob"));
+    try std.testing.expect(bk_tree_write_raw(writer, &raw_bytes, raw_bytes.len));
+    bk_tree_finish(writer);
+    bk_tree_finish(writer);
+    try std.testing.expect(bk_tree_flush(writer, &stream));
+    bk_tree_destroy(writer);
+
+    const reader = bk_tree_create(&stream, 2, "base") orelse return error.TestUnexpectedResult;
+    defer bk_tree_destroy(reader);
+    try std.testing.expectEqual(@as(c_int, 1), bk_tree_start(reader, "Options"));
+    var state: c_int = 0;
+    try std.testing.expect(bk_tree_int(reader, "State", &state));
+    try std.testing.expectEqual(@as(c_int, 3), state);
+    try std.testing.expectEqual(@as(c_int, 1), bk_tree_start_container(reader, "Items"));
+    try std.testing.expectEqual(@as(c_int, 2), bk_tree_count(reader, "Items"));
+    try std.testing.expect(bk_tree_set_counter(reader, 1));
+    var id: c_int = 0;
+    try std.testing.expect(bk_tree_int(reader, "id", &id));
+    try std.testing.expectEqual(@as(c_int, 9), id);
+    bk_tree_finish_container(reader);
+    try std.testing.expectEqual(@as(c_int, 1), bk_tree_start(reader, "Blob"));
+    var decoded = [_]u8{0} ** 3;
+    try std.testing.expect(bk_tree_raw(reader, &decoded, decoded.len));
+    try std.testing.expectEqualSlices(u8, &raw_bytes, &decoded);
+}
+
+test "real GAZ_61 unit XML decodes Type/Passangers like MSXML" {
+    // The staged game data: the boarding bug reduces to whether this exact
+    // file yields Type="trn_military_auto" (the transport enum name) and
+    // Passangers=3 through the tree reader.
+    const file = fopen("zig-out/Game/x86/Debug/Data/Units/Technics/USSR/Auto/GAZ_61/1.xml", "rb") orelse return error.SkipZigTest;
+    defer _ = fclose(file);
+    _ = fseek(file, 0, 2);
+    const file_size: usize = @intCast(ftell(file));
+    _ = fseek(file, 0, 0);
+    const file_bytes = try allocator.alloc(u8, file_size);
+    if (fread(file_bytes.ptr, 1, file_size, file) != file_size) {
+        allocator.free(file_bytes);
+        return error.TestUnexpectedResult;
+    }
+    var stream = Stream{
+        .bytes = file_bytes,
+        .name = try allocator.dupeZ(u8, "1.xml"),
+        .path = try allocator.dupeZ(u8, "1.xml"),
+        .access = 1,
+    };
+    defer {
+        allocator.free(stream.bytes);
+        allocator.free(stream.name);
+        allocator.free(stream.path);
+    }
+
+    const handle = bk_tree_create(&stream, 2, "base") orelse return error.TestUnexpectedResult;
+    defer bk_tree_destroy(handle);
+    try std.testing.expectEqual(@as(c_int, 1), bk_tree_start(handle, "RPG"));
+
+    // CTreeAccessor::Add("Type", &std::string): StartChunk + GetChunkSize +
+    // StringData + FinishChunk.
+    try std.testing.expectEqual(@as(c_int, 1), bk_tree_start(handle, "Type"));
+    const type_len = bk_tree_size(handle);
+    var buffer: [64]u8 = undefined;
+    try std.testing.expect(type_len > 0 and type_len < buffer.len);
+    try std.testing.expect(bk_tree_string(handle, &buffer));
+    try std.testing.expectEqualStrings("trn_military_auto", buffer[0..@intCast(type_len)]);
+    bk_tree_finish(handle);
+
+    var seats: c_int = 0;
+    try std.testing.expect(bk_tree_int(handle, "Passangers", &seats));
+    try std.testing.expectEqual(@as(c_int, 3), seats);
+
+    // Exposure bit 4 (ACTION_COMMAND_LOAD) via the container shape.
+    try std.testing.expectEqual(@as(c_int, 1), bk_tree_start(handle, "Exposures"));
+    var size: c_int = 0;
+    try std.testing.expect(bk_tree_int(handle, "Size", &size));
+    try std.testing.expectEqual(@as(c_int, 5), size);
+    try std.testing.expectEqual(@as(c_int, 1), bk_tree_start_container(handle, "BitArray"));
+    try std.testing.expect(bk_tree_set_counter(handle, 0));
+    var bits: c_int = 0;
+    try std.testing.expect(bk_tree_int(handle, "data", &bits));
+    try std.testing.expectEqual(@as(c_int, 16), bits);
+    bk_tree_finish_container(handle);
+    bk_tree_finish(handle);
+}
+
+test "options save/load round-trips through the tree writer" {
+    var stream = Stream{
+        .bytes = try allocator.alloc(u8, 0),
+        .name = try allocator.dupeZ(u8, "config.cfg"),
+        .path = try allocator.dupeZ(u8, ""),
+        .access = 2,
+    };
+    defer {
+        allocator.free(stream.bytes);
+        allocator.free(stream.name);
+        allocator.free(stream.path);
+    }
+
+    var source = options.System.init(allocator);
+    defer source.deinit();
+    try source.set("Sound.Volume.Music", "7", 3); // VT_I4 -> Var attribute
+    try source.set("GamePlay.PlayerName", "Player & <One>", 8); // VT_BSTR -> Var child
+    try source.set("GFX.LandQuality", "1", 11); // VT_BOOL -> Var attribute
+
+    const writer = bk_tree_create(&stream, 1, "base") orelse return error.TestUnexpectedResult;
+    try std.testing.expectEqual(@as(c_int, 3), bk_options_save_tree(&source, writer));
+    try std.testing.expect(bk_tree_flush(writer, &stream));
+    bk_tree_destroy(writer);
+
+    const reader = bk_tree_create(&stream, 2, "base") orelse return error.TestUnexpectedResult;
+    defer bk_tree_destroy(reader);
+    var loaded = options.System.init(allocator);
+    defer loaded.deinit();
+    try std.testing.expectEqual(@as(c_int, 3), bk_options_load_tree(&loaded, reader, false));
+    try std.testing.expectEqualStrings("7", loaded.get("Sound.Volume.Music").?.value);
+    try std.testing.expectEqual(@as(u16, 3), loaded.get("Sound.Volume.Music").?.value_type);
+    try std.testing.expectEqualStrings("Player & <One>", loaded.get("GamePlay.PlayerName").?.value);
+    try std.testing.expectEqual(@as(u16, 8), loaded.get("GamePlay.PlayerName").?.value_type);
+    try std.testing.expectEqualStrings("1", loaded.get("GFX.LandQuality").?.value);
+}
+
+test "RPG stats bit arrays read like the transport 1.xml shape" {
+    // Mirrors Data\Units\Technics\...\1.xml: two containers both named
+    // BitArray under different parents, values in item ATTRIBUTES, Size as a
+    // parent attribute. availExposures reading 16 (bit 4 = ACTION_COMMAND_LOAD)
+    // is what makes infantry able to board transports.
+    const source = "<RPG><Commands Size=\"128\"><BitArray><item data=\"255\"/><item data=\"7\"/></BitArray></Commands><Exposures Size=\"5\"><BitArray><item data=\"16\"/></BitArray></Exposures></RPG>";
+    const bytes = try allocator.dupe(u8, source);
+    const name = try allocator.dupeZ(u8, "1.xml");
+    const path = try allocator.dupeZ(u8, "1.xml");
+    var stream = Stream{ .bytes = bytes, .name = name, .path = path, .access = 1 };
+    defer {
+        allocator.free(stream.bytes);
+        allocator.free(stream.name);
+        allocator.free(stream.path);
+    }
+    const handle = bk_tree_create(&stream, 2, "RPG") orelse return error.TestUnexpectedResult;
+    defer bk_tree_destroy(handle);
+
+    var value: c_int = 0;
+    try std.testing.expectEqual(@as(c_int, 1), bk_tree_start(handle, "Commands"));
+    try std.testing.expect(bk_tree_int(handle, "Size", &value));
+    try std.testing.expectEqual(@as(c_int, 128), value);
+    try std.testing.expectEqual(@as(c_int, 1), bk_tree_start_container(handle, "BitArray"));
+    try std.testing.expectEqual(@as(c_int, 2), bk_tree_count(handle, "BitArray"));
+    try std.testing.expect(bk_tree_set_counter(handle, 0));
+    try std.testing.expect(bk_tree_int(handle, "data", &value));
+    try std.testing.expectEqual(@as(c_int, 255), value);
+    try std.testing.expect(bk_tree_set_counter(handle, 1));
+    try std.testing.expect(bk_tree_int(handle, "data", &value));
+    try std.testing.expectEqual(@as(c_int, 7), value);
+    bk_tree_finish_container(handle);
+    bk_tree_finish(handle);
+
+    try std.testing.expectEqual(@as(c_int, 1), bk_tree_start(handle, "Exposures"));
+    try std.testing.expect(bk_tree_int(handle, "Size", &value));
+    try std.testing.expectEqual(@as(c_int, 5), value);
+    try std.testing.expectEqual(@as(c_int, 1), bk_tree_start_container(handle, "BitArray"));
+    try std.testing.expectEqual(@as(c_int, 1), bk_tree_count(handle, "BitArray"));
+    try std.testing.expect(bk_tree_set_counter(handle, 0));
+    try std.testing.expect(bk_tree_int(handle, "data", &value));
+    try std.testing.expectEqual(@as(c_int, 16), value);
+    bk_tree_finish_container(handle);
+    bk_tree_finish(handle);
+}
+
+test "duplicate same-named sibling containers concatenate their items" {
+    // Reaction data (EscapeMenuReactions.xml) stores pair<enum, vector<string>>
+    // as REPEATED <second> blocks; MSXML selectNodes("second/item") spans all
+    // of them, so the reader must too.
+    const source = "<base><CustomCheck><first>7</first><second><item id=\"1\"/></second><second><item id=\"2\"/><item id=\"3\"/></second></CustomCheck></base>";
+    const bytes = try allocator.dupe(u8, source);
+    const name = try allocator.dupeZ(u8, "fixture.xml");
+    const path = try allocator.dupeZ(u8, "fixture.xml");
+    var stream = Stream{ .bytes = bytes, .name = name, .path = path, .access = 1 };
+    defer {
+        allocator.free(stream.bytes);
+        allocator.free(stream.name);
+        allocator.free(stream.path);
+    }
+    const handle = bk_tree_create(&stream, 2, "base") orelse return error.TestUnexpectedResult;
+    defer bk_tree_destroy(handle);
+    try std.testing.expectEqual(@as(c_int, 1), bk_tree_start_container(handle, "CustomCheck/second"));
+    defer bk_tree_finish_container(handle);
+    try std.testing.expectEqual(@as(c_int, 3), bk_tree_count(handle, "second"));
+    var id: c_int = 0;
+    try std.testing.expect(bk_tree_set_counter(handle, 0));
+    try std.testing.expect(bk_tree_int(handle, "id", &id));
+    try std.testing.expectEqual(@as(c_int, 1), id);
+    try std.testing.expect(bk_tree_set_counter(handle, 2));
+    try std.testing.expect(bk_tree_int(handle, "id", &id));
+    try std.testing.expectEqual(@as(c_int, 3), id);
+    try std.testing.expect(!bk_tree_set_counter(handle, 3));
+}
+
+test "data-tree raw rows decode legacy hexadecimal bytes" {
+    const source = "<base><Passability><item size_x=\"4\" size_y=\"1\"/><item>010001ff</item></Passability></base>";
+    const bytes = try allocator.dupe(u8, source);
+    const name = try allocator.dupeZ(u8, "fixture.xml");
+    const path = try allocator.dupeZ(u8, "fixture.xml");
+    var stream = Stream{ .bytes = bytes, .name = name, .path = path, .access = 1 };
+    defer {
+        allocator.free(stream.bytes);
+        allocator.free(stream.name);
+        allocator.free(stream.path);
+    }
+    const handle = bk_tree_create(&stream, 2, "base") orelse return error.TestUnexpectedResult;
+    defer bk_tree_destroy(handle);
+    try std.testing.expectEqual(@as(c_int, 1), bk_tree_start_container(handle, "Passability"));
+    defer bk_tree_finish_container(handle);
+    try std.testing.expect(bk_tree_set_counter(handle, 1));
+
+    var output = [_]u8{0xaa} ** 4;
+    try std.testing.expect(bk_tree_raw(handle, &output, @intCast(output.len)));
+    try std.testing.expectEqualSlices(u8, &.{ 0x01, 0x00, 0x01, 0xff }, &output);
+}
+
 fn isXmlNameByte(byte: u8) bool {
     return std.ascii.isAlphanumeric(byte) or byte == '_' or byte == '-' or byte == ':';
 }
@@ -1122,7 +1851,10 @@ fn scanAttr(bytes: []const u8, pos: usize, name: []const u8) ?[]const u8 {
         while (p < end and (bytes[p] == ' ' or bytes[p] == '\t' or bytes[p] == '\r' or bytes[p] == '\n')) : (p += 1) {}
         const a_start = p;
         while (p < end and isXmlNameByte(bytes[p])) : (p += 1) {}
-        if (a_start == p) { p += 1; continue; }
+        if (a_start == p) {
+            p += 1;
+            continue;
+        }
         const a_name = bytes[a_start..p];
         while (p < end and bytes[p] != '=') : (p += 1) {}
         if (p >= end) break;
@@ -1167,7 +1899,10 @@ fn findChild(bytes: []const u8, start: usize, tag: []const u8) ?usize {
             if (depth > 0) depth -= 1;
             continue;
         }
-        if (bytes[pos] == '!' or bytes[pos] == '?') { pos += 1; continue; }
+        if (bytes[pos] == '!' or bytes[pos] == '?') {
+            pos += 1;
+            continue;
+        }
         const n_start = pos;
         while (pos < len and isXmlNameByte(bytes[pos])) : (pos += 1) {}
         const el = bytes[n_start..pos];
@@ -1185,6 +1920,27 @@ fn findChild(bytes: []const u8, start: usize, tag: []const u8) ?usize {
     return null;
 }
 
+/// Element TEXT content: given `pos` just past the tag name of an opening tag,
+/// return the text between `>` and the next `<` (MSXML .text for leaf values).
+/// Self-closed elements yield an empty string.
+fn elementText(bytes: []const u8, pos: usize) ?[]const u8 {
+    const tag_end = std.mem.indexOfPos(u8, bytes, pos, ">") orelse return null;
+    if (tag_end > 0 and bytes[tag_end - 1] == '/') return bytes[tag_end..tag_end];
+    const content_start = tag_end + 1;
+    const content_end = std.mem.indexOfPos(u8, bytes, content_start, "<") orelse return null;
+    return std.mem.trim(u8, bytes[content_start..content_end], " \t\r\n");
+}
+
+/// CDataTableXML::GetNode semantics for the final path segment: try an
+/// ATTRIBUTE of that name on the element at `pos` first, then fall back to a
+/// CHILD ELEMENT of that name and return its text.
+fn attrOrChildText(bytes: []const u8, pos: usize, name: []const u8) ?[]const u8 {
+    if (scanAttr(bytes, pos, name)) |value| return value;
+    const content = skipTag(bytes, pos) orelse return null;
+    const child = findChild(bytes, content, name) orelse return null;
+    return elementText(bytes, child);
+}
+
 fn xmlAttribute(bytes: []const u8, row: []const u8, entry: []const u8) ?[]const u8 {
     const tag = lastPathSegment(row);
     var cursor: usize = 0;
@@ -1198,10 +1954,14 @@ fn xmlAttribute(bytes: []const u8, row: []const u8, entry: []const u8) ?[]const 
         // Check whether entry is a simple attribute name or a dot-separated
         // path through child elements (e.g. "Colors.Summer.Text.Default.A").
         var has_dot = false;
-        for (entry) |c| if (c == '.') { has_dot = true; break; };
+        for (entry) |c| if (c == '.') {
+            has_dot = true;
+            break;
+        };
         if (!has_dot) {
-            // Flat attribute lookup on the row element itself.
-            return scanAttr(bytes, cursor, entry);
+            // CDataTableXML::GetNode: attribute on the row element first,
+            // then a child element's text.
+            return attrOrChildText(bytes, cursor, entry);
         }
 
         // Hierarchical path: split entry on '.' and navigate child elements.
@@ -1231,9 +1991,11 @@ fn xmlAttribute(bytes: []const u8, row: []const u8, entry: []const u8) ?[]const 
             pos = findChild(bytes, pos, seg) orelse return null;
         }
 
-        // The last path segment (path_idx - 1) is the attribute name on the
-        // final element we just found.  pos is just past the tag name.
-        return scanAttr(bytes, pos, path_seg[path_idx - 1]);
+        // The last path segment (path_idx - 1): attribute on the element we
+        // just navigated to, else that element's CHILD of the same name (the
+        // original reads pNode->text either way — consts like
+        // <Actions><User><Friendly>37, 41, ...</Friendly> are element text).
+        return attrOrChildText(bytes, pos, path_seg[path_idx - 1]);
     }
     return null;
 }
@@ -1248,6 +2010,45 @@ pub export fn bk_table_get_double(stream_handle: ?*anyopaque, row: [*:0]const u8
     const stream = fromHandle(Stream, stream_handle) orelse return fallback;
     const value = xmlAttribute(stream.bytes, std.mem.span(row), std.mem.span(entry)) orelse return fallback;
     return std.fmt.parseFloat(f64, value) catch fallback;
+}
+
+/// CDataTableXML::GetString: copy the resolved value into `buffer` (NUL
+/// terminated, truncating at size-1). Returns false when the entry does not
+/// exist — the caller then applies its own default.
+pub export fn bk_table_get_string(stream_handle: ?*anyopaque, row: [*:0]const u8, entry: [*:0]const u8, buffer: ?[*]u8, size: c_int) callconv(.c) bool {
+    const stream = fromHandle(Stream, stream_handle) orelse return false;
+    const output = buffer orelse return false;
+    if (size <= 0) return false;
+    const value = xmlAttribute(stream.bytes, std.mem.span(row), std.mem.span(entry)) orelse return false;
+    const capacity: usize = @intCast(size - 1);
+    const length = @min(value.len, capacity);
+    @memcpy(output[0..length], value[0..length]);
+    output[length] = 0;
+    return true;
+}
+
+test "table getters read element-text consts like Actions.User.Friendly" {
+    const source = "<base><World Speed=\"5\"><Actions><User><Friendly>37, 41, 27, 26, 25, 28, 4, 14, 15, 0</Friendly><Enemy/></User></Actions><MinRotateRadius>30</MinRotateRadius></World></base>";
+    const bytes = try allocator.dupe(u8, source);
+    const name = try allocator.dupeZ(u8, "consts.xml");
+    const path = try allocator.dupeZ(u8, "consts.xml");
+    var stream = Stream{ .bytes = bytes, .name = name, .path = path, .access = 1 };
+    defer {
+        allocator.free(stream.bytes);
+        allocator.free(stream.name);
+        allocator.free(stream.path);
+    }
+
+    var buffer: [128]u8 = undefined;
+    // Dotted path resolving to child-element TEXT (the boarding priority list).
+    try std.testing.expect(bk_table_get_string(&stream, "World", "Actions.User.Friendly", &buffer, buffer.len));
+    try std.testing.expectEqualStrings("37, 41, 27, 26, 25, 28, 4, 14, 15, 0", std.mem.sliceTo(@as([*:0]u8, @ptrCast(&buffer)), 0));
+    // Flat attribute still works.
+    try std.testing.expectEqual(@as(c_int, 5), bk_table_get_int(&stream, "World", "Speed", -1));
+    // Flat entry falling back to child-element text.
+    try std.testing.expectEqual(@as(c_int, 30), bk_table_get_int(&stream, "World", "MinRotateRadius", -1));
+    // Missing entry -> false, caller default preserved.
+    try std.testing.expect(!bk_table_get_string(&stream, "World", "Actions.User.Nope", &buffer, buffer.len));
 }
 
 test "storage base keeps the directory portion of game archive masks" {
@@ -1326,7 +2127,7 @@ test "XML table lookup reads hierarchical color attributes" {
 
 test "XML table lookup reads real consts.xml color paths" {
     // Fixture matching the actual consts.xml structure for colors
-    const fixture = 
+    const fixture =
         "<base>" ++
         "<Scene>" ++
         "<Colors>" ++
@@ -1342,7 +2143,7 @@ test "XML table lookup reads real consts.xml color paths" {
         "</PlayerColors>" ++
         "</Scene>" ++
         "</base>";
-    
+
     // Test text color: Scene.Colors.Summer.Text.Chat.A
     const chat_a = xmlAttribute(fixture, "Scene", "Colors.Summer.Text.Chat.A").?;
     try std.testing.expectEqualStrings("255", chat_a);
@@ -1352,7 +2153,7 @@ test "XML table lookup reads real consts.xml color paths" {
     try std.testing.expectEqualStrings("255", chat_g);
     const chat_b = xmlAttribute(fixture, "Scene", "Colors.Summer.Text.Chat.B").?;
     try std.testing.expectEqualStrings("90", chat_b);
-    
+
     // Test default color: Scene.Colors.Summer.Text.Default.A
     const def_a = xmlAttribute(fixture, "Scene", "Colors.Summer.Text.Default.A").?;
     try std.testing.expectEqualStrings("255", def_a);
@@ -1362,7 +2163,7 @@ test "XML table lookup reads real consts.xml color paths" {
     try std.testing.expectEqualStrings("189", def_g);
     const def_b = xmlAttribute(fixture, "Scene", "Colors.Summer.Text.Default.B").?;
     try std.testing.expectEqualStrings("62", def_b);
-    
+
     // Test player color: Scene.PlayerColors.Allied4.A
     const allied_a = xmlAttribute(fixture, "Scene", "PlayerColors.Allied4.A").?;
     try std.testing.expectEqualStrings("255", allied_a);
@@ -1375,10 +2176,15 @@ test "XML table lookup reads real consts.xml color paths" {
 }
 
 pub export fn bk_streamio_temp_buffer(size: c_int, index: c_int) callconv(.c) ?*anyopaque {
-    if (size <= 0 or index < 0 or index >= buffers.len) return null;
+    if (index < 0 or index >= buffers.len) return null;
 
+    // Contract of the original GetTempRawBuffer_Hook: NEVER null for a valid
+    // index (buffers start at 32 bytes and reserve() only grows). Callers pass
+    // size 0 and still write into the returned pointer's slack (e.g.
+    // CUpdater::UpdateTurretTurn appending the vertical turn set).
+    const requested: usize = if (size > 0) @intCast(size) else 0;
     const buffer = &buffers[@intCast(index)];
-    buffer.ensureTotalCapacity(allocator, @intCast(size)) catch return null;
-    buffer.items.len = @intCast(size);
+    buffer.ensureTotalCapacity(allocator, @max(requested, 32)) catch return null;
+    buffer.items.len = requested;
     return @ptrCast(buffer.items.ptr);
 }

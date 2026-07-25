@@ -19,7 +19,9 @@ pub const System = struct {
     entries: std.ArrayListUnmanaged(Option) = .empty,
     changed: bool = false,
 
-    pub fn init(allocator: std.mem.Allocator) System { return .{ .allocator = allocator }; }
+    pub fn init(allocator: std.mem.Allocator) System {
+        return .{ .allocator = allocator };
+    }
 
     pub fn deinit(self: *System) void {
         for (self.entries.items) |entry| self.freeOption(entry);
@@ -111,7 +113,7 @@ pub const System = struct {
                 .default_value = try self.allocator.dupeZ(u8, default_value),
                 .value_type = value_type,
                 .editor_type = parseI32(xml.attribute(item, "EditorType"), 4),
-                .flags = @intCast(parseI32(xml.attribute(item, "Flags"), 0)),
+                .flags = parseU32Compat(xml.attribute(item, "Flags"), 0),
                 .order = parseI32(xml.attribute(item, "Order"), 0),
                 .instant_apply = parseI32(xml.attribute(item, "InstantApply"), 0) != 0,
                 .action = try self.allocator.dupeZ(u8, if (xml.child(item, "Action")) |node| node.text else ""),
@@ -130,6 +132,20 @@ pub const System = struct {
 
 fn parseI32(value: ?[]const u8, fallback: i32) i32 {
     return std.fmt.parseInt(i32, value orelse return fallback, 10) catch fallback;
+}
+
+fn parseU32Compat(value: ?[]const u8, fallback: u32) u32 {
+    const text = value orelse return fallback;
+
+    if (std.fmt.parseInt(u32, text, 10)) |parsed| return parsed else |_| {}
+
+    if (std.fmt.parseInt(i32, text, 10)) |signed| {
+        // Match legacy C/C++ behavior where negative signed values assigned to
+        // unsigned fields wrap using two's-complement representation.
+        return @bitCast(signed);
+    } else |_| {}
+
+    return fallback;
 }
 
 test "loads legacy option records and preserves config precedence" {

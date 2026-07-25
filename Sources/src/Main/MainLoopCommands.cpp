@@ -182,8 +182,28 @@ void CICSendCommand::Exec( IMainLoop *pML )
 	NI_ASSERT_T( pInput != 0, "ERROR - Can't send command - input is not registered in the singleton" );
 	pInput->AddMessage( SGameMessage(nCommand, nParam) );
 }
+// The whole game is quitting. Arm the leak-on-exit flag in EVERY module
+// before ResetStack destroys the world: the tank/turret/etc. refcount cycles
+// are torn down here during the main loop, while the per-module static-ctor
+// arming (DllMain/atexit) hasn't fired yet — without this, ~CTank cascades
+// into a re-entrant double-free. The bool lives per-module (inline static in
+// Basic.h), so each DLL's exported ArmRefCountLeakOnExit must be called.
+static void ArmAllModulesLeakOnExit()
+{
+	NRefCount::LeakObjectsOnExit() = true;
+	const char *const modules[] = { "AILogic.dll", "GameTT.dll", "UI.dll", "Scene.dll" };
+	for ( const char *mod : modules )
+	{
+		HMODULE h = ::GetModuleHandleA( mod );
+		typedef void (*ArmFn)();
+		ArmFn fn = h ? reinterpret_cast<ArmFn>( ::GetProcAddress( h, "ArmRefCountLeakOnExit" ) ) : 0;
+		if ( fn )
+			fn();
+	}
+}
 void CICExitGame::Exec( IMainLoop *pML )
 {
+	ArmAllModulesLeakOnExit();
 	GetSingleton<ISFX>()->StopStream();
 	pML->ResetStack();
 	pML->Command( MISSION_COMMAND_VIDEO, "demo\\exit;-1" );

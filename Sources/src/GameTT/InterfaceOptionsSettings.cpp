@@ -86,7 +86,17 @@ void CInterfaceOptionsSettings::Create()
 				!pIter->IsEnd(); pIter->Next() )
 	{
 		const SOptionDesc * pDesc = pIter->GetDesc();
-		sections[pDesc->szDivision].push_back( *pDesc );
+		NI_ASSERT_T( pDesc != 0, "IOptionSystemIterator::GetDesc returned null" );
+		if ( pDesc == 0 )
+			continue;
+
+		NI_ASSERT_T( !pDesc->szName.empty(), "Option descriptor name is empty" );
+		NI_ASSERT_T( !pDesc->szDivision.empty(), NStr::Format( "Option descriptor has empty division: %s", pDesc->szName.c_str() ) );
+		if ( pDesc->szDivision.empty() )
+			continue;
+
+		const SOptionDesc desc = *pDesc;
+		sections[desc.szDivision].push_back( desc );
 	}
 	
 	ITextManager * pTM = GetSingleton<ITextManager>();

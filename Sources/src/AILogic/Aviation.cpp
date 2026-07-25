@@ -265,7 +265,7 @@ void CAviation::Segment()
 		pFormation->AddAlive();
 	
 	/*bool bDiveBomberTilt = false;
-	if ( pStats->type == RPG_TYPE_AVIA_BOMBER ) // бомбер может быть пикирующим
+	if ( pStats->type == RPG_TYPE_AVIA_BOMBER ) // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	{
 		if ( vFormerHorVerSpeed.y < 0 && vSpeedHorVer.y < vFormerHorVerSpeed.y )
 		{
@@ -303,17 +303,28 @@ void CAviation::Segment()
 	}*/
 	else if ( R == 0 )
 	{
-		int nTmp = Sign(fTiltAnge);
-
-		fTiltAnge -= 3.0f * fD * fTiltAnge / abs( fTiltAnge );
-		if ( Sign(fTiltAnge) != nTmp )
-			fTiltAnge = 0.0f;
+		// decay the tilt toward zero at a constant rate; the original divided by
+		// abs() вЂ” the INT overload вЂ” which was 0/0 = NaN for zero tilt and a
+		// division by zero for |tilt| < 1, poisoning fTiltAnge with NaN/inf
+		const int nTmp = Sign(fTiltAnge);
+		if ( nTmp != 0 )
+		{
+			fTiltAnge -= 3.0f * fD * nTmp;
+			if ( Sign(fTiltAnge) != nTmp )
+				fTiltAnge = 0.0f;
+		}
 	}
 
 	CVec3 vPerp;
 	CVec2 vSpeepHor = GetSpeed();
 	float fSpLengh = fabs( vSpeepHor );
-	if ( vSpeedHorVer.x > 0.0f )
+	if ( fSpLengh < 1e-6f )
+	{
+		// degenerate horizontal speed: the divisions below were 0/0 and poisoned
+		// the plane's normal with NaN; a level-flight normal is the intent
+		vPerp = V3_AXIS_Z;
+	}
+	else if ( vSpeedHorVer.x > 0.0f )
 	{
 		vPerp.x = -vSpeedHorVer.y * vSpeepHor.x / fSpLengh;
 		vPerp.y = -vSpeedHorVer.y * vSpeepHor.y / fSpLengh;
@@ -325,7 +336,7 @@ void CAviation::Segment()
 		vPerp.y = vSpeedHorVer.y * vSpeepHor.y / fSpLengh;
 		vPerp.z = -vSpeedHorVer.x;
 	}
-	Normalize( &vPerp ); // это нормаль к скорости, расположенная в плоскости симметрии самолета
+	Normalize( &vPerp ); // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	float mult = 1.0f;
 	CVec3 dirToCenter( VNULL3 );
 	float fCurvatureRadiusSign = /*bDiveBomberTilt ? 1 : */Sign( GetCurPath()->GetCurvatureRadius() );
@@ -341,7 +352,9 @@ void CAviation::Segment()
 			mult = 1.0f - ( ScalarMult + 0.5f ) * pStats->fTiltRatio;
 		Normalize( &dirToCenter );
 	}
-	const WORD wCurTilt = fTiltAnge * mult * 65535 / 360 + 65535*3/4;
+	// can be negative or exceed 65535 for large tilt*mult; the WORD relies on
+	// 65536-based angle wraparound (MSVC truncated through int implicitly)
+	const WORD wCurTilt = WORD( int( fTiltAnge * mult * 65535 / 360 ) + 65535*3/4 );
 	const CVec2 vCurTilt( GetVectorByDirection( wCurTilt ) );
 	fFormerCurvatureSign = fCurvatureRadiusSign;
 

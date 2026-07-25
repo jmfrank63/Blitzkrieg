@@ -11,30 +11,50 @@
   #define DEBUG_BREAK { __asm { int 3 } }
 #endif
 
+// Declared here to avoid forcing <windows.h> on every includer.
+extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
+extern "C" __declspec(dllimport) void __stdcall OutputDebugStringA(const char*);
+
+#define NI_ASSERT_STRINGIZE2(x) #x
+#define NI_ASSERT_STRINGIZE(x)  NI_ASSERT_STRINGIZE2(x)
+
+// The CRT assert dialog opens behind the fullscreen game window where it can't
+// be clicked, and its "Retry" button is just a debug break anyway. Break at the
+// assert site directly when a debugger is attached; fall back to the normal CRT
+// assert (dialog/abort) otherwise.
+#define NI_ASSERT_FAIL(expr_text)                                             \
+    {                                                                         \
+      if (IsDebuggerPresent()) {                                              \
+        OutputDebugStringA("NI_ASSERT failed: " expr_text " at "              \
+                           __FILE__ "(" NI_ASSERT_STRINGIZE(__LINE__) ")\n"); \
+        DEBUG_BREAK;                                                          \
+      }                                                                       \
+      else { assert(false && expr_text); }                                    \
+    }
 
 #if defined(_DEBUG) || defined(_DO_ASSERT) || defined(_DO_ASSERT_SLOW)
-  
-  #define NI_ASSERT(x)                               { assert(x); }
-  
+
+  #define NI_ASSERT(x)                               { if (!(x)) NI_ASSERT_FAIL(#x); }
+
   // Diagnostic text must not be evaluated on passing assertions; many callers
   // build it with lookups that are only safe on the failing path.
-  #define NI_ASSERT_T(x, user_text)                  { assert(x); }
-  
+  #define NI_ASSERT_T(x, user_text)                  { if (!(x)) NI_ASSERT_FAIL(#x); }
+
   #define NI_ASSERT_TF(x, user_text, statement)      \
     {                                                \
       if (!(x)) {                                    \
         statement;                                   \
-        assert(false && user_text);                  \
+        NI_ASSERT_FAIL(#x);                          \
       }                                              \
     }
-  
-  #define NI_ASSERTHR(x)                             { assert(!FAILED(x)); }
-  #define NI_ASSERTHR_T(x, user_text)                { assert(!FAILED(x)); }
+
+  #define NI_ASSERTHR(x)                             { if (FAILED(x)) NI_ASSERT_FAIL(#x); }
+  #define NI_ASSERTHR_T(x, user_text)                { if (FAILED(x)) NI_ASSERT_FAIL(#x); }
   #define NI_ASSERTHR_TF(x, user_text, statement)    \
     {                                                \
       if (FAILED(x)) {                               \
         statement;                                   \
-        assert(false && user_text);                  \
+        NI_ASSERT_FAIL(#x);                          \
       }                                              \
     }
   
@@ -56,11 +76,11 @@
 
 #if defined(_DEBUG) || defined(_DO_ASSERT_SLOW)
   
-  #define NI_ASSERT_SLOW(x)                          { assert(x); }
-  #define NI_ASSERT_SLOW_T(x, user_text)             { assert(x); }
+  #define NI_ASSERT_SLOW(x)                          { if (!(x)) NI_ASSERT_FAIL(#x); }
+  #define NI_ASSERT_SLOW_T(x, user_text)             { if (!(x)) NI_ASSERT_FAIL(#x); }
   #define NI_ASSERT_SLOW_TF(x, user_text, statement) NI_ASSERT_TF(x, user_text, statement)
-  #define NI_ASSERTHR_SLOW(x)                        { assert(!FAILED(x)); }
-  #define NI_ASSERTHR_SLOW_T(x, user_text)           { assert(!FAILED(x)); }
+  #define NI_ASSERTHR_SLOW(x)                        { if (FAILED(x)) NI_ASSERT_FAIL(#x); }
+  #define NI_ASSERTHR_SLOW_T(x, user_text)           { if (FAILED(x)) NI_ASSERT_FAIL(#x); }
   #define NI_ASSERTHR_SLOW_TF(x, user_text, statement) NI_ASSERTHR_TF(x, user_text, statement)
 
 #else

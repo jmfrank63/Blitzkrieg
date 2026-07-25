@@ -7,18 +7,21 @@ class CLinkObject : public IUpdatableObj
 {
 	DECLARE_SERIALIZE;
 
-	static std::vector< CPtr<CLinkObject> > link2object;
-	static std::list<int> deletedObjects;
-	static std::list<int> deletedUniqueObjects;
+	// Deliberately leaked singletons: other globals (theSuspendedUpdates etc.)
+	// release CLinkObject instances during DLL teardown, after namespace-scope
+	// statics of this class would already have been destroyed.
+	static std::vector< CPtr<CLinkObject> >& Link2Object();
+	static std::list<int>& DeletedObjects();
+	static std::list<int>& DeletedUniqueObjects();
 
-	static std::unordered_map< int, CPtr<CLinkObject> > unitsID2object;
+	static std::unordered_map< int, CPtr<CLinkObject> >& UnitsID2Object();
 	static int nCurUniqueID;
 
 	int nLink;
 	int nUniqueID;
 public:
 	CLinkObject();
-	CLinkObject( const int _nLink ) { SetLink( _nLink ); }
+	CLinkObject( const int _nLink );
 	virtual ~CLinkObject();
 	
 	void SetUniqueId();
@@ -36,10 +39,10 @@ public:
 	static CLinkObject* GetObjectByUniqueIdSafe( const int nUniqueID )
 	{
 		NI_ASSERT_T( nUniqueID > 0, "Wrong object" );
-		if ( unitsID2object.find( nUniqueID ) == unitsID2object.end() )
+		if ( UnitsID2Object().find( nUniqueID ) == UnitsID2Object().end() )
 			return 0;
 		else
-			return unitsID2object[nUniqueID];
+			return UnitsID2Object()[nUniqueID];
 	}
 
 	static void GetFreeLinks( std::list<int> *pLinks, const int nSize );

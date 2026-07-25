@@ -186,26 +186,31 @@ bool CMOUnitMechanical::Load( IMOUnit *pMO, bool bEnter )
 }
 int CMOUnitMechanical::GetPassangers( IMOUnit **pBuffer, const bool bCanSelectOnly ) const
 {
-	if ( bCanSelectOnly ) 
+	if ( bCanSelectOnly )
 	{
-		IMOUnit **pBase = pBuffer;
-		if ( pBuffer != 0 ) 
+		// count with an integer: the original advanced the NULL pBuffer to
+		// count in the counting-mode call (null pointer arithmetic)
+		int nCount = 0;
+		if ( pBuffer != 0 )
 		{
 			for ( CPassangersList::const_iterator it = passangers.begin(); it != passangers.end(); ++it )
 			{
-				if ( it->pUnit->CanSelect() ) 
+				if ( it->pUnit->CanSelect() )
+				{
 					*pBuffer++ = it->pUnit;
+					++nCount;
+				}
 			}
 		}
 		else
 		{
 			for ( CPassangersList::const_iterator it = passangers.begin(); it != passangers.end(); ++it )
 			{
-				if ( it->pUnit->CanSelect() ) 
-					++pBuffer;
+				if ( it->pUnit->CanSelect() )
+					++nCount;
 			}
 		}
-		return pBuffer - pBase;
+		return nCount;
 	}
 	else
 	{

@@ -47,14 +47,17 @@ inline const char* GetIconName( int nIconType )
 }
 inline const DWORD MakeHPBarColor( const float fHP )
 {
-	if ( fHP >= 0.5f )
+	// HP can exceed [0..1]; unclamped values make the float->DWORD casts below
+	// negative, which is undefined behavior (traps under UBSan).
+	const float fClamped = fHP < 0.0f ? 0.0f : ( fHP > 1.0f ? 1.0f : fHP );
+	if ( fClamped >= 0.5f )
 	{
-		const DWORD r = DWORD( ( 1.0f - fHP ) * 510.0f );
+		const DWORD r = DWORD( ( 1.0f - fClamped ) * 510.0f );
 		return 0xff00ff00 | (r << 16);
 	}
 	else
 	{
-		const DWORD g = DWORD( fHP * 510.0f );
+		const DWORD g = DWORD( fClamped * 510.0f );
 		return 0xffff0000 | (g << 8);
 	}
 }

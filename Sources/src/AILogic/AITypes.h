@@ -1,7 +1,8 @@
 #ifndef _AI_TYPES_H__
 #define _AI_TYPES_H__
 #pragma ONCE
-enum EDiplomacyInfo
+// fixed underlying type: crosses the AILogic boundary via shared temp buffers
+enum EDiplomacyInfo : unsigned int
 {
 	EDI_ENEMY		=	0x01,
 	EDI_FRIEND	=	0x02,
@@ -10,8 +11,8 @@ enum EDiplomacyInfo
 #pragma pack( 1 )
 struct SSegment2Trench
 {
-	IRefCount *pSegment;									// маленький кусочек 
-	IRefCount *pEntrenchment;							// весь окоп
+	IRefCount *pSegment;									// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ 
+	IRefCount *pEntrenchment;							// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 
 	SSegment2Trench() : pSegment( 0 ), pEntrenchment( 0 ) { }
 	SSegment2Trench( IRefCount *_pSegment, IRefCount *_pEntrenchment ) : pSegment( _pSegment ), pEntrenchment( _pEntrenchment ) { }

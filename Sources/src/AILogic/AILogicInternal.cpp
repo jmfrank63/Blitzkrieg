@@ -3,6 +3,24 @@
 #include <float.h>
 #include <typeinfo>
 
+BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved )
+{
+	// lpvReserved != 0 means process termination (not FreeLibrary). Static
+	// destructors are about to run in undefined order across translation units;
+	// releasing refcounted objects past this point re-enters destructors and
+	// double-frees, so leak instead — the OS reclaims everything anyway.
+	if ( fdwReason == DLL_PROCESS_DETACH && lpvReserved != 0 )
+		NRefCount::LeakObjectsOnExit() = true;
+	return TRUE;
+}
+// Called by Game.exe's atexit hook BEFORE any module destroys statics: modules
+// detach one after another, so another DLL's static teardown can release this
+// module's objects while this module's DllMain(DETACH) hasn't run yet.
+extern "C" __declspec(dllexport) void ArmRefCountLeakOnExit()
+{
+	NRefCount::LeakObjectsOnExit() = true;
+}
+
 #include "AILogicInternal.h"
 #include "Commands.h"
 #include "Units.h"
@@ -98,6 +116,15 @@ CAILogic::CAILogic()
 }
 void CAILogic::Clear()
 {
+	// Arm leak-on-exit for AILogic's own refcount machinery before ANY world
+	// teardown. The tank/turret/CAIUnit graph contains reference cycles
+	// (turrets hold CPtr<CAIUnit> back-pointers); destroying it in-place
+	// re-enters ~CTank via the back-pointer Release and double-frees. The
+	// original release build survived this because its CRT never validated the
+	// heap at teardown. Leak instead — CLinkObject::Clear below still resets
+	// the link registries, so the next mission starts with a clean slate; only
+	// cost is retained memory across missions within a session.
+	NRefCount::LeakObjectsOnExit() = true;
 	CQueueUnit::Clear();
 	NGlobalObjects::Clear();
 	CLinkObject::Clear();

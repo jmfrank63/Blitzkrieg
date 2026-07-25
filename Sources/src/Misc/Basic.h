@@ -17,6 +17,15 @@ interface IRefCount
 	virtual IRefCount* STDCALL QI( int nInterfaceTypeID ) { return 0; }
 	virtual int STDCALL operator&( interface IStructureSaver &ss ) { return 0; }
 };
+namespace NRefCount
+{
+	// Set (once per module) when process-exit teardown begins. Static destructors
+	// run in undefined order across translation units, so a Release cascade can
+	// re-enter a destructor already on the stack or free an object another static
+	// still references. From that point on Release only decrements: objects are
+	// deliberately leaked, the OS reclaims everything at process exit.
+	inline bool& LeakObjectsOnExit() { static bool bLeakObjectsOnExit = false; return bLeakObjectsOnExit; }
+}
 #ifdef _DO_ASSERT_SLOW
 #define ADD_REF_PREGUARD( ref ) const int __nOldRef = ref
 #define ADD_REF_POSTGUARD( ref ) if ( (__nOldRef & (~nMask)) != (ref & (~(nMask))) ) { _asm { int 3 } }
@@ -44,6 +53,8 @@ public:
 	virtual void STDCALL Release( int nRef = 1, int nMask = 0x7fffffff )
 	{
 		DecRef( nRef );
+		if ( NRefCount::LeakObjectsOnExit() )
+			return;
 		if ( (nRefData & 0x7fffffff) == 0 )
 			delete this;
 		else if ( (nRefData & nMask) == 0 )
@@ -221,6 +232,8 @@ public:                                                                         
 	virtual void STDCALL Release( int nRef = 1, int nMask = 0x7fffffff )							\
 	{																																									\
 		nRefData.a -= nRef;																															\
+		if ( NRefCount::LeakObjectsOnExit() )																						\
+			return;																																				\
 		if ( (nRefData.a & 0x7fffffff) == 0 )																						\
 			delete this;																																	\
 		else if ( (nRefData.a & nMask) == 0 )																						\
@@ -242,6 +255,8 @@ public:                                                                         
 	virtual void STDCALL Release( int nRef = 1, int nMask = 0x7fffffff )							\
 	{																																									\
 		nRefData.a -= nRef;																															\
+		if ( NRefCount::LeakObjectsOnExit() )																						\
+			return;																																				\
 		if ( (nRefData.a & 0x7fffffff) == 0 )																						\
 			delete this;																																	\
 		else if ( (nRefData.a & nMask) == 0 )																						\

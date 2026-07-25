@@ -118,7 +118,7 @@ bool CObjectsDB::LoadDB()
 	pStorage->GetStreamStats( "objects.gdb", &statsGDB );
 	if ( (statsXML.nSize == 0) && (statsGDB.nSize == 0) ) 
 		return false;
-	else if ( (statsXML.nSize > 0) && (statsGDB.nSize > 0) ) 
+	if ( (statsXML.nSize > 0) && (statsGDB.nSize > 0) )
 	{
 		if ( CPtr<IDataStream> pStream = pStorage->OpenStream("objects.gdb", STREAM_ACCESS_READ) )
 		{
@@ -126,7 +126,7 @@ bool CObjectsDB::LoadDB()
 			CPtr<IStructureSaver> pSS = CreateStructureSaver( pStream, IStructureSaver::READ );
 			CSaverAccessor saver = pSS;
 			saver.Add( 1, &timeXML );
-			if ( statsXML.mtime != timeXML ) 
+			if ( statsXML.mtime != timeXML )
 			{
 				saver = 0;
 				pSS = 0;

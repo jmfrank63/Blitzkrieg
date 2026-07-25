@@ -32,7 +32,7 @@ int CWorldClient::DetermineBestAutoAction( const SMapObject *pMO )
 	}
 	if ( IsSelectionEmpty() )
 	{
-		switch ( GetDiplomacyRelation(pMO) ) 
+		switch ( GetDiplomacyRelation(pMO) )
 		{
 			case EDI_FRIEND:
 				return USER_ACTION_SELECT_FRIEND;
@@ -600,13 +600,14 @@ bool CWorldClient::ActionBoard( SMapObject *pMO, bool bAddAction )
 {
 	if ( IsSelectionEmpty() )
 		return false;
+	bool bRes = false;
 	if ( pMO->pDesc->eGameType == SGVOGT_BUILDING )
-		return PerformActionObjParam( ACTION_COMMAND_ENTER, pMO->pAIObj, 0, bAddAction );
+		bRes = PerformActionObjParam( ACTION_COMMAND_ENTER, pMO->pAIObj, 0, bAddAction );
 	else if ( pMO->pDesc->eGameType == SGVOGT_ENTRENCHMENT )
-		return PerformActionObjParam( ACTION_COMMAND_ENTER, pMO->pAIObj, 2, bAddAction );
+		bRes = PerformActionObjParam( ACTION_COMMAND_ENTER, pMO->pAIObj, 2, bAddAction );
 	else if ( (pMO->pDesc->eGameType == SGVOGT_UNIT) && IsFriend(pMO) )
-		return PerformActionObjParam( ACTION_COMMAND_LOAD, pMO->pAIObj, 1, bAddAction );
-	return false;
+		bRes = PerformActionObjParam( ACTION_COMMAND_LOAD, pMO->pAIObj, 1, bAddAction );
+	return bRes;
 }
 bool CWorldClient::ActionBoard( CMapObjectsPtrList &objects, bool bAddAction )
 {

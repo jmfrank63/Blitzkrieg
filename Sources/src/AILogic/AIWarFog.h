@@ -101,7 +101,7 @@ public:
 		long values;
 	};
 
-	SFogInfo() : fSightPower( 1.0f ) { }
+	SFogInfo() : center( 0, 0 ), wUnitDir( 0 ), bAngleLimited( false ), bPlane( false ), fSightPower( 1.0f ), r( 0 ), wVisionAngle( 0 ), wMinAngle( 0 ), wMaxAngle( 0 ) { }
 	SFogInfo( const SVector &_center, const WORD _r, const WORD _wUnitDir, const WORD _wVisionAngle, const bool _bPlane, const float _fSightPower ) 
 	: center( _center ), r( _r ), wUnitDir( _wUnitDir ), wVisionAngle( _wVisionAngle ), bAngleLimited( false ), wMinAngle( 0 ), wMaxAngle( 0 ), bPlane( _bPlane ), fSightPower( _fSightPower ) { }
 	SFogInfo( const SVector &_center, const WORD _r, const WORD _wUnitDir, const WORD _wVisionAngle, bool _bAngleLimited, const WORD _wMinAngle, const WORD _wMaxAngle, const bool _bPlane, const float _fSightPower )

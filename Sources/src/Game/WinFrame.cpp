@@ -47,7 +47,6 @@ HWND GetHWnd() { return hWnd; }
 HINSTANCE GetHInstance() { return hInstance; }
 void AddMsg( SWindowsMsg::EMsg msg, int x, int y, DWORD dwFlags );
 static void AddInputMessage( const int nEventID, const int nParam = 0 );
-static void AddMouseActionMessage( const int nEventID, const LPARAM lParam );
 static void UpdateCursorPos( const LPARAM lParam );
 static void AddMovieSkipMessage();
 static void ApplyMouseClip();
@@ -139,20 +138,27 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 			}
 			break;
 
+		// Button transitions are only fed to the input device emulation; the
+		// bind system turns them into begin/end_action commands. Posting the
+		// CMD_*_ACTION* messages here as well dispatched every mouse action
+		// twice (e.g. the move+rotate drag gesture was followed by a second
+		// plain move to the release point).
 		case WM_LBUTTONDOWN:
 			if ( GetSingleton<IInput>()->IsEmulated(DEVICE_TYPE_MOUSE) )
 			{
 				CaptureMouse();
 				SetCapture( hWnd );
-				AddMouseActionMessage( CMD_BEGIN_ACTION1, lParam );
 				AddMovieSkipMessage();
+				if ( NMain::IsInitialized() )
+					UpdateCursorPos( lParam );
 				GetSingleton<IInput>()->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_BUTTON0, 0x80, timeGetTime(), TranslateCoords(lParam) );
 			}
 			break;
 		case WM_LBUTTONUP:
 			if ( GetSingleton<IInput>()->IsEmulated(DEVICE_TYPE_MOUSE) )
 			{
-				AddMouseActionMessage( CMD_END_ACTION1, lParam );
+				if ( NMain::IsInitialized() )
+					UpdateCursorPos( lParam );
 				GetSingleton<IInput>()->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_BUTTON0, 0x00, timeGetTime(), TranslateCoords(lParam) );
 				if ( GetCapture() == hWnd )
 					ReleaseCapture();
@@ -161,8 +167,9 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 		case WM_LBUTTONDBLCLK:
 			if ( GetSingleton<IInput>()->IsEmulated(DEVICE_TYPE_MOUSE) )
 			{
-				AddMouseActionMessage( CMD_MOUSE0_DBLCLK, lParam );
 				AddMovieSkipMessage();
+				if ( NMain::IsInitialized() )
+					UpdateCursorPos( lParam );
 				GetSingleton<IInput>()->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_BUTTON0 | 0x4000, 0x80, timeGetTime(), TranslateCoords(lParam) );
 			}
 			break;
@@ -171,15 +178,17 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 			{
 				CaptureMouse();
 				SetCapture( hWnd );
-				AddMouseActionMessage( CMD_BEGIN_ACTION2, lParam );
 				AddMovieSkipMessage();
+				if ( NMain::IsInitialized() )
+					UpdateCursorPos( lParam );
 				GetSingleton<IInput>()->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_BUTTON1, 0x80, timeGetTime(), TranslateCoords(lParam) );
 			}
 			break;
 		case WM_RBUTTONUP:
 			if ( GetSingleton<IInput>()->IsEmulated(DEVICE_TYPE_MOUSE) )
 			{
-				AddMouseActionMessage( CMD_END_ACTION2, lParam );
+				if ( NMain::IsInitialized() )
+					UpdateCursorPos( lParam );
 				GetSingleton<IInput>()->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_BUTTON1, 0x00, timeGetTime(), TranslateCoords(lParam) );
 				if ( GetCapture() == hWnd )
 					ReleaseCapture();
@@ -259,14 +268,6 @@ static void AddInputMessage( const int nEventID, const int nParam )
 {
 	if ( NMain::IsInitialized() )
 		GetSingleton<IInput>()->AddMessage( SGameMessage( nEventID, nParam ) );
-}
-static void AddMouseActionMessage( const int nEventID, const LPARAM lParam )
-{
-	if ( NMain::IsInitialized() )
-	{
-		UpdateCursorPos( lParam );
-		AddInputMessage( nEventID, TranslateCoords(lParam) );
-	}
 }
 static void UpdateCursorPos( const LPARAM lParam )
 {

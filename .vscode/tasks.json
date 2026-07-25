@@ -266,6 +266,29 @@
       "problemMatcher": []
     },
     {
+      "label": "Zig Build Game (Debug, x86, UBSan Trap)",
+      "type": "process",
+      "command": "zig",
+      "args": [
+        "build",
+        "--build-file",
+        "${workspaceFolder}/build.zig",
+        "install-game",
+        "-Dtarget=x86-windows-msvc",
+        "-Doptimize=Debug",
+        "-Dubsan-trap=true"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "Zig Build Game (Release, x86)",
       "type": "process",
       "command": "zig",
@@ -289,6 +312,30 @@
       "label": "Zig Run Game (Debug, x86)",
       "type": "process",
       "command": "${workspaceFolder}/zig-out/Game/x86/Debug/Game.exe",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Zig CDB Capture Exit (x86, No Build)",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/tools/zig/capture_exit3.ps1",
+        "-InstallDir",
+        "zig-out/Game/x86/Debug",
+        "-CommandFile",
+        "cdb-exit3.txt",
+        "-OutputFile",
+        "cdb-vscode-capture.txt"
+      ],
       "group": "build",
       "presentation": {
         "reveal": "always",

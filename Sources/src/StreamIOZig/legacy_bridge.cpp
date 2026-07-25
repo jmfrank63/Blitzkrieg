@@ -1,5 +1,15 @@
 // Deliberately self-contained legacy ABI shim.  These declarations mirror the
 // vtable order used by the old headers without importing their MSXML/MFC stack.
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <deque>
+#include <string>
+#include <typeinfo>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
 extern "C" void *bk_streamio_temp_buffer(int size, int index);
 extern "C" void *bk_storage_create(const char *name, unsigned long access, unsigned long type);
 extern "C" void bk_storage_destroy(void *storage);
@@ -17,6 +27,7 @@ extern "C" bool bk_enumerator_next(void *enumerator);
 extern "C" bool bk_enumerator_stats(void *enumerator, void *stats);
 extern "C" int bk_stream_read(void *stream, void *destination, int length);
 extern "C" int bk_stream_write(void *stream, const void *source, int length);
+extern "C" void *bk_stream_create_memory(const void *src, int len);
 extern "C" int bk_stream_seek(void *stream, int offset, int origin);
 extern "C" int bk_stream_position(void *stream);
 extern "C" int bk_stream_size(void *stream);
@@ -33,6 +44,11 @@ extern "C" void bk_structure_finish(void *saver);
 extern "C" void bk_structure_data(void *saver, unsigned char id, void *output, int size);
 extern "C" int bk_structure_count(void *saver, unsigned char id);
 extern "C" void bk_structure_set_counter(void *saver, int counter);
+extern "C" bool bk_structure_has_directory(void *saver);
+extern "C" bool bk_structure_directory_entry(void *saver, int index, int *out_type, int *out_ptr, unsigned char *out_valid);
+extern "C" int bk_structure_object_count(void *saver);
+extern "C" bool bk_structure_enter_object(void *saver, int index);
+extern "C" bool bk_structure_read_raw(void *saver, void *output, int size);
 extern "C" const char *bk_global_get(const char *key);
 extern "C" void bk_global_set(const char *key, const char *value);
 extern "C" void bk_global_remove(const char *key);
@@ -43,6 +59,8 @@ extern "C" double bk_table_get_double(void *stream, const char *row, const char 
 extern "C" void *bk_options_create();
 extern "C" void bk_options_destroy(void *options);
 extern "C" int bk_options_load_tree(void *options, void *tree, bool only_missing);
+extern "C" int bk_options_save_tree(void *options, void *tree);
+extern "C" bool bk_table_get_string(void *stream, const char *row, const char *entry, char *buffer, int size);
 extern "C" int bk_options_count(void *options);
 extern "C" const char *bk_options_name_at(void *options, int index);
 extern "C" const char *bk_options_value(void *options, const char *name, unsigned short *value_type);
@@ -62,10 +80,17 @@ extern "C" const unsigned short *bk_console_read(void *console, int channel, uns
 extern "C" const char *bk_console_read_ascii(void *console, int channel, unsigned long *color);
 extern "C" void *bk_tree_create(void *stream, int mode, const char *base);
 extern "C" void bk_tree_destroy(void *tree);
+extern "C" bool bk_tree_flush(void *tree, void *stream);
+extern "C" bool bk_tree_write_int(void *tree, const char *name, int value);
+extern "C" bool bk_tree_write_double(void *tree, const char *name, double value);
+extern "C" bool bk_tree_write_string(void *tree, const char *text);
+extern "C" bool bk_tree_write_wstring(void *tree, const unsigned short *text);
+extern "C" bool bk_tree_write_raw(void *tree, const void *data, int size);
 extern "C" int bk_tree_start(void *tree, const char *name);
 extern "C" void bk_tree_finish(void *tree);
 extern "C" int bk_tree_size(void *tree);
 extern "C" bool bk_tree_string(void *tree, void *destination);
+extern "C" bool bk_tree_raw(void *tree, void *destination, int length);
 extern "C" bool bk_tree_int(void *tree, const char *name, int *value);
 extern "C" bool bk_tree_double(void *tree, const char *name, double *value);
 extern "C" int bk_tree_start_container(void *tree, const char *name);
@@ -79,12 +104,15 @@ extern "C" void bk_tree_finish_container(void *tree);
 #define BK_STDCALL __attribute__((stdcall))
 #endif
 
+struct IStructureSaver;
 struct IRefCount {
     virtual void BK_STDCALL AddRef(int = 1, int = 0x7fffffff) = 0;
     virtual void BK_STDCALL Release(int = 1, int = 0x7fffffff) = 0;
     virtual bool BK_STDCALL IsValid() const = 0;
     virtual IRefCount *BK_STDCALL QI(int) { return 0; }
-    virtual int BK_STDCALL operator&(void *) { return 0; }
+    // Matches the real IRefCount (Misc/Basic.h) slot so operator&(IStructureSaver&)
+    // dispatches to the game object's real serializer across the DLL boundary.
+    virtual int BK_STDCALL operator&( IStructureSaver & ) { return 0; }
 };
 
 #if 0
@@ -162,6 +190,24 @@ struct IGlobalVars : public IRefCount {
     virtual void BK_STDCALL RemoveWVar(const char *) = 0;
     virtual bool BK_STDCALL DumpVars(const char *) = 0;
     virtual void BK_STDCALL SerializeVarsByMatch(void *, const char *) = 0;
+};
+
+// First slots of SFX/SFX.h ISFX (through SetStreamMasterVolume), needed by the
+// option-action dispatch below. ISFX re-declares QI, which shares the base
+// IRefCount slot, so the vtable continues directly with IsInitialized.
+struct ISFXMinimal : public IRefCount {
+    virtual bool BK_STDCALL IsInitialized() = 0;
+    virtual bool BK_STDCALL Init(void *wnd, int driver, int output, int mix_rate, int max_channels) = 0;
+    virtual void BK_STDCALL Done() = 0;
+    virtual void BK_STDCALL EnableSFX(bool enable) = 0;
+    virtual void BK_STDCALL EnableStreaming(bool enable) = 0;
+    virtual bool BK_STDCALL IsSFXEnabled() const = 0;
+    virtual bool BK_STDCALL IsStreamingEnabled() const = 0;
+    virtual void BK_STDCALL SetDistanceFactor(float factor) = 0;
+    virtual void BK_STDCALL SetRolloffFactor(float factor) = 0;
+    virtual void BK_STDCALL SetSFXMasterVolume(float volume) = 0;
+    virtual unsigned char BK_STDCALL GetSFXMasterVolume() const = 0;
+    virtual void BK_STDCALL SetStreamMasterVolume(float volume) = 0;
 };
 
 struct IConsoleBuffer : public IRefCount {
@@ -295,7 +341,24 @@ public:
     }
     int BK_STDCALL GetNumKnownTypes() override { return count_; }
     void BK_STDCALL GetKnownTypes(SObjectFactoryTypeInfo *out, int capacity) override { for (int i = 0; out && i < count_ && i < capacity; ++i) out[i] = types_[i]; }
-    int BK_STDCALL GetObjectTypeID(IRefCount *) const override { return -1; }
+    // Mirror CBasicObjectFactory::GetObjectTypeID (Misc/BasicObjectFactory.h):
+    // match typeid(*pObj) against each registered type's type_info. Compared by
+    // name() because the game's type_info objects live in different DLLs than
+    // this bridge, so pointer identity is unreliable; the mangled name is stable
+    // across modules compiled by the same (clang) toolchain.
+    int BK_STDCALL GetObjectTypeID(IRefCount *pObj) const override {
+        if (!pObj) return -1;
+        const char *const name = typeid(*pObj).name();
+        if (!name) return -1;
+        for (int i = 0; i != count_; ++i) {
+            if (types_[i].pTypeInfo) {
+                const std::type_info *registered = static_cast<const std::type_info*>(types_[i].pTypeInfo);
+                if (registered->name() && std::strcmp(registered->name(), name) == 0)
+                    return types_[i].nTypeID;
+            }
+        }
+        return -1;
+    }
 };
 
 class Singleton final : public ISingleton {
@@ -303,15 +366,33 @@ class Singleton final : public ISingleton {
 public:
     bool BK_STDCALL Register(int id, IRefCount *object) override {
         if (!object || Get(id)) return false;
-        for (auto &entry : entries) if (!entry.object) { entry.id = id; entry.object = object; object->AddRef(); return true; }
+        for (auto &entry : entries) if (!entry.object) {
+            entry.id = id;
+            entry.object = object;
+            // The original CSingleton stores CPtr<IRefCount>: every registered
+            // object gets a registry-owned reference, negative core-service ids
+            // included. Bridge objects self-delete at refcount zero, so skipping
+            // this ref lets any transient CPtr hold (0->1->0) free a singleton
+            // the registry still hands out.
+            object->AddRef();
+            return true;
+        }
         return false;
     }
     bool BK_STDCALL UnRegister(int id) override {
-        for (auto &entry : entries) if (entry.object && entry.id == id) { entry.object->Release(); entry.object = 0; return true; }
+        for (auto &entry : entries) if (entry.object && entry.id == id) {
+            entry.object->Release();
+            entry.object = 0;
+            return true;
+        }
         return true;
     }
     bool BK_STDCALL UnRegister(IRefCount *object) override {
-        for (auto &entry : entries) if (entry.object == object) { entry.object->Release(); entry.object = 0; return true; }
+        for (auto &entry : entries) if (entry.object == object) {
+            entry.object->Release();
+            entry.object = 0;
+            return true;
+        }
         return false;
     }
     IRefCount *BK_STDCALL Get(int id) override { for (auto &entry : entries) if (entry.object && entry.id == id) return entry.object; return 0; }
@@ -330,7 +411,12 @@ public:
         *out = buffer;
         return n;
     }
-    void BK_STDCALL Done() override { for (auto &entry : entries) if (entry.object) { entry.object->Release(); entry.object = 0; } }
+    void BK_STDCALL Done() override {
+        for (auto &entry : entries) if (entry.object) {
+            entry.object->Release();
+            entry.object = 0;
+        }
+    }
 };
 
 class SaveLoadSystem final : public ISaveLoadSystem {
@@ -355,6 +441,15 @@ public:
     explicit ZigDataStream(void *stream) : stream_(stream) {}
     ~ZigDataStream() { bk_stream_destroy(stream_); }
     void *Native() const { return stream_; }
+    // Vtable-pointer identity so callers holding a bare IDataStream* can tell
+    // whether it is actually a ZigDataStream (and thus safe to Native()) without
+    // adding a virtual (which would desync the ABI-mirror vtable from the game's
+    // IDataStream). A temporary with a null stream is safe: ~ZigDataStream calls
+    // bk_stream_destroy(null) which is a no-op.
+    static const void *Vtable() {
+        ZigDataStream tmp(0);
+        return *reinterpret_cast<void *const *>(&tmp);
+    }
     void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
     void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
     bool BK_STDCALL IsValid() const override { return stream_ != 0; }
@@ -375,6 +470,105 @@ public:
     void BK_STDCALL GetStats(void *stats) override { if (stats) bk_stream_stats(stream_, stats); }
 };
 
+// Replacement for StreamIO.dll's CMemFileStream (STREAMIO_MEMORY_STREAM):
+// a growable in-memory IDataStream the game creates through the object
+// factory for AI update suspension and multiplayer packets.
+class MemoryStream final : public IDataStream {
+    std::vector<unsigned char> data_;
+    int begin_ = 0;
+    int pos_ = 0;
+    int refs_ = 0;
+    void ResizeToFit(int size) {
+        if (size > (int)data_.size()) {
+            data_.reserve((size_t)(size * 1.3));
+            data_.resize(size);
+        }
+    }
+public:
+    MemoryStream() { data_.reserve(1024); }
+    void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
+    void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
+    bool BK_STDCALL IsValid() const override { return true; }
+    int BK_STDCALL Read(void *buffer, int length) override {
+        const int available = (int)data_.size() - pos_;
+        if (length > available) length = available;
+        if (length > 0) { std::memcpy(buffer, &data_[pos_], length); pos_ += length; }
+        return length > 0 ? length : 0;
+    }
+    int BK_STDCALL Write(const void *buffer, int length) override {
+        ResizeToFit(pos_ + length);
+        if (length > 0) { std::memcpy(&data_[pos_], buffer, length); pos_ += length; }
+        return length;
+    }
+    int BK_STDCALL LockBegin() override { begin_ = pos_; return begin_; }
+    int BK_STDCALL UnlockBegin() override { const int old = begin_; begin_ = 0; return old; }
+    int BK_STDCALL GetPos() const override { return pos_ - begin_; }
+    int BK_STDCALL Seek(int offset, int from) override {
+        switch (from) {
+            case 0: pos_ = begin_ + offset; break;          // STREAM_SEEK_SET
+            case 1: pos_ += offset; break;                  // STREAM_SEEK_CUR
+            case 2: pos_ = (int)data_.size() + offset; break; // STREAM_SEEK_END
+        }
+        if (pos_ < begin_) pos_ = begin_;
+        if (pos_ > (int)data_.size()) pos_ = (int)data_.size();
+        return pos_;
+    }
+    int BK_STDCALL GetSize() const override { return (int)data_.size() - begin_; }
+    bool BK_STDCALL SetSize(int size) override {
+        data_.resize(begin_ + size);
+        if (pos_ > begin_ + size) pos_ = begin_ + size;
+        return true;
+    }
+    int BK_STDCALL CopyTo(IDataStream *destination, int length) override {
+        const int available = (int)data_.size() - pos_;
+        if (length > available) length = available;
+        const int last = pos_;
+        pos_ += length > 0 ? length : 0;
+        return length > 0 ? destination->Write(&data_[last], length) : 0;
+    }
+    void BK_STDCALL Flush() override {}
+    void BK_STDCALL GetStats(void *stats) override {
+        // Only the leading {pszName, type, nSize} fields of SStorageElementStats.
+        struct SStatsHead { const char *name; int type; int size; };
+        if (stats) { SStatsHead *head = static_cast<SStatsHead *>(stats); head->name = 0; head->type = 1; head->size = GetSize(); }
+    }
+};
+
+// Vtable mirror of IRandomGenSeed (StreamIO/RandomGen.h): Init,
+// InitByZeroSeed, operator&(IDataTree&), Store, Restore.
+struct IRandomGenSeed : public IRefCount {
+    virtual void BK_STDCALL Init() = 0;
+    virtual void BK_STDCALL InitByZeroSeed() = 0;
+    virtual int BK_STDCALL SerializeTree(void *) = 0;
+    virtual void BK_STDCALL Store(IDataStream *) = 0;
+    virtual void BK_STDCALL Restore(IDataStream *) = 0;
+};
+
+// Replacement for StreamIO.dll's CRandomGenSeed (STREAMIO_RANDOM_GEN_SEED):
+// an ISAAC-sized state blob the game stores/restores through streams and
+// passes to IRandomGen::SetSeed at mission start.
+class RandomGenSeed final : public IRandomGenSeed {
+    enum { RAND_SIZE = 256 };
+    struct SRandData { unsigned int cnt; unsigned int rsl[RAND_SIZE]; unsigned int mem[RAND_SIZE]; unsigned int a, b, c; } rnd_ = {};
+    int refs_ = 0;
+public:
+    void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
+    void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
+    bool BK_STDCALL IsValid() const override { return true; }
+    void BK_STDCALL Init() override {
+        rnd_.cnt = 0;
+        for (int i = 0; i != RAND_SIZE; ++i) { rnd_.rsl[i] = bk_random_get(); rnd_.mem[i] = bk_random_get(); }
+        rnd_.a = bk_random_get(); rnd_.b = bk_random_get(); rnd_.c = bk_random_get();
+    }
+    void BK_STDCALL InitByZeroSeed() override { std::memset(&rnd_, 0, sizeof(rnd_)); }
+    int BK_STDCALL SerializeTree(void *) override { return 0; }
+    void BK_STDCALL Store(IDataStream *stream) override { if (stream) stream->Write(&rnd_, sizeof(rnd_)); }
+    void BK_STDCALL Restore(IDataStream *stream) override { if (stream) stream->Read(&rnd_, sizeof(rnd_)); }
+};
+
+static IRefCount *BK_STDCALL CreateMemoryStreamObject() { return new MemoryStream(); }
+static IRefCount *BK_STDCALL CreateRandomGenSeedObject() { return new RandomGenSeed(); }
+
 class ZigDataTable final : public IDataTable {
     ZigDataStream *source_;
     int refs_ = 0;
@@ -389,8 +583,14 @@ public:
     void BK_STDCALL ClearRow(const char *) override {}
     int BK_STDCALL GetInt(const char *row, const char *entry, int fallback) override { return (row && entry) ? bk_table_get_int(source_->Native(), row, entry, fallback) : fallback; }
     double BK_STDCALL GetDouble(const char *row, const char *entry, double fallback) override { return (row && entry) ? bk_table_get_double(source_->Native(), row, entry, fallback) : fallback; }
-    const char *BK_STDCALL GetString(const char *, const char *, const char *fallback, char *buffer, int size) override {
+    const char *BK_STDCALL GetString(const char *row, const char *entry, const char *fallback, char *buffer, int size) override {
         if (!buffer || size <= 0) return fallback ? fallback : "";
+        // Real lookup (attribute or child-element text, mirroring
+        // CDataTableXML::GetNode); this was a fallback-only stub, which made
+        // every string const read through tables silently default — e.g. the
+        // Actions.User.Friendly priority list, without which BOARD never won
+        // the cursor resolution and transports could not be entered.
+        if (row && entry && bk_table_get_string(source_->Native(), row, entry, buffer, size)) return buffer;
         const char *value = fallback ? fallback : ""; int i = 0;
         for (; value[i] && i + 1 < size; ++i) buffer[i] = value[i];
         buffer[i] = 0; return buffer;
@@ -425,7 +625,12 @@ class ZigDataTree final : public IDataTree {
 public:
     ZigDataTree(void *tree, ZigDataStream *source, int mode) : tree_(tree), source_(source), mode_(mode) { source_->AddRef(); }
     void *Native() const { return tree_; }
-    ~ZigDataTree() { bk_tree_destroy(tree_); source_->Release(); }
+    ~ZigDataTree() {
+        // CDataTreeXML saves the document into the stream from its destructor.
+        if (mode_ == 1) bk_tree_flush(tree_, source_->Native());
+        bk_tree_destroy(tree_);
+        source_->Release();
+    }
     void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
     void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
     bool BK_STDCALL IsValid() const override { return tree_ != 0; }
@@ -433,17 +638,34 @@ public:
     int BK_STDCALL StartChunk(const char *name) override { return name ? bk_tree_start(tree_, name) : 0; }
     void BK_STDCALL FinishChunk() override { bk_tree_finish(tree_); }
     int BK_STDCALL GetChunkSize() override { return bk_tree_size(tree_); }
-    bool BK_STDCALL RawData(void *, int) override { return false; }
-    bool BK_STDCALL StringData(char *data) override { return data && bk_tree_string(tree_, data); }
+    bool BK_STDCALL RawData(void *data, int size) override {
+        if (!data) return false;
+        if (mode_ == 1) return bk_tree_write_raw(tree_, data, size);
+        return bk_tree_raw(tree_, data, size);
+    }
+    bool BK_STDCALL StringData(char *data) override {
+        if (!data) return false;
+        if (mode_ == 1) return bk_tree_write_string(tree_, data);
+        return bk_tree_string(tree_, data);
+    }
     bool BK_STDCALL StringData(unsigned short *data) override {
         if (!data) return false;
+        if (mode_ == 1) return bk_tree_write_wstring(tree_, data);
         const int size = bk_tree_size(tree_); char buffer[4096];
         if (size < 0 || size >= int(sizeof(buffer)) || !bk_tree_string(tree_, buffer)) return false;
         for (int i = 0; i <= size; ++i) data[i] = static_cast<unsigned char>(buffer[i]);
         return true;
     }
-    bool BK_STDCALL DataChunk(const char *name, int *data) override { return name && data && bk_tree_int(tree_, name, data); }
-    bool BK_STDCALL DataChunk(const char *name, double *data) override { return name && data && bk_tree_double(tree_, name, data); }
+    bool BK_STDCALL DataChunk(const char *name, int *data) override {
+        if (!name || !data) return false;
+        if (mode_ == 1) return bk_tree_write_int(tree_, name, *data);
+        return bk_tree_int(tree_, name, data);
+    }
+    bool BK_STDCALL DataChunk(const char *name, double *data) override {
+        if (!name || !data) return false;
+        if (mode_ == 1) return bk_tree_write_double(tree_, name, *data);
+        return bk_tree_double(tree_, name, data);
+    }
     int BK_STDCALL CountChunks(const char *name) override { return bk_tree_count(tree_, name ? name : ""); }
     bool BK_STDCALL SetChunkCounter(int index) override { return bk_tree_set_counter(tree_, index); }
     int BK_STDCALL StartContainerChunk(const char *name) override { return bk_tree_start_container(tree_, name ? name : ""); }
@@ -454,22 +676,225 @@ class ZigStructureSaver final : public IStructureSaver {
     void *saver_;
     ZigDataStream *source_;
     void *gdb_;
+    IObjectFactory *factory_;
+    std::unordered_map<unsigned int, IRefCount*> objects_;  // ptrID -> loaded object
+    std::vector<IRefCount*> created_;                       // owns directory-created objects (AddRef'd)
+    bool dirLoaded_ = false;
     int refs_ = 0;
+
+    void EnsureDirectoryLoaded() {
+        if (dirLoaded_) return;
+        dirLoaded_ = true;  // set first to avoid re-entry
+        if (!factory_ || !bk_structure_has_directory(saver_)) return;
+        // Pass 1: create every object from the directory so LoadObject (called
+        // during pass 2 deserialization) always resolves. Mirrors the original
+        // CStructureSaver2::Start two-phase load.
+        for (int i = 0; ; ++i) {
+            int typeID = 0, ptrID = 0;
+            unsigned char valid = 0;
+            if (!bk_structure_directory_entry(saver_, i, &typeID, &ptrID, &valid)) break;
+            IRefCount *obj = factory_->CreateObject(typeID);
+            if (!obj) {
+                fprintf(stderr, "[struct-warn] LoadObject: factory returned null for typeID=0x%08x ptrID=0x%08x\n", (unsigned)typeID, (unsigned)ptrID);
+                continue;
+            }
+            obj->AddRef();
+            created_.push_back(obj);
+            objects_[(unsigned int)ptrID] = obj;
+        }
+        // Pass 2: deserialize each object's content (chunk-id-1 under chunk 2).
+        const int n = bk_structure_object_count(saver_);
+        for (int i = 0; i < n; ++i) {
+            if (!bk_structure_enter_object(saver_, i)) continue;
+            int ptrID = 0;
+            DataChunk('\x00', &ptrID, 4);   // content's ptrID (sub-chunk 0) — verifies identity
+            std::unordered_map<unsigned int, IRefCount*>::iterator it = objects_.find((unsigned int)ptrID);
+            if (it != objects_.end() && it->second) {
+                if (StartChunk('\x01')) {
+                    it->second->operator &( *this );
+                    FinishChunk();
+                }
+            }
+            FinishChunk();
+        }
+    }
 public:
-    ZigStructureSaver(void *saver, ZigDataStream *source, void *gdb) : saver_(saver), source_(source), gdb_(gdb) { source_->AddRef(); }
-    ~ZigStructureSaver() { bk_structure_destroy(saver_); source_->Release(); }
+    ZigStructureSaver(void *saver, ZigDataStream *source, void *gdb, IObjectFactory *factory) : saver_(saver), source_(source), gdb_(gdb), factory_(factory) { source_->AddRef(); }
+    ~ZigStructureSaver() {
+        bk_structure_destroy(saver_);
+        for (size_t i = 0; i < created_.size(); ++i) created_[i]->Release();
+        source_->Release();
+    }
     void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
     void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
     bool BK_STDCALL IsValid() const override { return saver_ != 0; }
     bool BK_STDCALL StartChunk(char id) override { return bk_structure_start(saver_, static_cast<unsigned char>(id)); }
     void BK_STDCALL FinishChunk() override { bk_structure_finish(saver_); }
     void BK_STDCALL DataChunk(char id, void *data, int size) override { bk_structure_data(saver_, static_cast<unsigned char>(id), data, size); }
-    void BK_STDCALL DataChunk(IDataStream *) override {}
+    void BK_STDCALL DataChunk(IDataStream *pStream) override {
+        if (!pStream) return;
+        int nSize = 0;
+        DataChunk('\x01', &nSize, sizeof(nSize));
+        if (nSize > 0) {
+            std::vector<unsigned char> buffer(nSize);
+            DataChunk('\x02', &buffer[0], nSize);
+            pStream->Write(&buffer[0], nSize);
+        }
+    }
     int BK_STDCALL CountChunks(char id) override { return bk_structure_count(saver_, static_cast<unsigned char>(id)); }
     void BK_STDCALL SetChunkCounter(int counter) override { bk_structure_set_counter(saver_, counter); }
     bool BK_STDCALL IsReading() const override { return true; }
+    IRefCount *BK_STDCALL LoadObject() override {
+        EnsureDirectoryLoaded();
+        unsigned int ptrID = 0;
+        if (!bk_structure_read_raw(saver_, &ptrID, 4)) return 0;
+        std::unordered_map<unsigned int, IRefCount*>::iterator it = objects_.find(ptrID);
+        if (it != objects_.end()) {
+            if (it->second) it->second->AddRef();
+            return it->second;
+        }
+        return 0;
+    }
+    void BK_STDCALL StoreObject(IRefCount *) override {}  // write-only
+    void *BK_STDCALL GetGDB() override { return gdb_; }
+};
+
+// Write-mode structure saver. Emits the compact chunk format the zig reader
+// (shortChunkAt) parses: [id:u8][len:u8, or u32 LE with bit0 set][payload].
+// A save stream holds up to three top-level chunks: id 1 = the caller's main
+// data tree, id 0 = the object directory ([typeID:u32][ptrID:u32][valid:u8]
+// per record), id 2 = per-object content (chunk-id-1 children). Mirrors
+// CStructureSaver2's object-graph layout. Save files are written and read by
+// the same build, so the exact byte layout only needs internal consistency.
+class ZigStructureWriter final : public IStructureSaver {
+    ZigDataStream *source_;
+    void *gdb_;
+    IObjectFactory *factory_;
+    typedef std::pair<unsigned char, std::vector<unsigned char> > Frame;
+    std::vector<Frame> stack_;     // main data tree (becomes top-level chunk 1)
+    std::vector<Frame> content_;   // object-content frames (become top-level chunk 2)
+    std::vector<unsigned char> objDir_;  // directory records (top-level chunk 0)
+    std::unordered_map<IRefCount*, unsigned int> stored_;
+    std::deque<IRefCount*> toStore_;
+    bool inContent_ = false;       // route StartChunk/DataChunk/FinishChunk to content_ while draining objects
+    int refs_ = 0;
+
+    static void AppendChunk(std::vector<unsigned char> &out, unsigned char id, const unsigned char *data, size_t size) {
+        out.push_back(id);
+        const unsigned int encoded = (unsigned int)(size << 1);
+        if (size < 128) {
+            out.push_back((unsigned char)encoded);
+        } else {
+            out.push_back((unsigned char)(encoded | 1));
+            out.push_back((unsigned char)(encoded >> 8));
+            out.push_back((unsigned char)(encoded >> 16));
+            out.push_back((unsigned char)(encoded >> 24));
+        }
+        if (size) out.insert(out.end(), data, data + size);
+    }
+    static void AppendU32(std::vector<unsigned char> &out, unsigned int v) {
+        out.push_back((unsigned char)(v & 0xff));
+        out.push_back((unsigned char)((v >> 8) & 0xff));
+        out.push_back((unsigned char)((v >> 16) & 0xff));
+        out.push_back((unsigned char)((v >> 24) & 0xff));
+    }
+    std::vector<Frame> &Active() { return inContent_ ? content_ : stack_; }
+
+    void DrainObjects() {
+        // Serializing one object may StoreObject() transitively-referenced
+        // objects (appending to toStore_); drain until empty, mirroring the
+        // original's queue loop.
+        inContent_ = true;
+        while ( !toStore_.empty() ) {
+            IRefCount *pObj = toStore_.front();
+            toStore_.pop_front();
+            const unsigned int ptrID = stored_[pObj];
+            // Object content = chunk-id-1: [sub-chunk 0: ptrID][sub-chunk 1: operator& tree]
+            StartChunk( '\x01' );
+            unsigned int ptr = ptrID;
+            DataChunk( '\x00', &ptr, 4 );
+            if ( StartChunk( '\x01' ) ) {
+                pObj->operator &( *this );
+                FinishChunk();
+            }
+            FinishChunk();
+        }
+        inContent_ = false;
+    }
+public:
+    ZigStructureWriter(ZigDataStream *source, void *gdb, IObjectFactory *factory) : source_(source), gdb_(gdb), factory_(factory) {
+        source_->AddRef();
+        stack_.push_back(Frame((unsigned char)1, std::vector<unsigned char>()));
+        content_.push_back(Frame((unsigned char)2, std::vector<unsigned char>()));  // synthetic root accumulating object chunks
+    }
+    ~ZigStructureWriter() {
+        while (stack_.size() > 1) FinishChunk();
+        DrainObjects();
+        std::vector<unsigned char> file;
+        AppendChunk(file, 0, objDir_.empty() ? 0 : &objDir_[0], objDir_.size());           // directory
+        AppendChunk(file, stack_[0].first, stack_[0].second.empty() ? 0 : &stack_[0].second[0], stack_[0].second.size());  // main data
+        AppendChunk(file, content_[0].first, content_[0].second.empty() ? 0 : &content_[0].second[0], content_[0].second.size());  // object content
+        source_->Write(&file[0], (int)file.size());
+        source_->Flush();
+        source_->Release();
+    }
+    void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
+    void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
+    bool BK_STDCALL IsValid() const override { return true; }
+    bool BK_STDCALL StartChunk(char id) override {
+        Active().push_back(Frame((unsigned char)id, std::vector<unsigned char>()));
+        return true;
+    }
+    void BK_STDCALL FinishChunk() override {
+        std::vector<Frame> &s = Active();
+        if (s.size() <= 1) return;
+        Frame top;
+        top.first = s.back().first;
+        top.second.swap(s.back().second);
+        s.pop_back();
+        AppendChunk(s.back().second, top.first, top.second.empty() ? 0 : &top.second[0], top.second.size());
+    }
+    void BK_STDCALL DataChunk(char id, void *data, int size) override {
+        if (size < 0 || (size > 0 && !data)) return;
+        AppendChunk(Active().back().second, (unsigned char)id, (const unsigned char *)data, (size_t)size);
+    }
+    void BK_STDCALL DataChunk(IDataStream *pStream) override {
+        // Mirror CStructureSaver2::DataChunk(IDataStream*): two sub-chunks,
+        // id 1 = the byte count, id 2 = the bytes themselves.
+        if (!pStream) return;
+        const int nStreamPos = pStream->GetPos();
+        int nSize = pStream->GetSize();
+        DataChunk('\x01', &nSize, sizeof(nSize));
+        if (nSize > 0) {
+            std::vector<unsigned char> buffer(nSize);
+            pStream->Seek(nStreamPos, 0);
+            pStream->Read(&buffer[0], nSize);
+            DataChunk('\x02', &buffer[0], nSize);
+        }
+        pStream->Seek(nStreamPos, 0);
+    }
+    int BK_STDCALL CountChunks(char) override { return 0; }
+    void BK_STDCALL SetChunkCounter(int) override {}
+    bool BK_STDCALL IsReading() const override { return false; }
     IRefCount *BK_STDCALL LoadObject() override { return 0; }
-    void BK_STDCALL StoreObject(IRefCount *) override {}
+    void BK_STDCALL StoreObject(IRefCount *pObj) override {
+        unsigned int ptrID = pObj ? (unsigned int)(uintptr_t)pObj : 0;
+        // The inline reference is the object's pointer cast to a 4-byte ID.
+        AppendU32(Active().back().second, ptrID);
+        if (pObj && stored_.find(pObj) == stored_.end()) {
+            const int typeID = factory_ ? factory_->GetObjectTypeID(pObj) : -1;
+            if (typeID == -1) {
+                fprintf(stderr, "[struct-warn] StoreObject: unregistered object type \"%s\" ptr=0x%08x — save will be incomplete\n",
+                        typeid(*pObj).name(), ptrID);
+            }
+            const unsigned char valid = pObj->IsValid() ? 1 : 0;
+            AppendU32(objDir_, (unsigned int)typeID);
+            AppendU32(objDir_, ptrID);
+            objDir_.push_back(valid);
+            stored_[pObj] = ptrID;
+            toStore_.push_back(pObj);
+        }
+    }
     void *BK_STDCALL GetGDB() override { return gdb_; }
 };
 
@@ -613,7 +1038,28 @@ public:
 };
 
 void ZigOptionIterator::Advance() {
-    while (owner_ && index_ < owner_->Count()) { unsigned long flags = 0; owner_->Metadata(index_, 0, &flags, 0, 0, 0, 0, 0, 0); if (mask_ == 0xffffffff || (flags & mask_) != 0) break; ++index_; }
+    while (owner_ && index_ < owner_->Count()) {
+        const char *key = owner_->NameAt(index_);
+        if (!key || !*key) {
+            char message[160] = {};
+            std::snprintf(message, sizeof(message), "[StreamIOZig] skipping option index %d: missing key\\n", index_);
+            OutputDebugStringA(message);
+            ++index_;
+            continue;
+        }
+
+        unsigned long flags = 0;
+        if (!owner_->Metadata(index_, 0, &flags, 0, 0, 0, 0, 0, 0)) {
+            char message[224] = {};
+            std::snprintf(message, sizeof(message), "[StreamIOZig] skipping option index %d (%s): metadata unavailable\\n", index_, key);
+            OutputDebugStringA(message);
+            ++index_;
+            continue;
+        }
+
+        if (mask_ == 0xffffffff || (flags & mask_) != 0) break;
+        ++index_;
+    }
 }
 bool BK_STDCALL ZigOptionIterator::Next() { if (!IsEnd()) ++index_; Advance(); return !IsEnd(); }
 bool BK_STDCALL ZigOptionIterator::IsEnd() const { return !owner_ || index_ >= owner_->Count(); }
@@ -627,6 +1073,15 @@ extern "C" int BK_STDCALL bk_options_load_legacy_tree(void *options, void *tree,
     return zig_tree ? bk_options_load_tree(options, zig_tree->Native(), only_missing) : 0;
 }
 
+// COptionSystem::SerializeConfig follows the tree's direction: load options
+// from a READ tree, dump them into a WRITE tree (the config.cfg save path).
+extern "C" int BK_STDCALL bk_options_serialize_legacy_tree(void *options, void *tree, bool only_missing) {
+    ZigDataTree *zig_tree = static_cast<ZigDataTree *>(tree);
+    if (!zig_tree) return 0;
+    if (!zig_tree->IsReading()) return bk_options_save_tree(options, zig_tree->Native());
+    return bk_options_load_tree(options, zig_tree->Native(), only_missing);
+}
+
 void *BK_STDCALL SaveLoadSystem::OpenDataTable(void *stream, const char *) { ZigDataStream *zig_stream = static_cast<ZigDataStream *>(stream); return zig_stream ? new ZigDataTable(zig_stream) : 0; }
 void *BK_STDCALL SaveLoadSystem::CreateDataTreeSaver(void *stream, int mode, const char *base) {
     ZigDataStream *zig_stream = static_cast<ZigDataStream *>(stream);
@@ -635,9 +1090,35 @@ void *BK_STDCALL SaveLoadSystem::CreateDataTreeSaver(void *stream, int mode, con
 }
 
 void *BK_STDCALL SaveLoadSystem::CreateStructureSaver(void *stream, int mode, void *) {
-    ZigDataStream *zig_stream = static_cast<ZigDataStream *>(stream);
-    void *saver = zig_stream ? bk_structure_create(zig_stream->Native(), mode) : 0;
-    return saver ? new ZigStructureSaver(saver, zig_stream, gdb_) : 0;
+    if (!stream) return 0;
+    IObjectFactory *factory = static_cast<IObjectFactory *>(GetCommonFactory());
+    if (mode == 2) {   // IStructureSaver::WRITE
+        ZigDataStream *zig_stream = static_cast<ZigDataStream *>(stream);
+        return new ZigStructureWriter(zig_stream, gdb_, factory);
+    }
+    // READ: if the stream is actually a ZigDataStream, use its handle directly
+    // (fast path; this is what every startup/mission structure read passes). If
+    // it is NOT — e.g. CICLoad's CStreamRangeAdaptor wrapping the save file —
+    // static_cast<ZigDataStream*> would be a bad cast, so snapshot the bytes
+    // into an owned memory Stream instead. Distinguish by vtable identity.
+    if (stream && *reinterpret_cast<void *const *>(stream) == ZigDataStream::Vtable()) {
+        ZigDataStream *zig_stream = static_cast<ZigDataStream *>(stream);
+        void *saver = bk_structure_create(zig_stream->Native(), mode);
+        return saver ? new ZigStructureSaver(saver, zig_stream, gdb_, factory) : 0;
+    }
+    IDataStream *ids = static_cast<IDataStream *>(stream);
+    const int nSize = ids->GetSize();
+    std::vector<unsigned char> buffer(nSize > 0 ? nSize : 0);
+    if (nSize > 0) {
+        ids->Seek(0, 0);
+        ids->Read(buffer.data(), nSize);
+    }
+    void *memStream = bk_stream_create_memory(nSize > 0 ? buffer.data() : 0, nSize);
+    if (!memStream) return 0;
+    ZigDataStream *zig_stream = new ZigDataStream(memStream);   // owns + frees the memory Stream
+    void *saver = bk_structure_create(zig_stream->Native(), mode);
+    if (!saver) { zig_stream->Release(); return 0; }
+    return new ZigStructureSaver(saver, zig_stream, gdb_, factory);
 }
 
 
@@ -687,6 +1168,50 @@ public:
 };
 
 class GlobalVars final : public IGlobalVars {
+    enum { MAX_WVARS = 64, MAX_WKEY = 128, MAX_WVALUE = 4096 };
+    struct WVarEntry {
+        bool used;
+        char key[MAX_WKEY];
+        unsigned short value[MAX_WVALUE];
+    };
+    WVarEntry wvalues_[MAX_WVARS];
+
+    static bool SameKey(const char *left, const char *right) {
+        if (!left || !right) return false;
+        while (*left && *right) {
+            if (*left != *right) return false;
+            ++left;
+            ++right;
+        }
+        return *left == 0 && *right == 0;
+    }
+
+    int FindWIndex(const char *key) const {
+        if (!key) return -1;
+        for (int i = 0; i < MAX_WVARS; ++i) {
+            if (wvalues_[i].used && SameKey(wvalues_[i].key, key)) return i;
+        }
+        return -1;
+    }
+
+    static void CopyKey(char *destination, const char *source, int capacity) {
+        if (!destination || capacity <= 0) return;
+        destination[0] = 0;
+        if (!source) return;
+        int i = 0;
+        for (; source[i] && i < capacity - 1; ++i) destination[i] = source[i];
+        destination[i] = 0;
+    }
+
+    static void CopyWide(unsigned short *destination, const unsigned short *source, int capacity) {
+        if (!destination || capacity <= 0) return;
+        destination[0] = 0;
+        if (!source) return;
+        int i = 0;
+        for (; source[i] && i < capacity - 1; ++i) destination[i] = source[i];
+        destination[i] = 0;
+    }
+
 public:
     void BK_STDCALL AddRef(int, int) override {}
     void BK_STDCALL Release(int, int) override {}
@@ -695,9 +1220,33 @@ public:
     void BK_STDCALL SetVar(const char *key, const char *value) override { if (key && value) bk_global_set(key, value); }
     void BK_STDCALL RemoveVar(const char *key) override { if (key) bk_global_remove(key); }
     void BK_STDCALL RemoveVarsByMatch(const char *) override {}
-    const unsigned short *BK_STDCALL GetWVar(const char *) const override { return 0; }
-    void BK_STDCALL SetVar(const char *, const unsigned short *) override {}
-    void BK_STDCALL RemoveWVar(const char *) override {}
+    const unsigned short *BK_STDCALL GetWVar(const char *key) const override {
+        const int index = FindWIndex(key);
+        return index >= 0 ? wvalues_[index].value : 0;
+    }
+    void BK_STDCALL SetVar(const char *key, const unsigned short *value) override {
+        if (!key || !value) return;
+        int index = FindWIndex(key);
+        if (index < 0) {
+            for (int i = 0; i < MAX_WVARS; ++i) {
+                if (!wvalues_[i].used) {
+                    index = i;
+                    wvalues_[i].used = true;
+                    CopyKey(wvalues_[i].key, key, MAX_WKEY);
+                    break;
+                }
+            }
+        }
+        if (index >= 0) CopyWide(wvalues_[index].value, value, MAX_WVALUE);
+    }
+    void BK_STDCALL RemoveWVar(const char *key) override {
+        const int index = FindWIndex(key);
+        if (index >= 0) {
+            wvalues_[index].used = false;
+            wvalues_[index].key[0] = 0;
+            wvalues_[index].value[0] = 0;
+        }
+    }
     bool BK_STDCALL DumpVars(const char *) override { return false; }
     void BK_STDCALL SerializeVarsByMatch(void *, const char *) override {}
 };
@@ -731,11 +1280,11 @@ public:
     void BK_STDCALL Restore(void *) override {}
 };
 
-static Singleton singleton;
-static SaveLoadSystem save_load_system;
-static GlobalVars global_vars;
+static Singleton *singleton = 0;
+static SaveLoadSystem *save_load_system = 0;
+static GlobalVars *global_vars = 0;
 static IRefCount *console_buffer = 0;
-static RandomGen random_gen;
+static RandomGen *random_gen = 0;
 static IRefCount *option_system = 0;
 void *BK_STDCALL SaveLoadSystem::OpenStorage(const char *name, unsigned long access, unsigned long type) { void *storage = bk_storage_create(name, access, type); return storage ? new DataStorage(storage) : 0; }
 void *BK_STDCALL SaveLoadSystem::CreateStorage(const char *name, unsigned long access, unsigned long type) { void *storage = bk_storage_create(name, access, type); return storage ? new DataStorage(storage) : 0; }
@@ -744,16 +1293,62 @@ static void EnsureCoreServices()
 {
     static bool initialized = false;
     if ( initialized ) return;
-    singleton.Register(-1, &global_vars);
+
+    if (!singleton) singleton = new Singleton();
+    if (!save_load_system) save_load_system = new SaveLoadSystem();
+    if (!global_vars) global_vars = new GlobalVars();
+    if (!random_gen) random_gen = new RandomGen();
+
+    // Object types the original StreamIO.dll registered in its own factory
+    // (StreamIOObjectFactory.cpp); without them CreateObject returns null.
+    IObjectFactory *factory = static_cast<IObjectFactory *>(save_load_system->GetCommonFactory());
+    factory->RegisterType(0x100b0004, &CreateMemoryStreamObject);   // STREAMIO_MEMORY_STREAM
+    factory->RegisterType(0x100b0005, &CreateRandomGenSeedObject);  // STREAMIO_RANDOM_GEN_SEED
+
+    singleton->Register(-1, global_vars);
+    // The bridge keeps raw static pointers to these beyond the registry's
+    // lifetime, so each gets a bridge-owned reference on top of the registry's.
     console_buffer = static_cast<IRefCount *>(bk_console_bridge_create());
-    if (console_buffer) singleton.Register(-2, console_buffer);
-    singleton.Register(-3, &random_gen);
+    if (console_buffer) { console_buffer->AddRef(); singleton->Register(-2, console_buffer); }
+    singleton->Register(-3, random_gen);
     option_system = static_cast<IRefCount *>(bk_option_bridge_create());
-    if (option_system) singleton.Register(-4, option_system);
+    if (option_system) { option_system->AddRef(); singleton->Register(-4, option_system); }
     initialized = true;
 }
 
+// Option-action dispatch, mirroring COptionSystem::InnerSet for the volume
+// actions (OptionSystemInternal.cpp:229-242). Without it option values load
+// but never take effect — menu music stays at the backend's zero volume.
+// Other actions (game speed, difficulty, gamma...) still TODO.
+extern "C" __declspec(dllexport) void bk_bridge_apply_option_action(const char *action, const char *name, const char *value)
+{
+    if (!action || !*action) return;
+    const bool music = std::strcmp(action, "SetMusicVolume") == 0;
+    const bool sfx = std::strcmp(action, "SetSFXVolume") == 0;
+    if (!music && !sfx) return;
+    if (!singleton) return;
+    ISFXMinimal *sfx_system = static_cast<ISFXMinimal *>(singleton->Get(0x10090001));  // SFX_SFX
+    if (!sfx_system) return;
+
+    double master = 1.0;   // Sound.*MasterVolume default, mission scripts may scale it
+    if (global_vars) {
+        const char *master_text = global_vars->GetVar(music ? "Sound.StreamMasterVolume" : "Sound.SFXMasterVolume");
+        if (master_text && *master_text) master = std::atof(master_text);
+    }
+    const float volume = static_cast<float>(static_cast<short>((value ? std::atof(value) : 0.0) * master)) / 100.0f;
+    if (music)
+        sfx_system->SetStreamMasterVolume(volume);
+    else
+        sfx_system->SetSFXMasterVolume(volume);
+
+    if (name && *name && global_vars) {
+        char key[256];
+        std::snprintf(key, sizeof key, "Options.%s", name);
+        global_vars->SetVar(key, value ? value : "");
+    }
+}
+
 extern "C" void *BK_STDCALL GetTempRawBuffer_Hook(int size, int index) { return bk_streamio_temp_buffer(size, index); }
-extern "C" ISingleton *BK_STDCALL GetSingletonGlobal_Hook() { EnsureCoreServices(); return &singleton; }
-extern "C" ISaveLoadSystem *BK_STDCALL GetSLS_Hook() { return &save_load_system; }
+extern "C" ISingleton *BK_STDCALL GetSingletonGlobal_Hook() { EnsureCoreServices(); return singleton; }
+extern "C" ISaveLoadSystem *BK_STDCALL GetSLS_Hook() { EnsureCoreServices(); return save_load_system; }
 extern "C" const void *BK_STDCALL GetModuleDescriptor() { return 0; }

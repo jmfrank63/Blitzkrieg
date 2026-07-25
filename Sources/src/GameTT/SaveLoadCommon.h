@@ -23,11 +23,13 @@ public:
 		if ( !it.IsDirectory() && (it.GetLength() > 1024) )
 		{
 			std::string szFileName = it.GetFilePath();
-			NI_ASSERT_T( szFileName.size() > szPath.size(), "Wrong name size" );
-			szFileName = szFileName.substr( szPath.size() );
-/*
-			szFileName = szFileName.substr( 0, szFileName.rfind('.') );
-*/
+			// Use the basename rather than stripping a fixed szPath prefix: the
+			// enumerator's path and szPath can differ in form (drive letter /
+			// separator / case), which left the full path in the list and broke
+			// load ("shows path in file selector" / "cannot load - not found").
+			const std::string::size_type nSlash = szFileName.find_last_of( "\\/" );
+			if ( nSlash != std::string::npos )
+				szFileName = szFileName.substr( nSlash + 1 );
 			files.push_back( SLoadFileDesc(szFileName, it.GetLastWriteTime(), it.GetLength()) );
 		}
 		return true;

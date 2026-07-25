@@ -33,7 +33,12 @@ const WORD GetDirectionByVector( float x, float y )
 	NI_ASSERT_SLOW_TF( x >= 0 && y >= 0, NStr::Format("Wrong vector {%g, %g}", x, y), return 0 );
 
 	if ( x + y != 0 )
-		return 16384.0f * y / ( x + y ) + add;
+	{
+		// the quadrant sum can land exactly on 65536 (full circle) вЂ” the WORD
+		// return relies on wraparound to 0; MSVC truncated through int
+		// implicitly, UBSan traps the float->WORD conversion
+		return WORD( int( 16384.0f * y / ( x + y ) + add ) );
+	}
 	else
 		return 0;
 }
@@ -120,7 +125,7 @@ const float GetDistanceToSegment( const CVec2 &vSegmentStart, const CVec2 &vSegm
 	const float fDiff2 = fabs( vSegmentEnd - vNormal );
 	const float fDiff3 = fabs( vSegmentEnd - vSegmentStart );
 	
-	if ( fDiff3 < fDiff2 + fDiff1 ) // нормаль от точки не падает на отрезок
+	if ( fDiff3 < fDiff2 + fDiff1 ) // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	{
 		const float fDist1 = fabs( vSegmentStart - vPoint );
 		const float fDist2 = fabs( vSegmentEnd - vPoint );

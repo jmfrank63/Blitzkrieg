@@ -5,3 +5,4 @@ EXPORTS
     GetSLS_Hook @3
     GetSingletonGlobal_Hook @4
     bk_options_load_legacy_tree = _bk_options_load_legacy_tree@12 @5
+    bk_options_serialize_legacy_tree = _bk_options_serialize_legacy_tree@12 @6

@@ -51,6 +51,12 @@ const cppflags_debug = &.{
     "-Wno-unused-command-line-argument",
 };
 
+// -Dubsan-trap: compile UBSan checks as trap instructions (ud2) instead of the
+// zig runtime that prints a panic and aborts. Traps raise an illegal-instruction
+// exception at the faulting line, which GUI debuggers (vsdbg) break on directly.
+var ubsan_trap = false;
+const cppflags_debug_trap = &(cppflags_debug.* ++ .{"-fsanitize-trap=undefined"});
+
 const cppflags_release = &.{
     "-D_WINDOWS",
     "-DWIN32",
@@ -641,6 +647,7 @@ pub fn build(b: *std.Build) void {
     const install_dir = b.option([]const u8, "install-dir", "Relative install layout path") orelse b.fmt("zig-out/Game/{s}/{s}", .{ library_arch, config_dir });
     const copy_data = b.option(bool, "copy-data", "Copy Data into install layout instead of creating a junction") orelse false;
     const startup_trace = b.option(bool, "startup-trace", "Emit Windows startup checkpoint markers to the debugger") orelse false;
+    ubsan_trap = b.option(bool, "ubsan-trap", "Compile UBSan checks as traps so debuggers break at the faulting line (Debug only)") orelse false;
     const package_dir = b.option([]const u8, "package-dir", "Relative output directory for zip installers (default: zig-out/packages)") orelse "zig-out/packages";
 
     const zlib = addZlib(b, target, optimize, toolchain);
@@ -959,11 +966,15 @@ fn addOptionsBridge(
     toolchain: ToolchainIncludes,
 ) *std.Build.Step.Compile {
     const module = b.createModule(.{ .target = target, .optimize = optimize });
-    module.addCSourceFile(.{ .file = b.path("Sources/src/StreamIOZig/options_bridge.cpp"), .flags = &.{"-std=c++17"} });
+    var flags: std.ArrayListUnmanaged([]const u8) = .empty;
+    flags.appendSlice(b.allocator, cppflagsForOptimize(optimize)) catch @panic("OOM");
+    flags.append(b.allocator, "-std=c++17") catch @panic("OOM");
+    module.addCSourceFile(.{ .file = b.path("Sources/src/StreamIOZig/options_bridge.cpp"), .flags = flags.items });
     addMsvcIncludePaths(b, module, toolchain);
     addMsvcLibraryPaths(b, module, toolchain);
     linkMsvcRuntime(module, optimize);
     module.linkSystemLibrary("oleaut32", .{});
+    module.linkSystemLibrary("user32", .{});
     return b.addLibrary(.{ .name = "StreamIOOptionsAbi", .linkage = .dynamic, .root_module = module });
 }
 
@@ -980,9 +991,12 @@ fn addStreamIOZig(
         .optimize = optimize,
         .link_libc = true,
     });
+    var flags: std.ArrayListUnmanaged([]const u8) = .empty;
+    flags.appendSlice(b.allocator, cppflagsForOptimize(optimize)) catch @panic("OOM");
+    flags.append(b.allocator, "-std=c++17") catch @panic("OOM");
     streamio_module.addCSourceFile(.{
         .file = b.path("Sources/src/StreamIOZig/legacy_bridge.cpp"),
-        .flags = &.{"-std=c++17"},
+        .flags = flags.items,
     });
     addMsvcIncludePaths(b, streamio_module, toolchain);
     addMsvcLibraryPaths(b, streamio_module, toolchain);
@@ -1010,6 +1024,13 @@ fn addLegacyProjectDll(
 ) *std.Build.Step.Compile {
     const contents = std.Io.Dir.cwd().readFileAlloc(b.graph.io, project, b.allocator, .limited(8 * 1024 * 1024)) catch |err| @panic(@errorName(err));
     var files: std.ArrayListUnmanaged([]const u8) = .empty;
+    // libtheora/libogg are math-heavy decoders; at -O0 (Debug) clang emits code
+    // ~2x slower than MSVC /Od, which breaks realtime video decode (measured
+    // 60-90ms/frame vs the 40ms budget). Build just these sources optimized,
+    // in a ReleaseFast module that links the SAME CRT as the rest of the game
+    // (passing the project `optimize` to linkMsvcRuntime) so there's no
+    // debug/release CRT mismatch.
+    var xiph_files: std.ArrayListUnmanaged([]const u8) = .empty;
     var offset: usize = 0;
     const marker = "<ClCompile Include=\"";
     while (std.mem.indexOfPos(u8, contents, offset, marker)) |start| {
@@ -1017,7 +1038,12 @@ fn addLegacyProjectDll(
         const path_end = std.mem.indexOfPos(u8, contents, path_start, "\"") orelse break;
         const source = contents[path_start..path_end];
         if (std.mem.endsWith(u8, source, ".cpp") or std.mem.endsWith(u8, source, ".c")) {
-            files.append(b.allocator, b.fmt("Sources/src/{s}/{s}", .{ name, source })) catch @panic("OOM");
+            const placed = b.fmt("Sources/src/{s}/{s}", .{ name, source });
+            if (std.mem.indexOf(u8, source, "xiph") != null) {
+                xiph_files.append(b.allocator, placed) catch @panic("OOM");
+            } else {
+                files.append(b.allocator, placed) catch @panic("OOM");
+            }
         }
         offset = path_end + 1;
     }
@@ -1033,6 +1059,18 @@ fn addLegacyProjectDll(
         flags.append(b.allocator, "Sources/src/AILogic/StdAfx.h") catch @panic("OOM");
         module.addCSourceFiles(.{ .files = files.items, .flags = flags.items });
     } else module.addCSourceFiles(.{ .files = files.items, .flags = cppflagsForOptimize(optimize) });
+    if (xiph_files.items.len > 0) {
+        // Static lib of just the decoder objects; it does NOT link a CRT itself
+        // (no linkMsvcRuntime) — its CRT symbols resolve when Scene.dll links
+        // against the game's CRT (ucrtbased in Debug), avoiding any mismatch.
+        const xiph_module = b.createModule(.{ .target = target, .optimize = .ReleaseFast });
+        addProjectIncludePaths(b, xiph_module);
+        addMsvcIncludePaths(b, xiph_module, toolchain);
+        for (includes) |include| xiph_module.addIncludePath(b.path(include));
+        xiph_module.addCSourceFiles(.{ .files = xiph_files.items, .flags = cflagsForOptimize(.ReleaseFast) });
+        const xiph_lib = b.addLibrary(.{ .name = b.fmt("{s}_xiph", .{name}), .linkage = .static, .root_module = xiph_module });
+        module.linkLibrary(xiph_lib);
+    }
     for (libraries) |library| module.linkLibrary(library);
     linkMsvcRuntime(module, optimize);
     module.linkSystemLibrary("version", .{});
@@ -1125,6 +1163,19 @@ fn addGame(
     game_module.linkSystemLibrary("user32", .{});
     game_module.linkSystemLibrary("gdi32", .{});
     linkComSupport(game_module, optimize);
+    // Splash screen, icon and bitmap resources: WinFrame.cpp creates the
+    // IDD_SPLASH_SCREEN dialog from these — without them the loader shows a
+    // bare white window. SplashResources.rc is an ASCII-only extract of
+    // Game.rc (whose windows-1251 string tables the resource compiler cannot
+    // process); winres.h comes from the SDK um directory.
+    game_module.addWin32ResourceFile(.{
+        .file = b.path("Sources/src/Game/SplashResources.rc"),
+        .include_paths = &.{
+            b.path("Sources/src/Game"),
+            .{ .cwd_relative = b.fmt("{s}\\um", .{toolchain.windows_sdk_include}) },
+            .{ .cwd_relative = b.fmt("{s}\\shared", .{toolchain.windows_sdk_include}) },
+        },
+    });
 
     const game = b.addExecutable(.{
         .name = "Game",
@@ -1706,7 +1757,7 @@ fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
 
 fn cppflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     return switch (optimize) {
-        .Debug => cppflags_debug,
+        .Debug => if (ubsan_trap) cppflags_debug_trap else cppflags_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_release,
     };
 }

@@ -108,7 +108,14 @@ inline float fabsxy2( const CVec3 &a ) { return fabs2( a.x, a.y ); }
 inline float fabsxy( const CVec3 &a ) { return fabs( a.x, a.y ); }
 inline bool Normalize( CVec3 *pVec ) { return Normalize(pVec->x, pVec->y, pVec->z); }
 
-inline BYTE floatToByte( const float fNumber ) { return static_cast<BYTE>( static_cast<signed char>( fNumber * 127.0f ) ); }
+// float -> signed char is UB for NaN and out-of-range values (UBSan traps);
+// MSVC's _ftol produced 0x80000000 for those, i.e. a low byte of 0 — keep that.
+inline BYTE floatToByte( const float fNumber )
+{
+	const float fScaled = fNumber * 127.0f;
+	const int nScaled = ( fScaled >= -2147483648.0f && fScaled < 2147483648.0f ) ? static_cast<int>( fScaled ) : ( -2147483647 - 1 );
+	return static_cast<BYTE>( static_cast<signed char>( nScaled ) );
+}
 inline float byteToFloat( const BYTE cNumber ) { return float( char( cNumber ) ) / 127.0f; }
 inline DWORD Vec3ToDWORD( const CVec3 &v ) { return DWORD( floatToByte( v.x ) ) | ( DWORD( floatToByte( v.y ) ) << 8 ) | ( DWORD( floatToByte( v.z ) ) << 16 ); }
 inline const CVec3 DWORDToVec3( DWORD dwVector ) { return CVec3( byteToFloat( dwVector & 0xff ), byteToFloat( (dwVector >> 8) & 0xff ), byteToFloat( (dwVector >> 16) & 0xff ) ); }

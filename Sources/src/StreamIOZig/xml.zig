@@ -86,7 +86,7 @@ const Parser = struct {
             const value_start = self.pos;
             while (self.pos < self.bytes.len and self.bytes[self.pos] != quote) : (self.pos += 1) {}
             if (self.pos == self.bytes.len) return error.MalformedXml;
-            try node.attributes.append(self.allocator, .{ .name = attribute_name, .value = self.bytes[value_start..self.pos] });
+            try node.attributes.append(self.allocator, .{ .name = attribute_name, .value = try decodeEntities(self.allocator, self.bytes[value_start..self.pos]) });
             self.pos += 1;
         }
         if (self.pos >= self.bytes.len) return error.MalformedXml;
@@ -111,11 +111,69 @@ const Parser = struct {
                 const start = self.pos;
                 while (self.pos < self.bytes.len and self.bytes[self.pos] != '<') : (self.pos += 1) {}
                 const value = std.mem.trim(u8, self.bytes[start..self.pos], " \t\r\n");
-                if (value.len != 0) node.text = value;
+                if (value.len != 0) node.text = try decodeEntities(self.allocator, value);
             }
         }
     }
 };
+
+fn numericEntity(entity: []const u8) ?u21 {
+    if (entity.len < 2 or entity[0] != '#') return null;
+    if (entity[1] == 'x' or entity[1] == 'X') return std.fmt.parseInt(u21, entity[2..], 16) catch null;
+    return std.fmt.parseInt(u21, entity[1..], 10) catch null;
+}
+
+// Decode XML character entities the way MSXML did on load. Returns the input
+// slice untouched when no '&' is present (the common case); otherwise the
+// decoded copy comes from `allocator` (runtime callers parse into an arena).
+// Codepoints <= 255 decode to a single byte to match the legacy ANSI
+// one-byte-per-character string handling.
+fn decodeEntities(allocator: std.mem.Allocator, value: []const u8) ![]const u8 {
+    if (std.mem.indexOfScalar(u8, value, '&') == null) return value;
+    var out = try std.ArrayListUnmanaged(u8).initCapacity(allocator, value.len);
+    errdefer out.deinit(allocator);
+    var i: usize = 0;
+    while (i < value.len) {
+        if (value[i] != '&') {
+            try out.append(allocator, value[i]);
+            i += 1;
+            continue;
+        }
+        const end = std.mem.indexOfScalarPos(u8, value, i + 1, ';') orelse {
+            try out.append(allocator, value[i]);
+            i += 1;
+            continue;
+        };
+        const entity = value[i + 1 .. end];
+        if (std.mem.eql(u8, entity, "amp")) {
+            try out.append(allocator, '&');
+        } else if (std.mem.eql(u8, entity, "lt")) {
+            try out.append(allocator, '<');
+        } else if (std.mem.eql(u8, entity, "gt")) {
+            try out.append(allocator, '>');
+        } else if (std.mem.eql(u8, entity, "quot")) {
+            try out.append(allocator, '"');
+        } else if (std.mem.eql(u8, entity, "apos")) {
+            try out.append(allocator, '\'');
+        } else if (numericEntity(entity)) |code| {
+            if (code <= 255) {
+                try out.append(allocator, @intCast(code));
+            } else {
+                var buf: [4]u8 = undefined;
+                if (std.unicode.utf8Encode(code, &buf)) |len| {
+                    try out.appendSlice(allocator, buf[0..len]);
+                } else |_| {
+                    try out.appendSlice(allocator, value[i .. end + 1]);
+                }
+            }
+        } else {
+            // Unknown entity: keep it verbatim rather than dropping bytes.
+            try out.appendSlice(allocator, value[i .. end + 1]);
+        }
+        i = end + 1;
+    }
+    return out.toOwnedSlice(allocator);
+}
 
 pub fn parse(allocator: std.mem.Allocator, bytes: []const u8) !Document {
     var parser = Parser{ .bytes = bytes, .allocator = allocator };
@@ -137,6 +195,15 @@ fn destroyNode(allocator: std.mem.Allocator, node: *Node) void {
     node.children.deinit(allocator);
     node.attributes.deinit(allocator);
     allocator.destroy(node);
+}
+
+test "decodes character entities in text and attributes" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const document = try parse(arena.allocator(), "<base><item value=\"a &amp; b &quot;c&quot;\">1 &lt; 2 &gt; 0 &#233;&apos;</item></base>");
+    const item = child(document.root, "item").?;
+    try std.testing.expectEqualStrings("a & b \"c\"", attribute(item, "value").?);
+    try std.testing.expectEqualStrings("1 < 2 > 0 \xe9'", item.text);
 }
 
 test "parses nested XML with attributes and comments" {

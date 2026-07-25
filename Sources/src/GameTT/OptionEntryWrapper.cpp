@@ -345,7 +345,7 @@ void COptionsListWrapper::InitList( const bool bDefault )
 				NI_ASSERT_T( pDesc->nDataType == VT_BSTR, NStr::Format( "EOET_CLICK_SWITCHES is allowed only for VT_BSTR type (option %s)", pDesc->szName.c_str() ) );
 
 				const std::vector<SOptionDropListValue>& values = pSystem->GetDropValues( pDesc->szName );
-				NI_ASSERT_T( !values.empty(), NStr::Format( "cannot fill selections for %s", pDesc->szName ) );
+				NI_ASSERT_T( !values.empty(), NStr::Format( "cannot fill selections for %s", pDesc->szName.c_str() ) );
 				std::wstring szCurrent;
 				variant_t val;
 				if ( !bDefault && pSystem->Get( pDesc->szName, &val ) )

@@ -2,6 +2,11 @@ const std = @import("std");
 
 const channel_count = 32;
 const Line = struct { text: [:0]u16, ascii: [:0]u8, color: u32, backup: bool };
+// Read cursor advances over `lines` (O(1) pop from front). The previous design
+// used orderedRemove(0), which is O(n) per pop — and ParseWorldStreamCommands
+// drains the whole world stream every frame, making it O(n^2)/frame. On full
+// drain (read_index reaches the end) all consumed lines are freed and the list
+// is cleared, retaining capacity for the next frame's writes.
 const Channel = struct { lines: std.ArrayListUnmanaged(Line) = .empty, read_index: usize = 0 };
 
 pub const Console = struct {
@@ -9,17 +14,50 @@ pub const Console = struct {
     channels: [channel_count]Channel = [_]Channel{.{}} ** channel_count,
     duplicates: [channel_count]u32 = [_]u32{0} ** channel_count,
     log_path: ?[:0]u8 = null,
+    // Like CConsoleBuffer::szTempString: a read POPS its line and the returned
+    // pointer is only valid until the next read (callers copy immediately).
+    // Keeping lines queued forever instead grows channels unboundedly, because
+    // ParseWorldStreamCommands re-posts unhandled world commands every frame.
+    stash: ?Line = null,
 
     pub fn init(allocator: std.mem.Allocator) Console { return .{ .allocator = allocator }; }
     pub fn deinit(self: *Console) void {
         for (&self.channels) |*channel| {
-            for (channel.lines.items) |line| {
-                self.allocator.free(line.text);
-                self.allocator.free(line.ascii);
-            }
+            for (channel.lines.items) |line| self.freeLine(line);
             channel.lines.deinit(self.allocator);
         }
+        if (self.stash) |line| self.freeLine(line);
         if (self.log_path) |path| self.allocator.free(path);
+    }
+
+    fn freeLine(self: *Console, line: Line) void {
+        self.allocator.free(line.text);
+        self.allocator.free(line.ascii);
+    }
+
+    fn takeLine(self: *Console, channel: i32) ?*const Line {
+        if (channel < 0 or channel >= channel_count) return null;
+        const queue = &self.channels[@intCast(channel)];
+        if (queue.read_index >= queue.lines.items.len) {
+            // Drained: free every consumed line and reset for the next frame.
+            for (queue.lines.items) |line| self.freeLine(line);
+            queue.lines.clearRetainingCapacity();
+            queue.read_index = 0;
+            return null;
+        }
+        const line = queue.lines.items[queue.read_index];
+        queue.read_index += 1;
+        // Stash an independent COPY (like CConsoleBuffer::szTempString) so the
+        // returned pointer stays valid until the next read even after the queue
+        // is drained/freed above.
+        const text_copy = self.allocator.dupeZ(u16, line.text) catch return null;
+        const ascii_copy = self.allocator.dupeZ(u8, line.ascii) catch {
+            self.allocator.free(text_copy);
+            return null;
+        };
+        if (self.stash) |old| self.freeLine(old);
+        self.stash = .{ .text = text_copy, .ascii = ascii_copy, .color = line.color, .backup = line.backup };
+        return &self.stash.?;
     }
 
     pub fn configure(self: *Console, config: []const u8) bool {
@@ -71,21 +109,13 @@ pub const Console = struct {
     }
 
     pub fn readWide(self: *Console, channel: i32, color: ?*u32) ?[*:0]const u16 {
-        if (channel < 0 or channel >= channel_count) return null;
-        const queue = &self.channels[@intCast(channel)];
-        if (queue.read_index >= queue.lines.items.len) return null;
-        const line = &queue.lines.items[queue.read_index];
-        queue.read_index += 1;
+        const line = self.takeLine(channel) orelse return null;
         if (color) |result| result.* = line.color;
         return line.text.ptr;
     }
 
     pub fn readAscii(self: *Console, channel: i32, color: ?*u32) ?[*:0]const u8 {
-        if (channel < 0 or channel >= channel_count) return null;
-        const queue = &self.channels[@intCast(channel)];
-        if (queue.read_index >= queue.lines.items.len) return null;
-        const line = &queue.lines.items[queue.read_index];
-        queue.read_index += 1;
+        const line = self.takeLine(channel) orelse return null;
         if (color) |result| result.* = line.color;
         return line.ascii.ptr;
     }
@@ -105,15 +135,15 @@ test "console queues ASCII commands and duplicates channels" {
     try std.testing.expectEqualStrings("Exec", std.mem.span(console.readAscii(2, null).?));
 }
 
-test "ASCII read results remain valid across differently sized lines" {
+test "reads pop lines and drain the channel" {
     var console = Console.init(std.testing.allocator);
     defer console.deinit();
     console.writeAscii(1, "A", 0, false);
     console.writeAscii(1, "second command", 0, false);
 
-    const first = console.readAscii(1, null).?;
-    const second = console.readAscii(1, null).?;
-
-    try std.testing.expectEqualStrings("A", std.mem.span(first));
-    try std.testing.expectEqualStrings("second command", std.mem.span(second));
+    // CConsoleBuffer contract: each read pops its line; the returned pointer is
+    // valid only until the next read, and a drained channel returns null.
+    try std.testing.expectEqualStrings("A", std.mem.span(console.readAscii(1, null).?));
+    try std.testing.expectEqualStrings("second command", std.mem.span(console.readAscii(1, null).?));
+    try std.testing.expectEqual(@as(?[*:0]const u8, null), console.readAscii(1, null));
 }

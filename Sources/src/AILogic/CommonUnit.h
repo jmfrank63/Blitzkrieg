@@ -1,6 +1,7 @@
 #ifndef __COMMON_UNIT_H__
 #define __COMMON_UNIT_H__
 #pragma ONCE
+enum EUnitAckType : unsigned int;		// must match the fixed base in Main/RPGStats.h
 #include "LinkObject.h"
 #include "BasePathUnit.h"
 #include "GroupUnit.h"

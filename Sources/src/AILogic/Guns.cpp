@@ -99,7 +99,7 @@ const NTimer::STime CGun::GetActionPoint() const
 bool CGun::CanBreakArmor( CAIUnit *pTarget ) const
 {
 	int nSide ;
-	if ( pOwner->GetZ() > pTarget->GetZ() ) // стрельба из самолета по крышам 
+	if ( pOwner->GetZ() > pTarget->GetZ() ) // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ 
 	{
 		nSide = RPG_TOP;
 	}
@@ -628,7 +628,10 @@ bool CGun::CanShootToUnitWOMove( CAIUnit *pEnemy )
 		return false;
 	}
 
-	if ( !CanShootToPointWOMove( pEnemy->GetCenter(), pEnemy->GetZ(), GetVisibleAngle( pOwner->GetCenter(), pEnemy->GetUnitRect() ) / 2, pEnemy->GetZ() - pOwner->GetZ(), pEnemy ) )
+	// The height difference can be negative; the WORD parameter relies on the
+	// 65536-based angle wraparound (65525 == -11). MSVC converted the float via
+	// int truncation implicitly вЂ” make it explicit, UBSan traps float->WORD.
+	if ( !CanShootToPointWOMove( pEnemy->GetCenter(), pEnemy->GetZ(), GetVisibleAngle( pOwner->GetCenter(), pEnemy->GetUnitRect() ) / 2, WORD( int( pEnemy->GetZ() - pOwner->GetZ() ) ), pEnemy ) )
 		return false;
 
 	if ( pEnemy->GetStats()->IsInfantry() && !AnalyzeLimitedAngle( pEnemy, pOwner->GetCenter() ) )
@@ -757,7 +760,7 @@ bool CGun::CanShootToPointWOMove( const CVec2 &point, const float fZ, const WORD
 
 	if ( !pOwner->CanRotate() && !pOwner->CanMove() || pOwner->NeedDeinstall() || pOwner->IsLocked( this ) )
 	{
-		if ( !IsOnTurret() || IsOnTurret() && GetTurret()->IsLocked( this ) ) // нельзя вращать turret, или gun на базе
+		if ( !IsOnTurret() || IsOnTurret() && GetTurret()->IsLocked( this ) ) // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ turret, пїЅпїЅпїЅ gun пїЅпїЅ пїЅпїЅпїЅпїЅ
 		{
 			if ( !IsGoodAngle( point, wHorAddAngle, wVertAddAngle, 1 ) )
 			{
@@ -871,7 +874,7 @@ const int CGun::GetFireRate() const
 }
 bool CGun::CanBreach( const CCommonUnit *pTarget ) const
 {
-	if ( pOwner->GetZ() > pTarget->GetZ() ) // сирельба из самолета по крышам 
+	if ( pOwner->GetZ() > pTarget->GetZ() ) // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ 
 	{
 		return GetMaxPossiblePiercing() >= pTarget->GetArmor( RPG_TOP );
 	}

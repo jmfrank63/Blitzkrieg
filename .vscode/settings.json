@@ -102,5 +102,6 @@
   // Git configuration
   "git.detectSubmodules": false,
   "git.autofetch": false,
-  "C_Cpp.errorSquiggles": "enabled"
+  "C_Cpp.errorSquiggles": "enabled",
+  "python-envs.defaultEnvManager": "ms-python.python:system"
 }

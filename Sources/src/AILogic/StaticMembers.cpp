@@ -32,11 +32,11 @@ int CStaticMembers::operator&( IStructureSaver &ss )
 	saver.Add( 16, &CTransportStatesFactory::pFactory );
 	saver.Add( 17, &CFormationStatesFactory::pFactory );
 
-	saver.Add( 18, &CLinkObject::link2object );
-	saver.Add( 19, &CLinkObject::deletedObjects );
-	saver.Add( 20, &CLinkObject::unitsID2object );
+	saver.Add( 18, &CLinkObject::Link2Object() );
+	saver.Add( 19, &CLinkObject::DeletedObjects() );
+	saver.Add( 20, &CLinkObject::UnitsID2Object() );
 	saver.Add( 21, &CLinkObject::nCurUniqueID );
-	saver.Add( 22, &CLinkObject::deletedUniqueObjects );
+	saver.Add( 22, &CLinkObject::DeletedUniqueObjects() );
 
 	
 	saver.Add( 23, &CArtilleryStatesFactory::pFactory );

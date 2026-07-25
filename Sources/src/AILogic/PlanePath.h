@@ -165,9 +165,9 @@ private:
 	float fAngleSpeed;
 	CVec2 vAngleSpeed;
 	CVec2 vCurAngleSpeed;
-	bool bGainHeight;											// период изменения высоты
-	bool bToHorisontal;										// выходи из пикирования/кабрирования
-	float fDistanceToChangeHeight;					// дистанция для начала изменения высоты
+	bool bGainHeight;											// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	bool bToHorisontal;										// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	float fDistanceToChangeHeight;					// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 
 	CCircle flyCircle;
 	CVec2 circePoint;
@@ -178,12 +178,12 @@ private:
 	bool bFinished;
 	bool bByCircle;
 	
-	bool bSmoothTurn; // if true значит самолет не в боевом режиме
+	bool bSmoothTurn; // if true пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	float fVerTurnRatio;
 	
 	void CompareWithBest( const CVec2 &p, CVec2 *bestPoint, WORD *wBestAngle, const CCircle &circle, const short int sign );
 	void SetTurnRadius( float fTurnRadius );
-	float Calc2DDistanceToGo() const;			// дистанция, которая осталась до конечной точки (по проекции на горизонтальную плоскость)
+	float Calc2DDistanceToGo() const;			// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
 	static bool IsHeightOK( const IBasePathUnit *pUnit, const IAviationUnit *pPlane, const float fZ, const float fAngleSpeed );
 	void FinishPath();
 public:
@@ -194,7 +194,36 @@ public:
 
 	virtual void SetAviationUnit( IAviationUnit *_pPlane, IBasePathUnit *_pPathUnit );
 
-	CPlaneSmoothPath() : pUnit( 0 ), pPlane( 0 ), bTrackHistory( false ) { }
+	// Deserialization creates instances through this ctor and operator& does
+	// NOT restore bToHorisontal/bSmoothTurn/fDistanceToChangeHeight вЂ” they
+	// kept the debug-heap 0xCD fill and the first "if ( bToHorisontal )" after
+	// a load trapped as an invalid bool. Default every POD member like the
+	// full ctor does.
+	CPlaneSmoothPath()
+	: pUnit( 0 ), pPlane( 0 ), bTrackHistory( false )
+	{
+		eState = HS_HEIGHT_OK;
+		segmentTime = 0;
+		fTurnRadiusMax = 0;
+		fTurnRadiusMin = 0;
+		fTurnR = 0;
+		fSpeed = 0;
+		fAngleSpeed = 0;
+		vAngleSpeed = VNULL2;
+		vCurAngleSpeed = VNULL2;
+		bGainHeight = false;
+		bToHorisontal = false;
+		fDistanceToChangeHeight = 0;
+		circePoint = VNULL2;
+		angleSign = 0;
+		startAngle = 0;
+		finishAngle = 0;
+		dirByLine = VNULL2;
+		bFinished = true;
+		bByCircle = false;
+		bSmoothTurn = true;
+		fVerTurnRatio = 0;
+	}
 	CPlaneSmoothPath( const float fTurnRadiusMin, const float fTurnRadiusMax, const float fSpeed, const float fVerTurnRatio, const bool _bTrackHistory = false );
 
 	virtual bool Init( interface IBasePathUnit *pPathUnit, interface IAviationUnit *pAviationUnit, IPath *pPath, bool bSmoothTurn, bool bCheckTurn = true );

@@ -1,6 +1,7 @@
 #ifndef _UNIT_CREATION_INTERNAL_
 #define _UNIT_CREATION_INTERNAL_
 #pragma ONCE
+enum EActionCommand : unsigned int;		// must match the fixed base in Actions.h
 enum EGunplaneCalledAs
 {
 	EGCA_GUNPLANE,
@@ -68,13 +69,13 @@ public:
 	};
 	struct SPartyDependentInfo
 	{
-		std::string szPartyName;								// имя страны
-		std::string szGeneralPartyName;					// имя General Side
+		std::string szPartyName;								// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+		std::string szGeneralPartyName;					// пїЅпїЅпїЅ General Side
 
-		std::string szParatroopSoldierName;			// имя модельки, которая подменяет паращютиста
-		std::string szGunCrewSquad;							// артиллеоисты
-		std::string szHeavyMGSquad;							// пулеметчики
-		std::string szResupplyEngineerSquad;		// грузчики у грузовиков с ресурсами
+		std::string szParatroopSoldierName;			// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		std::string szGunCrewSquad;							// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		std::string szHeavyMGSquad;							// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		std::string szResupplyEngineerSquad;		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		int operator&( IDataTree &ss )
 		{
 			CTreeAccessor tree = &ss;
@@ -91,11 +92,11 @@ public:
 
 	struct SCommonInfo
 	{
-		std::vector<std::string> antitankObjects;	// противотанковые заграждения
-		std::string szAPFence;									// протиавопехотное проволочное заграждение
-		std::string szMineAT;										// противотанковая мина
-		std::string szMineAP;										// противопехотная мина
-		std::string szEntrenchment;							// окоп
+		std::vector<std::string> antitankObjects;	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		std::string szAPFence;									// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		std::string szMineAT;										// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+		std::string szMineAP;										// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+		std::string szEntrenchment;							// пїЅпїЅпїЅпїЅ
 		int operator&( IDataTree &ss );
 	};
 	struct SFeedBack
@@ -118,21 +119,21 @@ public:
 			int						nFormation;					// due to map.
 			int						nPlanes;
 
-			bool					bEnabledScript;						// для активации/деактивации по скрипту
+			bool					bEnabledScript;						// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 			SPlaneInfo() : nFormation( 0 ), bEnabledScript ( true ), nPlanes( 0 ) { }
 		};
 		
 		std::vector<SPlaneInfo> planes;
 		
-		std::string		szParatrooper;										// название парашютистов
-		int nParadropSquadCount;												// количество сквадов паращютистов
-		NTimer::STime timeLastCall;											// последний вызов самолетов
-		NTimer::STime timeRelax;												// интервал вызова самолетов
+		std::string		szParatrooper;										// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		int nParadropSquadCount;												// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		NTimer::STime timeLastCall;											// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		NTimer::STime timeRelax;												// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
-		std::string szPartyName;												// название страны
+		std::string szPartyName;												// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		int nLastCalledAviaType;												// last called aviation type
 
-		std::vector<CVec2> vAppearPoints;		// точки возможного появления (координата аэродрома)
+		std::vector<CVec2> vAppearPoints;		// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
 
 		SLocalInGameUnitCreationInfo & operator=( const struct SUnitCreation &rSUnitCreation );
 		SLocalInGameUnitCreationInfo( const struct SUnitCreation &rSUnitCreation );
@@ -145,7 +146,7 @@ private:
 	bool bInit;														// for delaying initialization untill segment
 	bool bMainButtonDisabled;
 
-	std::vector<BYTE> bForceDisabled;						// авиация вообще не включается
+	std::vector<BYTE> bForceDisabled;						// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
 	std::vector<SLocalInGameUnitCreationInfo> inGameUnits;
 	std::vector<BYTE> bLockedFlags;

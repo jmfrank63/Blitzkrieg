@@ -532,7 +532,10 @@ void CUpdater::UpdateTurretTurn( SAINotifyTurretTurn **pTurretsBuffer, int *pnLe
 	*pnLen = 0;
 	if ( !theDipl.IsNetGame() || pAILogic->IsNetGameStarted() )
 	{
-		*pTurretsBuffer = GetTempBuffer<SAINotifyTurretTurn>( complexUpdates[ACTION_NOTIFY_TURRET_HOR_TURN >> 4].size() );
+		// Both the horizontal AND vertical turn sets are appended to this buffer
+		// below; the original sized it for the horizontal set only and relied on
+		// the temp buffer's stale slack capacity to absorb the overflow.
+		*pTurretsBuffer = GetTempBuffer<SAINotifyTurretTurn>( complexUpdates[ACTION_NOTIFY_TURRET_HOR_TURN >> 4].size() + complexUpdates[ACTION_NOTIFY_TURRET_VERT_TURN >> 4].size() );
 
 		for ( CComplexUpdatesSet::iterator iter = complexUpdates[ACTION_NOTIFY_TURRET_HOR_TURN >> 4].begin(); iter != complexUpdates[ACTION_NOTIFY_TURRET_HOR_TURN >> 4].end(); ++iter )
 		{

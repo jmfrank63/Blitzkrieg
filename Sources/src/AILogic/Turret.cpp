@@ -151,7 +151,12 @@ WORD CTurret::GetCurAngle( const SRotating &rotateInfo ) const
 		if ( curTime >= rotateInfo.endTime )
 			return rotateInfo.wFinalAngle;
 		else
-			return rotateInfo.wCurAngle + rotateInfo.sign * rotateInfo.wRotationSpeed * ( curTime - rotateInfo.startTime );
+		{
+			// wRotationSpeed is a float, so the whole expression is float and can
+			// go negative; the WORD result relies on 65536-based angle wraparound.
+			// MSVC truncated through int implicitly — UBSan traps float->WORD.
+			return WORD( int( rotateInfo.wCurAngle + rotateInfo.sign * rotateInfo.wRotationSpeed * ( curTime - rotateInfo.startTime ) ) );
+		}
 	}
 }
 void CTurret::TraceAim( CAIUnit *pUnit, CBasicGun *pGun )

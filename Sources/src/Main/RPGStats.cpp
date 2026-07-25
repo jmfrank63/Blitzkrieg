@@ -7,6 +7,23 @@
 #include "..\Formats\fmtTerrain.h"
 #include "..\Common\Actions.h"
 #include "..\Misc\CheckSums.h"
+
+namespace
+{
+	// Direction units are cyclic: one complete turn (65536) is direction zero.
+	// The original MSVC build obtained this behavior through implicit WORD
+	// truncation, which checked Zig/Clang debug builds correctly reject.
+	constexpr WORD WrapDirectionUnits( const DWORD units )
+	{
+		return static_cast<WORD>( units & 0xffffu );
+	}
+
+	static_assert( WrapDirectionUnits( 0 ) == 0, "zero direction must remain zero" );
+	static_assert( WrapDirectionUnits( 65535 ) == 65535, "largest WORD direction must remain unchanged" );
+	static_assert( WrapDirectionUnits( 65536 ) == 0, "a complete turn must wrap to zero" );
+	static_assert( WrapDirectionUnits( 131072 ) == 0, "multiple complete turns must wrap to zero" );
+}
+
 bool SWeaponRPGStats::SShell::ToAIUnits()
 {
 	fArea *= float( SAIConsts::TILE_SIZE );
@@ -594,7 +611,7 @@ bool SBuildingRPGStats::SSlot::ToAIUnits()
 	CQuat quat = CQuat( -FP_PI2, V3_AXIS_X );
 	quat *= CQuat( ToRadian(fDirection), V3_AXIS_Z );
 	matDirection.Set( quat );
-	wDirection = WORD( fDirection * 65536.0f / 360.0f );
+	wDirection = WrapDirectionUnits( DWORD( fDirection * 65536.0f / 360.0f ) );
 	wAngle = WORD( fAngle * 32768.0f / 360.0f );
 	fRotationSpeed = 1.0f / fRotationSpeed * 65535.0f / 1000.0f;
 	wRotationSpeed = fRotationSpeed <= 65535.0f ? WORD( fRotationSpeed ) : 65535;

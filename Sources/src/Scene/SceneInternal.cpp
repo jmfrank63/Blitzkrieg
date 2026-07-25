@@ -17,9 +17,19 @@ BOOL WINAPI DllMain(
   LPVOID lpvReserved   // reserved
 )
 {
-	if ( fdwReason == DLL_PROCESS_ATTACH ) 
+	if ( fdwReason == DLL_PROCESS_ATTACH )
 		hDLLInstance = hinstDLL;
+	// process termination: stop destroying refcounted objects, static destructor
+	// order across translation units is undefined and cascades double-free
+	if ( fdwReason == DLL_PROCESS_DETACH && lpvReserved != 0 )
+		NRefCount::LeakObjectsOnExit() = true;
 	return true;
+}
+// Called by Game.exe's atexit hook BEFORE any module destroys statics — see
+// AILogicInternal.cpp for the unload-order rationale.
+extern "C" __declspec(dllexport) void ArmRefCountLeakOnExit()
+{
+	NRefCount::LeakObjectsOnExit() = true;
 }
 void SToolTip::Init()
 {

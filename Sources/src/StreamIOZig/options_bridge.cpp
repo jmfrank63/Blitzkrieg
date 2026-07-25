@@ -2,6 +2,7 @@
 #include <oleauto.h>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -69,6 +70,7 @@ struct CoreApi {
     bool (__cdecl *changed)(void *) = 0;
     bool (__cdecl *metadata)(void *, int, int *, unsigned long *, int *, bool *, const char **, const char **, const char **, unsigned short *) = 0;
     int (BK_STDCALL *load_tree)(void *, void *, bool) = 0;
+    int (BK_STDCALL *serialize_tree)(void *, void *, bool) = 0;
     void *(__cdecl *console_create)() = 0;
     void (__cdecl *console_destroy)(void *) = 0;
     bool (__cdecl *console_configure)(void *, const char *) = 0;
@@ -94,6 +96,7 @@ static bool ResolveCore() {
     api.changed = Resolve<decltype(api.changed)>(module, "bk_options_changed");
     api.metadata = Resolve<decltype(api.metadata)>(module, "bk_options_metadata");
     api.load_tree = Resolve<decltype(api.load_tree)>(module, "bk_options_load_legacy_tree");
+    api.serialize_tree = Resolve<decltype(api.serialize_tree)>(module, "bk_options_serialize_legacy_tree");
     api.console_create = Resolve<decltype(api.console_create)>(module, "bk_console_create");
     api.console_destroy = Resolve<decltype(api.console_destroy)>(module, "bk_console_destroy");
     api.console_configure = Resolve<decltype(api.console_configure)>(module, "bk_console_configure");
@@ -101,7 +104,7 @@ static bool ResolveCore() {
     api.console_write_ascii = Resolve<decltype(api.console_write_ascii)>(module, "bk_console_write_ascii");
     api.console_read = Resolve<decltype(api.console_read)>(module, "bk_console_read");
     api.console_read_ascii = Resolve<decltype(api.console_read_ascii)>(module, "bk_console_read_ascii");
-    return api.create && api.destroy && api.count && api.name_at && api.value && api.set && api.remove && api.remove_prefix && api.changed && api.metadata && api.load_tree && api.console_create && api.console_destroy && api.console_configure && api.console_write && api.console_write_ascii && api.console_read && api.console_read_ascii;
+    return api.create && api.destroy && api.count && api.name_at && api.value && api.set && api.remove && api.remove_prefix && api.changed && api.metadata && api.load_tree && api.serialize_tree && api.console_create && api.console_destroy && api.console_configure && api.console_write && api.console_write_ascii && api.console_read && api.console_read_ascii;
 }
 
 static BSTR AnsiToBstr(const char *value) {
@@ -148,6 +151,57 @@ static std::string VariantText(const VARIANT &value) {
     return buffer;
 }
 
+struct MonitorFillContext {
+    std::vector<OptionDropValue> *drops;
+    int index;
+};
+
+static BOOL CALLBACK FillMonitorDropListProc(HMONITOR hMonitor, HDC, LPRECT, LPARAM param) {
+    MonitorFillContext *context = reinterpret_cast<MonitorFillContext *>(param);
+    MONITORINFO info = {};
+    info.cbSize = sizeof(info);
+    if (!GetMonitorInfo(hMonitor, &info)) return TRUE;
+
+    OptionDropValue value;
+    if ((info.dwFlags & MONITORINFOF_PRIMARY) != 0) {
+        value.program_name = "Primary";
+    } else {
+        char name[32] = {};
+        std::snprintf(name, sizeof(name), "Monitor%d", context->index + 1);
+        value.program_name = name;
+    }
+    context->drops->push_back(value);
+    ++context->index;
+    return TRUE;
+}
+
+static void FillMonitors(std::vector<OptionDropValue> *drops) {
+    MonitorFillContext context = {drops, 0};
+    EnumDisplayMonitors(0, 0, FillMonitorDropListProc, reinterpret_cast<LPARAM>(&context));
+    if (drops->empty()) {
+        drops->push_back({"Primary"});
+    }
+}
+
+static void FillVideoModes(std::vector<OptionDropValue> *drops) {
+    DEVMODEA mode = {};
+    mode.dmSize = sizeof(mode);
+    char text[64] = {};
+    for (DWORD i = 0; EnumDisplaySettingsA(0, i, &mode); ++i) {
+        if (mode.dmBitsPerPel == 0 || mode.dmPelsWidth == 0 || mode.dmPelsHeight == 0) continue;
+        std::snprintf(text, sizeof(text), "%lux%lux%lu", mode.dmPelsWidth, mode.dmPelsHeight, mode.dmBitsPerPel);
+
+        bool exists = false;
+        for (size_t j = 0; j < drops->size(); ++j) {
+            if ((*drops)[j].program_name == text) {
+                exists = true;
+                break;
+            }
+        }
+        if (!exists) drops->push_back({text});
+    }
+}
+
 class OptionSystem;
 class OptionIterator final : public IOptionSystemIterator {
     OptionSystem *owner_; unsigned long mask_; int index_ = 0, refs_ = 0;
@@ -164,9 +218,33 @@ public:
     const std::vector<OptionDropValue> &BK_STDCALL GetDropValues() const override;
 };
 
+// Lives in streamio.dll (legacy_bridge.cpp), which owns the singleton registry
+// and global vars; resolved at runtime because this file links into a separate
+// module (StreamIOOptionsAbi.dll) that streamio.dll itself links against.
+typedef void (*ApplyOptionActionFunc)(const char *action, const char *name, const char *value);
+static ApplyOptionActionFunc ResolveApplyOptionAction() {
+    static ApplyOptionActionFunc fn = reinterpret_cast<ApplyOptionActionFunc>(
+        reinterpret_cast<void *>(GetProcAddress(GetModuleHandleA("streamio.dll"), "bk_bridge_apply_option_action")));
+    return fn;
+}
+
 class OptionSystem final : public IOptionSystem {
     void *state_; int refs_ = 0;
     mutable OptionDesc desc_; mutable std::vector<OptionDropValue> drops_;
+
+    // COptionSystem::InnerSet equivalent: run the option's side effect
+    // (volume changes etc.) for its current value.
+    void ApplyAction(const std::string &name) const {
+        const int index = Find(name);
+        if (index < 0) return;
+        const char *action = 0;
+        if (!Metadata(index, 0, 0, 0, 0, &action, 0, 0, 0) || !action || !*action) return;
+        ApplyOptionActionFunc apply = ResolveApplyOptionAction();
+        if (!apply) return;
+        unsigned short type = 0;
+        const char *text = api.value(state_, name.c_str(), &type);
+        apply(action, name.c_str(), text ? text : "");
+    }
 public:
     OptionSystem() : state_(api.create()) {}
     ~OptionSystem() { api.destroy(state_); }
@@ -178,7 +256,12 @@ public:
     void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { if ((refs_ -= count) <= 0) delete this; }
     bool BK_STDCALL IsValid() const override { return state_ != 0; }
     bool BK_STDCALL Get(const std::string &name, VARIANT *value) const override { unsigned short type = VT_EMPTY; const char *text = api.value(state_, name.c_str(), &type); return text && AssignVariant(value, type, text); }
-    bool BK_STDCALL Set(const std::string &name, const VARIANT &value) override { const std::string text = VariantText(value); return api.set(state_, name.c_str(), text.c_str(), value.vt); }
+    bool BK_STDCALL Set(const std::string &name, const VARIANT &value) override {
+        const std::string text = VariantText(value);
+        const bool ok = api.set(state_, name.c_str(), text.c_str(), value.vt);
+        if (ok) ApplyAction(name);   // COptionSystem::Set runs the action immediately
+        return ok;
+    }
     bool BK_STDCALL Remove(const std::string &name) override { return api.remove(state_, name.c_str()); }
     bool BK_STDCALL RemoveByMatch(const std::string &prefix) override { api.remove_prefix(state_, prefix.c_str()); return true; }
     bool BK_STDCALL ChangeSerialize(const std::string &, bool) override { return true; }
@@ -191,17 +274,32 @@ public:
         AssignVariant(&desc_.default_value, type, fallback ? fallback : ""); return &desc_;
     }
     const std::vector<OptionDropValue> &BK_STDCALL GetDropValues(const std::string &name) const override {
-        drops_.clear(); const int index = Find(name); const char *fill = 0; if (index >= 0) Metadata(index, 0, 0, 0, 0, 0, &fill, 0, 0);
+        drops_.clear();
+        const int index = Find(name);
+        const char *fill = 0;
+        if (index >= 0) Metadata(index, 0, 0, 0, 0, 0, &fill, 0, 0);
         const char *values[5] = {}; int count = 0;
         if (fill && std::string(fill) == "GetOnOff") { values[0]="ON"; values[1]="OFF"; count=2; }
         else if (fill && std::string(fill) == "GetDifficulty") { values[0]="Easy"; values[1]="Normal"; values[2]="Hard"; values[3]="Ironman"; count=4; }
         else if (fill && std::string(fill) == "GetGameSpeed") { values[0]="VerySlow"; values[1]="Slow"; values[2]="Normal"; values[3]="Fast"; values[4]="VeryFast"; count=5; }
+        else if (fill && std::string(fill) == "GetVideoModes") { FillVideoModes(&drops_); }
+        else if (fill && std::string(fill) == "GetMonitors") { FillMonitors(&drops_); }
         else if (fill && std::string(fill) == "GetTextureQuality") { values[0]="Low"; values[1]="Compressed"; values[2]="High"; count=3; }
-        for (int i=0; i<count; ++i) drops_.push_back({values[i]}); return drops_;
+        for (int i=0; i<count; ++i) drops_.push_back({values[i]});
+        return drops_;
     }
     IOptionSystemIterator *BK_STDCALL CreateIterator(unsigned long mask) override { return new OptionIterator(this, mask); }
-    bool BK_STDCALL SerializeConfig(IDataTree *tree) override { return api.load_tree(state_, tree, false) >= 0; }
-    void BK_STDCALL Init() override {}
+    // Direction follows the tree: READ loads options, WRITE dumps them
+    // (the config.cfg save path, previously a silent no-op).
+    bool BK_STDCALL SerializeConfig(IDataTree *tree) override { return api.serialize_tree(state_, tree, false) >= 0; }
+    void BK_STDCALL Init() override {
+        // COptionSystem::Init applies every option's action with its current
+        // (or default) value — this is what sets music/SFX volume at startup.
+        for (int i = 0; i < Count(); ++i) {
+            const char *name = NameAt(i);
+            if (name && *name) ApplyAction(name);
+        }
+    }
     void BK_STDCALL Repair(IDataTree *tree, bool to_default) override { api.load_tree(state_, tree, !to_default); }
 };
 

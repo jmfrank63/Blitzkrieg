@@ -75,15 +75,20 @@ fn copyGameRuntime(io: std.Io, binaries: std.Io.Dir, destination: std.Io.Dir) !v
         "A7ExportModel.dll", "fmod.dll",               "mfc42.dll",
         "msvcp60.dll",       "msvcrt.dll",
         // Clear prior runtime outputs so staging is deterministic.
-                    "Game.exe",
+        "Game.exe",        "Game.pdb",
         "StreamIO.dll",      "StreamIOOptionsAbi.dll", "Anim.dll",
         "GFX.dll",           "Image.dll",              "Input.dll",
         "Net.dll",           "SFX.dll",                "UI.dll",
         "Scene.dll",         "AILogic.dll",            "GameTT.dll",
+        "StreamIO.pdb",      "StreamIOOptionsAbi.pdb", "Anim.pdb",
+        "GFX.pdb",           "Image.pdb",              "Input.pdb",
+        "Net.pdb",           "SFX.pdb",                "UI.pdb",
+        "Scene.pdb",         "AILogic.pdb",            "GameTT.pdb",
     };
     for (stale_root_files) |name| destination.deleteFile(io, name) catch {};
     const runtime_files = [_][]const u8{
         "Game.exe",
+        "Game.pdb",
         "StreamIO.dll",
         "StreamIOOptionsAbi.dll",
         "Anim.dll",
@@ -96,8 +101,32 @@ fn copyGameRuntime(io: std.Io, binaries: std.Io.Dir, destination: std.Io.Dir) !v
         "Scene.dll",
         "AILogic.dll",
         "GameTT.dll",
+        "StreamIO.pdb",
+        "StreamIOOptionsAbi.pdb",
+        "Anim.pdb",
+        "GFX.pdb",
+        "Image.pdb",
+        "Input.pdb",
+        "Net.pdb",
+        "SFX.pdb",
+        "UI.pdb",
+        "Scene.pdb",
+        "AILogic.pdb",
+        "GameTT.pdb",
     };
-    for (runtime_files) |name| try copyFile(io, binaries, name, destination, name);
+    for (runtime_files) |name| {
+        copyFile(io, binaries, name, destination, name) catch |err| switch (err) {
+            error.AccessDenied, error.PermissionDenied => {
+                // During iterative debugging on Windows, a previous Game.exe
+                // or loaded runtime DLL can remain locked briefly. If the file
+                // already exists in the staged runtime, keep it and continue
+                // staging instead of failing the whole install-game step.
+                destination.access(io, name, .{}) catch return err;
+                continue;
+            },
+            else => return err,
+        };
+    }
 }
 
 fn copyData(io: std.Io, allocator: std.mem.Allocator, repo: std.Io.Dir, destination: std.Io.Dir) !void {

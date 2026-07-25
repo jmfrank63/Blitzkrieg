@@ -21,6 +21,22 @@
 #include "..\Formats\fmtTerrain.h"
 #include "..\Main\TextSystem.h"
 
+BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved )
+{
+	// process termination (lpvReserved != 0): stop destroying refcounted objects,
+	// static destructor order across translation units is undefined and release
+	// cascades re-enter destructors / double-free
+	if ( fdwReason == DLL_PROCESS_DETACH && lpvReserved != 0 )
+		NRefCount::LeakObjectsOnExit() = true;
+	return TRUE;
+}
+// Called by Game.exe's atexit hook BEFORE any module destroys statics — see
+// AILogicInternal.cpp for the unload-order rationale.
+extern "C" __declspec(dllexport) void ArmRefCountLeakOnExit()
+{
+	NRefCount::LeakObjectsOnExit() = true;
+}
+
 void SetChildWindowText( IUIElement *pParent, const int nID, const wchar_t *pszText );
 void SetChildWindowText( IUIElement *pParent, const int nID, const std::wstring &szText );
 void SetUIWindowText( IUIElement *pElement, const wchar_t *pszText );
@@ -1292,7 +1308,12 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 	const bool bInterfaceActive = pScene->GetMissionScreen() == pScene->GetUIScreen();
 	static bool bWasSpeedUpDown = false;
 	static bool bWasSpeedDownDown = false;
-	const bool bCanUseSpeedFallback = bInterfaceActive && ( pInput->GetTextMode() == INPUT_TEXT_MODE_NOTEXT );
+	// Speed is also bound via the input config (game_speed_inc/dec on "=" / "-"
+	// / NUM_PLUS / NUM_MINUS, → CMD_GAME_SPEED_*_SEND). The direct GetAsyncKeyState
+	// poll below was a fallback for when those binds didn't fire; with the binds
+	// active, both fired per keypress and speed jumped two levels. Disable the
+	// fallback so only the bind path changes speed.
+	const bool bCanUseSpeedFallback = false;
 	const bool bSpeedUpDown = bCanUseSpeedFallback && 
 		( ( GetAsyncKeyState( VK_OEM_PLUS ) & 0x8000 ) != 0 );
 	const bool bSpeedDownDown = bCanUseSpeedFallback &&

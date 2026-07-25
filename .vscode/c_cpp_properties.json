@@ -3,12 +3,6 @@
     {
       "name": "Win32-Debug",
       "includePath": [
-        "${workspaceFolder}/Sources/sdk/STINGRAY/Include",
-        "${workspaceFolder}/Sources/sdk/STINGRAY/Include/Toolkit",
-        "${workspaceFolder}/Sources/sdk/STINGRAY/Regex/Include",
-        "${workspaceFolder}/Sources/sdk/S3TC",
-        "${workspaceFolder}/Sources/sdk/MAYA40/include",
-        "${workspaceFolder}/Sources/sdk/GOLDParser",
         "${workspaceFolder}/Sources/src/StreamIO",
         "${workspaceFolder}/Sources/src/Misc",
         "${workspaceFolder}/Sources/src/Common",
@@ -24,8 +18,6 @@
         "${env:windir}/System32",
         "${workspaceFolder}/Sources/src/**/Debug",
         "${workspaceFolder}/Sources/src/**/Release",
-        "${workspaceFolder}/Sources/src/**/FastDebug",
-        "${workspaceFolder}/Sources/src/**/BetaRelease",
         "${workspaceFolder}/Sources/src/**/Profiler"
       ],
       "defines": [

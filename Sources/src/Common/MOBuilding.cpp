@@ -139,26 +139,31 @@ void CMOBuilding::UpdatePassangers()
 }
 int CMOBuilding::GetPassangers( IMOUnit **pBuffer, const bool bCanSelectOnly ) const
 {
-	if ( bCanSelectOnly ) 
+	if ( bCanSelectOnly )
 	{
-		IMOUnit **pBase = pBuffer;
-		if ( pBuffer != 0 ) 
+		// count with an integer: the original advanced the NULL pBuffer to
+		// count in the counting-mode call (null pointer arithmetic)
+		int nCount = 0;
+		if ( pBuffer != 0 )
 		{
 			for ( CPassangersList::const_iterator it = passangers.begin(); it != passangers.end(); ++it )
 			{
-				if ( it->pUnit->CanSelect() ) 
+				if ( it->pUnit->CanSelect() )
+				{
 					*pBuffer++ = it->pUnit;
+					++nCount;
+				}
 			}
 		}
 		else
 		{
 			for ( CPassangersList::const_iterator it = passangers.begin(); it != passangers.end(); ++it )
 			{
-				if ( it->pUnit->CanSelect() ) 
-					++pBuffer;
+				if ( it->pUnit->CanSelect() )
+					++nCount;
 			}
 		}
-		return pBuffer - pBase;
+		return nCount;
 	}
 	else
 	{
@@ -484,6 +489,10 @@ void CMOBuilding::UpdateGunTraces( const CVec3 &vStart, const CVec3 &vEnd, float
 	trace.vPoints[1] = vStart;
 	trace.vPoints[2] = vStart;
 	trace.vPoints[3] = vStart;
-	trace.deathTime = int( fabs( trace.vDir ) / fSpeed ) + trace.birthTime;
+	// near-zero shell trace speed makes the lifetime exceed int range; MSVC's
+	// _ftol yielded 0x80000000 there (deathTime in the past, trace dropped) —
+	// keep that behavior, UBSan traps the out-of-range float->int conversion
+	const float fLifeTime = fabs( trace.vDir ) / fSpeed;
+	trace.deathTime = ( fLifeTime >= -2147483648.0f && fLifeTime < 2147483648.0f ? int( fLifeTime ) : ( -2147483647 - 1 ) ) + trace.birthTime;
 	pScene->AddGunTrace( trace );
 }
