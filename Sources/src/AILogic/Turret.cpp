@@ -251,29 +251,35 @@ void CUnitTurret::GetVerTurretTurnInfo( SAINotifyTurretTurn *pTurretTurn )
 	pTurretTurn->nModelPart = dwGunCarriageParts;
 	pTurretTurn->wAngle = GetVerFinalAngle() + 16384;
 }
+// After DetachOwner (owner died) these degrade to inert defaults — the turret
+// only lingers until the corpse purge destroys it.
 CVec2 CUnitTurret::GetOwnerCenter()
 {
-	return pOwner->GetCenter();
+	return pOwner ? pOwner->GetCenter() : CVec2( 0, 0 );
 }
 WORD CUnitTurret::GetOwnerFrontDir()
 {
-	return pOwner->GetFrontDir();
+	return pOwner ? pOwner->GetFrontDir() : 0;
 }
 float CUnitTurret::GetOwnerZ()
 {
-	return pOwner->GetZ();
+	return pOwner ? pOwner->GetZ() : 0.0f;
 }
 bool CUnitTurret::IsOwnerOperable() const
 {
-	return pOwner->IsOperable();
+	return pOwner ? pOwner->IsOperable() : false;
 }
 bool CUnitTurret::IsAlive() const
 {
-	return pOwner->IsAlive();
+	return pOwner ? pOwner->IsAlive() : false;
 }
 const int CUnitTurret::GetOwnerParty() const
 {
-	return pOwner->GetParty();
+	return pOwner ? pOwner->GetParty() : 0;
+}
+void CUnitTurret::DetachOwner()
+{
+	pOwner = 0;
 }
 BASIC_REGISTER_CLASS( CMountedTurret );
 CMountedTurret::CMountedTurret( CBuilding *pBuliding, const int nSlot )

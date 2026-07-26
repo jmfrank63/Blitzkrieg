@@ -2134,7 +2134,7 @@ int CScripts::ReturnScriptIDs( struct lua_State *pState )
 	{
 		NI_ASSERT_T( script.IsNumber( i ), "ReturnScriptIDs: %d parameter isn't a number" );
 		
-		const int nPtr = script.GetObject( i );
+		const uintptr_t nPtr = script.GetObject( i ).GetPointerValue();
 		IRefCount *pObj = reinterpret_cast<IRefCount*>( nPtr );
 
 		NI_ASSERT_T( dynamic_cast<IUpdatableObj*>(pObj) != 0, "Unknown object passed" );

@@ -28,9 +28,12 @@ struct STilesHash
 };
 struct SVec2Hash
 {
-	int operator()( const CVec2 &pos) const 
-	{ 
-		return ( (int(pos.x)<<16) | int(pos.y) );
+	int operator()( const CVec2 &pos) const
+	{
+		// Formation offsets go negative (wingmen left of the leader); shifting a
+		// negative int is UB. Unsigned math reproduces the x86 two's-complement
+		// hash bit-for-bit.
+		return int( ( unsigned( int(pos.x) ) << 16 ) | unsigned( int(pos.y) ) );
 	}
 };
 struct SVec2Equ

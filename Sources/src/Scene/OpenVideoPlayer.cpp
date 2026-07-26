@@ -71,22 +71,24 @@ namespace
 		return (int(pData[0]) << 16) | (int(pData[1]) << 8) | int(pData[2]);
 	}
 
+	// The top byte must shift as unsigned: a value >= 0x80 shifted into the
+	// sign bit of an int is UB.
 	int ReadBE32( const unsigned char *pData )
 	{
-		return (int(pData[0]) << 24) | (int(pData[1]) << 16) | (int(pData[2]) << 8) | int(pData[3]);
+		return int( (unsigned(pData[0]) << 24) | (unsigned(pData[1]) << 16) | (unsigned(pData[2]) << 8) | unsigned(pData[3]) );
 	}
 
 	int ReadLE32( const unsigned char *pData )
 	{
-		return int(pData[0]) | (int(pData[1]) << 8) | (int(pData[2]) << 16) | (int(pData[3]) << 24);
+		return int( unsigned(pData[0]) | (unsigned(pData[1]) << 8) | (unsigned(pData[2]) << 16) | (unsigned(pData[3]) << 24) );
 	}
 
 	__int64 ReadLE64( const unsigned char *pData )
 	{
-		__int64 nValue = 0;
+		unsigned __int64 nValue = 0;
 		for ( int i = 7; i >= 0; --i )
 			nValue = (nValue << 8) | pData[i];
-		return nValue;
+		return __int64( nValue );
 	}
 
 	bool ParseTheoraIdentificationHeader( const unsigned char *pPacket, const int nPacketSize, CVec2 *pMovieSize, int *pnFPSNumerator, int *pnFPSDenominator, int *pnGranuleShift )

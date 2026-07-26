@@ -116,6 +116,17 @@ void CMilitaryCar::PrepareToDelete()
 	while ( GetNPassengers() )
 		GetPassenger( 0 )->Die( false, 0 );
 
+	// Break the turretв†’owner reference cycle while this object is still fully
+	// constructed. Left in place, the turrets' back-CPtr releases fire during
+	// ~CMilitaryCar's member unwind, where the active vtable's Release slot is
+	// still pure (this class is abstract) вЂ” instant R6025 purecall abort when
+	// the graveyard purges the wreck.
+	for ( int i = 0; i < turrets.size(); ++i )
+	{
+		if ( turrets[i] != 0 )
+			turrets[i]->DetachOwner();
+	}
+
 	CAIUnit::PrepareToDelete();
 }
 void CMilitaryCar::SendNTotalKilledUnits( const int nPlayerOfShoot )
@@ -471,7 +482,7 @@ void CAITransportUnit::Segment()
 {
 	CMilitaryCar::Segment();
 
-	if ( pTowedArtillery && !IsTowing() ) // убили буксоируемую пушку
+	if ( pTowedArtillery && !IsTowing() ) // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	{
 		updater.Update( ACTION_NOTIFY_STATE_CHANGED, this, ECS_UNHOOK_CANNON );
 		pTowedArtillery = 0;

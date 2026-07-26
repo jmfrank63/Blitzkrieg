@@ -564,8 +564,13 @@ void CUIMiniMap::AddUnitsData( const SMiniMapUnitInfo *pUnitsBuffer, int nUnitsC
 		{
 			units.push_back( pUnitsBuffer[nUnitIndex] );
 			PointToTextureMiniMap( pUnitsBuffer[nUnitIndex].x - ( units[nUnitIndex].z * fRatio ), pUnitsBuffer[nUnitIndex].y + ( units[nUnitIndex].z * fRatio ), &( miniMapPoint.x ), &( miniMapPoint.y ) );
-			units[nUnitIndex].x = miniMapPoint.x;
-			units[nUnitIndex].y = miniMapPoint.y;
+			// Off-map projections (e.g. planes at altitude) must wrap like the old x86
+			// float->WORD cast so they keep failing the draw bounds check; a direct
+			// float->WORD conversion of a negative value is UB. Clamp keeps the
+			// intermediate int conversion defined; WORD(-32768)..WORD(-1) all land
+			// far outside any minimap texture, so nothing off-map is ever drawn.
+			units[nUnitIndex].x = WORD( int( Clamp( miniMapPoint.x, -32768.0f, 32767.0f ) ) );
+			units[nUnitIndex].y = WORD( int( Clamp( miniMapPoint.y, -32768.0f, 32767.0f ) ) );
 		}
 	}
 }

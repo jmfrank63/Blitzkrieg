@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 extern "C" {
 #include "LuaSrc\Lua.h"
 #include "LuaSrc\luadebug.h"
@@ -49,8 +51,22 @@ public:
 
 		int GetStackIndex() const			{  return m_stackIndex;  }
 
-		int GetInteger() const				{  return (int)lua_tonumber(GetState(), m_stackIndex);  }
+		// Out-of-range doubles are UB in a plain (int) cast; MSVC's _ftol
+		// returned 0x80000000 there, which this reproduces for both builds.
+		int GetInteger() const
+		{
+			const double f = lua_tonumber(GetState(), m_stackIndex);
+			return ( f >= -2147483648.0 && f < 2147483648.0 ) ? (int)f : ( -2147483647 - 1 );
+		}
 		operator int() const				{ return GetInteger(); }
+		// Full-width readback for object pointers marshalled through lua_Number
+		// (a double holds user-space pointers exactly; GetNumber()'s float would
+		// destroy them). Non-representable values resolve to 0 (null object).
+		uintptr_t GetPointerValue() const
+		{
+			const double f = lua_tonumber(GetState(), m_stackIndex);
+			return ( f >= 0.0 && f < 18446744073709551616.0 ) ? (uintptr_t)f : 0;
+		}
 		float GetNumber() const				{  return (float)lua_tonumber(GetState(), m_stackIndex);  }
 		const char* GetString() const		{  return lua_tostring(GetState(), m_stackIndex);  }
 		operator const char *() const		{ return GetString(); }

@@ -308,7 +308,10 @@ void CGeneralArtilleryTask::StartBombardment()
 	const float fShift = ( nUnits == 0 ) ? 0.0f : fBombardmentRadius / 2.0f;
 	WORD wDir = 0;
 
-	for ( std::list<SBombardmentUnitState>::iterator iter = bombardmentUnits.begin(); iter != bombardmentUnits.end(); ++iter, wDir += 65536.0f / float(nUnits) )
+	// wDir is 65536-unit angle math: the increment reaches exactly 65536.0 when
+	// the circle closes (nUnits==1 hits it on the first step), which must wrap
+	// to 0 — a direct float->WORD conversion of that is UB.
+	for ( std::list<SBombardmentUnitState>::iterator iter = bombardmentUnits.begin(); iter != bombardmentUnits.end(); ++iter, wDir = WORD( int( float(wDir) + 65536.0f / float(nUnits) ) ) )
 	{
 		const CVec2 vCenter = vBombardmentCenter + GetVectorByDirection( wDir ) * fShift;
 		CAIUnit *pUnit = iter->pUnit;

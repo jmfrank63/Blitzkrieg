@@ -103,6 +103,13 @@ public:
 
 	virtual void SetRotateTurretState( bool bCanRotate ) {}
 	virtual bool GetRotateTurretState() const { return true; }
+
+	// Drops any counted back-reference to the owning unit. Must be called
+	// while the owner is still fully constructed (PrepareToDelete): if the
+	// back-reference survives into the owner's destructor cascade, its Release
+	// dispatches through the mid-unwind CMilitaryCar vtable, where Release's
+	// final overrider is still pure — R6025/abort.
+	virtual void DetachOwner() {  }
 };
 class CUnitTurret : public CTurret
 {
@@ -139,6 +146,8 @@ public:
 
 	virtual void SetRotateTurretState( bool bCanRotate ) { bCanRotateTurret = bCanRotate; }
 	virtual bool GetRotateTurretState() const { return bCanRotateTurret; }
+
+	virtual void DetachOwner();
 };
 class CMountedTurret : public CTurret
 {

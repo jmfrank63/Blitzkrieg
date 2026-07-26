@@ -493,6 +493,13 @@ void CMOBuilding::UpdateGunTraces( const CVec3 &vStart, const CVec3 &vEnd, float
 	// _ftol yielded 0x80000000 there (deathTime in the past, trace dropped) —
 	// keep that behavior, UBSan traps the out-of-range float->int conversion
 	const float fLifeTime = fabs( trace.vDir ) / fSpeed;
+	// [x64-diag] TEMP: flag traces with absurd geometry (vertical-line artifact hunt)
+	if ( !(fabsf( trace.vDir.z ) < 500.0f) || !(fabs( trace.vDir ) < 10000.0f) )
+	{
+		fprintf( stderr, "[x64-diag] building guntrace start=(%g,%g,%g) end=(%g,%g,%g) speed=%g\n",
+						 vStart.x, vStart.y, vStart.z, vEnd.x, vEnd.y, vEnd.z, fSpeed );
+		fflush( stderr );
+	}
 	trace.deathTime = ( fLifeTime >= -2147483648.0f && fLifeTime < 2147483648.0f ? int( fLifeTime ) : ( -2147483647 - 1 ) ) + trace.birthTime;
 	pScene->AddGunTrace( trace );
 }

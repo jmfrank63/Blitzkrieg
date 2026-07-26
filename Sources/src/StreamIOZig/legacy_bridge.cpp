@@ -343,6 +343,13 @@ public:
         for (int i = 0; i != count_; ++i) if (types_[i].nTypeID == id) { types_[i].newFunc = create; return; }
         if (count_ < 2048) types_[count_++] = { id, 0, create };
     }
+    // Bridge-owned types must carry their type_info: GetObjectTypeID matches
+    // only entries with pTypeInfo set, and StoreObject drops any object whose
+    // type does not resolve — the save silently loses it.
+    void RegisterTypeWithInfo(int id, ObjectFactoryNewFunc create, const std::type_info *info) {
+        RegisterType(id, create);
+        for (int i = 0; i != count_; ++i) if (types_[i].nTypeID == id) { types_[i].pTypeInfo = info; return; }
+    }
     void BK_STDCALL Aggregate(IObjectFactory *factory) override {
         if (!factory) return;
         const int count = factory->GetNumKnownTypes();
@@ -548,6 +555,22 @@ public:
         struct SStatsHead { const char *name; int type; int size; };
         if (stats) { SStatsHead *head = static_cast<SStatsHead *>(stats); head->name = 0; head->type = 1; head->size = GetSize(); }
     }
+    // Savegame serialization, mirroring CMemFileStream::operator&
+    // (StreamIO/MemFileSystem.cpp). The bridge stream has no parent storage,
+    // name, or stats to persist; contents and positions are the whole state.
+    int BK_STDCALL operator&(IStructureSaver &ss) override {
+        int nSize = (int)data_.size();
+        ss.DataChunk('\x01', &nSize, sizeof(nSize));
+        if (ss.IsReading()) data_.assign(nSize > 0 ? (size_t)nSize : 0, 0);
+        if (nSize > 0) ss.DataChunk('\x02', &data_[0], nSize);
+        ss.DataChunk('\x03', &begin_, sizeof(begin_));
+        ss.DataChunk('\x04', &pos_, sizeof(pos_));
+        if (ss.IsReading()) {
+            if (begin_ < 0 || begin_ > (int)data_.size()) begin_ = 0;
+            if (pos_ < begin_ || pos_ > (int)data_.size()) pos_ = begin_;
+        }
+        return 0;
+    }
 };
 
 // Vtable mirror of IRandomGenSeed (StreamIO/RandomGen.h): Init,
@@ -580,6 +603,12 @@ public:
     int BK_STDCALL SerializeTree(void *) override { return 0; }
     void BK_STDCALL Store(IDataStream *stream) override { if (stream) stream->Write(&rnd_, sizeof(rnd_)); }
     void BK_STDCALL Restore(IDataStream *stream) override { if (stream) stream->Read(&rnd_, sizeof(rnd_)); }
+    // Savegame serialization, mirroring CRandomGenSeed::operator&
+    // (StreamIO/RandomGenInternal.cpp) — the whole ISAAC state round-trips.
+    int BK_STDCALL operator&(IStructureSaver &ss) override {
+        ss.DataChunk('\x01', &rnd_, sizeof(rnd_));
+        return 0;
+    }
 };
 
 static IRefCount *BK_STDCALL CreateMemoryStreamObject() { return new MemoryStream(); }
@@ -783,10 +812,10 @@ public:
         unsigned int ptrID = 0;
         if (!bk_structure_read_raw(saver_, &ptrID, 4)) return 0;
         std::unordered_map<unsigned int, IRefCount*>::iterator it = objects_.find(ptrID);
-        if (it != objects_.end()) {
-            if (it->second) it->second->AddRef();
-            return it->second;
-        }
+        // Bare pointer, exactly like CStructureSaver2::LoadObject — the caller
+        // (SSHelper's CPtr::operator=) takes the single reference. AddRef'ing
+        // here over-counted every deserialized reference.
+        if (it != objects_.end()) return it->second;
         return 0;
     }
     void BK_STDCALL StoreObject(IRefCount *) override {}  // write-only
@@ -810,6 +839,7 @@ class ZigStructureWriter final : public IStructureSaver {
     std::vector<unsigned char> objDir_;  // directory records (top-level chunk 0)
     std::unordered_map<IRefCount*, unsigned int> stored_;
     std::deque<IRefCount*> toStore_;
+    unsigned int nextPtrID_ = 1;   // sequential object IDs; 0 stays the null reference
     bool inContent_ = false;       // route StartChunk/DataChunk/FinishChunk to content_ while draining objects
     int refs_ = 0;
 
@@ -912,22 +942,30 @@ public:
     bool BK_STDCALL IsReading() const override { return false; }
     IRefCount *BK_STDCALL LoadObject() override { return 0; }
     void BK_STDCALL StoreObject(IRefCount *pObj) override {
-        unsigned int ptrID = pObj ? (unsigned int)(uintptr_t)pObj : 0;
-        // The inline reference is the object's pointer cast to a 4-byte ID.
-        AppendU32(Active().back().second, ptrID);
-        if (pObj && stored_.find(pObj) == stored_.end()) {
-            const int typeID = factory_ ? factory_->GetObjectTypeID(pObj) : -1;
-            if (typeID == -1) {
-                fprintf(stderr, "[struct-warn] StoreObject: unregistered object type \"%s\" ptr=0x%08x — save will be incomplete\n",
-                        typeid(*pObj).name(), ptrID);
+        // Sequential 4-byte IDs, not truncated pointer values: on x64 two live
+        // objects can collide in their low 32 bits, which would cross-wire the
+        // object graph on load. IDs are opaque keys, so the format is unchanged.
+        unsigned int ptrID = 0;
+        if (pObj) {
+            std::unordered_map<IRefCount*, unsigned int>::iterator it = stored_.find(pObj);
+            if (it != stored_.end()) {
+                ptrID = it->second;
+            } else {
+                ptrID = nextPtrID_++;
+                const int typeID = factory_ ? factory_->GetObjectTypeID(pObj) : -1;
+                if (typeID == -1) {
+                    fprintf(stderr, "[struct-warn] StoreObject: unregistered object type \"%s\" id=0x%08x — save will be incomplete\n",
+                            typeid(*pObj).name(), ptrID);
+                }
+                const unsigned char valid = pObj->IsValid() ? 1 : 0;
+                AppendU32(objDir_, (unsigned int)typeID);
+                AppendU32(objDir_, ptrID);
+                objDir_.push_back(valid);
+                stored_[pObj] = ptrID;
+                toStore_.push_back(pObj);
             }
-            const unsigned char valid = pObj->IsValid() ? 1 : 0;
-            AppendU32(objDir_, (unsigned int)typeID);
-            AppendU32(objDir_, ptrID);
-            objDir_.push_back(valid);
-            stored_[pObj] = ptrID;
-            toStore_.push_back(pObj);
         }
+        AppendU32(Active().back().second, ptrID);
     }
     void *BK_STDCALL GetGDB() override { return gdb_; }
 };
@@ -1486,9 +1524,9 @@ static void EnsureCoreServices()
 
     // Object types the original StreamIO.dll registered in its own factory
     // (StreamIOObjectFactory.cpp); without them CreateObject returns null.
-    IObjectFactory *factory = static_cast<IObjectFactory *>(save_load_system->GetCommonFactory());
-    factory->RegisterType(0x100b0004, &CreateMemoryStreamObject);   // STREAMIO_MEMORY_STREAM
-    factory->RegisterType(0x100b0005, &CreateRandomGenSeedObject);  // STREAMIO_RANDOM_GEN_SEED
+    FactoryAggregate *factory = static_cast<FactoryAggregate *>(save_load_system->GetCommonFactory());
+    factory->RegisterTypeWithInfo(0x100b0004, &CreateMemoryStreamObject, &typeid(MemoryStream));    // STREAMIO_MEMORY_STREAM
+    factory->RegisterTypeWithInfo(0x100b0005, &CreateRandomGenSeedObject, &typeid(RandomGenSeed));  // STREAMIO_RANDOM_GEN_SEED
 
     singleton->Register(-1, global_vars);
     // The bridge keeps raw static pointers to these beyond the registry's

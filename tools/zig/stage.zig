@@ -50,14 +50,16 @@ fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
     if (!options.editors_only) {
         var binaries = try repo.openDir(io, "zig-out/bin", .{ .iterate = true });
         defer binaries.close(io);
-        try copyGameRuntime(io, binaries, destination);
-        try copyFile(io, repo, "Data/Configs/config.cfg", destination, "config.cfg");
-        try copyFile(io, repo, "Data/Configs/defconf.cfg", destination, "defconf.cfg");
-        try removeTreeIfPresent(io, destination, "Data");
+        copyGameRuntime(io, allocator, binaries, destination, options.install_dir) catch |err| return failStep("copyGameRuntime", err);
+        copyFile(io, repo, "Data/Configs/config.cfg", destination, "config.cfg") catch |err| return failStep("copy config.cfg", err);
+        copyFile(io, repo, "Data/Configs/defconf.cfg", destination, "defconf.cfg") catch |err| return failStep("copy defconf.cfg", err);
+        // The game silently fails to write saves when this is missing.
+        destination.createDirPath(io, "saves") catch |err| return failStep("create saves dir", err);
+        removeTreeIfPresent(io, destination, "Data") catch |err| return failStep("remove staged Data", err);
         if (options.data_mode == .copy) {
-            try copyData(io, allocator, repo, destination);
+            copyData(io, allocator, repo, destination) catch |err| return failStep("copyData", err);
         } else {
-            try linkData(io, allocator, repo, cwd, destination, options.install_dir);
+            linkData(io, allocator, repo, cwd, destination, options.install_dir) catch |err| return failStep("linkData", err);
         }
     } else {
         try destination.access(io, "Data", .{});
@@ -67,7 +69,36 @@ fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
     if (options.include_editors) try copyEditors(io, repo, destination);
 }
 
-fn copyGameRuntime(io: std.Io, binaries: std.Io.Dir, destination: std.Io.Dir) !void {
+fn failStep(step: []const u8, err: anyerror) anyerror {
+    std.debug.print("stage: step '{s}' failed: {s}\n", .{ step, @errorName(err) });
+    return err;
+}
+
+// Zig's Dir.rename opens the file with sharing flags the image loader refuses
+// (FileBusy on a running exe/dll), while a plain Win32 rename succeeds — fall
+// back to PowerShell for locked images, mirroring createDirectoryJunction.
+fn moveAside(io: std.Io, allocator: std.mem.Allocator, destination: std.Io.Dir, install_dir: []const u8, name: []const u8, aside: []const u8) !void {
+    if (destination.rename(name, destination, aside, io)) |_| {
+        return;
+    } else |err| switch (err) {
+        error.FileBusy, error.AccessDenied, error.PermissionDenied => {},
+        else => return err,
+    }
+    if (builtin.os.tag != .windows) return error.FileBusy;
+    const cmd = try std.fmt.allocPrint(allocator, "Rename-Item -LiteralPath '{s}/{s}' -NewName '{s}'", .{ install_dir, name, aside });
+    defer allocator.free(cmd);
+    const result = try std.process.run(allocator, io, .{
+        .argv = &.{ "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", cmd },
+    });
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+    switch (result.term) {
+        .exited => |code| if (code != 0) return error.FileBusy,
+        else => return error.FileBusy,
+    }
+}
+
+fn copyGameRuntime(io: std.Io, allocator: std.mem.Allocator, binaries: std.Io.Dir, destination: std.Io.Dir, install_dir: []const u8) !void {
     const stale_root_files = [_][]const u8{
         "BetaKeyGen.exe",    "BuildVersion.exe",       "FontGen.exe",
         // Legacy x86-only payloads must never survive a target switch into an
@@ -131,8 +162,14 @@ fn copyGameRuntime(io: std.Io, binaries: std.Io.Dir, destination: std.Io.Dir) !v
                 var aside_buf: [64]u8 = undefined;
                 const aside = std.fmt.bufPrint(&aside_buf, "{s}.stale", .{name}) catch return err;
                 destination.deleteFile(io, aside) catch {};
-                destination.rename(name, destination, aside, io) catch return err;
-                try copyFile(io, binaries, name, destination, name);
+                moveAside(io, allocator, destination, install_dir, name, aside) catch |rename_err| {
+                    std.debug.print("stage: could not move locked '{s}' aside: {s} — close the running game and rebuild\n", .{ name, @errorName(rename_err) });
+                    return err;
+                };
+                copyFile(io, binaries, name, destination, name) catch |copy_err| {
+                    std.debug.print("stage: fresh copy of '{s}' failed after move-aside: {s}\n", .{ name, @errorName(copy_err) });
+                    return copy_err;
+                };
             },
             else => return err,
         };

@@ -91,3 +91,7 @@ Goals:
 - **Chapter-title layout** — our `UI\common\Chapter.xml` deliberately
   diverges from GOG (centered title vs. original left-aligned); revisit if
   further resolutions change the bar/`?`-button geometry.
+- **x86→x64 save converter (decision 2026-07-26)** — if x86-era saves turn
+  out not to load in the x64 build, do NOT add compatibility shims to the
+  engine; write a standalone converter utility instead (or accept fresh
+  saves). The x64 engine reads/writes only its native format.
