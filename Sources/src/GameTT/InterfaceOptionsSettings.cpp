@@ -64,7 +64,6 @@ void CInterfaceOptionsSettings::Create()
 {
 	pUIScreen = CreateObject<IUIScreen>( UI_SCREEN );
 	const bool bInMission = GetGlobalVar( "AreWeInMission", 0 );
-	NStr::DebugTrace( "[opt-diag] OptionsSettings::Create AreWeInMission=%d raw=\"%s\"\n", int(bInMission), GetGlobalVar( "AreWeInMission", "<unset>" ) );
 	if ( bInMission )
 		pUIScreen->Load( "ui\\MissionOptionsSettings" );
 	else
@@ -154,7 +153,6 @@ void CInterfaceOptionsSettings::OnChangeDivision( const int nDivision )
 }
 void CInterfaceOptionsSettings::Close()
 {
-	NStr::DebugTrace( "[opt-diag] OptionsSettings::Close AreWeInMission=%d raw=\"%s\"\n", GetGlobalVar( "AreWeInMission", 0 ), GetGlobalVar( "AreWeInMission", "<unset>" ) );
 	if ( GetGlobalVar( "AreWeInMission", 0 ) )
 	{
 		IMainLoop *pML = GetSingleton<IMainLoop>();

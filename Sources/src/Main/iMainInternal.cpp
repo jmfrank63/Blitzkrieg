@@ -365,7 +365,6 @@ void CMainLoop::ClearResources( const bool bClearAll )
 }
 void CMainLoop::ResetStack()
 {
-	NStr::DebugTrace( "[opt-diag] CMainLoop::ResetStack clearing %d interface(s)\n", int(interfaces.size()) );
 	while ( !interfaces.empty() )
 	{
 		interfaces.back()->OnGetFocus( false );
@@ -595,7 +594,6 @@ void CMainLoop::Command( IInterfaceCommand *pCmd )
 }
 void CMainLoop::Command( int nCommandID, const char *pszConfiguration )
 {
-	NStr::DebugTrace( "[opt-diag] MainLoop::Command 0x%x config \"%s\"\n", nCommandID, pszConfiguration ? pszConfiguration : "" );
 	if ( nCommandID != -1 )
 	{
 		if ( nCommandID == MISSION_COMMAND_VIDEO )

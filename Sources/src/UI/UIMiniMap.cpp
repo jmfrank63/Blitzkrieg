@@ -588,13 +588,6 @@ void CUIMiniMap::AddCircle( const CVec2 &vCenter, const float fRadius, int nStyl
 {
 	if( IsInitialized() )
 	{
-		{
-			CTPoint<float> tracePoint;
-			PointToTextureMiniMap( vCenter.x / fWorldCellSize, vCenter.y / fWorldCellSize, &( tracePoint.x ), &( tracePoint.y ) );
-			NStr::DebugTrace( "[opt-diag] AddCircle this=%p world=(%g,%g) cells=(%g,%g) r=%g style=%d texpt=(%g,%g) nSize=%d\n",
-												this, vCenter.x, vCenter.y, vCenter.x / fWorldCellSize, vCenter.y / fWorldCellSize,
-												fRadius, nStyle, tracePoint.x, tracePoint.y, nSize );
-		}
 		if ( bRelative )
 		{
 			circles.push_back( SMiniMapCircle( CVec2( vCenter.x * terrainSize.x * fWorldCellSize, vCenter.y * terrainSize.y * fWorldCellSize ), fRadius, rStart, rDuration, nStyle, wColor, lParam ) );
@@ -856,9 +849,6 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 																		 ( it->vCenter.y + fRadius ) / fWorldCellSize,
 																		 &( additionalPoint.x ),
 																		 &( additionalPoint.y ) );
-							NStr::DebugTrace( "[opt-diag] circle write this=%p world=(%g,%g) writept=(%g,%g) nSize=%d wnd=(%g,%g)\n",
-																this, it->vCenter.x, it->vCenter.y, miniMapPoint.x, miniMapPoint.y,
-																nSize, wndRect.left, wndRect.top );
 							BresenhamEllipse( static_cast<int>( miniMapPoint.x ),
 																static_cast<int>( miniMapPoint.y ),
 																static_cast<int>( additionalPoint.x - miniMapPoint.x + 1 ),
@@ -1205,9 +1195,6 @@ bool CUIMiniMap::OnRButtonUp( const CVec2 &vPos, EMouseState mouseState )
 
 		CTPoint<float> mapMousePos;
 		TextureMiniMapToPoint( miniMapMousePos.x, miniMapMousePos.y, &( mapMousePos.x ), &( mapMousePos.y ) );
-		NStr::DebugTrace( "[opt-diag] minimap rclick local=(%g,%g) cells=(%g,%g) world=(%g,%g)\n",
-											miniMapMousePos.x, miniMapMousePos.y, mapMousePos.x, mapMousePos.y,
-											mapMousePos.x * fWorldCellSize, mapMousePos.y * fWorldCellSize );
 		if ( InMiniMap( mapMousePos.x, mapMousePos.y ) )
 		{
 			DWORD dwParam = 0x80000000 +

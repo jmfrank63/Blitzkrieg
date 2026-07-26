@@ -1429,13 +1429,12 @@ void CWorldBase::UpdateAllUnits()
 	}
 	RefreshPlayerColors();
 }
-static void RefreshUnitPlayerColor( IMOUnit *pUnit, const char *pszSource )
+static void RefreshUnitPlayerColor( IMOUnit *pUnit )
 {
 	if ( pUnit == 0 || pUnit->pVisObj == 0 )
 		return;
 	ISceneIconBar *pBar = static_cast<ISceneIconBar*>( static_cast_ptr<IObjVisObj*>(pUnit->pVisObj)->GetIcon(ICON_HP_BAR) );
 	const int nColor = GetGlobalVar( NStr::Format("Scene.PlayerColors.Player%d", pUnit->GetPlayerIndex()), int(0xff000000) );
-	NStr::DebugTrace( "[opt-diag] refresh %s unit player=%d color=0x%08x bar=%p\n", pszSource, pUnit->GetPlayerIndex(), nColor, pBar );
 	if ( pBar )
 		pBar->SetBorderColor( nColor );
 }
@@ -1447,9 +1446,8 @@ void CWorldBase::RefreshPlayerColors()
 	// out black — re-apply them once the load is complete. Units sitting in
 	// containers (pillboxes, trucks) get no post-load diplomacy notify, hence
 	// the explicit second loop.
-	NStr::DebugTrace( "[opt-diag] RefreshPlayerColors: %d vis objects, %d contained\n", int(visobjects.size()), int(inContainer.size()) );
 	for ( CMapObjectsMap::iterator it = visobjects.begin(); it != visobjects.end(); ++it )
-		RefreshUnitPlayerColor( dynamic_cast_ptr<IMOUnit*>( it->second ), "map" );
+		RefreshUnitPlayerColor( dynamic_cast_ptr<IMOUnit*>( it->second ) );
 	for ( CLinksMap::iterator it = inContainer.begin(); it != inContainer.end(); ++it )
-		RefreshUnitPlayerColor( dynamic_cast<IMOUnit*>( it->first.GetPtr() ), "contained" );
+		RefreshUnitPlayerColor( dynamic_cast<IMOUnit*>( it->first.GetPtr() ) );
 }

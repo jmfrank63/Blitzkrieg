@@ -59,3 +59,35 @@ Key outcomes:
 - Pilot scope and success criteria for Zig porting.
 - Clear boundary between legacy C++ and new Zig code.
 - A follow-up roadmap item for `/gsd-plan-phase 2` or later.
+
+## Phase 6 – 64-bit transition (branch: 64transition)
+
+Goals:
+- Move the whole game from x86 to x86_64.
+- Build infrastructure is already done: every module compiles and links for
+  `x86_64-windows-msvc` (`zig build -Dtarget=x86_64-windows-msvc`); the only
+  linker blocker (StreamIO stdcall-decorated exports) is fixed via
+  `StreamIO.x64.def`.
+- The real work is runtime pointer hygiene: `DWORD(pointer)` truncations
+  (e.g. `CTextureLock` in GFXHelper.h), 4-byte pointer IDs in the save
+  format, struct layout changes in anything serialized or memcpy'd.
+
+## Feature backlog
+
+- **Multiple player profiles** — each with its own config and savegames.
+  Never implemented in the original (verified against upstream: the
+  "PlayerProfile" dialog is just a name edit; one global `config.cfg`, one
+  global `saves\` dir; the only existing separation is per-MOD save dirs).
+  Design sketch: `profiles\<name>\config.cfg` + `profiles\<name>\saves\`,
+  profile-selection list at startup, "last profile" pointer in a root
+  config, migration of existing config/saves into a default profile. All
+  persistence already funnels through `ResolveConfigFileName` and the
+  `saves\` path construction in `CICLoad`/`CICSave`, so the change is
+  localized.
+- **Load-time optimization, remaining 6s** — `CMainLoop::Serialize`
+  manager[0] block is the whole remaining cost of savegame loads
+  (instrumented via `load_trace.log` per-manager timings; see
+  docs/scaling.md session notes).
+- **Chapter-title layout** — our `UI\common\Chapter.xml` deliberately
+  diverges from GOG (centered title vs. original left-aligned); revisit if
+  further resolutions change the bar/`?`-button geometry.
