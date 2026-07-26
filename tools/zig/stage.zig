@@ -115,14 +115,24 @@ fn copyGameRuntime(io: std.Io, binaries: std.Io.Dir, destination: std.Io.Dir) !v
         "GameTT.pdb",
     };
     for (runtime_files) |name| {
+        var stale_buf: [64]u8 = undefined;
+        if (std.fmt.bufPrint(&stale_buf, "{s}.stale", .{name})) |aside|
+            destination.deleteFile(io, aside) catch {}
+        else |_| {}
+    }
+    for (runtime_files) |name| {
         copyFile(io, binaries, name, destination, name) catch |err| switch (err) {
             error.AccessDenied, error.PermissionDenied => {
-                // During iterative debugging on Windows, a previous Game.exe
-                // or loaded runtime DLL can remain locked briefly. If the file
-                // already exists in the staged runtime, keep it and continue
-                // staging instead of failing the whole install-game step.
-                destination.access(io, name, .{}) catch return err;
-                continue;
+                // A running Game.exe keeps runtime DLLs mapped; Windows blocks
+                // overwriting a mapped image but allows renaming it. Move the
+                // locked file aside and copy fresh so the staged runtime can
+                // never silently remain stale. Failing here is better than
+                // keeping an old binary that no longer matches the build.
+                var aside_buf: [64]u8 = undefined;
+                const aside = std.fmt.bufPrint(&aside_buf, "{s}.stale", .{name}) catch return err;
+                destination.deleteFile(io, aside) catch {};
+                destination.rename(name, destination, aside, io) catch return err;
+                try copyFile(io, binaries, name, destination, name);
             },
             else => return err,
         };

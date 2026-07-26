@@ -361,7 +361,12 @@ void CMultiPlayerTransceiver::SetPlayerAlive( const int nPlayer )
 }
 void CMultiPlayerTransceiver::ProcessMultiplayerCommands()
 {
+#if defined(_M_IX86)
 	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24, 0xfffff );
+#else
+	// x64 SSE has no x87 precision control; only DN/EM/RC bits are valid here
+	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _RC_NEAR | _DN_SAVE, _MCW_EM | _MCW_RC | _MCW_DN );
+#endif
 
 	CPtr<IMultiplayer::CCommand> pCommand;
 	while ( pCommand = pMultiplayer->GetCommand() )
@@ -579,7 +584,12 @@ void CMultiPlayerTransceiver::SendIAmAlive()
 }
 void CMultiPlayerTransceiver::DoSegments()
 {
+#if defined(_M_IX86)
 	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24, 0xfffff );
+#else
+	// x64 SSE has no x87 precision control; only DN/EM/RC bits are valid here
+	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _RC_NEAR | _DN_SAVE, _MCW_EM | _MCW_RC | _MCW_DN );
+#endif
 
 	if ( !bHistoryPlaying && pMultiplayer->GetState() != IMultiplayer::EMS_PLAYING )
 		bGameStarted = false;
@@ -630,7 +640,12 @@ void CMultiPlayerTransceiver::DoSegments()
 					}
 					if ( !bHistoryPlaying )
 						SegmentFinished();
+#if defined(_M_IX86)
 					_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24, 0xfffff );
+#else
+					// x64 SSE has no x87 precision control; only DN/EM/RC bits are valid here
+					_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _RC_NEAR | _DN_SAVE, _MCW_EM | _MCW_RC | _MCW_DN );
+#endif
 					for ( int i = 0; i < nNumPlayersInMap; ++i )
 					{
 						for ( CAILogicCommandsList::iterator it = cmds[nPastSegment][i].begin(); it != cmds[nPastSegment][i].end(); ++it )

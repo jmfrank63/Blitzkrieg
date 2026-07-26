@@ -8,7 +8,9 @@ enum EDiplomacyInfo : unsigned int
 	EDI_FRIEND	=	0x02,
 	EDI_NEUTRAL = 0x04
 };
-#pragma pack( 1 )
+// SSegment2Trench / SSoldier2Formation hold pointers and must not be packed:
+// on x64 a packed alignment of 1 misaligns the 8-byte pointers (UB). Their
+// x86 layout is unchanged (two 4-byte pointers pack naturally).
 struct SSegment2Trench
 {
 	IRefCount *pSegment;									// ��������� ������� 
@@ -25,6 +27,7 @@ struct SSoldier2Formation
 	SSoldier2Formation() : pSoldier( 0 ), pFormation( 0 ) { }
 	SSoldier2Formation( IRefCount *_pSoldier, IRefCount *_pFormation ) : pSoldier( _pSoldier ), pFormation( _pFormation ) { }
 };
+#pragma pack( 1 )
 struct SAIVisInfo
 {
 	DWORD x : 14;													// x coord
@@ -45,9 +48,12 @@ struct SMiniMapUnitInfo
 	BYTE player;
 
 	SMiniMapUnitInfo() : x( 0 ), y( 0 ), z( 0.0f ), player( 0 ) { }
-	SMiniMapUnitInfo( const WORD _x, const WORD _y, const float _z, const BYTE _player ) 
+	SMiniMapUnitInfo( const WORD _x, const WORD _y, const float _z, const BYTE _player )
 		: x( _x ), y( _y ), z( _z ), player( _player ) { }
 };
+#pragma pack()
+// SShootArea's layout is identical packed or natural (4-byte members only).
+// SShootAreas has a vtable pointer and a std::list — packing it is UB on x64.
 struct SShootArea
 {
 	enum EShootAreaType
@@ -102,5 +108,4 @@ struct SShootAreas
 		return 0;
 	}
 };
-#pragma pack()
 #endif // _AI_TYPES_H__

@@ -4,6 +4,10 @@
 #pragma once
 #endif // _MSC_VER > 1000
 #include <math.h>
+#if !defined(_M_IX86)
+#include <intrin.h>										// __cpuid / _mm_cvtss_si32 for the x64 branches below
+#include <string.h>										// memcpy for the x64 CopyNBytes branches
+#endif
 #define SQRT_2		1.41421356237309504880
 #define SQRT_3		1.73205080756887729353
 #define FP_SQRT_2	1.41421356f
@@ -227,17 +231,27 @@ inline void MemSetInt( int* lpData, const int value, const int nCount )
 		lpData[i] = value;
 }
 
+#if defined(_M_IX86)
 int __forceinline Float2Int( const float fpVar )
 {
 	int nRet;
-	__asm 
+	__asm
 	{
 		fld dword ptr fpVar
 		fistp nRet
 	}
 	return nRet;
 }
+#else
+// Like fistp, converts honoring the current rounding mode (MXCSR on x64,
+// which _controlfp's _MCW_RC drives — see the SceneDraw _RC_CHOP toggles).
+int __forceinline Float2Int( const float fpVar )
+{
+	return _mm_cvtss_si32( _mm_set_ss( fpVar ) );
+}
+#endif
 inline int MINT( const float f ) { return Float2Int(f); }
+#if defined(_M_IX86)
 inline float select_lt( const float x, const float y, const float val1, const float val2 )
 {
 	float z;
@@ -261,6 +275,15 @@ inline float select_lt( const float x, const float y, const float val1, const fl
 	}
 	return z;
 }
+#else
+// The x87 originals treat a NaN comparand as "unordered" (C0 set); these
+// portable forms resolve NaN to the val2 side instead.
+inline float select_lt( const float x, const float y, const float val1, const float val2 )
+{
+	return x < y ? val1 : val2;
+}
+#endif
+#if defined(_M_IX86)
 inline float select_gt( const float x, const float y, const float val1, const float val2 )
 {
 	float z;
@@ -285,6 +308,13 @@ inline float select_gt( const float x, const float y, const float val1, const fl
 	}
 	return z;
 }
+#else
+inline float select_gt( const float x, const float y, const float val1, const float val2 )
+{
+	return x > y ? val1 : val2;
+}
+#endif
+#if defined(_M_IX86)
 inline float select_le( const float x, const float y, const float val1, const float val2 )
 {
 	float z;
@@ -309,6 +339,13 @@ inline float select_le( const float x, const float y, const float val1, const fl
 	}
 	return z;
 }
+#else
+inline float select_le( const float x, const float y, const float val1, const float val2 )
+{
+	return x <= y ? val1 : val2;
+}
+#endif
+#if defined(_M_IX86)
 inline float select_ge( const float x, const float y, const float val1, const float val2 )
 {
 	float z;
@@ -333,6 +370,13 @@ inline float select_ge( const float x, const float y, const float val1, const fl
 	}
 	return z;
 }
+#else
+inline float select_ge( const float x, const float y, const float val1, const float val2 )
+{
+	return x >= y ? val1 : val2;
+}
+#endif
+#if defined(_M_IX86)
 inline float select_eq( const float x, const float y, const float val1, const float val2 )
 {
 	float z;
@@ -355,6 +399,15 @@ inline float select_eq( const float x, const float y, const float val1, const fl
 	}
 	return z;
 }
+#else
+// Bit-pattern equality like the original (so +0.0f != -0.0f here), not
+// floating-point equality.
+inline float select_eq( const float x, const float y, const float val1, const float val2 )
+{
+	return FP_BITS_CONST( x ) == FP_BITS_CONST( y ) ? val1 : val2;
+}
+#endif
+#if defined(_M_IX86)
 inline float select_ne( const float x, const float y, const float val1, const float val2 )
 {
 	float z;
@@ -377,6 +430,13 @@ inline float select_ne( const float x, const float y, const float val1, const fl
 	}
 	return z;
 }
+#else
+inline float select_ne( const float x, const float y, const float val1, const float val2 )
+{
+	return FP_BITS_CONST( x ) != FP_BITS_CONST( y ) ? val1 : val2;
+}
+#endif
+#if defined(_M_IX86)
 inline const BYTE CheckForViewingFrustum( float xp, float yp, const float zp, const float wp )
 {
 	float wp2 = wp + wp;
@@ -420,6 +480,22 @@ inline const BYTE CheckForViewingFrustum( float xp, float yp, const float zp, co
 
 	return value;
 }
+#else
+inline const BYTE CheckForViewingFrustum( float xp, float yp, const float zp, const float wp )
+{
+	const float wp2 = wp + wp;
+	xp += wp;
+	yp += wp;
+	BYTE value = 0;
+	if ( FP_SIGN_BIT_CONST( xp ) ) value |= 0x01;
+	if ( wp2 < xp )                value |= 0x02;
+	if ( FP_SIGN_BIT_CONST( yp ) ) value |= 0x04;
+	if ( wp2 < yp )                value |= 0x08;
+	if ( FP_SIGN_BIT_CONST( zp ) ) value |= 0x10;
+	if ( wp < zp )                 value |= 0x20;
+	return value;
+}
+#endif
 template <class TYPE>
 inline const TYPE Min( const TYPE val1, const TYPE val2 )
 {
@@ -430,6 +506,7 @@ inline const TYPE Max( const TYPE val1, const TYPE val2 )
 {
 	return (val1 > val2 ? val1 : val2);
 }
+#if defined(_M_IX86)
 template<>
 inline const float Min<float>( const float a, const float b )
 {
@@ -470,6 +547,20 @@ inline const float Max<float>( const float a, const float b )
 	}
 	return fpRet;
 }
+#else
+// The x87 versions return b when the comparison is unordered (NaN); these
+// return a instead. Otherwise value-identical.
+template<>
+inline const float Min<float>( const float a, const float b )
+{
+	return b < a ? b : a;
+}
+template<>
+inline const float Max<float>( const float a, const float b )
+{
+	return a < b ? b : a;
+}
+#endif
 template <class TYPE>
 const TYPE Clamp( const TYPE &tVal, const TYPE &tMin, const TYPE &tMax )
 {
@@ -586,6 +677,7 @@ inline void GetLineEq( const float x1, const float y1, const float x2, const flo
 	_asm and eax, nHow                  \
 	_asm or ecx, eax                    \
 	_asm mov nToMin, ecx
+#if defined(_M_IX86)
 inline void Copy8Bytes( void* fpDst, const void* fpSrc )
 {
 	_asm
@@ -626,8 +718,14 @@ inline void Copy32Bytes( void* fpDst, const void* fpSrc )
 		fistp qword ptr [ EDX + 24 ]
 	}
 }
+#else
+inline void Copy8Bytes( void* fpDst, const void* fpSrc ) { memcpy( fpDst, fpSrc, 8 ); }
+inline void Copy16Bytes( void* fpDst, const void* fpSrc ) { memcpy( fpDst, fpSrc, 16 ); }
+inline void Copy32Bytes( void* fpDst, const void* fpSrc ) { memcpy( fpDst, fpSrc, 32 ); }
+#endif
 const DWORD CPUID_MMX_FEATURE_PRESENT = 0x00800000;
 const DWORD CPUID_SSE_FEATURE_PRESENT = 0x02000000;
+#if defined(_M_IX86)
 #define GET_CPUID __asm _emit 0x0f __asm _emit 0xa2
 inline DWORD GetCPUID()
 {
@@ -655,4 +753,12 @@ inline DWORD GetCPUID()
 	return dwRes;
 }
 #undef GET_CPUID
+#else
+inline DWORD GetCPUID()
+{
+	int nInfo[4] = { 0, 0, 0, 0 };
+	__cpuid( nInfo, 1 );
+	return static_cast<DWORD>( nInfo[3] );
+}
+#endif
 #endif // __TOOLS_H__

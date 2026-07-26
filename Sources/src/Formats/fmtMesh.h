@@ -1,7 +1,11 @@
 #ifndef __FMTMESH_H__
 #define __FMTMESH_H__
 #pragma ONCE
-#pragma pack( 1 )
+// No #pragma pack here: the POD structs (SAnimNodeFormat, SAABBFormat,
+// SBSphereFormat, SVertexComponent) consist solely of 4-byte members, so
+// their layout is identical packed or natural. The STL-bearing structs
+// (SAnimationFormat, SMeshFormat, SSkeletonFormat) must NOT be packed —
+// on x64 packing misaligns their 8-byte string/vector internals (UB).
 static const float fAnimTimeStep = 62.5f;	// 16 fps
 struct SAnimNodeFormat
 {
@@ -89,5 +93,4 @@ struct SSkeletonFormat
 	int GetNumNodes() const { return nodes.size(); }
 	const SNodeFormat* GetNode( int nIndex ) const { return &( nodes[nIndex] ); }
 };
-#pragma pack()
 #endif // __FMTMESH_H__

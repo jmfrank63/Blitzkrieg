@@ -298,7 +298,12 @@ void CMapInfo::UpdateCheckSum( TGetCheckSumFunc pCheckSumFunc, uLong *pResources
 }
 void CMapInfo::GetCheckSums( uLong *pResourcesCheckSum, uLong *pMapCheckSum )
 {
+#if defined(_M_IX86)
 	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24, 0xfffff );
+#else
+	// x64 SSE has no x87 precision control; only DN/EM/RC bits are valid here
+	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _RC_NEAR | _DN_SAVE, _MCW_EM | _MCW_RC | _MCW_DN );
+#endif
 
 	gdbObjects.clear();
 	*pResourcesCheckSum = *pMapCheckSum = 0L;

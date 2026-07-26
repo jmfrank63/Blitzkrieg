@@ -90,7 +90,12 @@ void CGamePlaying::RemoveClient( const int nClientID )
 }
 void CGamePlaying::ProcessPacket( const int nClientID, IDataStream *pPkt )
 {
+#if defined(_M_IX86)
 	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24, 0xfffff );
+#else
+	// x64 SSE has no x87 precision control; only DN/EM/RC bits are valid here
+	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _RC_NEAR | _DN_SAVE, _MCW_EM | _MCW_RC | _MCW_DN );
+#endif
 	if ( clientID2LogicID.find( nClientID ) != clientID2LogicID.end() )
 	{
 		const int nPlayer = clientID2LogicID[nClientID];
