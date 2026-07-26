@@ -48,7 +48,8 @@ HINSTANCE GetHInstance() { return hInstance; }
 void AddMsg( SWindowsMsg::EMsg msg, int x, int y, DWORD dwFlags );
 static void AddInputMessage( const int nEventID, const int nParam = 0 );
 static void UpdateCursorPos( const LPARAM lParam );
-static void AddMovieSkipMessage();
+static void AddMovieSkipMessage();	// keyboard: abort the whole movie sequence
+static void AddMovieNextMessage();	// mouse: skip only the current movie
 static void ApplyMouseClip();
 ATOM RegisterClass( HINSTANCE hInst );
 bool CheckPreviousApp( LPCSTR pszMainClass, LPCSTR pszMainTitle );
@@ -148,7 +149,7 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 			{
 				CaptureMouse();
 				SetCapture( hWnd );
-				AddMovieSkipMessage();
+				AddMovieNextMessage();
 				if ( NMain::IsInitialized() )
 					UpdateCursorPos( lParam );
 				GetSingleton<IInput>()->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_BUTTON0, 0x80, timeGetTime(), TranslateCoords(lParam) );
@@ -167,7 +168,7 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 		case WM_LBUTTONDBLCLK:
 			if ( GetSingleton<IInput>()->IsEmulated(DEVICE_TYPE_MOUSE) )
 			{
-				AddMovieSkipMessage();
+				AddMovieNextMessage();
 				if ( NMain::IsInitialized() )
 					UpdateCursorPos( lParam );
 				GetSingleton<IInput>()->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_BUTTON0 | 0x4000, 0x80, timeGetTime(), TranslateCoords(lParam) );
@@ -178,7 +179,7 @@ static LRESULT CALLBACK WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 			{
 				CaptureMouse();
 				SetCapture( hWnd );
-				AddMovieSkipMessage();
+				AddMovieNextMessage();
 				if ( NMain::IsInitialized() )
 					UpdateCursorPos( lParam );
 				GetSingleton<IInput>()->EmulateInput( DEVICE_TYPE_MOUSE, INPUT_CONTROL_MOUSE_BUTTON1, 0x80, timeGetTime(), TranslateCoords(lParam) );
@@ -278,6 +279,10 @@ static void UpdateCursorPos( const LPARAM lParam )
 static void AddMovieSkipMessage()
 {
 	AddInputMessage( MC_MOVIE_SKIP_SEQUENCE, 0 );
+}
+static void AddMovieNextMessage()
+{
+	AddInputMessage( MC_MOVIE_SKIP_MOVIE, 0 );
 }
 static void ApplyMouseClip()
 {
@@ -514,12 +519,15 @@ INT_PTR CALLBACK SplashScreenDialogProc( HWND hwndDlg, UINT uMsg, WPARAM wParam,
 }
 void ShowSplashScreen( HINSTANCE hInstance, bool bShow )
 {
-	if ( bShow ) 
+	if ( bShow )
 	{
-		if ( hWndSplashScreen == 0 ) 
+		if ( hWndSplashScreen == 0 )
 		{
 			hWndSplashScreen = CreateDialog( hInstance, "IDD_SPLASH_SCREEN", GetDesktopWindow(), SplashScreenDialogProc );
 			::SetWindowText( hWndSplashScreen, szAppTitleName.c_str() );
+			// Topmost: the splash must stay visible over the game window, which
+			// IGFX::SetMode() shows and activates while startup is still running.
+			::SetWindowPos( hWndSplashScreen, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE );
 		}
 		ShowWindow( hWndSplashScreen, SW_SHOW );
 		UpdateWindow( hWndSplashScreen );
@@ -528,6 +536,8 @@ void ShowSplashScreen( HINSTANCE hInstance, bool bShow )
 	{
 		DestroyWindow( hWndSplashScreen );
 		hWndSplashScreen = 0;
+		if ( hWnd != 0 )
+			::SetForegroundWindow( hWnd );
 	}
 }
 }; // namespace NWinFrame

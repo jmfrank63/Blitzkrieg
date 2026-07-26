@@ -597,7 +597,7 @@ void CWorldBase::AIUpdateNewObjects( const NTimer::STime &currTime )
 		NI_ASSERT_SLOW_TF( pDesc != 0, NStr::Format("Can't find DB description with index %d", info.dbID), continue );
 		CVec3 vPos;
 		AI2Vis( &vPos, info.center.x, info.center.y, info.z );
-		if ( info.nFrameIndex == -2 )				// special case - "гавно-после-смерти"
+		if ( info.nFrameIndex == -2 )				// special case - "пїЅпїЅпїЅпїЅпїЅ-пїЅпїЅпїЅпїЅпїЅ-пїЅпїЅпїЅпїЅпїЅпїЅ"
 		{
 			if ( const SMechUnitRPGStats *pRPG = NGDB::GetRPGStats<SMechUnitRPGStats>(pGDB, pDesc) )
 			{
@@ -1427,4 +1427,29 @@ void CWorldBase::UpdateAllUnits()
 		if ( IMOUnit *pUnit = dynamic_cast_ptr<IMOUnit*>(it->second) )
 			pUnit->ChangeWithBlood( pVOB );
 	}
+	RefreshPlayerColors();
+}
+static void RefreshUnitPlayerColor( IMOUnit *pUnit, const char *pszSource )
+{
+	if ( pUnit == 0 || pUnit->pVisObj == 0 )
+		return;
+	ISceneIconBar *pBar = static_cast<ISceneIconBar*>( static_cast_ptr<IObjVisObj*>(pUnit->pVisObj)->GetIcon(ICON_HP_BAR) );
+	const int nColor = GetGlobalVar( NStr::Format("Scene.PlayerColors.Player%d", pUnit->GetPlayerIndex()), int(0xff000000) );
+	NStr::DebugTrace( "[opt-diag] refresh %s unit player=%d color=0x%08x bar=%p\n", pszSource, pUnit->GetPlayerIndex(), nColor, pBar );
+	if ( pBar )
+		pBar->SetBorderColor( nColor );
+}
+void CWorldBase::RefreshPlayerColors()
+{
+	// HP-bar border colors are baked from the Scene.PlayerColors.Player%d
+	// global vars when a unit's icons are built. During a savegame load that
+	// happens before those vars are restored/recomputed, so every border comes
+	// out black вЂ” re-apply them once the load is complete. Units sitting in
+	// containers (pillboxes, trucks) get no post-load diplomacy notify, hence
+	// the explicit second loop.
+	NStr::DebugTrace( "[opt-diag] RefreshPlayerColors: %d vis objects, %d contained\n", int(visobjects.size()), int(inContainer.size()) );
+	for ( CMapObjectsMap::iterator it = visobjects.begin(); it != visobjects.end(); ++it )
+		RefreshUnitPlayerColor( dynamic_cast_ptr<IMOUnit*>( it->second ), "map" );
+	for ( CLinksMap::iterator it = inContainer.begin(); it != inContainer.end(); ++it )
+		RefreshUnitPlayerColor( dynamic_cast<IMOUnit*>( it->first.GetPtr() ), "contained" );
 }

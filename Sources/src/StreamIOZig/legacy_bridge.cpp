@@ -52,6 +52,9 @@ extern "C" bool bk_structure_read_raw(void *saver, void *output, int size);
 extern "C" const char *bk_global_get(const char *key);
 extern "C" void bk_global_set(const char *key, const char *value);
 extern "C" void bk_global_remove(const char *key);
+extern "C" int bk_global_count();
+extern "C" int bk_global_key_at(int index, char *buffer, int capacity);
+extern "C" void bk_global_clear();
 extern "C" void bk_random_init();
 extern "C" unsigned int bk_random_get();
 extern "C" int bk_table_get_int(void *stream, const char *row, const char *entry, int fallback);
@@ -1212,6 +1215,53 @@ class GlobalVars final : public IGlobalVars {
         destination[i] = 0;
     }
 
+    static bool HasPrefix(const char *text, const char *prefix) {
+        return std::strncmp(text, prefix, std::strlen(prefix)) == 0;
+    }
+
+    // String chunk in the CSaverAccessor layout (SSHelper.h basic_string path):
+    // [id]{ [1] = length int, [2] = raw characters }.
+    static void WriteNarrowString(IStructureSaver &ss, char id, const char *text) {
+        if (!ss.StartChunk(id)) return;
+        int nSize = text ? (int)std::strlen(text) : 0;
+        ss.DataChunk('\x01', &nSize, sizeof(nSize));
+        ss.DataChunk('\x02', const_cast<char *>(text ? text : ""), nSize);
+        ss.FinishChunk();
+    }
+    static bool ReadNarrowString(IStructureSaver &ss, char id, std::string *out) {
+        out->clear();
+        if (!ss.StartChunk(id)) return false;
+        int nSize = 0;
+        ss.DataChunk('\x01', &nSize, sizeof(nSize));
+        if (nSize > 0) {
+            out->resize((size_t)nSize);
+            ss.DataChunk('\x02', &(*out)[0], nSize);
+        }
+        ss.FinishChunk();
+        return true;
+    }
+    static void WriteWideString(IStructureSaver &ss, char id, const unsigned short *text) {
+        if (!ss.StartChunk(id)) return;
+        int nChars = 0;
+        while (text && text[nChars]) ++nChars;
+        ss.DataChunk('\x01', &nChars, sizeof(nChars));
+        ss.DataChunk('\x02', const_cast<unsigned short *>(text), nChars * 2);
+        ss.FinishChunk();
+    }
+    static bool ReadWideString(IStructureSaver &ss, char id, std::vector<unsigned short> *out) {
+        out->clear();
+        if (!ss.StartChunk(id)) return false;
+        int nChars = 0;
+        ss.DataChunk('\x01', &nChars, sizeof(nChars));
+        if (nChars > 0) {
+            out->resize((size_t)nChars);
+            ss.DataChunk('\x02', &(*out)[0], nChars * 2);
+        }
+        out->push_back(0);
+        ss.FinishChunk();
+        return true;
+    }
+
 public:
     void BK_STDCALL AddRef(int, int) override {}
     void BK_STDCALL Release(int, int) override {}
@@ -1219,7 +1269,28 @@ public:
     const char *BK_STDCALL GetVar(const char *key) const override { return key ? bk_global_get(key) : 0; }
     void BK_STDCALL SetVar(const char *key, const char *value) override { if (key && value) bk_global_set(key, value); }
     void BK_STDCALL RemoveVar(const char *key) override { if (key) bk_global_remove(key); }
-    void BK_STDCALL RemoveVarsByMatch(const char *) override {}
+    void BK_STDCALL RemoveVarsByMatch(const char *match) override {
+        if (!match) return;
+        // Keys live lowercased in the zig store; lowercase the prefix to match.
+        std::string prefix(match);
+        for (size_t i = 0; i < prefix.size(); ++i)
+            if (prefix[i] >= 'A' && prefix[i] <= 'Z') prefix[i] += 'a' - 'A';
+        std::vector<std::string> doomed;
+        char key[512];
+        const int count = bk_global_count();
+        for (int i = 0; i < count; ++i) {
+            if (bk_global_key_at(i, key, sizeof key) < 0) continue;
+            if (HasPrefix(key, prefix.c_str())) doomed.push_back(key);
+        }
+        for (size_t i = 0; i < doomed.size(); ++i) bk_global_remove(doomed[i].c_str());
+        for (int i = 0; i < MAX_WVARS; ++i) {
+            if (wvalues_[i].used && _strnicmp(wvalues_[i].key, match, std::strlen(match)) == 0) {
+                wvalues_[i].used = false;
+                wvalues_[i].key[0] = 0;
+                wvalues_[i].value[0] = 0;
+            }
+        }
+    }
     const unsigned short *BK_STDCALL GetWVar(const char *key) const override {
         const int index = FindWIndex(key);
         return index >= 0 ? wvalues_[index].value : 0;
@@ -1249,6 +1320,84 @@ public:
     }
     bool BK_STDCALL DumpVars(const char *) override { return false; }
     void BK_STDCALL SerializeVarsByMatch(void *, const char *) override {}
+
+    // Savegame serialization, mirroring CGlobalVars::operator& (StreamIO/
+    // GlobalVars.h): chunk 1 = narrow-var map, chunk 2 = wide-var map, both in
+    // the CSaverAccessor hash-map layout (interleaved key chunks id 1 / value
+    // chunks id 2). GFX./Options. vars are excluded on write and preserved
+    // across a load, exactly like the original. Without this override the
+    // default no-op operator& ran, so loaded games came back with an empty
+    // global-var set (no AreWeInMission, no Mission.Current.*, ...).
+    int BK_STDCALL operator&(IStructureSaver &ss) override {
+        if (ss.IsReading()) {
+            if (ss.StartChunk('\x01')) {
+                const int count = ss.CountChunks('\x01');
+                // Saves from builds before this override carry an empty chunk;
+                // that means "no data written", not "no vars" — leave the
+                // current store untouched instead of wiping it.
+                if (count > 0) {
+                    std::vector<std::string> keys((size_t)count), vals((size_t)count);
+                    for (int i = 0; i < count; ++i) { ss.SetChunkCounter(i + 1); ReadNarrowString(ss, '\x01', &keys[(size_t)i]); }
+                    for (int i = 0; i < count; ++i) { ss.SetChunkCounter(i + 1); ReadNarrowString(ss, '\x02', &vals[(size_t)i]); }
+                    std::vector<std::pair<std::string, std::string> > preserved;
+                    char key[512];
+                    const int nCurrent = bk_global_count();
+                    for (int i = 0; i < nCurrent; ++i) {
+                        if (bk_global_key_at(i, key, sizeof key) < 0) continue;
+                        if (HasPrefix(key, "gfx.") || HasPrefix(key, "options.")) {
+                            const char *value = bk_global_get(key);
+                            preserved.push_back(std::make_pair(std::string(key), std::string(value ? value : "")));
+                        }
+                    }
+                    bk_global_clear();
+                    for (size_t i = 0; i < keys.size(); ++i) bk_global_set(keys[i].c_str(), vals[i].c_str());
+                    for (size_t i = 0; i < preserved.size(); ++i) bk_global_set(preserved[i].first.c_str(), preserved[i].second.c_str());
+                }
+                ss.FinishChunk();
+            }
+            if (ss.StartChunk('\x02')) {
+                const int count = ss.CountChunks('\x01');
+                if (count > 0) {
+                    for (int i = 0; i < MAX_WVARS; ++i) {
+                        wvalues_[i].used = false;
+                        wvalues_[i].key[0] = 0;
+                        wvalues_[i].value[0] = 0;
+                    }
+                    std::vector<std::string> keys((size_t)count);
+                    for (int i = 0; i < count; ++i) { ss.SetChunkCounter(i + 1); ReadNarrowString(ss, '\x01', &keys[(size_t)i]); }
+                    std::vector<unsigned short> wide;
+                    for (int i = 0; i < count; ++i) {
+                        ss.SetChunkCounter(i + 1);
+                        ReadWideString(ss, '\x02', &wide);
+                        SetVar(keys[(size_t)i].c_str(), &wide[0]);
+                    }
+                }
+                ss.FinishChunk();
+            }
+        } else {
+            if (ss.StartChunk('\x01')) {
+                char key[512];
+                const int count = bk_global_count();
+                for (int i = 0; i < count; ++i) {
+                    if (bk_global_key_at(i, key, sizeof key) < 0) continue;
+                    if (HasPrefix(key, "gfx.") || HasPrefix(key, "options.")) continue;
+                    const char *value = bk_global_get(key);
+                    WriteNarrowString(ss, '\x01', key);
+                    WriteNarrowString(ss, '\x02', value ? value : "");
+                }
+                ss.FinishChunk();
+            }
+            if (ss.StartChunk('\x02')) {
+                for (int i = 0; i < MAX_WVARS; ++i) {
+                    if (!wvalues_[i].used) continue;
+                    WriteNarrowString(ss, '\x01', wvalues_[i].key);
+                    WriteWideString(ss, '\x02', wvalues_[i].value);
+                }
+                ss.FinishChunk();
+            }
+        }
+        return 0;
+    }
 };
 
 #if 0

@@ -132,6 +132,13 @@ const StructureLevel = struct {
 const StructureSaver = struct {
     stream: *Stream,
     levels: std.ArrayListUnmanaged(StructureLevel) = .empty,
+    // Sequential cache for bk_structure_enter_object: the bridge visits
+    // objects 0..N-1 in order, and rescanning the whole content chunk for
+    // each index is O(N^2) over multi-megabyte saves (the "load takes 20
+    // seconds" symptom). Remembers where the last found object ended.
+    object_cache_valid: bool = false,
+    object_cache_index: usize = 0,
+    object_cache_pos: usize = 0,
 };
 
 const Enumerator = struct {
@@ -353,7 +360,30 @@ pub export fn bk_structure_object_count(handle: ?*anyopaque) callconv(.c) c_int 
 pub export fn bk_structure_enter_object(handle: ?*anyopaque, index: c_int) callconv(.c) bool {
     const saver = fromHandle(StructureSaver, handle) orelse return false;
     const content = shortChunkAt(saver.stream.bytes, fileLevel(saver), 2, 1) orelse return false;
-    const obj = shortChunkAt(saver.stream.bytes, content, 1, @intCast(@max(@as(c_int, 0), index) + 1)) orelse return false;
+    const idx: usize = @intCast(@max(@as(c_int, 0), index));
+
+    // Resume the scan just past the previously found object when the caller
+    // walks sequentially; fall back to a full scan otherwise.
+    var position: usize = 0;
+    var remaining: usize = idx + 1;
+    if (saver.object_cache_valid and idx == saver.object_cache_index + 1) {
+        position = saver.object_cache_pos;
+        remaining = 1;
+    }
+    var found: ?StructureLevel = null;
+    while (readShortChunk(saver.stream.bytes, content, &position)) |chunk| {
+        if (chunk.id == 1) {
+            remaining -= 1;
+            if (remaining == 0) {
+                found = .{ .start = chunk.start, .len = chunk.len };
+                break;
+            }
+        }
+    }
+    const obj = found orelse return false;
+    saver.object_cache_valid = true;
+    saver.object_cache_index = idx;
+    saver.object_cache_pos = position;
     saver.levels.append(allocator, obj) catch return false;
     return true;
 }
@@ -850,6 +880,39 @@ pub export fn bk_global_remove(key: [*:0]const u8) callconv(.c) void {
     const removed = globals.fetchRemove(lk) orelse return;
     allocator.free(removed.key);
     allocator.free(removed.value);
+}
+
+pub export fn bk_global_count() callconv(.c) c_int {
+    return @intCast(globals.count());
+}
+
+// Copies the index-th key (already lowercased) into buffer as a C string and
+// returns its length, or -1 if index/capacity is out of range. Iteration order
+// is stable as long as the map is not mutated between calls.
+pub export fn bk_global_key_at(index: c_int, buffer: [*]u8, capacity: c_int) callconv(.c) c_int {
+    if (index < 0 or capacity <= 0) return -1;
+    var it = globals.iterator();
+    var i: c_int = 0;
+    while (it.next()) |entry| {
+        if (i == index) {
+            const key = entry.key_ptr.*;
+            if (key.len + 1 > @as(usize, @intCast(capacity))) return -1;
+            @memcpy(buffer[0..key.len], key);
+            buffer[key.len] = 0;
+            return @intCast(key.len);
+        }
+        i += 1;
+    }
+    return -1;
+}
+
+pub export fn bk_global_clear() callconv(.c) void {
+    var it = globals.iterator();
+    while (it.next()) |entry| {
+        allocator.free(entry.key_ptr.*);
+        allocator.free(entry.value_ptr.*);
+    }
+    globals.clearRetainingCapacity();
 }
 
 test "global store grows beyond the legacy startup working set" {

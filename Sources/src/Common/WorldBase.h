@@ -203,6 +203,7 @@ protected:
 	virtual void ReportObjectiveStateChanged( int nObjective, int nState ) {  }
 	void ReportReinforcementArrived();
 	void UpdateAllUnits();
+	void RefreshPlayerColors();
 public:
 	CWorldBase();
 	virtual ~CWorldBase();

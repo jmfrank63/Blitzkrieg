@@ -588,6 +588,13 @@ void CUIMiniMap::AddCircle( const CVec2 &vCenter, const float fRadius, int nStyl
 {
 	if( IsInitialized() )
 	{
+		{
+			CTPoint<float> tracePoint;
+			PointToTextureMiniMap( vCenter.x / fWorldCellSize, vCenter.y / fWorldCellSize, &( tracePoint.x ), &( tracePoint.y ) );
+			NStr::DebugTrace( "[opt-diag] AddCircle this=%p world=(%g,%g) cells=(%g,%g) r=%g style=%d texpt=(%g,%g) nSize=%d\n",
+												this, vCenter.x, vCenter.y, vCenter.x / fWorldCellSize, vCenter.y / fWorldCellSize,
+												fRadius, nStyle, tracePoint.x, tracePoint.y, nSize );
+		}
 		if ( bRelative )
 		{
 			circles.push_back( SMiniMapCircle( CVec2( vCenter.x * terrainSize.x * fWorldCellSize, vCenter.y * terrainSize.y * fWorldCellSize ), fRadius, rStart, rDuration, nStyle, wColor, lParam ) );
@@ -689,10 +696,10 @@ void CUIMiniMap::DrawFireRanges( CTextureLock<SGFXColor4444> *pTextureLock )
 				CTPoint<float> miniMapPoint( 0.0f, 0.0f );
 				CTPoint<float> additionalPoint( 0.0f, 0.0f );
 
-				PointToTextureMiniMap( area.vCenter3D.x / fWorldCellSize, area.vCenter3D.y / fWorldCellSize, &(miniMapPoint.x), &(miniMapPoint.y), false );
+				PointToTextureMiniMap( area.vCenter3D.x / fWorldCellSize, area.vCenter3D.y / fWorldCellSize, &(miniMapPoint.x), &(miniMapPoint.y) );
 				PointToTextureMiniMap( ( area.vCenter3D.x + ( area.fMaxR / SQRT_2 ) ) / fWorldCellSize,
 															 ( area.vCenter3D.y + ( area.fMaxR / SQRT_2 ) ) / fWorldCellSize,
-															 &(additionalPoint.x), &(additionalPoint.y), false );
+															 &(additionalPoint.x), &(additionalPoint.y) );
 
 				BresenhamEllipse( static_cast<int>( miniMapPoint.x ), static_cast<int>( miniMapPoint.y ),
 													static_cast<int>( additionalPoint.x - miniMapPoint.x + 1 ),
@@ -707,14 +714,14 @@ void CUIMiniMap::DrawFireRanges( CTextureLock<SGFXColor4444> *pTextureLock )
 
 						const float x = area.vCenter3D.x + area.fMaxR * fCos;
 						const float y = area.vCenter3D.y + area.fMaxR * fSin;
-						
-						PointToTextureMiniMap( x / fWorldCellSize, y / fWorldCellSize, &(additionalPoint.x), &(additionalPoint.y), false );
-						
+
+						PointToTextureMiniMap( x / fWorldCellSize, y / fWorldCellSize, &(additionalPoint.x), &(additionalPoint.y) );
+
 						MakeLine2( static_cast<int>( miniMapPoint.x ), static_cast<int>( miniMapPoint.y ),
 											 static_cast<int>( additionalPoint.x ), static_cast<int>( additionalPoint.y ),
 											 markSectors );
 					}
-					
+
 					{
 						const float fAngle = fmod( float( area.wFinishAngle ) / 65535.0f * FP_2PI + FP_PI2, FP_2PI );
 						const float fCos = cos( fAngle );
@@ -722,8 +729,8 @@ void CUIMiniMap::DrawFireRanges( CTextureLock<SGFXColor4444> *pTextureLock )
 
 						const float x = area.vCenter3D.x + area.fMaxR * fCos;
 						const float y = area.vCenter3D.y + area.fMaxR * fSin;
-						
-						PointToTextureMiniMap( x / fWorldCellSize, y / fWorldCellSize, &(additionalPoint.x), &(additionalPoint.y), false );
+
+						PointToTextureMiniMap( x / fWorldCellSize, y / fWorldCellSize, &(additionalPoint.x), &(additionalPoint.y) );
 						
 						MakeLine2( static_cast<int>( miniMapPoint.x ), static_cast<int>( miniMapPoint.y ),
 											 static_cast<int>( additionalPoint.x ), static_cast<int>( additionalPoint.y ),
@@ -844,13 +851,14 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 							PointToTextureMiniMap( it->vCenter.x / fWorldCellSize,
 																		 it->vCenter.y / fWorldCellSize,
 																		 &( miniMapPoint.x ),
-																		 &( miniMapPoint.y ),
-																		 false );
+																		 &( miniMapPoint.y ) );
 							PointToTextureMiniMap( ( it->vCenter.x + fRadius ) / fWorldCellSize,
 																		 ( it->vCenter.y + fRadius ) / fWorldCellSize,
 																		 &( additionalPoint.x ),
-																		 &( additionalPoint.y ),
-																		 false );
+																		 &( additionalPoint.y ) );
+							NStr::DebugTrace( "[opt-diag] circle write this=%p world=(%g,%g) writept=(%g,%g) nSize=%d wnd=(%g,%g)\n",
+																this, it->vCenter.x, it->vCenter.y, miniMapPoint.x, miniMapPoint.y,
+																nSize, wndRect.left, wndRect.top );
 							BresenhamEllipse( static_cast<int>( miniMapPoint.x ),
 																static_cast<int>( miniMapPoint.y ),
 																static_cast<int>( additionalPoint.x - miniMapPoint.x + 1 ),
@@ -887,8 +895,7 @@ bool CUIMiniMap::Update( const NTimer::STime &currTime )
 							PointToTextureMiniMap( it->vCenter.x / fWorldCellSize,
 																		 it->vCenter.y / fWorldCellSize,
 																		 &( center.x ),
-																		 &( center.y ),
-																		 false );
+																		 &( center.y ) );
 
 							WORD wParts = LOWORD( it->lParam );
 							WORD wPeriod = HIWORD( it->lParam );
@@ -1198,10 +1205,13 @@ bool CUIMiniMap::OnRButtonUp( const CVec2 &vPos, EMouseState mouseState )
 
 		CTPoint<float> mapMousePos;
 		TextureMiniMapToPoint( miniMapMousePos.x, miniMapMousePos.y, &( mapMousePos.x ), &( mapMousePos.y ) );
+		NStr::DebugTrace( "[opt-diag] minimap rclick local=(%g,%g) cells=(%g,%g) world=(%g,%g)\n",
+											miniMapMousePos.x, miniMapMousePos.y, mapMousePos.x, mapMousePos.y,
+											mapMousePos.x * fWorldCellSize, mapMousePos.y * fWorldCellSize );
 		if ( InMiniMap( mapMousePos.x, mapMousePos.y ) )
 		{
-			DWORD dwParam = 0x80000000 + 
-											( ( DWORD )( mapMousePos.x * fWorldCellSize ) & 0x00007fff ) + 
+			DWORD dwParam = 0x80000000 +
+											( ( DWORD )( mapMousePos.x * fWorldCellSize ) & 0x00007fff ) +
 											( ( ( ( DWORD )( mapMousePos.y * fWorldCellSize ) & 0x00007fff ) << 15 ) & 0x7fff0000 );
 			GetSingleton<IInput>()->AddMessage( SGameMessage( CMD_END_ACTION2, dwParam ) );
 		}

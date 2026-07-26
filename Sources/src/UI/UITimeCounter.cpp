@@ -92,6 +92,17 @@ const DWORD CUITimeCounter::GetCounterColor()
 {
 	return IsWindowEnabled() ? dwCounterColor : dwDisabledCounterColor;
 }
+void CUITimeCounter::ScaleLayout( const CVec2 &vScale )
+{
+	CSimpleWindow::ScaleLayout( vScale );
+	// fBegin/fEnd/fCurrent are fill extents in layout pixels along the fill
+	// axis; without scaling them the recharge bar only fills the legacy
+	// fraction of its scaled window (50% at doubled resolution).
+	const float fAxisScale = bVertical ? vScale.y : vScale.x;
+	fBegin *= fAxisScale;
+	fEnd *= fAxisScale;
+	fCurrent *= fAxisScale;
+}
 void CUITimeCounter::Draw( IGFX *pGFX )
 {
 	NI_ASSERT_SLOW_T( false, "Can't user Draw() directly - use visitor pattern" );

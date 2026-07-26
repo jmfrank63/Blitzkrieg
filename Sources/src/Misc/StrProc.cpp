@@ -256,6 +256,12 @@ void __cdecl NStr::DebugTrace( const char *pszFormat, ... )
   vsprintf( buff, pszFormat, va );
   va_end( va );
 	OutputDebugString( buff );
+	// [opt-diag] mirror traces into a file for offline analysis
+	if ( FILE *pFile = fopen( "bk_trace.log", "a" ) )
+	{
+		fputs( buff, pFile );
+		fclose( pFile );
+	}
 }
 __forceinline char HalfByteToHexSymbol( const unsigned char chr )
 {

@@ -346,6 +346,15 @@ const IGDBObject* CObjectsDB::GetRPGStats( const IGDBObject *pGDBObject )
 			pRPG = ReadRPGStats<SObjectRPGStats>( pObj, "desc" );
 	}
 	NI_ASSERT_SLOW_T( pRPG != 0, NStr::Format("Can't read RPG stats for \"%s\"", pObj->szKey.c_str()) );
+	if ( pRPG == 0 )
+	{
+		// Callers (e.g. CSoundScene::AddSound) handle a null result; crashing on
+		// a missing/unreadable stats file helps nobody. The trace names the
+		// asset so the underlying read failure can be fixed.
+		NStr::DebugTrace( "[opt-diag] GetRPGStats: failed to read RPG stats for \"%s\" (path \"%s\", game type %d)\n",
+											pObj->szKey.c_str(), pObj->szPath.c_str(), int(pObj->eGameType) );
+		return 0;
+	}
 	pRPG->szParentName = pObj->szKey;
 	pRPG->RetrieveShortcuts( this );
 	pRPG->Validate();

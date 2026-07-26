@@ -23,9 +23,9 @@ class CScenarioTracker2 : public CTRefCount<IScenarioTracker>
 	struct SNameUsageStats
 	{
 		std::string szName;									// name file name
-		NTimer::STime timeLastUsage;				// время последнего использования этого имени
-		int nUsedCounter;										// сколько раз это имя использовали
-		int nUsage;													// сколько его используют сейчас
+		NTimer::STime timeLastUsage;				// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+		int nUsedCounter;										// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		int nUsage;													// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		SNameUsageStats() 
 			: timeLastUsage( 0 ), nUsedCounter( 0 ), nUsage( 0 ) {  }
 		SNameUsageStats& operator=( const SNameUsageStats &stats ) 
@@ -88,6 +88,7 @@ class CScenarioTracker2 : public CTRefCount<IScenarioTracker>
 	void ProcessScriptChanges( const bool bPostMission );
 	void LoadOpponents() const;
 	void InitMinimumDifficulty();
+	void AssignPlayerColors();
 public:
 	CScenarioTracker2();
 	bool STDCALL Init( ISingleton *pSingleton );

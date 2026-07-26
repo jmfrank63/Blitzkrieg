@@ -726,7 +726,13 @@ bool CWorldClient::ActionRangingMsg( const SGameMessage &msg, bool bForced )
 }
 bool CWorldClient::ActionSuppressMsg( const SGameMessage &msg, bool bForced )
 {
-	return PerformActionPos( ACTION_COMMAND_ART_BOMBARDMENT, GetPosFromMsg(msg), bActionModifierAdd );
+	const CVec2 vScreenPos = GetPosFromMsg( msg );
+	CVec3 vWorldPos;
+	GetPos3( &vWorldPos, vScreenPos );
+	NStr::DebugTrace( "[opt-diag] artillery click screen=(%g,%g) world=(%g,%g,%g) cells=(%g,%g)\n",
+										vScreenPos.x, vScreenPos.y, vWorldPos.x, vWorldPos.y, vWorldPos.z,
+										vWorldPos.x / fWorldCellSize, vWorldPos.y / fWorldCellSize );
+	return PerformActionPos( ACTION_COMMAND_ART_BOMBARDMENT, vScreenPos, bActionModifierAdd );
 }
 void CWorldClient::AddAviationMarker( const CVec2 &vPos )
 {
@@ -754,6 +760,9 @@ bool CWorldClient::ActionAviationAddPoint( const EActionCommand cmdType, const C
 {
 	CVec3 vPos;
 	GetPos3( &vPos, vPos2 );
+	NStr::DebugTrace( "[opt-diag] aviation point screen=(%g,%g) world=(%g,%g,%g) cells=(%g,%g)\n",
+										vPos2.x, vPos2.y, vPos.x, vPos.y, vPos.z,
+										vPos.x / fWorldCellSize, vPos.y / fWorldCellSize );
 	Vis2AI( &vPos );
 
 	if ( bActionModifierAdd ) 

@@ -152,6 +152,9 @@ void CAntiArtillery::Fired( const float fGunRadius, const CVec2 &center )
 			lastHeardPos[i] = center;
 			lastRevealCenter[i] = newCenter;
 
+			NStr::DebugTrace( "[opt-diag] antiart hearer=%d gun=(%g,%g) revealR=%g curR=%g estimate=(%g,%g) shots=%d\n",
+												i, center.x, center.y, fGunRadius, fCurRadius, newCenter.x, newCenter.y, nHeardShots[i] );
+
 			if ( nHeardShots[i] <= SConsts::SHOTS_TO_MINIMIZE_LOCATION_RADIUS )
 				++nHeardShots[i];
 

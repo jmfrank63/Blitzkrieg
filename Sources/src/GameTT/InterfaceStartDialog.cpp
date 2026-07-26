@@ -130,8 +130,11 @@ void CInterfacePlayerProfile::StartInterface()
 	IOptionSystem * pOptionsSystem = GetSingleton<IOptionSystem>();
 	variant_t var;
 	pOptionsSystem->Get( "GamePlay.PlayerName", &var );
-	const std::wstring szName = static_cast<const wchar_t*>( bstr_t(var) );
-	
+	const wchar_t *pszStoredName = static_cast<const wchar_t*>( bstr_t(var) );
+	std::wstring szName = pszStoredName ? pszStoredName : L"";
+	if ( szName.empty() )
+		szName = L"Player";
+
 	pEdit->SetWindowText( 0, reinterpret_cast<const WORD*>( szName.c_str() ) );
 	
 	pButtonOK = checked_cast<IUIButton*>( pUIScreen->GetChildByID( E_BUTTON_OK ) );

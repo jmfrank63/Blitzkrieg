@@ -759,6 +759,10 @@ int CInterfaceMission::operator&( IStructureSaver &ss )
 	
 	if ( saver.IsReading() )
 	{
+		// A mission interface restored from a save means we ARE in a mission,
+		// regardless of whether the save's global vars carried the flag (saves
+		// written by builds with a non-serializing global-var store lack it).
+		SetGlobalVar( "AreWeInMission", 1 );
 		pWorld->Init( GetSingletonGlobal() );
 		preselectedObjects.clear();
 		selectedObjects.clear();
@@ -798,6 +802,7 @@ bool CInterfaceMission::Init()
 }
 void CInterfaceMission::Done()
 {
+	NStr::DebugTrace( "[opt-diag] CInterfaceMission::Done (mission interface tearing down, AreWeInMission will be removed)\n" );
 	GetSingleton<IMessageLinkContainer>()->SetInterface( 0 );
 	GetSingleton<IGlobalVars>()->RemoveVarsByMatch( "temp." );	
 	pFrameSelection = 0;
@@ -1399,6 +1404,9 @@ bool CInterfaceMission::StepLocal( bool bAppActive )
 					CVec3 vCenter;
 					AI2Vis( &vCenter, pObjects[i].center.x, pObjects[i].center.y, 0 );
 					const float fRadius = pObjects[i].r * fAITileXCoeff;
+					NStr::DebugTrace( "[opt-diag] reveal circle ai=(%g,%g) r=%g cells=(%g,%g)\n",
+														pObjects[i].center.x, pObjects[i].center.y, pObjects[i].r,
+														vCenter.x / fWorldCellSize, vCenter.y / fWorldCellSize );
 					pMiniMap->AddCircle( CVec2( vCenter.x, vCenter.y ), fRadius, MMC_STYLE_DIVERGENT, 0xFF80, currentAbsTime, 2000, false, 0 );
 				}
 			}

@@ -113,7 +113,13 @@ public:
 			   ( nYPos >= 0 ) &&
 			   ( nYPos < size.y ) )
 		{
-			( *pTextureLock )[size.y - 1 - nYPos][nXPos] = color;
+			// The original flipped here ([size.y - 1 - nYPos]) to cancel the isLeftTop=false
+		// transform at the write sites — an identity only when the pow2 texture height
+		// equals nSize/2 (true at 1024x768: 128==128). At higher resolutions the pow2
+		// height diverges from the diamond height and the pair shifts all overlay
+		// content south by (pow2H - nSize/2). The write sites now use the default
+		// (isLeftTop=true) transform, so no flip is needed at any resolution.
+		( *pTextureLock )[nYPos][nXPos] = color;
 		}
 	}
 };

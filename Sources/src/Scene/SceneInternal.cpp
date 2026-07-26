@@ -929,9 +929,9 @@ void CScene::GetPos3( CVec3 *pPos, const CVec2 &pos, bool bOnZero )
 	else
 	{
 		UpdateTransformMatrix();
-		float x =  ( matTransform._12*matTransform._24 - matTransform._12*pos.y - matTransform._14*matTransform._22 + pos.x*matTransform._22 ) / 
+		float x =  ( matTransform._12*matTransform._24 - matTransform._12*pos.y - matTransform._14*matTransform._22 + pos.x*matTransform._22 ) /
 							 ( matTransform._11*matTransform._22 - matTransform._12*matTransform._21 );
-		float y = -( matTransform._11*matTransform._24 - matTransform._11*pos.y - matTransform._14*matTransform._21 + pos.x*matTransform._21 ) / 
+		float y = -( matTransform._11*matTransform._24 - matTransform._11*pos.y - matTransform._14*matTransform._21 + pos.x*matTransform._21 ) /
 							 ( matTransform._11*matTransform._22 - matTransform._12*matTransform._21 );
 		pPos->Set( x, y, 0 );
 	}

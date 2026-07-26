@@ -866,6 +866,12 @@ void CScenarioTracker2::StartMission( const std::string &szMissionName )
 		pMission->SetName( szMissionName );
 		it->second->StartMission( pMission );
 	}
+	AssignPlayerColors();
+}
+void CScenarioTracker2::AssignPlayerColors()
+{
+	if ( pUserPlayer == 0 )
+		return;
 	const int nOurSide = pUserPlayer->GetDiplomacySide();
 	int nAlliedCounter = 0;
 	int nEnemyCounter = 0;
@@ -875,17 +881,17 @@ void CScenarioTracker2::StartMission( const std::string &szMissionName )
 		if ( player->second.GetPtr() == pUserPlayer.GetPtr() )
 			dwColor = GetGlobalVar( "Scene.PlayerColors.Player", int(0xff000000) );
 		else if ( nOurSide == 2 || player->second->GetDiplomacySide() == 2 )
-			dwColor = GetGlobalVar( "Scene.PlayerColors.Neutral", int(0xff808080) );			
+			dwColor = GetGlobalVar( "Scene.PlayerColors.Neutral", int(0xff808080) );
 		else if ( nOurSide == player->second->GetDiplomacySide() )
 		{
 			const std::string szVarName = NStr::Format( "Scene.PlayerColors.Allied%d", nAlliedCounter + 1 );
-			dwColor = GetGlobalVar( szVarName.c_str(), int(0xff00ffff) );			
+			dwColor = GetGlobalVar( szVarName.c_str(), int(0xff00ffff) );
 			nAlliedCounter = ( nAlliedCounter + 1 ) % 4;
 		}
-		else 
+		else
 		{
 			const std::string szVarName = NStr::Format( "Scene.PlayerColors.Enemy%d", nEnemyCounter + 1 );
-			dwColor = GetGlobalVar( szVarName.c_str(), int(0xffff0000) );					
+			dwColor = GetGlobalVar( szVarName.c_str(), int(0xffff0000) );
 			nEnemyCounter = ( nEnemyCounter + 1 ) % 4;
 		}
 		const std::string szVarName = NStr::Format( "Scene.PlayerColors.Player%d", player->first );
@@ -1072,13 +1078,27 @@ int CScenarioTracker2::operator&( IStructureSaver &ss )
 	saver.Add( 12, &szMinimumDifficulty );
 	saver.Add( 13, &randomBonuses );
 
-	if ( saver.IsReading() ) 
+	if ( saver.IsReading() )
 	{
 		LoadChapterScript( szChapterScriptFileName.c_str() );
 		if ( randomBonuses.size() < 3 )
 		{
 			randomBonuses.resize( 3 );
 		}
+		// Recompute the Scene.PlayerColors.Player%d mapping instead of relying
+		// on the save's global vars to carry it (saves written by builds with a
+		// non-serializing global-var store lack it, leaving every player color
+		// at the black fallback).
+		AssignPlayerColors();
+		// Same reasoning for the current-scenario name vars: the tracker's own
+		// restored state is authoritative, the save's global vars may lack them
+		// (empty Mission.Current.Name breaks e.g. the escape-menu restart).
+		if ( !szCurrMission.empty() )
+			SetGlobalVar( "Mission.Current.Name", szCurrMission.c_str() );
+		if ( !szCurrChapter.empty() )
+			SetGlobalVar( "Chapter.Current.Name", szCurrChapter.c_str() );
+		if ( !szCurrCampaign.empty() )
+			SetGlobalVar( "Campaign.Current.Name", szCurrCampaign.c_str() );
 	}
 	return 0;
 }

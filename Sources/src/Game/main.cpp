@@ -252,7 +252,9 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		RegisterSingleton( INetDriver::tidTypeID, pNetDriver );
 	}
 	timeMeter.Reset();
-	NWinFrame::ShowAppWindow( true );
+	// The app window stays hidden here: it has nothing to paint until the GFX
+	// device exists, and IGFX::SetMode() shows it itself (SWP_SHOWWINDOW in
+	// ResizeDeviceWindow). The splash screen covers the whole startup instead.
 	BK_STARTUP_MARKER("before NMain::Initialize");
 	if ( NMain::Initialize(NWinFrame::GetHWnd(), NWinFrame::GetHWnd(), NWinFrame::GetHWnd(), true) != true )
 	{
@@ -299,7 +301,6 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		pInspector->InspectStorage( GetSingleton<IDataStorage>() );
 	}
 	timeMeter.Sample( "inspecting storage" );
-	NWinFrame::ShowSplashScreen( hInstance, false );
 	timeMeter.Reset();
 	{
 		cmdp.nScreenSizeX = GetGlobalVar( "GFX.Mode.InterMission.SizeX", GFX_DEFAULT_SCREEN_WIDTH );
@@ -311,6 +312,11 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 		IGFX *pGFX = GetSingleton<IGFX>();
 		if ( pGFX->SetMode( cmdp.nScreenSizeX, cmdp.nScreenSizeY, cmdp.nScreenBPP, cmdp.nStencilBPP, cmdp.eFullscreenMode, cmdp.nFreq ) == false )
 			return 0xDEAD;
+		// SetMode just made the window visible; present a black frame right away
+		// so it never flashes unpainted (white) content before the intro video
+		// renders its first frame.
+		pGFX->Clear( 0, 0, GFXCLEAR_TARGET, 0 );
+		pGFX->Flip();
 		const CTRect<long> rcScreen = pGFX->GetScreenRect();
 		cmdp.nScreenSizeX = rcScreen.Width();
 		cmdp.nScreenSizeY = rcScreen.Height();
@@ -420,6 +426,9 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 			GetSingleton<IScenarioTracker>()->StartChapter( "custom_mission" );
 			pMainLoop->Command( MISSION_COMMAND_MISSION, NStr::Format("%s;%d", cmdp.szMapName.c_str(), cmdp.bCycledLaunch) );
 		}
+		// Startup is done and the first main-loop step will begin the intro
+		// video — only now take the splash logo down.
+		NWinFrame::ShowSplashScreen( hInstance, false );
 		for (;;)
 		{
 			if ( !cmdp.szMovieDir.empty() ) 

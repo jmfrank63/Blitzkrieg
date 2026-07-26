@@ -6,10 +6,10 @@ class CUITimeCounter : public CSimpleWindow
 {
 	DECLARE_SERIALIZE;
 	DWORD dwBeginTime, dwRingTime;
-	bool bNeedAnimate;							//нужно ли просчитывать анимацию
-	float fBegin, fEnd, fCurrent;		//положение анимации
-	bool bVertical;									//вертикальная или горизонтальная анимация
-	DWORD dwCounterColor, dwBGColor, dwDisabledCounterColor;						//цвет счетчика
+	bool bNeedAnimate;							//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	float fBegin, fEnd, fCurrent;		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	bool bVertical;									//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	DWORD dwCounterColor, dwBGColor, dwDisabledCounterColor;						//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
 	const DWORD GetCounterColor();
 public:
@@ -18,11 +18,12 @@ public:
 	virtual ~CUITimeCounter() {}
 	
 	virtual int STDCALL operator&( IDataTree &ss );
-	
+
 	virtual bool STDCALL Update( const NTimer::STime &currTime );
 	virtual void STDCALL Draw( IGFX *pGFX );
 	virtual void STDCALL Visit( interface ISceneVisitor *pVisitor );
 	virtual bool STDCALL ProcessMessage( const SUIMessage &msg );
+	virtual void ScaleLayout( const CVec2 &vScale );
 };
 class CUITimeCounterBridge : public IUITimeCounter, public CUITimeCounter
 {
