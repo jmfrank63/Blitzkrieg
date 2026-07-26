@@ -1003,11 +1003,17 @@ fn addStreamIOZig(
     streamio_module.linkLibrary(options_bridge);
     linkMsvcRuntime(streamio_module, optimize);
     streamio_module.linkSystemLibrary("oleaut32", .{});
+    // x86 exports carry stdcall decorations (_name@N) that do not exist on
+    // x86_64, so the def file is per-arch.
+    const def_path = if (target.result.cpu.arch == .x86)
+        "Sources/src/StreamIOZig/StreamIO.def"
+    else
+        "Sources/src/StreamIOZig/StreamIO.x64.def";
     return b.addLibrary(.{
         .name = "StreamIO",
         .linkage = .dynamic,
         .root_module = streamio_module,
-        .win32_module_definition = b.path("Sources/src/StreamIOZig/StreamIO.def"),
+        .win32_module_definition = b.path(def_path),
     });
 }
 

@@ -48,7 +48,7 @@ class COpenVideoPlayer : public CTRefCount<IVideoPlayer>
 	bool ProbeOpenVideo( const char *pszFileName );
 	bool DecodeFirstFrame( const char *pszFileName, interface IGFX *pGFX );
 	bool OpenDecoder( const char *pszFileName, interface IGFX *pGFX );
-	bool DecodeNextFrame();
+	bool DecodeNextFrame( bool bConvertFrame = true );
 	void DestroyDecoder();
 	bool FindOpenVideoAudioStreamName( const char *pszFileName, std::string *pAudioStreamName ) const;
 	void PlayVideoAudioStream( interface ISFX *pSFX );

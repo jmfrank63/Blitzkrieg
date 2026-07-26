@@ -367,7 +367,7 @@ bool COpenVideoPlayer::OpenDecoder( const char *pszFileName, IGFX *pGFX )
 	return false;
 }
 
-bool COpenVideoPlayer::DecodeNextFrame()
+bool COpenVideoPlayer::DecodeNextFrame( bool bConvertFrame )
 {
 	if ( (pDecoderState == 0) || (pDecoderState->pDecoder == 0) || (pRenderGFX == 0) )
 		return false;
@@ -379,6 +379,14 @@ bool COpenVideoPlayer::DecodeNextFrame()
 		{
 			if ( th_decode_packetin(pDecoderState->pDecoder, &op, 0) == 0 )
 			{
+				if ( !bConvertFrame )
+				{
+					// seek support: the decoder must consume every packet to keep its
+					// reference frames valid, but the YCbCr->ARGB conversion and the
+					// texture uploads of intermediate frames are pure waste
+					++nDecodedFrame;
+					return true;
+				}
 				th_ycbcr_buffer ycbcr;
 				if ( th_decode_ycbcr_out(pDecoderState->pDecoder, ycbcr) == 0 )
 				{
@@ -578,7 +586,7 @@ bool COpenVideoPlayer::SetCurrentFrame( const int nFrame )
 	}
 	while ( nDecodedFrame < nTargetFrame )
 	{
-		if ( !DecodeNextFrame() )
+		if ( !DecodeNextFrame( nDecodedFrame + 1 >= nTargetFrame ) )
 			return false;
 	}
 	return true;

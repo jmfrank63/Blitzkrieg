@@ -191,6 +191,10 @@ bool CUISelectCampaignState::ProcessMessage( const SGameMessage &msg )
 			GetSingleton<IScenarioTracker>()->StartCampaign( pCampaignStats->szParentName.c_str(), CAMPAIGN_TYPE_SINGLE );
 
 			NCutScenes::AddCutScene( pCampaignStats->szIntroMovie );
+			// flush the profile now: the config is otherwise only written on
+			// options-apply or clean exit, so a crash would lose the unlocked
+			// cutscene (and the campaign-started registration with it)
+			GetSingleton<IMainLoop>()->SerializeConfig( false, 0xffffffff );
 			GetSingleton<ISFX>()->StopStream( GetGlobalVar( "Sound.TimeToFade", 5000 ) );
 			GetMainInterface()->FinishInterface( MISSION_COMMAND_VIDEO, NStr::Format("%s;%d", pCampaignStats->szIntroMovie.c_str(), MISSION_COMMAND_CAMPAIGN) );
 			return true;

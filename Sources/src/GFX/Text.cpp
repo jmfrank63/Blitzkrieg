@@ -510,6 +510,14 @@ bool CGFXText::FillGeometryDataCenter( const SPreFormattedText::SLine &line, flo
   else                                  // add spaces before each word
   {
     sx += float( floor( ( ( fWidth - line.fWidth ) - (line.nNumSpaces * fSpaceWidth) ) * 0.5 ) );
+		static int nCenterTraceBudget = 60;
+		if ( nCenterTraceBudget > 0 && line.nNumWords >= 4 )
+		{
+			--nCenterTraceBudget;
+			NStr::DebugTrace( "[opt-diag] center rect=(%d..%d) fWidth=%g lineW=%g words=%d spaces=%d spaceW=%g scale=%g startX=%g firstChar=%c\n",
+												rect.left, rect.right, fWidth, line.fWidth, line.nNumWords, line.nNumSpaces, fSpaceWidth, fScale, sx,
+												line.words.empty() ? '?' : char( *line.words.front().pszBegin ) );
+		}
     for ( std::list<SPreFormattedText::SLine::SWord>::const_iterator it = line.words.begin(); it != line.words.end(); ++it )
     {
       sx += it->nNumPreSpaces * fSpaceWidth;
@@ -522,7 +530,7 @@ bool CGFXText::FillGeometryDataCenter( const SPreFormattedText::SLine &line, flo
 
   return true;
 }
-bool CGFXText::FillGeometryDataJustify( const SPreFormattedText::SLine &line, float sx, const float sy, const RECT &rect, 
+bool CGFXText::FillGeometryDataJustify( const SPreFormattedText::SLine &line, float sx, const float sy, const RECT &rect,
 																				const DWORD dwColor, const DWORD dwSpecular, DWORD dwClipFlags, 
 																				std::vector<SGFXLVertex> &vertices, std::vector<WORD> &indices ) const
 {

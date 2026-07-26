@@ -39,6 +39,7 @@ extern "C" bool bk_stream_stats(void *stream, void *stats);
 extern "C" void bk_stream_destroy(void *stream);
 extern "C" void *bk_structure_create(void *stream, int mode);
 extern "C" void bk_structure_destroy(void *saver);
+extern "C" float bk_structure_progress(void *saver);
 extern "C" bool bk_structure_start(void *saver, unsigned char id);
 extern "C" void bk_structure_finish(void *saver);
 extern "C" void bk_structure_data(void *saver, unsigned char id, void *output, int size);
@@ -116,6 +117,18 @@ struct IRefCount {
     // Matches the real IRefCount (Misc/Basic.h) slot so operator&(IStructureSaver&)
     // dispatches to the game object's real serializer across the DLL boundary.
     virtual int BK_STDCALL operator&( IStructureSaver & ) { return 0; }
+};
+
+// Vtable mirror of StreamIO/ProgressHook.h IProgressHook, for driving the
+// loading-progress movie from the reader's stream position. Only SetCurrPos
+// is called; the other slots exist to keep the vtable layout aligned.
+struct IBridgeProgressHook : public IRefCount {
+    virtual void BK_STDCALL SetNumSteps(int nRange, float fPercentage) = 0;
+    virtual void BK_STDCALL Step() = 0;
+    virtual void BK_STDCALL Recover() = 0;
+    virtual void BK_STDCALL SetCurrPos(int nPos) = 0;
+    virtual int BK_STDCALL GetCurrPos() const = 0;
+    virtual void Stop() = 0;
 };
 
 #if 0
@@ -722,17 +735,35 @@ class ZigStructureSaver final : public IStructureSaver {
         }
     }
 public:
+    IBridgeProgressHook *progress_ = 0;
+    int lastProgressPos_ = 0;
+public:
     ZigStructureSaver(void *saver, ZigDataStream *source, void *gdb, IObjectFactory *factory) : saver_(saver), source_(source), gdb_(gdb), factory_(factory) { source_->AddRef(); }
     ~ZigStructureSaver() {
         bk_structure_destroy(saver_);
         for (size_t i = 0; i < created_.size(); ++i) created_[i]->Release();
         source_->Release();
     }
+    // Lifetime is guaranteed by the caller (CICLoad holds the hook in a CPtr
+    // across the whole Serialize), so no AddRef/Release here.
+    void SetProgressHook(IBridgeProgressHook *hook) { progress_ = hook; }
     void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
     void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
     bool BK_STDCALL IsValid() const override { return saver_ != 0; }
     bool BK_STDCALL StartChunk(char id) override { return bk_structure_start(saver_, static_cast<unsigned char>(id)); }
-    void BK_STDCALL FinishChunk() override { bk_structure_finish(saver_); }
+    void BK_STDCALL FinishChunk() override {
+        bk_structure_finish(saver_);
+        if (progress_) {
+            // reader position maps onto the first 90% of the movie; the outer
+            // Serialize milestones cover the remainder. Monotonic guard keeps
+            // the bar from stepping back when the level stack pops.
+            const int pos = 1 + (int)(bk_structure_progress(saver_) * 90.0f);
+            if (pos > lastProgressPos_) {
+                lastProgressPos_ = pos;
+                progress_->SetCurrPos(pos);
+            }
+        }
+    }
     void BK_STDCALL DataChunk(char id, void *data, int size) override { bk_structure_data(saver_, static_cast<unsigned char>(id), data, size); }
     void BK_STDCALL DataChunk(IDataStream *pStream) override {
         if (!pStream) return;
@@ -1092,7 +1123,7 @@ void *BK_STDCALL SaveLoadSystem::CreateDataTreeSaver(void *stream, int mode, con
     return tree ? new ZigDataTree(tree, zig_stream, mode) : 0;
 }
 
-void *BK_STDCALL SaveLoadSystem::CreateStructureSaver(void *stream, int mode, void *) {
+void *BK_STDCALL SaveLoadSystem::CreateStructureSaver(void *stream, int mode, void *progressHook) {
     if (!stream) return 0;
     IObjectFactory *factory = static_cast<IObjectFactory *>(GetCommonFactory());
     if (mode == 2) {   // IStructureSaver::WRITE
@@ -1107,7 +1138,10 @@ void *BK_STDCALL SaveLoadSystem::CreateStructureSaver(void *stream, int mode, vo
     if (stream && *reinterpret_cast<void *const *>(stream) == ZigDataStream::Vtable()) {
         ZigDataStream *zig_stream = static_cast<ZigDataStream *>(stream);
         void *saver = bk_structure_create(zig_stream->Native(), mode);
-        return saver ? new ZigStructureSaver(saver, zig_stream, gdb_, factory) : 0;
+        if (!saver) return 0;
+        ZigStructureSaver *reader = new ZigStructureSaver(saver, zig_stream, gdb_, factory);
+        reader->SetProgressHook(static_cast<IBridgeProgressHook *>(progressHook));
+        return reader;
     }
     IDataStream *ids = static_cast<IDataStream *>(stream);
     const int nSize = ids->GetSize();
@@ -1121,7 +1155,9 @@ void *BK_STDCALL SaveLoadSystem::CreateStructureSaver(void *stream, int mode, vo
     ZigDataStream *zig_stream = new ZigDataStream(memStream);   // owns + frees the memory Stream
     void *saver = bk_structure_create(zig_stream->Native(), mode);
     if (!saver) { zig_stream->Release(); return 0; }
-    return new ZigStructureSaver(saver, zig_stream, gdb_, factory);
+    ZigStructureSaver *reader = new ZigStructureSaver(saver, zig_stream, gdb_, factory);
+    reader->SetProgressHook(static_cast<IBridgeProgressHook *>(progressHook));
+    return reader;
 }
 
 

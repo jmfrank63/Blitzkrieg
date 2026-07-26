@@ -41,12 +41,12 @@
 	</States>
 	<Script>ui\singlechapter</Script>
 	<Children>
-		<item ClassTypeID="0x10001105" ElementID="20000" PositionFlag="0x0011" TextAlign="0x0021" FontSize="2" TextColor="0xFFe29b00 " Background="0">
-			<TextPos x="30" y="0"/>
+		<item ClassTypeID="0x10001105" ElementID="20000" PositionFlag="0x0011" TextAlign="0x0022" FontSize="2" TextColor="0xFFe29b00 " Background="0">
+			<TextPos x="0" y="0"/>
 			<ShadowShift x="1" y="2"/>
 			<!--text: title [auto]-->
-			<WindowPos x="30" y="30"/>
-			<WindowSize x="850" y="70"/>
+			<WindowPos x="25" y="30"/>
+			<WindowSize x="885" y="70"/>
 			<States>
 				<item>
 					<AppearanceNormal Color="-1" Specular="-16777216">

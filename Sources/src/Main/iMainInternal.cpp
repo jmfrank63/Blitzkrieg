@@ -207,24 +207,29 @@ void CMainLoop::Serialize( IStructureSaver *pSS, IProgressHook *pHook )
 	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize begin" );
 	CSaverAccessor saver = pSS;
 	if ( pHook ) 
-		pHook->SetNumSteps( 6 );
+		pHook->SetNumSteps( 100 );	// reader pumps 1..91 from stream position; milestones below cover the rest
 	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize managers begin" );
-	for ( CManagersList::iterator i = managers.begin(); i != managers.end(); ++i )
 	{
-		(*i)->operator&( *pSS );
+		int nManagerIndex = 0;
+		for ( CManagersList::iterator i = managers.begin(); i != managers.end(); ++i, ++nManagerIndex )
+		{
+			TraceMainLoadProgress( szBaseDir, NStr::Format( "CMainLoop::Serialize manager[%d] begin", nManagerIndex ) );
+			(*i)->operator&( *pSS );
+			TraceMainLoadProgress( szBaseDir, NStr::Format( "CMainLoop::Serialize manager[%d] end", nManagerIndex ) );
+		}
 	}
 	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize managers end" );
 	if ( pHook ) 
 	{
 		pHook->Recover();
-		pHook->Step(); // 0
+		pHook->SetCurrPos( 92 );
 	}
 	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize cmds/interfaces begin" );
 	saver.Add( 1, &cmds );
 	saver.Add( 2, &interfaces );
 	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize cmds/interfaces end" );
 	if ( pHook ) 
-		pHook->Step(); // 1
+		pHook->SetCurrPos( 94 );
 	if ( saver.IsReading() )
 	{
 		TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize interface init begin" );
@@ -236,7 +241,7 @@ void CMainLoop::Serialize( IStructureSaver *pSS, IProgressHook *pHook )
 	saver.Add( 3, pScene.GetPtr() );
 	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize scene end" );
 	if ( pHook ) 
-		pHook->Step(); // 2
+		pHook->SetCurrPos( 95 );
 	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize camera/cursor/timer begin" );
 	saver.Add( 4, pCamera.GetPtr() );
 	saver.Add( 5, pCursor.GetPtr() );
@@ -247,7 +252,7 @@ void CMainLoop::Serialize( IStructureSaver *pSS, IProgressHook *pHook )
 	saver.Add( 8, pAILogic.GetPtr() );
 	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize ai end" );
 	if ( pHook ) 
-		pHook->Step(); // 3
+		pHook->SetCurrPos( 97 );
 	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize gfx/globals/sfx begin" );
 	saver.Add( 9, pGFX.GetPtr() );
 	saver.Add( 10, GetSingleton<IGlobalVars>() );
@@ -256,7 +261,7 @@ void CMainLoop::Serialize( IStructureSaver *pSS, IProgressHook *pHook )
 	saver.Add( 13, GetSingleton<IClientAckManager>() );
 	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize gfx/globals/sfx end" );
 	if ( pHook ) 
-		pHook->Step(); // 4
+		pHook->SetCurrPos( 99 );
 	if ( g_pGlobalRandomGen ) 
 		saver.Add( 14, g_pGlobalRandomGen );
 	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize input/etc begin" );
@@ -866,6 +871,21 @@ void CProgressScreen::Init( EProgressType nType )
 	const int i = vMovies.size() == 1 ? 0 : NWin32Random::Random( vMovies.size() - 1 );
 	Init( "movies\\progress\\" + vMovies[i].szMovieName );
 	SetText( &(vMovies[i]) );
+	// show the loading screen immediately: without this the previous screen
+	// stays frozen until the first progress callback arrives, which can be
+	// many seconds into the load. Only safe for the progress types that run
+	// as main-loop commands (outside any active render pass) — PT_MINIMAP and
+	// PT_TOTAL_ENCYCLOPEDIA_LOAD can init mid-frame, where an extra
+	// BeginScene/Flip pair breaks the device state.
+	if ( nType == PT_LOAD || nType == PT_NEWMISSION || nType == PT_MAPGEN )
+	{
+		nNumSteps = 1;
+		nCurrentStep = 1;
+		nMaxFrame = Min( 1, nNumFrames );
+		Draw();
+		nNumSteps = 0;
+		nCurrentStep = 0;
+	}
 }
 void CProgressScreen::Init( const std::string &szMovieName )
 {

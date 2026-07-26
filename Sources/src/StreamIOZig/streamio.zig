@@ -261,6 +261,18 @@ pub export fn bk_structure_destroy(handle: ?*anyopaque) callconv(.c) void {
     allocator.destroy(saver);
 }
 
+// Fraction (0..1) of the save stream consumed by the sequential reader: the
+// deepest level's absolute byte position over the total size. Drives the
+// loading-progress movie so the bar advances smoothly through big sections
+// instead of only at the coarse phase boundaries.
+pub export fn bk_structure_progress(handle: ?*anyopaque) callconv(.c) f32 {
+    const saver = fromHandle(StructureSaver, handle) orelse return 0;
+    if (saver.stream.bytes.len == 0 or saver.levels.items.len == 0) return 0;
+    const top = &saver.levels.items[saver.levels.items.len - 1];
+    const abs = top.start + top.last_pos;
+    return @as(f32, @floatFromInt(abs)) / @as(f32, @floatFromInt(saver.stream.bytes.len));
+}
+
 pub export fn bk_structure_start(handle: ?*anyopaque, id: u8) callconv(.c) bool {
     const saver = fromHandle(StructureSaver, handle) orelse return false;
     if (saver.levels.items.len == 0) return false;

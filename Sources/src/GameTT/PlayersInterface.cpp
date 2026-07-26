@@ -325,6 +325,9 @@ bool CPlayersInterface::ProcessMessage( const SGameMessage &msg )
 				if ( pStats ) 
 				{
 					NCutScenes::AddCutScene( pStats->szOutroMovie );
+					// flush the profile immediately (see UIState.cpp: crashes would
+					// otherwise lose the unlocked cutscene)
+					GetSingleton<IMainLoop>()->SerializeConfig( false, 0xffffffff );
 					const std::string szConfig = NStr::Format( "%s;%d;7", pStats->szOutroMovie.c_str(), MISSION_COMMAND_MAIN_MENU );
 					GetSingleton<ISFX>()->StopStream( GetGlobalVar( "Sound.TimeToFade", 5000 ) );
 					FinishInterface( MISSION_COMMAND_VIDEO, szConfig.c_str() );
