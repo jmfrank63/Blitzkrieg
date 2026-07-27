@@ -139,7 +139,7 @@ IMainLoop* STDCALL CreateMainLoop()
 	return pML;
 }
 CMainLoop::CMainLoop()
-: bAppIsActive( false ), bWireFrame( false ), bPaused( false ), bDeferResourcePurge( false )
+: bAppIsActive( false ), bWireFrame( false ), bPaused( false ), bDeferResourcePurge( false ), nResumeStreamingSteps( 0 )
 {
 	bDisableMessageProcessing = false;
 	nAutoSavePeriod = GetGlobalVar( "autosave", 0 ) * 1000;
@@ -705,6 +705,8 @@ void CMainLoop::ProcessTimeoutMsg( const SGameMessage &msg )
 bool CMainLoop::StepApp( bool bActive )
 {
 	bAppIsActive = bActive;
+	if ( nResumeStreamingSteps > 0 && --nResumeStreamingSteps == 0 )
+		GetSingleton<ISFX>()->PauseStreaming( false );
 #ifndef _FINALRELEASE	
 	if ( nAutoSavePeriod > 0 ) 
 	{

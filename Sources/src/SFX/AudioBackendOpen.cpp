@@ -796,6 +796,9 @@ namespace NAudioBackendImpl
 
 		ma_context_config contextConfig = ma_context_config_init();
 		contextConfig.dsound.hWnd = hWnd;
+		// The audio thread competes with load-time main-thread bursts (heap
+		// lock contention); realtime priority keeps the mix callback serviced.
+		contextConfig.threadPriority = ma_thread_priority_realtime;
 
 		ma_result result = ma_context_init( backends, sizeof( backends ) / sizeof( backends[0] ), &contextConfig, &g_context );
 		if ( result != MA_SUCCESS )
@@ -808,6 +811,9 @@ namespace NAudioBackendImpl
 		ma_engine_config engineConfig = ma_engine_config_init();
 		engineConfig.pContext = &g_context;
 		engineConfig.sampleRate = nMixRate > 0 ? nMixRate : 0;
+		// Bigger device periods ride out multi-ms main-thread stalls without
+		// underruns; ~40ms of extra output latency is inaudible in an RTS.
+		engineConfig.periodSizeInMilliseconds = 40;
 		result = ma_engine_init( &engineConfig, &g_engine );
 		if ( result != MA_SUCCESS )
 		{

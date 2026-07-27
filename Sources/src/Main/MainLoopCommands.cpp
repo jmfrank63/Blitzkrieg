@@ -174,7 +174,9 @@ void CICLoad::Exec( IMainLoop *pML )
 		static_cast<CMainLoop*>( pML )->SetDeferResourcePurge( false );
 		pML->ClearResources( false );		// drop what the loaded world doesn't reference
 		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec deferred purge end" );
-		GetSingleton<ISFX>()->PauseStreaming( false );
+		// Resume streaming a few frames out — CMD_LOAD_FINISHED world init and
+		// the first rendered frames are another main-thread storm.
+		static_cast<CMainLoop*>( pML )->SetResumeStreamingAfterSteps( 3 );
 		GetSingleton<IUserProfile>()->RegisterLoad( GetSingleton<IScenarioTracker>()->GetCurrMissionGUID() );
 		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec register load end" );
 	}
