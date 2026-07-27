@@ -98,6 +98,14 @@ Goals:
   now derives them from the profile's own `saves\` dir (2026-07-27
   save-derived unlock logic; the scan must run after the profile is
   unlocked so headers are decryptable).
+- **Use x64 address space: preload/cache aggressively** — the 32-bit
+  build's 2GB ceiling shaped every eviction policy; x64 removes it. Ideas:
+  preload the texture/mesh/sound pool during game startup (or campaign
+  select) so mission loads only deserialize state; keep shared managers
+  warm across missions instead of purging (the SDSM_MERGE + deferred-purge
+  machinery from 2026-07-27 already supports reuse — a "never purge, evict
+  only on pressure" mode is the natural extension); cache parsed XML/GDB
+  and decoded map data. Measure win via the [share] trace lines.
 - **MCP server to control the game** — expose the running game to an AI
   agent (and to automated testing) as MCP tools. Building blocks already
   proven in the debug workflow: direct mission launch (unquoted

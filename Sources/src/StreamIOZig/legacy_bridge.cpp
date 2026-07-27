@@ -740,10 +740,20 @@ class ZigStructureSaver final : public IStructureSaver {
     bool dirLoaded_ = false;
     int refs_ = 0;
 
+    // [reader-diag] phase timestamps for the load-freeze investigation.
+    void TraceReaderPhase(const char *phase, int count) {
+        if (!progress_) return;
+        FILE *f = fopen("load_trace.log", "ab");
+        if (f) {
+            fprintf(f, "%lu [reader] %s count=%d iters=%llu\n", GetTickCount(), phase, count, bk_structure_scan_iters());
+            fclose(f);
+        }
+    }
     void EnsureDirectoryLoaded() {
         if (dirLoaded_) return;
         dirLoaded_ = true;  // set first to avoid re-entry
         if (!factory_ || !bk_structure_has_directory(saver_)) return;
+        TraceReaderPhase("phase1-create begin", 0);
         // Pass 1: create every object from the directory so LoadObject (called
         // during pass 2 deserialization) always resolves. Mirrors the original
         // CStructureSaver2::Start two-phase load.
@@ -759,9 +769,16 @@ class ZigStructureSaver final : public IStructureSaver {
             obj->AddRef();
             created_.push_back(obj);
             objects_[(unsigned int)ptrID] = obj;
+            // No chunk closes and no file reads happen while tens of
+            // thousands of objects are factory-created, so neither regular
+            // pump fires — drive the wall-clock creep here or the bar
+            // freezes for the whole phase. (100ms-throttled internally.)
+            if ((i & 63) == 0) PumpLoadProgressHeartbeat();
         }
+        TraceReaderPhase("phase1-create end", (int)created_.size());
         // Pass 2: deserialize each object's content (chunk-id-1 under chunk 2).
         const int n = bk_structure_object_count(saver_);
+        TraceReaderPhase("phase2-deserialize begin", n);
         for (int i = 0; i < n; ++i) {
             if (!bk_structure_enter_object(saver_, i)) continue;
             int ptrID = 0;
@@ -775,6 +792,7 @@ class ZigStructureSaver final : public IStructureSaver {
             }
             FinishChunk();
         }
+        TraceReaderPhase("phase2-deserialize end", n);
     }
 public:
     IBridgeProgressHook *progress_ = 0;

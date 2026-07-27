@@ -153,6 +153,12 @@ void CICLoad::Exec( IMainLoop *pML )
 			pStream->Seek( -sizeof(dwSignature), STREAM_SEEK_CUR );
 	}
 	{
+		// The music stream decodes in the audio device callback; the load's
+		// allocation storm on the main thread contends the (debug) heap lock
+		// hard enough to starve that callback — audible stutter. The menu
+		// music is mid-fade-out here anyway, so pause streaming for the
+		// blocking stretch.
+		GetSingleton<ISFX>()->PauseStreaming( true );
 		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec progress init begin" );
 		CPtr<IMovieProgressHook> pProgress = CreateObject<IMovieProgressHook>( MAIN_PROGRESS_INDICATOR );
 		pProgress->Init( IMovieProgressHook::PT_LOAD );
@@ -168,6 +174,7 @@ void CICLoad::Exec( IMainLoop *pML )
 		static_cast<CMainLoop*>( pML )->SetDeferResourcePurge( false );
 		pML->ClearResources( false );		// drop what the loaded world doesn't reference
 		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec deferred purge end" );
+		GetSingleton<ISFX>()->PauseStreaming( false );
 		GetSingleton<IUserProfile>()->RegisterLoad( GetSingleton<IScenarioTracker>()->GetCurrMissionGUID() );
 		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec register load end" );
 	}

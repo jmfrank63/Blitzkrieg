@@ -933,6 +933,17 @@ void CProgressScreen::Step()
 }
 void CProgressScreen::SetCurrPos( const int nPos )
 {
+	// [bar-trace] temporary: motion profile of the loading bar (one line per
+	// position change) — strip with the other load-speed diagnostics.
+	if ( nPos != nCurrentStep )
+	{
+		FILE *pFile = fopen( "load_trace.log", "ab" );
+		if ( pFile )
+		{
+			fprintf( pFile, "%lu [bar] pos=%d\n", GetTickCount(), nPos );
+			fclose( pFile );
+		}
+	}
 	nCurrentStep = Clamp( nPos, 1, nNumSteps );
 	Draw();
 }
