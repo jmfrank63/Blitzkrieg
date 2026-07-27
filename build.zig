@@ -639,7 +639,14 @@ pub fn build(b: *std.Build) void {
         .library_arch = library_arch,
     };
     const options_bridge = addOptionsBridge(b, target, optimize, toolchain);
-    const streamio_zig = addStreamIOZig(b, target, optimize, toolchain, options_bridge);
+    // Save-load spends its time in the zig structure reader; at Debug (-O0 +
+    // safety) that alone made big-mission loads take ~1 min. The zig half of
+    // StreamIO is unit-tested and ABI-thin, so it defaults to ReleaseFast even
+    // in Debug builds. Pass -Dstreamio-fast=false when debugging streamio.zig
+    // itself (the C++ bridge and CRT selection stay at the game's optimize
+    // mode either way).
+    const streamio_fast = b.option(bool, "streamio-fast", "Compile the StreamIO zig core ReleaseFast even in Debug builds") orelse true;
+    const streamio_zig = addStreamIOZig(b, target, optimize, toolchain, options_bridge, streamio_fast);
     const config_dir = switch (optimize) {
         .Debug => "Debug",
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => "Release",
@@ -984,16 +991,28 @@ fn addStreamIOZig(
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
     options_bridge: *std.Build.Step.Compile,
+    streamio_fast: bool,
 ) *std.Build.Step.Compile {
+    // The module optimize mode applies to the zig sources only; the C++
+    // bridge below is compiled with cppflagsForOptimize(optimize) and the CRT
+    // link stays keyed on the game's optimize mode, so a Debug game still
+    // gets ucrtbased and a debuggable bridge.
+    const zig_optimize = if (streamio_fast and optimize == .Debug) std.builtin.OptimizeMode.ReleaseFast else optimize;
     const streamio_module = b.createModule(.{
         .root_source_file = b.path("Sources/src/StreamIOZig/streamio.zig"),
         .target = target,
-        .optimize = optimize,
+        .optimize = zig_optimize,
         .link_libc = true,
     });
     var flags: std.ArrayListUnmanaged([]const u8) = .empty;
     flags.appendSlice(b.allocator, cppflagsForOptimize(optimize)) catch @panic("OOM");
     flags.append(b.allocator, "-std=c++17") catch @panic("OOM");
+    if (streamio_fast and optimize == .Debug) {
+        // Optimize the bridge itself while keeping the _DEBUG/debug-STL
+        // defines above (they must match the ucrtbased link); optimization
+        // level does not affect that ABI.
+        flags.appendSlice(b.allocator, &.{ "-O2", "-fno-sanitize=undefined" }) catch @panic("OOM");
+    }
     streamio_module.addCSourceFile(.{
         .file = b.path("Sources/src/StreamIOZig/legacy_bridge.cpp"),
         .flags = flags.items,

@@ -31,6 +31,7 @@ class CMainLoop : public IMainLoop
 	bool bTextMode;												// text input mode
 	bool bPaused;													// is app paused
 	bool bDisableMessageProcessing;				// disable message processing
+	bool bDeferResourcePurge;							// suppress the per-PopInterface unreferenced-purge (save-load keeps resources for merge reuse)
 	std::string szBaseDir;
 	int nAutoSavePeriod;									// auto save period (in msec)
 	NTimer::STime timeLastAutoSave;				// last autosave time
@@ -60,6 +61,12 @@ public:
 	bool STDCALL IsPaused() const { return bPaused; }
 	void STDCALL EnableMessageProcessing( const bool bEnable );
 	void STDCALL ClearResources( const bool bClearAll );
+	// Not part of IMainLoop: save-load (CICLoad) pops the whole interface
+	// stack and then deserializes; purging per pop would empty the shared
+	// managers right before their SDSM_MERGE deserialize could reuse the
+	// resident resources (same-mission reload = zero disk I/O). The load
+	// path defers the purge and runs one ClearResources(false) afterwards.
+	void SetDeferResourcePurge( const bool bDefer ) { bDeferResourcePurge = bDefer; }
 	void STDCALL StoreScenarioTracker();
 	void STDCALL RestoreScenarioTracker();
 	void STDCALL SerializeConfig( const bool bRead, const DWORD dwSerialize );
@@ -91,15 +98,15 @@ struct SProgressMovieInfo
 class CProgressScreen : public IMovieProgressHook
 {
 	OBJECT_NORMAL_METHODS( CProgressScreen );
-	int nNumSteps;                        // общее число шагов
-	int nCurrentStep;                     // текущий шаг
-	int nNumFrames;                       // общее число кадров
-	int nCurrFrame;                       // текущий кадр
+	int nNumSteps;                        // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	int nCurrentStep;                     // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ
+	int nNumFrames;                       // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	int nCurrFrame;                       // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 	int nMaxFrame;												// max frame to play
-	CPtr<IGFX> pGFX;                      // куда рисуем
-	CPtr<IVideoPlayer> pVP;               // чем рисуем
-	CPtr<IGFXText> pGFXText;              // текст для рисования поверх мультика
-	DWORD dwTextColor;                    // цвет текста
+	CPtr<IGFX> pGFX;                      // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	CPtr<IVideoPlayer> pVP;               // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	CPtr<IGFXText> pGFXText;              // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	DWORD dwTextColor;                    // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	CTRect<float> wndRect;
 	int nTextAlign;
 	int nFontSize;

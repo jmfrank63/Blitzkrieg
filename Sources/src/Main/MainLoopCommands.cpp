@@ -16,6 +16,7 @@
 #include "ScenarioTracker.h"
 #include "iMainClassIDs.h"
 #include "iMainCommands.h"
+#include "iMainInternal.h"
 #include "RandomMapHelper.h"
 static void TraceLoadProgress( const char *pszBaseDir, const char *pszMessage )
 {
@@ -127,7 +128,12 @@ void CICLoad::Exec( IMainLoop *pML )
 				return;
 			}
 			TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec popping interfaces" );
-			while ( pML->GetInterface() ) 
+			// Keep the shared managers populated while the old world dies:
+			// their SDSM_MERGE deserialize then reuses every same-name
+			// resident resource (a reload of the running mission needs no
+			// disk I/O at all). One purge runs after Serialize instead.
+			static_cast<CMainLoop*>( pML )->SetDeferResourcePurge( true );
+			while ( pML->GetInterface() )
 				pML->PopInterface();
 			TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec interfaces popped" );
 			if ( hdr.bRandomMission ) 
@@ -158,6 +164,10 @@ void CICLoad::Exec( IMainLoop *pML )
 		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec progress stop begin" );
 		pProgress->Stop();
 		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec progress stop end" );
+		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec deferred purge begin" );
+		static_cast<CMainLoop*>( pML )->SetDeferResourcePurge( false );
+		pML->ClearResources( false );		// drop what the loaded world doesn't reference
+		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec deferred purge end" );
 		GetSingleton<IUserProfile>()->RegisterLoad( GetSingleton<IScenarioTracker>()->GetCurrMissionGUID() );
 		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec register load end" );
 	}

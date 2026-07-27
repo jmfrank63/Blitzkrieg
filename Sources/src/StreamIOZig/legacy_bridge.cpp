@@ -59,6 +59,8 @@ extern "C" void bk_global_clear();
 extern "C" void bk_random_init();
 extern "C" unsigned int bk_random_get();
 extern "C" __declspec(dllimport) unsigned long __stdcall GetTickCount(void);
+extern "C" __declspec(dllimport) unsigned long __stdcall GetCurrentThreadId(void);
+extern "C" unsigned long long bk_structure_scan_iters();
 extern "C" int bk_table_get_int(void *stream, const char *row, const char *entry, int fallback);
 extern "C" double bk_table_get_double(void *stream, const char *row, const char *entry, double fallback);
 extern "C" void *bk_options_create();
@@ -780,6 +782,16 @@ public:
 public:
     ZigStructureSaver(void *saver, ZigDataStream *source, void *gdb, IObjectFactory *factory) : saver_(saver), source_(source), gdb_(gdb), factory_(factory) { source_->AddRef(); }
     ~ZigStructureSaver() {
+        // [reader-diag] scan-iteration report for the save-game reader only
+        // (progress hook == CICLoad); strip with the load-speed diagnostics.
+        if (progress_) {
+            FILE *f = fopen("load_trace.log", "ab");
+            if (f) {
+                fprintf(f, "%lu [reader] scan_iters=%llu stream_bytes=%d\n",
+                        GetTickCount(), bk_structure_scan_iters(), source_ ? bk_stream_size(source_->Native()) : -1);
+                fclose(f);
+            }
+        }
         UnregisterProgressReader(this);
         bk_structure_destroy(saver_);
         for (size_t i = 0; i < created_.size(); ++i) created_[i]->Release();
@@ -798,17 +810,12 @@ public:
     bool BK_STDCALL StartChunk(char id) override { return bk_structure_start(saver_, static_cast<unsigned char>(id)); }
     void BK_STDCALL FinishChunk() override {
         bk_structure_finish(saver_);
-        if (progress_) {
-            // reader position maps onto the first 90% of the movie; the outer
-            // Serialize milestones cover the remainder. Monotonic guard keeps
-            // the bar from stepping back when the level stack pops.
-            const int pos = 1 + (int)(bk_structure_progress(saver_) * 90.0f);
-            if (pos > lastProgressPos_) {
-                lastProgressPos_ = pos;
-                PumpProgressGuarded(pos);
-            }
-        }
+        if (progress_) PumpCombinedProgress();
     }
+    // Best of stream position and wall-clock creep, monotonic. Fires on every
+    // chunk close, so the bar moves from the first seconds of the load — the
+    // read-side heartbeat only has to cover the chunk-free map-load stretch.
+    void PumpCombinedProgress();
     // Single funnel for SetCurrPos: the hook's Draw flips a frame through GFX,
     // which can read files and re-enter the heartbeat — the guard breaks that
     // cycle (Draw is not reentrancy-safe: nested BeginScene).
@@ -844,11 +851,25 @@ public:
 
 namespace {
     // The one reader created with a live progress hook (CICLoad's save-game
-    // load); everything is main-thread, so plain globals suffice.
+    // load). Loads run on the game's main thread, but ZigDataStream::Read is
+    // hit from other threads too (SFX streaming reads during the music
+    // fade-out that overlaps the load) — the heartbeat thread-gates on the
+    // registering thread so GFX is only ever touched from the main thread.
     ZigStructureSaver *g_pProgressReader = 0;
+    unsigned long g_progressThreadId = 0;
     unsigned long g_progressStartTick = 0;
     unsigned long g_progressLastPumpTick = 0;
     bool g_bInProgressPump = false;
+
+    // Wall-clock creep: 1 -> 75 over ~15s. Stops there — the reader's
+    // position pump and the outer Serialize milestones (92..99) carry the
+    // bar the rest of the way, and the monotonic guard keeps whichever
+    // source is ahead.
+    int CreepPos(unsigned long now) {
+        const unsigned long elapsed = now - g_progressStartTick;
+        int pos = 1 + (int)((elapsed * 74ul) / 15000ul);
+        return pos > 75 ? 75 : pos;
+    }
 }
 
 void ZigStructureSaver::PumpProgressGuarded(int pos) {
@@ -858,8 +879,23 @@ void ZigStructureSaver::PumpProgressGuarded(int pos) {
     g_bInProgressPump = false;
 }
 
+void ZigStructureSaver::PumpCombinedProgress() {
+    // reader position maps onto the first 90% of the movie; the outer
+    // Serialize milestones cover the remainder.
+    int pos = 1 + (int)(bk_structure_progress(saver_) * 90.0f);
+    if (g_pProgressReader == this) {
+        const int creep = CreepPos(GetTickCount());
+        if (creep > pos) pos = creep;
+    }
+    if (pos > lastProgressPos_) {
+        lastProgressPos_ = pos;
+        PumpProgressGuarded(pos);
+    }
+}
+
 static void RegisterProgressReader(ZigStructureSaver *reader) {
     g_pProgressReader = reader;
+    g_progressThreadId = GetCurrentThreadId();
     g_progressStartTick = GetTickCount();
     g_progressLastPumpTick = g_progressStartTick;
 }
@@ -871,16 +907,11 @@ static void UnregisterProgressReader(ZigStructureSaver *reader) {
 static void PumpLoadProgressHeartbeat() {
     ZigStructureSaver *reader = g_pProgressReader;
     if (!reader || g_bInProgressPump) return;
+    if (GetCurrentThreadId() != g_progressThreadId) return;
     const unsigned long now = GetTickCount();
     if (now - g_progressLastPumpTick < 100) return;
     g_progressLastPumpTick = now;
-    // Wall-clock creep: 1 -> 75 over ~15s. Stops there — the reader's
-    // position pump and the outer Serialize milestones (92..99) carry the
-    // bar the rest of the way, and the monotonic guard keeps whichever
-    // source is ahead.
-    const unsigned long elapsed = now - g_progressStartTick;
-    int pos = 1 + (int)((elapsed * 74ul) / 15000ul);
-    if (pos > 75) pos = 75;
+    const int pos = CreepPos(now);
     if (pos > reader->lastProgressPos_) {
         reader->lastProgressPos_ = pos;
         reader->PumpProgressGuarded(pos);
