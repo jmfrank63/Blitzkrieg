@@ -51,7 +51,10 @@ fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
         var binaries = try repo.openDir(io, "zig-out/bin", .{ .iterate = true });
         defer binaries.close(io);
         copyGameRuntime(io, allocator, binaries, destination, options.install_dir) catch |err| return failStep("copyGameRuntime", err);
-        copyFile(io, repo, "Data/Configs/config.cfg", destination, "config.cfg") catch |err| return failStep("copy config.cfg", err);
+        // Seed config.cfg only when absent: the game persists the whole user
+        // profile into it (options, keybinds, unlocked cutscenes, help state) —
+        // overwriting on every stage silently reset that progress.
+        copyFileIfMissing(io, repo, "Data/Configs/config.cfg", destination, "config.cfg") catch |err| return failStep("copy config.cfg", err);
         copyFile(io, repo, "Data/Configs/defconf.cfg", destination, "defconf.cfg") catch |err| return failStep("copy defconf.cfg", err);
         // The game silently fails to write saves when this is missing.
         destination.createDirPath(io, "saves") catch |err| return failStep("create saves dir", err);
@@ -249,6 +252,13 @@ fn copyTree(io: std.Io, allocator: std.mem.Allocator, source: std.Io.Dir, destin
 
 fn copyFile(io: std.Io, source_dir: std.Io.Dir, source: []const u8, destination_dir: std.Io.Dir, destination: []const u8) !void {
     try source_dir.copyFile(source, destination_dir, destination, io, .{ .make_path = true, .replace = true });
+}
+
+fn copyFileIfMissing(io: std.Io, source_dir: std.Io.Dir, source: []const u8, destination_dir: std.Io.Dir, destination: []const u8) !void {
+    destination_dir.access(io, destination, .{}) catch |err| switch (err) {
+        error.FileNotFound => return copyFile(io, source_dir, source, destination_dir, destination),
+        else => return err,
+    };
 }
 
 fn removeTreeIfPresent(io: std.Io, dir: std.Io.Dir, path: []const u8) !void {

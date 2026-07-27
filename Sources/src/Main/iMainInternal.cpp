@@ -941,6 +941,12 @@ int CProgressScreen::GetCurrPos() const
 }
 void CProgressScreen::Draw()
 {
+	// A progress pump can fire from a data-file read that happens inside an
+	// active render pass (e.g. minimap render-to-texture lazily loading a tile
+	// texture) — opening our own scene there would nest BeginScene. Skip; the
+	// next pump outside a scene catches up.
+	if ( pGFX != 0 && pGFX->IsInsideScene() )
+		return;
 	if ( pVP != 0 )
 	{
 		int nNextFrame = Clamp( int( ( nCurrentStep / float(nNumSteps) ) * nMaxFrame + 1 ), 1, nMaxFrame );

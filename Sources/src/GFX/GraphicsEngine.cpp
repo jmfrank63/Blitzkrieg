@@ -1332,6 +1332,7 @@ bool CGraphicsEngine::BeginScene()
 	nNumPassedPrimitives = 0;
 	HRESULT dxrval = pD3DDevice->BeginScene();
 	NI_ASSERTHR_SLOW_TF( dxrval, "Can't begin scene", return false );
+	bInsideScene = true;
 	return true;
 }
 bool CGraphicsEngine::EndScene()
@@ -1342,6 +1343,7 @@ bool CGraphicsEngine::EndScene()
 	for ( CIndicesMap::iterator pos2 = indices.begin(); pos2 != indices.end(); ++pos2 )
 		std::for_each( pos2->second.begin(), pos2->second.end(), std::mem_fun(CDynamicIndexContainer::FrameReset) );
 	*/
+	bInsideScene = false;
 	HRESULT dxrval = pD3DDevice->EndScene();
 	NI_ASSERTHR_SLOW_TF( dxrval, "Can't end scene", return false );
 	return true;

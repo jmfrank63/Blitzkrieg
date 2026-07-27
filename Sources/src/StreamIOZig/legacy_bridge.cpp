@@ -58,6 +58,7 @@ extern "C" int bk_global_key_at(int index, char *buffer, int capacity);
 extern "C" void bk_global_clear();
 extern "C" void bk_random_init();
 extern "C" unsigned int bk_random_get();
+extern "C" __declspec(dllimport) unsigned long __stdcall GetTickCount(void);
 extern "C" int bk_table_get_int(void *stream, const char *row, const char *entry, int fallback);
 extern "C" double bk_table_get_double(void *stream, const char *row, const char *entry, double fallback);
 extern "C" void *bk_options_create();
@@ -457,6 +458,16 @@ public:
     void *BK_STDCALL OpenIniDataTable(void *) override { return 0; }
 };
 
+// Save-game loads spend most of their time inside manager[0]'s deserialize,
+// which loads the map/terrain/textures from data files — during that stretch no
+// save-stream chunk finishes, so the position-based progress pump never fires
+// and the loading bar freezes. Every one of those data-file reads runs through
+// ZigDataStream::Read, so a throttled wall-clock heartbeat there creeps the bar
+// instead (to 75% over ~15s); real reader progress wins whenever it is ahead.
+static void PumpLoadProgressHeartbeat();
+static void RegisterProgressReader(class ZigStructureSaver *reader);
+static void UnregisterProgressReader(class ZigStructureSaver *reader);
+
 class ZigDataStream final : public IDataStream {
     void *stream_;
     int refs_ = 0;
@@ -476,7 +487,7 @@ public:
     void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
     void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
     bool BK_STDCALL IsValid() const override { return stream_ != 0; }
-    int BK_STDCALL Read(void *buffer, int length) override { return bk_stream_read(stream_, buffer, length); }
+    int BK_STDCALL Read(void *buffer, int length) override { PumpLoadProgressHeartbeat(); return bk_stream_read(stream_, buffer, length); }
     int BK_STDCALL Write(const void *buffer, int length) override { return bk_stream_write(stream_, buffer, length); }
     int BK_STDCALL LockBegin() override { return bk_stream_lock_begin(stream_); }
     int BK_STDCALL UnlockBegin() override { return bk_stream_unlock_begin(stream_); }
@@ -769,13 +780,18 @@ public:
 public:
     ZigStructureSaver(void *saver, ZigDataStream *source, void *gdb, IObjectFactory *factory) : saver_(saver), source_(source), gdb_(gdb), factory_(factory) { source_->AddRef(); }
     ~ZigStructureSaver() {
+        UnregisterProgressReader(this);
         bk_structure_destroy(saver_);
         for (size_t i = 0; i < created_.size(); ++i) created_[i]->Release();
         source_->Release();
     }
     // Lifetime is guaranteed by the caller (CICLoad holds the hook in a CPtr
     // across the whole Serialize), so no AddRef/Release here.
-    void SetProgressHook(IBridgeProgressHook *hook) { progress_ = hook; }
+    void SetProgressHook(IBridgeProgressHook *hook) {
+        progress_ = hook;
+        if (hook) RegisterProgressReader(this);
+        else UnregisterProgressReader(this);
+    }
     void BK_STDCALL AddRef(int count = 1, int = 0x7fffffff) override { refs_ += count; }
     void BK_STDCALL Release(int count = 1, int = 0x7fffffff) override { refs_ -= count; if (refs_ <= 0) delete this; }
     bool BK_STDCALL IsValid() const override { return saver_ != 0; }
@@ -789,10 +805,14 @@ public:
             const int pos = 1 + (int)(bk_structure_progress(saver_) * 90.0f);
             if (pos > lastProgressPos_) {
                 lastProgressPos_ = pos;
-                progress_->SetCurrPos(pos);
+                PumpProgressGuarded(pos);
             }
         }
     }
+    // Single funnel for SetCurrPos: the hook's Draw flips a frame through GFX,
+    // which can read files and re-enter the heartbeat — the guard breaks that
+    // cycle (Draw is not reentrancy-safe: nested BeginScene).
+    void PumpProgressGuarded(int pos);
     void BK_STDCALL DataChunk(char id, void *data, int size) override { bk_structure_data(saver_, static_cast<unsigned char>(id), data, size); }
     void BK_STDCALL DataChunk(IDataStream *pStream) override {
         if (!pStream) return;
@@ -821,6 +841,51 @@ public:
     void BK_STDCALL StoreObject(IRefCount *) override {}  // write-only
     void *BK_STDCALL GetGDB() override { return gdb_; }
 };
+
+namespace {
+    // The one reader created with a live progress hook (CICLoad's save-game
+    // load); everything is main-thread, so plain globals suffice.
+    ZigStructureSaver *g_pProgressReader = 0;
+    unsigned long g_progressStartTick = 0;
+    unsigned long g_progressLastPumpTick = 0;
+    bool g_bInProgressPump = false;
+}
+
+void ZigStructureSaver::PumpProgressGuarded(int pos) {
+    if (g_bInProgressPump || !progress_) return;
+    g_bInProgressPump = true;
+    progress_->SetCurrPos(pos);
+    g_bInProgressPump = false;
+}
+
+static void RegisterProgressReader(ZigStructureSaver *reader) {
+    g_pProgressReader = reader;
+    g_progressStartTick = GetTickCount();
+    g_progressLastPumpTick = g_progressStartTick;
+}
+
+static void UnregisterProgressReader(ZigStructureSaver *reader) {
+    if (g_pProgressReader == reader) g_pProgressReader = 0;
+}
+
+static void PumpLoadProgressHeartbeat() {
+    ZigStructureSaver *reader = g_pProgressReader;
+    if (!reader || g_bInProgressPump) return;
+    const unsigned long now = GetTickCount();
+    if (now - g_progressLastPumpTick < 100) return;
+    g_progressLastPumpTick = now;
+    // Wall-clock creep: 1 -> 75 over ~15s. Stops there — the reader's
+    // position pump and the outer Serialize milestones (92..99) carry the
+    // bar the rest of the way, and the monotonic guard keeps whichever
+    // source is ahead.
+    const unsigned long elapsed = now - g_progressStartTick;
+    int pos = 1 + (int)((elapsed * 74ul) / 15000ul);
+    if (pos > 75) pos = 75;
+    if (pos > reader->lastProgressPos_) {
+        reader->lastProgressPos_ = pos;
+        reader->PumpProgressGuarded(pos);
+    }
+}
 
 // Write-mode structure saver. Emits the compact chunk format the zig reader
 // (shortChunkAt) parses: [id:u8][len:u8, or u32 LE with bit0 set][payload].

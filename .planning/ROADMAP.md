@@ -74,16 +74,30 @@ Goals:
 
 ## Feature backlog
 
-- **Multiple player profiles** — each with its own config and savegames.
-  Never implemented in the original (verified against upstream: the
-  "PlayerProfile" dialog is just a name edit; one global `config.cfg`, one
-  global `saves\` dir; the only existing separation is per-MOD save dirs).
+- **Multiple player profiles** — each with its own config and savegames,
+  with optional password protection per profile. Never implemented in the
+  original (verified against upstream: the "PlayerProfile" dialog is just a
+  name edit; one global `config.cfg`, one global `saves\` dir; the only
+  existing separation is per-MOD save dirs).
   Design sketch: `profiles\<name>\config.cfg` + `profiles\<name>\saves\`,
   profile-selection list at startup, "last profile" pointer in a root
   config, migration of existing config/saves into a default profile. All
   persistence already funnels through `ResolveConfigFileName` and the
   `saves\` path construction in `CICLoad`/`CICSave`, so the change is
   localized.
+  Password protection (decision 2026-07-27): the whole per-profile folder
+  is encrypted with a key derived from the profile password — real
+  protection of the content, not just a UI gate. Natural hook point: all
+  profile file I/O (config + saves) already flows through the zig StreamIO
+  file streams (`bk_stream_*` in streamio.zig), so a transparent
+  encrypt/decrypt layer keyed per-profile can live there without touching
+  the C++ callers; key derivation from the password prompt at profile
+  selection (needs a masked-input mode in `CUIEditBox`). Forgotten password
+  = unrecoverable profile — needs a clear warning at creation.
+  Per-profile cutscene unlocks fold in naturally since the cutscenes menu
+  now derives them from the profile's own `saves\` dir (2026-07-27
+  save-derived unlock logic; the scan must run after the profile is
+  unlocked so headers are decryptable).
 - **Load-time optimization, remaining 6s** — `CMainLoop::Serialize`
   manager[0] block is the whole remaining cost of savegame loads
   (instrumented via `load_trace.log` per-manager timings; see
