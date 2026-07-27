@@ -74,7 +74,7 @@ bool CZipFile::Init( IDataStream *pZipStream )
 	NI_ASSERT_TF( pZipStream != 0, "NULL stream passed to zip file", return false );
 	Fini();
 	SZipCentralDirHeader cdh;
-	pZipStream->Seek( -sizeof(cdh), STREAM_SEEK_END );
+	pZipStream->Seek( -static_cast<int>( sizeof(cdh) ), STREAM_SEEK_END );
 	long cdhOffset = pZipStream->GetPos();
 	pZipStream->Read( &cdh, sizeof(cdh) );
 
@@ -82,11 +82,12 @@ bool CZipFile::Init( IDataStream *pZipStream )
 
 	pZipStream->Seek( cdhOffset - cdh.dwDirSize, STREAM_SEEK_SET );
 
-	m_pDirData = new char[cdh.dwDirSize + cdh.wDirEntries*sizeof(*m_papDir)];
+	const size_t nDirPtrOffset = ( cdh.dwDirSize + sizeof(*m_papDir) - 1 ) & ~( sizeof(*m_papDir) - 1 );
+	m_pDirData = new char[nDirPtrOffset + cdh.wDirEntries*sizeof(*m_papDir)];
 	pZipStream->Read( m_pDirData, cdh.dwDirSize );
 
 	char *pfh = m_pDirData;
-	m_papDir = reinterpret_cast<const SZipFileHeader **>( m_pDirData + cdh.dwDirSize );
+	m_papDir = reinterpret_cast<const SZipFileHeader **>( m_pDirData + nDirPtrOffset );
 
 	bool bRet = true;
 
@@ -196,18 +197,18 @@ bool CZipFile::ReadFile( IDataStream *pStream, int nIndex, void *pBuf )
 }
 IDataStream* CZipFile::ReadFile( IDataStream *pStream, int nIndex )
 {
-	NI_ASSERT_SLOW_TF( (nIndex >= 0) && (nIndex < m_nEntries), NStr::Format("index %d out of range", nIndex), return false );
+	NI_ASSERT_SLOW_TF( (nIndex >= 0) && (nIndex < m_nEntries), NStr::Format("index %d out of range", nIndex), return 0 );
 
 
 	pStream->Seek( m_papDir[nIndex]->dwHdrOffset, STREAM_SEEK_SET );
 
 	SZipLocalFileHeader hdr;
 	pStream->Read( &hdr, sizeof(hdr) );
-	NI_ASSERT_TF( hdr.dwSignature == SZipLocalFileHeader::SIGNATURE, "can't recognize zip local header", return false );
+	NI_ASSERT_TF( hdr.dwSignature == SZipLocalFileHeader::SIGNATURE, "can't recognize zip local header", return 0 );
 
 	pStream->Seek( hdr.wFileNameLen + hdr.wExtraLen, STREAM_SEEK_CUR );
 
-	if ( hdr.wCompression == SZipLocalFileHeader::COMP_STORE ) 
+	if ( hdr.wCompression == SZipLocalFileHeader::COMP_STORE )
 	{
 		std::string szName;
 		GetFileName( nIndex, &szName );
@@ -233,7 +234,7 @@ IDataStream* CZipFile::ReadFile( IDataStream *pStream, int nIndex )
 		pDstStream->SetStats( stats );
 	}
 	void *pBuf = pDstStream->GetBuffer();
-	NI_ASSERT_TF( hdr.wCompression == SZipLocalFileHeader::COMP_DEFLAT, "Can support STORE and DEFLAT now", return false );
+	NI_ASSERT_TF( hdr.wCompression == SZipLocalFileHeader::COMP_DEFLAT, "Can support STORE and DEFLAT now", return 0 );
 
 	char *pcData = new char[hdr.dwCSize];
 	pStream->Read( pcData, hdr.dwCSize );

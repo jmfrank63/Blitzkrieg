@@ -50,7 +50,10 @@ fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
         var binaries = try repo.openDir(io, "zig-out/bin", .{ .iterate = true });
         defer binaries.close(io);
         try copyTree(io, allocator, binaries, destination);
-        try copyFile(io, repo, "Data/Configs/config.cfg", destination, "config.cfg");
+        copyFile(io, repo, "Data/Configs/config.cfg", destination, "config.cfg") catch |err| switch (err) {
+            error.FileNotFound => try copyFile(io, repo, "Data/Configs/defconf.cfg", destination, "config.cfg"),
+            else => return err,
+        };
         try copyFile(io, repo, "Data/Configs/defconf.cfg", destination, "defconf.cfg");
         try removeTreeIfPresent(io, destination, "Data");
         if (options.data_mode == .copy) {

@@ -16,7 +16,7 @@ void CMPToUICommandManager::AddCommandToUI( const SToUICommand &cmd )
 {
 	commandsToUI.push_back( cmd );
 }
-void CMPToUICommandManager::AddNotificationFromUI( SFromUINotification &notify )
+void CMPToUICommandManager::AddNotificationFromUI( const SFromUINotification &notify )
 {
 	notificationsFromUI.push_back( notify );
 }
@@ -93,7 +93,7 @@ void CMPToUICommandManager::AddChatMessageFromUI( SChatMessage *pMessage )
 {
 	chatMessagesFromUI.push_back( pMessage );
 }
-void CMPToUICommandManager::DelayedNotification( SFromUINotification &notify )
+void CMPToUICommandManager::DelayedNotification( const SFromUINotification &notify )
 {
 	delayedNotificaion = notify;
 }

@@ -5,11 +5,11 @@
 class CUIScrollTextBox : public CMultipleWindow
 {
 	DECLARE_SERIALIZE;
-	CUIScrollBar *pScrollBar;				//инициализируется во время загрузки и используется для ускорения доступа к компонентам
+	CUIScrollBar *pScrollBar;				//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	int nScrollBarWidth;
-	int m_nY;												//сдвиг по Y от начала текста, чтобы текст скроллировался
-	int nLeftSpace, nRightSpace;		//отступ текста соответственно слева от края и справа от скроллбара
-	int nTopSpace, nBottomSpace;		//отступ текста соответственно сверху и снизу
+	int m_nY;												//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ Y пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	int nLeftSpace, nRightSpace;		//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	int nTopSpace, nBottomSpace;		//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ
 	bool bScrollBarAlwaysVisible;
 protected:
 	int GetY() const { return m_nY; }
@@ -25,11 +25,14 @@ public:
 	virtual bool STDCALL OnMouseWheel( const CVec2 &vPos, EMouseState mouseState, float fDelta ) = 0;
 	
 	virtual void STDCALL SetWindowText( int nState, const WORD *pszText );
-	inline void STDCALL SetWindowText( int nState, const wchar_t *pszText ) 
-	{ 
-		static_assert( sizeof(wchar_t) == sizeof(WORD), "wchar_t and WORD size mismatch" ); 
-		SetWindowText( nState, reinterpret_cast<const WORD*>( pszText ) ); 
+#ifdef _NATIVE_WCHAR_T_DEFINED
+	// bridge for native wchar_t; under /Zc:wchar_t- this would redefine the WORD* overload
+	inline void STDCALL SetWindowText( int nState, const wchar_t *pszText )
+	{
+		static_assert( sizeof(wchar_t) == sizeof(WORD), "wchar_t and WORD size mismatch" );
+		SetWindowText( nState, reinterpret_cast<const WORD*>( pszText ) );
 	}
+#endif
 	virtual void STDCALL AppendText( const WORD *pszText );
 
 	virtual int STDCALL operator&( IDataTree &ss );

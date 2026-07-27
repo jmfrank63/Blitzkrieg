@@ -298,7 +298,12 @@ void CMapInfo::UpdateCheckSum( TGetCheckSumFunc pCheckSumFunc, uLong *pResources
 }
 void CMapInfo::GetCheckSums( uLong *pResourcesCheckSum, uLong *pMapCheckSum )
 {
+#ifdef _M_IX86
 	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24, 0xfffff );
+#else
+	// x64 has no FP precision control; _PC_24 would trip the CRT invalid parameter handler
+	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL, _MCW_EM );
+#endif
 
 	gdbObjects.clear();
 	*pResourcesCheckSum = *pMapCheckSum = 0L;

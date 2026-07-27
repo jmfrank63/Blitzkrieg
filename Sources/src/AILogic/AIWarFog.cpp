@@ -503,7 +503,8 @@ void CGlobalWarFog::RemoveUnitWarfog( SUnitInfo &unitInfo, const CObjectsList &r
 	}
 #else
 */
-	CWarFogTracer<SDelWarFog> delTracer( SDelWarFog( unitInfo.nParty ), fogInfo );
+	SDelWarFog delWarFog( unitInfo.nParty );
+	CWarFogTracer<SDelWarFog> delTracer( delWarFog, fogInfo );
 
 	if ( fogInfo.pObject.IsValid() )
 		fogInfo.pObject->SetTransparencies();
@@ -527,7 +528,8 @@ void CGlobalWarFog::AddUnitWarfog( SUnitInfo &unitInfo )
 	unitInfo.addedTiles.sort();
 #else
 */
-	CWarFogTracer<SAddWarFog> addTracer( SAddWarFog( unitInfo.nParty ), fogInfo );
+	SAddWarFog addWarFog( unitInfo.nParty );
+	CWarFogTracer<SAddWarFog> addTracer( addWarFog, fogInfo );
 
 	if ( fogInfo.pObject.IsValid() )
 		fogInfo.pObject->SetTransparencies();
@@ -726,7 +728,8 @@ void CGlobalWarFog::ToggleOpen4ScriptAreaTiles( const SScriptArea &scriptArea, b
 		fogInfo.wVisionAngle = 32768;
 		fogInfo.r = scriptArea.fR / SConsts::TILE_SIZE;
 
-		CWarFogTracer<SScriptAreaFog> tracer( SScriptAreaFog( bOpen ), fogInfo );
+		SScriptAreaFog scriptAreaFog( bOpen );
+		CWarFogTracer<SScriptAreaFog> tracer( scriptAreaFog, fogInfo );
 	}
 }
 bool CGlobalWarFog::IsOpenBySriptArea( const int x, const int y ) const

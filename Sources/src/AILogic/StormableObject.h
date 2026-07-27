@@ -2,15 +2,16 @@
 #define __STORMABLE_OBJECT_H__
 
 #pragma ONCE
+#include "ListsSet.h"
 class CSoldier;
 class CStormableObject
 {
 	DECLARE_SERIALIZE;
 	
-	CListsSet< CPtr<CSoldier> > attackers; // атакующие для каждой из сторон
-	std::vector<int> nAttackers; // количество атакующих для каждой из сторон
-	int nActiveAttackers;				 // количество тех атакующих, которые уже участвуют в бое
-	bool bAttackers;						 // есть ли атакующие
+	CListsSet< CPtr<CSoldier> > attackers; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	std::vector<int> nAttackers; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	int nActiveAttackers;				 // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅ
+	bool bAttackers;						 // пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
 	std::vector<NTimer::STime> startTimes;
 

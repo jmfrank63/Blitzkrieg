@@ -293,7 +293,12 @@ const IGDBObject* CObjectsDB::GetRPGStats( const IGDBObject *pGDBObject )
 	CObjectsRPGMap::iterator pos = rpgs.find( pGDBObject );
 	if ( pos != rpgs.end() )
 		return pos->second;
+#ifdef _M_IX86
 	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24, 0xfffff );
+#else
+	// x64 has no FP precision control; _PC_24 would trip the CRT invalid parameter handler
+	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL, _MCW_EM );
+#endif
 	const SGDBObjectDesc *pObj = static_cast<const SGDBObjectDesc*>( pGDBObject );
 	SCommonRPGStats *pRPG = 0;
 	const char *pszStatsName = "desc";
@@ -349,7 +354,12 @@ const IGDBObject* CObjectsDB::GetRPGStats( const IGDBObject *pGDBObject )
 	pRPG->szParentName = pObj->szKey;
 	pRPG->RetrieveShortcuts( this );
 	pRPG->Validate();
+#ifdef _M_IX86
 	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24, 0xfffff );
+#else
+	// x64 has no FP precision control; _PC_24 would trip the CRT invalid parameter handler
+	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL, _MCW_EM );
+#endif
 	pRPG->ToAIUnits();
 	rpgs[pGDBObject] = pRPG;
 	pRPG->GetCheckSum();
@@ -372,7 +382,12 @@ const IGDBObject* CObjectsDB::GetAddStats( const char *pszName, IObjectsDB::EAdd
 	CAddStatsMap::const_iterator pos = addstats.find( pszName );
 	if ( pos != addstats.end() )
 		return pos->second;
+#ifdef _M_IX86
 	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24, 0xfffff );
+#else
+	// x64 has no FP precision control; _PC_24 would trip the CRT invalid parameter handler
+	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL, _MCW_EM );
+#endif
 	SCommonRPGStats *pStats = 0;
 	switch ( type )
 	{
@@ -386,7 +401,12 @@ const IGDBObject* CObjectsDB::GetAddStats( const char *pszName, IObjectsDB::EAdd
 	}
 	if ( pStats == 0 )
 		return 0;
+#ifdef _M_IX86
 	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24, 0xfffff );
+#else
+	// x64 has no FP precision control; _PC_24 would trip the CRT invalid parameter handler
+	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL, _MCW_EM );
+#endif
 	pStats->ToAIUnits();
 	pStats->szParentName = pszName;
 	addstats[pszName] = pStats;

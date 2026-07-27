@@ -225,11 +225,11 @@ void CRandomGenSeed::FillRandRsl()
 		if ( hFile != HFILE_ERROR )
 		{
 			srand( timeGetTime() );
-			SetFilePointer( HANDLE(hFile), N_FROM_START - rand() % ( N_FROM_START - 512 ), 0, FILE_BEGIN );
+			SetFilePointer( HANDLE( (INT_PTR)hFile ), N_FROM_START - rand() % ( N_FROM_START - 512 ), 0, FILE_BEGIN );
 			DWORD dwReadBytes = 0;
-			if ( ReadFile( HANDLE(hFile), rnd.randrsl, sizeof(rnd.randrsl), &dwReadBytes, 0 ) != TRUE || (dwReadBytes != sizeof(rnd.randrsl)) )
+			if ( ReadFile( HANDLE( (INT_PTR)hFile ), rnd.randrsl, sizeof(rnd.randrsl), &dwReadBytes, 0 ) != TRUE || (dwReadBytes != sizeof(rnd.randrsl)) )
 				bSuccess = FALSE;
-			CloseHandle( HANDLE(hFile) );
+			CloseHandle( HANDLE( (INT_PTR)hFile ) );
 		}
 		else
 			bSuccess = FALSE;

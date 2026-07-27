@@ -6,8 +6,12 @@
       "type": "windbg",
       "request": "launch",
       "target": "${workspaceFolder}/Sources/src/Game/Debug/Game.exe",
-      "stopOnEntry": false,
-      "symbolSearchPath": "${workspaceFolder}/Sources/src/Game/Debug;${workspaceFolder}/Sources/src/**/Debug",
+      "windbgpath": "C:/Program Files/WindowsApps/Microsoft.WinDbg_1.2606.22001.0_x64__8wekyb3d8bbwe/x86/dbgeng.dll",
+      "workingDir": "${workspaceFolder}/Sources/src/Game/Debug",
+      "verbosity": "info",
+      "sources": [
+        "${workspaceFolder}/Sources/src"
+      ],
       "preLaunchTask": "Build Game (Debug)"
     },
     {
@@ -15,8 +19,12 @@
       "type": "windbg",
       "request": "launch",
       "target": "${workspaceFolder}/Sources/src/Game/Debug/Game.exe",
-      "stopOnEntry": false,
-      "symbolSearchPath": "${workspaceFolder}/Sources/src/Game/Debug;${workspaceFolder}/Sources/src/**/Debug"
+      "windbgpath": "C:/Program Files/WindowsApps/Microsoft.WinDbg_1.2606.22001.0_x64__8wekyb3d8bbwe/x86/dbgeng.dll",
+      "workingDir": "${workspaceFolder}/Sources/src/Game/Debug",
+      "verbosity": "info",
+      "sources": [
+        "${workspaceFolder}/Sources/src"
+      ]
     },
     {
       "name": "Debug Game.exe",
@@ -96,6 +104,110 @@
       "environment": [],
       "console": "integratedTerminal",
       "preLaunchTask": "Build Game (Release)"
+    },
+    {
+      "name": "Debug Game.exe (Zig x64)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/zig-out/x64/Debug/Game.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/zig-out/x64/Debug",
+      "environment": [],
+      "console": "integratedTerminal",
+      "preLaunchTask": "Zig Build Game x64 (Debug)",
+      "symbolOptions": {
+        "searchPaths": [
+          "${workspaceFolder}/zig-out/x64/Debug"
+        ],
+        "searchMicrosoftSymbolServer": false,
+        "cachePath": "${workspaceFolder}/.vscode/symbolcache"
+      },
+      "sourceFileMap": {},
+      "logging": {
+        "moduleLoad": false,
+        "trace": false,
+        "engineLogging": false,
+        "programOutput": true,
+        "exceptions": true
+      }
+    },
+    {
+      "name": "Debug Game.exe (Zig x64, No Build)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/zig-out/x64/Debug/Game.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/zig-out/x64/Debug",
+      "environment": [],
+      "console": "integratedTerminal",
+      "symbolOptions": {
+        "searchPaths": [
+          "${workspaceFolder}/zig-out/x64/Debug"
+        ],
+        "searchMicrosoftSymbolServer": false,
+        "cachePath": "${workspaceFolder}/.vscode/symbolcache"
+      },
+      "sourceFileMap": {},
+      "logging": {
+        "moduleLoad": false,
+        "trace": false,
+        "engineLogging": false,
+        "programOutput": true,
+        "exceptions": true
+      }
+    },
+    {
+      "name": "Debug Game.exe (Zig x64 ReleaseFast)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/zig-out/x64/ReleaseFast/Game.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/zig-out/x64/ReleaseFast",
+      "environment": [],
+      "console": "integratedTerminal",
+      "preLaunchTask": "Zig Build Game x64 (ReleaseFast)",
+      "symbolOptions": {
+        "searchPaths": [
+          "${workspaceFolder}/zig-out/x64/ReleaseFast"
+        ],
+        "searchMicrosoftSymbolServer": false,
+        "cachePath": "${workspaceFolder}/.vscode/symbolcache"
+      }
+    },
+    {
+      "name": "Debug Game.exe (Zig x86)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/zig-out/x86/Debug/Game.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/zig-out/x86/Debug",
+      "environment": [],
+      "console": "integratedTerminal",
+      "preLaunchTask": "Zig Build Game x86 (Debug)",
+      "symbolOptions": {
+        "searchPaths": [
+          "${workspaceFolder}/zig-out/x86/Debug"
+        ],
+        "searchMicrosoftSymbolServer": false,
+        "cachePath": "${workspaceFolder}/.vscode/symbolcache"
+      }
+    },
+    {
+      "name": "WinDbg: Debug Game.exe (Zig x64)",
+      "type": "windbg",
+      "request": "launch",
+      "target": "${workspaceFolder}/zig-out/x64/Debug/Game.exe",
+      "windbgpath": "C:/Program Files/WindowsApps/Microsoft.WinDbg_1.2606.22001.0_x64__8wekyb3d8bbwe/amd64/dbgeng.dll",
+      "workingDir": "${workspaceFolder}/zig-out/x64/Debug",
+      "verbosity": "info",
+      "sources": [
+        "${workspaceFolder}/Sources/src"
+      ],
+      "preLaunchTask": "Zig Build Game x64 (Debug)"
     },
     {
       "name": "Debug ELK.exe (Level Editor)",

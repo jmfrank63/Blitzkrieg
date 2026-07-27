@@ -4,6 +4,9 @@
 #pragma once
 #endif // _MSC_VER > 1000
 #include <math.h>
+#include <string.h>
+#include <intrin.h>
+#include <xmmintrin.h>
 #define SQRT_2		1.41421356237309504880
 #define SQRT_3		1.73205080756887729353
 #define FP_SQRT_2	1.41421356f
@@ -239,216 +242,65 @@ inline float SignumNormalizeAngleInRadian( const float angle )
 }
 inline void MemSetDWord( DWORD* lpData, const DWORD value, const int nCount )
 {
-	_asm
-	{
-		mov ecx, nCount
-		mov edi, lpData
-		mov eax, value
-		rep stosd
-	}
+	for ( int i = 0; i < nCount; ++i )
+		lpData[i] = value;
 }
 
 inline void MemSetInt( int* lpData, const int value, const int nCount )
 {
-	_asm
-	{
-		mov ecx, nCount
-		mov edi, lpData
-		mov eax, value
-		rep stosd
-	}
+	for ( int i = 0; i < nCount; ++i )
+		lpData[i] = value;
 }
 
 int __forceinline Float2Int( const float fpVar )
 {
-	int nRet;
-	__asm 
-	{
-		fld dword ptr fpVar
-		fistp nRet
-	}
-	return nRet;
+	return _mm_cvt_ss2si( _mm_set_ss( fpVar ) );
 }
 inline int MINT( const float f ) { return Float2Int(f); }
 inline float select_lt( const float x, const float y, const float val1, const float val2 )
 {
-	float z;
-	_asm
-	{
-		xor					eax, eax
-		fld         dword ptr [x]
-		fcomp       dword ptr [y]
-		fnstsw      ax
-		mov					ebx, [val1]
-		mov					ecx, [val2]
-		and					eax, 0100h
-		shl					eax, 23
-		sar					eax, 31
-		and					ebx, eax
-		not					eax
-		and					ecx, eax
-		or					ebx, ecx
-
-		mov					[z], ebx
-	}
-	return z;
+	return x < y ? val1 : val2;
 }
 inline float select_gt( const float x, const float y, const float val1, const float val2 )
 {
-	float z;
-	_asm
-	{
-		xor					eax, eax
-		fld         dword ptr [x]
-		fcomp       dword ptr [y]
-		fnstsw      ax
-		mov					ebx, [val1]
-		mov					ecx, [val2]
-		test        ah, 41h
-		sete				al
-		shl					eax, 31
-		sar					eax, 31
-		and					ebx, eax
-		not					eax
-		and					ecx, eax
-		or					ebx, ecx
-
-		mov					[z], ebx
-	}
-	return z;
+	return x > y ? val1 : val2;
 }
 inline float select_le( const float x, const float y, const float val1, const float val2 )
 {
-	float z;
-	_asm
-	{
-		xor					eax, eax
-		fld         dword ptr [x]
-		fcomp       dword ptr [y]
-		fnstsw      ax
-		mov					ebx, [val1]
-		mov					ecx, [val2]
-		test        ah, 41h
-		setne				al
-		shl					eax, 31
-		sar					eax, 31
-		and					ebx, eax
-		not					eax
-		and					ecx, eax
-		or					ebx, ecx
-
-		mov					[z], ebx
-	}
-	return z;
+	return x <= y ? val1 : val2;
 }
 inline float select_ge( const float x, const float y, const float val1, const float val2 )
 {
-	float z;
-	_asm
-	{
-		xor					eax, eax
-		fld         dword ptr [x]
-		fcomp       dword ptr [y]
-		fnstsw      ax
-		mov					ebx, [val1]
-		mov					ecx, [val2]
-		and					eax, 0100h
-		xor					eax, 0100h
-		shl					eax, 23
-		sar					eax, 31
-		and					ebx, eax
-		not					eax
-		and					ecx, eax
-		or					ebx, ecx
-
-		mov					[z], ebx
-	}
-	return z;
+	return x >= y ? val1 : val2;
 }
 inline float select_eq( const float x, const float y, const float val1, const float val2 )
 {
-	float z;
-	_asm
-	{
-		xor					eax, eax
-		mov ebx, [x]
-		cmp ebx, [y]
-		sete				al
-		mov					ebx, [val1]
-		shl					eax, 31
-		mov					ecx, [val2]
-		sar					eax, 31
-		and					ebx, eax
-		not					eax
-		and					ecx, eax
-		or					ebx, ecx
-
-		mov					[z], ebx
-	}
-	return z;
+	return FP_BITS_CONST( x ) == FP_BITS_CONST( y ) ? val1 : val2;
 }
 inline float select_ne( const float x, const float y, const float val1, const float val2 )
 {
-	float z;
-	_asm
-	{
-		xor					eax, eax
-		mov ebx, [x]
-		cmp ebx, [y]
-		setne				al
-		mov					ebx, [val1]
-		shl					eax, 31
-		mov					ecx, [val2]
-		sar					eax, 31
-		and					ebx, eax
-		not					eax
-		and					ecx, eax
-		or					ebx, ecx
-
-		mov					[z], ebx
-	}
-	return z;
+	return FP_BITS_CONST( x ) != FP_BITS_CONST( y ) ? val1 : val2;
 }
 inline const BYTE CheckForViewingFrustum( float xp, float yp, const float zp, const float wp )
 {
 	float wp2 = wp + wp;
-	BYTE value;
 
 	xp += wp;
 	yp += wp;
 
-	_asm
-	{
- 		mov 	edx, xp
- 		mov 	eax, yp
- 		shr 	edx, 31
- 		mov 	ecx, zp
- 		shr 	eax, 31
- 		shr 	ecx, 31
- 		shl 	eax, 2
- 		shl 	ecx, 4
- 		or 		edx, eax
- 		fld 	[wp2]
- 		fcomp [xp]
- 		or 		edx, ecx
- 		fnstsw ax
- 		fld 	[wp2]
- 		and 	eax, 0100h
- 		fcomp [yp]
- 		shr 	eax, 7
- 		or 		edx, eax
- 		fnstsw ax
- 		fld 	[wp]
- 		and 	eax, 0100h
- 		fcomp [zp]
- 		shr 	eax, 5
- 		or 		edx, eax
- 		fnstsw ax
- 		and 	eax, 0100h
- 		shr 	eax, 3
-		or 		eax, edx
-		mov [value], al
-	};
+	BYTE value = 0;
+	if ( FP_SIGN_BIT( xp ) )
+		value |= 0x01;
+	if ( wp2 < xp )
+		value |= 0x02;
+	if ( FP_SIGN_BIT( yp ) )
+		value |= 0x04;
+	if ( wp2 < yp )
+		value |= 0x08;
+	if ( FP_SIGN_BIT_CONST( zp ) )
+		value |= 0x10;
+	if ( wp < zp )
+		value |= 0x20;
 
 	return value;
 }
@@ -465,42 +317,12 @@ inline const TYPE Max( const TYPE val1, const TYPE val2 )
 template<>
 inline const float Min<float>( const float a, const float b )
 {
-	float fpRet;
-	_asm
-	{
-		fld     dword ptr [b]
-		fcomp		dword ptr [a]
-		fnstsw  ax
-		mov			ecx, dword ptr [b]
-		shl			eax, 23
-		sar			eax, 31
-		and			ecx, eax
-		not			eax
-		and			eax, dword ptr [a]
-		or			eax, ecx
-		mov			[fpRet], eax
-	}
-	return fpRet;
+	return b < a ? b : a;
 }
 template<>
 inline const float Max<float>( const float a, const float b )
 {
-	float fpRet;
-	_asm
-	{
-		fld     dword ptr [a]
-		fcomp		dword ptr [b]
-		fnstsw  ax
-		mov			ecx, dword ptr [b]
-		shl			eax, 23
-		sar			eax, 31
-		and			ecx, eax
-		not			eax
-		and			eax, dword ptr [a]
-		or			eax, ecx
-		mov			[fpRet], eax
-	}
-	return fpRet;
+	return a < b ? b : a;
 }
 template <class TYPE>
 const TYPE Clamp( const TYPE &tVal, const TYPE &tMin, const TYPE &tMax )
@@ -595,96 +417,29 @@ inline void GetLineEq( const float x1, const float y1, const float x2, const flo
 	*pB = tb * rcsq;
 	*pC = tc * rcsq;
 }
-#define MINIMIZE_INT( nToMin, nHow )  \
-	_asm mov ecx, nToMin                \
-	_asm cmp ecx, nHow                  \
-	_asm setl al                        \
-	_asm shl eax, 31                    \
-	_asm sar eax, 31                    \
-	_asm and ecx, eax                   \
-	_asm not eax                        \
-	_asm and eax, nHow                  \
-	_asm or ecx, eax                    \
-	_asm mov nToMin, ecx
+#define MINIMIZE_INT( nToMin, nHow )  { if ( (int)(nHow) < (int)(nToMin) ) (nToMin) = (nHow); }
 
-#define MINIMIZE_UINT( nToMin, nHow ) \
-	_asm mov ecx, nToMin                \
-	_asm cmp ecx, nHow                  \
-	_asm setb al                        \
-	_asm shl eax, 31                    \
-	_asm sar eax, 31                    \
-	_asm and ecx, eax                   \
-	_asm not eax                        \
-	_asm and eax, nHow                  \
-	_asm or ecx, eax                    \
-	_asm mov nToMin, ecx
+#define MINIMIZE_UINT( nToMin, nHow ) { if ( (DWORD)(nHow) < (DWORD)(nToMin) ) (nToMin) = (nHow); }
 inline void Copy8Bytes( void* fpDst, const void* fpSrc )
 {
-	_asm
-	{
-		mov ecx, [ fpSrc ]
-		mov edx, [ fpDst ]
-		fild qword ptr [ ECX ]
-		fistp qword ptr [ EDX ]
-	}
+	memcpy( fpDst, fpSrc, 8 );
 }
 
 inline void Copy16Bytes( void* fpDst, const void* fpSrc )
 {
-	_asm
-	{
-		mov ecx, [ fpSrc ]
-		mov edx, [ fpDst ]
-		fild qword ptr [ ECX ]
-		fistp qword ptr [ EDX ]
-		fild qword ptr [ ECX + 8 ]
-		fistp qword ptr [ EDX + 8 ]
-	}
+	memcpy( fpDst, fpSrc, 16 );
 }
 
 inline void Copy32Bytes( void* fpDst, const void* fpSrc )
 {
-	_asm
-	{
-		mov ecx, [ fpSrc ]
-		mov edx, [ fpDst ]
-		fild qword ptr [ ECX ]
-		fistp qword ptr [ EDX ]
-		fild qword ptr [ ECX + 8 ]
-		fistp qword ptr [ EDX + 8 ]
-		fild qword ptr [ ECX + 16 ]
-		fistp qword ptr [ EDX + 16 ]
-		fild qword ptr [ ECX + 24 ]
-		fistp qword ptr [ EDX + 24 ]
-	}
+	memcpy( fpDst, fpSrc, 32 );
 }
 const DWORD CPUID_MMX_FEATURE_PRESENT = 0x00800000;
 const DWORD CPUID_SSE_FEATURE_PRESENT = 0x02000000;
-#define GET_CPUID __asm _emit 0x0f __asm _emit 0xa2
 inline DWORD GetCPUID()
 {
-	DWORD dwRes;
-	_asm
-	{
-		pusha                               // keep compiler happy
-		pushfd 															// get extended flags
-		pop eax 														// store extended flags in eax
-		mov ebx, eax 												// save current flags
-		xor eax, 200000h 										// toggle bit 21
-		push eax 														// put new flags on stack
-		popfd 															// flags updated now in flags
-		pushfd 															// get extended flags
-		pop eax 														// store extended flags in eax
-		xor eax, ebx 												// if bit 21 r/w then eax <> 0
-		je q  															// can't toggle id bit (21) no cpuid here
-
-		mov	eax, 1                          // configure eax to retrieve CPUID
-		GET_CPUID                           // perform CPUID command
-		mov dwRes, edx                      // store CPUID in dwRes1
-	q:
-		popa
-	}
-	return dwRes;
+	int nInfo[4] = { 0, 0, 0, 0 };
+	__cpuid( nInfo, 1 );
+	return static_cast<DWORD>( nInfo[3] );
 }
-#undef GET_CPUID
 #endif // __TOOLS_H__

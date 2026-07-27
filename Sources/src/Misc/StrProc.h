@@ -110,9 +110,9 @@ namespace NStr
 		int nLastPos;                         // current lexeme begin position
 		int nPos;                             // current position
 	public:
-		CStringIterator( const char *pszInput, TSeparator &_tSeparator, int _nPos = 0 )
+		CStringIterator( const char *pszInput, const TSeparator &_tSeparator, int _nPos = 0 )
 			: szInput( pszInput ), tSeparator( _tSeparator ), nPos( _nPos ), nLastPos( _nPos ) { Next(); }
-		CStringIterator( const std::string &_szInput, TSeparator &_tSeparator, int _nPos = 0 )
+		CStringIterator( const std::string &_szInput, const TSeparator &_tSeparator, int _nPos = 0 )
 			: szInput( _szInput ), tSeparator( _tSeparator ), nPos( _nPos ), nLastPos( _nPos ) { Next(); }
 		const CStringIterator& Next()
 		{

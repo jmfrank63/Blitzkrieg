@@ -85,7 +85,7 @@ struct SSerialVariantT : public variant_t
 				}
 				else
 				{
-					std::wstring str = bstr_t( bstrVal );
+					std::wstring str = static_cast<const wchar_t*>( bstr_t( bstrVal ) );
 					NI_ASSERT_T( str.size() == SysStringLen(bstrVal), "Unsupported BSTR value" );
 					saver.Add( "Var", &str );
 				}
@@ -188,7 +188,7 @@ private:
 		bool RemoveVars( CVarsMap &vars, TCheck check )
 		{
 			std::list<std::string> toRemove;
-			for ( CVarsMap::const_iterator it = vars.begin(); it != vars.end(); ++it )
+			for ( typename CVarsMap::const_iterator it = vars.begin(); it != vars.end(); ++it )
 			{
 				if ( check(it->first) )
 					toRemove.push_back( it->first );
@@ -201,7 +201,7 @@ private:
 protected:
 	const TVar* GetVar( const std::string &szVarName ) const
 	{
-		CVarsMap::const_iterator pos = variables.find( szVarName );
+		typename CVarsMap::const_iterator pos = variables.find( szVarName );
 		if ( pos == variables.end() ) 
 			return 0;
 		return &( pos->second );
@@ -216,7 +216,7 @@ public:
 	virtual bool STDCALL IsChanged() const { return bVarsChanged; }
 	virtual bool STDCALL Get( const std::string &szVarName, variant_t *pVar ) const
 	{
-		CVarsMap::const_iterator pos = variables.find( szVarName );
+		typename CVarsMap::const_iterator pos = variables.find( szVarName );
 		if ( pos == variables.end() ) 
 			return false;
 		*pVar = pos->second.Get();
@@ -224,7 +224,7 @@ public:
 	}
 	virtual bool STDCALL Set( const std::string &szVarName, const variant_t &var )
 	{
-		CVarsMap::iterator pos = variables.find( szVarName );
+		typename CVarsMap::iterator pos = variables.find( szVarName );
 		if ( pos == variables.end() )
 		{
 			variables[szVarName].Set( var );
@@ -239,7 +239,7 @@ public:
 	}
 	virtual bool STDCALL Remove( const std::string &szVarName )
 	{
-		CVarsMap::iterator pos = variables.find( szVarName );
+		typename CVarsMap::iterator pos = variables.find( szVarName );
 		if ( pos == variables.end() ) 
 			return false;
 		variables.erase( pos );
@@ -268,7 +268,7 @@ public:
 			CVarsMap newvars;
 			saver.Add( 1, &newvars );
 			RemoveVars( variables, CMatchInListFunctional(serialIncludes, serialExcludes) );
-			for ( CVarsMap::const_iterator it = newvars.begin(); it != newvars.end(); ++it )
+			for ( typename CVarsMap::const_iterator it = newvars.begin(); it != newvars.end(); ++it )
 				variables[it->first] = it->second;
 			bVarsChanged = false;
 		}
@@ -288,7 +288,7 @@ public:
 			std::list<SSerialVar> vars;
 			saver.Add( "Vars", &vars );
 			RemoveVars( variables, CMatchInListFunctional(serialIncludes, serialExcludes) );
-			for ( std::list<SSerialVar>::const_iterator it = vars.begin(); it != vars.end(); ++it )
+			for ( typename std::list<SSerialVar>::const_iterator it = vars.begin(); it != vars.end(); ++it )
 				variables[it->szKeyName] = it->Get();
 			bVarsChanged = false;
 		}
@@ -298,7 +298,7 @@ public:
 			RemoveVars( temp, CMatchInListFunctional(serialIncludes, serialExcludes) );
 			std::vector<SSerialVar> vars;
 			vars.reserve( temp.size() );
-			for ( CVarsMap::const_iterator it = temp.begin(); it != temp.end(); ++it )
+			for ( typename CVarsMap::const_iterator it = temp.begin(); it != temp.end(); ++it )
 			{
 				SSerialVar var;
 				var.Set( it->second );
@@ -329,7 +329,7 @@ private:
 protected:
 	const typename TVarSystem::CVarsMap::const_iterator& GetIt() const { return *pos; }
 public:
-	CTVarSystemIterator( const TVarSystem *pVS, TVarAccepter &accepter )
+	CTVarSystemIterator( const TVarSystem *pVS, TVarAccepter accepter )
 	{
 		TSorter sorter;
 		for ( typename TVarSystem::CVarsMap::const_iterator it = pVS->begin(); it != pVS->end(); ++it )

@@ -405,7 +405,11 @@ void CGroupLogic::ProcessAmbushGroups()
 			if ( bCanSetToAmbush )
 			{
 				if ( !iter->empty() )
-					SetToAmbush( iter++ );
+				{
+					CAmbushGroups::iterator curIter = iter;
+					++iter;
+					SetToAmbush( curIter );
+				}
 				else
 					iter = ambushGroups.erase( iter );
 			}

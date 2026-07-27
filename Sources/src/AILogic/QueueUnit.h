@@ -1,6 +1,7 @@
 #ifndef __QUEUE_UNIT__
 #define __QUEUE_UNIT__
 #pragma ONCE
+#include "ListsSet.h"
 class CAICommand;
 interface IUnitState;
 class CQueueUnit
@@ -11,9 +12,9 @@ class CQueueUnit
 
 	CPtr<IUnitState> pState;
 
-	bool bCmdFinished; // состояние само завершилось
+	bool bCmdFinished; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
-	CObj<CAICommand> pCmdCurrent; // текущая команда, выполняемая этим юнитом
+	CObj<CAICommand> pCmdCurrent; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 
 	NTimer::STime lastChangeStateTime;
 	

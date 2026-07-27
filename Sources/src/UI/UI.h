@@ -116,6 +116,13 @@ interface IUIElement : public IRefCount
 	virtual IUIContainer* STDCALL GetParent() = 0;
 
 	virtual void STDCALL SetWindowText( int nState, const WORD *pszText ) = 0;
+#ifdef _NATIVE_WCHAR_T_DEFINED
+	// bridge for native wchar_t; under /Zc:wchar_t- this would redefine the WORD* overload
+	inline void STDCALL SetWindowText( int nState, const wchar_t *pszText )
+	{
+		SetWindowText( nState, reinterpret_cast<const WORD*>( pszText ) );
+	}
+#endif
 	virtual const WORD* STDCALL GetWindowText( int nState ) = 0;
 	virtual void STDCALL SetTextColor( DWORD dwColor ) = 0;
 

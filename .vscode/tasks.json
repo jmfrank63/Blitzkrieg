@@ -225,6 +225,106 @@
       "problemMatcher": []
     },
     {
+      "label": "Zig Build Game x64 (Debug)",
+      "type": "shell",
+      "command": "zig",
+      "options": {
+        "shell": {
+          "executable": "powershell.exe",
+          "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+        },
+        "cwd": "${workspaceFolder}"
+      },
+      "args": [
+        "build",
+        "install-game",
+        "-Dtarget=x86_64-windows-msvc",
+        "-Dinstall-dir=zig-out/x64/Debug",
+        "--summary", "all"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$gcc"
+    },
+    {
+      "label": "Zig Build Game x64 (ReleaseFast)",
+      "type": "shell",
+      "command": "zig",
+      "options": {
+        "shell": {
+          "executable": "powershell.exe",
+          "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+        },
+        "cwd": "${workspaceFolder}"
+      },
+      "args": [
+        "build",
+        "install-game",
+        "-Dtarget=x86_64-windows-msvc",
+        "-Doptimize=ReleaseFast",
+        "-Dinstall-dir=zig-out/x64/ReleaseFast",
+        "--summary", "all"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$gcc"
+    },
+    {
+      "label": "Zig Build Game x86 (Debug)",
+      "type": "shell",
+      "command": "zig",
+      "options": {
+        "shell": {
+          "executable": "powershell.exe",
+          "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+        },
+        "cwd": "${workspaceFolder}"
+      },
+      "args": [
+        "build",
+        "install-game",
+        "-Dinstall-dir=zig-out/x86/Debug",
+        "--summary", "all"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$gcc"
+    },
+    {
+      "label": "Zig Build Game x86 (ReleaseFast)",
+      "type": "shell",
+      "command": "zig",
+      "options": {
+        "shell": {
+          "executable": "powershell.exe",
+          "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+        },
+        "cwd": "${workspaceFolder}"
+      },
+      "args": [
+        "build",
+        "install-game",
+        "-Doptimize=ReleaseFast",
+        "-Dinstall-dir=zig-out/x86/ReleaseFast",
+        "--summary", "all"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": "$gcc"
+    },
+    {
       "label": "Build Game (FastDebug)",
       "type": "shell",
       "command": "msbuild",

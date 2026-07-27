@@ -800,7 +800,12 @@ void CAILogic::LoadScenarioUnits( const SLoadMapInfo &mapInfo, LinkInfo *linksIn
 }
 void CAILogic::Init( const SLoadMapInfo &mapInfo, IProgressHook *pProgress )
 {
+#ifdef _M_IX86
 	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24, 0xfffff );
+#else
+	// x64 has no FP precision control; _PC_24 would trip the CRT invalid parameter handler
+	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL, _MCW_EM );
+#endif
 
 	theDipl.Load( mapInfo.diplomacies );	
 	
@@ -930,7 +935,12 @@ void CAILogic::UpdateCheckSum( bool bSend )
 }
 void CAILogic::Segment()
 {
+#ifdef _M_IX86
 	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL | _PC_24, 0xfffff );
+#else
+	// x64 has no FP precision control; _PC_24 would trip the CRT invalid parameter handler
+	_control87( _EM_INVALID | _EM_ZERODIVIDE | _EM_OVERFLOW | _EM_UNDERFLOW | _EM_INEXACT | _EM_DENORMAL, _MCW_EM );
+#endif
 	if ( !bSuspended )
 	{
 /**

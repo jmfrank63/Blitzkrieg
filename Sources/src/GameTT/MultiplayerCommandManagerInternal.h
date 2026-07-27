@@ -33,7 +33,7 @@ class CMPToUICommandManager : public IMPToUICommandManager
 
 public:
 	virtual void STDCALL AddCommandToUI( const SToUICommand & cmd );
-	virtual void STDCALL AddNotificationFromUI( SFromUINotification & notify ) ;
+	virtual void STDCALL AddNotificationFromUI( const SFromUINotification & notify ) ;
 	
 	virtual bool STDCALL GetCommandToUI( SToUICommand *pCmd );
 	virtual bool STDCALL GetNotificationFromUI( SFromUINotification *pNotify );
@@ -52,7 +52,7 @@ public:
 	virtual void STDCALL SetConnectionType( const enum EMultiplayerConnectionType eType ) { eConnectionType = eType; }
 	virtual enum EMultiplayerConnectionType STDCALL GetConnectionType() const { return eConnectionType; }
 
-	virtual void STDCALL DelayedNotification( SFromUINotification &notify );
+	virtual void STDCALL DelayedNotification( const SFromUINotification &notify );
 	virtual void STDCALL SendDelayedNotification();
 };
 #endif // !defined(AFX_MULTIPLAYERCOMMANDMANAGERINTERNAL_H__9EC0CE88_5727_4A04_BE2F_8F45320AD784__INCLUDED_)

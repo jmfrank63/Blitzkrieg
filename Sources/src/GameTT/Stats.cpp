@@ -120,7 +120,7 @@ std::wstring CInterfaceStats::CCommonStats::GetStatValue( const int nIndex ) con
 				IText * pT = GetSingleton<ITextManager>()->GetDialog( szKey.c_str() );
 				
 				if ( !pT ) return L"";
-				return pT->GetString();
+				return reinterpret_cast<const wchar_t*>( pT->GetString() );
 			}
 		case 3: //saves
 			return NStr::ToUnicode( NStr::Format( "%d", nSaves ) );
@@ -140,9 +140,9 @@ bool CInterfaceStats::CSorter::operator() ( int nSortColumn,
 	if ( nData2 == 0 ) return false;
 
 	IUIElement *pElement = pRow1->GetElement( nSortColumn );
-	std::wstring wsz1 = pElement->GetWindowText( 0 );
+	std::wstring wsz1 = reinterpret_cast<const wchar_t*>( pElement->GetWindowText( 0 ) );
 	pElement = pRow2->GetElement( nSortColumn );
-	std::wstring wsz2 = pElement->GetWindowText( 0 );
+	std::wstring wsz2 = reinterpret_cast<const wchar_t*>( pElement->GetWindowText( 0 ) );
 	std::string sz1 = NStr::ToAscii( wsz1 );
 	std::string sz2 = NStr::ToAscii( wsz2 );
 	double d1 = atof( sz1.c_str() );
@@ -467,7 +467,7 @@ void CInterfaceStats::Create( const int /*EStatsComplexity*/ nStatsType )
 	
 	pUIScreen = CreateObject<IUIScreen>( UI_SCREEN );
 	pUIScreen->Load( "ui\\stats" );
-	pUIScreen->Reposition( pGFX->GetScreenRect() );			//первый reposition для инициализации размера ListControl
+	pUIScreen->Reposition( pGFX->GetScreenRect() );			//пїЅпїЅпїЅпїЅпїЅпїЅ reposition пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ ListControl
 	
 	IUIElement *pHeader = pUIScreen->GetChildByID( 20000 );
 	NI_ASSERT_T( pHeader != 0, "Invalid interface statistics header control" );
@@ -502,7 +502,7 @@ void CInterfaceStats::Create( const int /*EStatsComplexity*/ nStatsType )
 	{
 		IPlayerScenarioInfo *pPlayer = pIt->Get();
 		if ( pPlayer->GetDiplomacySide() == 2 ) 
-			continue;	// не выводим статистику для нейтральных игроков
+			continue;	// пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
 		IScenarioStatistics *pStats = 0;
 		switch ( m_nStatsType ) 

@@ -34,8 +34,8 @@ template <class TAreaMap>
 void Pick( const CVec2 &pos2, int nCellX, int nCellY, const SHMatrix &matrix, 
 					 CPickedObjectsList *pPickedObjects, const TAreaMap &area )
 {
-	TAreaMap::CDataList &data = area[nCellY][nCellX];
-	for ( TAreaMap::CDataList::iterator it = data.begin(); it != data.end(); ++it )
+	const typename TAreaMap::CDataList &data = area[nCellY][nCellX];
+	for ( typename TAreaMap::CDataList::const_iterator it = data.begin(); it != data.end(); ++it )
 	{
 		CVec2 shift;
 		if ( (*it)->IsHit( matrix, pos2, &shift ) )
@@ -64,8 +64,8 @@ template <class TAreaMap>
 void Pick( const CTRect<float> &rect2, int nCellX, int nCellY, const SHMatrix &matrix, 
 					 CPickedObjectsList *pPickedObjects, const TAreaMap &area )
 {
-	TAreaMap::CDataList &data = area[nCellY][nCellX];
-	for ( TAreaMap::CDataList::iterator it = data.begin(); it != data.end(); ++it )
+	const typename TAreaMap::CDataList &data = area[nCellY][nCellX];
+	for ( typename TAreaMap::CDataList::const_iterator it = data.begin(); it != data.end(); ++it )
 	{
 		if ( (*it)->IsHit( matrix, rect2 ) )
 			pPickedObjects->push_back( std::pair<IVisObj*, CVec2>( *it, VNULL2 ) );
@@ -75,8 +75,8 @@ template <class TAreaMap>
 void PickUpdated( const CTRect<float> &rect2, int nCellX, int nCellY, DWORD time, const SHMatrix &matrix, 
 					        CPickedObjectsList *pPickedObjects, const TAreaMap &area )
 {
-	TAreaMap::CDataList &data = area[nCellY][nCellX];
-	for ( TAreaMap::CDataList::iterator it = data.begin(); it != data.end(); ++it )
+	const typename TAreaMap::CDataList &data = area[nCellY][nCellX];
+	for ( typename TAreaMap::CDataList::const_iterator it = data.begin(); it != data.end(); ++it )
 	{
 		(*it)->Update( time );
 		if ( (*it)->IsHit( matrix, rect2 ) )

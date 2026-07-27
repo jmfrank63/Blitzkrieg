@@ -622,7 +622,7 @@ int CScripts::RunScript( struct lua_State *state )
 	CHECK_ERROR( script.IsString( 1 ), "RunScript : the first parameter is not a name of function", 0 );
 	CHECK_ERROR( script.IsNumber( 2 ), "RunScript : the second parameter is not a periodicity", 0 );
 
-	const std::string szName = script.GetObject( 1 );
+	const std::string szName = static_cast<const char*>( script.GetObject( 1 ) );
 	const int nPeriod = script.GetObject( 2 );
 	int nRepetitions = -1;
 	if ( script.GetTop() == 3 )
@@ -1339,7 +1339,7 @@ int CScripts::GetNUnitsInArea( struct lua_State *state )
 	CHECK_ERROR( script.IsString( 2 ), "GetNUnitsInArea: the second parameter is not a string", 1 );
 
 	const int nPlayer = script.GetObject( 1 );
-	const std::string szName = script.GetObject( 2 );
+	const std::string szName = static_cast<const char*>( script.GetObject( 2 ) );
 
 	CHECK_ERROR( pScripts->areas.find( szName ) != pScripts->areas.end(), NStr::Format( "GetNUnitsInArea: wrong script area name (%s)", szName.c_str() ), 1 );
 
@@ -1382,7 +1382,7 @@ int CScripts::GetNScriptUnitsInArea( struct lua_State *state )
 	CHECK_ERROR( script.IsString( 2 ), "GetNScriptUnitsInArea: the second parameter is not a string", 1 );
 
 	const int nScriptGroup = script.GetObject( 1 );
-	const std::string szName = script.GetObject( 2 );
+	const std::string szName = static_cast<const char*>( script.GetObject( 2 ) );
 
 	CHECK_ERROR( pScripts->areas.find( szName ) != pScripts->areas.end(), NStr::Format( "GetNScriptUnitsInArea: wrong script area name (%s)", szName.c_str() ), 1 );
 	CHECK_ERROR( nScriptGroup >= 0, NStr::Format( "GetNScriptUnitsInArea: wrong number of script group (%d)", nScriptGroup ), 1 );
@@ -2075,7 +2075,7 @@ int CScripts::AskClient( struct lua_State *pState )
 	Script script( pState );
 
 	CHECK_ERROR( script.IsString( 1 ), "AskClient: first parameter isn't a string", 0 );
-	std::string szRequest = script.GetObject( 1 );
+	std::string szRequest = static_cast<const char*>( script.GetObject( 1 ) );
 
 	GetSingleton<IConsoleBuffer>()->WriteASCII( CONSOLE_STREAM_WORLD, szRequest.c_str() );
 
@@ -2198,7 +2198,7 @@ int CScripts::GetScriptAreaParams( struct lua_State *pState )
 {
 	Script script( pState );
 
-	const std::string szName = script.GetObject( 1 );
+	const std::string szName = static_cast<const char*>( script.GetObject( 1 ) );
 
 	CHECK_ERROR( pScripts->areas.find( szName ) != pScripts->areas.end(), NStr::Format( "GetScriptAreaParams: wrong script area name (%s)", szName.c_str() ), 4 );
 	const SScriptArea &area = pScripts->areas[szName];
@@ -2302,7 +2302,7 @@ int CScripts::ViewZone( struct lua_State *pState )
 		CHECK_ERROR( script.IsString( 1 ), "ViewZone: the first parameter is not a string", 0 );
 		CHECK_ERROR( script.IsNumber( 2 ), "ViewZone: the second parameter is not a number", 0 );
 
-		const std::string szName = script.GetObject( 1 );
+		const std::string szName = static_cast<const char*>( script.GetObject( 1 ) );
 		const int nShow = script.GetObject( 2 );
 
 		CHECK_ERROR( pScripts->areas.find( szName ) != pScripts->areas.end(), NStr::Format( "ViewZone: wrong script area name (%s)", szName.c_str() ), 1 );
@@ -2362,7 +2362,7 @@ int CScripts::GetNMinesInScriptArea( struct lua_State *pState )
 	Script script( pState );
 
 	CHECK_ERROR( script.IsString( 1 ), "GetNMinesInScriptArea: the second parameter is not a string", 1 );
-	const std::string szName = script.GetObject( 1 );
+	const std::string szName = static_cast<const char*>( script.GetObject( 1 ) );
 	CHECK_ERROR( pScripts->areas.find( szName ) != pScripts->areas.end(), NStr::Format( "GetNMinesInScriptArea: wrong script area name (%s)", szName.c_str() ), 1 );
 
 	const SScriptArea &area = pScripts->areas[szName];
@@ -2383,7 +2383,7 @@ int CScripts::GetNTrenchesInScriptArea( struct lua_State *pState )
 	Script script( pState );
 
 	CHECK_ERROR( script.IsString( 1 ), "GetNTrenchesInScriptArea: the second parameter is not a string", 1 );
-	const std::string szName = script.GetObject( 1 );
+	const std::string szName = static_cast<const char*>( script.GetObject( 1 ) );
 	CHECK_ERROR( pScripts->areas.find( szName ) != pScripts->areas.end(), NStr::Format( "GetNTrenchesInScriptArea: wrong script area name (%s)", szName.c_str() ), 1 );
 
 	const SScriptArea &area = pScripts->areas[szName];
@@ -2404,7 +2404,7 @@ int CScripts::GetNFencesInScriptArea( struct lua_State *pState )
 	Script script( pState );
 
 	CHECK_ERROR( script.IsString( 1 ), "GetNFencesInScriptArea: the second parameter is not a string", 1 );
-	const std::string szName = script.GetObject( 1 );
+	const std::string szName = static_cast<const char*>( script.GetObject( 1 ) );
 	CHECK_ERROR( pScripts->areas.find( szName ) != pScripts->areas.end(), NStr::Format( "GetNFencesInScriptArea: wrong script area name (%s)", szName.c_str() ), 1 );
 
 	const SScriptArea &area = pScripts->areas[szName];
@@ -2425,7 +2425,7 @@ int CScripts::GetNAntitankInScriptArea( struct lua_State *pState )
 	Script script( pState );
 
 	CHECK_ERROR( script.IsString( 1 ), "GetNAntitankInScriptArea: the second parameter is not a string", 1 );
-	const std::string szName = script.GetObject( 1 );
+	const std::string szName = static_cast<const char*>( script.GetObject( 1 ) );
 	CHECK_ERROR( pScripts->areas.find( szName ) != pScripts->areas.end(), NStr::Format( "GetNAntitankInScriptArea: wrong script area name (%s)", szName.c_str() ), 1 );
 
 	const SScriptArea &area = pScripts->areas[szName];
@@ -2446,7 +2446,7 @@ int CScripts::GetNAPFencesInScriptArea( struct lua_State *pState )
 	Script script( pState );
 
 	CHECK_ERROR( script.IsString( 1 ), "GetNAPFencesInScriptArea: the second parameter is not a string", 1 );
-	const std::string szName = script.GetObject( 1 );
+	const std::string szName = static_cast<const char*>( script.GetObject( 1 ) );
 	CHECK_ERROR( pScripts->areas.find( szName ) != pScripts->areas.end(), NStr::Format( "GetNAPFencesInScriptArea: wrong script area name (%s)", szName.c_str() ), 1 );
 
 	const SScriptArea &area = pScripts->areas[szName];
@@ -2489,7 +2489,7 @@ int CScripts::GetNUnitsOfType( struct lua_State *pState )
 	CHECK_ERROR( script.IsString( 1 ), "GetNUnitsOfType: first parameters isn't a string", 1 );
 	CHECK_ERROR( script.IsNumber( 2 ), "GetNUnitsOfType: second parameters isn't a number", 1 );
 
-	const std::string szType = script.GetObject( 1 );
+	const std::string szType = static_cast<const char*>( script.GetObject( 1 ) );
 	const int nParty = script.GetObject( 2 );
 
 	CHECK_ERROR( nParty >= 0 && nParty < 3, NStr::Format( "GetNUnitsOfType: wrong number of party (%d)", nParty ), 1 );

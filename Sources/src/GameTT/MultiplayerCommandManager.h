@@ -339,7 +339,7 @@ interface IMPToUICommandManager : public IRefCount
 	enum { tidTypeID = GAMETT_MULTIPLAYER_TO_UI_COMMANDS };
 
 	virtual void STDCALL AddCommandToUI( const SToUICommand &cmd ) = 0;
-	virtual void STDCALL AddNotificationFromUI( SFromUINotification &notify ) = 0;
+	virtual void STDCALL AddNotificationFromUI( const SFromUINotification &notify ) = 0;
 
 	virtual bool STDCALL GetCommandToUI( SToUICommand *pCmd ) = 0;
 	virtual bool STDCALL GetNotificationFromUI( SFromUINotification *pNotify ) = 0;
@@ -359,7 +359,7 @@ interface IMPToUICommandManager : public IRefCount
 	virtual void STDCALL SetConnectionType( const enum EMultiplayerConnectionType ) = 0;
 	virtual enum EMultiplayerConnectionType STDCALL GetConnectionType() const = 0;
 	
-	virtual void STDCALL DelayedNotification( SFromUINotification &notify ) = 0;
+	virtual void STDCALL DelayedNotification( const SFromUINotification &notify ) = 0;
 	virtual void STDCALL SendDelayedNotification() = 0;
 };
 #endif //_MULTIPLAYER_COMMAND_MANAGER_

@@ -1,6 +1,7 @@
 #ifndef __AI_GROUP_LOGIC_H__
 #define __AI_GROUP_LOGIC_H__
 #pragma ONCE
+#include "ListsSet.h"
 #include "SegmentedObjects.h"
 #include "UnitsSegments.h"
 

@@ -148,14 +148,14 @@ class CSaverAccessor
 			std::list<T1> elements;
 			if ( !IsReading() )
 			{
-				for ( std::unordered_set<T1, T2, T3, T4>::iterator it = pData->begin(); it != pData->end(); ++it )
+				for ( typename std::unordered_set<T1, T2, T3, T4>::iterator it = pData->begin(); it != pData->end(); ++it )
 					elements.push_back( *it );
 			}
 			Add( idChunk, &elements );
 			if ( IsReading() )
 			{
 				pData->clear();
-				for ( std::list<T1>::iterator it = elements.begin(); it != elements.end(); ++it )
+				for ( typename std::list<T1>::iterator it = elements.begin(); it != elements.end(); ++it )
 					pData->insert( *it );
 			}
 		}
@@ -172,7 +172,7 @@ class CSaverAccessor
 			if ( IsReading() )
 			{
 				pData->clear();
-				for ( std::list<T1>::iterator it = elements.begin(); it != elements.end(); ++it )
+				for ( typename std::list<T1>::iterator it = elements.begin(); it != elements.end(); ++it )
 					pData->insert( *it );
 			}
 		}
@@ -383,6 +383,7 @@ public:
 	CSaverAccessor( const CPtr<IStructureSaver> &_pSS )
 		: pSS( _pSS ) {  }
 	const CSaverAccessor& operator=( IStructureSaver *_pSS ) { pSS = _pSS; return *this; }
+	const CSaverAccessor& operator=( const CPtr<IStructureSaver> &_pSS ) { pSS = _pSS; return *this; }
 	const CSaverAccessor& operator=( const CSaverAccessor &accessor ) { pSS = accessor.pSS; return *this; }
 	operator IStructureSaver*() const { return pSS; }
 	IStructureSaver* operator->() const { return pSS; }

@@ -1,6 +1,7 @@
 #ifndef __AI_HASH_FUNCS__
 #define __AI_HASH_FUNCS__
 #pragma ONCE
+#include "AIGeometry.h"
 interface IUpdatableObj;
 class CAIUnit;
 struct SUpdatableObjectObjHash

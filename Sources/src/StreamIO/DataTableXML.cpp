@@ -80,7 +80,7 @@ int CDataTableXML::GetRowNames( char *pszBuffer, int nBufferSize )
 		MSXML2::IXMLDOMNodeListPtr pNodes = xmlRootNode->childNodes;
 		for ( int i=0; i<pNodes->length; ++i )
 		{
-			std::string szName = pNodes->item[i]->nodeName;
+			std::string szName = static_cast<const char*>( pNodes->item[i]->nodeName );
 			nTotalSize += AddToBuffer( szName, pszBuffer, nBufferSize, nTotalSize );
 		}
 		*pszBuffer++ = '\0';
@@ -99,14 +99,14 @@ int CDataTableXML::GetEntryNames( const char *pszRow, char *pszBuffer, int nBuff
 		MSXML2::IXMLDOMNodePtr pNode = xmlRootNode->selectSingleNode( pszRow );
 		for ( int i=0; i<pNode->attributes->length; ++i )
 		{
-			const std::string szName = pNode->attributes->item[i]->nodeName;
+			const std::string szName = static_cast<const char*>( pNode->attributes->item[i]->nodeName );
 			nTotalSize += AddToBuffer( szName, pszBuffer, nBufferSize, nTotalSize );
 		}
 		MSXML2::IXMLDOMNodeListPtr pNodes = pNode->childNodes;
 		for ( int i=0; i<pNodes->length; ++i )
 		{
-			std::string szName = pNodes->item[i]->nodeName;
-			if ( (szName == "#comment") || (szName == "#text") ) 
+			std::string szName = static_cast<const char*>( pNodes->item[i]->nodeName );
+			if ( (szName == "#comment") || (szName == "#text") )
 				continue;
 			else
 			{
@@ -164,7 +164,7 @@ const char* CDataTableXML::GetString( const char *pszRow, const char *pszEntry, 
 	const std::string szName = MakeName( pszRow, pszEntry );
 	if ( MSXML2::IXMLDOMNodePtr pNode = GetNode(szName) )
 	{
-		std::string szString = pNode->text;
+		std::string szString = static_cast<const char*>( pNode->text );
 		NI_ASSERT_TF( nBufferSize >= szString.size(), "Buffer too small to fill all string", return 0 );
 		strcpy( pszBuffer, szString.c_str() );
 	}
@@ -177,7 +177,7 @@ int CDataTableXML::GetRawData( const char *pszRow, const char *pszEntry, void *p
 	const std::string szName = MakeName( pszRow, pszEntry );
 	if ( MSXML2::IXMLDOMNodePtr pNode = GetNode(szName) )
 	{
-		std::string szBuffer = pNode->text;
+		std::string szBuffer = static_cast<const char*>( pNode->text );
 		NI_ASSERT_TF( nBufferSize >= szBuffer.size(), "Buffer too small to fill all string", return 0 );
 		int nCheck = szBuffer.size() / 2;
 		NI_ASSERT_TF( nCheck >= nBufferSize, NStr::Format("Wrong buffer size: %d >= %d", nCheck, nBufferSize), return 0 );

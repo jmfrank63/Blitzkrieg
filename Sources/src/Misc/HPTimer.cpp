@@ -1,5 +1,6 @@
 #include "StdAfx.h"
 #include "HPTimer.h"
+#include <intrin.h>
 using namespace NHPTimer;
 static double fProcFreq1 = 1;
 double NHPTimer::GetSeconds( const NHPTimer::STime &a )
@@ -8,13 +9,7 @@ double NHPTimer::GetSeconds( const NHPTimer::STime &a )
 }
 static inline void GetCounter( int64 *pTime )
 {
-	__asm
-	{
-		rdtsc
-		mov esi, pTime
-		mov [esi], eax
-		mov [esi+4], edx
-	}
+	*pTime = static_cast<int64>( __rdtsc() );
 }
 double NHPTimer::GetClockRate()
 {

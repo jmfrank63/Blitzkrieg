@@ -43,6 +43,10 @@ inline void SetGlobalVar( const char *pszValueName, float value ) { GetSingleton
 inline void SetGlobalVar( const char *pszValueName, unsigned long value ) { GetSingleton<IGlobalVars>()->SetVar( pszValueName, NStr::Format("%ul", value) ); }
 inline void RemoveGlobalVar( const char *pszValueName ) { GetSingleton<IGlobalVars>()->RemoveVar( pszValueName ); }
 inline const WORD* GetGlobalWVar( const char *pszValueName, const WORD *defval = 0 ) { const WORD *pszVal = GetSingleton<IGlobalVars>()->GetWVar( pszValueName ); return pszVal == 0 ? defval : pszVal; }
+#ifdef _NATIVE_WCHAR_T_DEFINED
+// bridge for native wchar_t; under /Zc:wchar_t- this would redefine the WORD* overload
+inline const WORD* GetGlobalWVar( const char *pszValueName, const wchar_t *defval ) { return GetGlobalWVar( pszValueName, reinterpret_cast<const WORD*>( defval ) ); }
+#endif
 inline void SetGlobalVar( const char *pszValueName, const WORD *pszValue ) { GetSingleton<IGlobalVars>()->SetVar( pszValueName, pszValue ); }
 inline void RemoveGlobalWVar( const char *pszValueName ) { GetSingleton<IGlobalVars>()->RemoveWVar( pszValueName ); }
 enum

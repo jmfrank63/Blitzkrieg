@@ -88,7 +88,7 @@ public:
 
 
 		const TID nID = pInfo->GetID();
-		PlayersInfo::iterator playerIter = playersInfo.find( nID );
+		typename PlayersInfo::iterator playerIter = playersInfo.find( nID );
 		if ( playerIter == playersInfo.end() )
 		{
 			const int nPos = items.GetFreeId();

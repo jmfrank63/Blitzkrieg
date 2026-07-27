@@ -63,14 +63,15 @@ if ($CopyData) {
 
 $configSource = Join-Path $dataConfigsDir "config.cfg"
 $defconfSource = Join-Path $dataConfigsDir "defconf.cfg"
-if (-not (Test-Path $configSource)) {
-    throw "Missing config source file: $configSource"
-}
 if (-not (Test-Path $defconfSource)) {
     throw "Missing config source file: $defconfSource"
 }
 
-Copy-Item -Path $configSource -Destination (Join-Path $resolvedInstallDir "config.cfg") -Force
+if (Test-Path $configSource) {
+    Copy-Item -Path $configSource -Destination (Join-Path $resolvedInstallDir "config.cfg") -Force
+} else {
+    Copy-Item -Path $defconfSource -Destination (Join-Path $resolvedInstallDir "config.cfg") -Force
+}
 Copy-Item -Path $defconfSource -Destination (Join-Path $resolvedInstallDir "defconf.cfg") -Force
 
 if (Test-Path $editorsDir) {

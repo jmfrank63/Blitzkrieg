@@ -261,12 +261,12 @@ const int CUIOption::GetTextNumericOption() const
 const wchar_t * CUIOption::GetTextGameSpyOption() const
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX ) );
-	return pStatic->GetWindowText( 0 );
+	return reinterpret_cast<const wchar_t*>( pStatic->GetWindowText( 0 ) );
 }
 const wchar_t * CUIOption::GetTextOption () const
 {
 	IUIEditBox * pStatic = checked_cast<IUIEditBox*>( pSubDialog->GetChildByID( E_EDITBOX ) );
-	return pStatic->GetWindowText( 0 );
+	return reinterpret_cast<const wchar_t*>( pStatic->GetWindowText( 0 ) );
 }
 COptionsListWrapper::COptionsListWrapper( const DWORD _dwFlags, IUIListControl * _pList, const int _nIDToStartFrom, IOptionSystem * pSystem, const bool _bDisableChange )
 	: pList( _pList ), nIDToStartFrom( _nIDToStartFrom ), dwFlags( _dwFlags ), bDisableChange( _bDisableChange ), pSetOptionSystem( pSystem )
@@ -286,7 +286,7 @@ COptionsListWrapper::COptionsListWrapper( IUIListControl * _pList, OptionDescs &
 void COptionsListWrapper::InitList( const bool bDefault )
 {
 	std::vector< CPtr<IOption> > optionsToGive;
-	IOptionSystem * pSystem = pSetOptionSystem ? pSetOptionSystem : GetSingleton<IOptionSystem>();
+	IOptionSystem * pSystem = pSetOptionSystem ? pSetOptionSystem.GetPtr() : GetSingleton<IOptionSystem>();
 
 	for ( OptionDescs::const_iterator it = optionsDescs.begin(); it != optionsDescs.end(); ++it )
 	{

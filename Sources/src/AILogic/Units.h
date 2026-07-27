@@ -2,6 +2,8 @@
 #define __UNITS_H__
 #pragma ONCE
 #include "..\Misc\FreeIDs.h"
+#include "ListsSet.h"
+#include "AIGeometry.h"
 class CAIUnit;
 class CFormation;
 class CAviation;

@@ -8,6 +8,7 @@ const cflags_debug = &.{
     "-D_STL_RANGE_CHECK",
     "-D_MT",
     "-D_DLL",
+    "-O2",
     "-Wno-deprecated-non-prototype",
 };
 
@@ -33,6 +34,7 @@ const cppflags_debug = &.{
     "-fms-extensions",
     "-fms-compatibility",
     "-fdelayed-template-parsing",
+    "-fno-sanitize=enum",
     "-Wno-deprecated-declarations",
     "-Wno-microsoft-template",
     "-Wno-nonportable-include-path",
@@ -45,6 +47,9 @@ const cppflags_debug = &.{
     "-Wno-non-pod-varargs",
     "-Wno-extra-tokens",
     "-Wno-parentheses-equality",
+    "-Wno-parentheses",
+    "-Wno-unused-value",
+    "-Wno-tautological-constant-out-of-range-compare",
     "-Wno-switch",
     "-Wno-unused-command-line-argument",
 };
@@ -59,6 +64,7 @@ const cppflags_release = &.{
     "-fms-extensions",
     "-fms-compatibility",
     "-fdelayed-template-parsing",
+    "-fno-sanitize=enum",
     "-Wno-deprecated-declarations",
     "-Wno-microsoft-template",
     "-Wno-nonportable-include-path",
@@ -71,6 +77,9 @@ const cppflags_release = &.{
     "-Wno-non-pod-varargs",
     "-Wno-extra-tokens",
     "-Wno-parentheses-equality",
+    "-Wno-parentheses",
+    "-Wno-unused-value",
+    "-Wno-tautological-constant-out-of-range-compare",
     "-Wno-switch",
     "-Wno-unused-command-line-argument",
 };
@@ -88,6 +97,7 @@ const cppflags_beta_debug = &.{
     "-fms-extensions",
     "-fms-compatibility",
     "-fdelayed-template-parsing",
+    "-fno-sanitize=enum",
     "-Wno-deprecated-declarations",
     "-Wno-microsoft-template",
     "-Wno-nonportable-include-path",
@@ -115,6 +125,7 @@ const cppflags_beta_release = &.{
     "-fms-extensions",
     "-fms-compatibility",
     "-fdelayed-template-parsing",
+    "-fno-sanitize=enum",
     "-Wno-deprecated-declarations",
     "-Wno-microsoft-template",
     "-Wno-nonportable-include-path",
@@ -140,6 +151,7 @@ const cflags_sfx_debug = &.{
     "-D_MT",
     "-D_DLL",
     "-DSFX_USE_OPEN_AUDIO_BACKEND",
+    "-O2",
     "-Wno-deprecated-non-prototype",
 };
 
@@ -166,6 +178,7 @@ const cppflags_sfx_debug = &.{
     "-DSFX_USE_OPEN_AUDIO_BACKEND",
     "-fms-extensions",
     "-fdelayed-template-parsing",
+    "-fno-sanitize=enum",
     "-Wno-deprecated-declarations",
     "-Wno-microsoft-template",
     "-Wno-nonportable-include-path",
@@ -190,6 +203,7 @@ const cppflags_sfx_release = &.{
     "-DSFX_USE_OPEN_AUDIO_BACKEND",
     "-fms-extensions",
     "-fdelayed-template-parsing",
+    "-fno-sanitize=enum",
     "-Wno-deprecated-declarations",
     "-Wno-microsoft-template",
     "-Wno-nonportable-include-path",
@@ -553,6 +567,412 @@ const main_sources = &.{
     "Sources/src/Main/BetaKey.cpp",
 };
 
+const scene_cpp_sources = &.{
+    "Sources/src/Scene/GlobalsLoader.cpp",
+    "Sources/src/Scene/StdAfx.cpp",
+    "Sources/src/Scene/SceneDraw.cpp",
+    "Sources/src/Scene/SceneInternal.cpp",
+    "Sources/src/Scene/SceneObjectFactory.cpp",
+    "Sources/src/Scene/ScenePick.cpp",
+    "Sources/src/Scene/Icon.cpp",
+    "Sources/src/Scene/IconBar.cpp",
+    "Sources/src/Scene/IconHPBar.cpp",
+    "Sources/src/Scene/IconPic.cpp",
+    "Sources/src/Scene/IconText.cpp",
+    "Sources/src/Scene/BoldLineVisObj.cpp",
+    "Sources/src/Scene/EffectVisObj.cpp",
+    "Sources/src/Scene/FlashVisObj.cpp",
+    "Sources/src/Scene/MeshVisObj.cpp",
+    "Sources/src/Scene/SpriteVisObj.cpp",
+    "Sources/src/Scene/SquadVisObj.cpp",
+    "Sources/src/Scene/VisObjBuilder.cpp",
+    "Sources/src/Scene/StatSystem.cpp",
+    "Sources/src/Scene/Camera.cpp",
+    "Sources/src/Scene/Cursor.cpp",
+    "Sources/src/Scene/FrameSelection.cpp",
+    "Sources/src/Scene/AnimVisitor.cpp",
+    "Sources/src/Scene/DrawVisitor.cpp",
+    "Sources/src/Scene/MaterialEffector.cpp",
+    "Sources/src/Scene/MatrixEffector.cpp",
+    "Sources/src/Scene/CellsConglomerateContainer.cpp",
+    "Sources/src/Scene/SceneSound.cpp",
+    "Sources/src/Scene/SoundScene.cpp",
+    "Sources/src/Scene/SoundSceneSerialize.cpp",
+    "Sources/src/Scene/VideoPlayer.cpp",
+    "Sources/src/Scene/OpenVideoPlayer.cpp",
+    "Sources/src/Scene/KeyBasedParticleSource.cpp",
+    "Sources/src/Scene/ParticleManager.cpp",
+    "Sources/src/Scene/ParticleSourceData.cpp",
+    "Sources/src/Scene/SmokinParticleSource.cpp",
+    "Sources/src/Scene/SmokinParticleSourceData.cpp",
+    "Sources/src/Scene/Track.cpp",
+    "Sources/src/Scene/FastSinCos.cpp",
+    "Sources/src/Scene/Transition.cpp",
+    "Sources/src/Scene/MeshBuilders.cpp",
+    "Sources/src/Scene/RiverBuilder.cpp",
+    "Sources/src/Scene/TerrainBuilder.cpp",
+    "Sources/src/Scene/TerrainEditor.cpp",
+    "Sources/src/Scene/TerrainRoad.cpp",
+    "Sources/src/Scene/TerrainWater.cpp",
+    "Sources/src/Scene/VectorObject.cpp",
+    "Sources/src/Scene/TerraDraw.cpp",
+    "Sources/src/Scene/TerrainInternal.cpp",
+    "Sources/src/Scene/TerraSound.cpp",
+    "Sources/src/Scene/GammaEffect.cpp",
+};
+
+const scene_c_sources = &.{
+    "Sources/sdk/xiph/ogg-1.3.5/src/bitwise.c",
+    "Sources/sdk/xiph/ogg-1.3.5/src/framing.c",
+    "Sources/sdk/xiph/libtheora-1.2.0/lib/apiwrapper.c",
+    "Sources/sdk/xiph/libtheora-1.2.0/lib/bitpack.c",
+    "Sources/sdk/xiph/libtheora-1.2.0/lib/decapiwrapper.c",
+    "Sources/sdk/xiph/libtheora-1.2.0/lib/decinfo.c",
+    "Sources/sdk/xiph/libtheora-1.2.0/lib/decode.c",
+    "Sources/sdk/xiph/libtheora-1.2.0/lib/dequant.c",
+    "Sources/sdk/xiph/libtheora-1.2.0/lib/fragment.c",
+    "Sources/sdk/xiph/libtheora-1.2.0/lib/huffdec.c",
+    "Sources/sdk/xiph/libtheora-1.2.0/lib/idct.c",
+    "Sources/sdk/xiph/libtheora-1.2.0/lib/info.c",
+    "Sources/sdk/xiph/libtheora-1.2.0/lib/internal.c",
+    "Sources/sdk/xiph/libtheora-1.2.0/lib/quant.c",
+    "Sources/sdk/xiph/libtheora-1.2.0/lib/state.c",
+};
+
+const ailogic_sources = &.{
+    "Sources/src/AILogic/GlobalsLoader.cpp",
+    "Sources/src/AILogic/StdAfx.cpp",
+    "Sources/src/AILogic/AILogicObjectFactory.cpp",
+    "Sources/src/AILogic/DifficultyLevel.cpp",
+    "Sources/src/AILogic/AIWarFog.cpp",
+    "Sources/src/AILogic/WarFogSerialize.cpp",
+    "Sources/src/AILogic/PathUnit.cpp",
+    "Sources/src/AILogic/PathUnitSerialize.cpp",
+    "Sources/src/AILogic/TrainPathUnit.cpp",
+    "Sources/src/AILogic/CollisionInternal.cpp",
+    "Sources/src/AILogic/CollisionInternalSerialize.cpp",
+    "Sources/src/AILogic/StandartPath.cpp",
+    "Sources/src/AILogic/StandartSmoothMechPath.cpp",
+    "Sources/src/AILogic/StandartSmoothSoldierPath.cpp",
+    "Sources/src/AILogic/PlanePath.cpp",
+    "Sources/src/AILogic/ArtilleryPaths.cpp",
+    "Sources/src/AILogic/ParatrooperPath.cpp",
+    "Sources/src/AILogic/PresizePath.cpp",
+    "Sources/src/AILogic/TrainPath.cpp",
+    "Sources/src/AILogic/TankPitPath.cpp",
+    "Sources/src/AILogic/PathInternalSerialize.cpp",
+    "Sources/src/AILogic/PathFinderInternal.cpp",
+    "Sources/src/AILogic/TrainPathFinder.cpp",
+    "Sources/src/AILogic/PathFindersSerialize.cpp",
+    "Sources/src/AILogic/PathSearchFuncs.cpp",
+    "Sources/src/AILogic/PointChecking.cpp",
+    "Sources/src/AILogic/Commands.cpp",
+    "Sources/src/AILogic/CommandsSerialize.cpp",
+    "Sources/src/AILogic/Guns.cpp",
+    "Sources/src/AILogic/GunsSerialize.cpp",
+    "Sources/src/AILogic/HitsStore.cpp",
+    "Sources/src/AILogic/HitsStoreSerialize.cpp",
+    "Sources/src/AILogic/MountedGun.cpp",
+    "Sources/src/AILogic/MountedGunsSerialize.cpp",
+    "Sources/src/AILogic/Shell.cpp",
+    "Sources/src/AILogic/ShellSerialize.cpp",
+    "Sources/src/AILogic/Turret.cpp",
+    "Sources/src/AILogic/TurretSerialize.cpp",
+    "Sources/src/AILogic/UnitGuns.cpp",
+    "Sources/src/AILogic/GridCreation.cpp",
+    "Sources/src/AILogic/GroupLogic.cpp",
+    "Sources/src/AILogic/GroupLogicSerialize.cpp",
+    "Sources/src/AILogic/UnitsSegments.cpp",
+    "Sources/src/AILogic/Behaviour.cpp",
+    "Sources/src/AILogic/BehaviourSerialize.cpp",
+    "Sources/src/AILogic/FreeFireManager.cpp",
+    "Sources/src/AILogic/FreeFireManagerSerialize.cpp",
+    "Sources/src/AILogic/RndRunUpToEnemy.cpp",
+    "Sources/src/AILogic/Artillery.cpp",
+    "Sources/src/AILogic/Aviation.cpp",
+    "Sources/src/AILogic/Soldier.cpp",
+    "Sources/src/AILogic/Technics.cpp",
+    "Sources/src/AILogic/AnimUnitMech.cpp",
+    "Sources/src/AILogic/AnimUnitSerialize.cpp",
+    "Sources/src/AILogic/AnimUnitSoldier.cpp",
+    "Sources/src/AILogic/Units.cpp",
+    "Sources/src/AILogic/UnitsIterators.cpp",
+    "Sources/src/AILogic/UnitsSerialize.cpp",
+    "Sources/src/AILogic/AIUnit.cpp",
+    "Sources/src/AILogic/AIUnitInfoForGeneral.cpp",
+    "Sources/src/AILogic/AIUnitSerialize.cpp",
+    "Sources/src/AILogic/BasePathUnit.cpp",
+    "Sources/src/AILogic/CommonUnit.cpp",
+    "Sources/src/AILogic/QueueUnit.cpp",
+    "Sources/src/AILogic/ScanLimiter.cpp",
+    "Sources/src/AILogic/AIEditorInternal.cpp",
+    "Sources/src/AILogic/AIEditorSerialize.cpp",
+    "Sources/src/AILogic/AILogicInternal.cpp",
+    "Sources/src/AILogic/AILogicSerialize.cpp",
+    "Sources/src/AILogic/Cheats.cpp",
+    "Sources/src/AILogic/GlobalObjects.cpp",
+    "Sources/src/AILogic/StaticMembers.cpp",
+    "Sources/src/AILogic/AIStaticMap.cpp",
+    "Sources/src/AILogic/AIStaticMapSerialize.cpp",
+    "Sources/src/AILogic/AIGeometry.cpp",
+    "Sources/src/AILogic/AIGeometryDebug.cpp",
+    "Sources/src/AILogic/BetaSpline3D.cpp",
+    "Sources/src/AILogic/CLockWithUnlockPossibilities.cpp",
+    "Sources/src/AILogic/ListsSet.cpp",
+    "Sources/src/AILogic/MemoryConsumeCheck.cpp",
+    "Sources/src/AILogic/Probability.cpp",
+    "Sources/src/AILogic/RectTiles.cpp",
+    "Sources/src/AILogic/TimeCounter.cpp",
+    "Sources/src/AILogic/Trigonometry.cpp",
+    "Sources/src/AILogic/Scripts/Scripts.cpp",
+    "Sources/src/AILogic/ScriptsSerialize.cpp",
+    "Sources/src/AILogic/AAFeedBacks.cpp",
+    "Sources/src/AILogic/SuspendedUpdates.cpp",
+    "Sources/src/AILogic/SuspendedUpdatesSerialize.cpp",
+    "Sources/src/AILogic/UpdatableObject.cpp",
+    "Sources/src/AILogic/Updater.cpp",
+    "Sources/src/AILogic/UpdaterSerialize.cpp",
+    "Sources/src/AILogic/LinkObject.cpp",
+    "Sources/src/AILogic/LinkObjectSerialize.cpp",
+    "Sources/src/AILogic/Formation.cpp",
+    "Sources/src/AILogic/FormationSerialize.cpp",
+    "Sources/src/AILogic/Diplomacy.cpp",
+    "Sources/src/AILogic/InBuildingStates.cpp",
+    "Sources/src/AILogic/InEntrenchmentStates.cpp",
+    "Sources/src/AILogic/InTransportStates.cpp",
+    "Sources/src/AILogic/SoldierStates.cpp",
+    "Sources/src/AILogic/SoldierStatesSerialize.cpp",
+    "Sources/src/AILogic/PlaneStates.cpp",
+    "Sources/src/AILogic/PlaneStatesSerialize.cpp",
+    "Sources/src/AILogic/TankStates.cpp",
+    "Sources/src/AILogic/TankStatesSerialize.cpp",
+    "Sources/src/AILogic/TransportEngineerStates.cpp",
+    "Sources/src/AILogic/TransportStates.cpp",
+    "Sources/src/AILogic/TransportStatesSerialize.cpp",
+    "Sources/src/AILogic/CommonStates.cpp",
+    "Sources/src/AILogic/CommonStatesSerialize.cpp",
+    "Sources/src/AILogic/FormationEngineerStates.cpp",
+    "Sources/src/AILogic/FormationStates.cpp",
+    "Sources/src/AILogic/FormationStatesSerialize.cpp",
+    "Sources/src/AILogic/ArtilleryStates.cpp",
+    "Sources/src/AILogic/ArtilleryStatesSerialize.cpp",
+    "Sources/src/AILogic/ArtRocketStates.cpp",
+    "Sources/src/AILogic/ArtRocketStatesSerialize.cpp",
+    "Sources/src/AILogic/TechnicStates.cpp",
+    "Sources/src/AILogic/UnitStates.cpp",
+    "Sources/src/AILogic/EntrenchmentCreation.cpp",
+    "Sources/src/AILogic/UnitCreation.cpp",
+    "Sources/src/AILogic/AntiArtillery.cpp",
+    "Sources/src/AILogic/AntiArtilleryManager.cpp",
+    "Sources/src/AILogic/AntiArtillerySerialize.cpp",
+    "Sources/src/AILogic/AckManager.cpp",
+    "Sources/src/AILogic/AIConsts.cpp",
+    "Sources/src/AILogic/DamageToEnemyUpdater.cpp",
+    "Sources/src/AILogic/ShootEstimatorInternal.cpp",
+    "Sources/src/AILogic/ShootEstimatorSerialize.cpp",
+    "Sources/src/AILogic/CombatEstimator.cpp",
+    "Sources/src/AILogic/Statistics.cpp",
+    "Sources/src/AILogic/Commander.cpp",
+    "Sources/src/AILogic/EnemyRememberer.cpp",
+    "Sources/src/AILogic/GeneralAirForce.cpp",
+    "Sources/src/AILogic/GeneralArtillery.cpp",
+    "Sources/src/AILogic/GeneralConsts.cpp",
+    "Sources/src/AILogic/GeneralHelper.cpp",
+    "Sources/src/AILogic/GeneralIntendant.cpp",
+    "Sources/src/AILogic/GeneralInternal.cpp",
+    "Sources/src/AILogic/GeneralSerialize.cpp",
+    "Sources/src/AILogic/GeneralTasks.cpp",
+    "Sources/src/AILogic/Resistance.cpp",
+    "Sources/src/AILogic/SupremeBeing.cpp",
+    "Sources/src/AILogic/Graph.cpp",
+    "Sources/src/AILogic/GraphSerialize.cpp",
+    "Sources/src/AILogic/RailroadGraph.cpp",
+    "Sources/src/AILogic/RailroadsSerialize.cpp",
+    "Sources/src/AILogic/ObstacleInternal.cpp",
+    "Sources/src/AILogic/ObstaclesSerialize.cpp",
+    "Sources/src/AILogic/StaticObjects.cpp",
+    "Sources/src/AILogic/StaticObjectsIters.cpp",
+    "Sources/src/AILogic/ArtilleryBulletStorage.cpp",
+    "Sources/src/AILogic/Bridge.cpp",
+    "Sources/src/AILogic/Building.cpp",
+    "Sources/src/AILogic/Entrenchment.cpp",
+    "Sources/src/AILogic/Fence.cpp",
+    "Sources/src/AILogic/Flag.cpp",
+    "Sources/src/AILogic/Mine.cpp",
+    "Sources/src/AILogic/RotatingFireplacesObject.cpp",
+    "Sources/src/AILogic/SmokeScreen.cpp",
+    "Sources/src/AILogic/StaticObject.cpp",
+    "Sources/src/AILogic/StormableObject.cpp",
+    "Sources/src/AILogic/StaticObjectsSerialize.cpp",
+    "Sources/src/AILogic/MultiplayerInfo.cpp",
+    "Sources/src/AILogic/Weather.cpp",
+    "Sources/src/AILogic/Graveyard.cpp",
+    "Sources/src/AILogic/GraveyardSerialize.cpp",
+    "Sources/src/AILogic/AIHashFuncs.cpp",
+};
+
+const gamett_sources = &.{
+    "Sources/src/GameTT/GlobalsLoader.cpp",
+    "Sources/src/GameTT/StdAfx.cpp",
+    "Sources/src/GameTT/WorldClient.cpp",
+    "Sources/src/GameTT/WorldClientActions.cpp",
+    "Sources/src/GameTT/MultiplayerGamesList.cpp",
+    "Sources/src/GameTT/MultiplayerStartingGame.cpp",
+    "Sources/src/GameTT/InterfaceMPChat.cpp",
+    "Sources/src/GameTT/ChatWrapper.cpp",
+    "Sources/src/GameTT/InterfaceMPCreateGame.cpp",
+    "Sources/src/GameTT/InterfaceMPMapSettings.cpp",
+    "Sources/src/GameTT/InterfaceMPAddressBook.cpp",
+    "Sources/src/GameTT/MPConnectionError.cpp",
+    "Sources/src/GameTT/MultiplayerCommandManagerInternal.cpp",
+    "Sources/src/GameTT/PlayersInterface.cpp",
+    "Sources/src/GameTT/InterfaceOptionsSettings.cpp",
+    "Sources/src/GameTT/OptionEntryWrapper.cpp",
+    "Sources/src/GameTT/InterfaceAfterMissionPopups.cpp",
+    "Sources/src/GameTT/InterfaceUnitPerformance.cpp",
+    "Sources/src/GameTT/InterfaceSwitchModeTo.cpp",
+    "Sources/src/GameTT/InterfaceNewDepotUpgrades.cpp",
+    "Sources/src/GameTT/AddUnitToMission.cpp",
+    "Sources/src/GameTT/Campaign.cpp",
+    "Sources/src/GameTT/Chapter.cpp",
+    "Sources/src/GameTT/Common.cpp",
+    "Sources/src/GameTT/encyclopedia.cpp",
+    "Sources/src/GameTT/InterMission.cpp",
+    "Sources/src/GameTT/MainMenu.cpp",
+    "Sources/src/GameTT/Mission.cpp",
+    "Sources/src/GameTT/SingleMedal.cpp",
+    "Sources/src/GameTT/Stats.cpp",
+    "Sources/src/GameTT/TotalEncyclopedia.cpp",
+    "Sources/src/GameTT/UIState.cpp",
+    "Sources/src/GameTT/UnitsPool.cpp",
+    "Sources/src/GameTT/UpgradeUnit.cpp",
+    "Sources/src/GameTT/iMissionInternal.cpp",
+    "Sources/src/GameTT/QuitMission.cpp",
+    "Sources/src/GameTT/PlayMovieInterface.cpp",
+    "Sources/src/GameTT/InterfaceStartDialog.cpp",
+    "Sources/src/GameTT/MapSettingsWrapper.cpp",
+    "Sources/src/GameTT/BaseList.cpp",
+    "Sources/src/GameTT/CustomCampaign.cpp",
+    "Sources/src/GameTT/CustomChapter.cpp",
+    "Sources/src/GameTT/CustomList.cpp",
+    "Sources/src/GameTT/CustomMission.cpp",
+    "Sources/src/GameTT/CutsceneList.cpp",
+    "Sources/src/GameTT/IMLoadMission.cpp",
+    "Sources/src/GameTT/IMSaveMission.cpp",
+    "Sources/src/GameTT/IMTutorial.cpp",
+    "Sources/src/GameTT/InterfaceIMModsList.cpp",
+    "Sources/src/GameTT/LoadMission.cpp",
+    "Sources/src/GameTT/PlayerGainLevel.cpp",
+    "Sources/src/GameTT/ReplayList.cpp",
+    "Sources/src/GameTT/SaveMission.cpp",
+    "Sources/src/GameTT/SaveReplay.cpp",
+    "Sources/src/GameTT/SwitchToNextChapter.cpp",
+    "Sources/src/GameTT/TutorialList.cpp",
+    "Sources/src/GameTT/InterfaceMessageBox.cpp",
+    "Sources/src/GameTT/UIConsts.cpp",
+    "Sources/src/GameTT/UIMapInfo.cpp",
+    "Sources/src/GameTT/CustomMessageReaction.cpp",
+    "Sources/src/GameTT/MessageReactionINternal.cpp",
+    "Sources/src/GameTT/MessageReactionSerialize.cpp",
+    "Sources/src/GameTT/MissionObjectFactory.cpp",
+    "Sources/src/GameTT/AckManager.cpp",
+    "Sources/src/GameTT/MinimapCreation.cpp",
+};
+
+const streamio_sources = &.{
+    "Sources/src/StreamIO/GlobalsLoader.cpp",
+    "Sources/src/StreamIO/StdAfx.cpp",
+    "Sources/src/StreamIO/ZipFile.cpp",
+    "Sources/src/StreamIO/ZipFileSystem.cpp",
+    "Sources/src/StreamIO/CommonFileSystem.cpp",
+    "Sources/src/StreamIO/FileSystem.cpp",
+    "Sources/src/StreamIO/MemFileSystem.cpp",
+    "Sources/src/StreamIO/ModFileSystem.cpp",
+    "Sources/src/StreamIO/SaveLoadSystem.cpp",
+    "Sources/src/StreamIO/DataBase.cpp",
+    "Sources/src/StreamIO/IniFile.cpp",
+    "Sources/src/StreamIO/DataTableXML.cpp",
+    "Sources/src/StreamIO/Streams.cpp",
+    "Sources/src/StreamIO/StructureSaver2.cpp",
+    "Sources/src/StreamIO/DataTreeXML.cpp",
+    "Sources/src/StreamIO/ConsoleBuffer.cpp",
+    "Sources/src/StreamIO/GlobalVarsInternal.cpp",
+    "Sources/src/StreamIO/Singleton.cpp",
+    "Sources/src/StreamIO/RandomGenInternal.cpp",
+    "Sources/src/StreamIO/OptionSystemInternal.cpp",
+    "Sources/src/StreamIO/StreamIOObjectFactory.cpp",
+};
+
+const cppflags_streamio_debug = &.{
+    "-D_WINDOWS",
+    "-DWIN32",
+    "-D_DEBUG",
+    "-D_DO_ASSERT_SLOW",
+    "-D_DO_CHECKED_CAST",
+    "-D_STL_RANGE_CHECK",
+    "-D_DONT_LOAD_SINGLETONS",
+    "-D_DONT_LOAD_STREAMIO",
+    "-D_STREAMIO_DLL",
+    "-D_MT",
+    "-D_DLL",
+    "-fms-extensions",
+    "-fms-compatibility",
+    "-fdelayed-template-parsing",
+    "-fno-sanitize=enum",
+    "-Wno-deprecated-declarations",
+    "-Wno-microsoft-template",
+    "-Wno-nonportable-include-path",
+    "-Wno-reserved-user-defined-literal",
+    "-Wno-comment",
+    "-Wno-enum-compare",
+    "-Wno-microsoft-enum-forward-reference",
+    "-Wno-return-type",
+    "-Wno-address-of-temporary",
+    "-Wno-non-pod-varargs",
+    "-Wno-extra-tokens",
+    "-Wno-parentheses-equality",
+    "-Wno-switch",
+    "-Wno-format",
+    "-Wno-format-security",
+    "-Wno-tautological-constant-out-of-range-compare",
+    "-Wno-potentially-evaluated-expression",
+    "-Wno-unused-command-line-argument",
+};
+
+const cppflags_streamio_release = &.{
+    "-D_WINDOWS",
+    "-DWIN32",
+    "-DNDEBUG",
+    "-D_FINALRELEASE",
+    "-D_DONT_LOAD_SINGLETONS",
+    "-D_DONT_LOAD_STREAMIO",
+    "-D_STREAMIO_DLL",
+    "-D_MT",
+    "-D_DLL",
+    "-fms-extensions",
+    "-fms-compatibility",
+    "-fdelayed-template-parsing",
+    "-fno-sanitize=enum",
+    "-Wno-deprecated-declarations",
+    "-Wno-microsoft-template",
+    "-Wno-nonportable-include-path",
+    "-Wno-reserved-user-defined-literal",
+    "-Wno-comment",
+    "-Wno-enum-compare",
+    "-Wno-microsoft-enum-forward-reference",
+    "-Wno-return-type",
+    "-Wno-address-of-temporary",
+    "-Wno-non-pod-varargs",
+    "-Wno-extra-tokens",
+    "-Wno-parentheses-equality",
+    "-Wno-switch",
+    "-Wno-format",
+    "-Wno-format-security",
+    "-Wno-tautological-constant-out-of-range-compare",
+    "-Wno-potentially-evaluated-expression",
+    "-Wno-unused-command-line-argument",
+};
+
 const game_sources = &.{
     "Sources/src/Game/GlobalsLoader.cpp",
     "Sources/src/Game/StdAfx.cpp",
@@ -573,6 +993,7 @@ const cppflags_game_debug = &.{
     "-D_DLL",
     "-fms-extensions",
     "-fdelayed-template-parsing",
+    "-fno-sanitize=enum",
     "-Wno-deprecated-declarations",
     "-Wno-microsoft-template",
     "-Wno-nonportable-include-path",
@@ -595,6 +1016,7 @@ const cppflags_game_release = &.{
     "-D_DLL",
     "-fms-extensions",
     "-fdelayed-template-parsing",
+    "-fno-sanitize=enum",
     "-Wno-deprecated-declarations",
     "-Wno-microsoft-template",
     "-Wno-nonportable-include-path",
@@ -637,6 +1059,7 @@ pub fn build(b: *std.Build) void {
     const zlib = addZlib(b, target, optimize, toolchain);
     const libpng = addLibpng(b, target, optimize, toolchain, zlib);
     const misc = addMisc(b, target, optimize, toolchain);
+    const streamio = addStreamIO(b, target, optimize, toolchain, misc, zlib);
     const image = addImage(b, target, optimize, toolchain, zlib, libpng, misc);
     const lualib = addLuaLib(b, target, optimize, toolchain);
     const net = addNet(b, target, optimize, toolchain, misc);
@@ -650,7 +1073,10 @@ pub fn build(b: *std.Build) void {
     const fontgen = addFontGen(b, target, optimize, toolchain, image, common, formats, misc);
     const sfx = addSFX(b, target, optimize, toolchain, misc, common);
     const gfx = addGFX(b, target, optimize, toolchain, misc, formats);
+    const scene = addScene(b, target, optimize, toolchain, misc, formats);
     const randommapgen = addRandomMapGen(b, target, optimize, toolchain);
+    const ailogic = addAILogic(b, target, optimize, toolchain, misc, lualib, formats, randommapgen, zlib);
+    const gamett = addGameTT(b, target, optimize, toolchain, misc, common, formats, randommapgen);
     const main = addMain(b, target, optimize, toolchain);
     const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats, blitz64);
     const package_module = b.createModule(.{
@@ -667,6 +1093,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(zlib);
     b.installArtifact(libpng);
     b.installArtifact(misc);
+    b.installArtifact(streamio);
     b.installArtifact(image);
     b.installArtifact(lualib);
     b.installArtifact(net);
@@ -680,6 +1107,9 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(fontgen);
     b.installArtifact(sfx);
     b.installArtifact(gfx);
+    b.installArtifact(scene);
+    b.installArtifact(ailogic);
+    b.installArtifact(gamett);
     b.installArtifact(randommapgen);
     b.installArtifact(main);
     b.installArtifact(game);
@@ -692,6 +1122,9 @@ pub fn build(b: *std.Build) void {
 
     const misc_step = b.step("misc", "Build the Misc static library");
     misc_step.dependOn(&b.addInstallArtifact(misc, .{}).step);
+
+    const streamio_step = b.step("streamio", "Build the StreamIO dynamic library");
+    streamio_step.dependOn(&b.addInstallArtifact(streamio, .{}).step);
 
     const image_step = b.step("image", "Build the Image dynamic library");
     image_step.dependOn(&b.addInstallArtifact(image, .{}).step);
@@ -732,6 +1165,15 @@ pub fn build(b: *std.Build) void {
     const gfx_step = b.step("gfx", "Build the GFX dynamic library");
     gfx_step.dependOn(&b.addInstallArtifact(gfx, .{}).step);
 
+    const scene_step = b.step("scene", "Build the Scene dynamic library");
+    scene_step.dependOn(&b.addInstallArtifact(scene, .{}).step);
+
+    const ailogic_step = b.step("ailogic", "Build the AILogic dynamic library");
+    ailogic_step.dependOn(&b.addInstallArtifact(ailogic, .{}).step);
+
+    const gamett_step = b.step("gamett", "Build the GameTT dynamic library");
+    gamett_step.dependOn(&b.addInstallArtifact(gamett, .{}).step);
+
     const randommapgen_step = b.step("randommapgen", "Build the RandomMapGen static library");
     randommapgen_step.dependOn(&b.addInstallArtifact(randommapgen, .{}).step);
 
@@ -750,6 +1192,10 @@ pub fn build(b: *std.Build) void {
     game_all_step.dependOn(&b.addInstallArtifact(net, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(sfx, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(ui, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(streamio, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(scene, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(ailogic, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(gamett, .{}).step);
 
     const stage_tool = b.addExecutable(.{
         .name = "stage-game",
@@ -757,6 +1203,7 @@ pub fn build(b: *std.Build) void {
     });
 
     const install_game_cmd = b.addRunArtifact(stage_tool);
+    install_game_cmd.step.dependOn(game_all_step);
     install_game_cmd.addArg(".");
     install_game_cmd.addArg(install_dir);
     if (copy_data) {
@@ -778,6 +1225,7 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(&run_game_cmd.step);
 
     const stage_package_game_cmd = b.addRunArtifact(stage_tool);
+    stage_package_game_cmd.step.dependOn(game_all_step);
     stage_package_game_cmd.addArg(".");
     stage_package_game_cmd.addArg("zig-out/package-staging/game");
     stage_package_game_cmd.addArg("--copy-data");
@@ -787,6 +1235,7 @@ pub fn build(b: *std.Build) void {
         .root_module = package_module,
     });
     const package_tool_run = b.addRunArtifact(package_tool);
+    package_tool_run.step.dependOn(&stage_package_game_cmd.step);
     package_tool_run.addArg("zig-out/package-staging/game");
     package_tool_run.addArg(b.fmt("{s}/Blitzkrieg-game.zip", .{package_dir}));
 
@@ -1167,6 +1616,44 @@ fn addNet(
     });
 }
 
+fn addStreamIO(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    misc: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+) *std.Build.Step.Compile {
+    const streamio_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, streamio_module);
+    addMsvcIncludePaths(b, streamio_module, toolchain);
+    addMsvcLibraryPaths(b, streamio_module, toolchain);
+    streamio_module.addIncludePath(b.path("Sources/src/StreamIO"));
+    streamio_module.addCSourceFiles(.{
+        .files = streamio_sources,
+        .flags = cppflagsStreamIOForOptimize(optimize),
+    });
+    streamio_module.linkLibrary(misc);
+    streamio_module.linkLibrary(zlib);
+    linkMsvcRuntime(streamio_module, optimize);
+    streamio_module.linkSystemLibrary("winmm", .{});
+    streamio_module.linkSystemLibrary("ws2_32", .{});
+    streamio_module.linkSystemLibrary("user32", .{});
+    streamio_module.linkSystemLibrary("odbc32", .{});
+    streamio_module.linkSystemLibrary("odbccp32", .{});
+    linkComSupport(streamio_module, optimize);
+
+    return b.addLibrary(.{
+        .name = "StreamIO",
+        .linkage = .dynamic,
+        .root_module = streamio_module,
+        .win32_module_definition = b.path("Sources/src/StreamIO/StreamIO.def"),
+    });
+}
+
 fn addBuildVersion(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
@@ -1509,6 +1996,144 @@ fn addSFX(
     });
 }
 
+fn addAILogic(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    misc: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+) *std.Build.Step.Compile {
+    const ailogic_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, ailogic_module);
+    addMsvcIncludePaths(b, ailogic_module, toolchain);
+    addMsvcLibraryPaths(b, ailogic_module, toolchain);
+    ailogic_module.addIncludePath(b.path("Sources/src/AILogic"));
+    ailogic_module.addIncludePath(b.path("Sources/src/StreamIO"));
+    ailogic_module.addIncludePath(b.path("Sources/src/Common"));
+    ailogic_module.addIncludePath(b.path("Sources/src/RandomMapGen"));
+    ailogic_module.addIncludePath(b.path("Sources/src/Main"));
+    ailogic_module.addCSourceFiles(.{
+        .files = ailogic_sources,
+        .flags = cppflagsForOptimize(optimize),
+    });
+    ailogic_module.linkLibrary(misc);
+    ailogic_module.linkLibrary(lualib);
+    ailogic_module.linkLibrary(formats);
+    ailogic_module.linkLibrary(randommapgen);
+    ailogic_module.linkLibrary(zlib);
+    linkMsvcRuntime(ailogic_module, optimize);
+    ailogic_module.linkSystemLibrary("odbc32", .{});
+    ailogic_module.linkSystemLibrary("odbccp32", .{});
+    linkComSupport(ailogic_module, optimize);
+
+    return b.addLibrary(.{
+        .name = "AILogic",
+        .linkage = .dynamic,
+        .root_module = ailogic_module,
+        .win32_module_definition = b.path("Sources/src/AILogic/AILogic.def"),
+    });
+}
+
+fn addGameTT(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    misc: *std.Build.Step.Compile,
+    common: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+) *std.Build.Step.Compile {
+    const gamett_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, gamett_module);
+    addMsvcIncludePaths(b, gamett_module, toolchain);
+    addMsvcLibraryPaths(b, gamett_module, toolchain);
+    gamett_module.addIncludePath(b.path("Sources/src/GameTT"));
+    gamett_module.addIncludePath(b.path("Sources/src/StreamIO"));
+    gamett_module.addIncludePath(b.path("Sources/src/Common"));
+    gamett_module.addIncludePath(b.path("Sources/src/RandomMapGen"));
+    gamett_module.addIncludePath(b.path("Sources/src/Main"));
+    gamett_module.addCSourceFiles(.{
+        .files = gamett_sources,
+        .flags = cppflagsForOptimize(optimize),
+    });
+    gamett_module.linkLibrary(misc);
+    gamett_module.linkLibrary(common);
+    gamett_module.linkLibrary(formats);
+    gamett_module.linkLibrary(randommapgen);
+    linkMsvcRuntime(gamett_module, optimize);
+    gamett_module.linkSystemLibrary("user32", .{});
+    gamett_module.linkSystemLibrary("version", .{});
+    gamett_module.linkSystemLibrary("winmm", .{});
+    gamett_module.linkSystemLibrary("odbc32", .{});
+    gamett_module.linkSystemLibrary("odbccp32", .{});
+    linkComSupport(gamett_module, optimize);
+
+    return b.addLibrary(.{
+        .name = "GameTT",
+        .linkage = .dynamic,
+        .root_module = gamett_module,
+        .win32_module_definition = b.path("Sources/src/GameTT/GameTT.def"),
+    });
+}
+
+fn addScene(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    misc: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+) *std.Build.Step.Compile {
+    const scene_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, scene_module);
+    addMsvcIncludePaths(b, scene_module, toolchain);
+    addMsvcLibraryPaths(b, scene_module, toolchain);
+    scene_module.addIncludePath(b.path("Sources/src/Scene"));
+    scene_module.addIncludePath(b.path("Sources/src/StreamIO"));
+    scene_module.addIncludePath(b.path("Sources/src/Input"));
+    scene_module.addIncludePath(b.path("Sources/src/Common"));
+    scene_module.addIncludePath(b.path("Sources/src/Main"));
+    scene_module.addIncludePath(b.path("Sources/sdk/xiph/ogg-1.3.5/include"));
+    scene_module.addIncludePath(b.path("Sources/sdk/xiph/libtheora-1.2.0/include"));
+    scene_module.addCSourceFiles(.{
+        .files = scene_cpp_sources,
+        .flags = cppflagsForOptimize(optimize),
+    });
+    scene_module.addCSourceFiles(.{
+        .files = scene_c_sources,
+        .flags = cflagsForOptimize(optimize),
+    });
+    scene_module.linkLibrary(misc);
+    scene_module.linkLibrary(formats);
+    linkMsvcRuntime(scene_module, optimize);
+    scene_module.linkSystemLibrary("user32", .{});
+    scene_module.linkSystemLibrary("winmm", .{});
+    scene_module.linkSystemLibrary("odbc32", .{});
+    scene_module.linkSystemLibrary("odbccp32", .{});
+    linkComSupport(scene_module, optimize);
+
+    return b.addLibrary(.{
+        .name = "Scene",
+        .linkage = .dynamic,
+        .root_module = scene_module,
+        .win32_module_definition = b.path("Sources/src/Scene/Scene.def"),
+    });
+}
+
 fn addGFX(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
@@ -1561,6 +2186,13 @@ fn cppflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     return switch (optimize) {
         .Debug => cppflags_debug,
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_release,
+    };
+}
+
+fn cppflagsStreamIOForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
+    return switch (optimize) {
+        .Debug => cppflags_streamio_debug,
+        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_streamio_release,
     };
 }
 

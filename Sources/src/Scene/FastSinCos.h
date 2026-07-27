@@ -3,14 +3,12 @@
 #pragma ONCE
 #define MAX_CIRCLE_ANGLE      32768
 #define HALF_MAX_CIRCLE_ANGLE (MAX_CIRCLE_ANGLE/2)
+#include <xmmintrin.h>
 namespace NFastSinCos
 {
-	inline void FloatToInt( int *int_pointer, const float f ) 
+	inline void FloatToInt( int *int_pointer, const float f )
 	{
-		__asm  fld  f
-		__asm  mov  edx,int_pointer
-		__asm  FRNDINT
-		__asm  fistp dword ptr [edx];
+		*int_pointer = _mm_cvt_ss2si( _mm_set_ss( f ) );
 	}
 };
 inline const int FSinCosMakeAngle( const float fAngle )

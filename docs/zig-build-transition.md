@@ -26,6 +26,7 @@ Current Zig targets:
 zig build zlib
 zig build libpng
 zig build misc
+zig build streamio
 zig build image
 zig build lualib
 zig build net
@@ -40,6 +41,9 @@ zig build fontgen
 zig build sfx
 zig build gfx
 zig build randommapgen
+zig build scene
+zig build ailogic
+zig build gamett
 zig build main
 zig build game
 ```
@@ -87,3 +91,11 @@ zig build misc -Dmsvc-include="C:\Path\To\VC\Tools\MSVC\<version>\include" -Dwin
 `Main` is mirrored as a static library. This target required narrowly scoped compatibility updates in multiplayer command plumbing, script string conversions, and RPG stats templates to match modern C++ parsing rules without changing runtime flow.
 
 `Game` is now mirrored as a Win32 executable target. It links the Zig-built `Main`, `Misc`, `LuaLib`, `zlib`, `RandomMapGen`, and `Formats` artifacts, uses `WinMainCRTStartup`, and links the same core Win32/user/system libraries as the Visual Studio build path.
+
+`StreamIO` is mirrored as a DLL using `Sources/src/StreamIO/StreamIO.def` and is part of the `game-all` runtime set. Because Clang cannot process `#import` of type libraries, `MSXMLImport.h` includes the MSVC-pregenerated `msxml3.tlh`/`.tli` (checked in next to it) when building under Clang; MSVC continues to use `#import`. This slice also made the x64 target runnable up to game-system initialization: the x86 inline assembly in `Misc/HPTimer.cpp` and `Misc/Tools.h` was replaced with portable equivalents (`__rdtsc`, `__cpuid`, SSE conversion, plain C++), the per-module `GlobalsLoader.cpp` copies now tolerate a missing `streamio.dll`, and the zip directory parser aligns its pointer table for 64-bit.
+
+`Scene`, `AILogic`, and `GameTT` are mirrored as DLLs using their legacy `.def` files and are part of the `game-all` runtime set. Scene builds the Xiph Ogg/Theora C sources for the video player; AILogic links `Misc`, `LuaLib`, `Formats`, `RandomMapGen`, and `zlib`; GameTT links `Misc`, `Common`, `Formats`, and `RandomMapGen`. These slices replaced the remaining x86 inline assembly (`FastSinCos.h`), fixed Clang parsing issues in shared AI/UI headers, and added `const wchar_t*` bridging overloads for the `WORD*`-based UI text interfaces (the legacy projects compiled with `/Zc:wchar_t-`).
+
+Debug builds compile C/C++ with Zig's UBSan in panic mode. The `enum` check is disabled (`-fno-sanitize=enum`) because the engine loads enum values from data files by design (e.g., ack types from `acks.xml`); all other checks (null member calls, misaligned access) remain active and have caught real x64 bugs.
+
+With these targets in place the x64 (`-Dtarget=x86_64-windows-msvc`) game builds, stages, and starts: it initializes all module DLLs, mounts the pak archives, and runs the full game loop.

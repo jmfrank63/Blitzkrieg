@@ -214,8 +214,8 @@ void CInterfaceMPStartingGame::PlayerLeft( const SUIPlayerInfo * pInfo )
 	IText * pText = pTextM->GetString( "immessage-multiplayer-playerleft" );
 	if ( pText )
 	{
-		std::wstring wszText = pInfo->szName + NStr::ToUnicode(" ") + pText->GetString();
-		chat.AddImportantText( wszText.c_str() );
+		std::wstring wszText = pInfo->szName + NStr::ToUnicode(" ") + reinterpret_cast<const wchar_t*>( pText->GetString() );
+		chat.AddImportantText( reinterpret_cast<const WORD*>( wszText.c_str() ) );
 	}
 	DeletePlayer( pInfo );
 }
@@ -225,8 +225,8 @@ void CInterfaceMPStartingGame::PlayerKicked( const SUIPlayerInfo * pInfo )
 	IText * pText = pTextM->GetString( "immessage-multiplayer-playerkicked" );
 	if ( pText )
 	{
-		std::wstring wszText = pInfo->szName + NStr::ToUnicode(" ")+ pText->GetString();
-		chat.AddImportantText( wszText.c_str() );
+		std::wstring wszText = pInfo->szName + NStr::ToUnicode(" ")+ reinterpret_cast<const wchar_t*>( pText->GetString() );
+		chat.AddImportantText( reinterpret_cast<const WORD*>( wszText.c_str() ) );
 	}
 	DeletePlayer( pInfo );
 }
@@ -320,7 +320,7 @@ const WORD * CInterfaceMPStartingGame::GetDestinationName()
 {
 	SUIPlayerInfo * pInfo = playerList.GetCurInfo();
 	if ( !pInfo ) return 0;
-	return pInfo->szName.c_str();
+	return reinterpret_cast<const WORD*>( pInfo->szName.c_str() );
 }
 void CInterfaceMPStartingGame::DeletePlayer( const SUIPlayerInfo *pPlayerInfo )
 {
@@ -351,7 +351,7 @@ void CInterfaceMPStartingGame::AddOrUpdatePlayer( SUIPlayerInfo *pPlayerInfo )
 	IUIStatic * pPlayerName = checked_cast<IUIStatic*>( pRow->GetElement( 1 ) );
 	pPlayerName->SetWindowText( 0, pPlayerInfo->szName.c_str() );
 
-	std::wstring szLocalParty = CUIConsts::GetLocalPartyName( pPlayerInfo->szSide.c_str() );
+	std::wstring szLocalParty = reinterpret_cast<const wchar_t*>( CUIConsts::GetLocalPartyName( pPlayerInfo->szSide.c_str() ) );
 	
 	IUIStatic * pTeam = checked_cast<IUIStatic*>( pRow->GetElement( 2 ) );
 	pTeam->SetWindowText( 0, szLocalParty.c_str() );

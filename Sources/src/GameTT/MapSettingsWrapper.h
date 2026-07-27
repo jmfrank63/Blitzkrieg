@@ -53,7 +53,7 @@ public:
 	CMapSettingsWrapper() { }
 	CMapSettingsWrapper ( const bool bCanChange, const int bFlag );
 	const SMultiplayerGameSettings & GetSettings();
-	const SMultiplayerGameSettings & CMapSettingsWrapper::GetSettingsWOApply() const;
+	const SMultiplayerGameSettings & GetSettingsWOApply() const;
 	
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
 	void Init( IUIListControl *_pList, IUIStatic *_pGameType );
