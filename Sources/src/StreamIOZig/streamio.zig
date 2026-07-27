@@ -167,9 +167,20 @@ fn fromHandle(comptime T: type, handle: ?*anyopaque) ?*T {
 
 const ShortChunk = struct { id: u8, start: usize, len: usize };
 
+// [reader-diag] total chunk headers decoded since the last bk_structure_create
+// — compared against the file's actual chunk count this exposes re-scanning
+// (quadratic reader behavior). Read via bk_structure_scan_iters; strip with
+// the other load-speed diagnostics.
+var g_scan_iters: u64 = 0;
+
+pub export fn bk_structure_scan_iters() callconv(.c) u64 {
+    return g_scan_iters;
+}
+
 // Decode one [id][len][payload] chunk at *relative* position `position` inside
 // the level; advances position past the chunk.
 fn readShortChunk(bytes: []const u8, level: StructureLevel, position: *usize) ?ShortChunk {
+    g_scan_iters += 1;
     var pos = level.start + position.*;
     const end = level.start + level.len;
     if (pos + 2 > end) return null;
@@ -243,6 +254,7 @@ fn getShortChunk(bytes: []const u8, level: *StructureLevel, wanted_id: u8, wante
 
 pub export fn bk_structure_create(stream_handle: ?*anyopaque, mode: c_int) callconv(.c) ?*anyopaque {
     if (mode != 1 and mode != 2) return null;
+    g_scan_iters = 0;
     const stream = fromHandle(Stream, stream_handle) orelse return null;
     const file_level = StructureLevel{ .start = 0, .len = stream.bytes.len };
     const data_level = shortChunkAt(stream.bytes, file_level, 1, 1) orelse return null;

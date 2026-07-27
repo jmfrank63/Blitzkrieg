@@ -240,7 +240,7 @@ public:
 	bool STDCALL IsActive();
 	bool STDCALL BeginScene();
 	bool STDCALL EndScene();
-	bool STDCALL IsInsideScene() const { return bInsideScene; }
+	bool STDCALL IsSafeToPresent() const { return !bInsideScene && pCurrRT.GetPtr() == 0; }
 	bool STDCALL Clear( int nNumRects, RECT *pRects, DWORD dwFlags, DWORD dwColor, float fDepth, DWORD dwStencil );
 	bool STDCALL Flip();
 	bool STDCALL SetRenderTarget( IGFXRTexture *pRT );
