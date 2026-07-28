@@ -139,8 +139,8 @@ IMainLoop* STDCALL CreateMainLoop()
 	return pML;
 }
 CMainLoop::CMainLoop()
-: bAppIsActive( false ), bWireFrame( false ), bPaused( false )
-{ 
+: bAppIsActive( false ), bWireFrame( false ), bPaused( false ), bDeferResourcePurge( false ), nResumeStreamingSteps( 0 )
+{
 	bDisableMessageProcessing = false;
 	nAutoSavePeriod = GetGlobalVar( "autosave", 0 ) * 1000;
 	timeLastAutoSave = 0;
@@ -213,9 +213,9 @@ void CMainLoop::Serialize( IStructureSaver *pSS, IProgressHook *pHook )
 		int nManagerIndex = 0;
 		for ( CManagersList::iterator i = managers.begin(); i != managers.end(); ++i, ++nManagerIndex )
 		{
-			TraceMainLoadProgress( szBaseDir, NStr::Format( "CMainLoop::Serialize manager[%d] begin", nManagerIndex ) );
+			TraceMainLoadProgress( szBaseDir, NStr::Format( "CMainLoop::Serialize manager[%d] (%s) begin", nManagerIndex, typeid(**i).name() ) );
 			(*i)->operator&( *pSS );
-			TraceMainLoadProgress( szBaseDir, NStr::Format( "CMainLoop::Serialize manager[%d] end", nManagerIndex ) );
+			TraceMainLoadProgress( szBaseDir, NStr::Format( "CMainLoop::Serialize manager[%d] (%s) end", nManagerIndex, typeid(**i).name() ) );
 		}
 	}
 	TraceMainLoadProgress( szBaseDir, "CMainLoop::Serialize managers end" );
@@ -399,7 +399,8 @@ void CMainLoop::PopInterface()
 	}
 	if ( !interfaces.empty() )
 		interfaces.back()->OnGetFocus( true );
-	ClearResources( false );
+	if ( !bDeferResourcePurge )
+		ClearResources( false );
 }
 IInterfaceBase* CMainLoop::GetInterface() const
 {
@@ -704,6 +705,8 @@ void CMainLoop::ProcessTimeoutMsg( const SGameMessage &msg )
 bool CMainLoop::StepApp( bool bActive )
 {
 	bAppIsActive = bActive;
+	if ( nResumeStreamingSteps > 0 && --nResumeStreamingSteps == 0 )
+		GetSingleton<ISFX>()->PauseStreaming( false );
 #ifndef _FINALRELEASE	
 	if ( nAutoSavePeriod > 0 ) 
 	{
@@ -932,6 +935,17 @@ void CProgressScreen::Step()
 }
 void CProgressScreen::SetCurrPos( const int nPos )
 {
+	// [bar-trace] temporary: motion profile of the loading bar (one line per
+	// position change) — strip with the other load-speed diagnostics.
+	if ( nPos != nCurrentStep )
+	{
+		FILE *pFile = fopen( "load_trace.log", "ab" );
+		if ( pFile )
+		{
+			fprintf( pFile, "%lu [bar] pos=%d\n", GetTickCount(), nPos );
+			fclose( pFile );
+		}
+	}
 	nCurrentStep = Clamp( nPos, 1, nNumSteps );
 	Draw();
 }
@@ -941,6 +955,13 @@ int CProgressScreen::GetCurrPos() const
 }
 void CProgressScreen::Draw()
 {
+	// A progress pump can fire from a data-file read that happens inside an
+	// active render pass or while a render target is bound (e.g. minimap
+	// render-to-texture lazily loading a tile texture) — drawing there would
+	// nest BeginScene or paint the movie into the target. Skip; the next pump
+	// in a safe context catches up.
+	if ( pGFX != 0 && !pGFX->IsSafeToPresent() )
+		return;
 	if ( pVP != 0 )
 	{
 		int nNextFrame = Clamp( int( ( nCurrentStep / float(nNumSteps) ) * nMaxFrame + 1 ), 1, nMaxFrame );

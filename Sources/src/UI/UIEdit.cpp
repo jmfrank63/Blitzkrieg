@@ -167,7 +167,7 @@ bool CUIEditBox::IsValidSymbol( int nAsciiCode )
 	
 	if ( bFileNameSymbols )
 	{
-		static const char szValidSymbols[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789[]`_^{}-!@#$%^&()+=~";
+		static const char szValidSymbols[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789[]`_^{}-!@#$%^&()+=~ ";
 		static const int nLen = strlen( szValidSymbols );
 		for ( int i=0; i<nLen; i++ )
 		{

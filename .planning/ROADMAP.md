@@ -74,20 +74,99 @@ Goals:
 
 ## Feature backlog
 
-- **Multiple player profiles** — each with its own config and savegames.
-  Never implemented in the original (verified against upstream: the
-  "PlayerProfile" dialog is just a name edit; one global `config.cfg`, one
-  global `saves\` dir; the only existing separation is per-MOD save dirs).
+- **Multiple player profiles** — each with its own config and savegames,
+  with optional password protection per profile. Never implemented in the
+  original (verified against upstream: the "PlayerProfile" dialog is just a
+  name edit; one global `config.cfg`, one global `saves\` dir; the only
+  existing separation is per-MOD save dirs).
   Design sketch: `profiles\<name>\config.cfg` + `profiles\<name>\saves\`,
   profile-selection list at startup, "last profile" pointer in a root
   config, migration of existing config/saves into a default profile. All
   persistence already funnels through `ResolveConfigFileName` and the
   `saves\` path construction in `CICLoad`/`CICSave`, so the change is
   localized.
-- **Load-time optimization, remaining 6s** — `CMainLoop::Serialize`
-  manager[0] block is the whole remaining cost of savegame loads
-  (instrumented via `load_trace.log` per-manager timings; see
-  docs/scaling.md session notes).
+  Password protection (decision 2026-07-27): the whole per-profile folder
+  is encrypted with a key derived from the profile password — real
+  protection of the content, not just a UI gate. Natural hook point: all
+  profile file I/O (config + saves) already flows through the zig StreamIO
+  file streams (`bk_stream_*` in streamio.zig), so a transparent
+  encrypt/decrypt layer keyed per-profile can live there without touching
+  the C++ callers; key derivation from the password prompt at profile
+  selection (needs a masked-input mode in `CUIEditBox`). Forgotten password
+  = unrecoverable profile — needs a clear warning at creation.
+  Per-profile cutscene unlocks fold in naturally since the cutscenes menu
+  now derives them from the profile's own `saves\` dir (2026-07-27
+  save-derived unlock logic; the scan must run after the profile is
+  unlocked so headers are decryptable).
+- **Use x64 address space: preload/cache aggressively** — the 32-bit
+  build's 2GB ceiling shaped every eviction policy; x64 removes it. Ideas:
+  preload the texture/mesh/sound pool during game startup (or campaign
+  select) so mission loads only deserialize state; keep shared managers
+  warm across missions instead of purging (the SDSM_MERGE + deferred-purge
+  machinery from 2026-07-27 already supports reuse — a "never purge, evict
+  only on pressure" mode is the natural extension); cache parsed XML/GDB
+  and decoded map data. Measure win via the [share] trace lines.
+- **MCP server to control the game** — expose the running game to an AI
+  agent (and to automated testing) as MCP tools. Building blocks already
+  proven in the debug workflow: direct mission launch (unquoted
+  `-<mission>.xml` arg), direct save launch (`-<name>.sav` arg),
+  `RedirectStandardError` panic capture (exit 3 = zig panic, 0xDEAD =
+  second instance — check `Get-Process Game` first), PrintWindow-based
+  screenshot capture of the occluded/fullscreen window, `load_trace.log` /
+  `bk_stderr.log` telemetry. Command injection candidates: the console
+  command stream (`IConsoleBuffer` world-command channel that LUA tutorials
+  already use) and `IMainLoop::Command`; input injection via the
+  `EmulateInput` bind path if real clicks are needed. Natural tool set:
+  launch/attach, screenshot, read-state (units/selection via
+  `ReturnScriptIDs`-style queries), issue-command, save/load, quit.
+- **Load-time optimization** — `CMainLoop::Serialize` manager[0] block is
+  nearly the whole cost of savegame loads (instrumented via
+  `load_trace.log` per-manager timings; see docs/scaling.md session
+  notes). Data points (x64 Debug build): tutorial save ~13s, mid-campaign
+  ~26s, "USSR Leningrad1" 45s (user-reported 2026-07-27) — grows with
+  mission size, so the map/terrain/texture load inside manager[0]
+  dominates. Before optimizing the Debug numbers, measure a ReleaseFast
+  build: Debug is clang -O0 + UBSan and known ~2-3x slower (the theora
+  lesson); the fix may be partly "play on Release".
+  KEY MECHANISM (analyzed 2026-07-27): the shared-resource managers
+  (texture/mesh/anim/sound/particle shares, BasicShare.h) already default
+  to `SDSM_MERGE` serialization — same-name resources still resident are
+  reused via `SwapData` with NO disk I/O. But `CICLoad` pops all
+  interfaces first, and every `PopInterface` calls
+  `ClearResources(false)` → `Clear(CLEAL_UNREFERENCED)` — the dying world
+  releases its refs, the purge empties the shares, and the merge finds
+  nothing to reuse. FIX SHAPE: in the load path, defer the unreferenced
+  purge until AFTER `Serialize` (pop without clearing, deserialize with
+  merge, then purge what the new world doesn't reference). A same-mission
+  load (death retry — the dominant case) then reuses nearly everything →
+  seconds instead of 45s; cross-mission loads still correct, briefly
+  holding two missions' resources (fine on x64). Also: each PopInterface
+  in the pop-all loop runs the 7-manager purge — O(stack depth) wasted
+  work even outside loads. Secondary wins: compile zlib/pak-inflate and
+  image decode ReleaseFast inside Debug builds (proven xiph pattern in
+  build.zig); parallel file-read+decode with main-thread-only D3D upload.
+- **Fullscreen without distortion** — render at the monitor's native
+  aspect ratio instead of stretching the 4:3-era projection. NOT easy
+  (user's assessment, shared): the engine assumes one global screen rect —
+  `NSceneScreenScale` gameplay projection, UI layout scaling
+  (`ShouldScaleLegacyLayout`), minimap pow2-vs-viewport assumptions (the
+  2026-07-26 minimap bug class), `SetDstRect` video letterboxing, cursor
+  and pick coordinate transforms all bake it in. Likely shape:
+  aspect-correct ortho + pillarbox/expanded FOV decision per subsystem,
+  and an audit of every `GetScreenRect()` consumer. Prerequisite notes in
+  the minimap memory: the pow2-texture-vs-size assumption may lurk in
+  other viewport-derived code.
+- **Vulkan renderer** — replace the D3D8 backend to unlock cross-platform
+  compilation (the zig build already cross-compiles everything except the
+  Win32/D3D8 layer). All device access already funnels through
+  `IGFX`/`CGraphicsEngine` (GFX.dll), so the port surface is one module
+  plus the D3D8-isms leaked through it (FVF vertex formats, `IGFXVertices`
+  buffer semantics, `SetShadingEffect` fixed-function states, RTT via
+  `IGFXRTexture`, `IsSafeToPresent` scene bracketing). Suggested path:
+  first wrap D3D8 usage behind a narrower internal RHI inside GFX.dll,
+  then add the Vulkan implementation; windowing/input (WinFrame) and SFX
+  (DirectSound-era) need their own cross-platform stories — consider SDL
+  for both when the time comes.
 - **Chapter-title layout** — our `UI\common\Chapter.xml` deliberately
   diverges from GOG (centered title vs. original left-aligned); revisit if
   further resolutions change the bar/`?`-button geometry.

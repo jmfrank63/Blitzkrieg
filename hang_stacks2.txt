@@ -1,0 +1,326 @@
+
+************* Preparing the environment for Debugger Extensions Gallery repositories **************
+   ExtensionRepository : Implicit
+   UseExperimentalFeatureForNugetShare : true
+   AllowNugetExeUpdate : true
+   NonInteractiveNuget : true
+   AllowNugetMSCredentialProviderInstall : true
+   AllowParallelInitializationOfLocalRepositories : true
+
+   EnableRedirectToV8JsProvider : false
+
+   -- Configuring repositories
+      ----> Repository : LocalInstalled, Enabled: true
+      ----> Repository : UserExtensions, Enabled: true
+
+>>>>>>>>>>>>> Preparing the environment for Debugger Extensions Gallery repositories completed, duration 0.000 seconds
+
+************* Waiting for Debugger Extensions Gallery to Initialize **************
+
+>>>>>>>>>>>>> Waiting for Debugger Extensions Gallery to Initialize completed, duration 0.016 seconds
+   ----> Repository : UserExtensions, Enabled: true, Packages count: 0
+   ----> Repository : LocalInstalled, Enabled: true, Packages count: 30
+
+Microsoft (R) Windows Debugger Version 10.0.26100.7463 AMD64
+Copyright (c) Microsoft Corporation. All rights reserved.
+
+*** wait with pending attach
+
+************* Path validation summary **************
+Response                         Time (ms)     Location
+Deferred                                       srv*
+Symbol search path is: srv*
+Executable search path is: 
+ModLoad: 00007ff7`e29f0000 00007ff7`e3dd1000   C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\zig-out\Game\x64\Debug\Game.exe
+ModLoad: 00007ffc`61ca0000 00007ffc`61f06000   C:\WINDOWS\SYSTEM32\ntdll.dll
+ModLoad: 00007ffc`61130000 00007ffc`611f9000   C:\WINDOWS\System32\KERNEL32.DLL
+ModLoad: 00007ffc`5ef70000 00007ffc`5f36e000   C:\WINDOWS\System32\KERNELBASE.dll
+ModLoad: 00007ffc`5ba10000 00007ffc`5bab0000   C:\WINDOWS\SYSTEM32\apphelp.dll
+ModLoad: 00007ffc`60c90000 00007ffc`60e57000   C:\WINDOWS\System32\USER32.dll
+ModLoad: 00007ffc`5f9a0000 00007ffc`5f9c7000   C:\WINDOWS\System32\win32u.dll
+ModLoad: 00007ffc`60350000 00007ffc`6037b000   C:\WINDOWS\System32\GDI32.dll
+ModLoad: 00007ffc`3d520000 00007ffc`3d550000   C:\WINDOWS\SYSTEM32\VCRUNTIME140D.dll
+ModLoad: 00007ffc`5f630000 00007ffc`5f75a000   C:\WINDOWS\System32\gdi32full.dll
+ModLoad: 00007ffc`343d0000 00007ffc`345d8000   C:\WINDOWS\SYSTEM32\ucrtbased.dll
+ModLoad: 00007ffc`342f0000 00007ffc`343ca000   C:\WINDOWS\SYSTEM32\MSVCP140D.dll
+ModLoad: 00007ffc`5eec0000 00007ffc`5ef63000   C:\WINDOWS\System32\msvcp_win.dll
+ModLoad: 00007ffc`5f410000 00007ffc`5f55c000   C:\WINDOWS\System32\ucrtbase.dll
+ModLoad: 00007ffc`44b50000 00007ffc`44b5f000   C:\WINDOWS\SYSTEM32\VCRUNTIME140_1D.dll
+ModLoad: 00007ffc`5f9d0000 00007ffc`5faa9000   C:\WINDOWS\System32\OLEAUT32.dll
+ModLoad: 00007ffc`61200000 00007ffc`61583000   C:\WINDOWS\System32\combase.dll
+ModLoad: 00007ffc`60e60000 00007ffc`60f78000   C:\WINDOWS\System32\RPCRT4.dll
+ModLoad: 00007ffc`60f80000 00007ffc`61119000   C:\WINDOWS\System32\ole32.dll
+ModLoad: 00007ffc`50ee0000 00007ffc`50f16000   C:\WINDOWS\SYSTEM32\WINMM.dll
+ModLoad: 00007ffc`579f0000 00007ffc`579fb000   C:\WINDOWS\SYSTEM32\VERSION.dll
+ModLoad: 00007ffc`61590000 00007ffc`61639000   C:\WINDOWS\System32\msvcrt.dll
+ModLoad: 00007ffc`61840000 00007ffc`61872000   C:\WINDOWS\System32\IMM32.DLL
+ModLoad: 00007ffb`ffcb0000 00007ffb`ffdaf000   C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\zig-out\Game\x64\Debug\streamio.dll
+ModLoad: 00007ffb`aaef0000 00007ffb`ab05d000   C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\zig-out\Game\x64\Debug\StreamIOOptionsAbi.dll
+ModLoad: 00007ffb`98680000 00007ffb`9a8e4000   C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\zig-out\Game\x64\Debug\AILogic.dll
+ModLoad: 00007ffb`9b4e0000 00007ffb`9b8b5000   C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\zig-out\Game\x64\Debug\Anim.dll
+ModLoad: 00007ffb`96f50000 00007ffb`98678000   C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\zig-out\Game\x64\Debug\GameTT.dll
+ModLoad: 00007ffb`96a00000 00007ffb`96f50000   C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\zig-out\Game\x64\Debug\GFX.dll
+ModLoad: 00007ffb`db4f0000 00007ffb`db6a2000   C:\WINDOWS\SYSTEM32\d3d9.dll
+ModLoad: 00007ffc`608b0000 00007ffc`6095a000   C:\WINDOWS\System32\sechost.dll
+ModLoad: 00007ffc`5bdc0000 00007ffc`5bdef000   C:\WINDOWS\SYSTEM32\dwmapi.dll
+ModLoad: 00007ffc`5bc00000 00007ffc`5bc46000   C:\WINDOWS\SYSTEM32\dxcore.dll
+ModLoad: 00007ffb`965a0000 00007ffb`969fc000   C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\zig-out\Game\x64\Debug\Image.dll
+ModLoad: 00007ffb`961d0000 00007ffb`9659d000   C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\zig-out\Game\x64\Debug\Input.dll
+ModLoad: 00007ffc`34ec0000 00007ffc`34f0b000   C:\WINDOWS\SYSTEM32\DINPUT8.dll
+ModLoad: 00007ffc`61750000 00007ffc`61807000   C:\WINDOWS\System32\ADVAPI32.dll
+ModLoad: 00007ffb`95e60000 00007ffb`961ca000   C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\zig-out\Game\x64\Debug\Net.dll
+ModLoad: 00007ffc`61a70000 00007ffc`61af0000   C:\WINDOWS\System32\WS2_32.dll
+ModLoad: 00007ffc`5d600000 00007ffc`5d756000   C:\WINDOWS\SYSTEM32\DNSAPI.dll
+ModLoad: 00007ffc`5df30000 00007ffc`5df3d000   C:\WINDOWS\SYSTEM32\DSPARSE.dll
+ModLoad: 00007ffc`5d570000 00007ffc`5d5a3000   C:\WINDOWS\SYSTEM32\IPHLPAPI.DLL
+ModLoad: 00007ffc`60410000 00007ffc`6041a000   C:\WINDOWS\System32\NSI.dll
+ModLoad: 00007ffc`57430000 00007ffc`5743b000   C:\Windows\System32\rasadhlp.dll
+ModLoad: 00007ffc`3a030000 00007ffc`3a214000   C:\WINDOWS\SYSTEM32\inputhost.dll
+ModLoad: 00007ffc`5b610000 00007ffc`5b735000   C:\WINDOWS\SYSTEM32\CoreMessaging.dll
+ModLoad: 00007ffb`95100000 00007ffb`95e5f000   C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\zig-out\Game\x64\Debug\Scene.dll
+ModLoad: 00007ffc`5f570000 00007ffc`5f61c000   C:\WINDOWS\System32\bcryptPrimitives.dll
+ModLoad: 00007ffb`946f0000 00007ffb`950fb000   C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\zig-out\Game\x64\Debug\SFX.dll
+ModLoad: 00007ffc`5e470000 00007ffc`5e47c000   C:\WINDOWS\SYSTEM32\CRYPTBASE.DLL
+ModLoad: 00007ffb`93f40000 00007ffb`946e7000   C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\zig-out\Game\x64\Debug\UI.dll
+ModLoad: 00007ffc`5dba0000 00007ffc`5dbbb000   C:\WINDOWS\SYSTEM32\kernel.appcore.dll
+ModLoad: 00007ffc`5bb20000 00007ffc`5bbc9000   C:\WINDOWS\system32\uxtheme.dll
+ModLoad: 00007ffc`5e4d0000 00007ffc`5e4e3000   C:\WINDOWS\SYSTEM32\msasn1.dll
+ModLoad: 00007ffc`57810000 00007ffc`5784b000   C:\WINDOWS\SYSTEM32\cryptnet.dll
+ModLoad: 00007ffc`5f760000 00007ffc`5f8d8000   C:\WINDOWS\System32\CRYPT32.dll
+ModLoad: 00007ffc`5e550000 00007ffc`5e5ba000   C:\WINDOWS\SYSTEM32\wldp.dll
+ModLoad: 00007ffc`575d0000 00007ffc`57749000   C:\WINDOWS\SYSTEM32\drvstore.dll
+ModLoad: 00007ffc`5ea50000 00007ffc`5ea7f000   C:\WINDOWS\SYSTEM32\devobj.dll
+ModLoad: 00007ffc`5eab0000 00007ffc`5eb01000   C:\WINDOWS\SYSTEM32\cfgmgr32.dll
+ModLoad: 00007ffc`5f380000 00007ffc`5f403000   C:\WINDOWS\System32\wintrust.dll
+ModLoad: 00007ffc`61810000 00007ffc`61830000   C:\WINDOWS\System32\imagehlp.dll
+ModLoad: 00007ffc`5e450000 00007ffc`5e46b000   C:\WINDOWS\SYSTEM32\CRYPTSP.dll
+ModLoad: 00007ffc`5db00000 00007ffc`5db39000   C:\WINDOWS\system32\rsaenh.dll
+ModLoad: 00007ffc`5edb0000 00007ffc`5edda000   C:\WINDOWS\SYSTEM32\bcrypt.dll
+ModLoad: 00007ffc`5fab0000 00007ffc`60242000   C:\WINDOWS\System32\SHELL32.dll
+ModLoad: 00007ffc`5c9a0000 00007ffc`5d232000   C:\WINDOWS\SYSTEM32\windows.storage.dll
+ModLoad: 00007ffc`61b60000 00007ffc`61c57000   C:\WINDOWS\System32\SHCORE.dll
+ModLoad: 00007ffc`619f0000 00007ffc`61a57000   C:\WINDOWS\System32\shlwapi.dll
+ModLoad: 00007ffb`da3a0000 00007ffb`da4e7000   C:\WINDOWS\system32\nvspcap64.dll
+ModLoad: 00007ffc`5ede0000 00007ffc`5ee09000   C:\WINDOWS\SYSTEM32\profapi.dll
+ModLoad: 00007ffc`5dcd0000 00007ffc`5dd06000   C:\WINDOWS\SYSTEM32\ntmarta.dll
+ModLoad: 00007ffc`5e1d0000 00007ffc`5e1ff000   C:\WINDOWS\SYSTEM32\gpapi.dll
+ModLoad: 00007ffb`d9c70000 00007ffb`da395000   C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispi.inf_amd64_e980fd2c7c4fce8e\nvppex.dll
+ModLoad: 00007ffc`61880000 00007ffc`619dd000   C:\WINDOWS\System32\MSCTF.dll
+ModLoad: 00007ffc`39ee0000 00007ffc`3a027000   C:\WINDOWS\SYSTEM32\textinputframework.dll
+ModLoad: 00007ffc`58dd0000 00007ffc`590b4000   C:\WINDOWS\SYSTEM32\CoreUIComponents.dll
+ModLoad: 00007ffc`58be0000 00007ffc`58d4a000   C:\WINDOWS\SYSTEM32\wintypes.dll
+ModLoad: 00007ffc`1df50000 00007ffc`1df68000   C:\WINDOWS\system32\napinsp.dll
+ModLoad: 00007ffc`5e150000 00007ffc`5e1bc000   C:\WINDOWS\System32\mswsock.dll
+ModLoad: 00007ffc`1df30000 00007ffc`1df43000   C:\WINDOWS\System32\winrnr.dll
+ModLoad: 00007ffc`1df00000 00007ffc`1df22000   C:\WINDOWS\system32\nlansp_c.dll
+ModLoad: 00007ffc`2cb80000 00007ffc`2cb96000   C:\WINDOWS\system32\wshbth.dll
+ModLoad: 00007ffc`521b0000 00007ffc`52236000   C:\WINDOWS\System32\fwpuclnt.dll
+ModLoad: 00007ffc`5d240000 00007ffc`5d24f000   C:\WINDOWS\SYSTEM32\HID.DLL
+ModLoad: 00007ffc`60420000 00007ffc`608a7000   C:\WINDOWS\System32\SETUPAPI.DLL
+ModLoad: 00007ffc`59670000 00007ffc`596cf000   C:\WINDOWS\SYSTEM32\directxdatabasehelper.dll
+ModLoad: 00007ffc`57a00000 00007ffc`57ac4000   C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispi.inf_amd64_e980fd2c7c4fce8e\nvldumdx.dll
+ModLoad: 00007ffc`52240000 00007ffc`57197000   C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispi.inf_amd64_e980fd2c7c4fce8e\nvgpucomp64.dll
+ModLoad: 00007ffc`50f90000 00007ffc`510cb000   C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispi.inf_amd64_e980fd2c7c4fce8e\NvMemMapStoragex.dll
+ModLoad: 00007ffc`5eb60000 00007ffc`5ebbe000   C:\WINDOWS\SYSTEM32\POWRPROF.dll
+ModLoad: 00007ffc`5eb40000 00007ffc`5eb54000   C:\WINDOWS\SYSTEM32\UMPDC.dll
+ModLoad: 00007ffb`dd6b0000 00007ffb`dfde6000   C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispi.inf_amd64_e980fd2c7c4fce8e\nvd3dumx.dll
+ModLoad: 00007ffc`593f0000 00007ffc`593fb000   C:\WINDOWS\SYSTEM32\avrt.dll
+ModLoad: 00007ffc`609f0000 00007ffc`60a9e000   C:\WINDOWS\System32\clbcatq.dll
+ModLoad: 00007ffc`519a0000 00007ffc`51a46000   C:\WINDOWS\System32\MMDevApi.dll
+ModLoad: 00007ffc`4fd60000 00007ffc`4ff17000   C:\WINDOWS\SYSTEM32\AUDIOSES.DLL
+ModLoad: 00007ffc`5c140000 00007ffc`5c154000   C:\WINDOWS\SYSTEM32\resourcepolicyclient.dll
+(5738.79a4): Break instruction exception - code 80000003 (first chance)
+ntdll!DbgBreakPoint:
+00007ffc`61dbed10 cc              int     3
+0:010> .symfix
+0:010> .sympath+ C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\zig-out\Game\x64\Debug
+Symbol search path is: srv*;C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\zig-out\Game\x64\Debug
+Expanded Symbol search path is: cache*;SRV*https://msdl.microsoft.com/download/symbols;c:\users\jmfrank\source\repos\jmfrank63\blitzkrieg\zig-out\game\x64\debug
+
+************* Path validation summary **************
+Response                         Time (ms)     Location
+Deferred                                       srv*
+OK                                             C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\zig-out\Game\x64\Debug
+0:010> .reload
+Reloading current modules
+................................................................
+..................................
+0:010> ~*k
+
+   0  Id: 5738.1f20 Suspend: 1 Teb: 00000050`7f44d000 Unfrozen
+*** WARNING: Unable to verify checksum for C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\zig-out\Game\x64\Debug\SFX.dll
+Child-SP          RetAddr               Call Site
+(Inline Function) --------`--------     SFX!ma_atomic_load_explicit_32+0xc
+(Inline Function) --------`--------     SFX!ma_spinlock_lock_ex+0x5c
+00000050`00ffcd98 00007ffb`9484b12b     SFX!ma_spinlock_lock+0x79
+00000050`00ffcde0 00007ffb`9484abbe     SFX!ma_node_output_bus_lock+0x4b
+00000050`00ffce20 00007ffb`9484b6e9     SFX!ma_node_detach_output_bus+0x16e
+00000050`00ffcf90 00007ffb`9484a568     SFX!ma_node_detach_all_output_buses+0x49
+00000050`00ffcfe0 00007ffb`94842a0f     SFX!ma_node_detach_full+0x38
+00000050`00ffd0e0 00007ffb`94855c6d     SFX!ma_node_uninit+0x2f
+00000050`00ffd150 00007ffb`9485a741     SFX!ma_engine_node_uninit+0x5d
+00000050`00ffd210 00007ffb`948e6bb2     SFX!ma_sound_uninit+0x131
+00000050`00ffd320 00007ffb`948eebb5     SFX!`anonymous namespace'::ResetChannel+0x322
+00000050`00ffd630 00007ffb`946f18a5     SFX!NAudioBackendImpl::StopChannel+0x15
+00000050`00ffd670 00007ffb`94abec7b     SFX!NAudioBackend::StopChannel+0x15
+00000050`00ffd6b0 00007ffb`94ac0671     SFX!CSoundEngine::CloseStreaming+0x6b
+*** WARNING: Unable to verify checksum for C:\Users\jmfrank\source\repos\jmfrank63\Blitzkrieg\zig-out\Game\x64\Debug\Game.exe
+00000050`00ffd700 00007ff7`e2ddbafa     SFX!CSoundEngine::StopStream+0xc1
+00000050`00ffd760 00007ff7`e2ad255d     Game!CICExitGame::Exec+0x8a
+00000050`00ffd7c0 00007ff7`e29fe555     Game!CMainLoop::StepApp+0x40d
+00000050`00ffdc00 00007ff7`e3291642     Game!WinMain+0x3da5
+00000050`00fff710 00007ff7`e3291782     Game!invoke_main+0x32
+00000050`00fff750 00007ff7`e329180e     Game!__scrt_common_main_seh+0x132
+00000050`00fff7c0 00007ff7`e329182e     Game!__scrt_common_main+0xe
+00000050`00fff7f0 00007ffc`6115e957     Game!WinMainCRTStartup+0xe
+00000050`00fff820 00007ffc`61d4ad6c     KERNEL32!BaseThreadInitThunk+0x17
+00000050`00fff850 00000000`00000000     ntdll!RtlUserThreadStart+0x2c
+
+   1  Id: 5738.7d1c Suspend: 1 Teb: 00000050`7f459000 Unfrozen
+Child-SP          RetAddr               Call Site
+00000050`06ffee28 00007ffc`5ef929f3     ntdll!NtWaitForMultipleObjects+0x14
+00000050`06ffee30 00007ffc`5b62e588     KERNELBASE!WaitForMultipleObjectsEx+0x123
+00000050`06fff120 00007ffc`5b62e263     CoreMessaging!Microsoft::CoreUI::Dispatch::WaitController::Callback_WaitAny+0xc8
+00000050`06fff210 00007ffc`5b62debe     CoreMessaging!Microsoft::CoreUI::Dispatch::Win32EventLoopBridge::Callback_DoWait+0x123
+00000050`06fff2e0 00007ffc`5b62158c     CoreMessaging!Microsoft::CoreUI::Dispatch::Win32EventLoopBridge::Callback_Wait+0x5e
+00000050`06fff3a0 00007ffc`5b620b17     CoreMessaging!Microsoft::CoreUI::Dispatch::WaitCollection::Callback_DoGeneralWait+0x1ec
+00000050`06fff470 00007ffc`5b61f144     CoreMessaging!Microsoft::CoreUI::Dispatch::WaitController::Callback_OnDispatch+0xf7
+00000050`06fff560 00007ffc`5b61ecdd     CoreMessaging!Microsoft::CoreUI::Dispatch::Dispatcher::Callback_DispatchLoop+0x334
+00000050`06fff660 00007ffc`5b622008     CoreMessaging!Microsoft::CoreUI::Dispatch::EventLoop::Callback_RunCoreLoop+0x11d
+00000050`06fff6d0 00007ffc`5b69d51a     CoreMessaging!Microsoft::CoreUI::Dispatch::Win32EventLoopBridge::Callback_Run+0xd8
+00000050`06fff7b0 00007ffc`5b69692f     CoreMessaging!Microsoft::CoreUI::Dispatch::EventLoop::Callback_Run+0x156
+00000050`06fff840 00007ffc`5b6749fb     CoreMessaging!Microsoft::CoreUI::Messaging::MessageSession::Microsoft_CoreUI_IExportMessageSession_Run$+0x33
+00000050`06fff870 00007ffc`3a08a77d     CoreMessaging!Microsoft::CoreUI::IExportMessageSession::ExportAdapter$::Run+0x5b
+00000050`06fff8b0 00007ffc`3a081099     inputhost!MessagingThread::ThreadProc+0xb5
+00000050`06fff900 00007ffc`6115e957     inputhost!<lambda_376318154f061e76a4fa5387c7eed0ca>::<lambda_invoker_cdecl>+0x9
+00000050`06fff930 00007ffc`61d4ad6c     KERNEL32!BaseThreadInitThunk+0x17
+00000050`06fff960 00000000`00000000     ntdll!RtlUserThreadStart+0x2c
+
+   2  Id: 5738.7ab0 Suspend: 1 Teb: 00000050`7f45f000 Unfrozen
+Child-SP          RetAddr               Call Site
+00000050`08fffb98 00007ffc`61cf064e     ntdll!NtWaitForWorkViaWorkerFactory+0x14
+00000050`08fffba0 00007ffc`6115e957     ntdll!TppWorkerThread+0x37e
+00000050`08ffff00 00007ffc`61d4ad6c     KERNEL32!BaseThreadInitThunk+0x17
+00000050`08ffff30 00000000`00000000     ntdll!RtlUserThreadStart+0x2c
+
+   3  Id: 5738.7dc0 Suspend: 1 Teb: 00000050`7f465000 Unfrozen
+Child-SP          RetAddr               Call Site
+00000050`09fff658 00007ffc`5ef8c11f     ntdll!NtWaitForSingleObject+0x14
+00000050`09fff660 00007ffb`946f7220     KERNELBASE!WaitForSingleObjectEx+0xaf
+00000050`09fff700 00007ffb`946f71c1     SFX!ma_semaphore_wait__win32+0x50
+00000050`09fff750 00007ffb`9491934c     SFX!ma_semaphore_wait+0x41
+00000050`09fff790 00007ffb`949060ec     SFX!ma_context_next_command__wasapi+0x11c
+00000050`09fff8c0 00007ffb`94903ce7     SFX!ma_context_command_thread__wasapi+0x5c
+00000050`09fffb70 00007ffc`6115e957     SFX!ma_thread_entry_proxy+0x137
+00000050`09fffbf0 00007ffc`61d4ad6c     KERNEL32!BaseThreadInitThunk+0x17
+00000050`09fffc20 00000000`00000000     ntdll!RtlUserThreadStart+0x2c
+
+   4  Id: 5738.2d8c Suspend: 1 Teb: 00000050`7f467000 Unfrozen
+Child-SP          RetAddr               Call Site
+00000050`0aff3b38 00007ffc`5ef8c11f     ntdll!NtWaitForSingleObject+0x14
+00000050`0aff3b40 00007ffb`94b0877d     KERNELBASE!WaitForSingleObjectEx+0xaf
+00000050`0aff3be0 00007ffb`94ac0d45     SFX!CStreamFadeOff::Clear+0xad
+00000050`0aff3c30 00007ffb`94ac03f0     SFX!CSoundEngine::PlayStream+0x2a5
+00000050`0aff3d90 00007ffb`94ac010b     SFX!CSoundEngine::NotifyMelodyFinished+0x2d0
+00000050`0aff3eb0 00007ffb`948f41b0     SFX!NextMelodyCallback+0x5b
+00000050`0aff3f10 00007ffb`9499c0e9     SFX!`anonymous namespace'::OpenStreamEndCallback+0x180
+00000050`0aff3f90 00007ffb`949994c3     SFX!ma_engine_node_process_pcm_frames__sound+0x279
+00000050`0aff53a0 00007ffb`94844474     SFX!ma_node_process_pcm_frames_internal+0x203
+00000050`0aff5430 00007ffb`94999b29     SFX!ma_node_read_pcm_frames+0x594
+00000050`0aff6a70 00007ffb`94844761     SFX!ma_node_input_bus_read_pcm_frames+0x659
+00000050`0aff6ca0 00007ffb`94843aa5     SFX!ma_node_read_pcm_frames+0x881
+00000050`0aff82e0 00007ffb`9485acdf     SFX!ma_node_graph_read_pcm_frames+0xa25
+00000050`0aff8530 00007ffb`94859891     SFX!ma_engine_read_pcm_frames+0xbf
+00000050`0aff8620 00007ffb`9494b1bc     SFX!ma_engine_data_callback_internal+0xa1
+00000050`0aff8690 00007ffb`9494a6a1     SFX!ma_device__on_data_inner+0x32c
+00000050`0aff8750 00007ffb`94947e90     SFX!ma_device__on_data+0x21c1
+00000050`0aff8d90 00007ffb`94727c49     SFX!ma_device__handle_data_callback+0x9e0
+00000050`0affa070 00007ffb`94971f8d     SFX!ma_device__read_frames_from_client+0x1b9
+00000050`0affb4a0 00007ffb`947224b0     SFX!ma_device_audio_thread__default_read_write+0x205d
+00000050`0afff960 00007ffb`94903ce7     SFX!ma_worker_thread+0xe20
+00000050`0afffc10 00007ffc`6115e957     SFX!ma_thread_entry_proxy+0x137
+00000050`0afffc90 00007ffc`61d4ad6c     KERNEL32!BaseThreadInitThunk+0x17
+00000050`0afffcc0 00000000`00000000     ntdll!RtlUserThreadStart+0x2c
+
+   5  Id: 5738.3c34 Suspend: 1 Teb: 00000050`7f469000 Unfrozen
+Child-SP          RetAddr               Call Site
+00000050`0bfff998 00007ffc`5ef8c11f     ntdll!NtWaitForSingleObject+0x14
+00000050`0bfff9a0 00007ffb`946f7220     KERNELBASE!WaitForSingleObjectEx+0xaf
+00000050`0bfffa40 00007ffb`946f71c1     SFX!ma_semaphore_wait__win32+0x50
+00000050`0bfffa90 00007ffb`946fca8d     SFX!ma_semaphore_wait+0x41
+00000050`0bfffad0 00007ffb`9484172e     SFX!ma_job_queue_next+0xfd
+00000050`0bfffcc0 00007ffb`9483286a     SFX!ma_resource_manager_next_job+0x6e
+00000050`0bfffd20 00007ffb`94903ce7     SFX!ma_resource_manager_job_thread+0x4a
+00000050`0bfffde0 00007ffc`6115e957     SFX!ma_thread_entry_proxy+0x137
+00000050`0bfffe60 00007ffc`61d4ad6c     KERNEL32!BaseThreadInitThunk+0x17
+00000050`0bfffe90 00000000`00000000     ntdll!RtlUserThreadStart+0x2c
+
+   6  Id: 5738.7edc Suspend: 1 Teb: 00000050`7f46b000 Unfrozen
+Child-SP          RetAddr               Call Site
+00000050`0c00f478 00007ffc`5ef8c11f     ntdll!NtWaitForSingleObject+0x14
+00000050`0c00f480 00007ffb`dd833c95     KERNELBASE!WaitForSingleObjectEx+0xaf
+00000050`0c00f520 00007ffb`dd8313d5     nvd3dumx+0x183c95
+00000050`0c00f560 00007ffb`dd82e17d     nvd3dumx+0x1813d5
+00000050`0c00fdc0 00007ffb`dd83fc9d     nvd3dumx+0x17e17d
+00000050`0c00fdf0 00007ffb`ddbd572a     nvd3dumx+0x18fc9d
+00000050`0c00fe20 00007ffc`6115e957     nvd3dumx!SetDependencyInfo+0x2d119a
+00000050`0c00fe50 00007ffc`61d4ad6c     KERNEL32!BaseThreadInitThunk+0x17
+00000050`0c00fe80 00000000`00000000     ntdll!RtlUserThreadStart+0x2c
+
+   7  Id: 5738.dc8 Suspend: 1 Teb: 00000050`7f46d000 Unfrozen
+Child-SP          RetAddr               Call Site
+00000050`0c01f908 00007ffc`5ef929f3     ntdll!NtWaitForMultipleObjects+0x14
+00000050`0c01f910 00007ffc`5ef928c1     KERNELBASE!WaitForMultipleObjectsEx+0x123
+00000050`0c01fc00 00007ffb`dd9a9b99     KERNELBASE!WaitForMultipleObjects+0x11
+00000050`0c01fc40 00007ffb`dd83fc9d     nvd3dumx!SetDependencyInfo+0xa5609
+00000050`0c01fd20 00007ffb`ddbd572a     nvd3dumx+0x18fc9d
+00000050`0c01fd50 00007ffc`6115e957     nvd3dumx!SetDependencyInfo+0x2d119a
+00000050`0c01fd80 00007ffc`61d4ad6c     KERNEL32!BaseThreadInitThunk+0x17
+00000050`0c01fdb0 00000000`00000000     ntdll!RtlUserThreadStart+0x2c
+
+   8  Id: 5738.584c Suspend: 1 Teb: 00000050`7f46f000 Unfrozen
+Child-SP          RetAddr               Call Site
+00000050`0d01f638 00007ffc`34ece1b1     win32u!NtUserMsgWaitForMultipleObjectsEx+0x14
+00000050`0d01f640 00007ffc`6115e957     DINPUT8!CEm_LL_ThreadProc+0x101
+00000050`0d01f8e0 00007ffc`61d4ad6c     KERNEL32!BaseThreadInitThunk+0x17
+00000050`0d01f910 00000000`00000000     ntdll!RtlUserThreadStart+0x2c
+
+   9  Id: 5738.5950 Suspend: 1 Teb: 00000050`7f475000 Unfrozen
+Child-SP          RetAddr               Call Site
+(Inline Function) --------`--------     SFX!ma_atomic_load_explicit_32+0xc
+00000050`01fff170 00007ffb`9484afbf     SFX!ma_node_input_bus_detach__no_output_bus_lock+0x4de
+00000050`01fff340 00007ffb`9484b6e9     SFX!ma_node_detach_output_bus+0x56f
+00000050`01fff4b0 00007ffb`9484a568     SFX!ma_node_detach_all_output_buses+0x49
+00000050`01fff500 00007ffb`94842a0f     SFX!ma_node_detach_full+0x38
+00000050`01fff600 00007ffb`94855c6d     SFX!ma_node_uninit+0x2f
+00000050`01fff670 00007ffb`9485a741     SFX!ma_engine_node_uninit+0x5d
+00000050`01fff730 00007ffb`948e6bb2     SFX!ma_sound_uninit+0x131
+00000050`01fff840 00007ffb`948eebb5     SFX!`anonymous namespace'::ResetChannel+0x322
+00000050`01fffb50 00007ffb`946f18a5     SFX!NAudioBackendImpl::StopChannel+0x15
+00000050`01fffb90 00007ffb`94abec7b     SFX!NAudioBackend::StopChannel+0x15
+00000050`01fffbd0 00007ffb`94ac0671     SFX!CSoundEngine::CloseStreaming+0x6b
+00000050`01fffc20 00007ffb`94b08292     SFX!CSoundEngine::StopStream+0xc1
+00000050`01fffc80 00007ffb`94b07faf     SFX!CStreamFadeOff::Stop+0x92
+00000050`01fffcd0 00007ffc`6115e957     SFX!TheThreadProc+0x11f
+00000050`01fffd30 00007ffc`61d4ad6c     KERNEL32!BaseThreadInitThunk+0x17
+00000050`01fffd60 00000000`00000000     ntdll!RtlUserThreadStart+0x2c
+
+# 10  Id: 5738.79a4 Suspend: 1 Teb: 00000050`7f477000 Unfrozen
+Child-SP          RetAddr               Call Site
+00000050`02fff938 00007ffc`61dd0e3e     ntdll!DbgBreakPoint
+00000050`02fff940 00007ffc`6115e957     ntdll!DbgUiRemoteBreakin+0x4e
+00000050`02fff970 00007ffc`61d4ad6c     KERNEL32!BaseThreadInitThunk+0x17
+00000050`02fff9a0 00000000`00000000     ntdll!RtlUserThreadStart+0x2c
+0:010> qd
+quit:
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\atlmfc.natvis'
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\ObjectiveC.natvis'
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\concurrency.natvis'
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\cpp_rest.natvis'
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\stl.natvis'
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Data.Json.natvis'
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Devices.Geolocation.natvis'
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Devices.Sensors.natvis'
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\Windows.Media.natvis'
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\windows.natvis'
+NatVis script unloaded from 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\Visualizers\winrt.natvis'

@@ -42,7 +42,13 @@ class CSoundEngine : public ISFX
 	BYTE cStreamMasterVolume;							// streams volume
 	float fStreamCurrentVolume;						// for fade streams ( 0.0f ... 1.0f )
 	bool bStreamPlaying;
-	
+	// Set from the miniaudio sound-END callback (audio thread); consumed on
+	// the main thread in Update. The end callback must never switch melodies
+	// itself: PlayStream loads the next music file from disk — inside the mix
+	// callback that froze the mixer for its whole duration (the "stutter when
+	// the music loads"), and racing the graph teardown deadlocked at exit.
+	volatile LONG nMelodyFinishedPending;
+
 	CStreamFadeOff streamFadeOff;
 	void ClearChannels();
 	bool SearchDevices();
@@ -57,6 +63,8 @@ class CSoundEngine : public ISFX
 public:
 	bool PlayNextMelody();
 	void NotifyMelodyFinished();
+	// audio-thread-safe: only raises the pending flag for Update to consume
+	void QueueMelodyFinishedNotification() { InterlockedExchange( &nMelodyFinishedPending, 1 ); }
 	void MapSound( ISound *pSound, int nChannel );
 	virtual BYTE STDCALL GetSFXMasterVolume() const { return cSFXMasterVolume; }
 	virtual BYTE STDCALL GetStreamMasterVolume() const { return cStreamMasterVolume; }

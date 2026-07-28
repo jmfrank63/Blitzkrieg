@@ -108,19 +108,19 @@ private:
 	bool bTutorialWindow;
 	bool bCheckReplay;
 	int m_nStatsType;
-	int nMedalIterator;			//текущий индекс медали
+	int nMedalIterator;			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	bool bStatsShown;
 	bool bUpgradesShown;
 	bool bNewUnitsShown;
 	bool bNextChapterShown;
 	bool bPlayerRankShown;
-	bool bLastFullScreen;		//переменная для работы шторок, если true то последний раз отображался full screen interface
+	bool bLastFullScreen;		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ true пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ full screen interface
 
 	virtual bool STDCALL ProcessMessage( const SGameMessage &msg );
 	virtual ~CInterfaceStats();
 	CInterfaceStats() : CInterfaceInterMission( "InterMission" ), nMedalIterator( 0 ), bStatsShown( 0 ),
 		bUpgradesShown( 0 ), bNewUnitsShown( 0 ), bNextChapterShown( 0 ), m_nStatsType( 0 ), bPlayerRankShown( 0 ),
-		bCheckReplay( 0 ), bLastFullScreen( 0 ), playerInfos( 2 ), pPartyList( 2 ) {}
+		bCheckReplay( 0 ), bLastFullScreen( 0 ), bPopupsShowed( 0 ), bTutorialWindow( 0 ), playerInfos( 2 ), pPartyList( 2 ) {}
 
 	void InitSorter();
 	void AquireLists();

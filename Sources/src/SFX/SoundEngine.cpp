@@ -84,12 +84,13 @@ public:
 	}
 };
 static CPlayVisitor thePlayVisitor;
-CSoundEngine::CSoundEngine() 
+CSoundEngine::CSoundEngine()
 : bInited( false ), pStreamingSound( 0 ), bPaused( false ), bStreamingPaused( false ),
 	cSFXMasterVolume( 255 ), cStreamMasterVolume( 255 ), bEnableSFX( true ), bEnableStreaming( true ),
 	timeLastUpdate( -1 ), timeStreamFinished( -1 ), fStreamCurrentVolume( 1.0f ),
-	bStreamPlaying( false ), nStreamingChannel( -1 ), vLastListenerPos( VNULL3 )
-{  
+	bStreamPlaying( false ), nStreamingChannel( -1 ), vLastListenerPos( VNULL3 ),
+	nMelodyFinishedPending( 0 )
+{
 }
 bool CSoundEngine::SearchDevices()
 {
@@ -186,10 +187,52 @@ void CSoundEngine::SetRolloffFactor( float fFactor )
 }
 void CSoundEngine::Update( interface ICamera *pCamera )
 {
+	// [sfx-trace] passive stream-cursor watchdog (main thread, read-only): if
+	// the music's playback cursor advanced far less than wall-clock since the
+	// last check, the mixer starved or the stream gapped — logged with both
+	// deltas. Detects stalls retroactively without touching the audio graph.
+	// Strip with the other sound diagnostics.
+	if ( bStreamPlaying && nStreamingChannel != -1 && !bStreamingPaused && !bPaused )
+	{
+		static unsigned long s_tPrev = 0;
+		static unsigned int s_nPrevPos = 0;
+		const unsigned long tNow = GetTickCount();
+		// The mixer advances the cursor in whole periods (~40ms), so judging
+		// windows shorter than a few periods false-positives; sample >=200ms.
+		if ( s_tPrev == 0 || tNow - s_tPrev >= 200 )
+		{
+			const unsigned int nPos = NAudioBackend::GetChannelPosition( nStreamingChannel );
+			if ( s_tPrev != 0 )
+			{
+				const long nDeltaMs = static_cast<long>( tNow - s_tPrev );
+				const long nDeltaFrames = static_cast<long>( nPos - s_nPrevPos );
+				// expect ~44.1 frames/ms; flag anything under 60% of realtime
+				if ( nDeltaMs < 5000 && nDeltaFrames >= 0 && nDeltaFrames * 10 < nDeltaMs * 441 * 6 / 10 )
+				{
+					FILE *pFile = fopen( "sfx_trace.log", "ab" );
+					if ( pFile )
+					{
+						fprintf( pFile, "%lu [cursor] stall: dt=%ldms frames=%ld (expected ~%ld)\n", tNow, nDeltaMs, nDeltaFrames, nDeltaMs * 44 );
+						fclose( pFile );
+					}
+				}
+			}
+			s_tPrev = tNow;
+			s_nPrevPos = nPos;
+		}
+	}
 
 	timeLastUpdate = GetSingleton<IGameTimer>()->GetAbsTime();
 	if ( pCamera )
 		UpdateCameraPos( pCamera->GetAnchor() );
+	// Deferred melody handling: the audio-thread end callback and the fade
+	// thread only raise flags — all stream open/close/switch work happens
+	// here, on the main thread. (Doing it on those threads froze the mixer
+	// while the next music file loaded, and deadlocked at exit.)
+	if ( InterlockedExchange( &nMelodyFinishedPending, 0 ) )
+		NotifyMelodyFinished();
+	if ( streamFadeOff.ConsumeFinished() )
+		StopStream( 0 );
 	if ( (timeStreamFinished != -1) && (timeStreamFinished < timeLastUpdate) && (timeLastUpdate - timeStreamFinished > 15000) )
 		PlayNextMelody();
 	
@@ -236,8 +279,9 @@ void CSoundEngine::CloseStreaming()
 }
 signed char STDCALL NextMelodyCallback( void *stream, void *buff, int len, void *userdata )
 {
+	// Runs on the miniaudio device (mixer) thread — must not touch streams.
 	CSoundEngine *pSFX = reinterpret_cast<CSoundEngine*>( userdata );
-	pSFX->NotifyMelodyFinished();
+	pSFX->QueueMelodyFinishedNotification();
 	return true;
 }
 bool CSoundEngine::PlayNextMelody()
@@ -316,14 +360,34 @@ void CSoundEngine::PlayStream( const char *pszFileName, bool bLooped, const unsi
 		curMelody.bLooped = bLooped;
 		std::string szFileName = MakeStreamFileName( pszFileName, ".mp3" );
 		std::string szFileName1 = MakeStreamFileName( pszFileName, ".ogg" );
-		
+
 		pStreamingSound = NAudioBackend::OpenStream( szFileName.c_str(), bLooped );
-		if ( !pStreamingSound )
-			pStreamingSound = NAudioBackend::OpenStream( szFileName1.c_str(), bLooped );
-		
 		if ( pStreamingSound )
 		{
 			nStreamingChannel = NAudioBackend::PlayStream( pStreamingSound );
+			if ( nStreamingChannel == -1 )
+			{
+				NAudioBackend::CloseStream( pStreamingSound );
+				pStreamingSound = 0;
+			}
+		}
+
+		if ( !pStreamingSound )
+		{
+			pStreamingSound = NAudioBackend::OpenStream( szFileName1.c_str(), bLooped );
+			if ( pStreamingSound )
+			{
+				nStreamingChannel = NAudioBackend::PlayStream( pStreamingSound );
+				if ( nStreamingChannel == -1 )
+				{
+					NAudioBackend::CloseStream( pStreamingSound );
+					pStreamingSound = 0;
+				}
+			}
+		}
+
+		if ( pStreamingSound && nStreamingChannel != -1 )
+		{
 			NAudioBackend::SetStreamChannelPan( nStreamingChannel );
 			NAudioBackend::SetChannelVolume( nStreamingChannel, cStreamMasterVolume );
 			NAudioBackend::SetStreamEndCallback( pStreamingSound, NextMelodyCallback, this );
@@ -335,8 +399,14 @@ void CSoundEngine::PlayStream( const char *pszFileName, bool bLooped, const unsi
 		}
 		else
 		{
+			if ( pStreamingSound )
+			{
+				NAudioBackend::CloseStream( pStreamingSound );
+				pStreamingSound = 0;
+			}
 			curMelody.Clear();
 			nStreamingChannel = -1;
+			bStreamPlaying = false;
 		}
 	}
 }
@@ -527,6 +597,13 @@ void CSoundEngine::NotifyMelodyFinished()
 	if ( bRestartLoopedMelody && pStreamingSound )
 	{
 		nStreamingChannel = NAudioBackend::PlayStream( pStreamingSound );
+		if ( nStreamingChannel == -1 )
+		{
+			NWin32Helper::CCriticalSectionLock lock( critSection );
+			timeStreamFinished = timeLastUpdate;
+			bStreamPlaying = false;
+			return;
+		}
 		NAudioBackend::SetStreamChannelPan( nStreamingChannel );
 		NAudioBackend::SetChannelVolume( nStreamingChannel, cStreamMasterVolume );
 		NAudioBackend::SetStreamEndCallback( pStreamingSound, NextMelodyCallback, this );

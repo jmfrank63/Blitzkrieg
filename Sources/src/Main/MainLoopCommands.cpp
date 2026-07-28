@@ -16,6 +16,7 @@
 #include "ScenarioTracker.h"
 #include "iMainClassIDs.h"
 #include "iMainCommands.h"
+#include "iMainInternal.h"
 #include "RandomMapHelper.h"
 static void TraceLoadProgress( const char *pszBaseDir, const char *pszMessage )
 {
@@ -126,8 +127,23 @@ void CICLoad::Exec( IMainLoop *pML )
 				TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec version mismatch" );
 				return;
 			}
+			// Pause streaming before interface teardown: PopInterface destroys the
+			// entire world (hundreds of refcounted objects, texture/mesh releases)
+			// which is a massive allocation burst that starves the audio callback.
+			GetSingleton<ISFX>()->PauseStreaming( true );
+			// Lower main thread priority during load: the audio mixer thread is
+			// realtime, but the main thread's allocation storm monopolizes CPU.
+			// Dropping to BELOW_NORMAL ensures the audio callback always gets
+			// scheduled even during the heaviest load bursts.
+			SetThreadPriority( GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL );
+			TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec streaming paused, thread priority lowered" );
 			TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec popping interfaces" );
-			while ( pML->GetInterface() ) 
+			// Keep the shared managers populated while the old world dies:
+			// their SDSM_MERGE deserialize then reuses every same-name
+			// resident resource (a reload of the running mission needs no
+			// disk I/O at all). One purge runs after Serialize instead.
+			static_cast<CMainLoop*>( pML )->SetDeferResourcePurge( true );
+			while ( pML->GetInterface() )
 				pML->PopInterface();
 			TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec interfaces popped" );
 			if ( hdr.bRandomMission ) 
@@ -147,6 +163,7 @@ void CICLoad::Exec( IMainLoop *pML )
 			pStream->Seek( -sizeof(dwSignature), STREAM_SEEK_CUR );
 	}
 	{
+		// Streaming already paused before interface teardown above.
 		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec progress init begin" );
 		CPtr<IMovieProgressHook> pProgress = CreateObject<IMovieProgressHook>( MAIN_PROGRESS_INDICATOR );
 		pProgress->Init( IMovieProgressHook::PT_LOAD );
@@ -158,6 +175,15 @@ void CICLoad::Exec( IMainLoop *pML )
 		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec progress stop begin" );
 		pProgress->Stop();
 		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec progress stop end" );
+		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec deferred purge begin" );
+		static_cast<CMainLoop*>( pML )->SetDeferResourcePurge( false );
+		pML->ClearResources( false );		// drop what the loaded world doesn't reference
+		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec deferred purge end" );
+		// Resume a few frames after CMD_LOAD_FINISHED so first-frame world init
+		// and lazy uploads do not immediately starve streaming again.
+		static_cast<CMainLoop*>( pML )->SetResumeStreamingAfterSteps( GetGlobalVar( "Sound.LoadResumeStreamingSteps", 6 ) );
+		// Restore main thread priority now that the load storm is over.
+		SetThreadPriority( GetCurrentThread(), THREAD_PRIORITY_NORMAL );
 		GetSingleton<IUserProfile>()->RegisterLoad( GetSingleton<IScenarioTracker>()->GetCurrMissionGUID() );
 		TraceLoadProgress( pML->GetBaseDir(), "CICLoad::Exec register load end" );
 	}

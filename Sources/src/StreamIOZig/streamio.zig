@@ -167,9 +167,20 @@ fn fromHandle(comptime T: type, handle: ?*anyopaque) ?*T {
 
 const ShortChunk = struct { id: u8, start: usize, len: usize };
 
+// [reader-diag] total chunk headers decoded since the last bk_structure_create
+// — compared against the file's actual chunk count this exposes re-scanning
+// (quadratic reader behavior). Read via bk_structure_scan_iters; strip with
+// the other load-speed diagnostics.
+var g_scan_iters: u64 = 0;
+
+pub export fn bk_structure_scan_iters() callconv(.c) u64 {
+    return g_scan_iters;
+}
+
 // Decode one [id][len][payload] chunk at *relative* position `position` inside
 // the level; advances position past the chunk.
 fn readShortChunk(bytes: []const u8, level: StructureLevel, position: *usize) ?ShortChunk {
+    g_scan_iters += 1;
     var pos = level.start + position.*;
     const end = level.start + level.len;
     if (pos + 2 > end) return null;
@@ -243,6 +254,7 @@ fn getShortChunk(bytes: []const u8, level: *StructureLevel, wanted_id: u8, wante
 
 pub export fn bk_structure_create(stream_handle: ?*anyopaque, mode: c_int) callconv(.c) ?*anyopaque {
     if (mode != 1 and mode != 2) return null;
+    g_scan_iters = 0;
     const stream = fromHandle(Stream, stream_handle) orelse return null;
     const file_level = StructureLevel{ .start = 0, .len = stream.bytes.len };
     const data_level = shortChunkAt(stream.bytes, file_level, 1, 1) orelse return null;
@@ -313,8 +325,14 @@ pub export fn bk_structure_data(handle: ?*anyopaque, id: u8, output: ?*anyopaque
 pub export fn bk_structure_count(handle: ?*anyopaque, id: u8) callconv(.c) c_int {
     const saver = fromHandle(StructureSaver, handle) orelse return 0;
     const current = saver.levels.getLastOrNull() orelse return 0;
+    // Single linear pass — the per-occurrence shortChunkAt probe restarted
+    // from position 0 for every match (O(N^2) on big containers, same
+    // pathology as bk_structure_object_count).
     var count: usize = 0;
-    while (shortChunkAt(saver.stream.bytes, current, id, count + 1) != null) count += 1;
+    var position: usize = 0;
+    while (readShortChunk(saver.stream.bytes, current, &position)) |chunk| {
+        if (chunk.id == id) count += 1;
+    }
     return @intCast(count);
 }
 
@@ -361,8 +379,14 @@ pub export fn bk_structure_directory_entry(handle: ?*anyopaque, index: c_int, ou
 pub export fn bk_structure_object_count(handle: ?*anyopaque) callconv(.c) c_int {
     const saver = fromHandle(StructureSaver, handle) orelse return 0;
     const content = shortChunkAt(saver.stream.bytes, fileLevel(saver), 2, 1) orelse return 0;
+    // Single linear pass. The old per-index shortChunkAt probe restarted the
+    // scan from position 0 for every object — O(N^2): 1.87e9 chunk decodes
+    // and ~11s of frozen loading bar for a 61k-object save.
     var count: usize = 0;
-    while (shortChunkAt(saver.stream.bytes, content, 1, count + 1) != null) count += 1;
+    var position: usize = 0;
+    while (readShortChunk(saver.stream.bytes, content, &position)) |chunk| {
+        if (chunk.id == 1) count += 1;
+    }
     return @intCast(count);
 }
 

@@ -639,7 +639,14 @@ pub fn build(b: *std.Build) void {
         .library_arch = library_arch,
     };
     const options_bridge = addOptionsBridge(b, target, optimize, toolchain);
-    const streamio_zig = addStreamIOZig(b, target, optimize, toolchain, options_bridge);
+    // Save-load spends its time in the zig structure reader; at Debug (-O0 +
+    // safety) that alone made big-mission loads take ~1 min. The zig half of
+    // StreamIO is unit-tested and ABI-thin, so it defaults to ReleaseFast even
+    // in Debug builds. Pass -Dstreamio-fast=false when debugging streamio.zig
+    // itself (the C++ bridge and CRT selection stay at the game's optimize
+    // mode either way).
+    const streamio_fast = b.option(bool, "streamio-fast", "Compile the StreamIO zig core ReleaseFast even in Debug builds") orelse true;
+    const streamio_zig = addStreamIOZig(b, target, optimize, toolchain, options_bridge, streamio_fast);
     const config_dir = switch (optimize) {
         .Debug => "Debug",
         .ReleaseSafe, .ReleaseFast, .ReleaseSmall => "Release",
@@ -984,16 +991,28 @@ fn addStreamIOZig(
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
     options_bridge: *std.Build.Step.Compile,
+    streamio_fast: bool,
 ) *std.Build.Step.Compile {
+    // The module optimize mode applies to the zig sources only; the C++
+    // bridge below is compiled with cppflagsForOptimize(optimize) and the CRT
+    // link stays keyed on the game's optimize mode, so a Debug game still
+    // gets ucrtbased and a debuggable bridge.
+    const zig_optimize = if (streamio_fast and optimize == .Debug) std.builtin.OptimizeMode.ReleaseFast else optimize;
     const streamio_module = b.createModule(.{
         .root_source_file = b.path("Sources/src/StreamIOZig/streamio.zig"),
         .target = target,
-        .optimize = optimize,
+        .optimize = zig_optimize,
         .link_libc = true,
     });
     var flags: std.ArrayListUnmanaged([]const u8) = .empty;
     flags.appendSlice(b.allocator, cppflagsForOptimize(optimize)) catch @panic("OOM");
     flags.append(b.allocator, "-std=c++17") catch @panic("OOM");
+    if (streamio_fast and optimize == .Debug) {
+        // Optimize the bridge itself while keeping the _DEBUG/debug-STL
+        // defines above (they must match the ucrtbased link); optimization
+        // level does not affect that ABI.
+        flags.appendSlice(b.allocator, &.{ "-O2", "-fno-sanitize=undefined" }) catch @panic("OOM");
+    }
     streamio_module.addCSourceFile(.{
         .file = b.path("Sources/src/StreamIOZig/legacy_bridge.cpp"),
         .flags = flags.items,
@@ -1037,6 +1056,7 @@ fn addLegacyProjectDll(
     // (passing the project `optimize` to linkMsvcRuntime) so there's no
     // debug/release CRT mismatch.
     var xiph_files: std.ArrayListUnmanaged([]const u8) = .empty;
+    var audio_files: std.ArrayListUnmanaged([]const u8) = .empty;
     var offset: usize = 0;
     const marker = "<ClCompile Include=\"";
     while (std.mem.indexOfPos(u8, contents, offset, marker)) |start| {
@@ -1047,6 +1067,14 @@ fn addLegacyProjectDll(
             const placed = b.fmt("Sources/src/{s}/{s}", .{ name, source });
             if (std.mem.indexOf(u8, source, "xiph") != null) {
                 xiph_files.append(b.allocator, placed) catch @panic("OOM");
+            } else if (std.mem.indexOf(u8, source, "AudioBackend") != null) {
+                // SFX's AudioBackend*.cpp/.c hold the whole miniaudio
+                // implementation (mixer, dr_mp3, resampler) plus the vorbis
+                // wrapper — the audio thread's realtime hot path. At -O0 +
+                // UBSan the mp3 decode is borderline-realtime and the menu
+                // music stutters; compile these TUs optimized even in Debug
+                // (defines stay debug-ABI, same trick as legacy_bridge).
+                audio_files.append(b.allocator, placed) catch @panic("OOM");
             } else {
                 files.append(b.allocator, placed) catch @panic("OOM");
             }
@@ -1065,6 +1093,14 @@ fn addLegacyProjectDll(
         flags.append(b.allocator, "Sources/src/AILogic/StdAfx.h") catch @panic("OOM");
         module.addCSourceFiles(.{ .files = files.items, .flags = flags.items });
     } else module.addCSourceFiles(.{ .files = files.items, .flags = cppflagsForOptimize(optimize) });
+    if (audio_files.items.len > 0) {
+        var audio_flags: std.ArrayListUnmanaged([]const u8) = .empty;
+        audio_flags.appendSlice(b.allocator, cppflagsForOptimize(optimize)) catch @panic("OOM");
+        if (optimize == .Debug) {
+            audio_flags.appendSlice(b.allocator, &.{ "-O2", "-fno-sanitize=undefined" }) catch @panic("OOM");
+        }
+        module.addCSourceFiles(.{ .files = audio_files.items, .flags = audio_flags.items });
+    }
     if (xiph_files.items.len > 0) {
         // Static lib of just the decoder objects; it does NOT link a CRT itself
         // (no linkMsvcRuntime) — its CRT symbols resolve when Scene.dll links

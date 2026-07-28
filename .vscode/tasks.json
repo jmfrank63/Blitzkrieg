@@ -309,6 +309,82 @@
       "problemMatcher": []
     },
     {
+      "label": "Zig Build Game (Debug, x64)",
+      "type": "process",
+      "command": "zig",
+      "args": [
+        "build",
+        "--build-file",
+        "${workspaceFolder}/build.zig",
+        "install-game",
+        "-Dtarget=x86_64-windows-msvc",
+        "-Doptimize=Debug"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Zig Build Game (Debug, x64, UBSan Trap)",
+      "type": "process",
+      "command": "zig",
+      "args": [
+        "build",
+        "--build-file",
+        "${workspaceFolder}/build.zig",
+        "install-game",
+        "-Dtarget=x86_64-windows-msvc",
+        "-Doptimize=Debug",
+        "-Dubsan-trap=true"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Zig Build Game (Release, x64)",
+      "type": "process",
+      "command": "zig",
+      "args": [
+        "build",
+        "--build-file",
+        "${workspaceFolder}/build.zig",
+        "install-game",
+        "-Dtarget=x86_64-windows-msvc",
+        "-Doptimize=ReleaseFast",
+        "-Dinstall-dir=zig-out/game-x64"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Zig Run Game (Debug, x64)",
+      "type": "process",
+      "command": "${workspaceFolder}/zig-out/Game/x64/Debug/Game.exe",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "Zig Run Game (Debug, x86)",
       "type": "process",
       "command": "${workspaceFolder}/zig-out/Game/x86/Debug/Game.exe",

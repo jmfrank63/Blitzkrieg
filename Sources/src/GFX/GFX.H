@@ -166,6 +166,9 @@ interface IGFX : public IRefCount
 	virtual bool STDCALL IsActive() = 0;
 	virtual bool STDCALL BeginScene() = 0;
 	virtual bool STDCALL EndScene() = 0;
+	// false while a scene is open or a render target is bound — presenting a
+	// frame from such a context would nest BeginScene or draw into the target
+	virtual bool STDCALL IsSafeToPresent() const = 0;
 	virtual bool STDCALL Clear( int nNumRects, RECT *pRects, DWORD dwFlags, DWORD dwColor = 0, float fDepth = 1.0f, DWORD dwStencil = 0 ) = 0;
 	virtual bool STDCALL Flip() = 0;
 	virtual bool STDCALL SetRenderTarget( IGFXRTexture *pRT ) = 0;

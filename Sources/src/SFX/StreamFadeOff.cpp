@@ -8,15 +8,19 @@ DWORD WINAPI TheThreadProc( LPVOID lpParameter )
 	CStreamFadeOff * pFade = reinterpret_cast<CStreamFadeOff*>(lpParameter);
 	pFade->Start();
 
+	bool bReachedSilence = false;
 	while( pFade->HaveToRun() )
 	{
 		if ( pFade->Segment( 100 ) )
 			Sleep(100);
 		else
+		{
+			bReachedSilence = true;
 			break;
+		}
 	}
 
-	pFade->Stop();
+	pFade->Stop( bReachedSilence );
 	return 0;
 }
 int CStreamFadeOff::operator&( IStructureSaver &ss )
@@ -58,6 +62,7 @@ void CStreamFadeOff::InitConsts()
 	hFinishReport = CreateEvent( 0, true, false, 0 );
 	hStopCommand = CreateEvent( 0, true, false, 0 );
 	bStopping = false;
+	nFinishedPending = 0;
 }
 CStreamFadeOff::~CStreamFadeOff() 
 { 
@@ -126,11 +131,14 @@ bool CStreamFadeOff::HaveToRun()
 {
 	return WAIT_OBJECT_0 != WaitForSingleObject( hStopCommand,0 );
 }
-void CStreamFadeOff::Stop()
+void CStreamFadeOff::Stop( bool bReachedSilence )
 {
-	if ( !pSFX ) return;
-	bStopping = true;
-	pSFX->StopStream( 0 );
-	bStopping = false;
+	// Only FLAG completion — the engine's main-thread Update performs the
+	// actual StopStream. Calling it from this thread deadlocked against the
+	// mixer (see header comment). A canceled fade (Clear from a new
+	// PlayStream) must not queue a stop at all: the canceller owns the
+	// stream's fate, and a deferred stop would kill the newly started one.
+	if ( bReachedSilence )
+		InterlockedExchange( &nFinishedPending, 1 );
 	SetEvent( hFinishReport );
 }
