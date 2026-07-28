@@ -1,5 +1,10 @@
 const std = @import("std");
 
+/// Single source of truth for the game version. Bump the patch component with
+/// every change. The version is embedded into Game.exe as a Win32 VERSIONINFO
+/// resource and displayed on the title screen.
+const game_version = std.SemanticVersion{ .major = 2, .minor = 0, .patch = 0 };
+
 const cflags_debug = &.{
     "-D_WINDOWS",
     "-DWIN32",
@@ -677,6 +682,10 @@ pub fn build(b: *std.Build) void {
     const randommapgen = addRandomMapGen(b, target, optimize, toolchain);
     const ailogic = addLegacyProjectDll(b, target, optimize, toolchain, "AILogic", "Sources/src/AILogic/AILogic.vcxproj", "Sources/src/AILogic/AILogic.def", &.{ "Sources/src/AILogic", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/GameTT", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/vorbis-1.3.7/include" }, &.{ misc, lualib, formats, randommapgen, zlib });
     const gamett = addLegacyProjectDll(b, target, optimize, toolchain, "GameTT", "Sources/src/GameTT/GameTT.vcxproj", "Sources/src/GameTT/GameTT.def", &.{ "Sources/src/GameTT", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/AILogic" }, &.{ misc, formats, common, randommapgen });
+    // Compile the game version directly into GameTT.dll so the title screen
+    // shows the version string without relying on the Win32 version resource
+    // API (which Zig's resinator does not produce correctly for runtime reads).
+    gamett.root_module.addCMacro("BLITZKRIEG_VERSION", b.fmt("\"{d}.{d}.{d}\"", .{ game_version.major, game_version.minor, game_version.patch }));
     const main = addMain(b, target, optimize, toolchain);
     if (startup_trace) main.root_module.addCMacro("BK_STARTUP_TRACE", "1");
     const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats, blitz64, startup_trace);
@@ -1212,6 +1221,18 @@ fn addGame(
     // process); winres.h comes from the SDK um directory.
     game_module.addWin32ResourceFile(.{
         .file = b.path("Sources/src/Game/SplashResources.rc"),
+        .include_paths = &.{
+            b.path("Sources/src/Game"),
+            .{ .cwd_relative = b.fmt("{s}\\um", .{toolchain.windows_sdk_include}) },
+            .{ .cwd_relative = b.fmt("{s}\\shared", .{toolchain.windows_sdk_include}) },
+        },
+    });
+
+    // Game version VERSIONINFO resource. Bump game_version in build.zig then
+    // update Sources/src/Game/GameVersion.rc FILEVERSION/PRODUCTVERSION to
+    // match.
+    game_module.addWin32ResourceFile(.{
+        .file = b.path("Sources/src/Game/GameVersion.rc"),
         .include_paths = &.{
             b.path("Sources/src/Game"),
             .{ .cwd_relative = b.fmt("{s}\\um", .{toolchain.windows_sdk_include}) },

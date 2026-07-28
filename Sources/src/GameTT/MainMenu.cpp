@@ -164,21 +164,18 @@ bool GetFileVersion( const std::string &szFileName, VS_FIXEDFILEINFO *pVersionIn
 	*pVersionInfo = *pFFI;
 	return true;
 }
-void GetFileVersionString( const std::string &szFileName, std::string *pVersion )
-{
-	VS_FIXEDFILEINFO version;
-	if ( GetFileVersion(szFileName, &version) != false )
-		*pVersion = NStr::Format( "%d.%d", (version.dwProductVersionMS >> 16) & 0xffff, version.dwProductVersionMS & 0xffff );
-	else
-		*pVersion = "\"UNKNOWN\"";
-}
 std::string GetMainModuleVersion()
 {
+#ifdef BLITZKRIEG_VERSION
+	return BLITZKRIEG_VERSION;
+#else
 	char buffer[2048];
 	GetModuleFileName( 0, buffer, 2048 );
-	std::string szVersion;
-	GetFileVersionString( buffer, &szVersion );
-	return szVersion;
+	VS_FIXEDFILEINFO version;
+	if ( GetFileVersion(buffer, &version) != false )
+		return NStr::Format( "%d.%d.%d", (version.dwProductVersionMS >> 16) & 0xffff, version.dwProductVersionMS & 0xffff, (version.dwProductVersionLS >> 16) & 0xffff );
+	return "\"UNKNOWN\"";
+#endif
 }
 void CInterfaceMainMenu::Create( int nState )
 {
