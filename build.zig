@@ -1056,6 +1056,7 @@ fn addLegacyProjectDll(
     // (passing the project `optimize` to linkMsvcRuntime) so there's no
     // debug/release CRT mismatch.
     var xiph_files: std.ArrayListUnmanaged([]const u8) = .empty;
+    var audio_files: std.ArrayListUnmanaged([]const u8) = .empty;
     var offset: usize = 0;
     const marker = "<ClCompile Include=\"";
     while (std.mem.indexOfPos(u8, contents, offset, marker)) |start| {
@@ -1066,6 +1067,14 @@ fn addLegacyProjectDll(
             const placed = b.fmt("Sources/src/{s}/{s}", .{ name, source });
             if (std.mem.indexOf(u8, source, "xiph") != null) {
                 xiph_files.append(b.allocator, placed) catch @panic("OOM");
+            } else if (std.mem.indexOf(u8, source, "AudioBackend") != null) {
+                // SFX's AudioBackend*.cpp/.c hold the whole miniaudio
+                // implementation (mixer, dr_mp3, resampler) plus the vorbis
+                // wrapper — the audio thread's realtime hot path. At -O0 +
+                // UBSan the mp3 decode is borderline-realtime and the menu
+                // music stutters; compile these TUs optimized even in Debug
+                // (defines stay debug-ABI, same trick as legacy_bridge).
+                audio_files.append(b.allocator, placed) catch @panic("OOM");
             } else {
                 files.append(b.allocator, placed) catch @panic("OOM");
             }
@@ -1084,6 +1093,14 @@ fn addLegacyProjectDll(
         flags.append(b.allocator, "Sources/src/AILogic/StdAfx.h") catch @panic("OOM");
         module.addCSourceFiles(.{ .files = files.items, .flags = flags.items });
     } else module.addCSourceFiles(.{ .files = files.items, .flags = cppflagsForOptimize(optimize) });
+    if (audio_files.items.len > 0) {
+        var audio_flags: std.ArrayListUnmanaged([]const u8) = .empty;
+        audio_flags.appendSlice(b.allocator, cppflagsForOptimize(optimize)) catch @panic("OOM");
+        if (optimize == .Debug) {
+            audio_flags.appendSlice(b.allocator, &.{ "-O2", "-fno-sanitize=undefined" }) catch @panic("OOM");
+        }
+        module.addCSourceFiles(.{ .files = audio_files.items, .flags = audio_flags.items });
+    }
     if (xiph_files.items.len > 0) {
         // Static lib of just the decoder objects; it does NOT link a CRT itself
         // (no linkMsvcRuntime) — its CRT symbols resolve when Scene.dll links

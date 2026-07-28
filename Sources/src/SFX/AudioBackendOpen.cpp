@@ -16,6 +16,34 @@
 
 namespace
 {
+	// Private heap for ALL miniaudio allocations. The debug CRT heap lock
+	// is the bottleneck: the main thread holds it for seconds during
+	// save-load, and the audio mixer callback blocks on the same lock for
+	// its internal malloc/free. A private Windows heap has its own lock,
+	// so the audio thread never contends with the main thread.
+	HANDLE g_hAudioHeap = 0;
+
+	void* AudioHeapMalloc( size_t sz, void *pUserData )
+	{
+		(void)pUserData;
+		return HeapAlloc( g_hAudioHeap, 0, sz );
+	}
+
+	void* AudioHeapRealloc( void *p, size_t sz, void *pUserData )
+	{
+		(void)pUserData;
+		if ( !p )
+			return HeapAlloc( g_hAudioHeap, 0, sz );
+		return HeapReAlloc( g_hAudioHeap, 0, p, sz );
+	}
+
+	void AudioHeapFree( void *p, void *pUserData )
+	{
+		(void)pUserData;
+		if ( p )
+			HeapFree( g_hAudioHeap, 0, p );
+	}
+
 	ma_context g_context;
 	ma_engine g_engine;
 	bool g_bContextInitialized = false;
@@ -256,6 +284,50 @@ namespace
 			pDevice->playback.channels ) );
 	}
 
+	// Keep disabled by default: per-read tracing runs on the mixer thread and
+	// can add avoidable pressure during load spikes.
+	#ifndef SFX_ENABLE_XIPH_READ_TRACE
+	#define SFX_ENABLE_XIPH_READ_TRACE 0
+	#endif
+
+	#if SFX_ENABLE_XIPH_READ_TRACE
+	struct SXiphReadTrace { double tStartMs; float fDurMs; unsigned int nReq; unsigned int nGot; };
+	const int cXiphReadTraceCapacity = 8192;
+	SXiphReadTrace g_xiphReadTrace[cXiphReadTraceCapacity];
+	long g_nXiphReadTraceCount = 0;
+
+	double XiphTraceNowMs()
+	{
+		static LARGE_INTEGER s_freq = {};
+		if ( s_freq.QuadPart == 0 )
+			QueryPerformanceFrequency( &s_freq );
+		LARGE_INTEGER counter;
+		QueryPerformanceCounter( &counter );
+		return counter.QuadPart * 1000.0 / s_freq.QuadPart;
+	}
+
+	void DumpXiphReadTrace( const char *pszReason )
+	{
+		const long nCount = g_nXiphReadTraceCount;
+		if ( nCount == 0 )
+			return;
+		FILE *pFile = fopen( "sfx_trace.log", "ab" );
+		if ( !pFile )
+			return;
+		fprintf( pFile, "=== xiph read trace (%s): %ld reads ===\n", pszReason, nCount );
+		double tPrev = g_xiphReadTrace[0].tStartMs;
+		for ( long i = 0; i < nCount && i < cXiphReadTraceCapacity; ++i )
+		{
+			const SXiphReadTrace &entry = g_xiphReadTrace[i];
+			fprintf( pFile, "t=%.2f gap=%.2f dur=%.2f req=%u got=%u\n",
+			         entry.tStartMs, entry.tStartMs - tPrev, entry.fDurMs, entry.nReq, entry.nGot );
+			tPrev = entry.tStartMs;
+		}
+		fclose( pFile );
+		g_nXiphReadTraceCount = 0;
+	}
+	#endif
+
 	ma_result XiphDataSourceRead( ma_data_source *pDataSource, void *pFramesOut, ma_uint64 nFrameCount, ma_uint64 *pFramesRead )
 	{
 		SXiphStreamDataSource *pXiph = static_cast<SXiphStreamDataSource*>( pDataSource );
@@ -278,7 +350,21 @@ namespace
 			return MA_SUCCESS;
 		}
 
+		#if SFX_ENABLE_XIPH_READ_TRACE
+		const double tStart = XiphTraceNowMs();
+		#endif
 		const long nBytesRead = ReadXiphVorbisStream( pXiph->pVorbisStream, static_cast<char*>( pFramesOut ), static_cast<long>( nBytesToRead ) );
+		#if SFX_ENABLE_XIPH_READ_TRACE
+		if ( g_nXiphReadTraceCount < cXiphReadTraceCapacity )
+		{
+			SXiphReadTrace &entry = g_xiphReadTrace[g_nXiphReadTraceCount];
+			entry.tStartMs = tStart;
+			entry.fDurMs = static_cast<float>( XiphTraceNowMs() - tStart );
+			entry.nReq = static_cast<unsigned int>( nFrameCount );
+			entry.nGot = nBytesRead > 0 ? static_cast<unsigned int>( nBytesRead / pXiph->nBlockAlign ) : 0;
+			++g_nXiphReadTraceCount;
+		}
+		#endif
 		if ( nBytesRead < 0 )
 			return MA_ERROR;
 		if ( pFramesRead )
@@ -377,12 +463,37 @@ namespace
 		g_channels[nChannel].nPausedPosition = 0;
 	}
 
+	float ChannelTargetVolume( int nChannel )
+	{
+		return g_channels[nChannel].fBaseVolume * g_channels[nChannel].fDistanceVolume;
+	}
+
+	// Volume changes ride the sound's FADER (short chase ramp), never an
+	// instant ma_sound_set_volume: the engine updates volumes once per main-
+	// loop tick, and when that thread is busy (menu init after the intro
+	// video, save-load storms) the ticks are 100-500ms apart — instant steps
+	// of a fading music stream then zipper audibly ("stuttering"). The fader
+	// runs on the mixer thread, so a 40ms ramp per update stays smooth no
+	// matter how coarse the updates are. volumeBeg -1 = chase from current.
 	void ApplyChannelMix( int nChannel )
 	{
 		if ( nChannel < 0 || nChannel >= cMaxOpenChannels || !g_channels[nChannel].bSoundInitialized )
 			return;
 
-		ma_sound_set_volume( &g_channels[nChannel].sound, g_channels[nChannel].fBaseVolume * g_channels[nChannel].fDistanceVolume );
+		ma_sound_set_fade_in_milliseconds( &g_channels[nChannel].sound, -1.0f, ChannelTargetVolume( nChannel ), 40 );
+		ma_sound_set_pan( &g_channels[nChannel].sound, g_channels[nChannel].bUse3DPan ? g_channels[nChannel].f3DPan : g_channels[nChannel].fUserPan );
+	}
+
+	// For sound STARTS: the fader must sit at the target before the first
+	// frame (a chase from the default 1.0 would blip one-shots louder than
+	// their mix volume).
+	void ApplyChannelMixInstant( int nChannel )
+	{
+		if ( nChannel < 0 || nChannel >= cMaxOpenChannels || !g_channels[nChannel].bSoundInitialized )
+			return;
+
+		const float fTarget = ChannelTargetVolume( nChannel );
+		ma_sound_set_fade_in_milliseconds( &g_channels[nChannel].sound, fTarget, fTarget, 0 );
 		ma_sound_set_pan( &g_channels[nChannel].sound, g_channels[nChannel].bUse3DPan ? g_channels[nChannel].f3DPan : g_channels[nChannel].fUserPan );
 	}
 
@@ -734,6 +845,7 @@ namespace
 																		 pOpenStream ? pOpenStream->szFileName.c_str() : "",
 																		 nBytes ) );
 	}
+
 }
 
 namespace NAudioBackendImpl
@@ -787,18 +899,31 @@ namespace NAudioBackendImpl
 		if ( g_bEngineInitialized )
 			return true;
 
+		// WASAPI first: it is the native event-driven path on modern Windows;
+		// dsound/winmm are emulated polling layers that kept underrunning
+		// (audible stutter) whenever the main thread ran hot — load storms,
+		// first-frame texture uploads. They remain as fallbacks only.
 		const ma_backend backends[] =
 		{
+			ma_backend_wasapi,
 			ma_backend_dsound,
-			ma_backend_winmm,
-			ma_backend_wasapi
+			ma_backend_winmm
 		};
 
 		ma_context_config contextConfig = ma_context_config_init();
 		contextConfig.dsound.hWnd = hWnd;
-		// The audio thread competes with load-time main-thread bursts (heap
-		// lock contention); realtime priority keeps the mix callback serviced.
 		contextConfig.threadPriority = ma_thread_priority_realtime;
+
+		// Private heap: create BEFORE context init so all miniaudio threads
+		// (mixer, resource manager, WASAPI command) use it from birth.
+		g_hAudioHeap = HeapCreate( 0, 64 * 1024 * 1024, 0 );
+		if ( g_hAudioHeap )
+		{
+			contextConfig.allocationCallbacks.pUserData = 0;
+			contextConfig.allocationCallbacks.onMalloc  = AudioHeapMalloc;
+			contextConfig.allocationCallbacks.onRealloc = AudioHeapRealloc;
+			contextConfig.allocationCallbacks.onFree    = AudioHeapFree;
+		}
 
 		ma_result result = ma_context_init( backends, sizeof( backends ) / sizeof( backends[0] ), &contextConfig, &g_context );
 		if ( result != MA_SUCCESS )
@@ -811,9 +936,18 @@ namespace NAudioBackendImpl
 		ma_engine_config engineConfig = ma_engine_config_init();
 		engineConfig.pContext = &g_context;
 		engineConfig.sampleRate = nMixRate > 0 ? nMixRate : 0;
-		// Bigger device periods ride out multi-ms main-thread stalls without
-		// underruns; ~40ms of extra output latency is inaudible in an RTS.
+		// 40ms device period for immediate audio start. Stutter prevention
+		// comes from MA_SOUND_FLAG_DECODE in PlayStream: the entire file is
+		// decoded to PCM at init time, so the mixer callback only copies
+		// samples — zero allocations, zero decode, zero disk I/O.
 		engineConfig.periodSizeInMilliseconds = 40;
+		if ( g_hAudioHeap )
+		{
+			engineConfig.allocationCallbacks.pUserData = 0;
+			engineConfig.allocationCallbacks.onMalloc  = AudioHeapMalloc;
+			engineConfig.allocationCallbacks.onRealloc = AudioHeapRealloc;
+			engineConfig.allocationCallbacks.onFree    = AudioHeapFree;
+		}
 		result = ma_engine_init( &engineConfig, &g_engine );
 		if ( result != MA_SUCCESS )
 		{
@@ -856,6 +990,13 @@ namespace NAudioBackendImpl
 		{
 			ma_context_uninit( &g_context );
 			g_bContextInitialized = false;
+		}
+		// Destroy AFTER context uninit: miniaudio threads are dead, no
+		// outstanding allocations remain.
+		if ( g_hAudioHeap )
+		{
+			HeapDestroy( g_hAudioHeap );
+			g_hAudioHeap = 0;
 		}
 	}
 
@@ -1011,7 +1152,7 @@ namespace NAudioBackendImpl
 		g_channels[nChannel].nPausedPosition = 0;
 		ApplySampleLoopPoints( &g_channels[nChannel], pOpenSample );
 		ma_sound_set_looping( &g_channels[nChannel].sound, pOpenSample->bLooped ? MA_TRUE : MA_FALSE );
-		ApplyChannelMix( nChannel );
+		ApplyChannelMixInstant( nChannel );
 		return nChannel;
 	}
 
@@ -1041,13 +1182,19 @@ namespace NAudioBackendImpl
 			{
 				g_channels[nChannel].nPausedPosition = GetChannelPosition( nChannel );
 				g_channels[nChannel].bPaused = true;
-				ma_sound_stop( &g_channels[nChannel].sound );
+				// Abruptly stopping mid-waveform is an audible pop (the "stutter"
+				// heard at save-load start); ramp to silence first.
+				ma_sound_stop_with_fade_in_milliseconds( &g_channels[nChannel].sound, 60 );
 			}
 			else
 			{
 				if ( g_channels[nChannel].bPaused )
 					ma_sound_seek_to_pcm_frame( &g_channels[nChannel].sound, g_channels[nChannel].nPausedPosition );
 				g_channels[nChannel].bPaused = false;
+				// The fade-stop above leaves a scheduled stop + zero fade on the
+				// sound; clear it and ramp back in, or the restart pops too.
+				ma_sound_reset_stop_time_and_fade( &g_channels[nChannel].sound );
+				ma_sound_set_fade_in_milliseconds( &g_channels[nChannel].sound, 0.0f, ChannelTargetVolume( nChannel ), 60 );
 				if ( ma_sound_start( &g_channels[nChannel].sound ) != MA_SUCCESS )
 					OutputDebugString( "SFX open audio failed to start sample channel\n" );
 			}
@@ -1123,6 +1270,9 @@ namespace NAudioBackendImpl
 		pStream->nChannels = 0;
 		pStream->nBlockAlign = 0;
 		pStream->bUseXiphDecoder = false;
+		// Load the entire encoded file into RAM now, before the save-load
+		// disk storm begins. The audio thread then plays from memory with
+		// zero disk I/O — no contention with the main thread's reads.
 		if ( !LoadStreamData( pStream ) )
 		{
 			TraceOpenStream( "open failed", pStream );
@@ -1152,6 +1302,9 @@ namespace NAudioBackendImpl
 			for ( int i = 0; i < cMaxOpenChannels; ++i )
 				if ( g_channels[i].pStream == pOpenStream )
 					ResetChannel( i );
+			#if SFX_ENABLE_XIPH_READ_TRACE
+			DumpXiphReadTrace( pOpenStream->szFileName.c_str() );
+			#endif
 			delete pOpenStream;
 		}
 	}
@@ -1186,8 +1339,18 @@ namespace NAudioBackendImpl
 		if ( nChannel == -1 )
 			return -1;
 
+		// Data was already loaded into RAM by OpenStream — zero disk I/O here.
 		if ( pOpenStream->encodedData.empty() )
 			return -1;
+
+		// DECODE, not STREAM: the entire encoded file is decoded to PCM in
+		// RAM at init time (on miniaudio's own thread). The mixer callback
+		// then only copies samples — zero allocations, zero decode, zero
+		// disk I/O during playback. Combined with the private heap, the
+		// audio thread never contends with the main thread at all.
+		const ma_uint32 nStreamFlags = pOpenStream->bLooped
+			? MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_LOOPING
+			: MA_SOUND_FLAG_DECODE;
 
 		if ( pOpenStream->bUseXiphDecoder )
 		{
@@ -1214,8 +1377,7 @@ namespace NAudioBackendImpl
 			}
 			g_channels[nChannel].bXiphDataSourceInitialized = true;
 
-			const ma_uint32 nFlags = pOpenStream->bLooped ? MA_SOUND_FLAG_STREAM | MA_SOUND_FLAG_LOOPING : MA_SOUND_FLAG_STREAM;
-			if ( ma_sound_init_from_data_source( &g_engine, &g_channels[nChannel].xiphDataSource.base, nFlags, 0, &g_channels[nChannel].sound ) != MA_SUCCESS )
+			if ( ma_sound_init_from_data_source( &g_engine, &g_channels[nChannel].xiphDataSource.base, nStreamFlags, 0, &g_channels[nChannel].sound ) != MA_SUCCESS )
 			{
 				TraceOpenStream( "sound init failed", pOpenStream );
 				ResetChannel( nChannel );
@@ -1224,7 +1386,6 @@ namespace NAudioBackendImpl
 		}
 		else
 		{
-			const ma_uint32 nFlags = pOpenStream->bLooped ? MA_SOUND_FLAG_STREAM | MA_SOUND_FLAG_LOOPING : MA_SOUND_FLAG_STREAM;
 			if ( ma_decoder_init_memory( &pOpenStream->encodedData[0], pOpenStream->encodedData.size(), 0, &g_channels[nChannel].decoder ) != MA_SUCCESS )
 			{
 				TraceOpenStream( "decode failed", pOpenStream );
@@ -1232,7 +1393,7 @@ namespace NAudioBackendImpl
 			}
 			g_channels[nChannel].bDecoderInitialized = true;
 
-			if ( ma_sound_init_from_data_source( &g_engine, &g_channels[nChannel].decoder, nFlags, 0, &g_channels[nChannel].sound ) != MA_SUCCESS )
+			if ( ma_sound_init_from_data_source( &g_engine, &g_channels[nChannel].decoder, nStreamFlags, 0, &g_channels[nChannel].sound ) != MA_SUCCESS )
 			{
 				TraceOpenStream( "sound init failed", pOpenStream );
 				ResetChannel( nChannel );
@@ -1250,8 +1411,10 @@ namespace NAudioBackendImpl
 		g_channels[nChannel].bPaused = false;
 		g_channels[nChannel].nPausedPosition = 0;
 		ma_sound_set_looping( &g_channels[nChannel].sound, pOpenStream->bLooped ? MA_TRUE : MA_FALSE );
-		ApplyChannelMix( nChannel );
+		ApplyChannelMixInstant( nChannel );
 		ma_sound_set_end_callback( &g_channels[nChannel].sound, OpenStreamEndCallback, pOpenStream );
+		// Streams ramp in from silence to their mix volume — no start transient.
+		ma_sound_set_fade_in_milliseconds( &g_channels[nChannel].sound, 0.0f, ChannelTargetVolume( nChannel ), 80 );
 		if ( ma_sound_start( &g_channels[nChannel].sound ) != MA_SUCCESS )
 		{
 			TraceOpenStream( "start failed", pOpenStream );

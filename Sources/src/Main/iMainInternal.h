@@ -32,7 +32,7 @@ class CMainLoop : public IMainLoop
 	bool bPaused;													// is app paused
 	bool bDisableMessageProcessing;				// disable message processing
 	bool bDeferResourcePurge;							// suppress the per-PopInterface unreferenced-purge (save-load keeps resources for merge reuse)
-	int nResumeStreamingSteps;						// >0: resume SFX streaming after this many StepApp frames (save-load pauses it across the load AND the post-load init storm)
+	int nResumeStreamingSteps;						// >0: resume ISFX streaming after this many StepApp frames
 	std::string szBaseDir;
 	int nAutoSavePeriod;									// auto save period (in msec)
 	NTimer::STime timeLastAutoSave;				// last autosave time
@@ -68,11 +68,7 @@ public:
 	// resident resources (same-mission reload = zero disk I/O). The load
 	// path defers the purge and runs one ClearResources(false) afterwards.
 	void SetDeferResourcePurge( const bool bDefer ) { bDeferResourcePurge = bDefer; }
-	// Not part of IMainLoop: schedules PauseStreaming(false) a few frames
-	// out, so the resume lands after CMD_LOAD_FINISHED's world init and the
-	// first rendered frames (lazy texture uploads) — the loud part of the
-	// post-load main-thread storm that starved the audio callback.
-	void SetResumeStreamingAfterSteps( const int nSteps ) { nResumeStreamingSteps = nSteps; }
+	void SetResumeStreamingAfterSteps( const int nSteps ) { nResumeStreamingSteps = Max( 0, nSteps ); }
 	void STDCALL StoreScenarioTracker();
 	void STDCALL RestoreScenarioTracker();
 	void STDCALL SerializeConfig( const bool bRead, const DWORD dwSerialize );
