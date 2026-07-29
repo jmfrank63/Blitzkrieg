@@ -53,8 +53,10 @@ fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
         copyGameRuntime(io, allocator, binaries, destination, options.install_dir) catch |err| return failStep("copyGameRuntime", err);
         // Seed config.cfg only when absent: the game persists the whole user
         // profile into it (options, keybinds, unlocked cutscenes, help state) —
-        // overwriting on every stage silently reset that progress.
-        copyFileIfMissing(io, repo, "Data/Configs/config.cfg", destination, "config.cfg") catch |err| return failStep("copy config.cfg", err);
+        // overwriting on every stage silently reset that progress. config.cfg
+        // is intentionally local and ignored, so new install directories use
+        // the tracked default configuration instead.
+        seedConfigIfMissing(io, repo, destination) catch |err| return failStep("seed config.cfg", err);
         copyFile(io, repo, "Data/Configs/defconf.cfg", destination, "defconf.cfg") catch |err| return failStep("copy defconf.cfg", err);
         // The game silently fails to write saves when this is missing.
         destination.createDirPath(io, "saves") catch |err| return failStep("create saves dir", err);
@@ -254,9 +256,12 @@ fn copyFile(io: std.Io, source_dir: std.Io.Dir, source: []const u8, destination_
     try source_dir.copyFile(source, destination_dir, destination, io, .{ .make_path = true, .replace = true });
 }
 
-fn copyFileIfMissing(io: std.Io, source_dir: std.Io.Dir, source: []const u8, destination_dir: std.Io.Dir, destination: []const u8) !void {
-    destination_dir.access(io, destination, .{}) catch |err| switch (err) {
-        error.FileNotFound => return copyFile(io, source_dir, source, destination_dir, destination),
+fn seedConfigIfMissing(io: std.Io, repo: std.Io.Dir, destination: std.Io.Dir) !void {
+    destination.access(io, "config.cfg", .{}) catch |err| switch (err) {
+        error.FileNotFound => return copyFile(io, repo, "Data/Configs/config.cfg", destination, "config.cfg") catch |copy_err| switch (copy_err) {
+            error.FileNotFound => copyFile(io, repo, "Data/Configs/defconf.cfg", destination, "config.cfg"),
+            else => return copy_err,
+        },
         else => return err,
     };
 }
