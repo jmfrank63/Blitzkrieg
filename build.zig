@@ -494,6 +494,11 @@ const gfx_sources = &.{
     "Sources/src/GFX/Text.cpp",
 };
 
+const gfkvk_sources = &.{
+    "Sources/src/GFXVK/bridge.cpp",
+    "Sources/src/GFXVK/GfxVkObjectFactory.cpp",
+};
+
 const randommapgen_sources = &.{
     "Sources/src/RandomMapGen/StdAfx.cpp",
     "Sources/src/RandomMapGen/BetaSpline.cpp",
@@ -660,6 +665,7 @@ pub fn build(b: *std.Build) void {
     const copy_data = b.option(bool, "copy-data", "Copy Data into install layout instead of creating a junction") orelse false;
     const startup_trace = b.option(bool, "startup-trace", "Emit Windows startup checkpoint markers to the debugger") orelse false;
     ubsan_trap = b.option(bool, "ubsan-trap", "Compile UBSan checks as traps so debuggers break at the faulting line (Debug only)") orelse false;
+    const renderer = b.option([]const u8, "renderer", "Renderer backend: 'dx9' (default) or 'vulkan'") orelse "dx9";
     const package_dir = b.option([]const u8, "package-dir", "Relative output directory for zip installers (default: zig-out/packages)") orelse "zig-out/packages";
 
     const zlib = addZlib(b, target, optimize, toolchain);
@@ -679,6 +685,16 @@ pub fn build(b: *std.Build) void {
     const fontgen = addFontGen(b, target, optimize, toolchain, image, common, formats, misc);
     const sfx = addSFX(b, target, optimize, toolchain, misc, common);
     const gfx = addGFX(b, target, optimize, toolchain, misc, formats);
+    const gfxvk_shaders = addGfxvkShaders(b, optimize);
+    const gfxvk = blk: {
+        if (std.mem.eql(u8, renderer, "vulkan")) {
+            break :blk addGFXVK(b, target, optimize, toolchain, misc);
+        } else {
+            // DX9 default: build a stub GFXVK so the DLL slot exists.
+            // Initialization should hide this from the module loader.
+            break :blk addGFXVK(b, target, optimize, toolchain, misc);
+        }
+    };
     const randommapgen = addRandomMapGen(b, target, optimize, toolchain);
     const ailogic = addLegacyProjectDll(b, target, optimize, toolchain, "AILogic", "Sources/src/AILogic/AILogic.vcxproj", "Sources/src/AILogic/AILogic.def", &.{ "Sources/src/AILogic", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/GameTT", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/vorbis-1.3.7/include" }, &.{ misc, lualib, formats, randommapgen, zlib });
     const gamett = addLegacyProjectDll(b, target, optimize, toolchain, "GameTT", "Sources/src/GameTT/GameTT.vcxproj", "Sources/src/GameTT/GameTT.def", &.{ "Sources/src/GameTT", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/AILogic" }, &.{ misc, formats, common, randommapgen });
@@ -793,6 +809,10 @@ pub fn build(b: *std.Build) void {
     const game_step = b.step("game", "Build the Game executable");
     game_step.dependOn(&b.addInstallArtifact(game, .{}).step);
 
+    const gfxvk_step = b.step("gfxvk", "Build the GFXVK Vulkan renderer DLL");
+    gfxvk_step.dependOn(&b.addInstallArtifact(gfxvk, .{}).step);
+    gfxvk_step.dependOn(gfxvk_shaders);
+
     const game_all_step = b.step("game-all", "Build and install the playable game runtime set");
     game_all_step.dependOn(&b.addInstallArtifact(game, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(streamio_zig, .{}).step);
@@ -802,6 +822,8 @@ pub fn build(b: *std.Build) void {
     game_all_step.dependOn(&b.addInstallArtifact(gamett, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(anim, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(gfx, .{}).step);
+    game_all_step.dependOn(gfxvk_shaders);
+    game_all_step.dependOn(&b.addInstallArtifact(gfxvk, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(image, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(input, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(net, .{}).step);
@@ -1808,6 +1830,106 @@ fn addGFX(
         .linkage = .dynamic,
         .root_module = gfx_module,
         .win32_module_definition = b.path("Sources/src/GFX/GFX.def"),
+    });
+}
+
+fn addGfxvkShaders(
+    b: *std.Build,
+    optimize: std.builtin.OptimizeMode,
+) *std.Build.Step {
+    // Phase 0: compile GLSL shaders to SPIR-V using glslc.
+    // The resulting .spv files are placed in zig-out and packaged
+    // alongside the game.  Currently we only compile the fixed-function
+    // passthrough shaders used in Phase 2.
+
+    const shader_step = b.step("gfxvk-shaders", "Compile GFXVK shader assets");
+    const glslc = if (b.option([]const u8, "glslc", "Path to the glslc shader compiler")) |path|
+        path
+    else
+        b.findProgram(&.{ "glslc" }, &.{}) catch @panic(
+            "glslc was not found. Install Shaderc/Vulkan SDK or pass -Dglslc=C:\\path\\to\\glslc.exe",
+        );
+
+    const vert = b.addSystemCommand(&.{ glslc });
+    vert.addFileArg(b.path("Sources/src/GFXVK/shaders/ff.vert"));
+    vert.addArg("-o");
+    const vert_spv = vert.addOutputFileArg("ff.vert.spv");
+    vert.addArg(if (optimize == .Debug) "-O0" else "-O3");
+    vert.step.name = "Compile ff.vert -> SPIR-V";
+
+    const frag = b.addSystemCommand(&.{ glslc });
+    frag.addFileArg(b.path("Sources/src/GFXVK/shaders/ff.frag"));
+    frag.addArg("-o");
+    const frag_spv = frag.addOutputFileArg("ff.frag.spv");
+    frag.addArg(if (optimize == .Debug) "-O0" else "-O3");
+    frag.step.name = "Compile ff.frag -> SPIR-V";
+
+    shader_step.dependOn(&vert.step);
+    shader_step.dependOn(&frag.step);
+    shader_step.dependOn(&b.addInstallFile(vert_spv, "shaders/ff.vert.spv").step);
+    shader_step.dependOn(&b.addInstallFile(frag_spv, "shaders/ff.frag.spv").step);
+    return shader_step;
+}
+
+fn addGFXVK(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    misc: *std.Build.Step.Compile,
+) *std.Build.Step.Compile {
+    // Phase 0: compile the C++ bridge and module descriptor. The Zig core
+    // is linked as a separate static library (gfxvk_zig) so the C++ bridge
+    // and the Zig code are versioned together but compiled independently.
+
+    const zig_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/GFXVK/gfxvk.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    const vulkan_headers = b.dependency("vulkan_headers", .{});
+    const vulkan_zig = b.dependency("vulkan_zig", .{
+        .registry = vulkan_headers.path("registry/vk.xml"),
+    });
+    zig_module.addImport("vulkan", vulkan_zig.module("vulkan-zig"));
+    const gfxvk_zig = b.addLibrary(.{
+        .name = "gfxvk_zig",
+        .linkage = .static,
+        .root_module = zig_module,
+    });
+
+    // Phase 0 Zig stub returns null from gfxvk_create_context, so the
+    // bridge compiles and links even though Vulkan is not functional yet.
+
+    const gfkvk_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, gfkvk_module);
+    addMsvcIncludePaths(b, gfkvk_module, toolchain);
+    addMsvcLibraryPaths(b, gfkvk_module, toolchain);
+    gfkvk_module.addIncludePath(b.path("Sources/src/GFXVK"));
+    gfkvk_module.addIncludePath(b.path("Sources/src/GFXVK/shaders"));
+    gfkvk_module.addCSourceFiles(.{
+        .files = gfkvk_sources,
+        .flags = cppflagsForOptimize(optimize),
+    });
+    gfkvk_module.linkLibrary(misc);
+    gfkvk_module.linkLibrary(gfxvk_zig);
+    linkMsvcRuntime(gfkvk_module, optimize);
+    gfkvk_module.linkSystemLibrary("user32", .{});
+    gfkvk_module.linkSystemLibrary("gdi32", .{});
+    gfkvk_module.linkSystemLibrary("odbc32", .{});
+    gfkvk_module.linkSystemLibrary("odbccp32", .{});
+    gfkvk_module.linkSystemLibrary("vulkan-1", .{});
+    linkComSupport(gfkvk_module, optimize);
+
+    return b.addLibrary(.{
+        .name = "GFXVK",
+        .linkage = .dynamic,
+        .root_module = gfkvk_module,
+        .win32_module_definition = b.path("Sources/src/GFXVK/GFXVK.def"),
     });
 }
 

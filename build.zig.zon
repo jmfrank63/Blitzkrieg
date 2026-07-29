@@ -1,0 +1,22 @@
+.{
+    .fingerprint = 0x1d2619a9b48b5910,
+    .name = .Blitzkrieg,
+    .version = "2.0.0",
+    .dependencies = .{
+        .vulkan_zig = .{
+            .url = "https://github.com/Snektron/vulkan-zig/archive/refs/heads/zig-0.16-compat.tar.gz",
+            .hash = "vulkan-0.0.0-r7Ytx7N9AwD7IZt5_XNHtkJ4G9qY0pCH-cpcOsbL8wzD",
+        },
+        .vulkan_headers = .{
+            .url = "https://github.com/KhronosGroup/Vulkan-Headers/archive/refs/tags/vulkan-sdk-1.4.357.0.tar.gz",
+            .hash = "N-V-__8AAO2WewIbm0OeFBxoD5LxmEzZigF1yXmgGLuahMD5",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "Sources",
+        "tools",
+        "Data",
+    },
+}

@@ -1,0 +1,15 @@
+; GFXVK.def : Declares the module parameters for the Vulkan renderer DLL.
+
+LIBRARY      "GFXVK"
+
+EXPORTS
+    ; Explicit exports can go here
+
+GetModuleDescriptor			@1
+
+; GFXVK.def : Declares the module parameters for the DLL.
+
+LIBRARY      "GFXVK"
+
+EXPORTS
+    GetModuleDescriptor		@1
