@@ -13,6 +13,13 @@ Direct3D 9 compatibility shim, with one native renderer implementation for:
 - Linux x64 through SDL_GPU's Vulkan backend;
 - macOS on Apple Silicon through SDL_GPU's Metal backend.
 
+The acceptance milestone for this plan is narrower than the long-term platform
+goal: the transformed game must build and run on Windows 11 x64 with behavior
+equivalent to the current working `main` build. The renderer architecture must
+remain backend-neutral, but complete Linux and macOS game execution will be
+validated by successor platform-port plans after the remaining OS dependencies
+have been replaced.
+
 The renderer core will be written in Zig. A thin C++ adapter will continue to
 implement the Enigma engine's existing `IGFX` object interfaces while
 delegating rendering and GPU-resource ownership to Zig through a stable C ABI.
@@ -39,6 +46,8 @@ for decomposing phases or inventing architecture.
    isolated sessions.
 7. Preserve the working game throughout migration and retain the old renderer
    only as a temporary visual reference until final cutover.
+8. Finish this plan with the Windows 11 x64 game running through SDL_GPU's
+   Direct3D 12 backend with parity to the current game.
 
 ## Non-goals
 
@@ -46,6 +55,7 @@ This renderer plan will not:
 
 - port the complete game platform layer to SDL3;
 - replace all Win32 input, filesystem, process, networking, or dialog code;
+- produce a complete runnable Linux or macOS game build;
 - introduce Proton, Wine, DXVK, MoltenVK, bgfx, or OpenGL;
 - expose Vulkan, Metal, or Direct3D 12 objects to engine code;
 - redesign gameplay, scene management, asset formats, or object factories
@@ -56,8 +66,9 @@ This renderer plan will not:
   the defined parity gates.
 
 The complete native platform port is a successor project. This plan includes
-only the SDL window/bootstrap work required to create and validate the unified
-renderer.
+only the SDL window/bootstrap work required to integrate and validate the
+unified renderer in the existing Windows 11 x64 game. Linux and macOS remain
+architectural targets, not acceptance environments for this milestone.
 
 ## Existing Constraints
 
@@ -368,14 +379,14 @@ Validate formats, layouts, pipeline coverage, reference scenes, menus,
 missions, resize/fullscreen behavior, resource lifetime, restart behavior, and
 visual parity against the reference renderer.
 
-### Phase 9 — Native target validation and cutover
+### Phase 9 — Windows 11 x64 validation and portability handoff
 
-Validate Direct3D 12 on Windows, Vulkan on Linux, and Metal on Apple Silicon;
-verify packaged shaders and runtime files; switch the Windows game to the new
-`GFX` backend; prove that the portable adapter and renderer are the only GFX
-implementation exposed to future Linux and macOS game targets; and remove D3D
-linkage from the active renderer target. Complete Linux and macOS game startup
-remains gated by the successor platform-port plan.
+Validate the complete game through SDL_GPU's Direct3D 12 backend on Windows 11
+x64; verify packaged SDL and shader runtime files; switch the Windows game to
+the new `GFX` backend; prove that the renderer core contains no direct D3D12,
+Vulkan, or Metal calls; and remove D3D9 linkage from the active renderer
+target. Record the renderer-facing prerequisites for the successor Linux and
+macOS platform-port plans without claiming those game targets are runnable.
 
 ## Luna Plan Corpus
 
@@ -396,7 +407,7 @@ docs/superpowers/plans/2026-07-30-sdl-gpu-renderer/
 ├── phase-06-cpp-adapter/
 ├── phase-07-effects/
 ├── phase-08-parity/
-└── phase-09-platform-validation/
+└── phase-09-windows-validation/
 ```
 
 `README.md` defines the architecture summary, global invariants, dependency
@@ -600,24 +611,33 @@ Stable scenes are captured by the old and new renderers. Comparison records:
 Manual approval is required for the first accepted reference of each effect
 family. Later regressions use automated comparison against that reference.
 
-### Cross-platform gates
+### Current acceptance gate
 
-Windows is the primary implementation host, but a phase cannot claim native
-completion until its platform gate passes on:
+Windows 11 x64 is the required execution environment for this plan. Completion
+requires the real game—not only a renderer sample—to build, launch, reach the
+main menu, load a representative mission, render through SDL_GPU's Direct3D 12
+backend, and shut down cleanly.
 
-- Windows x64 with D3D12;
-- Linux x64 with Vulkan;
-- macOS ARM64 with Metal.
+Backend neutrality is checked structurally:
 
-Platform-unavailable tests are reported as unverified rather than treated as
-passing.
+- the Zig renderer calls SDL_GPU rather than D3D12, Vulkan, or Metal directly;
+- the C ABI contains no OS graphics handles;
+- canonical HLSL and the shader manifest do not encode a Windows-only runtime
+  assumption;
+- the adapter receives an SDL window abstraction rather than owning a Win32
+  rendering device;
+- Linux and macOS prerequisites and unverified tests are recorded for the
+  successor platform plans.
+
+An unavailable Linux or macOS game test is neither required nor reported as
+passing in this renderer milestone.
 
 ## Completion Contract
 
-The renderer migration is complete only when:
+The renderer migration milestone is complete only when:
 
-1. one Zig renderer implementation runs through SDL_GPU on all three target
-   backends;
+1. one backend-neutral Zig renderer implementation runs through SDL_GPU's
+   Direct3D 12 backend in the Windows 11 x64 game;
 2. the C++ adapter implements the engine-facing graphics contract without D3D
    resource ownership;
 3. menus and representative missions meet the approved visual parity
@@ -627,9 +647,11 @@ The renderer migration is complete only when:
 5. texture, geometry, render-target, screenshot, resize, fullscreen, and
    restart tests pass;
 6. renderer resource registries are empty after clean shutdown;
-7. packaged builds contain the correct SDL library and shader artifacts;
-8. the Windows game uses the new renderer by default, while renderer/adapter
-   smoke applications use that same implementation on Linux and macOS ARM64;
+7. the packaged Windows build contains the correct SDL library and DXIL shader
+   artifacts;
+8. the Windows game uses the new renderer by default and matches the current
+   working game's main-menu and representative-mission behavior;
 9. D3D9 and DXGUID are no longer linked by the active renderer target;
-10. remaining native-platform work is documented as a separate successor plan
-    rather than hidden inside renderer tasks.
+10. no direct D3D12, Vulkan, or Metal calls exist in the renderer core;
+11. remaining Linux, macOS, and general native-platform work is documented as
+    separate successor plans rather than hidden inside renderer tasks.
