@@ -8,12 +8,12 @@
 
 **Allowed files:** `Sources/src/GFXGPU/GraphicsEngineGpu.cpp`, `Sources/src/GFXGPU/GeometryBufferGpu.cpp`, `tools/zig/gfxgpu_adapter_test.cpp`.
 
-- [ ] Inventory every draw/mesh/effect method in `IGFX` and its use in `Sources/src`; classify indexed, non-indexed, user-memory, buffered, and mesh paths.
-- [ ] Add recording tests for primitive/count conversion, base vertex, first index, FVF, buffer handles, user-memory byte sizes, and current effect.
-- [ ] Delegate buffered calls directly. Delegate user-memory calls through temporary geometry operations.
-- [ ] Translate mesh batches without retaining borrowed engine pointers after the call.
-- [ ] Validate null/count/range conditions in C++ only when required by the virtual-interface contract; leave renderer resource validation to Zig.
-- [ ] Require each inventoried method to have one recording assertion.
-- [ ] Commit: `feat: adapt IGFX draw and mesh submission`
+- [x] Inventory every draw/mesh/effect method in `IGFX` and its use in `Sources/src`; classify indexed, non-indexed, user-memory, buffered, and mesh paths.
+- [x] Add recording tests for primitive/count conversion, base vertex, first index, FVF, buffer handles, user-memory byte sizes, and current effect.
+- [x] Delegate buffered calls directly. Delegate user-memory calls through temporary geometry operations.
+- [ ] Translate mesh batches without retaining borrowed engine pointers after the call. **Blocked:** `IGFXMesh` exposes no geometry-buffer access, and the adapter cannot cast legacy `CGeometryMesh` across the DLL boundary.
+- [x] Validate null/count/range conditions in C++ only when required by the virtual-interface contract; leave renderer resource validation to Zig.
+- [x] Require each inventoried method to have one recording assertion.
+- [x] Commit: `feat: adapt IGFX draw and mesh submission` (draw/effect portion)
 
 **Evidence:** complete method/use classification and recording tests.

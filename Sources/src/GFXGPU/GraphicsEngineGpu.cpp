@@ -345,7 +345,11 @@ bool STDCALL GraphicsEngineGpu::DrawTemp()
     temporary_bytes_.clear();
     return created && drawn;
 }
-bool STDCALL GraphicsEngineGpu::DrawMesh( IGFXMesh *, const SHMatrix *, int ) { return false; }
+bool STDCALL GraphicsEngineGpu::DrawMesh( IGFXMesh *mesh, const SHMatrix *, int matrices )
+{
+    if ( !mesh || matrices <= 0 ) return fail( "DrawMesh requires a mesh and at least one matrix" );
+    return fail( "DrawMesh requires a cross-module mesh batch contract; IGFXMesh exposes no geometry buffers" );
+}
 bool STDCALL GraphicsEngineGpu::DrawStringA( const char *, int, int, DWORD ) { return false; }
 bool STDCALL GraphicsEngineGpu::DrawString( const wchar_t *, int, int, DWORD ) { return false; }
 bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *, const RECT &, int, DWORD ) { return false; }
