@@ -788,31 +788,22 @@ pub fn build(b: *std.Build) void {
     gfx_gpu_abi_test_step.dependOn(&gfx_gpu_abi_test_run.step);
 
     const gfx_gpu_smoke_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/gfxgpu_smoke.zig"),
         .target = target,
         .optimize = optimize,
+        .imports = &.{ .{ .name = "sdl3", .module = sdl3 }, .{ .name = "gfxgpu", .module = gfx_gpu_zig.root_module } },
     });
-    gfx_gpu_smoke_module.addCSourceFiles(.{
-        .files = &.{ "tools/zig/gfxgpu_smoke.cpp" },
-        .flags = cppflagsForOptimize(optimize),
-    });
-    gfx_gpu_smoke_module.addIncludePath(sdl_c_dep.path("include"));
-    addMsvcIncludePaths(b, gfx_gpu_smoke_module, toolchain);
-    addMsvcLibraryPaths(b, gfx_gpu_smoke_module, toolchain);
-    gfx_gpu_smoke_module.linkLibrary(sdl_c);
-    linkMsvcRuntime(gfx_gpu_smoke_module, optimize);
     const gfx_gpu_smoke = b.addExecutable(.{
         .name = "gfxgpu-smoke",
         .root_module = gfx_gpu_smoke_module,
     });
-    gfx_gpu_smoke.subsystem = .console;
-    gfx_gpu_smoke.entry = .{ .symbol_name = "main" };
     const gfx_gpu_smoke_run = b.addRunArtifact(gfx_gpu_smoke);
     const gfx_gpu_smoke_install = b.addInstallArtifact(gfx_gpu_smoke, .{});
-    const gfx_gpu_smoke_build_step = b.step("gfxgpu-smoke-build", "Build the SDL3 C++ bootstrap smoke test");
+    const gfx_gpu_smoke_build_step = b.step("gfxgpu-smoke-build", "Build the Zig SDL3 GPU shader smoke test");
     gfx_gpu_smoke_build_step.dependOn(&gfx_gpu_smoke_install.step);
     gfx_gpu_smoke_run.step.dependOn(&gfx_gpu_smoke_install.step);
     gfx_gpu_smoke_run.setCwd(b.path("zig-out/bin"));
-    const gfx_gpu_smoke_step = b.step("gfxgpu-smoke", "Run the SDL3 C++ bootstrap smoke test");
+    const gfx_gpu_smoke_step = b.step("gfxgpu-smoke", "Run the Zig SDL3 GPU shader smoke test");
     gfx_gpu_smoke_step.dependOn(&gfx_gpu_smoke_run.step);
     const options_bridge = addOptionsBridge(b, target, optimize, toolchain);
     // Save-load spends its time in the zig structure reader; at Debug (-O0 +

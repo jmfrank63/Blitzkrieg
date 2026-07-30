@@ -3,7 +3,7 @@ const manifest = @import("shader_manifest.zig");
 const bindings = @import("bindings.zig");
 const sdl = @import("sdl.zig");
 
-pub const Error = manifest.Error || bindings.UniformError || error{
+pub const Error = manifest.Error || bindings.UniformError || std.mem.Allocator.Error || error{
     EffectNotFound,
     MissingShaderStage,
     ShaderCreationFailed,
