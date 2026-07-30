@@ -820,7 +820,7 @@ pub fn build(b: *std.Build) void {
     const game_step = b.step("game", "Build the Game executable");
     game_step.dependOn(&b.addInstallArtifact(game, .{}).step);
 
-    const gfx_gpu_zig_step = b.step("gfxgpu-zig", "Build the Zig GPU renderer static library");
+    const gfx_gpu_zig_step = b.step("GfxGpuZig", "Build the Zig GPU renderer static library");
     gfx_gpu_zig_step.dependOn(&b.addInstallArtifact(gfx_gpu_zig, .{}).step);
 
     const game_all_step = b.step("game-all", "Build and install the playable game runtime set");
