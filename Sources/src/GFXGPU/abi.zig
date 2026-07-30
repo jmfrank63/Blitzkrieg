@@ -82,6 +82,11 @@ fn create(info: ?*const CreateInfo, out_renderer: ?*?*RendererHandle) callconv(.
             std.heap.c_allocator.destroy(state);
             return errors.sdl_error;
         };
+        state.attachWindow(create_info.sdl_window, create_info.width, create_info.height) catch {
+            state.deinit();
+            std.heap.c_allocator.destroy(state);
+            return errors.sdl_error;
+        };
     }
     out_renderer.?.* = @ptrCast(state);
     return errors.ok;
@@ -116,26 +121,33 @@ fn withRenderer(handle: ?*RendererHandle) ?*renderer_mod.Renderer {
 }
 fn beginFrame(handle: ?*RendererHandle) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
-    renderer.frame.begin(true) catch return errors.invalid_state;
-    return errors.ok;
+    _ = renderer.beginFrame() catch return errors.invalid_state;
+    return if (renderer.frame.skipped) errors.ok else errors.ok;
 }
 fn endFrame(handle: ?*RendererHandle) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
-    renderer.frame.end() catch return errors.invalid_state;
+    renderer.endFrame() catch return errors.invalid_state;
     return errors.ok;
 }
 fn present(handle: ?*RendererHandle) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
-    renderer.frame.present() catch return errors.invalid_state;
+    renderer.present() catch return errors.invalid_state;
     return errors.ok;
 }
 fn cancelFrame(handle: ?*RendererHandle) callconv(.c) void {
-    if (withRenderer(handle)) |renderer| renderer.frame.cancel();
+    if (withRenderer(handle)) |renderer| renderer.cancelFrame();
 }
 fn clear(handle: ?*RendererHandle, info: ?*const ClearInfo) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (info == null or info.?.struct_size < @sizeOf(ClearInfo)) return errors.invalid_argument;
     if (renderer.frame.state != .recording) return errors.invalid_state;
+    const color = info.?.color_rgba8;
+    renderer.clear(.{
+        @as(f32, @floatFromInt((color >> 0) & 0xff)) / 255.0,
+        @as(f32, @floatFromInt((color >> 8) & 0xff)) / 255.0,
+        @as(f32, @floatFromInt((color >> 16) & 0xff)) / 255.0,
+        @as(f32, @floatFromInt((color >> 24) & 0xff)) / 255.0,
+    }) catch return errors.invalid_state;
     return errors.ok;
 }
 fn resize(handle: ?*RendererHandle, width: u32, height: u32) callconv(.c) Result {
@@ -143,24 +155,118 @@ fn resize(handle: ?*RendererHandle, width: u32, height: u32) callconv(.c) Result
     if (width == 0 or height == 0) return errors.invalid_argument;
     return errors.ok;
 }
-fn setViewport(handle: ?*RendererHandle, viewport: ?*const ViewportInfo) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (viewport == null or viewport.?.struct_size < @sizeOf(ViewportInfo)) return errors.invalid_argument; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
-fn setTransform(handle: ?*RendererHandle, world: ?*const MatrixInfo, view_proj: ?*const MatrixInfo) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (world == null or view_proj == null or world.?.struct_size < @sizeOf(MatrixInfo) or view_proj.?.struct_size < @sizeOf(MatrixInfo)) return errors.invalid_argument; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
-fn setColor(handle: ?*RendererHandle, _: u32) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
-fn setFog(handle: ?*RendererHandle, _: u32) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
-fn setState(handle: ?*RendererHandle, info: ?*const StateInfo) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (info == null or info.?.struct_size < @sizeOf(StateInfo)) return errors.invalid_argument; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
-fn createTexture(handle: ?*RendererHandle, info: ?*const TextureCreateInfo, out_handle: ?*u64) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (info == null or out_handle == null or info.?.struct_size < @sizeOf(TextureCreateInfo) or info.?.width == 0 or info.?.height == 0 or info.?.mip_count == 0) return errors.invalid_argument; const id = renderer.next_resource_handle; renderer.next_resource_handle += 1; renderer.resources.put(renderer.allocator, id, {}) catch return errors.out_of_memory; out_handle.?.* = id; return errors.ok; }
-fn uploadTexture(handle: ?*RendererHandle, texture: u64, info: ?*const TextureUploadInfo) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (info == null or info.?.struct_size < @sizeOf(TextureUploadInfo) or info.?.data == null or info.?.byte_length == 0 or !renderer.resources.contains(texture)) return errors.invalid_argument; return errors.ok; }
-fn destroyTexture(handle: ?*RendererHandle, texture: u64) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (texture == 0 or !renderer.resources.remove(texture)) return errors.invalid_handle; return errors.ok; }
-fn createRenderTarget(handle: ?*RendererHandle, info: ?*const RenderTargetCreateInfo, out_handle: ?*u64) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (info == null or out_handle == null or info.?.struct_size < @sizeOf(RenderTargetCreateInfo) or info.?.width == 0 or info.?.height == 0) return errors.invalid_argument; const id = renderer.next_resource_handle; renderer.next_resource_handle += 1; renderer.resources.put(renderer.allocator, id, {}) catch return errors.out_of_memory; out_handle.?.* = id; return errors.ok; }
-fn bindRenderTarget(handle: ?*RendererHandle, target: u64) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (target != 0 and !renderer.resources.contains(target)) return errors.invalid_handle; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
-fn createBuffer(handle: ?*RendererHandle, info: ?*const BufferCreateInfo, out_handle: ?*u64) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (info == null or out_handle == null or info.?.struct_size < @sizeOf(BufferCreateInfo) or info.?.element_count == 0 or info.?.stride == 0) return errors.invalid_argument; const id = renderer.next_resource_handle; renderer.next_resource_handle += 1; renderer.resources.put(renderer.allocator, id, {}) catch return errors.out_of_memory; out_handle.?.* = id; return errors.ok; }
-fn uploadBuffer(handle: ?*RendererHandle, buffer: u64, info: ?*const BufferUploadInfo) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (info == null or info.?.struct_size < @sizeOf(BufferUploadInfo) or info.?.data == null or info.?.byte_length == 0 or !renderer.resources.contains(buffer)) return errors.invalid_argument; return errors.ok; }
-fn destroyBuffer(handle: ?*RendererHandle, buffer: u64) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (buffer == 0 or !renderer.resources.remove(buffer)) return errors.invalid_handle; return errors.ok; }
-fn setTexture(handle: ?*RendererHandle, texture: u64) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (texture == 0) return errors.invalid_argument; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
-fn setSampler(handle: ?*RendererHandle, sampler: u64) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (sampler == 0) return errors.invalid_argument; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
-fn draw(handle: ?*RendererHandle, _: u32, primitive_count: u32) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (primitive_count == 0) return errors.invalid_argument; if (renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
-fn drawIndexed(handle: ?*RendererHandle, index_buffer: u64, index_size: u32, first_index: u32, index_count: u32, _: i32) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (index_buffer == 0 or (index_size != 2 and index_size != 4) or index_count == 0) return errors.invalid_argument; if (renderer.frame.state != .pass_active) return errors.invalid_state; _ = first_index; return errors.ok; }
-fn drawTemporary(handle: ?*RendererHandle, info: ?*const TemporaryGeometryInfo, primitive_count: u32) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (info == null or info.?.struct_size < @sizeOf(TemporaryGeometryInfo) or info.?.data == null or info.?.byte_length == 0 or info.?.stride == 0 or primitive_count == 0) return errors.invalid_argument; if (renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
+fn setViewport(handle: ?*RendererHandle, viewport: ?*const ViewportInfo) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (viewport == null or viewport.?.struct_size < @sizeOf(ViewportInfo)) return errors.invalid_argument;
+    if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
+    return errors.ok;
+}
+fn setTransform(handle: ?*RendererHandle, world: ?*const MatrixInfo, view_proj: ?*const MatrixInfo) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (world == null or view_proj == null or world.?.struct_size < @sizeOf(MatrixInfo) or view_proj.?.struct_size < @sizeOf(MatrixInfo)) return errors.invalid_argument;
+    if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
+    return errors.ok;
+}
+fn setColor(handle: ?*RendererHandle, _: u32) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
+    return errors.ok;
+}
+fn setFog(handle: ?*RendererHandle, _: u32) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
+    return errors.ok;
+}
+fn setState(handle: ?*RendererHandle, info: ?*const StateInfo) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (info == null or info.?.struct_size < @sizeOf(StateInfo)) return errors.invalid_argument;
+    if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
+    return errors.ok;
+}
+fn createTexture(handle: ?*RendererHandle, info: ?*const TextureCreateInfo, out_handle: ?*u64) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (info == null or out_handle == null or info.?.struct_size < @sizeOf(TextureCreateInfo) or info.?.width == 0 or info.?.height == 0 or info.?.mip_count == 0) return errors.invalid_argument;
+    const id = renderer.next_resource_handle;
+    renderer.next_resource_handle += 1;
+    renderer.resources.put(renderer.allocator, id, {}) catch return errors.out_of_memory;
+    out_handle.?.* = id;
+    return errors.ok;
+}
+fn uploadTexture(handle: ?*RendererHandle, texture: u64, info: ?*const TextureUploadInfo) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (info == null or info.?.struct_size < @sizeOf(TextureUploadInfo) or info.?.data == null or info.?.byte_length == 0 or !renderer.resources.contains(texture)) return errors.invalid_argument;
+    return errors.ok;
+}
+fn destroyTexture(handle: ?*RendererHandle, texture: u64) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (texture == 0 or !renderer.resources.remove(texture)) return errors.invalid_handle;
+    return errors.ok;
+}
+fn createRenderTarget(handle: ?*RendererHandle, info: ?*const RenderTargetCreateInfo, out_handle: ?*u64) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (info == null or out_handle == null or info.?.struct_size < @sizeOf(RenderTargetCreateInfo) or info.?.width == 0 or info.?.height == 0) return errors.invalid_argument;
+    const id = renderer.next_resource_handle;
+    renderer.next_resource_handle += 1;
+    renderer.resources.put(renderer.allocator, id, {}) catch return errors.out_of_memory;
+    out_handle.?.* = id;
+    return errors.ok;
+}
+fn bindRenderTarget(handle: ?*RendererHandle, target: u64) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (target != 0 and !renderer.resources.contains(target)) return errors.invalid_handle;
+    if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
+    return errors.ok;
+}
+fn createBuffer(handle: ?*RendererHandle, info: ?*const BufferCreateInfo, out_handle: ?*u64) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (info == null or out_handle == null or info.?.struct_size < @sizeOf(BufferCreateInfo) or info.?.element_count == 0 or info.?.stride == 0) return errors.invalid_argument;
+    const id = renderer.next_resource_handle;
+    renderer.next_resource_handle += 1;
+    renderer.resources.put(renderer.allocator, id, {}) catch return errors.out_of_memory;
+    out_handle.?.* = id;
+    return errors.ok;
+}
+fn uploadBuffer(handle: ?*RendererHandle, buffer: u64, info: ?*const BufferUploadInfo) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (info == null or info.?.struct_size < @sizeOf(BufferUploadInfo) or info.?.data == null or info.?.byte_length == 0 or !renderer.resources.contains(buffer)) return errors.invalid_argument;
+    return errors.ok;
+}
+fn destroyBuffer(handle: ?*RendererHandle, buffer: u64) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (buffer == 0 or !renderer.resources.remove(buffer)) return errors.invalid_handle;
+    return errors.ok;
+}
+fn setTexture(handle: ?*RendererHandle, texture: u64) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (texture == 0) return errors.invalid_argument;
+    if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
+    return errors.ok;
+}
+fn setSampler(handle: ?*RendererHandle, sampler: u64) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (sampler == 0) return errors.invalid_argument;
+    if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
+    return errors.ok;
+}
+fn draw(handle: ?*RendererHandle, _: u32, primitive_count: u32) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (primitive_count == 0) return errors.invalid_argument;
+    if (renderer.frame.state != .pass_active) return errors.invalid_state;
+    return errors.ok;
+}
+fn drawIndexed(handle: ?*RendererHandle, index_buffer: u64, index_size: u32, first_index: u32, index_count: u32, _: i32) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (index_buffer == 0 or (index_size != 2 and index_size != 4) or index_count == 0) return errors.invalid_argument;
+    if (renderer.frame.state != .pass_active) return errors.invalid_state;
+    _ = first_index;
+    return errors.ok;
+}
+fn drawTemporary(handle: ?*RendererHandle, info: ?*const TemporaryGeometryInfo, primitive_count: u32) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (info == null or info.?.struct_size < @sizeOf(TemporaryGeometryInfo) or info.?.data == null or info.?.byte_length == 0 or info.?.stride == 0 or primitive_count == 0) return errors.invalid_argument;
+    if (renderer.frame.state != .pass_active) return errors.invalid_state;
+    return errors.ok;
+}
 pub fn gfxgpu_readback(handle: ?*RendererHandle, info: ?*ReadbackInfo) callconv(.c) Result {
     _ = withRenderer(handle) orelse return errors.invalid_handle;
     if (info == null or info.?.struct_size < @sizeOf(ReadbackInfo) or info.?.width == 0 or info.?.height == 0 or info.?.data == null) return errors.invalid_argument;
