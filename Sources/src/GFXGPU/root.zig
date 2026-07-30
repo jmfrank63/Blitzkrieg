@@ -15,6 +15,13 @@ pub const sdl = @import("sdl.zig");
 pub const device = @import("device.zig");
 pub const surface = @import("surface.zig");
 pub const frame = @import("frame.zig");
+pub const transfer = @import("transfer.zig");
+pub const lifetime = @import("lifetime.zig");
+pub const buffers = @import("buffers.zig");
+pub const textures = @import("textures.zig");
+pub const samplers = @import("samplers.zig");
+pub const targets = @import("targets.zig");
+pub const readback = @import("readback.zig");
 
 pub export fn gfxgpu_get_api(requested_version: u32, out_api: ?*abi.Api) callconv(.c) abi.Result {
     return abi.gfxgpu_get_api(requested_version, out_api);
