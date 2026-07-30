@@ -6,6 +6,7 @@
 #include "MeshGpu.h"
 #include "..\\GFX\\GFXHelper.h"
 #include "..\\Main\\TextSystem.h"
+#include "..\\Image\\Image.h"
 
 #include <SDL3/SDL.h>
 
@@ -427,7 +428,21 @@ bool STDCALL GraphicsEngineGpu::SetGammaRamp( const SGFXGammaRamp &, bool ) { re
 bool STDCALL GraphicsEngineGpu::GetGammaRamp( const SGFXGammaRamp * ) { return false; }
 void STDCALL GraphicsEngineGpu::SetGammaCorrectionValues( const float b, const float c, const float g ) { brightness_ = b; contrast_ = c; gamma_ = g; }
 void STDCALL GraphicsEngineGpu::GetGammaCorrectionValues( float *b, float *c, float *g ) { if ( b ) *b = brightness_; if ( c ) *c = contrast_; if ( g ) *g = gamma_; }
-bool STDCALL GraphicsEngineGpu::TakeScreenShot( IImage * ) { return false; }
+bool STDCALL GraphicsEngineGpu::TakeScreenShot( IImage *image )
+{
+    if ( !image || !renderer_ ) return fail( "SDL GPU screenshot readback is unavailable" );
+    const uint32_t width = static_cast<uint32_t>( image->GetSizeX() );
+    const uint32_t height = static_cast<uint32_t>( image->GetSizeY() );
+    if ( width == 0 || height == 0 ) return fail( "screenshot image has invalid dimensions" );
+    std::vector<unsigned char> pixels;
+    try { pixels.resize( static_cast<size_t>( width ) * height * sizeof( SColor ) ); } catch ( ... ) { return fail( "screenshot allocation failed" ); }
+    GfxGpuReadbackInfo info{ sizeof( info ), width, height, static_cast<uint32_t>( pixels.size() ), static_cast<uint32_t>( width * sizeof( SColor ) ), pixels.data() };
+    if ( !Check( gfxgpu_readback( renderer_, &info ), "readback" ) ) return false;
+    if ( info.row_pitch < width * sizeof( SColor ) || info.byte_length < info.row_pitch * height ) return fail( "screenshot readback returned an invalid layout" );
+    SColor *destination = image->GetLFB();
+    for ( uint32_t row = 0; row < height; ++row ) std::memcpy( destination + static_cast<size_t>( row ) * width, pixels.data() + static_cast<size_t>( row ) * info.row_pitch, width * sizeof( SColor ) );
+    return true;
+}
 int STDCALL GraphicsEngineGpu::GetNumPassedVertices() const { return passed_vertices_; }
 int STDCALL GraphicsEngineGpu::GetNumPassedPrimitives() const { return passed_primitives_; }
 bool STDCALL GraphicsEngineGpu::SetShadingEffect( int effect ) { return SetState( GFXGPU_STATE_SHADE_EFFECT, 0, static_cast<uint32_t>( effect ), nullptr, 0, "set_shade_effect" ); }

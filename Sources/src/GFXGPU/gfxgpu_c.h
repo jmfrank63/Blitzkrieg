@@ -76,6 +76,7 @@ typedef struct GfxGpuTextureUploadInfo { uint32_t struct_size; const void *data;
 typedef struct GfxGpuRenderTargetCreateInfo { uint32_t struct_size; uint32_t width; uint32_t height; uint32_t format; } GfxGpuRenderTargetCreateInfo;
 typedef struct GfxGpuBufferCreateInfo { uint32_t struct_size; uint32_t element_count; uint32_t format; uint32_t stride; uint32_t usage; } GfxGpuBufferCreateInfo;
 typedef struct GfxGpuBufferUploadInfo { uint32_t struct_size; const void *data; uint32_t byte_length; uint32_t byte_offset; } GfxGpuBufferUploadInfo;
+typedef struct GfxGpuReadbackInfo { uint32_t struct_size; uint32_t width; uint32_t height; uint32_t byte_length; uint32_t row_pitch; void *data; } GfxGpuReadbackInfo;
 
 enum {
     GFXGPU_STATE_WIREFRAME = 1,
@@ -122,6 +123,7 @@ typedef struct GfxGpuApi {
 } GfxGpuApi;
 
 GfxGpuResult gfxgpu_get_api(uint32_t requested_version, GfxGpuApi *out_api);
+GfxGpuResult gfxgpu_readback(GfxGpuRenderer *, GfxGpuReadbackInfo *);
 
 #ifdef __cplusplus
 }

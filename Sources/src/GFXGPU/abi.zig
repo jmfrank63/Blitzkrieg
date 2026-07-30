@@ -34,6 +34,7 @@ pub const TextureUploadInfo = extern struct { struct_size: u32, data: ?*const an
 pub const RenderTargetCreateInfo = extern struct { struct_size: u32, width: u32, height: u32, format: u32 };
 pub const BufferCreateInfo = extern struct { struct_size: u32, element_count: u32, format: u32, stride: u32, usage: u32 };
 pub const BufferUploadInfo = extern struct { struct_size: u32, data: ?*const anyopaque, byte_length: u32, byte_offset: u32 };
+pub const ReadbackInfo = extern struct { struct_size: u32, width: u32, height: u32, byte_length: u32, row_pitch: u32, data: ?*anyopaque };
 
 pub const Api = extern struct {
     abi_version: u32,
@@ -160,6 +161,11 @@ fn setSampler(handle: ?*RendererHandle, sampler: u64) callconv(.c) Result { cons
 fn draw(handle: ?*RendererHandle, _: u32, primitive_count: u32) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (primitive_count == 0) return errors.invalid_argument; if (renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
 fn drawIndexed(handle: ?*RendererHandle, index_buffer: u64, index_size: u32, first_index: u32, index_count: u32, _: i32) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (index_buffer == 0 or (index_size != 2 and index_size != 4) or index_count == 0) return errors.invalid_argument; if (renderer.frame.state != .pass_active) return errors.invalid_state; _ = first_index; return errors.ok; }
 fn drawTemporary(handle: ?*RendererHandle, info: ?*const TemporaryGeometryInfo, primitive_count: u32) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (info == null or info.?.struct_size < @sizeOf(TemporaryGeometryInfo) or info.?.data == null or info.?.byte_length == 0 or info.?.stride == 0 or primitive_count == 0) return errors.invalid_argument; if (renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
+pub fn gfxgpu_readback(handle: ?*RendererHandle, info: ?*ReadbackInfo) callconv(.c) Result {
+    _ = withRenderer(handle) orelse return errors.invalid_handle;
+    if (info == null or info.?.struct_size < @sizeOf(ReadbackInfo) or info.?.width == 0 or info.?.height == 0 or info.?.data == null) return errors.invalid_argument;
+    return errors.unsupported;
+}
 
 const api = Api{
     .abi_version = abi_version,
@@ -229,4 +235,23 @@ test "ABI create and destroy balance and rejects null arguments" {
     destroy(output);
     try std.testing.expectEqual(errors.invalid_handle, getLastError(null, null, 0, null));
     try std.testing.expectEqual(errors.invalid_argument, getLiveCounts(null, null));
+}
+
+test "standalone readback export validates its contract" {
+    try std.testing.expectEqual(errors.invalid_handle, gfxgpu_readback(null, null));
+    var output: ?*RendererHandle = null;
+    var create_info = CreateInfo{
+        .struct_size = @sizeOf(CreateInfo),
+        .flags = 2,
+        .sdl_window = null,
+        .width = 2,
+        .height = 2,
+        .shader_directory_utf8 = null,
+        .preferred_driver_utf8 = null,
+    };
+    try std.testing.expectEqual(errors.ok, create(&create_info, &output));
+    defer destroy(output);
+    var pixels: [16]u8 = undefined;
+    var info = ReadbackInfo{ .struct_size = @sizeOf(ReadbackInfo), .width = 2, .height = 2, .byte_length = pixels.len, .row_pitch = 8, .data = &pixels };
+    try std.testing.expectEqual(errors.unsupported, gfxgpu_readback(output, &info));
 }
