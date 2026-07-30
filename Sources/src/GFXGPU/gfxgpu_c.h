@@ -26,6 +26,7 @@ typedef uint32_t GfxGpuResult;
 
 #define GFXGPU_CREATE_NONE      UINT32_C(0)
 #define GFXGPU_CREATE_DEBUG     UINT32_C(1)
+#define GFXGPU_CREATE_NO_DEVICE UINT32_C(2)
 
 typedef struct GfxGpuExtent {
     uint32_t width;
@@ -59,6 +60,14 @@ typedef struct GfxGpuLiveCounts {
     uint32_t render_targets;
 } GfxGpuLiveCounts;
 
+typedef struct GfxGpuClearInfo {
+    uint32_t struct_size;
+    uint32_t mask;
+    uint32_t color_rgba8;
+    float depth;
+    uint32_t stencil;
+} GfxGpuClearInfo;
+
 typedef struct GfxGpuApi {
     uint32_t abi_version;
     uint32_t struct_size;
@@ -66,6 +75,12 @@ typedef struct GfxGpuApi {
     void (*destroy)(GfxGpuRenderer *);
     GfxGpuResult (*get_last_error)(GfxGpuRenderer *, char *, uint32_t, uint32_t *);
     GfxGpuResult (*get_live_counts)(GfxGpuRenderer *, GfxGpuLiveCounts *);
+    GfxGpuResult (*begin_frame)(GfxGpuRenderer *);
+    GfxGpuResult (*end_frame)(GfxGpuRenderer *);
+    GfxGpuResult (*present)(GfxGpuRenderer *);
+    void (*cancel_frame)(GfxGpuRenderer *);
+    GfxGpuResult (*clear)(GfxGpuRenderer *, const GfxGpuClearInfo *);
+    GfxGpuResult (*resize)(GfxGpuRenderer *, uint32_t, uint32_t);
 } GfxGpuApi;
 
 GfxGpuResult gfxgpu_get_api(uint32_t requested_version, GfxGpuApi *out_api);

@@ -688,6 +688,7 @@ pub fn build(b: *std.Build) void {
     addMsvcIncludePaths(b, gfx_gpu_abi_test_module, toolchain);
     addMsvcLibraryPaths(b, gfx_gpu_abi_test_module, toolchain);
     gfx_gpu_abi_test_module.linkLibrary(gfx_gpu_zig);
+    gfx_gpu_abi_test_module.linkLibrary(sdl_c);
     linkMsvcRuntime(gfx_gpu_abi_test_module, optimize);
     const gfx_gpu_abi_test = b.addExecutable(.{
         .name = "gfxgpu-abi-test",

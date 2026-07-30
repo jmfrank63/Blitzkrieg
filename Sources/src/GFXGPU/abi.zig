@@ -1,6 +1,7 @@
 const std = @import("std");
 const errors = @import("error.zig");
 const renderer_mod = @import("renderer.zig");
+const device_mod = @import("device.zig");
 
 pub const abi_version: u32 = 1;
 pub const RendererHandle = opaque {};
@@ -23,6 +24,7 @@ pub const LiveCounts = extern struct {
     samplers: u32,
     render_targets: u32,
 };
+pub const ClearInfo = extern struct { struct_size: u32, mask: u32, color_rgba8: u32, depth: f32, stencil: u32 };
 
 pub const Api = extern struct {
     abi_version: u32,
@@ -31,6 +33,12 @@ pub const Api = extern struct {
     destroy: *const fn (?*RendererHandle) callconv(.c) void,
     get_last_error: *const fn (?*RendererHandle, ?[*]u8, u32, ?*u32) callconv(.c) Result,
     get_live_counts: *const fn (?*RendererHandle, ?*LiveCounts) callconv(.c) Result,
+    begin_frame: *const fn (?*RendererHandle) callconv(.c) Result,
+    end_frame: *const fn (?*RendererHandle) callconv(.c) Result,
+    present: *const fn (?*RendererHandle) callconv(.c) Result,
+    cancel_frame: *const fn (?*RendererHandle) callconv(.c) void,
+    clear: *const fn (?*RendererHandle, ?*const ClearInfo) callconv(.c) Result,
+    resize: *const fn (?*RendererHandle, u32, u32) callconv(.c) Result,
 };
 
 fn create(info: ?*const CreateInfo, out_renderer: ?*?*RendererHandle) callconv(.c) Result {
@@ -40,6 +48,13 @@ fn create(info: ?*const CreateInfo, out_renderer: ?*?*RendererHandle) callconv(.
         return errors.invalid_argument;
     const state = std.heap.c_allocator.create(renderer_mod.Renderer) catch return errors.out_of_memory;
     state.* = renderer_mod.Renderer.init(std.heap.c_allocator);
+    if ((create_info.flags & 2) == 0) {
+        state.device = device_mod.Device.init(std.heap.c_allocator, device_mod.real_api, @intCast(@import("sdl.zig").shaderformat_dxil), (create_info.flags & 1) != 0, create_info.preferred_driver_utf8) catch {
+            state.deinit();
+            std.heap.c_allocator.destroy(state);
+            return errors.sdl_error;
+        };
+    }
     out_renderer.?.* = @ptrCast(state);
     return errors.ok;
 }
@@ -67,6 +82,40 @@ fn getLiveCounts(handle: ?*RendererHandle, counts: ?*LiveCounts) callconv(.c) Re
     return errors.ok;
 }
 
+fn withRenderer(handle: ?*RendererHandle) ?*renderer_mod.Renderer {
+    const value = handle orelse return null;
+    return @ptrCast(@alignCast(value));
+}
+fn beginFrame(handle: ?*RendererHandle) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    renderer.frame.begin(true) catch return errors.invalid_state;
+    return errors.ok;
+}
+fn endFrame(handle: ?*RendererHandle) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    renderer.frame.end() catch return errors.invalid_state;
+    return errors.ok;
+}
+fn present(handle: ?*RendererHandle) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    renderer.frame.present() catch return errors.invalid_state;
+    return errors.ok;
+}
+fn cancelFrame(handle: ?*RendererHandle) callconv(.c) void {
+    if (withRenderer(handle)) |renderer| renderer.frame.cancel();
+}
+fn clear(handle: ?*RendererHandle, info: ?*const ClearInfo) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (info == null or info.?.struct_size < @sizeOf(ClearInfo)) return errors.invalid_argument;
+    if (renderer.frame.state != .recording) return errors.invalid_state;
+    return errors.ok;
+}
+fn resize(handle: ?*RendererHandle, width: u32, height: u32) callconv(.c) Result {
+    _ = withRenderer(handle) orelse return errors.invalid_handle;
+    if (width == 0 or height == 0) return errors.invalid_argument;
+    return errors.ok;
+}
+
 const api = Api{
     .abi_version = abi_version,
     .struct_size = @sizeOf(Api),
@@ -74,6 +123,12 @@ const api = Api{
     .destroy = destroy,
     .get_last_error = getLastError,
     .get_live_counts = getLiveCounts,
+    .begin_frame = beginFrame,
+    .end_frame = endFrame,
+    .present = present,
+    .cancel_frame = cancelFrame,
+    .clear = clear,
+    .resize = resize,
 };
 
 pub fn gfxgpu_get_api(requested_version: u32, out_api: ?*Api) callconv(.c) Result {
@@ -88,7 +143,8 @@ test "C ABI uses fixed-width fields and rejects invalid API requests" {
     try std.testing.expectEqual(@as(usize, 4), @sizeOf(Result));
     try std.testing.expectEqual(@as(usize, 8), @sizeOf(u64));
     try std.testing.expectEqual(errors.invalid_argument, gfxgpu_get_api(abi_version, null));
-    var api_short = Api{ .abi_version = 0, .struct_size = 1, .create = create, .destroy = destroy, .get_last_error = getLastError, .get_live_counts = getLiveCounts };
+    var api_short = api;
+    api_short.struct_size = 1;
     try std.testing.expectEqual(errors.invalid_argument, gfxgpu_get_api(abi_version, &api_short));
     try std.testing.expectEqual(errors.unsupported, gfxgpu_get_api(abi_version + 1, &api_short));
 }
@@ -98,7 +154,7 @@ test "ABI create and destroy balance and rejects null arguments" {
     try std.testing.expectEqual(errors.invalid_argument, create(null, &output));
     var info = CreateInfo{
         .struct_size = @sizeOf(CreateInfo),
-        .flags = 0,
+        .flags = 2,
         .sdl_window = null,
         .width = 640,
         .height = 480,

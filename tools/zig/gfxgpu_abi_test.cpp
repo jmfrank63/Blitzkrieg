@@ -12,7 +12,7 @@ int main()
 
     GfxGpuCreateInfo info{};
     info.struct_size = static_cast<uint32_t>( sizeof( info ) );
-    info.flags = GFXGPU_CREATE_DEBUG;
+    info.flags = GFXGPU_CREATE_DEBUG | GFXGPU_CREATE_NO_DEVICE;
     info.width = 320;
     info.height = 200;
     GfxGpuRenderer *renderer = nullptr;

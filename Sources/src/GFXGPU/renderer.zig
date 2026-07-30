@@ -1,7 +1,11 @@
 const std = @import("std");
+const device_mod = @import("device.zig");
+const frame_mod = @import("frame.zig");
 
 pub const Renderer = struct {
     allocator: std.mem.Allocator,
+    device: ?device_mod.Device = null,
+    frame: frame_mod.Frame = .{},
 
     pub const LiveCounts = struct {
         textures: u32 = 0,
@@ -15,6 +19,7 @@ pub const Renderer = struct {
     }
 
     pub fn deinit(self: *Renderer) void {
+        if (self.device) |*device| device.deinit();
         self.* = undefined;
     }
 };
