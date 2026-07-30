@@ -14,6 +14,7 @@ pub const Renderer = struct {
         render_targets: u32 = 0,
         shaders: u32 = 0,
         pipelines: u32 = 0,
+        passes: u32 = 0,
     };
 
     pub fn init(allocator: std.mem.Allocator) Renderer {

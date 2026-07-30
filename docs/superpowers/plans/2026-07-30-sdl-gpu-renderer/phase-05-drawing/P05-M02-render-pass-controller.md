@@ -8,11 +8,11 @@
 
 **Allowed files:** `Sources/src/GFXGPU/passes.zig`, `Sources/src/GFXGPU/frame.zig`, `Sources/src/GFXGPU/renderer.zig`, `Sources/src/GFXGPU/root.zig`.
 
-- [ ] Add a pure `PassPlan` test matrix for first use, clear color/depth/stencil, preserve, target change, frame end, and skipped swapchain.
-- [ ] Begin lazily on clear or first draw. Consume pending clear values exactly once.
-- [ ] Reuse the active pass while attachments/sample count remain equal.
-- [ ] End before target switch, copy pass, readback, frame end, or cancellation.
-- [ ] On failure, leave the frame state cancellable and preserve no dangling active-pass pointer.
+- [x] Add a pure `PassPlan` test matrix for first use, clear color/depth/stencil, preserve, target change, frame end, and skipped swapchain.
+- [x] Begin lazily on clear or first draw. Consume pending clear values exactly once.
+- [x] Reuse the active pass while attachments/sample count remain equal.
+- [x] End before target switch, copy pass, readback, frame end, or cancellation.
+- [x] On failure, leave the frame state cancellable and preserve no dangling active-pass pointer.
 - [ ] Commit: `feat: manage SDL GPU render passes`
 
 **Evidence:** PassPlan matrix and failure-state tests.
