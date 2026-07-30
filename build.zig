@@ -630,6 +630,31 @@ pub fn build(b: *std.Build) void {
         },
     });
     const optimize = b.standardOptimizeOption(.{});
+    const renderer = b.option([]const u8, "renderer", "Graphics renderer: legacy or sdl_gpu") orelse "legacy";
+    if (!std.mem.eql(u8, renderer, "legacy") and !std.mem.eql(u8, renderer, "sdl_gpu")) {
+        @panic("invalid -Drenderer value; expected legacy or sdl_gpu");
+    }
+    _ = b.option(bool, "sdl-debug", "Enable SDL GPU debug validation") orelse false;
+    const sdl3_dep = b.dependency("sdl3", .{
+        .target = target,
+        .optimize = optimize,
+        .c_sdl_preferred_linkage = .dynamic,
+        .c_sdl_install_build_config_h = true,
+    });
+    const sdl3 = sdl3_dep.module("sdl3");
+    const sdl3_verify_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/verify_sdl3.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "sdl3", .module = sdl3 }},
+    });
+    const sdl3_verify = b.addExecutable(.{
+        .name = "verify-sdl3",
+        .root_module = sdl3_verify_module,
+    });
+    const sdl3_verify_run = b.addRunArtifact(sdl3_verify);
+    const sdl3_step = b.step("sdl3", "Build and verify the zig-sdl3 dependency");
+    sdl3_step.dependOn(&sdl3_verify_run.step);
     const blitz64 = addBlitz64(b, target, optimize);
     const library_arch = switch (target.result.cpu.arch) {
         .x86 => "x86",

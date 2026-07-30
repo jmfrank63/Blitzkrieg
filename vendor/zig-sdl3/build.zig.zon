@@ -1,0 +1,67 @@
+.{
+    .name = .sdl3,
+    .version = "0.2.2",
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{
+        .dxc = .{
+            .url = "git+https://github.com/Gota7/dxc-build?ref=zig-sdl3#a60f9fae53dac7a792f6407f8b0352e8b1f1a22e",
+            .hash = "dxc-1.8.2505-siU2n6P4FQJNhZ0or2qPUx0C72_CdWUU15vI1h54sQC5",
+            .lazy = true,
+        },
+        .sdl = .{
+            .url = "git+https://github.com/castholm/SDL.git?ref=v0.4.0%2B3.4.0#ae5deb068787bd71d9aadbc054ff1af54f5d058c",
+            .hash = "sdl-0.4.0+3.4.0-SDL--u6yowGyvoiJ5qkFm_T1-MpmvnHShh2q2mTZf1fo",
+            .lazy = true,
+        },
+        .sdl_image = .{
+            .url = "git+https://github.com/libsdl-org/SDL_image?ref=release-3.2.x#59adab53b95cd553a1c77f1c7665a980e323dfdd",
+            .hash = "N-V-__8AAP6WIgI4b7FYvyJ6F7gg38lmxqvHSQPGyTlGuFuT",
+            .lazy = true,
+        },
+        .sdl_mixer = .{
+            .url = "git+https://github.com/libsdl-org/SDL_mixer?ref=release-3.2.4#72a81869b45e249e8e67102db4e98dd2441f05a1",
+            .hash = "N-V-__8AADpm6wBISpVEXBiXyYZNjm0JDAI2qa8lydmFKm4W",
+            .lazy = true,
+        },
+        .sdl_net = .{
+            .url = "git+https://github.com/libsdl-org/SDL_net.git#8f5d9df8e42eb31e68aa3aed74ba2ab380e3001e",
+            .hash = "N-V-__8AAK74BwCyuisw6wdXWDDg8sXuHJd_tPk1VKxLTUBK",
+            .lazy = true,
+        },
+        .sdl_shadercross = .{
+            .url = "git+https://github.com/libsdl-org/SDL_shadercross#392d12afc1ef084c5cd656307180027399b7a54e",
+            .hash = "N-V-__8AAH9GBgCySY9rt5VJj3A-OGl0Z05BPZ9PgS5Pt1zm",
+            .lazy = true,
+        },
+        .sdl_ttf = .{
+            .url = "git+https://github.com/libsdl-org/SDL_ttf#release-3.2.2",
+            .hash = "N-V-__8AAF2JgAA_Y5Qzm3b226N8y7ivM-qFVpCo9NkbfO8Y",
+            .lazy = true,
+        },
+        .spirv_cross = .{
+            .url = "git+https://github.com/Gota7/spirv_cross-zig#e5dd9ed763941025bdcd795edec2f3439c6dc10c",
+            .hash = "spirv_cross-0.0.0-bzNVZJMYAAADFRYb_kxQsS41w0MKtOqKmmq1nN-s90Y6",
+            .lazy = true,
+        },
+        .spirv_headers = .{
+            .url = "git+https://github.com/KhronosGroup/SPIRV-Headers#1bfd27101e4578d0284061bdf8f09fb4755c7c2d",
+            .hash = "N-V-__8AADq1MQCCoUh-qOkYXGvqKFClPzdiedYrsGFYzTV9",
+            .lazy = true,
+        },
+    },
+    .paths = .{
+        "build",
+        "data",
+        "examples",
+        "gpu_examples",
+        "src",
+        "templates",
+        "build.zig",
+        "build.zig.zon",
+        "flake.lock",
+        "flake.nix",
+        "LICENSE",
+        "README.md",
+    },
+    .fingerprint = 0x6188f62f43f56436,
+}

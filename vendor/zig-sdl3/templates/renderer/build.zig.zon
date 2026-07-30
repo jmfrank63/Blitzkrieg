@@ -1,0 +1,24 @@
+.{
+    .name = .sdl3_renderer_template,
+    .version = "0.0.1",
+    .dependencies = .{
+        .emsdk = .{
+            .url = "https://github.com/emscripten-core/emsdk/archive/refs/tags/4.0.3.tar.gz",
+            .hash = "N-V-__8AAOG3BQCJ9cn-N2swm2o5cLmDhmdHmtwNngOChK78",
+        },
+        // Replace this with `zig fetch --save=sdl3 git+https://codeberg.org/7Games/zig-sdl3#master` or the version of your choice.
+        .sdl3 = .{
+            .path = "../../",
+        },
+        .zemscripten = .{
+            .url = "git+https://github.com/zig-gamedev/zemscripten#00da03b188220374a57cb34cda6230b8d53737ea",
+            .hash = "zemscripten-0.2.0-dev-sRlDqFJSAAB8hgnRt5DDMKP3zLlDtMnUDwYRJVCa5lGY",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+    .fingerprint = 0x9dc30113e0cb9b03,
+}

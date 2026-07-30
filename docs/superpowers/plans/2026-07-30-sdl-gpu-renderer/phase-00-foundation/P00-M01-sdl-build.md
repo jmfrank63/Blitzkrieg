@@ -2,19 +2,20 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans`; stop after this packet.
 
-**Objective:** Add the pinned official SDL3 Windows development package and build options without changing the active renderer.
+**Objective:** Add the pinned `zig-sdl3` v0.2.2 package and build options without changing the active renderer.
 
 **Dependencies:** None.
 
-**Allowed files:** `build.zig`, new `build.zig.zon`, new `tools/zig/verify_sdl3.zig`, `.gitignore` only if the SDL build creates an unignored deterministic output directory.
+**Allowed files:** `build.zig`, new `build.zig.zon`, new `tools/zig/verify_sdl3.zig`, new `vendor/zig-sdl3/**`, `.gitignore` only if the SDL build creates an unignored deterministic output directory.
 
 **Interface:** `-Drenderer=legacy|sdl_gpu`, default `legacy`; `-Dsdl-debug=true|false`; build step `sdl3`.
 
 - [ ] Add a failing build-option test in `tools/zig/verify_sdl3.zig` that accepts only the two renderer strings and reports the rejected value.
-- [ ] Create `build.zig.zon` dependency `sdl3_windows` with URL `https://github.com/libsdl-org/SDL/releases/download/release-3.4.12/SDL3-devel-3.4.12-VC.zip` and Zig package hash `N-V-__8AAE4JlAMyAncBlb_JYlu-9ZZHJlu9H-XNIGZspCR-`. Record and verify upstream SHA-256 `8793a153c7eba93b1eb8022fd2356383ec446b2584e43724a72ef68d682813ab`.
-- [ ] On `x86_64-windows-msvc`, add the package's SDL3 headers, `lib/x64/SDL3.lib`, and `lib/x64/SDL3.dll` through one `SdlDependency` helper. Other OS targets return a precise “provider belongs to native platform successor” build error only when an SDL-linked artifact is requested; pure core tests remain cross-compilable.
-- [ ] Add `sdl3` verification to compile a C probe including `SDL3/SDL.h` and `SDL3/SDL_gpu.h`, link the import library, run it against the packaged DLL, and require `SDL_GetVersion()` to report 3.4.12.
-- [ ] Install `SDL3.dll` beside staged Windows executables. Keep all consumers behind `SdlDependency` so a source/system provider can be added without renderer changes.
+- [ ] Vendor the upstream `zig-sdl3` v0.2.2 source at commit `83c694024f23cbacfa36fcd8fca1c57d4957203e` under `vendor/zig-sdl3` and mark only its unused `freetype` and `harfbuzz` dependencies lazy. Keep its SDL source dependency and GPU bindings intact.
+- [ ] Patch the vendored build wrapper so its “full” module preparation does not enable disabled SDL extensions, and define `SIZE_MAX` as an `ULL` value for Windows Zig 0.16 `translate-c` compatibility with MSVC `limits.h`.
+- [ ] Point the root `build.zig.zon` dependency at `vendor/zig-sdl3`; use `b.dependency("sdl3", .{ .target = target, .optimize = optimize, .c_sdl_preferred_linkage = .dynamic })` and the package's public `module("sdl3")` surface.
+- [ ] Add `sdl3` verification using `tools/zig/verify_sdl3.zig`, importing the package module and requiring linked SDL version 3.4.0. The package's own SDL dependency is pinned to `castholm/SDL` v0.4.0+3.4.0.
+- [ ] Make the `sdl3` build step compile and run the verifier. Defer copying the generated SDL3 runtime beside game staging to Phase 09, because the upstream package exposes the linked library through its module rather than as a parent-visible artifact.
 - [ ] Add `renderer` and `sdl-debug` options. Pass no new macro to legacy targets when `renderer=legacy`.
 - [ ] Run:
 

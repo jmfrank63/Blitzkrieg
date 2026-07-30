@@ -6,7 +6,7 @@
 
 **Architecture:** Enigma continues to call the existing C++ `IGFX` interfaces. New C++ adapter objects translate those calls into a versioned C ABI. Zig owns renderer state, SDL_GPU objects, resource registries, frame recording, pipelines, shader loading, and destruction. The renderer contains no direct D3D12, Vulkan, Metal, Win32, Cocoa, or X11 graphics calls.
 
-**Tech Stack:** Zig 0.16, C++17 adapter code, SDL 3.4.12/SDL_GPU, SDL_shadercross commit `e55cf5e31ced6f3d1be5cc6d0c50e99384f9f4ba`, DirectX Shader Compiler `v1.9.2607`, canonical HLSL, Windows 11 x64 acceptance through SDL_GPU's `direct3d12` driver.
+**Tech Stack:** Zig 0.16, C++17 adapter code, `zig-sdl3` v0.2.2 with its SDL 3.4.0 dependency, SDL_GPU, SDL_shadercross commit `e55cf5e31ced6f3d1be5cc6d0c50e99384f9f4ba`, DirectX Shader Compiler `v1.9.2607`, canonical HLSL, Windows 11 x64 acceptance through SDL_GPU's `direct3d12` driver.
 
 ---
 
@@ -53,7 +53,7 @@ The staged `Game.exe` must reach the main menu, start a representative mission, 
 - Deferred destruction waits until the associated submission is safe.
 - Canonical shaders are HLSL. Runtime code loads offline-produced backend blobs; it never invokes a shader compiler.
 - Windows acceptance requires DXIL and the `direct3d12` SDL_GPU driver.
-- The Windows dependency package is the official `SDL3-devel-3.4.12-VC.zip`; successor native-platform work adds source/system providers without changing renderer modules.
+- The SDL dependency is vendored from `https://codeberg.org/7Games/zig-sdl3` tag `v0.2.2`; its unused FreeType/HarfBuzz dependencies are lazy so renderer builds do not require text-extension archives.
 - The legacy D3D renderer remains selectable until Phase 09. It is a comparison oracle, not a code source for new ownership.
 - Do not add gameplay features or visual improvements during parity work.
 

@@ -1,0 +1,19 @@
+.{
+    .name = .blitzkrieg,
+    .version = "2.0.0",
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{
+        .sdl3 = .{
+            .path = "vendor/zig-sdl3",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "Sources",
+        "tools",
+        "vendor",
+        "Data",
+    },
+    .fingerprint = 0x527b1a7971bca19d,
+}
