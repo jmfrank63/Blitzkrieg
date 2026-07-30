@@ -655,6 +655,7 @@ pub fn build(b: *std.Build) void {
     const sdl3_verify_run = b.addRunArtifact(sdl3_verify);
     const sdl3_step = b.step("sdl3", "Build and verify the zig-sdl3 dependency");
     sdl3_step.dependOn(&sdl3_verify_run.step);
+    const gfx_gpu_zig = addGfxGpuZig(b, target, optimize, sdl3);
     const blitz64 = addBlitz64(b, target, optimize);
     const library_arch = switch (target.result.cpu.arch) {
         .x86 => "x86",
@@ -748,6 +749,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(gamett);
     b.installArtifact(streamio_zig);
     b.installArtifact(game);
+    b.installArtifact(gfx_gpu_zig);
 
     const zlib_step = b.step("zlib", "Build the zlib static library");
     zlib_step.dependOn(&b.addInstallArtifact(zlib, .{}).step);
@@ -817,6 +819,9 @@ pub fn build(b: *std.Build) void {
 
     const game_step = b.step("game", "Build the Game executable");
     game_step.dependOn(&b.addInstallArtifact(game, .{}).step);
+
+    const gfx_gpu_zig_step = b.step("gfxgpu-zig", "Build the Zig GPU renderer static library");
+    gfx_gpu_zig_step.dependOn(&b.addInstallArtifact(gfx_gpu_zig, .{}).step);
 
     const game_all_step = b.step("game-all", "Build and install the playable game runtime set");
     game_all_step.dependOn(&b.addInstallArtifact(game, .{}).step);
@@ -946,6 +951,16 @@ pub fn build(b: *std.Build) void {
     });
     const streamio_unit_tests = b.addTest(.{ .root_module = streamio_test_module });
     const run_streamio_unit_tests = b.addRunArtifact(streamio_unit_tests);
+    const gfx_gpu_test_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/GFXGPU/root.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "sdl3", .module = sdl3 }},
+    });
+    const gfx_gpu_unit_tests = b.addTest(.{ .root_module = gfx_gpu_test_module });
+    const run_gfx_gpu_unit_tests = b.addRunArtifact(gfx_gpu_unit_tests);
+    const gfx_gpu_test_step = b.step("test-gfxgpu-core", "Run the Zig GPU renderer core tests");
+    gfx_gpu_test_step.dependOn(&run_gfx_gpu_unit_tests.step);
     const test_step = b.step("test", "Run Zig unit tests and the Blitz64 ABI smoke test");
     test_step.dependOn(&run_blitz64_unit_tests.step);
     test_step.dependOn(&run_streamio_unit_tests.step);
@@ -1833,6 +1848,26 @@ fn addGFX(
         .linkage = .dynamic,
         .root_module = gfx_module,
         .win32_module_definition = b.path("Sources/src/GFX/GFX.def"),
+    });
+}
+
+fn addGfxGpuZig(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    sdl3: *std.Build.Module,
+) *std.Build.Step.Compile {
+    const gfx_gpu_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/GFXGPU/root.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "sdl3", .module = sdl3 }},
+    });
+
+    return b.addLibrary(.{
+        .name = "GfxGpuZig",
+        .linkage = .static,
+        .root_module = gfx_gpu_module,
     });
 }
 
