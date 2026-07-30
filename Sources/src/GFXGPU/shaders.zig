@@ -1,8 +1,9 @@
 const std = @import("std");
 const manifest = @import("shader_manifest.zig");
+const bindings = @import("bindings.zig");
 const sdl = @import("sdl.zig");
 
-pub const Error = manifest.Error || error{
+pub const Error = manifest.Error || bindings.UniformError || error{
     EffectNotFound,
     MissingShaderStage,
     ShaderCreationFailed,
@@ -102,6 +103,8 @@ pub const Loader = struct {
         }
         const vertex = vertex_record orelse return Error.MissingShaderStage;
         const fragment = fragment_record orelse return Error.MissingShaderStage;
+        try bindings.validateResourceCounts(vertex);
+        try bindings.validateResourceCounts(fragment);
         try validateBlob(vertex, vertex_blob);
         try validateBlob(fragment, fragment_blob);
         const vertex_handle = self.api.create(self.device, info(vertex, vertex_blob, sdl.c.SDL_GPU_SHADERFORMAT_DXIL)) orelse return Error.ShaderCreationFailed;

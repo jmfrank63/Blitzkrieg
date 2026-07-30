@@ -4,6 +4,7 @@ const sdl3 = @import("sdl3");
 pub const Renderer = @import("renderer.zig").Renderer;
 pub const shader_manifest = @import("shader_manifest.zig");
 pub const shaders = @import("shaders.zig");
+pub const bindings = @import("bindings.zig");
 pub const sdl_bindings = sdl3;
 pub const abi = @import("abi.zig");
 pub const error_codes = @import("error.zig");
