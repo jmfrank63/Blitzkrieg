@@ -948,14 +948,17 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     gfx_gpu_factory_test_module.addCSourceFiles(.{
-        .files = &.{ "tools/zig/gfxgpu_factory_test.cpp" },
+        .files = &.{ "tools/zig/gfxgpu_factory_test.cpp", "Sources/src/GFXGPU/GraphicsEngineGpu.cpp" },
         .flags = cppflagsForOptimize(optimize),
     });
     addProjectIncludePaths(b, gfx_gpu_factory_test_module);
     gfx_gpu_factory_test_module.addIncludePath(b.path("Sources/src/GFX"));
+    gfx_gpu_factory_test_module.addIncludePath(b.path("Sources/src/GFXGPU"));
     addMsvcIncludePaths(b, gfx_gpu_factory_test_module, toolchain);
     addMsvcLibraryPaths(b, gfx_gpu_factory_test_module, toolchain);
     linkMsvcRuntime(gfx_gpu_factory_test_module, optimize);
+    gfx_gpu_factory_test_module.linkLibrary(gfx_gpu_zig);
+    gfx_gpu_factory_test_module.linkLibrary(sdl_c);
     gfx_gpu_factory_test_module.linkSystemLibrary("user32", .{});
     const gfx_gpu_factory_test = b.addExecutable(.{
         .name = "gfxgpu-factory-test",
