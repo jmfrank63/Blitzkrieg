@@ -15,6 +15,7 @@ pub const render_state = @import("render_state.zig");
 pub const pipeline_key = @import("pipeline_key.zig");
 pub const pipeline_cache = @import("pipeline_cache.zig");
 pub const passes = @import("passes.zig");
+pub const draw = @import("draw.zig");
 pub const math_convert = @import("math_convert.zig");
 pub const sdl = @import("sdl.zig");
 pub const device = @import("device.zig");

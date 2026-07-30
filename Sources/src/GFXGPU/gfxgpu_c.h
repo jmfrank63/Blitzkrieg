@@ -67,6 +67,8 @@ typedef struct GfxGpuClearInfo {
     float depth;
     uint32_t stencil;
 } GfxGpuClearInfo;
+typedef struct GfxGpuViewportInfo { uint32_t struct_size; float x, y, width, height, min_depth, max_depth; } GfxGpuViewportInfo;
+typedef struct GfxGpuMatrixInfo { uint32_t struct_size; float values[16]; } GfxGpuMatrixInfo;
 
 typedef struct GfxGpuApi {
     uint32_t abi_version;
@@ -81,6 +83,13 @@ typedef struct GfxGpuApi {
     void (*cancel_frame)(GfxGpuRenderer *);
     GfxGpuResult (*clear)(GfxGpuRenderer *, const GfxGpuClearInfo *);
     GfxGpuResult (*resize)(GfxGpuRenderer *, uint32_t, uint32_t);
+    GfxGpuResult (*set_viewport)(GfxGpuRenderer *, const GfxGpuViewportInfo *);
+    GfxGpuResult (*set_transform)(GfxGpuRenderer *, const GfxGpuMatrixInfo *, const GfxGpuMatrixInfo *);
+    GfxGpuResult (*set_color)(GfxGpuRenderer *, uint32_t);
+    GfxGpuResult (*set_fog)(GfxGpuRenderer *, int);
+    GfxGpuResult (*set_texture)(GfxGpuRenderer *, uint64_t);
+    GfxGpuResult (*set_sampler)(GfxGpuRenderer *, uint64_t);
+    GfxGpuResult (*draw)(GfxGpuRenderer *, uint32_t, uint32_t);
 } GfxGpuApi;
 
 GfxGpuResult gfxgpu_get_api(uint32_t requested_version, GfxGpuApi *out_api);

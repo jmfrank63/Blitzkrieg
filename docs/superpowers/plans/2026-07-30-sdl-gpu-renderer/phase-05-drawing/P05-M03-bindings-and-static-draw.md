@@ -8,11 +8,11 @@
 
 **Allowed files:** `Sources/src/GFXGPU/bindings.zig`, `Sources/src/GFXGPU/draw.zig`, `Sources/src/GFXGPU/renderer.zig`, `Sources/src/GFXGPU/abi.zig`, `Sources/src/GFXGPU/gfxgpu_c.h`, `Sources/src/GFXGPU/root.zig`.
 
-- [ ] Append ABI setters for viewport, transforms, color/fog/effect, texture/sampler state and `draw`.
-- [ ] Test missing frame/buffer/shader, out-of-range vertices, topology count overflow, render-target feedback, dirty-flag clearing, redundant bind suppression, and last-use serial updates.
-- [ ] Build a `DrawPlan` before touching SDL; validation failure emits no SDL call.
-- [ ] Apply pipeline first, then viewport/scissor, vertex buffers, vertex/fragment samplers, uniforms, and draw.
-- [ ] Preserve dirty bits after a failed bind; clear only successfully encoded groups.
+- [x] Append ABI setters for viewport, transforms, color/fog/effect, texture/sampler state and `draw`.
+- [x] Test missing frame/buffer/shader, out-of-range vertices, topology count overflow, render-target feedback, dirty-flag clearing, redundant bind suppression, and last-use serial updates.
+- [x] Build a `DrawPlan` before touching SDL; validation failure emits no SDL call.
+- [x] Apply pipeline first, then viewport/scissor, vertex buffers, vertex/fragment samplers, uniforms, and draw.
+- [x] Preserve dirty bits after a failed bind; clear only successfully encoded groups.
 - [ ] Add untextured static triangle smoke/readback.
 - [ ] Commit: `feat: submit static SDL GPU draws`
 

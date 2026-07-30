@@ -25,6 +25,8 @@ pub const LiveCounts = extern struct {
     render_targets: u32,
 };
 pub const ClearInfo = extern struct { struct_size: u32, mask: u32, color_rgba8: u32, depth: f32, stencil: u32 };
+pub const ViewportInfo = extern struct { struct_size: u32, x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32 };
+pub const MatrixInfo = extern struct { struct_size: u32, values: [16]f32 };
 
 pub const Api = extern struct {
     abi_version: u32,
@@ -39,6 +41,13 @@ pub const Api = extern struct {
     cancel_frame: *const fn (?*RendererHandle) callconv(.c) void,
     clear: *const fn (?*RendererHandle, ?*const ClearInfo) callconv(.c) Result,
     resize: *const fn (?*RendererHandle, u32, u32) callconv(.c) Result,
+    set_viewport: *const fn (?*RendererHandle, ?*const ViewportInfo) callconv(.c) Result,
+    set_transform: *const fn (?*RendererHandle, ?*const MatrixInfo, ?*const MatrixInfo) callconv(.c) Result,
+    set_color: *const fn (?*RendererHandle, u32) callconv(.c) Result,
+    set_fog: *const fn (?*RendererHandle, u32) callconv(.c) Result,
+    set_texture: *const fn (?*RendererHandle, u64) callconv(.c) Result,
+    set_sampler: *const fn (?*RendererHandle, u64) callconv(.c) Result,
+    draw: *const fn (?*RendererHandle, u32, u32) callconv(.c) Result,
 };
 
 fn create(info: ?*const CreateInfo, out_renderer: ?*?*RendererHandle) callconv(.c) Result {
@@ -115,6 +124,13 @@ fn resize(handle: ?*RendererHandle, width: u32, height: u32) callconv(.c) Result
     if (width == 0 or height == 0) return errors.invalid_argument;
     return errors.ok;
 }
+fn setViewport(handle: ?*RendererHandle, viewport: ?*const ViewportInfo) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (viewport == null or viewport.?.struct_size < @sizeOf(ViewportInfo)) return errors.invalid_argument; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
+fn setTransform(handle: ?*RendererHandle, world: ?*const MatrixInfo, view_proj: ?*const MatrixInfo) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (world == null or view_proj == null or world.?.struct_size < @sizeOf(MatrixInfo) or view_proj.?.struct_size < @sizeOf(MatrixInfo)) return errors.invalid_argument; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
+fn setColor(handle: ?*RendererHandle, _: u32) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
+fn setFog(handle: ?*RendererHandle, _: u32) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
+fn setTexture(handle: ?*RendererHandle, texture: u64) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (texture == 0) return errors.invalid_argument; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
+fn setSampler(handle: ?*RendererHandle, sampler: u64) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (sampler == 0) return errors.invalid_argument; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
+fn draw(handle: ?*RendererHandle, _: u32, primitive_count: u32) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (primitive_count == 0) return errors.invalid_argument; if (renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
 
 const api = Api{
     .abi_version = abi_version,
@@ -129,6 +145,13 @@ const api = Api{
     .cancel_frame = cancelFrame,
     .clear = clear,
     .resize = resize,
+    .set_viewport = setViewport,
+    .set_transform = setTransform,
+    .set_color = setColor,
+    .set_fog = setFog,
+    .set_texture = setTexture,
+    .set_sampler = setSampler,
+    .draw = draw,
 };
 
 pub fn gfxgpu_get_api(requested_version: u32, out_api: ?*Api) callconv(.c) Result {
