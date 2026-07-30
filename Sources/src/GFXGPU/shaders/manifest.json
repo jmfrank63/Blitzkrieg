@@ -1,28 +1,54 @@
 [
   {
-    "effect": "probe",
-    "name": "Probe",
+    "effect": "textured",
+    "name": "Textured",
     "stage": "fragment",
-    "source": "probe.hlsl",
-    "entry": "PSMain",
+    "source": "textured.hlsl",
+    "entry": "ps_textured",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "textured",
+    "name": "Textured",
+    "stage": "vertex",
+    "source": "textured.hlsl",
+    "entry": "vs_textured",
+    "defines": [],
+    "required_vertex_mask": 35,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "untextured",
+    "name": "Untextured",
+    "stage": "fragment",
+    "source": "untextured.hlsl",
+    "entry": "ps_untextured",
     "defines": [],
     "required_vertex_mask": 0,
     "sampler_count": 0,
     "storage_texture_count": 0,
     "storage_buffer_count": 0,
-    "uniform_buffer_count": 0
+    "uniform_buffer_count": 2
   },
   {
-    "effect": "probe",
-    "name": "Probe",
+    "effect": "untextured",
+    "name": "Untextured",
     "stage": "vertex",
-    "source": "probe.hlsl",
-    "entry": "VSMain",
+    "source": "untextured.hlsl",
+    "entry": "vs_untextured",
     "defines": [],
-    "required_vertex_mask": 3,
+    "required_vertex_mask": 33,
     "sampler_count": 0,
     "storage_texture_count": 0,
     "storage_buffer_count": 0,
-    "uniform_buffer_count": 0
+    "uniform_buffer_count": 2
   }
 ]
