@@ -147,11 +147,15 @@ fn stageByte(stage: Stage) u8 {
 }
 
 fn appendU16(output: *std.ArrayListUnmanaged(u8), allocator: std.mem.Allocator, value: u16) !void {
-    try output.appendSlice(allocator, &std.mem.toBytes(value));
+    var bytes: [2]u8 = undefined;
+    std.mem.writeInt(u16, &bytes, value, .little);
+    try output.appendSlice(allocator, &bytes);
 }
 
 fn appendU32(output: *std.ArrayListUnmanaged(u8), allocator: std.mem.Allocator, value: u32) !void {
-    try output.appendSlice(allocator, &std.mem.toBytes(value));
+    var bytes: [4]u8 = undefined;
+    std.mem.writeInt(u32, &bytes, value, .little);
+    try output.appendSlice(allocator, &bytes);
 }
 
 fn appendString(output: *std.ArrayListUnmanaged(u8), allocator: std.mem.Allocator, value: []const u8) !void {
@@ -163,12 +167,13 @@ fn writeRuntimeManifest(io: std.Io, allocator: std.mem.Allocator, output_dir: []
     var output: std.ArrayListUnmanaged(u8) = .empty;
     defer output.deinit(allocator);
     try output.appendSlice(allocator, "GFXS");
-    try appendU16(&output, allocator, 1);
+    try appendU16(&output, allocator, 2);
     try output.appendSlice(allocator, &.{ 1, 0 });
     try appendU32(&output, allocator, @intCast(records.len));
     for (records) |record| {
         try appendString(&output, allocator, record.source.effect);
         try appendString(&output, allocator, record.source.name);
+        try appendString(&output, allocator, record.source.entry);
         try output.append(allocator, stageByte(record.source.stage));
         try output.append(allocator, 0);
         try appendString(&output, allocator, record.blob_path);
