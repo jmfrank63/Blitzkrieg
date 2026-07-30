@@ -11,6 +11,7 @@ namespace
 {
     char trace[256]{};
     size_t trace_length = 0;
+    int texture_creates = 0, texture_uploads = 0, texture_releases = 0, target_creates = 0, target_binds = 0;
     void record( char value ) { trace[trace_length++] = value; }
     GfxGpuResult fakeCreate( const GfxGpuCreateInfo *, GfxGpuRenderer **out ) { record( 'C' ); *out = reinterpret_cast<GfxGpuRenderer *>( 1 ); return GFXGPU_OK; }
     void fakeDestroy( GfxGpuRenderer * ) { record( 'D' ); }
@@ -23,6 +24,12 @@ namespace
     GfxGpuResult fakeViewport( GfxGpuRenderer *, const GfxGpuViewportInfo *info ) { if ( !info || info->width != 800.0f ) return GFXGPU_INVALID_ARGUMENT; record( 'V' ); return GFXGPU_OK; }
     GfxGpuResult fakeTransform( GfxGpuRenderer *, const GfxGpuMatrixInfo *, const GfxGpuMatrixInfo * ) { record( 'T' ); return GFXGPU_OK; }
     GfxGpuResult fakeState( GfxGpuRenderer *, const GfxGpuStateInfo *info ) { if ( !info || info->kind != GFXGPU_STATE_WIREFRAME || info->value != 1 ) return GFXGPU_INVALID_ARGUMENT; record( 'S' ); return GFXGPU_OK; }
+    GfxGpuResult fakeSetTexture( GfxGpuRenderer *, GfxGpuHandle handle ) { return handle == 42 ? GFXGPU_OK : GFXGPU_INVALID_HANDLE; }
+    GfxGpuResult fakeCreateTexture( GfxGpuRenderer *, const GfxGpuTextureCreateInfo *info, GfxGpuHandle *out ) { if ( !info || !out || info->width != 2 || info->height != 2 ) return GFXGPU_INVALID_ARGUMENT; ++texture_creates; *out = 42; return GFXGPU_OK; }
+    GfxGpuResult fakeUploadTexture( GfxGpuRenderer *, GfxGpuHandle handle, const GfxGpuTextureUploadInfo *info ) { if ( handle != 42 || !info || info->byte_length != 16 || info->row_pitch != 8 ) return GFXGPU_INVALID_ARGUMENT; ++texture_uploads; return GFXGPU_OK; }
+    GfxGpuResult fakeDestroyTexture( GfxGpuRenderer *, GfxGpuHandle handle ) { if ( handle != 42 ) return GFXGPU_INVALID_ARGUMENT; ++texture_releases; return GFXGPU_OK; }
+    GfxGpuResult fakeCreateTarget( GfxGpuRenderer *, const GfxGpuRenderTargetCreateInfo *, GfxGpuHandle *out ) { ++target_creates; *out = 43; return GFXGPU_OK; }
+    GfxGpuResult fakeBindTarget( GfxGpuRenderer *, GfxGpuHandle handle ) { if ( handle != 0 && handle != 43 ) return GFXGPU_INVALID_HANDLE; ++target_binds; return GFXGPU_OK; }
 }
 
 static int RunRecordingTest()
@@ -34,6 +41,9 @@ static int RunRecordingTest()
     api.begin_frame = fakeBegin; api.end_frame = fakeEnd; api.present = fakePresent;
     api.cancel_frame = fakeCancel; api.clear = fakeClear; api.resize = fakeResize;
     api.set_viewport = fakeViewport; api.set_transform = fakeTransform; api.set_state = fakeState;
+    api.set_texture = fakeSetTexture;
+    api.create_texture = fakeCreateTexture; api.upload_texture = fakeUploadTexture; api.destroy_texture = fakeDestroyTexture;
+    api.create_render_target = fakeCreateTarget; api.bind_render_target = fakeBindTarget;
     GraphicsEngineGpu adapter( api );
     if ( !adapter.Init( nullptr, GFXNativeWindow( nullptr ) ) ) return 10;
     if ( !adapter.SetMode( 800, 600, 32, 0, GFXFS_WINDOWED ) ) return 11;
@@ -45,6 +55,19 @@ static int RunRecordingTest()
     SHMatrix matrix{};
     if ( !adapter.SetViewTransform( matrix ) ) return 16;
     if ( !adapter.EndScene() || !adapter.Flip() ) return 17;
+    IGFXTexture *texture = adapter.CreateTexture( 2, 2, 1, GFXPF_ARGB8888, GFXD_STATIC );
+    if ( !texture ) return 20;
+    texture->AddRef();
+    SSurfaceLockInfo lock{};
+    if ( !texture->Lock( 0, &lock ) || lock.nPitch != 8 || !texture->Unlock( 0 ) ) return 21;
+    if ( !adapter.SetTexture( 0, texture ) || !adapter.SetTexture( 1, texture ) ) return 22;
+    texture->Release();
+    IGFXRTexture *target = adapter.CreateRTexture( 2, 2 );
+    if ( !target ) return 23;
+    target->AddRef();
+    if ( !adapter.SetRenderTarget( target ) || !adapter.SetRenderTarget( nullptr ) ) return 24;
+    target->Release();
+    if ( texture_creates != 1 || texture_uploads != 1 || texture_releases != 1 || target_creates != 1 || target_binds != 2 ) return 25;
     if ( std::strcmp( trace, "CRVSBLTEP" ) != 0 ) return 18;
     adapter.Done();
     if ( std::strcmp( trace, "CRVSBLTEPD" ) != 0 ) return 19;

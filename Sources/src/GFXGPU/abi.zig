@@ -29,6 +29,9 @@ pub const ViewportInfo = extern struct { struct_size: u32, x: f32, y: f32, width
 pub const MatrixInfo = extern struct { struct_size: u32, values: [16]f32 };
 pub const TemporaryGeometryInfo = extern struct { struct_size: u32, data: ?*const anyopaque, byte_length: u32, stride: u32 };
 pub const StateInfo = extern struct { struct_size: u32, kind: u32, index: u32, value: u32, values: [16]f32 };
+pub const TextureCreateInfo = extern struct { struct_size: u32, width: u32, height: u32, mip_count: u32, format: u32, usage: u32 };
+pub const TextureUploadInfo = extern struct { struct_size: u32, data: ?*const anyopaque, byte_length: u32, row_pitch: u32, mip_level: u32 };
+pub const RenderTargetCreateInfo = extern struct { struct_size: u32, width: u32, height: u32, format: u32 };
 
 pub const Api = extern struct {
     abi_version: u32,
@@ -48,6 +51,11 @@ pub const Api = extern struct {
     set_color: *const fn (?*RendererHandle, u32) callconv(.c) Result,
     set_fog: *const fn (?*RendererHandle, u32) callconv(.c) Result,
     set_state: *const fn (?*RendererHandle, ?*const StateInfo) callconv(.c) Result,
+    create_texture: *const fn (?*RendererHandle, ?*const TextureCreateInfo, ?*u64) callconv(.c) Result,
+    upload_texture: *const fn (?*RendererHandle, u64, ?*const TextureUploadInfo) callconv(.c) Result,
+    destroy_texture: *const fn (?*RendererHandle, u64) callconv(.c) Result,
+    create_render_target: *const fn (?*RendererHandle, ?*const RenderTargetCreateInfo, ?*u64) callconv(.c) Result,
+    bind_render_target: *const fn (?*RendererHandle, u64) callconv(.c) Result,
     set_texture: *const fn (?*RendererHandle, u64) callconv(.c) Result,
     set_sampler: *const fn (?*RendererHandle, u64) callconv(.c) Result,
     draw: *const fn (?*RendererHandle, u32, u32) callconv(.c) Result,
@@ -134,6 +142,11 @@ fn setTransform(handle: ?*RendererHandle, world: ?*const MatrixInfo, view_proj: 
 fn setColor(handle: ?*RendererHandle, _: u32) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
 fn setFog(handle: ?*RendererHandle, _: u32) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
 fn setState(handle: ?*RendererHandle, info: ?*const StateInfo) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (info == null or info.?.struct_size < @sizeOf(StateInfo)) return errors.invalid_argument; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
+fn createTexture(handle: ?*RendererHandle, info: ?*const TextureCreateInfo, out_handle: ?*u64) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (info == null or out_handle == null or info.?.struct_size < @sizeOf(TextureCreateInfo) or info.?.width == 0 or info.?.height == 0 or info.?.mip_count == 0) return errors.invalid_argument; const id = renderer.next_resource_handle; renderer.next_resource_handle += 1; renderer.resources.put(renderer.allocator, id, {}) catch return errors.out_of_memory; out_handle.?.* = id; return errors.ok; }
+fn uploadTexture(handle: ?*RendererHandle, texture: u64, info: ?*const TextureUploadInfo) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (info == null or info.?.struct_size < @sizeOf(TextureUploadInfo) or info.?.data == null or info.?.byte_length == 0 or !renderer.resources.contains(texture)) return errors.invalid_argument; return errors.ok; }
+fn destroyTexture(handle: ?*RendererHandle, texture: u64) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (texture == 0 or !renderer.resources.remove(texture)) return errors.invalid_handle; return errors.ok; }
+fn createRenderTarget(handle: ?*RendererHandle, info: ?*const RenderTargetCreateInfo, out_handle: ?*u64) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (info == null or out_handle == null or info.?.struct_size < @sizeOf(RenderTargetCreateInfo) or info.?.width == 0 or info.?.height == 0) return errors.invalid_argument; const id = renderer.next_resource_handle; renderer.next_resource_handle += 1; renderer.resources.put(renderer.allocator, id, {}) catch return errors.out_of_memory; out_handle.?.* = id; return errors.ok; }
+fn bindRenderTarget(handle: ?*RendererHandle, target: u64) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (target != 0 and !renderer.resources.contains(target)) return errors.invalid_handle; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
 fn setTexture(handle: ?*RendererHandle, texture: u64) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (texture == 0) return errors.invalid_argument; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
 fn setSampler(handle: ?*RendererHandle, sampler: u64) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (sampler == 0) return errors.invalid_argument; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
 fn draw(handle: ?*RendererHandle, _: u32, primitive_count: u32) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (primitive_count == 0) return errors.invalid_argument; if (renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
@@ -158,6 +171,11 @@ const api = Api{
     .set_color = setColor,
     .set_fog = setFog,
     .set_state = setState,
+    .create_texture = createTexture,
+    .upload_texture = uploadTexture,
+    .destroy_texture = destroyTexture,
+    .create_render_target = createRenderTarget,
+    .bind_render_target = bindRenderTarget,
     .set_texture = setTexture,
     .set_sampler = setSampler,
     .draw = draw,

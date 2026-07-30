@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 
 #include "GraphicsEngineGpu.h"
+#include "TextureGpu.h"
 
 #include <SDL3/SDL.h>
 
@@ -66,6 +67,39 @@ bool GraphicsEngineGpu::SetState( uint32_t kind, uint32_t index, uint32_t value,
     if ( data && data_size )
         std::memcpy( state.values, data, CopySize( data_size, sizeof( state.values ) ) );
     return Check( api_.set_state( renderer_, &state ), operation );
+}
+
+bool GraphicsEngineGpu::CreateTextureHandle( int width, int height, int mips, EGFXPixelFormat format, EGFXDynamic usage, GfxGpuHandle *out_handle )
+{
+    if ( !renderer_ || !out_handle || !api_.create_texture ) return fail( "create_texture is unavailable" );
+    GfxGpuTextureCreateInfo info{ sizeof( info ), static_cast<uint32_t>( width ), static_cast<uint32_t>( height ), static_cast<uint32_t>( mips ), static_cast<uint32_t>( format ), static_cast<uint32_t>( usage ) };
+    return Check( api_.create_texture( renderer_, &info, out_handle ), "create_texture" );
+}
+
+bool GraphicsEngineGpu::UploadTexture( GfxGpuHandle handle, int mip, const void *data, size_t bytes, int row_pitch )
+{
+    if ( !renderer_ || !api_.upload_texture || bytes > 0xffffffffu ) return fail( "upload_texture is unavailable" );
+    GfxGpuTextureUploadInfo info{ sizeof( info ), data, static_cast<uint32_t>( bytes ), static_cast<uint32_t>( row_pitch ), static_cast<uint32_t>( mip ) };
+    return Check( api_.upload_texture( renderer_, handle, &info ), "upload_texture" );
+}
+
+bool GraphicsEngineGpu::DestroyTextureHandle( GfxGpuHandle handle )
+{
+    if ( !handle || !renderer_ || !api_.destroy_texture ) return false;
+    return Check( api_.destroy_texture( renderer_, handle ), "destroy_texture" );
+}
+
+bool GraphicsEngineGpu::CreateRenderTargetHandle( int width, int height, EGFXPixelFormat format, GfxGpuHandle *out_handle )
+{
+    if ( !renderer_ || !out_handle || !api_.create_render_target ) return fail( "create_render_target is unavailable" );
+    GfxGpuRenderTargetCreateInfo info{ sizeof( info ), static_cast<uint32_t>( width ), static_cast<uint32_t>( height ), static_cast<uint32_t>( format ) };
+    return Check( api_.create_render_target( renderer_, &info, out_handle ), "create_render_target" );
+}
+
+bool GraphicsEngineGpu::BindRenderTargetHandle( GfxGpuHandle handle )
+{
+    if ( !renderer_ || !api_.bind_render_target ) return fail( "bind_render_target is unavailable" );
+    return Check( api_.bind_render_target( renderer_, handle ), "bind_render_target" );
 }
 
 bool STDCALL GraphicsEngineGpu::Init( const char *pszAdapterName, GFXNativeWindow window )
@@ -173,7 +207,14 @@ void STDCALL GraphicsEngineGpu::SetLight( int index, const SGFXLightPoint &light
 void STDCALL GraphicsEngineGpu::SetLight( int index, const SGFXLightSpot &light ) { SetState( GFXGPU_STATE_LIGHT, static_cast<uint32_t>( index ), 3, &light, sizeof( light ), "set_spot_light" ); }
 void STDCALL GraphicsEngineGpu::EnableLight( int index, bool enable ) { SetState( GFXGPU_STATE_LIGHT, static_cast<uint32_t>( index ), enable ? 1u : 0u, nullptr, 0, "enable_light" ); }
 void STDCALL GraphicsEngineGpu::SetMaterial( const SGFXMaterial &material ) { SetState( GFXGPU_STATE_MATERIAL, 0, 0, &material, sizeof( material ), "set_material" ); }
-bool STDCALL GraphicsEngineGpu::SetTexture( int, IGFXBaseTexture * ) { return fail( "Texture adapter is not implemented in P06-M02" ); }
+bool STDCALL GraphicsEngineGpu::SetTexture( int stage, IGFXBaseTexture *texture )
+{
+    if ( stage < 0 || stage > 1 ) return fail( "only texture stages 0 and 1 are supported" );
+    TextureGpu *gpu_texture = dynamic_cast<TextureGpu *>( texture );
+    if ( !gpu_texture ) return fail( "texture does not belong to the SDL GPU adapter" );
+    if ( !renderer_ || !api_.set_texture ) return fail( "set_texture is unavailable" );
+    return Check( api_.set_texture( renderer_, gpu_texture->Handle() ), "set_texture" );
+}
 bool STDCALL GraphicsEngineGpu::SetWireframe( bool enable ) { return SetState( GFXGPU_STATE_WIREFRAME, 0, enable ? 1u : 0u, nullptr, 0, "set_wireframe" ); }
 bool STDCALL GraphicsEngineGpu::SetCullMode( EGFXCull cull ) { return SetState( GFXGPU_STATE_CULL_MODE, 0, static_cast<uint32_t>( cull ), nullptr, 0, "set_cull_mode" ); }
 bool STDCALL GraphicsEngineGpu::SetDepthBufferMode( EGFXDepthBuffer depth, EGFXCmpFunction cmp ) { return SetState( GFXGPU_STATE_DEPTH_MODE, static_cast<uint32_t>( cmp ), static_cast<uint32_t>( depth ), nullptr, 0, "set_depth_mode" ); }
@@ -192,7 +233,13 @@ bool STDCALL GraphicsEngineGpu::Clear( int, RECT *, DWORD dwFlags, DWORD dwColor
     return Check( api_.clear( renderer_, &clear ), "clear" );
 }
 bool STDCALL GraphicsEngineGpu::Flip() { return renderer_ && Check( api_.present( renderer_ ), "present" ); }
-bool STDCALL GraphicsEngineGpu::SetRenderTarget( IGFXRTexture * ) { return fail( "Render target adapter is not implemented in P06-M01" ); }
+bool STDCALL GraphicsEngineGpu::SetRenderTarget( IGFXRTexture *target )
+{
+    if ( !target ) return BindRenderTargetHandle( 0 );
+    RenderTargetGpu *gpu_target = dynamic_cast<RenderTargetGpu *>( target );
+    if ( !gpu_target ) return fail( "render target does not belong to the SDL GPU adapter" );
+    return BindRenderTargetHandle( gpu_target->Handle() );
+}
 void STDCALL GraphicsEngineGpu::SetOptimizedBuffers( bool ) {}
 IGFXVertices * STDCALL GraphicsEngineGpu::CreateVertices( int, DWORD, EGFXPrimitiveType, EGFXDynamic, IGFXVertices * ) { return nullptr; }
 IGFXIndices * STDCALL GraphicsEngineGpu::CreateIndices( int, DWORD, EGFXPrimitiveType, EGFXDynamic, IGFXIndices * ) { return nullptr; }
@@ -202,8 +249,18 @@ bool STDCALL GraphicsEngineGpu::BeginSolidIndexBlock( int, DWORD, EGFXDynamic ) 
 bool STDCALL GraphicsEngineGpu::EndSolidIndexBlock() { return false; }
 void * STDCALL GraphicsEngineGpu::GetTempVertices( int, DWORD, EGFXPrimitiveType ) { return nullptr; }
 void * STDCALL GraphicsEngineGpu::GetTempIndices( int, DWORD, EGFXPrimitiveType ) { return nullptr; }
-IGFXTexture * STDCALL GraphicsEngineGpu::CreateTexture( int, int, int, EGFXPixelFormat, EGFXDynamic, IGFXTexture * ) { return nullptr; }
-IGFXRTexture * STDCALL GraphicsEngineGpu::CreateRTexture( int, int ) { return nullptr; }
+IGFXTexture * STDCALL GraphicsEngineGpu::CreateTexture( int width, int height, int mips, EGFXPixelFormat format, EGFXDynamic usage, IGFXTexture * )
+{
+    TextureGpu *texture = new TextureGpu( this, width, height, mips, format, usage );
+    if ( !texture->IsValid() ) { delete texture; return nullptr; }
+    return texture;
+}
+IGFXRTexture * STDCALL GraphicsEngineGpu::CreateRTexture( int width, int height )
+{
+    RenderTargetGpu *target = new RenderTargetGpu( this, width, height, GFXPF_ARGB8888 );
+    if ( !target->IsValid() ) { delete target; return nullptr; }
+    return target;
+}
 bool STDCALL GraphicsEngineGpu::UpdateTexture( IGFXTexture *, IGFXTexture *, bool ) { return false; }
 bool STDCALL GraphicsEngineGpu::Draw( IGFXVertices *, IGFXIndices * ) { return fail( "Geometry adapter is not implemented in P06-M01" ); }
 bool STDCALL GraphicsEngineGpu::DrawTemp() { return false; }

@@ -91,6 +91,12 @@ public:
     int STDCALL GetNumPassedPrimitives() const override;
     bool STDCALL SetShadingEffect( int nEffect ) override;
 
+    bool CreateTextureHandle( int width, int height, int mips, EGFXPixelFormat format, EGFXDynamic usage, GfxGpuHandle *out_handle );
+    bool UploadTexture( GfxGpuHandle handle, int mip, const void *data, size_t bytes, int row_pitch );
+    bool DestroyTextureHandle( GfxGpuHandle handle );
+    bool CreateRenderTargetHandle( int width, int height, EGFXPixelFormat format, GfxGpuHandle *out_handle );
+    bool BindRenderTargetHandle( GfxGpuHandle handle );
+
 private:
     bool fail( const char *message );
     bool Check( GfxGpuResult result, const char *operation );

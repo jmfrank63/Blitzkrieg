@@ -6,6 +6,8 @@ pub const Renderer = struct {
     allocator: std.mem.Allocator,
     device: ?device_mod.Device = null,
     frame: frame_mod.Frame = .{},
+    resources: std.AutoHashMapUnmanaged(u64, void) = .empty,
+    next_resource_handle: u64 = 1,
 
     pub const LiveCounts = struct {
         textures: u32 = 0,
@@ -22,6 +24,7 @@ pub const Renderer = struct {
     }
 
     pub fn deinit(self: *Renderer) void {
+        self.resources.deinit(self.allocator);
         if (self.device) |*device| device.deinit();
         self.* = undefined;
     }
