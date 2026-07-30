@@ -70,6 +70,18 @@ typedef struct GfxGpuClearInfo {
 typedef struct GfxGpuViewportInfo { uint32_t struct_size; float x, y, width, height, min_depth, max_depth; } GfxGpuViewportInfo;
 typedef struct GfxGpuMatrixInfo { uint32_t struct_size; float values[16]; } GfxGpuMatrixInfo;
 typedef struct GfxGpuTemporaryGeometryInfo { uint32_t struct_size; const void *data; uint32_t byte_length; uint32_t stride; } GfxGpuTemporaryGeometryInfo;
+typedef struct GfxGpuStateInfo { uint32_t struct_size; uint32_t kind; uint32_t index; uint32_t value; float values[16]; } GfxGpuStateInfo;
+
+enum {
+    GFXGPU_STATE_WIREFRAME = 1,
+    GFXGPU_STATE_CULL_MODE = 2,
+    GFXGPU_STATE_DEPTH_MODE = 3,
+    GFXGPU_STATE_LIGHTING = 4,
+    GFXGPU_STATE_SPECULAR = 5,
+    GFXGPU_STATE_LIGHT = 6,
+    GFXGPU_STATE_MATERIAL = 7,
+    GFXGPU_STATE_SHADE_EFFECT = 8,
+};
 
 typedef struct GfxGpuApi {
     uint32_t abi_version;
@@ -88,6 +100,7 @@ typedef struct GfxGpuApi {
     GfxGpuResult (*set_transform)(GfxGpuRenderer *, const GfxGpuMatrixInfo *, const GfxGpuMatrixInfo *);
     GfxGpuResult (*set_color)(GfxGpuRenderer *, uint32_t);
     GfxGpuResult (*set_fog)(GfxGpuRenderer *, int);
+    GfxGpuResult (*set_state)(GfxGpuRenderer *, const GfxGpuStateInfo *);
     GfxGpuResult (*set_texture)(GfxGpuRenderer *, uint64_t);
     GfxGpuResult (*set_sampler)(GfxGpuRenderer *, uint64_t);
     GfxGpuResult (*draw)(GfxGpuRenderer *, uint32_t, uint32_t);

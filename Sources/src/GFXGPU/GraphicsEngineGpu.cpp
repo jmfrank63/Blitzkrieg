@@ -2,7 +2,14 @@
 
 #include "GraphicsEngineGpu.h"
 
+#include <SDL3/SDL.h>
+
 #include <cstring>
+
+namespace
+{
+    size_t CopySize( size_t left, size_t right ) { return left < right ? left : right; }
+}
 
 namespace
 {
@@ -23,31 +30,72 @@ GraphicsEngineGpu::GraphicsEngineGpu()
         last_error_ = "GfxGpu API version or size mismatch";
 }
 
+GraphicsEngineGpu::GraphicsEngineGpu( const GfxGpuApi &api ) : api_( api ), api_valid_( IsApiUsable( api_ ) )
+{
+    if ( !api_valid_ ) last_error_ = "GfxGpu API version or size mismatch";
+}
+
 bool GraphicsEngineGpu::fail( const char *message )
 {
     last_error_ = message;
     return false;
 }
 
-bool GraphicsEngineGpu::call( GfxGpuResult result )
+bool GraphicsEngineGpu::Check( GfxGpuResult result, const char *operation )
 {
     if ( result == GFXGPU_OK )
         return true;
-    last_error_ = "GfxGpu operation failed";
+    char diagnostic[256]{};
+    uint32_t written = 0;
+    if ( renderer_ && api_.get_last_error )
+        api_.get_last_error( renderer_, diagnostic, sizeof( diagnostic ), &written );
+    last_error_ = operation ? operation : "GfxGpu operation";
+    last_error_ += ": ";
+    last_error_ += written ? diagnostic : "GfxGpu operation failed";
     return false;
+}
+
+bool GraphicsEngineGpu::SetState( uint32_t kind, uint32_t index, uint32_t value, const void *data, size_t data_size, const char *operation )
+{
+    if ( !renderer_ || !api_.set_state ) return fail( "GfxGpu state API is unavailable" );
+    GfxGpuStateInfo state{};
+    state.struct_size = sizeof( state );
+    state.kind = kind;
+    state.index = index;
+    state.value = value;
+    if ( data && data_size )
+        std::memcpy( state.values, data, CopySize( data_size, sizeof( state.values ) ) );
+    return Check( api_.set_state( renderer_, &state ), operation );
 }
 
 bool STDCALL GraphicsEngineGpu::Init( const char *pszAdapterName, GFXNativeWindow window )
 {
     if ( !api_valid_ ) return false;
     if ( initialized_ ) return true;
+    if ( window.value )
+    {
+        if ( SDL_InitSubSystem( SDL_INIT_VIDEO ) )
+        {
+            last_error_ = SDL_GetError();
+            return false;
+        }
+        video_subsystem_owned_ = true;
+        SDL_PropertiesID properties = SDL_CreateProperties();
+        if ( !properties ) { last_error_ = SDL_GetError(); return false; }
+        SDL_SetPointerProperty( properties, SDL_PROP_WINDOW_CREATE_WIN32_HWND_POINTER, window.value );
+        SDL_SetNumberProperty( properties, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, width_ > 0 ? width_ : GFX_DEFAULT_SCREEN_WIDTH );
+        SDL_SetNumberProperty( properties, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, height_ > 0 ? height_ : GFX_DEFAULT_SCREEN_HEIGHT );
+        sdl_window_ = SDL_CreateWindowWithProperties( properties );
+        SDL_DestroyProperties( properties );
+        if ( !sdl_window_ ) { last_error_ = SDL_GetError(); return false; }
+    }
     GfxGpuCreateInfo info{};
     info.struct_size = sizeof( info );
-    info.sdl_window = window.value;
+    info.sdl_window = sdl_window_;
     info.width = width_ > 0 ? static_cast<uint32_t>( width_ ) : GFX_DEFAULT_SCREEN_WIDTH;
     info.height = height_ > 0 ? static_cast<uint32_t>( height_ ) : GFX_DEFAULT_SCREEN_HEIGHT;
     info.preferred_driver_utf8 = pszAdapterName;
-    if ( !call( api_.create( &info, &renderer_ ) ) ) return false;
+    if ( !Check( api_.create( &info, &renderer_ ), "create" ) ) return false;
     initialized_ = true;
     adapter_name_ = pszAdapterName ? pszAdapterName : "SDL GPU";
     return true;
@@ -57,6 +105,10 @@ bool STDCALL GraphicsEngineGpu::Done()
 {
     if ( renderer_ ) api_.destroy( renderer_ );
     renderer_ = nullptr;
+    if ( sdl_window_ ) SDL_DestroyWindow( sdl_window_ );
+    sdl_window_ = nullptr;
+    if ( video_subsystem_owned_ ) SDL_QuitSubSystem( SDL_INIT_VIDEO );
+    video_subsystem_owned_ = false;
     initialized_ = false;
     return true;
 }
@@ -68,7 +120,7 @@ bool STDCALL GraphicsEngineGpu::SetMode( int nSizeX, int nSizeY, int nBpp, int, 
     if ( nBpp != 0 && nBpp != 32 ) return fail( "SDL GPU adapter supports 32-bit color only" );
     width_ = nSizeX; height_ = nSizeY;
     display_mode_ = { nSizeX, nSizeY, 32 };
-    return !renderer_ || call( api_.resize( renderer_, static_cast<uint32_t>( nSizeX ), static_cast<uint32_t>( nSizeY ) ) );
+    return !renderer_ || Check( api_.resize( renderer_, static_cast<uint32_t>( nSizeX ), static_cast<uint32_t>( nSizeY ) ), "resize" );
 }
 
 EGFXVideoCard STDCALL GraphicsEngineGpu::GetVideoCard() { return GFXVC_DEFAULT; }
@@ -84,12 +136,28 @@ bool STDCALL GraphicsEngineGpu::ChangeViewport( int nX, int nY, int nWidth, int 
 {
     if ( !renderer_ ) return fail( "ChangeViewport requires Init" );
     GfxGpuViewportInfo viewport{ sizeof( viewport ), static_cast<float>( nX ), static_cast<float>( nY ), static_cast<float>( nWidth ), static_cast<float>( nHeight ), fMinZ, fMaxZ };
-    return call( api_.set_viewport( renderer_, &viewport ) );
+    return Check( api_.set_viewport( renderer_, &viewport ), "set_viewport" );
 }
 bool STDCALL GraphicsEngineGpu::ChangeViewport( int nWidth, int nHeight ) { return ChangeViewport( 0, 0, nWidth, nHeight, 0.0f, 1.0f ); }
 bool STDCALL GraphicsEngineGpu::SetWorldTransforms( const int, const SHMatrix *, const int ) { return true; }
-bool STDCALL GraphicsEngineGpu::SetViewTransform( const SHMatrix &matrix ) { view_matrix_ = matrix; return true; }
-bool STDCALL GraphicsEngineGpu::SetProjectionTransform( const SHMatrix &matrix ) { projection_matrix_ = matrix; return true; }
+bool STDCALL GraphicsEngineGpu::SetViewTransform( const SHMatrix &matrix )
+{
+    view_matrix_ = matrix;
+    if ( !renderer_ ) return true;
+    GfxGpuMatrixInfo world{ sizeof( world ) }, view_projection{ sizeof( view_projection ) };
+    std::memcpy( world.values, &matrix, CopySize( sizeof( world.values ), sizeof( matrix ) ) );
+    std::memcpy( view_projection.values, &projection_matrix_, CopySize( sizeof( view_projection.values ), sizeof( projection_matrix_ ) ) );
+    return Check( api_.set_transform( renderer_, &world, &view_projection ), "set_view_transform" );
+}
+bool STDCALL GraphicsEngineGpu::SetProjectionTransform( const SHMatrix &matrix )
+{
+    projection_matrix_ = matrix;
+    if ( !renderer_ ) return true;
+    GfxGpuMatrixInfo world{ sizeof( world ) }, view_projection{ sizeof( view_projection ) };
+    std::memcpy( world.values, &view_matrix_, CopySize( sizeof( world.values ), sizeof( view_matrix_ ) ) );
+    std::memcpy( view_projection.values, &matrix, CopySize( sizeof( view_projection.values ), sizeof( matrix ) ) );
+    return Check( api_.set_transform( renderer_, &world, &view_projection ), "set_projection_transform" );
+}
 bool STDCALL GraphicsEngineGpu::SetTextureTransform( int, const SHMatrix & ) { return true; }
 bool STDCALL GraphicsEngineGpu::SetupDirectTransform() { return true; }
 bool STDCALL GraphicsEngineGpu::RestoreTransform() { return true; }
@@ -100,30 +168,30 @@ const SHMatrix & STDCALL GraphicsEngineGpu::GetProjectionMatrix() const { return
 const SHMatrix & STDCALL GraphicsEngineGpu::GetViewportMatrix() const { return viewport_matrix_; }
 void STDCALL GraphicsEngineGpu::GetViewVolume( SPlane * ) const {}
 void STDCALL GraphicsEngineGpu::GetViewVolumeCrosses( const CVec2 &, CVec3 *, CVec3 * ) {}
-void STDCALL GraphicsEngineGpu::SetLight( int, const SGFXLightDirectional & ) {}
-void STDCALL GraphicsEngineGpu::SetLight( int, const SGFXLightPoint & ) {}
-void STDCALL GraphicsEngineGpu::SetLight( int, const SGFXLightSpot & ) {}
-void STDCALL GraphicsEngineGpu::EnableLight( int, bool ) {}
-void STDCALL GraphicsEngineGpu::SetMaterial( const SGFXMaterial & ) {}
-bool STDCALL GraphicsEngineGpu::SetTexture( int, IGFXBaseTexture * ) { return fail( "Texture adapter is not implemented in P06-M01" ); }
-bool STDCALL GraphicsEngineGpu::SetWireframe( bool ) { return true; }
-bool STDCALL GraphicsEngineGpu::SetCullMode( EGFXCull ) { return true; }
-bool STDCALL GraphicsEngineGpu::SetDepthBufferMode( EGFXDepthBuffer, EGFXCmpFunction ) { return true; }
-bool STDCALL GraphicsEngineGpu::EnableLighting( bool ) { return true; }
-bool STDCALL GraphicsEngineGpu::EnableSpecular( bool ) { return true; }
+void STDCALL GraphicsEngineGpu::SetLight( int index, const SGFXLightDirectional &light ) { SetState( GFXGPU_STATE_LIGHT, static_cast<uint32_t>( index ), 1, &light, sizeof( light ), "set_directional_light" ); }
+void STDCALL GraphicsEngineGpu::SetLight( int index, const SGFXLightPoint &light ) { SetState( GFXGPU_STATE_LIGHT, static_cast<uint32_t>( index ), 2, &light, sizeof( light ), "set_point_light" ); }
+void STDCALL GraphicsEngineGpu::SetLight( int index, const SGFXLightSpot &light ) { SetState( GFXGPU_STATE_LIGHT, static_cast<uint32_t>( index ), 3, &light, sizeof( light ), "set_spot_light" ); }
+void STDCALL GraphicsEngineGpu::EnableLight( int index, bool enable ) { SetState( GFXGPU_STATE_LIGHT, static_cast<uint32_t>( index ), enable ? 1u : 0u, nullptr, 0, "enable_light" ); }
+void STDCALL GraphicsEngineGpu::SetMaterial( const SGFXMaterial &material ) { SetState( GFXGPU_STATE_MATERIAL, 0, 0, &material, sizeof( material ), "set_material" ); }
+bool STDCALL GraphicsEngineGpu::SetTexture( int, IGFXBaseTexture * ) { return fail( "Texture adapter is not implemented in P06-M02" ); }
+bool STDCALL GraphicsEngineGpu::SetWireframe( bool enable ) { return SetState( GFXGPU_STATE_WIREFRAME, 0, enable ? 1u : 0u, nullptr, 0, "set_wireframe" ); }
+bool STDCALL GraphicsEngineGpu::SetCullMode( EGFXCull cull ) { return SetState( GFXGPU_STATE_CULL_MODE, 0, static_cast<uint32_t>( cull ), nullptr, 0, "set_cull_mode" ); }
+bool STDCALL GraphicsEngineGpu::SetDepthBufferMode( EGFXDepthBuffer depth, EGFXCmpFunction cmp ) { return SetState( GFXGPU_STATE_DEPTH_MODE, static_cast<uint32_t>( cmp ), static_cast<uint32_t>( depth ), nullptr, 0, "set_depth_mode" ); }
+bool STDCALL GraphicsEngineGpu::EnableLighting( bool enable ) { return SetState( GFXGPU_STATE_LIGHTING, 0, enable ? 1u : 0u, nullptr, 0, "set_lighting" ); }
+bool STDCALL GraphicsEngineGpu::EnableSpecular( bool enable ) { return SetState( GFXGPU_STATE_SPECULAR, 0, enable ? 1u : 0u, nullptr, 0, "set_specular" ); }
 bool STDCALL GraphicsEngineGpu::SetFont( IGFXFont * ) { return fail( "Font adapter is not implemented in P06-M01" ); }
 bool STDCALL GraphicsEngineGpu::IsActive() { return initialized_; }
-bool STDCALL GraphicsEngineGpu::BeginScene() { return renderer_ && call( api_.begin_frame( renderer_ ) ); }
-bool STDCALL GraphicsEngineGpu::EndScene() { return renderer_ && call( api_.end_frame( renderer_ ) ); }
+bool STDCALL GraphicsEngineGpu::BeginScene() { return renderer_ && Check( api_.begin_frame( renderer_ ), "begin_frame" ); }
+bool STDCALL GraphicsEngineGpu::EndScene() { return renderer_ && Check( api_.end_frame( renderer_ ), "end_frame" ); }
 bool STDCALL GraphicsEngineGpu::IsSafeToPresent() const { return initialized_; }
 
 bool STDCALL GraphicsEngineGpu::Clear( int, RECT *, DWORD dwFlags, DWORD dwColor, float fDepth, DWORD dwStencil )
 {
     if ( !renderer_ ) return fail( "Clear requires Init" );
     GfxGpuClearInfo clear{ sizeof( clear ), static_cast<uint32_t>( dwFlags ), dwColor, fDepth, dwStencil };
-    return call( api_.clear( renderer_, &clear ) );
+    return Check( api_.clear( renderer_, &clear ), "clear" );
 }
-bool STDCALL GraphicsEngineGpu::Flip() { return renderer_ && call( api_.present( renderer_ ) ); }
+bool STDCALL GraphicsEngineGpu::Flip() { return renderer_ && Check( api_.present( renderer_ ), "present" ); }
 bool STDCALL GraphicsEngineGpu::SetRenderTarget( IGFXRTexture * ) { return fail( "Render target adapter is not implemented in P06-M01" ); }
 void STDCALL GraphicsEngineGpu::SetOptimizedBuffers( bool ) {}
 IGFXVertices * STDCALL GraphicsEngineGpu::CreateVertices( int, DWORD, EGFXPrimitiveType, EGFXDynamic, IGFXVertices * ) { return nullptr; }
@@ -151,4 +219,4 @@ void STDCALL GraphicsEngineGpu::GetGammaCorrectionValues( float *b, float *c, fl
 bool STDCALL GraphicsEngineGpu::TakeScreenShot( IImage * ) { return false; }
 int STDCALL GraphicsEngineGpu::GetNumPassedVertices() const { return 0; }
 int STDCALL GraphicsEngineGpu::GetNumPassedPrimitives() const { return 0; }
-bool STDCALL GraphicsEngineGpu::SetShadingEffect( int ) { return true; }
+bool STDCALL GraphicsEngineGpu::SetShadingEffect( int effect ) { return SetState( GFXGPU_STATE_SHADE_EFFECT, 0, static_cast<uint32_t>( effect ), nullptr, 0, "set_shade_effect" ); }

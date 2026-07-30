@@ -8,10 +8,14 @@
 
 class GraphicsEngineGpu final : public IGFX
 {
-    OBJECT_COMPLETE_METHODS( GraphicsEngineGpu )
-
 public:
     GraphicsEngineGpu();
+    explicit GraphicsEngineGpu( const GfxGpuApi &api );
+    ~GraphicsEngineGpu() = default;
+    static IRefCount * STDCALL CreateNewClassInstanceInternal() { return new GraphicsEngineGpu(); }
+    void STDCALL AddRef( int nRef = 1, int nMask = 0x7fffffff ) override { (void)nMask; ref_count_ += nRef; }
+    void STDCALL Release( int nRef = 1, int nMask = 0x7fffffff ) override { (void)nMask; ref_count_ -= nRef; if ( ref_count_ == 0 ) delete this; }
+    bool STDCALL IsValid() const override { return ref_count_ >= 0; }
 
     bool STDCALL Init( const char *pszAdapterName, GFXNativeWindow window ) override;
     bool STDCALL Done() override;
@@ -89,14 +93,18 @@ public:
 
 private:
     bool fail( const char *message );
-    bool call( GfxGpuResult result );
+    bool Check( GfxGpuResult result, const char *operation );
+    bool SetState( uint32_t kind, uint32_t index, uint32_t value, const void *data, size_t data_size, const char *operation );
 
     GfxGpuApi api_{};
     GfxGpuRenderer *renderer_ = nullptr;
+    struct SDL_Window *sdl_window_ = nullptr;
+    bool video_subsystem_owned_ = false;
     bool api_valid_ = false;
     bool initialized_ = false;
     int width_ = 0;
     int height_ = 0;
+    int ref_count_ = 0;
     std::string adapter_name_;
     std::string last_error_;
     SGFXDisplayMode display_mode_{};

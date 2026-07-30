@@ -28,6 +28,7 @@ pub const ClearInfo = extern struct { struct_size: u32, mask: u32, color_rgba8: 
 pub const ViewportInfo = extern struct { struct_size: u32, x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32 };
 pub const MatrixInfo = extern struct { struct_size: u32, values: [16]f32 };
 pub const TemporaryGeometryInfo = extern struct { struct_size: u32, data: ?*const anyopaque, byte_length: u32, stride: u32 };
+pub const StateInfo = extern struct { struct_size: u32, kind: u32, index: u32, value: u32, values: [16]f32 };
 
 pub const Api = extern struct {
     abi_version: u32,
@@ -46,6 +47,7 @@ pub const Api = extern struct {
     set_transform: *const fn (?*RendererHandle, ?*const MatrixInfo, ?*const MatrixInfo) callconv(.c) Result,
     set_color: *const fn (?*RendererHandle, u32) callconv(.c) Result,
     set_fog: *const fn (?*RendererHandle, u32) callconv(.c) Result,
+    set_state: *const fn (?*RendererHandle, ?*const StateInfo) callconv(.c) Result,
     set_texture: *const fn (?*RendererHandle, u64) callconv(.c) Result,
     set_sampler: *const fn (?*RendererHandle, u64) callconv(.c) Result,
     draw: *const fn (?*RendererHandle, u32, u32) callconv(.c) Result,
@@ -131,6 +133,7 @@ fn setViewport(handle: ?*RendererHandle, viewport: ?*const ViewportInfo) callcon
 fn setTransform(handle: ?*RendererHandle, world: ?*const MatrixInfo, view_proj: ?*const MatrixInfo) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (world == null or view_proj == null or world.?.struct_size < @sizeOf(MatrixInfo) or view_proj.?.struct_size < @sizeOf(MatrixInfo)) return errors.invalid_argument; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
 fn setColor(handle: ?*RendererHandle, _: u32) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
 fn setFog(handle: ?*RendererHandle, _: u32) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
+fn setState(handle: ?*RendererHandle, info: ?*const StateInfo) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (info == null or info.?.struct_size < @sizeOf(StateInfo)) return errors.invalid_argument; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
 fn setTexture(handle: ?*RendererHandle, texture: u64) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (texture == 0) return errors.invalid_argument; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
 fn setSampler(handle: ?*RendererHandle, sampler: u64) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (sampler == 0) return errors.invalid_argument; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
 fn draw(handle: ?*RendererHandle, _: u32, primitive_count: u32) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (primitive_count == 0) return errors.invalid_argument; if (renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
@@ -154,6 +157,7 @@ const api = Api{
     .set_transform = setTransform,
     .set_color = setColor,
     .set_fog = setFog,
+    .set_state = setState,
     .set_texture = setTexture,
     .set_sampler = setSampler,
     .draw = draw,
