@@ -27,6 +27,7 @@ pub const LiveCounts = extern struct {
 pub const ClearInfo = extern struct { struct_size: u32, mask: u32, color_rgba8: u32, depth: f32, stencil: u32 };
 pub const ViewportInfo = extern struct { struct_size: u32, x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32 };
 pub const MatrixInfo = extern struct { struct_size: u32, values: [16]f32 };
+pub const TemporaryGeometryInfo = extern struct { struct_size: u32, data: ?*const anyopaque, byte_length: u32, stride: u32 };
 
 pub const Api = extern struct {
     abi_version: u32,
@@ -48,6 +49,8 @@ pub const Api = extern struct {
     set_texture: *const fn (?*RendererHandle, u64) callconv(.c) Result,
     set_sampler: *const fn (?*RendererHandle, u64) callconv(.c) Result,
     draw: *const fn (?*RendererHandle, u32, u32) callconv(.c) Result,
+    draw_indexed: *const fn (?*RendererHandle, u64, u32, u32, u32, i32) callconv(.c) Result,
+    draw_temporary: *const fn (?*RendererHandle, ?*const TemporaryGeometryInfo, u32) callconv(.c) Result,
 };
 
 fn create(info: ?*const CreateInfo, out_renderer: ?*?*RendererHandle) callconv(.c) Result {
@@ -131,6 +134,8 @@ fn setFog(handle: ?*RendererHandle, _: u32) callconv(.c) Result { const renderer
 fn setTexture(handle: ?*RendererHandle, texture: u64) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (texture == 0) return errors.invalid_argument; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
 fn setSampler(handle: ?*RendererHandle, sampler: u64) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (sampler == 0) return errors.invalid_argument; if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
 fn draw(handle: ?*RendererHandle, _: u32, primitive_count: u32) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (primitive_count == 0) return errors.invalid_argument; if (renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
+fn drawIndexed(handle: ?*RendererHandle, index_buffer: u64, index_size: u32, first_index: u32, index_count: u32, _: i32) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (index_buffer == 0 or (index_size != 2 and index_size != 4) or index_count == 0) return errors.invalid_argument; if (renderer.frame.state != .pass_active) return errors.invalid_state; _ = first_index; return errors.ok; }
+fn drawTemporary(handle: ?*RendererHandle, info: ?*const TemporaryGeometryInfo, primitive_count: u32) callconv(.c) Result { const renderer = withRenderer(handle) orelse return errors.invalid_handle; if (info == null or info.?.struct_size < @sizeOf(TemporaryGeometryInfo) or info.?.data == null or info.?.byte_length == 0 or info.?.stride == 0 or primitive_count == 0) return errors.invalid_argument; if (renderer.frame.state != .pass_active) return errors.invalid_state; return errors.ok; }
 
 const api = Api{
     .abi_version = abi_version,
@@ -152,6 +157,8 @@ const api = Api{
     .set_texture = setTexture,
     .set_sampler = setSampler,
     .draw = draw,
+    .draw_indexed = drawIndexed,
+    .draw_temporary = drawTemporary,
 };
 
 pub fn gfxgpu_get_api(requested_version: u32, out_api: ?*Api) callconv(.c) Result {

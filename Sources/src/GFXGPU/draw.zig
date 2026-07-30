@@ -1,8 +1,10 @@
 const std = @import("std");
 const formats = @import("formats.zig");
 const handles = @import("handles.zig");
+const transfer = @import("transfer.zig");
 
 pub const Error = error{ FrameNotRecording, PassMissing, PipelineMissing, BufferMissing, VertexRange, CountOverflow, RenderTargetFeedback, EncodeFailed };
+pub const IndexError = error{ IndexBufferMissing, InvalidIndexSize, IndexRange, InstanceCount, CountOverflow };
 pub const Dirty = struct { pipeline: bool = true, viewport: bool = true, vertex_buffers: bool = true, samplers: bool = true, uniforms: bool = true };
 
 pub const DrawPlan = struct {
@@ -50,6 +52,37 @@ pub fn encode(context: *anyopaque, api: Api, plan: DrawPlan, dirty: *Dirty) Erro
     if (!api.draw(context, plan.vertex_count, 1)) return error.EncodeFailed;
 }
 
+pub const IndexedPlan = struct { index_buffer: handles.Handle, index_size: u8, first_index: u32, index_count: u32, base_vertex: i32, instance_count: u32 = 1, serial: u64 };
+
+pub fn makeIndexedPlan(index_buffer: handles.Handle, index_size: u8, first_index: u32, index_count: u32, index_capacity_bytes: u64, base_vertex: i32, instance_count: u32, serial: u64) IndexError!IndexedPlan {
+    if (index_buffer == handles.invalid_handle) return IndexError.IndexBufferMissing;
+    if (index_size != 2 and index_size != 4) return IndexError.InvalidIndexSize;
+    if (instance_count != 1) return IndexError.InstanceCount;
+    const byte_offset = std.math.mul(u64, first_index, index_size) catch return IndexError.CountOverflow;
+    const byte_count = std.math.mul(u64, index_count, index_size) catch return IndexError.CountOverflow;
+    if (byte_offset > index_capacity_bytes or byte_count > index_capacity_bytes - byte_offset) return IndexError.IndexRange;
+    return .{ .index_buffer = index_buffer, .index_size = index_size, .first_index = first_index, .index_count = index_count, .base_vertex = base_vertex, .serial = serial };
+}
+
+pub const IndexedApi = struct {
+    bind_index_buffer: *const fn (*anyopaque, handles.Handle, u8, u64) bool,
+    draw_indexed: *const fn (*anyopaque, u32, u32, u32, i32, u32) bool,
+};
+
+pub fn encodeIndexed(context: *anyopaque, api: IndexedApi, plan: IndexedPlan) IndexError!void {
+    const offset = std.math.mul(u64, plan.first_index, plan.index_size) catch return IndexError.CountOverflow;
+    if (!api.bind_index_buffer(context, plan.index_buffer, plan.index_size, offset)) return error.IndexRange;
+    if (!api.draw_indexed(context, plan.index_count, plan.instance_count, plan.first_index, plan.base_vertex, 0)) return error.IndexRange;
+}
+
+pub const TemporaryRing = struct {
+    pool: transfer.Pool,
+    pub fn init(allocator: std.mem.Allocator, size: usize) !TemporaryRing { return .{ .pool = try transfer.Pool.init(allocator, size) }; }
+    pub fn deinit(self: *TemporaryRing) void { self.pool.deinit(); }
+    pub fn beginFrame(self: *TemporaryRing) void { self.pool.reset(); }
+    pub fn alloc(self: *TemporaryRing, bytes: usize, alignment: usize, serial: u64) !transfer.Allocation { return self.pool.alloc(bytes, alignment, serial); }
+};
+
 test "DrawPlan validates state, ranges, overflow, and feedback before encoding" {
     const pipeline: handles.Handle = 1;
     const buffer: handles.Handle = 2;
@@ -83,4 +116,25 @@ test "draw encoding follows call order and preserves dirty groups after failure"
     dirty = .{};
     try std.testing.expectError(error.EncodeFailed, encode(@ptrCast(&context), .{ .bind_pipeline = Fake.pipeline, .set_viewport = Fake.viewport, .bind_vertex_buffer = Fake.buffer, .bind_samplers = Fake.samplers, .push_uniforms = Fake.uniforms, .draw = Fake.draw }, plan_value, &dirty));
     try std.testing.expect(dirty.samplers and dirty.uniforms);
+}
+
+test "indexed plans validate 16/32-bit byte bounds and fixed instance count" {
+    const plan16 = try makeIndexedPlan(1, 2, 2, 3, 12, -4, 1, 8);
+    try std.testing.expectEqual(@as(u32, 2), plan16.first_index);
+    const plan32 = try makeIndexedPlan(2, 4, 1, 2, 12, 3, 1, 9);
+    try std.testing.expectEqual(@as(u8, 4), plan32.index_size);
+    try std.testing.expectError(IndexError.InvalidIndexSize, makeIndexedPlan(1, 3, 0, 1, 4, 0, 1, 1));
+    try std.testing.expectError(IndexError.IndexRange, makeIndexedPlan(1, 2, 4, 1, 8, 0, 1, 1));
+    try std.testing.expectError(IndexError.InstanceCount, makeIndexedPlan(1, 2, 0, 1, 2, 0, 2, 1));
+}
+
+test "temporary ring grows and resets per frame" {
+    var ring = try TemporaryRing.init(std.testing.allocator, 8);
+    defer ring.deinit();
+    _ = try ring.alloc(7, 1, 1);
+    _ = try ring.alloc(9, 4, 1);
+    try std.testing.expect(ring.pool.storage.len >= 20);
+    ring.beginFrame();
+    const allocation = try ring.alloc(4, 4, 2);
+    try std.testing.expectEqual(@as(usize, 0), allocation.offset);
 }
