@@ -1,6 +1,19 @@
 #include "StdAfx.h"
 #include "GFX.H"
 #include "../../Sources/src/GFXGPU/GraphicsEngineGpu.h"
+#include "../../Sources/src/GFXGPU/MeshGpu.h"
+#include <algorithm>
+#include <cctype>
+
+// Formats.lib's mesh serializer references this small Misc helper.  Keep the
+// standalone adapter harness independent from the full Misc runtime library.
+namespace NStr {
+void ToLower( std::string &value ) {
+    std::transform( value.begin(), value.end(), value.begin(), []( unsigned char c ) {
+        return static_cast<char>( std::tolower( c ) );
+    } );
+}
+}
 
 #include <windows.h>
 
@@ -85,6 +98,17 @@ static int RunRecordingTest()
     vertices->Release(); indices->Release();
     if ( buffer_creates != 2 || buffer_uploads != 2 || buffer_releases != 2 ) return 29;
     if ( !adapter.GetTempVertices( 3, GFXFVF_XYZ, GFXPT_TRIANGLELIST ) || !adapter.DrawTemp() ) return 30;
+    SMeshFormat mesh_data;
+    mesh_data.geoms.push_back( CVec3( 0, 0, 0 ) ); mesh_data.geoms.push_back( CVec3( 1, 0, 0 ) ); mesh_data.geoms.push_back( CVec3( 0, 1, 0 ) );
+    mesh_data.norms.push_back( CVec3( 0, 0, 1 ) ); mesh_data.texes.push_back( CVec2( 0, 0 ) );
+    for ( int i = 0; i < 3; ++i ) mesh_data.components.push_back( { i, 0, 0 } );
+    mesh_data.indices = { 0, 1, 2 };
+    std::vector<SMeshFormat> mesh_data_list{ mesh_data };
+    SAABBFormat mesh_bounds{};
+    MeshGpu mesh( &adapter );
+    if ( !mesh.Build( mesh_data_list, mesh_bounds ) ) return 31;
+    SHMatrix mesh_matrix{};
+    if ( !adapter.DrawMesh( &mesh, &mesh_matrix, 1 ) ) return 32;
     if ( std::strcmp( trace, "CRVSBLTEP" ) != 0 ) return 18;
     adapter.Done();
     if ( std::strcmp( trace, "CRVSBLTEPD" ) != 0 ) return 19;

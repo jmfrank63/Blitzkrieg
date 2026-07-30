@@ -3,6 +3,7 @@
 #include "GraphicsEngineGpu.h"
 #include "TextureGpu.h"
 #include "GeometryBufferGpu.h"
+#include "MeshGpu.h"
 
 #include <SDL3/SDL.h>
 
@@ -345,10 +346,18 @@ bool STDCALL GraphicsEngineGpu::DrawTemp()
     temporary_bytes_.clear();
     return created && drawn;
 }
-bool STDCALL GraphicsEngineGpu::DrawMesh( IGFXMesh *mesh, const SHMatrix *, int matrices )
+bool STDCALL GraphicsEngineGpu::DrawMesh( IGFXMesh *mesh, const SHMatrix *matrices, int matrix_count )
 {
-    if ( !mesh || matrices <= 0 ) return fail( "DrawMesh requires a mesh and at least one matrix" );
-    return fail( "DrawMesh requires a cross-module mesh batch contract; IGFXMesh exposes no geometry buffers" );
+    if ( !mesh || !matrices || matrix_count <= 0 ) return fail( "DrawMesh requires a mesh and at least one matrix" );
+    MeshGpu *gpu_mesh = dynamic_cast<MeshGpu *>( mesh );
+    if ( !gpu_mesh ) return fail( "mesh does not belong to the SDL GPU adapter" );
+    for ( const MeshGpu::Part &part : gpu_mesh->Parts() )
+    {
+        if ( part.matrix_index < 0 || part.matrix_index >= matrix_count || !part.vertices || !part.indices ) return fail( "mesh part is invalid" );
+        if ( !SetWorldTransforms( 0, matrices + part.matrix_index, 1 ) ) return false;
+        if ( !Draw( part.vertices, part.indices ) ) return false;
+    }
+    return true;
 }
 bool STDCALL GraphicsEngineGpu::DrawStringA( const char *, int, int, DWORD ) { return false; }
 bool STDCALL GraphicsEngineGpu::DrawString( const wchar_t *, int, int, DWORD ) { return false; }
