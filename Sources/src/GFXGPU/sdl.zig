@@ -8,6 +8,7 @@ pub const GpuRenderPass = c.SDL_GPURenderPass;
 pub const GpuBuffer = c.SDL_GPUBuffer;
 pub const GpuTransferBuffer = c.SDL_GPUTransferBuffer;
 pub const GpuCopyPass = c.SDL_GPUCopyPass;
+pub const GpuPipeline = c.SDL_GPUGraphicsPipeline;
 pub const Window = c.SDL_Window;
 pub const ShaderFormat = c.SDL_GPUShaderFormat;
 pub const shaderformat_dxil: ShaderFormat = c.SDL_GPU_SHADERFORMAT_DXIL;
@@ -101,6 +102,39 @@ pub fn uploadBuffer(device: *GpuDevice, command_buffer: *GpuCommandBuffer, trans
 
 pub fn waitForIdle(device: *GpuDevice) bool {
     return c.SDL_WaitForGPUIdle(device);
+}
+
+pub fn bindPipeline(render_pass: *GpuRenderPass, pipeline: *GpuPipeline) void {
+    c.SDL_BindGPUGraphicsPipeline(render_pass, pipeline);
+}
+
+pub fn setViewport(render_pass: *GpuRenderPass, x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32) void {
+    const viewport = c.SDL_GPUViewport{ .x = x, .y = y, .w = width, .h = height, .min_depth = min_depth, .max_depth = max_depth };
+    c.SDL_SetGPUViewport(render_pass, &viewport);
+}
+
+pub fn bindVertexBuffer(render_pass: *GpuRenderPass, buffer: *GpuBuffer, offset: u32) void {
+    const binding = c.SDL_GPUBufferBinding{ .buffer = buffer, .offset = offset };
+    c.SDL_BindGPUVertexBuffers(render_pass, 0, &binding, 1);
+}
+
+pub fn bindIndexBuffer(render_pass: *GpuRenderPass, buffer: *GpuBuffer, offset: u32, index_size: u32) bool {
+    const binding = c.SDL_GPUBufferBinding{ .buffer = buffer, .offset = offset };
+    const element_size = switch (index_size) {
+        2 => c.SDL_GPU_INDEXELEMENTSIZE_16BIT,
+        4 => c.SDL_GPU_INDEXELEMENTSIZE_32BIT,
+        else => return false,
+    };
+    c.SDL_BindGPUIndexBuffer(render_pass, &binding, element_size);
+    return true;
+}
+
+pub fn drawPrimitives(render_pass: *GpuRenderPass, vertex_count: u32, first_vertex: u32) void {
+    c.SDL_DrawGPUPrimitives(render_pass, vertex_count, 1, first_vertex, 0);
+}
+
+pub fn drawIndexedPrimitives(render_pass: *GpuRenderPass, index_count: u32, first_index: u32, vertex_offset: i32) void {
+    c.SDL_DrawGPUIndexedPrimitives(render_pass, index_count, 1, first_index, vertex_offset, 0);
 }
 
 const std = @import("std");

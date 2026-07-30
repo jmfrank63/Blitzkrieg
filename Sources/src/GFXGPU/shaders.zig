@@ -88,6 +88,13 @@ pub const Loader = struct {
         return self.pairs.items.len;
     }
 
+    pub fn pair(self: *const Loader, effect: []const u8) ?struct { vertex: *anyopaque, fragment: *anyopaque } {
+        for (self.pairs.items) |value| {
+            if (std.mem.eql(u8, value.effect, effect)) return .{ .vertex = value.vertex, .fragment = value.fragment };
+        }
+        return null;
+    }
+
     pub fn loadPair(self: *Loader, shader_manifest: *const manifest.Manifest, effect: []const u8, vertex_blob: []const u8, fragment_blob: []const u8, selected_format: u32) Error!void {
         if (shader_manifest.format != .dxil or selected_format & sdl.c.SDL_GPU_SHADERFORMAT_DXIL == 0) return Error.FormatMismatch;
         for (self.pairs.items) |pair| if (std.mem.eql(u8, pair.effect, effect)) return;
