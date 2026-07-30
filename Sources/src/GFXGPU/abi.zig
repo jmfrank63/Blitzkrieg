@@ -113,9 +113,10 @@ fn getLastError(handle: ?*RendererHandle, destination: ?[*]u8, capacity: u32, wr
 
 fn getLiveCounts(handle: ?*RendererHandle, counts: ?*LiveCounts) callconv(.c) Result {
     if (handle == null or counts == null) return errors.invalid_argument;
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (counts.?.struct_size < @sizeOf(LiveCounts)) return errors.invalid_argument;
     counts.?.textures = 0;
-    counts.?.buffers = 0;
+    counts.?.buffers = @intCast(renderer.buffers.count());
     counts.?.samplers = 0;
     counts.?.render_targets = 0;
     return errors.ok;
@@ -295,9 +296,15 @@ fn drawTemporary(handle: ?*RendererHandle, info: ?*const TemporaryGeometryInfo, 
     return errors.ok;
 }
 pub fn gfxgpu_readback(handle: ?*RendererHandle, info: ?*ReadbackInfo) callconv(.c) Result {
-    _ = withRenderer(handle) orelse return errors.invalid_handle;
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (info == null or info.?.struct_size < @sizeOf(ReadbackInfo) or info.?.width == 0 or info.?.height == 0 or info.?.data == null) return errors.invalid_argument;
-    return errors.unsupported;
+    if (info.?.row_pitch < info.?.width * 4 or info.?.byte_length < info.?.row_pitch * info.?.height) return errors.invalid_argument;
+    renderer.readback(@as([*]u8, @ptrCast(info.?.data.?))[0..info.?.byte_length], info.?.width, info.?.height, info.?.row_pitch) catch |err| return switch (err) {
+        error.ReadbackUnavailable => errors.unsupported,
+        error.ReadbackInvalid => errors.invalid_state,
+        error.NoDevice, error.TransferBufferCreateFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed, error.WaitForIdleFailed, error.TransferBufferMapFailed => errors.sdl_error,
+    };
+    return errors.ok;
 }
 
 const api = Api{

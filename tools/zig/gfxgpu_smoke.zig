@@ -23,10 +23,60 @@ fn checkFixtures() !void {
     }
 }
 
+fn runReferenceSmoke() !void {
+    std.debug.print("GfxGpu reference: creating hidden SDL window\n", .{});
+    const window = sdl3.c.SDL_CreateWindow("GfxGpu reference", 64, 64, sdl3.c.SDL_WINDOW_HIDDEN) orelse return error.SdlWindowFailed;
+    std.debug.print("GfxGpu reference: hidden SDL window created\n", .{});
+    defer sdl3.c.SDL_DestroyWindow(window);
+    var api: gpu.abi.Api = undefined;
+    api.struct_size = @sizeOf(gpu.abi.Api);
+    try std.testing.expectEqual(gpu.error_codes.ok, gpu.abi.gfxgpu_get_api(gpu.abi.abi_version, &api));
+    var renderer: ?*gpu.abi.RendererHandle = null;
+    const shader_directory = "../shaders";
+    var create_info = gpu.abi.CreateInfo{ .struct_size = @sizeOf(gpu.abi.CreateInfo), .flags = 1, .sdl_window = @ptrCast(window), .width = 64, .height = 64, .shader_directory_utf8 = shader_directory, .preferred_driver_utf8 = null };
+    std.debug.print("GfxGpu reference: creating window-backed renderer\n", .{});
+    const create_result = api.create(&create_info, &renderer);
+    std.debug.print("GfxGpu reference: renderer create returned {}\n", .{create_result});
+    if (create_result != gpu.error_codes.ok) {
+        std.debug.print("GfxGpu reference create failed: result={} SDL={s}\n", .{ create_result, std.mem.span(sdl3.c.SDL_GetError()) });
+        return error.ReferenceCreateFailed;
+    }
+    defer api.destroy(renderer);
+    const vertices = [_]f32{
+        0.0, 0.75, 0.0, 1.0,
+        -0.75, -0.75, 0.0, 1.0,
+        0.75, -0.75, 0.0, 1.0,
+    };
+    var buffer: u64 = 0;
+    var buffer_info = gpu.abi.BufferCreateInfo{ .struct_size = @sizeOf(gpu.abi.BufferCreateInfo), .element_count = 3, .format = 0, .stride = 16, .usage = 0 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.create_buffer(renderer, &buffer_info, &buffer));
+    defer _ = api.destroy_buffer(renderer, buffer);
+    var upload = gpu.abi.BufferUploadInfo{ .struct_size = @sizeOf(gpu.abi.BufferUploadInfo), .data = @ptrCast(&vertices), .byte_length = @sizeOf(@TypeOf(vertices)), .byte_offset = 0 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.upload_buffer(renderer, buffer, &upload));
+    var hashes: [3][32]u8 = undefined;
+    for (&hashes) |*hash| {
+        try std.testing.expectEqual(gpu.error_codes.ok, api.begin_frame(renderer));
+        var clear = gpu.abi.ClearInfo{ .struct_size = @sizeOf(gpu.abi.ClearInfo), .mask = 1, .color_rgba8 = 0x102030ff, .depth = 1.0, .stencil = 0 };
+        try std.testing.expectEqual(gpu.error_codes.ok, api.clear(renderer, &clear));
+        try std.testing.expectEqual(gpu.error_codes.ok, api.draw(renderer, @intCast(buffer), 1));
+        try std.testing.expectEqual(gpu.error_codes.ok, api.end_frame(renderer));
+        var pixels: [64 * 64 * 4]u8 = undefined;
+        var readback = gpu.abi.ReadbackInfo{ .struct_size = @sizeOf(gpu.abi.ReadbackInfo), .width = 64, .height = 64, .byte_length = pixels.len, .row_pitch = 64 * 4, .data = @ptrCast(&pixels) };
+        try std.testing.expectEqual(gpu.error_codes.ok, gpu.abi.gfxgpu_readback(renderer, &readback));
+        std.crypto.hash.sha2.Sha256.hash(&pixels, hash, .{});
+        try std.testing.expectEqual(gpu.error_codes.ok, api.present(renderer));
+    }
+    try std.testing.expectEqualSlices(u8, &hashes[0], &hashes[1]);
+    try std.testing.expectEqualSlices(u8, &hashes[1], &hashes[2]);
+    std.debug.print("GfxGpu reference smoke: 3 identical frame hashes\n", .{});
+}
+
 pub fn main(init: std.process.Init) !void {
     try checkFixtures();
     if (!sdl3.c.SDL_Init(sdl3.c.SDL_INIT_VIDEO)) return error.SdlInitFailed;
     defer sdl3.c.SDL_Quit();
+
+    try runReferenceSmoke();
 
     const device = sdl3.c.SDL_CreateGPUDevice(sdl3.c.SDL_GPU_SHADERFORMAT_DXIL, false, null) orelse {
         std.debug.print("SDL_CreateGPUDevice failed: {s}\n", .{std.mem.span(sdl3.c.SDL_GetError())});

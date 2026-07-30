@@ -64,6 +64,25 @@ pub fn endRenderPass(render_pass: *GpuRenderPass) void {
     c.SDL_EndGPURenderPass(render_pass);
 }
 
+pub fn createColorTexture(device: *GpuDevice, format: c.SDL_GPUTextureFormat, width: u32, height: u32) ?*GpuTexture {
+    const info = c.SDL_GPUTextureCreateInfo{ .type = c.SDL_GPU_TEXTURETYPE_2D, .format = format, .usage = c.SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | c.SDL_GPU_TEXTUREUSAGE_SAMPLER, .width = width, .height = height, .layer_count_or_depth = 1, .num_levels = 1, .sample_count = c.SDL_GPU_SAMPLECOUNT_1, .props = 0 };
+    return c.SDL_CreateGPUTexture(device, &info);
+}
+
+pub fn releaseTexture(device: *GpuDevice, texture: *GpuTexture) void {
+    c.SDL_ReleaseGPUTexture(device, texture);
+}
+
+pub fn beginColorPass(command_buffer: *GpuCommandBuffer, texture: *GpuTexture, color: [4]f32, load: c.SDL_GPULoadOp) ?*GpuRenderPass {
+    var target = c.SDL_GPUColorTargetInfo{ .texture = texture, .clear_color = .{ .r = color[0], .g = color[1], .b = color[2], .a = color[3] }, .load_op = load, .store_op = c.SDL_GPU_STOREOP_STORE };
+    return c.SDL_BeginGPURenderPass(command_buffer, &target, 1, null);
+}
+
+pub fn blitTexture(command_buffer: *GpuCommandBuffer, source: *GpuTexture, destination: *GpuTexture, width: u32, height: u32) void {
+    const info = c.SDL_GPUBlitInfo{ .source = .{ .texture = source, .w = width, .h = height }, .destination = .{ .texture = destination, .w = width, .h = height }, .load_op = c.SDL_GPU_LOADOP_LOAD, .filter = c.SDL_GPU_FILTER_NEAREST };
+    c.SDL_BlitGPUTexture(command_buffer, &info);
+}
+
 pub fn createBuffer(device: *GpuDevice, usage: c.SDL_GPUBufferUsageFlags, size: u32) ?*GpuBuffer {
     const info = c.SDL_GPUBufferCreateInfo{ .usage = usage, .size = size, .props = 0 };
     return c.SDL_CreateGPUBuffer(device, &info);
@@ -102,6 +121,20 @@ pub fn uploadBuffer(device: *GpuDevice, command_buffer: *GpuCommandBuffer, trans
 
 pub fn waitForIdle(device: *GpuDevice) bool {
     return c.SDL_WaitForGPUIdle(device);
+}
+
+pub fn createDownloadBuffer(device: *GpuDevice, size: u32) ?*GpuTransferBuffer {
+    const info = c.SDL_GPUTransferBufferCreateInfo{ .usage = c.SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD, .size = size, .props = 0 };
+    return c.SDL_CreateGPUTransferBuffer(device, &info);
+}
+
+pub fn downloadTexture(command_buffer: *GpuCommandBuffer, source: *GpuTexture, transfer: *GpuTransferBuffer, width: u32, height: u32) bool {
+    const copy_pass = c.SDL_BeginGPUCopyPass(command_buffer) orelse return false;
+    const source_region = c.SDL_GPUTextureRegion{ .texture = source, .w = width, .h = height, .d = 1 };
+    const destination = c.SDL_GPUTextureTransferInfo{ .transfer_buffer = transfer, .offset = 0, .pixels_per_row = width, .rows_per_layer = height };
+    c.SDL_DownloadFromGPUTexture(copy_pass, &source_region, &destination);
+    c.SDL_EndGPUCopyPass(copy_pass);
+    return true;
 }
 
 pub fn bindPipeline(render_pass: *GpuRenderPass, pipeline: *GpuPipeline) void {

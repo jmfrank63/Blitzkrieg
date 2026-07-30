@@ -19,6 +19,7 @@ pub const Renderer = struct {
     swapchain_format: u32 = 0,
     drawable_width: u32 = 0,
     drawable_height: u32 = 0,
+    scene_texture: ?*sdl.GpuTexture = null,
     shader_directory: ?[]u8 = null,
     untextured_vertex_shader: ?*anyopaque = null,
     untextured_fragment_shader: ?*anyopaque = null,
@@ -53,6 +54,7 @@ pub const Renderer = struct {
         self.resources.deinit(self.allocator);
         if (self.device) |device| {
             const gpu_device: *sdl.GpuDevice = @ptrCast(@alignCast(device.handle.?));
+            if (self.scene_texture) |texture| sdl.releaseTexture(gpu_device, texture);
             if (self.untextured_pipeline) |pipeline| sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, @ptrCast(@alignCast(pipeline)));
             if (self.untextured_fragment_shader) |shader| sdl.c.SDL_ReleaseGPUShader(gpu_device, @ptrCast(@alignCast(shader)));
             if (self.untextured_vertex_shader) |shader| sdl.c.SDL_ReleaseGPUShader(gpu_device, @ptrCast(@alignCast(shader)));
@@ -78,6 +80,7 @@ pub const Renderer = struct {
         self.swapchain_format = device.api.swapchain_format(device.handle.?, window_ptr);
         self.drawable_width = width;
         self.drawable_height = height;
+        self.scene_texture = sdl.createColorTexture(@ptrCast(@alignCast(device.handle.?)), @intCast(self.swapchain_format), width, height) orelse return error.SceneTextureCreateFailed;
     }
 
     pub fn setShaderDirectory(self: *Renderer, directory: ?[*:0]const u8) !void {
@@ -120,20 +123,33 @@ pub const Renderer = struct {
             self.frame.render_pass = null;
             self.frame.endPass() catch return error.InvalidState;
         }
+        if (self.scene_texture) |scene| {
+            const command = self.frame.command_buffer orelse return error.InvalidState;
+            const swapchain = self.frame.swapchain_texture orelse return error.InvalidState;
+            sdl.blitTexture(@ptrCast(@alignCast(command)), scene, @ptrCast(@alignCast(swapchain)), self.drawable_width, self.drawable_height);
+        }
         try self.frame.end();
     }
 
     pub fn clear(self: *Renderer, color: [4]f32) !void {
         if (self.frame.state != .recording) return error.InvalidState;
         const device = &(self.device orelse return error.NoDevice);
-        const texture = self.frame.swapchain_texture orelse return error.InvalidState;
+        const texture: *sdl.GpuTexture = if (self.scene_texture) |scene| scene else @ptrCast(@alignCast(self.frame.swapchain_texture orelse return error.InvalidState));
         const command = self.frame.command_buffer orelse return error.InvalidState;
-        const pass = device.api.begin_clear_pass(command, texture, color) orelse return error.RenderPassFailed;
+        const pass: ?*anyopaque = if (self.scene_texture != null)
+            @ptrCast(sdl.beginColorPass(@ptrCast(@alignCast(command)), @ptrCast(@alignCast(texture)), color, sdl.c.SDL_GPU_LOADOP_CLEAR))
+        else
+            device.api.begin_clear_pass(command, @ptrCast(texture), color);
+        const render_pass = pass orelse return error.RenderPassFailed;
         self.frame.beginPass() catch {
-            device.api.end_render_pass(pass);
+            if (self.scene_texture != null) {
+                sdl.endRenderPass(@ptrCast(@alignCast(render_pass)));
+            } else {
+                device.api.end_render_pass(render_pass);
+            }
             return error.InvalidState;
         };
-        self.frame.render_pass = pass;
+        self.frame.render_pass = render_pass;
     }
 
     pub fn present(self: *Renderer) !void {
@@ -276,5 +292,21 @@ pub const Renderer = struct {
         sdl.bindPipeline(@ptrCast(@alignCast(pass)), @ptrCast(@alignCast(pipeline)));
         if (!sdl.bindIndexBuffer(@ptrCast(@alignCast(pass)), buffer.gpu, 0, index_size)) return error.InvalidDraw;
         sdl.drawIndexedPrimitives(@ptrCast(@alignCast(pass)), index_count, first_index, vertex_offset);
+    }
+
+    pub fn readback(self: *Renderer, destination: []u8, width: u32, height: u32, row_pitch: u32) !void {
+        const texture = self.scene_texture orelse return error.ReadbackUnavailable;
+        if (width == 0 or height == 0 or row_pitch < width * 4 or destination.len < @as(usize, row_pitch) * height) return error.ReadbackInvalid;
+        const device = &(self.device orelse return error.NoDevice);
+        const gpu_device: *sdl.GpuDevice = @ptrCast(@alignCast(device.handle.?));
+        const transfer = sdl.createDownloadBuffer(gpu_device, row_pitch * height) orelse return error.TransferBufferCreateFailed;
+        defer sdl.releaseTransferBuffer(gpu_device, transfer);
+        const command = sdl.acquireCommandBuffer(gpu_device) orelse return error.CommandBufferFailed;
+        if (!sdl.downloadTexture(command, texture, transfer, width, height)) { _ = sdl.cancelCommandBuffer(command); return error.CopyPassFailed; }
+        if (!sdl.submitCommandBuffer(command)) return error.SubmitFailed;
+        if (!sdl.waitForIdle(gpu_device)) return error.WaitForIdleFailed;
+        const mapped = sdl.mapTransferBuffer(gpu_device, transfer) orelse return error.TransferBufferMapFailed;
+        @memcpy(destination[0..@as(usize, row_pitch) * height], @as([*]const u8, @ptrCast(mapped))[0..@as(usize, row_pitch) * height]);
+        sdl.unmapTransferBuffer(gpu_device, transfer);
     }
 };
