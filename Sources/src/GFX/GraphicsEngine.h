@@ -191,7 +191,7 @@ public:
 		: adapter( *pAdapter ), fBrightness( 0 ), fContrast( 0 ), fGamma( 0 ), bUseOptimizedBuffers( false ), dwLastTempBufferFormat( 0 ), dwLastVertexShader( 0 ), bDirectTransform( false ) {  }
 	virtual ~CGraphicsEngine() { CGraphicsEngine::Done(); }
 
-	bool STDCALL Init( const char *pszAdapterName, HWND hWnd );
+	bool STDCALL Init( const char *pszAdapterName, GFXNativeWindow window );
 	bool STDCALL Done();
 	void Clear();
 	bool STDCALL SetMode( int nSizeX, int nSizeY, int nBpp, int nStencilBPP, EGFXFullscreen eFullscreen, int nFreq );

@@ -589,7 +589,7 @@ bool CGraphicsEngine::FindDepthStencilFormat( int nBPP, int nStencilBPP )
 	}
 	return false;
 }
-bool CGraphicsEngine::Init( const char *pszAdapterName, HWND hWnd )
+bool CGraphicsEngine::Init( const char *pszAdapterName, GFXNativeWindow window )
 {
 	std::string szAdapterName = pszAdapterName != 0 ? pszAdapterName : "";
 	std::list<SAdapterDesc> adapters;
@@ -603,7 +603,7 @@ bool CGraphicsEngine::Init( const char *pszAdapterName, HWND hWnd )
 	const SAdapterDesc *pAdapter = FindAdapter( szAdapterName.c_str(), adapters );
 	NI_ASSERT_TF( pAdapter != 0, "Can't find adapter by name", return false );
 	adapter = *pAdapter;
-	hWindow = hWnd;
+	hWindow = static_cast<HWND>( window.value );
 	pD3D.Create( Direct3DCreate8(D3D_SDK_VERSION) );
 	NI_ASSERT_TF( pD3D != 0, NStr::Format("Can't create Direct3D8 of build %d. Pls, install latest DX", D3D_SDK_VERSION), return false );
 	SetupShaders();
