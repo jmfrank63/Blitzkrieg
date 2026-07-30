@@ -13,6 +13,7 @@ pub const Renderer = struct {
         samplers: u32 = 0,
         render_targets: u32 = 0,
         shaders: u32 = 0,
+        pipelines: u32 = 0,
     };
 
     pub fn init(allocator: std.mem.Allocator) Renderer {
