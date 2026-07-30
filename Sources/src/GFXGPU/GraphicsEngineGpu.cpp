@@ -150,7 +150,7 @@ bool GraphicsEngineGpu::DestroyBufferHandle( GfxGpuHandle handle )
 }
 bool GraphicsEngineGpu::DrawBufferHandle( GfxGpuHandle handle, uint32_t primitives )
 {
-    return renderer_ && api_.draw && Check( api_.draw( renderer_, 0, primitives ), "draw_temporary" );
+    return renderer_ && api_.draw && Check( api_.draw( renderer_, handle, primitives ), "draw" );
 }
 bool GraphicsEngineGpu::DrawIndexedBufferHandle( GfxGpuHandle handle, uint32_t index_size, uint32_t count )
 {

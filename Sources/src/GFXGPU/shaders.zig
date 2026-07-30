@@ -75,10 +75,10 @@ pub const Loader = struct {
         var index = self.pairs.items.len;
         while (index > 0) {
             index -= 1;
-            const pair = self.pairs.items[index];
-            self.api.release(self.device, pair.fragment);
-            self.api.release(self.device, pair.vertex);
-            self.allocator.free(pair.effect);
+            const loaded_pair = self.pairs.items[index];
+            self.api.release(self.device, loaded_pair.fragment);
+            self.api.release(self.device, loaded_pair.vertex);
+            self.allocator.free(loaded_pair.effect);
         }
         self.pairs.deinit(self.allocator);
         self.* = undefined;
@@ -97,7 +97,7 @@ pub const Loader = struct {
 
     pub fn loadPair(self: *Loader, shader_manifest: *const manifest.Manifest, effect: []const u8, vertex_blob: []const u8, fragment_blob: []const u8, selected_format: u32) Error!void {
         if (shader_manifest.format != .dxil or selected_format & sdl.c.SDL_GPU_SHADERFORMAT_DXIL == 0) return Error.FormatMismatch;
-        for (self.pairs.items) |pair| if (std.mem.eql(u8, pair.effect, effect)) return;
+        for (self.pairs.items) |loaded_pair| if (std.mem.eql(u8, loaded_pair.effect, effect)) return;
         var vertex_record: ?*const manifest.Record = null;
         var fragment_record: ?*const manifest.Record = null;
         for (shader_manifest.records) |*record| {

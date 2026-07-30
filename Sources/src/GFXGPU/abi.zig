@@ -82,6 +82,12 @@ fn create(info: ?*const CreateInfo, out_renderer: ?*?*RendererHandle) callconv(.
             std.heap.c_allocator.destroy(state);
             return errors.sdl_error;
         };
+        const shader_directory = create_info.shader_directory_utf8 orelse "zig-out/shaders";
+        state.setShaderDirectory(shader_directory) catch {
+            state.deinit();
+            std.heap.c_allocator.destroy(state);
+            return errors.out_of_memory;
+        };
         state.attachWindow(create_info.sdl_window, create_info.width, create_info.height) catch {
             state.deinit();
             std.heap.c_allocator.destroy(state);
@@ -258,17 +264,28 @@ fn setSampler(handle: ?*RendererHandle, sampler: u64) callconv(.c) Result {
     if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
     return errors.ok;
 }
-fn draw(handle: ?*RendererHandle, _: u32, primitive_count: u32) callconv(.c) Result {
+fn draw(handle: ?*RendererHandle, vertex_buffer: u32, primitive_count: u32) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (primitive_count == 0) return errors.invalid_argument;
     if (renderer.frame.state != .pass_active) return errors.invalid_state;
+    renderer.draw(vertex_buffer, primitive_count) catch |err| return switch (err) {
+        error.InvalidDraw, error.InvalidBuffer => errors.invalid_argument,
+        error.InvalidState => errors.invalid_state,
+        error.NoDevice, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed => errors.sdl_error,
+        else => errors.internal_error,
+    };
     return errors.ok;
 }
-fn drawIndexed(handle: ?*RendererHandle, index_buffer: u64, index_size: u32, first_index: u32, index_count: u32, _: i32) callconv(.c) Result {
+fn drawIndexed(handle: ?*RendererHandle, index_buffer: u64, index_size: u32, first_index: u32, index_count: u32, vertex_offset: i32) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (index_buffer == 0 or (index_size != 2 and index_size != 4) or index_count == 0) return errors.invalid_argument;
     if (renderer.frame.state != .pass_active) return errors.invalid_state;
-    _ = first_index;
+    renderer.drawIndexed(index_buffer, index_size, first_index, index_count, vertex_offset) catch |err| return switch (err) {
+        error.InvalidDraw, error.InvalidBuffer => errors.invalid_argument,
+        error.InvalidState => errors.invalid_state,
+        error.NoDevice, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed => errors.sdl_error,
+        else => errors.internal_error,
+    };
     return errors.ok;
 }
 fn drawTemporary(handle: ?*RendererHandle, info: ?*const TemporaryGeometryInfo, primitive_count: u32) callconv(.c) Result {

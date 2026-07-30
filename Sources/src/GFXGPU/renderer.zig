@@ -3,6 +3,10 @@ const device_mod = @import("device.zig");
 const frame_mod = @import("frame.zig");
 const sdl = @import("sdl.zig");
 
+const io_c = @cImport({
+    @cInclude("stdio.h");
+});
+
 pub const Renderer = struct {
     allocator: std.mem.Allocator,
     device: ?device_mod.Device = null,
@@ -15,6 +19,10 @@ pub const Renderer = struct {
     swapchain_format: u32 = 0,
     drawable_width: u32 = 0,
     drawable_height: u32 = 0,
+    shader_directory: ?[]u8 = null,
+    untextured_vertex_shader: ?*anyopaque = null,
+    untextured_fragment_shader: ?*anyopaque = null,
+    untextured_pipeline: ?*anyopaque = null,
 
     pub const LiveCounts = struct {
         textures: u32 = 0,
@@ -44,6 +52,13 @@ pub const Renderer = struct {
         }
         self.resources.deinit(self.allocator);
         if (self.device) |device| {
+            const gpu_device: *sdl.GpuDevice = @ptrCast(@alignCast(device.handle.?));
+            if (self.untextured_pipeline) |pipeline| sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, @ptrCast(@alignCast(pipeline)));
+            if (self.untextured_fragment_shader) |shader| sdl.c.SDL_ReleaseGPUShader(gpu_device, @ptrCast(@alignCast(shader)));
+            if (self.untextured_vertex_shader) |shader| sdl.c.SDL_ReleaseGPUShader(gpu_device, @ptrCast(@alignCast(shader)));
+        }
+        if (self.shader_directory) |directory| self.allocator.free(directory);
+        if (self.device) |device| {
             var iterator = self.buffers.valueIterator();
             while (iterator.next()) |buffer| sdl.releaseBuffer(@ptrCast(@alignCast(device.handle.?)), buffer.gpu);
         }
@@ -63,6 +78,13 @@ pub const Renderer = struct {
         self.swapchain_format = device.api.swapchain_format(device.handle.?, window_ptr);
         self.drawable_width = width;
         self.drawable_height = height;
+    }
+
+    pub fn setShaderDirectory(self: *Renderer, directory: ?[*:0]const u8) !void {
+        if (directory) |value| {
+            const bytes = std.mem.span(value);
+            self.shader_directory = try self.allocator.dupe(u8, bytes);
+        }
     }
 
     pub fn beginFrame(self: *Renderer) !bool {
@@ -178,5 +200,81 @@ pub const Renderer = struct {
         const resource = self.buffers.fetchRemove(id) orelse return error.InvalidBuffer;
         const device = &(self.device orelse return error.NoDevice);
         sdl.releaseBuffer(@ptrCast(@alignCast(device.handle.?)), resource.value.gpu);
+    }
+
+    fn readShader(self: *Renderer, name: []const u8) ![]u8 {
+        const directory = self.shader_directory orelse return error.ShaderDirectoryMissing;
+        const path = try std.fmt.allocPrint(self.allocator, "{s}\\{s}", .{ directory, name });
+        defer self.allocator.free(path);
+        var path_z = try self.allocator.alloc(u8, path.len + 1);
+        defer self.allocator.free(path_z);
+        @memcpy(path_z[0..path.len], path);
+        path_z[path.len] = 0;
+        const file = io_c.fopen(@ptrCast(path_z.ptr), "rb") orelse return error.ShaderFileMissing;
+        defer _ = io_c.fclose(file);
+        if (io_c.fseek(file, 0, io_c.SEEK_END) != 0) return error.ShaderFileReadFailed;
+        const length = io_c.ftell(file);
+        if (length <= 0 or length > 64 * 1024 * 1024) return error.ShaderFileReadFailed;
+        if (io_c.fseek(file, 0, io_c.SEEK_SET) != 0) return error.ShaderFileReadFailed;
+        const bytes = try self.allocator.alloc(u8, @intCast(length));
+        errdefer self.allocator.free(bytes);
+        if (io_c.fread(bytes.ptr, 1, bytes.len, file) != bytes.len) return error.ShaderFileReadFailed;
+        return bytes;
+    }
+
+    fn ensureUntexturedPipeline(self: *Renderer) !*anyopaque {
+        if (self.untextured_pipeline) |pipeline| return pipeline;
+        const device = &(self.device orelse return error.NoDevice);
+        const vertex_code = try self.readShader("untextured.vertex.dxil");
+        defer self.allocator.free(vertex_code);
+        const fragment_code = try self.readShader("untextured.fragment.dxil");
+        defer self.allocator.free(fragment_code);
+        const gpu_device: *sdl.GpuDevice = @ptrCast(@alignCast(device.handle.?));
+        var vertex_entry: [13:0]u8 = undefined;
+        @memcpy(vertex_entry[0..12], "vs_untextured"[0..12]);
+        vertex_entry[12] = 0;
+        var fragment_entry: [13:0]u8 = undefined;
+        @memcpy(fragment_entry[0..12], "ps_untextured"[0..12]);
+        fragment_entry[12] = 0;
+        const vertex_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = vertex_code.len, .code = vertex_code.ptr, .entrypoint = &vertex_entry, .format = sdl.c.SDL_GPU_SHADERFORMAT_DXIL, .stage = sdl.c.SDL_GPU_SHADERSTAGE_VERTEX, .num_samplers = 0, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 2, .props = 0 };
+        const vertex = sdl.c.SDL_CreateGPUShader(gpu_device, &vertex_info) orelse return error.ShaderCreationFailed;
+        errdefer sdl.c.SDL_ReleaseGPUShader(gpu_device, vertex);
+        const fragment_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = fragment_code.len, .code = fragment_code.ptr, .entrypoint = &fragment_entry, .format = sdl.c.SDL_GPU_SHADERFORMAT_DXIL, .stage = sdl.c.SDL_GPU_SHADERSTAGE_FRAGMENT, .num_samplers = 0, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 2, .props = 0 };
+        const fragment = sdl.c.SDL_CreateGPUShader(gpu_device, &fragment_info) orelse return error.ShaderCreationFailed;
+        errdefer sdl.c.SDL_ReleaseGPUShader(gpu_device, fragment);
+        var vertex_buffers = [_]sdl.c.SDL_GPUVertexBufferDescription{.{ .slot = 0, .pitch = 16, .input_rate = sdl.c.SDL_GPU_VERTEXINPUTRATE_VERTEX, .instance_step_rate = 0 }};
+        var attributes = [_]sdl.c.SDL_GPUVertexAttribute{ .{ .location = 0, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, .offset = 0 }, .{ .location = 5, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM, .offset = 12 } };
+        const color_format: sdl.c.SDL_GPUTextureFormat = @intCast(self.swapchain_format);
+        const target = sdl.c.SDL_GPUColorTargetDescription{ .format = color_format, .blend_state = .{ .src_color_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ONE, .dst_color_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ZERO, .color_blend_op = sdl.c.SDL_GPU_BLENDOP_ADD, .src_alpha_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ONE, .dst_alpha_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ZERO, .alpha_blend_op = sdl.c.SDL_GPU_BLENDOP_ADD, .color_write_mask = 0x0f, .enable_blend = false, .enable_color_write_mask = true } };
+        const pipeline_info = sdl.c.SDL_GPUGraphicsPipelineCreateInfo{ .vertex_shader = vertex, .fragment_shader = fragment, .vertex_input_state = .{ .vertex_buffer_descriptions = &vertex_buffers, .num_vertex_buffers = 1, .vertex_attributes = &attributes, .num_vertex_attributes = 2 }, .primitive_type = sdl.c.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST, .rasterizer_state = .{ .fill_mode = sdl.c.SDL_GPU_FILLMODE_FILL, .cull_mode = sdl.c.SDL_GPU_CULLMODE_NONE, .front_face = sdl.c.SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE, .enable_depth_clip = true }, .multisample_state = .{ .sample_count = sdl.c.SDL_GPU_SAMPLECOUNT_1 }, .depth_stencil_state = .{ .enable_depth_test = false, .enable_depth_write = false }, .target_info = .{ .color_target_descriptions = &target, .num_color_targets = 1, .has_depth_stencil_target = false }, .props = 0 };
+        const pipeline = sdl.c.SDL_CreateGPUGraphicsPipeline(gpu_device, &pipeline_info) orelse return error.PipelineCreateFailed;
+        errdefer sdl.c.SDL_ReleaseGPUGraphicsPipeline(gpu_device, pipeline);
+        self.untextured_vertex_shader = vertex;
+        self.untextured_fragment_shader = fragment;
+        self.untextured_pipeline = pipeline;
+        return pipeline;
+    }
+
+    pub fn draw(self: *Renderer, vertex_buffer: u64, primitive_count: u32) !void {
+        if (primitive_count == 0) return error.InvalidDraw;
+        const pass = self.frame.render_pass orelse return error.InvalidState;
+        const buffer = self.buffers.get(vertex_buffer) orelse return error.InvalidBuffer;
+        const pipeline = try self.ensureUntexturedPipeline();
+        sdl.bindPipeline(@ptrCast(@alignCast(pass)), @ptrCast(@alignCast(pipeline)));
+        sdl.bindVertexBuffer(@ptrCast(@alignCast(pass)), buffer.gpu, 0);
+        const vertex_count = std.math.mul(u32, primitive_count, 3) catch return error.InvalidDraw;
+        sdl.drawPrimitives(@ptrCast(@alignCast(pass)), vertex_count, 0);
+    }
+
+    pub fn drawIndexed(self: *Renderer, index_buffer: u64, index_size: u32, first_index: u32, index_count: u32, vertex_offset: i32) !void {
+        if (index_count == 0 or (index_size != 2 and index_size != 4)) return error.InvalidDraw;
+        const pass = self.frame.render_pass orelse return error.InvalidState;
+        const buffer = self.buffers.get(index_buffer) orelse return error.InvalidBuffer;
+        const index_offset = std.math.mul(u32, first_index, index_size) catch return error.InvalidDraw;
+        if (index_offset > buffer.size or index_count > (buffer.size - index_offset) / index_size) return error.InvalidDraw;
+        const pipeline = try self.ensureUntexturedPipeline();
+        sdl.bindPipeline(@ptrCast(@alignCast(pass)), @ptrCast(@alignCast(pipeline)));
+        if (!sdl.bindIndexBuffer(@ptrCast(@alignCast(pass)), buffer.gpu, 0, index_size)) return error.InvalidDraw;
+        sdl.drawIndexedPrimitives(@ptrCast(@alignCast(pass)), index_count, first_index, vertex_offset);
     }
 };
