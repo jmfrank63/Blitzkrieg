@@ -109,6 +109,13 @@ static int RunRecordingTest()
     if ( !mesh.Build( mesh_data_list, mesh_bounds ) ) return 31;
     SHMatrix mesh_matrix{};
     if ( !adapter.DrawMesh( &mesh, &mesh_matrix, 1 ) ) return 32;
+    SGFXRect2 rectangle;
+    rectangle.rect.minx = 0.0f; rectangle.rect.miny = 0.0f; rectangle.rect.maxx = 10.0f; rectangle.rect.maxy = 10.0f;
+    if ( !adapter.DrawRects( &rectangle, 1, true ) ) return 33;
+    adapter.SetGammaCorrectionValues( 0.1f, 0.2f, 0.3f );
+    float brightness = 0.0f, contrast = 0.0f, gamma = 0.0f;
+    adapter.GetGammaCorrectionValues( &brightness, &contrast, &gamma );
+    if ( brightness != 0.1f || contrast != 0.2f || gamma != 0.3f ) return 34;
     if ( std::strcmp( trace, "CRVSBLTEP" ) != 0 ) return 18;
     adapter.Done();
     if ( std::strcmp( trace, "CRVSBLTEPD" ) != 0 ) return 19;
@@ -152,6 +159,17 @@ int main( int argc, char **argv )
     }
 
     object->Release();
+    IRefCount *meshManager = descriptor->pFactory->CreateObject( GFX_MESH_MANAGER );
+    IRefCount *meshType = descriptor->pFactory->CreateObject( GFX_MESH );
+    if ( !meshManager || !meshType )
+    {
+        if ( meshManager ) meshManager->Release();
+        if ( meshType ) meshType->Release();
+        FreeLibrary( module );
+        return 5;
+    }
+    meshManager->Release();
+    meshType->Release();
     FreeLibrary( module );
     std::puts( "GFXGPU factory export and GFX_GFX object verified" );
     return 0;

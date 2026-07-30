@@ -130,6 +130,11 @@ private:
     int temporary_count_ = 0;
     EGFXPrimitiveType temporary_type_ = GFXPT_TRIANGLELIST;
     bool temporary_indices_ = false;
+    int passed_vertices_ = 0;
+    int passed_primitives_ = 0;
+    float brightness_ = 0.0f;
+    float contrast_ = 0.0f;
+    float gamma_ = 0.0f;
 };
 
 #endif

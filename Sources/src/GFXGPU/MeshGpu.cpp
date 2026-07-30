@@ -9,6 +9,7 @@
 ISingleton *g_pGlobalSingleton = nullptr;
 ISaveLoadSystem *g_pGlobalSaveLoadSystem = nullptr;
 
+MeshGpu::MeshGpu() : owner_( nullptr ) {}
 MeshGpu::MeshGpu( GraphicsEngineGpu *owner ) : owner_( owner ) {}
 
 bool MeshGpu::LoadAsset( const char *stream_name )
@@ -33,6 +34,7 @@ bool MeshGpu::Build( const std::vector<SMeshFormat> &meshes, const SAABBFormat &
     aabb_.vHalfSize = bounds.vHalfSize;
     sphere_.vCenter = bounds.vCenter;
     sphere_.fRadius = fabs( bounds.vHalfSize );
+    if ( !owner_ ) owner_ = dynamic_cast<GraphicsEngineGpu *>( GetSingleton<IGFX>() );
     if ( !owner_ || meshes.empty() ) return false;
     for ( const SMeshFormat &mesh : meshes )
     {

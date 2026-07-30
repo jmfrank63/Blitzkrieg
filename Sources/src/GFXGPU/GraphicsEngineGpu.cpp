@@ -4,8 +4,34 @@
 #include "TextureGpu.h"
 #include "GeometryBufferGpu.h"
 #include "MeshGpu.h"
+#include "..\\GFX\\GFXHelper.h"
+#include "..\\Main\\TextSystem.h"
 
 #include <SDL3/SDL.h>
+
+namespace
+{
+bool DrawFallbackGlyphs( GraphicsEngineGpu *graphics, const wchar_t *text, int x, int y, DWORD color, int max_width = 0 )
+{
+    if ( !text || !*text ) return true;
+    std::vector<SGFXRect2> glyphs;
+    int cursor = x;
+    for ( const wchar_t *it = text; *it; ++it )
+    {
+        if ( max_width > 0 && cursor + 8 > max_width ) break;
+        if ( *it != L' ' && *it != L'\t' )
+        {
+            SGFXRect2 glyph;
+            glyph.rect.minx = static_cast<float>( cursor ); glyph.rect.miny = static_cast<float>( y );
+            glyph.rect.maxx = static_cast<float>( cursor + 7 ); glyph.rect.maxy = static_cast<float>( y + 12 );
+            glyph.color = color;
+            glyphs.push_back( glyph );
+        }
+        cursor += *it == L'\t' ? 32 : 8;
+    }
+    return glyphs.empty() || graphics->DrawRects( glyphs.data(), static_cast<int>( glyphs.size() ), true );
+}
+}
 
 #include <cstring>
 
@@ -248,7 +274,7 @@ bool STDCALL GraphicsEngineGpu::SetCullMode( EGFXCull cull ) { return SetState( 
 bool STDCALL GraphicsEngineGpu::SetDepthBufferMode( EGFXDepthBuffer depth, EGFXCmpFunction cmp ) { return SetState( GFXGPU_STATE_DEPTH_MODE, static_cast<uint32_t>( cmp ), static_cast<uint32_t>( depth ), nullptr, 0, "set_depth_mode" ); }
 bool STDCALL GraphicsEngineGpu::EnableLighting( bool enable ) { return SetState( GFXGPU_STATE_LIGHTING, 0, enable ? 1u : 0u, nullptr, 0, "set_lighting" ); }
 bool STDCALL GraphicsEngineGpu::EnableSpecular( bool enable ) { return SetState( GFXGPU_STATE_SPECULAR, 0, enable ? 1u : 0u, nullptr, 0, "set_specular" ); }
-bool STDCALL GraphicsEngineGpu::SetFont( IGFXFont * ) { return fail( "Font adapter is not implemented in P06-M01" ); }
+bool STDCALL GraphicsEngineGpu::SetFont( IGFXFont * ) { return fail( "SDL GPU font resources are not available yet" ); }
 bool STDCALL GraphicsEngineGpu::IsActive() { return initialized_; }
 bool STDCALL GraphicsEngineGpu::BeginScene() { return renderer_ && Check( api_.begin_frame( renderer_ ), "begin_frame" ); }
 bool STDCALL GraphicsEngineGpu::EndScene() { return renderer_ && Check( api_.end_frame( renderer_ ), "end_frame" ); }
@@ -321,7 +347,9 @@ bool STDCALL GraphicsEngineGpu::Draw( IGFXVertices *vertices, IGFXIndices *indic
     {
         IndicesGpu *ib = dynamic_cast<IndicesGpu *>( indices );
         if ( !ib || !api_.draw_indexed ) return fail( "index buffer does not belong to the SDL GPU adapter" );
-        return Check( api_.draw_indexed( renderer_, ib->Handle(), ib->Stride(), 0, ib->Count(), 0 ), "draw_indexed" );
+        const bool result = Check( api_.draw_indexed( renderer_, ib->Handle(), ib->Stride(), 0, ib->Count(), 0 ), "draw_indexed" );
+        if ( result ) { passed_vertices_ += static_cast<int>( ib->Count() ); passed_primitives_ += static_cast<int>( ib->Count() / 3 ); }
+        return result;
     }
     if ( !api_.draw ) return fail( "draw is unavailable" );
     uint32_t primitives = vb->Count();
@@ -330,7 +358,9 @@ bool STDCALL GraphicsEngineGpu::Draw( IGFXVertices *vertices, IGFXIndices *indic
     else if ( vb->Type() == GFXPT_LINELIST ) primitives /= 2;
     else if ( vb->Type() == GFXPT_LINESTRIP ) primitives = primitives > 1 ? primitives - 1 : 0;
     if ( primitives == 0 ) return fail( "geometry has no drawable primitives" );
-    return Check( api_.draw( renderer_, 0, primitives ), "draw" );
+    const bool result = Check( api_.draw( renderer_, 0, primitives ), "draw" );
+    if ( result ) { passed_vertices_ += static_cast<int>( vb->Count() ); passed_primitives_ += static_cast<int>( primitives ); }
+    return result;
 }
 bool STDCALL GraphicsEngineGpu::DrawTemp()
 {
@@ -341,6 +371,7 @@ bool STDCALL GraphicsEngineGpu::DrawTemp()
     if ( created ) {
         if ( temporary_indices_ ) drawn = DrawIndexedBufferHandle( handle, static_cast<uint32_t>( temporary_stride_ ), static_cast<uint32_t>( temporary_count_ ) );
         else { uint32_t primitives = static_cast<uint32_t>( temporary_count_ ); if ( temporary_type_ == GFXPT_TRIANGLELIST ) primitives /= 3; drawn = DrawBufferHandle( handle, primitives ); }
+        if ( drawn ) { passed_vertices_ += temporary_count_; passed_primitives_ += temporary_indices_ ? temporary_count_ / 3 : ( temporary_type_ == GFXPT_TRIANGLELIST ? temporary_count_ / 3 : temporary_count_ / 2 ); }
         DestroyBufferHandle( handle );
     }
     temporary_bytes_.clear();
@@ -359,15 +390,44 @@ bool STDCALL GraphicsEngineGpu::DrawMesh( IGFXMesh *mesh, const SHMatrix *matric
     }
     return true;
 }
-bool STDCALL GraphicsEngineGpu::DrawStringA( const char *, int, int, DWORD ) { return false; }
-bool STDCALL GraphicsEngineGpu::DrawString( const wchar_t *, int, int, DWORD ) { return false; }
-bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *, const RECT &, int, DWORD ) { return false; }
-bool STDCALL GraphicsEngineGpu::DrawRects( const SGFXRect2 *, int, bool ) { return false; }
+bool STDCALL GraphicsEngineGpu::DrawStringA( const char *text, int x, int y, DWORD color )
+{
+    if ( !text || !*text ) return true;
+    std::wstring wide;
+    while ( *text ) wide.push_back( static_cast<unsigned char>( *text++ ) );
+    return DrawFallbackGlyphs( this, wide.c_str(), x, y, color );
+}
+bool STDCALL GraphicsEngineGpu::DrawString( const wchar_t *text, int x, int y, DWORD color ) { return DrawFallbackGlyphs( this, text, x, y, color ); }
+bool STDCALL GraphicsEngineGpu::DrawText( IGFXText *text, const RECT &rect, int y, DWORD )
+{
+    if ( !text ) return false;
+    IText *source = text->GetText();
+    return source ? DrawFallbackGlyphs( this, reinterpret_cast<const wchar_t *>( source->GetString() ), rect.left, rect.top + y, 0xffffffff, rect.right ) : true;
+}
+bool STDCALL GraphicsEngineGpu::DrawRects( const SGFXRect2 *rects, int count, bool solid )
+{
+    if ( !rects || count <= 0 ) return false;
+    const int vertices_per_rect = solid ? 6 : 8;
+    SGFXLVertex *vertices = static_cast<SGFXLVertex *>( GetTempVertices( count * vertices_per_rect, SGFXLVertex::format, solid ? GFXPT_TRIANGLELIST : GFXPT_LINELIST ) );
+    if ( !vertices ) return false;
+    for ( int i = 0; i < count; ++i )
+    {
+        const SGFXRect2 &rect = rects[i];
+        SGFXLVertex corners[4];
+        corners[0].Setup( rect.rect.minx, rect.rect.maxy, rect.fZ, rect.color, rect.specular, rect.maps.minx, rect.maps.maxy );
+        corners[1].Setup( rect.rect.minx, rect.rect.miny, rect.fZ, rect.color, rect.specular, rect.maps.minx, rect.maps.miny );
+        corners[2].Setup( rect.rect.maxx, rect.rect.maxy, rect.fZ, rect.color, rect.specular, rect.maps.maxx, rect.maps.maxy );
+        corners[3].Setup( rect.rect.maxx, rect.rect.miny, rect.fZ, rect.color, rect.specular, rect.maps.maxx, rect.maps.miny );
+        if ( solid ) { *vertices++ = corners[2]; *vertices++ = corners[1]; *vertices++ = corners[0]; *vertices++ = corners[1]; *vertices++ = corners[2]; *vertices++ = corners[3]; }
+        else { *vertices++ = corners[0]; *vertices++ = corners[1]; *vertices++ = corners[1]; *vertices++ = corners[3]; *vertices++ = corners[3]; *vertices++ = corners[2]; *vertices++ = corners[2]; *vertices++ = corners[0]; }
+    }
+    return DrawTemp();
+}
 bool STDCALL GraphicsEngineGpu::SetGammaRamp( const SGFXGammaRamp &, bool ) { return false; }
 bool STDCALL GraphicsEngineGpu::GetGammaRamp( const SGFXGammaRamp * ) { return false; }
-void STDCALL GraphicsEngineGpu::SetGammaCorrectionValues( const float, const float, const float ) {}
-void STDCALL GraphicsEngineGpu::GetGammaCorrectionValues( float *b, float *c, float *g ) { if ( b ) *b = 1.0f; if ( c ) *c = 1.0f; if ( g ) *g = 1.0f; }
+void STDCALL GraphicsEngineGpu::SetGammaCorrectionValues( const float b, const float c, const float g ) { brightness_ = b; contrast_ = c; gamma_ = g; }
+void STDCALL GraphicsEngineGpu::GetGammaCorrectionValues( float *b, float *c, float *g ) { if ( b ) *b = brightness_; if ( c ) *c = contrast_; if ( g ) *g = gamma_; }
 bool STDCALL GraphicsEngineGpu::TakeScreenShot( IImage * ) { return false; }
-int STDCALL GraphicsEngineGpu::GetNumPassedVertices() const { return 0; }
-int STDCALL GraphicsEngineGpu::GetNumPassedPrimitives() const { return 0; }
+int STDCALL GraphicsEngineGpu::GetNumPassedVertices() const { return passed_vertices_; }
+int STDCALL GraphicsEngineGpu::GetNumPassedPrimitives() const { return passed_primitives_; }
 bool STDCALL GraphicsEngineGpu::SetShadingEffect( int effect ) { return SetState( GFXGPU_STATE_SHADE_EFFECT, 0, static_cast<uint32_t>( effect ), nullptr, 0, "set_shade_effect" ); }

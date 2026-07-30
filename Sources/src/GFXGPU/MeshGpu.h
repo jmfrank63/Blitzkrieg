@@ -8,6 +8,8 @@ class MeshGpu final : public IGFXMesh
 {
 public:
     struct Part { CPtr<IGFXVertices> vertices; CPtr<IGFXIndices> indices; int matrix_index = 0; int priority = 0; };
+    static IRefCount * STDCALL CreateNewClassInstanceInternal() { return new MeshGpu(); }
+    MeshGpu();
     explicit MeshGpu( GraphicsEngineGpu *owner );
     ~MeshGpu() = default;
     bool Build( const std::vector<SMeshFormat> &meshes, const SAABBFormat &bounds );
@@ -20,6 +22,10 @@ public:
     int STDCALL GetRefCounter() const override { return refs_; }
     const char * STDCALL GetSharedResourceName() const override { return name_.c_str(); }
     void STDCALL SetSharedResourceName( const std::string &name ) override { name_ = name; }
+    static const char *GetSharedResourceExtVarName() { return "SharedResource.Mesh.Ext"; }
+    void SetSharedResourceLastUsage( int ) {}
+    int GetSharedResourceLastUsage() const { return 0; }
+    int GetResourceConsumption() const override { return static_cast<int>( parts_.size() ); }
     bool STDCALL Load( bool = false ) override { return !parts_.empty(); }
     void STDCALL ClearInternalContainer() override { parts_.clear(); }
     const SGFXBoundSphere & STDCALL GetBS() override { return sphere_; }

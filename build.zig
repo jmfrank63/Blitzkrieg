@@ -852,7 +852,7 @@ pub fn build(b: *std.Build) void {
     gamett.root_module.addCMacro("BLITZKRIEG_VERSION", b.fmt("\"{d}.{d}.{d}\"", .{ game_version.major, game_version.minor, game_version.patch }));
     const main = addMain(b, target, optimize, toolchain);
     if (startup_trace) main.root_module.addCMacro("BK_STARTUP_TRACE", "1");
-    const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats, blitz64, startup_trace);
+    const game = addGame(b, target, optimize, toolchain, main, misc, lualib, zlib, randommapgen, formats, blitz64, startup_trace, renderer);
     const package_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/package.zig"),
         .target = target,
@@ -1399,6 +1399,7 @@ fn addGame(
     formats: *std.Build.Step.Compile,
     blitz64: *std.Build.Step.Compile,
     startup_trace: bool,
+    renderer: []const u8,
 ) *std.Build.Step.Compile {
     const game_module = b.createModule(.{
         .target = target,
@@ -1427,7 +1428,9 @@ fn addGame(
     game_module.linkSystemLibrary("winmm", .{});
     game_module.linkSystemLibrary("odbc32", .{});
     game_module.linkSystemLibrary("odbccp32", .{});
-    game_module.linkSystemLibrary("d3d9", .{});
+    if (std.mem.eql(u8, renderer, "legacy")) {
+        game_module.linkSystemLibrary("d3d9", .{});
+    }
     game_module.linkSystemLibrary("shlwapi", .{});
     game_module.linkSystemLibrary("advapi32", .{});
     game_module.linkSystemLibrary("user32", .{});
@@ -2055,6 +2058,7 @@ fn addGFXGPU(
             "Sources/src/GFXGPU/TextureGpu.cpp",
             "Sources/src/GFXGPU/GeometryBufferGpu.cpp",
             "Sources/src/GFXGPU/MeshGpu.cpp",
+            "Sources/src/GFXGPU/MeshManagerGpu.cpp",
             "Sources/src/GFXGPU/GfxGpuObjectFactory.cpp",
         },
         .flags = cppflagsForOptimize(optimize),
