@@ -10,6 +10,31 @@
         .sdl3 = .{
             .path = "vendor/zig-sdl3",
         },
+        .sdl_shadercross = .{
+            .url = "https://github.com/libsdl-org/SDL_shadercross/archive/e55cf5e31ced6f3d1be5cc6d0c50e99384f9f4ba.tar.gz",
+            .hash = "N-V-__8AAJjPBgCVhrF8jRICpZIU2NvLHlkWxeIlzV0MHtIl",
+            .lazy = true,
+        },
+        .dxc = .{
+            .url = "https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.9.2607/dxc_2026_07_29.zip",
+            .hash = "N-V-__8AAGtdsQbKihmduJSnlYTEWToh0OQavxwZqVbjiSac",
+            .lazy = true,
+        },
+        .sdl_source = .{
+            .url = "https://github.com/libsdl-org/SDL/archive/refs/tags/release-3.2.20.tar.gz",
+            .hash = "N-V-__8AALgqjAPQA3BoHAS5ubsYkB27UmAxYNwoN62VdXXY",
+            .lazy = true,
+        },
+        .spirv_cross_source = .{
+            .url = "https://github.com/KhronosGroup/SPIRV-Cross/archive/refs/heads/main.tar.gz",
+            .hash = "N-V-__8AAG7ovABenbEcMfcbxnQahv_qPno7CwSPITx-k6RD",
+            .lazy = true,
+        },
+        .spirv_headers_source = .{
+            .url = "https://github.com/KhronosGroup/SPIRV-Headers/archive/refs/heads/main.tar.gz",
+            .hash = "N-V-__8AAHyhPwBBb1GsGUx5FzAIa5cz83rhxmHYVgwNFCsH",
+            .lazy = true,
+        },
     },
     .paths = .{
         "build.zig",

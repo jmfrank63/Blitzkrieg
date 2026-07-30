@@ -662,6 +662,36 @@ pub fn build(b: *std.Build) void {
     const sdl3_verify_run = b.addRunArtifact(sdl3_verify);
     const sdl3_step = b.step("sdl3", "Build and verify the zig-sdl3 dependency");
     sdl3_step.dependOn(&sdl3_verify_run.step);
+
+    const shadercross_build = b.addSystemCommand(&.{
+        "pwsh",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tools/shadercross/build_shadercross.ps1",
+        "-Mode",
+        "Build",
+        "-OutputRoot",
+        "zig-out/tools/shadercross",
+    });
+    const shadercross_build_step = b.step("shadercross-build", "Build the pinned host SDL_shadercross tool");
+    shadercross_build_step.dependOn(&shadercross_build.step);
+
+    const shadercross_verify_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/verify_shadercross.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const shadercross_verify = b.addExecutable(.{
+        .name = "verify-shadercross",
+        .root_module = shadercross_verify_module,
+    });
+    const shadercross_verify_run = b.addRunArtifact(shadercross_verify);
+    shadercross_verify_run.step.dependOn(&shadercross_build.step);
+    const shadercross_verify_step = b.step("verify-shadercross", "Verify shadercross CLI options and host installation");
+    shadercross_verify_step.dependOn(&shadercross_verify_run.step);
+
     const gfx_gpu_zig = addGfxGpuZig(b, target, optimize, sdl3);
     const blitz64 = addBlitz64(b, target, optimize);
     const library_arch = switch (target.result.cpu.arch) {

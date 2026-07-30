@@ -1,0 +1,26 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "shadercross",
+      "displayName": "Blitzkrieg SDL_shadercross host tool",
+      "generator": "Ninja",
+      "binaryDir": "$env{GFXGPU_SHADERCROSS_BUILD_DIR}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "$env{GFXGPU_SHADERCROSS_INSTALL_DIR}",
+        "CMAKE_PREFIX_PATH": "$env{GFXGPU_SHADERCROSS_PREFIX_PATH}",
+        "SDL3_DIR": "$env{GFXGPU_SHADERCROSS_SDL3_DIR}",
+        "DirectXShaderCompiler_ROOT": "$env{GFXGPU_SHADERCROSS_DXC_DIR}",
+        "SDLSHADERCROSS_DXC": "ON",
+        "SDLSHADERCROSS_SHARED": "ON",
+        "SDLSHADERCROSS_STATIC": "OFF",
+        "SDLSHADERCROSS_SPIRVCROSS_SHARED": "ON",
+        "SDLSHADERCROSS_VENDORED": "OFF",
+        "SDLSHADERCROSS_CLI": "ON",
+        "SDLSHADERCROSS_INSTALL": "ON",
+        "SDLSHADERCROSS_TESTS": "OFF"
+      }
+    }
+  ]
+}
