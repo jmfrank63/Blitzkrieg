@@ -220,20 +220,30 @@ fn bindRenderTarget(handle: ?*RendererHandle, target: u64) callconv(.c) Result {
 fn createBuffer(handle: ?*RendererHandle, info: ?*const BufferCreateInfo, out_handle: ?*u64) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (info == null or out_handle == null or info.?.struct_size < @sizeOf(BufferCreateInfo) or info.?.element_count == 0 or info.?.stride == 0) return errors.invalid_argument;
-    const id = renderer.next_resource_handle;
-    renderer.next_resource_handle += 1;
-    renderer.resources.put(renderer.allocator, id, {}) catch return errors.out_of_memory;
+    const id = renderer.createBuffer(info.?.element_count, info.?.format, info.?.stride) catch |err| return switch (err) {
+        error.BufferTooLarge => errors.invalid_argument,
+        error.NoDevice, error.BufferCreateFailed => errors.sdl_error,
+        error.OutOfMemory => errors.out_of_memory,
+    };
     out_handle.?.* = id;
     return errors.ok;
 }
 fn uploadBuffer(handle: ?*RendererHandle, buffer: u64, info: ?*const BufferUploadInfo) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
-    if (info == null or info.?.struct_size < @sizeOf(BufferUploadInfo) or info.?.data == null or info.?.byte_length == 0 or !renderer.resources.contains(buffer)) return errors.invalid_argument;
+    if (info == null or info.?.struct_size < @sizeOf(BufferUploadInfo) or info.?.data == null or info.?.byte_length == 0) return errors.invalid_argument;
+    renderer.uploadBuffer(buffer, info.?.data.?, info.?.byte_length, info.?.byte_offset) catch |err| return switch (err) {
+        error.InvalidBuffer, error.BufferUploadOutOfBounds => errors.invalid_argument,
+        error.NoDevice, error.TransferBufferCreateFailed, error.TransferBufferMapFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed, error.WaitForIdleFailed => errors.sdl_error,
+    };
     return errors.ok;
 }
 fn destroyBuffer(handle: ?*RendererHandle, buffer: u64) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
-    if (buffer == 0 or !renderer.resources.remove(buffer)) return errors.invalid_handle;
+    if (buffer == 0) return errors.invalid_handle;
+    renderer.destroyBuffer(buffer) catch |err| return switch (err) {
+        error.InvalidBuffer => errors.invalid_handle,
+        error.NoDevice => errors.sdl_error,
+    };
     return errors.ok;
 }
 fn setTexture(handle: ?*RendererHandle, texture: u64) callconv(.c) Result {

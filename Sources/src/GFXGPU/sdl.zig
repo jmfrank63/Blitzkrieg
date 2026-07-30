@@ -5,6 +5,9 @@ pub const GpuDevice = c.SDL_GPUDevice;
 pub const GpuCommandBuffer = c.SDL_GPUCommandBuffer;
 pub const GpuTexture = c.SDL_GPUTexture;
 pub const GpuRenderPass = c.SDL_GPURenderPass;
+pub const GpuBuffer = c.SDL_GPUBuffer;
+pub const GpuTransferBuffer = c.SDL_GPUTransferBuffer;
+pub const GpuCopyPass = c.SDL_GPUCopyPass;
 pub const Window = c.SDL_Window;
 pub const ShaderFormat = c.SDL_GPUShaderFormat;
 pub const shaderformat_dxil: ShaderFormat = c.SDL_GPU_SHADERFORMAT_DXIL;
@@ -58,6 +61,46 @@ pub fn beginClearPass(command_buffer: *GpuCommandBuffer, texture: *GpuTexture, c
 
 pub fn endRenderPass(render_pass: *GpuRenderPass) void {
     c.SDL_EndGPURenderPass(render_pass);
+}
+
+pub fn createBuffer(device: *GpuDevice, usage: c.SDL_GPUBufferUsageFlags, size: u32) ?*GpuBuffer {
+    const info = c.SDL_GPUBufferCreateInfo{ .usage = usage, .size = size, .props = 0 };
+    return c.SDL_CreateGPUBuffer(device, &info);
+}
+
+pub fn releaseBuffer(device: *GpuDevice, buffer: *GpuBuffer) void {
+    c.SDL_ReleaseGPUBuffer(device, buffer);
+}
+
+pub fn createUploadBuffer(device: *GpuDevice, size: u32) ?*GpuTransferBuffer {
+    const info = c.SDL_GPUTransferBufferCreateInfo{ .usage = c.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD, .size = size, .props = 0 };
+    return c.SDL_CreateGPUTransferBuffer(device, &info);
+}
+
+pub fn releaseTransferBuffer(device: *GpuDevice, buffer: *GpuTransferBuffer) void {
+    c.SDL_ReleaseGPUTransferBuffer(device, buffer);
+}
+
+pub fn mapTransferBuffer(device: *GpuDevice, buffer: *GpuTransferBuffer) ?*anyopaque {
+    return c.SDL_MapGPUTransferBuffer(device, buffer, true);
+}
+
+pub fn unmapTransferBuffer(device: *GpuDevice, buffer: *GpuTransferBuffer) void {
+    c.SDL_UnmapGPUTransferBuffer(device, buffer);
+}
+
+pub fn uploadBuffer(device: *GpuDevice, command_buffer: *GpuCommandBuffer, transfer: *GpuTransferBuffer, destination: *GpuBuffer, byte_offset: u32, byte_length: u32) bool {
+    _ = device;
+    const copy_pass = c.SDL_BeginGPUCopyPass(command_buffer) orelse return false;
+    var source = c.SDL_GPUTransferBufferLocation{ .transfer_buffer = transfer, .offset = 0 };
+    var target = c.SDL_GPUBufferRegion{ .buffer = destination, .offset = byte_offset, .size = byte_length };
+    c.SDL_UploadToGPUBuffer(copy_pass, &source, &target, false);
+    c.SDL_EndGPUCopyPass(copy_pass);
+    return true;
+}
+
+pub fn waitForIdle(device: *GpuDevice) bool {
+    return c.SDL_WaitForGPUIdle(device);
 }
 
 const std = @import("std");
