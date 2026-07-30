@@ -3,6 +3,10 @@
     .version = "2.0.0",
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
+        .sdl = .{
+            .url = "git+https://github.com/castholm/SDL.git?ref=v0.4.0%2B3.4.0#ae5deb068787bd71d9aadbc054ff1af54f5d058c",
+            .hash = "sdl-0.4.0+3.4.0-SDL--u6yowGyvoiJ5qkFm_T1-MpmvnHShh2q2mTZf1fo",
+        },
         .sdl3 = .{
             .path = "vendor/zig-sdl3",
         },

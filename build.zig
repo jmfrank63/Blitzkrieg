@@ -641,6 +641,13 @@ pub fn build(b: *std.Build) void {
         .c_sdl_preferred_linkage = .dynamic,
         .c_sdl_install_build_config_h = true,
     });
+    const sdl_c_dep = b.dependency("sdl", .{
+        .target = target,
+        .optimize = optimize,
+        .preferred_linkage = .static,
+        .install_build_config_h = true,
+    });
+    const sdl_c = sdl_c_dep.artifact("SDL3");
     const sdl3 = sdl3_dep.module("sdl3");
     const sdl3_verify_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/verify_sdl3.zig"),
@@ -669,6 +676,56 @@ pub fn build(b: *std.Build) void {
         .windows_sdk_lib = b.option([]const u8, "windows-sdk-lib", "Windows SDK library version directory") orelse "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0",
         .library_arch = library_arch,
     };
+    const gfx_gpu_abi_test_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    gfx_gpu_abi_test_module.addCSourceFiles(.{
+        .files = &.{ "tools/zig/gfxgpu_abi_test.cpp" },
+        .flags = cppflagsForOptimize(optimize),
+    });
+    gfx_gpu_abi_test_module.addIncludePath(b.path("Sources/src/GFXGPU"));
+    addMsvcIncludePaths(b, gfx_gpu_abi_test_module, toolchain);
+    addMsvcLibraryPaths(b, gfx_gpu_abi_test_module, toolchain);
+    gfx_gpu_abi_test_module.linkLibrary(gfx_gpu_zig);
+    linkMsvcRuntime(gfx_gpu_abi_test_module, optimize);
+    const gfx_gpu_abi_test = b.addExecutable(.{
+        .name = "gfxgpu-abi-test",
+        .root_module = gfx_gpu_abi_test_module,
+    });
+    gfx_gpu_abi_test.subsystem = .console;
+    gfx_gpu_abi_test.entry = .{ .symbol_name = "main" };
+    const gfx_gpu_abi_test_run = b.addRunArtifact(gfx_gpu_abi_test);
+    const gfx_gpu_abi_test_step = b.step("gfxgpu-abi-test", "Run the C++ GfxGpu ABI test");
+    gfx_gpu_abi_test_step.dependOn(&gfx_gpu_abi_test_run.step);
+
+    const gfx_gpu_smoke_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    gfx_gpu_smoke_module.addCSourceFiles(.{
+        .files = &.{ "tools/zig/gfxgpu_smoke.cpp" },
+        .flags = cppflagsForOptimize(optimize),
+    });
+    gfx_gpu_smoke_module.addIncludePath(sdl_c_dep.path("include"));
+    addMsvcIncludePaths(b, gfx_gpu_smoke_module, toolchain);
+    addMsvcLibraryPaths(b, gfx_gpu_smoke_module, toolchain);
+    gfx_gpu_smoke_module.linkLibrary(sdl_c);
+    linkMsvcRuntime(gfx_gpu_smoke_module, optimize);
+    const gfx_gpu_smoke = b.addExecutable(.{
+        .name = "gfxgpu-smoke",
+        .root_module = gfx_gpu_smoke_module,
+    });
+    gfx_gpu_smoke.subsystem = .console;
+    gfx_gpu_smoke.entry = .{ .symbol_name = "main" };
+    const gfx_gpu_smoke_run = b.addRunArtifact(gfx_gpu_smoke);
+    const gfx_gpu_smoke_install = b.addInstallArtifact(gfx_gpu_smoke, .{});
+    const gfx_gpu_smoke_build_step = b.step("gfxgpu-smoke-build", "Build the SDL3 C++ bootstrap smoke test");
+    gfx_gpu_smoke_build_step.dependOn(&gfx_gpu_smoke_install.step);
+    gfx_gpu_smoke_run.step.dependOn(&gfx_gpu_smoke_install.step);
+    gfx_gpu_smoke_run.setCwd(b.path("zig-out/bin"));
+    const gfx_gpu_smoke_step = b.step("gfxgpu-smoke", "Run the SDL3 C++ bootstrap smoke test");
+    gfx_gpu_smoke_step.dependOn(&gfx_gpu_smoke_run.step);
     const options_bridge = addOptionsBridge(b, target, optimize, toolchain);
     // Save-load spends its time in the zig structure reader; at Debug (-O0 +
     // safety) that alone made big-mission loads take ~1 min. The zig half of
@@ -961,6 +1018,10 @@ pub fn build(b: *std.Build) void {
     const run_gfx_gpu_unit_tests = b.addRunArtifact(gfx_gpu_unit_tests);
     const gfx_gpu_test_step = b.step("test-gfxgpu-core", "Run the Zig GPU renderer core tests");
     gfx_gpu_test_step.dependOn(&run_gfx_gpu_unit_tests.step);
+    const test_gfxgpu_step = b.step("test-gfxgpu", "Run the GfxGpu core, C ABI, and SDL smoke tests");
+    test_gfxgpu_step.dependOn(gfx_gpu_test_step);
+    test_gfxgpu_step.dependOn(gfx_gpu_abi_test_step);
+    test_gfxgpu_step.dependOn(gfx_gpu_smoke_step);
     const test_step = b.step("test", "Run Zig unit tests and the Blitz64 ABI smoke test");
     test_step.dependOn(&run_blitz64_unit_tests.step);
     test_step.dependOn(&run_streamio_unit_tests.step);

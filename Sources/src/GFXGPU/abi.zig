@@ -76,7 +76,7 @@ const api = Api{
     .get_live_counts = getLiveCounts,
 };
 
-pub export fn gfxgpu_get_api(requested_version: u32, out_api: ?*Api) callconv(.c) Result {
+pub fn gfxgpu_get_api(requested_version: u32, out_api: ?*Api) callconv(.c) Result {
     if (out_api == null) return errors.invalid_argument;
     if (requested_version != abi_version) return errors.unsupported;
     if (out_api.?.struct_size < @sizeOf(Api)) return errors.invalid_argument;
