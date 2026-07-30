@@ -11,7 +11,7 @@ namespace
 {
     char trace[256]{};
     size_t trace_length = 0;
-    int texture_creates = 0, texture_uploads = 0, texture_releases = 0, target_creates = 0, target_binds = 0;
+    int texture_creates = 0, texture_uploads = 0, texture_releases = 0, target_creates = 0, target_binds = 0, buffer_creates = 0, buffer_uploads = 0, buffer_releases = 0;
     void record( char value ) { trace[trace_length++] = value; }
     GfxGpuResult fakeCreate( const GfxGpuCreateInfo *, GfxGpuRenderer **out ) { record( 'C' ); *out = reinterpret_cast<GfxGpuRenderer *>( 1 ); return GFXGPU_OK; }
     void fakeDestroy( GfxGpuRenderer * ) { record( 'D' ); }
@@ -30,6 +30,11 @@ namespace
     GfxGpuResult fakeDestroyTexture( GfxGpuRenderer *, GfxGpuHandle handle ) { if ( handle != 42 ) return GFXGPU_INVALID_ARGUMENT; ++texture_releases; return GFXGPU_OK; }
     GfxGpuResult fakeCreateTarget( GfxGpuRenderer *, const GfxGpuRenderTargetCreateInfo *, GfxGpuHandle *out ) { ++target_creates; *out = 43; return GFXGPU_OK; }
     GfxGpuResult fakeBindTarget( GfxGpuRenderer *, GfxGpuHandle handle ) { if ( handle != 0 && handle != 43 ) return GFXGPU_INVALID_HANDLE; ++target_binds; return GFXGPU_OK; }
+    GfxGpuResult fakeCreateBuffer( GfxGpuRenderer *, const GfxGpuBufferCreateInfo *, GfxGpuHandle *out ) { ++buffer_creates; *out = 44 + buffer_creates; return GFXGPU_OK; }
+    GfxGpuResult fakeUploadBuffer( GfxGpuRenderer *, GfxGpuHandle, const GfxGpuBufferUploadInfo *info ) { if ( !info || info->byte_length == 0 ) return GFXGPU_INVALID_ARGUMENT; ++buffer_uploads; return GFXGPU_OK; }
+    GfxGpuResult fakeDestroyBuffer( GfxGpuRenderer *, GfxGpuHandle ) { ++buffer_releases; return GFXGPU_OK; }
+    GfxGpuResult fakeDraw( GfxGpuRenderer *, uint32_t, uint32_t count ) { return count ? GFXGPU_OK : GFXGPU_INVALID_ARGUMENT; }
+    GfxGpuResult fakeDrawIndexed( GfxGpuRenderer *, GfxGpuHandle, uint32_t, uint32_t, uint32_t count, int32_t ) { return count ? GFXGPU_OK : GFXGPU_INVALID_ARGUMENT; }
 }
 
 static int RunRecordingTest()
@@ -44,6 +49,8 @@ static int RunRecordingTest()
     api.set_texture = fakeSetTexture;
     api.create_texture = fakeCreateTexture; api.upload_texture = fakeUploadTexture; api.destroy_texture = fakeDestroyTexture;
     api.create_render_target = fakeCreateTarget; api.bind_render_target = fakeBindTarget;
+    api.create_buffer = fakeCreateBuffer; api.upload_buffer = fakeUploadBuffer; api.destroy_buffer = fakeDestroyBuffer;
+    api.draw = fakeDraw; api.draw_indexed = fakeDrawIndexed;
     GraphicsEngineGpu adapter( api );
     if ( !adapter.Init( nullptr, GFXNativeWindow( nullptr ) ) ) return 10;
     if ( !adapter.SetMode( 800, 600, 32, 0, GFXFS_WINDOWED ) ) return 11;
@@ -68,6 +75,16 @@ static int RunRecordingTest()
     if ( !adapter.SetRenderTarget( target ) || !adapter.SetRenderTarget( nullptr ) ) return 24;
     target->Release();
     if ( texture_creates != 1 || texture_uploads != 1 || texture_releases != 1 || target_creates != 1 || target_binds != 2 ) return 25;
+    IGFXVertices *vertices = adapter.CreateVertices( 3, GFXFVF_XYZ, GFXPT_TRIANGLELIST, GFXD_STATIC );
+    IGFXIndices *indices = adapter.CreateIndices( 3, GFXIF_INDEX16, GFXPT_TRIANGLELIST, GFXD_STATIC );
+    if ( !vertices || !indices ) return 26;
+    vertices->AddRef(); indices->AddRef();
+    if ( !vertices->Lock() || !indices->Lock() ) return 27;
+    vertices->Unlock(); indices->Unlock();
+    if ( !adapter.Draw( vertices, indices ) ) return 28;
+    vertices->Release(); indices->Release();
+    if ( buffer_creates != 2 || buffer_uploads != 2 || buffer_releases != 2 ) return 29;
+    if ( !adapter.GetTempVertices( 3, GFXFVF_XYZ, GFXPT_TRIANGLELIST ) || !adapter.DrawTemp() ) return 30;
     if ( std::strcmp( trace, "CRVSBLTEP" ) != 0 ) return 18;
     adapter.Done();
     if ( std::strcmp( trace, "CRVSBLTEPD" ) != 0 ) return 19;

@@ -948,7 +948,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     gfx_gpu_factory_test_module.addCSourceFiles(.{
-        .files = &.{ "tools/zig/gfxgpu_factory_test.cpp", "Sources/src/GFXGPU/GraphicsEngineGpu.cpp", "Sources/src/GFXGPU/TextureGpu.cpp" },
+        .files = &.{ "tools/zig/gfxgpu_factory_test.cpp", "Sources/src/GFXGPU/GraphicsEngineGpu.cpp", "Sources/src/GFXGPU/TextureGpu.cpp", "Sources/src/GFXGPU/GeometryBufferGpu.cpp" },
         .flags = cppflagsForOptimize(optimize),
     });
     addProjectIncludePaths(b, gfx_gpu_factory_test_module);
@@ -2052,6 +2052,7 @@ fn addGFXGPU(
         .files = &.{
             "Sources/src/GFXGPU/GraphicsEngineGpu.cpp",
             "Sources/src/GFXGPU/TextureGpu.cpp",
+            "Sources/src/GFXGPU/GeometryBufferGpu.cpp",
             "Sources/src/GFXGPU/GfxGpuObjectFactory.cpp",
         },
         .flags = cppflagsForOptimize(optimize),

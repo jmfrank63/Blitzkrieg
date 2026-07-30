@@ -5,6 +5,7 @@
 #include "gfxgpu_c.h"
 
 #include <string>
+#include <vector>
 
 class GraphicsEngineGpu final : public IGFX
 {
@@ -96,6 +97,11 @@ public:
     bool DestroyTextureHandle( GfxGpuHandle handle );
     bool CreateRenderTargetHandle( int width, int height, EGFXPixelFormat format, GfxGpuHandle *out_handle );
     bool BindRenderTargetHandle( GfxGpuHandle handle );
+    bool CreateBufferHandle( uint32_t elements, uint32_t format, uint32_t stride, EGFXDynamic usage, GfxGpuHandle *out_handle );
+    bool UploadBuffer( GfxGpuHandle handle, const void *data, size_t bytes, uint32_t offset = 0 );
+    bool DestroyBufferHandle( GfxGpuHandle handle );
+    bool DrawBufferHandle( GfxGpuHandle handle, uint32_t primitives );
+    bool DrawIndexedBufferHandle( GfxGpuHandle handle, uint32_t index_size, uint32_t count );
 
 private:
     bool fail( const char *message );
@@ -119,6 +125,11 @@ private:
     SHMatrix inverse_view_matrix_{};
     SHMatrix projection_matrix_{};
     SHMatrix viewport_matrix_{};
+    std::vector<unsigned char> temporary_bytes_;
+    int temporary_stride_ = 0;
+    int temporary_count_ = 0;
+    EGFXPrimitiveType temporary_type_ = GFXPT_TRIANGLELIST;
+    bool temporary_indices_ = false;
 };
 
 #endif

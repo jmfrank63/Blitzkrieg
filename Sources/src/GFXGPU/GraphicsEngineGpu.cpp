@@ -2,6 +2,7 @@
 
 #include "GraphicsEngineGpu.h"
 #include "TextureGpu.h"
+#include "GeometryBufferGpu.h"
 
 #include <SDL3/SDL.h>
 
@@ -100,6 +101,32 @@ bool GraphicsEngineGpu::BindRenderTargetHandle( GfxGpuHandle handle )
 {
     if ( !renderer_ || !api_.bind_render_target ) return fail( "bind_render_target is unavailable" );
     return Check( api_.bind_render_target( renderer_, handle ), "bind_render_target" );
+}
+
+bool GraphicsEngineGpu::CreateBufferHandle( uint32_t elements, uint32_t format, uint32_t stride, EGFXDynamic usage, GfxGpuHandle *out_handle )
+{
+    if ( !renderer_ || !out_handle || !api_.create_buffer ) return fail( "create_buffer is unavailable" );
+    GfxGpuBufferCreateInfo info{ sizeof( info ), elements, format, stride, static_cast<uint32_t>( usage ) };
+    return Check( api_.create_buffer( renderer_, &info, out_handle ), "create_buffer" );
+}
+bool GraphicsEngineGpu::UploadBuffer( GfxGpuHandle handle, const void *data, size_t bytes, uint32_t offset )
+{
+    if ( !renderer_ || !api_.upload_buffer || bytes > 0xffffffffu ) return fail( "upload_buffer is unavailable" );
+    GfxGpuBufferUploadInfo info{ sizeof( info ), data, static_cast<uint32_t>( bytes ), offset };
+    return Check( api_.upload_buffer( renderer_, handle, &info ), "upload_buffer" );
+}
+bool GraphicsEngineGpu::DestroyBufferHandle( GfxGpuHandle handle )
+{
+    if ( !renderer_ || !api_.destroy_buffer ) return false;
+    return Check( api_.destroy_buffer( renderer_, handle ), "destroy_buffer" );
+}
+bool GraphicsEngineGpu::DrawBufferHandle( GfxGpuHandle handle, uint32_t primitives )
+{
+    return renderer_ && api_.draw && Check( api_.draw( renderer_, 0, primitives ), "draw_temporary" );
+}
+bool GraphicsEngineGpu::DrawIndexedBufferHandle( GfxGpuHandle handle, uint32_t index_size, uint32_t count )
+{
+    return renderer_ && api_.draw_indexed && Check( api_.draw_indexed( renderer_, handle, index_size, 0, count, 0 ), "draw_temporary_indexed" );
 }
 
 bool STDCALL GraphicsEngineGpu::Init( const char *pszAdapterName, GFXNativeWindow window )
@@ -241,14 +268,37 @@ bool STDCALL GraphicsEngineGpu::SetRenderTarget( IGFXRTexture *target )
     return BindRenderTargetHandle( gpu_target->Handle() );
 }
 void STDCALL GraphicsEngineGpu::SetOptimizedBuffers( bool ) {}
-IGFXVertices * STDCALL GraphicsEngineGpu::CreateVertices( int, DWORD, EGFXPrimitiveType, EGFXDynamic, IGFXVertices * ) { return nullptr; }
-IGFXIndices * STDCALL GraphicsEngineGpu::CreateIndices( int, DWORD, EGFXPrimitiveType, EGFXDynamic, IGFXIndices * ) { return nullptr; }
+IGFXVertices * STDCALL GraphicsEngineGpu::CreateVertices( int elements, DWORD format, EGFXPrimitiveType type, EGFXDynamic usage, IGFXVertices * )
+{
+    VerticesGpu *buffer = new VerticesGpu( this, elements, format, 32, usage, type );
+    if ( !buffer->IsValid() ) { delete buffer; return nullptr; }
+    return buffer;
+}
+IGFXIndices * STDCALL GraphicsEngineGpu::CreateIndices( int elements, DWORD format, EGFXPrimitiveType type, EGFXDynamic usage, IGFXIndices * )
+{
+    const int stride = format == GFXIF_INDEX32 ? 4 : 2;
+    IndicesGpu *buffer = new IndicesGpu( this, elements, format, stride, usage, type );
+    if ( !buffer->IsValid() ) { delete buffer; return nullptr; }
+    return buffer;
+}
 bool STDCALL GraphicsEngineGpu::BeginSolidVertexBlock( int, DWORD, EGFXDynamic ) { return false; }
 bool STDCALL GraphicsEngineGpu::EndSolidVertexBlock() { return false; }
 bool STDCALL GraphicsEngineGpu::BeginSolidIndexBlock( int, DWORD, EGFXDynamic ) { return false; }
 bool STDCALL GraphicsEngineGpu::EndSolidIndexBlock() { return false; }
-void * STDCALL GraphicsEngineGpu::GetTempVertices( int, DWORD, EGFXPrimitiveType ) { return nullptr; }
-void * STDCALL GraphicsEngineGpu::GetTempIndices( int, DWORD, EGFXPrimitiveType ) { return nullptr; }
+void * STDCALL GraphicsEngineGpu::GetTempVertices( int elements, DWORD, EGFXPrimitiveType type )
+{
+    if ( !temporary_bytes_.empty() ) return nullptr;
+    temporary_stride_ = 32; temporary_count_ = elements; temporary_type_ = type; temporary_indices_ = false;
+    try { temporary_bytes_.assign( static_cast<size_t>( elements ) * temporary_stride_, 0 ); } catch ( ... ) { return nullptr; }
+    return temporary_bytes_.data();
+}
+void * STDCALL GraphicsEngineGpu::GetTempIndices( int elements, DWORD format, EGFXPrimitiveType type )
+{
+    if ( !temporary_bytes_.empty() ) return nullptr;
+    temporary_stride_ = format == GFXIF_INDEX32 ? 4 : 2; temporary_count_ = elements; temporary_type_ = type; temporary_indices_ = true;
+    try { temporary_bytes_.assign( static_cast<size_t>( elements ) * temporary_stride_, 0 ); } catch ( ... ) { return nullptr; }
+    return temporary_bytes_.data();
+}
 IGFXTexture * STDCALL GraphicsEngineGpu::CreateTexture( int width, int height, int mips, EGFXPixelFormat format, EGFXDynamic usage, IGFXTexture * )
 {
     TextureGpu *texture = new TextureGpu( this, width, height, mips, format, usage );
@@ -262,8 +312,39 @@ IGFXRTexture * STDCALL GraphicsEngineGpu::CreateRTexture( int width, int height 
     return target;
 }
 bool STDCALL GraphicsEngineGpu::UpdateTexture( IGFXTexture *, IGFXTexture *, bool ) { return false; }
-bool STDCALL GraphicsEngineGpu::Draw( IGFXVertices *, IGFXIndices * ) { return fail( "Geometry adapter is not implemented in P06-M01" ); }
-bool STDCALL GraphicsEngineGpu::DrawTemp() { return false; }
+bool STDCALL GraphicsEngineGpu::Draw( IGFXVertices *vertices, IGFXIndices *indices )
+{
+    VerticesGpu *vb = dynamic_cast<VerticesGpu *>( vertices );
+    if ( !vb || !renderer_ ) return fail( "vertex buffer does not belong to the SDL GPU adapter" );
+    if ( indices )
+    {
+        IndicesGpu *ib = dynamic_cast<IndicesGpu *>( indices );
+        if ( !ib || !api_.draw_indexed ) return fail( "index buffer does not belong to the SDL GPU adapter" );
+        return Check( api_.draw_indexed( renderer_, ib->Handle(), ib->Stride(), 0, ib->Count(), 0 ), "draw_indexed" );
+    }
+    if ( !api_.draw ) return fail( "draw is unavailable" );
+    uint32_t primitives = vb->Count();
+    if ( vb->Type() == GFXPT_TRIANGLELIST ) primitives /= 3;
+    else if ( vb->Type() == GFXPT_TRIANGLESTRIP ) primitives = primitives > 2 ? primitives - 2 : 0;
+    else if ( vb->Type() == GFXPT_LINELIST ) primitives /= 2;
+    else if ( vb->Type() == GFXPT_LINESTRIP ) primitives = primitives > 1 ? primitives - 1 : 0;
+    if ( primitives == 0 ) return fail( "geometry has no drawable primitives" );
+    return Check( api_.draw( renderer_, 0, primitives ), "draw" );
+}
+bool STDCALL GraphicsEngineGpu::DrawTemp()
+{
+    if ( temporary_bytes_.empty() ) return false;
+    GfxGpuHandle handle = 0;
+    const bool created = CreateBufferHandle( static_cast<uint32_t>( temporary_count_ ), 0, static_cast<uint32_t>( temporary_stride_ ), GFXD_DYNAMIC, &handle ) && UploadBuffer( handle, temporary_bytes_.data(), temporary_bytes_.size() );
+    bool drawn = false;
+    if ( created ) {
+        if ( temporary_indices_ ) drawn = DrawIndexedBufferHandle( handle, static_cast<uint32_t>( temporary_stride_ ), static_cast<uint32_t>( temporary_count_ ) );
+        else { uint32_t primitives = static_cast<uint32_t>( temporary_count_ ); if ( temporary_type_ == GFXPT_TRIANGLELIST ) primitives /= 3; drawn = DrawBufferHandle( handle, primitives ); }
+        DestroyBufferHandle( handle );
+    }
+    temporary_bytes_.clear();
+    return created && drawn;
+}
 bool STDCALL GraphicsEngineGpu::DrawMesh( IGFXMesh *, const SHMatrix *, int ) { return false; }
 bool STDCALL GraphicsEngineGpu::DrawStringA( const char *, int, int, DWORD ) { return false; }
 bool STDCALL GraphicsEngineGpu::DrawString( const wchar_t *, int, int, DWORD ) { return false; }

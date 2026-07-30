@@ -74,6 +74,8 @@ typedef struct GfxGpuStateInfo { uint32_t struct_size; uint32_t kind; uint32_t i
 typedef struct GfxGpuTextureCreateInfo { uint32_t struct_size; uint32_t width; uint32_t height; uint32_t mip_count; uint32_t format; uint32_t usage; } GfxGpuTextureCreateInfo;
 typedef struct GfxGpuTextureUploadInfo { uint32_t struct_size; const void *data; uint32_t byte_length; uint32_t row_pitch; uint32_t mip_level; } GfxGpuTextureUploadInfo;
 typedef struct GfxGpuRenderTargetCreateInfo { uint32_t struct_size; uint32_t width; uint32_t height; uint32_t format; } GfxGpuRenderTargetCreateInfo;
+typedef struct GfxGpuBufferCreateInfo { uint32_t struct_size; uint32_t element_count; uint32_t format; uint32_t stride; uint32_t usage; } GfxGpuBufferCreateInfo;
+typedef struct GfxGpuBufferUploadInfo { uint32_t struct_size; const void *data; uint32_t byte_length; uint32_t byte_offset; } GfxGpuBufferUploadInfo;
 
 enum {
     GFXGPU_STATE_WIREFRAME = 1,
@@ -109,6 +111,9 @@ typedef struct GfxGpuApi {
     GfxGpuResult (*destroy_texture)(GfxGpuRenderer *, GfxGpuHandle);
     GfxGpuResult (*create_render_target)(GfxGpuRenderer *, const GfxGpuRenderTargetCreateInfo *, GfxGpuHandle *);
     GfxGpuResult (*bind_render_target)(GfxGpuRenderer *, GfxGpuHandle);
+    GfxGpuResult (*create_buffer)(GfxGpuRenderer *, const GfxGpuBufferCreateInfo *, GfxGpuHandle *);
+    GfxGpuResult (*upload_buffer)(GfxGpuRenderer *, GfxGpuHandle, const GfxGpuBufferUploadInfo *);
+    GfxGpuResult (*destroy_buffer)(GfxGpuRenderer *, GfxGpuHandle);
     GfxGpuResult (*set_texture)(GfxGpuRenderer *, uint64_t);
     GfxGpuResult (*set_sampler)(GfxGpuRenderer *, uint64_t);
     GfxGpuResult (*draw)(GfxGpuRenderer *, uint32_t, uint32_t);

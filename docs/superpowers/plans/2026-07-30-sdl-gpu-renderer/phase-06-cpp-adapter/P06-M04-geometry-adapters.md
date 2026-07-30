@@ -8,12 +8,12 @@
 
 **Allowed files:** `Sources/src/GFXGPU/GeometryBufferGpu.h`, `Sources/src/GFXGPU/GeometryBufferGpu.cpp`, `Sources/src/GFXGPU/GraphicsEngineGpu.cpp`, `tools/zig/gfxgpu_adapter_test.cpp`.
 
-- [ ] Inventory vertex/index/geometry virtual methods and all lock flag combinations used by source call sites.
-- [ ] Test static creation, dynamic discard/no-overwrite policy mapping, partial lock bounds, double lock, unlock upload, 16/32-bit indices, refcount/release, and temporary geometry.
-- [ ] Store handle, byte size, stride/FVF or index format, dynamic flag, current staging allocation, lock range, and refcount.
-- [ ] Convert FVF only in Zig; C++ passes the original fixed-width mask and stride.
-- [ ] Guarantee staging allocation is freed after both successful and failed unlock.
-- [ ] Use immediate ABI temporary upload/draw paths for legacy temporary buffers; no persistent C++ GPU object.
-- [ ] Commit: `feat: adapt IGFX geometry buffers`
+- [x] Inventory vertex/index/geometry virtual methods and all lock flag combinations used by source call sites.
+- [x] Test static creation, dynamic discard/no-overwrite policy mapping, partial lock bounds, double lock, unlock upload, 16/32-bit indices, refcount/release, and temporary geometry.
+- [x] Store handle, byte size, stride/FVF or index format, dynamic flag, current staging allocation, lock range, and refcount.
+- [x] Convert FVF only in Zig; C++ passes the original fixed-width mask and stride.
+- [x] Guarantee staging allocation is freed after both successful and failed unlock.
+- [x] Use immediate ABI temporary upload/draw paths for legacy temporary buffers; no persistent C++ GPU object.
+- [x] Commit: `feat: adapt IGFX geometry buffers`
 
 **Evidence:** call-site lock inventory and allocation-balance tests.
