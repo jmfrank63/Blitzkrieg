@@ -1,4 +1,23 @@
+
+const std = @import("std");
+
 pub const Result = u32;
+pub const DiagnosticCapacity = 1024;
+
+pub const Diagnostics = struct {
+    bytes: [DiagnosticCapacity]u8 = undefined,
+    length: usize = 0,
+
+    pub fn set(self: *Diagnostics, message: []const u8) void {
+        self.length = @min(message.len, DiagnosticCapacity - 1);
+        @memcpy(self.bytes[0..self.length], message[0..self.length]);
+        self.bytes[self.length] = 0;
+    }
+
+    pub fn slice(self: *const Diagnostics) []const u8 {
+        return self.bytes[0..self.length];
+    }
+};
 
 pub const ok: Result = 0;
 pub const invalid_argument: Result = 1;
@@ -30,5 +49,3 @@ test "bounded diagnostic copy never exceeds caller capacity" {
     try std.testing.expectEqual(@as(u32, 3), written);
     try std.testing.expectEqualSlices(u8, "dia", bytes[0..3]);
 }
-
-const std = @import("std");
