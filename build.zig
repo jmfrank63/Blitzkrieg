@@ -692,6 +692,63 @@ pub fn build(b: *std.Build) void {
     const shadercross_verify_step = b.step("verify-shadercross", "Verify shadercross CLI options and host installation");
     shadercross_verify_step.dependOn(&shadercross_verify_run.step);
 
+    const shader_driver_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/compile_gfxgpu_shaders.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const shader_driver = b.addExecutable(.{
+        .name = "compile-gfxgpu-shaders",
+        .root_module = shader_driver_module,
+    });
+    const shader_driver_run = b.addRunArtifact(shader_driver);
+    shader_driver_run.step.dependOn(&shadercross_build.step);
+    shader_driver_run.addArgs(&.{
+        "Sources/src/GFXGPU/shaders/manifest.json",
+        "zig-out/tools/shadercross/install/bin/shadercross.exe",
+        "zig-out/shaders",
+    });
+
+    const shader_parser_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/compile_gfxgpu_shaders.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const shader_parser_tests = b.addTest(.{ .root_module = shader_parser_module });
+    const shader_parser_tests_run = b.addRunArtifact(shader_parser_tests);
+    const shader_tests_step = b.step("test-gfxgpu-shaders", "Run shader manifest parser tests");
+    shader_tests_step.dependOn(&shader_parser_tests_run.step);
+
+    const gfx_gpu_shaders_step = b.step("gfxgpu-shaders", "Compile deterministic GfxGpu shader blobs and manifest");
+    gfx_gpu_shaders_step.dependOn(&shader_driver_run.step);
+    gfx_gpu_shaders_step.dependOn(&shader_parser_tests_run.step);
+
+    const shader_determinism_a = b.addRunArtifact(shader_driver);
+    shader_determinism_a.step.dependOn(&shadercross_build.step);
+    shader_determinism_a.addArgs(&.{
+        "Sources/src/GFXGPU/shaders/manifest.json",
+        "zig-out/tools/shadercross/install/bin/shadercross.exe",
+        "zig-out/shaders-determinism-a",
+    });
+    const shader_determinism_b = b.addRunArtifact(shader_driver);
+    shader_determinism_b.step.dependOn(&shadercross_build.step);
+    shader_determinism_b.addArgs(&.{
+        "Sources/src/GFXGPU/shaders/manifest.json",
+        "zig-out/tools/shadercross/install/bin/shadercross.exe",
+        "zig-out/shaders-determinism-b",
+    });
+    const shader_compare = b.addSystemCommand(&.{
+        "pwsh",
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "$a=Get-ChildItem 'zig-out/shaders-determinism-a' -File | Sort-Object Name; $b=Get-ChildItem 'zig-out/shaders-determinism-b' -File | Sort-Object Name; if($a.Count -ne $b.Count){throw 'shader output file count differs'}; for($i=0;$i -lt $a.Count;$i++){if($a[$i].Name -ne $b[$i].Name){throw 'shader output names differ'}; $ha=(Get-FileHash $a[$i].FullName -Algorithm SHA256).Hash; $hb=(Get-FileHash $b[$i].FullName -Algorithm SHA256).Hash; if($ha -ne $hb){throw ('shader output hash differs: ' + $a[$i].Name)}}; Write-Output 'shader outputs are deterministic'",
+    });
+    shader_compare.step.dependOn(&shader_determinism_a.step);
+    shader_compare.step.dependOn(&shader_determinism_b.step);
+    const shader_determinism_step = b.step("test-gfxgpu-shader-determinism", "Compare two clean shader compiler output directories");
+    shader_determinism_step.dependOn(&shader_compare.step);
+
     const gfx_gpu_zig = addGfxGpuZig(b, target, optimize, sdl3);
     const blitz64 = addBlitz64(b, target, optimize);
     const library_arch = switch (target.result.cpu.arch) {

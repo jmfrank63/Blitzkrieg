@@ -1,0 +1,28 @@
+[
+  {
+    "effect": "probe",
+    "name": "Probe",
+    "stage": "fragment",
+    "source": "probe.hlsl",
+    "entry": "PSMain",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 0,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 0
+  },
+  {
+    "effect": "probe",
+    "name": "Probe",
+    "stage": "vertex",
+    "source": "probe.hlsl",
+    "entry": "VSMain",
+    "defines": [],
+    "required_vertex_mask": 3,
+    "sampler_count": 0,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 0
+  }
+]
