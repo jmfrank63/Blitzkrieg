@@ -840,7 +840,9 @@ pub fn build(b: *std.Build) void {
     const ui = addUI(b, target, optimize, toolchain, misc, common, lualib);
     const fontgen = addFontGen(b, target, optimize, toolchain, image, common, formats, misc);
     const sfx = addSFX(b, target, optimize, toolchain, misc, common);
-    const gfx = addGFX(b, target, optimize, toolchain, misc, formats);
+    const gfx_legacy = addGFX(b, target, optimize, toolchain, misc, formats);
+    const gfx_gpu = addGFXGPU(b, target, optimize, toolchain, misc, formats, gfx_gpu_zig, sdl_c);
+    const gfx = if (std.mem.eql(u8, renderer, "sdl_gpu")) gfx_gpu else gfx_legacy;
     const randommapgen = addRandomMapGen(b, target, optimize, toolchain);
     const ailogic = addLegacyProjectDll(b, target, optimize, toolchain, "AILogic", "Sources/src/AILogic/AILogic.vcxproj", "Sources/src/AILogic/AILogic.def", &.{ "Sources/src/AILogic", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/GameTT", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/vorbis-1.3.7/include" }, &.{ misc, lualib, formats, randommapgen, zlib });
     const gamett = addLegacyProjectDll(b, target, optimize, toolchain, "GameTT", "Sources/src/GameTT/GameTT.vcxproj", "Sources/src/GameTT/GameTT.def", &.{ "Sources/src/GameTT", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/AILogic" }, &.{ misc, formats, common, randommapgen });
@@ -934,6 +936,39 @@ pub fn build(b: *std.Build) void {
 
     const gfx_step = b.step("gfx", "Build the GFX dynamic library");
     gfx_step.dependOn(&b.addInstallArtifact(gfx, .{}).step);
+
+    const gfx_legacy_step = b.step("gfx-legacy", "Build the legacy DirectX GFX dynamic library");
+    gfx_legacy_step.dependOn(&b.addInstallArtifact(gfx_legacy, .{}).step);
+
+    const gfx_gpu_step = b.step("gfx-sdl-gpu", "Build the SDL GPU GFX adapter dynamic library");
+    gfx_gpu_step.dependOn(&b.addInstallArtifact(gfx_gpu, .{}).step);
+
+    const gfx_gpu_factory_test_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    gfx_gpu_factory_test_module.addCSourceFiles(.{
+        .files = &.{ "tools/zig/gfxgpu_factory_test.cpp" },
+        .flags = cppflagsForOptimize(optimize),
+    });
+    addProjectIncludePaths(b, gfx_gpu_factory_test_module);
+    gfx_gpu_factory_test_module.addIncludePath(b.path("Sources/src/GFX"));
+    addMsvcIncludePaths(b, gfx_gpu_factory_test_module, toolchain);
+    addMsvcLibraryPaths(b, gfx_gpu_factory_test_module, toolchain);
+    linkMsvcRuntime(gfx_gpu_factory_test_module, optimize);
+    gfx_gpu_factory_test_module.linkSystemLibrary("user32", .{});
+    const gfx_gpu_factory_test = b.addExecutable(.{
+        .name = "gfxgpu-factory-test",
+        .root_module = gfx_gpu_factory_test_module,
+    });
+    gfx_gpu_factory_test.subsystem = .console;
+    gfx_gpu_factory_test.entry = .{ .symbol_name = "main" };
+    const gfx_gpu_factory_test_run = b.addRunArtifact(gfx_gpu_factory_test);
+    gfx_gpu_factory_test_run.step.dependOn(&b.addInstallArtifact(gfx_gpu, .{}).step);
+    gfx_gpu_factory_test_run.setCwd(b.path("."));
+    gfx_gpu_factory_test_run.addArg("zig-out/bin/GFXGPU.dll");
+    const gfx_gpu_factory_test_step = b.step("gfxgpu-factory-test", "Load the SDL GPU GFX DLL and create its IGFX object");
+    gfx_gpu_factory_test_step.dependOn(&gfx_gpu_factory_test_run.step);
 
     const randommapgen_step = b.step("randommapgen", "Build the RandomMapGen static library");
     randommapgen_step.dependOn(&b.addInstallArtifact(randommapgen, .{}).step);
@@ -1988,6 +2023,48 @@ fn addGFX(
         .linkage = .dynamic,
         .root_module = gfx_module,
         .win32_module_definition = b.path("Sources/src/GFX/GFX.def"),
+    });
+}
+
+fn addGFXGPU(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    misc: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    gfx_gpu_zig: *std.Build.Step.Compile,
+    sdl_c: *std.Build.Step.Compile,
+) *std.Build.Step.Compile {
+    const gfx_gpu_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    addProjectIncludePaths(b, gfx_gpu_module);
+    addMsvcIncludePaths(b, gfx_gpu_module, toolchain);
+    addMsvcLibraryPaths(b, gfx_gpu_module, toolchain);
+    gfx_gpu_module.addIncludePath(b.path("Sources/src/GFX"));
+    gfx_gpu_module.addIncludePath(b.path("Sources/src/GFXGPU"));
+    gfx_gpu_module.addCSourceFiles(.{
+        .files = &.{
+            "Sources/src/GFXGPU/GraphicsEngineGpu.cpp",
+            "Sources/src/GFXGPU/GfxGpuObjectFactory.cpp",
+        },
+        .flags = cppflagsForOptimize(optimize),
+    });
+    gfx_gpu_module.linkLibrary(misc);
+    gfx_gpu_module.linkLibrary(formats);
+    gfx_gpu_module.linkLibrary(gfx_gpu_zig);
+    gfx_gpu_module.linkLibrary(sdl_c);
+    linkMsvcRuntime(gfx_gpu_module, optimize);
+    gfx_gpu_module.linkSystemLibrary("user32", .{});
+    gfx_gpu_module.linkSystemLibrary("gdi32", .{});
+
+    return b.addLibrary(.{
+        .name = "GFXGPU",
+        .linkage = .dynamic,
+        .root_module = gfx_gpu_module,
+        .win32_module_definition = b.path("Sources/src/GFXGPU/GFXGPU.def"),
     });
 }
 
