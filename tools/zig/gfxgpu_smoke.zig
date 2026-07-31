@@ -2,6 +2,41 @@ const std = @import("std");
 const sdl3 = @import("sdl3");
 const gpu = @import("gfxgpu");
 
+const EffectProbe = struct {
+    name: []const u8,
+    vertex_count: u32,
+    attribute_count: u32,
+    lighting_layout: bool,
+};
+
+const effect_probes = [_]EffectProbe{
+    .{ .name = "untextured", .vertex_count = 3, .attribute_count = 2, .lighting_layout = false },
+    .{ .name = "textured", .vertex_count = 6, .attribute_count = 3, .lighting_layout = false },
+    .{ .name = "ui", .vertex_count = 6, .attribute_count = 3, .lighting_layout = false },
+    .{ .name = "unlit", .vertex_count = 3, .attribute_count = 3, .lighting_layout = false },
+    .{ .name = "unlit_textured", .vertex_count = 6, .attribute_count = 3, .lighting_layout = false },
+    .{ .name = "alpha_test", .vertex_count = 6, .attribute_count = 3, .lighting_layout = false },
+    .{ .name = "transparent", .vertex_count = 6, .attribute_count = 3, .lighting_layout = false },
+    .{ .name = "particle_additive", .vertex_count = 6, .attribute_count = 3, .lighting_layout = false },
+    .{ .name = "particle_modulate", .vertex_count = 6, .attribute_count = 3, .lighting_layout = false },
+    .{ .name = "transparent_multiply", .vertex_count = 6, .attribute_count = 3, .lighting_layout = false },
+    .{ .name = "transparent_alpha", .vertex_count = 6, .attribute_count = 3, .lighting_layout = false },
+    .{ .name = "transparent_additive", .vertex_count = 6, .attribute_count = 3, .lighting_layout = false },
+    .{ .name = "lightmap_modulate", .vertex_count = 6, .attribute_count = 4, .lighting_layout = false },
+    .{ .name = "lightmap_complement", .vertex_count = 6, .attribute_count = 4, .lighting_layout = false },
+    .{ .name = "lighting", .vertex_count = 3, .attribute_count = 4, .lighting_layout = true },
+    .{ .name = "stencil_write", .vertex_count = 3, .attribute_count = 3, .lighting_layout = false },
+    .{ .name = "stencil_test", .vertex_count = 3, .attribute_count = 3, .lighting_layout = false },
+    .{ .name = "shadow_sprite", .vertex_count = 6, .attribute_count = 3, .lighting_layout = false },
+    .{ .name = "shadow_mesh", .vertex_count = 3, .attribute_count = 3, .lighting_layout = false },
+    .{ .name = "water", .vertex_count = 6, .attribute_count = 4, .lighting_layout = false },
+    .{ .name = "water_single", .vertex_count = 6, .attribute_count = 4, .lighting_layout = false },
+    .{ .name = "water_alpha", .vertex_count = 6, .attribute_count = 4, .lighting_layout = false },
+    .{ .name = "special_video", .vertex_count = 6, .attribute_count = 3, .lighting_layout = false },
+    .{ .name = "special_transform", .vertex_count = 6, .attribute_count = 3, .lighting_layout = false },
+    .{ .name = "special_depth", .vertex_count = 3, .attribute_count = 3, .lighting_layout = false },
+};
+
 fn readFile(init: std.process.Init, path: []const u8) ![]u8 {
     return std.Io.Dir.cwd().readFileAlloc(init.io, path, init.gpa, .limited(64 * 1024 * 1024));
 }
@@ -183,9 +218,9 @@ pub fn main(init: std.process.Init) !void {
 
     var loader = gpu.shaders.Loader.init(init.gpa, @ptrCast(device), gpu.shaders.real_api);
     defer loader.deinit();
-    for ([_][]const u8{ "untextured", "textured", "ui", "unlit", "unlit_textured", "alpha_test", "transparent", "particle_additive", "particle_modulate", "transparent_multiply", "transparent_alpha", "transparent_additive", "lightmap_modulate", "lightmap_complement", "lighting", "stencil_write", "stencil_test", "shadow_sprite", "shadow_mesh", "water", "water_single", "water_alpha", "special_video", "special_transform", "special_depth" }) |effect| {
-        const vertex = try recordFor(&shader_manifest, effect, .vertex);
-        const fragment = try recordFor(&shader_manifest, effect, .fragment);
+    for (effect_probes) |probe| {
+        const vertex = try recordFor(&shader_manifest, probe.name, .vertex);
+        const fragment = try recordFor(&shader_manifest, probe.name, .fragment);
         const vertex_path = try std.fmt.allocPrint(init.gpa, "../shaders/{s}", .{vertex.blob_path});
         defer init.gpa.free(vertex_path);
         const fragment_path = try std.fmt.allocPrint(init.gpa, "../shaders/{s}", .{fragment.blob_path});
@@ -194,19 +229,19 @@ pub fn main(init: std.process.Init) !void {
         defer init.gpa.free(vertex_bytes);
         const fragment_bytes = try readFile(init, fragment_path);
         defer init.gpa.free(fragment_bytes);
-        try loader.loadPair(&shader_manifest, effect, vertex_bytes, fragment_bytes, sdl3.c.SDL_GPU_SHADERFORMAT_DXIL);
+        try loader.loadPair(&shader_manifest, probe.name, vertex_bytes, fragment_bytes, sdl3.c.SDL_GPU_SHADERFORMAT_DXIL);
     }
-    if (loader.count() != 25) return error.IncompleteShaderSmoke;
+    if (loader.count() != effect_probes.len) return error.IncompleteShaderSmoke;
     var pipeline_count: usize = 0;
-    for ([_][]const u8{ "untextured", "textured", "ui", "unlit", "unlit_textured", "alpha_test", "transparent", "particle_additive", "particle_modulate", "transparent_multiply", "transparent_alpha", "transparent_additive", "lightmap_modulate", "lightmap_complement", "lighting", "stencil_write", "stencil_test", "shadow_sprite", "shadow_mesh", "water", "water_single", "water_alpha", "special_video", "special_transform", "special_depth" }) |effect| {
-        const pair = loader.pair(effect) orelse return error.MissingShaderPair;
-        const attribute_count: u32 = if (std.mem.eql(u8, effect, "untextured")) 2 else if (std.mem.eql(u8, effect, "lighting") or std.mem.eql(u8, effect, "lightmap_modulate") or std.mem.eql(u8, effect, "lightmap_complement") or std.mem.eql(u8, effect, "water") or std.mem.eql(u8, effect, "water_single") or std.mem.eql(u8, effect, "water_alpha")) 4 else 3;
-        const pipeline = probePipeline(device, pair.vertex, pair.fragment, attribute_count, std.mem.eql(u8, effect, "lighting")) orelse {
-            std.debug.print("GfxGpu pipeline probe failed for {s}: {s}\n", .{ effect, std.mem.span(sdl3.c.SDL_GetError()) });
+    for (effect_probes) |probe| {
+        if (probe.vertex_count == 0) return error.InvalidEffectProbe;
+        const pair = loader.pair(probe.name) orelse return error.MissingShaderPair;
+        const pipeline = probePipeline(device, pair.vertex, pair.fragment, probe.attribute_count, probe.lighting_layout) orelse {
+            std.debug.print("GfxGpu pipeline probe failed for {s}: {s}\n", .{ probe.name, std.mem.span(sdl3.c.SDL_GetError()) });
             return error.PipelineCreationFailed;
         };
         sdl3.c.SDL_ReleaseGPUGraphicsPipeline(device, pipeline);
         pipeline_count += 1;
     }
-    std.debug.print("GfxGpu Zig smoke: created and released {} shader pairs and {} pipelines\n", .{ loader.count(), pipeline_count });
+    std.debug.print("GfxGpu Zig smoke: created and released {} shader pairs, {} probe geometries, and {} pipelines\n", .{ loader.count(), effect_probes.len, pipeline_count });
 }

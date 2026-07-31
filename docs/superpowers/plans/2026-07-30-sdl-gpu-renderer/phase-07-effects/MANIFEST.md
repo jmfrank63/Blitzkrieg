@@ -19,3 +19,9 @@
 | P07-M05 | M04 | stencil/shadow, water, special effects |
 
 Exit: every effect ID reachable in current game source has a catalog record, shader pair, state policy, test fixture, and successful pipeline creation.
+
+Status: complete. `effects.zig` contains the source-backed ID catalog and CPU
+fixtures; `gfxgpu_smoke.zig` enumerates all 25 shader families with explicit
+probe geometry layouts, creates/releases every shader pair and pipeline, and
+passes three consecutive Windows x64 GPU runs. Visual DX9-vs-GPU parity and
+production draw-dispatch coverage are Phase 8 responsibilities.
