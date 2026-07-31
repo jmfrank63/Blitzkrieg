@@ -184,5 +184,5 @@ pub fn main(init: std.process.Init) !void {
         try loader.loadPair(&shader_manifest, effect, vertex_bytes, fragment_bytes, sdl3.c.SDL_GPU_SHADERFORMAT_DXIL);
     }
     if (loader.count() != 25) return error.IncompleteShaderSmoke;
-    std.debug.print("GfxGpu Zig smoke: created and released {} UI/unlit/alpha shader pairs\n", .{loader.count()});
+    std.debug.print("GfxGpu Zig smoke: created and released {} shader pairs\n", .{loader.count()});
 }
