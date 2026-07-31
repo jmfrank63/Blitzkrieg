@@ -7,6 +7,10 @@ pub const max_storage_textures = 0;
 pub const max_storage_buffers = 0;
 pub const max_lights = 8;
 
+pub fn clampEnabledLightCount(count: usize) usize {
+    return @min(count, max_lights);
+}
+
 pub const FrameUniforms = extern struct {
     view_proj: [16]f32 align(16),
     fog: [4]f32 align(16),
@@ -101,11 +105,11 @@ comptime {
 test "uniform serialization golden values" {
     const frame = serializeFrame(.{ .view_proj = [_]f32{1} ** 16, .fog = .{ 0.25, 0.5, 0.75, 0 } });
     try std.testing.expectEqual(@as(u8, 0), frame[0]);
-    try std.testing.expectEqual(@as(u8, 0x3f), frame[67]);
+    try std.testing.expectEqual(@as(u8, 0x3e), frame[67]);
     const draw = serializeDraw(.{ .world = [_]f32{0} ** 16, .color = .{ 1, 0.5, 0, 1 } });
-    try std.testing.expectEqual(@as(u8, 0x3f), draw[66]);
+    try std.testing.expectEqual(@as(u8, 0x3f), draw[67]);
     const lights = serializeLights(.{ .light_data = [_][4]f32{.{ 1, 2, 3, 4 }} ** 32 });
-    try std.testing.expectEqual(@as(u8, 0x80), lights[3]);
+    try std.testing.expectEqual(@as(u8, 0x3f), lights[3]);
 }
 
 test "uniform pushes are bounded to three slots" {
@@ -113,5 +117,12 @@ test "uniform pushes are bounded to three slots" {
     try pushUniform(.vertex, 0, &[_]u8{1}, Fake.push);
     try pushUniform(.fragment, 2, &[_]u8{1}, Fake.push);
     try std.testing.expectError(UniformError.InvalidSlot, pushUniform(.vertex, 3, &[_]u8{1}, Fake.push));
-    try std.testing.expectError(UniformError.PayloadTooLarge, pushUniform(.fragment, 0, &([@sizeOf(LightUniforms) + 1]u8{0} ** (@sizeOf(LightUniforms) + 1)), Fake.push));
+    try std.testing.expectError(UniformError.PayloadTooLarge, pushUniform(.fragment, 0, &([_]u8{0} ** (@sizeOf(LightUniforms) + 1)), Fake.push));
+}
+
+test "light uniform capacity is fixed at eight" {
+    try std.testing.expectEqual(@as(usize, 0), clampEnabledLightCount(0));
+    try std.testing.expectEqual(@as(usize, 8), clampEnabledLightCount(8));
+    try std.testing.expectEqual(@as(usize, 8), clampEnabledLightCount(32));
+    try std.testing.expectEqual(@as(usize, 8), @sizeOf(LightUniforms) / @sizeOf([4]f32) / 4);
 }

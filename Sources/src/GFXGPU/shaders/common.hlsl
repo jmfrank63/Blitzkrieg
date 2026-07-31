@@ -23,3 +23,8 @@ float3 apply_linear_fog(float3 color, float view_depth, float3 fog_color, float2
     float factor = saturate((fog_range.y - view_depth) / max(fog_range.y - fog_range.x, 0.0001f));
     return lerp(fog_color, color, factor);
 }
+
+float3 safe_normalize(float3 value) {
+    float length_squared = dot(value, value);
+    return length_squared > 0.000001f ? value * rsqrt(length_squared) : float3(0.0f, 0.0f, 0.0f);
+}

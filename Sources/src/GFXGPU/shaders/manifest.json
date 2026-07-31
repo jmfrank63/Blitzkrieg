@@ -310,5 +310,83 @@
     "storage_texture_count": 0,
     "storage_buffer_count": 0,
     "uniform_buffer_count": 2
+  },
+  {
+    "effect": "lightmap_modulate",
+    "name": "LightmapModulate",
+    "stage": "fragment",
+    "source": "lightmap.hlsl",
+    "entry": "ps_lightmap_modulate",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 2,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "lightmap_modulate",
+    "name": "LightmapModulate",
+    "stage": "vertex",
+    "source": "lightmap.hlsl",
+    "entry": "vs_lightmap",
+    "defines": [],
+    "required_vertex_mask": 291,
+    "sampler_count": 2,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "lightmap_complement",
+    "name": "LightmapComplement",
+    "stage": "fragment",
+    "source": "lightmap.hlsl",
+    "entry": "ps_lightmap_complement",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 2,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "lightmap_complement",
+    "name": "LightmapComplement",
+    "stage": "vertex",
+    "source": "lightmap.hlsl",
+    "entry": "vs_lightmap",
+    "defines": [],
+    "required_vertex_mask": 291,
+    "sampler_count": 2,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 2
+  },
+  {
+    "effect": "lighting",
+    "name": "Lighting",
+    "stage": "fragment",
+    "source": "lighting.hlsl",
+    "entry": "ps_lighting",
+    "defines": [],
+    "required_vertex_mask": 0,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 3
+  },
+  {
+    "effect": "lighting",
+    "name": "Lighting",
+    "stage": "vertex",
+    "source": "lighting.hlsl",
+    "entry": "vs_lighting",
+    "defines": [],
+    "required_vertex_mask": 299,
+    "sampler_count": 1,
+    "storage_texture_count": 0,
+    "storage_buffer_count": 0,
+    "uniform_buffer_count": 3
   }
 ]

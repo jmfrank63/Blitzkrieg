@@ -14,7 +14,7 @@ pub const Family = enum {
     special,
 };
 
-pub const ShaderEffect = enum { textured, untextured, ui, unlit, unlit_textured, alpha_test, transparent_multiply, transparent_alpha, transparent_additive, particle_additive, particle_modulate };
+pub const ShaderEffect = enum { textured, untextured, ui, unlit, unlit_textured, alpha_test, transparent_multiply, transparent_alpha, transparent_additive, particle_additive, particle_modulate, lightmap_modulate, lightmap_complement, lighting };
 pub const BlendMode = enum { replace, multiply, straight_alpha, additive };
 pub const FogMode = enum { none, linear };
 
@@ -65,10 +65,10 @@ fn withPipelinePolicy(base: EffectSpec, blend_mode: BlendMode, depth_write: bool
 
 pub const specs = [_]EffectSpec{
     make(1, .alpha_test, .alpha_test, 1, state_alpha_test | state_alpha_blend),
-    make(2, .unlit, .unlit_textured, 1, state_none),
+    make(2, .lit, .lighting, 1, state_none),
     make(3, .ui, .ui, 1, state_alpha_test | state_alpha_blend),
-    make(4, .lightmap, .textured, 2, state_alpha_blend),
-    make(5, .lightmap, .textured, 2, state_alpha_blend),
+    make(4, .lightmap, .lightmap_complement, 2, state_alpha_blend),
+    make(5, .lightmap, .lightmap_modulate, 2, state_alpha_blend),
     make(6, .stencil, .untextured, 0, state_stencil),
     make(7, .stencil, .untextured, 0, state_none),
     make(8, .alpha_test, .alpha_test, 1, state_alpha_test | state_alpha_blend),
@@ -155,10 +155,27 @@ pub fn linearFogFactor(depth: f32, start: f32, end: f32) f32 {
     return std.math.clamp((end - depth) / (end - start), 0.0, 1.0);
 }
 
+pub fn lightmapCombine(base: [3]f32, lightmap: [3]f32, complement: bool) [3]f32 {
+    const factor = if (complement) [3]f32{ 1.0 - lightmap[0], 1.0 - lightmap[1], 1.0 - lightmap[2] } else lightmap;
+    return .{ base[0] * factor[0], base[1] * factor[1], base[2] * factor[2] };
+}
+
+pub fn lambert(normal: [3]f32, light_direction: [3]f32) f32 {
+    const length = @sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+    if (length <= 0.000001) return 0.0;
+    const dot = (normal[0] * light_direction[0] + normal[1] * light_direction[1] + normal[2] * light_direction[2]) / length;
+    return @max(dot, 0.0);
+}
+
+pub fn pointAttenuation(distance: f32, range: f32, a0: f32, a1: f32, a2: f32) f32 {
+    if (distance < 0.0 or distance > range) return 0.0;
+    return 1.0 / @max(a0 + distance * a1 + distance * distance * a2, 0.000001);
+}
+
 test "effect catalog is complete and unique" {
     for (specs, 0..) |spec, index| {
         switch (spec.shader_effect) {
-            .textured, .untextured, .ui, .unlit, .unlit_textured, .alpha_test, .transparent_multiply, .transparent_alpha, .transparent_additive, .particle_additive, .particle_modulate => {},
+            .textured, .untextured, .ui, .unlit, .unlit_textured, .alpha_test, .transparent_multiply, .transparent_alpha, .transparent_additive, .particle_additive, .particle_modulate, .lightmap_modulate, .lightmap_complement, .lighting => {},
         }
         try std.testing.expect(spec.uniform_groups != 0);
         try std.testing.expect(find(spec.id) != null);
@@ -198,4 +215,17 @@ test "transparent blend and range fog fixtures" {
     try std.testing.expectApproxEqAbs(0.0, linearFogFactor(120.0, 10.0, 100.0), 0.000001);
     try std.testing.expect(!specs[9].depth_write);
     try std.testing.expectEqual(BlendMode.additive, specs[9].blend);
+}
+
+test "lightmap and fixed-light fixtures" {
+    const normal = lambert(.{ 0.0, 0.0, 2.0 }, .{ 0.0, 0.0, 1.0 });
+    try std.testing.expectApproxEqAbs(1.0, normal, 0.000001);
+    try std.testing.expectApproxEqAbs(0.0, lambert(.{ 0.0, 0.0, 0.0 }, .{ 0.0, 0.0, 1.0 }), 0.000001);
+    const combined = lightmapCombine(.{ 0.8, 0.6, 0.4 }, .{ 0.5, 0.25, 1.0 }, false);
+    try std.testing.expectApproxEqAbs(0.4, combined[0], 0.000001);
+    try std.testing.expectApproxEqAbs(0.15, combined[1], 0.000001);
+    const inverted = lightmapCombine(.{ 0.8, 0.6, 0.4 }, .{ 0.5, 0.25, 1.0 }, true);
+    try std.testing.expectApproxEqAbs(0.0, inverted[2], 0.000001);
+    try std.testing.expectApproxEqAbs(0.5, pointAttenuation(1.0, 10.0, 1.0, 1.0, 0.0), 0.000001);
+    try std.testing.expectApproxEqAbs(0.0, pointAttenuation(11.0, 10.0, 1.0, 1.0, 0.0), 0.000001);
 }
