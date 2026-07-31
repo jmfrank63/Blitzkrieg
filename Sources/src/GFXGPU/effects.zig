@@ -14,7 +14,7 @@ pub const Family = enum {
     special,
 };
 
-pub const ShaderEffect = enum { textured, untextured, ui, unlit, unlit_textured, alpha_test, transparent_multiply, transparent_alpha, transparent_additive, particle_additive, particle_modulate, lightmap_modulate, lightmap_complement, lighting };
+pub const ShaderEffect = enum { textured, untextured, ui, unlit, unlit_textured, alpha_test, transparent_multiply, transparent_alpha, transparent_additive, particle_additive, particle_modulate, lightmap_modulate, lightmap_complement, lighting, stencil_write, stencil_test, shadow_sprite, shadow_mesh, water, water_single, water_alpha, special_video, special_transform, special_depth };
 pub const BlendMode = enum { replace, multiply, straight_alpha, additive };
 pub const FogMode = enum { none, linear };
 
@@ -69,8 +69,8 @@ pub const specs = [_]EffectSpec{
     make(3, .ui, .ui, 1, state_alpha_test | state_alpha_blend),
     make(4, .lightmap, .lightmap_complement, 2, state_alpha_blend),
     make(5, .lightmap, .lightmap_modulate, 2, state_alpha_blend),
-    make(6, .stencil, .untextured, 0, state_stencil),
-    make(7, .stencil, .untextured, 0, state_none),
+    make(6, .stencil, .stencil_write, 0, state_stencil),
+    make(7, .stencil, .stencil_test, 0, state_none),
     make(8, .alpha_test, .alpha_test, 1, state_alpha_test | state_alpha_blend),
     withPipelinePolicy(make(9, .alpha_blend, .transparent_multiply, 1, state_alpha_blend), .multiply, false, .none),
     withPipelinePolicy(make(10, .particle, .particle_additive, 1, state_alpha_test | state_alpha_blend | state_depth_write), .additive, false, .linear),
@@ -80,48 +80,48 @@ pub const specs = [_]EffectSpec{
     withPipelinePolicy(make(14, .alpha_blend, .transparent_alpha, 1, state_alpha_blend | state_depth_write), .straight_alpha, false, .linear),
     withPipelinePolicy(make(15, .alpha_blend, .transparent_alpha, 1, state_alpha_blend | state_depth_write), .straight_alpha, false, .linear),
     withPipelinePolicy(make(16, .particle, .particle_additive, 1, state_alpha_blend), .additive, false, .linear),
-    make(17, .special, .textured, 1, state_none),
-    make(18, .special, .textured, 1, state_none),
-    make(19, .special, .textured, 1, state_none),
-    make(20, .special, .textured, 1, state_none),
+    make(17, .special, .special_video, 1, state_none),
+    make(18, .special, .special_video, 1, state_none),
+    make(19, .special, .special_transform, 1, state_none),
+    make(20, .special, .special_transform, 1, state_none),
     make(21, .ui, .textured, 1, state_alpha_blend),
     make(22, .ui, .textured, 1, state_alpha_blend),
     make(23, .ui, .textured, 1, state_alpha_blend),
-    make(100, .water, .textured, 2, state_alpha_blend),
-    make(101, .water, .textured, 2, state_none),
-    make(102, .water, .textured, 2, state_none),
-    make(103, .water, .textured, 1, state_alpha_blend),
-    make(104, .water, .textured, 2, state_alpha_test | state_alpha_blend),
-    make(110, .shadow, .untextured, 0, state_stencil),
-    make(111, .shadow, .textured, 1, state_alpha_test | state_alpha_blend),
-    make(112, .shadow, .textured, 1, state_alpha_blend),
-    make(113, .shadow, .untextured, 0, state_stencil),
+    make(100, .water, .water, 2, state_alpha_blend),
+    make(101, .water, .water, 2, state_none),
+    make(102, .water, .water, 2, state_none),
+    make(103, .water, .water_single, 1, state_alpha_blend),
+    make(104, .water, .water_alpha, 2, state_alpha_test | state_alpha_blend),
+    make(110, .shadow, .stencil_test, 0, state_stencil),
+    make(111, .shadow, .shadow_sprite, 1, state_alpha_test | state_alpha_blend),
+    make(112, .shadow, .shadow_mesh, 1, state_alpha_blend),
+    make(113, .shadow, .stencil_test, 0, state_stencil),
     withPipelinePolicy(make(200, .alpha_blend, .transparent_additive, 1, state_alpha_test | state_alpha_blend), .additive, false, .linear),
-    make(300, .stencil, .untextured, 0, state_stencil),
-    make(301, .stencil, .untextured, 0, state_stencil),
-    make(302, .stencil, .untextured, 0, state_none),
-    make(303, .special, .textured, 1, state_alpha_test | state_alpha_blend | state_texture_transform),
-    make(304, .special, .textured, 1, state_texture_transform),
-    make(310, .special, .untextured, 0, state_none),
-    make(311, .special, .untextured, 0, state_none),
-    make(312, .special, .untextured, 0, state_none),
-    make(313, .special, .untextured, 0, state_none),
-    make(314, .special, .untextured, 0, state_none),
-    make(315, .special, .untextured, 0, state_none),
-    make(316, .special, .untextured, 0, state_none),
-    make(317, .special, .untextured, 0, state_none),
-    make(318, .special, .untextured, 0, state_none),
-    make(319, .special, .untextured, 0, state_none),
-    make(320, .special, .untextured, 0, state_none),
-    make(321, .special, .untextured, 0, state_none),
-    make(322, .special, .untextured, 0, state_none),
-    make(323, .special, .untextured, 0, state_none),
-    make(324, .special, .untextured, 0, state_none),
-    make(325, .special, .untextured, 0, state_none),
-    make(326, .special, .untextured, 0, state_none),
-    make(327, .special, .untextured, 0, state_none),
-    make(328, .special, .untextured, 0, state_none),
-    make(329, .special, .untextured, 0, state_none),
+    make(300, .stencil, .stencil_write, 0, state_stencil),
+    make(301, .stencil, .stencil_test, 0, state_stencil),
+    make(302, .stencil, .stencil_test, 0, state_none),
+    make(303, .special, .special_transform, 1, state_alpha_test | state_alpha_blend | state_texture_transform),
+    make(304, .special, .special_transform, 1, state_texture_transform),
+    make(310, .special, .special_depth, 0, state_none),
+    make(311, .special, .special_depth, 0, state_none),
+    make(312, .special, .special_depth, 0, state_none),
+    make(313, .special, .special_depth, 0, state_none),
+    make(314, .special, .special_depth, 0, state_none),
+    make(315, .special, .special_depth, 0, state_none),
+    make(316, .special, .special_depth, 0, state_none),
+    make(317, .special, .special_depth, 0, state_none),
+    make(318, .special, .special_depth, 0, state_none),
+    make(319, .special, .special_depth, 0, state_none),
+    make(320, .special, .special_depth, 0, state_none),
+    make(321, .special, .special_depth, 0, state_none),
+    make(322, .special, .special_depth, 0, state_none),
+    make(323, .special, .special_depth, 0, state_none),
+    make(324, .special, .special_depth, 0, state_none),
+    make(325, .special, .special_depth, 0, state_none),
+    make(326, .special, .special_depth, 0, state_none),
+    make(327, .special, .special_depth, 0, state_none),
+    make(328, .special, .special_depth, 0, state_none),
+    make(329, .special, .special_depth, 0, state_none),
 };
 
 pub fn find(id: u32) ?EffectSpec {
@@ -172,10 +172,18 @@ pub fn pointAttenuation(distance: f32, range: f32, a0: f32, a1: f32, a2: f32) f3
     return 1.0 / @max(a0 + distance * a1 + distance * distance * a2, 0.000001);
 }
 
+pub fn animateWaterUv(uv: [2]f32, velocity: [2]f32, time: f32) [2]f32 {
+    return .{ uv[0] + velocity[0] * time, uv[1] + velocity[1] * time };
+}
+
+pub fn stencilEqual(value: u8, reference: u8) bool {
+    return value == reference;
+}
+
 test "effect catalog is complete and unique" {
     for (specs, 0..) |spec, index| {
         switch (spec.shader_effect) {
-            .textured, .untextured, .ui, .unlit, .unlit_textured, .alpha_test, .transparent_multiply, .transparent_alpha, .transparent_additive, .particle_additive, .particle_modulate, .lightmap_modulate, .lightmap_complement, .lighting => {},
+            .textured, .untextured, .ui, .unlit, .unlit_textured, .alpha_test, .transparent_multiply, .transparent_alpha, .transparent_additive, .particle_additive, .particle_modulate, .lightmap_modulate, .lightmap_complement, .lighting, .stencil_write, .stencil_test, .shadow_sprite, .shadow_mesh, .water, .water_single, .water_alpha, .special_video, .special_transform, .special_depth => {},
         }
         try std.testing.expect(spec.uniform_groups != 0);
         try std.testing.expect(find(spec.id) != null);
@@ -228,4 +236,16 @@ test "lightmap and fixed-light fixtures" {
     try std.testing.expectApproxEqAbs(0.0, inverted[2], 0.000001);
     try std.testing.expectApproxEqAbs(0.5, pointAttenuation(1.0, 10.0, 1.0, 1.0, 0.0), 0.000001);
     try std.testing.expectApproxEqAbs(0.0, pointAttenuation(11.0, 10.0, 1.0, 1.0, 0.0), 0.000001);
+}
+
+test "stencil and water special-effect fixtures" {
+    try std.testing.expect(stencilEqual(3, 3));
+    try std.testing.expect(!stencilEqual(2, 3));
+    const uv = animateWaterUv(.{ 0.25, 0.5 }, .{ 0.1, -0.2 }, 2.5);
+    try std.testing.expectApproxEqAbs(0.5, uv[0], 0.000001);
+    try std.testing.expectApproxEqAbs(0.0, uv[1], 0.000001);
+    for (specs) |spec| {
+        if (spec.family == .stencil or spec.family == .shadow or spec.family == .water or spec.family == .special)
+            try std.testing.expect(spec.shader_effect != .textured and spec.shader_effect != .untextured);
+    }
 }

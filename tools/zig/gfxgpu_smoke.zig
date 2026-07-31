@@ -170,7 +170,7 @@ pub fn main(init: std.process.Init) !void {
 
     var loader = gpu.shaders.Loader.init(init.gpa, @ptrCast(device), gpu.shaders.real_api);
     defer loader.deinit();
-    for ([_][]const u8{ "untextured", "textured", "ui", "unlit", "unlit_textured", "alpha_test", "transparent", "particle_additive", "particle_modulate", "transparent_multiply", "transparent_alpha", "transparent_additive", "lightmap_modulate", "lightmap_complement", "lighting" }) |effect| {
+    for ([_][]const u8{ "untextured", "textured", "ui", "unlit", "unlit_textured", "alpha_test", "transparent", "particle_additive", "particle_modulate", "transparent_multiply", "transparent_alpha", "transparent_additive", "lightmap_modulate", "lightmap_complement", "lighting", "stencil_write", "stencil_test", "shadow_sprite", "shadow_mesh", "water", "water_single", "water_alpha", "special_video", "special_transform", "special_depth" }) |effect| {
         const vertex = try recordFor(&shader_manifest, effect, .vertex);
         const fragment = try recordFor(&shader_manifest, effect, .fragment);
         const vertex_path = try std.fmt.allocPrint(init.gpa, "../shaders/{s}", .{vertex.blob_path});
@@ -183,6 +183,6 @@ pub fn main(init: std.process.Init) !void {
         defer init.gpa.free(fragment_bytes);
         try loader.loadPair(&shader_manifest, effect, vertex_bytes, fragment_bytes, sdl3.c.SDL_GPU_SHADERFORMAT_DXIL);
     }
-    if (loader.count() != 15) return error.IncompleteShaderSmoke;
+    if (loader.count() != 25) return error.IncompleteShaderSmoke;
     std.debug.print("GfxGpu Zig smoke: created and released {} UI/unlit/alpha shader pairs\n", .{loader.count()});
 }
