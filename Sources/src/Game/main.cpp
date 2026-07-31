@@ -7,6 +7,7 @@
 #include "SysKeys.h"
 
 #include "..\GFX\GFX.h"
+#include "..\Image\Image.h"
 #include "..\SFX\SFX.h"
 #include "..\Input\Input.h"
 #include "..\Input\InputTypes.h"
@@ -63,6 +64,8 @@ struct SCmdParams
 	int nGameSpyHostPort;
 	bool bGameSpyPasswordRequired;
 	bool bStartupSmoke;
+	bool bReferenceScene;
+	std::string szReferenceScenePath;
 	std::string szGameSpyPassword;
 
 	ITextureManager::ETextureQuality eTextureQuality;
@@ -71,7 +74,7 @@ struct SCmdParams
 	std::string szSaveFile;								// save file name - for direct save launch
 	std::string szModName;								// mod file name - to lauch game with particular mod added
 
-	SCmdParams() : nGameSpyHostPort( 0 ), bGameSpyPasswordRequired( false ), bStartupSmoke( false ) { }
+	SCmdParams() : nGameSpyHostPort( 0 ), bGameSpyPasswordRequired( false ), bStartupSmoke( false ), bReferenceScene( false ) { }
 };
 void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams );
 void ReadAndSetSunlight( CTableAccessor &table, const std::string &szSeason );
@@ -160,6 +163,12 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 	SCmdParams cmdp;
 	ProcessCommandLine( lpCmdLine, &cmdp );
 	GetSingleton<IRandomGen>()->Init();
+	if ( cmdp.bReferenceScene )
+	{
+		CPtr<IRandomGenSeed> referenceSeed = GetSingleton<IRandomGen>()->GetSeed();
+		referenceSeed->InitByZeroSeed();
+		GetSingleton<IRandomGen>()->SetSeed( referenceSeed );
+	}
 	timeMeter.Sample( "random & cmd line" );
 	BK_STARTUP_MARKER("before InitApplication");
 	if ( !NWinFrame::InitApplication( hInstance, " Blitzkrieg Game", "A7_ENGINE", cmdp.nScreenSizeX, cmdp.nScreenSizeY ) )
@@ -443,6 +452,44 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 			}
 			if ( !pMainLoop->StepApp( bActive ) )
 				break;
+			if ( cmdp.bReferenceScene && GetGlobalVar( "X64.StartupSmoke.MainMenu", 0 ) != 0 )
+			{
+				IGFX *pGFX = GetSingleton<IGFX>();
+				const CTRect<long> rcScreen = pGFX->GetScreenRect();
+				CPtr<IImage> referenceImage = GetImageProcessor()->CreateImage( rcScreen.Width(), rcScreen.Height() );
+				bool captured = pGFX->TakeScreenShot( referenceImage );
+				if ( captured && !cmdp.szReferenceScenePath.empty() )
+				{
+					FILE *referenceFile = fopen( cmdp.szReferenceScenePath.c_str(), "wb" );
+					if ( referenceFile != 0 )
+					{
+						const SColor *pixels = referenceImage->GetLFB();
+						for ( int y = 0; y < referenceImage->GetSizeY() && captured; ++y )
+						{
+							for ( int x = 0; x < referenceImage->GetSizeX(); ++x )
+							{
+								const SColor &pixel = pixels[y * referenceImage->GetSizeX() + x];
+								const BYTE rgba[4] = { pixel.r, pixel.g, pixel.b, pixel.a };
+								if ( fwrite( rgba, sizeof( rgba ), 1, referenceFile ) != 1 )
+								{
+									captured = false;
+									break;
+								}
+							}
+						}
+						fclose( referenceFile );
+					}
+					else
+						captured = false;
+				}
+				if ( captured )
+				{
+					::OutputDebugStringA( "BK_REFERENCE_SCENE: capture complete\n" );
+					break;
+				}
+				::OutputDebugStringA( "BK_REFERENCE_SCENE: capture failed\n" );
+				return 0xDEAD;
+			}
 			if ( cmdp.bStartupSmoke && GetGlobalVar( "X64.StartupSmoke.MainMenu", 0 ) != 0 )
 			{
 				::OutputDebugStringA( "BK_STARTUP: C6 main menu smoke checkpoint passed\n" );
@@ -549,6 +596,20 @@ void ProcessCommandLine( LPSTR lpCmdLine, SCmdParams *pCmdParams )
 		else if ( szParams[i] == "-x64-startup-smoke" )
 		{
 			pCmdParams->bStartupSmoke = true;
+			SetGlobalVar( "X64.StartupSmoke", 1 );
+			SetGlobalVar( "novideo", 1 );
+		}
+		else if ( szParams[i].compare( 0, 16, "-reference-scene" ) == 0 )
+		{
+			pCmdParams->bReferenceScene = true;
+			pCmdParams->bStartupSmoke = true;
+			pCmdParams->szReferenceScenePath = realStr.substr( 16 );
+			NStr::TrimBoth( pCmdParams->szReferenceScenePath, "\"" );
+			if ( pCmdParams->szReferenceScenePath.empty() && i + 1 < szParams.size() )
+			{
+				pCmdParams->szReferenceScenePath = szParams[++i];
+				NStr::TrimBoth( pCmdParams->szReferenceScenePath, "\"" );
+			}
 			SetGlobalVar( "X64.StartupSmoke", 1 );
 			SetGlobalVar( "novideo", 1 );
 		}

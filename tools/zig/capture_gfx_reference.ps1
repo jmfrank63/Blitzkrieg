@@ -3,8 +3,8 @@ param(
     [Parameter(Mandatory = $true)]
     [ValidateSet("legacy", "sdl_gpu")]
     [string]$Renderer,
-    [Parameter(Mandatory = $true)]
-    [string]$CaptureCommand,
+    [string]$CaptureCommand = "",
+    [string]$GamePath = "",
     [string]$OutputRoot = "",
     [int]$Width = 1280,
     [int]$Height = 720,
@@ -31,6 +31,12 @@ New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 $commit = (& git -C $repoRoot rev-parse HEAD).Trim()
 $resolvedData = [IO.Path]::GetFullPath((Join-Path $repoRoot $DataDirectory))
 if (-not (Test-Path $resolvedData)) { throw "Data directory does not exist: $resolvedData" }
+if ([string]::IsNullOrWhiteSpace($CaptureCommand)) {
+    if ([string]::IsNullOrWhiteSpace($GamePath)) { throw "Provide -CaptureCommand or -GamePath for the deterministic game capture." }
+    $resolvedGame = [IO.Path]::GetFullPath((Join-Path $repoRoot $GamePath))
+    if (-not (Test-Path $resolvedGame)) { throw "Game executable does not exist: $resolvedGame" }
+    $CaptureCommand = "& `"$resolvedGame`" -reference-scene`"{output}`" -windowed"
+}
 
 $hashes = [Collections.Generic.List[string]]::new()
 for ($run = 1; $run -le $Runs; $run++) {
