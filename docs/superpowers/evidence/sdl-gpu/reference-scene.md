@@ -16,7 +16,7 @@ The game producer is the opt-in `-reference-scene <path>` mode. It reuses the ex
 
 ## Current evidence
 
-No six capture hashes or cross-renderer metrics are recorded yet. The new deterministic producer compiles for both renderers, and ordinary `-x64-startup-smoke -windowed` exits successfully in this session. However, launching `-reference-scene` from this non-interactive session exits with code 3 before producing a file; the existing video trace is written but no readback output is created. This runtime readback failure must be reproduced under an interactive Windows desktop/debugger session before M02 can be marked complete.
+No six capture hashes or cross-renderer metrics are recorded yet. The new deterministic producer compiles for both renderers. The first legacy runtime attempt exposed a 64-bit access violation in the existing screenshot copy (`DWORD(lrRect.pBits)` truncated the surface pointer); that is now fixed to use a byte pointer. A subsequent launch reached the game process but did not complete capture in this session, so the three-run evidence still requires an interactive Windows desktop/debugger run.
 
 Temporary artifacts are intentionally written below the system temporary directory and must not be committed.
 

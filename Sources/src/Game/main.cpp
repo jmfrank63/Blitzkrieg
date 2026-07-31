@@ -162,13 +162,9 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 	timeMeter.Reset();
 	SCmdParams cmdp;
 	ProcessCommandLine( lpCmdLine, &cmdp );
-	GetSingleton<IRandomGen>()->Init();
 	if ( cmdp.bReferenceScene )
-	{
-		CPtr<IRandomGenSeed> referenceSeed = GetSingleton<IRandomGen>()->GetSeed();
-		referenceSeed->InitByZeroSeed();
-		GetSingleton<IRandomGen>()->SetSeed( referenceSeed );
-	}
+		SetGlobalVar( "fixrandom", 1 );
+	GetSingleton<IRandomGen>()->Init();
 	timeMeter.Sample( "random & cmd line" );
 	BK_STARTUP_MARKER("before InitApplication");
 	if ( !NWinFrame::InitApplication( hInstance, " Blitzkrieg Game", "A7_ENGINE", cmdp.nScreenSizeX, cmdp.nScreenSizeY ) )

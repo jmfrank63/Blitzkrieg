@@ -6,7 +6,7 @@
 
 **Dependencies:** P08-M01.
 
-**Allowed files:** `tools/zig/capture_gfx_reference.ps1`, `tools/zig/compare_gfx_reference.zig`, `build.zig`, `Sources/src/Game/main.cpp`, `docs/superpowers/evidence/sdl-gpu/reference-scene.md`.
+**Allowed files:** `tools/zig/capture_gfx_reference.ps1`, `tools/zig/compare_gfx_reference.zig`, `build.zig`, `Sources/src/Game/main.cpp`, `Sources/src/GFX/GraphicsEngine.cpp`, `docs/superpowers/evidence/sdl-gpu/reference-scene.md`.
 
 - [ ] Capture the same fixed-size scene through `renderer=legacy` and `renderer=sdl_gpu` using fixed time, camera, random seed, and data directory.
 - [x] The opt-in `-reference-scene<path>` game mode implements capture at the existing startup-smoke main-menu checkpoint, forces the zero random seed, and emits tightly packed RGBA8 before exiting.

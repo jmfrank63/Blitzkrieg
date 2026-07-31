@@ -1889,7 +1889,7 @@ bool CGraphicsEngine::TakeScreenShot( IImage *pImage )
 
 	for ( int i = 0; i < nHeight; ++i )
 	{
-		memcpy( pDst, (void*)(DWORD(lrRect.pBits) + i*lrRect.Pitch), nWidth*sizeof(SColor) );
+		memcpy( pDst, static_cast<const BYTE*>( lrRect.pBits ) + i*lrRect.Pitch, nWidth*sizeof(SColor) );
 		pDst += nWidth;
 	}
 	pD3DSurface->UnlockRect();
