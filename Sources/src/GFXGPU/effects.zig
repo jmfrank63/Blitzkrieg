@@ -14,7 +14,7 @@ pub const Family = enum {
     special,
 };
 
-pub const ShaderEffect = enum { textured, untextured };
+pub const ShaderEffect = enum { textured, untextured, ui, unlit, unlit_textured, alpha_test };
 
 pub const EffectSpec = struct {
     id: u32,
@@ -48,19 +48,19 @@ fn make(id: u32, family: Family, shader_effect: ShaderEffect, samplers: u8, stat
 }
 
 pub const specs = [_]EffectSpec{
-    make(1, .alpha_test, .textured, 1, state_alpha_test | state_alpha_blend),
-    make(2, .lit, .textured, 1, state_none),
-    make(3, .ui, .textured, 1, state_alpha_test | state_alpha_blend),
+    make(1, .alpha_test, .alpha_test, 1, state_alpha_test | state_alpha_blend),
+    make(2, .unlit, .unlit_textured, 1, state_none),
+    make(3, .ui, .ui, 1, state_alpha_test | state_alpha_blend),
     make(4, .lightmap, .textured, 2, state_alpha_blend),
     make(5, .lightmap, .textured, 2, state_alpha_blend),
     make(6, .stencil, .untextured, 0, state_stencil),
     make(7, .stencil, .untextured, 0, state_none),
-    make(8, .alpha_test, .textured, 1, state_alpha_test | state_alpha_blend),
+    make(8, .alpha_test, .alpha_test, 1, state_alpha_test | state_alpha_blend),
     make(9, .alpha_blend, .textured, 1, state_alpha_blend),
     make(10, .particle, .textured, 1, state_alpha_test | state_alpha_blend | state_depth_write),
     make(11, .particle, .untextured, 0, state_depth_write),
     make(12, .particle, .textured, 1, state_alpha_test | state_alpha_blend | state_depth_write),
-    make(13, .alpha_test, .untextured, 0, state_alpha_test | state_alpha_blend),
+    make(13, .alpha_test, .alpha_test, 1, state_alpha_test | state_alpha_blend),
     make(14, .alpha_blend, .textured, 1, state_alpha_blend | state_depth_write),
     make(15, .alpha_blend, .untextured, 0, state_alpha_blend | state_depth_write),
     make(16, .particle, .textured, 1, state_alpha_blend),
@@ -113,13 +113,42 @@ pub fn find(id: u32) ?EffectSpec {
     return null;
 }
 
+pub fn uiHalfPixel(clip_position: [4]f32, viewport_size: [2]f32) [4]f32 {
+    return .{ clip_position[0] - clip_position[3] / viewport_size[0], clip_position[1] + clip_position[3] / viewport_size[1], clip_position[2], clip_position[3] };
+}
+
+pub fn modulateColor(texture: [4]f32, vertex: [4]f32, draw: [4]f32) [4]f32 {
+    return .{ texture[0] * vertex[0] * draw[0], texture[1] * vertex[1] * draw[1], texture[2] * vertex[2] * draw[2], texture[3] * vertex[3] * draw[3] };
+}
+
+pub fn alphaPassGreaterEqual(alpha: f32, reference: u8) bool {
+    return alpha >= @as(f32, @floatFromInt(reference)) / 255.0;
+}
+
 test "effect catalog is complete and unique" {
     for (specs, 0..) |spec, index| {
-        try std.testing.expect(spec.shader_effect == .textured or spec.shader_effect == .untextured);
+        switch (spec.shader_effect) {
+            .textured, .untextured, .ui, .unlit, .unlit_textured, .alpha_test => {},
+        }
         try std.testing.expect(spec.uniform_groups != 0);
         try std.testing.expect(find(spec.id) != null);
         for (specs[index + 1 ..]) |later| try std.testing.expect(spec.id != later.id);
     }
     for ([_]u32{ 310, 311, 312, 313, 314, 315, 316, 317, 318, 319, 320, 321, 322, 323, 324, 325, 326, 327, 328, 329 }) |id|
         try std.testing.expect(find(id) != null);
+}
+
+test "UI and alpha reference fixtures" {
+    const corrected = uiHalfPixel(.{ 0.0, 0.0, 0.5, 1.0 }, .{ 800.0, 600.0 });
+    try std.testing.expectApproxEqAbs(-1.0 / 800.0, corrected[0], 0.000001);
+    try std.testing.expectApproxEqAbs(1.0 / 600.0, corrected[1], 0.000001);
+
+    const color = modulateColor(.{ 0.5, 0.25, 1.0, 0.5 }, .{ 0.2, 0.4, 0.6, 0.8 }, .{ 0.5, 1.0, 0.25, 1.0 });
+    try std.testing.expectApproxEqAbs(0.05, color[0], 0.000001);
+    try std.testing.expectApproxEqAbs(0.1, color[1], 0.000001);
+    try std.testing.expectApproxEqAbs(0.15, color[2], 0.000001);
+    try std.testing.expectApproxEqAbs(0.4, color[3], 0.000001);
+    try std.testing.expect(alphaPassGreaterEqual(1.0 / 255.0, 1));
+    try std.testing.expect(!alphaPassGreaterEqual(0.0, 1));
+    try std.testing.expect(alphaPassGreaterEqual(200.0 / 255.0, 200));
 }

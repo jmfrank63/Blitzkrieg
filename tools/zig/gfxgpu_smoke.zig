@@ -170,7 +170,7 @@ pub fn main(init: std.process.Init) !void {
 
     var loader = gpu.shaders.Loader.init(init.gpa, @ptrCast(device), gpu.shaders.real_api);
     defer loader.deinit();
-    for ([_][]const u8{ "untextured", "textured" }) |effect| {
+    for ([_][]const u8{ "untextured", "textured", "ui", "unlit", "unlit_textured", "alpha_test" }) |effect| {
         const vertex = try recordFor(&shader_manifest, effect, .vertex);
         const fragment = try recordFor(&shader_manifest, effect, .fragment);
         const vertex_path = try std.fmt.allocPrint(init.gpa, "../shaders/{s}", .{vertex.blob_path});
@@ -183,6 +183,6 @@ pub fn main(init: std.process.Init) !void {
         defer init.gpa.free(fragment_bytes);
         try loader.loadPair(&shader_manifest, effect, vertex_bytes, fragment_bytes, sdl3.c.SDL_GPU_SHADERFORMAT_DXIL);
     }
-    if (loader.count() != 2) return error.IncompleteShaderSmoke;
-    std.debug.print("GfxGpu Zig smoke: created and released {} baseline shader pairs\n", .{loader.count()});
+    if (loader.count() != 6) return error.IncompleteShaderSmoke;
+    std.debug.print("GfxGpu Zig smoke: created and released {} UI/unlit/alpha shader pairs\n", .{loader.count()});
 }
