@@ -69,13 +69,43 @@ pub fn createColorTexture(device: *GpuDevice, format: c.SDL_GPUTextureFormat, wi
     return c.SDL_CreateGPUTexture(device, &info);
 }
 
+pub fn createDepthTexture(device: *GpuDevice, width: u32, height: u32) ?*GpuTexture {
+    const info = c.SDL_GPUTextureCreateInfo{ .type = c.SDL_GPU_TEXTURETYPE_2D, .format = c.SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT, .usage = c.SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET, .width = width, .height = height, .layer_count_or_depth = 1, .num_levels = 1, .sample_count = c.SDL_GPU_SAMPLECOUNT_1, .props = 0 };
+    return c.SDL_CreateGPUTexture(device, &info);
+}
+
 pub fn releaseTexture(device: *GpuDevice, texture: *GpuTexture) void {
     c.SDL_ReleaseGPUTexture(device, texture);
+}
+
+pub fn uploadTexture(command_buffer: *GpuCommandBuffer, transfer: *GpuTransferBuffer, texture: *GpuTexture, width: u32, height: u32, row_pitch: u32) bool {
+    const copy_pass = c.SDL_BeginGPUCopyPass(command_buffer) orelse return false;
+    const source = c.SDL_GPUTextureTransferInfo{ .transfer_buffer = transfer, .offset = 0, .pixels_per_row = row_pitch / 4, .rows_per_layer = height };
+    const destination = c.SDL_GPUTextureRegion{ .texture = texture, .w = width, .h = height, .d = 1 };
+    c.SDL_UploadToGPUTexture(copy_pass, &source, &destination, false);
+    c.SDL_EndGPUCopyPass(copy_pass);
+    return true;
+}
+
+pub fn createSampler(device: *GpuDevice) ?*c.SDL_GPUSampler {
+    const info = c.SDL_GPUSamplerCreateInfo{ .min_filter = c.SDL_GPU_FILTER_NEAREST, .mag_filter = c.SDL_GPU_FILTER_NEAREST, .mipmap_mode = c.SDL_GPU_SAMPLERMIPMAPMODE_NEAREST, .address_mode_u = c.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE, .address_mode_v = c.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE, .address_mode_w = c.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE, .mip_lod_bias = 0, .max_anisotropy = 1, .compare_op = c.SDL_GPU_COMPAREOP_ALWAYS, .min_lod = 0, .max_lod = 0, .enable_anisotropy = false, .enable_compare = false, .padding1 = 0, .padding2 = 0, .props = 0 };
+    return c.SDL_CreateGPUSampler(device, &info);
+}
+
+pub fn bindFragmentSampler(render_pass: *GpuRenderPass, texture: *GpuTexture, sampler: *c.SDL_GPUSampler) void {
+    const binding = c.SDL_GPUTextureSamplerBinding{ .texture = texture, .sampler = sampler };
+    c.SDL_BindGPUFragmentSamplers(render_pass, 0, &binding, 1);
 }
 
 pub fn beginColorPass(command_buffer: *GpuCommandBuffer, texture: *GpuTexture, color: [4]f32, load: c.SDL_GPULoadOp) ?*GpuRenderPass {
     var target = c.SDL_GPUColorTargetInfo{ .texture = texture, .clear_color = .{ .r = color[0], .g = color[1], .b = color[2], .a = color[3] }, .load_op = load, .store_op = c.SDL_GPU_STOREOP_STORE };
     return c.SDL_BeginGPURenderPass(command_buffer, &target, 1, null);
+}
+
+pub fn beginColorDepthPass(command_buffer: *GpuCommandBuffer, color_texture: *GpuTexture, depth_texture: *GpuTexture, color: [4]f32, load: c.SDL_GPULoadOp) ?*GpuRenderPass {
+    const color_target = c.SDL_GPUColorTargetInfo{ .texture = color_texture, .clear_color = .{ .r = color[0], .g = color[1], .b = color[2], .a = color[3] }, .load_op = load, .store_op = c.SDL_GPU_STOREOP_STORE };
+    const depth_target = c.SDL_GPUDepthStencilTargetInfo{ .texture = depth_texture, .clear_depth = 1, .load_op = c.SDL_GPU_LOADOP_CLEAR, .store_op = c.SDL_GPU_STOREOP_STORE, .stencil_load_op = c.SDL_GPU_LOADOP_CLEAR, .stencil_store_op = c.SDL_GPU_STOREOP_STORE, .cycle = false, .clear_stencil = 0, .mip_level = 0, .layer = 0 };
+    return c.SDL_BeginGPURenderPass(command_buffer, &color_target, 1, &depth_target);
 }
 
 pub fn blitTexture(command_buffer: *GpuCommandBuffer, source: *GpuTexture, destination: *GpuTexture, width: u32, height: u32) void {

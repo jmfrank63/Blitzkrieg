@@ -115,7 +115,7 @@ fn getLiveCounts(handle: ?*RendererHandle, counts: ?*LiveCounts) callconv(.c) Re
     if (handle == null or counts == null) return errors.invalid_argument;
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (counts.?.struct_size < @sizeOf(LiveCounts)) return errors.invalid_argument;
-    counts.?.textures = 0;
+    counts.?.textures = @intCast(renderer.textures.count());
     counts.?.buffers = @intCast(renderer.buffers.count());
     counts.?.samplers = 0;
     counts.?.render_targets = 0;
@@ -196,20 +196,26 @@ fn setState(handle: ?*RendererHandle, info: ?*const StateInfo) callconv(.c) Resu
 fn createTexture(handle: ?*RendererHandle, info: ?*const TextureCreateInfo, out_handle: ?*u64) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (info == null or out_handle == null or info.?.struct_size < @sizeOf(TextureCreateInfo) or info.?.width == 0 or info.?.height == 0 or info.?.mip_count == 0) return errors.invalid_argument;
-    const id = renderer.next_resource_handle;
-    renderer.next_resource_handle += 1;
-    renderer.resources.put(renderer.allocator, id, {}) catch return errors.out_of_memory;
+    const id = renderer.createTexture(info.?.width, info.?.height, info.?.format) catch |err| return switch (err) {
+        error.NoDevice, error.UnsupportedTextureFormat, error.TextureCreateFailed => errors.sdl_error,
+        error.OutOfMemory => errors.out_of_memory,
+    };
     out_handle.?.* = id;
     return errors.ok;
 }
 fn uploadTexture(handle: ?*RendererHandle, texture: u64, info: ?*const TextureUploadInfo) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
-    if (info == null or info.?.struct_size < @sizeOf(TextureUploadInfo) or info.?.data == null or info.?.byte_length == 0 or !renderer.resources.contains(texture)) return errors.invalid_argument;
+    if (info == null or info.?.struct_size < @sizeOf(TextureUploadInfo) or info.?.data == null or info.?.byte_length == 0) return errors.invalid_argument;
+    renderer.uploadTexture(texture, info.?.data.?, info.?.byte_length, info.?.row_pitch) catch |err| return switch (err) {
+        error.InvalidTexture, error.TextureUploadOutOfBounds => errors.invalid_argument,
+        error.NoDevice, error.TransferBufferCreateFailed, error.TransferBufferMapFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed, error.WaitForIdleFailed => errors.sdl_error,
+    };
     return errors.ok;
 }
 fn destroyTexture(handle: ?*RendererHandle, texture: u64) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
-    if (texture == 0 or !renderer.resources.remove(texture)) return errors.invalid_handle;
+    if (texture == 0) return errors.invalid_handle;
+    renderer.destroyTexture(texture) catch return errors.invalid_handle;
     return errors.ok;
 }
 fn createRenderTarget(handle: ?*RendererHandle, info: ?*const RenderTargetCreateInfo, out_handle: ?*u64) callconv(.c) Result {
@@ -258,8 +264,12 @@ fn destroyBuffer(handle: ?*RendererHandle, buffer: u64) callconv(.c) Result {
 }
 fn setTexture(handle: ?*RendererHandle, texture: u64) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
-    if (texture == 0) return errors.invalid_argument;
     if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
+    if (texture == 0) {
+        renderer.bound_texture = null;
+        return errors.ok;
+    }
+    renderer.bindTexture(texture) catch return errors.invalid_handle;
     return errors.ok;
 }
 fn setSampler(handle: ?*RendererHandle, sampler: u64) callconv(.c) Result {
@@ -298,7 +308,7 @@ fn drawTemporary(handle: ?*RendererHandle, info: ?*const TemporaryGeometryInfo, 
     if (renderer.frame.state != .pass_active) return errors.invalid_state;
     renderer.drawTemporary(info.?.data.?, info.?.byte_length, info.?.stride, primitive_count) catch |err| return switch (err) {
         error.InvalidDraw, error.InvalidBuffer, error.InvalidState => errors.invalid_argument,
-        error.NoDevice, error.BufferCreateFailed, error.BufferTooLarge, error.BufferUploadOutOfBounds, error.TransferBufferCreateFailed, error.TransferBufferMapFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed, error.WaitForIdleFailed, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed => errors.sdl_error,
+        error.NoDevice, error.BufferCreateFailed, error.BufferTooLarge, error.BufferUploadOutOfBounds, error.TransferBufferCreateFailed, error.TransferBufferMapFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed, error.WaitForIdleFailed, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed, error.InvalidTexture, error.SamplerCreateFailed, error.SamplerMissing => errors.sdl_error,
         error.OutOfMemory => errors.out_of_memory,
     };
     return errors.ok;
