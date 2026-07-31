@@ -28,6 +28,7 @@ pub const textures = @import("textures.zig");
 pub const samplers = @import("samplers.zig");
 pub const targets = @import("targets.zig");
 pub const readback = @import("readback.zig");
+pub const effects = @import("effects.zig");
 
 pub export fn gfxgpu_get_api(requested_version: u32, out_api: ?*abi.Api) callconv(.c) abi.Result {
     return abi.gfxgpu_get_api(requested_version, out_api);
