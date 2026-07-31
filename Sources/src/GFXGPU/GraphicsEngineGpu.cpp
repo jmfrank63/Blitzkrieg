@@ -315,17 +315,17 @@ bool STDCALL GraphicsEngineGpu::BeginSolidIndexBlock( int, DWORD, EGFXDynamic ) 
 bool STDCALL GraphicsEngineGpu::EndSolidIndexBlock() { return false; }
 void * STDCALL GraphicsEngineGpu::GetTempVertices( int elements, DWORD, EGFXPrimitiveType type )
 {
-    if ( !temporary_bytes_.empty() ) return nullptr;
-    temporary_stride_ = 32; temporary_count_ = elements; temporary_type_ = type; temporary_indices_ = false;
-    try { temporary_bytes_.assign( static_cast<size_t>( elements ) * temporary_stride_, 0 ); } catch ( ... ) { return nullptr; }
-    return temporary_bytes_.data();
+    if ( !temporary_vertex_bytes_.empty() ) return nullptr;
+    temporary_vertex_stride_ = 32; temporary_vertex_count_ = elements; temporary_type_ = type;
+    try { temporary_vertex_bytes_.assign( static_cast<size_t>( elements ) * temporary_vertex_stride_, 0 ); } catch ( ... ) { return nullptr; }
+    return temporary_vertex_bytes_.data();
 }
 void * STDCALL GraphicsEngineGpu::GetTempIndices( int elements, DWORD format, EGFXPrimitiveType type )
 {
-    if ( !temporary_bytes_.empty() ) return nullptr;
-    temporary_stride_ = format == GFXIF_INDEX32 ? 4 : 2; temporary_count_ = elements; temporary_type_ = type; temporary_indices_ = true;
-    try { temporary_bytes_.assign( static_cast<size_t>( elements ) * temporary_stride_, 0 ); } catch ( ... ) { return nullptr; }
-    return temporary_bytes_.data();
+    if ( !temporary_index_bytes_.empty() ) return nullptr;
+    temporary_index_stride_ = format == GFXIF_INDEX32 ? 4 : 2; temporary_index_count_ = elements; temporary_type_ = type;
+    try { temporary_index_bytes_.assign( static_cast<size_t>( elements ) * temporary_index_stride_, 0 ); } catch ( ... ) { return nullptr; }
+    return temporary_index_bytes_.data();
 }
 IGFXTexture * STDCALL GraphicsEngineGpu::CreateTexture( int width, int height, int mips, EGFXPixelFormat format, EGFXDynamic usage, IGFXTexture * )
 {
@@ -366,18 +366,26 @@ bool STDCALL GraphicsEngineGpu::Draw( IGFXVertices *vertices, IGFXIndices *indic
 }
 bool STDCALL GraphicsEngineGpu::DrawTemp()
 {
-    if ( temporary_bytes_.empty() ) return false;
-    GfxGpuHandle handle = 0;
-    const bool created = CreateBufferHandle( static_cast<uint32_t>( temporary_count_ ), 0, static_cast<uint32_t>( temporary_stride_ ), GFXD_DYNAMIC, &handle ) && UploadBuffer( handle, temporary_bytes_.data(), temporary_bytes_.size() );
+    if ( temporary_vertex_bytes_.empty() ) return false;
+    GfxGpuHandle vertex_handle = 0;
+    GfxGpuHandle index_handle = 0;
+    const bool vertex_created = CreateBufferHandle( static_cast<uint32_t>( temporary_vertex_count_ ), 0, static_cast<uint32_t>( temporary_vertex_stride_ ), GFXD_DYNAMIC, &vertex_handle ) &&
+        UploadBuffer( vertex_handle, temporary_vertex_bytes_.data(), temporary_vertex_bytes_.size() );
+    const bool indexed = !temporary_index_bytes_.empty();
+    const bool index_created = !indexed || ( CreateBufferHandle( static_cast<uint32_t>( temporary_index_count_ ), 0, static_cast<uint32_t>( temporary_index_stride_ ), GFXD_DYNAMIC, &index_handle ) &&
+        UploadBuffer( index_handle, temporary_index_bytes_.data(), temporary_index_bytes_.size() ) );
     bool drawn = false;
-    if ( created ) {
-        if ( temporary_indices_ ) drawn = DrawIndexedBufferHandle( handle, static_cast<uint32_t>( temporary_stride_ ), static_cast<uint32_t>( temporary_count_ ) );
-        else { uint32_t primitives = static_cast<uint32_t>( temporary_count_ ); if ( temporary_type_ == GFXPT_TRIANGLELIST ) primitives /= 3; drawn = DrawBufferHandle( handle, primitives ); }
-        if ( drawn ) { passed_vertices_ += temporary_count_; passed_primitives_ += temporary_indices_ ? temporary_count_ / 3 : ( temporary_type_ == GFXPT_TRIANGLELIST ? temporary_count_ / 3 : temporary_count_ / 2 ); }
-        DestroyBufferHandle( handle );
+    const bool vertex_bound = !indexed || ( vertex_created && api_.bind_vertex_buffer && Check( api_.bind_vertex_buffer( renderer_, vertex_handle ), "bind_temporary_vertex_buffer" ) );
+    if ( vertex_created && index_created && vertex_bound ) {
+        if ( indexed ) drawn = DrawIndexedBufferHandle( index_handle, static_cast<uint32_t>( temporary_index_stride_ ), static_cast<uint32_t>( temporary_index_count_ ) );
+        else { uint32_t primitives = static_cast<uint32_t>( temporary_vertex_count_ ); if ( temporary_type_ == GFXPT_TRIANGLELIST ) primitives /= 3; drawn = DrawBufferHandle( vertex_handle, primitives ); }
+        if ( drawn ) { passed_vertices_ += temporary_vertex_count_; passed_primitives_ += indexed ? temporary_index_count_ / 3 : ( temporary_type_ == GFXPT_TRIANGLELIST ? temporary_vertex_count_ / 3 : temporary_vertex_count_ / 2 ); }
     }
-    temporary_bytes_.clear();
-    return created && drawn;
+    if ( index_handle ) DestroyBufferHandle( index_handle );
+    if ( vertex_handle ) DestroyBufferHandle( vertex_handle );
+    temporary_vertex_bytes_.clear();
+    temporary_index_bytes_.clear();
+    return vertex_created && index_created && drawn;
 }
 bool STDCALL GraphicsEngineGpu::DrawMesh( IGFXMesh *mesh, const SHMatrix *matrices, int matrix_count )
 {

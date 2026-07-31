@@ -99,7 +99,12 @@ static int RunRecordingTest()
     if ( !adapter.Draw( vertices, indices ) ) return 28;
     vertices->Release(); indices->Release();
     if ( buffer_creates != 2 || buffer_uploads != 2 || buffer_releases != 2 ) return 29;
-    if ( !adapter.GetTempVertices( 3, GFXFVF_XYZ, GFXPT_TRIANGLELIST ) || !adapter.DrawTemp() ) return 30;
+    void *temporary_vertices = adapter.GetTempVertices( 3, GFXFVF_XYZ, GFXPT_TRIANGLELIST );
+    void *temporary_indices = adapter.GetTempIndices( 3, GFXIF_INDEX16, GFXPT_TRIANGLELIST );
+    if ( !temporary_vertices || !temporary_indices ) return 30;
+    std::memset( temporary_vertices, 0, 3 * 32 );
+    std::memset( temporary_indices, 0, 3 * sizeof( uint16_t ) );
+    if ( !adapter.DrawTemp() ) return 30;
     SMeshFormat mesh_data;
     mesh_data.geoms.push_back( CVec3( 0, 0, 0 ) ); mesh_data.geoms.push_back( CVec3( 1, 0, 0 ) ); mesh_data.geoms.push_back( CVec3( 0, 1, 0 ) );
     mesh_data.norms.push_back( CVec3( 0, 0, 1 ) ); mesh_data.texes.push_back( CVec2( 0, 0 ) );
