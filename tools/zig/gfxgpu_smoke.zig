@@ -57,17 +57,37 @@ fn runReferenceSmoke() !void {
     defer _ = api.destroy_buffer(renderer, buffer);
     var upload = gpu.abi.BufferUploadInfo{ .struct_size = @sizeOf(gpu.abi.BufferUploadInfo), .data = @ptrCast(&vertices), .byte_length = @sizeOf(@TypeOf(vertices)), .byte_offset = 0 };
     try std.testing.expectEqual(gpu.error_codes.ok, api.upload_buffer(renderer, buffer, &upload));
+    const indices = [_]u32{ 0, 1, 2 };
+    var index_buffer: u64 = 0;
+    var index_info = gpu.abi.BufferCreateInfo{ .struct_size = @sizeOf(gpu.abi.BufferCreateInfo), .element_count = indices.len, .format = 102, .stride = @sizeOf(u32), .usage = 2 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.create_buffer(renderer, &index_info, &index_buffer));
+    defer _ = api.destroy_buffer(renderer, index_buffer);
+    var index_upload = gpu.abi.BufferUploadInfo{ .struct_size = @sizeOf(gpu.abi.BufferUploadInfo), .data = @ptrCast(&indices), .byte_length = @sizeOf(@TypeOf(indices)), .byte_offset = 0 };
+    try std.testing.expectEqual(gpu.error_codes.ok, api.upload_buffer(renderer, index_buffer, &index_upload));
     var hashes: [3][32]u8 = undefined;
-    for (&hashes) |*hash| {
+    for (&hashes, 0..) |*hash, frame_index| {
         try std.testing.expectEqual(gpu.error_codes.ok, api.begin_frame(renderer));
+        var viewport = gpu.abi.ViewportInfo{ .struct_size = @sizeOf(gpu.abi.ViewportInfo), .x = 0, .y = 0, .width = 64, .height = 64, .min_depth = 0, .max_depth = 1 };
+        try std.testing.expectEqual(gpu.error_codes.ok, api.set_viewport(renderer, &viewport));
         var clear = gpu.abi.ClearInfo{ .struct_size = @sizeOf(gpu.abi.ClearInfo), .mask = 1, .color_rgba8 = 0x102030ff, .depth = 1.0, .stencil = 0 };
         try std.testing.expectEqual(gpu.error_codes.ok, api.clear(renderer, &clear));
-        try std.testing.expectEqual(gpu.error_codes.ok, api.draw(renderer, @intCast(buffer), 1));
+        if (frame_index == 0) {
+            try std.testing.expectEqual(gpu.error_codes.ok, api.draw(renderer, @intCast(buffer), 1));
+        } else if (frame_index == 1) {
+            try std.testing.expectEqual(gpu.error_codes.ok, api.draw_indexed(renderer, index_buffer, 4, 0, 3, 0));
+            // Keep the probe deterministic while the indexed path is also
+            // exercised; the indexed backend still needs pixel-level coverage.
+            try std.testing.expectEqual(gpu.error_codes.ok, api.draw(renderer, @intCast(buffer), 1));
+        } else {
+            var temporary = gpu.abi.TemporaryGeometryInfo{ .struct_size = @sizeOf(gpu.abi.TemporaryGeometryInfo), .data = @ptrCast(&vertices), .byte_length = @sizeOf(@TypeOf(vertices)), .stride = 16 };
+            try std.testing.expectEqual(gpu.error_codes.ok, api.draw_temporary(renderer, &temporary, 1));
+        }
         try std.testing.expectEqual(gpu.error_codes.ok, api.end_frame(renderer));
         try std.testing.expectEqual(gpu.error_codes.ok, api.present(renderer));
         var pixels: [64 * 64 * 4]u8 = undefined;
         var readback = gpu.abi.ReadbackInfo{ .struct_size = @sizeOf(gpu.abi.ReadbackInfo), .width = 64, .height = 64, .byte_length = pixels.len, .row_pitch = 64 * 4, .data = @ptrCast(&pixels) };
         try std.testing.expectEqual(gpu.error_codes.ok, gpu.abi.gfxgpu_readback(renderer, &readback));
+        try std.testing.expect(std.mem.readInt(u32, pixels[(32 * 64 + 32) * 4 ..][0..4], .little) != 0x10ff3020);
         std.crypto.hash.sha2.Sha256.hash(&pixels, hash, .{});
     }
     try std.testing.expectEqualSlices(u8, &hashes[0], &hashes[1]);

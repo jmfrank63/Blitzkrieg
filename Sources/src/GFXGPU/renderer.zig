@@ -13,6 +13,7 @@ pub const Renderer = struct {
     frame: frame_mod.Frame = .{},
     resources: std.AutoHashMapUnmanaged(u64, void) = .empty,
     buffers: std.AutoHashMapUnmanaged(u64, BufferResource) = .empty,
+    temporary_buffers: std.ArrayListUnmanaged(u64) = .empty,
     next_resource_handle: u64 = 1,
     window: ?*anyopaque = null,
     window_claimed: bool = false,
@@ -24,6 +25,9 @@ pub const Renderer = struct {
     untextured_vertex_shader: ?*anyopaque = null,
     untextured_fragment_shader: ?*anyopaque = null,
     untextured_pipeline: ?*anyopaque = null,
+    viewport: ?ViewportState = null,
+
+    pub const ViewportState = struct { x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32 };
 
     pub const LiveCounts = struct {
         textures: u32 = 0,
@@ -40,6 +44,9 @@ pub const Renderer = struct {
         size: u32,
         stride: u32,
     };
+
+    const MatrixUniforms = extern struct { matrix: [16]f32, padding: [4]f32 };
+    const DrawUniforms = extern struct { matrix: [16]f32, color: [4]f32 };
 
     pub fn init(allocator: std.mem.Allocator) Renderer {
         return .{ .allocator = allocator };
@@ -65,6 +72,7 @@ pub const Renderer = struct {
             while (iterator.next()) |buffer| sdl.releaseBuffer(@ptrCast(@alignCast(device.handle.?)), buffer.gpu);
         }
         self.buffers.deinit(self.allocator);
+        self.temporary_buffers.deinit(self.allocator);
         if (self.device) |*device| device.deinit();
         self.* = undefined;
     }
@@ -156,6 +164,15 @@ pub const Renderer = struct {
         self.frame.render_pass = render_pass;
     }
 
+    pub fn setViewport(self: *Renderer, viewport: ViewportState) !void {
+        if (self.frame.state != .recording and self.frame.state != .pass_active) return error.InvalidState;
+        if (viewport.width <= 0 or viewport.height <= 0 or viewport.min_depth < 0 or viewport.max_depth > 1 or viewport.min_depth > viewport.max_depth) return error.InvalidViewport;
+        self.viewport = viewport;
+        if (self.frame.render_pass) |pass| {
+            sdl.setViewport(@ptrCast(@alignCast(pass)), viewport.x, viewport.y, viewport.width, viewport.height, viewport.min_depth, viewport.max_depth);
+        }
+    }
+
     pub fn present(self: *Renderer) !void {
         if (self.frame.skipped) {
             self.frame.cancel();
@@ -168,6 +185,7 @@ pub const Renderer = struct {
             return error.SubmitFailed;
         }
         try self.frame.present();
+        self.releaseTemporaryBuffers();
     }
 
     pub fn cancelFrame(self: *Renderer) void {
@@ -189,10 +207,10 @@ pub const Renderer = struct {
         self.frame.cancel();
     }
 
-    pub fn createBuffer(self: *Renderer, element_count: u32, format: u32, stride: u32) !u64 {
+    pub fn createBuffer(self: *Renderer, element_count: u32, format: u32, stride: u32, usage_flags: u32) !u64 {
         const device = &(self.device orelse return error.NoDevice);
         const size = std.math.mul(u32, element_count, stride) catch return error.BufferTooLarge;
-        const usage: sdl.c.SDL_GPUBufferUsageFlags = if (format == 101 or format == 102)
+        const usage: sdl.c.SDL_GPUBufferUsageFlags = if ((usage_flags & 2) != 0 or format == 101 or format == 102)
             sdl.c.SDL_GPU_BUFFERUSAGE_INDEX
         else
             sdl.c.SDL_GPU_BUFFERUSAGE_VERTEX;
@@ -227,6 +245,21 @@ pub const Renderer = struct {
         const resource = self.buffers.fetchRemove(id) orelse return error.InvalidBuffer;
         const device = &(self.device orelse return error.NoDevice);
         sdl.releaseBuffer(@ptrCast(@alignCast(device.handle.?)), resource.value.gpu);
+    }
+
+    fn releaseTemporaryBuffers(self: *Renderer) void {
+        while (self.temporary_buffers.pop()) |id| self.destroyBuffer(id) catch {};
+    }
+
+    pub fn drawTemporary(self: *Renderer, data: *const anyopaque, byte_length: u32, stride: u32, primitive_count: u32) !void {
+        if (byte_length == 0 or stride == 0 or byte_length % stride != 0 or primitive_count == 0) return error.InvalidDraw;
+        const vertex_count = std.math.mul(u32, primitive_count, 3) catch return error.InvalidDraw;
+        if (vertex_count > byte_length / stride) return error.InvalidDraw;
+        const id = try self.createBuffer(byte_length / stride, 0, stride, 0);
+        errdefer self.destroyBuffer(id) catch {};
+        try self.uploadBuffer(id, data, byte_length, 0);
+        try self.draw(id, primitive_count);
+        try self.temporary_buffers.append(self.allocator, id);
     }
 
     fn readShader(self: *Renderer, name: []const u8) ![]u8 {
@@ -289,12 +322,22 @@ pub const Renderer = struct {
         return pipeline;
     }
 
+    fn pushUntexturedUniforms(self: *Renderer) !void {
+        const command = self.frame.command_buffer orelse return error.InvalidState;
+        const frame_uniforms = MatrixUniforms{ .matrix = .{ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 }, .padding = .{ 0, 0, 0, 0 } };
+        const draw_uniforms = DrawUniforms{ .matrix = .{ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 }, .color = .{ 1, 1, 1, 1 } };
+        sdl.pushVertexUniformData(@ptrCast(@alignCast(command)), 0, @ptrCast(&frame_uniforms), @sizeOf(MatrixUniforms));
+        sdl.pushVertexUniformData(@ptrCast(@alignCast(command)), 1, @ptrCast(&draw_uniforms), @sizeOf(DrawUniforms));
+    }
+
     pub fn draw(self: *Renderer, vertex_buffer: u64, primitive_count: u32) !void {
         if (primitive_count == 0) return error.InvalidDraw;
         const pass = self.frame.render_pass orelse return error.InvalidState;
         const buffer = self.buffers.get(vertex_buffer) orelse return error.InvalidBuffer;
         const pipeline = try self.ensureUntexturedPipeline();
+        try self.pushUntexturedUniforms();
         sdl.bindPipeline(@ptrCast(@alignCast(pass)), @ptrCast(@alignCast(pipeline)));
+        if (self.viewport) |viewport| sdl.setViewport(@ptrCast(@alignCast(pass)), viewport.x, viewport.y, viewport.width, viewport.height, viewport.min_depth, viewport.max_depth);
         sdl.bindVertexBuffer(@ptrCast(@alignCast(pass)), buffer.gpu, 0);
         const vertex_count = std.math.mul(u32, primitive_count, 3) catch return error.InvalidDraw;
         sdl.drawPrimitives(@ptrCast(@alignCast(pass)), vertex_count, 0);
@@ -307,7 +350,9 @@ pub const Renderer = struct {
         const index_offset = std.math.mul(u32, first_index, index_size) catch return error.InvalidDraw;
         if (index_offset > buffer.size or index_count > (buffer.size - index_offset) / index_size) return error.InvalidDraw;
         const pipeline = try self.ensureUntexturedPipeline();
+        try self.pushUntexturedUniforms();
         sdl.bindPipeline(@ptrCast(@alignCast(pass)), @ptrCast(@alignCast(pipeline)));
+        if (self.viewport) |viewport| sdl.setViewport(@ptrCast(@alignCast(pass)), viewport.x, viewport.y, viewport.width, viewport.height, viewport.min_depth, viewport.max_depth);
         if (!sdl.bindIndexBuffer(@ptrCast(@alignCast(pass)), buffer.gpu, 0, index_size)) return error.InvalidDraw;
         sdl.drawIndexedPrimitives(@ptrCast(@alignCast(pass)), index_count, first_index, vertex_offset);
     }

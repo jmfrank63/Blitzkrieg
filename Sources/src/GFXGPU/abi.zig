@@ -166,6 +166,9 @@ fn setViewport(handle: ?*RendererHandle, viewport: ?*const ViewportInfo) callcon
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (viewport == null or viewport.?.struct_size < @sizeOf(ViewportInfo)) return errors.invalid_argument;
     if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
+    renderer.setViewport(.{ .x = viewport.?.x, .y = viewport.?.y, .width = viewport.?.width, .height = viewport.?.height, .min_depth = viewport.?.min_depth, .max_depth = viewport.?.max_depth }) catch |err| return switch (err) {
+        error.InvalidState, error.InvalidViewport => errors.invalid_state,
+    };
     return errors.ok;
 }
 fn setTransform(handle: ?*RendererHandle, world: ?*const MatrixInfo, view_proj: ?*const MatrixInfo) callconv(.c) Result {
@@ -227,7 +230,7 @@ fn bindRenderTarget(handle: ?*RendererHandle, target: u64) callconv(.c) Result {
 fn createBuffer(handle: ?*RendererHandle, info: ?*const BufferCreateInfo, out_handle: ?*u64) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (info == null or out_handle == null or info.?.struct_size < @sizeOf(BufferCreateInfo) or info.?.element_count == 0 or info.?.stride == 0) return errors.invalid_argument;
-    const id = renderer.createBuffer(info.?.element_count, info.?.format, info.?.stride) catch |err| return switch (err) {
+    const id = renderer.createBuffer(info.?.element_count, info.?.format, info.?.stride, info.?.usage) catch |err| return switch (err) {
         error.BufferTooLarge => errors.invalid_argument,
         error.NoDevice, error.BufferCreateFailed => errors.sdl_error,
         error.OutOfMemory => errors.out_of_memory,
@@ -293,6 +296,11 @@ fn drawTemporary(handle: ?*RendererHandle, info: ?*const TemporaryGeometryInfo, 
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (info == null or info.?.struct_size < @sizeOf(TemporaryGeometryInfo) or info.?.data == null or info.?.byte_length == 0 or info.?.stride == 0 or primitive_count == 0) return errors.invalid_argument;
     if (renderer.frame.state != .pass_active) return errors.invalid_state;
+    renderer.drawTemporary(info.?.data.?, info.?.byte_length, info.?.stride, primitive_count) catch |err| return switch (err) {
+        error.InvalidDraw, error.InvalidBuffer, error.InvalidState => errors.invalid_argument,
+        error.NoDevice, error.BufferCreateFailed, error.BufferTooLarge, error.BufferUploadOutOfBounds, error.TransferBufferCreateFailed, error.TransferBufferMapFailed, error.CommandBufferFailed, error.CopyPassFailed, error.SubmitFailed, error.WaitForIdleFailed, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed => errors.sdl_error,
+        error.OutOfMemory => errors.out_of_memory,
+    };
     return errors.ok;
 }
 pub fn gfxgpu_readback(handle: ?*RendererHandle, info: ?*ReadbackInfo) callconv(.c) Result {

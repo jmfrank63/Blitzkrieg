@@ -170,4 +170,8 @@ pub fn drawIndexedPrimitives(render_pass: *GpuRenderPass, index_count: u32, firs
     c.SDL_DrawGPUIndexedPrimitives(render_pass, index_count, 1, first_index, vertex_offset, 0);
 }
 
+pub fn pushVertexUniformData(command_buffer: *GpuCommandBuffer, slot: u32, data: *const anyopaque, byte_length: u32) void {
+    c.SDL_PushGPUVertexUniformData(command_buffer, slot, data, byte_length);
+}
+
 const std = @import("std");
