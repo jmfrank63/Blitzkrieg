@@ -67,17 +67,15 @@ fn runReferenceSmoke() !void {
     var hashes: [3][32]u8 = undefined;
     for (&hashes, 0..) |*hash, frame_index| {
         try std.testing.expectEqual(gpu.error_codes.ok, api.begin_frame(renderer));
-        var viewport = gpu.abi.ViewportInfo{ .struct_size = @sizeOf(gpu.abi.ViewportInfo), .x = 0, .y = 0, .width = 64, .height = 64, .min_depth = 0, .max_depth = 1 };
+        var viewport = gpu.abi.ViewportInfo{ .struct_size = @sizeOf(gpu.abi.ViewportInfo), .x = 0, .y = 0, .width = 32, .height = 32, .min_depth = 0, .max_depth = 1 };
         try std.testing.expectEqual(gpu.error_codes.ok, api.set_viewport(renderer, &viewport));
         var clear = gpu.abi.ClearInfo{ .struct_size = @sizeOf(gpu.abi.ClearInfo), .mask = 1, .color_rgba8 = 0x102030ff, .depth = 1.0, .stencil = 0 };
         try std.testing.expectEqual(gpu.error_codes.ok, api.clear(renderer, &clear));
         if (frame_index == 0) {
             try std.testing.expectEqual(gpu.error_codes.ok, api.draw(renderer, @intCast(buffer), 1));
         } else if (frame_index == 1) {
+            try std.testing.expectEqual(gpu.error_codes.ok, api.bind_vertex_buffer(renderer, buffer));
             try std.testing.expectEqual(gpu.error_codes.ok, api.draw_indexed(renderer, index_buffer, 4, 0, 3, 0));
-            // Keep the probe deterministic while the indexed path is also
-            // exercised; indexed pixel coverage remains a pending fix.
-            try std.testing.expectEqual(gpu.error_codes.ok, api.draw(renderer, @intCast(buffer), 1));
         } else {
             var temporary = gpu.abi.TemporaryGeometryInfo{ .struct_size = @sizeOf(gpu.abi.TemporaryGeometryInfo), .data = @ptrCast(&vertices), .byte_length = @sizeOf(@TypeOf(vertices)), .stride = 16 };
             try std.testing.expectEqual(gpu.error_codes.ok, api.draw_temporary(renderer, &temporary, 1));
@@ -87,7 +85,7 @@ fn runReferenceSmoke() !void {
         var pixels: [64 * 64 * 4]u8 = undefined;
         var readback = gpu.abi.ReadbackInfo{ .struct_size = @sizeOf(gpu.abi.ReadbackInfo), .width = 64, .height = 64, .byte_length = pixels.len, .row_pitch = 64 * 4, .data = @ptrCast(&pixels) };
         try std.testing.expectEqual(gpu.error_codes.ok, gpu.abi.gfxgpu_readback(renderer, &readback));
-        try std.testing.expect(std.mem.readInt(u32, pixels[(32 * 64 + 32) * 4 ..][0..4], .little) != 0x10ff3020);
+        try std.testing.expect(std.mem.readInt(u32, pixels[(16 * 64 + 16) * 4 ..][0..4], .little) != 0x10ff3020);
         std.crypto.hash.sha2.Sha256.hash(&pixels, hash, .{});
     }
     try std.testing.expectEqualSlices(u8, &hashes[0], &hashes[1]);
@@ -126,7 +124,7 @@ fn runReferenceSmoke() !void {
     var textured_pixels: [64 * 64 * 4]u8 = undefined;
     var textured_readback = gpu.abi.ReadbackInfo{ .struct_size = @sizeOf(gpu.abi.ReadbackInfo), .width = 64, .height = 64, .byte_length = textured_pixels.len, .row_pitch = 64 * 4, .data = @ptrCast(&textured_pixels) };
     try std.testing.expectEqual(gpu.error_codes.ok, gpu.abi.gfxgpu_readback(renderer, &textured_readback));
-    try std.testing.expect(std.mem.readInt(u32, textured_pixels[(32 * 64 + 32) * 4 ..][0..4], .little) != 0x10ff3020);
+    try std.testing.expect(std.mem.readInt(u32, textured_pixels[(16 * 64 + 16) * 4 ..][0..4], .little) != 0x10ff3020);
     std.debug.print("GfxGpu textured smoke: visible textured quad\n", .{});
 
     const depth_vertices = [_]Vertex{
@@ -148,7 +146,7 @@ fn runReferenceSmoke() !void {
     var depth_pixels: [64 * 64 * 4]u8 = undefined;
     var depth_readback = gpu.abi.ReadbackInfo{ .struct_size = @sizeOf(gpu.abi.ReadbackInfo), .width = 64, .height = 64, .byte_length = depth_pixels.len, .row_pitch = 64 * 4, .data = @ptrCast(&depth_pixels) };
     try std.testing.expectEqual(gpu.error_codes.ok, gpu.abi.gfxgpu_readback(renderer, &depth_readback));
-    try std.testing.expect(std.mem.readInt(u32, depth_pixels[(32 * 64 + 32) * 4 ..][0..4], .little) != 0x10ff3020);
+    try std.testing.expect(std.mem.readInt(u32, depth_pixels[(16 * 64 + 16) * 4 ..][0..4], .little) != 0x10ff3020);
     std.debug.print("GfxGpu depth smoke: overlapping triangles resolved\n", .{});
 }
 

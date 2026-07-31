@@ -120,6 +120,7 @@ typedef struct GfxGpuApi {
     GfxGpuResult (*draw)(GfxGpuRenderer *, uint32_t, uint32_t);
     GfxGpuResult (*draw_indexed)(GfxGpuRenderer *, uint64_t, uint32_t, uint32_t, uint32_t, int32_t);
     GfxGpuResult (*draw_temporary)(GfxGpuRenderer *, const GfxGpuTemporaryGeometryInfo *, uint32_t);
+    GfxGpuResult (*bind_vertex_buffer)(GfxGpuRenderer *, GfxGpuHandle);
 } GfxGpuApi;
 
 GfxGpuResult gfxgpu_get_api(uint32_t requested_version, GfxGpuApi *out_api);

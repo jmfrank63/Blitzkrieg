@@ -32,6 +32,7 @@ pub const Renderer = struct {
     textured_pipeline: ?*anyopaque = null,
     sampler: ?*sdl.c.SDL_GPUSampler = null,
     bound_texture: ?u64 = null,
+    bound_vertex_buffer: ?u64 = null,
     viewport: ?ViewportState = null,
 
     pub const ViewportState = struct { x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32 };
@@ -312,6 +313,11 @@ pub const Renderer = struct {
         self.bound_texture = id;
     }
 
+    pub fn bindVertexBuffer(self: *Renderer, id: u64) !void {
+        if (!self.buffers.contains(id)) return error.InvalidBuffer;
+        self.bound_vertex_buffer = id;
+    }
+
     fn releaseTemporaryBuffers(self: *Renderer) void {
         while (self.temporary_buffers.pop()) |id| self.destroyBuffer(id) catch {};
     }
@@ -436,6 +442,7 @@ pub const Renderer = struct {
         if (primitive_count == 0) return error.InvalidDraw;
         const pass = self.frame.render_pass orelse return error.InvalidState;
         const buffer = self.buffers.get(vertex_buffer) orelse return error.InvalidBuffer;
+        self.bound_vertex_buffer = vertex_buffer;
         const pipeline = if (self.bound_texture != null) try self.ensureTexturedPipeline() else try self.ensureUntexturedPipeline();
         try self.pushUntexturedUniforms();
         sdl.bindPipeline(@ptrCast(@alignCast(pass)), @ptrCast(@alignCast(pipeline)));
@@ -454,12 +461,15 @@ pub const Renderer = struct {
         if (index_count == 0 or (index_size != 2 and index_size != 4)) return error.InvalidDraw;
         const pass = self.frame.render_pass orelse return error.InvalidState;
         const buffer = self.buffers.get(index_buffer) orelse return error.InvalidBuffer;
+        const vertex_id = self.bound_vertex_buffer orelse return error.VertexBufferMissing;
+        const vertex_buffer = self.buffers.get(vertex_id) orelse return error.InvalidBuffer;
         const index_offset = std.math.mul(u32, first_index, index_size) catch return error.InvalidDraw;
         if (index_offset > buffer.size or index_count > (buffer.size - index_offset) / index_size) return error.InvalidDraw;
         const pipeline = try self.ensureUntexturedPipeline();
         try self.pushUntexturedUniforms();
         sdl.bindPipeline(@ptrCast(@alignCast(pass)), @ptrCast(@alignCast(pipeline)));
         if (self.viewport) |viewport| sdl.setViewport(@ptrCast(@alignCast(pass)), viewport.x, viewport.y, viewport.width, viewport.height, viewport.min_depth, viewport.max_depth);
+        sdl.bindVertexBuffer(@ptrCast(@alignCast(pass)), vertex_buffer.gpu, 0);
         if (!sdl.bindIndexBuffer(@ptrCast(@alignCast(pass)), buffer.gpu, 0, index_size)) return error.InvalidDraw;
         sdl.drawIndexedPrimitives(@ptrCast(@alignCast(pass)), index_count, first_index, vertex_offset);
     }

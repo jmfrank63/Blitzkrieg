@@ -13,7 +13,7 @@
 - [x] Build a `DrawPlan` before touching SDL; validation failure emits no SDL call.
 - [x] Apply pipeline first, then viewport/scissor, vertex buffers, vertex/fragment samplers, uniforms, and draw.
 - [x] Preserve dirty bits after a failed bind; clear only successfully encoded groups.
-- [ ] Add untextured static triangle smoke/readback.
-- [ ] Commit: `feat: submit static SDL GPU draws`
+- [x] Add untextured static triangle smoke/readback.
+- [x] Commit: `feat: submit static SDL GPU draws`
 
 **Evidence:** exact call-order fake trace and triangle pixels.

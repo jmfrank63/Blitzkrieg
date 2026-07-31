@@ -67,6 +67,7 @@ pub const Api = extern struct {
     draw: *const fn (?*RendererHandle, u32, u32) callconv(.c) Result,
     draw_indexed: *const fn (?*RendererHandle, u64, u32, u32, u32, i32) callconv(.c) Result,
     draw_temporary: *const fn (?*RendererHandle, ?*const TemporaryGeometryInfo, u32) callconv(.c) Result,
+    bind_vertex_buffer: *const fn (?*RendererHandle, u64) callconv(.c) Result,
 };
 
 fn create(info: ?*const CreateInfo, out_renderer: ?*?*RendererHandle) callconv(.c) Result {
@@ -272,6 +273,13 @@ fn setTexture(handle: ?*RendererHandle, texture: u64) callconv(.c) Result {
     renderer.bindTexture(texture) catch return errors.invalid_handle;
     return errors.ok;
 }
+fn bindVertexBuffer(handle: ?*RendererHandle, buffer: u64) callconv(.c) Result {
+    const renderer = withRenderer(handle) orelse return errors.invalid_handle;
+    if (buffer == 0) return errors.invalid_argument;
+    if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
+    renderer.bindVertexBuffer(buffer) catch return errors.invalid_handle;
+    return errors.ok;
+}
 fn setSampler(handle: ?*RendererHandle, sampler: u64) callconv(.c) Result {
     const renderer = withRenderer(handle) orelse return errors.invalid_handle;
     if (sampler == 0) return errors.invalid_argument;
@@ -295,7 +303,7 @@ fn drawIndexed(handle: ?*RendererHandle, index_buffer: u64, index_size: u32, fir
     if (index_buffer == 0 or (index_size != 2 and index_size != 4) or index_count == 0) return errors.invalid_argument;
     if (renderer.frame.state != .pass_active) return errors.invalid_state;
     renderer.drawIndexed(index_buffer, index_size, first_index, index_count, vertex_offset) catch |err| return switch (err) {
-        error.InvalidDraw, error.InvalidBuffer => errors.invalid_argument,
+        error.InvalidDraw, error.InvalidBuffer, error.VertexBufferMissing => errors.invalid_argument,
         error.InvalidState => errors.invalid_state,
         error.NoDevice, error.ShaderDirectoryMissing, error.ShaderFileMissing, error.ShaderFileReadFailed, error.ShaderCreationFailed, error.PipelineCreateFailed => errors.sdl_error,
         else => errors.internal_error,
@@ -356,6 +364,7 @@ const api = Api{
     .draw = draw,
     .draw_indexed = drawIndexed,
     .draw_temporary = drawTemporary,
+    .bind_vertex_buffer = bindVertexBuffer,
 };
 
 pub fn gfxgpu_get_api(requested_version: u32, out_api: ?*Api) callconv(.c) Result {

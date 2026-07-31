@@ -347,7 +347,8 @@ bool STDCALL GraphicsEngineGpu::Draw( IGFXVertices *vertices, IGFXIndices *indic
     if ( indices )
     {
         IndicesGpu *ib = dynamic_cast<IndicesGpu *>( indices );
-        if ( !ib || !api_.draw_indexed ) return fail( "index buffer does not belong to the SDL GPU adapter" );
+        if ( !ib || !api_.draw_indexed || !api_.bind_vertex_buffer ) return fail( "index buffer does not belong to the SDL GPU adapter" );
+        if ( !Check( api_.bind_vertex_buffer( renderer_, vb->Handle() ), "bind_vertex_buffer" ) ) return false;
         const bool result = Check( api_.draw_indexed( renderer_, ib->Handle(), ib->Stride(), 0, ib->Count(), 0 ), "draw_indexed" );
         if ( result ) { passed_vertices_ += static_cast<int>( ib->Count() ); passed_primitives_ += static_cast<int>( ib->Count() / 3 ); }
         return result;
