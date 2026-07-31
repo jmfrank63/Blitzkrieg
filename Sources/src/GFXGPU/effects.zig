@@ -14,7 +14,9 @@ pub const Family = enum {
     special,
 };
 
-pub const ShaderEffect = enum { textured, untextured, ui, unlit, unlit_textured, alpha_test };
+pub const ShaderEffect = enum { textured, untextured, ui, unlit, unlit_textured, alpha_test, transparent_multiply, transparent_alpha, transparent_additive, particle_additive, particle_modulate };
+pub const BlendMode = enum { replace, multiply, straight_alpha, additive };
+pub const FogMode = enum { none, linear };
 
 pub const EffectSpec = struct {
     id: u32,
@@ -25,6 +27,9 @@ pub const EffectSpec = struct {
     uniform_groups: u8,
     fixed_state_overrides: u32,
     caller_state_mask: u32,
+    blend: BlendMode,
+    depth_write: bool,
+    fog: FogMode,
 };
 
 const state_none = 0;
@@ -44,7 +49,18 @@ fn make(id: u32, family: Family, shader_effect: ShaderEffect, samplers: u8, stat
         .uniform_groups = 2,
         .fixed_state_overrides = state,
         .caller_state_mask = 0,
+        .blend = if ((state & state_alpha_blend) != 0) .straight_alpha else .replace,
+        .depth_write = true,
+        .fog = .none,
     };
+}
+
+fn withPipelinePolicy(base: EffectSpec, blend_mode: BlendMode, depth_write: bool, fog: FogMode) EffectSpec {
+    var result = base;
+    result.blend = blend_mode;
+    result.depth_write = depth_write;
+    result.fog = fog;
+    return result;
 }
 
 pub const specs = [_]EffectSpec{
@@ -56,14 +72,14 @@ pub const specs = [_]EffectSpec{
     make(6, .stencil, .untextured, 0, state_stencil),
     make(7, .stencil, .untextured, 0, state_none),
     make(8, .alpha_test, .alpha_test, 1, state_alpha_test | state_alpha_blend),
-    make(9, .alpha_blend, .textured, 1, state_alpha_blend),
-    make(10, .particle, .textured, 1, state_alpha_test | state_alpha_blend | state_depth_write),
+    withPipelinePolicy(make(9, .alpha_blend, .transparent_multiply, 1, state_alpha_blend), .multiply, false, .none),
+    withPipelinePolicy(make(10, .particle, .particle_additive, 1, state_alpha_test | state_alpha_blend | state_depth_write), .additive, false, .linear),
     make(11, .particle, .untextured, 0, state_depth_write),
-    make(12, .particle, .textured, 1, state_alpha_test | state_alpha_blend | state_depth_write),
+    withPipelinePolicy(make(12, .particle, .particle_modulate, 1, state_alpha_test | state_alpha_blend | state_depth_write), .straight_alpha, false, .linear),
     make(13, .alpha_test, .alpha_test, 1, state_alpha_test | state_alpha_blend),
-    make(14, .alpha_blend, .textured, 1, state_alpha_blend | state_depth_write),
-    make(15, .alpha_blend, .untextured, 0, state_alpha_blend | state_depth_write),
-    make(16, .particle, .textured, 1, state_alpha_blend),
+    withPipelinePolicy(make(14, .alpha_blend, .transparent_alpha, 1, state_alpha_blend | state_depth_write), .straight_alpha, false, .linear),
+    withPipelinePolicy(make(15, .alpha_blend, .transparent_alpha, 1, state_alpha_blend | state_depth_write), .straight_alpha, false, .linear),
+    withPipelinePolicy(make(16, .particle, .particle_additive, 1, state_alpha_blend), .additive, false, .linear),
     make(17, .special, .textured, 1, state_none),
     make(18, .special, .textured, 1, state_none),
     make(19, .special, .textured, 1, state_none),
@@ -80,7 +96,7 @@ pub const specs = [_]EffectSpec{
     make(111, .shadow, .textured, 1, state_alpha_test | state_alpha_blend),
     make(112, .shadow, .textured, 1, state_alpha_blend),
     make(113, .shadow, .untextured, 0, state_stencil),
-    make(200, .alpha_blend, .textured, 1, state_alpha_test | state_alpha_blend),
+    withPipelinePolicy(make(200, .alpha_blend, .transparent_additive, 1, state_alpha_test | state_alpha_blend), .additive, false, .linear),
     make(300, .stencil, .untextured, 0, state_stencil),
     make(301, .stencil, .untextured, 0, state_stencil),
     make(302, .stencil, .untextured, 0, state_none),
@@ -125,10 +141,24 @@ pub fn alphaPassGreaterEqual(alpha: f32, reference: u8) bool {
     return alpha >= @as(f32, @floatFromInt(reference)) / 255.0;
 }
 
+pub fn blend(mode: BlendMode, source: [4]f32, destination: [4]f32) [4]f32 {
+    return switch (mode) {
+        .replace => source,
+        .multiply => .{ source[0] * destination[0], source[1] * destination[1], source[2] * destination[2], source[3] * destination[3] },
+        .straight_alpha => .{ source[0] * source[3] + destination[0] * (1.0 - source[3]), source[1] * source[3] + destination[1] * (1.0 - source[3]), source[2] * source[3] + destination[2] * (1.0 - source[3]), source[3] + destination[3] * (1.0 - source[3]) },
+        .additive => .{ source[0] * source[3] + destination[0], source[1] * source[3] + destination[1], source[2] * source[3] + destination[2], source[3] + destination[3] },
+    };
+}
+
+pub fn linearFogFactor(depth: f32, start: f32, end: f32) f32 {
+    if (end <= start) return 1.0;
+    return std.math.clamp((end - depth) / (end - start), 0.0, 1.0);
+}
+
 test "effect catalog is complete and unique" {
     for (specs, 0..) |spec, index| {
         switch (spec.shader_effect) {
-            .textured, .untextured, .ui, .unlit, .unlit_textured, .alpha_test => {},
+            .textured, .untextured, .ui, .unlit, .unlit_textured, .alpha_test, .transparent_multiply, .transparent_alpha, .transparent_additive, .particle_additive, .particle_modulate => {},
         }
         try std.testing.expect(spec.uniform_groups != 0);
         try std.testing.expect(find(spec.id) != null);
@@ -151,4 +181,21 @@ test "UI and alpha reference fixtures" {
     try std.testing.expect(alphaPassGreaterEqual(1.0 / 255.0, 1));
     try std.testing.expect(!alphaPassGreaterEqual(0.0, 1));
     try std.testing.expect(alphaPassGreaterEqual(200.0 / 255.0, 200));
+}
+
+test "transparent blend and range fog fixtures" {
+    const source = [4]f32{ 0.8, 0.4, 0.2, 0.5 };
+    const destination = [4]f32{ 0.2, 0.2, 0.2, 1.0 };
+    const alpha = blend(.straight_alpha, source, destination);
+    try std.testing.expectApproxEqAbs(0.5, alpha[0], 0.000001);
+    try std.testing.expectApproxEqAbs(0.3, alpha[1], 0.000001);
+    const additive = blend(.additive, source, destination);
+    try std.testing.expectApproxEqAbs(0.6, additive[0], 0.000001);
+    const multiply = blend(.multiply, source, destination);
+    try std.testing.expectApproxEqAbs(0.16, multiply[0], 0.000001);
+    try std.testing.expectApproxEqAbs(1.0, linearFogFactor(0.0, 10.0, 100.0), 0.000001);
+    try std.testing.expectApproxEqAbs(0.5, linearFogFactor(55.0, 10.0, 100.0), 0.000001);
+    try std.testing.expectApproxEqAbs(0.0, linearFogFactor(120.0, 10.0, 100.0), 0.000001);
+    try std.testing.expect(!specs[9].depth_write);
+    try std.testing.expectEqual(BlendMode.additive, specs[9].blend);
 }
