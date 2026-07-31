@@ -805,6 +805,20 @@ pub fn build(b: *std.Build) void {
     gfx_gpu_smoke_run.setCwd(b.path("zig-out/bin"));
     const gfx_gpu_smoke_step = b.step("gfxgpu-smoke", "Run the Zig SDL3 GPU shader smoke test");
     gfx_gpu_smoke_step.dependOn(&gfx_gpu_smoke_run.step);
+
+    const gfx_reference_compare_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/compare_gfx_reference.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const gfx_reference_compare = b.addExecutable(.{
+        .name = "compare-gfx-reference",
+        .root_module = gfx_reference_compare_module,
+    });
+    const gfx_reference_compare_run = b.addRunArtifact(gfx_reference_compare);
+    if (b.args) |args| gfx_reference_compare_run.addArgs(args);
+    const gfx_reference_compare_step = b.step("compare-gfx-reference", "Compare two RGBA8 renderer reference captures");
+    gfx_reference_compare_step.dependOn(&gfx_reference_compare_run.step);
     const options_bridge = addOptionsBridge(b, target, optimize, toolchain);
     // Save-load spends its time in the zig structure reader; at Debug (-O0 +
     // safety) that alone made big-mission loads take ~1 min. The zig half of
