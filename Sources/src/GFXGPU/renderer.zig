@@ -94,6 +94,10 @@ pub const Renderer = struct {
         const device = &(self.device orelse return error.NoDevice);
         const window = self.window orelse return error.NoWindow;
         if (self.frame.state != .idle) return error.InvalidState;
+        // Validate/create the pipeline before acquiring a swapchain texture.
+        // SDL_GPU cannot cancel a command buffer after acquisition, so a
+        // pipeline failure must happen before the frame enters that state.
+        _ = try self.ensureUntexturedPipeline();
         const command = device.api.acquire_command_buffer(device.handle.?) orelse return error.CommandBufferFailed;
         var texture: ?*anyopaque = null;
         var width = self.drawable_width;
@@ -172,7 +176,14 @@ pub const Renderer = struct {
         }
         if (self.frame.command_buffer) |command| {
             if (self.device) |device| {
-                _ = device.api.cancel_command_buffer(command);
+                // SDL forbids cancelling a command buffer after a swapchain
+                // texture has been acquired. Close the pass and submit the
+                // command buffer when that acquisition already happened.
+                if (self.frame.swapchain_texture != null) {
+                    _ = device.api.submit_command_buffer(command);
+                } else {
+                    _ = device.api.cancel_command_buffer(command);
+                }
             }
         }
         self.frame.cancel();
@@ -255,11 +266,18 @@ pub const Renderer = struct {
         const vertex_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = vertex_code.len, .code = vertex_code.ptr, .entrypoint = &vertex_entry, .format = sdl.c.SDL_GPU_SHADERFORMAT_DXIL, .stage = sdl.c.SDL_GPU_SHADERSTAGE_VERTEX, .num_samplers = 0, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 2, .props = 0 };
         const vertex = sdl.c.SDL_CreateGPUShader(gpu_device, &vertex_info) orelse return error.ShaderCreationFailed;
         errdefer sdl.c.SDL_ReleaseGPUShader(gpu_device, vertex);
-        const fragment_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = fragment_code.len, .code = fragment_code.ptr, .entrypoint = &fragment_entry, .format = sdl.c.SDL_GPU_SHADERFORMAT_DXIL, .stage = sdl.c.SDL_GPU_SHADERSTAGE_FRAGMENT, .num_samplers = 0, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 2, .props = 0 };
+        // ps_untextured only consumes the interpolated vertex color. Its
+        // cbuffer declarations are shared source declarations, not bindings
+        // referenced by the fragment stage.
+        const fragment_info = sdl.c.SDL_GPUShaderCreateInfo{ .code_size = fragment_code.len, .code = fragment_code.ptr, .entrypoint = &fragment_entry, .format = sdl.c.SDL_GPU_SHADERFORMAT_DXIL, .stage = sdl.c.SDL_GPU_SHADERSTAGE_FRAGMENT, .num_samplers = 0, .num_storage_textures = 0, .num_storage_buffers = 0, .num_uniform_buffers = 0, .props = 0 };
         const fragment = sdl.c.SDL_CreateGPUShader(gpu_device, &fragment_info) orelse return error.ShaderCreationFailed;
         errdefer sdl.c.SDL_ReleaseGPUShader(gpu_device, fragment);
         var vertex_buffers = [_]sdl.c.SDL_GPUVertexBufferDescription{.{ .slot = 0, .pitch = 16, .input_rate = sdl.c.SDL_GPU_VERTEXINPUTRATE_VERTEX, .instance_step_rate = 0 }};
-        var attributes = [_]sdl.c.SDL_GPUVertexAttribute{ .{ .location = 0, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, .offset = 0 }, .{ .location = 5, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM, .offset = 12 } };
+        // DXIL exposes POSITION0 and COLOR0 as input locations 0 and 1.
+        // The legacy engine's color semantic is tracked as location 5 in its
+        // vertex-layout mask, but SDL_GPU pipeline locations follow the shader
+        // signature rather than that legacy numbering.
+        var attributes = [_]sdl.c.SDL_GPUVertexAttribute{ .{ .location = 0, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, .offset = 0 }, .{ .location = 1, .buffer_slot = 0, .format = sdl.c.SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM, .offset = 12 } };
         const color_format: sdl.c.SDL_GPUTextureFormat = @intCast(self.swapchain_format);
         const target = sdl.c.SDL_GPUColorTargetDescription{ .format = color_format, .blend_state = .{ .src_color_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ONE, .dst_color_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ZERO, .color_blend_op = sdl.c.SDL_GPU_BLENDOP_ADD, .src_alpha_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ONE, .dst_alpha_blendfactor = sdl.c.SDL_GPU_BLENDFACTOR_ZERO, .alpha_blend_op = sdl.c.SDL_GPU_BLENDOP_ADD, .color_write_mask = 0x0f, .enable_blend = false, .enable_color_write_mask = true } };
         const pipeline_info = sdl.c.SDL_GPUGraphicsPipelineCreateInfo{ .vertex_shader = vertex, .fragment_shader = fragment, .vertex_input_state = .{ .vertex_buffer_descriptions = &vertex_buffers, .num_vertex_buffers = 1, .vertex_attributes = &attributes, .num_vertex_attributes = 2 }, .primitive_type = sdl.c.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST, .rasterizer_state = .{ .fill_mode = sdl.c.SDL_GPU_FILLMODE_FILL, .cull_mode = sdl.c.SDL_GPU_CULLMODE_NONE, .front_face = sdl.c.SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE, .enable_depth_clip = true }, .multisample_state = .{ .sample_count = sdl.c.SDL_GPU_SAMPLECOUNT_1 }, .depth_stencil_state = .{ .enable_depth_test = false, .enable_depth_write = false }, .target_info = .{ .color_target_descriptions = &target, .num_color_targets = 1, .has_depth_stencil_target = false }, .props = 0 };

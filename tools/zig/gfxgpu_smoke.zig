@@ -24,9 +24,9 @@ fn checkFixtures() !void {
 }
 
 fn runReferenceSmoke() !void {
-    std.debug.print("GfxGpu reference: creating hidden SDL window\n", .{});
-    const window = sdl3.c.SDL_CreateWindow("GfxGpu reference", 64, 64, sdl3.c.SDL_WINDOW_HIDDEN) orelse return error.SdlWindowFailed;
-    std.debug.print("GfxGpu reference: hidden SDL window created\n", .{});
+    std.debug.print("GfxGpu reference: creating SDL window\n", .{});
+    const window = sdl3.c.SDL_CreateWindow("GfxGpu reference", 64, 64, 0) orelse return error.SdlWindowFailed;
+    std.debug.print("GfxGpu reference: SDL window created\n", .{});
     defer sdl3.c.SDL_DestroyWindow(window);
     var api: gpu.abi.Api = undefined;
     api.struct_size = @sizeOf(gpu.abi.Api);
@@ -42,10 +42,14 @@ fn runReferenceSmoke() !void {
         return error.ReferenceCreateFailed;
     }
     defer api.destroy(renderer);
-    const vertices = [_]f32{
-        0.0, 0.75, 0.0, 1.0,
-        -0.75, -0.75, 0.0, 1.0,
-        0.75, -0.75, 0.0, 1.0,
+    const Vertex = extern struct {
+        position: [3]f32,
+        color: [4]u8,
+    };
+    const vertices = [_]Vertex{
+        .{ .position = .{ 0.0, 0.75, 0.0 }, .color = .{ 255, 0, 0, 255 } },
+        .{ .position = .{ -0.75, -0.75, 0.0 }, .color = .{ 0, 255, 0, 255 } },
+        .{ .position = .{ 0.75, -0.75, 0.0 }, .color = .{ 0, 0, 255, 255 } },
     };
     var buffer: u64 = 0;
     var buffer_info = gpu.abi.BufferCreateInfo{ .struct_size = @sizeOf(gpu.abi.BufferCreateInfo), .element_count = 3, .format = 0, .stride = 16, .usage = 0 };
@@ -60,11 +64,11 @@ fn runReferenceSmoke() !void {
         try std.testing.expectEqual(gpu.error_codes.ok, api.clear(renderer, &clear));
         try std.testing.expectEqual(gpu.error_codes.ok, api.draw(renderer, @intCast(buffer), 1));
         try std.testing.expectEqual(gpu.error_codes.ok, api.end_frame(renderer));
+        try std.testing.expectEqual(gpu.error_codes.ok, api.present(renderer));
         var pixels: [64 * 64 * 4]u8 = undefined;
         var readback = gpu.abi.ReadbackInfo{ .struct_size = @sizeOf(gpu.abi.ReadbackInfo), .width = 64, .height = 64, .byte_length = pixels.len, .row_pitch = 64 * 4, .data = @ptrCast(&pixels) };
         try std.testing.expectEqual(gpu.error_codes.ok, gpu.abi.gfxgpu_readback(renderer, &readback));
         std.crypto.hash.sha2.Sha256.hash(&pixels, hash, .{});
-        try std.testing.expectEqual(gpu.error_codes.ok, api.present(renderer));
     }
     try std.testing.expectEqualSlices(u8, &hashes[0], &hashes[1]);
     try std.testing.expectEqualSlices(u8, &hashes[1], &hashes[2]);
