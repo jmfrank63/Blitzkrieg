@@ -12,6 +12,7 @@ struct WaterVertexOutput {
     float4 color : COLOR0;
     float2 uv0 : TEXCOORD0;
     float2 uv1 : TEXCOORD1;
+    float alpha_threshold : TEXCOORD3;
 };
 
 WaterVertexOutput vs_water(WaterVertexInput input) {
@@ -20,6 +21,7 @@ WaterVertexOutput vs_water(WaterVertexInput input) {
     output.color = input.color * g_color;
     output.uv0 = input.uv0 + g_color.xy * g_color.w;
     output.uv1 = input.uv1 + g_color.yx * g_color.w;
+    output.alpha_threshold = g_color.a;
     return output;
 }
 
@@ -35,6 +37,6 @@ float4 ps_water_single(WaterVertexOutput input) : SV_Target0 {
 
 float4 ps_water_alpha_test(WaterVertexOutput input) : SV_Target0 {
     float4 color = ps_water(input);
-    clip(color.a - g_color.a);
+    clip(color.a - input.alpha_threshold);
     return color;
 }

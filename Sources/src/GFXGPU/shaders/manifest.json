@@ -435,18 +435,18 @@
     "effect": "special_video", "name": "SpecialVideo", "stage": "fragment", "source": "special.hlsl", "entry": "ps_special_video", "defines": [], "required_vertex_mask": 0, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
   },
   {
-    "effect": "special_video", "name": "SpecialVideo", "stage": "vertex", "source": "special.hlsl", "entry": "vs_special", "defines": [], "required_vertex_mask": 35, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
+    "effect": "special_video", "name": "SpecialVideo", "stage": "vertex", "source": "special.hlsl", "entry": "vs_special_video", "defines": [], "required_vertex_mask": 35, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
   },
   {
     "effect": "special_transform", "name": "SpecialTransform", "stage": "fragment", "source": "special.hlsl", "entry": "ps_special_transform", "defines": [], "required_vertex_mask": 0, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
   },
   {
-    "effect": "special_transform", "name": "SpecialTransform", "stage": "vertex", "source": "special.hlsl", "entry": "vs_special", "defines": [], "required_vertex_mask": 35, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
+    "effect": "special_transform", "name": "SpecialTransform", "stage": "vertex", "source": "special.hlsl", "entry": "vs_special_transform", "defines": [], "required_vertex_mask": 35, "sampler_count": 1, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
   },
   {
     "effect": "special_depth", "name": "SpecialDepth", "stage": "fragment", "source": "special.hlsl", "entry": "ps_special_depth", "defines": [], "required_vertex_mask": 0, "sampler_count": 0, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
   },
   {
-    "effect": "special_depth", "name": "SpecialDepth", "stage": "vertex", "source": "special.hlsl", "entry": "vs_special", "defines": [], "required_vertex_mask": 35, "sampler_count": 0, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
+    "effect": "special_depth", "name": "SpecialDepth", "stage": "vertex", "source": "special.hlsl", "entry": "vs_special_video", "defines": [], "required_vertex_mask": 35, "sampler_count": 0, "storage_texture_count": 0, "storage_buffer_count": 0, "uniform_buffer_count": 2
   }
 ]

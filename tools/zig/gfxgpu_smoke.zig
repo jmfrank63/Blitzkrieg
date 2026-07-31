@@ -13,6 +13,19 @@ fn recordFor(shader_manifest: *const gpu.shader_manifest.Manifest, effect: []con
     return error.MissingShaderRecord;
 }
 
+fn probePipeline(device: *sdl3.c.SDL_GPUDevice, vertex: *anyopaque, fragment: *anyopaque, attribute_count: u32, lighting_layout: bool) ?*sdl3.c.SDL_GPUGraphicsPipeline {
+    var buffers = [_]sdl3.c.SDL_GPUVertexBufferDescription{.{ .slot = 0, .pitch = if (lighting_layout) 36 else if (attribute_count == 4) 32 else if (attribute_count == 3) 24 else 16, .input_rate = sdl3.c.SDL_GPU_VERTEXINPUTRATE_VERTEX, .instance_step_rate = 0 }};
+    var attributes = [_]sdl3.c.SDL_GPUVertexAttribute{
+        .{ .location = 0, .buffer_slot = 0, .format = sdl3.c.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, .offset = 0 },
+        .{ .location = 1, .buffer_slot = 0, .format = sdl3.c.SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM, .offset = 12 },
+        .{ .location = 2, .buffer_slot = 0, .format = if (lighting_layout) sdl3.c.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3 else sdl3.c.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, .offset = 16 },
+        .{ .location = 3, .buffer_slot = 0, .format = sdl3.c.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, .offset = if (lighting_layout) 28 else 24 },
+    };
+    const target = sdl3.c.SDL_GPUColorTargetDescription{ .format = sdl3.c.SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM, .blend_state = .{ .src_color_blendfactor = sdl3.c.SDL_GPU_BLENDFACTOR_ONE, .dst_color_blendfactor = sdl3.c.SDL_GPU_BLENDFACTOR_ZERO, .color_blend_op = sdl3.c.SDL_GPU_BLENDOP_ADD, .src_alpha_blendfactor = sdl3.c.SDL_GPU_BLENDFACTOR_ONE, .dst_alpha_blendfactor = sdl3.c.SDL_GPU_BLENDFACTOR_ZERO, .alpha_blend_op = sdl3.c.SDL_GPU_BLENDOP_ADD, .color_write_mask = 0x0f, .enable_blend = false, .enable_color_write_mask = true } };
+    const info = sdl3.c.SDL_GPUGraphicsPipelineCreateInfo{ .vertex_shader = @ptrCast(vertex), .fragment_shader = @ptrCast(fragment), .vertex_input_state = .{ .vertex_buffer_descriptions = &buffers, .num_vertex_buffers = 1, .vertex_attributes = &attributes, .num_vertex_attributes = attribute_count }, .primitive_type = sdl3.c.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST, .rasterizer_state = .{ .fill_mode = sdl3.c.SDL_GPU_FILLMODE_FILL, .cull_mode = sdl3.c.SDL_GPU_CULLMODE_NONE, .front_face = sdl3.c.SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE, .enable_depth_clip = true }, .multisample_state = .{ .sample_count = sdl3.c.SDL_GPU_SAMPLECOUNT_1 }, .depth_stencil_state = .{ .compare_op = sdl3.c.SDL_GPU_COMPAREOP_LESS, .enable_depth_test = true, .enable_depth_write = true }, .target_info = .{ .color_target_descriptions = &target, .num_color_targets = 1, .depth_stencil_format = sdl3.c.SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT, .has_depth_stencil_target = true }, .props = 0 };
+    return sdl3.c.SDL_CreateGPUGraphicsPipeline(device, &info);
+}
+
 fn checkFixtures() !void {
     const diffuse = [_]f32{ 0.2, 0.4, 0.6, 0.8 };
     const draw = [_]f32{ 0.5, 1.0, 0.25, 1.0 };
@@ -184,5 +197,16 @@ pub fn main(init: std.process.Init) !void {
         try loader.loadPair(&shader_manifest, effect, vertex_bytes, fragment_bytes, sdl3.c.SDL_GPU_SHADERFORMAT_DXIL);
     }
     if (loader.count() != 25) return error.IncompleteShaderSmoke;
-    std.debug.print("GfxGpu Zig smoke: created and released {} shader pairs\n", .{loader.count()});
+    var pipeline_count: usize = 0;
+    for ([_][]const u8{ "untextured", "textured", "ui", "unlit", "unlit_textured", "alpha_test", "transparent", "particle_additive", "particle_modulate", "transparent_multiply", "transparent_alpha", "transparent_additive", "lightmap_modulate", "lightmap_complement", "lighting", "stencil_write", "stencil_test", "shadow_sprite", "shadow_mesh", "water", "water_single", "water_alpha", "special_video", "special_transform", "special_depth" }) |effect| {
+        const pair = loader.pair(effect) orelse return error.MissingShaderPair;
+        const attribute_count: u32 = if (std.mem.eql(u8, effect, "untextured")) 2 else if (std.mem.eql(u8, effect, "lighting") or std.mem.eql(u8, effect, "lightmap_modulate") or std.mem.eql(u8, effect, "lightmap_complement") or std.mem.eql(u8, effect, "water") or std.mem.eql(u8, effect, "water_single") or std.mem.eql(u8, effect, "water_alpha")) 4 else 3;
+        const pipeline = probePipeline(device, pair.vertex, pair.fragment, attribute_count, std.mem.eql(u8, effect, "lighting")) orelse {
+            std.debug.print("GfxGpu pipeline probe failed for {s}: {s}\n", .{ effect, std.mem.span(sdl3.c.SDL_GetError()) });
+            return error.PipelineCreationFailed;
+        };
+        sdl3.c.SDL_ReleaseGPUGraphicsPipeline(device, pipeline);
+        pipeline_count += 1;
+    }
+    std.debug.print("GfxGpu Zig smoke: created and released {} shader pairs and {} pipelines\n", .{ loader.count(), pipeline_count });
 }

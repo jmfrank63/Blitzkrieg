@@ -10,21 +10,10 @@ struct LightingVertexInput {
 struct LightingVertexOutput {
     float4 position : SV_Position;
     float4 color : COLOR0;
-    float3 world_position : TEXCOORD0;
-    float3 normal : TEXCOORD1;
-    float2 uv : TEXCOORD2;
+    float2 uv : TEXCOORD0;
+    float3 world_position : TEXCOORD1;
+    float3 normal : TEXCOORD2;
 };
-
-LightingVertexOutput vs_lighting(LightingVertexInput input) {
-    LightingVertexOutput output;
-    float4 world_position = mul(float4(input.position, 1.0f), g_world);
-    output.position = mul(world_position, g_view_proj);
-    output.world_position = world_position.xyz;
-    output.normal = safe_normalize(mul(input.normal, (float3x3)g_world));
-    output.color = input.color * g_color;
-    output.uv = input.uv;
-    return output;
-}
 
 float3 evaluate_lighting(LightingVertexOutput input) {
     float3 normal = safe_normalize(input.normal);
@@ -53,8 +42,17 @@ float3 evaluate_lighting(LightingVertexOutput input) {
     return result;
 }
 
+LightingVertexOutput vs_lighting(LightingVertexInput input) {
+    LightingVertexOutput output;
+    float4 world_position = mul(float4(input.position, 1.0f), g_world);
+    output.position = mul(world_position, g_view_proj);
+    output.world_position = world_position.xyz;
+    output.normal = safe_normalize(mul(input.normal, (float3x3)g_world));
+    output.color = float4(input.color.rgb * g_color.rgb * (evaluate_lighting(output) + 0.05f), input.color.a * g_color.a);
+    output.uv = input.uv;
+    return output;
+}
+
 float4 ps_lighting(LightingVertexOutput input) : SV_Target0 {
-    float4 texture_color = g_texture0.Sample(g_sampler0, input.uv);
-    float3 lit = evaluate_lighting(input);
-    return float4(texture_color.rgb * input.color.rgb * (lit + 0.05f), texture_color.a * input.color.a);
+    return g_texture0.Sample(g_sampler0, input.uv) * input.color;
 }

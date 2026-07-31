@@ -11,6 +11,9 @@ struct ParticleVertexOutput {
     float4 color : COLOR0;
     float2 uv : TEXCOORD0;
     float view_depth : TEXCOORD1;
+    float alpha_threshold : TEXCOORD3;
+    float3 fog_color : TEXCOORD4;
+    float fog_range : TEXCOORD5;
 };
 
 // Particle quads are expanded by the legacy CPU path. This shader only
@@ -21,13 +24,16 @@ ParticleVertexOutput vs_particle(ParticleVertexInput input) {
     output.color = input.color * g_color;
     output.uv = input.uv;
     output.view_depth = output.position.z / max(output.position.w, 0.0001f);
+    output.alpha_threshold = g_color.a;
+    output.fog_color = g_fog.xyz;
+    output.fog_range = g_fog.w;
     return output;
 }
 
 float4 particleColor(ParticleVertexOutput input) {
     float4 color = g_texture0.Sample(g_sampler0, input.uv) * input.color;
-    color.rgb = apply_linear_fog(color.rgb, input.view_depth, g_fog.xyz, float2(0.0f, g_fog.w));
-    clip(color.a - g_color.a);
+    color.rgb = apply_linear_fog(color.rgb, input.view_depth, input.fog_color, float2(0.0f, input.fog_range));
+    clip(color.a - input.alpha_threshold);
     return color;
 }
 
