@@ -48,6 +48,7 @@ namespace
     GfxGpuResult fakeDestroyBuffer( GfxGpuRenderer *, GfxGpuHandle ) { ++buffer_releases; return GFXGPU_OK; }
     GfxGpuResult fakeDraw( GfxGpuRenderer *, uint32_t, uint32_t count ) { return count ? GFXGPU_OK : GFXGPU_INVALID_ARGUMENT; }
     GfxGpuResult fakeDrawIndexed( GfxGpuRenderer *, GfxGpuHandle, uint32_t, uint32_t, uint32_t count, int32_t ) { return count ? GFXGPU_OK : GFXGPU_INVALID_ARGUMENT; }
+    GfxGpuResult fakeBindVertexBuffer( GfxGpuRenderer *, GfxGpuHandle handle ) { return handle ? GFXGPU_OK : GFXGPU_INVALID_HANDLE; }
 }
 
 static int RunRecordingTest()
@@ -64,6 +65,7 @@ static int RunRecordingTest()
     api.create_render_target = fakeCreateTarget; api.bind_render_target = fakeBindTarget;
     api.create_buffer = fakeCreateBuffer; api.upload_buffer = fakeUploadBuffer; api.destroy_buffer = fakeDestroyBuffer;
     api.draw = fakeDraw; api.draw_indexed = fakeDrawIndexed;
+    api.bind_vertex_buffer = fakeBindVertexBuffer;
     GraphicsEngineGpu adapter( api );
     if ( !adapter.Init( nullptr, GFXNativeWindow( nullptr ) ) ) return 10;
     if ( !adapter.SetMode( 800, 600, 32, 0, GFXFS_WINDOWED ) ) return 11;
