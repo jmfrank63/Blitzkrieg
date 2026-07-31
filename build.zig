@@ -1136,6 +1136,16 @@ pub fn build(b: *std.Build) void {
     const run_gfx_gpu_unit_tests = b.addRunArtifact(gfx_gpu_unit_tests);
     const gfx_gpu_test_step = b.step("test-gfxgpu-core", "Run the Zig GPU renderer core tests");
     gfx_gpu_test_step.dependOn(&run_gfx_gpu_unit_tests.step);
+    const gfx_gpu_compat_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/GFXGPU/compatibility_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "gfxgpu", .module = gfx_gpu_test_module }},
+    });
+    const gfx_gpu_compat_tests = b.addTest(.{ .root_module = gfx_gpu_compat_module });
+    const run_gfx_gpu_compat_tests = b.addRunArtifact(gfx_gpu_compat_tests);
+    const gfx_gpu_compat_step = b.step("test-gfxgpu-compatibility", "Run the Phase 8 compatibility matrix");
+    gfx_gpu_compat_step.dependOn(&run_gfx_gpu_compat_tests.step);
     const test_gfxgpu_step = b.step("test-gfxgpu", "Run the GfxGpu core, C ABI, and SDL smoke tests");
     test_gfxgpu_step.dependOn(gfx_gpu_test_step);
     test_gfxgpu_step.dependOn(gfx_gpu_abi_test_step);
