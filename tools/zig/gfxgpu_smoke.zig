@@ -76,7 +76,7 @@ fn runReferenceSmoke() !void {
         } else if (frame_index == 1) {
             try std.testing.expectEqual(gpu.error_codes.ok, api.draw_indexed(renderer, index_buffer, 4, 0, 3, 0));
             // Keep the probe deterministic while the indexed path is also
-            // exercised; the indexed backend still needs pixel-level coverage.
+            // exercised; indexed pixel coverage remains a pending fix.
             try std.testing.expectEqual(gpu.error_codes.ok, api.draw(renderer, @intCast(buffer), 1));
         } else {
             var temporary = gpu.abi.TemporaryGeometryInfo{ .struct_size = @sizeOf(gpu.abi.TemporaryGeometryInfo), .data = @ptrCast(&vertices), .byte_length = @sizeOf(@TypeOf(vertices)), .stride = 16 };
