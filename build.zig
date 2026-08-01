@@ -494,6 +494,28 @@ const gfx_sources = &.{
     "Sources/src/GFX/Text.cpp",
 };
 
+const gfx_gpu_sources = &.{
+    "Sources/src/GFXGPU/GraphicsEngineGpu.cpp",
+    "Sources/src/GFXGPU/TextureGpu.cpp",
+    "Sources/src/GFXGPU/GeometryBufferGpu.cpp",
+    "Sources/src/GFXGPU/MeshGpu.cpp",
+    "Sources/src/GFXGPU/MeshManagerGpu.cpp",
+    "Sources/src/GFXGPU/GlobalsLoader.cpp",
+    "Sources/src/GFXGPU/GfxGpuObjectFactory.cpp",
+};
+
+fn auditDefaultRendererInputs(files: []const []const u8) void {
+    const forbidden = [_][]const u8{ "GraphicsEngine.cpp", "Texture.cpp", "GeometryBuffer.cpp", "d3d9", "dxguid", "Specific.h" };
+    for (files) |file| {
+        for (forbidden) |token| {
+            if (std.mem.indexOf(u8, file, token) != null) {
+                std.log.err("SDL GPU renderer input audit failed: {s} contains {s}", .{ file, token });
+                @panic("default renderer contains legacy D3D input");
+            }
+        }
+    }
+}
+
 const randommapgen_sources = &.{
     "Sources/src/RandomMapGen/StdAfx.cpp",
     "Sources/src/RandomMapGen/BetaSpline.cpp",
@@ -630,10 +652,11 @@ pub fn build(b: *std.Build) void {
         },
     });
     const optimize = b.standardOptimizeOption(.{});
-    const renderer = b.option([]const u8, "renderer", "Graphics renderer: legacy or sdl_gpu") orelse "legacy";
+    const renderer = b.option([]const u8, "renderer", "Graphics renderer: sdl_gpu (default) or legacy (comparison)") orelse "sdl_gpu";
     if (!std.mem.eql(u8, renderer, "legacy") and !std.mem.eql(u8, renderer, "sdl_gpu")) {
         @panic("invalid -Drenderer value; expected legacy or sdl_gpu");
     }
+    if (std.mem.eql(u8, renderer, "sdl_gpu")) auditDefaultRendererInputs(gfx_gpu_sources);
     _ = b.option(bool, "sdl-debug", "Enable SDL GPU debug validation") orelse false;
     const sdl3_dep = b.dependency("sdl3", .{
         .target = target,
@@ -2099,15 +2122,7 @@ fn addGFXGPU(
     gfx_gpu_module.addIncludePath(b.path("Sources/src/GFX"));
     gfx_gpu_module.addIncludePath(b.path("Sources/src/GFXGPU"));
     gfx_gpu_module.addCSourceFiles(.{
-        .files = &.{
-            "Sources/src/GFXGPU/GraphicsEngineGpu.cpp",
-            "Sources/src/GFXGPU/TextureGpu.cpp",
-            "Sources/src/GFXGPU/GeometryBufferGpu.cpp",
-            "Sources/src/GFXGPU/MeshGpu.cpp",
-            "Sources/src/GFXGPU/MeshManagerGpu.cpp",
-            "Sources/src/GFXGPU/GlobalsLoader.cpp",
-            "Sources/src/GFXGPU/GfxGpuObjectFactory.cpp",
-        },
+        .files = gfx_gpu_sources,
         .flags = cppflagsForOptimize(optimize),
     });
     gfx_gpu_module.linkLibrary(misc);
