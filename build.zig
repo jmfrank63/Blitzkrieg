@@ -1054,13 +1054,35 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(install_game_step);
     run_step.dependOn(&run_game_cmd.step);
 
-    const verify_x64_cmd = b.addSystemCommand(&.{
-        "powershell.exe",                   "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
-        "tools/zig/verify_x64_runtime.ps1", install_dir,
+    const verify_x64_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/verify_x64_runtime.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
     });
+    const verify_x64_tool = b.addExecutable(.{
+        .name = "verify-x64-runtime",
+        .root_module = verify_x64_module,
+    });
+    const verify_x64_cmd = b.addRunArtifact(verify_x64_tool);
+    verify_x64_cmd.addArg(install_dir);
     verify_x64_cmd.step.dependOn(install_game_step);
     const verify_x64_step = b.step("verify-x64-runtime", "Validate the staged Windows x64 runtime");
     verify_x64_step.dependOn(&verify_x64_cmd.step);
+
+    const endurance_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/verify_gfxgpu_endurance.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const endurance_tool = b.addExecutable(.{
+        .name = "verify-gfxgpu-endurance",
+        .root_module = endurance_module,
+    });
+    const endurance_cmd = b.addRunArtifact(endurance_tool);
+    endurance_cmd.addArg(install_dir);
+    endurance_cmd.step.dependOn(install_game_step);
+    const endurance_step = b.step("verify-gfxgpu-endurance", "Run SDL GPU resize, restart, and endurance validation");
+    endurance_step.dependOn(&endurance_cmd.step);
 
     const stage_package_game_cmd = b.addRunArtifact(stage_tool);
     stage_package_game_cmd.addArg(".");
