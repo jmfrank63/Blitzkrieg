@@ -6,7 +6,7 @@
 
 **Dependencies:** P09-M01.
 
-**Allowed files:** `build.zig`, `tools/zig/stage.zig`, `tools/zig/package.zig`, `tools/zig/verify_gfxgpu_runtime.ps1`, `tools/zig/verify_x64_runtime.ps1`.
+**Allowed files:** `build.zig`, `Sources/src/GFXGPU/GraphicsEngineGpu.cpp`, `tools/zig/stage.zig`, `tools/zig/package.zig`, `tools/zig/verify_gfxgpu_runtime.ps1`, `tools/zig/verify_x64_runtime.ps1`, `tools/zig/verify_x64_runtime.zig`.
 
 - [ ] Extend staging tests with required `SDL3.dll`, shader manifest, and every referenced DXIL blob.
 - [ ] Reject compiler-only `shadercross`, `dxcompiler.dll`, `dxil.dll`, source HLSL, absolute manifest paths, missing/extra blob references, and non-x64 DLLs.

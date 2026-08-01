@@ -201,6 +201,7 @@ bool STDCALL GraphicsEngineGpu::Init( const char *pszAdapterName, GFXNativeWindo
     info.sdl_window = sdl_window_;
     info.width = width_ > 0 ? static_cast<uint32_t>( width_ ) : GFX_DEFAULT_SCREEN_WIDTH;
     info.height = height_ > 0 ? static_cast<uint32_t>( height_ ) : GFX_DEFAULT_SCREEN_HEIGHT;
+    info.shader_directory_utf8 = "Shaders/GfxGpu";
     info.preferred_driver_utf8 = pszAdapterName;
     if ( !Check( api_.create( &info, &renderer_ ), "create" ) ) return false;
     initialized_ = true;

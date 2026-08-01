@@ -1061,6 +1061,7 @@ pub fn build(b: *std.Build) void {
     if (copy_data) {
         install_game_cmd.addArg("--copy-data");
     }
+    install_game_cmd.step.dependOn(gfx_gpu_shaders_step);
 
     const install_game_step = b.step("install-game", "Create runnable game install layout with binaries and Data");
     install_game_cmd.step.dependOn(game_all_step);
@@ -1122,6 +1123,7 @@ pub fn build(b: *std.Build) void {
 
     const package_game_step = b.step("package-game", "Create game-only installation zip package");
     package_game_step.dependOn(game_all_step);
+    package_game_step.dependOn(gfx_gpu_shaders_step);
     package_game_step.dependOn(&stage_package_game_cmd.step);
     package_game_step.dependOn(&package_tool_run.step);
 
