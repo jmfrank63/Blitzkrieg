@@ -89,6 +89,15 @@
     "**/*.pdb": true,
     "**/*.ilk": true
   },
+
+  // Keep repository-local generated caches out of the Explorer as well as Git.
+  "files.exclude": {
+    "**/.zig-cache": true,
+    "**/.zig-cache-*": true,
+    "**/zig-out": true,
+    "**/_capture-stage-m02-run": true,
+    "**/zig-pkg": true
+  },
   
   // Exclude from file watcher
   "files.watcherExclude": {
